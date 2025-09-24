@@ -1,0 +1,31 @@
+/* /unifycard/frontend/src/modules/company/styles/company-permissions-panel.module.css */
+
+.container {
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.table th {
+  background-color: #f8f8f8;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  font-weight: bold;
+}

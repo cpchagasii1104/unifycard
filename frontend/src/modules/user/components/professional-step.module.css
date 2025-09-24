@@ -1,0 +1,28 @@
+.step-container {
+  padding: 1rem;
+}
+
+.function-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
+.function-item {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: #f9f9f9;
+  transition: background-color 0.2s ease;
+}
+
+.function-item:hover {
+  background-color: #e0e0e0;
+}
+
+.function-item.selected {
+  background-color: #4caf50;
+  color: white;
+}

@@ -1,0 +1,157 @@
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  height: 100vh;
+  background-color: #f9f9f9;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.sidebar {
+  background-color: #f1f1f1;
+  padding: 20px;
+  border-right: 1px solid #ddd;
+}
+
+.menuLink {
+  color: #003366;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.header {
+  grid-column: 1 / -1;
+  padding: 16px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logoBox img {
+  height: 36px;
+  cursor: pointer;
+}
+
+.searchInput {
+  flex: 1;
+  max-width: 300px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin: 0 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.backBtn,
+.dashboardLogoutBtn {
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.addressBox,
+.referralBox,
+.balancesBox,
+.professionsBox,
+.hobbiesBox,
+.feedBox,
+.bannerBox {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  padding: 16px;
+  border-radius: 6px;
+  margin: 20px;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.copyBtn {
+  margin-left: 10px;
+  padding: 4px 10px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.slideInfo {
+  background-color: #fff;
+  margin: 20px;
+  padding: 16px;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+}
+
+.slideCarousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-top: 10px;
+}
+
+.slideCard {
+  min-width: 250px;
+  background-color: #e6f2ff;
+  border: 1px solid #b3d7ff;
+  padding: 12px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.warning {
+  color: #993300;
+  margin-top: 10px;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.note {
+  font-style: italic;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.bannerArea {
+  margin-top: 10px;
+  min-height: 80px;
+  background-color: #fff8dc;
+  border: 1px dashed #ffc107;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.code {
+  font-weight: bold;
+  background-color: #eee;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.error {
+  color: red;
+  padding: 20px;
+  text-align: center;
+}
+
+ul {
+  padding-left: 20px;
+}
+
+li {
+  margin-bottom: 4px;
+}

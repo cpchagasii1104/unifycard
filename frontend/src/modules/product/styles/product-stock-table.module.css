@@ -1,0 +1,54 @@
+/* /unifycard/frontend/src/modules/product/styles/product-stock-table.module.css */
+
+.container {
+  margin-top: 2rem;
+  background-color: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  font-weight: bold;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.table th {
+  background-color: #f9f9f9;
+}
+
+.alert {
+  color: #b00020;
+  font-weight: bold;
+}
+
+.ok {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
