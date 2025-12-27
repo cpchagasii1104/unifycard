@@ -1,0 +1,86 @@
+{
+  "timestamp": "2025-12-11T05:01:49.983Z",
+  "tenantId": "66aa49d4-a44e-4b40-b64c-927877183d6a",
+  "userId": "7b16ab1f-6ed3-43fa-ae83-1cb7a1477992",
+  "email": "test@example.com",
+  "roleAssignment": {
+    "success": true,
+    "userRoleId": "4e685ab3-7d4d-4c3e-8c5a-254bd17c2fa9",
+    "roleId": "9d59b293-7f62-41bc-ae6b-2a8309805d86"
+  },
+  "login": {
+    "status": "SUCCESS",
+    "statusCode": 200,
+    "body": {
+      "success": true,
+      "data": {
+        "user": {
+          "userId": "7b16ab1f-6ed3-43fa-ae83-1cb7a1477992",
+          "tenantId": "66aa49d4-a44e-4b40-b64c-927877183d6a",
+          "email": "test@example.com",
+          "createdAt": "2025-12-11T04:55:59.019Z"
+        },
+        "tokens": {
+          "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YjE2YWIxZi02ZWQzLTQzZmEtYWU4My0xY2I3YTE0Nzc5OTIiLCJ1c2VySWQiOiI3YjE2YWIxZi02ZWQzLTQzZmEtYWU4My0xY2I3YTE0Nzc5OTIiLCJ0ZW5hbnRJZCI6IjY2YWE0OWQ0LWE0NGUtNGI0MC1iNjRjLTkyNzg3NzE4M2Q2YSIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NjU0MjkzMDcsImV4cCI6MTc2NTQzMDIwN30.bHQYhnGCQ1jxLFdhqJ8lYozdTFUqj1hjdk5P1vc5mzQ",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YjE2YWIxZi02ZWQzLTQzZmEtYWU4My0xY2I3YTE0Nzc5OTIiLCJ1c2VySWQiOiI3YjE2YWIxZi02ZWQzLTQzZmEtYWU4My0xY2I3YTE0Nzc5OTIiLCJ0ZW5hbnRJZCI6IjY2YWE0OWQ0LWE0NGUtNGI0MC1iNjRjLTkyNzg3NzE4M2Q2YSIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzY1NDI5MzA3LCJleHAiOjE3NjYwMzQxMDd9.d3968w-00Vw2fOO8B3LN_x9E2Pwp0enMY7iVXzegffA"
+        }
+      }
+    }
+  },
+  "protectedRoutes": [
+    {
+      "method": "GET",
+      "path": "/rides/service-types",
+      "name": "Service Types",
+      "status": "ERROR",
+      "statusCode": 403,
+      "body": {
+        "ok": false,
+        "message": "User is missing required permission: rides:service-types:read",
+        "stack": "ForbiddenError: User is missing required permission: rides:service-types:read\n    at Object.forbidden (C:\\unificard\\backend\\node_modules\\@fastify\\sensible\\lib\\httpErrors.js:33:12)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\plugins\\rbac.plugin.ts:37:34)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/work/jobs",
+      "name": "Work Jobs",
+      "status": "ERROR",
+      "statusCode": 403,
+      "body": {
+        "ok": false,
+        "message": "User is missing required permission: work:job:read",
+        "stack": "ForbiddenError: User is missing required permission: work:job:read\n    at Object.forbidden (C:\\unificard\\backend\\node_modules\\@fastify\\sensible\\lib\\httpErrors.js:33:12)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\plugins\\rbac.plugin.ts:37:34)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/reputation/test/123",
+      "name": "Reputation",
+      "status": "ERROR",
+      "statusCode": 403,
+      "body": {
+        "ok": false,
+        "message": "User is missing required permission: reputation:read",
+        "stack": "ForbiddenError: User is missing required permission: reputation:read\n    at Object.forbidden (C:\\unificard\\backend\\node_modules\\@fastify\\sensible\\lib\\httpErrors.js:33:12)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\plugins\\rbac.plugin.ts:37:34)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/economy/accounts",
+      "name": "Economy Accounts",
+      "status": "SUCCESS",
+      "statusCode": 200,
+      "body": {
+        "accounts": [],
+        "total": 0
+      }
+    }
+  ],
+  "summary": {
+    "promotionSuccess": true,
+    "loginSuccess": true,
+    "protectedRoutesSuccess": 1,
+    "protectedRoutesError": 3,
+    "totalProtectedRoutes": 4
+  }
+}

@@ -1,0 +1,219 @@
+// frontend/src/components/CompanyValidationBackoffice.tsx
+// Backoffice simples para validar documentos de empresas
+
+import { useState, useEffect } from 'react';
+import {
+  listPendingDocuments,
+  updateDocumentStatus,
+} from '../api/companies';
+import './CompanyValidationBackoffice.css';
+
+interface PendingDocument {
+  documentId: string;
+  companyId: string;
+  globalUserId: string;
+  companyName: string;
+  companyCnpj: string;
+  documentType: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function CompanyValidationBackoffice() {
+  const [documents, setDocuments] = useState<PendingDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [rejectedReason, setRejectedReason] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    loadPendingDocuments();
+  }, []);
+
+  const loadPendingDocuments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await listPendingDocuments();
+      setDocuments(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar documentos pendentes');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async (documentId: string) => {
+    setProcessingId(documentId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await updateDocumentStatus(documentId, 'approved');
+      if (result.ok) {
+        setSuccess('Documento aprovado. Empresa validada.');
+        await loadPendingDocuments();
+      } else {
+        setError(result.message || 'Erro ao aprovar documento');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao aprovar documento');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (documentId: string) => {
+    const reason = rejectedReason[documentId]?.trim();
+    if (!reason) {
+      setError('Motivo da rejeição é obrigatório');
+      return;
+    }
+
+    setProcessingId(documentId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await updateDocumentStatus(documentId, 'rejected', reason);
+      if (result.ok) {
+        setSuccess('Documento rejeitado.');
+        setRejectedReason({ ...rejectedReason, [documentId]: '' });
+        await loadPendingDocuments();
+      } else {
+        setError(result.message || 'Erro ao rejeitar documento');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao rejeitar documento');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleString('pt-BR');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="validation-backoffice">
+        <div className="loading">Carregando documentos pendentes...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="validation-backoffice">
+      <div className="backoffice-header">
+        <h2>📋 Validação de Documentos</h2>
+        <button
+          type="button"
+          onClick={loadPendingDocuments}
+          className="refresh-button"
+        >
+          🔄 Atualizar
+        </button>
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
+
+      {documents.length === 0 ? (
+        <div className="empty-state">
+          <p>✅ Nenhum documento pendente no momento.</p>
+        </div>
+      ) : (
+        <div className="documents-list">
+          {documents.map((doc) => (
+            <div key={doc.documentId} className="document-card">
+              <div className="document-header">
+                <div>
+                  <h3>{doc.companyName}</h3>
+                  <p className="company-cnpj">CNPJ: {doc.companyCnpj}</p>
+                  <p className="document-info">
+                    📄 {doc.fileName} ({formatFileSize(doc.fileSize)})
+                  </p>
+                  <p className="document-date">
+                    Enviado em: {formatDate(doc.createdAt)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="document-actions">
+                <a
+                  href={`${import.meta.env.VITE_API_BASE_URL}/companies/${doc.companyId}/documents/${doc.documentId}/file`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="view-button"
+                >
+                  👁️ Ver PDF
+                </a>
+
+                <div className="reject-section">
+                  <input
+                    type="text"
+                    placeholder="Motivo da rejeição (se necessário)"
+                    value={rejectedReason[doc.documentId] || ''}
+                    onChange={(e) =>
+                      setRejectedReason({
+                        ...rejectedReason,
+                        [doc.documentId]: e.target.value,
+                      })
+                    }
+                    className="reject-input"
+                    disabled={processingId === doc.documentId}
+                  />
+                </div>
+
+                <div className="action-buttons">
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(doc.documentId)}
+                    disabled={processingId === doc.documentId}
+                    className="approve-button"
+                  >
+                    {processingId === doc.documentId ? '⏳ Processando...' : '✅ Aprovar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleReject(doc.documentId)}
+                    disabled={processingId === doc.documentId || !rejectedReason[doc.documentId]?.trim()}
+                    className="reject-button"
+                  >
+                    {processingId === doc.documentId ? '⏳ Processando...' : '❌ Rejeitar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,217 @@
+// src/core/db/schema-guard.ts
+//
+// Schema Guard Bloqueante: Valida schema mínimo antes do servidor iniciar
+// Garante que colunas críticas existem e corrige automaticamente quando possível
+// BLOQUEIA o boot se não conseguir corrigir
+
+import dotenv from 'dotenv';
+import { join } from 'path';
+import { Pool, PoolClient } from 'pg';
+import { readFile } from 'fs/promises';
+
+// Carrega variáveis de ambiente
+dotenv.config({ path: join(process.cwd(), '.env') });
+
+const DATABASE_URL = process.env.DATABASE_URL;
+const CONNECTION_TIMEOUT_MS = 5000;
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+/**
+ * Aguarda um tempo em milissegundos
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Tenta conectar ao banco com retry e backoff exponencial
+ * Retorna o pool e o client para gerenciamento correto
+ */
+async function connectWithRetry(pool: Pool): Promise<PoolClient> {
+  let lastError: Error | null = null;
+  let delay = INITIAL_RETRY_DELAY_MS;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const client = await pool.connect();
+      // Testar conexão
+      await client.query('SELECT 1');
+      return client;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt < MAX_RETRIES) {
+        console.log(`⚠️  Tentativa ${attempt}/${MAX_RETRIES} falhou. Tentando novamente em ${delay}ms...`);
+        await sleep(delay);
+        delay *= 2; // Backoff exponencial
+      }
+    }
+  }
+
+  throw new Error(`Falha ao conectar ao banco após ${MAX_RETRIES} tentativas: ${lastError?.message}`);
+}
+
+/**
+ * Verifica se uma tabela existe no schema public
+ */
+async function tableExists(client: PoolClient, tableName: string): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+        AND table_name = $1
+    ) as exists
+  `, [tableName]);
+  
+  return result.rows[0]?.exists || false;
+}
+
+/**
+ * Verifica se uma coluna existe em uma tabela no schema public
+ */
+async function columnExists(client: PoolClient, tableName: string, columnName: string): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+        AND table_name = $1 
+        AND column_name = $2
+    ) as exists
+  `, [tableName, columnName]);
+  
+  return result.rows[0]?.exists || false;
+}
+
+/**
+ * Executa a migration 089 para criar a coluna token_version
+ */
+async function executeMigration089(client: PoolClient): Promise<void> {
+  const migrationPath = join(process.cwd(), 'migrations', '089_add_token_version_to_users.sql');
+  
+  console.log(`📦 Executando migration 089: ${migrationPath}`);
+  
+  const sql = await readFile(migrationPath, 'utf-8');
+  
+  if (!sql.trim()) {
+    throw new Error('Migration 089 está vazia');
+  }
+
+  await client.query(sql);
+  console.log('✅ Migration 089 executada com sucesso');
+}
+
+/**
+ * Schema Guard Bloqueante
+ * 
+ * Valida schema mínimo antes do servidor iniciar.
+ * Corrige automaticamente quando possível.
+ * BLOQUEIA o boot se não conseguir corrigir.
+ */
+export async function validateSchemaOrDie(): Promise<void> {
+  // A. Verificar se deve pular validação
+  if (process.env.SKIP_SCHEMA_GUARD === 'true') {
+    console.warn('⚠️  SKIP_SCHEMA_GUARD=true: Validação de schema pulada');
+    return;
+  }
+
+  console.log('🔒 Schema Guard: Validando schema mínimo do banco de dados...\n');
+
+  if (!DATABASE_URL) {
+    console.error('❌ ERRO FATAL: DATABASE_URL não está configurada no arquivo .env');
+    process.exit(1);
+  }
+
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+    max: 1,
+  });
+
+  let client: PoolClient | null = null;
+
+  try {
+    // Conectar com retry
+    client = await connectWithRetry(pool);
+    console.log('✔ Conexão com banco de dados estabelecida\n');
+
+    // B. Verificar se tabela users existe
+    const usersTableExists = await tableExists(client, 'users');
+    
+    if (!usersTableExists) {
+      console.log('ℹ️  Tabela "users" não existe. Banco parece estar vazio.');
+      console.log('   Migrations iniciais ainda precisam ser executadas.\n');
+      return; // Não bloquear - migrations iniciais precisam rodar
+    }
+
+    console.log('✅ Tabela "users" existe\n');
+
+    // C. Verificar se coluna token_version existe
+    const tokenVersionExists = await columnExists(client, 'users', 'token_version');
+    
+    if (tokenVersionExists) {
+      console.log('✅ Coluna "users.token_version" existe. Schema válido.\n');
+      
+      // Limpar cache do schema-validator se disponível
+      try {
+        const { clearColumnCache } = await import('../database/schema-validator');
+        clearColumnCache();
+      } catch {
+        // Ignorar se schema-validator não estiver disponível
+      }
+      
+      return; // Schema válido
+    }
+
+    // D. Coluna não existe - tentar corrigir automaticamente
+    console.log('⚠️  Coluna "users.token_version" NÃO existe!');
+    console.log('🔧 Tentando corrigir automaticamente executando migration 089...\n');
+
+    try {
+      await executeMigration089(client);
+      
+      // Re-verificar após execução
+      const tokenVersionExistsAfter = await columnExists(client, 'users', 'token_version');
+      
+      if (!tokenVersionExistsAfter) {
+        console.error('\n❌ ERRO FATAL: Migration 089 foi executada, mas coluna "users.token_version" ainda não existe!');
+        console.error('   Isso indica um problema grave no schema do banco de dados.');
+        console.error('   Verifique manualmente o estado do banco e execute as migrations necessárias.\n');
+        process.exit(1);
+      }
+
+      console.log('✅ Coluna "users.token_version" criada com sucesso!\n');
+      
+      // Limpar cache do schema-validator
+      try {
+        const { clearColumnCache } = await import('../database/schema-validator');
+        clearColumnCache();
+      } catch {
+        // Ignorar se schema-validator não estiver disponível
+      }
+
+    } catch (error) {
+      console.error('\n❌ ERRO FATAL: Falha ao executar migration 089 automaticamente:');
+      console.error(error);
+      console.error('\n   O servidor não pode iniciar com schema inválido.');
+      console.error('   Execute manualmente: pnpm run migrate\n');
+      process.exit(1);
+    }
+
+  } catch (error) {
+    console.error('\n❌ ERRO FATAL no Schema Guard:');
+    console.error(error);
+    console.error('\n   O servidor não pode iniciar sem validação de schema.');
+    console.error('   Verifique a conexão com o banco de dados e tente novamente.\n');
+    process.exit(1);
+  } finally {
+    // Sempre encerrar conexão e pool
+    if (client) {
+      client.release();
+    }
+    await pool.end();
+  }
+}
+

@@ -1,0 +1,109 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const care_service_1 = require("./care.service");
+const care_schemas_1 = require("./care.schemas");
+const careRoutes = async (fastify) => {
+    /**
+     * POST /care/send
+     * Envia mensagem e processa automaticamente
+     */
+    fastify.post('/send', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['text'],
+                properties: {
+                    text: { type: 'string' },
+                    targetGlobalUserId: { type: ['string', 'null'] },
+                    targetCompanyId: { type: ['string', 'null'] },
+                    sessionId: { type: ['string', 'null'] },
+                },
+            },
+        },
+    }, async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.user.globalUserId) {
+            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const validated = care_schemas_1.sendMessageSchema.parse(req.body);
+            const response = await care_service_1.careService.processUserMessage(req.server, req.tenant.id, req.user.globalUserId, validated);
+            return reply.status(200).send(response);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao processar mensagem');
+            return reply.status(500).send({ error: 'Erro ao processar mensagem' });
+        }
+    });
+    /**
+     * GET /care/session/:sessionId
+     * Retorna sessão com mensagens
+     */
+    fastify.get('/session/:sessionId', {
+        schema: {
+            params: {
+                type: 'object',
+                properties: {
+                    sessionId: { type: 'string' },
+                },
+            },
+        },
+    }, async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const session = await care_service_1.careService.getSession(req.tenant.id, req.params.sessionId);
+            if (!session) {
+                return reply.status(404).send({ error: 'Sessão não encontrada' });
+            }
+            return session;
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar sessão');
+            return reply.status(500).send({ error: 'Erro ao buscar sessão' });
+        }
+    });
+    /**
+     * GET /care/of-user/:globalUserId
+     * Lista sessões do usuário
+     */
+    fastify.get('/of-user/:globalUserId', {
+        schema: {
+            params: {
+                type: 'object',
+                properties: {
+                    globalUserId: { type: 'string' },
+                },
+            },
+        },
+    }, async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const sessions = await care_service_1.careService.getSessionsByUser(req.tenant.id, req.params.globalUserId);
+            return { sessions, total: sessions.length };
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar sessões do usuário');
+            return reply.status(500).send({ error: 'Erro ao buscar sessões do usuário' });
+        }
+    });
+};
+exports.default = careRoutes;
+//# sourceMappingURL=care.routes.js.map

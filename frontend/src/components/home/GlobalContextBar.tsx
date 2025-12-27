@@ -1,0 +1,507 @@
+// src/components/home/GlobalContextBar.tsx
+// Barra de contexto global: seletor de perfil e endereço
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useActiveActor } from '../../contexts/ActiveActorContext';
+import { useSession } from '../../contexts/SessionProvider';
+import { getCoreProfile, type CompleteProfile } from '../../api/core';
+import { getUserStatement, getUserRegionalFund } from '../../api/transparency';
+import { isAuthenticated, getTenantId, clearAuthToken } from '../../config/auth';
+import './GlobalContextBar.css';
+
+interface GlobalContextBarProps {
+  onContextChange?: () => void;
+}
+
+interface TemporaryAddress {
+  address_id: string;
+  address: string;
+  address_number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  is_primary: boolean;
+  is_temporary: true;
+}
+
+type AddressWithTemporary = CompleteProfile['addresses'][0] | TemporaryAddress;
+
+export default function GlobalContextBar({ onContextChange }: GlobalContextBarProps) {
+  const navigate = useNavigate();
+  const { activeActor, actors, setActiveActor } = useActiveActor();
+  const { sessionReady } = useSession();
+  const [addresses, setAddresses] = useState<AddressWithTemporary[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAddTemporaryAddress, setShowAddTemporaryAddress] = useState(false);
+  const [tempAddressInput, setTempAddressInput] = useState('');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [regionalFundBalance, setRegionalFundBalance] = useState<number | null>(null);
+  const [isLoadingBalances, setIsLoadingBalances] = useState(true);
+
+  // Carregar endereços do perfil e temporários
+  // REGRA CRÍTICA: Só fazer chamadas quando sessão estiver pronta E activeActor definido
+  useEffect(() => {
+    // GUARD: Não fazer chamadas se sessão não estiver pronta ou activeActor não definido
+    if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) {
+      // Resetar estado quando não estiver pronto
+      setIsLoading(true);
+      setAddresses([]);
+      setSelectedAddressId(null);
+      return;
+    }
+
+    // Flag para cancelar se componente desmontar ou sessão mudar
+    let cancelled = false;
+
+    const loadAddresses = async () => {
+      if (cancelled) return;
+      
+      try {
+        const profile = await getCoreProfile();
+        const profileAddresses = profile.addresses || [];
+        
+        // Carregar endereços temporários do localStorage
+        const tempAddressesJson = localStorage.getItem('unificard_temporary_addresses');
+        const tempAddresses: TemporaryAddress[] = tempAddressesJson ? JSON.parse(tempAddressesJson) : [];
+        
+        // Combinar endereços do perfil com temporários
+        setAddresses([...profileAddresses, ...tempAddresses]);
+        
+        // Selecionar endereço salvo, primário ou primeiro disponível
+        const savedAddressId = localStorage.getItem('unificard_active_address_id');
+        const savedAddress = savedAddressId 
+          ? [...profileAddresses, ...tempAddresses].find(addr => addr.address_id === savedAddressId)
+          : null;
+        
+        const primaryAddress = profileAddresses.find(addr => addr.is_primary) || profileAddresses[0];
+        const defaultAddress = savedAddress || primaryAddress || tempAddresses[0] || profileAddresses[0];
+        
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.address_id);
+          localStorage.setItem('unificard_active_address_id', defaultAddress.address_id);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar endereços:', err);
+        setAddresses([]);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAddresses();
+
+    // Cleanup: cancelar se sessão mudar ou componente desmontar
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, activeActor]);
+
+  // Carregar saldos (wallet e fundo regional)
+  // REGRA CRÍTICA: Só fazer chamadas quando sessão estiver pronta E activeActor definido
+  useEffect(() => {
+    // GUARD: Não fazer chamadas se:
+    // - sessão não estiver pronta
+    // - não estiver autenticado
+    // - tenantId não existir
+    // - activeActor não estiver definido (endpoints protegidos precisam de actor)
+    if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) {
+      // Resetar estado quando não estiver pronto
+      setIsLoadingBalances(true);
+      setWalletBalance(null);
+      setRegionalFundBalance(null);
+      return;
+    }
+
+    // Flag para cancelar se componente desmontar ou sessão mudar
+    let cancelled = false;
+
+    const loadBalances = async () => {
+      if (cancelled) return;
+      setIsLoadingBalances(true);
+      try {
+        // Buscar saldo individual (balanceAfter da última transação)
+        try {
+          const statement = await getUserStatement({ limit: 1 });
+          if (statement && statement.entries && statement.entries.length > 0) {
+            setWalletBalance(statement.entries[0].balanceAfter);
+          } else {
+            setWalletBalance(0);
+          }
+        } catch (err) {
+          console.warn('Erro ao buscar saldo individual:', err);
+          setWalletBalance(null);
+        }
+
+        // Buscar saldo do fundo regional
+        try {
+          const regionalFund = await getUserRegionalFund({ limit: 1 });
+          if (regionalFund && regionalFund.currentBalance !== undefined) {
+            setRegionalFundBalance(regionalFund.currentBalance);
+          } else {
+            setRegionalFundBalance(null);
+          }
+        } catch (err: any) {
+          // 404 é esperado se o fundo não existir
+          if (err.message?.includes('404') || err.message?.includes('not found')) {
+            setRegionalFundBalance(null);
+          } else {
+            console.warn('Erro ao buscar fundo regional:', err);
+            setRegionalFundBalance(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar saldos:', err);
+      } finally {
+        setIsLoadingBalances(false);
+      }
+    };
+
+    loadBalances();
+
+    // Cleanup: cancelar se sessão mudar ou componente desmontar
+    return () => {
+      cancelled = true;
+    };
+  }, [activeActor, sessionReady]); // Recarregar quando actor mudar OU sessão ficar pronta
+
+  // Restaurar endereço salvo
+  useEffect(() => {
+    const savedAddressId = localStorage.getItem('unificard_active_address_id');
+    if (savedAddressId && addresses.some(addr => addr.address_id === savedAddressId)) {
+      setSelectedAddressId(savedAddressId);
+    }
+  }, [addresses]);
+
+  const selectedAddress = addresses.find(addr => addr.address_id === selectedAddressId);
+  const selectedAddressDisplay = selectedAddress
+    ? `${selectedAddress.address || 'Endereço'}${selectedAddress.address_number ? `, ${selectedAddress.address_number}` : ''}${selectedAddress.neighborhood ? ` - ${selectedAddress.neighborhood}` : ''}`
+    : 'Selecione um endereço';
+
+  const handleProfileSelect = (actorId: string) => {
+    setActiveActor(actorId);
+    setIsProfileDropdownOpen(false);
+    // Disparar atualização global de contexto
+    window.dispatchEvent(new CustomEvent('context-changed', { 
+      detail: { type: 'actor', actorId } 
+    }));
+    onContextChange?.();
+  };
+
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    localStorage.setItem('unificard_active_address_id', addressId);
+    setIsAddressDropdownOpen(false);
+    // Disparar atualização global de contexto
+    window.dispatchEvent(new CustomEvent('context-changed', { 
+      detail: { type: 'address', addressId } 
+    }));
+    onContextChange?.();
+  };
+
+  const handleAddTemporaryAddress = () => {
+    if (!tempAddressInput.trim()) return;
+
+    const newTempAddress: TemporaryAddress = {
+      address_id: `temp-${Date.now()}`,
+      address: tempAddressInput.trim(),
+      is_primary: false,
+      is_temporary: true,
+    };
+
+    // Salvar no localStorage
+    const tempAddressesJson = localStorage.getItem('unificard_temporary_addresses');
+    const tempAddresses: TemporaryAddress[] = tempAddressesJson ? JSON.parse(tempAddressesJson) : [];
+    tempAddresses.push(newTempAddress);
+    localStorage.setItem('unificard_temporary_addresses', JSON.stringify(tempAddresses));
+
+    // Adicionar à lista e selecionar
+    setAddresses(prev => [...prev, newTempAddress]);
+    setSelectedAddressId(newTempAddress.address_id);
+    localStorage.setItem('unificard_active_address_id', newTempAddress.address_id);
+    setTempAddressInput('');
+    setShowAddTemporaryAddress(false);
+    setIsAddressDropdownOpen(false);
+    onContextChange?.();
+  };
+
+  const handleRemoveTemporaryAddress = (addressId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Remover do localStorage
+    const tempAddressesJson = localStorage.getItem('unificard_temporary_addresses');
+    const tempAddresses: TemporaryAddress[] = tempAddressesJson ? JSON.parse(tempAddressesJson) : [];
+    const filtered = tempAddresses.filter(addr => addr.address_id !== addressId);
+    localStorage.setItem('unificard_temporary_addresses', JSON.stringify(filtered));
+
+    // Remover da lista
+    setAddresses(prev => prev.filter(addr => addr.address_id !== addressId));
+
+    // Se era o endereço selecionado, selecionar outro
+    if (selectedAddressId === addressId) {
+      const remaining = addresses.filter(addr => addr.address_id !== addressId);
+      const newSelected = remaining[0];
+      if (newSelected) {
+        setSelectedAddressId(newSelected.address_id);
+        localStorage.setItem('unificard_active_address_id', newSelected.address_id);
+      } else {
+        setSelectedAddressId(null);
+        localStorage.removeItem('unificard_active_address_id');
+      }
+    }
+  };
+
+  const getActorTypeLabel = (actorType: string) => {
+    const labels: Record<string, string> = {
+      user: 'Pessoa Física',
+      page: 'Empresa',
+      group: 'Grupo',
+      channel: 'Canal',
+    };
+    return labels[actorType] || actorType;
+  };
+
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const handleLogout = () => {
+    clearAuthToken();
+    // Disparar evento para limpar sessão em outras abas
+    window.dispatchEvent(new CustomEvent('auth-changed'));
+    navigate('/login');
+  };
+
+  return (
+    <div className="global-context-bar">
+      <div className="global-context-content">
+        {/* Saldos */}
+        <div className="context-balances">
+          {!isLoadingBalances && (
+            <>
+              {walletBalance !== null && (
+                <div className="context-balance-item">
+                  <span className="context-balance-label">Saldo:</span>
+                  <span className="context-balance-value">{formatCurrency(walletBalance)}</span>
+                </div>
+              )}
+              {regionalFundBalance !== null && (
+                <button
+                  type="button"
+                  className="context-balance-item context-balance-link"
+                  onClick={() => navigate('/em-desenvolvimento?feature=transparency')}
+                  title="Ver Transparência"
+                >
+                  <span className="context-balance-label">Fundo Regional:</span>
+                  <span className="context-balance-value">{formatCurrency(regionalFundBalance)}</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {(walletBalance !== null || regionalFundBalance !== null) && (
+          <div className="context-separator" />
+        )}
+
+        {/* Seletor de Perfil */}
+        <div className="context-selector">
+          <button
+            className="context-selector-button"
+            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+            type="button"
+            disabled={isLoading}
+          >
+            <span className="context-selector-icon">👤</span>
+            <span className="context-selector-label">
+              {activeActor ? getActorTypeLabel(activeActor.actor_type) : 'Carregando...'}
+            </span>
+            <span className="context-selector-arrow">▼</span>
+          </button>
+          
+          {isProfileDropdownOpen && (
+            <>
+              <div 
+                className="context-dropdown-overlay"
+                onClick={() => setIsProfileDropdownOpen(false)}
+              />
+              <div className="context-dropdown">
+                {actors.map((actor) => (
+                  <button
+                    key={actor.actor_id}
+                    className={`context-dropdown-item ${activeActor?.actor_id === actor.actor_id ? 'active' : ''}`}
+                    onClick={() => handleProfileSelect(actor.actor_id)}
+                    type="button"
+                  >
+                    <span className="context-dropdown-icon">
+                      {actor.actor_type === 'user' ? '👤' : 
+                       actor.actor_type === 'page' ? '🏢' : 
+                       actor.actor_type === 'group' ? '👥' : '📺'}
+                    </span>
+                    <span className="context-dropdown-text">
+                      <span className="context-dropdown-name">{actor.display_name}</span>
+                      <span className="context-dropdown-type">{getActorTypeLabel(actor.actor_type)}</span>
+                    </span>
+                    {activeActor?.actor_id === actor.actor_id && (
+                      <span className="context-dropdown-check">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Separador */}
+        <div className="context-separator" />
+
+        {/* Botão de Logout */}
+        <div className="context-logout">
+          <button
+            type="button"
+            className="context-logout-button"
+            onClick={handleLogout}
+            title="Sair"
+          >
+            <span className="context-logout-icon">🚪</span>
+            <span className="context-logout-label">Sair</span>
+          </button>
+        </div>
+
+        {/* Separador */}
+        <div className="context-separator" />
+
+        {/* Seletor de Endereço */}
+        <div className="context-selector">
+          <button
+            className="context-selector-button"
+            onClick={() => setIsAddressDropdownOpen(!isAddressDropdownOpen)}
+            type="button"
+            disabled={isLoading || addresses.length === 0}
+          >
+            <span className="context-selector-icon">📍</span>
+            <span className="context-selector-label">
+              {isLoading ? 'Carregando...' : selectedAddressDisplay}
+            </span>
+            <span className="context-selector-arrow">▼</span>
+          </button>
+          
+          {isAddressDropdownOpen && (
+            <>
+              <div 
+                className="context-dropdown-overlay"
+                onClick={() => {
+                  setIsAddressDropdownOpen(false);
+                  setShowAddTemporaryAddress(false);
+                }}
+              />
+              <div className="context-dropdown">
+                {addresses.length > 0 && addresses.map((address) => (
+                  <button
+                    key={address.address_id}
+                    className={`context-dropdown-item ${selectedAddressId === address.address_id ? 'active' : ''}`}
+                    onClick={() => handleAddressSelect(address.address_id)}
+                    type="button"
+                  >
+                    <span className="context-dropdown-icon">📍</span>
+                    <span className="context-dropdown-text">
+                      <span className="context-dropdown-name">
+                        {address.address || 'Endereço sem nome'}
+                        {address.address_number ? `, ${address.address_number}` : ''}
+                        {'is_temporary' in address && address.is_temporary && (
+                          <span className="context-temporary-badge">Temporário</span>
+                        )}
+                      </span>
+                      <span className="context-dropdown-type">
+                        {address.neighborhood || ''}
+                        {address.city ? ` - ${address.city}` : ''}
+                        {address.state ? `/${address.state}` : ''}
+                      </span>
+                    </span>
+                    <div className="context-dropdown-actions">
+                      {'is_temporary' in address && address.is_temporary && (
+                        <button
+                          type="button"
+                          className="context-remove-button"
+                          onClick={(e) => handleRemoveTemporaryAddress(address.address_id, e)}
+                          aria-label="Remover endereço temporário"
+                        >
+                          ×
+                        </button>
+                      )}
+                      {selectedAddressId === address.address_id && (
+                        <span className="context-dropdown-check">✓</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+                
+                {!showAddTemporaryAddress ? (
+                  <button
+                    type="button"
+                    className="context-dropdown-item context-add-item"
+                    onClick={() => setShowAddTemporaryAddress(true)}
+                  >
+                    <span className="context-dropdown-icon">➕</span>
+                    <span className="context-dropdown-text">
+                      <span className="context-dropdown-name">Adicionar endereço temporário</span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="context-add-address-form">
+                    <input
+                      type="text"
+                      className="context-address-input"
+                      placeholder="Digite o endereço..."
+                      value={tempAddressInput}
+                      onChange={(e) => setTempAddressInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddTemporaryAddress();
+                        } else if (e.key === 'Escape') {
+                          setShowAddTemporaryAddress(false);
+                          setTempAddressInput('');
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="context-add-address-actions">
+                      <button
+                        type="button"
+                        className="context-add-button"
+                        onClick={handleAddTemporaryAddress}
+                        disabled={!tempAddressInput.trim()}
+                      >
+                        Adicionar
+                      </button>
+                      <button
+                        type="button"
+                        className="context-cancel-button"
+                        onClick={() => {
+                          setShowAddTemporaryAddress(false);
+                          setTempAddressInput('');
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+

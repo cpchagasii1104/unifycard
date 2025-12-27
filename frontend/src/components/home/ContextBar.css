@@ -1,0 +1,79 @@
+.context-bar {
+  padding: 0.75rem 2rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.context-bar-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.context-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.context-bar-actor {
+  font-size: 0.875rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.context-bar-separator {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.context-bar-type {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.context-bar-city {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.context-bar-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.context-bar-switch:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+.context-bar-switch-icon {
+  font-size: 1rem;
+}
+
+.context-bar-switch-label {
+  font-weight: 500;
+}
+
+
+
+
+
+
+
+

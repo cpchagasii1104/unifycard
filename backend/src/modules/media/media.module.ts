@@ -1,0 +1,9 @@
+// src/modules/media/media.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import mediaRoutes from './media.routes';
+
+const mediaModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(mediaRoutes);
+};
+
+export default mediaModule;

@@ -1,0 +1,26 @@
+// src/core/identity/identity.schemas.ts
+import { z } from 'zod';
+
+export const updateGlobalIdentitySchema = z.object({
+  fullName: z.string().max(255, 'Nome completo deve ter no máximo 255 caracteres').nullable().optional(),
+  avatarUrl: z.string().url('URL do avatar inválida').max(500, 'URL do avatar deve ter no máximo 500 caracteres').nullable().optional(),
+  // 🔴 CRÍTICO: Aceitar string vazia como null e validar formato YYYY-MM-DD
+  birthdate: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD'),
+      z.null(),
+      z.literal(''),
+    ])
+    .transform((val) => (val === '' ? null : val))
+    .nullable()
+    .optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+
+
+
+
+
+
+

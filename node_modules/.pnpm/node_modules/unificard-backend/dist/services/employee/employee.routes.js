@@ -1,0 +1,145 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const EmployeeService_1 = require("./EmployeeService");
+const rbac_service_1 = require("@core/rbac/rbac.service");
+const db_1 = require("@core/db");
+const employeeService = new EmployeeService_1.EmployeeService();
+const employeeRoutes = async (fastify) => {
+    /**
+     * Helper para validar se usuário é admin da empresa
+     */
+    async function requireCompanyAdmin(req, companyId) {
+        const tenantId = req.tenant.id;
+        const userId = req.user.id;
+        if (!userId) {
+            throw fastify.httpErrors.unauthorized('Authentication required');
+        }
+        // Verificar se usuário tem permissão de gerenciar funcionários (admin)
+        const hasPermission = await rbac_service_1.rbacService.userHasAllPermissions(tenantId, userId, [
+            'companies:manage',
+        ]);
+        if (!hasPermission.hasPermission) {
+            // Verificar se é funcionário com can_manage_employees
+            const employee = await (0, db_1.runQueriesWithTenant)(tenantId, {
+                text: `
+            SELECT can_manage_schedule
+            FROM company_employees
+            WHERE company_id = $1
+              AND global_user_id = $2
+              AND ended_at IS NULL
+          `,
+                values: [companyId, req.user.globalUserId],
+            });
+            if (employee.length === 0) {
+                throw fastify.httpErrors.forbidden('Requires company admin permission');
+            }
+        }
+    }
+    /**
+     * POST /api/employees
+     * Contrata funcionário
+     */
+    fastify.post('/', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            await requireCompanyAdmin(req, req.body.companyId);
+            const employment = await employeeService.hireEmployee({
+                companyId: req.body.companyId,
+                userId: req.body.userId,
+                tenantId: req.tenant.id,
+                role: req.body.role,
+            });
+            return reply.status(201).send(employment);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao contratar funcionário');
+            return reply.status(500).send({ error: 'Erro ao contratar funcionário' });
+        }
+    });
+    /**
+     * DELETE /api/employees/:id
+     * Demite funcionário
+     */
+    fastify.delete('/:id', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            await requireCompanyAdmin(req, req.body.companyId);
+            const result = await employeeService.terminateEmployee({
+                companyId: req.body.companyId,
+                employeeId: req.params.id,
+                tenantId: req.tenant.id,
+                reason: req.body.reason,
+            });
+            return reply.status(200).send(result);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao demitir funcionário');
+            return reply.status(500).send({ error: 'Erro ao demitir funcionário' });
+        }
+    });
+    /**
+     * GET /api/employees
+     * Lista funcionários ativos
+     */
+    fastify.get('/', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            if (!req.query.companyId) {
+                return reply.status(400).send({ error: 'companyId is required' });
+            }
+            await requireCompanyAdmin(req, req.query.companyId);
+            const employees = await (0, db_1.runQueriesWithTenant)(req.tenant.id, {
+                text: `
+              SELECT 
+                company_employee_id,
+                company_id,
+                global_user_id,
+                started_at,
+                ended_at,
+                role,
+                can_manage_schedule,
+                can_manage_services,
+                metadata,
+                created_at,
+                updated_at
+              FROM company_employees
+              WHERE company_id = $1
+                AND ended_at IS NULL
+              ORDER BY started_at DESC
+            `,
+                values: [req.query.companyId],
+            });
+            return reply.status(200).send({ employees });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao listar funcionários');
+            return reply.status(500).send({ error: 'Erro ao listar funcionários' });
+        }
+    });
+};
+exports.default = employeeRoutes;
+//# sourceMappingURL=employee.routes.js.map

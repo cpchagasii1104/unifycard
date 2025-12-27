@@ -1,0 +1,41 @@
+/**
+ * @unificard/contracts - Categories
+ * 
+ * Tipos de domínio para categorias.
+ * Fonte única de verdade para frontend e backend.
+ */
+
+/**
+ * Contexto de uso de uma categoria.
+ * Define onde e como a categoria pode ser utilizada.
+ */
+export type CategoryContext =
+  | 'professional'  // Categorias profissionais (habilidades, profissões)
+  | 'interest'      // Interesses e hobbies
+  | 'education'     // Educação e formação
+  | 'hobby'         // Hobbies e passatempos
+  | 'learning'      // Aprendizado e desenvolvimento
+  | 'company'       // Categorias de empresas
+  | 'lifestyle';    // Estilo de vida
+
+/**
+ * Status de uma categoria no sistema.
+ */
+export type CategoryStatus =
+  | 'active'        // Ativa e disponível
+  | 'auto_active'   // Ativada automaticamente pela IA
+  | 'pending'       // Aguardando aprovação
+  | 'rejected'      // Rejeitada
+  | 'archived';     // Arquivada
+
+
+
+
+
+
+
+
+
+
+
+

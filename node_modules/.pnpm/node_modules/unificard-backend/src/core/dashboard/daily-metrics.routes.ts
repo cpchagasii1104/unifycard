@@ -1,0 +1,62 @@
+// src/core/dashboard/daily-metrics.routes.ts
+// Rotas para dashboard de métricas diárias
+import { FastifyPluginAsync } from 'fastify';
+import { dailyMetricsService } from './daily-metrics.service';
+
+const dailyMetricsRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * GET /dashboard/metrics/today
+   * Retorna métricas do dia atual
+   */
+  fastify.get('/today', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+
+    // TODO: Verificar se usuário é admin
+    try {
+      const metrics = await dailyMetricsService.getTodayMetrics();
+      return metrics;
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao buscar métricas do dia');
+      return reply.status(500).send({ error: 'Erro ao buscar métricas' });
+    }
+  });
+
+  /**
+   * GET /dashboard/metrics/history?days=7
+   * Retorna histórico de métricas
+   */
+  fastify.get<{
+    Querystring: { days?: string };
+  }>('/history', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+
+    // TODO: Verificar se usuário é admin
+    try {
+      const days = parseInt(req.query.days || '7', 10);
+      const metrics = await dailyMetricsService.getMetricsHistory(days);
+      return { metrics };
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao buscar histórico de métricas');
+      return reply.status(500).send({ error: 'Erro ao buscar histórico' });
+    }
+  });
+};
+
+export default dailyMetricsRoutes;
+
+
+
+
+
+
+
+
+
+
+
+
+

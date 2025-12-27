@@ -1,0 +1,16 @@
+/**
+ * @unificard/contracts - Categories
+ *
+ * Tipos de domínio para categorias.
+ * Fonte única de verdade para frontend e backend.
+ */
+/**
+ * Contexto de uso de uma categoria.
+ * Define onde e como a categoria pode ser utilizada.
+ */
+export type CategoryContext = 'professional' | 'interest' | 'education' | 'hobby' | 'learning' | 'company' | 'lifestyle';
+/**
+ * Status de uma categoria no sistema.
+ */
+export type CategoryStatus = 'active' | 'auto_active' | 'pending' | 'rejected' | 'archived';
+//# sourceMappingURL=categories.d.ts.map

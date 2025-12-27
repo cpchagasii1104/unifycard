@@ -1,0 +1,266 @@
+"use strict";
+// backend/src/core/profile/profile-education-companies.service.ts
+// Serviço para gerenciar educação e empresas do usuário
+// FASE 2: Educação + Empresa (Unify Platform)
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.profileEducationCompaniesService = void 0;
+const pool_1 = require("@core/database/pool");
+const categories_service_1 = require("@core/categories/categories.service");
+const category_input_gate_service_1 = require("@core/categories/category-input-gate.service");
+const identity_utils_1 = require("@core/identity/identity.utils");
+const MAX_EDUCATION_PER_USER = 10;
+const MAX_COMPANIES_PER_USER = 10;
+class ProfileEducationCompaniesService {
+    /**
+     * Adiciona formação acadêmica ao perfil do usuário
+     *
+     * FLUXO OBRIGATÓRIO:
+     * 1. Sanitizar input
+     * 2. Rodar CategoryInputGateService.validate(context: 'education')
+     * 3. Se DENY → retornar erro claro
+     * 4. Se ALLOW → criar ou reutilizar categoria
+     * 5. Criar vínculo com usuário
+     * 6. Auditar decisão (via gate)
+     */
+    async addEducation(tenantId, userId, input) {
+        // 1. Resolver global_user_id
+        const globalUserId = await (0, identity_utils_1.resolveGlobalUserId)(userId, tenantId);
+        if (!globalUserId) {
+            const error = new Error('User not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        // 2. Sanitizar input
+        const sanitized = input.name.trim();
+        if (!sanitized || sanitized.length < 2) {
+            const error = new Error('Nome da formação deve ter pelo menos 2 caracteres');
+            error.statusCode = 400;
+            throw error;
+        }
+        // 3. Verificar limite
+        const currentCount = await pool_1.pool.query(`SELECT COUNT(*) as count FROM user_education WHERE global_user_id = $1`, [globalUserId]);
+        const count = parseInt(currentCount.rows[0].count);
+        if (count >= MAX_EDUCATION_PER_USER) {
+            const error = new Error(`Limite de ${MAX_EDUCATION_PER_USER} formações atingido`);
+            error.statusCode = 400;
+            throw error;
+        }
+        // 4. Verificar duplicata
+        const existing = await pool_1.pool.query(`SELECT ue.id, ue.category_id
+       FROM user_education ue
+       JOIN categories c ON c.category_id = ue.category_id
+       WHERE ue.global_user_id = $1 AND LOWER(c.name) = LOWER($2)
+       LIMIT 1`, [globalUserId, sanitized]);
+        if (existing.rows.length > 0) {
+            const error = new Error('Formação já adicionada');
+            error.statusCode = 409;
+            throw error;
+        }
+        // 5. Rodar Category Input Gate
+        const gateResult = await category_input_gate_service_1.categoryInputGateService.validate(sanitized, {
+            context: 'education',
+            tenantId,
+            actorId: userId,
+            globalUserId,
+        });
+        if (gateResult.decision === 'DENY') {
+            const error = new Error(gateResult.suggestion
+                ? `Formação inválida: ${gateResult.reasonCode}. ${gateResult.suggestion}`
+                : `Formação inválida: ${gateResult.reasonCode}`);
+            error.statusCode = 400;
+            throw error;
+        }
+        // 6. Criar ou buscar categoria via createCategoryWithAI
+        const categoryResult = await categories_service_1.categoriesService.createCategoryWithAI({
+            text: sanitized,
+            context: 'education',
+            tenantId,
+            actorId: userId,
+            globalUserId,
+        });
+        const category = categoryResult.existingCategory || categoryResult.category;
+        if (!category) {
+            const error = new Error('Erro ao criar categoria');
+            error.statusCode = 500;
+            throw error;
+        }
+        // 7. Criar vínculo
+        const result = await pool_1.pool.query(`INSERT INTO user_education (global_user_id, category_id)
+       VALUES ($1, $2)
+       ON CONFLICT (global_user_id, category_id) DO NOTHING
+       RETURNING id, global_user_id, category_id, created_at, updated_at`, [globalUserId, category.categoryId]);
+        if (result.rows.length === 0) {
+            // Conflito (duplicata) - buscar existente
+            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, created_at, updated_at
+         FROM user_education
+         WHERE global_user_id = $1 AND category_id = $2
+         LIMIT 1`, [globalUserId, category.categoryId]);
+            if (existing.rows.length === 0) {
+                const error = new Error('Erro ao criar vínculo');
+                error.statusCode = 500;
+                throw error;
+            }
+            return {
+                id: existing.rows[0].id,
+                globalUserId: existing.rows[0].global_user_id,
+                categoryId: existing.rows[0].category_id,
+                categoryName: category.name,
+                createdAt: existing.rows[0].created_at,
+                updatedAt: existing.rows[0].updated_at,
+            };
+        }
+        return {
+            id: result.rows[0].id,
+            globalUserId: result.rows[0].global_user_id,
+            categoryId: result.rows[0].category_id,
+            categoryName: category.name,
+            createdAt: result.rows[0].created_at,
+            updatedAt: result.rows[0].updated_at,
+        };
+    }
+    /**
+     * Adiciona empresa ao perfil do usuário
+     *
+     * FLUXO OBRIGATÓRIO:
+     * 1. Sanitizar input
+     * 2. Rodar CategoryInputGateService.validate(context: 'company')
+     * 3. Se DENY → retornar erro claro
+     * 4. Se ALLOW → criar ou reutilizar categoria
+     * 5. Criar vínculo com usuário
+     * 6. Auditar decisão (via gate)
+     */
+    async addCompany(tenantId, userId, input) {
+        // 1. Resolver global_user_id
+        const globalUserId = await (0, identity_utils_1.resolveGlobalUserId)(userId, tenantId);
+        if (!globalUserId) {
+            const error = new Error('User not found');
+            error.statusCode = 404;
+            throw error;
+        }
+        // 2. Sanitizar input
+        const sanitized = input.name.trim();
+        if (!sanitized || sanitized.length < 2) {
+            const error = new Error('Nome da empresa deve ter pelo menos 2 caracteres');
+            error.statusCode = 400;
+            throw error;
+        }
+        // 3. Verificar limite
+        const currentCount = await pool_1.pool.query(`SELECT COUNT(*) as count FROM user_companies WHERE global_user_id = $1`, [globalUserId]);
+        const count = parseInt(currentCount.rows[0].count);
+        if (count >= MAX_COMPANIES_PER_USER) {
+            const error = new Error(`Limite de ${MAX_COMPANIES_PER_USER} empresas atingido`);
+            error.statusCode = 400;
+            throw error;
+        }
+        // 4. Verificar duplicata
+        const existing = await pool_1.pool.query(`SELECT uc.id, uc.category_id
+       FROM user_companies uc
+       JOIN categories c ON c.category_id = uc.category_id
+       WHERE uc.global_user_id = $1 AND LOWER(c.name) = LOWER($2)
+       LIMIT 1`, [globalUserId, sanitized]);
+        if (existing.rows.length > 0) {
+            const error = new Error('Empresa já adicionada');
+            error.statusCode = 409;
+            throw error;
+        }
+        // 5. Rodar Category Input Gate
+        const gateResult = await category_input_gate_service_1.categoryInputGateService.validate(sanitized, {
+            context: 'company',
+            tenantId,
+            actorId: userId,
+            globalUserId,
+        });
+        if (gateResult.decision === 'DENY') {
+            const error = new Error(gateResult.suggestion
+                ? `Empresa inválida: ${gateResult.reasonCode}. ${gateResult.suggestion}`
+                : `Empresa inválida: ${gateResult.reasonCode}`);
+            error.statusCode = 400;
+            throw error;
+        }
+        // 6. Criar ou buscar categoria via createCategoryWithAI
+        const categoryResult = await categories_service_1.categoriesService.createCategoryWithAI({
+            text: sanitized,
+            context: 'company',
+            tenantId,
+            actorId: userId,
+            globalUserId,
+        });
+        const category = categoryResult.existingCategory || categoryResult.category;
+        if (!category) {
+            const error = new Error('Erro ao criar categoria');
+            error.statusCode = 500;
+            throw error;
+        }
+        // 7. Criar vínculo
+        const result = await pool_1.pool.query(`INSERT INTO user_companies (global_user_id, category_id)
+       VALUES ($1, $2)
+       ON CONFLICT (global_user_id, category_id) DO NOTHING
+       RETURNING id, global_user_id, category_id, created_at, updated_at`, [globalUserId, category.categoryId]);
+        if (result.rows.length === 0) {
+            // Conflito (duplicata) - buscar existente
+            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, created_at, updated_at
+         FROM user_companies
+         WHERE global_user_id = $1 AND category_id = $2
+         LIMIT 1`, [globalUserId, category.categoryId]);
+            if (existing.rows.length === 0) {
+                const error = new Error('Erro ao criar vínculo');
+                error.statusCode = 500;
+                throw error;
+            }
+            return {
+                id: existing.rows[0].id,
+                globalUserId: existing.rows[0].global_user_id,
+                categoryId: existing.rows[0].category_id,
+                categoryName: category.name,
+                createdAt: existing.rows[0].created_at,
+                updatedAt: existing.rows[0].updated_at,
+            };
+        }
+        return {
+            id: result.rows[0].id,
+            globalUserId: result.rows[0].global_user_id,
+            categoryId: result.rows[0].category_id,
+            categoryName: category.name,
+            createdAt: result.rows[0].created_at,
+            updatedAt: result.rows[0].updated_at,
+        };
+    }
+    /**
+     * Lista formações do usuário
+     */
+    async listEducation(globalUserId) {
+        const result = await pool_1.pool.query(`SELECT ue.id, ue.global_user_id, ue.category_id, c.name as category_name, ue.created_at, ue.updated_at
+       FROM user_education ue
+       JOIN categories c ON c.category_id = ue.category_id
+       WHERE ue.global_user_id = $1
+       ORDER BY ue.created_at DESC`, [globalUserId]);
+        return result.rows.map(row => ({
+            id: row.id,
+            globalUserId: row.global_user_id,
+            categoryId: row.category_id,
+            categoryName: row.category_name,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+        }));
+    }
+    /**
+     * Lista empresas do usuário
+     */
+    async listCompanies(globalUserId) {
+        const result = await pool_1.pool.query(`SELECT uc.id, uc.global_user_id, uc.category_id, c.name as category_name, uc.created_at, uc.updated_at
+       FROM user_companies uc
+       JOIN categories c ON c.category_id = uc.category_id
+       WHERE uc.global_user_id = $1
+       ORDER BY uc.created_at DESC`, [globalUserId]);
+        return result.rows.map(row => ({
+            id: row.id,
+            globalUserId: row.global_user_id,
+            categoryId: row.category_id,
+            categoryName: row.category_name,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+        }));
+    }
+}
+exports.profileEducationCompaniesService = new ProfileEducationCompaniesService();
+//# sourceMappingURL=profile-education-companies.service.js.map

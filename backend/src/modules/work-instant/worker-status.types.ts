@@ -1,0 +1,32 @@
+// src/modules/work-instant/worker-status.types.ts
+//
+// Tipos para status online/offline e localização de workers
+
+export type WorkerStatus = 'online' | 'offline';
+
+export interface WorkerLocation {
+  latitude: number;
+  longitude: number;
+  updatedAt: number; // timestamp
+}
+
+export interface WorkerPresence {
+  userId: string;
+  tenantId: string;
+  status: WorkerStatus;
+  location?: WorkerLocation;
+  lastSeen: number; // timestamp
+}
+
+export interface UpdateLocationInput {
+  latitude: number;
+  longitude: number;
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,46 @@
+═══════════════════════════════════════════════════════════
+  UNIFICARD - ERRO DE CONEXÃO COM BACKEND
+═══════════════════════════════════════════════════════════
+
+PROBLEMA:
+O frontend não consegue conectar ao backend em http://localhost:3000
+
+SOLUÇÃO RÁPIDA (2 minutos):
+
+1. DÊ DUPLO CLIQUE NO ARQUIVO:
+   → INICIAR_BACKEND.bat
+   
+   (Este arquivo está na pasta C:\unificard)
+
+2. AGUARDE ver esta mensagem:
+   ✅ SERVIDOR INICIADO COM SUCESSO
+   🌐 Servidor rodando em http://localhost:3000
+
+3. NÃO FECHE a janela que abriu!
+
+4. RECARREGUE a página no navegador:
+   Pressione: Ctrl + Shift + R
+
+═══════════════════════════════════════════════════════════
+
+SE NÃO FUNCIONAR:
+
+1. Verifique se o PostgreSQL está rodando
+2. Verifique se o arquivo backend/.env existe
+3. Veja a mensagem de erro na janela do backend
+4. Consulte: SOLUCAO_RAPIDA.md
+
+═══════════════════════════════════════════════════════════
+
+
+
+
+
+
+
+
+
+
+
+
+

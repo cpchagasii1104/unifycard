@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  validate-contracts:
+    name: Validate Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build contracts
+        run: npm run build:contracts
+      
+      - name: Type check contracts
+        run: npm run typecheck -w @unificard/contracts
+
+  validate-backend:
+    name: Validate Backend
+    runs-on: ubuntu-latest
+    needs: validate-contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build contracts (dependency)
+        run: npm run build:contracts
+      
+      - name: Type check backend
+        run: npm run typecheck -w unificard-backend
+      
+      - name: Lint backend
+        run: npm run lint -w unificard-backend || true
+
+  validate-frontend:
+    name: Validate Frontend
+    runs-on: ubuntu-latest
+    needs: validate-contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build contracts (dependency)
+        run: npm run build:contracts
+      
+      - name: Type check frontend
+        run: npm run typecheck -w unificard-frontend || cd frontend && npx tsc --noEmit
+
+  check-contract-usage:
+    name: Check Contract Usage
+    runs-on: ubuntu-latest
+    needs: [validate-backend, validate-frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check for duplicate domain types
+        run: |
+          echo "🔍 Checking for duplicate domain types..."
+          echo "📋 Contract types should ONLY exist in @unificard/contracts"
+          
+          # Function to check for duplicate type definitions
+          check_duplicate() {
+            local type_name=$1
+            local search_path=$2
+            local file_pattern=$3
+            
+            echo "Checking for duplicate: $type_name"
+            
+            # Find all occurrences of the type definition
+            local matches=$(grep -r "type $type_name\|export type $type_name\|export interface $type_name" "$search_path" --include="$file_pattern" 2>/dev/null || true)
+            
+            if [ -n "$matches" ]; then
+              # Filter out imports from contracts
+              local local_defs=$(echo "$matches" | grep -v "from '@unificard/contracts'" | grep -v "from \"@unificard/contracts\"" || true)
+              
+              if [ -n "$local_defs" ]; then
+                echo "❌ ERROR: $type_name defined locally (should be in @unificard/contracts)"
+                echo "$local_defs"
+                exit 1
+              fi
+            fi
+          }
+          
+          # Check backend
+          check_duplicate "CategoryContext" "backend/src" "*.ts"
+          check_duplicate "CategoryStatus" "backend/src" "*.ts"
+          check_duplicate "CompanyStatus" "backend/src" "*.ts"
+          check_duplicate "CompanyUserRole" "backend/src" "*.ts"
+          check_duplicate "CompanyOperationalStatus" "backend/src" "*.ts"
+          check_duplicate "CheckoutRequest" "backend/src" "*.ts"
+          check_duplicate "CheckoutResult" "backend/src" "*.ts"
+          check_duplicate "CheckoutContext" "backend/src" "*.ts"
+          
+          # Check frontend
+          check_duplicate "CategoryContext" "frontend/src" "*.ts"
+          check_duplicate "CategoryContext" "frontend/src" "*.tsx"
+          check_duplicate "CategoryStatus" "frontend/src" "*.ts"
+          check_duplicate "CategoryStatus" "frontend/src" "*.tsx"
+          check_duplicate "CompanyStatus" "frontend/src" "*.ts"
+          check_duplicate "CompanyStatus" "frontend/src" "*.tsx"
+          check_duplicate "CompanyUserRole" "frontend/src" "*.ts"
+          check_duplicate "CompanyUserRole" "frontend/src" "*.tsx"
+          check_duplicate "CompanyOperationalStatus" "frontend/src" "*.ts"
+          check_duplicate "CompanyOperationalStatus" "frontend/src" "*.tsx"
+          check_duplicate "CheckoutResult" "frontend/src" "*.ts"
+          check_duplicate "CheckoutResult" "frontend/src" "*.tsx"
+          check_duplicate "CheckoutRequest" "frontend/src" "*.ts"
+          check_duplicate "CheckoutRequest" "frontend/src" "*.tsx"
+          
+          echo "✅ No duplicate domain types found"
+

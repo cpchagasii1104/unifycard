@@ -1,0 +1,195 @@
+// Script de teste para validar autocomplete
+// Testa se "Pedreiro" aparece quando existe no banco
+
+import dotenv from 'dotenv';
+import { join } from 'path';
+import { pool } from '../core/database/pool';
+
+dotenv.config({ path: join(process.cwd(), '.env') });
+
+async function testAutocomplete() {
+  console.log('🧪 Testando autocomplete...\n');
+
+  // Verificar se coluna status existe
+  const statusCheck = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'categories' AND column_name = 'status'
+    ) as exists`
+  );
+  const hasStatus = statusCheck.rows[0]?.exists || false;
+  const statusCondition = hasStatus ? "(status IS NULL OR status = 'active')" : '1=1';
+
+  // Teste 1: Buscar "pedreiro" completo usando query direta
+  console.log('📋 Teste 1: Buscar "pedreiro" (completo) - Query LEAF');
+  try {
+    const searchTerm = 'pedreiro';
+    const prefixPattern = `${searchTerm}%`;
+    const containsPattern = `%${searchTerm}%`;
+    
+    const results1 = await pool.query(`
+      SELECT 
+        category_id, name, slug, level, path,
+        (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
+      FROM categories
+      WHERE 
+        ${statusCondition}
+        AND NOT EXISTS (
+          SELECT 1 FROM categories c2
+          WHERE c2.parent_id = categories.category_id
+        )
+        AND (
+          LOWER(name) LIKE $1
+          OR LOWER(name) LIKE $2
+          OR LOWER(slug) LIKE $1
+          OR LOWER(slug) LIKE $2
+        )
+      ORDER BY 
+        CASE 
+          WHEN LOWER(name) = $3 THEN 1
+          WHEN LOWER(name) LIKE $1 THEN 2
+          ELSE 3
+        END,
+        name ASC
+      LIMIT 10
+    `, [prefixPattern, containsPattern, searchTerm]);
+    
+    console.log(`   Resultados: ${results1.rows.length}`);
+    results1.rows.forEach((r, i) => {
+      const isLeaf = r.children_count === '0' || r.children_count === 0;
+      console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, leaf: ${isLeaf}, path: ${JSON.stringify(r.path || [])})`);
+    });
+    
+    const hasPedreiro = results1.rows.some(r => r.name.toLowerCase().includes('pedreiro'));
+    if (hasPedreiro) {
+      console.log('   ✅ "Pedreiro" encontrado!\n');
+    } else {
+      console.log('   ❌ "Pedreiro" NÃO encontrado!\n');
+    }
+  } catch (err) {
+    console.error('   ❌ Erro:', err);
+  }
+
+  // Teste 2: Buscar "ped" (prefixo)
+  console.log('📋 Teste 2: Buscar "ped" (prefixo) - Query LEAF');
+  try {
+    const searchTerm = 'ped';
+    const prefixPattern = `${searchTerm}%`;
+    const containsPattern = `%${searchTerm}%`;
+    
+    const results2 = await pool.query(`
+      SELECT 
+        category_id, name, slug, level, path,
+        (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
+      FROM categories
+      WHERE 
+        ${statusCondition}
+        AND NOT EXISTS (
+          SELECT 1 FROM categories c2
+          WHERE c2.parent_id = categories.category_id
+        )
+        AND (
+          LOWER(name) LIKE $1
+          OR LOWER(name) LIKE $2
+          OR LOWER(slug) LIKE $1
+          OR LOWER(slug) LIKE $2
+        )
+      ORDER BY 
+        CASE 
+          WHEN LOWER(name) LIKE $1 THEN 1
+          ELSE 2
+        END,
+        name ASC
+      LIMIT 10
+    `, [prefixPattern, containsPattern]);
+    
+    console.log(`   Resultados: ${results2.rows.length}`);
+    results2.rows.forEach((r, i) => {
+      const isLeaf = r.children_count === '0' || r.children_count === 0;
+      console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, leaf: ${isLeaf}, path: ${JSON.stringify(r.path || [])})`);
+    });
+    
+    const hasPedreiro = results2.rows.some(r => r.name.toLowerCase().includes('pedreiro'));
+    if (hasPedreiro) {
+      console.log('   ✅ "Pedreiro" encontrado no prefixo!\n');
+    } else {
+      console.log('   ❌ "Pedreiro" NÃO encontrado no prefixo!\n');
+    }
+  } catch (err) {
+    console.error('   ❌ Erro:', err);
+  }
+
+  // Teste 3: Verificar se "Pedreiro" existe no banco
+  console.log('📋 Teste 3: Verificar se "Pedreiro" existe no banco');
+  try {
+    const checkResult = await pool.query(`
+      SELECT 
+        category_id, name, slug, level, parent_id,
+        (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
+      FROM categories
+      WHERE LOWER(name) LIKE '%pedreiro%'
+      ORDER BY name
+    `);
+    
+    console.log(`   Categorias encontradas: ${checkResult.rows.length}`);
+    checkResult.rows.forEach((row, i) => {
+      const isLeaf = row.children_count === '0' || row.children_count === 0;
+      console.log(`   ${i + 1}. ${row.name} (level: ${row.level}, leaf: ${isLeaf}, children: ${row.children_count})`);
+    });
+    
+    if (checkResult.rows.length > 0) {
+      console.log('   ✅ "Pedreiro" existe no banco!\n');
+    } else {
+      console.log('   ⚠️ "Pedreiro" NÃO existe no banco (pode ser que precise ser criado)\n');
+    }
+  } catch (err) {
+    console.error('   ❌ Erro:', err);
+  }
+
+  // Teste 4: Verificar estrutura da árvore
+  console.log('📋 Teste 4: Verificar estrutura da árvore (primeiras 10 categorias leaf)');
+  try {
+    const treeResult = await pool.query(`
+      SELECT 
+        category_id, name, slug, level, parent_id,
+        (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
+      FROM categories
+      WHERE NOT EXISTS (
+        SELECT 1 FROM categories c2 WHERE c2.parent_id = categories.category_id
+      )
+      AND ${statusCondition}
+      ORDER BY name
+      LIMIT 10
+    `);
+    
+    console.log(`   Categorias LEAF encontradas: ${treeResult.rows.length}`);
+    treeResult.rows.forEach((row, i) => {
+      console.log(`   ${i + 1}. ${row.name} (level: ${row.level})`);
+    });
+  } catch (err) {
+    console.error('   ❌ Erro:', err);
+  }
+
+  console.log('\n✅ Teste concluído!');
+  process.exit(0);
+}
+
+testAutocomplete().catch((err) => {
+  console.error('❌ Erro fatal:', err);
+  process.exit(1);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

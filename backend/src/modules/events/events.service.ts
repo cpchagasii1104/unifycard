@@ -1,0 +1,658 @@
+// src/modules/events/events.service.ts
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { tenantService } from '@core/tenants/tenant.service';
+import { worldService } from '@core/world/services/world.service';
+import { reputationService } from '@core/reputation/reputation.service';
+import { occupancyService } from './occupancy.service';
+import type {
+  Event,
+  EventRow,
+  EventSession,
+  EventSessionRow,
+  EventLocation,
+  EventLocationRow,
+  EventStaff,
+  EventStaffRow,
+  EventAttendee,
+  EventAttendeeRow,
+  CreateEventInput,
+  AddSessionInput,
+  AssignStaffInput,
+  EventWithDetails,
+  SearchEventsOptions,
+} from './events.types';
+import type { CreateOccupancyModelInput } from './occupancy.types';
+
+class EventsService {
+  private toEvent(row: EventRow & {
+    event_type?: string;
+    ticket_price?: number | null;
+    accepts_consumption?: boolean;
+    accepts_parking?: boolean;
+    max_capacity?: number | null;
+    current_occupancy?: number;
+    status?: string;
+    timezone?: string;
+  }): Event {
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      title: row.title,
+      description: row.description,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      cityId: row.city_id,
+      stateId: row.state_id,
+      countryId: row.country_id,
+      createdByGlobalUserId: row.created_by_global_user_id,
+      eventType: row.event_type,
+      ticketPrice: row.ticket_price,
+      acceptsConsumption: row.accepts_consumption,
+      acceptsParking: row.accepts_parking,
+      maxCapacity: row.max_capacity,
+      currentOccupancy: row.current_occupancy,
+      status: row.status,
+      timezone: row.timezone,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private toEventSession(row: EventSessionRow): EventSession {
+    return {
+      id: row.id,
+      eventId: row.event_id,
+      name: row.name,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private toEventLocation(row: EventLocationRow): EventLocation {
+    return {
+      id: row.id,
+      eventId: row.event_id,
+      name: row.name,
+      capacity: row.capacity,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private toEventStaff(row: EventStaffRow): EventStaff {
+    return {
+      id: row.id,
+      eventId: row.event_id,
+      globalUserId: row.global_user_id,
+      role: row.role,
+      assignedByGlobalUserId: row.assigned_by_global_user_id,
+      createdAt: row.created_at,
+    };
+  }
+
+  private toEventAttendee(row: EventAttendeeRow): EventAttendee {
+    return {
+      id: row.id,
+      eventId: row.event_id,
+      globalUserId: row.global_user_id,
+      checkInTime: row.check_in_time,
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * Cria um novo evento
+   */
+  async createEvent(
+    tenantId: string,
+    input: CreateEventInput,
+    createdByGlobalUserId: string
+  ): Promise<Event> {
+    // Obter região do tenant como fallback
+    const tenant = await tenantService.getTenantById(tenantId);
+    
+    let finalCityId = input.cityId ?? tenant?.cityId ?? null;
+    let finalStateId = input.stateId ?? null;
+    let finalCountryId = input.countryId ?? null;
+
+    // Se cityId foi fornecido, validar e obter stateId/countryId automaticamente
+    if (finalCityId) {
+      const cityPath = await worldService.getCityFullPath(finalCityId);
+      if (!cityPath) {
+        throw new Error('Cidade não encontrada');
+      }
+      finalStateId = cityPath.state.stateId;
+      finalCountryId = cityPath.country.countryId;
+    } else if (finalStateId) {
+      // Se stateId foi fornecido, validar e obter countryId automaticamente
+      const state = await worldService.getStateById(finalStateId);
+      if (!state) {
+        throw new Error('Estado não encontrado');
+      }
+      finalCountryId = state.countryId;
+    } else if (finalCountryId) {
+      // Validar se país existe
+      const country = await worldService.getCountryById(finalCountryId);
+      if (!country) {
+        throw new Error('País não encontrado');
+      }
+    } else if (tenant?.cityId) {
+      // Usar região do tenant
+      const cityPath = await worldService.getCityFullPath(tenant.cityId);
+      if (cityPath) {
+        finalCityId = cityPath.city.cityId;
+        finalStateId = cityPath.state.stateId;
+        finalCountryId = cityPath.country.countryId;
+      }
+    }
+
+    // Validar hierarquia se todos os campos foram fornecidos
+    if (finalStateId && finalCountryId) {
+      const state = await worldService.getStateById(finalStateId);
+      if (!state || state.countryId !== finalCountryId) {
+        throw new Error('Estado não pertence ao país especificado');
+      }
+    }
+
+    if (finalCityId && finalStateId) {
+      const city = await worldService.getCityById(finalCityId);
+      if (!city || city.stateId !== finalStateId) {
+        throw new Error('Cidade não pertence ao estado especificado');
+      }
+    }
+
+    // Validar que endTime > startTime
+    if (input.endTime <= input.startTime) {
+      throw new Error('Data/hora de fim deve ser posterior à data/hora de início');
+    }
+
+    const row = await runQueryWithTenant<EventRow>(
+      tenantId,
+      `
+      INSERT INTO events (
+        tenant_id,
+        title,
+        description,
+        start_time,
+        end_time,
+        city_id,
+        state_id,
+        country_id,
+        created_by_global_user_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id, tenant_id, title, description, start_time, end_time, city_id, state_id, country_id, created_by_global_user_id, created_at, updated_at
+      `,
+      [
+        tenantId,
+        input.title,
+        input.description ?? null,
+        input.startTime,
+        input.endTime,
+        finalCityId,
+        finalStateId,
+        finalCountryId,
+        createdByGlobalUserId,
+      ]
+    );
+
+    if (!row) {
+      throw new Error('Falha ao criar evento');
+    }
+
+    const event = this.toEvent(row);
+
+    // Se houver metadata com modelo de ocupação, criar
+    if ((input as any).metadata?.occupancy_model) {
+      const occupancyData = (input as any).metadata.occupancy_model;
+      try {
+        await occupancyService.createOrUpdateOccupancyModel(tenantId, {
+          event_id: event.id,
+          occupancy_type: occupancyData.type,
+          requires_reservation: occupancyData.requires_reservation ?? false,
+          reservation_price_cents: occupancyData.reservation_price,
+          config: occupancyData.config || {},
+        });
+      } catch (err) {
+        // Log mas não quebra criação do evento
+        console.error('Erro ao criar modelo de ocupação:', err);
+      }
+    }
+
+    return event;
+  }
+
+  /**
+   * Adiciona uma sessão a um evento
+   */
+  async addSession(
+    tenantId: string,
+    eventId: string,
+    input: AddSessionInput
+  ): Promise<EventSession> {
+    // Verificar se evento existe
+    const event = await this.getEvent(tenantId, eventId);
+    if (!event) {
+      throw new Error('Evento não encontrado');
+    }
+
+    // Validar que endTime > startTime
+    if (input.endTime <= input.startTime) {
+      throw new Error('Data/hora de fim deve ser posterior à data/hora de início');
+    }
+
+    // Validar que sessão está dentro do período do evento
+    if (input.startTime < event.startTime || input.endTime > event.endTime) {
+      throw new Error('Sessão deve estar dentro do período do evento');
+    }
+
+    const row = await runQueryWithTenant<EventSessionRow>(
+      tenantId,
+      `
+      INSERT INTO event_sessions (event_id, name, start_time, end_time)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, event_id, name, start_time, end_time, created_at, updated_at
+      `,
+      [eventId, input.name, input.startTime, input.endTime]
+    );
+
+    if (!row) {
+      throw new Error('Falha ao criar sessão');
+    }
+
+    return this.toEventSession(row);
+  }
+
+  /**
+   * Designa staff para um evento
+   */
+  async assignStaff(
+    tenantId: string,
+    eventId: string,
+    input: AssignStaffInput,
+    assignedByGlobalUserId: string
+  ): Promise<EventStaff> {
+    // Verificar se evento existe
+    const event = await this.getEvent(tenantId, eventId);
+    if (!event) {
+      throw new Error('Evento não encontrado');
+    }
+
+    // Validar reputação mínima (exemplo: score >= 3.0)
+    const reputation = await reputationService.getScoreByGlobalUserId(input.globalUserId);
+    if (!reputation || reputation.scores.global < 3.0) {
+      throw new Error('Usuário não possui reputação suficiente para ser designado como staff');
+    }
+
+    // Verificar se já está designado
+    const existing = await runQueryWithTenant<EventStaffRow>(
+      tenantId,
+      `
+      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      FROM event_staff
+      WHERE event_id = $1 AND global_user_id = $2
+      LIMIT 1
+      `,
+      [eventId, input.globalUserId]
+    );
+
+    if (existing) {
+      throw new Error('Usuário já está designado como staff deste evento');
+    }
+
+    const row = await runQueryWithTenant<EventStaffRow>(
+      tenantId,
+      `
+      INSERT INTO event_staff (event_id, global_user_id, role, assigned_by_global_user_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      `,
+      [eventId, input.globalUserId, input.role, assignedByGlobalUserId]
+    );
+
+    if (!row) {
+      throw new Error('Falha ao designar staff');
+    }
+
+    return this.toEventStaff(row);
+  }
+
+  /**
+   * Realiza check-in de um participante
+   */
+  async checkIn(
+    tenantId: string,
+    eventId: string,
+    globalUserId: string
+  ): Promise<{ checkedIn: boolean; checkInTime: Date }> {
+    // Verificar se evento existe
+    const event = await this.getEvent(tenantId, eventId);
+    if (!event) {
+      throw new Error('Evento não encontrado');
+    }
+
+    // Verificar se já está inscrito
+    const existing = await runQueryWithTenant<EventAttendeeRow>(
+      tenantId,
+      `
+      SELECT id, event_id, global_user_id, check_in_time, created_at
+      FROM event_attendees
+      WHERE event_id = $1 AND global_user_id = $2
+      LIMIT 1
+      `,
+      [eventId, globalUserId]
+    );
+
+    if (!existing) {
+      // Criar registro de participante
+      await runQueryWithTenant<EventAttendeeRow>(
+        tenantId,
+        `
+        INSERT INTO event_attendees (event_id, global_user_id, check_in_time)
+        VALUES ($1, $2, now())
+        RETURNING id, event_id, global_user_id, check_in_time, created_at
+        `,
+        [eventId, globalUserId]
+      );
+    } else if (!existing.check_in_time) {
+      // Atualizar check-in
+      await runQueryWithTenant<EventAttendeeRow>(
+        tenantId,
+        `
+        UPDATE event_attendees
+        SET check_in_time = now()
+        WHERE event_id = $1 AND global_user_id = $2
+        RETURNING id, event_id, global_user_id, check_in_time, created_at
+        `,
+        [eventId, globalUserId]
+      );
+    }
+
+    // Buscar registro atualizado
+    const updated = await runQueryWithTenant<EventAttendeeRow>(
+      tenantId,
+      `
+      SELECT id, event_id, global_user_id, check_in_time, created_at
+      FROM event_attendees
+      WHERE event_id = $1 AND global_user_id = $2
+      LIMIT 1
+      `,
+      [eventId, globalUserId]
+    );
+
+    if (!updated || !updated.check_in_time) {
+      throw new Error('Falha ao realizar check-in');
+    }
+
+    return {
+      checkedIn: true,
+      checkInTime: updated.check_in_time,
+    };
+  }
+
+  /**
+   * Busca um evento por ID
+   */
+  async getEvent(tenantId: string, eventId: string): Promise<Event | null> {
+    const row = await runQueryWithTenant<EventRow & {
+      event_type: string;
+      ticket_price: number | null;
+      accepts_consumption: boolean;
+      accepts_parking: boolean;
+      max_capacity: number | null;
+      current_occupancy: number;
+      status: string;
+      timezone: string;
+    }>(
+      tenantId,
+      `
+      SELECT 
+        id, tenant_id, title, description, start_time, end_time, 
+        city_id, state_id, country_id, created_by_global_user_id, 
+        event_type, ticket_price, accepts_consumption, accepts_parking,
+        max_capacity, current_occupancy, status, timezone,
+        created_at, updated_at
+      FROM events
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [eventId]
+    );
+
+    return row ? this.toEvent(row) : null;
+  }
+
+  /**
+   * Busca evento com detalhes completos
+   */
+  async getEventWithDetails(tenantId: string, eventId: string): Promise<EventWithDetails | null> {
+    const event = await this.getEvent(tenantId, eventId);
+    if (!event) {
+      return null;
+    }
+
+    // Buscar sessões
+    const sessionsRows = await runQueriesWithTenant<EventSessionRow>(
+      tenantId,
+      `
+      SELECT id, event_id, name, start_time, end_time, created_at, updated_at
+      FROM event_sessions
+      WHERE event_id = $1
+      ORDER BY start_time ASC
+      `,
+      [eventId]
+    );
+
+    // Buscar locais
+    const locationsRows = await runQueriesWithTenant<EventLocationRow>(
+      tenantId,
+      `
+      SELECT id, event_id, name, capacity, created_at, updated_at
+      FROM event_locations
+      WHERE event_id = $1
+      ORDER BY name ASC
+      `,
+      [eventId]
+    );
+
+    // Buscar staff
+    const staffRows = await runQueriesWithTenant<EventStaffRow>(
+      tenantId,
+      `
+      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      FROM event_staff
+      WHERE event_id = $1
+      ORDER BY role ASC, created_at ASC
+      `,
+      [eventId]
+    );
+
+    // Contar participantes
+    const attendeeCountRow = await runQueryWithTenant<{ count: string }>(
+      tenantId,
+      `
+      SELECT COUNT(*) as count
+      FROM event_attendees
+      WHERE event_id = $1
+      `,
+      [eventId]
+    );
+
+    // Contar check-ins
+    const checkedInCountRow = await runQueryWithTenant<{ count: string }>(
+      tenantId,
+      `
+      SELECT COUNT(*) as count
+      FROM event_attendees
+      WHERE event_id = $1 AND check_in_time IS NOT NULL
+      `,
+      [eventId]
+    );
+
+    return {
+      ...event,
+      sessions: sessionsRows.map((r) => this.toEventSession(r)),
+      locations: locationsRows.map((r) => this.toEventLocation(r)),
+      staff: staffRows.map((r) => this.toEventStaff(r)),
+      attendeeCount: attendeeCountRow ? Number(attendeeCountRow.count) : 0,
+      checkedInCount: checkedInCountRow ? Number(checkedInCountRow.count) : 0,
+    };
+  }
+
+  /**
+   * Busca posts relacionados ao evento
+   */
+  async getEventPosts(
+    tenantId: string,
+    eventId: string,
+    limit: number = 20
+  ): Promise<Array<{
+    postId: string;
+    content: string;
+    type: string;
+    createdAt: Date;
+    globalUserId: string;
+    media: any[];
+    metadata: Record<string, any>;
+  }>> {
+    const rows = await runQueriesWithTenant<any>(
+      tenantId,
+      `
+      SELECT 
+        post_id,
+        content,
+        type,
+        created_at,
+        global_user_id,
+        media,
+        metadata
+      FROM posts
+      WHERE tenant_id = $1
+        AND event_id = $2
+        AND visibility = 'PUBLIC'
+      ORDER BY created_at DESC
+      LIMIT $3
+      `,
+      [tenantId, eventId, limit]
+    );
+
+    return rows.map((row) => ({
+      postId: row.post_id,
+      content: row.content,
+      type: row.type,
+      createdAt: row.created_at,
+      globalUserId: row.global_user_id,
+      media: Array.isArray(row.media) ? row.media : [],
+      metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+    }));
+  }
+
+  /**
+   * Busca participantes do evento (com informações básicas)
+   */
+  async getEventParticipants(
+    tenantId: string,
+    eventId: string,
+    limit: number = 50
+  ): Promise<Array<{
+    globalUserId: string;
+    checkInTime: Date | null;
+    joinedAt: Date;
+  }>> {
+    const rows = await runQueriesWithTenant<EventAttendeeRow>(
+      tenantId,
+      `
+      SELECT 
+        id,
+        event_id,
+        global_user_id,
+        check_in_time,
+        created_at
+      FROM event_attendees
+      WHERE event_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+      `,
+      [eventId, limit]
+    );
+
+    return rows.map((row) => ({
+      globalUserId: row.global_user_id,
+      checkInTime: row.check_in_time,
+      joinedAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Busca eventos com filtros
+   */
+  async searchEvents(tenantId: string, options: SearchEventsOptions = {}): Promise<Event[]> {
+    const {
+      cityId,
+      stateId,
+      countryId,
+      startDate,
+      endDate,
+      limit = 50,
+      offset = 0,
+    } = options;
+
+    let query = `
+      SELECT id, tenant_id, title, description, start_time, end_time, city_id, state_id, country_id, created_by_global_user_id, created_at, updated_at
+      FROM events
+      WHERE 1=1
+    `;
+
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (cityId) {
+      query += ` AND city_id = $${paramIndex}`;
+      params.push(cityId);
+      paramIndex++;
+    }
+
+    if (stateId) {
+      query += ` AND state_id = $${paramIndex}`;
+      params.push(stateId);
+      paramIndex++;
+    }
+
+    if (countryId) {
+      query += ` AND country_id = $${paramIndex}`;
+      params.push(countryId);
+      paramIndex++;
+    }
+
+    if (startDate) {
+      query += ` AND start_time >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      query += ` AND end_time <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const rows = await runQueriesWithTenant<EventRow>(tenantId, query, params);
+
+    return rows.map((r) => this.toEvent(r));
+  }
+}
+
+export const eventsService = new EventsService();
+
+
+
+
+
+
+
+

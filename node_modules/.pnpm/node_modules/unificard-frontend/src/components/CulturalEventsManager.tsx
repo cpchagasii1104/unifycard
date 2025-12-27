@@ -1,0 +1,374 @@
+// src/components/CulturalEventsManager.tsx
+// Componente para gerenciar Eventos Culturais - FASE 16
+// UI mínima funcional
+
+import React, { useState, useEffect } from 'react';
+import { useActiveActor } from '../contexts/ActiveActorContext';
+import {
+  createCulturalEvent,
+  publishCulturalEvent,
+  completeCulturalEvent,
+  listPublicCulturalEvents,
+  listCulturalProfiles,
+  type CulturalEvent,
+  type CreateCulturalEventInput,
+  type EventType,
+  type CulturalProfile,
+} from '../api/cultural';
+import './CulturalEventsManager.css';
+
+const EVENT_TYPES: { value: EventType; label: string }[] = [
+  { value: 'SHOW', label: 'Show' },
+  { value: 'OFICINA', label: 'Oficina' },
+  { value: 'FESTIVAL', label: 'Festival' },
+  { value: 'RODA', label: 'Roda' },
+  { value: 'AULA', label: 'Aula' },
+  { value: 'EXPOSICAO', label: 'Exposição' },
+  { value: 'DEBATE', label: 'Debate' },
+  { value: 'INTERVENCAO', label: 'Intervenção' },
+];
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Rascunho',
+  PUBLISHED: 'Publicado',
+  CONFIRMED: 'Confirmado',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+  ARCHIVED: 'Arquivado',
+};
+
+export default function CulturalEventsManager() {
+  const { activeActor } = useActiveActor();
+  const [events, setEvents] = useState<CulturalEvent[]>([]);
+  const [profiles, setProfiles] = useState<CulturalProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState<Partial<CreateCulturalEventInput>>({
+    event_type: 'SHOW',
+    title: '',
+    description: '',
+    datetime_start: '',
+    datetime_end: '',
+    visibility: 'PUBLIC',
+    revenue_split: [{ target_type: 'CULTURAL_PROFILE', target_id: '', percentage: 100 }],
+  });
+
+  useEffect(() => {
+    if (activeActor) {
+      loadEvents();
+      loadProfiles();
+    }
+  }, [activeActor]);
+
+  const loadEvents = async () => {
+    if (!activeActor) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await listPublicCulturalEvents({ limit: 20 });
+      setEvents(result.events);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar eventos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProfiles = async () => {
+    if (!activeActor) return;
+
+    try {
+      const ownerActorType = activeActor.actor_type === 'user' ? 'user' : 'page';
+      const result = await listCulturalProfiles(activeActor.actor_id, ownerActorType);
+      setProfiles(result.profiles);
+      // Preencher primeiro perfil como criador padrão
+      if (result.profiles.length > 0 && !formData.created_by_cultural_profile_id) {
+        setFormData((prev) => ({
+          ...prev,
+          created_by_cultural_profile_id: result.profiles[0].id,
+        }));
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar perfis culturais:', err);
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeActor || !formData.created_by_cultural_profile_id) return;
+
+    setCreating(true);
+    setError(null);
+    try {
+      const input: CreateCulturalEventInput = {
+        created_by_cultural_profile_id: formData.created_by_cultural_profile_id!,
+        event_type: formData.event_type!,
+        title: formData.title!,
+        description: formData.description,
+        datetime_start: formData.datetime_start!,
+        datetime_end: formData.datetime_end!,
+        location_cultural_profile_id: formData.location_cultural_profile_id,
+        visibility: formData.visibility || 'PUBLIC',
+        revenue_split: formData.revenue_split || [
+          { target_type: 'CULTURAL_PROFILE', target_id: formData.created_by_cultural_profile_id, percentage: 100 },
+        ],
+      };
+
+      await createCulturalEvent(input);
+      await loadEvents();
+      setShowCreateForm(false);
+      setFormData({
+        event_type: 'SHOW',
+        title: '',
+        description: '',
+        datetime_start: '',
+        datetime_end: '',
+        visibility: 'PUBLIC',
+        created_by_cultural_profile_id: formData.created_by_cultural_profile_id,
+        revenue_split: [{ target_type: 'CULTURAL_PROFILE', target_id: formData.created_by_cultural_profile_id, percentage: 100 }],
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar evento');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handlePublish = async (eventId: string) => {
+    try {
+      await publishCulturalEvent(eventId);
+      await loadEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao publicar evento');
+    }
+  };
+
+  const handleComplete = async (eventId: string) => {
+    try {
+      await completeCulturalEvent(eventId);
+      await loadEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao completar evento');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  if (!activeActor) {
+    return (
+      <div className="cultural-events-manager">
+        <p>Selecione um ator ativo para gerenciar eventos culturais.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cultural-events-manager">
+      <div className="cultural-events-header">
+        <h2>Eventos Culturais</h2>
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="btn-create-event"
+          disabled={profiles.length === 0}
+        >
+          {showCreateForm ? 'Cancelar' : '+ Criar Evento'}
+        </button>
+      </div>
+
+      {profiles.length === 0 && (
+        <div className="warning-message">
+          <p>Você precisa criar um Perfil de Atuação Cultural antes de criar eventos.</p>
+        </div>
+      )}
+
+      {error && <div className="error-message">{error}</div>}
+
+      {showCreateForm && profiles.length > 0 && (
+        <form onSubmit={handleCreate} className="create-event-form">
+          <div className="form-group">
+            <label htmlFor="created_by">Perfil Cultural Criador *</label>
+            <select
+              id="created_by"
+              value={formData.created_by_cultural_profile_id || ''}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  created_by_cultural_profile_id: e.target.value,
+                  revenue_split: prev.revenue_split?.map((s) =>
+                    s.target_type === 'CULTURAL_PROFILE' && s.target_id === prev.created_by_cultural_profile_id
+                      ? { ...s, target_id: e.target.value }
+                      : s
+                  ),
+                }))
+              }
+              required
+            >
+              <option value="">Selecione um perfil...</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.display_name} ({profile.type})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="event_type">Tipo de Evento *</label>
+            <select
+              id="event_type"
+              value={formData.event_type}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, event_type: e.target.value as EventType }))
+              }
+              required
+            >
+              {EVENT_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="title">Título *</label>
+            <input
+              id="title"
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+              required
+              placeholder="Ex: Show de Rock Nacional"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="description">Descrição</label>
+            <textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              rows={3}
+              placeholder="Descreva o evento..."
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="datetime_start">Data/Hora Início *</label>
+              <input
+                id="datetime_start"
+                type="datetime-local"
+                value={formData.datetime_start}
+                onChange={(e) => setFormData((prev) => ({ ...prev, datetime_start: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="datetime_end">Data/Hora Fim *</label>
+              <input
+                id="datetime_end"
+                type="datetime-local"
+                value={formData.datetime_end}
+                onChange={(e) => setFormData((prev) => ({ ...prev, datetime_end: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" disabled={creating} className="btn-submit">
+            {creating ? 'Criando...' : 'Criar Evento (DRAFT)'}
+          </button>
+        </form>
+      )}
+
+      {loading ? (
+        <p>Carregando eventos...</p>
+      ) : events.length === 0 ? (
+        <div className="empty-state">
+          <p>Nenhum evento cultural encontrado.</p>
+        </div>
+      ) : (
+        <div className="events-list">
+          {events.map((event) => (
+            <div key={event.id} className="event-card">
+              <div className="event-header">
+                <h3>{event.title}</h3>
+                <span className={`event-status status-${event.status.toLowerCase()}`}>
+                  {STATUS_LABELS[event.status] || event.status}
+                </span>
+              </div>
+              <div className="event-meta">
+                <span className="event-type">
+                  {EVENT_TYPES.find((t) => t.value === event.event_type)?.label}
+                </span>
+                <span className="event-datetime">
+                  {formatDate(event.datetime_start)} - {formatDate(event.datetime_end)}
+                </span>
+              </div>
+              {event.description && (
+                <p className="event-description">{event.description}</p>
+              )}
+              {event.revenue_split && event.revenue_split.length > 0 && (
+                <div className="event-split">
+                  <strong>Split de Receita:</strong>
+                  <ul>
+                    {event.revenue_split.map((split, idx) => (
+                      <li key={idx}>
+                        {split.target_type === 'CULTURAL_PROFILE' && 'Perfil: '}
+                        {split.target_type === 'REGION' && 'Região: '}
+                        {split.target_type === 'FUND' && 'Fundo: '}
+                        {split.target_id} - {split.percentage}%
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="event-actions">
+                {event.status === 'DRAFT' && (
+                  <button
+                    type="button"
+                    onClick={() => handlePublish(event.id)}
+                    className="btn-action btn-publish"
+                  >
+                    Publicar
+                  </button>
+                )}
+                {event.status === 'CONFIRMED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleComplete(event.id)}
+                    className="btn-action btn-complete"
+                  >
+                    Marcar como Completado
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+

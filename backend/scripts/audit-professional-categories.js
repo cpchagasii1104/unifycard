@@ -1,0 +1,202 @@
+// Script de auditoria: manter apenas profissões em categorias profissionais
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+async function auditProfessionalCategories() {
+  const client = await pool.connect();
+  
+  try {
+    console.log('🔍 Iniciando auditoria de categorias profissionais...\n');
+    
+    // 1. Buscar TODAS as categorias (independente de status)
+    const allCategories = await client.query(`
+      SELECT 
+        category_id,
+        name,
+        slug,
+        parent_id,
+        level,
+        status,
+        created_by_ai,
+        (SELECT COUNT(*) FROM categories WHERE parent_id = c.category_id) as num_filhos
+      FROM categories c
+      ORDER BY level ASC, name ASC
+    `);
+    
+    console.log(`📊 Total de categorias encontradas: ${allCategories.rows.length}\n`);
+    
+    // 2. Classificar categorias
+    const grupos = []; // level 0
+    const subgrupos = []; // level 1
+    const profissoes = []; // level 2, sem filhos
+    const profissoesComFilhos = []; // level 2, com filhos (anomalia)
+    const outras = []; // level > 2 ou sem classificação
+    
+    for (const cat of allCategories.rows) {
+      const numFilhos = parseInt(cat.num_filhos) || 0;
+      
+      if (cat.level === 0) {
+        grupos.push(cat);
+      } else if (cat.level === 1) {
+        subgrupos.push(cat);
+      } else if (cat.level === 2) {
+        if (numFilhos === 0) {
+          profissoes.push(cat);
+        } else {
+          profissoesComFilhos.push(cat);
+        }
+      } else {
+        outras.push(cat);
+      }
+    }
+    
+    // 3. Exibir relatório
+    console.log('=== RELATÓRIO DE AUDITORIA ===\n');
+    console.log(`📁 Grupos (level 0): ${grupos.length}`);
+    grupos.forEach(g => {
+      console.log(`   - ${g.name} (${g.slug}) [${g.status || 'N/A'}]`);
+    });
+    
+    console.log(`\n📂 Subgrupos (level 1): ${subgrupos.length}`);
+    subgrupos.forEach(s => {
+      console.log(`   - ${s.name} (${s.slug}) [${s.status || 'N/A'}]`);
+    });
+    
+    console.log(`\n✅ Profissões válidas (level 2, sem filhos): ${profissoes.length}`);
+    if (profissoes.length > 0) {
+      console.log('   Primeiras 10:');
+      profissoes.slice(0, 10).forEach(p => {
+        console.log(`   - ${p.name} (${p.slug}) [${p.status || 'N/A'}]`);
+      });
+      if (profissoes.length > 10) {
+        console.log(`   ... e mais ${profissoes.length - 10} profissões`);
+      }
+    }
+    
+    if (profissoesComFilhos.length > 0) {
+      console.log(`\n⚠️ ANOMALIAS: Profissões com filhos (level 2, mas tem filhos): ${profissoesComFilhos.length}`);
+      profissoesComFilhos.forEach(p => {
+        console.log(`   - ${p.name} (${p.slug}) - ${p.num_filhos} filhos`);
+      });
+    }
+    
+    if (outras.length > 0) {
+      console.log(`\n❓ Outras categorias (level > 2): ${outras.length}`);
+      outras.forEach(o => {
+        console.log(`   - ${o.name} (${o.slug}) - level ${o.level}`);
+      });
+    }
+    
+    // 4. Identificar categorias para remover/arquivar
+    // REGRA: Em categorias profissionais, manter APENAS profissões (level 2, sem filhos)
+    // Grupos e subgrupos são necessários para a hierarquia, mas não devem aparecer como "profissões"
+    
+    console.log('\n=== CATEGORIAS PARA ARQUIVAR ===');
+    console.log('(Grupos e subgrupos são necessários para hierarquia, mas não são profissões)');
+    console.log(`\n📁 Grupos a arquivar: ${grupos.length}`);
+    console.log(`📂 Subgrupos a arquivar: ${subgrupos.length}`);
+    console.log(`⚠️ Anomalias a corrigir: ${profissoesComFilhos.length}`);
+    
+    // 5. Gerar script SQL para arquivar (não deletar, apenas marcar como archived)
+    const categoriasParaArquivar = [
+      ...grupos.map(g => ({ id: g.category_id, name: g.name, level: 0, motivo: 'Grupo (não é profissão)' })),
+      ...subgrupos.map(s => ({ id: s.category_id, name: s.name, level: 1, motivo: 'Subgrupo (não é profissão)' })),
+      ...profissoesComFilhos.map(p => ({ id: p.category_id, name: p.name, level: 2, motivo: 'Anomalia: profissão com filhos' })),
+    ];
+    
+    if (categoriasParaArquivar.length > 0) {
+      console.log(`\n📝 Total de categorias para arquivar: ${categoriasParaArquivar.length}`);
+      console.log('\n=== SCRIPT SQL PARA ARQUIVAR ===');
+      console.log('-- ATENÇÃO: Este script arquiva grupos e subgrupos');
+      console.log('-- Eles são necessários para hierarquia, mas não são profissões');
+      console.log('-- Execute manualmente após revisar\n');
+      
+      console.log('BEGIN;');
+      console.log('\n-- Arquivar grupos e subgrupos (não são profissões)');
+      for (const cat of categoriasParaArquivar) {
+        console.log(`-- ${cat.motivo}: ${cat.name}`);
+        console.log(`UPDATE categories SET status = 'archived' WHERE category_id = '${cat.id}';`);
+      }
+      console.log('\nCOMMIT;');
+      
+      // Gerar arquivo SQL
+      const fs = require('fs');
+      const path = require('path');
+      const sqlContent = `-- ================================================
+-- Script gerado automaticamente pela auditoria
+-- Data: ${new Date().toISOString()}
+-- Total: ${categoriasParaArquivar.length} categorias para arquivar
+-- ================================================
+
+BEGIN;
+
+-- Arquivar grupos e subgrupos (não são profissões)
+${categoriasParaArquivar.map(cat => 
+  `-- ${cat.motivo}: ${cat.name}\nUPDATE categories SET status = 'archived' WHERE category_id = '${cat.id}';`
+).join('\n\n')}
+
+COMMIT;
+
+-- Verificar resultado
+SELECT 
+  level,
+  status,
+  COUNT(*) as total
+FROM categories
+GROUP BY level, status
+ORDER BY level, status;
+`;
+      
+      // Criar diretório se não existir
+      const sqlDir = path.join(__dirname, '../../docs/dev/sql');
+      if (!require('fs').existsSync(sqlDir)) {
+        require('fs').mkdirSync(sqlDir, { recursive: true });
+      }
+      const sqlPath = path.join(sqlDir, 'archive-non-professions.sql');
+      fs.writeFileSync(sqlPath, sqlContent, 'utf8');
+      console.log(`\n✅ Script SQL salvo em: ${sqlPath}`);
+    } else {
+      console.log('\n✅ Nenhuma categoria precisa ser arquivada!');
+    }
+    
+    // 6. Resumo final
+    console.log('\n=== RESUMO FINAL ===');
+    console.log(`✅ Profissões válidas: ${profissoes.length}`);
+    console.log(`📁 Grupos: ${grupos.length} (necessários para hierarquia)`);
+    console.log(`📂 Subgrupos: ${subgrupos.length} (necessários para hierarquia)`);
+    console.log(`⚠️ Anomalias: ${profissoesComFilhos.length}`);
+    console.log(`❓ Outras: ${outras.length}`);
+    
+    console.log('\n💡 RECOMENDAÇÃO:');
+    console.log('   - Grupos e subgrupos são necessários para hierarquia');
+    console.log('   - Eles não devem aparecer como "profissões" na UI');
+    console.log('   - Apenas categorias level 2 sem filhos são profissões');
+    console.log('   - Se quiser arquivar grupos/subgrupos, execute o script SQL gerado');
+    
+  } catch (error) {
+    console.error('❌ Erro:', error.message);
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+auditProfessionalCategories().catch(console.error);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

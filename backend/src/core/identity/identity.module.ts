@@ -1,0 +1,17 @@
+// src/core/identity/identity.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import identityRoutes from './identity.routes';
+
+const identityModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(identityRoutes);
+};
+
+export default identityModule;
+
+
+
+
+
+
+
+

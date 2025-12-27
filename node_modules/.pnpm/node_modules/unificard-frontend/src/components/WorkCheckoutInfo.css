@@ -1,0 +1,67 @@
+/* src/components/WorkCheckoutInfo.css */
+
+.work-checkout-info {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  position: relative;
+}
+
+.checkout-info-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #1e40af;
+  line-height: 1.5;
+}
+
+.checkout-info-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.checkout-info-text {
+  flex: 1;
+}
+
+.checkout-info-amount {
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+.checkout-info-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  background-color: #1e40af;
+  color: white;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.work-checkout-info:hover .checkout-info-tooltip {
+  opacity: 1;
+}
+
+/* Versão sem tooltip (apenas texto) */
+.work-checkout-info.simple {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.work-checkout-info.simple .checkout-info-content {
+  color: #0369a1;
+}
+

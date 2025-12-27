@@ -1,0 +1,29 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const job_routes_1 = __importDefault(require("./jobs/job.routes"));
+const worker_routes_1 = __importDefault(require("./workers/worker.routes"));
+const skill_routes_1 = __importDefault(require("./skills/skill.routes"));
+const application_routes_1 = __importDefault(require("./applications/application.routes"));
+const assignment_routes_1 = __importDefault(require("./assignments/assignment.routes"));
+const work_insights_routes_1 = __importDefault(require("./work-insights.routes"));
+const instant_routes_1 = __importDefault(require("../work-instant/instant.routes"));
+const worker_status_routes_1 = __importDefault(require("../work-instant/worker-status.routes"));
+const status_routes_1 = __importDefault(require("../work-instant/status.routes"));
+const dispatcher_plugin_1 = __importDefault(require("../work-instant/dispatcher/dispatcher.plugin"));
+const workModule = async (fastify) => {
+    await fastify.register(job_routes_1.default, { prefix: '/jobs' });
+    await fastify.register(worker_routes_1.default, { prefix: '/workers' });
+    await fastify.register(skill_routes_1.default, { prefix: '/skills' });
+    await fastify.register(application_routes_1.default, { prefix: '/applications' });
+    await fastify.register(assignment_routes_1.default, { prefix: '/assignments' });
+    await fastify.register(work_insights_routes_1.default, { prefix: '/insights' });
+    await fastify.register(instant_routes_1.default, { prefix: '/instant' });
+    await fastify.register(worker_status_routes_1.default, { prefix: '/instant' });
+    await fastify.register(status_routes_1.default, { prefix: '/instant' });
+    await fastify.register(dispatcher_plugin_1.default);
+};
+exports.default = workModule;
+//# sourceMappingURL=work.module.js.map

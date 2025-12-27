@@ -1,0 +1,317 @@
+// frontend/src/api/companies.ts
+// API para gerenciar empresas (PJ)
+
+import { CompanyStatus, CompanyUserRole, CompanyOperationalStatus } from '@unificard/contracts';
+import { apiFetch } from './client';
+
+// Re-export para compatibilidade reversa
+export type { CompanyUserRole, CompanyStatus, CompanyOperationalStatus };
+
+export interface CompanyAddress {
+  cep?: string;
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
+export interface CompanyContact {
+  phone?: string;
+  email?: string;
+  website?: string;
+}
+
+export interface CompanyActivity {
+  mainActivityCode?: string; // CNAE principal
+  mainActivityDescription?: string;
+  secondaryActivities?: Array<{
+    code: string;
+    description: string;
+  }>;
+}
+
+export interface CompanyPermissions {
+  canManageCompany: boolean;
+  canManageFinancial: boolean;
+  canManageEmployees: boolean;
+  canViewReports: boolean;
+  canManageServices: boolean;
+}
+
+export interface Company {
+  companyId: string;
+  globalUserId: string;
+  cnpj: string;
+  companyName: string;
+  tradeName?: string;
+  registrationDate?: string;
+  address: CompanyAddress;
+  contact: CompanyContact;
+  activity: CompanyActivity;
+  revenueData?: Record<string, any>;
+  status: CompanyOperationalStatus;
+  companyStatus?: CompanyStatus;
+  isVerified: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  userRole: {
+    companyUserId: string;
+    companyId: string;
+    globalUserId: string;
+    role: CompanyUserRole;
+    roleDescription?: string;
+    permissions: CompanyPermissions;
+    isActive: boolean;
+    isPrimary: boolean;
+    metadata?: Record<string, any>;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface CreateCompanyInput {
+  cnpj: string;
+  companyName?: string;
+  tradeName?: string;
+  address?: Partial<CompanyAddress>;
+  contact?: Partial<CompanyContact>;
+  activity?: Partial<CompanyActivity>;
+  role: CompanyUserRole;
+  roleDescription?: string;
+  permissions?: Partial<CompanyPermissions>;
+  isPrimary?: boolean;
+  fetchFromRevenue?: boolean;
+}
+
+export interface UpdateCompanyInput {
+  companyName?: string;
+  tradeName?: string;
+  registrationDate?: string;
+  address?: Partial<CompanyAddress>;
+  contact?: Partial<CompanyContact>;
+  activity?: Partial<CompanyActivity>;
+  status?: CompanyOperationalStatus;
+  metadata?: Record<string, any>;
+}
+
+export interface RevenueFederalData {
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia?: string;
+  data_abertura?: string;
+  situacao_cadastral?: string;
+  tipo_logradouro?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
+  telefone?: string;
+  email?: string;
+  capital_social?: string;
+  porte?: string;
+  natureza_juridica?: string;
+  atividade_principal?: Array<{
+    code: string;
+    text: string;
+  }>;
+  atividades_secundarias?: Array<{
+    code: string;
+    text: string;
+  }>;
+  qsa?: Array<{
+    nome: string;
+    qual: string;
+    pais_origem?: string;
+    nome_rep_legal?: string;
+    qual_rep_legal?: string;
+  }>;
+}
+
+/**
+ * Lista todas as empresas do usuário
+ */
+export async function listCompanies(): Promise<Company[]> {
+  const response = await apiFetch('/companies');
+  const result = await response.json();
+  // Suportar formato antigo e novo
+  if (result.ok && result.data) {
+    return result.data.companies || [];
+  }
+  return result.companies || [];
+}
+
+/**
+ * Busca empresa por ID
+ */
+export async function getCompany(companyId: string): Promise<Company> {
+  const response = await apiFetch(`/companies/${companyId}`);
+  return response.json();
+}
+
+/**
+ * Cria nova empresa
+ */
+export async function createCompany(input: CreateCompanyInput): Promise<{ company: Company; companyUser: any }> {
+  const response = await apiFetch('/companies', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return response.json();
+}
+
+/**
+ * Atualiza empresa
+ */
+export async function updateCompany(companyId: string, input: UpdateCompanyInput): Promise<Company> {
+  const response = await apiFetch(`/companies/${companyId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return response.json();
+}
+
+/**
+ * Remove empresa (soft delete)
+ */
+export async function deleteCompany(companyId: string): Promise<void> {
+  await apiFetch(`/companies/${companyId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Busca dados do CNPJ na Receita Federal
+ * 🔴 Retorna { ok: true, data } ou { ok: false, message } - nunca lança erro
+ */
+export async function fetchCNPJFromRevenue(cnpj: string): Promise<{ ok: boolean; data?: RevenueFederalData; message?: string }> {
+  const response = await apiFetch('/companies/fetch-cnpj', {
+    method: 'POST',
+    body: JSON.stringify({ cnpj }),
+  });
+  return response.json();
+}
+
+/**
+ * Upload documento da empresa (PDF)
+ */
+export async function uploadCompanyDocument(
+  companyId: string,
+  file: File
+): Promise<{ ok: boolean; message?: string; data?: { documentId: string; companyStatus: string } }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiFetch(`/companies/${companyId}/documents`, {
+    method: 'POST',
+    body: formData,
+    // Não definir Content-Type - o browser define automaticamente com boundary
+    headers: {},
+  });
+
+  return response.json();
+}
+
+/**
+ * Lista documentos da empresa
+ */
+export async function listCompanyDocuments(companyId: string): Promise<Array<{
+  documentId: string;
+  documentType: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}>> {
+  const response = await apiFetch(`/companies/${companyId}/documents`);
+  const result = await response.json();
+  return result.data || [];
+}
+
+/**
+ * Lista documentos pendentes (ADMIN)
+ */
+export async function listPendingDocuments(): Promise<Array<{
+  documentId: string;
+  companyId: string;
+  globalUserId: string;
+  companyName: string;
+  companyCnpj: string;
+  documentType: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}>> {
+  const response = await apiFetch('/companies/admin/documents/pending');
+  const result = await response.json();
+  return result.data || [];
+}
+
+/**
+ * Aprova ou rejeita documento (ADMIN)
+ */
+export async function updateDocumentStatus(
+  documentId: string,
+  status: 'approved' | 'rejected',
+  rejectedReason?: string
+): Promise<{ ok: boolean; message?: string; data?: { documentId: string; companyStatus: string } }> {
+  const response = await apiFetch(`/companies/admin/documents/${documentId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, rejectedReason }),
+  });
+  return response.json();
+}
+
+/**
+ * FASE 12: Solicita validação presencial e gera QR Code
+ */
+export interface ValidationRequest {
+  company_id: string;
+  qr_code_payload: string; // JWT assinado
+  expires_at: string;
+}
+
+export async function requestCompanyValidation(companyId: string): Promise<ValidationRequest> {
+  const response = await apiFetch(`/companies/${companyId}/request-validation`, {
+    method: 'POST',
+  });
+  return response.json();
+}
+
+/**
+ * FASE 12: Busca histórico de validações de uma empresa
+ */
+export interface CompanyValidation {
+  id: string;
+  company_id: string;
+  company_status_before: string;
+  company_status_after: string;
+  validation_method: string;
+  validated_by_employee_id: string | null;
+  validated_by_partner_id: string | null;
+  validated_at: string;
+  geo_lat: number | null;
+  geo_lng: number | null;
+  device_fingerprint: string | null;
+  metadata: Record<string, any> | null;
+}
+
+export async function getCompanyValidationHistory(companyId: string): Promise<{ validations: CompanyValidation[] }> {
+  const response = await apiFetch(`/companies/${companyId}/validation-history`);
+  return response.json();
+}
+
+

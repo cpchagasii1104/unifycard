@@ -1,0 +1,1 @@
+{"version":3,"file":"demand.controller.d.ts","sourceRoot":"","sources":["../../../../src/modules/rides/demand/demand.controller.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,cAAc,EAAE,YAAY,EAAE,MAAM,SAAS,CAAC;AAG5D;;;;;GAKG;AACH,qBAAa,gBAAgB;IACrB,uBAAuB,CAAC,GAAG,EAAE,cAAc,EAAE,KAAK,EAAE,YAAY;CAiBvE;AAED,eAAO,MAAM,gBAAgB,kBAAyB,CAAC"}

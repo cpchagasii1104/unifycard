@@ -1,0 +1,154 @@
+// src/modules/social/social-group.service.ts
+
+import type { FastifyInstance } from 'fastify';
+import { socialGroupRepository } from './social-group.repository';
+import { socialService } from './social.service';
+import { groupsRepository } from '../groups/groups.repository';
+import { groupsService } from '../groups/groups.service';
+import type {
+  GroupSocialInfo,
+  GroupFeedResult,
+  GroupInsights,
+  ImpactFeedResult,
+  AISummaryResult,
+} from './social-group.types';
+import type { CreatePostInput } from './social.types';
+
+class SocialGroupService {
+  /**
+   * Busca informações sociais de um grupo
+   */
+  async getGroupSocialInfo(
+    tenantId: string,
+    groupId: string
+  ): Promise<GroupSocialInfo | null> {
+    return socialGroupRepository.getGroupSocialInfo(tenantId, groupId);
+  }
+
+  /**
+   * Busca feed de posts de um grupo
+   */
+  async getGroupFeed(
+    tenantId: string,
+    groupId: string,
+    options: { limit?: number; offset?: number; includeAutoPosts?: boolean } = {}
+  ): Promise<GroupFeedResult> {
+    const { rows, total } = await socialGroupRepository.getGroupFeed(
+      tenantId,
+      groupId,
+      options
+    );
+
+    const posts = rows.map((row: any) => ({
+      postId: row.post_id,
+      content: row.content,
+      globalUserId: row.global_user_id,
+      createdAt: row.created_at,
+      metadata: row.metadata || {},
+      isAutoPost: row.metadata?.type === 'system_auto_post',
+    }));
+
+    const hasMore = (options.offset || 0) + posts.length < total;
+
+    return {
+      posts,
+      total,
+      hasMore,
+    };
+  }
+
+  /**
+   * Cria post dentro de um grupo
+   */
+  async createGroupPost(
+    fastify: FastifyInstance,
+    tenantId: string,
+    groupId: string,
+    globalUserId: string,
+    input: CreatePostInput
+  ) {
+    // Verificar se usuário é membro do grupo
+    const members = await groupsRepository.getMembers(tenantId, groupId);
+    const isMember = members.some((m) => m.userId === globalUserId);
+
+    if (!isMember) {
+      throw new Error('User is not a member of this group');
+    }
+
+    // Criar post com metadata.groupId
+    const post = await socialService.createPost(fastify, tenantId, globalUserId, {
+      ...input,
+      metadata: {
+        ...input.metadata,
+        groupId,
+      },
+    });
+
+    return post;
+  }
+
+  /**
+   * Lista grupos do usuário com informações sociais
+   */
+  async getMyGroups(tenantId: string, userId: string): Promise<GroupSocialInfo[]> {
+    const groups = await groupsService.getUserGroups(tenantId, userId);
+    const infos = await Promise.all(
+      groups.map((g: any) => socialGroupRepository.getGroupSocialInfo(tenantId, g.groupId))
+    );
+
+    return infos.filter((info: GroupSocialInfo | null): info is GroupSocialInfo => info !== null);
+  }
+
+  /**
+   * Busca feed de impacto combinado
+   */
+  async getImpactFeed(
+    tenantId: string,
+    userId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<ImpactFeedResult> {
+    const { items, total } = await socialGroupRepository.getImpactFeed(
+      tenantId,
+      userId,
+      options
+    );
+
+    const feedItems = items.map((item: any) => {
+      const metadata = item.metadata || {};
+      const isAutoPost = metadata.type === 'system_auto_post';
+
+      return {
+        type: isAutoPost
+          ? ('economic_auto_post' as const)
+          : metadata.groupId
+          ? ('group_post' as const)
+          : ('user_activity' as const),
+        postId: item.post_id,
+        content: item.content,
+        globalUserId: item.global_user_id,
+        groupId: metadata.groupId,
+        amount: metadata.splitAmount,
+        createdAt: item.created_at,
+        metadata,
+      };
+    });
+
+    const hasMore = (options.offset || 0) + feedItems.length < total;
+
+    return {
+      items: feedItems,
+      total,
+      hasMore,
+    };
+  }
+
+  /**
+   * Busca insights de um grupo
+   */
+  async getGroupInsights(tenantId: string, groupId: string): Promise<GroupInsights | null> {
+    return socialGroupRepository.getGroupInsights(tenantId, groupId);
+  }
+}
+
+export const socialGroupService = new SocialGroupService();
+

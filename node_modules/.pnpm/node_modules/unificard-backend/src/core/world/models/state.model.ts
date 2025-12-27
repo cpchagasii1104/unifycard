@@ -1,0 +1,34 @@
+// src/core/world/models/state.model.ts
+import type { State, StateRow } from '../world.types';
+
+export class StateModel {
+  /**
+   * Converte row do banco para objeto State
+   */
+  static fromRow(row: StateRow): State {
+    return {
+      stateId: row.state_id,
+      countryId: row.country_id,
+      code: row.code,
+      name: row.name,
+      nameEn: row.name_en,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  /**
+   * Converte array de rows para array de States
+   */
+  static fromRows(rows: StateRow[]): State[] {
+    return rows.map(row => this.fromRow(row));
+  }
+}
+
+
+
+
+
+
+
+

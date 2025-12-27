@@ -1,0 +1,19 @@
+// src/modules/votes/votes.module.ts
+// Módulo de votações
+
+import { FastifyPluginAsync } from 'fastify';
+import votesRoutes from './votes.routes';
+
+const votesModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(votesRoutes, { prefix: '/votes' });
+};
+
+export default votesModule;
+
+
+
+
+
+
+
+

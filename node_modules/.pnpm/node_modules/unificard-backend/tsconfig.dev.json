@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "noEmit": true,
+    "transpileOnly": true
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,14 @@
+// src/modules/catalog/catalog.module.ts
+// Módulo de catálogo canônico híbrido
+
+import { FastifyPluginAsync } from 'fastify';
+import catalogRoutes from './catalog.routes';
+
+const catalogModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(catalogRoutes);
+};
+
+export default catalogModule;
+
+
+

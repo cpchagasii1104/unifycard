@@ -1,0 +1,188 @@
+// src/components/events/OccupancyDashboard.tsx
+// Dashboard de ocupação para o proprietário do evento
+// Mostra capacidade, reservas, comparecimento, no-show, receita
+
+import { useState, useEffect } from 'react';
+import { apiFetch } from '../../api/client';
+import './OccupancyDashboard.css';
+
+interface OccupancyStats {
+  total_capacity: number | null;
+  total_reservations: number;
+  confirmed_reservations: number;
+  checked_in: number;
+  no_shows: number;
+  available: number | null;
+}
+
+interface OccupancyDashboardProps {
+  eventId: string;
+}
+
+export default function OccupancyDashboard({ eventId }: OccupancyDashboardProps) {
+  const [stats, setStats] = useState<OccupancyStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadStats();
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(loadStats, 30000);
+    return () => clearInterval(interval);
+  }, [eventId]);
+
+  const loadStats = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await apiFetch(`/events/${eventId}/occupancy/stats`);
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas:', err);
+      setError('Erro ao carregar dados');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="occupancy-dashboard">
+        <div className="loading">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="occupancy-dashboard">
+        <div className="error">{error || 'Dados não disponíveis'}</div>
+        <button onClick={loadStats} className="retry-btn">
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  const occupancyRate = stats.total_capacity
+    ? (stats.confirmed_reservations / stats.total_capacity) * 100
+    : null;
+  const showUpRate =
+    stats.confirmed_reservations > 0
+      ? (stats.checked_in / stats.confirmed_reservations) * 100
+      : 0;
+  const noShowRate =
+    stats.confirmed_reservations > 0
+      ? (stats.no_shows / stats.confirmed_reservations) * 100
+      : 0;
+
+  return (
+    <div className="occupancy-dashboard">
+      <div className="dashboard-header">
+        <h2>Ocupação do Evento</h2>
+        <button onClick={loadStats} className="refresh-btn" title="Atualizar">
+          🔄
+        </button>
+      </div>
+
+      <div className="stats-grid">
+        {/* Capacidade Total */}
+        {stats.total_capacity !== null && (
+          <div className="stat-card">
+            <div className="stat-label">Capacidade Total</div>
+            <div className="stat-value">{stats.total_capacity}</div>
+            <div className="stat-sublabel">lugares</div>
+          </div>
+        )}
+
+        {/* Reservas Confirmadas */}
+        <div className="stat-card stat-card-primary">
+          <div className="stat-label">Reservas Confirmadas</div>
+          <div className="stat-value">{stats.confirmed_reservations}</div>
+          {stats.total_capacity && (
+            <div className="stat-sublabel">
+              {occupancyRate?.toFixed(1)}% da capacidade
+            </div>
+          )}
+        </div>
+
+        {/* Comparecimento */}
+        <div className="stat-card stat-card-success">
+          <div className="stat-label">Comparecimento</div>
+          <div className="stat-value">{stats.checked_in}</div>
+          <div className="stat-sublabel">
+            {showUpRate.toFixed(1)}% das reservas
+          </div>
+        </div>
+
+        {/* No-Show */}
+        <div className="stat-card stat-card-warning">
+          <div className="stat-label">No-Show</div>
+          <div className="stat-value">{stats.no_shows}</div>
+          <div className="stat-sublabel">
+            {noShowRate.toFixed(1)}% das reservas
+          </div>
+        </div>
+
+        {/* Disponíveis */}
+        {stats.available !== null && (
+          <div className="stat-card">
+            <div className="stat-label">Disponíveis</div>
+            <div className="stat-value">{stats.available}</div>
+            <div className="stat-sublabel">lugares livres</div>
+          </div>
+        )}
+      </div>
+
+      {/* Gráfico de ocupação (simples) */}
+      {stats.total_capacity && (
+        <div className="occupancy-chart">
+          <div className="chart-header">
+            <span>Ocupação</span>
+            <span>{occupancyRate?.toFixed(1)}%</span>
+          </div>
+          <div className="chart-bar">
+            <div
+              className="chart-fill"
+              style={{ width: `${occupancyRate || 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Resumo */}
+      <div className="dashboard-summary">
+        <div className="summary-item">
+          <span className="summary-label">Total de Reservas:</span>
+          <span className="summary-value">{stats.total_reservations}</span>
+        </div>
+        {stats.confirmed_reservations > 0 && (
+          <>
+            <div className="summary-item">
+              <span className="summary-label">Taxa de Comparecimento:</span>
+              <span className="summary-value">{showUpRate.toFixed(1)}%</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">Taxa de No-Show:</span>
+              <span className="summary-value">{noShowRate.toFixed(1)}%</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,17 @@
+// src/modules/social-actions/social-actions.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import socialActionsRoutes from './social-actions.routes';
+
+const socialActionsModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(socialActionsRoutes);
+};
+
+export default socialActionsModule;
+
+
+
+
+
+
+
+

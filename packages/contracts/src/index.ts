@@ -1,0 +1,45 @@
+/**
+ * @unificard/contracts
+ * 
+ * Contratos de domínio compartilhados entre frontend e backend.
+ * Fonte única de verdade para tipos que cruzam camadas.
+ * 
+ * REGRA DE OURO:
+ * - Se um tipo cruza frontend ↔ backend, ele nasce aqui ou não nasce.
+ * - Backend e frontend NUNCA redefinem tipos de domínio.
+ */
+
+// Categories
+export type {
+  CategoryContext,
+  CategoryStatus,
+} from './categories';
+
+// Company
+export type {
+  CompanyStatus,
+  CompanyOperationalStatus,
+  CompanyUserRole,
+} from './company';
+
+// Checkout
+export type {
+  CheckoutContext,
+  CheckoutRequest,
+  CheckoutResult,
+  CheckoutEventTicketInput,
+} from './checkout';
+
+// Events
+export type {
+  EventStatus,
+  EventType,
+} from './events';
+
+// Feed
+export type {
+  FeedItemType,
+  FeedItem,
+  FeedEvent,
+  FeedResponse,
+} from './feed';

@@ -1,0 +1,240 @@
+"use strict";
+// src/modules/work-instant/smart-matching.service.ts
+//
+// Motor de matching inteligente para Work Instant
+// Usa IA + histórico + reputação + sinais comportamentais
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.smartMatchingService = void 0;
+const reputation_service_1 = require("@core/reputation/reputation.service");
+const work_insights_service_1 = require("../work/work-insights.service");
+const memory_service_1 = require("@core/memory/memory.service");
+class SmartMatchingService {
+    /**
+     * Normaliza um valor para escala 0-1
+     */
+    normalize(value, min, max) {
+        if (max === min)
+            return 0.5;
+        return Math.max(0, Math.min(1, (value - min) / (max - min)));
+    }
+    /**
+     * Calcula score de distância (quanto mais perto, maior o score)
+     */
+    calculateDistanceScore(distance, maxDistance = 10) {
+        // Inverter: distância menor = score maior
+        return 1 - this.normalize(distance, 0, maxDistance);
+    }
+    /**
+     * Busca e calcula reputationScore
+     */
+    async getReputationScore(tenantId, workerId) {
+        try {
+            const reputation = await reputation_service_1.reputationService.getScore(tenantId, 'worker', workerId);
+            if (!reputation) {
+                return 0.5; // Score neutro se não tiver reputação
+            }
+            // Normalizar de 0-5 para 0-1
+            return this.normalize(reputation.globalScore, 0, 5);
+        }
+        catch {
+            return 0.5;
+        }
+    }
+    /**
+     * Busca e calcula performanceScore
+     */
+    async getPerformanceScore(tenantId, userId) {
+        try {
+            const performance = await work_insights_service_1.workInsightsService.getPerformance(tenantId, userId);
+            if (!performance || performance.totalAssignments === 0) {
+                return 0.5; // Score neutro se não tiver histórico
+            }
+            // Usar completionRate (0-100) e normalizar para 0-1
+            return this.normalize(performance.completionRate, 0, 100);
+        }
+        catch {
+            return 0.5;
+        }
+    }
+    /**
+     * Calcula responseScore baseado no Memory Engine
+     * Tempo médio para aceitar requests (quanto menor, maior o score)
+     */
+    async getResponseScore(userId) {
+        try {
+            // Buscar contextos de assignment_completed do Memory Engine
+            const contexts = memory_service_1.memoryService.getContextsByUserId(userId, 'assignment_completed');
+            if (contexts.length === 0) {
+                return 0.5; // Score neutro se não tiver histórico
+            }
+            // Calcular tempo médio de resposta (placeholder)
+            // Futuramente: analisar timestamps de criação vs aceitação
+            // Por enquanto, usar quantidade de assignments como proxy
+            const responseCount = contexts.length;
+            // Mais assignments = melhor resposta (normalizar até 50 assignments)
+            return this.normalize(Math.min(responseCount, 50), 0, 50);
+        }
+        catch {
+            return 0.5;
+        }
+    }
+    /**
+     * Calcula specializationScore baseado em skills/categoria
+     */
+    async getSpecializationScore(tenantId, workerId, categoryId) {
+        try {
+            // Buscar skills do worker
+            const { runQueriesWithTenant } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+            const skills = await runQueriesWithTenant(tenantId, `
+        SELECT skill_id
+        FROM worker_skills
+        WHERE worker_id = $1
+        `, [workerId]);
+            if (!skills || skills.length === 0) {
+                return 0.3; // Score baixo se não tiver skills
+            }
+            // Verificar se tem skill relacionada à categoria
+            // Por enquanto, usar categoryId como skillId (placeholder)
+            // Futuramente: mapear categoria → skills relacionadas
+            const hasMatchingSkill = skills.some((s) => s.skill_id === categoryId);
+            if (hasMatchingSkill) {
+                return 1.0; // Score máximo se tiver skill relacionada
+            }
+            // Score baseado em quantidade de skills (mais skills = mais versátil)
+            return this.normalize(skills.length, 0, 10);
+        }
+        catch {
+            return 0.5;
+        }
+    }
+    /**
+     * Calcula experienceScore baseado em assignments concluídos na categoria
+     */
+    async getExperienceScore(tenantId, workerId, categoryId) {
+        try {
+            // Buscar assignments completados do worker
+            const { runQueriesWithTenant } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+            const assignments = await runQueriesWithTenant(tenantId, `
+        SELECT COUNT(*) as count
+        FROM job_assignments ja
+        JOIN jobs j ON j.job_id = ja.job_id
+        WHERE ja.worker_id = $1
+          AND ja.status = 'completed'
+          AND j.required_skills @> ARRAY[$2]::uuid[]
+        `, [workerId, categoryId]);
+            if (!assignments || assignments.length === 0) {
+                return 0.3; // Score baixo se não tiver experiência
+            }
+            const count = Number(assignments[0]?.count || 0);
+            // Normalizar até 20 assignments (experiência considerada alta)
+            return this.normalize(Math.min(count, 20), 0, 20);
+        }
+        catch {
+            return 0.5;
+        }
+    }
+    /**
+     * Calcula availabilityScore baseado em lastSeen
+     */
+    calculateAvailabilityScore(lastSeen) {
+        const now = Date.now();
+        const timeSinceLastSeen = now - lastSeen;
+        // Quanto mais recente, maior o score
+        // Score máximo se lastSeen < 1 minuto
+        // Score mínimo se lastSeen > 5 minutos
+        const maxAge = 5 * 60 * 1000; // 5 minutos
+        return 1 - this.normalize(timeSinceLastSeen, 0, maxAge);
+    }
+    /**
+     * Ordena workers usando matching inteligente
+     * Calcula múltiplos scores e faz média ponderada
+     */
+    async smartSortWorkers(workers, requestPayload, tenantId) {
+        if (workers.length === 0) {
+            return [];
+        }
+        const workersWithScores = [];
+        // Calcular scores para cada worker
+        for (const worker of workers) {
+            // 1. Distance Score (0.35)
+            const distanceScore = this.calculateDistanceScore(worker.distance);
+            // 2. Reputation Score (0.25)
+            const reputationScore = await this.getReputationScore(tenantId, worker.workerId);
+            // 3. Performance Score (0.20)
+            const performanceScore = await this.getPerformanceScore(tenantId, worker.userId);
+            // 4. Experience Score (0.10)
+            const experienceScore = await this.getExperienceScore(tenantId, worker.workerId, requestPayload.categoryId);
+            // 5. Response Score (0.05)
+            const responseScore = await this.getResponseScore(worker.userId);
+            // 6. Specialization Score (0.05)
+            const specializationScore = await this.getSpecializationScore(tenantId, worker.workerId, requestPayload.categoryId);
+            // 7. Availability Score (0.05) - baseado em lastSeen do workerStatusService
+            // Por enquanto, usar 1.0 (já filtrado por getOnlineWorkers)
+            const availabilityScore = 1.0;
+            // Calcular score final (média ponderada)
+            const finalScore = 0.35 * distanceScore +
+                0.25 * reputationScore +
+                0.20 * performanceScore +
+                0.10 * experienceScore +
+                0.05 * responseScore +
+                0.05 * specializationScore +
+                0.05 * availabilityScore;
+            workersWithScores.push({
+                ...worker,
+                distanceScore,
+                reputationScore,
+                performanceScore,
+                responseScore,
+                specializationScore,
+                experienceScore,
+                availabilityScore,
+                finalScore,
+            });
+        }
+        // Ordenar por score final (maior primeiro)
+        workersWithScores.sort((a, b) => b.finalScore - a.finalScore);
+        // Retornar apenas os campos originais de WorkerMatch
+        return workersWithScores.map((w) => ({
+            workerId: w.workerId,
+            userId: w.userId,
+            distance: w.distance,
+            rating: w.rating,
+            estimatedTime: w.estimatedTime,
+        }));
+    }
+}
+exports.smartMatchingService = new SmartMatchingService();
+//# sourceMappingURL=smart-matching.service.js.map

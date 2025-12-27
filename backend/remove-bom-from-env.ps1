@@ -1,0 +1,43 @@
+# Script para remover BOM do arquivo .env do frontend
+# Execute: .\remove-bom-from-env.ps1
+
+$envPath = "..\frontend\.env"
+
+if (-not (Test-Path $envPath)) {
+    Write-Host "Arquivo .env não encontrado em: $envPath" -ForegroundColor Yellow
+    exit 0
+}
+
+# Ler conteúdo removendo BOM
+$content = Get-Content $envPath -Raw -Encoding UTF8
+
+# Remover BOM se existir (primeiros 3 bytes: EF BB BF)
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($content)
+if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "BOM detectado, removendo..." -ForegroundColor Yellow
+    $contentWithoutBom = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    
+    # Salvar sem BOM
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Resolve-Path $envPath), $contentWithoutBom, $utf8NoBom)
+    
+    Write-Host "BOM removido com sucesso!" -ForegroundColor Green
+} else {
+    Write-Host "Nenhum BOM detectado no arquivo." -ForegroundColor Green
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

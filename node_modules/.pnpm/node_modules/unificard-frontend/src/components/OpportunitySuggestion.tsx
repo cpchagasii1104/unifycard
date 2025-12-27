@@ -1,0 +1,97 @@
+// src/components/OpportunitySuggestion.tsx
+// Sugestão de oportunidade - possibilidade no tempo certo
+
+import { type Opportunity } from '../api/opportunity';
+import './OpportunitySuggestion.css';
+
+interface OpportunitySuggestionProps {
+  opportunity: Opportunity;
+  onAccept?: (opportunityId: string) => void;
+  onDismiss?: (opportunityId: string) => void;
+}
+
+export default function OpportunitySuggestion({ 
+  opportunity, 
+  onAccept, 
+  onDismiss 
+}: OpportunitySuggestionProps) {
+  const handleAccept = () => {
+    onAccept?.(opportunity.id);
+  };
+
+  const handleDismiss = () => {
+    onDismiss?.(opportunity.id);
+  };
+
+  const getTypeLabel = () => {
+    switch (opportunity.type) {
+      case 'exploratory':
+        return 'Exploratória';
+      case 'community':
+        return 'Comunidade';
+      case 'professional':
+        return 'Profissional';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <div className="opportunity-suggestion">
+      <div className="opportunity-content">
+        <div className="opportunity-header">
+          <h3 className="opportunity-title">{opportunity.title}</h3>
+          <span className="opportunity-type-badge">{getTypeLabel()}</span>
+        </div>
+        <p className="opportunity-description">{opportunity.description}</p>
+        {opportunity.category && (
+          <div className="opportunity-category">
+            <span className="category-label">{opportunity.category.name}</span>
+          </div>
+        )}
+        {opportunity.metadata && (
+          <div className="opportunity-metadata">
+            {opportunity.metadata.isPaid && (
+              <span className="metadata-badge paid">Remunerado</span>
+            )}
+            {opportunity.metadata.isRemote && (
+              <span className="metadata-badge remote">Remoto</span>
+            )}
+            {opportunity.metadata.estimatedTime && (
+              <span className="metadata-badge time">{opportunity.metadata.estimatedTime}</span>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="opportunity-actions">
+        <button
+          className="opportunity-button accept"
+          onClick={handleAccept}
+          aria-label="Ver mais"
+        >
+          Ver mais
+        </button>
+        <button
+          className="opportunity-button dismiss"
+          onClick={handleDismiss}
+          aria-label="Agora não"
+        >
+          Agora não
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

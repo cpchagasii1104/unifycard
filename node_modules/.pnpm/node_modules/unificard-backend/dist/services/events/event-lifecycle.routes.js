@@ -1,0 +1,220 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const EventScheduleService_1 = require("./EventScheduleService");
+const TicketService_1 = require("./TicketService");
+const ConsumptionService_1 = require("./ConsumptionService");
+const EventService_1 = require("./EventService");
+const rbac_service_1 = require("@core/rbac/rbac.service");
+const db_1 = require("@core/db");
+const eventScheduleService = new EventScheduleService_1.EventScheduleService();
+const ticketService = new TicketService_1.TicketService();
+const consumptionService = new ConsumptionService_1.ConsumptionService();
+const eventService = new EventService_1.EventService();
+const eventLifecycleRoutes = async (fastify) => {
+    /**
+     * Helper para validar se usuário é owner do evento ou admin
+     */
+    async function requireEventOwnerOrAdmin(req, eventId) {
+        const tenantId = req.tenant.id;
+        const userId = req.user.id;
+        if (!userId) {
+            throw fastify.httpErrors.unauthorized('Authentication required');
+        }
+        // Verificar se é owner do evento
+        const event = await (0, db_1.runQueryWithTenant)(tenantId, {
+            text: `
+          SELECT created_by_global_user_id, created_by_company_id
+          FROM events
+          WHERE id = $1
+        `,
+            values: [eventId],
+        });
+        if (!event) {
+            throw fastify.httpErrors.notFound('Event not found');
+        }
+        // Se for o criador, permitir
+        if (event.created_by_global_user_id === req.user.globalUserId ||
+            (event.created_by_company_id &&
+                req.user.globalUserId &&
+                (await checkCompanyAdmin(tenantId, req.user.globalUserId, event.created_by_company_id)))) {
+            return;
+        }
+        // Verificar se é admin
+        const hasAdminRole = await rbac_service_1.rbacService.userHasAnyRole(tenantId, userId, [
+            'admin',
+            'owner',
+        ]);
+        if (!hasAdminRole) {
+            throw fastify.httpErrors.forbidden('Requires event owner or admin permission');
+        }
+    }
+    async function checkCompanyAdmin(tenantId, userId, companyId) {
+        const employee = await (0, db_1.runQueryWithTenant)(tenantId, {
+            text: `
+          SELECT role, can_manage_schedule
+          FROM company_employees
+          WHERE company_id = $1
+            AND global_user_id = $2
+            AND ended_at IS NULL
+        `,
+            values: [companyId, userId],
+        });
+        return (employee &&
+            (employee.role === 'owner' ||
+                employee.role === 'admin' ||
+                employee.can_manage_schedule));
+    }
+    /**
+     * POST /api/events/:id/publish
+     * Publica evento + gera schedule + slots
+     */
+    fastify.post('/:id/publish', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            await requireEventOwnerOrAdmin(req, req.params.id);
+            // 1. Atualiza status para PUBLISHED
+            await (0, db_1.runQueryWithTenant)(req.tenant.id, {
+                text: `
+          UPDATE events
+          SET status = 'PUBLISHED'
+          WHERE id = $1
+        `,
+                values: [req.params.id],
+            });
+            // 2. Cria schedule
+            const scheduleId = await eventScheduleService.ensureEventSchedule(req.params.id, req.tenant.id);
+            // 3. Gera slots
+            const slotsGenerated = await eventScheduleService.generateEventSlots(req.params.id, req.tenant.id);
+            return reply.status(200).send({
+                scheduleId,
+                slotsGenerated,
+            });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao publicar evento');
+            return reply.status(500).send({ error: 'Erro ao publicar evento' });
+        }
+    });
+    /**
+     * POST /api/events/:id/tickets
+     * Compra ingresso
+     */
+    fastify.post('/:id/tickets', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        if (!req.user.globalUserId) {
+            return reply.status(400).send({ error: 'Global user ID required' });
+        }
+        try {
+            const result = await ticketService.purchaseTicket({
+                eventId: req.params.id,
+                buyerUserId: req.user.globalUserId,
+                tenantId: req.tenant.id,
+            });
+            return reply.status(201).send(result);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao comprar ingresso');
+            return reply.status(500).send({ error: 'Erro ao comprar ingresso' });
+        }
+    });
+    /**
+     * POST /api/events/checkin
+     * Check-in com QR code
+     */
+    fastify.post('/checkin', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const result = await ticketService.checkIn(req.body.qrCode, req.tenant.id);
+            return reply.status(200).send(result);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao fazer check-in');
+            return reply.status(500).send({ error: 'Erro ao fazer check-in' });
+        }
+    });
+    /**
+     * POST /api/events/:id/consumption
+     * Registra consumo
+     */
+    fastify.post('/:id/consumption', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        if (!req.user.globalUserId) {
+            return reply.status(400).send({ error: 'Global user ID required' });
+        }
+        try {
+            const result = await consumptionService.registerConsumption({
+                eventId: req.params.id,
+                userId: req.user.globalUserId,
+                tenantId: req.tenant.id,
+                items: req.body.items,
+            });
+            return reply.status(201).send(result);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao registrar consumo');
+            return reply.status(500).send({ error: 'Erro ao registrar consumo' });
+        }
+    });
+    /**
+     * POST /admin/events/:id/cancel
+     * Cancela evento
+     */
+    fastify.post('/:id/cancel', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            await requireEventOwnerOrAdmin(req, req.params.id);
+            const result = await eventService.cancelEvent({
+                eventId: req.params.id,
+                tenantId: req.tenant.id,
+                reason: req.body.reason,
+            });
+            return reply.status(200).send(result);
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                return reply.status(400).send({ error: error.message });
+            }
+            fastify.log.error({ err: error }, 'Erro ao cancelar evento');
+            return reply.status(500).send({ error: 'Erro ao cancelar evento' });
+        }
+    });
+};
+exports.default = eventLifecycleRoutes;
+//# sourceMappingURL=event-lifecycle.routes.js.map

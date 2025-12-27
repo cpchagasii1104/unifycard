@@ -1,0 +1,206 @@
+// src/modules/social/social-targeting.service.ts
+// Serviço de direcionamento inteligente baseado no Raio-X do CORE
+
+import type { CompleteProfile } from '@core/core.service';
+
+export interface TargetingFilters {
+  demographics?: {
+    age_range?: [number, number];
+    gender?: ('male' | 'female' | 'other')[];
+  };
+  lifestyle?: {
+    drinks?: boolean;
+    smokes?: boolean;
+  };
+  mobility?: {
+    has_car?: boolean;
+    uses_bike?: boolean;
+    uses_skate?: boolean;
+  };
+  interests?: string[]; // interest_id[]
+  professions?: string[]; // profession_id ou category_id[]
+  locations?: {
+    radius_km?: number;
+    city_id?: string;
+  };
+}
+
+export interface RelevanceScore {
+  score: number; // 0-100
+  breakdown: {
+    intent_match?: number;
+    interest_match?: number;
+    proximity?: number;
+    social_affinity?: number;
+    demographics?: number;
+    lifestyle?: number;
+  };
+}
+
+export class SocialTargetingService {
+  /**
+   * Calcula score de relevância baseado no Raio-X do CORE
+   * REGRA: Targeting é SOFT (ranking), não bloqueio duro
+   */
+  calculateRelevanceScore(
+    targeting: TargetingFilters | null,
+    userCoreProfile: CompleteProfile,
+    isFollowed: boolean,
+    userAge?: number
+  ): RelevanceScore {
+    const breakdown: RelevanceScore['breakdown'] = {};
+    let totalScore = 50; // Score base (nunca zero)
+
+    // 1. Social Affinity (seguir o actor) - peso alto
+    if (isFollowed) {
+      breakdown.social_affinity = 30;
+      totalScore += 30;
+    }
+
+    // 2. Demographics (idade, gênero)
+    if (targeting?.demographics) {
+      let demoScore = 0;
+      const { age_range, gender } = targeting.demographics;
+
+      // Idade
+      if (age_range && userAge !== undefined) {
+        const [minAge, maxAge] = age_range;
+        if (userAge >= minAge && userAge <= maxAge) {
+          demoScore += 10;
+        } else {
+          // Penalidade suave se fora do range
+          demoScore -= 5;
+        }
+      }
+
+      // Gênero
+      if (gender && gender.length > 0) {
+        const userGender = userCoreProfile.personal_profile?.metadata?.gender;
+        if (userGender && gender.includes(userGender)) {
+          demoScore += 5;
+        }
+      }
+
+      breakdown.demographics = Math.max(0, demoScore);
+      totalScore += breakdown.demographics;
+    }
+
+    // 3. Lifestyle
+    if (targeting?.lifestyle) {
+      let lifestyleScore = 0;
+      const userLifestyle = userCoreProfile.physical_profile?.lifestyle;
+
+      if (targeting.lifestyle.drinks !== undefined && userLifestyle?.drinks) {
+        // Match simples (pode ser refinado)
+        lifestyleScore += 3;
+      }
+      if (targeting.lifestyle.smokes !== undefined && userLifestyle?.smokes) {
+        lifestyleScore += 3;
+      }
+
+      breakdown.lifestyle = lifestyleScore;
+      totalScore += breakdown.lifestyle;
+    }
+
+    // 4. Interests (match de interesses do CORE)
+    if (targeting?.interests && targeting.interests.length > 0) {
+      const userInterests = userCoreProfile.interests || [];
+      const userInterestIds = userInterests.map((i) => i.interest_id);
+
+      const matches = targeting.interests.filter((targetInterestId) =>
+        userInterestIds.includes(targetInterestId)
+      ).length;
+
+      if (matches > 0) {
+        // Score proporcional ao número de matches
+        breakdown.interest_match = Math.min(20, (matches / targeting.interests.length) * 20);
+        totalScore += breakdown.interest_match;
+      }
+    }
+
+    // 5. Professions (match de profissões/habilidades do CORE)
+    if (targeting?.professions && targeting.professions.length > 0) {
+      const userSkills = userCoreProfile.professional_profile?.skills || [];
+      const userCategoryIds = userSkills.map((s: any) => s.categoryId || s.category_id);
+
+      const matches = targeting.professions.filter((targetProfId) =>
+        userCategoryIds.includes(targetProfId)
+      ).length;
+
+      if (matches > 0) {
+        breakdown.intent_match = Math.min(15, (matches / targeting.professions.length) * 15);
+        totalScore += breakdown.intent_match;
+      }
+    }
+
+    // 6. Proximity (localização) - simplificado por enquanto
+    if (targeting?.locations) {
+      // TODO: Implementar cálculo de distância real quando houver dados de localização
+      breakdown.proximity = 5; // Score base para posts com localização
+      totalScore += breakdown.proximity;
+    }
+
+    // Garantir que score está entre 0 e 100
+    const finalScore = Math.max(0, Math.min(100, totalScore));
+
+    return {
+      score: finalScore,
+      breakdown,
+    };
+  }
+
+  /**
+   * Valida se targeting é válido (não bloqueia, apenas valida estrutura)
+   */
+  validateTargeting(targeting: any): targeting is TargetingFilters {
+    if (!targeting || typeof targeting !== 'object') {
+      return false;
+    }
+
+    // Validar estrutura básica (não muito restritivo)
+    if (targeting.demographics) {
+      if (targeting.demographics.age_range && !Array.isArray(targeting.demographics.age_range)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Ordena posts por relevância mantendo 20% de discovery
+   * REGRA: Nunca exclui completamente usuário por não bater 100% no targeting
+   */
+  rankPosts(
+    posts: Array<{ relevance_score: number; is_followed?: boolean; created_at: string }>,
+    discoveryPercentage: number = 20
+  ): Array<{ relevance_score: number; is_followed?: boolean; created_at: string }> {
+    if (posts.length === 0) {
+      return [];
+    }
+
+    // Ordenar por relevância (seguidos primeiro, depois score)
+    const sorted = [...posts].sort((a, b) => {
+      // Priorizar posts seguidos
+      if (a.is_followed !== b.is_followed) {
+        return b.is_followed ? 1 : -1;
+      }
+      // Depois por score
+      if (b.relevance_score !== a.relevance_score) {
+        return b.relevance_score - a.relevance_score;
+      }
+      // Por último por data
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    // Separar alta relevância e discovery
+    const discoveryCount = Math.max(1, Math.floor(sorted.length * (discoveryPercentage / 100)));
+    const highRelevance = sorted.slice(0, sorted.length - discoveryCount);
+    const discovery = sorted.slice(-discoveryCount);
+
+    // Misturar: alta relevância primeiro, depois discovery
+    return [...highRelevance, ...discovery];
+  }
+}
+
+export const socialTargetingService = new SocialTargetingService();

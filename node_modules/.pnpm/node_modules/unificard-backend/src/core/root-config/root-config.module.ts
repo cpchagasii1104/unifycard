@@ -1,0 +1,17 @@
+// src/core/root-config/root-config.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import rootConfigRoutes from './root-config.routes';
+
+const rootConfigModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(rootConfigRoutes);
+};
+
+export default rootConfigModule;
+
+
+
+
+
+
+
+

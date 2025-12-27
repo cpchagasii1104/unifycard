@@ -1,0 +1,41 @@
+// backend/src/config/testOverrideUsers.ts
+// Override de acesso total para usuários de teste
+// REGRA: Apenas user_id, nunca CPF, email ou nome
+
+/**
+ * Lista de user_ids com acesso total ao sistema (apenas para testes)
+ * 
+ * Para adicionar um usuário:
+ * 1. Buscar user_id no banco: SELECT id FROM users WHERE cpf = '...';
+ * 2. Adicionar o UUID aqui
+ * 
+ * Para remover: simplesmente remover da lista
+ */
+export const TEST_OVERRIDE_USER_IDS: string[] = [
+  // Clayton Pereira Chagas (CPF: 03132549908)
+  // TODO: Substituir pelo user_id real após consulta no banco
+  // Exemplo: '9f2c3b7a-4a1e-4c9e-bd12-8b3d9a4d1234'
+];
+
+/**
+ * Verifica se um user_id está na lista de override
+ * 
+ * @param userId UUID do usuário
+ * @returns true se o usuário tem acesso total
+ */
+export function isTestOverrideUser(userId: string): boolean {
+  return TEST_OVERRIDE_USER_IDS.includes(userId);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

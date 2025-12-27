@@ -1,0 +1,34 @@
+"use strict";
+// src/core/dashboard/dashboard.routes.ts
+// Rotas do dashboard principal - READ-ONLY
+Object.defineProperty(exports, "__esModule", { value: true });
+const dashboard_service_1 = require("./dashboard.service");
+const dashboardRoutes = async (fastify) => {
+    /**
+     * GET /dashboard
+     * Retorna dados completos do dashboard do usuário autenticado
+     */
+    const dashboardHandler = async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const dashboard = await dashboard_service_1.dashboardService.getDashboard(req.tenant.id, req.user.id);
+            return dashboard;
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar dashboard');
+            return reply.status(500).send({ error: 'Erro ao buscar dashboard' });
+        }
+    };
+    // Rota principal
+    fastify.get('/', dashboardHandler);
+    // TODO: Remover após frontend migrar para rota canônica
+    // Alias temporário para compatibilidade: /dashboard/dashboard -> /dashboard
+    fastify.get('/dashboard', dashboardHandler);
+};
+exports.default = dashboardRoutes;
+//# sourceMappingURL=dashboard.routes.js.map

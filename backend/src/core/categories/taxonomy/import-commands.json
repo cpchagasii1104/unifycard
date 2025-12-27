@@ -1,0 +1,156 @@
+{
+  "commands": [
+    {
+      "note": "=== SERVIÇOS AUTOMOTIVOS ===",
+      "root": {
+        "endpoint": "/categories/create-root",
+        "payload": {
+          "name": "Serviços Automotivos",
+          "slug": "servicos-automotivos",
+          "description": "Serviços relacionados a veículos automotores"
+        }
+      },
+      "children": [
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Manutenção e Reparo",
+            "slug": "manutencao-reparo",
+            "description": "Serviços de manutenção e reparo de veículos"
+          },
+          "grandchildren": [
+            {"name": "Troca de Óleo", "slug": "troca-oleo"},
+            {"name": "Alinhamento e Balanceamento", "slug": "alinhamento-balanceamento"},
+            {"name": "Reparo de Motor", "slug": "reparo-motor"},
+            {"name": "Reparo de Transmissão", "slug": "reparo-transmissao"},
+            {"name": "Sistema de Freios", "slug": "sistema-freios"},
+            {"name": "Sistema Elétrico", "slug": "sistema-eletrico"},
+            {"name": "Ar Condicionado", "slug": "ar-condicionado"},
+            {"name": "Suspensão", "slug": "suspensao"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Lavagem e Detalhamento",
+            "slug": "lavagem-detalhamento",
+            "description": "Serviços de limpeza e estética automotiva"
+          },
+          "grandchildren": [
+            {"name": "Lavagem Simples", "slug": "lavagem-simples"},
+            {"name": "Lavagem Completa", "slug": "lavagem-completa"},
+            {"name": "Detalhamento Premium", "slug": "detalhamento-premium"},
+            {"name": "Enceramento", "slug": "enceramento"},
+            {"name": "Hidratação de Couro", "slug": "hidratacao-couro"},
+            {"name": "Polimento", "slug": "polimento"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Pneus e Rodas",
+            "slug": "pneus-rodas",
+            "description": "Serviços relacionados a pneus e rodas"
+          },
+          "grandchildren": [
+            {"name": "Venda de Pneus", "slug": "venda-pneus"},
+            {"name": "Montagem de Pneus", "slug": "montagem-pneus"},
+            {"name": "Calibragem", "slug": "calibragem"},
+            {"name": "Recauchutagem", "slug": "recauchutagem"},
+            {"name": "Venda de Rodas", "slug": "venda-rodas"},
+            {"name": "Reforma de Rodas", "slug": "reforma-rodas"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Funilaria e Pintura",
+            "slug": "funilaria-pintura",
+            "description": "Serviços de funilaria e pintura automotiva"
+          },
+          "grandchildren": [
+            {"name": "Reparo de Amassados", "slug": "reparo-amassados"},
+            {"name": "Pintura Completa", "slug": "pintura-completa"},
+            {"name": "Pintura Parcial", "slug": "pintura-parcial"},
+            {"name": "Envelopamento", "slug": "envelopamento"},
+            {"name": "Remoção de Amassados", "slug": "remocao-amassados"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Vidros e Espelhos",
+            "slug": "vidros-espelhos",
+            "description": "Serviços relacionados a vidros e espelhos"
+          },
+          "grandchildren": [
+            {"name": "Troca de Para-brisa", "slug": "troca-parabrisa"},
+            {"name": "Troca de Vidros Laterais", "slug": "troca-vidros-laterais"},
+            {"name": "Pelicula de Proteção", "slug": "pelicula-protecao"},
+            {"name": "Reparo de Vidros", "slug": "reparo-vidros"},
+            {"name": "Espelhos Retrovisores", "slug": "espelhos-retrovisores"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Instalação de Acessórios",
+            "slug": "instalacao-acessorios",
+            "description": "Instalação de acessórios automotivos"
+          },
+          "grandchildren": [
+            {"name": "Sistema de Som", "slug": "sistema-som"},
+            {"name": "Alarme e Rastreador", "slug": "alarme-rastreador"},
+            {"name": "Central Multimídia", "slug": "central-multimidia"},
+            {"name": "Iluminação LED", "slug": "iluminacao-led"},
+            {"name": "Acessórios de Estética", "slug": "acessorios-estetica"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Inspeção e Vistoria",
+            "slug": "inspecao-vistoria",
+            "description": "Serviços de inspeção e vistoria veicular"
+          },
+          "grandchildren": [
+            {"name": "Vistoria Pré-Compra", "slug": "vistoria-pre-compra"},
+            {"name": "Laudo Técnico", "slug": "laudo-tecnico"},
+            {"name": "Inspeção Veicular", "slug": "inspecao-veicular"},
+            {"name": "Avaliação de Veículo", "slug": "avaliacao-veiculo"}
+          ]
+        },
+        {
+          "endpoint": "/categories/create-child",
+          "parentSlug": "servicos-automotivos",
+          "payload": {
+            "name": "Despachante Automotivo",
+            "slug": "despachante-automotivo",
+            "description": "Serviços de despachante para veículos"
+          },
+          "grandchildren": [
+            {"name": "Transferência de Propriedade", "slug": "transferencia-propriedade"},
+            {"name": "Licenciamento", "slug": "licenciamento"},
+            {"name": "Emplacamento", "slug": "emplacamento"},
+            {"name": "Segunda Via de Documentos", "slug": "segunda-via-documentos"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+
+
+
+
+
+
+

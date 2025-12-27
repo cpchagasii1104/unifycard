@@ -1,0 +1,12 @@
+// backend/src/core/ai/files/file-reader.types.ts
+export interface ReadFileRequest {
+  path: string;
+}
+
+export interface ReadFileResponse {
+  content: string;
+  path: string;
+  truncated: boolean;
+}
+
+

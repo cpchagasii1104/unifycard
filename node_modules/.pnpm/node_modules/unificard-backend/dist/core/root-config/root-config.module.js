@@ -1,0 +1,11 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const root_config_routes_1 = __importDefault(require("./root-config.routes"));
+const rootConfigModule = async (fastify) => {
+    await fastify.register(root_config_routes_1.default);
+};
+exports.default = rootConfigModule;
+//# sourceMappingURL=root-config.module.js.map

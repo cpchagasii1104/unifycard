@@ -1,0 +1,1 @@
+{"version":3,"file":"zones.controller.d.ts","sourceRoot":"","sources":["../../../../src/modules/rides/zones/zones.controller.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,cAAc,EAAE,YAAY,EAAE,MAAM,SAAS,CAAC;AAE5D,qBAAa,eAAe;IACpB,UAAU,CAAC,GAAG,EAAE,cAAc,EAAE,KAAK,EAAE,YAAY;IAcnD,SAAS,CAAC,GAAG,EAAE,cAAc,EAAE,KAAK,EAAE,YAAY;CAYzD;AAED,eAAO,MAAM,eAAe,iBAAwB,CAAC"}

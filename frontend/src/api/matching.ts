@@ -1,0 +1,74 @@
+// src/api/matching.ts
+// API de Matching Humano
+
+import { apiFetch } from './client';
+
+export type MatchType = 
+  | 'exploration'
+  | 'learning'
+  | 'mirroring';
+
+export interface MatchUser {
+  userId: string;
+  name: string;
+  avatar?: string;
+  state: string;
+  affinity: {
+    physical?: string[];
+    learning?: string[];
+    professional?: string[];
+  };
+  lastActivity?: string;
+}
+
+export interface MatchSuggestion {
+  id: string;
+  type: MatchType;
+  users: MatchUser[];
+  title: string;
+  message: string;
+  affinityScore: number;
+  priority: number;
+  createdAt: string;
+}
+
+export interface MatchResult {
+  suggestions: MatchSuggestion[];
+  hasMore: boolean;
+}
+
+export async function getMatchingSuggestions(limit: number = 5): Promise<MatchResult> {
+  const response = await apiFetch(`/matching/suggestions?limit=${limit}`);
+  const result = await response.json();
+  if (!result.ok) {
+    throw new Error(result.message || 'Erro ao buscar sugestões de matching');
+  }
+  return result.data;
+}
+
+export async function recordMatchAction(matchId: string, action: 'accept' | 'dismiss'): Promise<void> {
+  const response = await apiFetch('/matching/action', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ matchId, action }),
+  });
+  const result = await response.json();
+  if (!result.ok) {
+    throw new Error(result.message || 'Erro ao registrar ação de matching');
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

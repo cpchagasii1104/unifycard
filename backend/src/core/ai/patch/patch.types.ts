@@ -1,0 +1,13 @@
+// backend/src/core/ai/patch/patch.types.ts
+export interface PatchProposalRequest {
+  filePath: string;
+  instructions: string;
+}
+
+export interface PatchProposalResponse {
+  diff: string;
+  summary: string;
+  risk_level: 'low' | 'medium' | 'high';
+}
+
+

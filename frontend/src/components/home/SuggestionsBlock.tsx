@@ -1,0 +1,81 @@
+// src/components/home/SuggestionsBlock.tsx
+// Bloco de sugestões
+
+import { useNavigate } from 'react-router-dom';
+import type { MatchSuggestion } from '../../api/matching';
+import './SuggestionsBlock.css';
+
+interface SuggestionsBlockProps {
+  suggestions: MatchSuggestion[];
+}
+
+export default function SuggestionsBlock({ suggestions }: SuggestionsBlockProps) {
+  const navigate = useNavigate();
+
+  const handleSuggestionClick = (suggestion: MatchSuggestion) => {
+    // Navegar para perfil do match ou feed social
+    if (suggestion.users && suggestion.users.length > 0) {
+      navigate(`/profile/${suggestion.users[0].userId}`);
+    } else {
+      navigate('/social');
+    }
+  };
+
+  // Não renderizar se não houver dados reais
+  if (suggestions.length === 0) {
+    return null;
+  }
+
+  // Mapear tipo de match para ícone e categoria
+  const getSuggestionDisplay = (suggestion: MatchSuggestion) => {
+    const typeMap: Record<string, { icon: string; category: string }> = {
+      exploration: { icon: '🔍', category: 'Exploração' },
+      learning: { icon: '📚', category: 'Aprendizado' },
+      mirroring: { icon: '🪞', category: 'Conexão' },
+    };
+
+    const display = typeMap[suggestion.type] || { icon: '💡', category: 'Sugestão' };
+    
+    return {
+      icon: display.icon,
+      category: display.category,
+      title: suggestion.title || 'Nova conexão',
+      description: suggestion.message || 'Descubra pessoas com interesses similares',
+    };
+  };
+
+  return (
+    <div className="suggestions-block">
+      <div className="suggestions-header">
+        <h2 className="suggestions-title">Sugestões para você</h2>
+        <p className="suggestions-subtitle">Baseado no seu perfil e localização</p>
+      </div>
+      <div className="suggestions-grid">
+        {suggestions.map((suggestion) => {
+          const display = getSuggestionDisplay(suggestion);
+          return (
+            <div 
+              key={suggestion.id} 
+              className="suggestion-card"
+              onClick={() => handleSuggestionClick(suggestion)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSuggestionClick(suggestion);
+                }
+              }}
+            >
+              <div className="suggestion-icon">{display.icon}</div>
+              <div className="suggestion-category">{display.category}</div>
+              <h3 className="suggestion-title">{display.title}</h3>
+              <p className="suggestion-description">{display.description}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

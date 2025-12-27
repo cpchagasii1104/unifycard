@@ -1,0 +1,201 @@
+{
+  "taxonomy": {
+    "servicos-automotivos": {
+      "root": {
+        "name": "Serviços Automotivos",
+        "slug": "servicos-automotivos",
+        "description": "Serviços relacionados a veículos automotores"
+      },
+      "children": [
+        {
+          "name": "Manutenção e Reparo",
+          "slug": "manutencao-reparo",
+          "children": [
+            {"name": "Troca de Óleo", "slug": "troca-oleo"},
+            {"name": "Alinhamento e Balanceamento", "slug": "alinhamento-balanceamento"},
+            {"name": "Reparo de Motor", "slug": "reparo-motor"},
+            {"name": "Reparo de Transmissão", "slug": "reparo-transmissao"},
+            {"name": "Sistema de Freios", "slug": "sistema-freios"},
+            {"name": "Sistema Elétrico", "slug": "sistema-eletrico"},
+            {"name": "Ar Condicionado", "slug": "ar-condicionado"},
+            {"name": "Suspensão", "slug": "suspensao"}
+          ]
+        },
+        {
+          "name": "Lavagem e Detalhamento",
+          "slug": "lavagem-detalhamento",
+          "children": [
+            {"name": "Lavagem Simples", "slug": "lavagem-simples"},
+            {"name": "Lavagem Completa", "slug": "lavagem-completa"},
+            {"name": "Detalhamento Premium", "slug": "detalhamento-premium"},
+            {"name": "Enceramento", "slug": "enceramento"},
+            {"name": "Hidratação de Couro", "slug": "hidratacao-couro"},
+            {"name": "Polimento", "slug": "polimento"}
+          ]
+        },
+        {
+          "name": "Pneus e Rodas",
+          "slug": "pneus-rodas",
+          "children": [
+            {"name": "Venda de Pneus", "slug": "venda-pneus"},
+            {"name": "Montagem de Pneus", "slug": "montagem-pneus"},
+            {"name": "Calibragem", "slug": "calibragem"},
+            {"name": "Recauchutagem", "slug": "recauchutagem"},
+            {"name": "Venda de Rodas", "slug": "venda-rodas"},
+            {"name": "Reforma de Rodas", "slug": "reforma-rodas"}
+          ]
+        },
+        {
+          "name": "Funilaria e Pintura",
+          "slug": "funilaria-pintura",
+          "children": [
+            {"name": "Reparo de Amassados", "slug": "reparo-amassados"},
+            {"name": "Pintura Completa", "slug": "pintura-completa"},
+            {"name": "Pintura Parcial", "slug": "pintura-parcial"},
+            {"name": "Envelopamento", "slug": "envelopamento"},
+            {"name": "Remoção de Amassados", "slug": "remocao-amassados"}
+          ]
+        },
+        {
+          "name": "Vidros e Espelhos",
+          "slug": "vidros-espelhos",
+          "children": [
+            {"name": "Troca de Para-brisa", "slug": "troca-parabrisa"},
+            {"name": "Troca de Vidros Laterais", "slug": "troca-vidros-laterais"},
+            {"name": "Pelicula de Proteção", "slug": "pelicula-protecao"},
+            {"name": "Reparo de Vidros", "slug": "reparo-vidros"},
+            {"name": "Espelhos Retrovisores", "slug": "espelhos-retrovisores"}
+          ]
+        },
+        {
+          "name": "Instalação de Acessórios",
+          "slug": "instalacao-acessorios",
+          "children": [
+            {"name": "Sistema de Som", "slug": "sistema-som"},
+            {"name": "Alarme e Rastreador", "slug": "alarme-rastreador"},
+            {"name": "Central Multimídia", "slug": "central-multimidia"},
+            {"name": "Iluminação LED", "slug": "iluminacao-led"},
+            {"name": "Acessórios de Estética", "slug": "acessorios-estetica"}
+          ]
+        },
+        {
+          "name": "Inspeção e Vistoria",
+          "slug": "inspecao-vistoria",
+          "children": [
+            {"name": "Vistoria Pré-Compra", "slug": "vistoria-pre-compra"},
+            {"name": "Laudo Técnico", "slug": "laudo-tecnico"},
+            {"name": "Inspeção Veicular", "slug": "inspecao-veicular"},
+            {"name": "Avaliação de Veículo", "slug": "avaliacao-veiculo"}
+          ]
+        },
+        {
+          "name": "Despachante Automotivo",
+          "slug": "despachante-automotivo",
+          "children": [
+            {"name": "Transferência de Propriedade", "slug": "transferencia-propriedade"},
+            {"name": "Licenciamento", "slug": "licenciamento"},
+            {"name": "Emplacamento", "slug": "emplacamento"},
+            {"name": "Segunda Via de Documentos", "slug": "segunda-via-documentos"}
+          ]
+        }
+      ]
+    },
+    "beleza-estetica": {
+      "root": {
+        "name": "Beleza & Estética",
+        "slug": "beleza-estetica",
+        "description": "Serviços de beleza, estética e cuidados pessoais"
+      },
+      "children": [
+        {
+          "name": "Cabelereiro e Barbeiro",
+          "slug": "cabelereiro-barbeiro",
+          "children": [
+            {"name": "Corte Masculino", "slug": "corte-masculino"},
+            {"name": "Corte Feminino", "slug": "corte-feminino"},
+            {"name": "Barba e Bigode", "slug": "barba-bigode"},
+            {"name": "Coloração", "slug": "coloracao"},
+            {"name": "Mechas e Luzes", "slug": "mechas-luzes"},
+            {"name": "Tratamento Capilar", "slug": "tratamento-capilar"},
+            {"name": "Escova e Penteado", "slug": "escova-penteado"},
+            {"name": "Penteado para Festas", "slug": "penteado-festas"}
+          ]
+        },
+        {
+          "name": "Estética Facial",
+          "slug": "estetica-facial",
+          "children": [
+            {"name": "Limpeza de Pele", "slug": "limpeza-pele"},
+            {"name": "Peeling Químico", "slug": "peeling-quimico"},
+            {"name": "Hidratação Facial", "slug": "hidratacao-facial"},
+            {"name": "Drenagem Linfática Facial", "slug": "drenagem-linfatica-facial"},
+            {"name": "Tratamento Anti-Idade", "slug": "tratamento-anti-idade"},
+            {"name": "Microagulhamento", "slug": "microagulhamento"},
+            {"name": "Radiofrequência Facial", "slug": "radiofrequencia-facial"}
+          ]
+        },
+        {
+          "name": "Estética Corporal",
+          "slug": "estetica-corporal",
+          "children": [
+            {"name": "Massagem Relaxante", "slug": "massagem-relaxante"},
+            {"name": "Drenagem Linfática", "slug": "drenagem-linfatica"},
+            {"name": "Massagem Modeladora", "slug": "massagem-modeladora"},
+            {"name": "Tratamento para Celulite", "slug": "tratamento-celulite"},
+            {"name": "Redução de Medidas", "slug": "reducao-medidas"},
+            {"name": "Criolipólise", "slug": "criolipolise"},
+            {"name": "Radiofrequência Corporal", "slug": "radiofrequencia-corporal"}
+          ]
+        },
+        {
+          "name": "Depilação",
+          "slug": "depilacao",
+          "children": [
+            {"name": "Depilação a Laser", "slug": "depilacao-laser"},
+            {"name": "Depilação com Cera", "slug": "depilacao-cera"},
+            {"name": "Depilação Masculina", "slug": "depilacao-masculina"},
+            {"name": "Depilação Íntima", "slug": "depilacao-intima"}
+          ]
+        },
+        {
+          "name": "Unhas e Mãos",
+          "slug": "unhas-maos",
+          "children": [
+            {"name": "Manicure", "slug": "manicure"},
+            {"name": "Pedicure", "slug": "pedicure"},
+            {"name": "Alongamento de Unhas", "slug": "alongamento-unhas"},
+            {"name": "Unhas Decoradas", "slug": "unhas-decoradas"},
+            {"name": "Esmaltação em Gel", "slug": "esmaltacao-gel"}
+          ]
+        },
+        {
+          "name": "Maquiagem",
+          "slug": "maquiagem",
+          "children": [
+            {"name": "Maquiagem Social", "slug": "maquiagem-social"},
+            {"name": "Maquiagem para Eventos", "slug": "maquiagem-eventos"},
+            {"name": "Maquiagem para Casamento", "slug": "maquiagem-casamento"},
+            {"name": "Aulas de Maquiagem", "slug": "aulas-maquiagem"}
+          ]
+        },
+        {
+          "name": "Sobrancelhas",
+          "slug": "sobrancelhas",
+          "children": [
+            {"name": "Design de Sobrancelhas", "slug": "design-sobrancelhas"},
+            {"name": "Micropigmentação", "slug": "micropigmentacao"},
+            {"name": "Henna para Sobrancelhas", "slug": "henna-sobrancelhas"}
+          ]
+        }
+      ]
+    }
+  }
+}
+
+
+
+
+
+
+
+

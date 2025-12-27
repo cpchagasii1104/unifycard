@@ -1,0 +1,24 @@
+// src/core/checkout/checkout.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import checkoutRoutes from './checkout.routes';
+
+const checkoutModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(checkoutRoutes);
+};
+
+export default checkoutModule;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

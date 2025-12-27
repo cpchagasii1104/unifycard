@@ -1,0 +1,13 @@
+// src/core/referral/referral.module.ts
+
+import { FastifyPluginAsync } from 'fastify';
+import referralRoutes from './referral.routes';
+
+const referralModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(referralRoutes);
+};
+
+export default referralModule;
+
+
+

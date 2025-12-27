@@ -1,0 +1,17 @@
+// src/modules/care/care.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import careRoutes from './care.routes';
+
+const careModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(careRoutes);
+};
+
+export default careModule;
+
+
+
+
+
+
+
+

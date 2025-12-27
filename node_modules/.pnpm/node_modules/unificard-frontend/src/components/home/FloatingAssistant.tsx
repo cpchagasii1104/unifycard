@@ -1,0 +1,98 @@
+// src/components/home/FloatingAssistant.tsx
+// Assistente como botão flutuante ou painel colapsável
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './FloatingAssistant.css';
+
+export default function FloatingAssistant() {
+  const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleOpenAssistant = () => {
+    navigate('/social');
+  };
+
+  const handleQuickAction = () => {
+    navigate('/social');
+  };
+
+  return (
+    <>
+      {/* Botão flutuante */}
+      <button
+        className="floating-assistant-button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        type="button"
+        aria-label="Abrir assistente"
+      >
+        <span className="floating-assistant-icon">🤖</span>
+      </button>
+
+      {/* Painel colapsável */}
+      {isExpanded && (
+        <>
+          <div 
+            className="floating-assistant-overlay"
+            onClick={() => setIsExpanded(false)}
+          />
+          <div className="floating-assistant-panel">
+            <div className="floating-assistant-header">
+              <h3 className="floating-assistant-title">Assistente</h3>
+              <button
+                className="floating-assistant-close"
+                onClick={() => setIsExpanded(false)}
+                type="button"
+                aria-label="Fechar assistente"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="floating-assistant-content">
+              <div className="floating-assistant-message">
+                <p>Diga o que você precisa. Eu resolvo.</p>
+              </div>
+              
+              <div className="floating-assistant-avatar">
+                <div className="assistant-avatar-large">🤖</div>
+              </div>
+
+              <div className="floating-assistant-actions">
+                <button 
+                  className="floating-assistant-action-button"
+                  onClick={handleOpenAssistant}
+                >
+                  <span className="action-icon">💬</span>
+                  <span className="action-text">Começar conversa</span>
+                </button>
+                <button 
+                  className="floating-assistant-action-button"
+                  onClick={handleQuickAction}
+                >
+                  <span className="action-icon">🍕</span>
+                  <span className="action-text">Pedir comida</span>
+                </button>
+                <button 
+                  className="floating-assistant-action-button"
+                  onClick={handleQuickAction}
+                >
+                  <span className="action-icon">📅</span>
+                  <span className="action-text">Ver eventos</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+
+
+
+
+
+
+

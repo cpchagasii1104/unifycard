@@ -1,0 +1,26 @@
+# Script para limpar cache do Vite
+Write-Host "Limpando cache do Vite..." -ForegroundColor Yellow
+
+$viteCachePath = "node_modules\.vite"
+
+if (Test-Path $viteCachePath) {
+    Remove-Item -Path $viteCachePath -Recurse -Force
+    Write-Host "✅ Cache do Vite removido com sucesso!" -ForegroundColor Green
+} else {
+    Write-Host "ℹ️ Cache do Vite não encontrado (já estava limpo)" -ForegroundColor Cyan
+}
+
+Write-Host "`nAgora você pode executar: npm run dev" -ForegroundColor Yellow
+
+
+
+
+
+
+
+
+
+
+
+
+

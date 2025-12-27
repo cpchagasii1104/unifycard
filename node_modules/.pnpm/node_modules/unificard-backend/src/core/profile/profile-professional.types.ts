@@ -1,0 +1,125 @@
+// src/core/profile/profile-professional.types.ts
+// Tipos para perfil profissional
+
+export type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote';
+export type ServiceType = 'service' | 'product';
+
+export interface PredefinedService {
+  serviceId: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  discountPercentage?: number; // 0-100
+  finalPrice: number; // Calculado: basePrice * (1 - discountPercentage/100)
+  isActive: boolean;
+}
+
+export interface ComboDiscountRule {
+  ruleId: string;
+  minServices: number; // Mínimo de serviços para aplicar desconto (ex: 2, 3, 4)
+  discountPercentage: number; // 0-100
+  description?: string;
+  isActive: boolean;
+}
+
+export interface ProfessionalSkill {
+  categoryId: string;
+  categoryName: string;
+  categoryPath: string[];
+  skillLevel: number;
+  yearsExperience: number;
+  hourlyRate: number | null; // Valor por hora/dia/semana/mês específico para esta profissão (usado se pricingType = 'hourly' | 'daily' | 'weekly' | 'monthly')
+  pricingType: PricingType; // 'hourly' = por hora, 'daily' = por dia, 'weekly' = por semana, 'monthly' = por mês, 'quote' = solicitar orçamento primeiro
+  serviceType: ServiceType; // 'service' = serviço, 'product' = produto
+  chargeVisit: boolean; // Se cobra visita para orçamento
+  visitPrice: number | null; // Preço da visita (se chargeVisit = true)
+  predefinedServices?: PredefinedService[]; // Serviços pré-definidos com valores fixos
+  comboDiscountRules?: ComboDiscountRule[]; // Regras de desconto para combos (múltiplos serviços)
+  verified: boolean;
+}
+
+export interface EducationEntry {
+  educationId: string;
+  level: 'elementary' | 'high_school' | 'technical' | 'bachelor' | 'master' | 'phd' | 'other';
+  institution: string;
+  course?: string; // Nome do curso (ex: "Engenharia de Software", "Administração")
+  field?: string; // Área (ex: "Tecnologia", "Negócios")
+  startDate?: string; // YYYY-MM
+  endDate?: string; // YYYY-MM ou null se em andamento
+  isCompleted: boolean;
+  description?: string;
+}
+
+export interface ProfessionalProfile {
+  globalUserId: string;
+  skills: ProfessionalSkill[];
+  education: EducationEntry[];
+  bio: string | null;
+  availability: AvailabilitySchedule | null;
+}
+
+export interface AvailabilitySchedule {
+  // Agenda unificada - aplica para todas as profissões
+  // Formato: { "monday": ["09:00-12:00", "14:00-18:00"], "tuesday": ["09:00-18:00"], ... }
+  [dayOfWeek: string]: string[]; // dayOfWeek: "monday", "tuesday", etc. | "specific": ["2024-12-25:09:00-12:00"]
+  // "specific" é para datas específicas (ex: "2024-12-25:09:00-12:00")
+  // Estrutura completa:
+  // {
+  //   "monday": ["09:00-18:00"],
+  //   "specific": ["2024-12-25:09:00-12:00", "2024-12-26:14:00-18:00"],
+  //   "vacation": ["2024-12-20:2024-12-31"] // Períodos de férias
+  // }
+}
+
+export interface VacationPeriod {
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  reason?: string; // Opcional: motivo das férias
+}
+
+export interface SpecificDateAvailability {
+  date: string; // YYYY-MM-DD
+  timeSlots: string[]; // ["09:00-12:00", "14:00-18:00"]
+}
+
+export interface UpdateProfessionalProfileInput {
+  skills?: Array<{
+    categoryId: string;
+    skillLevel?: number;
+    yearsExperience?: number;
+    hourlyRate?: number | null; // Valor por hora específico para esta profissão (usado apenas se pricingType = 'hourly')
+    pricingType?: PricingType; // 'hourly' = por hora, 'daily' = por dia, 'weekly' = por semana, 'monthly' = por mês, 'quote' = solicitar orçamento primeiro
+    serviceType?: ServiceType; // 'service' = serviço, 'product' = produto
+    chargeVisit?: boolean; // Se cobra visita para orçamento
+    visitPrice?: number | null; // Preço da visita (se chargeVisit = true)
+    predefinedServices?: Array<{
+      serviceId?: string; // Se não fornecido, cria novo
+      name: string;
+      description?: string;
+      basePrice: number;
+      discountPercentage?: number;
+      isActive?: boolean;
+    }>;
+    comboDiscountRules?: Array<{
+      ruleId?: string; // Se não fornecido, cria novo
+      minServices: number; // Mínimo de serviços (ex: 2, 3, 4)
+      discountPercentage: number; // 0-100
+      description?: string;
+      isActive?: boolean;
+    }>;
+  }>;
+  education?: Array<{
+    educationId?: string; // Se não fornecido, cria novo
+    level: 'elementary' | 'high_school' | 'technical' | 'bachelor' | 'master' | 'phd' | 'other';
+    institution: string;
+    course?: string;
+    field?: string;
+    startDate?: string;
+    endDate?: string | null;
+    isCompleted: boolean;
+    description?: string;
+  }>;
+  bio?: string | null;
+  availability?: AvailabilitySchedule | null;
+}
+

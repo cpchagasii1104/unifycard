@@ -1,0 +1,17 @@
+// src/core/memory/memory.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import memoryRoutes from './memory.routes';
+
+const memoryModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(memoryRoutes);
+};
+
+export default memoryModule;
+
+
+
+
+
+
+
+

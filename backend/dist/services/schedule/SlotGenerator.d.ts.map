@@ -1,0 +1,1 @@
+{"version":3,"file":"SlotGenerator.d.ts","sourceRoot":"","sources":["../../../src/services/schedule/SlotGenerator.ts"],"names":[],"mappings":"AAcA,qBAAa,aAAa;IAClB,oBAAoB,CAAC,MAAM,EAAE;QACjC,SAAS,EAAE,MAAM,CAAC;QAClB,UAAU,EAAE,MAAM,CAAC;QACnB,QAAQ,EAAE,MAAM,CAAC;QACjB,SAAS,CAAC,EAAE,MAAM,CAAC;KACpB,GAAG,OAAO,CAAC;QAAE,SAAS,EAAE,MAAM,CAAA;KAAE,CAAC;CAmFnC"}

@@ -1,0 +1,149 @@
+// Script para consolidar "Saúde" e "Saúde e Bem-Estar"
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+async function consolidateSaude() {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // 1. Buscar ou criar "Saúde e Bem-Estar" como canônica
+    let result = await client.query(`
+      SELECT category_id, name, slug
+      FROM categories
+      WHERE slug = 'saude-e-bem-estar' AND parent_id IS NULL
+      LIMIT 1
+    `);
+    
+    let saudeBemEstarId;
+    if (result.rows.length === 0) {
+      // Criar "Saúde e Bem-Estar"
+      result = await client.query(`
+        INSERT INTO categories (
+          name, slug, description, parent_id, level, path, keywords,
+          country_code, status, requires_review, created_by_ai, created_at, updated_at
+        )
+        VALUES (
+          'Saúde e Bem-Estar',
+          'saude-e-bem-estar',
+          'Grupo consolidado: Saúde e Bem-Estar',
+          NULL,
+          0,
+          ARRAY['saude-e-bem-estar'],
+          '["saude", "bem-estar", "saúde"]'::jsonb,
+          NULL,
+          'active',
+          false,
+          false,
+          NOW(),
+          NOW()
+        )
+        RETURNING category_id
+      `);
+      saudeBemEstarId = result.rows[0].category_id;
+      console.log('✅ Criado "Saúde e Bem-Estar":', saudeBemEstarId);
+    } else {
+      saudeBemEstarId = result.rows[0].category_id;
+      console.log('✅ Usando "Saúde e Bem-Estar" existente:', saudeBemEstarId);
+    }
+    
+    // 2. Buscar "Saúde" (duplicata)
+    result = await client.query(`
+      SELECT category_id, name, slug
+      FROM categories
+      WHERE slug = 'saude' AND parent_id IS NULL
+      LIMIT 1
+    `);
+    
+    if (result.rows.length > 0 && result.rows[0].category_id !== saudeBemEstarId) {
+      const saudeId = result.rows[0].category_id;
+      
+      // 3. Contar filhos
+      result = await client.query(`
+        SELECT COUNT(*) as count
+        FROM categories
+        WHERE parent_id = $1
+      `, [saudeId]);
+      const filhosCount = parseInt(result.rows[0].count);
+      
+      console.log(`📊 Encontrado "Saúde" duplicado: ${saudeId}, com ${filhosCount} filhos`);
+      
+      // 4. Reapontar filhos
+      result = await client.query(`
+        UPDATE categories 
+        SET parent_id = $1
+        WHERE parent_id = $2
+      `, [saudeBemEstarId, saudeId]);
+      
+      console.log(`✅ Reapontados ${result.rowCount} filhos de "Saúde" para "Saúde e Bem-Estar"`);
+      
+      // 5. Atualizar logs
+      result = await client.query(`
+        UPDATE category_ai_logs 
+        SET category_id = $1
+        WHERE category_id = $2
+      `, [saudeBemEstarId, saudeId]);
+      
+      console.log(`✅ Atualizados ${result.rowCount} logs`);
+      
+      // 6. Deletar duplicata
+      await client.query(`
+        DELETE FROM categories 
+        WHERE category_id = $1
+      `, [saudeId]);
+      
+      console.log(`✅ Duplicata "Saúde" deletada: ${saudeId}`);
+    } else {
+      console.log('ℹ️ Nenhuma duplicata "Saúde" encontrada ou já consolidada');
+    }
+    
+    await client.query('COMMIT');
+    console.log('✅ Consolidação concluída!');
+    
+    // Verificar resultado final
+    result = await client.query(`
+      SELECT 
+        category_id,
+        name,
+        slug,
+        (SELECT COUNT(*) FROM categories WHERE parent_id = c.category_id) as num_filhos
+      FROM categories c
+      WHERE (LOWER(name) LIKE '%saúde%' OR LOWER(name) LIKE '%saude%' OR LOWER(name) LIKE '%bem-estar%')
+        AND parent_id IS NULL
+      ORDER BY name
+    `);
+    
+    console.log('\n=== RESULTADO FINAL ===');
+    result.rows.forEach(row => {
+      console.log(`Nome: ${row.name}, Filhos: ${row.num_filhos}`);
+    });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Erro:', error.message);
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+consolidateSaude().catch(console.error);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

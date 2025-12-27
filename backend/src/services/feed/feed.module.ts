@@ -1,0 +1,24 @@
+// src/services/feed/feed.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import feedRoutes from './feed.routes';
+
+const feedModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(feedRoutes);
+};
+
+export default feedModule;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

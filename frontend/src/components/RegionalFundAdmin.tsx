@@ -1,0 +1,222 @@
+// frontend/src/components/RegionalFundAdmin.tsx
+// Fundo Regional - Visão Admin - FASE 7
+
+import { useState, useEffect } from 'react';
+import { getAdminRegionalFund, type RegionalFundAdminView } from '../api/transparency';
+import './RegionalFundAdmin.css';
+
+interface RegionalFundAdminProps {
+  regionId: string;
+}
+
+export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) {
+  const [fund, setFund] = useState<RegionalFundAdminView | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadFund = async () => {
+      try {
+        setLoading(true);
+        const result = await getAdminRegionalFund(regionId, { limit: 200, offset: 0 });
+        setFund(result);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message || 'Erro ao carregar fundo regional');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (regionId) {
+      loadFund();
+    }
+  }, [regionId]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  const getOriginLabel = (origin: string) => {
+    const labels: Record<string, string> = {
+      donation: 'Doação',
+      service: 'Serviço',
+      event: 'Evento',
+      other: 'Outro',
+    };
+    return labels[origin] || origin;
+  };
+
+  if (loading) {
+    return (
+      <div className="regional-fund-admin-container">
+        <div className="regional-fund-loading">Carregando fundo regional...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="regional-fund-admin-container">
+        <div className="regional-fund-error">
+          <p>Erro ao carregar fundo regional</p>
+          <p className="error-details">{error}</p>
+          <button onClick={() => window.location.reload()}>Tentar novamente</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!fund) {
+    return (
+      <div className="regional-fund-admin-container">
+        <div className="regional-fund-not-available">
+          <h2>Fundo Regional - Admin</h2>
+          <p>Fundo regional não encontrado para a região: {regionId}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="regional-fund-admin-container">
+      <div className="regional-fund-header">
+        <h2>Fundo Regional - Admin</h2>
+        <div className="region-info">Região: {fund.regionId}</div>
+      </div>
+
+      <div className="regional-fund-summary">
+        <div className="summary-card balance">
+          <div className="card-label">Saldo Atual</div>
+          <div className="card-value">{formatCurrency(fund.currentBalance)}</div>
+        </div>
+        <div className="summary-card total-in">
+          <div className="card-label">Total Recebido</div>
+          <div className="card-value">{formatCurrency(fund.summary.totalIn)}</div>
+        </div>
+        <div className="summary-card total-out">
+          <div className="card-label">Total Distribuído</div>
+          <div className="card-value">{formatCurrency(fund.summary.totalOut)}</div>
+        </div>
+        <div className="summary-card net">
+          <div className="card-label">Saldo Líquido</div>
+          <div className="card-value">{formatCurrency(fund.summary.netAmount)}</div>
+        </div>
+      </div>
+
+      <div className="regional-fund-groupings">
+        <div className="grouping-section">
+          <h3>Por Origem</h3>
+          <div className="grouping-list">
+            {Object.entries(fund.summary.byOrigin).map(([origin, amount]) => (
+              <div key={origin} className="grouping-item">
+                <span className="grouping-label">{getOriginLabel(origin)}</span>
+                <span className="grouping-value">{formatCurrency(amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grouping-section">
+          <h3>Por Contexto</h3>
+          <div className="grouping-list">
+            {Object.entries(fund.summary.byContext).map(([context, amount]) => (
+              <div key={context} className="grouping-item">
+                <span className="grouping-label">{context || 'Outro'}</span>
+                <span className="grouping-value">{formatCurrency(amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grouping-section">
+          <h3>Por Período</h3>
+          <div className="grouping-list">
+            {fund.summary.byPeriod.map((period) => (
+              <div key={period.period} className="grouping-item period">
+                <div className="period-header">
+                  <span className="grouping-label">{period.period}</span>
+                </div>
+                <div className="period-details">
+                  <div className="period-detail">
+                    <span className="period-label">Entradas:</span>
+                    <span className="period-value in">{formatCurrency(period.totalIn)}</span>
+                  </div>
+                  <div className="period-detail">
+                    <span className="period-label">Saídas:</span>
+                    <span className="period-value out">{formatCurrency(period.totalOut)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="regional-fund-entries">
+        <h3>Histórico Completo</h3>
+        {fund.entries.length === 0 ? (
+          <div className="entries-empty">
+            <p>Nenhuma movimentação registrada</p>
+          </div>
+        ) : (
+          <div className="entries-list">
+            {fund.entries.map((entry) => (
+              <div key={entry.transactionId} className={`entry-item ${entry.type}`}>
+                <div className="entry-main">
+                  <div className="entry-left">
+                    <div className="entry-origin">{getOriginLabel(entry.origin)}</div>
+                    <div className="entry-date">{formatDate(entry.createdAt)}</div>
+                    {entry.context && (
+                      <div className="entry-context">Contexto: {entry.context}</div>
+                    )}
+                  </div>
+                  <div className="entry-right">
+                    <div className={`entry-amount ${entry.type}`}>
+                      {entry.type === 'credit' ? '+' : '-'}
+                      {formatCurrency(Math.abs(entry.amount))}
+                    </div>
+                  </div>
+                </div>
+                {entry.destination && (
+                  <div className="entry-destination">
+                    Destino: {entry.destination}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

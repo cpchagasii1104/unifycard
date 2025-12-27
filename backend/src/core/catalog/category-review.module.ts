@@ -1,0 +1,26 @@
+// src/core/catalog/category-review.module.ts
+// Módulo de revisão de categorias - Rotas administrativas
+
+import { FastifyPluginAsync } from 'fastify';
+import categoryReviewRoutes from './category-review.routes';
+
+const categoryReviewModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(categoryReviewRoutes, { prefix: '/categories' });
+};
+
+export default categoryReviewModule;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

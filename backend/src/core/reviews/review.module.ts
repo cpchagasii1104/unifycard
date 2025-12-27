@@ -1,0 +1,9 @@
+// src/core/reviews/review.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import reviewRoutes from './review.routes';
+
+const reviewModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(reviewRoutes);
+};
+
+export default reviewModule;

@@ -1,0 +1,16 @@
+import "fastify";
+import { AIKernel } from "../core/ai/ai-kernel";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    ai: AIKernel;
+  }
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,69 @@
+// src/api/opportunity.ts
+// API de Oportunidades Suaves
+
+import { apiFetch } from './client';
+
+export type OpportunityType = 
+  | 'exploratory'
+  | 'community'
+  | 'professional';
+
+export interface Opportunity {
+  id: string;
+  type: OpportunityType;
+  title: string;
+  description: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+  metadata?: {
+    isPaid?: boolean;
+    isRemote?: boolean;
+    estimatedTime?: string;
+    tags?: string[];
+  };
+  priority: number;
+  createdAt: string;
+}
+
+export interface OpportunityResult {
+  opportunities: Opportunity[];
+  hasMore: boolean;
+}
+
+export async function getContextualOpportunities(limit: number = 3): Promise<OpportunityResult> {
+  const response = await apiFetch(`/opportunities/contextual?limit=${limit}`);
+  const result = await response.json();
+  if (!result.ok) {
+    throw new Error(result.message || 'Erro ao buscar oportunidades contextuais');
+  }
+  return result.data;
+}
+
+export async function recordOpportunityAction(opportunityId: string, action: 'accept' | 'dismiss'): Promise<void> {
+  const response = await apiFetch('/opportunities/action', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ opportunityId, action }),
+  });
+  const result = await response.json();
+  if (!result.ok) {
+    throw new Error(result.message || 'Erro ao registrar ação de oportunidade');
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

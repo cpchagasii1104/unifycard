@@ -1,0 +1,62 @@
+/* src/components/events/EventImpact.css */
+
+.event-impact {
+  margin: 24px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+  border-radius: 12px;
+  border: 1px solid #c8e6c9;
+}
+
+.event-impact-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.event-impact-icon {
+  font-size: 24px;
+}
+
+.event-impact-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.event-impact-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-impact-text {
+  margin: 0;
+  font-size: 14px;
+  color: #388e3c;
+  line-height: 1.5;
+}
+
+.event-impact-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #a5d6a7;
+}
+
+.event-impact-total-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2e7d32;
+}
+
+.event-impact-total-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1b5e20;
+}
+

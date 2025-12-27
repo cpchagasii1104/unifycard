@@ -1,0 +1,16 @@
+// src/core/economy/fund/fund.module.ts
+// Módulo do Fundo Regional
+
+import { FastifyPluginAsync } from 'fastify';
+import fundRoutes from './fund.routes';
+import fundAdminRoutes from './fund-admin.routes';
+
+const fundModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(fundRoutes);
+  // Rotas admin do fundo (registradas em /fund/admin)
+  await fastify.register(fundAdminRoutes, { prefix: '/admin' });
+};
+
+export default fundModule;
+
+

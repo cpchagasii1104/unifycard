@@ -1,0 +1,144 @@
+/* src/components/layout/SocialLayout.css */
+
+.social-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+}
+
+.social-layout-content {
+  display: flex;
+  flex: 1;
+  margin-top: 64px; /* Altura do header fixo */
+  min-height: calc(100vh - 64px);
+}
+
+.social-sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 1.5rem 0;
+  flex-shrink: 0;
+}
+
+.social-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.social-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: #6b7280;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  gap: 0.5rem;
+}
+
+.social-nav-link:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.social-nav-link.active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.social-nav-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.social-main {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .social-sidebar {
+    width: 200px;
+  }
+
+  .social-main {
+    padding: 1rem;
+  }
+}
+
+/* Badges de novidade */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background-color: #ef4444;
+  color: white;
+  border-radius: 9px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-left: auto;
+}
+
+.social-nav-link {
+  position: relative;
+}
+
+/* Responsividade */
+@media (max-width: 640px) {
+  .social-layout-content {
+    flex-direction: column;
+  }
+
+  .social-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.75rem 0;
+  }
+
+  .social-sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  .social-nav-link {
+    white-space: nowrap;
+    padding: 0.5rem 0.75rem;
+  }
+}
+

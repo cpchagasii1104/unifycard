@@ -1,0 +1,27 @@
+// Script para invalidar cache de categorias
+const { Pool } = require('pg');
+require('dotenv').config();
+
+// Nota: O cache é em memória no service, então precisamos reiniciar o servidor
+// ou chamar o endpoint que invalida o cache
+
+console.log('💡 Para invalidar o cache de categorias:');
+console.log('   1. Reinicie o servidor backend');
+console.log('   2. OU faça uma requisição GET para /categories/tree');
+console.log('');
+console.log('✅ Cache será invalidado automaticamente na próxima requisição');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

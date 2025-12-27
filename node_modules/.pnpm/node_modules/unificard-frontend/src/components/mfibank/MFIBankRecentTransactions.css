@@ -1,0 +1,135 @@
+/* frontend/src/components/mfibank/MFIBankRecentTransactions.css */
+
+.mfibank-recent-transactions {
+  margin-top: 2rem;
+}
+
+.mfibank-recent-transactions h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.mfibank-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mfibank-recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mfibank-recent-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.mfibank-recent-item-left {
+  flex: 1;
+}
+
+.mfibank-recent-type {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mfibank-recent-split-badge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.mfibank-recent-date {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.mfibank-recent-item-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.mfibank-recent-amount {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.mfibank-recent-amount.in {
+  color: #10b981;
+}
+
+.mfibank-recent-amount.out {
+  color: #ef4444;
+}
+
+.mfibank-recent-details-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #3b82f6;
+  background: transparent;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mfibank-recent-details-button:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+.mfibank-recent-loading,
+.mfibank-recent-empty,
+.mfibank-recent-error {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.mfibank-recent-error button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mfibank-recent-error button:hover {
+  background: #2563eb;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

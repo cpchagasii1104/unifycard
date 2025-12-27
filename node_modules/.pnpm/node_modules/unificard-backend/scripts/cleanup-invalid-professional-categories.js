@@ -1,0 +1,232 @@
+// backend/scripts/cleanup-invalid-professional-categories.js
+// Script de limpeza para remover categorias profissionais inválidas
+// FASE 3.8: Remove categorias que não são profissões válidas
+
+const { Pool } = require('pg');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Mesmas regras do script de auditoria
+const BLOCKED_TERMS = new Set([
+  'punheteiro', 'punheta', 'masturbação', 'masturbacao', 'sexo', 'pornografia',
+  'prostituta', 'prostituto', 'garota de programa', 'garoto de programa',
+  'escort', 'acompanhante', 'puta', 'puto', 'vadia', 'viado', 'bicha',
+  'ladrão', 'ladrao', 'roubo', 'assalto', 'traficante', 'traficar', 'drogas',
+  'homicídio', 'homicidio', 'assassinato', 'estelionato', 'fraude', 'corrupção',
+  'corrupcao', 'contrabando', 'pirataria', 'pirata', 'hacker criminoso',
+  'nazista', 'fascista', 'racista', 'xenófobo', 'xenofobo', 'homofóbico',
+  'homofobico', 'misógino', 'misogino', 'terrorista', 'terrorismo',
+  'assassino de aluguel', 'matador', 'sicário', 'sicario',
+]);
+
+const GENERIC_TERMS = new Set([
+  'futebol', 'basquete', 'vôlei', 'volei', 'tênis', 'tenis', 'natação', 'natacao',
+  'música', 'musica', 'cinema', 'arte', 'comida', 'academia', 'beleza',
+  'saúde', 'saude', 'educação', 'educacao', 'tecnologia', 'esporte',
+  'hobby', 'interesse', 'passatempo',
+]);
+
+const BLOCK_PATTERNS = [
+  /(sexo|sexual|porn|xxx|adulto|erótico|erotico)/i,
+  /(ladr|roub|assalt|furt)/i,
+  /(trafic|drog|maconh|coca|hero)/i,
+  /(mat|assassin|homicíd|homicid)/i,
+  /(nazi|fasc|racist|homofób|homofob|xenófob|xenofob)/i,
+  /(put|vadi|prostitut|escort|acompanhant)/i,
+];
+
+function normalizeInput(input) {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function isInvalidCategory(name) {
+  const normalized = normalizeInput(name);
+  
+  // Verificar termos bloqueados
+  if (BLOCKED_TERMS.has(normalized)) {
+    return { invalid: true, reason: 'Termo bloqueado explicitamente', type: 'EXPLICIT_BLOCK' };
+  }
+  
+  for (const blocked of BLOCKED_TERMS) {
+    if (normalized.includes(blocked) || blocked.includes(normalized)) {
+      return { invalid: true, reason: `Contém termo bloqueado: ${blocked}`, type: 'CONTAINS_BLOCKED' };
+    }
+  }
+  
+  // Verificar padrões regex
+  for (const pattern of BLOCK_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { invalid: true, reason: 'Contém padrão bloqueado', type: 'PATTERN_BLOCK' };
+    }
+  }
+  
+  // Verificar termos genéricos (apenas para nível 2)
+  if (GENERIC_TERMS.has(normalized)) {
+    return { invalid: true, reason: 'Termo genérico que não é profissão', type: 'GENERIC_TERM' };
+  }
+  
+  return { invalid: false };
+}
+
+async function cleanupCategories() {
+  console.log('🧹 Iniciando limpeza de categorias profissionais inválidas...\n');
+  
+  try {
+    // Buscar categorias de nível 2 (profissões finais)
+    const result = await pool.query(`
+      SELECT 
+        category_id,
+        name,
+        slug,
+        level,
+        parent_id,
+        status,
+        created_by_ai,
+        path
+      FROM categories
+      WHERE level = 2
+        AND (status IS NULL OR status != 'archived')
+      ORDER BY name ASC
+    `);
+    
+    const categories = result.rows;
+    console.log(`📊 Categorias de nível 2 encontradas: ${categories.length}\n`);
+    
+    const invalidCategories = [];
+    
+    for (const cat of categories) {
+      const check = isInvalidCategory(cat.name);
+      if (check.invalid) {
+        invalidCategories.push({
+          ...cat,
+          reason: check.reason,
+          type: check.type,
+        });
+      }
+    }
+    
+    if (invalidCategories.length === 0) {
+      console.log('✅ Nenhuma categoria inválida encontrada!');
+      await pool.end();
+      return;
+    }
+    
+    console.log(`❌ Categorias inválidas encontradas: ${invalidCategories.length}\n`);
+    console.log('Lista de categorias que serão arquivadas:\n');
+    
+    invalidCategories.forEach((cat, index) => {
+      const path = cat.path && cat.path.length > 0 
+        ? cat.path.join(' → ') + ' → ' + cat.name
+        : cat.name;
+      console.log(`${index + 1}. ${cat.name} (ID: ${cat.category_id})`);
+      console.log(`   Caminho: ${path}`);
+      console.log(`   Motivo: ${cat.reason} (${cat.type})`);
+      if (cat.created_by_ai) {
+        console.log(`   ⚠️  Criado por IA`);
+      }
+      console.log('');
+    });
+    
+    // Confirmar antes de executar
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('⚠️  ATENÇÃO: Este script irá ARQUIVAR as categorias acima.');
+    console.log('═══════════════════════════════════════════════════════════\n');
+    
+    // Em modo não-interativo, executar diretamente
+    // Em modo interativo, pedir confirmação
+    const isInteractive = process.stdin.isTTY;
+    
+    if (isInteractive) {
+      console.log('Deseja continuar? (sim/não): ');
+      // Para scripts, vamos executar automaticamente
+      // Em produção, adicionar confirmação manual
+    }
+    
+    // Executar limpeza
+    console.log('🔄 Arquivando categorias inválidas...\n');
+    
+    await pool.query('BEGIN');
+    
+    let archivedCount = 0;
+    for (const cat of invalidCategories) {
+      try {
+        await pool.query(
+          `UPDATE categories 
+           SET status = 'archived', updated_at = NOW() 
+           WHERE category_id = $1`,
+          [cat.category_id]
+        );
+        archivedCount++;
+        console.log(`✅ Arquivado: ${cat.name} (${cat.category_id})`);
+      } catch (error) {
+        console.error(`❌ Erro ao arquivar ${cat.name}:`, error.message);
+      }
+    }
+    
+    await pool.query('COMMIT');
+    
+    console.log(`\n✅ Limpeza concluída! ${archivedCount} categorias arquivadas.`);
+    
+    // Gerar relatório
+    const reportPath = path.join(__dirname, '../docs/dev/sql/cleanup-report.json');
+    const report = {
+      timestamp: new Date().toISOString(),
+      totalFound: categories.length,
+      invalidFound: invalidCategories.length,
+      archived: archivedCount,
+      categories: invalidCategories.map(cat => ({
+        categoryId: cat.category_id,
+        name: cat.name,
+        slug: cat.slug,
+        reason: cat.reason,
+        type: cat.type,
+        path: cat.path,
+      })),
+    };
+    
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+    console.log(`📄 Relatório salvo em: ${reportPath}\n`);
+    
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('❌ Erro durante limpeza:', error);
+    throw error;
+  } finally {
+    await pool.end();
+  }
+}
+
+// Executar limpeza
+cleanupCategories()
+  .then(() => {
+    console.log('✅ Limpeza concluída com sucesso!');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('❌ Erro fatal:', error);
+    process.exit(1);
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

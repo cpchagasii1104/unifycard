@@ -1,0 +1,110 @@
+// src/core/catalog/canonical/canonical-product.routes.ts
+// Rotas READ-ONLY para catálogo canônico de produtos
+
+import { FastifyPluginAsync } from 'fastify';
+import { canonicalProductService } from './canonical-product.service';
+
+const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * GET /catalog/products/search?q=query&categoryId=&brand=
+   * Busca produtos canônicos
+   * READ-ONLY: apenas consulta, não cria ou altera
+   */
+  fastify.get<{
+    Querystring: {
+      q: string;
+      categoryId?: string;
+      brand?: string;
+      limit?: string;
+      offset?: string;
+    };
+  }>('/search', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const { q, categoryId, brand, limit, offset } = req.query;
+
+    if (!q || q.trim().length === 0) {
+      return reply.status(400).send({
+        error: 'Query parameter "q" is required',
+      });
+    }
+
+    const result = await canonicalProductService.search(tenantId, q.trim(), {
+      categoryId,
+      brand,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+
+    return reply.send(result);
+  });
+
+  /**
+   * GET /catalog/products/:id
+   * Busca produto canônico por ID
+   */
+  fastify.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const { id } = req.params;
+
+    const product = await canonicalProductService.findById(tenantId, id);
+
+    if (!product) {
+      return reply.status(404).send({
+        error: 'Product not found',
+      });
+    }
+
+    return reply.send(product);
+  });
+
+  /**
+   * GET /catalog/products/gtin/:gtin
+   * Busca produto canônico por GTIN
+   */
+  fastify.get<{ Params: { gtin: string } }>('/gtin/:gtin', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const { gtin } = req.params;
+
+    const product = await canonicalProductService.findByGTIN(tenantId, gtin);
+
+    if (!product) {
+      return reply.status(404).send({
+        error: 'Product not found',
+      });
+    }
+
+    return reply.send(product);
+  });
+
+  /**
+   * GET /catalog/products/category/:categoryId
+   * Busca produtos por categoria
+   */
+  fastify.get<{
+    Params: { categoryId: string };
+    Querystring: {
+      limit?: string;
+      offset?: string;
+    };
+  }>('/category/:categoryId', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const { categoryId } = req.params;
+    const { limit, offset } = req.query;
+
+    const result = await canonicalProductService.findByCategory(
+      tenantId,
+      categoryId,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+      }
+    );
+
+    return reply.send(result);
+  });
+};
+
+export default canonicalProductRoutes;
+
+
+

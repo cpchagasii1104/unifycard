@@ -1,0 +1,18 @@
+// src/api/index.ts
+// Barrel file para exportar funções comuns da API
+// FASE 11: Padronização de imports
+
+export { apiFetch } from './client';
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1 @@
+{"version":3,"file":"country.model.d.ts","sourceRoot":"","sources":["../../../../src/core/world/models/country.model.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,OAAO,EAAE,UAAU,EAAE,MAAM,gBAAgB,CAAC;AAE1D,qBAAa,YAAY;IACvB;;OAEG;IACH,MAAM,CAAC,OAAO,CAAC,GAAG,EAAE,UAAU,GAAG,OAAO;IAWxC;;OAEG;IACH,MAAM,CAAC,QAAQ,CAAC,IAAI,EAAE,UAAU,EAAE,GAAG,OAAO,EAAE;CAG/C"}

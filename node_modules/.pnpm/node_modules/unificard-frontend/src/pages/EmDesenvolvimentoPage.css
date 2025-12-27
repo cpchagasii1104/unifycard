@@ -1,0 +1,38 @@
+.em-desenvolvimento-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  padding: 2rem;
+}
+
+.em-desenvolvimento-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.em-desenvolvimento-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.em-desenvolvimento-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.em-desenvolvimento-message {
+  font-size: 1rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.em-desenvolvimento-feature {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+

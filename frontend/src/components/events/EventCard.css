@@ -1,0 +1,151 @@
+.event-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 100%;
+  transition: box-shadow 0.2s;
+}
+
+.event-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Badge de Tipo (obrigatório em todos os cards) */
+.card-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.type-badge-emoji {
+  font-size: 0.875rem;
+}
+
+.type-badge-label {
+  font-weight: 500;
+}
+
+/* Header padronizado */
+.event-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.event-card-author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.event-card-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.event-card-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.event-card-author-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+.event-card-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.4;
+}
+
+.event-card-content {
+  margin-bottom: 0.75rem;
+}
+
+.event-card-info {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.event-card-type {
+  font-weight: 500;
+}
+
+.event-card-city {
+  color: #888;
+}
+
+.event-card-availability {
+  margin-bottom: 0.75rem;
+}
+
+.event-card-price {
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+  color: #2563eb;
+}
+
+.event-card-cta {
+  width: 100%;
+  padding: 0.75rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.event-card-cta:hover {
+  background: #1d4ed8;
+}
+
+.event-card-cta:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

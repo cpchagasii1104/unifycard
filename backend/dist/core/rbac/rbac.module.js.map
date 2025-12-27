@@ -1,0 +1,1 @@
+{"version":3,"file":"rbac.module.js","sourceRoot":"","sources":["../../../src/core/rbac/rbac.module.ts"],"names":[],"mappings":";;;;;AAEA,gEAAuC;AAEvC,MAAM,UAAU,GAAuB,KAAK,EAAE,OAAO,EAAE,EAAE;IACvD,MAAM,OAAO,CAAC,QAAQ,CAAC,qBAAU,EAAE,EAAE,MAAM,EAAE,QAAQ,EAAE,CAAC,CAAC;AAC3D,CAAC,CAAC;AAEF,kBAAe,UAAU,CAAC"}

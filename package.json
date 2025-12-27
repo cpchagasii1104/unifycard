@@ -1,0 +1,38 @@
+{
+  "name": "unificard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unificard - Monorepo",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:contracts": "npm run build -w @unificard/contracts",
+    "dev:contracts": "npm run dev -w @unificard/contracts",
+    "build:backend": "npm run build -w unificard-backend",
+    "build:frontend": "npm run build -w unificard-frontend",
+    "build:all": "npm run build:contracts && npm run build:backend && npm run build:frontend",
+    "typecheck": "npm run typecheck -w @unificard/contracts && npm run typecheck -w unificard-backend && (npm run typecheck -w unificard-frontend || cd frontend && npx tsc --noEmit)",
+    "validate:contracts": "npm run build:contracts && npm run typecheck -w @unificard/contracts",
+    "validate:all": "npm run validate:contracts && npm run typecheck"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

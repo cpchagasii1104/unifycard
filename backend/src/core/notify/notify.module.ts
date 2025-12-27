@@ -1,0 +1,9 @@
+// src/core/notify/notify.module.ts
+import { FastifyPluginAsync } from 'fastify';
+import notifyRoutes from './notify.routes';
+
+const notifyModule: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(notifyRoutes);
+};
+
+export default notifyModule;

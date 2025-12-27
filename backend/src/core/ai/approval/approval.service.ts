@@ -1,0 +1,121 @@
+// backend/src/core/ai/approval/approval.service.ts
+import { v4 as uuidv4 } from 'uuid';
+import type { Approval, ApprovalRequest } from './approval.types';
+
+// Armazenamento em memória (simples para MVP)
+const approvals: Map<string, Approval> = new Map();
+
+class ApprovalService {
+  // Criar solicitação de aprovação
+  createApproval(userId: string, tenantId: string, request: ApprovalRequest): Approval {
+    const token = uuidv4();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
+
+    const approval: Approval = {
+      id: uuidv4(),
+      userId,
+      tenantId,
+      token,
+      action: request.action,
+      payload: request.payload,
+      description: request.description,
+      status: 'pending',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    approvals.set(approval.id, approval);
+    return approval;
+  }
+
+  // Listar aprovações pendentes do usuário
+  listPending(userId: string, tenantId: string): Approval[] {
+    const now = new Date();
+    const pending: Approval[] = [];
+
+    for (const approval of approvals.values()) {
+      if (
+        approval.userId === userId &&
+        approval.tenantId === tenantId &&
+        approval.status === 'pending' &&
+        new Date(approval.expiresAt) > now
+      ) {
+        pending.push(approval);
+      }
+    }
+
+    return pending.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  // Aprovar ação
+  approve(token: string, userId: string, tenantId: string): Approval | null {
+    const approval = this.findByToken(token);
+    
+    if (!approval) {
+      return null;
+    }
+
+    if (approval.status !== 'pending') {
+      return null;
+    }
+
+    if (approval.userId !== userId || approval.tenantId !== tenantId) {
+      return null;
+    }
+
+    const now = new Date();
+    if (new Date(approval.expiresAt) < now) {
+      return null;
+    }
+
+    approval.status = 'approved';
+    approvals.set(approval.id, approval);
+    return approval;
+  }
+
+  // Rejeitar ação
+  reject(token: string, userId: string, tenantId: string): Approval | null {
+    const approval = this.findByToken(token);
+    
+    if (!approval) {
+      return null;
+    }
+
+    if (approval.status !== 'pending') {
+      return null;
+    }
+
+    if (approval.userId !== userId || approval.tenantId !== tenantId) {
+      return null;
+    }
+
+    const now = new Date();
+    if (new Date(approval.expiresAt) < now) {
+      return null;
+    }
+
+    approval.status = 'rejected';
+    approvals.set(approval.id, approval);
+    return approval;
+  }
+
+  // Buscar por token
+  findByToken(token: string): Approval | null {
+    for (const approval of approvals.values()) {
+      if (approval.token === token) {
+        return approval;
+      }
+    }
+    return null;
+  }
+
+  // Buscar por ID
+  findById(id: string): Approval | null {
+    return approvals.get(id) || null;
+  }
+}
+
+export const approvalService = new ApprovalService();
+
+
