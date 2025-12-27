@@ -1,12 +1,10 @@
 // src/components/events/EventImpact.tsx
 // Mostra impacto gerado por eventos (quando houver dados reais do ledger)
-// Reutiliza CommunitiesBenefited quando houver contribuições para grupos
 
 import { useState, useEffect } from 'react';
 import { getLedgerSummary } from '../../api/social';
-import { safeApiCall, safeNumber, safeArray } from '../../utils/guardrails';
+import { safeApiCall, safeNumber } from '../../utils/guardrails';
 import { devLog } from '../../utils/devLog';
-import CommunitiesBenefited from '../social/CommunitiesBenefited';
 import './EventImpact.css';
 
 interface EventImpactProps {
@@ -16,7 +14,6 @@ interface EventImpactProps {
 export default function EventImpact({ eventId }: EventImpactProps) {
   const [hasImpact, setHasImpact] = useState(false);
   const [totalContributed, setTotalContributed] = useState(0);
-  const [hasGroupContributions, setHasGroupContributions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -41,19 +38,14 @@ export default function EventImpact({ eventId }: EventImpactProps) {
       );
 
       // Verificar se há contribuições para grupos (impacto real)
-      const groupContributions = safeArray(summary.group_contributions, []);
       const total = safeNumber(summary.total_profit_share_received_cents, 0);
-      const hasContributions = groupContributions.length > 0 && total > 0;
+      const hasContributions = summary.group_contributions && summary.group_contributions.length > 0;
 
       setTotalContributed(total);
-      setHasGroupContributions(hasContributions);
-      
-      // Só mostrar impacto se houver contribuições reais para grupos
-      setHasImpact(hasContributions);
+      setHasImpact(hasContributions && total > 0);
     } catch (err) {
       devLog.error('Erro ao carregar impacto do evento:', err);
       setHasImpact(false);
-      setHasGroupContributions(false);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +77,6 @@ export default function EventImpact({ eventId }: EventImpactProps) {
         <p className="event-impact-text">
           Este evento já gerou impacto para a comunidade através de compras e participações.
         </p>
-        
         {totalContributed > 0 && (
           <div className="event-impact-total">
             <span className="event-impact-total-label">Total contribuído para comunidades:</span>
@@ -93,13 +84,6 @@ export default function EventImpact({ eventId }: EventImpactProps) {
           </div>
         )}
       </div>
-
-      {/* Reutilizar CommunitiesBenefited quando houver contribuições para grupos */}
-      {hasGroupContributions && (
-        <div className="event-impact-communities">
-          <CommunitiesBenefited />
-        </div>
-      )}
     </div>
   );
 }
