@@ -1,6 +1,8 @@
 // src/utils/trustSignals.ts
 // Sinais de confiança dinâmicos baseados em ações reais
 
+import { safeDate, safeNumber } from './guardrails';
+
 export interface TrustSignal {
   type: 'badge' | 'text' | 'stat';
   label: string;
@@ -260,8 +262,9 @@ export function getEventTrustSignals(eventData: {
   }
 
   // 2. Evento com participantes (prioridade média-alta)
-  if (eventData.participantsCount !== undefined && eventData.participantsCount > 0) {
-    if (eventData.participantsCount === 1) {
+  const participantsCount = safeNumber(eventData.participantsCount, 0);
+  if (participantsCount > 0) {
+    if (participantsCount === 1) {
       signals.push({
         type: 'badge',
         label: '1 pessoa confirmou',
@@ -271,7 +274,7 @@ export function getEventTrustSignals(eventData: {
     } else {
       signals.push({
         type: 'stat',
-        label: `${eventData.participantsCount} pessoas confirmaram`,
+        label: `${participantsCount} pessoas confirmaram`,
         priority: 2,
       });
     }
@@ -279,8 +282,8 @@ export function getEventTrustSignals(eventData: {
 
   // 3. Evento ativo recentemente (prioridade média)
   if (eventData.updated_at) {
-    const updatedDate = new Date(eventData.updated_at).getTime();
-    if (updatedDate > sevenDaysAgo) {
+    const updatedDate = safeDate(eventData.updated_at, 0);
+    if (updatedDate > sevenDaysAgo && updatedDate > 0) {
       signals.push({
         type: 'badge',
         label: 'Ativo recentemente',
@@ -289,8 +292,8 @@ export function getEventTrustSignals(eventData: {
       });
     }
   } else if (eventData.created_at) {
-    const createdDate = new Date(eventData.created_at).getTime();
-    if (createdDate > sevenDaysAgo) {
+    const createdDate = safeDate(eventData.created_at, 0);
+    if (createdDate > sevenDaysAgo && createdDate > 0) {
       signals.push({
         type: 'badge',
         label: 'Evento recente',
@@ -301,10 +304,11 @@ export function getEventTrustSignals(eventData: {
   }
 
   // 4. Evento com conversões (prioridade alta)
-  if (eventData.totalConversions !== undefined && eventData.totalConversions > 0) {
+  const totalConversions = safeNumber(eventData.totalConversions, 0);
+  if (totalConversions > 0) {
     signals.push({
       type: 'stat',
-      label: `${eventData.totalConversions} ${eventData.totalConversions === 1 ? 'compra realizada' : 'compras realizadas'}`,
+      label: `${totalConversions} ${totalConversions === 1 ? 'compra realizada' : 'compras realizadas'}`,
       priority: 1,
     });
   }

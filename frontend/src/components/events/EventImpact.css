@@ -30,6 +30,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 16px;
 }
 
 .event-impact-text {
@@ -58,5 +59,11 @@
   font-size: 18px;
   font-weight: 700;
   color: #1b5e20;
+}
+
+.event-impact-communities {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #a5d6a7;
 }
 

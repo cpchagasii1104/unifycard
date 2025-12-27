@@ -7,7 +7,8 @@ import PostCard, { type PostCardData } from '../social/PostCard';
 import EventStatusBadge from './EventStatusBadge';
 import AvailabilityPreview from './AvailabilityPreview';
 import EventImpact from './EventImpact';
-import { getEventTrustSignals, type TrustSignal } from '../../utils/trustSignals';
+import { getEventTrustSignals } from '../../utils/trustSignals';
+import { devLog } from '../../utils/devLog';
 import './EventPage.css';
 
 export interface EventPageProps {
@@ -59,7 +60,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
                 const availabilityData = await getEventAvailabilityPreview(eventId);
                 setAvailability(availabilityData);
               } catch (err) {
-                console.error('Erro ao carregar disponibilidade:', err);
+                devLog.error('Erro ao carregar disponibilidade:', err);
               }
             }
 
@@ -84,7 +85,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
               }));
               setRelatedPosts(posts);
             } catch (err) {
-              console.error('Erro ao carregar posts relacionados:', err);
+              devLog.error('Erro ao carregar posts relacionados:', err);
             }
 
             // Participantes
@@ -92,7 +93,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
               const participantsData = await getEventParticipants(eventId, 20);
               setParticipants(participantsData.participants || []);
             } catch (err) {
-              console.error('Erro ao carregar participantes:', err);
+              devLog.error('Erro ao carregar participantes:', err);
             }
 
             // Métricas (para otimizar CTAs)
@@ -103,7 +104,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
                 totalConversions: metricsData.totalConversions,
               });
             } catch (err) {
-              console.error('Erro ao carregar métricas:', err);
+              devLog.error('Erro ao carregar métricas:', err);
             }
 
             // Verificar se evento gerou impacto (via EventImpact component logic)
@@ -119,13 +120,13 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
             }
           } catch (err) {
             // Não bloqueia carregamento da página
-            console.error('Erro ao carregar dados relacionados:', err);
+            devLog.error('Erro ao carregar dados relacionados:', err);
           }
         };
 
         loadRelatedData();
       } catch (err) {
-        console.error('Erro ao carregar evento:', err);
+        devLog.error('Erro ao carregar evento:', err);
         setError(err instanceof Error ? err.message : 'Erro ao carregar evento');
       } finally {
         setLoading(false);
@@ -163,10 +164,16 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
 
   // Funções de renderização para evitar JSX complexo aninhado
   const renderTrustSignals = () => {
+    if (!event) {
+      return null;
+    }
+
     const trustSignals = getEventTrustSignals({
       participantsCount: participants.length,
       hasImpact,
       totalConversions: metrics?.totalConversions,
+      created_at: event.created_at,
+      updated_at: event.updated_at,
     });
 
     if (trustSignals.length === 0) {
@@ -186,6 +193,10 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
   };
 
   const renderDuringCTAs = () => {
+    if (!event) {
+      return null;
+    }
+
     const ctas = [];
     
     if (event.acceptsConsumption) {
@@ -244,13 +255,25 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
       });
     }
 
+    if (ctas.length === 0) {
+      return null;
+    }
+
     // Ordenar por taxa de conversão (maior primeiro)
-    return ctas
-      .sort((a, b) => b.rate - a.rate)
-      .map((cta) => cta.component);
+    return (
+      <div>
+        {ctas
+          .sort((a, b) => b.rate - a.rate)
+          .map((cta) => cta.component)}
+      </div>
+    );
   };
 
   const renderTicketCTAText = () => {
+    if (!event) {
+      return '💵 Comprar Ingresso';
+    }
+
     const ticketMetrics = metrics?.byCTAType?.ticket;
     const conversionRate = ticketMetrics && ticketMetrics.clicks > 0
       ? ticketMetrics.conversions / ticketMetrics.clicks
@@ -263,10 +286,70 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
   };
 
   const renderTimelineTitle = () => {
+    if (!event) return '📝 Timeline do Evento';
     if (event.stateInfo?.state === 'PRE') return '📝 Preparação do Evento';
     if (event.stateInfo?.state === 'DURING') return '🎉 Acontecendo Agora';
     if (event.stateInfo?.state === 'POST') return '📸 Replay do Evento';
     return '📝 Timeline do Evento';
+  };
+
+  const renderAvailability = () => {
+    if (!event) {
+      return null;
+    }
+
+    if (availability && availability.nextAvailableSlots.length > 0) {
+      return (
+        <div className="event-page-availability">
+          <h2>Próximos horários disponíveis</h2>
+          <AvailabilityPreview slots={availability.nextAvailableSlots} timezone={availability.timezone} />
+        </div>
+      );
+    }
+    
+    if (event.maxCapacity !== null && event.currentOccupancy >= event.maxCapacity) {
+      return <div className="event-page-sold-out">⚠️ Esgotado</div>;
+    }
+    
+    return <div className="event-page-no-availability">Fora do horário ou sem disponibilidade</div>;
+  };
+
+  const renderStateInfo = () => {
+    if (!event || !event.stateInfo) {
+      return null;
+    }
+
+    const stateIcon = event.stateInfo.state === 'PRE' ? '⏰' 
+      : event.stateInfo.state === 'DURING' ? '🎉' 
+      : '✅';
+
+    return (
+      <div className={`event-page-state event-page-state-${event.stateInfo.state.toLowerCase()}`}>
+        <div className="event-page-state-message">
+          {stateIcon} {event.stateInfo.message}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDisabledMessage = () => {
+    if (!event || !isCTADisabled) {
+      return null;
+    }
+
+    if (event.status === 'CANCELLED') {
+      return <div className="event-page-disabled-message">Este evento foi cancelado</div>;
+    }
+
+    if (event.status === 'FINISHED') {
+      return <div className="event-page-disabled-message">Este evento já foi finalizado</div>;
+    }
+
+    if (event.maxCapacity !== null && event.currentOccupancy >= event.maxCapacity) {
+      return <div className="event-page-disabled-message">Ingressos esgotados</div>;
+    }
+
+    return null;
   };
 
   if (loading) {
@@ -319,35 +402,10 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
       </div>
 
       {/* Agenda (Preview) */}
-      {(() => {
-        if (availability && availability.nextAvailableSlots.length > 0) {
-          return (
-            <div className="event-page-availability">
-              <h2>Próximos horários disponíveis</h2>
-              <AvailabilityPreview slots={availability.nextAvailableSlots} timezone={availability.timezone} />
-            </div>
-          );
-        }
-        
-        if (event.maxCapacity !== null && event.currentOccupancy >= event.maxCapacity) {
-          return <div className="event-page-sold-out">⚠️ Esgotado</div>;
-        }
-        
-        return <div className="event-page-no-availability">Fora do horário ou sem disponibilidade</div>;
-      })()}
+      {renderAvailability()}
 
       {/* Estado do Evento */}
-      {event.stateInfo && (
-        <div className={`event-page-state event-page-state-${event.stateInfo.state.toLowerCase()}`}>
-          <div className="event-page-state-message">
-            {event.stateInfo.state === 'PRE' && '⏰'}
-            {event.stateInfo.state === 'DURING' && '🎉'}
-            {event.stateInfo.state === 'POST' && '✅'}
-            {' '}
-            {event.stateInfo.message}
-          </div>
-        </div>
-      )}
+      {renderStateInfo()}
 
       {/* CTAs - Adaptados por estado e otimizados por métricas */}
       <div className="event-page-ctas">
@@ -370,12 +428,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
           </button>
         )}
 
-        {event.stateInfo?.state === 'DURING' && (
-          <div>
-            {/* Ordenar CTAs por performance (maior conversão primeiro) */}
-            {renderDuringCTAs()}
-          </div>
-        )}
+        {event.stateInfo?.state === 'DURING' && renderDuringCTAs()}
 
         {event.stateInfo?.state === 'POST' && (
           <div className="event-page-post-cta">
@@ -440,13 +493,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
         )}
       </div>
 
-      {isCTADisabled && (
-        <div className="event-page-disabled-message">
-          {event.status === 'CANCELLED' && 'Este evento foi cancelado'}
-          {event.status === 'FINISHED' && 'Este evento já foi finalizado'}
-          {event.maxCapacity !== null && event.currentOccupancy >= event.maxCapacity && 'Ingressos esgotados'}
-        </div>
-      )}
+      {renderDisabledMessage()}
 
       {/* Impacto Gerado pelo Evento */}
       <EventImpact eventId={event.id} />
