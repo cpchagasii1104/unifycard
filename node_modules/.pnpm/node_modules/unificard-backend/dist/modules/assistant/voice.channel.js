@@ -62,4 +62,3 @@ class VoiceChannel {
     }
 }
 exports.voiceChannel = new VoiceChannel();
-//# sourceMappingURL=voice.channel.js.map

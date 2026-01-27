@@ -68,4 +68,3 @@ const catalogRoutes = async (fastify) => {
     });
 };
 exports.default = catalogRoutes;
-//# sourceMappingURL=catalog.routes.js.map

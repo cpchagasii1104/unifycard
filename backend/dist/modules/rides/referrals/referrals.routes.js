@@ -61,4 +61,3 @@ const referralsRoutes = async (fastify) => {
     });
 };
 exports.default = referralsRoutes;
-//# sourceMappingURL=referrals.routes.js.map

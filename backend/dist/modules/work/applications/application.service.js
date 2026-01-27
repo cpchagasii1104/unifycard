@@ -136,4 +136,3 @@ class ApplicationService {
     }
 }
 exports.applicationService = new ApplicationService();
-//# sourceMappingURL=application.service.js.map

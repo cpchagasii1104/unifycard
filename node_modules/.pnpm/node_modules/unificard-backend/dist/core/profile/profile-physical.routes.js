@@ -69,4 +69,3 @@ const profilePhysicalRoutes = async (fastify) => {
     });
 };
 exports.default = profilePhysicalRoutes;
-//# sourceMappingURL=profile-physical.routes.js.map

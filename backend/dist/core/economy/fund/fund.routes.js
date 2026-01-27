@@ -94,4 +94,3 @@ const fundRoutes = async (fastify) => {
     await fastify.register(fund_dashboard_routes_1.default);
 };
 exports.default = fundRoutes;
-//# sourceMappingURL=fund.routes.js.map

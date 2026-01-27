@@ -230,4 +230,3 @@ class PolicyResolutionEngine {
 }
 exports.PolicyResolutionEngine = PolicyResolutionEngine;
 exports.policyResolutionEngine = new PolicyResolutionEngine();
-//# sourceMappingURL=policy-resolution-engine.js.map

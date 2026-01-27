@@ -1,0 +1,323 @@
+// backend/src/modules/public-profiles/public-profile.repository.ts
+// SPRINT 79: Repository para public_profiles
+
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import type { PublicProfile, CreatePublicProfileInput, UpdatePublicProfileInput, PublicProfileFilters } from './public-profile.types';
+
+interface PublicProfileRow {
+  id: string;
+  tenant_id: string;
+  actor_id: string;
+  profile_type: string;
+  slug: string;
+  display_name: string;
+  bio: string | null;
+  avatar_url: string | null;
+  cover_url: string | null;
+  visibility: string;
+  metadata: any;
+  created_at: Date;
+  updated_at: Date;
+}
+
+class PublicProfileRepository {
+  private toProfile(row: PublicProfileRow): PublicProfile {
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      actorId: row.actor_id,
+      profileType: row.profile_type as any,
+      slug: row.slug,
+      displayName: row.display_name,
+      bio: row.bio,
+      avatarUrl: row.avatar_url,
+      coverUrl: row.cover_url,
+      visibility: row.visibility as any,
+      metadata: row.metadata || {},
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  /**
+   * Gera slug único a partir do display name
+   */
+  private generateSlug(displayName: string): string {
+    let slug = displayName
+      .toLowerCase()
+      .trim()
+      // Remover acentos básicos
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      // Remover caracteres especiais, manter apenas letras, números e hífens
+      .replace(/[^a-z0-9-]/g, '-')
+      // Remover múltiplos hífens consecutivos
+      .replace(/-+/g, '-')
+      // Remover hífens no início e fim
+      .replace(/^-+|-+$/g, '')
+      // Limitar tamanho
+      .substring(0, 200);
+
+    if (!slug) {
+      slug = `profile-${Date.now()}`;
+    }
+
+    return slug;
+  }
+
+  /**
+   * Gera slug único verificando se já existe
+   */
+  private async generateUniqueSlug(
+    tenantId: string,
+    baseSlug: string
+  ): Promise<string> {
+    let slug = baseSlug;
+    let counter = 0;
+
+    while (true) {
+      const existing = await runQueryWithTenant<{ id: string }>(
+        tenantId,
+        `
+        SELECT id
+        FROM public_profiles
+        WHERE tenant_id = $1 AND slug = $2
+        LIMIT 1
+        `,
+        [tenantId, slug]
+      );
+
+      if (!existing) {
+        return slug;
+      }
+
+      counter++;
+      slug = `${baseSlug}-${counter}`;
+    }
+  }
+
+  async createProfile(
+    tenantId: string,
+    input: CreatePublicProfileInput
+  ): Promise<PublicProfile> {
+    // Gerar slug se não fornecido
+    let slug = input.slug;
+    if (!slug) {
+      const baseSlug = this.generateSlug(input.displayName);
+      slug = await this.generateUniqueSlug(tenantId, baseSlug);
+    } else {
+      // Verificar se slug já existe
+      const existing = await runQueryWithTenant<{ id: string }>(
+        tenantId,
+        `
+        SELECT id
+        FROM public_profiles
+        WHERE tenant_id = $1 AND slug = $2
+        LIMIT 1
+        `,
+        [tenantId, slug]
+      );
+
+      if (existing) {
+        throw new Error(`Slug '${slug}' já existe para este tenant`);
+      }
+    }
+
+    const row = await runQueryWithTenant<PublicProfileRow>(
+      tenantId,
+      `
+      INSERT INTO public_profiles (
+        tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata,
+        created_at, updated_at
+      `,
+      [
+        tenantId,
+        input.actorId,
+        input.profileType,
+        slug,
+        input.displayName,
+        input.bio || null,
+        input.avatarUrl || null,
+        input.coverUrl || null,
+        input.visibility || 'PUBLIC',
+        JSON.stringify(input.metadata || {}),
+      ]
+    );
+
+    if (!row) {
+      throw new Error('Erro ao criar perfil público');
+    }
+
+    return this.toProfile(row);
+  }
+
+  async updateProfile(
+    tenantId: string,
+    profileId: string,
+    input: UpdatePublicProfileInput
+  ): Promise<PublicProfile> {
+    const updates: string[] = [];
+    const params: any[] = [tenantId, profileId];
+    let paramIndex = 3;
+
+    if (input.displayName !== undefined) {
+      updates.push(`display_name = $${paramIndex}`);
+      params.push(input.displayName);
+      paramIndex++;
+    }
+
+    if (input.bio !== undefined) {
+      updates.push(`bio = $${paramIndex}`);
+      params.push(input.bio || null);
+      paramIndex++;
+    }
+
+    if (input.avatarUrl !== undefined) {
+      updates.push(`avatar_url = $${paramIndex}`);
+      params.push(input.avatarUrl || null);
+      paramIndex++;
+    }
+
+    if (input.coverUrl !== undefined) {
+      updates.push(`cover_url = $${paramIndex}`);
+      params.push(input.coverUrl || null);
+      paramIndex++;
+    }
+
+    if (input.visibility !== undefined) {
+      updates.push(`visibility = $${paramIndex}`);
+      params.push(input.visibility);
+      paramIndex++;
+    }
+
+    if (input.metadata !== undefined) {
+      updates.push(`metadata = $${paramIndex}`);
+      params.push(JSON.stringify(input.metadata));
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      // Nada para atualizar, retornar perfil atual
+      return await this.getProfileById(tenantId, profileId);
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const row = await runQueryWithTenant<PublicProfileRow>(
+      tenantId,
+      `
+      UPDATE public_profiles
+      SET ${updates.join(', ')}
+      WHERE tenant_id = $1 AND id = $2
+      RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata,
+        created_at, updated_at
+      `,
+      params
+    );
+
+    if (!row) {
+      throw new Error('Perfil público não encontrado');
+    }
+
+    return this.toProfile(row);
+  }
+
+  async getProfileById(tenantId: string, profileId: string): Promise<PublicProfile | null> {
+    const row = await runQueryWithTenant<PublicProfileRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata,
+        created_at, updated_at
+      FROM public_profiles
+      WHERE tenant_id = $1 AND id = $2
+      `,
+      [tenantId, profileId]
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    return this.toProfile(row);
+  }
+
+  async getProfileBySlug(tenantId: string, slug: string): Promise<PublicProfile | null> {
+    const row = await runQueryWithTenant<PublicProfileRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata,
+        created_at, updated_at
+      FROM public_profiles
+      WHERE tenant_id = $1 AND slug = $2
+      `,
+      [tenantId, slug]
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    return this.toProfile(row);
+  }
+
+  async listProfiles(
+    tenantId: string,
+    filters: PublicProfileFilters = {}
+  ): Promise<PublicProfile[]> {
+    const conditions: string[] = ['tenant_id = $1'];
+    const params: any[] = [tenantId];
+    let paramIndex = 2;
+
+    if (filters.profileType) {
+      conditions.push(`profile_type = $${paramIndex}`);
+      params.push(filters.profileType);
+      paramIndex++;
+    }
+
+    if (filters.visibility) {
+      conditions.push(`visibility = $${paramIndex}`);
+      params.push(filters.visibility);
+      paramIndex++;
+    }
+
+    if (filters.actorId) {
+      conditions.push(`actor_id = $${paramIndex}`);
+      params.push(filters.actorId);
+      paramIndex++;
+    }
+
+    const limit = filters.limit || 100;
+    const offset = filters.offset || 0;
+
+    const rows = await runQueriesWithTenant<PublicProfileRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
+        bio, avatar_url, cover_url, visibility, metadata,
+        created_at, updated_at
+      FROM public_profiles
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `,
+      [...params, limit, offset]
+    );
+
+    return rows.map((row) => this.toProfile(row));
+  }
+}
+
+export const publicProfileRepository = new PublicProfileRepository();
+
+
+
+
+

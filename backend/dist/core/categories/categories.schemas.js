@@ -3,50 +3,115 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.aiCreateCategorySchema = exports.classifyTextSchema = exports.assignSkillToUserSchema = exports.assignCategoryToCompanySchema = exports.createManyCategoriesSchema = exports.createCategorySchema = exports.CATEGORY_CONTEXT_VALUES = void 0;
 // src/core/categories/categories.schemas.ts
 const zod_1 = require("zod");
-// Array de valores para validação Zod (baseado no tipo CategoryContext)
-// Exportado para uso em rotas e outros lugares que precisam validar o enum
+// ===============================
+// Contextos canônicos permitidos
+// ===============================
 exports.CATEGORY_CONTEXT_VALUES = [
     'professional',
     'interest',
     'education',
     'hobby',
     'learning',
+    'health', // Saúde (autodeclaração, NUNCA diagnóstico)
     'company',
     'lifestyle',
 ];
+// ===============================
+// Helpers canônicos
+// ===============================
+const slugSchema = zod_1.z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens');
+const uuidSchema = zod_1.z.string().uuid('UUID inválido');
+// ===============================
+// Criação manual (humano / admin)
+// ===============================
 exports.createCategorySchema = zod_1.z.object({
-    name: zod_1.z.string().min(1, 'Nome é obrigatório').max(200, 'Nome deve ter no máximo 200 caracteres'),
-    slug: zod_1.z.string().min(1, 'Slug é obrigatório').max(200, 'Slug deve ter no máximo 200 caracteres').regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens').optional(),
-    description: zod_1.z.string().max(5000, 'Descrição deve ter no máximo 5000 caracteres').nullable().optional(),
-    parentId: zod_1.z.string().uuid('ID da categoria pai inválido').nullable().optional(),
+    name: zod_1.z.string().min(1).max(200),
+    slug: slugSchema.optional(),
+    description: zod_1.z.string().max(5000).nullable().optional(),
+    // Estrutura
+    parentId: uuidSchema.nullable().optional(),
+}).superRefine((data, ctx) => {
+    // Root explícito ou child explícito, nunca ambíguo
+    if (data.parentId === undefined) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: 'parentId deve ser explicitamente null (root) ou UUID (child)',
+        });
+    }
 });
+// ===============================
+// Criação em lote (seed controlado)
+// ===============================
 exports.createManyCategoriesSchema = zod_1.z.object({
     categories: zod_1.z.array(zod_1.z.object({
-        name: zod_1.z.string().min(1, 'Nome é obrigatório').max(200, 'Nome deve ter no máximo 200 caracteres'),
-        slug: zod_1.z.string().min(1, 'Slug é obrigatório').max(200, 'Slug deve ter no máximo 200 caracteres').regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens').optional(),
-        description: zod_1.z.string().max(5000, 'Descrição deve ter no máximo 5000 caracteres').nullable().optional(),
+        name: zod_1.z.string().min(1).max(200),
+        slug: slugSchema.optional(),
+        description: zod_1.z.string().max(5000).nullable().optional(),
+        // Apenas UMA forma de vínculo
         parentSlug: zod_1.z.string().nullable().optional(),
-    })).min(1, 'Deve ter pelo menos uma categoria'),
+    })).min(1),
+}).superRefine((data, ctx) => {
+    const slugs = new Set();
+    for (const cat of data.categories) {
+        if (cat.slug) {
+            if (slugs.has(cat.slug)) {
+                ctx.addIssue({
+                    code: zod_1.z.ZodIssueCode.custom,
+                    message: `Slug duplicado no batch: ${cat.slug}`,
+                });
+            }
+            slugs.add(cat.slug);
+        }
+    }
 });
+// ===============================
+// Associação empresa ↔ categoria
+// ===============================
 exports.assignCategoryToCompanySchema = zod_1.z.object({
-    companyId: zod_1.z.string().uuid('ID da empresa inválido'),
-    categoryId: zod_1.z.string().uuid('ID da categoria inválido'),
+    companyId: uuidSchema,
+    categoryId: uuidSchema,
 });
+// ===============================
+// Skill do usuário
+// ===============================
 exports.assignSkillToUserSchema = zod_1.z.object({
-    categoryId: zod_1.z.string().uuid('ID da categoria inválido'),
-    skillLevel: zod_1.z.number().int('Nível de skill deve ser um inteiro').min(0, 'Nível mínimo é 0').max(100, 'Nível máximo é 100').optional(),
+    categoryId: uuidSchema,
+    skillLevel: zod_1.z.number().int().min(0).max(100).optional(),
 });
+// ===============================
+// Classificação de texto (NÃO cria)
+// ===============================
 exports.classifyTextSchema = zod_1.z.object({
-    text: zod_1.z.string().min(1, 'Texto é obrigatório').max(10000, 'Texto deve ter no máximo 10000 caracteres'),
-    maxCategories: zod_1.z.number().int('Número máximo de categorias deve ser um inteiro').min(1, 'Mínimo 1 categoria').max(10, 'Máximo 10 categorias').optional(),
+    text: zod_1.z.string().min(1).max(10000),
+    maxCategories: zod_1.z.number().int().min(1).max(10).optional(),
 });
+// ===============================
+// IA — proposição, NÃO criação livre
+// ===============================
 exports.aiCreateCategorySchema = zod_1.z.object({
-    text: zod_1.z.string().min(1, 'Texto é obrigatório').max(500, 'Texto deve ter no máximo 500 caracteres'),
-    context: zod_1.z.enum(exports.CATEGORY_CONTEXT_VALUES).optional().default('professional'),
-    parentId: zod_1.z.string().uuid('ID da categoria pai inválido').nullable().optional(),
-    countryCode: zod_1.z.string().length(2, 'Código do país deve ter 2 caracteres (ISO 3166-1 alpha-2)').nullable().optional(),
-    inputType: zod_1.z.enum(['text', 'voice', 'transcription']).optional().default('text'),
-    audioUrl: zod_1.z.string().url('URL do áudio inválida').optional(),
-    audioHash: zod_1.z.string().length(64, 'Hash do áudio deve ter 64 caracteres (SHA-256)').optional(),
+    text: zod_1.z.string().min(1).max(500),
+    context: zod_1.z
+        .enum(exports.CATEGORY_CONTEXT_VALUES)
+        .default('professional'),
+    parentId: uuidSchema.nullable().optional(),
+    countryCode: zod_1.z
+        .string()
+        .length(2, 'Código do país deve ter 2 caracteres (ISO 3166-1 alpha-2)')
+        .nullable()
+        .optional(),
+    inputType: zod_1.z.enum(['text', 'voice', 'transcription']).default('text'),
+    audioUrl: zod_1.z.string().url().optional(),
+    audioHash: zod_1.z.string().length(64).optional(),
+}).superRefine((data, ctx) => {
+    // IA nunca cria root implicitamente
+    if (data.parentId === undefined) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: 'IA não pode criar categoria sem parentId explícito',
+        });
+    }
 });
-//# sourceMappingURL=categories.schemas.js.map

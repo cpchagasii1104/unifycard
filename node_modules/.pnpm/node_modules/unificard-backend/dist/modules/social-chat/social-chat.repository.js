@@ -79,4 +79,3 @@ class SocialChatRepository {
     }
 }
 exports.SocialChatRepository = SocialChatRepository;
-//# sourceMappingURL=social-chat.repository.js.map

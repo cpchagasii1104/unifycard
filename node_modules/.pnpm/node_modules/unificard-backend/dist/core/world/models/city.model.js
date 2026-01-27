@@ -25,4 +25,3 @@ class CityModel {
     }
 }
 exports.CityModel = CityModel;
-//# sourceMappingURL=city.model.js.map

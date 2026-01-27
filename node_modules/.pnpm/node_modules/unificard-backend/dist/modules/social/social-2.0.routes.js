@@ -39,6 +39,8 @@ const social_2_0_service_1 = require("./social-2.0.service");
 const actor_repository_1 = require("./actor.repository");
 const social_ledger_service_1 = require("./social-ledger.service");
 const social_votes_service_1 = require("./social-votes.service");
+const actor_utils_1 = require("./actor.utils");
+const actor_audit_service_1 = require("./actor-audit.service");
 const pool_1 = require("@core/database/pool");
 const zod_1 = require("zod");
 const createPostSchema = zod_1.z.object({
@@ -49,7 +51,7 @@ const createPostSchema = zod_1.z.object({
     intent_metadata: zod_1.z.record(zod_1.z.any()).optional(),
     targeting: zod_1.z.object({
         demographics: zod_1.z.object({
-            age_range: zod_1.z.tuple([zod_1.z.number(), zod_1.z.number()]).optional(),
+            age_range: zod_1.z.array(zod_1.z.number()).length(2).optional(),
             gender: zod_1.z.array(zod_1.z.enum(['male', 'female', 'other'])).optional(),
         }).optional(),
         lifestyle: zod_1.z.object({
@@ -76,6 +78,7 @@ const createPostSchema = zod_1.z.object({
         currency: zod_1.z.string().optional(),
         metadata: zod_1.z.record(zod_1.z.any()).optional(),
     }).optional(),
+    group_id: zod_1.z.string().uuid().optional(), // ID do grupo para vincular o post
 });
 const reactionSchema = zod_1.z.object({
     reaction_type: zod_1.z.enum(['like', 'love', 'haha', 'wow', 'sad', 'angry']).default('like'),
@@ -86,8 +89,9 @@ const commentSchema = zod_1.z.object({
 });
 const social2Routes = async (fastify) => {
     /**
-     * GET /social/feed?cursor=
-     * Feed com cursor pagination
+     * GET /social/feed?cursor=&actor_type=&actor_id=&group_id=
+     * Feed com cursor pagination e modo de atuação (PF vs PJ)
+     * Quando group_id é fornecido, retorna apenas posts do grupo
      */
     fastify.get('/feed', async (req, reply) => {
         if (!req.user) {
@@ -103,7 +107,40 @@ const social2Routes = async (fastify) => {
             const cursor = req.query.cursor;
             const limit = parseInt(req.query.limit || '20', 10);
             const safeLimit = Math.min(Math.max(1, limit), 50);
-            const feed = await social_2_0_service_1.social2Service.getFeed(req.tenant.id, req.user.globalUserId, cursor, safeLimit);
+            // REGRA: actor_type é OBRIGATÓRIO (não pode ser genérico)
+            const actorType = req.query.actor_type;
+            if (!actorType || (actorType !== 'user' && actorType !== 'page')) {
+                return reply.status(400).send({
+                    error: 'actor_type é obrigatório e deve ser "user" (Pessoa Física) ou "page" (Pessoa Jurídica)'
+                });
+            }
+            const actorId = req.query.actor_id || undefined;
+            const actorStatus = req.query.actor_status || undefined; // Status da empresa
+            // EVENTOS ÂNCORA: Preferências e geolocalização (opcionais)
+            let userPreferences = undefined;
+            if (req.query.user_preferences) {
+                try {
+                    userPreferences = JSON.parse(req.query.user_preferences);
+                }
+                catch (err) {
+                    fastify.log.warn({ err }, 'Erro ao parsear user_preferences (ignorando)');
+                }
+            }
+            let userLocation = undefined;
+            if (req.query.user_location) {
+                try {
+                    userLocation = JSON.parse(req.query.user_location);
+                    // Validar coordenadas
+                    if (typeof userLocation.lat !== 'number' || typeof userLocation.lng !== 'number') {
+                        userLocation = undefined;
+                    }
+                }
+                catch (err) {
+                    fastify.log.warn({ err }, 'Erro ao parsear user_location (ignorando)');
+                }
+            }
+            const groupId = req.query.group_id || undefined;
+            const feed = await social_2_0_service_1.social2Service.getFeed(req.tenant.id, req.user.globalUserId, cursor, safeLimit, actorType, actorId, actorStatus, userPreferences, userLocation, groupId);
             return reply.send(feed);
         }
         catch (error) {
@@ -127,7 +164,25 @@ const social2Routes = async (fastify) => {
         }
         try {
             const validated = createPostSchema.parse(req.body);
-            const post = await social_2_0_service_1.social2Service.createPost(req.tenant.id, req.user.id, req.user.globalUserId, validated.content, validated.actor_id, validated.media_ids || [], validated.intent, validated.intent_metadata, validated.targeting, validated.cta);
+            // CONTINUOUS PRODUCTION: Usar action context se disponível
+            const actionContext = req.actionContext;
+            const createdByUserId = actionContext?.actingUserId || req.user.id;
+            const createdAsActorId = actionContext?.actingActorId || validated.actor_id;
+            // CONTINUOUS PRODUCTION: Verificar permissão específica para publicar feed
+            // Action context já foi resolvido pelo middleware
+            if (actionContext && validated.actor_id) {
+                const { requirePermission } = await Promise.resolve().then(() => __importStar(require('@core/authorization/require-permission.guard')));
+                const guard = requirePermission('publish_feed');
+                await guard(req, reply);
+                // Se guard retornou resposta, parar execução
+                if (reply.sent) {
+                    return;
+                }
+            }
+            const post = await social_2_0_service_1.social2Service.createPost(req.tenant.id, req.user.id, req.user.globalUserId, validated.content, validated.actor_id, validated.media_ids || [], validated.intent, validated.intent_metadata, validated.targeting, validated.cta, validated.group_id, // Passar groupId para o service
+            createdByUserId, // CONTINUOUS PRODUCTION: Audit field
+            createdAsActorId // CONTINUOUS PRODUCTION: Audit field
+            );
             return reply.status(201).send(post);
         }
         catch (error) {
@@ -154,7 +209,10 @@ const social2Routes = async (fastify) => {
         }
         try {
             const validated = reactionSchema.parse(req.body);
-            const reaction = await social_2_0_service_1.social2Service.toggleReaction(req.tenant.id, req.params.id, req.user.globalUserId, validated.reaction_type);
+            // Buscar actor ativo (pode ser empresa se estiver atuando como empresa)
+            const actorId = req.query.actor_id || undefined;
+            const actorType = req.query.actor_type;
+            const reaction = await social_2_0_service_1.social2Service.toggleReaction(req.tenant.id, req.params.id, req.user.globalUserId, validated.reaction_type, actorId, actorType);
             return reply.send(reaction);
         }
         catch (error) {
@@ -163,6 +221,29 @@ const social2Routes = async (fastify) => {
             }
             fastify.log.error({ err: error }, 'Erro ao adicionar reação');
             return reply.status(500).send({ error: 'Erro ao adicionar reação' });
+        }
+    });
+    /**
+     * GET /social/posts/:id/comments?cursor&limit
+     * Busca comentários de um post
+     */
+    fastify.get('/posts/:id/comments', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const cursor = req.query.cursor;
+            const limit = parseInt(req.query.limit || '20', 10);
+            const safeLimit = Math.min(Math.max(1, limit), 50);
+            const result = await social_2_0_service_1.social2Service.getComments(req.tenant.id, req.params.id, cursor, safeLimit);
+            return reply.send(result);
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar comentários');
+            return reply.status(500).send({ error: 'Erro ao buscar comentários' });
         }
     });
     /**
@@ -190,6 +271,75 @@ const social2Routes = async (fastify) => {
             }
             fastify.log.error({ err: error }, 'Erro ao criar comentário');
             return reply.status(500).send({ error: 'Erro ao criar comentário' });
+        }
+    });
+    /**
+     * GET /social/actors/available
+     * Lista actors disponíveis para o usuário (pessoal + empresas com permissão)
+     */
+    fastify.get('/actors/available', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ error: 'User ID não encontrado' });
+            }
+            const actors = await actor_repository_1.actorRepository.findAvailableActors(req.tenant.id, userId);
+            // 🔴 AUDITORIA: Registrar troca de actor se houver mudança
+            // (Frontend pode chamar endpoint específico para registrar troca explícita)
+            // Por enquanto, apenas retornar actors disponíveis
+            return reply.send({ actors });
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar actors disponíveis');
+            return reply.status(500).send({ error: 'Erro ao buscar actors disponíveis' });
+        }
+    });
+    /**
+     * POST /social/actors/switch
+     * Registra troca de Actor ativo (auditoria)
+     * 🔴 BLINDAGEM: Evento interno para auditoria, debugging e segurança
+     * NÃO é feed, NÃO é visível ao usuário final
+     */
+    fastify.post('/actors/switch', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ error: 'User ID não encontrado' });
+            }
+            const { from_actor_id, to_actor_id } = req.body;
+            // Validar que to_actor_id existe e pertence ao usuário
+            const toActor = await actor_repository_1.actorRepository.findById(req.tenant.id, to_actor_id);
+            if (!toActor) {
+                return reply.status(404).send({ error: 'Actor de destino não encontrado' });
+            }
+            // Verificar se usuário tem acesso ao actor
+            const availableActors = await actor_repository_1.actorRepository.findAvailableActors(req.tenant.id, userId);
+            const hasAccess = availableActors.some(a => a.actor_id === to_actor_id);
+            if (!hasAccess) {
+                return reply.status(403).send({ error: 'Acesso negado ao actor' });
+            }
+            // Registrar evento de auditoria
+            await (0, actor_audit_service_1.recordActorSwitch)(req.tenant.id, userId, from_actor_id || null, to_actor_id, {
+                route: req.url,
+                method: req.method,
+            });
+            return reply.send({ ok: true, message: 'Troca de actor registrada' });
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao registrar troca de actor');
+            return reply.status(500).send({ error: 'Erro ao registrar troca de actor' });
         }
     });
     /**
@@ -223,7 +373,7 @@ const social2Routes = async (fastify) => {
           LIMIT 1
           `, [req.user.globalUserId]);
                 if (user) {
-                    const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id, req.user.globalUserId);
+                    const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id);
                     isFollowing = await social_2_0_service_1.social2Service.isFollowing(req.tenant.id, currentActor.actor_id, req.params.id);
                 }
             }
@@ -264,7 +414,7 @@ const social2Routes = async (fastify) => {
             if (!user) {
                 return reply.status(404).send({ error: 'Usuário não encontrado' });
             }
-            const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id, req.user.globalUserId);
+            const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id);
             const result = await social_2_0_service_1.social2Service.followActor(req.tenant.id, currentActor.actor_id, req.params.id);
             return reply.send(result);
         }
@@ -298,7 +448,7 @@ const social2Routes = async (fastify) => {
             if (!user) {
                 return reply.status(404).send({ error: 'Usuário não encontrado' });
             }
-            const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id, req.user.globalUserId);
+            const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id);
             const result = await social_2_0_service_1.social2Service.unfollowActor(req.tenant.id, currentActor.actor_id, req.params.id);
             return reply.send(result);
         }
@@ -391,7 +541,7 @@ const social2Routes = async (fastify) => {
             if (!user) {
                 return reply.status(404).send({ error: 'Usuário não encontrado' });
             }
-            const currentActor = await actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id, req.user.globalUserId);
+            const currentActor = await actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id);
             // Buscar actor destinatário (se houver)
             let recipientActorId = null;
             if (cta.target_actor_id) {
@@ -450,6 +600,33 @@ const social2Routes = async (fastify) => {
                     }
                 }
             }
+            // FASE 10: Registrar impacto quando CTA é confirmado (SUPPORT)
+            try {
+                const { impactService } = await Promise.resolve().then(() => __importStar(require('./impact.service')));
+                // Determinar se é projeto (se tem target_group_id, pode ser projeto)
+                const sourceType = cta.target_group_id ? 'project' : 'post';
+                const sourceId = cta.target_group_id || cta.post_id;
+                await impactService.recordImpact({
+                    tenantId: req.tenant.id,
+                    actor: {
+                        actor_id: currentActor.actor_id,
+                        actor_type: currentActor.actor_type,
+                    },
+                    eventType: 'SUPPORT',
+                    delta: 5,
+                    sourceType: sourceType,
+                    sourceId: sourceId,
+                    metadata: {
+                        cta_id: cta.cta_id,
+                        cta_type: cta.cta_type,
+                        target_group_id: cta.target_group_id,
+                    },
+                });
+            }
+            catch (err) {
+                // Não quebra confirmação se impacto falhar (log apenas)
+                fastify.log.warn({ err }, 'Erro ao registrar impacto de support (não crítico)');
+            }
             return reply.status(201).send({
                 success: true,
                 revenue_entry: revenueEntry,
@@ -494,8 +671,22 @@ const social2Routes = async (fastify) => {
             if (!user) {
                 return reply.status(404).send({ ok: false, message: 'Usuário não encontrado' });
             }
-            const currentActor = await actor_repository_1.actorRepository.findOrCreateUserActor(req.tenant.id, user.user_id, req.user.globalUserId);
-            const result = await social_votes_service_1.socialVotesService.castVote(req.tenant.id, req.params.post_id, currentActor.actor_id, req.body.option_index);
+            // 🔴 CORREÇÃO CRÍTICA: Resolver actor ativo usando função canônica
+            // Prioridade: header x-actor-id > query actor_id > erro (sem fallback silencioso)
+            const currentActor = await (0, actor_utils_1.resolveActiveActorFromRequest)(req, req.tenant.id, {
+                allowUserFallback: false, // Não permitir fallback silencioso para PF
+            });
+            // Buscar status da empresa se for PJ
+            let companyStatus = undefined;
+            if (currentActor.actor_type === 'page' && currentActor.company_id) {
+                const company = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
+          SELECT company_status FROM companies
+          WHERE company_id = $1 AND tenant_id = $2
+          LIMIT 1
+          `, [currentActor.company_id, req.tenant.id]);
+                companyStatus = company?.company_status;
+            }
+            const result = await social_votes_service_1.socialVotesService.castVote(req.tenant.id, req.params.post_id, currentActor.actor_id, req.body.option_index, user.user_id);
             return reply.send({ ok: true, data: result });
         }
         catch (error) {
@@ -536,6 +727,98 @@ const social2Routes = async (fastify) => {
     // As rotas canônicas são:
     // - POST /social/posts/:post_id/vote (linha 651)
     // - GET /social/posts/:post_id/vote/results (linha 707)
+    /**
+     * GET /impact/balance
+     * Busca saldo de impacto do ator ativo
+     * FASE 10: Impacto Real + Ledger por Ator
+     */
+    fastify.get('/impact/balance', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const { impactService } = await Promise.resolve().then(() => __importStar(require('./impact.service')));
+            const actorId = req.query.actor_id;
+            const actorType = req.query.actor_type;
+            if (!actorId || !actorType) {
+                return reply.status(400).send({
+                    error: 'actor_id e actor_type são obrigatórios'
+                });
+            }
+            const balance = await impactService.getBalance(req.tenant.id, actorId, actorType);
+            return reply.send({
+                actor_id: balance.actor_id,
+                actor_type: balance.actor_type,
+                balance: balance.balance,
+            });
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar saldo de impacto');
+            return reply.status(500).send({ error: 'Erro ao buscar saldo de impacto' });
+        }
+    });
+    /**
+     * GET /impact/ledger
+     * Busca histórico do ledger de impacto (extrato)
+     * FASE 10: Impacto Real + Ledger por Ator
+     */
+    fastify.get('/impact/ledger', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const { impactService } = await Promise.resolve().then(() => __importStar(require('./impact.service')));
+            const actorId = req.query.actor_id;
+            const actorType = req.query.actor_type;
+            const limit = parseInt(req.query.limit || '20', 10);
+            if (!actorId || !actorType) {
+                return reply.status(400).send({
+                    error: 'actor_id e actor_type são obrigatórios'
+                });
+            }
+            const history = await impactService.getLedgerHistory(req.tenant.id, actorId, actorType, limit);
+            return reply.send({ entries: history });
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar histórico de impacto');
+            return reply.status(500).send({ error: 'Erro ao buscar histórico de impacto' });
+        }
+    });
+    /**
+     * GET /reputation/permissions
+     * Busca permissões do ator baseado em reputação e status
+     * FASE 11: Reputação Progressiva & Permissões
+     */
+    fastify.get('/reputation/permissions', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const { reputationService } = await Promise.resolve().then(() => __importStar(require('./reputation.service')));
+            const actorId = req.query.actor_id;
+            const actorType = req.query.actor_type;
+            const companyStatus = req.query.company_status;
+            if (!actorId || !actorType) {
+                return reply.status(400).send({
+                    error: 'actor_id e actor_type são obrigatórios'
+                });
+            }
+            const permissions = await reputationService.getPermissions(req.tenant.id, actorId, actorType, companyStatus);
+            return reply.send(permissions);
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao buscar permissões');
+            return reply.status(500).send({ error: 'Erro ao buscar permissões' });
+        }
+    });
 };
 exports.default = social2Routes;
-//# sourceMappingURL=social-2.0.routes.js.map

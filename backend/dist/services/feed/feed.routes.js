@@ -71,4 +71,3 @@ const feedRoutes = async (fastify) => {
     });
 };
 exports.default = feedRoutes;
-//# sourceMappingURL=feed.routes.js.map

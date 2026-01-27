@@ -21,4 +21,3 @@ const cityReadinessRoutes = async (fastify) => {
     });
 };
 exports.default = cityReadinessRoutes;
-//# sourceMappingURL=city-readiness.routes.js.map

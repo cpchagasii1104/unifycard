@@ -51,4 +51,3 @@ async function main() {
     }
 }
 main();
-//# sourceMappingURL=run-single-migration.js.map

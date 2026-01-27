@@ -1,0 +1,387 @@
+# 🐛 Análise do Bug Crítico no Fluxo de Onboarding de Perfil
+
+## 📋 Sintomas Reportados
+
+1. ✅ Usuário edita nome, data de nascimento e sexo
+2. ✅ Clica em salvar
+3. ✅ Backend retorna sucesso
+4. ❌ **onboarding_completed** nunca vira `true`
+5. ❌ **Campos não travam** (deveriam ficar imutáveis)
+6. ❌ **Após F5 a data de nascimento desaparece**
+7. ❌ **Segunda tentativa gera erro**: "data de nascimento pode não ter sido salva corretamente"
+
+---
+
+## 🔍 Análise Detalhada do Fluxo
+
+### 1. Frontend → Backend (Profile.tsx → identity.routes.ts)
+
+**Arquivo**: `frontend/src/components/Profile.tsx` (linhas 1052-1093)
+
+```typescript
+// Frontend usa <input type="date"> que retorna YYYY-MM-DD
+const birthdate = "1990-01-15"; // YYYY-MM-DD
+
+// Normaliza para ISO (mas já está em YYYY-MM-DD!)
+const normalizedBirthdate = parseBirthdateToISO(birthdate); // "1990-01-15"
+
+// Envia para backend
+await updateIdentity({
+  birthdate: normalizedBirthdate // "1990-01-15"
+});
+```
+
+**Status**: ✅ OK - Formato correto YYYY-MM-DD
+
+---
+
+### 2. Backend Recebe e Valida (identity.routes.ts)
+
+**Arquivo**: `backend/src/core/identity/identity.routes.ts` (linhas 127-397)
+
+```typescript
+// preHandler normaliza birthdate
+// Handler principal valida formato YYYY-MM-DD
+
+const year = 1990;
+const month = 0; // Janeiro (0-indexed)
+const day = 15;
+
+// Converte para Date UTC
+const updates = {
+  birthdate: new Date(Date.UTC(year, month, day)) // Date object
+};
+
+// Chama service
+await identityService.updateGlobalIdentity(globalUserId, updates);
+```
+
+**Status**: ✅ OK - Conversão para Date UTC correta
+
+---
+
+### 3. 🐛 BUG CRÍTICO #1: Lógica de Imutabilidade (identity.service.ts)
+
+**Arquivo**: `backend/src/core/identity/identity.service.ts` (linhas 210-241)
+
+```typescript
+// Buscar userId e tenantId para verificar onboarding
+const linkResult = await pool.query<{ user_id: string; tenant_id: string }>(
+  `SELECT user_id, tenant_id FROM user_identity_links WHERE global_user_id = $1 LIMIT 1`,
+  [globalUserId]
+);
+
+if (linkResult.rows.length > 0) {
+  const { user_id, tenant_id } = linkResult.rows[0];
+  const { profileService } = await import('@core/profile/profile.service');
+  canEditBirthdate = await profileService.canEditPersonalData(tenant_id, user_id);
+}
+
+// 🔴 BUG: Ignorar alteração se birthdate JÁ EXISTE e onboarding concluído
+if (existingGlobalUser?.birthdate && updates.birthdate !== undefined && updates.birthdate !== null && !canEditBirthdate) {
+  console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de birthdate (dado imutável após onboarding)');
+  delete updates.birthdate; // ❌ DELETA BIRTHDATE DOS UPDATES!
+}
+```
+
+**Problema**:
+- A condição `existingGlobalUser?.birthdate` retorna `true` mesmo se birthdate for `null` ou `undefined`
+- Se birthdate nunca foi salvo (é `null`) mas `canEditBirthdate = false` (onboarding concluído), o update é deletado
+- Resultado: **birthdate nunca é salvo no banco!**
+
+**Status**: ❌ BUG CRÍTICO
+
+---
+
+### 4. 🐛 BUG CRÍTICO #2: Timing do OnboardingCompleted (Profile.tsx)
+
+**Arquivo**: `frontend/src/components/Profile.tsx` (linhas 1260-1283)
+
+```typescript
+// Após salvar dados pessoais
+await updateIdentity(identityUpdate);
+await updateProfile(profileUpdate);
+
+// 🔴 PROBLEMA: Completa onboarding ANTES de verificar se birthdate foi salvo
+if (!onboardingCompleted && canEditPersonalData) {
+  await completeOnboarding();  // ❌ Marca como concluído!
+
+  // Atualiza estado
+  setOnboardingCompleted(true);
+  setCanEditPersonalData(false); // ❌ Trava edição!
+}
+```
+
+**Problema**:
+1. `updateIdentity()` retorna sucesso (mas birthdate pode ter sido deletado no backend!)
+2. Frontend chama `completeOnboarding()` SEM verificar se birthdate foi persistido
+3. `onboarding_completed = true` é setado em `profiles.metadata`
+4. **Segunda tentativa de salvar**: `canEditPersonalData = false` → birthdate é deletado novamente!
+
+**Status**: ❌ BUG CRÍTICO
+
+---
+
+### 5. 🐛 BUG CRÍTICO #3: canEditPersonalData Lógica (profile.service.ts)
+
+**Arquivo**: `backend/src/core/profile/profile.service.ts` (linhas 385-388)
+
+```typescript
+async canEditPersonalData(tenantId: string, userId: string): Promise<boolean> {
+  const isCompleted = await this.isOnboardingCompleted(tenantId, userId);
+  return !isCompleted; // Se onboarding concluído, NÃO pode editar
+}
+
+async isOnboardingCompleted(tenantId: string, userId: string): Promise<boolean> {
+  const profile = await this.getProfile(tenantId, userId);
+  return profile?.metadata?.onboarding_completed === true;
+}
+```
+
+**Problema**:
+- Se `onboarding_completed = true` em `profiles.metadata`, retorna `false` (não pode editar)
+- MAS se birthdate NUNCA foi salvo (ainda é `null`), o usuário fica **travado sem poder preencher!**
+- Deveria permitir salvar birthdate pela primeira vez, mesmo após onboarding
+
+**Status**: ❌ BUG CRÍTICO
+
+---
+
+## 🎯 Raiz do Problema
+
+### Sequência de Bugs:
+
+1. **1ª Tentativa de Salvar**:
+   - Usuário preenche nome, data, gênero
+   - Frontend envia birthdate corretamente
+   - Backend verifica `canEditBirthdate` → ainda `true` (onboarding não concluído)
+   - birthdate é salvo ✅
+   - Frontend chama `completeOnboarding()`
+   - `onboarding_completed = true` ✅
+   - PORÉM: Se houver qualquer erro de timing/concorrência, birthdate pode não ser salvo
+
+2. **Cenário de Falha (Race Condition)**:
+   - Se `completeOnboarding()` for chamado ANTES de birthdate ser commitado no banco
+   - OU se houver rollback parcial
+   - Resultado: `onboarding_completed = true` MAS `birthdate = null`
+
+3. **F5 (Reload)**:
+   - Frontend recarrega dados do backend
+   - birthdate vem como `null` (não foi salvo!)
+   - Campo fica vazio ❌
+
+4. **2ª Tentativa de Salvar**:
+   - Usuário preenche birthdate novamente
+   - Frontend verifica `canEditPersonalData` → `false` (onboarding concluído)
+   - Campos ficam bloqueados (LockedField) ❌
+   - OU: Se conseguir enviar, backend deleta birthdate (linha 240) ❌
+
+---
+
+## ✅ Soluções
+
+### Solução 1: Corrigir Lógica de Imutabilidade
+
+**Arquivo**: `backend/src/core/identity/identity.service.ts` (linha 233)
+
+**ANTES**:
+```typescript
+if (existingGlobalUser?.birthdate && updates.birthdate !== undefined && updates.birthdate !== null && !canEditBirthdate) {
+  delete updates.birthdate;
+}
+```
+
+**DEPOIS**:
+```typescript
+// 🔴 CORREÇÃO: Só bloquear se birthdate JÁ FOI PREENCHIDO (não é null/undefined)
+const birthdateAlreadyExists = existingGlobalUser?.birthdate !== null && existingGlobalUser?.birthdate !== undefined;
+
+if (birthdateAlreadyExists && updates.birthdate !== undefined && updates.birthdate !== null && !canEditBirthdate) {
+  console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de birthdate (dado imutável após onboarding)');
+  delete updates.birthdate;
+}
+```
+
+---
+
+### Solução 2: Validar Dados ANTES de Completar Onboarding
+
+**Arquivo**: `frontend/src/components/Profile.tsx` (linha 1260)
+
+**ANTES**:
+```typescript
+// Completar onboarding após salvar
+if (!onboardingCompleted && canEditPersonalData) {
+  await completeOnboarding();
+  // ...
+}
+```
+
+**DEPOIS**:
+```typescript
+// 🔴 CORREÇÃO: Verificar se birthdate foi salvo ANTES de completar onboarding
+if (!onboardingCompleted && canEditPersonalData) {
+  try {
+    // Recarregar identity para verificar se birthdate foi persistido
+    const reloadedIdentity = await getIdentityProfile();
+    const birthdateSaved = reloadedIdentity.global?.birthdate !== null && reloadedIdentity.global?.birthdate !== undefined;
+
+    if (!birthdateSaved) {
+      console.error('[Profile] ❌ birthdate não foi salvo. NÃO completando onboarding.');
+      throw new Error('Data de nascimento não foi salva corretamente. Tente novamente.');
+    }
+
+    // Só completar se todos os dados obrigatórios foram salvos
+    await completeOnboarding();
+    console.log('[Profile] ✅ Onboarding concluído com sucesso');
+
+    // Recarregar perfil do backend
+    const reloadedCoreProfile = await getCoreProfile();
+    const metadata = reloadedCoreProfile.personal_profile?.metadata || {};
+    const onboardingStatus = metadata.onboarding_completed === true;
+
+    setOnboardingCompleted(onboardingStatus);
+    setCanEditPersonalData(!onboardingStatus);
+    setShowOnboardingModal(false);
+  } catch (onboardingErr) {
+    console.error('[Profile] Erro ao completar onboarding:', onboardingErr);
+    // NÃO marcar como concluído se houver erro
+    throw onboardingErr;
+  }
+}
+```
+
+---
+
+### Solução 3: Adicionar Validação no Backend (completeOnboarding)
+
+**Arquivo**: `backend/src/core/profile/profile.service.ts` (linha 358)
+
+**ANTES**:
+```typescript
+async completeOnboarding(tenantId: string, userId: string): Promise<Profile> {
+  const existingProfile = await this.getProfile(tenantId, userId);
+  const existingMetadata = existingProfile?.metadata || {};
+
+  const updatedMetadata = {
+    ...existingMetadata,
+    onboarding_completed: true,
+    onboarding_completed_at: new Date().toISOString(),
+  };
+
+  return this.upsertProfile(tenantId, userId, {
+    metadata: updatedMetadata,
+  });
+}
+```
+
+**DEPOIS**:
+```typescript
+async completeOnboarding(tenantId: string, userId: string): Promise<Profile> {
+  // 🔴 VALIDAÇÃO CRÍTICA: Verificar se dados obrigatórios foram preenchidos
+  const { identityService } = await import('@core/identity/identity.service');
+
+  // Buscar global_user_id
+  const userLink = await runQueryWithTenant<{ global_user_id: string }>(
+    tenantId,
+    `SELECT global_user_id FROM users WHERE user_id = $1 LIMIT 1`,
+    [userId]
+  );
+
+  if (!userLink || !userLink.global_user_id) {
+    throw new Error('Usuário não possui identidade global');
+  }
+
+  const globalUser = await identityService.getGlobalIdentity(userLink.global_user_id);
+
+  // Validar dados obrigatórios
+  const errors: string[] = [];
+
+  if (!globalUser?.fullName || globalUser.fullName.trim().length === 0) {
+    errors.push('Nome completo é obrigatório');
+  }
+
+  if (!globalUser?.birthdate) {
+    errors.push('Data de nascimento é obrigatória');
+  }
+
+  // Verificar gender em metadata
+  const existingProfile = await this.getProfile(tenantId, userId);
+  const gender = existingProfile?.metadata?.gender;
+
+  if (!gender || (gender !== 'male' && gender !== 'female')) {
+    errors.push('Gênero é obrigatório');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Não é possível completar onboarding. Dados faltando: ${errors.join(', ')}`);
+  }
+
+  // Todos os dados estão OK, pode completar
+  const existingMetadata = existingProfile?.metadata || {};
+
+  const updatedMetadata = {
+    ...existingMetadata,
+    onboarding_completed: true,
+    onboarding_completed_at: new Date().toISOString(),
+  };
+
+  return this.upsertProfile(tenantId, userId, {
+    metadata: updatedMetadata,
+  });
+}
+```
+
+---
+
+## 📊 Resumo das Correções
+
+| Bug | Arquivo | Linha | Correção |
+|-----|---------|-------|----------|
+| #1 Imutabilidade incorreta | `identity.service.ts` | 233 | Verificar se birthdate JÁ EXISTE (não é null) |
+| #2 Timing onboarding | `Profile.tsx` | 1260 | Validar dados salvos ANTES de completar |
+| #3 Validação fraca | `profile.service.ts` | 358 | Validar campos obrigatórios no backend |
+
+---
+
+## ✅ Resultado Esperado Após Correção
+
+1. ✅ Usuário preenche nome, data, gênero
+2. ✅ Clica em salvar
+3. ✅ Backend valida e salva corretamente
+4. ✅ Frontend verifica se birthdate foi salvo
+5. ✅ Só então completa onboarding (`onboarding_completed = true`)
+6. ✅ Campos travama (nome, data, gênero se tornam imutáveis)
+7. ✅ Após F5, data de nascimento permanece preenchida
+8. ✅ Tentativa de editar dados imutáveis é bloqueada com mensagem clara
+
+---
+
+## 🧪 Testes Recomendados
+
+1. **Teste 1: Onboarding Normal**
+   - Preencher todos os campos
+   - Salvar
+   - Verificar se `onboarding_completed = true`
+   - Dar F5
+   - Verificar se dados permaneceram
+
+2. **Teste 2: Onboarding Incompleto**
+   - Preencher apenas nome (sem birthdate)
+   - Salvar
+   - Verificar se `onboarding_completed` permanece `false`
+   - Verificar mensagem de erro clara
+
+3. **Teste 3: Tentativa de Edição Após Onboarding**
+   - Completar onboarding
+   - Tentar editar birthdate
+   - Verificar se campo está bloqueado (LockedField)
+   - Verificar mensagem de tooltip
+
+---
+
+## 📝 Arquivos a Modificar
+
+1. ✅ `backend/src/core/identity/identity.service.ts` (linha 233)
+2. ✅ `backend/src/core/profile/profile.service.ts` (linha 358)
+3. ✅ `frontend/src/components/Profile.tsx` (linha 1260)

@@ -1,0 +1,76 @@
+// backend/src/modules/bank/bank-ledger.types.ts
+// SPRINT 1: FUNDAÇÃO DO UNIFY BANK
+// Tipos para ledger do Unify Bank
+
+/**
+ * Tipo de entrada no ledger (double-entry)
+ */
+export type BankLedgerEntryType = 'credit' | 'debit';
+
+/**
+ * Entrada no ledger (imutável, append-only)
+ */
+export interface BankLedgerEntry {
+  entryId: string;
+  tenantId: string;
+  accountId: string;
+  transactionId: string;
+  entryType: BankLedgerEntryType;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: Date;
+}
+
+/**
+ * Input para criar entrada no ledger
+ */
+export interface CreateBankLedgerEntryInput {
+  accountId: string;
+  transactionId: string;
+  entryType: BankLedgerEntryType;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description?: string;
+  metadata?: Record<string, any>;
+  /**
+   * Contexto de autoria (OBRIGATÓRIO - REGRA INQUEBRÁVEL)
+   * Hard fail no código se não fornecido
+   */
+  authorship: import('./financial-authorship.types').FinancialAuthorshipContext;
+}
+
+/**
+ * Opções de busca de entradas do ledger
+ */
+export interface BankLedgerSearchOptions {
+  accountId?: string;
+  transactionId?: string;
+  entryType?: BankLedgerEntryType;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Resumo de saldo de uma conta (calculado do ledger)
+ */
+export interface BankAccountBalance {
+  accountId: string;
+  balance: number; // Calculado do ledger (fonte da verdade)
+  totalCredits: number;
+  totalDebits: number;
+  entryCount: number;
+  lastEntryAt?: Date | null;
+}
+
+
+
+
+
+
+

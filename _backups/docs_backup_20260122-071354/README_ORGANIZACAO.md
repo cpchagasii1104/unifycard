@@ -1,0 +1,7 @@
+- Cursor NUNCA deve criar arquivos na raiz
+- Todo .md deve ir para docs/
+- Estratégia → docs/vision
+- Decisão técnica → docs/decisions
+- Prompt → docs/prompts
+- Checklist → docs/checklist
+- Release → docs/releases

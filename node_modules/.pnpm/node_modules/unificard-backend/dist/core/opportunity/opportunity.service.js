@@ -1,6 +1,16 @@
 "use strict";
 // src/core/opportunity/opportunity.service.ts
 // Serviço de Oportunidades Suaves - possibilidades no tempo certo
+//
+// 🔴 BLINDAGEM CANÔNICA: Educação NÃO participa de oportunidades
+// - Educação não filtra, não bloqueia, não prioriza oportunidades
+// - Por que isso NÃO pode virar decisão: vagas/projetos não exigem diploma
+//
+// 🔴 BLINDAGEM CANÔNICA: Aprendizado NÃO é gatekeeper
+// - Aprendizado representa direção e interesse declarado
+// - NÃO mede capacidade, NÃO bloqueia oportunidades
+// - Oportunidades são sugestivas, nunca bloqueadas por progresso/direção
+// - Por que isso NÃO pode virar decisão: aprendizado é interesse ativo, não validação
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -44,36 +54,38 @@ const getProfileLearningService = async () => {
 };
 class OpportunityService {
     /**
-     * Gera oportunidades contextuais baseadas no estado e progresso do usuário
-     * REGRA DURA: Só aparece se:
-     * - Aprendizado ativo
-     * - Progresso >= Intermediário
-     * - Afinidade clara com área profissional
+     * Gera oportunidades contextuais baseadas no estado e direção do usuário
+     *
+     * 🔴 BLINDAGEM CANÔNICA: Oportunidades são SUGESTIVAS, nunca bloqueadas
+     * - Aprendizado representa direção/interesse declarado, não capacidade
+     * - Progresso (beginner/intermediate/advanced) representa fase de exploração, não nível
+     * - Oportunidades NUNCA retornam array vazio por aprendizado
+     * - Aprendizado NÃO BLOQUEIA oportunidades
      */
     async getContextualOpportunities(tenantId, userId, limit = 3) {
         // Buscar inferências do usuário
         const inferences = await profile_inference_service_1.profileInferenceService.getInferences(tenantId, userId);
-        // Buscar perfil de aprendizado
+        // Buscar perfil de aprendizado (para contexto sugestivo, não bloqueante)
         const profileLearningServiceInstance = await getProfileLearningService();
         const learningProfile = await profileLearningServiceInstance.getLearningProfile(tenantId, userId);
-        // VALIDAÇÃO: Verificar se condições são atendidas
-        if (!learningProfile) {
+        // 🔴 BLINDAGEM: Se não houver perfil de aprendizado, ainda pode retornar oportunidades
+        // (baseadas em outros fatores como estado inferido, físico, profissional)
+        if (!learningProfile || learningProfile.learnings.length === 0) {
+            // Não bloqueia - pode retornar oportunidades baseadas em outros fatores
+            // Por enquanto, retorna vazio apenas se não houver contexto algum
+            // Em produção, poderia buscar oportunidades baseadas em físico/profissional
             return {
                 opportunities: [],
                 hasMore: false,
             };
         }
-        const hasActiveLearning = learningProfile.learnings.length > 0;
-        const hasIntermediateOrAdvanced = learningProfile.learnings.some(l => l.preferences?.progress === 'intermediate' || l.preferences?.progress === 'advanced');
+        // 🔴 BLINDAGEM: Progresso NÃO é usado para bloquear
+        // Progresso representa direção/fase de exploração, não capacidade
+        // Removido: hasIntermediateOrAdvanced como gatekeeper
         const hasProfessionalAffinity = inferences.insights.hasLearningWithoutProfessional ||
             inferences.userState === 'professional_training';
-        // Se qualquer condição falhar → não retorna oportunidades
-        if (!hasActiveLearning || !hasIntermediateOrAdvanced || !hasProfessionalAffinity) {
-            return {
-                opportunities: [],
-                hasMore: false,
-            };
-        }
+        // 🔴 BLINDAGEM: NUNCA bloquear por progresso/direção
+        // Oportunidades são geradas baseadas em contexto, não em validação de nível
         // Gerar oportunidades baseadas no tipo
         const opportunities = [];
         // OPORTUNIDADE 1: Exploratória (para quem está em transição)
@@ -86,9 +98,10 @@ class OpportunityService {
             const community = await this.generateCommunityOpportunities(tenantId, userId, learningProfile, 1);
             opportunities.push(...community);
         }
-        // OPORTUNIDADE 3: Profissional Suave (para quem já está pronto)
+        // OPORTUNIDADE 3: Profissional Suave (sugestiva, não baseada em nível)
+        // 🔴 BLINDAGEM: Não usa progresso como validação, apenas como contexto sugestivo
         if (inferences.userState === 'professional_training' ||
-            (hasIntermediateOrAdvanced && inferences.insights.hasLearningWithoutProfessional)) {
+            inferences.insights.hasLearningWithoutProfessional) {
             const professional = await this.generateProfessionalOpportunities(tenantId, userId, learningProfile, 1);
             opportunities.push(...professional);
         }
@@ -194,4 +207,3 @@ class OpportunityService {
     }
 }
 exports.opportunityService = new OpportunityService();
-//# sourceMappingURL=opportunity.service.js.map

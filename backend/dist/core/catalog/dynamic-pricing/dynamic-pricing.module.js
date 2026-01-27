@@ -10,4 +10,3 @@ const dynamicPricingModule = async (fastify) => {
     await fastify.register(dynamic_pricing_routes_1.default);
 };
 exports.default = dynamicPricingModule;
-//# sourceMappingURL=dynamic-pricing.module.js.map

@@ -48,6 +48,10 @@ class AccountService {
      * Busca OU cria a conta primária de um usuário
      */
     async getOrCreateUserPrimaryAccount(tenantId, userId, currency = 'BRL') {
+        // 🔴 VALIDAÇÃO CRÍTICA: userId não pode ser null/undefined
+        if (!userId) {
+            throw new Error('User ID é obrigatório para criar conta');
+        }
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
       SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
       FROM accounts
@@ -57,27 +61,45 @@ class AccountService {
         if (rows.length > 0) {
             return this.toAccount(rows[0]);
         }
-        // Criar conta (sem owner_global_user_id para compatibilidade)
-        const created = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      INSERT INTO accounts (tenant_id, owner_id, owner_type, balance, currency)
-      VALUES ($1, $2, 'user', 0, $3)
-      RETURNING account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
-      `, [tenantId, userId, currency]);
-        if (!created) {
-            throw new Error('Failed to create user financial account');
+        // 🔴 VALIDAÇÃO ADICIONAL: garantir que userId não é null antes de inserir
+        if (!userId || userId === 'null' || userId === 'undefined') {
+            throw new Error(`Invalid user ID: ${userId}`);
         }
-        const account = this.toAccount(created);
-        await event_bus_1.eventBus.publish({
-            tenantId,
-            type: 'account.created',
-            payload: {
-                accountId: account.accountId,
-                ownerId: account.ownerId,
-                ownerType: 'user',
-                currency: account.currency,
-            },
-        });
-        return account;
+        // Criar conta (sem owner_global_user_id para compatibilidade)
+        try {
+            const created = await (0, pool_1.runQueryWithTenant)(tenantId, `
+        INSERT INTO accounts (tenant_id, owner_id, owner_type, balance, currency)
+        VALUES ($1, $2, 'user', 0, $3)
+        RETURNING account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
+        `, [tenantId, userId, currency]);
+            if (!created) {
+                throw new Error('Failed to create user financial account');
+            }
+            const account = this.toAccount(created);
+            await event_bus_1.eventBus.publish({
+                tenantId,
+                type: 'account.created',
+                payload: {
+                    accountId: account.accountId,
+                    ownerId: account.ownerId,
+                    ownerType: 'user',
+                    currency: account.currency,
+                },
+            });
+            return account;
+        }
+        catch (error) {
+            const err = error;
+            // Log detalhado para debug
+            console.error('[AccountService.getOrCreateUserPrimaryAccount] Erro ao criar conta:', {
+                error: err.message,
+                tenantId,
+                userId,
+                currency,
+                stack: err.stack,
+            });
+            throw err;
+        }
     }
     /**
      * Cria conta manualmente
@@ -227,4 +249,3 @@ class AccountService {
     }
 }
 exports.accountService = new AccountService();
-//# sourceMappingURL=account.service.js.map

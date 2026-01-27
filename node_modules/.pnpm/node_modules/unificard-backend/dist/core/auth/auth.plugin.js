@@ -14,87 +14,100 @@ const authPlugin = async (fastify) => {
             throw fastify.httpErrors.unauthorized('Missing or invalid Authorization header');
         }
         const token = authHeader.substring(7).trim();
+        // 🔴 GARANTIA CANÔNICA: verifyAccessToken já valida tenantId e tokenVersion
+        // Se falhar, é erro fatal - nenhuma request autenticada segue sem tenantId
         let payload;
         try {
             payload = await auth_service_1.authService.verifyAccessToken(token);
         }
-        catch {
-            throw fastify.httpErrors.unauthorized('Invalid or expired token');
+        catch (err) {
+            // Log canônico para diagnóstico
+            fastify.log.error({
+                route: req.url,
+                method: req.method,
+                error: err.message,
+                statusCode: err.statusCode,
+            }, '❌ [AUTH] Falha na validação de token');
+            throw fastify.httpErrors.unauthorized(err.message || 'Invalid or expired token');
         }
-        // 🔐 Validação CRÍTICA: o token deve corresponder ao tenant da requisição
+        // 🔴 GARANTIA CANÔNICA: verifyAccessToken já garantiu tenantId e tokenVersion
+        // Esta validação é redundante mas explícita para clareza arquitetural
+        if (!payload.tenantId || typeof payload.tenantId !== 'string') {
+            fastify.log.error({
+                route: req.url,
+                method: req.method,
+                hasPayload: !!payload,
+                payloadKeys: payload ? Object.keys(payload) : [],
+            }, '❌ [AUTH] tenantId ausente no JWT após verifyAccessToken - estado inválido');
+            throw fastify.httpErrors.unauthorized('Invalid token: tenantId missing');
+        }
+        // 🔴 GARANTIA CANÔNICA: tokenVersion deve estar presente
+        if (typeof payload.tokenVersion !== 'number') {
+            fastify.log.error({
+                route: req.url,
+                method: req.method,
+                hasPayload: !!payload,
+                payloadKeys: payload ? Object.keys(payload) : [],
+            }, '❌ [AUTH] tokenVersion ausente no JWT após verifyAccessToken - estado inválido');
+            throw fastify.httpErrors.unauthorized('Invalid token: tokenVersion missing');
+        }
+        // 🔐 NOVA LÓGICA: JWT é a fonte de verdade para tenant
+        // Não validamos header vs JWT - apenas usamos o JWT
+        // Isso resolve TENANT_MISMATCH quando frontend envia tenant errado
         const reqAny = req;
         const headerTenantId = req.headers['x-tenant-id'];
-        // 🔴 DIAGNÓSTICO: Logs temporários para auditoria de tenant mismatch
+        // 🔐 Log de validação de tenant - JWT vs Header
         fastify.log.info({
             route: req.url,
             method: req.method,
             headerTenantId,
             jwtTenantId: payload.tenantId,
             jwtUserId: payload.userId ?? payload.sub,
-            jwtGlobalUserId: payload.globalUserId,
-            reqTenantId: reqAny.tenant?.id,
-            tenantMatch: headerTenantId === payload.tenantId,
-        }, '🔍 [AUTH] Validação de tenant - JWT vs Header');
-        // Validação 1: Tenant deve estar definido no request
-        if (!reqAny.tenant) {
-            // 400 Bad Request - tenant não foi definido (deveria ter sido definido pelo tenant plugin)
-            fastify.log.error({
+        }, '🔍 [AUTH] Validação de tenant');
+        if (headerTenantId && headerTenantId !== payload.tenantId) {
+            // Log de aviso (não erro) - frontend enviou tenant diferente
+            fastify.log.warn({
                 route: req.url,
                 headerTenantId,
                 jwtTenantId: payload.tenantId,
-            }, '❌ [AUTH] Tenant não encontrado no request');
-            throw fastify.httpErrors.badRequest('Tenant not found in request');
+            }, '⚠️ [AUTH] Header x-tenant-id diferente do JWT - usando JWT');
         }
-        // 🔴 VALIDAÇÃO CRÍTICA: Header x-tenant-id DEVE ser igual ao tenantId do JWT
-        // Isso previne que o usuário faça login em um tenant e use token em outro tenant diferente
-        if (payload.tenantId !== reqAny.tenant.id) {
-            const errorMessage = `TENANT_MISMATCH: Token tenant (${payload.tenantId}) does not match request tenant (${reqAny.tenant.id})`;
+        // 🔴 GARANTIA CANÔNICA: authPlugin NÃO roda em /auth/* (authModule está fora do escopo protegido)
+        // authPlugin só roda no escopo protegido, onde tenantPlugin também roda
+        // tenantPlugin é responsável por definir req.tenant baseado em req.user.tenantId
+        // authPlugin apenas valida JWT e injeta req.user - NÃO define req.tenant
+        // 🔴 GARANTIA CANÔNICA: userId OBRIGATÓRIO (sub sempre presente em JWT válido)
+        // Se sub estiver ausente, JWT é inválido (jwt.verify já falharia)
+        const userId = payload.userId ?? payload.sub;
+        if (!userId || typeof userId !== 'string') {
             fastify.log.error({
                 route: req.url,
                 method: req.method,
-                headerTenantId,
-                jwtTenantId: payload.tenantId,
-                jwtUserId: payload.userId ?? payload.sub,
-                jwtEmail: payload.email,
-                errorCode: 'TENANT_MISMATCH',
-            }, `❌ [AUTH] ${errorMessage}`);
-            // 403 Forbidden - token válido mas não tem permissão para este tenant
-            const error = fastify.httpErrors.forbidden(errorMessage);
-            error.code = 'TENANT_MISMATCH';
-            throw error;
+                hasPayload: !!payload,
+                payloadKeys: payload ? Object.keys(payload) : [],
+            }, '❌ [AUTH] userId ausente no JWT após verifyAccessToken - estado inválido');
+            throw fastify.httpErrors.unauthorized('Invalid token: userId missing');
         }
-        // Validação adicional: garantir que header x-tenant-id corresponde
-        if (headerTenantId && headerTenantId !== payload.tenantId) {
-            const errorMessage = `TENANT_MISMATCH: Header x-tenant-id (${headerTenantId}) does not match JWT tenant (${payload.tenantId})`;
-            fastify.log.error({
-                route: req.url,
-                headerTenantId,
-                jwtTenantId: payload.tenantId,
-                jwtUserId: payload.userId ?? payload.sub,
-                errorCode: 'TENANT_MISMATCH',
-            }, `❌ [AUTH] ${errorMessage}`);
-            const error = fastify.httpErrors.forbidden(errorMessage);
-            error.code = 'TENANT_MISMATCH';
-            throw error;
-        }
-        // 🚀 Preenche req.user SOMENTE com os campos existentes no tipo definido
+        // 🚀 Preenche req.user com userId, tenantId, email e globalUserId (se disponível)
+        // 🔴 CRÍTICO: Adicionar alias 'id' para compatibilidade com endpoints que usam req.user.id
         reqAny.user = {
-            id: payload.userId ?? payload.sub,
-            email: payload.email ?? undefined,
-            globalUserId: payload.globalUserId ?? undefined,
+            userId: userId,
+            id: userId, // Alias para compatibilidade - muitos endpoints usam req.user.id
+            tenantId: payload.tenantId, // Já validado acima
+            email: payload.email ?? undefined, // Opcional - não quebra se ausente
+            globalUserId: payload.globalUserId ?? undefined, // Opcional - não quebra se ausente
         };
-        // 🔴 DIAGNÓSTICO: Log final de sucesso
+        // Log final de sucesso
         fastify.log.info({
             route: req.url,
-            userId: reqAny.user.id,
-            tenantId: reqAny.tenant.id,
-            globalUserId: reqAny.user.globalUserId,
+            userId: reqAny.user.userId,
+            tenantId: reqAny.user.tenantId,
             email: reqAny.user.email,
         }, '✅ [AUTH] Autenticação validada com sucesso');
     });
 };
 exports.default = (0, fastify_plugin_1.default)(authPlugin, {
     name: 'auth-plugin',
-    dependencies: ['tenant-plugin'],
+    // ⚠️ NÃO tem dependência de tenant-plugin porque auth.plugin.ts só roda no escopo protegido
+    // onde tenantPlugin já está registrado antes (server.ts linha 293-294)
 });
-//# sourceMappingURL=auth.plugin.js.map

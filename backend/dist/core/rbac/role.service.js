@@ -109,4 +109,3 @@ class RoleService {
     }
 }
 exports.roleService = new RoleService();
-//# sourceMappingURL=role.service.js.map

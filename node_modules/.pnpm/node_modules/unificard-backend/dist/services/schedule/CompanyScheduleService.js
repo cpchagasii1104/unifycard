@@ -1,11 +1,36 @@
 "use strict";
+// src/services/schedule/CompanyScheduleService.ts
+// 🔴 DEPRECATED — Usa estrutura temporal paralela.
+// 🔴 NÃO USAR EM NOVO CÓDIGO.
+// 🔴 Migrar para unified-availability.service.ts
+// 
+// business_hours é apenas INPUT declarativo de horários de funcionamento.
+// 
+// REGRAS ABSOLUTAS:
+// - NÃO bloqueia agenda
+// - NÃO resolve conflito
+// - NÃO cria booking
+// - NÃO cria slots reais
+// - NÃO interfere em Unified Availability
+// 
+// Esta estrutura serve apenas como:
+// - INPUT para criação futura de Unified Availability (quando empresa confirmar)
+// - READ-MODEL para exibição de horários declarados
+// 
+// A verdade temporal está exclusivamente em Unified Availability (tabela `availability`).
+// 
+// ⚠️ DEPRECATED: Este serviço está marcado como DEPRECATED.
+// Não criar novas dependências. Migrar código existente para unified-availability.service.ts.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompanyScheduleService = void 0;
-// src/services/schedule/CompanyScheduleService.ts
 const db_1 = require("@core/db");
 class CompanyScheduleService {
     /**
      * Cria ou atualiza agenda da empresa
+     *
+     * 🔴 FASE 2: Este método armazena apenas INPUT DECLARATIVO.
+     * business_hours não bloqueia agenda, não resolve conflito, não cria booking.
+     * A verdade temporal está em Unified Availability (tabela `availability`).
      */
     async ensureCompanySchedule(params) {
         const { companyId, tenantId, timezone, businessHours } = params;
@@ -69,4 +94,3 @@ class CompanyScheduleService {
     }
 }
 exports.CompanyScheduleService = CompanyScheduleService;
-//# sourceMappingURL=CompanyScheduleService.js.map

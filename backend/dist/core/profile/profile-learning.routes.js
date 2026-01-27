@@ -61,4 +61,3 @@ const profileLearningRoutes = async (fastify) => {
     });
 };
 exports.default = profileLearningRoutes;
-//# sourceMappingURL=profile-learning.routes.js.map

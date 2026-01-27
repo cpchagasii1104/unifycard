@@ -171,4 +171,3 @@ class EventScheduleService {
     }
 }
 exports.EventScheduleService = EventScheduleService;
-//# sourceMappingURL=EventScheduleService.js.map

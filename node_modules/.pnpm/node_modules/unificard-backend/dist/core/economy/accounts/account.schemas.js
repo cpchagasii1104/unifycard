@@ -27,4 +27,3 @@ exports.accountIdSchema = zod_1.z.object({
 exports.ownerIdSchema = zod_1.z.object({
     ownerId: zod_1.z.string().uuid('Invalid owner ID format'),
 });
-//# sourceMappingURL=account.schemas.js.map

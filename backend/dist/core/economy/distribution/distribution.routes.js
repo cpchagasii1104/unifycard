@@ -73,4 +73,3 @@ const distributionRoutes = async (fastify) => {
     });
 };
 exports.default = distributionRoutes;
-//# sourceMappingURL=distribution.routes.js.map

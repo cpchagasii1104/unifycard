@@ -198,4 +198,3 @@ class LocationService {
 }
 exports.LocationService = LocationService;
 exports.locationService = new LocationService();
-//# sourceMappingURL=location.service.js.map

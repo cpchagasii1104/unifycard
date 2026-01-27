@@ -20,4 +20,3 @@ class EmailProvider {
     }
 }
 exports.EmailProvider = EmailProvider;
-//# sourceMappingURL=email.provider.js.map

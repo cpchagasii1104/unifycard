@@ -71,4 +71,3 @@ const canonicalProductRoutes = async (fastify) => {
     });
 };
 exports.default = canonicalProductRoutes;
-//# sourceMappingURL=canonical-product.routes.js.map

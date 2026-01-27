@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.eventLifecycleRoutes = void 0;
 const EventScheduleService_1 = require("./EventScheduleService");
 const TicketService_1 = require("./TicketService");
 const ConsumptionService_1 = require("./ConsumptionService");
@@ -67,42 +68,96 @@ const eventLifecycleRoutes = async (fastify) => {
     /**
      * POST /api/events/:id/publish
      * Publica evento + gera schedule + slots
+     *
+     * 🔴 ROTA REMOVIDA - DUPLICADA
+     * Esta rota está duplicada com:
+     * - backend/src/core/events/event.routes.ts (linha 391): POST /api/events/:id/publish (v1)
+     * - backend/src/core/events/event.routes.ts (linha 1019): POST /api/events/:id/v2/publish (v2)
+     *
+     * Use uma das rotas canônicas acima.
+     * A funcionalidade de schedule/slots deve ser movida para um hook ou serviço separado.
      */
-    fastify.post('/:id/publish', async (req, reply) => {
-        if (!req.user) {
-            return reply.status(401).send({ error: 'Não autenticado' });
-        }
-        if (!req.tenant) {
-            return reply.status(400).send({ error: 'Tenant não encontrado' });
-        }
-        try {
-            await requireEventOwnerOrAdmin(req, req.params.id);
-            // 1. Atualiza status para PUBLISHED
-            await (0, db_1.runQueryWithTenant)(req.tenant.id, {
-                text: `
-          UPDATE events
-          SET status = 'PUBLISHED'
-          WHERE id = $1
-        `,
-                values: [req.params.id],
-            });
-            // 2. Cria schedule
-            const scheduleId = await eventScheduleService.ensureEventSchedule(req.params.id, req.tenant.id);
-            // 3. Gera slots
-            const slotsGenerated = await eventScheduleService.generateEventSlots(req.params.id, req.tenant.id);
-            return reply.status(200).send({
-                scheduleId,
-                slotsGenerated,
-            });
-        }
-        catch (error) {
-            if (error instanceof Error) {
-                return reply.status(400).send({ error: error.message });
-            }
-            fastify.log.error({ err: error }, 'Erro ao publicar evento');
-            return reply.status(500).send({ error: 'Erro ao publicar evento' });
-        }
-    });
+    // fastify.post<{
+    //   Params: { id: string };
+    // }>('/:id/publish', async (req, reply) => {
+    //   if (!req.user) {
+    //     return reply.status(401).send({ error: 'Não autenticado' });
+    //   }
+    //   if (!req.tenant) {
+    //     return reply.status(400).send({ error: 'Tenant não encontrado' });
+    //   }
+    //   try {
+    //     await requireEventOwnerOrAdmin(req, req.params.id);
+    //     // 1. Atualiza status para PUBLISHED
+    //     await runQueryWithTenant(req.tenant.id, {
+    //       text: `
+    //         UPDATE events
+    //         SET status = 'PUBLISHED'
+    //         WHERE id = $1
+    //       `,
+    //       values: [req.params.id],
+    //     });
+    //     // 2. Publicar evento no EventBus para criar/atualizar post no feed
+    //     try {
+    //       const { eventBus } = await import('@core/events/event-bus');
+    //       const eventRow = await runQueryWithTenant<{
+    //         actor_id: string;
+    //         created_by_global_user_id: string | null;
+    //         title: string;
+    //         description: string | null;
+    //         event_type: string;
+    //       }>(
+    //         req.tenant.id,
+    //         {
+    //           text: `
+    //             SELECT actor_id, created_by_global_user_id, title, description, event_type
+    //             FROM events
+    //             WHERE id = $1 AND tenant_id = $2
+    //             LIMIT 1
+    //           `,
+    //           values: [req.params.id, req.tenant.id],
+    //         }
+    //       );
+    //       if (eventRow) {
+    //         await eventBus.publish({
+    //           tenantId: req.tenant.id,
+    //           type: 'event.published',
+    //           payload: {
+    //             eventId: req.params.id,
+    //             actorId: eventRow.actor_id,
+    //             globalUserId: eventRow.created_by_global_user_id || req.user?.globalUserId,
+    //             title: eventRow.title,
+    //             description: eventRow.description,
+    //             eventType: eventRow.event_type,
+    //           },
+    //         });
+    //       }
+    //     } catch (err) {
+    //       // Não quebra publicação do evento se EventBus falhar
+    //       fastify.log.warn({ err }, 'Erro ao publicar evento no EventBus (não crítico)');
+    //     }
+    //     // 3. Cria schedule
+    //     const scheduleId = await eventScheduleService.ensureEventSchedule(
+    //       req.params.id,
+    //       req.tenant.id
+    //     );
+    //     // 4. Gera slots
+    //     const slotsGenerated = await eventScheduleService.generateEventSlots(
+    //       req.params.id,
+    //       req.tenant.id
+    //     );
+    //     return reply.status(200).send({
+    //       scheduleId,
+    //       slotsGenerated,
+    //     });
+    //   } catch (error) {
+    //     if (error instanceof Error) {
+    //       return reply.status(400).send({ error: error.message });
+    //     }
+    //     fastify.log.error({ err: error }, 'Erro ao publicar evento');
+    //     return reply.status(500).send({ error: 'Erro ao publicar evento' });
+    //   }
+    // });
     /**
      * POST /api/events/:id/tickets
      * Compra ingresso
@@ -190,31 +245,42 @@ const eventLifecycleRoutes = async (fastify) => {
     /**
      * POST /admin/events/:id/cancel
      * Cancela evento
+     *
+     * 🔴 ROTA REMOVIDA - DUPLICADA
+     * Esta rota está duplicada com:
+     * - backend/src/core/events/event.routes.ts (linha 528): POST /api/events/:id/cancel (v1)
+     * - backend/src/core/events/event.routes.ts (linha 1627): POST /api/events/:id/v2/cancel (v2)
+     *
+     * Use uma das rotas canônicas acima.
      */
-    fastify.post('/:id/cancel', async (req, reply) => {
-        if (!req.user) {
-            return reply.status(401).send({ error: 'Não autenticado' });
-        }
-        if (!req.tenant) {
-            return reply.status(400).send({ error: 'Tenant não encontrado' });
-        }
-        try {
-            await requireEventOwnerOrAdmin(req, req.params.id);
-            const result = await eventService.cancelEvent({
-                eventId: req.params.id,
-                tenantId: req.tenant.id,
-                reason: req.body.reason,
-            });
-            return reply.status(200).send(result);
-        }
-        catch (error) {
-            if (error instanceof Error) {
-                return reply.status(400).send({ error: error.message });
-            }
-            fastify.log.error({ err: error }, 'Erro ao cancelar evento');
-            return reply.status(500).send({ error: 'Erro ao cancelar evento' });
-        }
-    });
+    // fastify.post<{
+    //   Params: { id: string };
+    //   Body: {
+    //     reason: string;
+    //   };
+    // }>('/:id/cancel', async (req, reply) => {
+    //   if (!req.user) {
+    //     return reply.status(401).send({ error: 'Não autenticado' });
+    //   }
+    //   if (!req.tenant) {
+    //     return reply.status(400).send({ error: 'Tenant não encontrado' });
+    //   }
+    //   try {
+    //     await requireEventOwnerOrAdmin(req, req.params.id);
+    //     const result = await eventService.cancelEvent({
+    //       eventId: req.params.id,
+    //       tenantId: req.tenant.id,
+    //       reason: req.body.reason,
+    //     });
+    //     return reply.status(200).send(result);
+    //   } catch (error) {
+    //     if (error instanceof Error) {
+    //       return reply.status(400).send({ error: error.message });
+    //     }
+    //     fastify.log.error({ err: error }, 'Erro ao cancelar evento');
+    //     return reply.status(500).send({ error: 'Erro ao cancelar evento' });
+    //   }
+    // });
 };
+exports.eventLifecycleRoutes = eventLifecycleRoutes;
 exports.default = eventLifecycleRoutes;
-//# sourceMappingURL=event-lifecycle.routes.js.map

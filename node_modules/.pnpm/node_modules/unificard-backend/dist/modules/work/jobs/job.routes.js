@@ -64,4 +64,3 @@ const jobRoutes = async (fastify) => {
     });
 };
 exports.default = jobRoutes;
-//# sourceMappingURL=job.routes.js.map

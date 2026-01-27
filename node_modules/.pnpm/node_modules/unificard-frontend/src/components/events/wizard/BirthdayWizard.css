@@ -1,0 +1,329 @@
+/* frontend/src/components/events/wizard/BirthdayWizard.css */
+/* Estilos para o Wizard de Aniversário */
+
+.birthday-wizard-container {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 32px;
+}
+
+.birthday-wizard-header {
+  margin-bottom: 32px;
+}
+
+.birthday-wizard-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #050505;
+  margin-bottom: 24px;
+}
+
+.birthday-wizard-header .wizard-progress {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.birthday-wizard-header .progress-step {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: 28px;
+}
+
+.birthday-wizard-header .progress-step.clickable {
+  cursor: pointer;
+}
+
+.birthday-wizard-header .progress-step:not(.clickable) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.birthday-wizard-header .step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e4e6eb;
+  color: #65676b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.birthday-wizard-header .progress-step.clickable:hover .step-number {
+  background: #f0f2f5;
+  transform: scale(1.1);
+}
+
+.birthday-wizard-header .progress-step.clickable.completed:hover .step-number {
+  background: #36a420;
+  transform: scale(1.1);
+}
+
+.birthday-wizard-header .progress-step.active .step-number {
+  background: #1877f2;
+  color: #ffffff;
+}
+
+.birthday-wizard-header .progress-step.completed .step-number {
+  background: #42b72a;
+  color: #ffffff;
+}
+
+.birthday-wizard-content {
+  margin-bottom: 32px;
+}
+
+.birthday-wizard-step {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.birthday-wizard-step h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #050505;
+  margin-bottom: 8px;
+}
+
+.birthday-wizard-step .step-description {
+  font-size: 0.9375rem;
+  color: #65676b;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #050505;
+  margin-bottom: 12px;
+}
+
+.required {
+  color: #e41e3f;
+}
+
+.optional {
+  font-size: 0.8125rem;
+  color: #65676b;
+  font-weight: 400;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.option-card {
+  padding: 16px;
+  border: 2px solid #e4e6eb;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.option-card:hover {
+  border-color: #1877f2;
+  background: #f0f2f5;
+}
+
+.option-card.selected {
+  border-color: #1877f2;
+  background: #e7f3ff;
+}
+
+.option-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.option-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #050505;
+  margin-bottom: 4px;
+}
+
+.option-description {
+  font-size: 0.8125rem;
+  color: #65676b;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e4e6eb;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: #050505;
+  background: #ffffff;
+  transition: all 0.15s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1877f2;
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.1);
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e4e6eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.checkbox-option:hover {
+  background: #f0f2f5;
+  border-color: #1877f2;
+}
+
+.checkbox-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-option span {
+  font-size: 0.9375rem;
+  color: #050505;
+}
+
+.yes-no-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.yes-no-button {
+  flex: 1;
+  padding: 12px 24px;
+  border: 2px solid #e4e6eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #050505;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.yes-no-button:hover {
+  border-color: #1877f2;
+  color: #1877f2;
+}
+
+.yes-no-button.selected {
+  background: #1877f2;
+  border-color: #1877f2;
+  color: #ffffff;
+}
+
+.birthday-wizard-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid #e4e6eb;
+}
+
+.wizard-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wizard-button-secondary {
+  background: #ffffff;
+  color: #050505;
+  border: 1px solid #e4e6eb;
+}
+
+.wizard-button-secondary:hover {
+  background: #f0f2f5;
+  border-color: #1877f2;
+}
+
+.wizard-button-primary {
+  background: #1877f2;
+  color: #ffffff;
+}
+
+.wizard-button-primary:hover:not(:disabled) {
+  background: #166fe5;
+}
+
+.wizard-button-primary:disabled {
+  background: #e4e6eb;
+  color: #65676b;
+  cursor: not-allowed;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-label-small {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #65676b;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+

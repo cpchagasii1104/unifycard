@@ -134,4 +134,3 @@ checkCategories()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=check-categories-status.js.map

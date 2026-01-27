@@ -1,6 +1,19 @@
 "use strict";
 // src/core/profile/profile-inference.service.ts
 // Motor de inferência entre trilhas - observa padrões sem forçar ações
+//
+// 🔴 BLINDAGEM CANÔNICA: Educação NÃO participa de inferências
+// - Inferências usam apenas: physical, learning, professional
+// - Educação não influencia estado do usuário, não gera sugestões
+// - Por que isso NÃO pode virar decisão: educação é temporal/declarativa, não estado atual
+//
+// 🔴 BLINDAGEM CANÔNICA: Aprendizado representa direção e interesse declarado
+// - Progresso (beginner/intermediate/advanced) representa fase de exploração, não capacidade
+// - beginner = explorando (interesse inicial)
+// - intermediate = praticando (direção ativa)
+// - advanced = aprofundando (direção consolidada)
+// - NÃO mede capacidade, NÃO valida competência, apenas indica fase de interesse
+// - Sugestões são baseadas em direção, não em validação de nível
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -202,7 +215,12 @@ class ProfileInferenceService {
                 }
             }
         }
-        // REGRA B: Aprendizado (Intermediário/Avançado) → Profissional
+        // REGRA B: Aprendizado (em fase de aprofundamento) → Sugestão Profissional
+        // 🔴 BLINDAGEM CANÔNICA: Progresso representa direção/fase de exploração, não capacidade
+        // - beginner = explorando (interesse inicial)
+        // - intermediate = praticando (direção ativa)
+        // - advanced = aprofundando (direção consolidada)
+        // NÃO mede capacidade, NÃO valida competência, apenas indica fase de interesse
         if (snapshot.learning.hasIntermediateOrAdvanced && snapshot.professional.count === 0) {
             const advancedLearnings = snapshot.learning.learnings.filter((l) => l.progress === 'intermediate' || l.progress === 'advanced');
             if (advancedLearnings.length > 0) {
@@ -212,11 +230,14 @@ class ProfileInferenceService {
                     const { categoriesService } = await Promise.resolve().then(() => __importStar(require('../categories/categories.service')));
                     const professionalCategory = await this.findCategoryBySlug(affinity.professionalCategories[0], 'professional');
                     if (professionalCategory) {
+                        // 🔴 BLINDAGEM: Mensagem não menciona "nível" como capacidade
+                        // Usa "fase" ou "direção" para enfatizar interesse, não validação
+                        const phaseLabel = learning.progress === 'intermediate' ? 'praticando' : 'aprofundando';
                         suggestions.push({
                             id: `learning_to_professional_${learning.categoryId}`,
                             type: 'learning_to_professional',
                             title: 'Você já pensou em usar isso profissionalmente?',
-                            message: `Você está em nível ${learning.progress === 'intermediate' ? 'intermediário' : 'avançado'} em "${learning.categoryName}". Que tal considerar isso como profissão?`,
+                            message: `Você está ${phaseLabel} "${learning.categoryName}". Que tal considerar isso como profissão?`,
                             actionLabel: 'Ver profissões relacionadas',
                             categoryId: professionalCategory.categoryId,
                             categoryName: professionalCategory.name,
@@ -414,4 +435,3 @@ class ProfileInferenceService {
     }
 }
 exports.profileInferenceService = new ProfileInferenceService();
-//# sourceMappingURL=profile-inference.service.js.map

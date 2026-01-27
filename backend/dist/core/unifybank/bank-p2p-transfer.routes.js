@@ -95,4 +95,3 @@ const bankP2PTransferRoutes = async (fastify) => {
     });
 };
 exports.default = bankP2PTransferRoutes;
-//# sourceMappingURL=bank-p2p-transfer.routes.js.map

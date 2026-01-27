@@ -8,4 +8,3 @@ const rootConfigModule = async (fastify) => {
     await fastify.register(root_config_routes_1.default);
 };
 exports.default = rootConfigModule;
-//# sourceMappingURL=root-config.module.js.map

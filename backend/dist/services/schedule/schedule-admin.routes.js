@@ -165,4 +165,3 @@ const scheduleAdminRoutes = async (fastify) => {
     });
 };
 exports.default = scheduleAdminRoutes;
-//# sourceMappingURL=schedule-admin.routes.js.map

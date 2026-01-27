@@ -73,4 +73,3 @@ const scheduleApiRoutes = async (fastify) => {
     });
 };
 exports.default = scheduleApiRoutes;
-//# sourceMappingURL=schedule-api.routes.js.map

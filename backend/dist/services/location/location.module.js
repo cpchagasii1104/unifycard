@@ -11,4 +11,3 @@ const locationModule = async (fastify) => {
     await fastify.register(cep_routes_1.default, { prefix: '/location' });
 };
 exports.default = locationModule;
-//# sourceMappingURL=location.module.js.map

@@ -89,4 +89,3 @@ class SafetyController {
 }
 exports.SafetyController = SafetyController;
 exports.safetyController = new SafetyController();
-//# sourceMappingURL=safety.controller.js.map

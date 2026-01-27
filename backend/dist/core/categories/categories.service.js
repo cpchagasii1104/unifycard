@@ -46,13 +46,20 @@ const occupation_form_checker_service_1 = require("./occupation-form-checker.ser
 const cbo_matcher_service_1 = require("./cbo-matcher.service");
 const category_input_audit_service_1 = require("./category-input-audit.service");
 const category_input_gate_service_1 = require("./category-input-gate.service");
+const tenant_service_1 = require("@core/tenants/tenant.service");
+const world_service_1 = require("@core/world/services/world.service");
+const ssot_observability_service_1 = require("./ssot-observability.service");
+const tenant_context_permission_service_1 = require("@core/tenants/tenant-context-permission.service");
 class CategoriesService {
     repository = new categories_repository_1.CategoryRepository();
     // CACHE: Árvore de categorias ACTIVE (performance)
+    // 🔴 REGRA: Cache chaveado por (countryCode + context) para evitar vazamento entre contexts
     categoryTreeCache = {
         data: null,
         timestamp: 0,
     };
+    // CACHE CANÔNICO: Cache chaveado por tenantId:context (nunca compartilha entre tenants)
+    canonicalCache = new Map();
     // CONFIG: Valores configuráveis via env
     CONFIDENCE_THRESHOLD_AUTO_APPROVE = parseFloat(process.env.CONFIDENCE_THRESHOLD_AUTO_APPROVE || '0.85');
     CONFIDENCE_THRESHOLD = parseFloat(process.env.CATEGORY_CONFIDENCE_THRESHOLD || '0.6');
@@ -137,6 +144,15 @@ class CategoriesService {
      * GOVERNANÇA: Por padrão cria como 'pending'. Para criar como 'active', requer allowActive=true e validação de admin
      */
     async createCategory(input, options) {
+        // VALIDAÇÃO OBRIGATÓRIA: name deve ser string não vazia
+        if (!input.name || typeof input.name !== 'string' || input.name.trim().length === 0) {
+            throw new Error('Nome da categoria é obrigatório e deve ser uma string não vazia');
+        }
+        // Normalizar name (trim e validar)
+        const name = input.name.trim();
+        if (name.length === 0) {
+            throw new Error('Nome da categoria não pode ser vazio após normalização');
+        }
         // GOVERNANÇA: Se allowActive=true, validar permissão de admin
         if (input.allowActive && options?.validateAdmin) {
             if (!options.tenantId || !options.userId) {
@@ -151,7 +167,7 @@ class CategoriesService {
         // CATEGORY INPUT GATE — VALIDAÇÃO FINAL CANÔNICA
         // FASE 3.7.1: Hardening - Nenhum bypass por nível
         if (!options?.skipGate && options?.context) {
-            const sanitized = this.sanitizeText(input.name, 500);
+            const sanitized = this.sanitizeText(name, 500);
             if (input.parentId) {
                 // Buscar parent para validar existência
                 const parent = await this.repository.findById(input.parentId);
@@ -170,7 +186,7 @@ class CategoriesService {
                 });
                 if (gateResult.decision === 'DENY') {
                     const suggestion = gateResult.suggestion
-                        ? ` Use "${gateResult.suggestion}" em vez de "${input.name}".`
+                        ? ` Use "${gateResult.suggestion}" em vez de "${name}".`
                         : '';
                     throw new Error(`❌ ${gateResult.reasonCode || 'Termo bloqueado'}.${suggestion}`);
                 }
@@ -180,7 +196,7 @@ class CategoriesService {
                 const lexicalCheck = category_lexical_gate_service_1.categoryLexicalGateService.validate(sanitized);
                 if (lexicalCheck.decision === 'DENY') {
                     await category_input_audit_service_1.categoryInputAuditService.log({
-                        inputOriginal: input.name,
+                        inputOriginal: name,
                         normalized: lexicalCheck.normalized || sanitized,
                         context: options.context,
                         decision: 'DENY',
@@ -194,9 +210,9 @@ class CategoriesService {
             }
         }
         // Gerar slug se não fornecido
-        const slug = input.slug || this.generateSlug(input.name);
+        const slug = input.slug || this.generateSlug(name);
         // FASE 3.7.1: ADVISORY LOCK para evitar race conditions
-        const lockKey = this.generateLockKey(input.name, input.parentId ?? null);
+        const lockKey = this.generateLockKey(name, input.parentId ?? null);
         const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
         const client = await pool.connect();
         try {
@@ -204,7 +220,7 @@ class CategoriesService {
             await client.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
             // FASE 3.6: Verificar se categoria já existe (por slug e parent, ou por nome e parent)
             const parentId = input.parentId ?? null;
-            const existing = await this.checkCategoryExists(input.name, slug, parentId, options?.context, client);
+            const existing = await this.checkCategoryExists(name, slug, parentId, options?.context, client);
             if (existing) {
                 // Se encontrou categoria existente no mesmo nível, retornar ela ao invés de criar
                 await client.query('COMMIT');
@@ -223,7 +239,7 @@ class CategoriesService {
             const createdByAI = input.createdBy?.source === 'ai';
             // Criar categoria (dentro da transação com lock)
             const row = await this.repository.create({
-                name: input.name,
+                name: name,
                 slug,
                 description: input.description ?? null,
                 parentId,
@@ -246,8 +262,8 @@ class CategoriesService {
                     actorId: input.createdBy.actorId,
                     globalUserId: input.createdBy.userId,
                     source: input.createdBy.source,
-                    originalText: input.name,
-                    sanitizedText: input.name,
+                    originalText: name,
+                    sanitizedText: name,
                     context: undefined,
                 });
             }
@@ -310,28 +326,237 @@ class CategoriesService {
     }
     /**
      * Busca categoria por ID
+     * 🔴 BLINDAGEM: NUNCA lança exceção - sempre retorna null em caso de erro
+     * Service é SAFE por definição - não quebra quem chama
      */
     async getCategoryById(categoryId) {
-        const row = await this.repository.findById(categoryId);
-        return row ? categories_model_1.CategoryModel.fromRow(row) : null;
+        try {
+            // Validar que categoryId existe
+            if (!categoryId) {
+                return null;
+            }
+            const row = await this.repository.findById(categoryId);
+            return row ? categories_model_1.CategoryModel.fromRow(row) : null;
+        }
+        catch (error) {
+            // 🔴 CRÍTICO: Nunca lançar erro - service é SAFE
+            // Log apenas em dev/warn, retornar null
+            console.warn('[CategoriesService] Erro ao buscar categoria (retornando null):', {
+                category_id: categoryId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
     }
     /**
-     * Busca árvore completa de categorias
-     * @param countryCode - Se fornecido, filtra categorias por país (incluindo globais)
-     * @param useCache - Se true, usa cache quando disponível (default: true)
+     * MÉTODO CANÔNICO: Leitura de categorias para tenant
+     * SSOT: Único caminho canônico para leitura de categorias
+     *
+     * @param tenantId - ID do tenant (obrigatório)
+     * @param context - Contexto semântico (obrigatório)
+     * @returns Árvore de categorias filtrada por tenant e contexto
      */
-    async getCategoryTree(countryCode, useCache = true) {
-        // CACHE: Verificar se cache é válido
+    async getCategoriesForTenant(tenantId, context) {
+        // GUARD: tenantId obrigatório
+        if (!tenantId) {
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: context || null,
+                details: {
+                    method: 'getCategoriesForTenant',
+                    reason: 'tenantId ausente',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: tenantId is mandatory for category reads');
+        }
+        // GUARD: context obrigatório
+        if (!context) {
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId,
+                context: null,
+                details: {
+                    method: 'getCategoriesForTenant',
+                    reason: 'context ausente',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
+        }
+        // Resolver countryCode a partir do tenant (NUNCA de parâmetros externos)
+        let countryCode = null;
+        const tenant = await tenant_service_1.tenantService.getTenantById(tenantId);
+        if (!tenant) {
+            const err = new Error(`TENANT_NOT_FOUND: ${tenantId}`);
+            err.statusCode = 401;
+            err.status = 401;
+            throw err;
+        }
+        // Resolver countryCode é opcional
+        if (tenant.cityId) {
+            const cityPath = await world_service_1.worldService.getCityFullPath(tenant.cityId);
+            if (cityPath) {
+                countryCode = cityPath.country.code;
+            }
+        }
+        // 🔴 ADR: Validação de permissão de contexto
+        // Se tenant_contexts não existir, erro será claro (não entrar em loop)
+        let hasReadAccess;
+        try {
+            hasReadAccess = await tenant_context_permission_service_1.tenantContextPermissionService.hasReadAccess(tenantId, context);
+        }
+        catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            // 🔴 ADR: Erro específico para tabela não existe
+            if (errorMessage.includes('tenant_contexts') && (errorMessage.includes('não existe') || errorMessage.includes('does not exist'))) {
+                throw new Error(`SCHEMA_ERROR: Tabela tenant_contexts não encontrada. Execute a migration 312: 312_tenant_default_context_permissions.sql`);
+            }
+            // Re-lançar outros erros
+            throw err;
+        }
+        if (!hasReadAccess) {
+            throw new Error(`CONTEXT_ACCESS_DENIED: Tenant ${tenantId} não tem permissão de leitura no context ${context}`);
+        }
+        // Cache: chave única por tenantId:context
+        const cacheKey = `${tenantId}:${context}`;
+        const cached = this.canonicalCache.get(cacheKey);
+        if (cached) {
+            const cacheAge = (Date.now() - cached.timestamp) / 1000;
+            if (cacheAge < this.CACHE_TTL_SECONDS) {
+                return cached.data;
+            }
+        }
+        // Chamar repository APENAS após validações
+        const allRows = await this.repository.findAll(countryCode, context);
+        const allCategories = categories_model_1.CategoryModel.fromRows(allRows);
+        // Criar mapa de categorias por ID
+        const categoryMap = new Map();
+        allCategories.forEach((cat) => {
+            categoryMap.set(cat.categoryId, { ...cat, children: [] });
+        });
+        // Construir árvore
+        const roots = [];
+        allCategories.forEach((cat) => {
+            const treeNode = categoryMap.get(cat.categoryId);
+            if (cat.parentId) {
+                const parent = categoryMap.get(cat.parentId);
+                if (parent) {
+                    parent.children = parent.children || [];
+                    parent.children.push(treeNode);
+                }
+                else {
+                    // Parent não encontrado - pode ser categoria órfã, adicionar como root
+                    roots.push(treeNode);
+                }
+            }
+            else {
+                roots.push(treeNode);
+            }
+        });
+        // Atualizar cache canônico
+        this.canonicalCache.set(cacheKey, {
+            data: roots,
+            timestamp: Date.now(),
+        });
+        return roots;
+    }
+    /**
+     * @deprecated Use getCategoriesForTenant(tenantId, context) instead.
+     * Este método será removido quando ENFORCE_CANONICAL_ONLY=true.
+     *
+     * Método legado: permite leitura sem tenantId explícito.
+     * Violação de SSOT: countryCode pode vir de parâmetros externos.
+     */
+    async getCategoryTree(countryCode, context, useCache = true) {
+        // KILL SWITCH: Se ENFORCE_CANONICAL_ONLY estiver ativo, bloquear método legado
+        if (process.env.ENFORCE_CANONICAL_ONLY === 'true') {
+            // Registrar SSOT_VIOLATION (kill switch ativo)
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: context || null,
+                details: {
+                    method: 'getCategoryTree',
+                    reason: 'método legado chamado com ENFORCE_CANONICAL_ONLY=true',
+                    countryCode: countryCode || null,
+                },
+            });
+            const error = new Error('SSOT_VIOLATION: getCategoryTree is deprecated. Use getCategoriesForTenant(tenantId, context) instead.');
+            console.error('[DEPRECATED] getCategoryTree chamado com ENFORCE_CANONICAL_ONLY=true:', {
+                countryCode,
+                context,
+                stack: error.stack,
+            });
+            throw error;
+        }
+        // WARNING: Método legado em uso
+        // Registrar LEGACY_CALL (tentativa de uso de método legado)
+        await ssot_observability_service_1.ssotObservabilityService.recordViolation('LEGACY_CALL', {
+            tenantId: null,
+            context: context || null,
+            details: {
+                method: 'getCategoryTree',
+                reason: 'método legado chamado (deve usar getCategoriesForTenant)',
+                countryCode: countryCode || null,
+            },
+        });
+        console.warn('[DEPRECATED] getCategoryTree chamado. Use getCategoriesForTenant(tenantId, context) instead.', {
+            countryCode,
+            context,
+            stack: new Error().stack,
+        });
+        // 🔴 LOG DE DIAGNÓSTICO
+        console.log('[CategoriesService.getCategoryTree] Chamado com:', {
+            countryCode: countryCode || 'null',
+            context: context || 'undefined',
+            useCache,
+            cacheExists: !!this.categoryTreeCache.data,
+            cacheAge: this.categoryTreeCache.data ? (Date.now() - this.categoryTreeCache.timestamp) / 1000 : null,
+        });
+        // CACHE: Verificar se cache é válido (chaveado por countryCode + context)
         if (useCache && this.categoryTreeCache.data) {
             const cacheAge = (Date.now() - this.categoryTreeCache.timestamp) / 1000;
             const sameCountry = this.categoryTreeCache.countryCode === countryCode;
-            if (cacheAge < this.CACHE_TTL_SECONDS && sameCountry) {
+            const sameContext = this.categoryTreeCache.context === context;
+            if (cacheAge < this.CACHE_TTL_SECONDS && sameCountry && sameContext) {
+                console.log('[CategoriesService.getCategoryTree] Retornando do cache:', {
+                    totalRoots: this.categoryTreeCache.data.length,
+                    context,
+                });
                 return this.categoryTreeCache.data;
+            }
+            else {
+                console.log('[CategoriesService.getCategoryTree] Cache inválido, buscando do banco:', {
+                    reason: !sameCountry ? 'countryCode diferente' : !sameContext ? 'context diferente' : 'cache expirado',
+                });
             }
         }
         try {
-            const allRows = await this.repository.findAll(countryCode);
+            const allRows = await this.repository.findAll(countryCode, context);
+            // 🔴 LOG DE DIAGNÓSTICO
+            console.log('[CategoriesService.getCategoryTree] Diagnóstico:', {
+                countryCode: countryCode || 'null',
+                context: context || 'undefined',
+                totalFound: allRows.length,
+                sampleCategories: allRows.slice(0, 3).map(r => ({
+                    id: r.category_id,
+                    name: r.name,
+                    scope: r.scope || 'NULL',
+                    status: r.status || 'NULL',
+                    country_code: r.country_code,
+                })),
+            });
+            // 🔴 INSPEÇÃO TEMPORÁRIA: Rastrear "Pedreiro" após repository
+            const foundPedreiroService = allRows.some((r) => r.name?.toLowerCase().includes('pedr') || r.slug?.toLowerCase().includes('pedr'));
+            const pedreiroRowService = allRows.find((r) => r.name?.toLowerCase().includes('pedr') || r.slug?.toLowerCase().includes('pedr'));
+            console.log('[INSPEÇÃO] Service após repository:', {
+                foundPedreiroService,
+                pedreiroInfo: pedreiroRowService ? {
+                    id: pedreiroRowService.category_id,
+                    name: pedreiroRowService.name,
+                    parent_id: pedreiroRowService.parent_id,
+                    level: pedreiroRowService.level,
+                } : null,
+            });
             const allCategories = categories_model_1.CategoryModel.fromRows(allRows);
+            console.log(`[getCategoryTree] Convertidas ${allCategories.length} categorias`);
             // Criar mapa de categorias por ID
             const categoryMap = new Map();
             allCategories.forEach((cat) => {
@@ -347,23 +572,84 @@ class CategoriesService {
                         parent.children = parent.children || [];
                         parent.children.push(treeNode);
                     }
+                    else {
+                        // Parent não encontrado - pode ser categoria órfã, adicionar como root
+                        console.warn(`[getCategoryTree] Categoria ${cat.categoryId} tem parent ${cat.parentId} que não existe - adicionando como root`);
+                        roots.push(treeNode);
+                    }
                 }
                 else {
                     roots.push(treeNode);
                 }
             });
-            // CACHE: Atualizar cache
-            this.categoryTreeCache = {
-                data: roots,
-                timestamp: Date.now(),
-                countryCode,
+            console.log(`[getCategoryTree] Árvore construída com ${roots.length} raízes`);
+            // 🔴 INSPEÇÃO TEMPORÁRIA: Rastrear "Pedreiro" após tree builder
+            const findPedreiroInTree = (nodes) => {
+                for (const node of nodes) {
+                    if (node.name?.toLowerCase().includes('pedr') || node.slug?.toLowerCase().includes('pedr')) {
+                        return node;
+                    }
+                    if (node.children) {
+                        const found = findPedreiroInTree(node.children);
+                        if (found)
+                            return found;
+                    }
+                }
+                return null;
             };
+            const pedreiroAfterTree = findPedreiroInTree(roots);
+            const foundPedreiroAfterTree = pedreiroAfterTree !== null;
+            console.log('[INSPEÇÃO] Service após tree builder:', {
+                foundPedreiroAfterTree,
+                pedreiroInfo: pedreiroAfterTree ? {
+                    id: pedreiroAfterTree.categoryId,
+                    name: pedreiroAfterTree.name,
+                    parentId: pedreiroAfterTree.parentId,
+                    level: pedreiroAfterTree.level,
+                    isRoot: !pedreiroAfterTree.parentId,
+                    childrenCount: pedreiroAfterTree.children?.length || 0,
+                } : null,
+            });
+            // 🔴 LOG FINAL (DIAGNÓSTICO)
+            console.log('[CategoriesService.getCategoryTree] Resultado final:', {
+                countryCode: countryCode || 'null',
+                context: context || 'undefined',
+                totalRoots: roots.length,
+                totalCategories: allCategories.length,
+                rootsSample: roots.slice(0, 3).map(r => ({
+                    id: r.categoryId,
+                    name: r.name,
+                    scope: r.scope || 'NULL',
+                    childrenCount: r.children?.length || 0,
+                })),
+            });
+            // 🔴 CACHE: Atualizar cache apenas se houver dados (chaveado por countryCode + context)
+            // Se roots estiver vazio, limpar cache para forçar nova busca
+            if (roots.length > 0) {
+                this.categoryTreeCache = {
+                    data: roots,
+                    timestamp: Date.now(),
+                    countryCode,
+                    context,
+                };
+            }
+            else {
+                // Limpar cache se estiver vazio (pode ser cache de estado vazio inválido)
+                this.categoryTreeCache = {
+                    data: null,
+                    timestamp: 0,
+                    countryCode: null,
+                    context: undefined,
+                };
+                console.warn('[CategoriesService.getCategoryTree] Árvore vazia - cache limpo');
+            }
             return roots;
         }
         catch (error) {
             // Log detalhado do erro para debug
-            console.error('Erro ao buscar árvore de categorias:', error);
+            console.error('[getCategoryTree] Erro ao buscar árvore de categorias:', error);
             if (error instanceof Error) {
+                console.error('[getCategoryTree] Stack trace:', error.stack);
                 throw new Error(`Erro ao buscar árvore de categorias: ${error.message}`);
             }
             throw new Error('Erro ao buscar árvore de categorias: Erro desconhecido');
@@ -394,65 +680,330 @@ class CategoriesService {
      * Busca categorias por termo
      * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
      */
-    async searchCategories(term, limit = 50, countryCode) {
-        const rows = await this.repository.search(term, limit, countryCode);
+    /**
+     * MÉTODO CANÔNICO: Busca de categorias para tenant
+     * SSOT: Usa o mesmo método canônico de leitura (getCategoriesForTenant) e aplica filtro de busca em memória
+     *
+     * @param term - Termo de busca
+     * @param tenantId - ID do tenant (obrigatório)
+     * @param context - Contexto semântico (obrigatório)
+     * @param limit - Limite de resultados
+     * @returns Lista de categorias que correspondem ao termo de busca
+     */
+    async searchCategoriesForTenant(term, tenantId, context, limit = 50) {
+        // GUARD: tenantId obrigatório
+        if (!tenantId) {
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: context || null,
+                details: {
+                    method: 'searchCategoriesForTenant',
+                    reason: 'tenantId ausente',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: tenantId is mandatory for category reads');
+        }
+        // GUARD: context obrigatório
+        if (!context) {
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId,
+                context: null,
+                details: {
+                    method: 'searchCategoriesForTenant',
+                    reason: 'context ausente',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
+        }
+        // SSOT: Obter a MESMA árvore canônica usada pela navegação
+        const tree = await this.getCategoriesForTenant(tenantId, context);
+        // Aplicar filtro de busca em memória sobre a árvore completa
+        const searchTerm = term.toLowerCase().trim();
+        const normalizedTerm = searchTerm
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        // Função recursiva para coletar todas as categorias da árvore
+        const collectAllCategories = (nodes) => {
+            const all = [];
+            for (const node of nodes) {
+                all.push(node);
+                if (node.children && node.children.length > 0) {
+                    all.push(...collectAllCategories(node.children));
+                }
+            }
+            return all;
+        };
+        // Função para verificar se uma categoria corresponde ao termo de busca
+        const matchesSearch = (category) => {
+            const nameLower = category.name.toLowerCase();
+            const normalizedName = nameLower
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            // Verificar match exato
+            if (nameLower === searchTerm || normalizedName === normalizedTerm) {
+                return true;
+            }
+            // Verificar prefixo
+            if (nameLower.startsWith(searchTerm) || normalizedName.startsWith(normalizedTerm)) {
+                return true;
+            }
+            // Verificar contém
+            if (nameLower.includes(searchTerm) || normalizedName.includes(normalizedTerm)) {
+                return true;
+            }
+            // Verificar slug
+            const slugLower = category.slug.toLowerCase();
+            if (slugLower === searchTerm || slugLower.startsWith(searchTerm) || slugLower.includes(searchTerm)) {
+                return true;
+            }
+            // Verificar keywords
+            if (category.keywords && category.keywords.length > 0) {
+                for (const keyword of category.keywords) {
+                    const keywordLower = keyword.toLowerCase();
+                    if (keywordLower === searchTerm || keywordLower.startsWith(searchTerm) || keywordLower.includes(searchTerm)) {
+                        return true;
+                    }
+                }
+            }
+            // Verificar path
+            if (category.path && category.path.length > 0) {
+                for (const pathItem of category.path) {
+                    const pathLower = pathItem.toLowerCase();
+                    if (pathLower.includes(searchTerm)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        // Coletar todas as categorias da árvore
+        const allCategories = collectAllCategories(tree);
+        // Filtrar apenas as que correspondem ao termo de busca
+        const matchingCategories = allCategories.filter(matchesSearch);
+        // Limitar resultados
+        const limitedResults = matchingCategories.slice(0, limit);
+        // Converter para formato Category
+        return limitedResults.map(cat => ({
+            categoryId: cat.categoryId,
+            name: cat.name,
+            slug: cat.slug,
+            description: cat.description || null,
+            parentId: cat.parentId || null,
+            level: cat.level,
+            path: cat.path || [],
+            keywords: cat.keywords || [],
+            countryCode: cat.countryCode || null,
+            scope: cat.scope || null,
+            createdAt: cat.createdAt || new Date(),
+            updatedAt: cat.updatedAt || new Date(),
+        }));
+    }
+    /**
+     * @deprecated Use searchCategoriesForTenant instead. Este método mantido apenas para compatibilidade interna.
+     * TRAVA: context com default 'professional' - não criar novos usos deste método
+     */
+    async searchCategories(term, limit = 50, countryCode, context = 'professional') {
+        const rows = await this.repository.search(term, context, countryCode, limit);
         return categories_model_1.CategoryModel.fromRows(rows);
     }
     /**
      * Autocomplete: busca categorias leaf ACTIVE para sugestão rápida
-     * Retorna apenas categorias finais que podem ser selecionadas diretamente
+     * SSOT: Usa a MESMA árvore canônica da navegação (getCategoriesForTenant)
+     * Aplica apenas filtragem em memória sobre a árvore completa
      */
-    async autocompleteCategories(query, context, countryCode, limit = 20) {
+    async autocompleteCategories(query, tenantId, context, limit = 20) {
         if (!query || query.trim().length < 1) {
             return [];
         }
-        const rows = await this.repository.autocomplete(query, context, countryCode, limit);
-        if (rows.length === 0) {
-            return [];
-        }
-        // Coletar todos os slugs únicos do path para buscar nomes em uma única query
-        const allSlugs = new Set();
-        rows.forEach(row => {
-            if (row.path) {
-                row.path.forEach(slug => allSlugs.add(slug));
+        // SSOT: Obter a MESMA árvore canônica usada pela navegação
+        const tree = await this.getCategoriesForTenant(tenantId, context);
+        // Aplicar filtragem em memória sobre a árvore completa
+        const searchTerm = query.toLowerCase().trim();
+        const normalizedTerm = searchTerm
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        // Função auxiliar para verificar se uma categoria corresponde ao termo de busca
+        const matchesSearch = (category) => {
+            const nameLower = category.name.toLowerCase();
+            const normalizedName = nameLower
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            // Verificar match exato
+            if (nameLower === searchTerm || normalizedName === normalizedTerm) {
+                return true;
             }
+            // Verificar prefixo
+            if (nameLower.startsWith(searchTerm) || normalizedName.startsWith(normalizedTerm)) {
+                return true;
+            }
+            // Verificar contém
+            if (nameLower.includes(searchTerm) || normalizedName.includes(normalizedTerm)) {
+                return true;
+            }
+            // Verificar slug
+            const slugLower = category.slug.toLowerCase();
+            if (slugLower === searchTerm || slugLower.startsWith(searchTerm) || slugLower.includes(searchTerm)) {
+                return true;
+            }
+            // Verificar keywords
+            if (category.keywords && category.keywords.length > 0) {
+                for (const keyword of category.keywords) {
+                    const keywordLower = keyword.toLowerCase();
+                    if (keywordLower === searchTerm || keywordLower.startsWith(searchTerm) || keywordLower.includes(searchTerm)) {
+                        return true;
+                    }
+                }
+            }
+            // Verificar path
+            if (category.path && category.path.length > 0) {
+                for (const pathItem of category.path) {
+                    const pathLower = pathItem.toLowerCase();
+                    if (pathLower.includes(searchTerm)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        // Função auxiliar para calcular relevância (maior = mais relevante)
+        const calculateRelevance = (category) => {
+            const nameLower = category.name.toLowerCase();
+            const normalizedName = nameLower
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            // Match exato no nome (maior prioridade)
+            if (nameLower === searchTerm || normalizedName === normalizedTerm) {
+                return 100;
+            }
+            // Match exato no slug
+            const slugLower = category.slug.toLowerCase();
+            if (slugLower === searchTerm) {
+                return 90;
+            }
+            // Nome começa com o termo (prefixo) - ALTA PRIORIDADE
+            if (nameLower.startsWith(searchTerm) || normalizedName.startsWith(normalizedTerm)) {
+                return 85;
+            }
+            // Slug começa com o termo (prefixo) - ALTA PRIORIDADE
+            if (slugLower.startsWith(searchTerm)) {
+                return 75;
+            }
+            // Nome contém o termo (fallback)
+            if (nameLower.includes(searchTerm) || normalizedName.includes(normalizedTerm)) {
+                return 60;
+            }
+            // Slug contém o termo (fallback)
+            if (slugLower.includes(searchTerm)) {
+                return 55;
+            }
+            // Keywords contém o termo
+            if (category.keywords && category.keywords.length > 0) {
+                for (const keyword of category.keywords) {
+                    const keywordLower = keyword.toLowerCase();
+                    if (keywordLower.startsWith(searchTerm)) {
+                        return 45;
+                    }
+                    if (keywordLower.includes(searchTerm)) {
+                        return 40;
+                    }
+                }
+            }
+            // Path contém o termo
+            if (category.path && category.path.length > 0) {
+                for (const pathItem of category.path) {
+                    const pathLower = pathItem.toLowerCase();
+                    if (pathLower.includes(searchTerm)) {
+                        return 30;
+                    }
+                }
+            }
+            return 10;
+        };
+        // Função recursiva para coletar todas as categorias leaf da árvore
+        const collectLeafCategories = (nodes) => {
+            const leaves = [];
+            for (const node of nodes) {
+                // Se não tem filhos, é uma categoria leaf
+                if (!node.children || node.children.length === 0) {
+                    leaves.push(node);
+                }
+                else {
+                    // Recursivamente coletar leaves dos filhos
+                    leaves.push(...collectLeafCategories(node.children));
+                }
+            }
+            return leaves;
+        };
+        // Coletar todas as categorias leaf da árvore
+        const allLeaves = collectLeafCategories(tree);
+        // Filtrar apenas as que correspondem ao termo de busca
+        const matchingLeaves = allLeaves.filter(matchesSearch);
+        // Ordenar por relevância (maior primeiro) e depois por nome
+        matchingLeaves.sort((a, b) => {
+            const relevanceA = calculateRelevance(a);
+            const relevanceB = calculateRelevance(b);
+            if (relevanceA !== relevanceB) {
+                return relevanceB - relevanceA; // Maior relevância primeiro
+            }
+            // Se mesma relevância, ordenar por nome
+            return a.name.localeCompare(b.name);
         });
-        // Buscar nomes de todas as categorias no path de uma vez
-        const slugToName = new Map();
-        if (allSlugs.size > 0) {
-            const slugsArray = Array.from(allSlugs);
-            const pathCategories = await pool_2.pool.query(`SELECT slug, name FROM categories WHERE slug = ANY($1::text[])`, [slugsArray]);
-            pathCategories.rows.forEach(cat => {
-                slugToName.set(cat.slug, cat.name);
-            });
-        }
+        // Limitar resultados
+        const limitedResults = matchingLeaves.slice(0, limit);
         // Converter para formato de autocomplete com path completo formatado
         const results = [];
-        for (const row of rows) {
-            // Construir fullPathLabel usando os nomes buscados
-            let fullPathLabel = row.name;
-            if (row.path && row.path.length > 1) {
+        for (const category of limitedResults) {
+            // Construir fullPathLabel usando o path da categoria
+            let fullPathLabel = category.name;
+            if (category.path && category.path.length > 1) {
+                // Buscar nomes das categorias no path
                 const pathNames = [];
-                // Para cada slug no path, buscar o nome (exceto o último que é a própria categoria)
-                for (let i = 0; i < row.path.length - 1; i++) {
-                    const slug = row.path[i];
-                    const name = slugToName.get(slug) || slug; // Fallback para slug se não encontrar
+                // Para cada slug no path (exceto o último que é a própria categoria)
+                for (let i = 0; i < category.path.length - 1; i++) {
+                    const slug = category.path[i];
+                    // Buscar o nome da categoria pelo slug na árvore
+                    const findCategoryBySlug = (nodes, targetSlug) => {
+                        for (const node of nodes) {
+                            if (node.slug === targetSlug) {
+                                return node;
+                            }
+                            if (node.children && node.children.length > 0) {
+                                const found = findCategoryBySlug(node.children, targetSlug);
+                                if (found) {
+                                    return found;
+                                }
+                            }
+                        }
+                        return null;
+                    };
+                    const pathCategory = findCategoryBySlug(tree, slug);
+                    const name = pathCategory?.name || slug; // Fallback para slug se não encontrar
                     pathNames.push(name);
                 }
                 // Adicionar o nome da categoria atual (último item do path)
-                pathNames.push(row.name);
+                pathNames.push(category.name);
                 fullPathLabel = pathNames.join(' > ');
             }
-            else if (row.path && row.path.length === 1) {
+            else if (category.path && category.path.length === 1) {
                 // Se path tem apenas 1 item, é a própria categoria
-                fullPathLabel = row.name;
+                fullPathLabel = category.name;
             }
             results.push({
-                id: row.category_id,
-                name: row.name,
-                slug: row.slug,
-                level: row.level,
-                path: row.path || [],
+                id: category.categoryId,
+                name: category.name,
+                slug: category.slug,
+                level: category.level,
+                path: category.path || [],
                 fullPathLabel,
             });
         }
@@ -462,6 +1013,10 @@ class CategoriesService {
      * Associa categoria a uma empresa
      */
     async assignCategoryToCompany(tenantId, input) {
+        // VALIDAÇÃO: categoryId é obrigatório
+        if (!input.categoryId) {
+            throw new Error('categoryId é obrigatório');
+        }
         // Verificar se categoria existe
         const category = await this.getCategoryById(input.categoryId);
         if (!category) {
@@ -487,10 +1042,17 @@ class CategoriesService {
      * Associa skill/categoria a um usuário
      */
     async assignSkillToUser(globalUserId, input) {
-        // Verificar se categoria existe
+        // VALIDAÇÃO: categoryId é obrigatório
+        if (!input.categoryId) {
+            throw new Error('categoryId é obrigatório');
+        }
+        // Verificar se categoria existe e tem scope profissional
         const category = await this.getCategoryById(input.categoryId);
         if (!category) {
             throw new Error('Categoria não encontrada');
+        }
+        if (category.scope !== 'professional') {
+            throw new Error('Categoria deve ter scope profissional');
         }
         // Upsert skill
         const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
@@ -510,13 +1072,18 @@ class CategoriesService {
      * Classifica texto em categorias (preparado para integração com AI Kernel)
      */
     async classifyTextIntoCategories(input) {
+        // VALIDAÇÃO: text é obrigatório
+        if (!input.text || typeof input.text !== 'string' || input.text.trim().length === 0) {
+            throw new Error('text é obrigatório e deve ser uma string não vazia');
+        }
         // TODO: Implementar integração com AI Kernel
         // Por enquanto, retorna array vazio
         // O AI Kernel pode chamar este método e implementar a lógica de classificação
         const maxCategories = input.maxCategories || 5;
+        const text = input.text.trim();
         // Placeholder: busca simples por palavras-chave
         // Em produção, isso será substituído por chamada ao AI Kernel
-        const searchResults = await this.searchCategories(input.text, maxCategories);
+        const searchResults = await this.searchCategories(text, maxCategories, undefined, 'professional');
         return searchResults.slice(0, maxCategories).map((cat) => ({
             categoryId: cat.categoryId,
             categoryName: cat.name,
@@ -600,7 +1167,8 @@ class CategoriesService {
      * - Valida nível máximo (root > parent > leaf)
      * - FALLBACK: Se não houver categorias ACTIVE, retorna sugestão vazia (não lança erro)
      */
-    async suggestCategoryPath(input, context = 'professional', countryCode) {
+    async suggestCategoryPath(input, context, // OBRIGATÓRIO: sem default
+    countryCode) {
         // 1. VALIDAÇÃO POR CONTEXTO (security)
         const validation = this.validateInputByContext(input, context);
         if (!validation.valid) {
@@ -613,7 +1181,9 @@ class CategoriesService {
         }
         // 3. Buscar árvore completa de categorias ACTIVE (com cache)
         const searchCountryCode = (context === 'education' || context === 'learning') ? countryCode : undefined;
-        const categoryTree = await this.getCategoryTree(searchCountryCode, true);
+        // 🔴 FIX: getCategoryTree agora requer context como segundo parâmetro
+        // Para autocomplete, usar context do parâmetro da função (já validado)
+        const categoryTree = await this.getCategoryTree(searchCountryCode, context, true);
         // Filtrar apenas categorias ACTIVE ou AUTO_ACTIVE (getCategoryTree já filtra por status)
         // FASE 3.6: Incluir auto_active como visível e usável
         const activeCategories = categoryTree.filter(cat => !cat.status || cat.status === 'active' || cat.status === 'auto_active');
@@ -636,7 +1206,7 @@ class CategoriesService {
             };
         }
         // 3. Buscar match exato ou similar nas categorias existentes
-        const searchResults = await this.searchCategories(sanitizedText, 10, searchCountryCode);
+        const searchResults = await this.searchCategories(sanitizedText, 10, searchCountryCode, context);
         const exactMatch = searchResults.find(cat => {
             const nameLower = cat.name.toLowerCase();
             const textLower = sanitizedText.toLowerCase();
@@ -954,7 +1524,7 @@ Responda em JSON com:
                     tenantId,
                     userId: globalUserId,
                     validateAdmin: false,
-                    context: context,
+                    context: context, // context já é CategoryContext, não precisa de cast
                     skipGate: true, // Grupos são criados internamente, não precisam do gate completo
                 });
                 rootId = rootCategory.categoryId;
@@ -1028,7 +1598,7 @@ Responda em JSON com:
                     tenantId,
                     userId: globalUserId,
                     validateAdmin: false,
-                    context: context,
+                    context: context, // context já é CategoryContext, não precisa de cast
                     skipGate: true, // Subgrupos são criados internamente
                 });
                 subgroupId = subgroupCategory.categoryId;
@@ -1064,7 +1634,7 @@ Responda em JSON com:
                     tenantId,
                     userId: globalUserId,
                     validateAdmin: false,
-                    context: context,
+                    context: context, // context já é CategoryContext, não precisa de cast
                     skipGate: true, // Subgrupos são criados internamente
                 });
                 subgroupId = subgroupCategory.categoryId;
@@ -1257,9 +1827,9 @@ Responda em JSON com:
      * - Termos que "existem no mundo real" (pedreiro, médico, futebol) → auto-approve
      * - Termos ambíguos ou novos → revisão humana
      */
-    async shouldAutoApproveSuggestion(input, context, confidence, suggestedParent) {
+    async shouldAutoApproveSuggestion(input, tenantId, context, confidence, suggestedParent) {
         // 1. Verificar se já existe no autocomplete (match exato)
-        const autocompleteResults = await this.autocompleteCategories(input, context, undefined, 5);
+        const autocompleteResults = await this.autocompleteCategories(input, tenantId, context, 5);
         const exactMatch = autocompleteResults.find(r => r.name.toLowerCase() === input.toLowerCase().trim() || r.slug === this.generateSlug(input));
         if (exactMatch) {
             return {
@@ -1412,7 +1982,8 @@ Responda em JSON com:
      * - Usa suggestCategoryPath primeiro para classificar
      */
     async createCategoryWithAI(input) {
-        const { text, context = 'professional', parentId, countryCode, tenantId, actorId, globalUserId, inputType = 'text', audioUrl, audioHash, } = input;
+        const { text, context, // OBRIGATÓRIO: sem default
+        parentId, countryCode, tenantId, actorId, globalUserId, inputType = 'text', audioUrl, audioHash, } = input;
         // 1. SANITIZAÇÃO: Remover scripts, SQL, URLs e limitar tamanho
         const originalText = text;
         const sanitizedText = this.sanitizeText(text, 500);
@@ -1423,7 +1994,11 @@ Responda em JSON com:
         const textHash = this.generateHash(sanitizedText);
         const finalAudioHash = audioHash || (audioUrl ? this.generateHash(audioUrl) : null);
         // 3. VERIFICAR AUTCOMPLETE PRIMEIRO (verdade interna)
-        const autocompleteCheck = await this.autocompleteCategories(sanitizedText, context, countryCode, 5);
+        // SSOT: Autocomplete DEVE usar a mesma árvore canônica da navegação
+        if (!tenantId) {
+            throw new Error('SSOT_VIOLATION: tenantId is mandatory for category reads');
+        }
+        const autocompleteCheck = await this.autocompleteCategories(sanitizedText, tenantId, context, 5);
         const exactMatch = autocompleteCheck.find(r => r.name.toLowerCase() === sanitizedText.toLowerCase().trim() ||
             r.slug === this.generateSlug(sanitizedText));
         if (exactMatch) {
@@ -1475,6 +2050,7 @@ Responda em JSON com:
                 }
             }
             // Validar via CategoryInputGate (inclui HobbyVerbHeuristic + HobbyMatcher)
+            // TRAVA: context hardcoded 'hobby' - não criar novos usos hardcoded, context deve ser explícito
             const gateResult = await categoryInputGateService.validate(sanitizedText, {
                 context: 'hobby',
                 tenantId,
@@ -1660,7 +2236,7 @@ Responda em JSON com:
         }
         else {
             // Caso contrário, usar lógica padrão
-            autoApproveDecision = await this.shouldAutoApproveSuggestion(sanitizedText, context, pathSuggestion.confidence, pathSuggestion.suggestedParent);
+            autoApproveDecision = await this.shouldAutoApproveSuggestion(sanitizedText, tenantId, context, pathSuggestion.confidence, pathSuggestion.suggestedParent);
         }
         // 10. Normalizar nome para Title Case
         const normalizedName = this.normalizeNameToTitleCase(pathSuggestion.leafName);
@@ -1760,7 +2336,16 @@ Responda em JSON com:
      * Usado exclusivamente para categorias criadas por IA
      */
     async createCategoryPending(input, requiresReview = true) {
-        const slug = input.slug || this.generateSlug(input.name);
+        // VALIDAÇÃO OBRIGATÓRIA: name deve ser string não vazia
+        if (!input.name || typeof input.name !== 'string' || input.name.trim().length === 0) {
+            throw new Error('Nome da categoria é obrigatório e deve ser uma string não vazia');
+        }
+        // Normalizar name
+        const name = input.name.trim();
+        if (name.length === 0) {
+            throw new Error('Nome da categoria não pode ser vazio após normalização');
+        }
+        const slug = input.slug || this.generateSlug(name);
         // PROPERTY: Verificação contextual por (slug, parent_id) - não busca global
         const parentId = input.parentId ?? null;
         const existing = await this.repository.findBySlugAndParent(slug, parentId);
@@ -1778,7 +2363,7 @@ Responda em JSON com:
         const path = parentId ? await this.calculatePath(parentId) : [];
         // Usar método create com status pending
         const row = await this.repository.create({
-            name: input.name,
+            name: name,
             slug,
             description: input.description ?? null,
             parentId,
@@ -1910,7 +2495,7 @@ Responda em JSON com:
         const result = await pool_2.pool.query(`
       SELECT 
         category_id, parent_id, name, slug, description, level, path,
-        COALESCE(keywords, '[]'::jsonb) as keywords, country_code,
+        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code,
         status, requires_review, created_by_ai, approved_by, approved_at, rejection_reason,
         created_at, updated_at
       FROM categories
@@ -1919,6 +2504,67 @@ Responda em JSON com:
       `);
         return result.rows.map((row) => categories_model_1.CategoryModel.fromRow(row));
     }
+    /**
+     * Verifica quantas categorias existem no banco
+     * Usado para detectar se seeds foram aplicados
+     */
+    async getCategoryCount() {
+        try {
+            const result = await pool_2.pool.query(`SELECT COUNT(*)::text as count FROM categories`);
+            return parseInt(result.rows[0]?.count || '0', 10);
+        }
+        catch (error) {
+            console.error('[CategoriesService] Erro ao contar categorias:', error);
+            return 0;
+        }
+    }
+    /**
+     * Cria categorias básicas automaticamente se a tabela estiver vazia
+     * FALLBACK: Usado quando seeds não foram aplicados
+     */
+    async ensureBasicCategories() {
+        const count = await this.getCategoryCount();
+        if (count > 0) {
+            // Já existem categorias, não precisa criar
+            return;
+        }
+        console.log('[CategoriesService] Tabela categories vazia - criando categorias básicas...');
+        try {
+            // Criar categorias raiz básicas
+            const roots = [
+                { name: 'Profissional', slug: 'profissional', description: 'Categorias relacionadas à vida profissional' },
+                { name: 'Pessoal', slug: 'pessoal', description: 'Categorias relacionadas à vida pessoal' },
+                { name: 'Físico', slug: 'fisico', description: 'Categorias relacionadas ao bem-estar físico' },
+                { name: 'Aprendizado', slug: 'aprendizado', description: 'Categorias relacionadas ao aprendizado e educação' },
+            ];
+            for (const root of roots) {
+                try {
+                    await this.createCategory({
+                        name: root.name,
+                        slug: root.slug,
+                        description: root.description,
+                        parentId: null,
+                        allowActive: true, // Criar como ativa automaticamente
+                    }, {
+                        validateAdmin: false, // Skip admin validation para criação automática
+                        context: 'professional', // Context padrão
+                        skipGate: true, // Pular gate para criação automática
+                    });
+                }
+                catch (error) {
+                    // Se já existe, ignorar
+                    if (error instanceof Error && error.message.includes('already exists')) {
+                        continue;
+                    }
+                    console.error(`[CategoriesService] Erro ao criar categoria ${root.name}:`, error);
+                }
+            }
+            console.log('[CategoriesService] ✅ Categorias básicas criadas com sucesso');
+        }
+        catch (error) {
+            console.error('[CategoriesService] ❌ Erro ao criar categorias básicas:', error);
+            throw error;
+        }
+    }
 }
 exports.categoriesService = new CategoriesService();
-//# sourceMappingURL=categories.service.js.map

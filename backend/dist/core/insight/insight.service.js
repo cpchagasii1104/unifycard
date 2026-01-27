@@ -90,4 +90,3 @@ class InsightService {
     }
 }
 exports.insightService = new InsightService();
-//# sourceMappingURL=insight.service.js.map

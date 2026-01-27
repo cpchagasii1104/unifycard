@@ -8,8 +8,6 @@ const cepRoutes = async (fastify) => {
     // Busca endereço por CEP
     fastify.get('/cep/:cep', {
         schema: {
-            description: 'Busca endereço por CEP usando ViaCEP',
-            tags: ['location'],
             params: {
                 type: 'object',
                 properties: {
@@ -73,4 +71,3 @@ const cepRoutes = async (fastify) => {
     });
 };
 exports.default = cepRoutes;
-//# sourceMappingURL=cep.routes.js.map

@@ -83,4 +83,3 @@ async function emitAssignmentCompleted(tenantId, userId, assignmentId, jobId, wo
 function getRequestId(req) {
     return req.requestId;
 }
-//# sourceMappingURL=work.events.js.map

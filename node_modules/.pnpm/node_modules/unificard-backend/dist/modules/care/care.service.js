@@ -5,8 +5,11 @@ const care_repository_1 = require("./care.repository");
 const care_model_1 = require("./care.model");
 const social_chat_service_1 = require("../social-chat/social-chat.service");
 const orchestrator_service_1 = require("@core/orchestrator/orchestrator.service");
-const schedule_service_1 = require("../schedule/schedule.service");
+// REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+// import { scheduleService } from '../schedule/schedule.service';
 const social_actions_service_1 = require("../social-actions/social-actions.service");
+const assistant_context_service_1 = require("@core/assistant-context/assistant-context.service");
+const default_assumptions_service_1 = require("@core/assistant-context/default-assumptions.service");
 class CareService {
     repository = new care_repository_1.CareRepository();
     /**
@@ -130,30 +133,23 @@ class CareService {
         // 5. Detectar dados faltantes e atualizar estado
         const updatedState = await this.detectMissingParameters(fastify, detectedIntent, parameters, session.state, updatedContext);
         // 6. Verificar disponibilidade de horários se for schedule_service
+        // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+        // TODO: Migrar para unifiedAvailabilityService quando necessário
         if (detectedIntent === 'schedule_service' && parameters.workerId) {
-            try {
-                const schedule = await schedule_service_1.scheduleService.getOrCreateUserSchedule(tenantId, parameters.workerId);
-                const scheduleWithSlots = await schedule_service_1.scheduleService.getScheduleWithSlots(tenantId, schedule.scheduleId, {
-                    startDate: new Date(),
-                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
-                });
-                updatedContext.scheduleAvailability = {
-                    workerId: parameters.workerId,
-                    availableSlots: (scheduleWithSlots?.slots || [])
-                        .filter((s) => s.status === 'available')
-                        .map((s) => ({
-                        startTime: s.startTime,
-                        endTime: s.endTime,
-                        slotId: s.slotId,
-                    })),
-                };
-            }
-            catch (error) {
-                // Silenciosamente ignora erros
-            }
+            // Funcionalidade temporariamente desabilitada após remoção do schedule.service
+            // updatedContext.scheduleAvailability será undefined até migração completa
         }
-        // 7. Gerar resposta do AI
-        const aiResponse = await this.generateAIResponse(fastify, session, input.text, detectedIntent, updatedState, updatedContext);
+        // 7. Buscar contexto das interações do feed (para personalizar a resposta)
+        let feedContext = null;
+        try {
+            feedContext = await assistant_context_service_1.assistantContextService.buildAssistantContext(tenantId, globalUserId);
+        }
+        catch (error) {
+            // Silenciosamente ignora erros
+            console.warn('Erro ao buscar contexto do feed:', error);
+        }
+        // 8. Gerar resposta do AI
+        const aiResponse = await this.generateAIResponse(fastify, session, input.text, detectedIntent, updatedState, updatedContext, feedContext);
         // 8. Salvar mensagem do sistema
         const systemMessageRow = await this.repository.createMessage({
             tenantId,
@@ -243,22 +239,74 @@ class CareService {
     /**
      * Gera resposta do AI
      */
-    async generateAIResponse(fastify, session, userMessage, detectedIntent, state, context) {
+    async generateAIResponse(fastify, session, userMessage, detectedIntent, state, context, feedContext) {
+        // Construir prompt com contexto do feed (se disponível)
+        let contextSection = '';
+        if (feedContext?.summary) {
+            contextSection = `
+Contexto do usuário (baseado em interações recentes):
+${feedContext.summary}
+
+Use esse contexto para:
+- Personalizar a resposta de forma natural
+- Evitar mencionar temas que o usuário evitou
+- Sugerir coisas alinhadas aos interesses recentes
+- Adaptar o tom ao momento atual do usuário
+`;
+        }
+        // Construir lista de parâmetros faltantes (se houver)
+        const missingParamsText = state.missingParameters.length > 0
+            ? `Parâmetros que ainda não foram informados: ${state.missingParameters.join(', ')}`
+            : 'Todos os parâmetros necessários já foram coletados.';
+        // Gerar assunções padrão baseadas no contexto
+        const assumptionsSummary = default_assumptions_service_1.defaultAssumptionsService.generateAssumptionsSummary({
+            eventType: detectedIntent === 'create_event' ? 'social' : undefined,
+            venueType: context.categories?.find((c) => c.includes('restaurant') || c.includes('bar')) ? 'restaurant' : undefined,
+        });
         // Usar AI Kernel para gerar resposta
         const prompt = `
-Analise a conversa e gere uma resposta natural e útil.
+Você é um assistente experiente e confiante. Seu papel é AGIR, não perguntar o tempo todo.
 
-Contexto:
+REGRAS DE OURO:
+1. Se você tem 80% de confiança, ASSUMA e execute. Não pergunte.
+2. Use valores padrão sensatos quando possível (ex: 10-15 pessoas para eventos, hoje/amanhã para datas).
+3. Fale como um humano experiente, não como um robô educado demais.
+4. Uma mensagem = uma intenção. Não faça múltiplas perguntas juntas.
+5. Se faltar algo crítico, pergunte UMA coisa por vez. Depois resolva e continue.
+
+TOM:
+- Use "Beleza", "Vou fazer", "Pronto" ao invés de "Posso prosseguir?"
+- Diga "Só faltou uma coisa" ao invés de "Informações insufalientes"
+- Seja direto: "Vou criar isso agora" ao invés de "Você gostaria que eu criasse?"
+
+CONTEXTO:
 - Mensagem do usuário: "${userMessage}"
 - Intent detectada: ${detectedIntent || 'nenhuma'}
-- Parâmetros faltantes: ${state.missingParameters.join(', ') || 'nenhum'}
+- ${missingParamsText}
 - Histórico: ${context.conversationHistory.length} mensagens
+${contextSection}${assumptionsSummary}
 
-Gere uma resposta que:
-1. Seja natural e conversacional
-2. Pergunte pelos dados faltantes se necessário
-3. Sugira próximos passos
-4. Seja útil e direta
+INSTRUÇÕES:
+1. Se a intent está clara e você tem dados suficientes (ou pode assumir valores padrão), EXECUTE e informe o que fez.
+2. USE AS ASSUNÇÕES PADRÃO quando não informado. Não pergunte por horário, público ou preço se houver assunção padrão.
+3. Se faltar algo crítico que NÃO tem assunção padrão, pergunte APENAS UMA coisa de forma natural.
+4. Use o contexto do usuário de forma sutil para personalizar (sem mencionar explicitamente).
+5. Adapte o tom ao momento: explorar (curioso), aprender (focado), relaxar (leve), criar (direto).
+6. Evite perguntas óbvias ou que o sistema já sabe (ex: ator, contexto da conversa).
+7. Quando usar assunção padrão, confirme suavemente: "Vou considerar X, ok? Se quiser mudar, é só falar."
+
+EXEMPLOS DE BOAS RESPOSTAS:
+- "Beleza, vou criar um evento para hoje à noite. Se quiser mudar algo, é só falar."
+- "Vou considerar umas 10-15 pessoas. Se quiser ajustar, me avisa."
+- "Só falta saber o horário. Que horas você prefere?"
+
+EXEMPLOS DE RESPOSTAS A EVITAR:
+- "Você gostaria de criar um evento?" (assuma e faça)
+- "Isso é pessoal ou profissional?" (já está no contexto)
+- "Posso prosseguir com a criação?" (só faça)
+- "Informações insuficientes" (seja humano)
+
+Gere uma resposta seguindo essas regras:
 `;
         try {
             const aiResult = await fastify.ai.run(prompt, {
@@ -271,7 +319,9 @@ Gere uma resposta que:
             return {
                 content: aiResult.result || aiResult.thought?.result || this.generateFallbackResponse(state, detectedIntent),
                 reasoning: aiResult.thought || {},
-                nextSteps: state.missingParameters.map((p) => `Preciso saber: ${p}`),
+                nextSteps: state.missingParameters.length > 0
+                    ? [`Só falta saber: ${state.missingParameters[0]}`] // Apenas o primeiro, não todos
+                    : [],
                 suggestedActions: context.suggestedActions || [],
             };
         }
@@ -280,23 +330,25 @@ Gere uma resposta que:
             return {
                 content: this.generateFallbackResponse(state, detectedIntent),
                 reasoning: {},
-                nextSteps: state.missingParameters.map((p) => `Preciso saber: ${p}`),
+                nextSteps: state.missingParameters.length > 0
+                    ? [`Só falta saber: ${state.missingParameters[0]}`]
+                    : [],
                 suggestedActions: context.suggestedActions || [],
             };
         }
     }
     /**
-     * Gera resposta de fallback
+     * Gera resposta de fallback (tom humano e confiante)
      */
     generateFallbackResponse(state, intent) {
         if (state.missingParameters.length > 0) {
             const param = state.missingParameters[0];
             const questions = {
-                workerId: 'Com qual profissional você gostaria de agendar?',
-                date: 'Qual data você prefere?',
-                time: 'Qual horário você prefere?',
+                workerId: 'Só falta saber: com qual profissional você quer agendar?',
+                date: 'Que dia você prefere?',
+                time: 'Que horário funciona melhor?',
                 serviceId: 'Qual serviço você precisa?',
-                productId: 'Qual produto você quer comprar?',
+                productId: 'Qual produto você quer?',
                 quantity: 'Quantas unidades?',
                 origin: 'De onde você quer partir?',
                 destination: 'Para onde você quer ir?',
@@ -304,12 +356,19 @@ Gere uma resposta que:
                 restaurantId: 'De qual restaurante você quer pedir?',
                 items: 'O que você quer pedir?',
             };
-            return questions[param] || `Preciso saber: ${param}`;
+            return questions[param] || `Só falta saber: ${param}`;
         }
         if (intent) {
-            return `Entendi! Vou processar sua solicitação de ${intent}.`;
+            // Respostas mais naturais por intent
+            const intentResponses = {
+                create_event: 'Beleza, vou criar o evento agora.',
+                schedule_service: 'Vou agendar isso pra você.',
+                hire_service: 'Vou organizar isso.',
+                create_post: 'Pronto, vou publicar isso.',
+            };
+            return intentResponses[intent] || `Beleza, vou fazer isso agora.`;
         }
-        return 'Como posso ajudar você hoje?';
+        return 'O que você quer fazer hoje?';
     }
     /**
      * Busca sessão com mensagens
@@ -336,4 +395,3 @@ Gere uma resposta que:
     }
 }
 exports.careService = new CareService();
-//# sourceMappingURL=care.service.js.map

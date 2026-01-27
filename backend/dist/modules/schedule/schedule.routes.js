@@ -235,4 +235,3 @@ const scheduleRoutes = async (fastify) => {
     });
 };
 exports.default = scheduleRoutes;
-//# sourceMappingURL=schedule.routes.js.map

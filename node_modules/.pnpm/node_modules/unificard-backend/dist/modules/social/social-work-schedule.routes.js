@@ -193,4 +193,3 @@ const socialWorkScheduleRoutes = async (fastify) => {
     });
 };
 exports.default = socialWorkScheduleRoutes;
-//# sourceMappingURL=social-work-schedule.routes.js.map

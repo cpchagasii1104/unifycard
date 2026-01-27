@@ -229,4 +229,3 @@ class OrganizersService {
     }
 }
 exports.organizersService = new OrganizersService();
-//# sourceMappingURL=organizers.service.js.map

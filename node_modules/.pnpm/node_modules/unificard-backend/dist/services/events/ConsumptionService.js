@@ -151,4 +151,3 @@ class ConsumptionService {
     }
 }
 exports.ConsumptionService = ConsumptionService;
-//# sourceMappingURL=ConsumptionService.js.map

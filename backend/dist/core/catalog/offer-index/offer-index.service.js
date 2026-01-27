@@ -232,4 +232,3 @@ class OfferIndexService {
     }
 }
 exports.offerIndexService = new OfferIndexService();
-//# sourceMappingURL=offer-index.service.js.map

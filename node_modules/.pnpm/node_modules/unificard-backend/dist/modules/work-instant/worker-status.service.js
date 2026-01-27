@@ -295,4 +295,3 @@ class WorkerStatusService {
     }
 }
 exports.workerStatusService = new WorkerStatusService();
-//# sourceMappingURL=worker-status.service.js.map

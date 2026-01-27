@@ -195,4 +195,3 @@ testCategoryPathSuggestion()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=test-category-path-suggestion.js.map

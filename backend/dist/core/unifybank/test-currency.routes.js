@@ -108,4 +108,3 @@ const testCurrencyRoutes = async (fastify) => {
     });
 };
 exports.default = testCurrencyRoutes;
-//# sourceMappingURL=test-currency.routes.js.map

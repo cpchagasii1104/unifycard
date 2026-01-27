@@ -18,4 +18,3 @@ exports.updateGlobalIdentitySchema = zod_1.z.object({
         .optional(),
     metadata: zod_1.z.record(zod_1.z.any()).optional(),
 });
-//# sourceMappingURL=identity.schemas.js.map

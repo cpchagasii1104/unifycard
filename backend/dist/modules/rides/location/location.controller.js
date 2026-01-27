@@ -21,4 +21,3 @@ class LocationController {
 }
 exports.LocationController = LocationController;
 exports.locationController = new LocationController();
-//# sourceMappingURL=location.controller.js.map

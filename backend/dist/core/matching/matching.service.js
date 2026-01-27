@@ -1,6 +1,17 @@
 "use strict";
 // src/core/matching/matching.service.ts
 // Serviço de Matching Humano - conexão por momento de vida
+//
+// 🔴 BLINDAGEM CANÔNICA: Educação NÃO participa de matching
+// - Matching usa apenas: estado inferido, afinidade física/aprendizado/profissional
+// - Educação é apenas informacional, não filtra conexões
+// - Por que isso NÃO pode virar decisão: educação não define compatibilidade
+//
+// 🔴 BLINDAGEM CANÔNICA: Aprendizado representa direção e interesse declarado
+// - Matching é baseado em direção/interesse similar, não em capacidade/nível
+// - Progresso (beginner/intermediate/advanced) representa fase de exploração, não validação
+// - NÃO filtra conexões por progresso, apenas sugere baseado em interesse similar
+// - Por que isso NÃO pode virar decisão: aprendizado é autodireção, não validação de competência
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.matchingService = void 0;
 const profile_inference_service_1 = require("../profile/profile-inference.service");
@@ -139,4 +150,3 @@ class MatchingService {
     }
 }
 exports.matchingService = new MatchingService();
-//# sourceMappingURL=matching.service.js.map

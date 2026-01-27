@@ -256,4 +256,3 @@ class RBACService {
     }
 }
 exports.rbacService = new RBACService();
-//# sourceMappingURL=rbac.service.js.map

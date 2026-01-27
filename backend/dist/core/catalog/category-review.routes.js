@@ -107,4 +107,3 @@ const categoryReviewRoutes = async (fastify) => {
     });
 };
 exports.default = categoryReviewRoutes;
-//# sourceMappingURL=category-review.routes.js.map

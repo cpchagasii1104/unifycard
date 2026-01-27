@@ -35,7 +35,7 @@ async function executeHireService(fastify, parameters, userId, tenantId) {
         // Buscar categoria se fornecido como string
         let categoryId = parameters.categoryId;
         if (!categoryId && typeof serviceType === 'string') {
-            const categories = await categories_service_1.categoriesService.searchCategories(serviceType, 1);
+            const categories = await categories_service_1.categoriesService.searchCategories(serviceType, 1, undefined, 'professional');
             if (categories.length > 0) {
                 categoryId = categories[0].categoryId;
             }
@@ -216,7 +216,7 @@ async function executeBuyProduct(fastify, parameters, userId, tenantId) {
         // Buscar categoria se fornecido
         let categoryId = parameters.categoryId;
         if (!categoryId && parameters.category) {
-            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1);
+            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1, undefined, 'professional');
             if (categories.length > 0) {
                 categoryId = categories[0].categoryId;
             }
@@ -381,7 +381,7 @@ async function executeSearchLocal(fastify, parameters, userId, tenantId) {
         // Buscar categoria se fornecido como string
         let categoryId = parameters.categoryId;
         if (!categoryId && parameters.category) {
-            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1);
+            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1, undefined, 'professional');
             if (categories.length > 0) {
                 categoryId = categories[0].categoryId;
             }
@@ -500,7 +500,7 @@ async function executePostContent(fastify, parameters, userId, tenantId) {
         // Buscar categoria se fornecido
         let categoryId = parameters.categoryId;
         if (!categoryId && parameters.category) {
-            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1);
+            const categories = await categories_service_1.categoriesService.searchCategories(parameters.category, 1, undefined, 'professional');
             if (categories.length > 0) {
                 categoryId = categories[0].categoryId;
             }
@@ -648,4 +648,3 @@ exports.INTENT_EXECUTORS = {
     ask_question: executeAskQuestion,
     support: executeSupport,
 };
-//# sourceMappingURL=orchestrator.executors.js.map

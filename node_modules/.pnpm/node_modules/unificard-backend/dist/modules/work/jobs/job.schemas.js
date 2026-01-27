@@ -40,4 +40,3 @@ exports.listJobsQuerySchema = zod_1.z.object({
     limit: zod_1.z.string().transform(v => (v ? parseInt(v) : 20)).optional(),
     offset: zod_1.z.string().transform(v => (v ? parseInt(v) : 0)).optional(),
 });
-//# sourceMappingURL=job.schemas.js.map

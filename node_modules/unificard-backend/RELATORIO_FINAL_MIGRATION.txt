@@ -1,0 +1,187 @@
+================================================================================
+RELATÓRIO FINAL - CORREÇÃO DA FUNÇÃO SQL user_has_permission
+================================================================================
+Data: 2025-12-11
+Tenant ID: 66aa49d4-a44e-4b40-b64c-927877183d6a
+Email: test@example.com
+User ID: 7b16ab1f-6ed3-43fa-ae83-1cb7a1477992
+
+================================================================================
+ETAPA 1: CRIAÇÃO DA MIGRATION
+================================================================================
+STATUS: ✅ SUCESSO
+
+Migration criada: 018_fix_user_has_permission_rls.sql
+
+Alterações aplicadas:
+  1. Adicionado SECURITY DEFINER à função
+  2. Adicionado set_config('app.current_tenant', p_tenant_id::text, true) 
+     dentro da função para garantir que o RLS funcione corretamente
+
+================================================================================
+ETAPA 2: EXECUÇÃO DA MIGRATION
+================================================================================
+STATUS: ✅ SUCESSO
+
+Migration executada com sucesso no banco de dados.
+
+================================================================================
+ETAPA 3: VERIFICAÇÃO DA FUNÇÃO SQL
+================================================================================
+STATUS: ✅ SUCESSO
+
+Testes realizados:
+  1. Função SQL testada diretamente (sem tenant context externo):
+     ✅ rides:service-types:read = TRUE
+     ✅ work:job:read = TRUE
+     ✅ reputation:read = TRUE
+
+  2. Função SQL testada com tenant context (simulando runQueryWithTenant):
+     ✅ rides:service-types:read = TRUE
+     ✅ work:job:read = TRUE
+     ✅ reputation:read = TRUE
+
+  3. Verificação da definição da função:
+     ✅ Security Definier: SIM
+     ✅ Função contém set_config corretamente
+
+CONCLUSÃO: A função SQL está funcionando corretamente e retornando TRUE
+para todas as permissões testadas.
+
+================================================================================
+ETAPA 4: REINÍCIO DO SERVIDOR
+================================================================================
+STATUS: ✅ SUCESSO
+
+Servidor reiniciado com sucesso.
+
+================================================================================
+ETAPA 5: LOGIN
+================================================================================
+STATUS: ✅ SUCESSO
+
+Request:
+  POST /auth/login
+  Headers:
+    x-tenant-id: 66aa49d4-a44e-4b40-b64c-927877183d6a
+    Content-Type: application/json
+  Body:
+    {
+      "email": "test@example.com",
+      "password": "12345678"
+    }
+
+Response:
+  Status Code: 200
+  Access Token obtido com sucesso
+
+================================================================================
+ETAPA 6: TESTE DE ROTAS PROTEGIDAS
+================================================================================
+
+ROTA 1: GET /rides/service-types
+────────────────────────────────────────────────────────────────────────────────
+Status Code: 403
+Response Body:
+{
+  "ok": false,
+  "message": "User is missing required permission: rides:service-types:read",
+  "stack": "ForbiddenError: User is missing required permission: rides:service-types:read\n    at Object.forbidden (C:\\unificard\\backend\\node_modules\\@fastify\\sensible\\lib\\httpErrors.js:33:12)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\plugins\\rbac.plugin.ts:37:34)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+}
+
+Análise:
+  - A função SQL retorna TRUE quando testada diretamente
+  - O rbacService.userHasAllPermissions() ainda retorna FALSE
+  - Possível problema: cache ou problema na forma como o resultado está sendo processado
+
+ROTA 2: GET /work/jobs
+────────────────────────────────────────────────────────────────────────────────
+Status Code: 403
+Response Body:
+{
+  "ok": false,
+  "message": "User is missing required permission: work:job:read",
+  "stack": "ForbiddenError: User is missing required permission: work:job:read\n    at Object.forbidden (C:\\unificard\\backend\\node_modules\\@fastify\\sensible\\lib\\httpErrors.js:33:12)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\plugins\\rbac.plugin.ts:37:34)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+}
+
+Análise:
+  - Mesmo problema da rota anterior
+
+ROTA 3: GET /reputation/test/123
+────────────────────────────────────────────────────────────────────────────────
+Status Code: 500
+Response Body:
+{
+  "ok": false,
+  "message": "[\n  {\n    \"validation\": \"uuid\",\n    \"code\": \"invalid_string\",\n    \"message\": \"Invalid uuid\",\n    \"path\": [\n      \"entityId\"\n    ]\n  }\n]",
+  "stack": "ZodError: [\n  {\n    \"validation\": \"uuid\",\n    \"code\": \"invalid_string\",\n    \"message\": \"Invalid uuid\",\n    \"path\": [\n      \"entityId\"\n    ]\n  }\n]\n    at Object.get error [as error] (C:\\unificard\\backend\\node_modules\\zod\\v3\\types.cjs:45:31)\n    at ZodObject.parse (C:\\unificard\\backend\\node_modules\\zod\\v3\\types.cjs:120:22)\n    at Object.<anonymous> (C:\\unificard\\backend\\src\\core\\reputation\\reputation.routes.ts:22:39)\n    at preHandlerCallback (C:\\unificard\\backend\\node_modules\\fastify\\lib\\handleRequest.js:139:37)\n    at next (C:\\unificard\\backend\\node_modules\\fastify\\lib\\hooks.js:233:9)\n    at handleResolve (C:\\unificard\\backend\\node_modules\\fastify\\lib\\hooks.js:250:7)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"
+}
+
+Análise:
+  - Erro de validação Zod: "123" não é um UUID válido
+  - Este é um erro diferente, não relacionado a permissões
+
+ROTA 4: GET /economy/accounts
+────────────────────────────────────────────────────────────────────────────────
+Status Code: 200
+Response Body:
+{
+  "accounts": [],
+  "total": 0
+}
+
+Análise:
+  - ✅ FUNCIONOU CORRETAMENTE!
+
+================================================================================
+ANÁLISE DO PROBLEMA
+================================================================================
+
+PROBLEMA IDENTIFICADO:
+A função SQL user_has_permission() está funcionando corretamente e retorna TRUE
+quando testada diretamente no banco, mas o rbacService.userHasAllPermissions()
+ainda retorna FALSE quando chamado pelo rbac.plugin.ts.
+
+VERIFICAÇÕES REALIZADAS:
+✅ Migration criada e executada com sucesso
+✅ Função SQL corrigida com SECURITY DEFINER e set_config
+✅ Função SQL retorna TRUE para todas as permissões testadas
+✅ Servidor reiniciado completamente
+✅ Novo login feito com novo token
+✅ Função SQL verificada diretamente no banco - está funcionando
+
+POSSÍVEIS CAUSAS:
+1. O rbacService pode estar usando uma versão em cache da função
+2. Pode haver um problema na forma como runQueryWithTenant está processando
+   o resultado da função
+3. Pode haver um problema na forma como o resultado está sendo retornado
+   (result?.has_permission ?? false pode estar retornando false mesmo quando
+   a função retorna true)
+
+PRÓXIMOS PASSOS SUGERIDOS:
+1. Verificar se há cache no rbacService
+2. Adicionar logs no rbacService para ver o que está sendo retornado
+3. Verificar se o resultado está sendo processado corretamente em
+   result?.has_permission ?? false
+
+================================================================================
+RESUMO EXECUTIVO
+================================================================================
+
+✅ Migration criada: SUCESSO
+✅ Migration executada: SUCESSO
+✅ Função SQL corrigida: SUCESSO (retorna TRUE corretamente)
+✅ Servidor reiniciado: SUCESSO
+✅ Login: SUCESSO (Status 200, token obtido)
+✅ Rotas protegidas com sucesso: 1/4 (economy/accounts)
+❌ Rotas protegidas com erro: 3/4
+   - 2 rotas com erro 403 (permissões não reconhecidas pelo rbacService)
+   - 1 rota com erro 500 (validação Zod - UUID inválido)
+
+CONCLUSÃO:
+A função SQL está funcionando corretamente, mas o rbacService ainda não está
+reconhecendo as permissões. O problema pode estar na forma como o resultado
+está sendo processado no código TypeScript.
+
+================================================================================
+

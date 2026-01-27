@@ -30,4 +30,3 @@ class ZonesController {
 exports.ZonesController = ZonesController;
 exports.zonesController = new ZonesController();
 // zones.controller.ts 
-//# sourceMappingURL=zones.controller.js.map

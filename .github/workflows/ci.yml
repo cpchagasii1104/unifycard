@@ -16,13 +16,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build contracts
         run: npm run build:contracts
-      
+
       - name: Type check contracts
         run: npm run typecheck -w @unificard/contracts
 
@@ -36,16 +36,33 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build contracts (dependency)
         run: npm run build:contracts
-      
+
       - name: Type check backend
         run: npm run typecheck -w unificard-backend
-      
+
+      - name: Check Fastify schema rule
+        run: npm run check:fastify-schema -w unificard-backend
+
+      - name: Check migration numbering integrity (GATE 3)
+        run: npm run check:migrations -w unificard-backend
+
+      - name: Check economy imports (guardrail)
+        run: node backend/scripts/check-economy-imports.js
+
+      - name: Check Core -> Modules imports (architecture guard)
+        run: bash backend/scripts/check-core-imports.sh
+        continue-on-error: true  # Baseline: 24 violations known
+
+      - name: Check relative imports crossing layers
+        run: bash backend/scripts/check-relative-imports.sh
+        continue-on-error: true  # Baseline: 16 violations known
+
       - name: Lint backend
         run: npm run lint -w unificard-backend || true
 
@@ -59,13 +76,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build contracts (dependency)
         run: npm run build:contracts
-      
+
       - name: Type check frontend
         run: npm run typecheck -w unificard-frontend || cd frontend && npx tsc --noEmit
 
@@ -79,39 +96,35 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Check for duplicate domain types
         run: |
-          echo "🔍 Checking for duplicate domain types..."
-          echo "📋 Contract types should ONLY exist in @unificard/contracts"
-          
-          # Function to check for duplicate type definitions
+          echo "Checking for duplicate domain types..."
+          echo "Contract types should ONLY exist in @unificard/contracts"
+
           check_duplicate() {
             local type_name=$1
             local search_path=$2
             local file_pattern=$3
-            
+
             echo "Checking for duplicate: $type_name"
-            
-            # Find all occurrences of the type definition
+
             local matches=$(grep -r "type $type_name\|export type $type_name\|export interface $type_name" "$search_path" --include="$file_pattern" 2>/dev/null || true)
-            
+
             if [ -n "$matches" ]; then
-              # Filter out imports from contracts
               local local_defs=$(echo "$matches" | grep -v "from '@unificard/contracts'" | grep -v "from \"@unificard/contracts\"" || true)
-              
+
               if [ -n "$local_defs" ]; then
-                echo "❌ ERROR: $type_name defined locally (should be in @unificard/contracts)"
+                echo "ERROR: $type_name defined locally (should be in @unificard/contracts)"
                 echo "$local_defs"
                 exit 1
               fi
             fi
           }
-          
-          # Check backend
+
           check_duplicate "CategoryContext" "backend/src" "*.ts"
           check_duplicate "CategoryStatus" "backend/src" "*.ts"
           check_duplicate "CompanyStatus" "backend/src" "*.ts"
@@ -120,8 +133,7 @@ jobs:
           check_duplicate "CheckoutRequest" "backend/src" "*.ts"
           check_duplicate "CheckoutResult" "backend/src" "*.ts"
           check_duplicate "CheckoutContext" "backend/src" "*.ts"
-          
-          # Check frontend
+
           check_duplicate "CategoryContext" "frontend/src" "*.ts"
           check_duplicate "CategoryContext" "frontend/src" "*.tsx"
           check_duplicate "CategoryStatus" "frontend/src" "*.ts"
@@ -136,6 +148,5 @@ jobs:
           check_duplicate "CheckoutResult" "frontend/src" "*.tsx"
           check_duplicate "CheckoutRequest" "frontend/src" "*.ts"
           check_duplicate "CheckoutRequest" "frontend/src" "*.tsx"
-          
-          echo "✅ No duplicate domain types found"
 
+          echo "No duplicate domain types found"

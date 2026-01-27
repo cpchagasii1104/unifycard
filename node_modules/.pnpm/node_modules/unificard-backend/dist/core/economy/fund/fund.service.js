@@ -117,4 +117,3 @@ class FundService {
     }
 }
 exports.fundService = new FundService();
-//# sourceMappingURL=fund.service.js.map

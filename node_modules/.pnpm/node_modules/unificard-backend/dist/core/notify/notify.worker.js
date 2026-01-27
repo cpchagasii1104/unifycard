@@ -45,4 +45,3 @@ async function loop() {
 
 void loop();
 */
-//# sourceMappingURL=notify.worker.js.map

@@ -264,4 +264,3 @@ const safetyRoutes = async (fastify) => {
     });
 };
 exports.default = safetyRoutes;
-//# sourceMappingURL=safety.routes.js.map

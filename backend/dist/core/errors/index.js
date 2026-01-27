@@ -21,4 +21,3 @@ const ConflictError = (msg) => {
     return http_error_1.HttpError.conflict(msg);
 };
 exports.ConflictError = ConflictError;
-//# sourceMappingURL=index.js.map

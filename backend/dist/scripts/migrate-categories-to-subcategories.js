@@ -204,4 +204,3 @@ migrateCategories()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=migrate-categories-to-subcategories.js.map

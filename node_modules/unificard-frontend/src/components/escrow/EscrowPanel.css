@@ -1,0 +1,119 @@
+/* frontend/src/components/escrow/EscrowPanel.css */
+/* Estilos para o Painel de Escrow */
+
+.escrow-panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.escrow-panel-loading,
+.escrow-panel-error,
+.escrow-panel-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.escrow-panel-error {
+  color: #dc2626;
+}
+
+.escrow-panel-hint {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+.escrow-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.escrow-panel-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.escrow-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.escrow-status-pending {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.escrow-status-funds-held {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.escrow-status-ready-to-release {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.escrow-status-released {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.escrow-status-refunded {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.escrow-status-blocked-by-dispute {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.escrow-panel-summary {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.escrow-summary-item {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.escrow-summary-item:last-child {
+  margin-bottom: 0;
+}
+
+.escrow-summary-item strong {
+  color: #111;
+  margin-right: 0.5rem;
+}
+
+.escrow-dispute-warning {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #fee2e2;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+
+
+

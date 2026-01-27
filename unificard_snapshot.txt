@@ -1,0 +1,3991 @@
+
+================================================================================
+ROOT (C:\unificard) - arquivos da raiz
+================================================================================
+.gitignore
+auditoria.txt
+backend.txt
+backend.zip
+Constituição Viva Do Unifi Card — V1.pdf
+docs_tree.txt
+docs.zip
+frontend_files.txt
+frontend_pages_files.txt
+frontend_tree.txt
+frontend.zip
+GAPS_BACKEND_FRONTEND_UNIFYCARD.docx
+migrations.zip
+oquevejonolocalhost.txt
+organize_docs.ps1
+package-lock.json
+package.json
+Perfeito. Sprint 37.4 aprovado inte.txt
+pnpm-lock.yaml
+pnpm-workspace.yaml
+PROMPT_19.txt
+PROMPT_26.txt
+PROMPT_27.txt
+PROMPT_28.txt
+PROMPT_29.txt
+PROMPT_30.txt
+PROMPT_31.txt
+resumo_tecnico.json
+unificard_snapshot.txt
+
+================================================================================
+DOCS - arvore completa (docs\\)
+================================================================================
+Listagem de caminhos de pasta para o volume Windows
+O n·mero de sÚrie do volume Ú AA11-8EC7
+C:\UNIFICARD\DOCS
++---00_overview
+ª   ª   ARCHITECTURE_GUARDRAILS.md
+ª   ª   AUTONOMY_RULES.md
+ª   ª   BASELINE_INSTITUCIONAL_v1.md
+ª   ª   ECOSYSTEM_UNDERSTANDING.md
+ª   ª   GOVERNANCE.md
+ª   ª   LEIA_ANTES_DE_TOMAR_DECISAO.md
+ª   ª   
+ª   +---government
+ª   ª       GOVERNMENT-SUPPORT-MODEL.md
+ª   ª       
+ª   +---system
+ª           SYSTEM-DECLARATION.md
+ª           
++---01_normative
+ª   ª   AGENDA_UNIVERSAL_CONTRACT.md
+ª   ª   AGENDA_UNIVERSAL_CONTRACT.md.bak
+ª   ª   ARQUETIPOS_PAGINA_CANONICOS.md
+ª   ª   CAPACIDADES_ACTOR_CONTRATO.md
+ª   ª   CATEGORY_SCOPES_SEMANTICS.md
+ª   ª   CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+ª   ª   CATEGORY_TREE_CANONICAL_DECISION.md
+ª   ª   CATEGORY_TREE_MAPPING.md
+ª   ª   CATEGORY_TREE_MIGRATION_PLAN.md
+ª   ª   CATEGORY_TREE_SCHEMA.md
+ª   ª   CONGELAMENTO_BASE_UNIFICARD.md
+ª   ª   CONTRACTS.md
+ª   ª   CONTRACTS.md.bak
+ª   ª   contrato_canonico_de_limites_tecnicos_irreversiveis_unifi_card.md
+ª   ª   CONTRATO_FEED_MATCHING_UNIFICARD.md
+ª   ª   CONTRATO_GRUPOS_V1.md
+ª   ª   CORE_APROVACAO_FINANCEIRA_CANONICO.md
+ª   ª   CORE_APROVACAO_FINANCEIRA_CANONICO.md.bak
+ª   ª   CORE_CATEGORY_CONTRACT.md
+ª   ª   CORE_CATEGORY_VALIDATION_MATRIX.md
+ª   ª   CORE_ESTORNOS_FINANCEIROS_CANONICO.md
+ª   ª   CORE_ESTORNOS_FINANCEIROS_CANONICO.md.bak
+ª   ª   CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md
+ª   ª   CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md.bak
+ª   ª   CORE_FINANCIAL_CONTRACT.md
+ª   ª   CORE_IDENTITY_AND_ACTORS_CONTRACT.md
+ª   ª   CORE_IMUTAVEL.md
+ª   ª   CORE_OBSERVABILITY_CONTRACT.md
+ª   ª   CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+ª   ª   CORE_PERMISSOES_FINANCEIRAS_CANONICO.md.bak
+ª   ª   CORE_SPLIT_PAGAMENTO_CANONICO.md
+ª   ª   CORE_SPLIT_PAGAMENTO_CANONICO.md.bak
+ª   ª   CORE_TEMPORAL_CONTRACT.md
+ª   ª   CORE_TEMPORAL_CONTRACT.md.bak
+ª   ª   CORE_TEMPORAL_HARDENING_CONTRACT.md
+ª   ª   CORE_TEMPORAL_HARDENING_CONTRACT.md.bak
+ª   ª   CORE_VS_MODULOS_CONTRACT.md
+ª   ª   CORE_VS_MODULOS_CONTRACT.md.bak
+ª   ª   DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+ª   ª   DOCUMENTO_INSTITUCIONAL_CANONICO.md
+ª   ª   EFFECTS_ACTOR_CONTRATO.md
+ª   ª   EMPRESA_NASCIMENTO_CANONICO.md
+ª   ª   ENFORCEMENT_MINIMO_PRE_MVP.md
+ª   ª   Eventos_Canonicos_de_Formacao_UnifiCard.md
+ª   ª   FASE_6_1_CONTRATO_UX_ECONOMICA.md
+ª   ª   FRONTEND_ARCHITECTURE_CHECKLIST.md
+ª   ª   GAPS_PROCESSADO_CANONICO.md
+ª   ª   GLOSSARIO_CANONICO.md
+ª   ª   GOVERNANCA_CANONICA.md
+ª   ª   GOVERNANCA_CANONICA_v1.md
+ª   ª   GOVERNANCA_E_VISAO_CANONICA_UNIFICARD.md
+ª   ª   GOVERNANCA_INICIAL.md
+ª   ª   GO_LIVE_PRODUCAO_UNIFICARD.md
+ª   ª   groups-create-contract.md
+ª   ª   HARDENING_CYCLE_CLOSURE.md
+ª   ª   IDENTITY_CORE_CONTRACT.md
+ª   ª   INTENTS_ACTOR_CONTRATO.md
+ª   ª   LEGADO_TEMPORAL_MIGRATION_PLAN.md
+ª   ª   LEIA_ANTES_DE_TOMAR_DECISAO.md
+ª   ª   MAPA_CANONICO_PERMISSIONS_v1.md
+ª   ª   MAPA_CANONICO_PERMISSIONS_v1_20260122-073046.md
+ª   ª   Marketplace_Atributos_Canonicos.md
+ª   ª   MATRIZ_FONTES_DE_VERDADE.md
+ª   ª   OBSERVABILIDADE_CONSTITUCIONAL.md
+ª   ª   operational_commitment_minimum_contract.md
+ª   ª   PF_PRESTADOR_CANONICO.md
+ª   ª   POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md
+ª   ª   PROCESSAMENTO_GAPS_CANONICO.md
+ª   ª   PROCESSO_OFICIAL_EVOLUCAO_UNIFICARD.md
+ª   ª   READ_MODELS_CONTRATO.md
+ª   ª   REGIME_OBSERVACAO_POS_MVP.md
+ª   ª   REGRA_CANONICA_CRIACAO_DE_CONTEXT.md
+ª   ª   REGRA_CANONICA_DOMAIN_METADATA.md
+ª   ª   REGRA_CANONICA_USO_DE_IA.md
+ª   ª   SERVICE_CANONICO.md
+ª   ª   USER_PROFILE_CONTRACT.md
+ª   ª   USER_PROFILE_CONTRACT_20260122-071728.md
+ª   ª   
+ª   +---contexts
+ª   ª       CONTEXTS-AND-SCOPES.md
+ª   ª       
+ª   +---contracts
+ª   ª       PUBLIC-API-CONTRACT.md
+ª   ª       
+ª   +---principles
+ª           CORE-PRINCIPLES.md
+ª           
++---02_decisions
+ª   ª   ADR_ABA_PROFISSIONAL_ARVORE.md
+ª   ª   audit-health-profile-integration.md
+ª   ª   audit-professional-categories.md
+ª   ª   AUDITORIA_CADASTRO_IMUTAVEL.md
+ª   ª   AUDITORIA_CADASTRO_LOGIN_INDICACAO.md
+ª   ª   AUDITORIA_COMPLETA_UNIFICARD.md
+ª   ª   AUDITORIA_CONTRATO_TIME_WINDOWS.md
+ª   ª   AUDITORIA_CORRECOES_POS_MIGRATIONS.md
+ª   ª   AUDITORIA_CPF_COMPLETA.md
+ª   ª   AUDITORIA_CPF_NAO_SALVA.md
+ª   ª   AUDITORIA_DEFINITIVA_EMPRESAS.md
+ª   ª   AUDITORIA_EMPRESAS_UNIFICARD.md
+ª   ª   AUDITORIA_FINAL_EDUCACAO.md
+ª   ª   AUDITORIA_MATCHING_EDUCACAO.md
+ª   ª   AUDITORIA_MODELO_ACTORS.md
+ª   ª   AUDITORIA_MODULO_APRENDIZADO.md
+ª   ª   AUDITORIA_OWNERSHIP_FINANCEIRO_FASE1.md
+ª   ª   AUDITORIA_SEGURANCA_CPF.md
+ª   ª   AUDITORIA_SPLIT_ENGINE_GRUPOS.md
+ª   ª   AUDIT_REPORT_V2.md
+ª   ª   build_validation_report.md
+ª   ª   CHECKPOINT_MATURIDADE_ESCALA.md
+ª   ª   CHECK_DUPLICIDADE_OBRIGATORIO.md
+ª   ª   COMPARACAO_AUDITORIAS_CLAUDE_VS_CHATGPT.md
+ª   ª   CORRECAO_AUTOCOMPLETE_CATEGORIAS_20260122-073046.md
+ª   ª   CORRECAO_INDEX_IDEMPOTENTE_20260122-073046.md
+ª   ª   CORRECAO_RBAC_IDEMPOTENTE_20260122-073046.md
+ª   ª   CORRECAO_VALIDACAO_EMPRESAS_20260122-073046.md
+ª   ª   CORRECOES_ESTRUTURAIS_20260122-073046.md
+ª   ª   DECISAO_GO_LIVE_MVP_CONTROLADO.md
+ª   ª   DECISAO_TRATAMENTO_CONTEXT_FUGA.md
+ª   ª   DECISION_CORE_CONTRACT.md
+ª   ª   DECISION_CORE_HARDENING_CONTRACT.md
+ª   ª   DECISION_SAFETY_AND_CONTAINMENT_CONTRACT.md
+ª   ª   diagnostico_backend_offline.md
+ª   ª   diagnostico_eventos_a.md
+ª   ª   diagnostico_final.md
+ª   ª   edge_cases_eventos_20260122-073046.md
+ª   ª   estabilizacao_typescript_relatorio_final.md
+ª   ª   estado_atual_modulo_eventos_20260122-073046.md
+ª   ª   event_cta_audit_report.md
+ª   ª   fluxo_visual_dinheiro_20260122-073046.md
+ª   ª   GATES_OBRIGATORIOS_PRE_MVP.md
+ª   ª   golden_path.md
+ª   ª   IDENTIDADE_INSTITUCIONAL_DECISAO.md
+ª   ª   INVENTARIO_CORE_AUDITORIA.md
+ª   ª   mapeamento_autenticacao_fase3_20260122-073046.md
+ª   ª   padrao_arquitetural_modulos_20260122-073046.md
+ª   ª   profiles_20260122-073046.md
+ª   ª   PROMPT_CURSOR_FINAL_AUDITADO.md
+ª   ª   proposta_step2_intencao_final_20260122-073046.md
+ª   ª   relatorio_auditoria.md
+ª   ª   RELATORIO_AUDITORIA_COMPLETA.md
+ª   ª   RELATORIO_AUDITORIA_COMPLETA_UNIFICARD.md
+ª   ª   RELATORIO_AUDITORIA_PLANEJAMENTO.md
+ª   ª   relatorio_backend_connection.md
+ª   ª   relatorio_correcoes_typescript.md
+ª   ª   relatorio_validacao_final_eventos.md
+ª   ª   RESPONSABILIDADE_GATE_PRE_MVP.md
+ª   ª   RESULTADO_VALIDACAO_GATES_PRE_MVP.md
+ª   ª   SERVICE_BOOKING_DECISION_IMPLEMENTACAO_20260122-073046.md
+ª   ª   smoke_test_analysis.md
+ª   ª   smoke_test_ready.md
+ª   ª   smoke_test_results.md
+ª   ª   spec_dashboard_confianca_20260122-073046.md
+ª   ª   status_atual_projeto_20260122-073046.md
+ª   ª   validacao_ambiente_final.md
+ª   ª   validacao_final_completa.md
+ª   ª   validacao_pos_implementacao.md
+ª   ª   
+ª   +---adr
+ª           ADR-001-SSOT-READING.md
+ª           ADR-002-CORE-FROZEN.md
+ª           
++---03_technical
+ª   ª   01_birthday_form_flow.md
+ª   ª   02_birthday_eventspec_v1_20260122-073046.md
+ª   ª   03_birthday_data_mapping.md
+ª   ª   04_birthday_guardrails.md
+ª   ª   05_birthday_database_guidance.md
+ª   ª   06_cart_and_multi_supplier_flow.md
+ª   ª   AGENDA_UNIFICADA_MODELO_OPERACIONAL.md
+ª   ª   AI_CATEGORY_HIERARCHY_CANONICAL_FLOW.md
+ª   ª   AI_CATEGORY_HIERARCHY_DIAGNOSTIC_20260122-073046.md
+ª   ª   ANALISE_ARQUITETURAL_VALIDACAO.md
+ª   ª   ANALISE_CIRURGICA_FASE_3_7.md
+ª   ª   ANALISE_MODULO_EVENTOS.md
+ª   ª   ANALISE_TECNICA_MIGRATION_103.md
+ª   ª   anti_patterns.md
+ª   ª   ARCHITECTURAL_GUARDRAILS.md
+ª   ª   ARCHITECTURAL_GUARDRAILS_20260122-071728.md
+ª   ª   ARCHITECTURAL_SOURCE_OF_TRUTH.md
+ª   ª   ARCHITECTURAL_VALIDATION_20260122-073046.md
+ª   ª   ARCHITECTURE_CATEGORY_CORE_20260122-073046.md
+ª   ª   archive-non-professions.sql
+ª   ª   arquivos_criticos.md
+ª   ª   AUDITORIA_CONTEXT_FUGA_SEMANTICA.md
+ª   ª   backend-error_20260122-073046.log
+ª   ª   backend-output_20260122-073046.log
+ª   ª   backend-ts-errors_20260122-073046.txt
+ª   ª   CATEGORY_SYSTEM_CONTRACT_UNIFICARD.md
+ª   ª   changelog_recente.md
+ª   ª   CHECKLIST_ENFORCEMENT_PRE_MVP.md
+ª   ª   CHECKLIST_GO_LIVE_MVP.md
+ª   ª   CLASSIFICACAO_RISCO_CONTEXT_FUGA.md
+ª   ª   CONEXAO_EVENTOS_SERVICE_ORDERS.md
+ª   ª   configurar_frontend.md
+ª   ª   CONFIRMACAO_TECNICA_FASE_3_7.md
+ª   ª   CONTRATO_BACKEND_UNIFICARD.md
+ª   ª   CONTRATO_EVENTOS_V1.2.md
+ª   ª   CONTRATO_EVENTOS_V1.3.md
+ª   ª   CONTRATO_EVENTOS_V1.4_SECAO_5.10.md
+ª   ª   CONTRATO_EVENTOS_V1.md
+ª   ª   contributing.md
+ª   ª   CORE_AUTORIA_FINANCEIRA_IMPLEMENTACAO.md
+ª   ª   CORRECAO_CODIGO_INDICACAO.md
+ª   ª   CORRECAO_LOCATION_CORE_ACTIVE.md
+ª   ª   CORRECAO_LOCATION_CORE_NAME_DISPLAY.md
+ª   ª   CORRECAO_TENANT_MISMATCH.md
+ª   ª   CORRECOES_PRIORITARIAS_FRONTEND.md
+ª   ª   CULTURAL_EVENT_FLOW.md
+ª   ª   Database_Canonical_Truth_Contract.md
+ª   ª   Database_Containment_Rules.md
+ª   ª   DESBLOQUEIO_CRIACAO_GRUPOS.md
+ª   ª   DEV_DATABASE_CLEANUP_GROUPS.md
+ª   ª   diagnose-duplicates.sql
+ª   ª   DIAGNOSTICO.md
+ª   ª   DIAGNOSTICO_EVENTOS_A.md
+ª   ª   diagnostico_final.ps1
+ª   ª   DIAGNOSTICO_GROUP_CATEGORIES.md
+ª   ª   DIAGNOSTICO_MIGRATIONS_UNIFICARD.md
+ª   ª   EDGE_CASES_EVENTOS.md
+ª   ª   EMPRESA_ONBOARDING_PASSO_A_PASSO.md
+ª   ª   erro_corrigido.md
+ª   ª   ESTADO_ATUAL_MODULO_EVENTOS.md
+ª   ª   EVENTOS_ESTADO_FINAL.md
+ª   ª   EVENT_DOMAIN_MINIMUM_CONTRACT.md
+ª   ª   EVENT_LIFECYCLE_DECISOES_TECNICAS.md
+ª   ª   EVENT_STATS_READONLY.md
+ª   ª   executar_backend_direto.ps1
+ª   ª   executar_com_marca_dagua.ps1
+ª   ª   exterminar_node_completo.ps1
+ª   ª   FASE_16_IMPLEMENTACAO_COMPLETA.md
+ª   ª   FASE_17_PRESENCA_CHECKIN.md
+ª   ª   FASE_5_ANTI_ILUSAO_EVENTO.md
+ª   ª   FASE_5_BIRTHDAY_PAGE_SET.md
+ª   ª   FASE_5_CONTRATO_EVENT_CREATION_ORCHESTRATOR.md
+ª   ª   FASE_5_EVENTSPEC_IMMUTABILITY_AND_VERSIONING_20260122-073046.md
+ª   ª   FASE_5_EVENT_CREATION_MANIFESTO.md
+ª   ª   FASE_5_HANDOFF_PARA_FASE_ECONOMICA.md
+ª   ª   FASE_5_MAPA_FLUXO_EVENTO_ANIVERSARIO.md
+ª   ª   FASE_5_WIZARD_DATA_FLOW.md
+ª   ª   FASE_5_WIZARD_DATA_FLOW_20260122-073046.md
+ª   ª   FASE_5_WIZARD_ORQUESTRATOR_CONTRACT.md
+ª   ª   FASE_5_WIZARD_PAGE_REGISTRY.md
+ª   ª   FASE_6_1_WIREFLOW_ECONOMICO.md
+ª   ª   FASE_6_2_PAGAMENTO_SANDBOX.md
+ª   ª   FASE_6_CONTRATO_CUSTODIA.md
+ª   ª   FASE_6_CONTRATO_SPLIT_PAGAMENTO.md
+ª   ª   FASE_6_ENDPOINTS_ECONOMICOS_V2.md
+ª   ª   FASE_6_FLUXO_ESTORNO_CHARGEBACK.md
+ª   ª   FASE_6_MANIFESTO_EXECUCAO_ECONOMICA.md
+ª   ª   FASE_EVENTOS_ANCORA.md
+ª   ª   FEATURE_CONSOLIDACAO_FINANCEIRA_CLOSURE.md
+ª   ª   FEATURE_MARKETPLACE_MULTI_VENDOR.md
+ª   ª   FEED_UX_VALIDATION.md
+ª   ª   fix-duplicates.sql
+ª   ª   fix-saude-duplicate.sql
+ª   ª   FLUXO_COMPARATIVO_PF_PJ.md
+ª   ª   FLUXO_EVENTOS_ASSISTIDOS.md
+ª   ª   FLUXO_ONBOARDING_PF.md
+ª   ª   FLUXO_ONBOARDING_PJ.md
+ª   ª   fluxo_visual_dinheiro_duplicado.md
+ª   ª   frontend-audience-description-field.md
+ª   ª   frontend-category-allowed-scopes.md
+ª   ª   frontend-fix-group-categories.md
+ª   ª   frontend-group-form-example.tsx
+ª   ª   frontend-profile-categories-validation.md
+ª   ª   frontend-profile-changes-applied.md
+ª   ª   frontend-profile-validation-report.md
+ª   ª   frontend-ts-errors_20260122-073046.txt
+ª   ª   FRONTEND_BACKEND_CONTRACT.md
+ª   ª   GROUPS_STABILIZATION.md
+ª   ª   guia_comparacao_zip_claudia.md
+ª   ª   guia_execucao_local.md
+ª   ª   HIERARQUIA_E_AUTORIDADE_DOS_DOCUMENTOS.md
+ª   ª   higiene_repositorio_relatorio.md
+ª   ª   hobbies.json
+ª   ª   HOTFIX_BACKEND_CRASH.md
+ª   ª   IMPLEMENTACAO_EVENTOS_ASSISTIDOS.md
+ª   ª   INDEXACAO_CANONICA.md
+ª   ª   INDEX_INSTITUCIONAL.md
+ª   ª   INDEX_INSTITUCIONAL_UNIFICARD.md
+ª   ª   iniciar_agora.md
+ª   ª   iniciar_backend.bat
+ª   ª   iniciar_backend.md
+ª   ª   iniciar_backend.ps1
+ª   ª   iniciar_backend_correto.ps1
+ª   ª   iniciar_backend_workspace.bat
+ª   ª   iniciar_backend_workspace.ps1
+ª   ª   iniciar_servidores.ps1
+ª   ª   iniciar_tudo.ps1
+ª   ª   iniciar_tudo_completo.ps1
+ª   ª   install-db.ps1
+ª   ª   leia_me_primeiro.txt
+ª   ª   leia_primeiro.md
+ª   ª   MAPA_ENFORCEMENT_TECNICO_PRE_MVP.md
+ª   ª   matar_todos_node.ps1
+ª   ª   MOMENTO DE FECHAMENTO DO EVENTSPEC_20260122-073046.txt
+ª   ª   NORMALIZACAO_REACTIONS.md
+ª   ª   ONBOARDING_IA_EXECUTORA.md
+ª   ª   ONBOARDING_IA_GUARDIA.md
+ª   ª   organize_docs.ps1
+ª   ª   PF_ONBOARDING_PASSO_A_PASSO.md
+ª   ª   PLANO_EXPOSICAO_FRONTEND.md
+ª   ª   primeira_tarefa_planejamento.md
+ª   ª   problema_resolvido.md
+ª   ª   professional-categories-level2-complete.md
+ª   ª   profile-categories-analysis.md
+ª   ª   PROMPT_2_EVENT_LIFECYCLE_FINAL-1.md
+ª   ª   PROMPT_EVENTOS_ANCORA.md
+ª   ª   PROMPT_IA_GUARDIA_V2.md
+ª   ª   PROPERTY_CATEGORY_HIERARCHY_IDEMPOTENT_STATUS_20260122-073046.md
+ª   ª   regra-de-ouro.txt
+ª   ª   regulamento_execucao.md
+ª   ª   reiniciar_frontend.bat
+ª   ª   RELATORIO_CHECKPOINT_UX_EVENTOS.md
+ª   ª   RELATORIO_EXECUCAO_MIGRATION_103.md
+ª   ª   relatorio_passo_3_3.md
+ª   ª   RELATORIO_SANEAMENTO_CORE_ONLY.md
+ª   ª   REMEDIACAO_GATE_1_VALIDACAO_EMPIRICA.md
+ª   ª   REMEDIACAO_GATE_2_SSOT_LEITURA.md
+ª   ª   REMEDIACAO_GATE_3_INTEGRIDADE_MIGRACOES.md
+ª   ª   REMEDIACAO_GATE_4_SEPARACAO_UI_DOMINIO.md
+ª   ª   remove-non-professions.sql
+ª   ª   resumo_correcoes_bootstrap.md
+ª   ª   resumo_correcoes_finais.md
+ª   ª   resumo_para_continuidade.md
+ª   ª   resumo_problema_backend_20260122-073046.txt
+ª   ª   RITUAL_DE_INICIALIZACAO_IA_GUARDIA.md
+ª   ª   SELECAO_EVENTOS_PILOTO.md
+ª   ª   SERVICE_ESTADOS_E_TRANSICOES.md
+ª   ª   SOLUCAO_FINAL_REFERRAL_CPF_SPLIT.md
+ª   ª   solucao_rapida.md
+ª   ª   solucao_rapida.ps1
+ª   ª   SPEC_DASHBOARD_CONFIANCA.md
+ª   ª   stop-unificard.ps1
+ª   ª   testar_backend.ps1
+ª   ª   testar_backend_final.ps1
+ª   ª   teste_binario.ps1
+ª   ª   teste_definitivo.ps1
+ª   ª   teste_direto.md
+ª   ª   teste_server_ts.ps1
+ª   ª   TRAVA_LEVE_CONTEXT_FALLBACK.md
+ª   ª   ts-errors.txt
+ª   ª   typescript-errors.log
+ª   ª   UNIFY_BANK_ESPECIFICACAO_COMPLETA.md
+ª   ª   UX_MARKETPLACE_CHECKOUT_MULTI_VENDOR.md
+ª   ª   VALIDACAO_MIGRATION_103.md
+ª   ª   validar_package_json.ps1
+ª   ª   veredito_aplicado.md
+ª   ª   verevent_domain_minimum_contract.md
+ª   ª   verificar_logs_backend.ps1
+ª   ª   
+ª   +---diagrams
+ª   ª       CATEGORY-TREE-CANONICAL.md
+ª   ª       
+ª   +---integration
+ª           CATEGORY-TREE-MODULE-MAP.md
+ª           
++---04_guides
+ª   ª   CANONICAL_CONTEXT_FOR_AI.md
+ª   ª   comando_para_cursor.txt
+ª   ª   CONTRATOS_OBSERVABILIDADE_RESUMO.md
+ª   ª   CURSOR_PROMPT_BUILD_PATHS.md
+ª   ª   CURSOR_PROMPT_FASE0B_VISIBILITY.md
+ª   ª   CURSOR_PROMPT_FASE0_METADATA.md
+ª   ª   CURSOR_PROMPT_FASE0_METADATA_20260122-080148.md
+ª   ª   DESIGN_SYSTEM_CANONICO.md
+ª   ª   DEV_USER_README.md
+ª   ª   engineering_readme.md
+ª   ª   ENV_EXAMPLE.md
+ª   ª   guia_correcao_cursor.md
+ª   ª   guideline_metadata_contexto_agenda_universal.md
+ª   ª   instrucoes_cursor_final.md
+ª   ª   MASTER PLAN ù AGENDA UNIVERSAL, UX TEMPORAL E GOVERNANÃA.md
+ª   ª   MOVE_FRONTEND_INSTRUCTIONS.md
+ª   ª   PADRAO_FRONTEND_CANONICO.md
+ª   ª   PROMPT_1_AGENDA_FUNCIONARIOS_FINAL.md
+ª   ª   PROMPT_6_HARDENING.md
+ª   ª   PROMPT_CANONICO_AUDITORIA.md
+ª   ª   PROMPT_CANONICO_EXECUCAO_CURSOR.md
+ª   ª   PROMPT_CANONICO_HARDENING.md
+ª   ª   PROMPT_CORRECOES_TS.md
+ª   ª   PROMPT_CURSOR_CPF_BLINDAGEM.md
+ª   ª   PROMPT_CURSOR_GRUPOS_ECONOMICOS (1).md
+ª   ª   PROMPT_CURSOR_GRUPOS_ECONOMICOS.md
+ª   ª   PROMPT_CURSOR_SEGURANCA_CPF.md
+ª   ª   PROMPT_CURSOR_SPLIT_CORRECOES (1).md
+ª   ª   PROMPT_CURSOR_SPLIT_CORRECOES.md
+ª   ª   PROPOSTA_FEED_COMO_FACILITADOR.md
+ª   ª   README.md
+ª   ª   README_20260122-073046.md
+ª   ª   README_CURSOR_MODE_20260122-073046.md
+ª   ª   README_ORGANIZACAO_20260122-073046.md
+ª   ª   README_TREINAMENTO_IA_UNIFICARD_20260122-073046.md
+ª   ª   STAGING_SETUP.md
+ª   ª   _README_20260122-073046.md
+ª   ª   
+ª   +---governance
+ª   ª       CODE-REVIEW-PROCESS.md
+ª   ª       GOVERNANCE-OVERVIEW.md
+ª   ª       SETUP-INSTRUCTIONS.md
+ª   ª       
+ª   +---operations
+ª   ª   +---checklists
+ª   ª   ª       CHECKLIST_ALTERACAO_CATEGORIAS.md
+ª   ª   ª       CHECKLIST_ALTERACAO_MIGRATIONS.md
+ª   ª   ª       CHECKLIST_ALTERACAO_SCHEMA.md
+ª   ª   ª       CHECKLIST_USO_CONTEXT.md
+ª   ª   ª       CHECKLIST_USO_DE_IA.md
+ª   ª   ª       CHECKLIST_USO_DOMAIN.md
+ª   ª   ª       PR-CHECKLIST-CATEGORIES.md
+ª   ª   ª       PR-CHECKLIST-INVARIANTS.md
+ª   ª   ª       
+ª   ª   +---rollout
+ª   ª           PHASE-1-SSOT-EXIT.md
+ª   ª           
+ª   +---product
+ª           HUMAN-MVP-CODING-START.md
+ª           HUMAN-MVP-COMMIT-PLAN.md
+ª           HUMAN-MVP-COMPLETED.md
+ª           HUMAN-MVP-ENFORCEMENT.md
+ª           HUMAN-MVP-ENTITIES.md
+ª           HUMAN-MVP-EXECUTION-CONTRACT.md
+ª           HUMAN-MVP-EXECUTION-GO.md
+ª           HUMAN-MVP-FLOWS.md
+ª           HUMAN-MVP-IMPLEMENTATION-CHECKLIST.md
+ª           HUMAN-MVP-OBSERVATION-MODE.md
+ª           HUMAN-MVP.md
+ª           
++---05_expansion
+ª   +---human
+ª           HUMAN-EXPANSION-MODEL.md
+ª           
++---99_archive
+ª   +---to_delete
+ª   ª       category-input-gate-complete.md
+ª   ª       category-input-gate.md
+ª   ª       CATEGORY_HARDENING_CHECKLIST.md
+ª   ª       CHECKLIST_ATIVACAO_PILOTO_INTERNO.md
+ª   ª       CHECKLIST_CI_REGRESSAO_TEMPORAL.md
+ª   ª       CHECKLIST_CORRECOES_CRITICAS.md
+ª   ª       CHECKLIST_CURSOR_EVENTOS.md
+ª   ª       CHECKLIST_CURSOR_UNIFICARD.md
+ª   ª       CHECKLIST_EMPRESAS_CURSOR.md
+ª   ª       CHECKLIST_FASE_10_V2 (1).md
+ª   ª       CHECKLIST_FASE_10_V2.md
+ª   ª       CHECKLIST_IMPLEMENTACAO.md
+ª   ª       CHECKLIST_IMPLEMENTACAO_EVENTOS.md
+ª   ª       CHECKLIST_MIGRATION_098_GRUPOS.md
+ª   ª       CHECKLIST_PRE_FRONTEND_OBRIGATORIO.md
+ª   ª       CHECKLIST_PR_FRONTEND_CANONICO.md
+ª   ª       CHECKLIST_TECNICO_IMPLEMENTACAO_EVENTOS.md
+ª   ª       configurar_auto_start_windows.md
+ª   ª       DESIGN SYSTEM & GOLDEN PATH.txt
+ª   ª       FASE_5_CHECKLIST_PR.md
+ª   ª       FASE_5_CHECKLIST_QA_TESTES.md
+ª   ª       FASE_6_1_CHECKLIST_PR_FRONTEND.md
+ª   ª       FASE_6_CHECKLIST_PR.md
+ª   ª       FASE_6_CHECKLIST_QA.md
+ª   ª       fix-professional-level2-complete.md
+ª   ª       frontend-profile-categories-checklist.md
+ª   ª       frontend-profile-final-checklist.md
+ª   ª       GATE_D15_INDEXACAO.md
+ª   ª       GOLDEN_PATH.md
+ª   ª       golden_path_20260122-074548.md
+ª   ª       golden_path_smoke_test.md
+ª   ª       GOLDEN_PATH_VISUAL_CANONICO.md
+ª   ª       groups-category-validation-checklist.md
+ª   ª       implementacao_identity_status_gate_20260122-073046.md
+ª   ª       PRODUCTION_CHECKLIST.md
+ª   ª       profile-final-checklist.md
+ª   ª       profile-validation-checklist.md
+ª   ª       QUICK_START.md
+ª   ª       readme_auto_start_20260122-073046.md
+ª   ª       restart-unificard.ps1
+ª   ª       resumo_sistema_auto_start.md
+ª   ª       setup-category-input-gate.md
+ª   ª       smoke-test-checklist.md
+ª   ª       smoke_test_checklist.md
+ª   ª       SPRINT_00_CONTACTS.md
+ª   ª       SPRINT_1_UNIFY_BANK_TAREFAS_ATOMICAS.md
+ª   ª       SPRINT_41.2_HARDENING.md
+ª   ª       SPRINT_41.3_UX_OPERACIONAL.md
+ª   ª       SPRINT_42.1_PDV_CORE.md
+ª   ª       SPRINT_42.2_PDV_PAGAMENTO.md
+ª   ª       SPRINT_42.3_PDV_FECHAMENTO.md
+ª   ª       SPRINT_43_ESTOQUE_RESERVA.md
+ª   ª       SPRINT_44_DOCUMENTO_FISCAL.md
+ª   ª       SPRINT_45_FISCAL_ADAPTER.md
+ª   ª       SPRINT_46_RELATORIOS.md
+ª   ª       SPRINT_47_SOCIAL_MARKETPLACE_PLUGIN.md
+ª   ª       SPRINT_48_PRICING.md
+ª   ª       SPRINT_49_DASHBOARDS.md
+ª   ª       SPRINT_50_AUTOMACOES.md
+ª   ª       SPRINT_51_MULTI_EMPRESA.md
+ª   ª       SPRINT_52_PERFORMANCE_HARDENING.md
+ª   ª       SPRINT_53_FISCAL_PROVIDER_SEFAZ.md
+ª   ª       SPRINT_54_FULFILLMENT.md
+ª   ª       SPRINT_55_STOCK_TRANSFER.md
+ª   ª       SPRINT_56_RECEBIMENTO_CONFERENCIA.md
+ª   ª       SPRINT_57_AJUSTES_ESTOQUE.md
+ª   ª       SPRINT_58_SLA_LOGISTICO.md
+ª   ª       SPRINT_59_SUGESTAO_REPOSICAO.md
+ª   ª       SPRINT_60_CUSTO_ESTOQUE_PARADO.md
+ª   ª       SPRINT_61_MARGEM_REAL.md
+ª   ª       SPRINT_62_SIMULADOR_DECISAO.md
+ª   ª       SPRINT_63_ESTRATEGIA_PRECO.md
+ª   ª       SPRINT_65_AUDITORIA_HARDENING_LOGICO.md
+ª   ª       SPRINT_66_HARDENING_LOGICO.md
+ª   ª       SPRINT_68_SERVICE_ORDERS_AGENDA.md
+ª   ª       SPRINT_69_SUPPLIERS_PURCHASE_ORDERS.md
+ª   ª       SPRINT_70_ACCOUNTS_PAYABLE.md
+ª   ª       SPRINT_71_ACCOUNTS_RECEIVABLE.md
+ª   ª       SPRINT_72_PAYMENT_METHODS_UNIFYCARD.md
+ª   ª       SPRINT_73_UNIFYCARD_ACQUIRING.md
+ª   ª       SPRINT_74_GROUPS_INDICACOES_COMISSOES.md
+ª   ª       SPRINT_75_ERP_PERFIS_REGIME_TRIBUTARIO.md
+ª   ª       SPRINT_76_EVENTS_TICKETING.md
+ª   ª       SPRINT_77_SETTLEMENT_REGIONAL.md
+ª   ª       SPRINT_78_GOVERNANCA_ORGANIZACIONAL.md
+ª   ª       SPRINT_79_PAGINAS_PUBLICAS.md
+ª   ª       SPRINT_80_FISCAL_REGIME_TRIBUTARIO.md
+ª   ª       SPRINT_81_ERP_POR_SEGMENTO.md
+ª   ª       SPRINT_82_UNIFYCARD_MULTI_METODOS.md
+ª   ª       SPRINT_83_TAXA_REGIONAL_ECONOMIA_COMUNITARIA.md
+ª   ª       SPRINT_84_EVENT_BILHETERIA_E_SETTLEMENT.md
+ª   ª       SPRINT_84_KYC_BASICO.md
+ª   ª       SPRINT_85_AGENDA_FINANCEIRA.md
+ª   ª       SPRINT_85_PIX_INTEGRATION.md
+ª   ª       SPRINT_86_PAYMENT_LINKS.md
+ª   ª       SPRINT_87_ASSINATURAS.md
+ª   ª       SPRINT_88_CRM_CANONICO.md
+ª   ª       SPRINT_92_MENU_COMANDA_QR.md
+ª   ª       SPRINT_93_LOYALTY.md
+ª   ª       SPRINT_94_PRESENCA_CHECKIN_PROMO.md
+ª   ª       SPRINT_95_LOCAL_CHAT_LIVE_PRESENCE.md
+ª   ª       start-backend.ps1
+ª   ª       start-unificard-silent.ps1
+ª   ª       start-unificard.ps1
+ª   ª       START_HERE_UNIFICARD.md
+ª   ª       
+ª   +---to_review
+ª       ª   ACORDO_FINAL_CLAUDE_CHATGPT.md
+ª       ª   AGENDA_FUNCIONARIOS_DECISOES_TECNICAS.md
+ª       ª   AJUSTES_UX_SERVICE_ORDERS.md
+ª       ª   ANALISE_CHATGPT_VS_CLAUDE.md
+ª       ª   ANALISE_COMPLETA_MODULO_GRUPOS.md
+ª       ª   ANALISE_ESTADO_ATUAL_PROXIMOS_PASSOS.md
+ª       ª   ANALISE_MEGA_REDE_SOCIAL_UNIFYCARD.md
+ª       ª   ANALISE_MODULO_RIDES.md
+ª       ª   ANALISE_MODULO_SERVICES.md
+ª       ª   analysis
+ª       ª   ANTI_PATTERNS.md
+ª       ª   Anti_Patterns_Educacionais_UnifiCard.md
+ª       ª   ARQUITETURA-COMPLETA.md
+ª       ª   ARQUITETURA_PLUGIN_SYSTEM.md
+ª       ª   ARQUITETURA_SOCIAL_HUB_2025.md
+ª       ª   AUDITORIA_ESTRUTURAL.md
+ª       ª   AUDIT_REPORT_V2.md
+ª       ª   AVAILABILITY_CONFLICT_INBOX_INTEGRACAO.md
+ª       ª   AVAILABILITY_PARTICIPANTS_IMPLEMENTACAO.md
+ª       ª   BACKEND_READY_FRONTEND_CORRECTIONS.md
+ª       ª   BACKLOG_CRESCIMENTO.md
+ª       ª   BRIEFING_PARA_CHATGPT.md
+ª       ª   CAMADA-SUGESTOES.md
+ª       ª   CATEGORIAS_GRUPOS_IMPLEMENTACAO.md
+ª       ª   category_tree_constitution.md
+ª       ª   CICLO_VALOR_VISIVEL_DASHBOARDS.md
+ª       ª   CLASSIFICACAO_UI_MODULOS_CANONICA.md
+ª       ª   CLAUDE.md
+ª       ª   COMPANY_MEMBERS_BASE_ESTRUTURAL.md
+ª       ª   CORE_FINANCEIRO_INVARIANTES.md
+ª       ª   CORRECOES_APLICADAS.md
+ª       ª   CORRECOES_APLICADAS_FINAL.md
+ª       ª   CORRECOES_BACKEND_DEFINITIVAS.md
+ª       ª   CORRECOES_BUSCA_CATEGORIAS.md
+ª       ª   CORRECOES_CRITICAS_APLICADAS.md
+ª       ª   CORRECOES_FINAIS.md
+ª       ª   CORRECOES_FINAIS_EDUCACAO.md
+ª       ª   CORRECOES_FRONTEND_PRIMEIRO_ACESSO.md
+ª       ª   CORRECOES_MODELO_ACTORS.md
+ª       ª   CORRECOES_MODULO_APRENDIZADO.md
+ª       ª   CORRECOES_NECESSARIAS.md
+ª       ª   CORRECOES_POST_MIGRATION.md
+ª       ª   CORRECOES_PRATICAS.md
+ª       ª   CORRECOES_URGENTES.md
+ª       ª   CULTURAL_PROFILE_MODEL.md
+ª       ª   CURSOR_GUARDRAILS.md
+ª       ª   CURSOR_INSTALAR_BANCO_AUTOMATICO.md
+ª       ª   CURSOR_INSTALAR_BANCO_CONSOLIDADO.md
+ª       ª   CURSOR_INSTALAR_BANCO_FINAL.md
+ª       ª   cursor_modelo_de_ator_para_cria_o_de_po.md
+ª       ª   cursor_plano_de_execu_o_imediato_do_sis.md
+ª       ª   DIAGNOSTICO_401_ACTORS.md
+ª       ª   DIAGNOSTICO_AGENDA_CATEGORIAS.md
+ª       ª   DIAGNOSTICO_BIRTHDATE_RESULTADO.md
+ª       ª   DIAGNOSTICO_ERRO_REGIONAL_FUND.md
+ª       ª   DIAGNOSTICO_MODULOS_COMPLETO.md
+ª       ª   DIAGNOSTICO_SINGLETONS.md
+ª       ª   DIAGNOSTICO_TELA_BRANCA.md
+ª       ª   DIFFS_COMPANIES_SERVICE_FINAL.md
+ª       ª   DIRECIONAMENTO_FINAL.md
+ª       ª   ECONOMIC_DASHBOARD_IMPLEMENTACAO.md
+ª       ª   ECOSSISTEMA_MINIMO_COMPLETO.md
+ª       ª   ENCERRAMENTO-ATIVACAO.md
+ª       ª   ESCOPO_PILOTO_FECHADO.md
+ª       ª   ESTRUTURA_MENU_LATERAL.md
+ª       ª   EXECUTAR_MIGRATION_089.md
+ª       ª   EXECUTION_REPORT.md
+ª       ª   FECHAMENTO_CICLO_READONLY.md
+ª       ª   FEED-CONTEXTUAL.md
+ª       ª   FEED_PLUGIN_BATCH_CACHE.md
+ª       ª   FEED_PLUGIN_SYSTEM_IMPLEMENTACAO.md
+ª       ª   fix-core-inflation.ps1
+ª       ª   FLUXO_SERVICE_ORDERS_AGENDA.md
+ª       ª   FLUXO_VISUAL_DINHEIRO.md
+ª       ª   FRAMEWORK_OBSERVACAO_PILOTO.md
+ª       ª   GO_LIVE_PILOT.md
+ª       ª   GO_TO_MARKET.md
+ª       ª   GROUP_CREATION_POLICY.md
+ª       ª   GROUP_DASHBOARD_READONLY.md
+ª       ª   GUIA_BASELINE_MIGRATIONS.md
+ª       ª   GUIA_ESCALABILIDADE_MODULOS.md
+ª       ª   HARDENING_MVP_FINAL.md
+ª       ª   HEALTH_INTELLIGENT_SYSTEM.md
+ª       ª   HEALTH_MATCHING_EXPLANATION.md
+ª       ª   HEALTH_RELATIONAL_MODEL_QUERIES.md
+ª       ª   IDENTIDADE_INSTITUCIONAL.md
+ª       ª   IMPACTO_PASSIVO_READONLY.md
+ª       ª   IMPLEMENTACAO_IA_CATEGORIAS.md
+ª       ª   IMPLEMENTACAO_SERVICE_ORDERS_AGENDA.md
+ª       ª   INDEX_INSTITUCIONAL.md
+ª       ª   INSTRUCOES_APLICACAO_CPF.md
+ª       ª   INTEGRACAO_ERP_CRM_REDE_SOCIAL.md
+ª       ª   INTERESTS_AND_TASTES_EXPANSION.md
+ª       ª   ISOLAMENTO_MIGRATIONS_LATENTES.md
+ª       ª   LOGICA_NAVEGACAO_WIZARD_ATUAL.md
+ª       ª   LOGICA_NAVEGACAO_WIZARD_ESTRUTURADA.md
+ª       ª   MATCHING-HUMANO.md
+ª       ª   METRICAS_PRIORITARIAS.md
+ª       ª   MEUS_COMPROMISSOS_READONLY.md
+ª       ª   MODELO_ATOR.md
+ª       ª   MODO_ATUACAO_FEED.md
+ª       ª   MOTOR-INFERENCIA.md
+ª       ª   NORMALIZACAO_CNPJ.md
+ª       ª   normalize-normative.ps1
+ª       ª   normative_fix.log
+ª       ª   OBSERVABILIDADE_CONSTITUCIONAL.md
+ª       ª   OBSERVABILIDADE_PASSIVA.md
+ª       ª   OPORTUNIDADES-SUAVES.md
+ª       ª   OPPORTUNITY_DISPATCH_IMPLEMENTACAO.md
+ª       ª   PAINEL_COMPROMISSOS_IMPLEMENTACAO.md
+ª       ª   PATCH_APLICADO.md
+ª       ª   PENDENCIAS_READONLY.md
+ª       ª   PERMISSOES_ACTOR_IMPLEMENTACAO.md
+ª       ª   PILOTO_REAL_OPERACIONAL.md
+ª       ª   PLANO_CONSOLIDACAO_SEQUENCIAL.md
+ª       ª   PLANO_DE_PRS_CONSOLIDADO.md
+ª       ª   PRODUCTION_DEPLOY.md
+ª       ª   PROPOSTA_STEP2_INTENCAO.md
+ª       ª   PROPOSTA_STEP2_INTENCAO_FINAL.md
+ª       ª   PROPOSTA_UNIFIED_AVAILABILITY.md
+ª       ª   QUERIES_VALIDACAO_INVARIANTES.sql
+ª       ª   REGULAMENTO_EXECUCAO.md
+ª       ª   RELATORIO_ALTERACOES_3H.md
+ª       ª   RELATORIO_FASE1_SPLIT_PAGAMENTO.md
+ª       ª   RELATORIO_ORGANIZACAO.md
+ª       ª   RELATORIO_VALIDACAO_COMPLETA.md
+ª       ª   RELEASE_CANDIDATE_v1.0-rc1.md
+ª       ª   REMOCAO_SEED_DO_PIPELINE.md
+ª       ª   REORGANIZACAO-FISICO-PRAZER.md
+ª       ª   REPORTING_CORE.md
+ª       ª   REPORTING_DATA_MODEL.md
+ª       ª   RESUMO_BASELINE_DEFINITIVO.md
+ª       ª   RESUMO_CORRECOES.md
+ª       ª   RESUMO_EXECUTIVO_MVP.md
+ª       ª   RESUMO_FIX_NIVEL2.md
+ª       ª   RESUMO_SISTEMA_BASELINE.md
+ª       ª   SCHEMA_GUARD_IMPLEMENTADO.md
+ª       ª   seed-refactor-levels-0-1-2.md
+ª       ª   SERVICE_AVAILABILITY_IMPLEMENTACAO.md
+ª       ª   SERVICE_BOOKING_IMPLEMENTACAO.md
+ª       ª   SERVICE_PAYMENT_EXECUTION_IMPLEMENTACAO.md
+ª       ª   SERVICE_PAYMENT_REQUEST_IMPLEMENTACAO.md
+ª       ª   SERVICOS_DOMAIN_IMPLEMENTACAO.md
+ª       ª   SINCRONIZACAO_PROFILE_ACTOR.md
+ª       ª   SISTEMA_BASELINE_VALIDADO.md
+ª       ª   SMOKE_TESTS.md
+ª       ª   SOCIAL_INBOX_IMPLEMENTACAO.md
+ª       ª   SPLIT_ENGINE_ESTADO_ATUAL.md
+ª       ª   STAGING_DEPLOY.md
+ª       ª   STRIPE_LIVE_SETUP.md
+ª       ª   TAXA_ADMINISTRATIVA.md
+ª       ª   TAXONOMIA-GLOBAL-UNIFICARD.md
+ª       ª   TESTE_COMPLETO_MIGRATIONS.md
+ª       ª   TESTE_FLUXO_SERVICE_ORDERS.md
+ª       ª   TEST_OVERRIDE_USERS.md
+ª       ª   TRANSICOES_ESTADO_READONLY.md
+ª       ª   TRAVAS-FINAIS.md
+ª       ª   TRILHA-APRENDIZADO.md
+ª       ª   TYPESCRIPT_FIX_REPORT.md
+ª       ª   unificard-context.md
+ª       ª   UNIFIED_AVAILABILITY_IMPLEMENTACAO.md
+ª       ª   VALIDACAO_BASELINE_FINAL.md
+ª       ª   VALIDACAO_CORE_ONLY.md
+ª       ª   VALIDACAO_EMPIRICA_PASSO_0.md
+ª       ª   VALIDACAO_FASE9_ETAPA1.md
+ª       ª   VALIDACAO_FINAL.md
+ª       ª   VALIDACAO_POS_IMPLEMENTACAO.md
+ª       ª   VALIDACAO_SCHEMA_REAL.md
+ª       ª   VERIFICACAO_CONFORMIDADE_CANONICA.md
+ª       ª   VIOLATIONS_INVENTORY.md
+ª       ª   VISAO_ECONOMICA_PASSIVA.md
+ª       ª   
+ª       +---__nested_docs
++---_reports
+    ª   delete_candidates_20260122-073330.csv
+    ª   delete_candidates_20260122-073511.csv
+    ª   delete_candidates_contextual_20260122-073729.csv
+    ª   delete_candidates_contextual_v2_20260122-074138.csv
+    ª   delete_candidates_final_20260122-074548.csv
+    ª   duplicates_by_hash_20260122-071354.csv
+    ª   inventory_20260122-071354.csv
+    ª   inventory_20260122-071354.json
+    ª   inventory_final_20260122-074548.csv
+    ª   inventory_v2_20260122-072713.csv
+    ª   inventory_v2_20260122-072713.json
+    ª   legacy_folder_file_moves_20260122-075118.csv
+    ª   move_log_20260122-071728.csv
+    ª   move_log_v2_20260122-073046.csv
+    ª   move_to_delete_20260122-073916.csv
+    ª   move_to_delete_by_hash_20260122-074025.csv
+    ª   move_to_delete_by_hash_20260122-074255.csv
+    ª   move_to_delete_by_hash_20260122-074355.csv
+    ª   move_to_delete_final_20260122-074548.csv
+    ª   move_to_delete_missed_20260122-074025.csv
+    ª   move_to_delete_missed_20260122-074255.csv
+    ª   move_to_delete_missed_20260122-074355.csv
+    ª   removed_empty_folders_20260122-075118.csv
+    ª   root_organization_20260122-080148.csv
+    ª   
+    +---audit
+            ADVERSARIAL-SECURITY-PASS.md
+            CANONICAL-LOGGER-ENFORCEMENT-PASS.md
+            CONCURRENCY-RACE-CONDITION-STRESS-PASS.md
+            EVENT-REPLAY-IDEMPOTENCY-PASS.md
+            EXTERNAL-AUDIT-READINESS.md
+            FINAL-INSTITUTIONAL-FREEZE.md
+            FORENSICS-DRY-RUN-PASS.md
+            GLOBAL-USER-ID-TENANT-SAFETY-PASS.md
+            INCIDENT-FORENSICS-GUIDE.md
+            INSTITUTIONAL-TEST-HARNESS.md
+            LOG-COMPLETENESS-ASSERTION-PASS.md
+            LOG-LEVEL-CLASSIFICATION.md
+            LOG-LEVEL-SIGNAL-CLASSIFICATION-PASS.md
+            RATE-LIMIT-ABUSE-HARDENING-PASS.md
+            SCHEMA-INVARIANT-HARDENING.md
+            SECURITY-SIGNAL-EXPORT-PASS.md
+            SECURITY-SIGNAL-PIPELINE.md
+            SYSTEM-CANONICAL-INVARIANTS.md
+            SYSTEM-HARDENING-FINAL-AUDIT.md
+            TENANT-AWARE-INDEX-QUERY-PLAN-PASS.md
+            
+
+================================================================================
+FRONTEND - arquivos da raiz (frontend\\)
+================================================================================
+.env
+.gitignore
+frontend_src_tree.txt
+frontend-build.log
+index.html
+limpar-cache.ps1
+package-lock.json
+package.json
+README.md
+RESET_VITE_CACHE.md
+SILENCIAR_MODULOS_INATIVOS.md
+SPRINT1_VALIDATION_CHECKLIST.md
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+
+================================================================================
+FRONTEND - arvore completa somente do src (frontend\\src\\)
+================================================================================
+Listagem de caminhos de pasta para o volume Windows
+O n·mero de sÚrie do volume Ú AA11-8EC7
+C:\UNIFICARD\FRONTEND\SRC
+ª   App.css
+ª   App.tsx
+ª   main.tsx
+ª   test-simple.html
+ª   vite-env.d.ts
+ª   
++---admin
+ª       CategoryReviewQueue.css
+ª       CategoryReviewQueue.tsx
+ª       
++---api
+ª       agreements.ts
+ª       ai.ts
+ª       auth.ts
+ª       automation.ts
+ª       availability.ts
+ª       bank.ts
+ª       business-audit.ts
+ª       business-permissions.ts
+ª       calendar.ts
+ª       categories.ts
+ª       category.ts
+ª       checkout.ts
+ª       client.ts
+ª       commitments.ts
+ª       companies.ts
+ª       companyMembers.ts
+ª       compatibility.ts
+ª       configurations.ts
+ª       contacts.ts
+ª       contextual-messaging.ts
+ª       core.ts
+ª       crm.ts
+ª       cultural.ts
+ª       dashboard.ts
+ª       disputes.ts
+ª       economy.ts
+ª       education.ts
+ª       escrow.ts
+ª       event-rfq.ts
+ª       event-rsvp.ts
+ª       event-spec.ts
+ª       events-v2.ts
+ª       events.ts
+ª       evidence.ts
+ª       feed.ts
+ª       feedPlugins.ts
+ª       fund-admin.ts
+ª       fund.ts
+ª       group-allocation.ts
+ª       group-campaigns.ts
+ª       group-timeline.ts
+ª       group-votes.ts
+ª       groups.ts
+ª       health.ts
+ª       identity.ts
+ª       impact.ts
+ª       impactOverview.ts
+ª       index.ts
+ª       inference.ts
+ª       institutional-memory.ts
+ª       intent-orchestrator.ts
+ª       invoices.ts
+ª       learning.ts
+ª       ledger.ts
+ª       liveChat.ts
+ª       location.ts
+ª       loyalty.ts
+ª       marketplace-categories.ts
+ª       marketplace-search.ts
+ª       marketplace.ts
+ª       matching.ts
+ª       my-orders.ts
+ª       opportunity.ts
+ª       organization.ts
+ª       payouts.ts
+ª       pdv.ts
+ª       pendingResponsibilities.ts
+ª       physical.ts
+ª       pilot-hypotheses.ts
+ª       pilot-invites.ts
+ª       pilot-observation.ts
+ª       pilot.ts
+ª       plan.ts
+ª       policies.ts
+ª       presence.ts
+ª       profile.ts
+ª       publication.ts
+ª       reporting.ts
+ª       reputation.ts
+ª       risk-dashboard.ts
+ª       service-availability.ts
+ª       service-booking-decisions.ts
+ª       service-bookings.ts
+ª       service-bundles.ts
+ª       service-discovery.ts
+ª       service-orders.ts
+ª       services.ts
+ª       social-2.0.ts
+ª       social.ts
+ª       store-onboarding.ts
+ª       subscriptions.ts
+ª       system-notifications.ts
+ª       transparency.ts
+ª       trust.ts
+ª       unified-calendar.ts
+ª       unread.ts
+ª       venue.ts
+ª       votes.ts
+ª       world.ts
+ª       
++---components
+ª   ª   AssistantChat.tsx
+ª   ª   AvailabilitySchedule.css
+ª   ª   AvailabilitySchedule.tsx
+ª   ª   AvailabilityScheduleEnhanced.tsx
+ª   ª   BackendConnectionError.css
+ª   ª   BackendConnectionError.tsx
+ª   ª   ComboDiscountRulesManager.css
+ª   ª   ComboDiscountRulesManager.tsx
+ª   ª   ComboDiscountRulesManagerForm.tsx
+ª   ª   CompaniesManager.css
+ª   ª   CompaniesManager.tsx
+ª   ª   CompaniesManagerForm.tsx
+ª   ª   CompanyMembersList.css
+ª   ª   CompanyMembersList.tsx
+ª   ª   CompanyValidationBackoffice.css
+ª   ª   CompanyValidationBackoffice.tsx
+ª   ª   CompanyValidationModal.css
+ª   ª   CompanyValidationModal.tsx
+ª   ª   ContextualSuggestion.css
+ª   ª   ContextualSuggestion.tsx
+ª   ª   CulturalEventsManager.css
+ª   ª   CulturalEventsManager.tsx
+ª   ª   CulturalProfilesManager.css
+ª   ª   CulturalProfilesManager.tsx
+ª   ª   Dashboard.css
+ª   ª   Dashboard.tsx
+ª   ª   EducationSection.css
+ª   ª   EducationSection.tsx
+ª   ª   ErrorBoundary.tsx
+ª   ª   FeedCard.css
+ª   ª   FeedCard.tsx
+ª   ª   FeedContextual.css
+ª   ª   FeedContextual.tsx
+ª   ª   FeedSection.css
+ª   ª   FeedSection.tsx
+ª   ª   FullScreenLoading.css
+ª   ª   FullScreenLoading.tsx
+ª   ª   FundAdminPanel.css
+ª   ª   FundAdminPanel.tsx
+ª   ª   Login.css
+ª   ª   Login.tsx
+ª   ª   MatchingContextual.css
+ª   ª   MatchingContextual.tsx
+ª   ª   MatchSection.css
+ª   ª   MatchSection.tsx
+ª   ª   MatchSuggestion.css
+ª   ª   MatchSuggestion.tsx
+ª   ª   MyConfigurations.css
+ª   ª   MyConfigurations.tsx
+ª   ª   ObservationModeBanner.css
+ª   ª   ObservationModeBanner.tsx
+ª   ª   OnboardingModal.css
+ª   ª   OnboardingModal.tsx
+ª   ª   OpportunitySuggestion.css
+ª   ª   OpportunitySuggestion.tsx
+ª   ª   PredefinedServicesManager.css
+ª   ª   PredefinedServicesManager.tsx
+ª   ª   PredefinedServicesManagerForm.tsx
+ª   ª   Profile.css
+ª   ª   Profile.tsx
+ª   ª   ProfileAgenda.css
+ª   ª   ProfileAgenda.tsx
+ª   ª   ProfileAgendaForm.tsx
+ª   ª   ProfileEducation.css
+ª   ª   ProfileEducation.tsx
+ª   ª   ProfileEducationForm.tsx
+ª   ª   ProfileHealth.tsx
+ª   ª   ProfileHealthForm.tsx
+ª   ª   ProfileLearning.css
+ª   ª   ProfileLearning.tsx
+ª   ª   ProfileLearningForm.tsx
+ª   ª   ProfilePersonalForm.tsx
+ª   ª   ProfilePhysical.css
+ª   ª   ProfilePhysical.tsx
+ª   ª   ProfilePhysicalForm.tsx
+ª   ª   ProfileProfessional.css
+ª   ª   ProfileProfessional.tsx
+ª   ª   ProfileProfessionalForm.tsx
+ª   ª   ProfileProgressBar.css
+ª   ª   ProfileProgressBar.tsx
+ª   ª   RegionalFund.css
+ª   ª   RegionalFund.tsx
+ª   ª   RegionalFundAdmin.css
+ª   ª   RegionalFundAdmin.tsx
+ª   ª   RegionalFundUser.css
+ª   ª   RegionalFundUser.tsx
+ª   ª   Register.css
+ª   ª   Register.tsx
+ª   ª   ServicePostCard.css
+ª   ª   ServicePostCard.tsx
+ª   ª   SocialFeed.css
+ª   ª   SocialFeed.tsx
+ª   ª   TransactionDetail.css
+ª   ª   TransactionDetail.tsx
+ª   ª   Wallet.css
+ª   ª   Wallet.tsx
+ª   ª   WorkCheckoutInfo.css
+ª   ª   WorkCheckoutInfo.example.tsx
+ª   ª   WorkCheckoutInfo.tsx
+ª   ª   
+ª   +---agreements
+ª   ª       AgreementBanner.css
+ª   ª       AgreementBanner.tsx
+ª   ª       AgreementEditModal.css
+ª   ª       AgreementEditModal.tsx
+ª   ª       AgreementHistory.css
+ª   ª       AgreementHistory.tsx
+ª   ª       AgreementPanel.css
+ª   ª       AgreementPanel.tsx
+ª   ª       AgreementReviewModal.css
+ª   ª       AgreementReviewModal.tsx
+ª   ª       AgreementSection.css
+ª   ª       AgreementSummary.css
+ª   ª       AgreementSummary.tsx
+ª   ª       
+ª   +---ai
+ª   ª       AIChat.css
+ª   ª       AIChat.tsx
+ª   ª       
+ª   +---auth
+ª   ª       ProtectedRoute.tsx
+ª   ª       
+ª   +---business-audit
+ª   ª       AuditHistoryView.css
+ª   ª       AuditHistoryView.tsx
+ª   ª       
+ª   +---bypass-detection
+ª   ª       BypassAlert.css
+ª   ª       BypassAlert.tsx
+ª   ª       
+ª   +---common
+ª   ª       BlockedButton.css
+ª   ª       BlockedButton.tsx
+ª   ª       Toast.css
+ª   ª       Toast.tsx
+ª   ª       
+ª   +---company
+ª   ª   ª   AccountabilitySection.css
+ª   ª   ª   AccountabilitySection.tsx
+ª   ª   ª   CompanyDashboard.css
+ª   ª   ª   CompanyDashboard.tsx
+ª   ª   ª   CompanyOnboardingWizard.css
+ª   ª   ª   CompanyOnboardingWizard.tsx
+ª   ª   ª   DomainSelector.css
+ª   ª   ª   DomainSelector.tsx
+ª   ª   ª   
+ª   ª   +---tabs
+ª   ª           CompanyActivitiesTab.tsx
+ª   ª           CompanyFinancialTab.tsx
+ª   ª           CompanyOverviewTab.tsx
+ª   ª           CompanyTabs.css
+ª   ª           CompanyTeamTab.tsx
+ª   ª           
+ª   +---compatibility
+ª   ª       CompatibilityChecklist.css
+ª   ª       CompatibilityChecklist.tsx
+ª   ª       CompatibilityModal.css
+ª   ª       CompatibilityModal.tsx
+ª   ª       ServiceSetupSelector.css
+ª   ª       ServiceSetupSelector.tsx
+ª   ª       
+ª   +---contextual-messaging
+ª   ª       ContextualThreadView.css
+ª   ª       ContextualThreadView.tsx
+ª   ª       
+ª   +---dispute
+ª   ª       DisputeFormModal.css
+ª   ª       DisputeFormModal.tsx
+ª   ª       DisputePanel.css
+ª   ª       DisputePanel.tsx
+ª   ª       DisputeResolutionModal.css
+ª   ª       DisputeResolutionModal.tsx
+ª   ª       
+ª   +---escrow
+ª   ª       EscrowPanel.css
+ª   ª       EscrowPanel.tsx
+ª   ª       PaymentMilestoneTimeline.css
+ª   ª       PaymentMilestoneTimeline.tsx
+ª   ª       
+ª   +---events
+ª   ª   ª   AvailabilityPreview.css
+ª   ª   ª   AvailabilityPreview.tsx
+ª   ª   ª   EventBookingConfirmationModal.css
+ª   ª   ª   EventBookingConfirmationModal.tsx
+ª   ª   ª   EventCard.css
+ª   ª   ª   EventCard.tsx
+ª   ª   ª   EventCheckInModal.css
+ª   ª   ª   EventCheckInModal.tsx
+ª   ª   ª   EventCheckout.css
+ª   ª   ª   EventCheckout.tsx
+ª   ª   ª   EventCheckoutModal.css
+ª   ª   ª   EventCheckoutModal.tsx
+ª   ª   ª   EventCreationGuidedFlow.css
+ª   ª   ª   EventCreationGuidedFlow.tsx
+ª   ª   ª   EventCreationWizard.css
+ª   ª   ª   EventCreationWizard.tsx
+ª   ª   ª   EventDeclarationForm.css
+ª   ª   ª   EventDeclarationForm.tsx
+ª   ª   ª   EventImpact.css
+ª   ª   ª   EventImpact.tsx
+ª   ª   ª   EventMetricsDashboard.css
+ª   ª   ª   EventMetricsDashboard.tsx
+ª   ª   ª   EventNeedsList.css
+ª   ª   ª   EventNeedsList.tsx
+ª   ª   ª   EventNeedsOptInModal.css
+ª   ª   ª   EventNeedsOptInModal.tsx
+ª   ª   ª   EventNeedsWizard.css
+ª   ª   ª   EventNeedsWizard.tsx
+ª   ª   ª   EventPage.css
+ª   ª   ª   EventPage.tsx
+ª   ª   ª   EventRFQConvertToBookingModal.css
+ª   ª   ª   EventRFQConvertToBookingModal.tsx
+ª   ª   ª   EventRFQConvertToBundleModal.css
+ª   ª   ª   EventRFQConvertToBundleModal.tsx
+ª   ª   ª   EventRFQCreateModal.css
+ª   ª   ª   EventRFQCreateModal.tsx
+ª   ª   ª   EventRFQQuotesPage.tsx
+ª   ª   ª   EventRFQQuotesView.css
+ª   ª   ª   EventRFQQuotesView.tsx
+ª   ª   ª   EventServiceBookingRequestModal.css
+ª   ª   ª   EventServiceBookingRequestModal.tsx
+ª   ª   ª   EventServiceDiscoveryModal.css
+ª   ª   ª   EventServiceDiscoveryModal.tsx
+ª   ª   ª   EventStatusBadge.css
+ª   ª   ª   EventStatusBadge.tsx
+ª   ª   ª   EventWizardAdaptive.css
+ª   ª   ª   EventWizardAdaptive.tsx
+ª   ª   ª   OccupancyDashboard.css
+ª   ª   ª   OccupancyDashboard.tsx
+ª   ª   ª   OrganizerEventMetrics.css
+ª   ª   ª   OrganizerEventMetrics.tsx
+ª   ª   ª   OrganizerPlans.css
+ª   ª   ª   OrganizerPlans.tsx
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE6B.md
+ª   ª   ª   
+ª   ª   +---guided-flow
+ª   ª   ª       Step0EventType.css
+ª   ª   ª       Step0EventType.tsx
+ª   ª   ª       Step1Declaration.css
+ª   ª   ª       Step1Declaration.tsx
+ª   ª   ª       Step2Description.css
+ª   ª   ª       Step2Description.tsx
+ª   ª   ª       Step3TimeWindows.css
+ª   ª   ª       Step3TimeWindows.tsx
+ª   ª   ª       Step4SpaceRequirements.css
+ª   ª   ª       Step4SpaceRequirements.tsx
+ª   ª   ª       Step5OperationalRoles.css
+ª   ª   ª       Step5OperationalRoles.tsx
+ª   ª   ª       Step6EconomicPreview.css
+ª   ª   ª       Step6EconomicPreview.tsx
+ª   ª   ª       Step7FinalSummary.css
+ª   ª   ª       Step7FinalSummary.tsx
+ª   ª   ª       
+ª   ª   +---wizard
+ª   ª       ª   BirthdayProfileStep.tsx
+ª   ª       ª   BirthdayWizard.css
+ª   ª       ª   BirthdayWizard.tsx
+ª   ª       ª   EventFoundationStep.css
+ª   ª       ª   EventFoundationStep.tsx
+ª   ª       ª   eventSubtypeMapping.ts
+ª   ª       ª   intentionMapping.ts
+ª   ª       ª   Step1Actor.css
+ª   ª       ª   Step1Actor.tsx
+ª   ª       ª   Step2EventType.css
+ª   ª       ª   Step2EventType.tsx
+ª   ª       ª   Step3Context.css
+ª   ª       ª   Step3Context.tsx
+ª   ª       ª   Step4Economy.css
+ª   ª       ª   Step4Economy.tsx
+ª   ª       ª   Step5Review.css
+ª   ª       ª   Step5Review.tsx
+ª   ª       ª   WizardPageRegistry.ts
+ª   ª       ª   
+ª   ª       +---pages
+ª   ª               BirthdayActivitiesPage.tsx
+ª   ª               BirthdayAttendancePage.tsx
+ª   ª               BirthdayLocationPage.tsx
+ª   ª               BirthdayMusicAVPage.tsx
+ª   ª               BirthdayProfilePage.tsx
+ª   ª               BirthdayStyleThemePage.tsx
+ª   ª               BirthdaySupportServicesPage.tsx
+ª   ª               BirthdayTimeWindowPage.tsx
+ª   ª               CommonFinalizePage.tsx
+ª   ª               CommonProjectNamePage.tsx
+ª   ª               index.ts
+ª   ª               
+ª   +---evidence
+ª   ª       DisputeBanner.css
+ª   ª       DisputeBanner.tsx
+ª   ª       EvidenceTimeline.css
+ª   ª       EvidenceTimeline.tsx
+ª   ª       EvidenceViewer.css
+ª   ª       EvidenceViewer.tsx
+ª   ª       
+ª   +---feed
+ª   ª       FeedEventItem.css
+ª   ª       FeedEventItem.tsx
+ª   ª       FeedServiceItem.css
+ª   ª       FeedServiceItem.tsx
+ª   ª       
+ª   +---feedback
+ª   ª       ActionFeedback.css
+ª   ª       ActionFeedback.tsx
+ª   ª       
+ª   +---governance
+ª   ª       GroupAllocationCard.css
+ª   ª       GroupAllocationCard.tsx
+ª   ª       MoneyDistribution.css
+ª   ª       MoneyDistribution.tsx
+ª   ª       RegionalFundCard.css
+ª   ª       RegionalFundCard.tsx
+ª   ª       TransactionSplitDetail.css
+ª   ª       TransactionSplitDetail.tsx
+ª   ª       
+ª   +---groups
+ª   ª       CreateGroupWizard.css
+ª   ª       CreateGroupWizard.tsx
+ª   ª       ImageUpload.css
+ª   ª       ImageUpload.tsx
+ª   ª       
+ª   +---health
+ª   ª       HealthSignalItem.tsx
+ª   ª       HealthSummaryCard.css
+ª   ª       HealthSummaryCard.tsx
+ª   ª       
+ª   +---home
+ª   ª       ActivityBlock.css
+ª   ª       ActivityBlock.tsx
+ª   ª       AdminShortcutsBlock.css
+ª   ª       AdminShortcutsBlock.tsx
+ª   ª       AppGrid.css
+ª   ª       AppGrid.tsx
+ª   ª       AssistantBlock.css
+ª   ª       AssistantBlock.tsx
+ª   ª       AssistantPanel.css
+ª   ª       AssistantPanel.tsx
+ª   ª       ContextBar.css
+ª   ª       ContextBar.tsx
+ª   ª       ContextBlock.css
+ª   ª       ContextBlock.tsx
+ª   ª       ContinueBlock.css
+ª   ª       ContinueBlock.tsx
+ª   ª       FloatingAssistant.css
+ª   ª       FloatingAssistant.tsx
+ª   ª       GlobalContextBar.css
+ª   ª       GlobalContextBar.tsx
+ª   ª       HeroActionBlock.css
+ª   ª       HeroActionBlock.tsx
+ª   ª       HomeContextual.css
+ª   ª       HomeContextual.tsx
+ª   ª       SearchBar.css
+ª   ª       SearchBar.tsx
+ª   ª       SuggestionsBlock.css
+ª   ª       SuggestionsBlock.tsx
+ª   ª       
+ª   +---invoicing
+ª   ª       InvoiceCancelModal.css
+ª   ª       InvoiceCancelModal.tsx
+ª   ª       InvoiceIssueModal.css
+ª   ª       InvoiceIssueModal.tsx
+ª   ª       InvoiceLink.tsx
+ª   ª       
+ª   +---layout
+ª   ª       AdminLayout.css
+ª   ª       AdminLayout.tsx
+ª   ª       AppLayout.css
+ª   ª       AppLayout.tsx
+ª   ª       BankLayout.css
+ª   ª       BankLayout.tsx
+ª   ª       HeaderGlobal.css
+ª   ª       HeaderGlobal.tsx
+ª   ª       SocialLayout.css
+ª   ª       SocialLayout.tsx
+ª   ª       
+ª   +---ledger
+ª   ª       LedgerContextStatement.css
+ª   ª       LedgerContextStatement.tsx
+ª   ª       
+ª   +---LocationSelector
+ª   ª       index.ts
+ª   ª       LocationSelector.css
+ª   ª       LocationSelector.tsx
+ª   ª       types.ts
+ª   ª       useLocation.ts
+ª   ª       
+ª   +---marketplace
+ª   ª       Breadcrumb.css
+ª   ª       Breadcrumb.tsx
+ª   ª       CategoryDropdown.css
+ª   ª       CategoryDropdown.tsx
+ª   ª       CheckoutMultiVendor.css
+ª   ª       CheckoutMultiVendor.tsx
+ª   ª       CheckoutSummary.css
+ª   ª       CheckoutSummary.tsx
+ª   ª       CheckoutVendorGroup.css
+ª   ª       CheckoutVendorGroup.tsx
+ª   ª       DomainSelector.css
+ª   ª       DomainSelector.tsx
+ª   ª       MarketplaceCatalog.tsx
+ª   ª       MarketplaceHeader.css
+ª   ª       MarketplaceHeader.tsx
+ª   ª       MarketplaceHome.css
+ª   ª       MarketplaceHome.tsx
+ª   ª       MarketplaceInventory.tsx
+ª   ª       MarketplaceOrders.tsx
+ª   ª       MarketplacePayments.tsx
+ª   ª       MarketplaceProducts.tsx
+ª   ª       MarketplaceRefCard.css
+ª   ª       MarketplaceRefCard.tsx
+ª   ª       MarketplaceSimpleHeader.css
+ª   ª       MarketplaceSimpleHeader.tsx
+ª   ª       PaymentExecutor.css
+ª   ª       PaymentExecutor.tsx
+ª   ª       PaymentMethodSelector.css
+ª   ª       PaymentMethodSelector.tsx
+ª   ª       RefundItemVisual.css
+ª   ª       RefundItemVisual.tsx
+ª   ª       SearchFiltersPanel.css
+ª   ª       SearchFiltersPanel.tsx
+ª   ª       StatusBadge.css
+ª   ª       StatusBadge.tsx
+ª   ª       
+ª   +---mfibank
+ª   ª       MFIBankCard.css
+ª   ª       MFIBankCard.tsx
+ª   ª       MFIBankRecentTransactions.css
+ª   ª       MFIBankRecentTransactions.tsx
+ª   ª       MFIBankSummary.css
+ª   ª       MFIBankSummary.tsx
+ª   ª       
+ª   +---onboarding
+ª   ª       OnboardingHighlights.css
+ª   ª       OnboardingHighlights.tsx
+ª   ª       OnboardingWrapper.tsx
+ª   ª       WelcomeOnboarding.css
+ª   ª       WelcomeOnboarding.tsx
+ª   ª       
+ª   +---operational
+ª   ª       ActionGuard.css
+ª   ª       ActionGuard.tsx
+ª   ª       GuardedButton.tsx
+ª   ª       
+ª   +---payout
+ª   ª       PayoutExecuteModal.css
+ª   ª       PayoutExecuteModal.tsx
+ª   ª       PayoutFailModal.css
+ª   ª       PayoutFailModal.tsx
+ª   ª       PayoutOrderPanel.css
+ª   ª       PayoutOrderPanel.tsx
+ª   ª       
+ª   +---pending-actions
+ª   ª       PendingActionsCenter.css
+ª   ª       PendingActionsCenter.tsx
+ª   ª       
+ª   +---publication
+ª   ª       AudienceSelector.css
+ª   ª       AudienceSelector.tsx
+ª   ª       InviteGenerator.css
+ª   ª       InviteGenerator.tsx
+ª   ª       
+ª   +---service-orders
+ª   ª       ServiceOrderFinancialTermsModal.css
+ª   ª       ServiceOrderFinancialTermsModal.tsx
+ª   ª       
+ª   +---services
+ª   ª       ServiceBundleBookingModal.css
+ª   ª       ServiceBundleBookingModal.tsx
+ª   ª       ServiceBundleConfirmModal.css
+ª   ª       ServiceBundleConfirmModal.tsx
+ª   ª       
+ª   +---social
+ª   ª       ActorContextInfo.css
+ª   ª       ActorSelector.css
+ª   ª       ActorSelector.tsx
+ª   ª       AuthorCard.css
+ª   ª       AuthorCard.tsx
+ª   ª       CommentsDrawer.css
+ª   ª       CommentsDrawer.tsx
+ª   ª       CommunitiesBenefited.css
+ª   ª       CommunitiesBenefited.tsx
+ª   ª       CommunityActivitySummary.css
+ª   ª       CommunityActivitySummary.tsx
+ª   ª       CompanyPage.css
+ª   ª       CompanyPage.tsx
+ª   ª       CTAModal.css
+ª   ª       CTAModal.tsx
+ª   ª       CulturalEventCard.css
+ª   ª       CulturalEventCard.tsx
+ª   ª       FeaturedToday.css
+ª   ª       FeaturedToday.tsx
+ª   ª       FirstActionHint.css
+ª   ª       FirstActionHint.tsx
+ª   ª       GroupProfile.css
+ª   ª       GroupProfile.tsx
+ª   ª       ImpactBalanceBadge.css
+ª   ª       ImpactBalanceBadge.tsx
+ª   ª       IntentComposer.css
+ª   ª       IntentComposer.tsx
+ª   ª       OccupancyModelConfig.css
+ª   ª       OccupancyModelConfig.tsx
+ª   ª       PersonalProgressCard.css
+ª   ª       PersonalProgressCard.tsx
+ª   ª       PostCard.css
+ª   ª       PostCard.tsx
+ª   ª       PostComposer.css
+ª   ª       PostComposer.tsx
+ª   ª       ProfilePage.css
+ª   ª       ProfilePage.tsx
+ª   ª       SalesHistory.css
+ª   ª       SalesHistory.tsx
+ª   ª       SmartEmptyState.css
+ª   ª       SmartEmptyState.tsx
+ª   ª       SocialFeed2.css
+ª   ª       SocialFeed2.tsx
+ª   ª       SocialLedger.css
+ª   ª       SocialLedger.tsx
+ª   ª       TodayForYou.css
+ª   ª       TodayForYou.tsx
+ª   ª       TransactionImpact.css
+ª   ª       TransactionImpact.tsx
+ª   ª       TransactionImpactSummary.css
+ª   ª       TransactionImpactSummary.tsx
+ª   ª       TransactionMiniSummary.css
+ª   ª       TransactionMiniSummary.tsx
+ª   ª       
+ª   +---system-notifications
+ª   ª       NotificationBell.css
+ª   ª       NotificationBell.tsx
+ª   ª       NotificationList.css
+ª   ª       NotificationList.tsx
+ª   ª       
+ª   +---temporal
+ª   ª       DatePicker.css
+ª   ª       DatePicker.tsx
+ª   ª       index.ts
+ª   ª       README.md
+ª   ª       ScheduleInput.css
+ª   ª       ScheduleInput.tsx
+ª   ª       TemporalDateInput.css
+ª   ª       TemporalDateInput.tsx
+ª   ª       TemporalTimeInput.css
+ª   ª       TemporalTimeInput.tsx
+ª   ª       TimeRangePicker.css
+ª   ª       TimeRangePicker.tsx
+ª   ª       
+ª   +---timeline
+ª   ª       ActivityDetailModal.css
+ª   ª       ActivityDetailModal.tsx
+ª   ª       TimelineInstitucional.css
+ª   ª       TimelineInstitucional.tsx
+ª   ª       
+ª   +---trust
+ª   ª       HowItWorksSection.css
+ª   ª       HowItWorksSection.tsx
+ª   ª       SystemLimitsSection.css
+ª   ª       SystemLimitsSection.tsx
+ª   ª       TrustAlert.css
+ª   ª       TrustAlert.tsx
+ª   ª       TrustBadge.css
+ª   ª       TrustBadge.tsx
+ª   ª       TrustTransparencyCard.css
+ª   ª       TrustTransparencyCard.tsx
+ª   ª       
+ª   +---ui
+ª   ª       InfoTooltip.css
+ª   ª       InfoTooltip.tsx
+ª   ª       LockedField.css
+ª   ª       LockedField.tsx
+ª   ª       
+ª   +---VoiceInput
+ª   ª       useVoiceRecorder.ts
+ª   ª       voice.types.ts
+ª   ª       VoiceButton.css
+ª   ª       VoiceButton.tsx
+ª   ª       
+ª   +---workflow
+ª           WorkflowAssistant.css
+ª           WorkflowAssistant.tsx
+ª           
++---config
+ª       appsRegistry.ts
+ª       auth.ts
+ª       features.ts
+ª       pilot.ts
+ª       
++---contexts
+ª       ActiveActorContext.tsx
+ª       SessionProvider.tsx
+ª       
++---handlers
+ª       action-handlers.ts
+ª       
++---hooks
+ª   ª   useActionExecutor.ts
+ª   ª   useActiveActor.ts
+ª   ª   useActorContext.ts
+ª   ª   useAddressResolver.ts
+ª   ª   useAgreementValidation.ts
+ª   ª   useCep.ts
+ª   ª   useComboDiscountRulesLogic.ts
+ª   ª   useComboDiscountRulesState.ts
+ª   ª   useCompaniesData.ts
+ª   ª   useCompaniesState.ts
+ª   ª   useHomeData.ts
+ª   ª   useOperationalGuard.ts
+ª   ª   usePredefinedServicesLogic.ts
+ª   ª   usePredefinedServicesState.ts
+ª   ª   useProfessionalCategories.ts
+ª   ª   useProfileAgendaLogic.ts
+ª   ª   useProfileAgendaState.ts
+ª   ª   useProfileCep.ts
+ª   ª   useProfileEducationLogic.ts
+ª   ª   useProfileEducationState.ts
+ª   ª   useProfileHealthLogic.ts
+ª   ª   useProfileHealthState.ts
+ª   ª   useProfileLearningLogic.ts
+ª   ª   useProfileLearningState.ts
+ª   ª   useProfilePersonalState.ts
+ª   ª   useProfilePhysicalLogic.ts
+ª   ª   useProfilePhysicalState.ts
+ª   ª   useProfileProfessionalState.ts
+ª   ª   useRetryWithBackoff.ts
+ª   ª   
+ª   +---temporal
+ª           index.ts
+ª           useTemporalValidation.ts
+ª           useTimeRange.ts
+ª           
++---pages
+ª       AlertsPage.css
+ª       AlertsPage.tsx
+ª       AssistantPage.css
+ª       AssistantPage.tsx
+ª       CalendarPage.css
+ª       CalendarPage.tsx
+ª       CategoryNavigationPage.css
+ª       CategoryNavigationPage.tsx
+ª       CheckoutPage.css
+ª       CheckoutPage.tsx
+ª       CLASSIFICACAO_ARQUETIPOS_EVENTOS.md
+ª       CLASSIFICACAO_ARQUETIPOS_FOOD.md
+ª       CLASSIFICACAO_ARQUETIPOS_MARKETPLACE.md
+ª       CLASSIFICACAO_ARQUETIPOS_MOBILITY.md
+ª       CompanyCreationPage.css
+ª       CompanyCreationPage.tsx
+ª       CompanyDashboardPage.tsx
+ª       CompanyOnboardingPage.css
+ª       CompanyOnboardingPage.tsx
+ª       ContactsPage.css
+ª       ContactsPage.tsx
+ª       CreateServiceOrderPage.css
+ª       CreateServiceOrderPage.tsx
+ª       CrmContactDetailPage.css
+ª       CrmContactDetailPage.tsx
+ª       CrmPage.css
+ª       CrmPage.tsx
+ª       DashboardPage.css
+ª       DashboardPage.tsx
+ª       DepartmentPage.css
+ª       DepartmentPage.tsx
+ª       EmDesenvolvimentoPage.css
+ª       EmDesenvolvimentoPage.tsx
+ª       EmpresasPage.tsx
+ª       EventCreationPage.tsx
+ª       EventDetailPage.tsx
+ª       EventosPage.css
+ª       EventosPage.tsx
+ª       FeedPage.css
+ª       FeedPage.tsx
+ª       FinancialDashboardPage.css
+ª       FinancialDashboardPage.tsx
+ª       GroupCampaignDetailPage.css
+ª       GroupCampaignDetailPage.tsx
+ª       GroupCampaignsPage.css
+ª       GroupCampaignsPage.tsx
+ª       GroupsPage.css
+ª       GroupsPage.tsx
+ª       GroupTimelinePage.css
+ª       GroupTimelinePage.tsx
+ª       GroupVoteDetailPage.css
+ª       GroupVoteDetailPage.tsx
+ª       GroupVotesPage.css
+ª       GroupVotesPage.tsx
+ª       GrupoDetailPage.css
+ª       GrupoDetailPage.tsx
+ª       GrupoNovoPage.css
+ª       GrupoNovoPage.tsx
+ª       GruposPage.css
+ª       GruposPage.tsx
+ª       HomePage.css
+ª       HomePage.tsx
+ª       InvitesPage.css
+ª       InvitesPage.tsx
+ª       InvoiceDashboardPage.css
+ª       InvoiceDashboardPage.tsx
+ª       InvoiceDetailPage.css
+ª       InvoiceDetailPage.tsx
+ª       LoyaltyPage.css
+ª       LoyaltyPage.tsx
+ª       MarketplaceDomainPage.css
+ª       MarketplaceDomainPage.tsx
+ª       MarketplaceHomePage.css
+ª       MarketplaceHomePage.tsx
+ª       MarketplacePage.css
+ª       MarketplacePage.tsx
+ª       MarketplaceSegmentPage.css
+ª       MarketplaceSegmentPage.tsx
+ª       MarketplaceStorePage.css
+ª       MarketplaceStorePage.tsx
+ª       MeusCompromissosPage.css
+ª       MeusCompromissosPage.tsx
+ª       MyOrdersPage.css
+ª       MyOrdersPage.tsx
+ª       OrganizationInvitePage.css
+ª       OrganizationInvitePage.tsx
+ª       OrganizationInvitesPage.css
+ª       OrganizationInvitesPage.tsx
+ª       OrganizationMembersPage.css
+ª       OrganizationMembersPage.tsx
+ª       OrganizationRolesPage.css
+ª       OrganizationRolesPage.tsx
+ª       OrganizationUnitsPage.css
+ª       OrganizationUnitsPage.tsx
+ª       PaymentLinkPage.css
+ª       PaymentLinkPage.tsx
+ª       PayoutBatchDetailPage.css
+ª       PayoutBatchDetailPage.tsx
+ª       PayoutDashboardPage.css
+ª       PayoutDashboardPage.tsx
+ª       PdvPage.css
+ª       PdvPage.tsx
+ª       PerfilPage.tsx
+ª       PilotObserverPage.css
+ª       PilotObserverPage.tsx
+ª       PolicyManagementPage.css
+ª       PolicyManagementPage.tsx
+ª       ProviderConsole.css
+ª       ProviderConsole.tsx
+ª       RiskCommandCenterPage.css
+ª       RiskCommandCenterPage.tsx
+ª       SearchPage.css
+ª       SearchPage.tsx
+ª       ServiceAvailabilityPage.css
+ª       ServiceAvailabilityPage.tsx
+ª       ServiceBookingRequestsPage.css
+ª       ServiceBookingRequestsPage.tsx
+ª       ServiceBookingsPage.css
+ª       ServiceBookingsPage.tsx
+ª       ServiceDetailPage.css
+ª       ServiceDetailPage.tsx
+ª       ServiceDiscoveryDetailPage.css
+ª       ServiceDiscoveryDetailPage.tsx
+ª       ServiceDiscoveryPage.css
+ª       ServiceDiscoveryPage.tsx
+ª       ServiceOrderDetailPage.css
+ª       ServiceOrderDetailPage.tsx
+ª       ServiceOrdersPage.css
+ª       ServiceOrdersPage.tsx
+ª       ServicesListPage.css
+ª       ServicesListPage.tsx
+ª       ServicosPage.css
+ª       ServicosPage.tsx
+ª       SharePage.css
+ª       SharePage.tsx
+ª       SocialCompanyPage.tsx
+ª       SocialPage.tsx
+ª       SocialProfilePage.tsx
+ª       StoreOnboardingWizard.css
+ª       StoreOnboardingWizard.tsx
+ª       SubscriptionsPage.css
+ª       SubscriptionsPage.tsx
+ª       TabPage.css
+ª       TabPage.tsx
+ª       TransactionDetailPage.tsx
+ª       UnifiedAgendaPage.css
+ª       UnifiedAgendaPage.tsx
+ª       UserServiceTracker.css
+ª       UserServiceTracker.tsx
+ª       VenuePublicPage.css
+ª       VenuePublicPage.tsx
+ª       VotesPage.css
+ª       VotesPage.tsx
+ª       WalletPage.tsx
+ª       
++---services
+ª       activity-aggregation.service.ts
+ª       event-wizard-rules.ts
+ª       health-signals.service.ts
+ª       operational-limits.service.ts
+ª       pending-actions.service.ts
+ª       pilot-observer.service.ts
+ª       workflow-detection.service.ts
+ª       
++---styles
+ª       global.css
+ª       
++---types
+ª       assistant.ts
+ª       authority-context.ts
+ª       company-onboarding.ts
+ª       compatibility.ts
+ª       dispute.ts
+ª       event-rsvp.ts
+ª       event-spec.ts
+ª       event-wizard.ts
+ª       health-signal.ts
+ª       identity.ts
+ª       operational-state.ts
+ª       pending-action.ts
+ª       publication.ts
+ª       workflow.ts
+ª       
++---utils
+    ª   action-nature.tsx
+    ª   actorLanguage.ts
+    ª   backend-check.ts
+    ª   calendar.ts
+    ª   canonical-language.ts
+    ª   categoryLabelNormalizer.ts
+    ª   cep.ts
+    ª   closure-continuity.tsx
+    ª   cnpj.ts
+    ª   cpf.ts
+    ª   dateNormalizer.ts
+    ª   dateUtils.ts
+    ª   devLog.ts
+    ª   event-spec-mapper.ts
+    ª   feedScoring.ts
+    ª   functioning-evidence.tsx
+    ª   guardrails.ts
+    ª   institutional-memory.tsx
+    ª   institutional-pulse.tsx
+    ª   institutional-reading-principles.tsx
+    ª   institutional-review-ritual.tsx
+    ª   institutional-rhythm.tsx
+    ª   institutional-semantic-alignment.tsx
+    ª   INSTITUTIONAL_CONCEPTS.md
+    ª   INSTITUTIONAL_CONCEPT_EVOLUTIONS.md
+    ª   INSTITUTIONAL_CONTINUITY_WITHOUT_CONSENSUS.md
+    ª   INSTITUTIONAL_DECISION_SCOPE.md
+    ª   INSTITUTIONAL_DECISION_TENSIONS.md
+    ª   INSTITUTIONAL_EXCEPTIONS.md
+    ª   INSTITUTIONAL_NON_DECISIONS.md
+    ª   intent-classifier.ts
+    ª   intentDetection.ts
+    ª   LAYER_RESPONSIBILITY.md
+    ª   nameNormalizer.ts
+    ª   phone.ts
+    ª   planGate.ts
+    ª   service-orders-helpers.ts
+    ª   temporal-state.ts
+    ª   toast.ts
+    ª   trustSignals.ts
+    ª   validation.ts
+    ª   webauthn.ts
+    ª   weight-provider.ts
+    ª   
+    +---temporal
+            formatTime.ts
+            index.ts
+            normalizeTime.ts
+            validateTimeRange.ts
+            
+
+================================================================================
+BACKEND - arquivos da raiz (backend\\)
+================================================================================
+.env
+.env.example
+.gitignore
+.prettierrc
+add-constraint-company-documents.js
+backend_src_tree.txt
+BOOT.ts
+core_files.txt
+core_tree.txt
+dev-output-latest.txt
+dev-output.txt
+DIAGNOSTICO_BIRTHDATE.sql
+DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql
+diagnostico.ps1
+docker-compose.yml
+docs_files.txt
+docs_tree.txt
+execute-migration-312-temp.ts
+INICIAR_BACKEND_FIXED.bat
+jest.config.mjs
+lint-output.txt
+MATAR_NODE.ps1
+migrations_files.txt
+migrations_tree.txt
+package.json
+promote-user-report.json
+RELATORIO_FINAL_MIGRATION.txt
+remove-bom-from-env.ps1
+run-migration-073.js
+run-single-migration.js
+src_tree.txt
+test-after-migration-report.json
+test-after-rebuild-report.json
+test-after-restart-report.json
+test-auth-flow-report.json
+test-birthdate-persistence.ts
+test-full-migrations.ts
+test-function-direct.js
+test-login.js
+test-migrations-clean.js
+test-routes-after-permissions-report.json
+test-server-quick.js
+test-server-startup.js
+test-start.js
+test.ts
+tsconfig-paths-bootstrap.js
+tsconfig.build.json
+tsconfig.dev.json
+tsconfig.json
+validate-migrations.js
+VERIFICAR_SISTEMA.ps1
+
+================================================================================
+BACKEND - arvore completa migrations (backend\\migrations\\)
+================================================================================
+Listagem de caminhos de pasta para o volume Windows
+O n·mero de sÚrie do volume Ú AA11-8EC7
+C:\UNIFICARD\BACKEND\MIGRATIONS
+    .gitkeep
+    000_schema_migrations.sql
+    001_initial_schema.sql
+    002_rbac.sql
+    003_config_system.sql
+    004_notify_system.sql
+    005_unifywork.sql
+    006_reviews_and_reputation.sql
+    009_rides_part1_geography.sql
+    010_rides_part2_drivers_vehicles.sql
+    011_rides_part3_ride_lifecycle.sql
+    012_rides_part4_pricing.sql
+    013_rides_part5_distribution.sql
+    014_rides_part6_security_analytics.sql
+    015_rides_patch_enhanced.sql
+    016_rides_patch_requirements.sql
+    017_rides_driver_vehicle_compliance.sql
+    019_world_geography.sql
+    020_root_config.sql
+    021_tenants_add_city_id.sql
+    022_global_identity.sql
+    023_reviews_reputation_global_identity.sql
+    024_economy_global_identity.sql
+    025_global_user_residence.sql
+    026_events_core.sql
+    027_event_organizers.sql
+    028_catalog_canonical.sql
+    029_social_core.sql
+    030_social_actions.sql
+    031_social_chat_intelligence.sql
+    032_schedule_universal.sql
+    033_care_engine.sql
+    034_memory_engine.sql
+    036_rides_patch_requirements.sql
+    037_groups_system.sql
+    038_groups_rbac_permissions.sql
+    039_social_groups_integration.sql
+    043_category_core_canonical.sql
+    044_create_user_skills_categories.sql
+    045_expand_professional_services.sql
+    046_add_combo_discounts.sql
+    047_companies_system.sql
+    048_user_plan.sql
+    049_add_metadata_to_transactions.sql
+    050_social_2_0.sql
+    051_social_follows.sql
+    052_social_economic.sql
+    053_social_ledger_hardening.sql
+    054_social_purpose_targeting.sql
+    059_create_occupations_reference.sql
+    061_user_education_companies.sql
+    062_regional_fund_governance.sql
+    063_regional_fund_governance_patch.sql
+    064_schedule_unique_owners.sql
+    065_schedule_slots_unique.sql
+    066_company_employees.sql
+    067_schedules_event_owner.sql
+    068_events_lifecycle_extension.sql
+    069_event_commerce.sql
+    070_posts_event_link.sql
+    071_event_consumption_status.sql
+    072_event_idempotency.sql
+    073_company_status_and_documents.sql
+    074_event_metrics.sql
+    075_organizer_plans.sql
+    076_organizer_subscriptions.sql
+    078_unifybank_test_currency.sql
+    079_impact_ledger.sql
+    080_actor_reputation.sql
+    081_company_validations.sql
+    082_audit_events.sql
+    083_cultural_profiles.sql
+    084_cultural_events.sql
+    085_cultural_event_checkins.sql
+    086_event_occupancy_model.sql
+    087_events_multi_actor.sql
+    088_votes_system.sql
+    089_add_token_version_to_users.sql
+    090_events_canonical_contract_v1.sql
+    091_event_attendees_canonical_contract_v1.sql
+    092_event_escrow.sql
+    093_actor_scores_penalties.sql
+    094_event_participants.sql
+    095_events_split_processed.sql
+    096_check_in_check_out_v1.4.sql
+    097_actor_debts_due_at.sql
+    098_groups_upgrade_v1.sql
+    099_fix_cnpj_constraint.sql
+    106_fix_post_migration_issues.sql
+    108_consolidation_fix_all_issues.sql
+    109_consolidation_fix_all_issues_IMPROVED.sql
+    110_fix_company_status_values.sql
+    111_create_user_profiles.sql
+    113_add_referral_code_to_users.sql
+    114_create_user_referral_links.sql
+    115_create_ledger_referral_splits.sql
+    116_add_unique_user_id_to_user_profiles.sql
+    117_remove_cpf_from_metadata_and_prevent_future.sql
+    118_cpf_phase0_hardening.sql
+    119_groups_social_features.sql
+    120_groups_community_governance.sql
+    121_location_core_neighborhoods.sql
+    122_location_core_normalization.sql
+    123_location_core_addresses.sql
+    126_groups_financial_purpose.sql
+    127_group_invites.sql
+    128_group_votes.sql
+    129_group_invites_expiration.sql
+    130_add_audience_description_to_groups.sql
+    131_create_bank_ledger.sql
+    132_create_bank_transactions.sql
+    133_add_profile_personal_confirmed.sql
+    134_add_health_scope_to_categories..txt
+    134_create_system_accounts.sql
+    135_extend_categories_scope_with_health.sql
+    136_services_domain.sql
+    137_service_availability.sql
+    138_service_booking.sql
+    139_service_booking_decision.sql
+    140_service_payment_request.sql
+    141_service_payment_execution.sql
+    142_opportunity_dispatch.sql
+    143_social_inbox.sql
+    144_unified_availability.sql
+    145_availability_participants.sql
+    146_availability_conflict_inbox.sql
+    147_company_members.sql
+    148_observability_passive.sql
+    150_add_metadata_to_rides.sql
+    151_create_user_group_allocations.sql
+    152_create_bank_policies.sql
+    153_create_referrals.sql
+    154_create_actor_registry.sql
+    155_create_actor_delegations.sql
+    156_pilot_events.sql
+    157_create_event_specs.sql
+    158_create_publication_metadata.sql
+    159_create_publication_audit_log.sql
+    160_create_bank_limit_change_requests.sql
+    161_create_bank_limits_read_model.sql
+    162_create_webauthn_credentials.sql
+    163_create_product_categories.sql
+    164_create_product_attributes.sql
+    165_create_product_types.sql
+    166_create_products.sql
+    167_create_product_variants.sql
+    168_create_inventory_movements.sql
+    169_create_inventory_balances.sql
+    170_create_inventory_lots.sql
+    171_add_lot_to_inventory_movements.sql
+    172_create_orders.sql
+    173_create_order_items.sql
+    174_create_order_status_history.sql
+    175_create_payment_intents.sql
+    176_create_payment_transactions.sql
+    177_create_payment_splits.sql
+    178_create_payout_transactions.sql
+    179_create_pdv_sessions.sql
+    180_create_inventory_reservations.sql
+    181_create_fiscal_documents.sql
+    182_create_social_marketplace_refs.sql
+    183_create_product_prices.sql
+    184_create_promotions.sql
+    185_create_alerts.sql
+    186_create_organization_units.sql
+    187_performance_indexes_hardening.sql
+    188_create_fiscal_provider_attempts.sql
+    189_create_fulfillment_orders.sql
+    190_create_stock_transfers.sql
+    191_create_stock_transfer_receipts.sql
+    192_create_inventory_adjustments.sql
+    193_create_scheduled_actions.sql
+    194_create_service_orders.sql
+    195_create_calendar_events.sql
+    196_create_suppliers.sql
+    197_create_purchase_orders.sql
+    198_create_purchase_order_items.sql
+    199_create_accounts_payable.sql
+    200_create_accounts_receivable.sql
+    201_create_payment_methods.sql
+    202_create_unifycard_transactions.sql
+    203_create_groups.sql
+    204_create_referral_codes.sql
+    205_create_commission_rules.sql
+    206_create_company_profiles.sql
+    207_create_events.sql
+    208_create_event_tickets.sql
+    209_create_ticket_sales.sql
+    210_create_event_checkins.sql
+    211_create_settlements.sql
+    212_create_region_accounts.sql
+    213_create_organization_roles.sql
+    214_create_organization_members.sql
+    215_create_organization_invites.sql
+    216_create_public_profiles.sql
+    217_create_tax_profiles.sql
+    218_create_business_segments.sql
+    219_create_unifycard_payment_methods.sql
+    220_create_regional_fees.sql
+    221_create_event_settlements.sql
+    222_create_contacts.sql
+    223_add_kyc_status_to_contacts.sql
+    224_create_pix_charges.sql
+    225_create_pix_webhook_events.sql
+    226_create_payment_links.sql
+    227_create_payment_link_payments.sql
+    228_create_crm_notes.sql
+    229_create_crm_tags.sql
+    230_create_crm_contact_tags.sql
+    231_create_crm_consents.sql
+    232_create_subscriptions.sql
+    233_create_menus.sql
+    234_create_tabs.sql
+    235_create_tab_orders.sql
+    236_create_loyalty_accounts.sql
+    237_create_loyalty_ledger.sql
+    238_create_loyalty_rules.sql
+    239_create_loyalty_vouchers.sql
+    240_create_presence_rsvps.sql
+    241_create_checkin_tokens.sql
+    242_create_checkins.sql
+    243_create_promo_benefits.sql
+    244_create_live_presence.sql
+    245_create_chat_rooms.sql
+    246_create_chat_messages.sql
+    247_create_chat_blocks.sql
+    248_create_chat_reports.sql
+    250_seed_learning_categories.sql
+    251_create_health_declarations.sql
+    252_extend_health_declarations_v2.sql
+    253_create_health_relational_model.sql
+    254_add_decision_id_to_service_orders.sql
+    255_add_service_order_id_to_bank_splits.sql
+    256_create_contextual_threads.sql
+    257_create_system_notifications.sql
+    258_create_business_audit_logs.sql
+    259_create_agreements.sql
+    260_add_agreement_audit_actions.sql
+    261_create_evidence_packs.sql
+    262_add_evidence_audit_actions.sql
+    263_create_escrow_accounts.sql
+    264_add_escrow_audit_actions.sql
+    265_create_trust_profiles.sql
+    266_add_trust_audit_actions.sql
+    267_add_bypass_audit_actions.sql
+    268_create_ledger_entries.sql
+    269_create_payouts.sql
+    270_create_invoices.sql
+    271_create_policy_engine.sql
+    272_create_actor_category_imports.sql
+    273_marketplace_categories_seed.sql
+    274_marketplace_subcategories_seed.sql
+    275_marketplace_branches_seed.sql
+    276_marketplace_taxonomy_fix.sql
+    277_marketplace_content_seed.sql
+    278_marketplace_domains.sql
+    279_company_domains.sql
+    280_marketplace_category_type_segments.sql
+    281_marketplace_reorganize_segments_offer_categories.sql
+    282_marketplace_segments_fix_slugs.sql
+    284_CHECKLIST_VALIDACAO.md
+    285_add_financial_authorship.sql
+    286_harden_financial_authorship.sql
+    287_backfill_financial_authorship.sql
+    288_add_financial_authorship_fks.sql
+    290_create_bank_reconciliation_history.sql
+    291_extend_event_staff_operational_commitments.sql
+    292_create_event_custody.sql
+    293_create_event_split_declarative.sql
+    294_create_event_payment_authorization.sql
+    295_create_event_refund_chargeback.sql
+    296_create_event_payment_execution.sql
+    297_fase5_allow_null_event_datetimes.sql
+    298_add_metadata_to_events.sql
+    299_migrate_pedreiro_specializations_to_skills.sql
+    300_fase5_allow_null_created_by_global_user.sql
+    301_fase5_update_event_type_constraint.sql
+    302_fase5_update_status_constraint.sql
+    303_p0_2_event_spec_event_id_required.sql
+    304_company_canonical_birth.sql
+    305_create_ssot_violations.sql
+    306_create_tenant_contexts.sql
+    307_create_human_mvp_events.sql
+    308_create_human_mvp_service_offers.sql
+    309_create_human_mvp_opportunities.sql
+    310_create_human_mvp_event_instances.sql
+    311_add_execution_to_event_instances.sql
+    312_tenant_default_context_permissions.sql
+    313_schema_invariant_hardening.sql
+    314_event_idempotency_tracking.sql
+    315_auth_rate_limit_logs.sql
+    400_backfill_catalog_categories_to_core.sql
+    401_schedule_performance_indexes.sql
+    402_create_bank_accounts.sql
+    403_create_bank_splits.sql
+    404_institutional_memory.sql
+    405_pilot_invites.sql
+    406_pilot_human_observation.sql
+    407_pilot_hypotheses.sql
+    408_fix_reactions_entity_type_dependency.sql
+    409_ensure_reactions_user_id.sql
+    410_ensure_reactions_actor_id.sql
+    411_create_reactions.sql
+    412_ensure_reactions_actor_id.sql
+    413_ensure_reactions_user_id.sql
+    414_create_event_rsvp.sql
+    415_fix_reactions_entity_type_dependency.sql
+    416_create_event_actions_log.sql
+    417_create_company_opportunity_preferences.sql
+    418_audit_marketplace_categories.sql
+    419_seed_marketplace_segments_market.sql
+    420_fix_marketplace_segments_encoding.sql
+    421_validate_encoding.sql
+    422_rename_financial_authorship_constraints.sql
+    423_fase5_allow_null_legacy_event_times.sql
+    424_seed_categories_level0_1.sql
+    migration-test-output.log
+    README.md
+    
+NÒo existem subpastas 
+
+
+================================================================================
+BACKEND - arvore completa src (backend\\src\\)
+================================================================================
+Listagem de caminhos de pasta para o volume Windows
+O n·mero de sÚrie do volume Ú AA11-8EC7
+C:\UNIFICARD\BACKEND\SRC
+ª   BOOT.ts
+ª   server-TESTE.ts
+ª   server-TESTE2.ts
+ª   server.ts
+ª   TESTE_ENTRYPOINT.ts
+ª   
++---config
+ª       testOverrideUsers.ts
+ª       
++---contracts
+ª   +---marketplace
+ª           ActivationEvent.contract.ts
+ª           ActorRole.contract.ts
+ª           B2BCommercialContract.contract.ts
+ª           B2BContractExecution.contract.ts
+ª           BatchCommitment.contract.ts
+ª           BusinessTemplate.contract.ts
+ª           CapacityMetrics.contract.ts
+ª           CheckoutIntent.contract.ts
+ª           CompanyCollaborator.contract.ts
+ª           CompanyOnboarding.contract.ts
+ª           CompanyPlan.contract.ts
+ª           DeliveryOrder.contract.ts
+ª           DisputeCase.contract.ts
+ª           DistributionHub.contract.ts
+ª           EconomicEvent.contract.ts
+ª           EconomicIdentity.contract.ts
+ª           EconomicSustainabilitySnapshot.contract.ts
+ª           IncentiveGrant.contract.ts
+ª           IncentiveRule.contract.ts
+ª           index.ts
+ª           IndustryAccount.contract.ts
+ª           OperationalCostProfile.contract.ts
+ª           Order.contract.ts
+ª           PaymentInfrastructureConfig.contract.ts
+ª           PaymentPlan.contract.ts
+ª           PaymentTerminal.contract.ts
+ª           PluginDefinition.contract.ts
+ª           PricingAssistanceReport.contract.ts
+ª           ProductionBatch.contract.ts
+ª           ProductTemplate.contract.ts
+ª           ProviderPresence.contract.ts
+ª           RegionalActivationRule.contract.ts
+ª           RegionalCapacityMetric.contract.ts
+ª           RegionalCapacitySnapshot.contract.ts
+ª           RegionalExpansionSignal.contract.ts
+ª           RegionalFinancialFlow.contract.ts
+ª           RegionalFund.contract.ts
+ª           RegionalFundAllocation.contract.ts
+ª           RegionalImpactMetrics.contract.ts
+ª           ReputationSnapshot.contract.ts
+ª           ResourceCompensation.contract.ts
+ª           RevenueSnapshot.contract.ts
+ª           ServiceCompletionSignal.contract.ts
+ª           ServiceDispatch.contract.ts
+ª           ServiceEvaluation.contract.ts
+ª           ServiceGovernanceMetrics.contract.ts
+ª           ServiceOrder.contract.ts
+ª           ServicePaymentHold.contract.ts
+ª           ServicePreReservation.contract.ts
+ª           ServiceQuote.contract.ts
+ª           ServiceRequest.contract.ts
+ª           ServiceResource.contract.ts
+ª           ServiceTemplateCanonical.contract.ts
+ª           ServiceVisit.contract.ts
+ª           SLAContract.contract.ts
+ª           Subscription.contract.ts
+ª           TrustEvent.contract.ts
+ª           VoucherClaim.contract.ts
+ª           VoucherOffer.contract.ts
+ª           VoucherRedemptionEvent.contract.ts
+ª           
++---core
+ª   ª   core.module.ts
+ª   ª   core.routes.ts
+ª   ª   core.service.ts
+ª   ª   db.ts
+ª   ª   errors.ts
+ª   ª   types.ts
+ª   ª   
+ª   +---action-context
+ª   ª       action-context.middleware.ts
+ª   ª       
+ª   +---actor-delegation
+ª   ª       actor-delegation.repository.ts
+ª   ª       
+ª   +---actor-registry
+ª   ª       actor-registry.service.ts
+ª   ª       
+ª   +---ai
+ª   ª   ª   ai-context.ts
+ª   ª   ª   ai-engine.ts
+ª   ª   ª   ai-kernel.ts
+ª   ª   ª   ai-tasks.ts
+ª   ª   ª   ai.module.ts
+ª   ª   ª   ai.routes.ts
+ª   ª   ª   ai.types.ts
+ª   ª   ª   
+ª   ª   +---approval
+ª   ª   ª       approval.routes.ts
+ª   ª   ª       approval.service.ts
+ª   ª   ª       approval.types.ts
+ª   ª   ª       
+ª   ª   +---files
+ª   ª   ª       file-reader.routes.ts
+ª   ª   ª       file-reader.service.ts
+ª   ª   ª       file-reader.types.ts
+ª   ª   ª       
+ª   ª   +---llm
+ª   ª   ª       llm.adapter.ts
+ª   ª   ª       
+ª   ª   +---memory
+ª   ª   ª       memory.service.ts
+ª   ª   ª       memory.types.ts
+ª   ª   ª       
+ª   ª   +---network
+ª   ª   ª       network.routes.ts
+ª   ª   ª       network.service.ts
+ª   ª   ª       network.types.ts
+ª   ª   ª       
+ª   ª   +---packages
+ª   ª   ª       packages.routes.ts
+ª   ª   ª       packages.service.ts
+ª   ª   ª       packages.types.ts
+ª   ª   ª       
+ª   ª   +---patch
+ª   ª   ª       patch-apply.service.ts
+ª   ª   ª       patch-apply.types.ts
+ª   ª   ª       patch.routes.ts
+ª   ª   ª       patch.service.ts
+ª   ª   ª       patch.types.ts
+ª   ª   ª       
+ª   ª   +---strategy
+ª   ª   ª       strategy.routes.ts
+ª   ª   ª       strategy.types.ts
+ª   ª   ª       
+ª   ª   +---tasks
+ª   ª           tasks.routes.ts
+ª   ª           tasks.service.ts
+ª   ª           tasks.types.ts
+ª   ª           
+ª   +---alerts
+ª   ª       alert.service.ts
+ª   ª       
+ª   +---assistant-context
+ª   ª       assistant-context.service.ts
+ª   ª       default-assumptions.service.ts
+ª   ª       
+ª   +---audit
+ª   ª       audit.service.ts
+ª   ª       
+ª   +---auth
+ª   ª       auth.module.ts
+ª   ª       auth.plugin.ts
+ª   ª       auth.routes.ts
+ª   ª       auth.service.ts
+ª   ª       auth.types.ts
+ª   ª       webauthn.repository.ts
+ª   ª       webauthn.routes.ts
+ª   ª       webauthn.service.ts
+ª   ª       webauthn.types.ts
+ª   ª       
+ª   +---authorization
+ª   ª       authorization.service.ts
+ª   ª       business-authorization.module.ts
+ª   ª       business-authorization.routes.ts
+ª   ª       business-authorization.service.ts
+ª   ª       business-permissions.types.ts
+ª   ª       permission-keys.ts
+ª   ª       require-permission.guard.ts
+ª   ª       validate-permissions.ts
+ª   ª       
+ª   +---availability
+ª   ª       availability.module.ts
+ª   ª       unified-availability.repository.ts
+ª   ª       unified-availability.routes.ts
+ª   ª       unified-availability.service.ts
+ª   ª       unified-availability.types.ts
+ª   ª       
+ª   +---bank
+ª   ª   ª   ports-registry.ts
+ª   ª   ª   
+ª   ª   +---ports
+ª   ª           bank-account.port.ts
+ª   ª           bank-integration.port.ts
+ª   ª           bank-limit.port.ts
+ª   ª           bank-transaction.port.ts
+ª   ª           index.ts
+ª   ª           
+ª   +---calendar
+ª   ª       unified-calendar.module.ts
+ª   ª       unified-calendar.routes.ts
+ª   ª       unified-calendar.service.ts
+ª   ª       unified-calendar.types.ts
+ª   ª       
+ª   +---catalog
+ª   ª   ª   catalog-payment.service.ts
+ª   ª   ª   category-review.module.ts
+ª   ª   ª   category-review.routes.ts
+ª   ª   ª   category-review.service.ts
+ª   ª   ª   
+ª   ª   +---canonical
+ª   ª   ª       canonical-product.module.ts
+ª   ª   ª       canonical-product.routes.ts
+ª   ª   ª       canonical-product.service.ts
+ª   ª   ª       canonical-product.types.ts
+ª   ª   ª       
+ª   ª   +---dynamic-pricing
+ª   ª   ª       dynamic-pricing.module.ts
+ª   ª   ª       dynamic-pricing.routes.ts
+ª   ª   ª       dynamic-pricing.service.ts
+ª   ª   ª       dynamic-pricing.types.ts
+ª   ª   ª       
+ª   ª   +---offer-index
+ª   ª   ª       offer-index.module.ts
+ª   ª   ª       offer-index.routes.ts
+ª   ª   ª       offer-index.service.ts
+ª   ª   ª       offer-index.types.ts
+ª   ª   ª       
+ª   ª   +---product-demand
+ª   ª           product-demand.module.ts
+ª   ª           product-demand.routes.ts
+ª   ª           product-demand.service.ts
+ª   ª           product-demand.types.ts
+ª   ª           
+ª   +---categories
+ª   ª   ª   categories.model.ts
+ª   ª   ª   categories.module.ts
+ª   ª   ª   categories.repository.ts
+ª   ª   ª   categories.repository.ts.bak
+ª   ª   ª   categories.routes.ts
+ª   ª   ª   categories.schemas.ts
+ª   ª   ª   categories.service.ts
+ª   ª   ª   categories.types.ts
+ª   ª   ª   category-input-audit.service.ts
+ª   ª   ª   category-input-gate.service.ts
+ª   ª   ª   category-lexical-gate.service.ts
+ª   ª   ª   cbo-matcher.service.ts
+ª   ª   ª   hobby-matcher.service.ts
+ª   ª   ª   hobby-rate-limit.service.ts
+ª   ª   ª   hobby-verb-heuristic.service.ts
+ª   ª   ª   occupation-form-checker.service.ts
+ª   ª   ª   ssot-admin.routes.ts
+ª   ª   ª   ssot-observability.service.ts
+ª   ª   ª   
+ª   ª   +---policies
+ª   ª   ª       category-admission-policy.service.ts
+ª   ª   ª       category-admission-policy.types.ts
+ª   ª   ª       occupational-classification.prompt.ts
+ª   ª   ª       
+ª   ª   +---taxonomy
+ª   ª   ª       complete-taxonomy.json
+ª   ª   ª       global-taxonomy.json
+ª   ª   ª       import-commands.json
+ª   ª   ª       import-taxonomy.js
+ª   ª   ª       taxonomy-generator.ts
+ª   ª   ª       
+ª   ª   +---__tests__
+ª   ª           ssot.test.ts
+ª   ª           
+ª   +---checkout
+ª   ª   ª   checkout.module.ts
+ª   ª   ª   checkout.routes.ts
+ª   ª   ª   CheckoutService.ts
+ª   ª   ª   EventOrganizerResolver.ts
+ª   ª   ª   
+ª   ª   +---types
+ª   ª           unifycard-checkout.types.ts
+ª   ª           
+ª   +---city
+ª   ª   +---city-readiness
+ª   ª           city-readiness.module.ts
+ª   ª           city-readiness.routes.ts
+ª   ª           city-readiness.service.ts
+ª   ª           city-readiness.types.ts
+ª   ª           
+ª   +---city-readiness
+ª   +---companies
+ª   ª       companies.module.ts
+ª   ª       companies.routes.ts
+ª   ª       companies.service.ts
+ª   ª       companies.types.ts
+ª   ª       company-canonical.routes.ts
+ª   ª       company-canonical.service.ts
+ª   ª       company-members.repository.ts
+ª   ª       company-members.routes.ts
+ª   ª       company-members.service.ts
+ª   ª       company-members.types.ts
+ª   ª       company-validation.service.ts
+ª   ª       
+ª   +---compatibility
+ª   ª       compatibility-engine.routes.ts
+ª   ª       compatibility-engine.service.ts
+ª   ª       compatibility-engine.types.ts
+ª   ª       compatibility.module.ts
+ª   ª       event-capacity.types.ts
+ª   ª       service-setup.types.ts
+ª   ª       venue-infrastructure.types.ts
+ª   ª       
+ª   +---config
+ª   ª       config.module.ts
+ª   ª       config.routes.ts
+ª   ª       config.schemas.ts
+ª   ª       config.service.ts
+ª   ª       config.types.ts
+ª   ª       env-validation.ts
+ª   ª       feature-flags.service.ts
+ª   ª       observation-mode.service.ts
+ª   ª       staging.config.ts
+ª   ª       
+ª   +---dashboard
+ª   ª       daily-metrics.routes.ts
+ª   ª       daily-metrics.service.ts
+ª   ª       dashboard.module.ts
+ª   ª       dashboard.routes.ts
+ª   ª       dashboard.service.ts
+ª   ª       dashboard.types.ts
+ª   ª       
+ª   +---database
+ª   ª       pool.ts
+ª   ª       schema-validator.ts
+ª   ª       transaction.helper.ts
+ª   ª       
+ª   +---db
+ª   ª       migrate.ts
+ª   ª       schema-guard.ts
+ª   ª       seed.ts
+ª   ª       
+ª   +---decision-log
+ª   ª       decision-log.service.ts
+ª   ª       decision-log.types.ts
+ª   ª       
+ª   +---economy
+ª   ª   ª   account.service.ts
+ª   ª   ª   distribution.service.ts
+ª   ª   ª   economy.module.ts
+ª   ª   ª   escrow.service.ts
+ª   ª   ª   group-account.service.ts
+ª   ª   ª   index.ts
+ª   ª   ª   referral-split.service.ts
+ª   ª   ª   region-account.service.ts
+ª   ª   ª   split.service.ts
+ª   ª   ª   split.types.ts
+ª   ª   ª   transaction.service.ts
+ª   ª   ª   
+ª   ª   +---accounts
+ª   ª   ª       account.routes.ts
+ª   ª   ª       account.schemas.ts
+ª   ª   ª       account.service.ts
+ª   ª   ª       account.types.ts
+ª   ª   ª       
+ª   ª   +---distribution
+ª   ª   ª       distribution.routes.ts
+ª   ª   ª       distribution.schemas.ts
+ª   ª   ª       distribution.service.ts
+ª   ª   ª       distribution.types.ts
+ª   ª   ª       
+ª   ª   +---fund
+ª   ª   ª       fund-admin.routes.ts
+ª   ª   ª       fund-admin.service.ts
+ª   ª   ª       fund-dashboard.routes.ts
+ª   ª   ª       fund-dashboard.service.ts
+ª   ª   ª       fund-visibility.service.ts
+ª   ª   ª       fund-weekly-report.service.ts
+ª   ª   ª       fund-weekly-scheduler.ts
+ª   ª   ª       fund.module.ts
+ª   ª   ª       fund.routes.ts
+ª   ª   ª       fund.service.ts
+ª   ª   ª       fund.types.ts
+ª   ª   ª       
+ª   ª   +---ledger
+ª   ª   ª       ledger.routes.ts
+ª   ª   ª       ledger.schemas.ts
+ª   ª   ª       ledger.service.ts
+ª   ª   ª       ledger.types.ts
+ª   ª   ª       
+ª   ª   +---transactions
+ª   ª           transaction.routes.ts
+ª   ª           transaction.schemas.ts
+ª   ª           transaction.service.ts
+ª   ª           transaction.types.ts
+ª   ª           
+ª   +---errors
+ª   ª       error-codes.ts
+ª   ª       http-error.ts
+ª   ª       index.ts
+ª   ª       
+ª   +---events
+ª   ª   ª   event-actions.service.ts
+ª   ª   ª   event-bus.ts
+ª   ª   ª   event-creation.orchestrator.ts
+ª   ª   ª   event-custody.service.ts
+ª   ª   ª   event-economic-phase.service.ts
+ª   ª   ª   event-economy.service.ts
+ª   ª   ª   event-metrics.service.ts
+ª   ª   ª   event-moderator.service.ts
+ª   ª   ª   event-payment-execution.service.ts
+ª   ª   ª   event-payment-prepared.service.ts
+ª   ª   ª   event-rate-limit.service.ts
+ª   ª   ª   event-refund-chargeback.service.ts
+ª   ª   ª   event-rsvp.service.ts
+ª   ª   ª   event-spec-orchestration.service.ts
+ª   ª   ª   event-split-declarative.service.ts
+ª   ª   ª   event.aggregate.ts
+ª   ª   ª   event.module.ts
+ª   ª   ª   event.routes.ts
+ª   ª   ª   event.service.ts
+ª   ª   ª   event.types.ts
+ª   ª   ª   idempotency-tracker.ts
+ª   ª   ª   IMPLEMENTACAO_EVENTO_MINIMO_RESUMO.md
+ª   ª   ª   operational-commitments.aggregate.ts
+ª   ª   ª   operational-commitments.service.ts
+ª   ª   ª   operational-commitments.types.ts
+ª   ª   ª   register-handlers.ts
+ª   ª   ª   RELATORIO_ATIVACAO_FASE10.md
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE10.md
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE4.md
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE5.md
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE7.md
+ª   ª   ª   RELATORIO_CHECKPOINT_FASE8.md
+ª   ª   ª   RELATORIO_DEBT_BLOCKING.md
+ª   ª   ª   RELATORIO_FINAL_TAREFAS_V1.4.md
+ª   ª   ª   RELATORIO_TAREFAS_FASE10.md
+ª   ª   ª   RELATORIO_VALIDACAO_FASE10.md
+ª   ª   ª   responsibility.service.ts
+ª   ª   ª   TESTES_MANUAIS_FASE5.md
+ª   ª   ª   
+ª   ª   +---aspects
+ª   ª   ª       event-aspects.service.ts
+ª   ª   ª       event-aspects.v1.ts
+ª   ª   ª       
+ª   ª   +---frontend
+ª   ª   ª   +---src
+ª   ª   ª       +---components
+ª   ª   ª           +---events
+ª   ª   ª               +---guided-flow
+ª   ª   +---specs
+ª   ª   ª       birthday-party-canonical-flow.md
+ª   ª   ª       birthday-questionnaire.dsl.json
+ª   ª   ª       event-spec-to-rfq.mapper.ts
+ª   ª   ª       event-spec.service.ts
+ª   ª   ª       event-spec.types.ts
+ª   ª   ª       EVENT_SPEC_DOCUMENTATION.md
+ª   ª   ª       
+ª   ª   +---__tests__
+ª   ª           event-economy.service.test.ts
+ª   ª           event.aggregate.test.ts
+ª   ª           event.availability-rich.test.ts
+ª   ª           event.availability.test.ts
+ª   ª           event.declaration.test.ts
+ª   ª           event.service.test.ts
+ª   ª           event.service.v2.test.ts
+ª   ª           event.time-windows.test.ts
+ª   ª           operational-commitments.aggregate.test.ts
+ª   ª           operational-commitments.service.test.ts
+ª   ª           
+ª   +---features
+ª   ª       feature-flags.ts
+ª   ª       
+ª   +---feed
+ª   ª       feed-plugin.cache.ts
+ª   ª       feed-plugin.registry.ts
+ª   ª       feed-plugin.resolver.ts
+ª   ª       feed-plugin.routes.ts
+ª   ª       feed-plugin.service.ts
+ª   ª       feed-plugin.types.ts
+ª   ª       feed.module.ts
+ª   ª       feed.routes.ts
+ª   ª       feed.service.ts
+ª   ª       feed.types.ts
+ª   ª       
+ª   +---fund
+ª   +---groups
+ª   ª   ª   ports-registry.ts
+ª   ª   ª   
+ª   ª   +---ports
+ª   ª           groups-repository.port.ts
+ª   ª           index.ts
+ª   ª           
+ª   +---health
+ª   ª       health.module.ts
+ª   ª       
+ª   +---identity
+ª   ª       identity.module.ts
+ª   ª       identity.routes.ts
+ª   ª       identity.schemas.ts
+ª   ª       identity.service.ts
+ª   ª       identity.types.ts
+ª   ª       identity.utils.ts
+ª   ª       
+ª   +---insight
+ª   ª       insight-engine.ts
+ª   ª       insight.service.ts
+ª   ª       insight.types.ts
+ª   ª       
+ª   +---instrumentation
+ª   ª       instrumentation.plugin.ts
+ª   ª       metrics.routes.ts
+ª   ª       types.ts
+ª   ª       
+ª   +---jobs
+ª   ª       subscription-expiration.job.ts
+ª   ª       
+ª   +---kyc
+ª   ª       kyc.validators.ts
+ª   ª       
+ª   +---location
+ª   ª       address-helpers.ts
+ª   ª       address.types.ts
+ª   ª       index.ts
+ª   ª       location-enrichment.service.ts
+ª   ª       location.repository.ts
+ª   ª       location.routes.ts
+ª   ª       location.service.ts
+ª   ª       location.types.ts
+ª   ª       location.validators.ts
+ª   ª       
+ª   +---logging
+ª   ª       canonical-logger.ts
+ª   ª       logger.ts
+ª   ª       split-logger.service.ts
+ª   ª       structured-logger.ts
+ª   ª       
+ª   +---matching
+ª   ª       matching.module.ts
+ª   ª       matching.routes.ts
+ª   ª       matching.service.ts
+ª   ª       matching.types.ts
+ª   ª       
+ª   +---memory
+ª   ª       memory.model.ts
+ª   ª       memory.module.ts
+ª   ª       memory.repository.ts
+ª   ª       memory.routes.ts
+ª   ª       memory.schemas.ts
+ª   ª       memory.service.ts
+ª   ª       memory.types.ts
+ª   ª       
+ª   +---notify
+ª   ª   ª   notify.module.ts
+ª   ª   ª   notify.processor.ts
+ª   ª   ª   notify.routes.ts
+ª   ª   ª   notify.schemas.ts
+ª   ª   ª   notify.service.ts
+ª   ª   ª   notify.types.ts
+ª   ª   ª   notify.worker.ts
+ª   ª   ª   
+ª   ª   +---handlers
+ª   ª   ª       index.ts
+ª   ª   ª       rides-notify.handlers.ts
+ª   ª   ª       work-notify.handlers.ts
+ª   ª   ª       
+ª   ª   +---providers
+ª   ª           email.provider.ts
+ª   ª           push.provider.ts
+ª   ª           sms.provider.ts
+ª   ª           templates.provider.ts
+ª   ª           webhook.provider.ts
+ª   ª           
+ª   +---observability
+ª   ª       bank-metrics.routes.ts
+ª   ª       bank-metrics.service.ts
+ª   ª       logger.ts
+ª   ª       observability-passive.projector.ts
+ª   ª       observability-passive.repository.ts
+ª   ª       observability-passive.types.ts
+ª   ª       
+ª   +---opportunity
+ª   ª       opportunity.module.ts
+ª   ª       opportunity.routes.ts
+ª   ª       opportunity.service.ts
+ª   ª       opportunity.types.ts
+ª   ª       
+ª   +---orchestrator
+ª   ª   ª   canonical-orchestrator.service.ts
+ª   ª   ª   orchestrator.ai.ts
+ª   ª   ª   orchestrator.executors.ts
+ª   ª   ª   orchestrator.model.ts
+ª   ª   ª   orchestrator.module.ts
+ª   ª   ª   orchestrator.routes.ts
+ª   ª   ª   orchestrator.schemas.ts
+ª   ª   ª   orchestrator.service.ts
+ª   ª   ª   orchestrator.types.ts
+ª   ª   ª   
+ª   ª   +---adapters
+ª   ª   ª       rides.adapter.ts
+ª   ª   ª       work.adapter.ts
+ª   ª   ª       
+ª   ª   +---contracts
+ª   ª   ª       canonical-event.ts
+ª   ª   ª       
+ª   ª   +---executors
+ª   ª           groups-activity.executors.ts
+ª   ª           groups.executors.ts
+ª   ª           work.executors.ts
+ª   ª           
+ª   +---pagination
+ª   ª       pagination.types.ts
+ª   ª       
+ª   +---pilot
+ª   ª       institutional-memory.repository.ts
+ª   ª       institutional-memory.routes.ts
+ª   ª       institutional-memory.service.ts
+ª   ª       pilot-checklist.repository.ts
+ª   ª       pilot-events.repository.ts
+ª   ª       pilot-events.routes.ts
+ª   ª       pilot-events.service.ts
+ª   ª       pilot-friction.job.ts
+ª   ª       pilot-human-observation.routes.ts
+ª   ª       pilot-human-observation.service.ts
+ª   ª       pilot-hypotheses.repository.ts
+ª   ª       pilot-hypotheses.service.ts
+ª   ª       pilot-invites.repository.ts
+ª   ª       pilot-invites.routes.ts
+ª   ª       pilot-invites.service.ts
+ª   ª       pilot-notes.repository.ts
+ª   ª       
+ª   +---plan
+ª   ª       plan-gate.service.ts
+ª   ª       plan.module.ts
+ª   ª       plan.routes.ts
+ª   ª       
+ª   +---plugins
+ª   ª       plugin-registry.ts
+ª   ª       plugin.types.ts
+ª   ª       
+ª   +---policy
+ª   ª       policy-registry.ts
+ª   ª       policy.types.ts
+ª   ª       
+ª   +---policy-resolution
+ª   ª       policy-resolution-engine.ts
+ª   ª       policy-resolution.types.ts
+ª   ª       
+ª   +---profile
+ª   ª       impact-overview.routes.ts
+ª   ª       pending-responsibilities.routes.ts
+ª   ª       profile-education-companies.routes.ts
+ª   ª       profile-education-companies.service.ts
+ª   ª       profile-education.routes.ts
+ª   ª       profile-education.service.ts
+ª   ª       profile-education.types.ts
+ª   ª       profile-health-facts.repository.ts
+ª   ª       profile-health-taxonomy-adapter.ts
+ª   ª       profile-health-taxonomy.repository.ts
+ª   ª       profile-health.repository.ts
+ª   ª       profile-health.routes.ts
+ª   ª       profile-health.service.ts
+ª   ª       profile-health.types.ts
+ª   ª       profile-inference-action.types.ts
+ª   ª       profile-inference.routes.ts
+ª   ª       profile-inference.service.ts
+ª   ª       profile-inference.types.ts
+ª   ª       profile-learning.routes.ts
+ª   ª       profile-learning.service.ts
+ª   ª       profile-learning.types.ts
+ª   ª       profile-physical.routes.ts
+ª   ª       profile-physical.service.ts
+ª   ª       profile-physical.types.ts
+ª   ª       profile-professional.routes.ts
+ª   ª       profile-professional.service.ts
+ª   ª       profile-professional.types.ts
+ª   ª       profile.module.ts
+ª   ª       profile.routes.ts
+ª   ª       profile.service.ts
+ª   ª       profile.types.ts
+ª   ª       
+ª   +---publication
+ª   ª       publication-engine.module.ts
+ª   ª       publication-engine.routes.ts
+ª   ª       publication-engine.service.ts
+ª   ª       publication-engine.types.ts
+ª   ª       PUBLICATION_ENGINE_DOCUMENTATION.md
+ª   ª       
+ª   +---rate-limiting
+ª   ª       auth-rate-limit.service.ts
+ª   ª       business-rate-limit.service.ts
+ª   ª       
+ª   +---rbac
+ª   ª       rbac.module.ts
+ª   ª       rbac.service.ts
+ª   ª       rbac.types.ts
+ª   ª       role.routes.ts
+ª   ª       role.schemas.ts
+ª   ª       role.service.ts
+ª   ª       
+ª   +---read-models
+ª   ª       read-model.projector.ts
+ª   ª       read-model.types.ts
+ª   ª       
+ª   +---referral
+ª   ª       referral-helper.service.ts
+ª   ª       referral.module.ts
+ª   ª       referral.routes.ts
+ª   ª       referral.service.ts
+ª   ª       
+ª   +---reporting
+ª   ª   ª   index.ts
+ª   ª   ª   reporting.repository.ts
+ª   ª   ª   reporting.routes.ts
+ª   ª   ª   reporting.service.ts
+ª   ª   ª   
+ª   ª   +---ai
+ª   ª   ª       RiskScoringEngine.ts
+ª   ª   ª       
+ª   ª   +---models
+ª   ª   ª       Report.ts
+ª   ª   ª       ReportEvent.ts
+ª   ª   ª       RiskFlag.ts
+ª   ª   ª       
+ª   ª   +---policies
+ª   ª           ReportingPolicy.ts
+ª   ª           
+ª   +---reputation
+ª   ª   ª   penalty.service.ts
+ª   ª   ª   reputation.events.ts
+ª   ª   ª   reputation.module.ts
+ª   ª   ª   reputation.routes.ts
+ª   ª   ª   reputation.schemas.ts
+ª   ª   ª   reputation.service.ts
+ª   ª   ª   reputation.types.ts
+ª   ª   ª   trust.routes.ts
+ª   ª   ª   trust.service.ts
+ª   ª   ª   
+ª   ª   +---__tests__
+ª   ª           debt-blocking.test.ts
+ª   ª           soft-block.test.ts
+ª   ª           
+ª   +---residence
+ª   ª       residence.routes.ts
+ª   ª       residence.schemas.ts
+ª   ª       residence.service.ts
+ª   ª       residence.types.ts
+ª   ª       
+ª   +---reviews
+ª   ª       review.module.ts
+ª   ª       review.routes.ts
+ª   ª       review.schemas.ts
+ª   ª       review.service.ts
+ª   ª       review.types.ts
+ª   ª       reviews.service.ts
+ª   ª       
+ª   +---root-config
+ª   ª       root-config.model.ts
+ª   ª       root-config.module.ts
+ª   ª       root-config.repository.ts
+ª   ª       root-config.routes.ts
+ª   ª       root-config.schemas.ts
+ª   ª       root-config.service.ts
+ª   ª       root-config.types.ts
+ª   ª       
+ª   +---simulation
+ª   ª       event-log.source.ts
+ª   ª       event-source.interface.ts
+ª   ª       event-translator.ts
+ª   ª       regional-split.simulation.ts
+ª   ª       simulation-engine.ts
+ª   ª       simulation.types.ts
+ª   ª       
+ª   +---social
+ª   ª   ª   ports-registry.ts
+ª   ª   ª   
+ª   ª   +---ports
+ª   ª           actor-effect.port.ts
+ª   ª           actor-intent.port.ts
+ª   ª           actor-repository.port.ts
+ª   ª           actor-utils.port.ts
+ª   ª           event-feed-handlers.port.ts
+ª   ª           index.ts
+ª   ª           social-repository.port.ts
+ª   ª           social-service.port.ts
+ª   ª           
+ª   +---tenants
+ª   ª   ª   system-tenant.ts
+ª   ª   ª   tenant-context-permission.service.ts
+ª   ª   ª   tenant.module.ts
+ª   ª   ª   tenant.routes.ts
+ª   ª   ª   tenant.schemas.ts
+ª   ª   ª   tenant.service.ts
+ª   ª   ª   tenant.types.ts
+ª   ª   ª   
+ª   ª   +---__tests__
+ª   ª           tenant-context-permissions.test.ts
+ª   ª           
+ª   +---unifybank
+ª   ª       bank-balance-consolidation.routes.ts
+ª   ª       bank-p2p-transfer.routes.ts
+ª   ª       bank-p2p-transfer.service.ts
+ª   ª       donation.routes.ts
+ª   ª       donation.service.ts
+ª   ª       regional-fund-governance-rate-limit.service.ts
+ª   ª       regional-fund-governance.routes.ts
+ª   ª       regional-fund-governance.service.ts
+ª   ª       test-currency.routes.ts
+ª   ª       test-currency.service.ts
+ª   ª       transparency-admin.routes.ts
+ª   ª       transparency.routes.ts
+ª   ª       transparency.service.ts
+ª   ª       unifybank.module.ts
+ª   ª       
+ª   +---user-group-allocation
+ª   ª       user-group-allocation.repository.ts
+ª   ª       user-group-allocation.routes.ts
+ª   ª       user-group-allocation.service.ts
+ª   ª       
+ª   +---utils
+ª   ª       structured-logger.ts
+ª   ª       
+ª   +---world
+ª       ª   world.module.ts
+ª       ª   world.schemas.ts
+ª       ª   world.types.ts
+ª       ª   
+ª       +---models
+ª       ª       city.model.ts
+ª       ª       country.model.ts
+ª       ª       state.model.ts
+ª       ª       
+ª       +---repositories
+ª       ª       city.repository.ts
+ª       ª       country.repository.ts
+ª       ª       state.repository.ts
+ª       ª       
+ª       +---routes
+ª       ª       world.routes.ts
+ª       ª       
+ª       +---services
+ª               world.service.ts
+ª               
++---jobs
+ª       event-scheduler.ts
+ª       post-event-split.job.ts
+ª       
++---modules
+ª   +---agreements
+ª   ª       agreement.repository.ts
+ª   ª       agreement.routes.ts
+ª   ª       agreement.service.ts
+ª   ª       agreement.types.ts
+ª   ª       agreements.module.ts
+ª   ª       
+ª   +---assistant
+ª   ª       assistant.model.ts
+ª   ª       assistant.module.ts
+ª   ª       assistant.routes.ts
+ª   ª       assistant.schemas.ts
+ª   ª       assistant.service.ts
+ª   ª       assistant.types.ts
+ª   ª       voice.channel.ts
+ª   ª       
+ª   +---automation
+ª   ª       alert.repository.ts
+ª   ª       alert.service.ts
+ª   ª       automation.routes.ts
+ª   ª       automation.service.ts
+ª   ª       automation.types.ts
+ª   ª       scheduled-action.repository.ts
+ª   ª       scheduled-action.service.ts
+ª   ª       scheduled-action.types.ts
+ª   ª       
+ª   +---bank
+ª   ª   ª   bank-account.repository.ts
+ª   ª   ª   bank-account.service.ts
+ª   ª   ª   bank-account.types.ts
+ª   ª   ª   bank-balance-by-cpf.service.ts
+ª   ª   ª   bank-balance-by-region.service.ts
+ª   ª   ª   bank-balance-consolidation.service.ts
+ª   ª   ª   bank-balance-consolidation.types.ts
+ª   ª   ª   bank-integration.service.ts
+ª   ª   ª   bank-ledger.repository.ts
+ª   ª   ª   bank-ledger.types.ts
+ª   ª   ª   bank-limit.repository.ts
+ª   ª   ª   bank-limit.service.ts
+ª   ª   ª   bank-limit.types.ts
+ª   ª   ª   bank-policy.service.ts
+ª   ª   ª   bank-reconciliation-history.repository.ts
+ª   ª   ª   bank-split-engine.service.ts
+ª   ª   ª   bank-split.repository.ts
+ª   ª   ª   bank-split.types.ts
+ª   ª   ª   bank-transaction.service.ts
+ª   ª   ª   bank-transaction.types.ts
+ª   ª   ª   financial-authorship.helper.ts
+ª   ª   ª   financial-authorship.types.ts
+ª   ª   ª   index.ts
+ª   ª   ª   
+ª   ª   +---adapters
+ª   ª           bank-account.adapter.ts
+ª   ª           bank-integration.adapter.ts
+ª   ª           bank-limit.adapter.ts
+ª   ª           bank-transaction.adapter.ts
+ª   ª           index.ts
+ª   ª           
+ª   +---business-audit
+ª   ª       business-audit.helpers.ts
+ª   ª       business-audit.module.ts
+ª   ª       business-audit.repository.ts
+ª   ª       business-audit.routes.ts
+ª   ª       business-audit.service.ts
+ª   ª       business-audit.types.ts
+ª   ª       
+ª   +---bypass-detection
+ª   ª       bypass-detection.service.ts
+ª   ª       bypass-detection.types.ts
+ª   ª       
+ª   +---care
+ª   ª       care.model.ts
+ª   ª       care.module.ts
+ª   ª       care.repository.ts
+ª   ª       care.routes.ts
+ª   ª       care.schemas.ts
+ª   ª       care.service.ts
+ª   ª       care.types.ts
+ª   ª       
+ª   +---catalog
+ª   ª       catalog.module.ts
+ª   ª       catalog.routes.ts
+ª   ª       catalog.service.ts
+ª   ª       catalog.types.ts
+ª   ª       offer.service.ts
+ª   ª       
+ª   +---contextual-messaging
+ª   ª       contextual-messaging.module.ts
+ª   ª       contextual-thread.repository.ts
+ª   ª       contextual-thread.routes.ts
+ª   ª       contextual-thread.service.ts
+ª   ª       contextual-thread.types.ts
+ª   ª       
+ª   +---crm
+ª   ª       crm.repository.ts
+ª   ª       crm.routes.ts
+ª   ª       crm.service.ts
+ª   ª       crm.types.ts
+ª   ª       
+ª   +---cultural
+ª   ª       cultural-event.service.ts
+ª   ª       cultural-profile.service.ts
+ª   ª       cultural.module.ts
+ª   ª       cultural.routes.ts
+ª   ª       
+ª   +---dashboard
+ª   ª       dashboard.routes.ts
+ª   ª       dashboard.service.ts
+ª   ª       dashboard.types.ts
+ª   ª       
+ª   +---devtools
+ª   ª       ai.routes.ts
+ª   ª       devtools.module.ts
+ª   ª       test-ai.ts
+ª   ª       
+ª   +---dispatch
+ª   ª       dispatch.module.ts
+ª   ª       opportunity-dispatch.repository.ts
+ª   ª       opportunity-dispatch.routes.ts
+ª   ª       opportunity-dispatch.service.ts
+ª   ª       opportunity-dispatch.types.ts
+ª   ª       
+ª   +---economy
+ª   ª       economic-overview.projector.ts
+ª   ª       economic-overview.routes.ts
+ª   ª       economic-overview.service.ts
+ª   ª       economic-overview.types.ts
+ª   ª       economy.module.ts
+ª   ª       
+ª   +---escrow
+ª   ª       escrow.module.ts
+ª   ª       escrow.repository.ts
+ª   ª       escrow.routes.ts
+ª   ª       escrow.service.ts
+ª   ª       escrow.types.ts
+ª   ª       
+ª   +---events
+ª   ª   ª   checkin.service.ts
+ª   ª   ª   event-checkin.repository.ts
+ª   ª   ª   event-feed.plugin.ts
+ª   ª   ª   event-metrics-dashboard.service.ts
+ª   ª   ª   event-metrics.service.ts
+ª   ª   ª   event-organizer-metrics.service.ts
+ª   ª   ª   event-rfq-matching.service.ts
+ª   ª   ª   event-rfq-opportunity.service.ts
+ª   ª   ª   event-rfq.routes.ts
+ª   ª   ª   event-rfq.service.ts
+ª   ª   ª   event-rfq.types.ts
+ª   ª   ª   event-state.service.ts
+ª   ª   ª   event-ticket.repository.ts
+ª   ª   ª   event.repository.ts
+ª   ª   ª   event.service.ts
+ª   ª   ª   event.types.ts
+ª   ª   ª   events-closure.routes.ts
+ª   ª   ª   events-economy.routes.ts
+ª   ª   ª   events-multi-actor.service.ts
+ª   ª   ª   events-payment.service.ts
+ª   ª   ª   events-rsvp.routes.ts
+ª   ª   ª   events-spec.routes.ts
+ª   ª   ª   events-sprint76.routes.ts
+ª   ª   ª   events-state-history.routes.ts
+ª   ª   ª   events.module.ts
+ª   ª   ª   events.routes.ts
+ª   ª   ª   events.schemas.ts
+ª   ª   ª   events.service.ts
+ª   ª   ª   events.types.ts
+ª   ª   ª   occupancy.service.ts
+ª   ª   ª   occupancy.types.ts
+ª   ª   ª   ticket-sale.repository.ts
+ª   ª   ª   ticket.service.ts
+ª   ª   ª   
+ª   ª   +---organizers
+ª   ª           organizer-billing.service.ts
+ª   ª           organizer-plans.service.ts
+ª   ª           organizers.module.ts
+ª   ª           organizers.routes.ts
+ª   ª           organizers.schemas.ts
+ª   ª           organizers.service.ts
+ª   ª           organizers.types.ts
+ª   ª           stripe.service.ts
+ª   ª           
+ª   +---evidence
+ª   ª       evidence.module.ts
+ª   ª       evidence.repository.ts
+ª   ª       evidence.routes.ts
+ª   ª       evidence.service.ts
+ª   ª       evidence.types.ts
+ª   ª       
+ª   +---groups
+ª   ª   ª   groups-closure.routes.ts
+ª   ª   ª   groups-state-history.routes.ts
+ª   ª   ª   groups.insights.routes.ts
+ª   ª   ª   groups.insights.service.ts
+ª   ª   ª   groups.module.ts
+ª   ª   ª   groups.repository.ts
+ª   ª   ª   groups.routes.ts
+ª   ª   ª   groups.service.ts
+ª   ª   ª   groups.types.ts
+ª   ª   ª   votes.repository.ts
+ª   ª   ª   votes.routes.ts
+ª   ª   ª   votes.service.ts
+ª   ª   ª   votes.types.ts
+ª   ª   ª   
+ª   ª   +---adapters
+ª   ª   ª       groups-repository.adapter.ts
+ª   ª   ª       index.ts
+ª   ª   ª       
+ª   ª   +---policies
+ª   ª   ª       GroupCreationPolicy.ts
+ª   ª   ª       
+ª   ª   +---services
+ª   ª           group-image.service.ts
+ª   ª           
+ª   +---human-mvp
+ª   ª       human-mvp-activity-execution.service.ts
+ª   ª       human-mvp-event-instance.service.ts
+ª   ª       human-mvp-matching.service.ts
+ª   ª       human-mvp-opportunity.service.ts
+ª   ª       human-mvp-service-offer.service.ts
+ª   ª       human-mvp-skill.service.ts
+ª   ª       human-mvp.routes.ts
+ª   ª       
+ª   +---inbox
+ª   ª       inbox.module.ts
+ª   ª       social-inbox.projector.ts
+ª   ª       social-inbox.repository.ts
+ª   ª       social-inbox.routes.ts
+ª   ª       social-inbox.service.ts
+ª   ª       social-inbox.types.ts
+ª   ª       
+ª   +---invoicing
+ª   ª       invoice.module.ts
+ª   ª       invoice.repository.ts
+ª   ª       invoice.routes.ts
+ª   ª       invoice.service.ts
+ª   ª       invoice.types.ts
+ª   ª       
+ª   +---ledger
+ª   ª       ledger.module.ts
+ª   ª       ledger.repository.ts
+ª   ª       ledger.routes.ts
+ª   ª       ledger.service.ts
+ª   ª       ledger.types.ts
+ª   ª       
+ª   +---live-chat
+ª   ª       chat-block.repository.ts
+ª   ª       chat-message.repository.ts
+ª   ª       chat-report.repository.ts
+ª   ª       chat-room.repository.ts
+ª   ª       chat.service.ts
+ª   ª       live-chat.routes.ts
+ª   ª       live-chat.types.ts
+ª   ª       live-presence.repository.ts
+ª   ª       live-presence.service.ts
+ª   ª       
+ª   +---loyalty
+ª   ª       loyalty-rule.repository.ts
+ª   ª       loyalty-voucher.repository.ts
+ª   ª       loyalty.repository.ts
+ª   ª       loyalty.routes.ts
+ª   ª       loyalty.service.ts
+ª   ª       loyalty.types.ts
+ª   ª       
+ª   +---marketplace
+ª   ª   ª   accounts-payable.repository.ts
+ª   ª   ª   accounts-payable.routes.ts
+ª   ª   ª   accounts-payable.service.ts
+ª   ª   ª   accounts-payable.types.ts
+ª   ª   ª   accounts-receivable.repository.ts
+ª   ª   ª   accounts-receivable.routes.ts
+ª   ª   ª   accounts-receivable.service.ts
+ª   ª   ª   accounts-receivable.types.ts
+ª   ª   ª   business-segment.repository.ts
+ª   ª   ª   business-segment.routes.ts
+ª   ª   ª   business-segment.service.ts
+ª   ª   ª   business-segment.types.ts
+ª   ª   ª   commission.repository.ts
+ª   ª   ª   commission.service.ts
+ª   ª   ª   commission.types.ts
+ª   ª   ª   company-profile.repository.ts
+ª   ª   ª   company-profile.service.ts
+ª   ª   ª   company-profile.types.ts
+ª   ª   ª   contact.repository.ts
+ª   ª   ª   contact.routes.ts
+ª   ª   ª   contact.service.ts
+ª   ª   ª   contact.types.ts
+ª   ª   ª   decision-simulation.service.ts
+ª   ª   ª   decision-simulation.types.ts
+ª   ª   ª   event-settlement.repository.ts
+ª   ª   ª   event-settlement.routes.ts
+ª   ª   ª   event-settlement.service.ts
+ª   ª   ª   event-settlement.types.ts
+ª   ª   ª   external-payment-provider.interface.ts
+ª   ª   ª   external-payment-provider.mock.ts
+ª   ª   ª   external-payment-provider.types.ts
+ª   ª   ª   financial-agenda.routes.ts
+ª   ª   ª   financial-agenda.service.ts
+ª   ª   ª   financial-agenda.types.ts
+ª   ª   ª   fiscal-document.repository.ts
+ª   ª   ª   fiscal-document.service.ts
+ª   ª   ª   fiscal-document.types.ts
+ª   ª   ª   fiscal-issuance.service.ts
+ª   ª   ª   fiscal-kyc.routes.ts
+ª   ª   ª   fiscal-kyc.rules.ts
+ª   ª   ª   fiscal-kyc.service.ts
+ª   ª   ª   fiscal-provider-attempt.repository.ts
+ª   ª   ª   fiscal-provider-attempt.types.ts
+ª   ª   ª   fiscal-provider.interface.ts
+ª   ª   ª   fiscal-provider.mock.ts
+ª   ª   ª   fiscal-provider.sefaz.ts
+ª   ª   ª   fiscal-provider.types.ts
+ª   ª   ª   fulfillment.repository.ts
+ª   ª   ª   fulfillment.service.ts
+ª   ª   ª   fulfillment.types.ts
+ª   ª   ª   group.repository.ts
+ª   ª   ª   group.service.ts
+ª   ª   ª   group.types.ts
+ª   ª   ª   index.ts
+ª   ª   ª   inventory-adjustment.repository.ts
+ª   ª   ª   inventory-adjustment.service.ts
+ª   ª   ª   inventory-adjustment.types.ts
+ª   ª   ª   inventory-balance.repository.ts
+ª   ª   ª   inventory-holding-cost.service.ts
+ª   ª   ª   inventory-holding-cost.types.ts
+ª   ª   ª   inventory-lot.repository.ts
+ª   ª   ª   inventory-lot.service.ts
+ª   ª   ª   inventory-movement.repository.ts
+ª   ª   ª   inventory-reservation.repository.ts
+ª   ª   ª   inventory-reservation.service.ts
+ª   ª   ª   inventory-reservation.types.ts
+ª   ª   ª   inventory-sla.service.ts
+ª   ª   ª   inventory-sla.types.ts
+ª   ª   ª   inventory-suggestion.service.ts
+ª   ª   ª   inventory-suggestion.types.ts
+ª   ª   ª   inventory.service.ts
+ª   ª   ª   inventory.types.ts
+ª   ª   ª   marketplace-categories.routes.ts
+ª   ª   ª   marketplace-categories.service.ts
+ª   ª   ª   marketplace-categories.types.ts
+ª   ª   ª   marketplace-public.routes.ts
+ª   ª   ª   marketplace-search.routes.ts
+ª   ª   ª   marketplace-search.service.ts
+ª   ª   ª   marketplace-search.types.ts
+ª   ª   ª   marketplace.logger.ts
+ª   ª   ª   marketplace.routes.ts
+ª   ª   ª   marketplace.service.ts
+ª   ª   ª   order-item.repository.ts
+ª   ª   ª   order-status-history.repository.ts
+ª   ª   ª   order.repository.ts
+ª   ª   ª   order.service.ts
+ª   ª   ª   order.types.ts
+ª   ª   ª   payment-execution.service.ts
+ª   ª   ª   payment-intent.repository.ts
+ª   ª   ª   payment-intent.service.ts
+ª   ª   ª   payment-intent.types.ts
+ª   ª   ª   payment-method.repository.ts
+ª   ª   ª   payment-method.routes.ts
+ª   ª   ª   payment-method.service.ts
+ª   ª   ª   payment-method.types.ts
+ª   ª   ª   payment-split.repository.ts
+ª   ª   ª   payment-split.service.ts
+ª   ª   ª   payment-split.types.ts
+ª   ª   ª   payment-transaction.repository.ts
+ª   ª   ª   payout-transaction.repository.ts
+ª   ª   ª   payout.service.ts
+ª   ª   ª   payout.types.ts
+ª   ª   ª   pricing-strategy.service.ts
+ª   ª   ª   pricing-strategy.types.ts
+ª   ª   ª   pricing.service.ts
+ª   ª   ª   pricing.types.ts
+ª   ª   ª   product-attribute.repository.ts
+ª   ª   ª   product-catalog.service.ts
+ª   ª   ª   product-catalog.types.ts
+ª   ª   ª   product-category-adapter.ts
+ª   ª   ª   product-category.repository.ts
+ª   ª   ª   product-price.repository.ts
+ª   ª   ª   product-variant.repository.ts
+ª   ª   ª   product.repository.ts
+ª   ª   ª   promotion.repository.ts
+ª   ª   ª   purchase-order.repository.ts
+ª   ª   ª   purchase-order.routes.ts
+ª   ª   ª   purchase-order.service.ts
+ª   ª   ª   purchase-order.types.ts
+ª   ª   ª   real-margin.service.ts
+ª   ª   ª   real-margin.types.ts
+ª   ª   ª   referral.repository.ts
+ª   ª   ª   referral.service.ts
+ª   ª   ª   referral.types.ts
+ª   ª   ª   region-account.repository.ts
+ª   ª   ª   region-account.service.ts
+ª   ª   ª   regional-fee.repository.ts
+ª   ª   ª   regional-fee.routes.ts
+ª   ª   ª   regional-fee.service.ts
+ª   ª   ª   regional-fee.types.ts
+ª   ª   ª   settlement.repository.ts
+ª   ª   ª   settlement.routes.ts
+ª   ª   ª   settlement.service.ts
+ª   ª   ª   settlement.types.ts
+ª   ª   ª   stock-transfer-receipt.repository.ts
+ª   ª   ª   stock-transfer-receipt.service.ts
+ª   ª   ª   stock-transfer-receipt.types.ts
+ª   ª   ª   stock-transfer.repository.ts
+ª   ª   ª   stock-transfer.service.ts
+ª   ª   ª   stock-transfer.types.ts
+ª   ª   ª   store-onboarding.routes.ts
+ª   ª   ª   store-onboarding.service.ts
+ª   ª   ª   store-onboarding.types.ts
+ª   ª   ª   supplier.repository.ts
+ª   ª   ª   supplier.routes.ts
+ª   ª   ª   supplier.service.ts
+ª   ª   ª   supplier.types.ts
+ª   ª   ª   tax-profile.repository.ts
+ª   ª   ª   tax-profile.routes.ts
+ª   ª   ª   tax-profile.service.ts
+ª   ª   ª   tax-profile.types.ts
+ª   ª   ª   unifycard-method.repository.ts
+ª   ª   ª   unifycard-method.routes.ts
+ª   ª   ª   unifycard-method.service.ts
+ª   ª   ª   unifycard-method.types.ts
+ª   ª   ª   unifycard.repository.ts
+ª   ª   ª   unifycard.routes.ts
+ª   ª   ª   unifycard.service.ts
+ª   ª   ª   unifycard.types.ts
+ª   ª   ª   
+ª   ª   +---__tests__
+ª   ª           policy-registry-thresholds.test.ts
+ª   ª           
+ª   +---media
+ª   ª       media.module.ts
+ª   ª       media.routes.ts
+ª   ª       
+ª   +---my-orders
+ª   ª       my-orders.module.ts
+ª   ª       my-orders.routes.ts
+ª   ª       my-orders.service.ts
+ª   ª       my-orders.types.ts
+ª   ª       
+ª   +---organization
+ª   ª       consolidation-helper.ts
+ª   ª       organization-authorization.helper.ts
+ª   ª       organization-invite.repository.ts
+ª   ª       organization-invite.service.ts
+ª   ª       organization-member.repository.ts
+ª   ª       organization-member.service.ts
+ª   ª       organization-role.repository.ts
+ª   ª       organization-role.service.ts
+ª   ª       organization-unit.repository.ts
+ª   ª       organization-unit.service.ts
+ª   ª       organization.routes.ts
+ª   ª       organization.types.ts
+ª   ª       
+ª   +---payments
+ª   ª       payment-link.repository.ts
+ª   ª       payment-link.routes.ts
+ª   ª       payment-link.service.ts
+ª   ª       payment-link.types.ts
+ª   ª       pix-provider.interface.ts
+ª   ª       pix-provider.mock.ts
+ª   ª       pix-webhook.repository.ts
+ª   ª       pix.repository.ts
+ª   ª       pix.routes.ts
+ª   ª       pix.service.ts
+ª   ª       pix.types.ts
+ª   ª       
+ª   +---payout
+ª   ª       payout.module.ts
+ª   ª       payout.repository.ts
+ª   ª       payout.routes.ts
+ª   ª       payout.service.ts
+ª   ª       payout.types.ts
+ª   ª       
+ª   +---pdv
+ª   ª       index.ts
+ª   ª       pdv.repository.ts
+ª   ª       pdv.routes.ts
+ª   ª       pdv.service.ts
+ª   ª       pdv.types.ts
+ª   ª       
+ª   +---policy-engine
+ª   ª       policy-engine.module.ts
+ª   ª       policy-engine.service.ts
+ª   ª       policy.repository.ts
+ª   ª       policy.routes.ts
+ª   ª       policy.types.ts
+ª   ª       
+ª   +---presence
+ª   ª       checkin-token.repository.ts
+ª   ª       checkin.repository.ts
+ª   ª       checkin.service.ts
+ª   ª       presence.repository.ts
+ª   ª       presence.routes.ts
+ª   ª       presence.service.ts
+ª   ª       presence.types.ts
+ª   ª       promo-benefit.repository.ts
+ª   ª       promo-benefit.service.ts
+ª   ª       
+ª   +---profile
+ª   ª       commitments.routes.ts
+ª   ª       
+ª   +---public-profiles
+ª   ª       public-profile.repository.ts
+ª   ª       public-profile.routes.ts
+ª   ª       public-profile.service.ts
+ª   ª       public-profile.types.ts
+ª   ª       
+ª   +---reporting
+ª   ª       reporting.module.ts
+ª   ª       reporting.routes.ts
+ª   ª       reporting.service.ts
+ª   ª       reporting.types.ts
+ª   ª       
+ª   +---reports
+ª   ª       financial-report.service.ts
+ª   ª       financial-report.types.ts
+ª   ª       inventory-report.service.ts
+ª   ª       inventory-report.types.ts
+ª   ª       reports.routes.ts
+ª   ª       sales-report.service.ts
+ª   ª       sales-report.types.ts
+ª   ª       
+ª   +---rides
+ª   ª   ª   rides.module.ts
+ª   ª   ª   rides.types.ts
+ª   ª   ª   
+ª   ª   +---analytics
+ª   ª   ª       analytics.routes.ts
+ª   ª   ª       
+ª   ª   +---availability
+ª   ª   ª       availability.controller.ts
+ª   ª   ª       availability.routes.ts
+ª   ª   ª       availability.service.ts
+ª   ª   ª       
+ª   ª   +---cities
+ª   ª   ª       cities.controller.ts
+ª   ª   ª       cities.routes.ts
+ª   ª   ª       cities.service.ts
+ª   ª   ª       
+ª   ª   +---demand
+ª   ª   ª       demand.controller.ts
+ª   ª   ª       demand.routes.ts
+ª   ª   ª       demand.service.ts
+ª   ª   ª       
+ª   ª   +---distribution
+ª   ª   ª       distribution.controller.ts
+ª   ª   ª       distribution.routes.ts
+ª   ª   ª       distribution.service.ts
+ª   ª   ª       
+ª   ª   +---driver-locations
+ª   ª   ª       driver-locations.controller.ts
+ª   ª   ª       driver-locations.routes.ts
+ª   ª   ª       
+ª   ª   +---drivers
+ª   ª   ª   ª   drivers.controller.ts
+ª   ª   ª   ª   drivers.routes.ts
+ª   ª   ª   ª   drivers.service.ts
+ª   ª   ª   ª   drivers.types.ts
+ª   ª   ª   ª   
+ª   ª   ª   +---availability
+ª   ª   ª   ª       availability.controller.ts
+ª   ª   ª   ª       availability.routes.ts
+ª   ª   ª   ª       availability.service.ts
+ª   ª   ª   ª       
+ª   ª   ª   +---vehicles
+ª   ª   ª           vehicles.controller.ts
+ª   ª   ª           vehicles.routes.ts
+ª   ª   ª           vehicles.service.ts
+ª   ª   ª           
+ª   ª   +---lifecycle
+ª   ª   ª       lifecycle.routes.ts
+ª   ª   ª       
+ª   ª   +---location
+ª   ª   ª       location.controller.ts
+ª   ª   ª       location.routes.ts
+ª   ª   ª       location.service.ts
+ª   ª   ª       
+ª   ª   +---matching
+ª   ª   ª       matching.routes.ts
+ª   ª   ª       
+ª   ª   +---pricing
+ª   ª   ª       pricing.controller.ts
+ª   ª   ª       pricing.routes.ts
+ª   ª   ª       pricing.service.ts
+ª   ª   ª       
+ª   ª   +---promotions
+ª   ª   ª       promotions.controller.ts
+ª   ª   ª       promotions.routes.ts
+ª   ª   ª       promotions.service.ts
+ª   ª   ª       
+ª   ª   +---referrals
+ª   ª   ª       referrals.controller.ts
+ª   ª   ª       referrals.routes.ts
+ª   ª   ª       referrals.service.ts
+ª   ª   ª       
+ª   ª   +---ride-requests
+ª   ª   ª       ride-requests.controller.ts
+ª   ª   ª       ride-requests.routes.ts
+ª   ª   ª       ride-requests.service.ts
+ª   ª   ª       
+ª   ª   +---rides
+ª   ª   ª       rides.controller.ts
+ª   ª   ª       rides.routes.ts
+ª   ª   ª       rides.service.ts
+ª   ª   ª       
+ª   ª   +---safety
+ª   ª   ª       safety.controller.ts
+ª   ª   ª       safety.routes.ts
+ª   ª   ª       safety.service.ts
+ª   ª   ª       
+ª   ª   +---service-types
+ª   ª   ª       service-types.controller.ts
+ª   ª   ª       service-types.routes.ts
+ª   ª   ª       service-types.service.ts
+ª   ª   ª       
+ª   ª   +---services
+ª   ª   ª       lifecycle.service.ts
+ª   ª   ª       matching.service.ts
+ª   ª   ª       pricing.service.ts
+ª   ª   ª       
+ª   ª   +---shared
+ª   ª   ª       payment.ts
+ª   ª   ª       
+ª   ª   +---vehicle-compliance
+ª   ª   ª       vehicle-compliance.routes.ts
+ª   ª   ª       
+ª   ª   +---vehicles
+ª   ª   ª       vehicles.controller.ts
+ª   ª   ª       vehicles.routes.ts
+ª   ª   ª       vehicles.service.ts
+ª   ª   ª       
+ª   ª   +---zones
+ª   ª           zones.controller.ts
+ª   ª           zones.routes.ts
+ª   ª           zones.service.ts
+ª   ª           
+ª   +---risk-command-center
+ª   ª       risk-command-center.module.ts
+ª   ª       risk-dashboard.routes.ts
+ª   ª       risk-dashboard.service.ts
+ª   ª       risk-dashboard.types.ts
+ª   ª       
+ª   +---schedule
+ª   +---services
+ª   ª       service-booking-decision.repository.ts
+ª   ª       service-booking-decision.routes.ts
+ª   ª       service-booking-decision.service.ts
+ª   ª       service-booking-decision.types.ts
+ª   ª       service-bundle.routes.ts
+ª   ª       service-bundle.service.ts
+ª   ª       service-bundle.types.ts
+ª   ª       service-feed.plugin.ts
+ª   ª       service-order.repository.ts
+ª   ª       service-order.routes.ts
+ª   ª       service-order.service.ts
+ª   ª       service-order.types.ts
+ª   ª       service-payment-execution.repository.ts
+ª   ª       service-payment-execution.routes.ts
+ª   ª       service-payment-execution.service.ts
+ª   ª       service-payment-execution.types.ts
+ª   ª       service-payment-request.repository.ts
+ª   ª       service-payment-request.routes.ts
+ª   ª       service-payment-request.service.ts
+ª   ª       service-payment-request.types.ts
+ª   ª       services.module.ts
+ª   ª       services.repository.ts
+ª   ª       services.routes.ts
+ª   ª       services.service.ts
+ª   ª       services.types.ts
+ª   ª       
+ª   +---social
+ª   ª   ª   actor-audit.service.ts
+ª   ª   ª   actor-capabilities.service.ts
+ª   ª   ª   actor-capabilities.types.ts
+ª   ª   ª   actor-effects.service.ts
+ª   ª   ª   actor-effects.types.ts
+ª   ª   ª   actor-intents.service.ts
+ª   ª   ª   actor-intents.types.ts
+ª   ª   ª   actor.repository.ts
+ª   ª   ª   actor.utils.ts
+ª   ª   ª   event-feed.handlers.ts
+ª   ª   ª   impact.service.ts
+ª   ª   ª   intent-orchestrator.ai.ts
+ª   ª   ª   intent-orchestrator.routes.ts
+ª   ª   ª   intent-orchestrator.service.ts
+ª   ª   ª   intent-orchestrator.types.ts
+ª   ª   ª   reputation.service.ts
+ª   ª   ª   social-2.0.routes.ts
+ª   ª   ª   social-2.0.service.ts
+ª   ª   ª   social-action-tracking.service.ts
+ª   ª   ª   social-group-insights.routes.ts
+ª   ª   ª   social-group.repository.ts
+ª   ª   ª   social-group.routes.ts
+ª   ª   ª   social-group.service.ts
+ª   ª   ª   social-group.types.ts
+ª   ª   ª   social-groups-light.routes.ts
+ª   ª   ª   social-groups-light.service.ts
+ª   ª   ª   social-ledger.service.ts
+ª   ª   ª   social-marketplace-ref.repository.ts
+ª   ª   ª   social-marketplace-ref.routes.ts
+ª   ª   ª   social-marketplace-ref.service.ts
+ª   ª   ª   social-marketplace-ref.types.ts
+ª   ª   ª   social-relationships.routes.ts
+ª   ª   ª   social-relationships.service.ts
+ª   ª   ª   social-targeting.service.ts
+ª   ª   ª   social-votes.service.ts
+ª   ª   ª   social-work-apply.routes.ts
+ª   ª   ª   social-work-payment.routes.ts
+ª   ª   ª   social-work-payment.service.ts
+ª   ª   ª   social-work-schedule.routes.ts
+ª   ª   ª   social-work-schedule.service.ts
+ª   ª   ª   social-work.routes.ts
+ª   ª   ª   social-work.service.ts
+ª   ª   ª   social.model.ts
+ª   ª   ª   social.module.ts
+ª   ª   ª   social.repository.ts
+ª   ª   ª   social.routes.ts
+ª   ª   ª   social.schemas.ts
+ª   ª   ª   social.service.ts
+ª   ª   ª   social.types.ts
+ª   ª   ª   
+ª   ª   +---adapters
+ª   ª           actor-repository.adapter.ts
+ª   ª           actor-utils.adapter.ts
+ª   ª           event-feed-handlers.adapter.ts
+ª   ª           index.ts
+ª   ª           social-repository.adapter.ts
+ª   ª           social-service.adapter.ts
+ª   ª           
+ª   +---social-actions
+ª   ª       social-actions.model.ts
+ª   ª       social-actions.module.ts
+ª   ª       social-actions.repository.ts
+ª   ª       social-actions.routes.ts
+ª   ª       social-actions.schemas.ts
+ª   ª       social-actions.service.ts
+ª   ª       social-actions.types.ts
+ª   ª       
+ª   +---social-chat
+ª   ª       social-chat.model.ts
+ª   ª       social-chat.module.ts
+ª   ª       social-chat.repository.ts
+ª   ª       social-chat.routes.ts
+ª   ª       social-chat.schemas.ts
+ª   ª       social-chat.service.ts
+ª   ª       social-chat.types.ts
+ª   ª       
+ª   +---subscriptions
+ª   ª       subscription.repository.ts
+ª   ª       subscription.routes.ts
+ª   ª       subscription.service.ts
+ª   ª       subscription.types.ts
+ª   ª       
+ª   +---system-notifications
+ª   ª       system-notification.helpers.ts
+ª   ª       system-notification.repository.ts
+ª   ª       system-notification.routes.ts
+ª   ª       system-notification.service.ts
+ª   ª       system-notification.types.ts
+ª   ª       system-notifications.module.ts
+ª   ª       
+ª   +---trust
+ª   ª       trust-engine.service.ts
+ª   ª       trust.module.ts
+ª   ª       trust.repository.ts
+ª   ª       trust.routes.ts
+ª   ª       trust.types.ts
+ª   ª       
+ª   +---venue
+ª   ª       tab.repository.ts
+ª   ª       tab.service.ts
+ª   ª       tab.types.ts
+ª   ª       venue-menu.repository.ts
+ª   ª       venue-menu.service.ts
+ª   ª       venue-menu.types.ts
+ª   ª       venue.routes.ts
+ª   ª       
+ª   +---votes
+ª   ª       votes.module.ts
+ª   ª       votes.repository.ts
+ª   ª       votes.routes.ts
+ª   ª       votes.service.ts
+ª   ª       
+ª   +---work
+ª   ª   ª   work-insights.routes.ts
+ª   ª   ª   work-insights.service.ts
+ª   ª   ª   work.events.ts
+ª   ª   ª   work.insights.ts
+ª   ª   ª   work.module.ts
+ª   ª   ª   work.types.ts
+ª   ª   ª   
+ª   ª   +---applications
+ª   ª   ª       application.routes.ts
+ª   ª   ª       application.schemas.ts
+ª   ª   ª       application.service.ts
+ª   ª   ª       
+ª   ª   +---assignments
+ª   ª   ª       assignment.routes.ts
+ª   ª   ª       assignment.schemas.ts
+ª   ª   ª       assignment.service.ts
+ª   ª   ª       
+ª   ª   +---jobs
+ª   ª   ª       job.routes.ts
+ª   ª   ª       job.schemas.ts
+ª   ª   ª       job.service.ts
+ª   ª   ª       
+ª   ª   +---skills
+ª   ª   ª       skill.routes.ts
+ª   ª   ª       skill.schemas.ts
+ª   ª   ª       skill.service.ts
+ª   ª   ª       
+ª   ª   +---tests
+ª   ª   ª       work.e2e.spec.ts
+ª   ª   ª       
+ª   ª   +---workers
+ª   ª           worker.routes.ts
+ª   ª           worker.schemas.ts
+ª   ª           worker.service.ts
+ª   ª           
+ª   +---work-instant
+ª       ª   instant.repository.ts
+ª       ª   instant.routes.ts
+ª       ª   instant.service.ts
+ª       ª   instant.types.ts
+ª       ª   smart-matching.service.ts
+ª       ª   status.routes.ts
+ª       ª   tracking.service.ts
+ª       ª   worker-status.routes.ts
+ª       ª   worker-status.service.ts
+ª       ª   worker-status.types.ts
+ª       ª   
+ª       +---dispatcher
+ª               dispatcher.gateway.ts
+ª               dispatcher.plugin.ts
+ª               
++---plugins
+ª       action-context.plugin.ts
+ª       error-handler.plugin.ts
+ª       observation-mode.plugin.ts
+ª       rbac.plugin.ts
+ª       request-id.plugin.ts
+ª       tenant.plugin.ts
+ª       
++---scripts
+ª       add-token-version-column.ts
+ª       baseline-migrations.ts
+ª       check-categories-status.ts
+ª       check-categories.ts
+ª       check-learning-categories.ts
+ª       check-multiple-processes.ts
+ª       check-pizzaiolo-hierarchy.ts
+ª       check-pizzaiolo-parents.ts
+ª       check-profile-address.ts
+ª       check-profile-records.ts
+ª       complete-professional-level2.ts
+ª       create-dev-user.ts
+ª       diagnose-categories-complete.ts
+ª       diagnose-professional-categories.ts
+ª       diagnose-professional-scope.ts
+ª       ensure-token-version-column.ts
+ª       fix-groups-without-accounts.ts
+ª       fix-learning-scope.ts
+ª       fix-pizzaiolo-hierarchy.ts
+ª       list-recent-users.ts
+ª       migrate-categories-to-subcategories.ts
+ª       migrate-physical-categories.ts
+ª       populate-category-keywords.ts
+ª       print-demo-city-nova.ts
+ª       reset-database-complete.ts
+ª       run-pilot-friction-job.ts
+ª       run-single-migration.ts
+ª       seed-cause-categories.ts
+ª       seed-dev-actor.ts
+ª       seed-dev-categories.ts
+ª       seed-dev-companies-services.ts
+ª       seed-dev-complete.ts
+ª       seed-dev-groups.ts
+ª       seed-dev-tenant.ts
+ª       seed-dev-user.ts
+ª       seed-group-categories.ts
+ª       seed-health-categories.ts
+ª       seed-health-taxonomies.ts
+ª       seed-initial-balance.ts
+ª       seed-interests-categories.ts
+ª       seed-learning-categories.ts
+ª       seed-physical-categories.ts
+ª       seed-professional-categories.ts
+ª       seed-professional-level2-only.ts
+ª       seed-tenant-context-permissions.ts
+ª       test-api-professional-categories.ts
+ª       test-autocomplete.ts
+ª       test-category-path-suggestion.ts
+ª       test-dev-login.ts
+ª       test-profile-persistence.ts
+ª       validate-core-only.ts
+ª       validate-database.ts
+ª       validate-levels-only-0-1-2.ts
+ª       validate-professional-level2.ts
+ª       verify-dev-user.ts
+ª       
++---services
+ª   +---employee
+ª   ª       employee.routes.ts
+ª   ª       EmployeeService.ts
+ª   ª       
+ª   +---events
+ª   ª   ª   ConsumptionService.ts
+ª   ª   ª   event-lifecycle.routes.ts
+ª   ª   ª   EventScheduleService.ts
+ª   ª   ª   EventService.ts
+ª   ª   ª   TicketService.ts
+ª   ª   ª   
+ª   ª   +---tests
+ª   ª           event_checkout_hardening.test.ts
+ª   ª           
+ª   +---feed
+ª   ª       event-feed-adapter.ts
+ª   ª       EventAvailabilityPreviewService.ts
+ª   ª       feed-priority.service.ts
+ª   ª       feed.module.ts
+ª   ª       feed.routes.ts
+ª   ª       FeedService.ts
+ª   ª       README.md
+ª   ª       RELATORIO_CHECKPOINT_FASE6A.md
+ª   ª       
+ª   +---location
+ª   ª       cep.routes.ts
+ª   ª       cep.service.ts
+ª   ª       location.module.ts
+ª   ª       
+ª   +---schedule
+ª           CompanyScheduleService.ts
+ª           SlotGenerator.ts
+ª           
++---shared
+ª   +---middleware
++---types
+ª       fastify-ai.d.ts
+ª       fastify-websocket.d.ts
+ª       fastify.d.ts
+ª       jwt.d.ts
+ª       unifycard-event.types.ts
+ª       
++---utils
+        cpf.validator.ts
+        dateNormalizer.ts
+        devLog.ts
+        isTestOverrideUser.ts
+        nameNormalizer.ts
+        

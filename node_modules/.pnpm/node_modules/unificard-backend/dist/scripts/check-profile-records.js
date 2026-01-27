@@ -136,4 +136,3 @@ checkProfileRecords(tenantId, userId).catch((error) => {
     console.error('❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=check-profile-records.js.map

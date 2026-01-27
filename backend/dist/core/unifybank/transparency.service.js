@@ -1,7 +1,8 @@
 "use strict";
 // backend/src/core/unifybank/transparency.service.ts
-// Serviço de Transparência Financeira - FASE 6
-// Visualização de extratos, splits e fundos regionais
+// CONTINUOUS PRODUCTION: MIGRATED TO UNIFY BANK
+// Serviço de Transparência Financeira - Visualização de extratos, splits e fundos regionais
+// Usa Unify Bank (bank_transactions, bank_ledger, bank_splits) como fonte da verdade
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -38,23 +39,32 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.transparencyService = void 0;
 const pool_1 = require("@core/database/pool");
-const account_service_1 = require("@core/economy/accounts/account.service");
-const region_account_service_1 = require("@core/economy/region-account.service");
+const ports_registry_1 = require("@core/bank/ports-registry");
 class TransparencyService {
     /**
      * Obtém extrato financeiro do usuário
-     * Usa dados do ledger (não recalcula saldo)
+     * Usa dados do bank_ledger (fonte da verdade do Unify Bank)
      */
     async getUserStatement(tenantId, globalUserId, options = {}) {
         const { limit = 50, offset = 0, startDate, endDate } = options;
-        // 1. Resolver conta principal do usuário
+        // 1. Resolver conta principal do usuário no Unify Bank
         const userId = await this.getUserIdFromGlobalId(tenantId, globalUserId);
         if (!userId) {
             throw new Error('User not found');
         }
-        const userAccount = await account_service_1.accountService.getOrCreateUserPrimaryAccount(tenantId, userId, 'BRL');
+        // Verificar se conta existe no Unify Bank
+        const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+        const userAccount = await bankAccount.getAccountByOwner(tenantId, userId, 'user', 'BRL');
+        if (!userAccount) {
+            // Sem conta bancária: retornar extrato vazio (não é erro)
+            return {
+                entries: [],
+                total: 0,
+                hasMore: false,
+            };
+        }
         const accountId = userAccount.accountId;
-        // 2. Buscar entradas do ledger para essa conta
+        // 2. Buscar entradas do bank_ledger para essa conta
         const client = await (0, pool_1.getClientWithTenant)(tenantId);
         try {
             let query = `
@@ -65,13 +75,16 @@ class TransparencyService {
           l.amount,
           l.balance_after,
           l.created_at,
-          t.metadata as transaction_metadata
-        FROM ledger l
-        INNER JOIN transactions t ON t.transaction_id = l.transaction_id
-        WHERE l.account_id = $1
+          t.metadata as transaction_metadata,
+          t.status,
+          t.transaction_type,
+          t.original_transaction_id
+        FROM bank_ledger l
+        INNER JOIN bank_transactions t ON t.transaction_id = l.transaction_id
+        WHERE l.account_id = $1 AND l.tenant_id = $2
       `;
-            const params = [accountId];
-            let paramIndex = 2;
+            const params = [accountId, tenantId];
+            let paramIndex = 3;
             if (startDate) {
                 query += ` AND l.created_at >= $${paramIndex}`;
                 params.push(startDate);
@@ -89,7 +102,7 @@ class TransparencyService {
             const entries = result.rows.slice(0, limit).map((row) => {
                 const metadata = row.transaction_metadata || {};
                 const entryType = row.entry_type;
-                // Determinar tipo da transação
+                // Determinar tipo da transação (legacy para compatibilidade)
                 let type = 'other';
                 if (metadata.type === 'p2p_transfer')
                     type = 'p2p';
@@ -99,6 +112,52 @@ class TransparencyService {
                     type = 'split';
                 else if (metadata.type === 'compensation')
                     type = 'compensation';
+                // Extrair context do metadata (ou inferir do transaction_type)
+                let context = metadata.context;
+                if (!context) {
+                    // Inferir context do metadata.type ou transaction_type
+                    if (metadata.type === 'event_ticket' || metadata.type === 'event_consumption')
+                        context = 'event_ticket';
+                    else if (metadata.type === 'service_booking')
+                        context = 'service_booking';
+                    else if (metadata.type === 'ride_payment')
+                        context = 'ride_payment';
+                    else if (metadata.type === 'p2p_transfer')
+                        context = 'p2p_transfer';
+                    else if (metadata.type === 'donation')
+                        context = 'donation';
+                    else if (metadata.type === 'group_contribution')
+                        context = 'group_contribution';
+                    else if (row.transaction_type === 'deposit')
+                        context = 'deposit';
+                    else if (row.transaction_type === 'withdrawal')
+                        context = 'withdrawal';
+                }
+                // Determinar status (completed ou reversed)
+                const status = row.original_transaction_id ? 'reversed' : (row.status === 'completed' ? 'completed' : row.status);
+                // Determinar reference_type e reference_id do metadata
+                let referenceType;
+                let referenceId;
+                if (metadata.eventId) {
+                    referenceType = 'event';
+                    referenceId = metadata.eventId;
+                }
+                else if (metadata.bookingId) {
+                    referenceType = 'booking';
+                    referenceId = metadata.bookingId;
+                }
+                else if (metadata.rideId) {
+                    referenceType = 'ride';
+                    referenceId = metadata.rideId;
+                }
+                else if (metadata.groupId) {
+                    referenceType = 'group';
+                    referenceId = metadata.groupId;
+                }
+                else if (metadata.targetId && metadata.targetType) {
+                    referenceType = metadata.targetType;
+                    referenceId = metadata.targetId;
+                }
                 return {
                     transactionId: row.transaction_id,
                     type,
@@ -106,6 +165,10 @@ class TransparencyService {
                     direction: (entryType === 'credit' ? 'in' : 'out'),
                     balanceAfter: parseFloat(row.balance_after),
                     createdAt: row.created_at,
+                    context: context || 'other',
+                    status: status,
+                    referenceType,
+                    referenceId,
                     metadata: {
                         type: metadata.type,
                         targetType: metadata.targetType,
@@ -113,6 +176,11 @@ class TransparencyService {
                         originTransactionId: metadata.originTransactionId,
                         splitGroupId: metadata.splitGroupId,
                         message: metadata.message,
+                        context,
+                        eventId: metadata.eventId,
+                        bookingId: metadata.bookingId,
+                        rideId: metadata.rideId,
+                        groupId: metadata.groupId,
                     },
                 };
             });
@@ -133,10 +201,10 @@ class TransparencyService {
     async getTransactionSplits(tenantId, transactionId) {
         const client = await (0, pool_1.getClientWithTenant)(tenantId);
         try {
-            // 1. Buscar transação base
+            // 1. Buscar transação base no Unify Bank
             const baseTx = await client.query(`
         SELECT transaction_id, amount, metadata, created_at
-        FROM transactions
+        FROM bank_transactions
         WHERE transaction_id = $1 AND tenant_id = $2
         LIMIT 1
         `, [transactionId, tenantId]);
@@ -161,28 +229,60 @@ class TransparencyService {
                     totalAmount: 0,
                 };
             }
-            // 2. Buscar todas as transações com o mesmo splitGroupId
-            const splitTxs = await client.query(`
-        SELECT transaction_id, amount, metadata, created_at
-        FROM transactions
-        WHERE tenant_id = $1
-          AND metadata->>'splitGroupId' = $2
-          AND metadata->>'type' = 'split'
+            // 2. Buscar todos os splits da transação no Unify Bank
+            // No Unify Bank, splits estão na tabela bank_splits, não em transações separadas
+            const splits = await client.query(`
+        SELECT split_id, transaction_id, target_account_id, amount, percentage, split_type, created_at
+        FROM bank_splits
+        WHERE tenant_id = $1 AND transaction_id = $2
         ORDER BY created_at ASC
-        `, [tenantId, splitGroupId]);
-            const splits = splitTxs.rows.map((row) => {
+        `, [tenantId, transactionId]);
+            // Buscar informações das contas de destino dos splits
+            const splitAccountIds = splits.rows.map((s) => s.target_account_id);
+            const splitAccounts = splitAccountIds.length > 0
+                ? await client.query(`
+            SELECT account_id, owner_id, owner_type
+            FROM bank_accounts
+            WHERE account_id = ANY($1::text[]) AND tenant_id = $2
+            `, [splitAccountIds, tenantId])
+                : { rows: [] };
+            const accountMap = new Map(splitAccounts.rows.map((a) => [a.account_id, { ownerId: a.owner_id, ownerType: a.owner_type }]));
+            const splitTxs = splits.rows.map((split) => ({
+                transaction_id: split.transaction_id,
+                amount: split.amount,
+                metadata: {
+                    type: 'split',
+                    splitType: split.split_type,
+                    targetAccountId: split.target_account_id,
+                    targetId: accountMap.get(split.target_account_id)?.ownerId,
+                    targetType: accountMap.get(split.target_account_id)?.ownerType,
+                    percentage: split.percentage ? parseFloat(split.percentage) : null,
+                },
+                created_at: split.created_at,
+            }));
+            const splitDetails = splitTxs.map((row) => {
                 const metadata = row.metadata || {};
+                // Mapear owner_type para targetType compatível
+                let targetType = 'user';
+                if (metadata.targetType === 'user')
+                    targetType = 'user';
+                else if (metadata.targetType === 'company' || metadata.targetType === 'group')
+                    targetType = 'group';
+                else if (metadata.splitType === 'regional_fund')
+                    targetType = 'regional_fund';
+                else if (metadata.splitType === 'fee')
+                    targetType = 'platform';
                 return {
                     transactionId: row.transaction_id,
-                    targetType: metadata.targetType,
+                    targetType,
                     targetId: metadata.targetId,
                     percentage: metadata.percentage || 0,
                     amount: parseFloat(row.amount),
                     createdAt: row.created_at,
                 };
             });
-            const totalPercentage = splits.reduce((sum, s) => sum + s.percentage, 0);
-            const totalAmount = splits.reduce((sum, s) => sum + s.amount, 0);
+            const totalPercentage = splitDetails.reduce((sum, s) => sum + s.percentage, 0);
+            const totalAmount = splitDetails.reduce((sum, s) => sum + s.amount, 0);
             return {
                 baseTransaction: {
                     transactionId: base.transaction_id,
@@ -191,7 +291,7 @@ class TransparencyService {
                     createdAt: base.created_at,
                     metadata: baseMetadata,
                 },
-                splits,
+                splits: splitDetails,
                 totalPercentage,
                 totalAmount,
             };
@@ -210,36 +310,39 @@ class TransparencyService {
         if (!userId) {
             throw new Error('User not found');
         }
-        // 2. Resolver conta regional
-        const regionAccountId = await region_account_service_1.regionAccountService.resolveRegionAccountId({
-            tenantId,
-            userId,
-        });
-        if (!regionAccountId) {
+        // 2. Resolver conta regional no Unify Bank (conta de sistema regional_fund)
+        // Buscar conta regional_fund do sistema para a região do usuário
+        const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+        const regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
+        if (!regionalFundAccount) {
             return null; // Não há fundo regional para esse usuário
         }
-        // 3. Obter saldo atual
-        const balance = await account_service_1.accountService.getBalance(tenantId, regionAccountId);
-        // 4. Buscar movimentações do ledger
+        const regionAccountId = regionalFundAccount.accountId;
+        // 3. Obter saldo atual do Unify Bank
+        const balance = await bankAccount.getBalance(tenantId, regionAccountId);
+        // 4. Buscar movimentações do bank_ledger
         const client = await (0, pool_1.getClientWithTenant)(tenantId);
         try {
             const ledgerEntries = await client.query(`
         SELECT l.transaction_id, l.entry_type, l.amount, l.created_at
-        FROM ledger l
-        WHERE l.account_id = $1
+        FROM bank_ledger l
+        WHERE l.account_id = $1 AND l.tenant_id = $2
         ORDER BY l.created_at DESC
-        LIMIT $2 OFFSET $3
-        `, [regionAccountId, limit, offset]);
-            // 5. Buscar metadados das transações
+        LIMIT $3 OFFSET $4
+        `, [regionAccountId, tenantId, limit, offset]);
+            // 5. Buscar metadados das transações do Unify Bank
             const transactionIds = ledgerEntries.rows.map((r) => r.transaction_id);
             const transactions = transactionIds.length > 0
                 ? await client.query(`
             SELECT transaction_id, metadata
-            FROM transactions
-            WHERE transaction_id = ANY($1::text[])
-            `, [transactionIds])
+            FROM bank_transactions
+            WHERE transaction_id = ANY($1::text[]) AND tenant_id = $2
+            `, [transactionIds, tenantId])
                 : { rows: [] };
-            const txMap = new Map(transactions.rows.map((tx) => [tx.transaction_id, tx.metadata || {}]));
+            const txMap = new Map();
+            transactions.rows.forEach((tx) => {
+                txMap.set(tx.transaction_id, (tx.metadata || {}));
+            });
             const entries = ledgerEntries.rows.map((row) => {
                 const metadata = txMap.get(row.transaction_id) || {};
                 const entryType = row.entry_type;
@@ -292,16 +395,16 @@ class TransparencyService {
      */
     async getAdminRegionalFund(tenantId, regionId, options = {}) {
         const { limit = 100, offset = 0, startDate, endDate } = options;
-        // 1. Resolver conta regional (usando ownerId = regionId, ownerType = 'group')
-        const regionAccounts = await account_service_1.accountService.getAccountsByOwner(tenantId, regionId, 'group');
-        const regionAccount = regionAccounts[0];
-        if (!regionAccount) {
+        // 1. Resolver conta regional no Unify Bank (conta de sistema regional_fund)
+        const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+        const regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
+        if (!regionalFundAccount) {
             return null; // Não há conta regional para essa região
         }
-        const regionAccountId = regionAccount.accountId;
-        // 2. Obter saldo atual
-        const balance = await account_service_1.accountService.getBalance(tenantId, regionAccountId);
-        // 3. Buscar todas as movimentações
+        const regionAccountId = regionalFundAccount.accountId;
+        // 2. Obter saldo atual do Unify Bank
+        const balance = await bankAccount.getBalance(tenantId, regionAccountId);
+        // 3. Buscar todas as movimentações do bank_ledger
         const client = await (0, pool_1.getClientWithTenant)(tenantId);
         try {
             let query = `
@@ -311,12 +414,12 @@ class TransparencyService {
           l.amount,
           l.created_at,
           t.metadata
-        FROM ledger l
-        INNER JOIN transactions t ON t.transaction_id = l.transaction_id
-        WHERE l.account_id = $1
+        FROM bank_ledger l
+        INNER JOIN bank_transactions t ON t.transaction_id = l.transaction_id
+        WHERE l.account_id = $1 AND l.tenant_id = $2
       `;
-            const params = [regionAccountId];
-            let paramIndex = 2;
+            const params = [regionAccountId, tenantId];
+            let paramIndex = 3;
             if (startDate) {
                 query += ` AND l.created_at >= $${paramIndex}`;
                 params.push(startDate);
@@ -431,4 +534,3 @@ class TransparencyService {
     }
 }
 exports.transparencyService = new TransparencyService();
-//# sourceMappingURL=transparency.service.js.map

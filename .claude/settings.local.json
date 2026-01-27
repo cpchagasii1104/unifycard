@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(npm run build:*)",
+      "Bash(psql:*)",
+      "Bash(npm run db:migrate:status:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run migrate:*)"
+    ]
+  }
+}

@@ -89,4 +89,3 @@ class SimulationEngine {
 }
 exports.SimulationEngine = SimulationEngine;
 exports.simulationEngine = new SimulationEngine();
-//# sourceMappingURL=simulation-engine.js.map

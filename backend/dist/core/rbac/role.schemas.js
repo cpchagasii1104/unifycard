@@ -24,4 +24,3 @@ exports.updateRoleSchema = zod_1.z.object({
 exports.assignRoleByNameSchema = zod_1.z.object({
     roleName: zod_1.z.string().min(2).max(50),
 });
-//# sourceMappingURL=role.schemas.js.map

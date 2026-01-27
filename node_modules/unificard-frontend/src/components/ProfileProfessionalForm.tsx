@@ -1,0 +1,711 @@
+import type { Category, CategoryAutocompleteResult, CategoryTree, CategoryPathSuggestion } from '../api/categories';
+import { normalizeCategoryLabel, normalizeCategoryPath } from '../utils/categoryLabelNormalizer';
+import PredefinedServicesManager from './PredefinedServicesManager';
+import ComboDiscountRulesManager from './ComboDiscountRulesManager';
+interface SelectedSkill {
+  categoryId: string;
+  categoryName: string;
+  categoryPath: string[];
+  skillLevel: number;
+  yearsExperience: number;
+  hourlyRate: number | null;
+  pricingType: PricingType;
+  serviceType: ServiceType;
+  chargeVisit: boolean;
+  visitPrice: number | null;
+  predefinedServices: any[];
+  comboDiscountRules: any[];
+}
+
+type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote';
+type ServiceType = 'service' | 'product';
+
+interface ProfileProfessionalFormProps {
+  error: string | null;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  searchResults: Category[];
+  autocompleteResults: CategoryAutocompleteResult[];
+  showAutocomplete: boolean;
+  setShowAutocomplete: (show: boolean) => void;
+  isSearching: boolean;
+  autocompleteError: string | null;
+  isCreatingWithAI: boolean;
+  isRecording: boolean;
+  aiAssistEnabled: boolean;
+  recognition: any | null;
+  searchFieldError: string | null;
+  setSearchFieldError: (error: string | null) => void;
+  handleSearch: (term: string) => void;
+  handleSelectAutocomplete: (result: CategoryAutocompleteResult) => void;
+  handleSuggestCategory: () => void;
+  isSuggesting: boolean;
+  suggestionError: string | null;
+  categoryTree: CategoryTree[];
+  isLoading: boolean;
+  selectedSkills: SelectedSkill[];
+  newlyAddedSkillId: string | null;
+  skillErrors: Record<string, string>;
+  userAge: number | undefined;
+  bio: string;
+  setBio: (bio: string) => void;
+  isSaving: boolean;
+  handleSave: () => void;
+  isSkillSelected: (categoryId: string) => boolean;
+  addSkill: (category: Category) => void;
+  removeSkill: (categoryId: string) => void;
+  updateSkill: (categoryId: string, field: 'skillLevel' | 'yearsExperience' | 'hourlyRate' | 'pricingType' | 'serviceType' | 'chargeVisit' | 'visitPrice', value: number | null | PricingType | ServiceType | boolean) => void;
+  setSelectedSkills: (skills: SelectedSkill[] | ((prev: SelectedSkill[]) => SelectedSkill[])) => void;
+  renderCategoryTree: (categories: CategoryTree[]) => JSX.Element[];
+  showSuggestionModal: boolean;
+  setShowSuggestionModal: (show: boolean) => void;
+  categorySuggestion: CategoryPathSuggestion | null;
+  setCategorySuggestion: (suggestion: CategoryPathSuggestion | null) => void;
+  handleCreateWithAI: (parentId?: string | null) => void;
+  startRecording: () => void;
+  stopRecording: () => void;
+}
+
+export default function ProfileProfessionalForm({
+  error,
+  searchTerm,
+  setSearchTerm,
+  searchResults,
+  autocompleteResults,
+  showAutocomplete,
+  setShowAutocomplete,
+  isSearching,
+  autocompleteError,
+  isCreatingWithAI,
+  isRecording,
+  aiAssistEnabled,
+  recognition,
+  searchFieldError,
+  setSearchFieldError,
+  handleSearch,
+  handleSelectAutocomplete,
+  handleSuggestCategory,
+  isSuggesting,
+  suggestionError,
+  categoryTree,
+  isLoading,
+  selectedSkills,
+  newlyAddedSkillId,
+  skillErrors,
+  userAge,
+  bio,
+  setBio,
+  isSaving,
+  handleSave,
+  isSkillSelected,
+  addSkill,
+  removeSkill,
+  updateSkill,
+  setSelectedSkills,
+  renderCategoryTree,
+  showSuggestionModal,
+  setShowSuggestionModal,
+  categorySuggestion,
+  setCategorySuggestion,
+  handleCreateWithAI,
+  startRecording,
+  stopRecording,
+}: ProfileProfessionalFormProps) {
+  return (
+    <div className="profile-professional">
+      <h2>Área de atuação profissional</h2>
+
+      {error && <div className="error-message">{error}</div>}
+      
+      <p className="section-description">
+        Adicione suas profissões e configure como deseja trabalhar.
+      </p>
+
+      {/* Informação sobre Agenda */}
+      <div className="agenda-info-section" style={{
+        padding: '1rem',
+        backgroundColor: '#f0f9ff',
+        border: '1px solid #bae6fd',
+        borderRadius: '0.5rem',
+        marginBottom: '1.5rem'
+      }}>
+        <p style={{ margin: 0, color: '#0369a1' }}>
+          <strong>📅 Agenda:</strong> Configure sua agenda unificada na aba <strong>Agenda</strong>. 
+          Sua agenda é unificada para todas as profissões.
+        </p>
+      </div>
+
+      {/* Busca Inteligente com Autocomplete */}
+      <div className="search-section">
+        <label htmlFor="category-search">
+          Área de atuação profissional <span style={{ color: '#ef4444' }}>*</span>
+        </label>
+        <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+          Refere-se ao setor em que você presta serviços ou atua economicamente. Não descreve características pessoais.
+        </p>
+        <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+          Digite o nome da profissão e selecione uma opção da lista. Não é possível salvar apenas texto digitado.
+        </p>
+        <div className="search-input-wrapper">
+          <input
+            id="category-search"
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              const value = e.target.value;
+              handleSearch(value);
+              // Limpar erro quando usuário começar a digitar novamente
+              if (searchFieldError && value.trim().length > 0) {
+                setSearchFieldError(null);
+              }
+            }}
+            onFocus={() => {
+              if (searchTerm.length >= 1 && autocompleteResults.length > 0) {
+                setShowAutocomplete(true);
+              } else if (searchTerm.length >= 2) {
+                // Se tem 2+ caracteres, buscar e mostrar
+                handleSearch(searchTerm);
+              }
+            }}
+            onBlur={() => {
+              // Delay para permitir clique no dropdown
+              setTimeout(() => {
+                setShowAutocomplete(false);
+                // Validar se há texto mas nenhuma seleção
+                if (searchTerm.trim().length > 0 && selectedSkills.length === 0) {
+                  setSearchFieldError('Selecione uma profissão da lista.');
+                }
+              }, 200);
+            }}
+            onKeyPress={(e) => {
+              // Bloquear Enter se não houver seleção válida
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (autocompleteResults.length > 0) {
+                  // Se há resultados, selecionar o primeiro
+                  handleSelectAutocomplete(autocompleteResults[0]);
+                } else if (searchTerm.trim().length >= 2 && !isSearching) {
+                  // Se não há resultados mas tem texto, sugerir criação
+                  handleSuggestCategory();
+                } else {
+                  setSearchFieldError('Selecione uma profissão da lista.');
+                }
+              }
+            }}
+            placeholder="Busque e selecione uma profissão da lista..."
+            className={`search-input ${searchFieldError ? 'error' : ''}`}
+            autoComplete="off"
+          />
+          <div className="search-actions">
+            {/* FEATURE FLAG: Microfone apenas para usuários PRO/Enterprise */}
+            {aiAssistEnabled && recognition && (
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`mic-button ${isRecording ? 'recording' : ''}`}
+                title={isRecording ? 'Parar gravação' : 'Falar (Recurso PRO)'}
+              >
+                🎤
+              </button>
+            )}
+            {!aiAssistEnabled && (
+              <button
+                type="button"
+                className="mic-button"
+                disabled
+                title="Recurso disponível apenas na versão PRO"
+                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              >
+                🎤
+              </button>
+            )}
+            {isSearching && <span className="search-loading">Buscando...</span>}
+            {isCreatingWithAI && <span className="search-loading">Criando com IA...</span>}
+          </div>
+          
+          {/* Dropdown de Autocomplete - CORRIGIDO: z-index alto e posicionamento */}
+          {showAutocomplete && autocompleteResults.length > 0 && (
+            <div className="autocomplete-dropdown">
+              {autocompleteResults.map((result) => (
+                <div
+                  key={result.id}
+                  className="autocomplete-item"
+                  onClick={() => handleSelectAutocomplete(result)}
+                  onMouseDown={(e) => e.preventDefault()} // Prevenir blur antes do clique
+                >
+                  <div className="autocomplete-item-name">{normalizeCategoryLabel(result.name)}</div>
+                  <div className="autocomplete-item-path">{normalizeCategoryLabel(result.fullPathLabel)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Mensagem de erro do autocomplete */}
+        {autocompleteError && (
+          <div className="autocomplete-error" style={{
+            marginTop: '0.5rem',
+            padding: '0.75rem',
+            backgroundColor: '#fee2e2',
+            border: '1px solid #ef4444',
+            borderRadius: '0.375rem',
+            color: '#dc2626',
+            fontSize: '0.875rem'
+          }}>
+            <strong>⚠️ Erro ao buscar autocomplete:</strong> {autocompleteError}
+            <br />
+            <small>Verifique sua conexão, tenant ID e tente novamente.</small>
+          </div>
+        )}
+
+        {/* Mensagem de erro de validação do campo de busca */}
+        {searchFieldError && (
+          <div className="search-field-error" style={{
+            marginTop: '0.5rem',
+            padding: '0.75rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '0.375rem',
+            color: '#92400e',
+            fontSize: '0.875rem'
+          }}>
+            <strong>⚠️ {searchFieldError}</strong>
+          </div>
+        )}
+
+        {/* REGRA FINAL: Mostrar "Sugerir Profissão" APENAS se:
+            - Termo tem 2+ caracteres
+            - NÃO houve erro (erro ≠ ausência de dado)
+            - Autocomplete retornou 0 resultados (legítimos)
+            - NÃO está buscando
+            - NÃO está mostrando dropdown
+            CRÍTICO: Se há erro, mostrar erro. Não sugerir criação quando há problema de rede/auth. */}
+        {searchTerm.trim().length >= 2 && 
+         !autocompleteError && 
+         autocompleteResults.length === 0 && 
+         !isSearching && 
+         !showAutocomplete && (
+          <div className="ai-create-suggestion">
+            <p>Nenhuma profissão encontrada para "{searchTerm}"</p>
+            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
+              Não encontrou sua profissão? Solicite a inclusão abaixo.
+            </p>
+            <button
+              type="button"
+              onClick={handleSuggestCategory}
+              disabled={isSuggesting || isCreatingWithAI}
+              className="ai-create-button"
+            >
+              {isSuggesting ? 'Analisando...' : '📋 Solicitar Inclusão'}
+            </button>
+            {suggestionError && (
+              <p className="error-message" style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                {suggestionError}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Ocultar search-results antigo se autocomplete estiver ativo */}
+        {searchResults.length > 0 && !showAutocomplete && (
+          <div className="search-results">
+            {searchResults
+              .filter((category) => category.level === 2) // Só mostra profissões (nível 2)
+              .map((category) => {
+                const pathDisplay = category.path.length > 0
+                  ? normalizeCategoryPath([...category.path, category.name], ' > ')
+                  : normalizeCategoryLabel(category.name);
+                const isSelected = isSkillSelected(category.categoryId);
+
+                return (
+                  <div
+                    key={category.categoryId}
+                    className={`search-result-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => !isSelected && addSkill(category)}
+                  >
+                    <div className="result-path">{pathDisplay}</div>
+                    {isSelected ? (
+                      <span className="skill-badge">✓ Já adicionada</span>
+                    ) : (
+                      <button className="add-button-small">+ Adicionar</button>
+                    )}
+                  </div>
+                );
+              })}
+            {searchResults.filter((c) => c.level === 2).length === 0 && searchResults.length > 0 && (
+              <div className="search-no-results">
+                <p>Nenhuma profissão encontrada. Tente buscar por termos mais específicos.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Árvore de Categorias */}
+      {categoryTree.length > 0 && (
+        <div className="categories-section">
+          <h3>Ou navegue pelas categorias:</h3>
+          <div className="category-tree">
+            {renderCategoryTree(categoryTree)}
+          </div>
+        </div>
+      )}
+      
+      {categoryTree.length === 0 && !isLoading && (
+        <div className="empty-state">
+          <p>Nenhuma categoria disponível no momento.</p>
+          <p className="empty-hint">Tente usar a busca acima para encontrar profissões.</p>
+        </div>
+      )}
+
+      {/* Skills Selecionadas */}
+      {selectedSkills.length > 0 && (
+        <div className="selected-skills-section">
+          <h3>Suas Profissões e Habilidades ({selectedSkills.length})</h3>
+          <div className="selected-skills-list">
+            {selectedSkills.map((skill) => {
+              const isNewlyAdded = newlyAddedSkillId === skill.categoryId;
+              return (
+                <div 
+                  key={skill.categoryId} 
+                  className={`selected-skill-card ${isNewlyAdded ? 'newly-added' : ''}`}
+                >
+                  <div className="skill-header">
+                    <div className="skill-info">
+                      <h4>{normalizeCategoryLabel(skill.categoryName)}</h4>
+                      <p className="skill-path">{normalizeCategoryPath(skill.categoryPath, ' > ')}</p>
+                    </div>
+                    <button
+                      className="remove-skill-button"
+                      onClick={() => removeSkill(skill.categoryId)}
+                      title="Remover"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="skill-fields">
+                    <div className="skill-field">
+                      <label>Nível de Proficiência</label>
+                      <select
+                        value={skill.skillLevel}
+                        onChange={(e) =>
+                          updateSkill(skill.categoryId, 'skillLevel', parseInt(e.target.value))
+                        }
+                      >
+                        <option value={1}>Iniciante</option>
+                        <option value={2}>Básico</option>
+                        <option value={3}>Intermediário</option>
+                        <option value={4}>Avançado</option>
+                        <option value={5}>Expert</option>
+                      </select>
+                    </div>
+                    <div className="skill-field">
+                      <label>Anos de Experiência</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={skill.yearsExperience}
+                        onChange={(e) =>
+                          updateSkill(skill.categoryId, 'yearsExperience', parseInt(e.target.value) || 0)
+                        }
+                        className={skillErrors[skill.categoryId]?.includes('experiência') ? 'error' : ''}
+                      />
+                      {skillErrors[skill.categoryId]?.includes('experiência') && (
+                        <span className="field-error">{skillErrors[skill.categoryId]}</span>
+                      )}
+                      {userAge && (
+                        <p className="field-hint">Máximo recomendado: {Math.max(0, userAge - 16)} anos</p>
+                      )}
+                    </div>
+                    <div className="skill-field">
+                      <label>Tipo: Serviço ou Produto *</label>
+                      <select
+                        value={skill.serviceType}
+                        onChange={(e) =>
+                          updateSkill(skill.categoryId, 'serviceType', e.target.value as ServiceType)
+                        }
+                      >
+                        <option value="service">Serviço</option>
+                        <option value="product">Produto</option>
+                      </select>
+                      <p className="field-hint">
+                        {skill.serviceType === 'service'
+                          ? 'Você presta um serviço (ex: conserto, instalação, limpeza)'
+                          : 'Você vende um produto físico'}
+                      </p>
+                    </div>
+
+                    {skill.serviceType === 'service' && (
+                      <>
+                        <div className="skill-field">
+                          <label>Tipo de Cobrança *</label>
+                          <select
+                            value={skill.pricingType}
+                            onChange={(e) =>
+                              updateSkill(skill.categoryId, 'pricingType', e.target.value as PricingType)
+                            }
+                          >
+                            <option value="hourly">Cobrança por Hora</option>
+                            <option value="daily">Cobrança por Dia</option>
+                            <option value="weekly">Cobrança por Semana</option>
+                            <option value="monthly">Cobrança por Mês</option>
+                            <option value="quote">Solicitar Orçamento Primeiro</option>
+                          </select>
+                          <p className="field-hint">
+                            {skill.pricingType === 'hourly'
+                              ? 'Você cobra um valor fixo por hora trabalhada'
+                              : skill.pricingType === 'daily'
+                              ? 'Você cobra um valor fixo por dia trabalhado'
+                              : skill.pricingType === 'weekly'
+                              ? 'Você cobra um valor fixo por semana trabalhada'
+                              : skill.pricingType === 'monthly'
+                              ? 'Você cobra um valor fixo por mês trabalhado'
+                              : 'Você precisa fazer um orçamento antes de aceitar o serviço'}
+                          </p>
+                        </div>
+
+                        {(skill.pricingType === 'hourly' || skill.pricingType === 'daily' || skill.pricingType === 'weekly' || skill.pricingType === 'monthly') && (
+                          <div className={`skill-field ${isNewlyAdded ? 'highlight-field' : ''}`}>
+                            <label>
+                              {skill.pricingType === 'hourly' && 'Valor por Hora (R$)'}
+                              {skill.pricingType === 'daily' && 'Valor por Dia (R$)'}
+                              {skill.pricingType === 'weekly' && 'Valor por Semana (R$)'}
+                              {skill.pricingType === 'monthly' && 'Valor por Mês (R$)'}
+                              {isNewlyAdded && <span className="required-indicator"> *</span>}
+                            </label>
+                            <input
+                              id={`hourly-rate-${skill.categoryId}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="999999.99"
+                              value={skill.hourlyRate || ''}
+                              onChange={(e) => {
+                                const value = e.target.value ? parseFloat(e.target.value) : null;
+                                updateSkill(skill.categoryId, 'hourlyRate', value);
+                              }}
+                              placeholder="0.00"
+                              className={skillErrors[skill.categoryId]?.includes('Valor') ? 'error' : ''}
+                              required={isNewlyAdded}
+                            />
+                            {skillErrors[skill.categoryId]?.includes('Valor') && (
+                              <span className="field-error">{skillErrors[skill.categoryId]}</span>
+                            )}
+                            <p className="field-hint">
+                              {isNewlyAdded 
+                                ? `💡 Defina o valor ${skill.pricingType === 'hourly' ? 'por hora' : skill.pricingType === 'daily' ? 'por dia' : skill.pricingType === 'weekly' ? 'por semana' : 'por mês'} para esta profissão. Ex: cortador de grama pode ter um valor diferente de manicure.`
+                                : `Valor específico para esta profissão (máx: R$ 999.999,99)`
+                              }
+                            </p>
+                          </div>
+                        )}
+
+                        {skill.pricingType === 'quote' && (
+                          <div className="skill-field">
+                            <label className="checkbox-label">
+                              <input
+                                type="checkbox"
+                                checked={skill.chargeVisit}
+                                onChange={(e) => {
+                                  updateSkill(skill.categoryId, 'chargeVisit', e.target.checked);
+                                  if (!e.target.checked) {
+                                    updateSkill(skill.categoryId, 'visitPrice', null);
+                                  }
+                                }}
+                              />
+                              <span>Cobrar pela visita para fazer orçamento</span>
+                            </label>
+                            {skill.chargeVisit && (
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <label>Preço da Visita (R$)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  max="999999.99"
+                                  value={skill.visitPrice || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value ? parseFloat(e.target.value) : null;
+                                    updateSkill(skill.categoryId, 'visitPrice', value);
+                                  }}
+                                  placeholder="0.00"
+                                />
+                                <p className="field-hint">
+                                  Valor que você cobra pela visita para fazer o orçamento. O mercado é livre - você decide se cobra ou não.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Serviços Pré-definidos */}
+                        <div className="predefined-services-wrapper">
+                          <PredefinedServicesManager
+                            services={skill.predefinedServices}
+                            onChange={(newServices) => {
+                              const updated = selectedSkills.map((s) =>
+                                s.categoryId === skill.categoryId
+                                  ? { ...s, predefinedServices: newServices }
+                                  : s
+                              );
+                              setSelectedSkills(updated);
+                            }}
+                            categoryName={skill.categoryName}
+                          />
+                        </div>
+
+                        {/* Regras de Desconto para Combos */}
+                        <div className="combo-discount-rules-wrapper">
+                          <ComboDiscountRulesManager
+                            rules={skill.comboDiscountRules}
+                            onChange={(newRules) => {
+                              const updated = selectedSkills.map((s) =>
+                                s.categoryId === skill.categoryId
+                                  ? { ...s, comboDiscountRules: newRules }
+                                  : s
+                              );
+                              setSelectedSkills(updated);
+                            }}
+                            categoryName={skill.categoryName}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {skill.serviceType === 'product' && (
+                      <div className="skill-field">
+                        <p className="field-hint">
+                          Para produtos, você pode definir preços específicos quando criar anúncios ou ofertas.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Bio */}
+      <div className="additional-info-section">
+        <h3>Informações Adicionais</h3>
+        <div className="form-group">
+          <label htmlFor="bio">Biografia Profissional</label>
+          <textarea
+            id="bio"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Descreva sua experiência profissional, especialidades, etc."
+            rows={4}
+          />
+        </div>
+      </div>
+
+      {/* Botão Salvar */}
+      <div className="form-actions">
+        <button onClick={handleSave} disabled={isSaving} className="save-button">
+          {isSaving ? 'Salvando...' : 'Salvar Perfil Profissional'}
+        </button>
+      </div>
+
+      {/* Modal de Sugestão de Categoria */}
+      {showSuggestionModal && categorySuggestion && (
+        <div className="modal-overlay" onClick={() => setShowSuggestionModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Sugerir Nova Profissão</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => {
+                  setShowSuggestionModal(false);
+                  setCategorySuggestion(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="suggestion-info">
+                <p className="suggestion-text">
+                  <strong>Profissão sugerida:</strong> "{normalizeCategoryLabel(categorySuggestion.leafName)}"
+                </p>
+                
+                {categorySuggestion.suggestedRoot && categorySuggestion.suggestedParent && (
+                  <div className="suggestion-path">
+                    <p className="path-label">Caminho sugerido:</p>
+                    <div className="path-display">
+                      <span className="path-root">{normalizeCategoryLabel(categorySuggestion.suggestedRoot.name)}</span>
+                      <span className="path-separator">›</span>
+                      <span className="path-parent">{normalizeCategoryLabel(categorySuggestion.suggestedParent.name)}</span>
+                      <span className="path-separator">›</span>
+                      <span className="path-leaf">{normalizeCategoryLabel(categorySuggestion.leafName)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {categorySuggestion.leafDescription && (
+                  <p className="suggestion-description">
+                    {categorySuggestion.leafDescription}
+                  </p>
+                )}
+
+                <div className="suggestion-confidence">
+                  <p>
+                    <strong>Confiança da análise:</strong>{' '}
+                    <span className={`confidence-badge ${categorySuggestion.confidence >= 0.6 ? 'high' : 'low'}`}>
+                      {Math.round(categorySuggestion.confidence * 100)}%
+                    </span>
+                  </p>
+                </div>
+
+                {categorySuggestion.requiresReview && (
+                  <div className="review-warning">
+                    <p>⚠️ Esta sugestão requer revisão manual antes de ser aprovada.</p>
+                  </div>
+                )}
+
+                <div className="approval-info">
+                  <p>
+                    <strong>📋 Importante:</strong>
+                  </p>
+                  <ul>
+                    <li>A profissão <strong>não aparecerá imediatamente</strong> no sistema</li>
+                    <li>Ela será <strong>revisada pela equipe</strong> antes da aprovação</li>
+                    <li>Você receberá uma notificação quando for aprovada</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowSuggestionModal(false);
+                  setCategorySuggestion(null);
+                }}
+                disabled={isCreatingWithAI}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => handleCreateWithAI(categorySuggestion.suggestedParent?.id || null)}
+                disabled={isCreatingWithAI}
+              >
+                {isCreatingWithAI ? 'Enviando...' : '✓ Enviar para Aprovação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

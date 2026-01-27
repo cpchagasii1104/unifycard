@@ -16,4 +16,3 @@ exports.setResidencePreferencesSchema = zod_1.z.object({
     currency: zod_1.z.string().length(3, 'Moeda deve ter 3 caracteres (ISO 4217)').optional(),
     languages: zod_1.z.array(zod_1.z.string().min(2).max(10, 'Código de idioma inválido')).optional(),
 });
-//# sourceMappingURL=residence.schemas.js.map

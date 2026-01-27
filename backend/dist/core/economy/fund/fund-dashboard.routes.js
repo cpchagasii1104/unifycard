@@ -42,4 +42,3 @@ const fundDashboardRoutes = async (fastify) => {
     });
 };
 exports.default = fundDashboardRoutes;
-//# sourceMappingURL=fund-dashboard.routes.js.map

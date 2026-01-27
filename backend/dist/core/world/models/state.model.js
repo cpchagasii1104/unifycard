@@ -24,4 +24,3 @@ class StateModel {
     }
 }
 exports.StateModel = StateModel;
-//# sourceMappingURL=state.model.js.map

@@ -1,0 +1,426 @@
+{
+  "metadata": {
+    "data_auditoria": "2026-01-11",
+    "versao": "1.0",
+    "completude_geral": 73.0
+  },
+  "metricas_gerais": {
+    "total_modulos_backend": 70,
+    "total_migrations": 119,
+    "total_tabelas": 178,
+    "total_paginas_frontend": 23,
+    "total_apis_frontend": 37
+  },
+  "modulos_por_status": {
+    "operacionais_100": [
+      {
+        "modulo": "Social/Feed",
+        "descricao": "Rede social e feed de conteúdo",
+        "status": "Operacional",
+        "completude": 100.0,
+        "backend_modulos": [
+          "modules/social",
+          "modules/social-actions"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "comments",
+          "group_comments",
+          "group_posts",
+          "posts"
+        ],
+        "frontend_apis": [
+          "social",
+          "social-2.0",
+          "feed"
+        ]
+      },
+      {
+        "modulo": "Localização",
+        "descricao": "Hierarquia geográfica",
+        "status": "Operacional",
+        "completude": 100.0,
+        "backend_modulos": [
+          "core/world"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "cities",
+          "countries",
+          "neighborhoods",
+          "rides_cities",
+          "states"
+        ],
+        "frontend_apis": [
+          "location",
+          "world"
+        ]
+      }
+    ],
+    "operacionais_70_90": [
+      {
+        "modulo": "Categorias",
+        "descricao": "Sistema de categorização hierárquica",
+        "status": "Operacional",
+        "completude": 87.5,
+        "backend_modulos": [
+          "core/categories",
+          "core/category"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "categories",
+          "company_categories",
+          "group_categories",
+          "post_categories",
+          "product_categories",
+          "service_categories",
+          "user_skills_categories"
+        ],
+        "frontend_apis": [
+          "categories",
+          "category"
+        ]
+      },
+      {
+        "modulo": "Autenticação",
+        "descricao": "Sistema de autenticação e gestão de usuários",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "core/auth"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "care_sessions",
+          "company_users",
+          "event_sessions",
+          "global_users",
+          "rides_driver_sessions",
+          "users"
+        ],
+        "frontend_apis": [
+          "auth"
+        ]
+      },
+      {
+        "modulo": "Perfil de Usuário",
+        "descricao": "Gestão completa de perfis pessoais e profissionais",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "core/profile"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "user_profiles"
+        ],
+        "frontend_apis": [
+          "profile"
+        ]
+      },
+      {
+        "modulo": "Eventos",
+        "descricao": "Sistema completo de gestão de eventos",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "modules/events",
+          "core/events"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "audit_events",
+          "cultural_events",
+          "event_attendees",
+          "events",
+          "group_events",
+          "rides_ride_events",
+          "rides_ride_wait_events"
+        ],
+        "frontend_apis": [
+          "events"
+        ]
+      },
+      {
+        "modulo": "Grupos",
+        "descricao": "Comunidades e grupos colaborativos",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "modules/groups"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "group_invites",
+          "group_members",
+          "group_votes",
+          "groups",
+          "user_active_groups"
+        ],
+        "frontend_apis": [
+          "groups"
+        ]
+      },
+      {
+        "modulo": "Empresas",
+        "descricao": "Gestão de empresas e validação",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "core/companies"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "companies",
+          "company_documents",
+          "user_companies"
+        ],
+        "frontend_apis": [
+          "companies"
+        ]
+      },
+      {
+        "modulo": "Serviços",
+        "descricao": "Marketplace de serviços",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "modules/services"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "service_availability",
+          "service_booking_decisions",
+          "service_bookings"
+        ],
+        "frontend_apis": []
+      },
+      {
+        "modulo": "Trabalho",
+        "descricao": "Oportunidades de trabalho e matching",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "modules/work",
+          "modules/work-instant"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [],
+        "frontend_apis": []
+      },
+      {
+        "modulo": "Educação",
+        "descricao": "Perfil educacional",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "core/profile"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "user_education"
+        ],
+        "frontend_apis": [
+          "education"
+        ]
+      },
+      {
+        "modulo": "Reputação",
+        "descricao": "Sistema de reputação e confiança",
+        "status": "Operacional",
+        "completude": 75.0,
+        "backend_modulos": [
+          "core/reputation"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "actor_penalties",
+          "reputation_scores"
+        ],
+        "frontend_apis": [
+          "reputation"
+        ]
+      }
+    ],
+    "em_desenvolvimento_30_70": [
+      {
+        "modulo": "Economia/Banco",
+        "descricao": "Sistema econômico e moeda interna",
+        "status": "Operacional",
+        "completude": 62.5,
+        "backend_modulos": [
+          "core/economy",
+          "core/unifybank"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "event_escrow_transactions",
+          "group_transactions",
+          "impact_ledger",
+          "ledger",
+          "ledger_referral_splits",
+          "social_ledger",
+          "transactions"
+        ],
+        "frontend_apis": [
+          "economy"
+        ]
+      },
+      {
+        "modulo": "Cultural",
+        "descricao": "Perfis e eventos culturais",
+        "status": "Operacional",
+        "completude": 50.0,
+        "backend_modulos": [
+          "modules/cultural"
+        ],
+        "tem_migrations": true,
+        "tabelas_db": [
+          "cultural_events",
+          "cultural_profiles"
+        ],
+        "frontend_apis": [
+          "cultural"
+        ]
+      },
+      {
+        "modulo": "IA/Assistente",
+        "descricao": "Assistente inteligente e IA",
+        "status": "Em Desenvolvimento",
+        "completude": 43.8,
+        "backend_modulos": [
+          "modules/assistant",
+          "core/ai"
+        ],
+        "tem_migrations": false,
+        "tabelas_db": [],
+        "frontend_apis": [
+          "ai",
+          "inference"
+        ]
+      },
+      {
+        "modulo": "Mobilidade (Rides)",
+        "descricao": "Sistema de transporte/carona",
+        "status": "Em Desenvolvimento",
+        "completude": 37.5,
+        "backend_modulos": [
+          "modules/rides"
+        ],
+        "tem_migrations": false,
+        "tabelas_db": [
+          "rides_cities",
+          "rides_city_service_types",
+          "rides_disputes",
+          "rides_distribution_rules",
+          "rides_driver_availability",
+          "rides_driver_documents",
+          "rides_driver_earnings_history",
+          "rides_driver_locations",
+          "rides_driver_preferences",
+          "rides_driver_services",
+          "rides_driver_sessions",
+          "rides_drivers",
+          "rides_emergency_contacts",
+          "rides_passenger_stats",
+          "rides_pricing_config",
+          "rides_regions",
+          "rides_request_offers",
+          "rides_ride_cancellations",
+          "rides_ride_distributions",
+          "rides_ride_events",
+          "rides_ride_locations",
+          "rides_ride_requests",
+          "rides_ride_shares",
+          "rides_ride_stops",
+          "rides_ride_wait_events",
+          "rides_rides",
+          "rides_service_types",
+          "rides_vehicles",
+          "rides_zone_demand_pressure",
+          "rides_zone_incentives",
+          "rides_zones"
+        ],
+        "frontend_apis": []
+      },
+      {
+        "modulo": "Pagamentos/Checkout",
+        "descricao": "Processamento de pagamentos",
+        "status": "Em Desenvolvimento",
+        "completude": 37.5,
+        "backend_modulos": [
+          "core/checkout"
+        ],
+        "tem_migrations": false,
+        "tabelas_db": [],
+        "frontend_apis": [
+          "checkout"
+        ]
+      }
+    ],
+    "nao_iniciados": []
+  },
+  "tabelas_criticas": [
+    "global_users",
+    "user_profiles",
+    "actors",
+    "posts",
+    "comments",
+    "follows",
+    "events",
+    "event_attendees",
+    "groups",
+    "group_members",
+    "group_votes",
+    "ledger",
+    "transactions",
+    "categories",
+    "companies",
+    "company_documents"
+  ],
+  "proximos_passos": {
+    "semana_1": [
+      "Recuperação de senha por email",
+      "Validações completas de perfil",
+      "Otimização cache categorias",
+      "Testes E2E fluxos principais"
+    ],
+    "semana_2": [
+      "Eventos: cashback + notificações",
+      "Grupos: moderação + notificações",
+      "Social: denúncias + moderação",
+      "Mobile responsive"
+    ],
+    "semana_3": [
+      "Loading states consistentes",
+      "Error handling robusto",
+      "Rate limiting todas rotas",
+      "Documentação API Swagger",
+      "Guia do usuário + FAQ"
+    ]
+  },
+  "roadmap_pos_mvp": {
+    "v1.1_1_2_meses": [
+      "Gateway pagamento (Stripe/PagSeguro)",
+      "Conversão MFI ↔ BRL",
+      "Sistema notificações completo",
+      "Mobile apps React Native",
+      "OAuth social login"
+    ],
+    "v1.2_3_4_meses": [
+      "IA/Assistente avançado",
+      "Sistema cultural completo",
+      "Chat tempo real",
+      "Sistema assinaturas",
+      "Gamificação"
+    ],
+    "v2.0_6_meses": [
+      "Sistema Rides completo",
+      "Internacionalização",
+      "Data warehouse + BI",
+      "Machine learning",
+      "Multi-região"
+    ]
+  }
+}

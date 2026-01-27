@@ -74,13 +74,35 @@ class TransactionService {
      */
     async transfer(tenantId, input) {
         const { fromAccount, toAccount, amount, eventId = (0, uuid_1.v4)(), metadata = {} } = input;
+        // ==========================================
+        // VALIDAÇÃO EXPLÍCITA DE CAMPOS OBRIGATÓRIOS
+        // ==========================================
+        if (amount === undefined) {
+            const error = new Error('Amount is required');
+            error.statusCode = 400;
+            throw error;
+        }
+        if (fromAccount === undefined) {
+            const error = new Error('fromAccount is required');
+            error.statusCode = 400;
+            throw error;
+        }
+        if (toAccount === undefined) {
+            const error = new Error('toAccount is required');
+            error.statusCode = 400;
+            throw error;
+        }
+        // Criar variáveis seguras após validação
+        const safeAmount = amount;
+        const safeFromAccount = fromAccount;
+        const safeToAccount = toAccount;
         // Validações básicas
-        if (amount <= 0) {
+        if (safeAmount <= 0) {
             const error = new Error('Amount must be greater than zero');
             error.statusCode = 400;
             throw error;
         }
-        if (fromAccount === toAccount) {
+        if (safeFromAccount === safeToAccount) {
             const error = new Error('Cannot transfer to the same account');
             error.statusCode = 400;
             throw error;
@@ -101,9 +123,9 @@ class TransactionService {
                 // INVARIANTE 3: IDEMPOTÊNCIA ABSOLUTA
                 // ==========================================
                 // Validar que payload é idêntico (mesmo eventId = mesma operação)
-                if (parseFloat(existingRow.amount) !== amount ||
-                    existingRow.from_account !== fromAccount ||
-                    existingRow.to_account !== toAccount) {
+                if (parseFloat(existingRow.amount) !== safeAmount ||
+                    existingRow.from_account !== safeFromAccount ||
+                    existingRow.to_account !== safeToAccount) {
                     const error = new Error(`Idempotency violation: same eventId (${eventId}) used with different payload`);
                     error.statusCode = 409;
                     throw error;
@@ -113,17 +135,17 @@ class TransactionService {
                 // Se não estiverem, deixar como null (não é crítico para funcionamento)
                 const existing = this.toTransaction(existingRow);
                 // Busca saldos atuais (sem lock, pois transação já foi commitada)
-                const accountsResult = await client.query('SELECT account_id, balance FROM accounts WHERE account_id = ANY($1::text[])', [[fromAccount, toAccount]]);
+                const accountsResult = await client.query('SELECT account_id, balance FROM accounts WHERE account_id = ANY($1::text[])', [[safeFromAccount, safeToAccount]]);
                 const accountsMap = new Map(accountsResult.rows.map(row => [row.account_id, parseFloat(row.balance)]));
                 return {
                     transaction: existing,
-                    fromAccountBalance: accountsMap.get(fromAccount) ?? 0,
-                    toAccountBalance: accountsMap.get(toAccount) ?? 0,
+                    fromAccountBalance: accountsMap.get(safeFromAccount) ?? 0,
+                    toAccountBalance: accountsMap.get(safeToAccount) ?? 0,
                 };
             }
             // 2. Busca e valida ambas as contas (FOR UPDATE para lock pessimista)
             // Lock em ordem alfabética para evitar deadlocks
-            const [firstAccount, secondAccount] = [fromAccount, toAccount].sort();
+            const [firstAccount, secondAccount] = [safeFromAccount, safeToAccount].sort();
             const accountsResult = await client.query(`SELECT account_id, balance, owner_type
          FROM accounts 
          WHERE account_id = ANY($1::text[])
@@ -131,7 +153,7 @@ class TransactionService {
          FOR UPDATE`, [[firstAccount, secondAccount]]);
             if (accountsResult.rows.length !== 2) {
                 const foundIds = new Set(accountsResult.rows.map(r => r.account_id));
-                const missing = [fromAccount, toAccount].filter(id => !foundIds.has(id));
+                const missing = [safeFromAccount, safeToAccount].filter(id => !foundIds.has(id));
                 throw new Error(`Account(s) not found: ${missing.join(', ')}`);
             }
             // Mapeia as contas encontradas
@@ -143,31 +165,31 @@ class TransactionService {
                     ownerType: row.owner_type,
                 },
             ]));
-            const fromBalance = accountsMap.get(fromAccount);
-            const toBalance = accountsMap.get(toAccount);
+            const fromBalance = accountsMap.get(safeFromAccount);
+            const toBalance = accountsMap.get(safeToAccount);
             // Resolver global_user_id das contas (se owner_type = 'user')
             // NOTA: Não usar owner_global_user_id (coluna pode não existir)
             // Deixar como null se não conseguir resolver de outra forma
-            const fromInfo = accountsInfoMap.get(fromAccount);
-            const toInfo = accountsInfoMap.get(toAccount);
+            const fromInfo = accountsInfoMap.get(safeFromAccount);
+            const toInfo = accountsInfoMap.get(safeToAccount);
             const fromGlobalUserId = null; // Não buscar de owner_global_user_id
             const toGlobalUserId = null; // Não buscar de owner_global_user_id
             // 3. Valida saldo suficiente
-            if (fromBalance < amount) {
+            if (fromBalance < safeAmount) {
                 const error = new Error('Insufficient balance');
                 error.statusCode = 400;
                 throw error;
             }
             // 4. Calcula novos saldos
-            const newFromBalance = fromBalance - amount;
-            const newToBalance = toBalance + amount;
+            const newFromBalance = fromBalance - safeAmount;
+            const newToBalance = toBalance + safeAmount;
             // ==========================================
             // INVARIANTE 2: SALDO NÃO-NEGATIVO (USER_PRIMARY)
             // ==========================================
             // Verificar se conta de usuário não ficará negativa (após lock, antes de criar ledger)
-            const fromAccountInfo = accountsInfoMap.get(fromAccount);
+            const fromAccountInfo = accountsInfoMap.get(safeFromAccount);
             if (fromAccountInfo?.ownerType === 'user' && newFromBalance < 0) {
-                const error = new Error(`Non-negative balance invariant violated: user account ${fromAccount} would have negative balance (${newFromBalance})`);
+                const error = new Error(`Non-negative balance invariant violated: user account ${safeFromAccount} would have negative balance (${newFromBalance})`);
                 error.statusCode = 400;
                 throw error;
             }
@@ -177,11 +199,11 @@ class TransactionService {
            WHEN $1 THEN $2
            WHEN $3 THEN $4
          END
-         WHERE account_id IN ($1, $3)`, [fromAccount, newFromBalance, toAccount, newToBalance]);
+         WHERE account_id IN ($1, $3)`, [safeFromAccount, newFromBalance, safeToAccount, newToBalance]);
             // 6. Cria registro da transação
             const txResult = await client.query(`INSERT INTO transactions (tenant_id, from_account, to_account, from_global_user_id, to_global_user_id, amount, event_id, status, metadata)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING transaction_id, tenant_id, from_account, to_account, from_global_user_id, to_global_user_id, amount, event_id, status, metadata, created_at`, [tenantId, fromAccount, toAccount, fromGlobalUserId, toGlobalUserId, amount, eventId, 'completed', metadata]);
+         RETURNING transaction_id, tenant_id, from_account, to_account, from_global_user_id, to_global_user_id, amount, event_id, status, metadata, created_at`, [tenantId, safeFromAccount, safeToAccount, fromGlobalUserId, toGlobalUserId, safeAmount, eventId, 'completed', metadata]);
             const transaction = this.toTransaction(txResult.rows[0]);
             // 7. Cria entradas no ledger (double-entry bookkeeping) em batch
             await client.query(`INSERT INTO ledger (tenant_id, account_id, transaction_id, entry_type, amount, balance_before, balance_after)
@@ -189,13 +211,13 @@ class TransactionService {
            ($1, $2, $3, $4, $5, $6, $7),
            ($1, $8, $3, $9, $5, $10, $11)`, [
                 tenantId,
-                fromAccount,
+                safeFromAccount,
                 transaction.transactionId,
                 'debit',
-                amount,
+                safeAmount,
                 fromBalance,
                 newFromBalance,
-                toAccount,
+                safeToAccount,
                 'credit',
                 toBalance,
                 newToBalance
@@ -230,7 +252,7 @@ class TransactionService {
         WHERE a.account_id IN ($1, $2)
           AND a.owner_type = 'user'
           AND a.balance < 0
-        `, [fromAccount, toAccount]);
+        `, [safeFromAccount, safeToAccount]);
             if (negativeBalanceCheck.rows.length > 0) {
                 // Rollback e erro explícito
                 await client.query('ROLLBACK');
@@ -251,9 +273,9 @@ class TransactionService {
                         type: 'transaction.completed',
                         payload: {
                             transactionId: transaction.transactionId,
-                            fromAccount,
-                            toAccount,
-                            amount,
+                            fromAccount: safeFromAccount,
+                            toAccount: safeToAccount,
+                            amount: safeAmount,
                             eventId,
                             metadata,
                         },
@@ -359,4 +381,3 @@ class TransactionService {
     }
 }
 exports.transactionService = new TransactionService();
-//# sourceMappingURL=transaction.service.js.map

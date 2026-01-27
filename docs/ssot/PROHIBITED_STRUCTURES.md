@@ -1,0 +1,151 @@
+# PROHIBITED STRUCTURES — SSOT UnifiCard
+
+Este documento lista **estruturas, tabelas e padrões explicitamente PROIBIDOS**
+como fonte de verdade, autoridade de decisão ou cálculo de estado no sistema UnifiCard.
+
+Qualquer uso fora do permitido aqui é considerado **violação grave de SSOT**.
+
+Este documento complementa o `SSOT_REGISTRY.md` e é **normativo**.
+
+---
+
+## PRINCÍPIO FUNDAMENTAL
+
+> Estrutura proibida **pode existir**,  
+> mas **nunca pode decidir estado**.
+
+Uso permitido ≠ uso como verdade.
+
+---
+
+## ESTRUTURAS FINANCEIRAS PROIBIDAS (LEGACY)
+
+As estruturas abaixo **NUNCA** podem:
+- decidir saldo
+- calcular estado financeiro
+- ser tratadas como autoridade final
+- reconstruir verdade contábil
+
+### Tabelas proibidas
+
+- `accounts`
+- `ledger` (legacy)
+- `transactions` (legacy)
+- `region_accounts`
+- `wallets` (se existir)
+- `cached_balances` fora de `bank_accounts`
+
+Uso permitido:
+- histórico
+- visualização
+- debug
+- migração assistida (temporária)
+
+---
+
+## ESTRUTURAS DE PAGAMENTO NÃO-CANÔNICAS
+
+Estas estruturas **NÃO** são SSOT e **NÃO** podem decidir pagamento:
+
+- `payment_transactions`
+- `payment_splits`
+- `settlements`
+- `payout_transactions`
+- `escrow_transactions`
+- `unifycard_transactions`
+
+Uso permitido:
+- logs operacionais
+- integração com adquirente
+- rastreabilidade técnica
+
+Uso proibido:
+- cálculo de saldo
+- split final
+- decisão financeira
+
+---
+
+## ESTRUTURAS DECLARATIVAS / INTERMEDIÁRIAS
+
+Estas estruturas **NÃO** decidem dinheiro:
+
+- `event_split_declarative`
+- `event_refund`
+- `event_chargeback`
+- `service_payment_requests`
+- `service_payment_executions`
+
+Uso permitido:
+- intenção
+- orquestração
+- workflow
+- pré-financeiro
+
+Uso proibido:
+- autoridade financeira
+- substituição de ledger
+- persistência de verdade contábil
+
+---
+
+## PADRÕES DE CÓDIGO PROIBIDOS
+
+Os seguintes padrões são **explicitamente proibidos**:
+
+- Atualizar saldo fora do `bank_ledger`
+- Calcular saldo a partir de:
+  - `transactions`
+  - `payment_transactions`
+  - `event_*`
+- Tratar `cached_balance` como verdade
+- Usar JOIN em tabelas proibidas para decisão
+- Persistir “estado final” em repositório de negócio
+- Recalcular split fora do banco
+
+---
+
+## LEITURA DECISÓRIA PROIBIDA
+
+É proibido:
+- Tomar decisão com base em estruturas proibidas
+- Usar dados legacy para:
+  - liberar pagamento
+  - bloquear conta
+  - concluir evento financeiro
+  - computar reputação financeira
+
+Mesmo leitura “só para conferência” é proibida **se influenciar decisão**.
+
+---
+
+## EXCEÇÕES CONTROLADAS
+
+Exceções só existem se:
+1. Documentadas no `FALSIFICATION_LOG.md`
+2. Aprovadas por Gate explícito
+3. Com prazo de expiração
+
+Exceção sem prazo = violação.
+
+---
+
+## FISCALIZAÇÃO
+
+- Qualquer novo uso de estrutura proibida:
+  - é FAIL automático de Gate
+  - exige correção imediata
+- Refactors não podem reintroduzir uso proibido
+- Testes também obedecem estas regras
+
+---
+
+## STATUS
+
+- **Gate 1:** PROIBIÇÕES DECLARADAS
+- **Gate 2:** BLOQUEIO EM CÓDIGO (A EXECUTAR)
+- **Gate 3:** REMOÇÃO DE USO (A EXECUTAR)
+
+---
+
+FIM DO PROHIBITED STRUCTURES

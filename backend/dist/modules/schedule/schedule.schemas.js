@@ -30,4 +30,3 @@ exports.reserveSlotSchema = zod_1.z.object({
     metadata: zod_1.z.record(zod_1.z.any()).optional(),
 });
 exports.slotStatusSchema = zod_1.z.enum(['available', 'reserved', 'blocked']);
-//# sourceMappingURL=schedule.schemas.js.map

@@ -8,4 +8,3 @@ exports.setTenantRegionSchema = zod_1.z.object({
     stateId: zod_1.z.string().uuid('ID do estado inválido').nullable().optional(),
     cityId: zod_1.z.string().uuid('ID da cidade inválida').nullable().optional(),
 });
-//# sourceMappingURL=tenant.schemas.js.map

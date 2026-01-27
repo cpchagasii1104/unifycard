@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eventsService = void 0;
 // src/modules/events/events.service.ts
@@ -6,6 +39,7 @@ const pool_1 = require("@core/database/pool");
 const tenant_service_1 = require("@core/tenants/tenant.service");
 const world_service_1 = require("@core/world/services/world.service");
 const reputation_service_1 = require("@core/reputation/reputation.service");
+const occupancy_service_1 = require("./occupancy.service");
 class EventsService {
     toEvent(row) {
         return {
@@ -15,17 +49,22 @@ class EventsService {
             description: row.description,
             startTime: row.start_time,
             endTime: row.end_time,
+            datetimeStart: row.datetime_start || row.start_time,
+            datetimeEnd: row.datetime_end || row.end_time,
+            locationName: row.location_name || null,
+            capacity: row.capacity || null,
             cityId: row.city_id,
             stateId: row.state_id,
             countryId: row.country_id,
             createdByGlobalUserId: row.created_by_global_user_id,
+            createdByActorId: row.created_by_actor_id || null,
             eventType: row.event_type,
             ticketPrice: row.ticket_price,
             acceptsConsumption: row.accepts_consumption,
             acceptsParking: row.accepts_parking,
             maxCapacity: row.max_capacity,
             currentOccupancy: row.current_occupancy,
-            status: row.status,
+            status: (row.status || 'draft'),
             timezone: row.timezone,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
@@ -158,7 +197,84 @@ class EventsService {
         if (!row) {
             throw new Error('Falha ao criar evento');
         }
-        return this.toEvent(row);
+        const event = this.toEvent(row);
+        // Se houver group_id, criar relacionamento na tabela group_events
+        // 🔴 FASE 2: group_events.starts_at/ends_at são READ-MODEL ou INPUT declarativo, não verdade temporal
+        // A verdade temporal está em Unified Availability (criada via event.service.ts)
+        if (input.group_id) {
+            try {
+                // Verificar se já existe relacionamento (evitar duplicata)
+                const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT event_id FROM group_events WHERE event_id = $1 AND tenant_id = $2 LIMIT 1`, [event.id, tenantId]);
+                if (!existing) {
+                    // 🔴 FASE 2: starts_at/ends_at aqui são apenas READ-MODEL para visualização
+                    // Não bloqueiam agenda, não resolvem conflito, não criam booking
+                    await (0, pool_1.runQueryWithTenant)(tenantId, `
+            INSERT INTO group_events (
+              event_id, group_id, tenant_id, title, description, starts_at, ends_at, created_by
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [
+                        event.id,
+                        input.group_id,
+                        tenantId,
+                        input.title,
+                        input.description ?? null,
+                        input.startTime,
+                        input.endTime,
+                        createdByGlobalUserId,
+                    ]);
+                }
+                // Publicar evento automaticamente no feed com actionType = event
+                try {
+                    const { actorRepository } = await Promise.resolve().then(() => __importStar(require('@modules/social/actor.repository')));
+                    const { social2Service } = await Promise.resolve().then(() => __importStar(require('@modules/social/social-2.0.service')));
+                    // Buscar userId do globalUserId
+                    const userResult = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT user_id FROM users WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`, [createdByGlobalUserId, tenantId]);
+                    if (userResult) {
+                        const actor = await actorRepository.findOrCreateUserActor(tenantId, userResult.user_id);
+                        if (actor) {
+                            // Criar post no feed anunciando o evento
+                            await social2Service.createPost(tenantId, userResult.user_id, createdByGlobalUserId, `🎉 Novo evento: ${input.title}${input.description ? `\n\n${input.description}` : ''}`, actor.actor_id, [], 'event', // Intent = event
+                            {
+                                eventId: event.id,
+                                eventTitle: input.title,
+                                eventStartTime: input.startTime.toISOString(),
+                                eventEndTime: input.endTime.toISOString(),
+                            }, undefined, // targeting
+                            undefined, // cta
+                            input.group_id // groupId para vincular ao grupo
+                            );
+                        }
+                    }
+                }
+                catch (feedError) {
+                    // Log mas não quebra criação do evento
+                    console.error('Erro ao publicar evento no feed:', feedError);
+                }
+            }
+            catch (err) {
+                // Log mas não quebra criação do evento
+                console.error('Erro ao vincular evento ao grupo:', err);
+            }
+        }
+        // Se houver metadata com modelo de ocupação, criar
+        if (input.metadata?.occupancy_model) {
+            const occupancyData = input.metadata.occupancy_model;
+            try {
+                await occupancy_service_1.occupancyService.createOrUpdateOccupancyModel(tenantId, {
+                    event_id: event.id,
+                    occupancy_type: occupancyData.type,
+                    requires_reservation: occupancyData.requires_reservation ?? false,
+                    reservation_price_cents: occupancyData.reservation_price,
+                    config: occupancyData.config || {},
+                });
+            }
+            catch (err) {
+                // Log mas não quebra criação do evento
+                console.error('Erro ao criar modelo de ocupação:', err);
+            }
+        }
+        return event;
     }
     /**
      * Adiciona uma sessão a um evento
@@ -225,10 +341,13 @@ class EventsService {
      * Realiza check-in de um participante
      */
     async checkIn(tenantId, eventId, globalUserId) {
-        // Verificar se evento existe
+        // Verificar se evento existe e está ativo
         const event = await this.getEvent(tenantId, eventId);
         if (!event) {
             throw new Error('Evento não encontrado');
+        }
+        if (event.status === 'cancelled' || event.status === 'completed' || event.status === 'archived') {
+            throw new Error(`Evento com status '${event.status}' não aceita check-in`);
         }
         // Verificar se já está inscrito
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -337,6 +456,58 @@ class EventsService {
         };
     }
     /**
+     * Busca posts relacionados ao evento
+     */
+    async getEventPosts(tenantId, eventId, limit = 20) {
+        const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
+      SELECT 
+        post_id,
+        content,
+        type,
+        created_at,
+        global_user_id,
+        media,
+        metadata
+      FROM posts
+      WHERE tenant_id = $1
+        AND event_id = $2
+        AND visibility = 'PUBLIC'
+      ORDER BY created_at DESC
+      LIMIT $3
+      `, [tenantId, eventId, limit]);
+        return rows.map((row) => ({
+            postId: row.post_id,
+            content: row.content,
+            type: row.type,
+            createdAt: row.created_at,
+            globalUserId: row.global_user_id,
+            media: Array.isArray(row.media) ? row.media : [],
+            metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+        }));
+    }
+    /**
+     * Busca participantes do evento (com informações básicas)
+     */
+    async getEventParticipants(tenantId, eventId, limit = 50) {
+        const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
+      SELECT 
+        id,
+        event_id,
+        global_user_id,
+        check_in_time,
+        created_at
+      FROM event_attendees
+      WHERE event_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+      `, [eventId, limit]);
+        return rows.map((row) => ({
+            globalUserId: row.global_user_id,
+            checkInTime: row.check_in_time,
+            joinedAt: row.created_at,
+        }));
+    }
+    /**
      * Busca eventos com filtros
      */
     async searchEvents(tenantId, options = {}) {
@@ -380,4 +551,3 @@ class EventsService {
     }
 }
 exports.eventsService = new EventsService();
-//# sourceMappingURL=events.service.js.map

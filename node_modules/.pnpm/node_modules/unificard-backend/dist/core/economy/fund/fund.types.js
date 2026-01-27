@@ -3,4 +3,3 @@
 // DTOs claros e explícitos para visibilidade do Fundo Regional
 // READ-ONLY: apenas expõe dados, não cria decisão ou execução
 Object.defineProperty(exports, "__esModule", { value: true });
-//# sourceMappingURL=fund.types.js.map

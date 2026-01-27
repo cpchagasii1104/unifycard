@@ -33,4 +33,3 @@ exports.feedOptionsSchema = zod_1.z.object({
     startDate: zod_1.z.string().datetime('Data de início inválida').optional(),
     endDate: zod_1.z.string().datetime('Data de fim inválida').optional(),
 });
-//# sourceMappingURL=social.schemas.js.map

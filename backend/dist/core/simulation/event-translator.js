@@ -92,4 +92,3 @@ function translateEventToCanonical(event) {
         return null;
     }
 }
-//# sourceMappingURL=event-translator.js.map

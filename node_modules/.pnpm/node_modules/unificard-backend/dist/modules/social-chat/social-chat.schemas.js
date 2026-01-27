@@ -20,4 +20,3 @@ exports.sendMessageSchema = zod_1.z.object({
     message: 'Texto ou audioUrl é obrigatório',
     path: ['text'],
 });
-//# sourceMappingURL=social-chat.schemas.js.map

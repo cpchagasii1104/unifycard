@@ -6,9 +6,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.planModule = void 0;
 const plan_routes_1 = __importDefault(require("./plan.routes"));
 const planModule = async (fastify) => {
     await fastify.register(plan_routes_1.default);
 };
+exports.planModule = planModule;
 exports.default = planModule;
-//# sourceMappingURL=plan.module.js.map

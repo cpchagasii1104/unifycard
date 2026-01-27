@@ -100,4 +100,3 @@ const workInsightsRoutes = async (fastify) => {
     });
 };
 exports.default = workInsightsRoutes;
-//# sourceMappingURL=work-insights.routes.js.map

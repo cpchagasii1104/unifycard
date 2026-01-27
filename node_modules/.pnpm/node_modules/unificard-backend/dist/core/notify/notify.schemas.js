@@ -35,4 +35,3 @@ exports.emailToTargetSchema = zod_1.z.object({
     scheduledAt: zod_1.z.string().datetime().optional(),
     maxRetries: zod_1.z.number().min(0).max(10).optional(),
 });
-//# sourceMappingURL=notify.schemas.js.map

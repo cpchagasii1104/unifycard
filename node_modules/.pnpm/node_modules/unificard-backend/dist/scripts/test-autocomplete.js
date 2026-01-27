@@ -17,24 +17,28 @@ async function testAutocomplete() {
       WHERE table_name = 'categories' AND column_name = 'status'
     ) as exists`);
     const hasStatus = statusCheck.rows[0]?.exists || false;
-    const statusCondition = hasStatus ? "(status IS NULL OR status = 'active')" : '1=1';
+    // CORREÇÃO: Incluir 'auto_active' como status válido
+    const statusCondition = hasStatus ? "(status IN ('active', 'auto_active') OR status IS NULL)" : '1=1';
     // Teste 1: Buscar "pedreiro" completo usando query direta
-    console.log('📋 Teste 1: Buscar "pedreiro" (completo) - Query LEAF');
+    console.log('📋 Teste 1: Buscar "pedreiro" (completo) - Query LEAF com status ativo');
     try {
         const searchTerm = 'pedreiro';
         const prefixPattern = `${searchTerm}%`;
         const containsPattern = `%${searchTerm}%`;
         const results1 = await pool_1.pool.query(`
-      SELECT 
-        category_id, name, slug, level, path,
+      SELECT
+        category_id, name, slug, level, path, scope, status,
         (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
       FROM categories
-      WHERE 
+      WHERE
         ${statusCondition}
         AND NOT EXISTS (
           SELECT 1 FROM categories c2
           WHERE c2.parent_id = categories.category_id
+            AND (c2.status IN ('active', 'auto_active') OR c2.status IS NULL)
         )
+        AND (scope = 'professional' OR scope = 'global' OR scope IS NULL)
+        AND level >= 1
         AND (
           LOWER(name) LIKE $1
           OR LOWER(name) LIKE $2
@@ -53,7 +57,7 @@ async function testAutocomplete() {
         console.log(`   Resultados: ${results1.rows.length}`);
         results1.rows.forEach((r, i) => {
             const isLeaf = r.children_count === '0' || r.children_count === 0;
-            console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, leaf: ${isLeaf}, path: ${JSON.stringify(r.path || [])})`);
+            console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, scope: ${r.scope}, status: ${r.status}, leaf: ${isLeaf})`);
         });
         const hasPedreiro = results1.rows.some(r => r.name.toLowerCase().includes('pedreiro'));
         if (hasPedreiro) {
@@ -67,30 +71,33 @@ async function testAutocomplete() {
         console.error('   ❌ Erro:', err);
     }
     // Teste 2: Buscar "ped" (prefixo)
-    console.log('📋 Teste 2: Buscar "ped" (prefixo) - Query LEAF');
+    console.log('📋 Teste 2: Buscar "ped" (prefixo) - Query LEAF com filhos ativos');
     try {
         const searchTerm = 'ped';
         const prefixPattern = `${searchTerm}%`;
         const containsPattern = `%${searchTerm}%`;
         const results2 = await pool_1.pool.query(`
-      SELECT 
-        category_id, name, slug, level, path,
+      SELECT
+        category_id, name, slug, level, path, scope, status,
         (SELECT COUNT(*) FROM categories c2 WHERE c2.parent_id = categories.category_id) as children_count
       FROM categories
-      WHERE 
+      WHERE
         ${statusCondition}
         AND NOT EXISTS (
           SELECT 1 FROM categories c2
           WHERE c2.parent_id = categories.category_id
+            AND (c2.status IN ('active', 'auto_active') OR c2.status IS NULL)
         )
+        AND (scope = 'professional' OR scope = 'global' OR scope IS NULL)
+        AND level >= 1
         AND (
           LOWER(name) LIKE $1
           OR LOWER(name) LIKE $2
           OR LOWER(slug) LIKE $1
           OR LOWER(slug) LIKE $2
         )
-      ORDER BY 
-        CASE 
+      ORDER BY
+        CASE
           WHEN LOWER(name) LIKE $1 THEN 1
           ELSE 2
         END,
@@ -100,7 +107,7 @@ async function testAutocomplete() {
         console.log(`   Resultados: ${results2.rows.length}`);
         results2.rows.forEach((r, i) => {
             const isLeaf = r.children_count === '0' || r.children_count === 0;
-            console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, leaf: ${isLeaf}, path: ${JSON.stringify(r.path || [])})`);
+            console.log(`   ${i + 1}. ${r.name} (level: ${r.level}, scope: ${r.scope}, status: ${r.status}, leaf: ${isLeaf})`);
         });
         const hasPedreiro = results2.rows.some(r => r.name.toLowerCase().includes('pedreiro'));
         if (hasPedreiro) {
@@ -169,4 +176,3 @@ testAutocomplete().catch((err) => {
     console.error('❌ Erro fatal:', err);
     process.exit(1);
 });
-//# sourceMappingURL=test-autocomplete.js.map

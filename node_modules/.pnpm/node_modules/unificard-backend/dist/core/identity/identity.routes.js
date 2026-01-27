@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -23,9 +56,103 @@ const identityRoutes = async (fastify) => {
             return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
         }
         try {
-            const profile = await identity_service_1.identityService.getIdentityProfile(req.user.id, req.tenant.id);
-            if (!profile) {
-                return reply.status(404).send({ ok: false, message: 'Perfil não encontrado' });
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            }
+            // 🔴 CORREÇÃO CRÍTICA: Buscar perfil - se não existir, retornar estrutura parcial
+            // NUNCA criar global_user em fluxo de GET, mas também NÃO retornar 500
+            // Retornar estrutura mínima para permitir primeiro acesso
+            // 🔴 CORREÇÃO DEFINITIVA: Se getIdentityProfile falhar, tentar buscar dados do cadastro
+            let profile = null;
+            try {
+                profile = await identity_service_1.identityService.getIdentityProfile(userId, req.tenant.id);
+            }
+            catch (error) {
+                // 🔴 CORREÇÃO: Se identity não existe ainda (primeiro acesso), retornar estrutura parcial
+                // Isso permite que o frontend funcione mesmo sem global_user criado
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                const isGlobalUserNotFound = errorMessage.includes('Global user não encontrado') ||
+                    errorMessage.includes('não encontrado') ||
+                    errorMessage.includes('not found') ||
+                    errorMessage.includes('resolveGlobalUserId');
+                if (isGlobalUserNotFound) {
+                    // 🔴 PRIMEIRO ACESSO: Tentar buscar dados do cadastro antes de retornar estrutura mínima
+                    fastify.log.info({
+                        userId,
+                        tenantId: req.tenant.id,
+                        message: 'Global user não encontrado - tentando buscar dados do cadastro',
+                    }, 'Primeiro acesso detectado');
+                    // Buscar dados locais e tentar buscar global_user diretamente
+                    const { runQueryWithTenant } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+                    const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+                    const localUser = await runQueryWithTenant(req.tenant.id, `SELECT user_id, tenant_id, email, created_at, global_user_id, plan, is_test FROM users WHERE user_id = $1 LIMIT 1`, [userId]);
+                    if (!localUser) {
+                        return reply.status(404).send({
+                            ok: false,
+                            message: 'Usuário não encontrado',
+                        });
+                    }
+                    // 🔴 CORREÇÃO: Se global_user_id existe em users, tentar buscar dados do global_user
+                    let globalUserData = null;
+                    if (localUser.global_user_id) {
+                        try {
+                            const globalUserResult = await pool.query(`SELECT global_user_id, full_name, birthdate, avatar_url, metadata, created_at, updated_at 
+                 FROM global_users 
+                 WHERE global_user_id = $1 
+                 LIMIT 1`, [localUser.global_user_id]);
+                            if (globalUserResult.rows.length > 0) {
+                                globalUserData = globalUserResult.rows[0];
+                                fastify.log.info({
+                                    userId,
+                                    globalUserId: localUser.global_user_id,
+                                    hasFullName: !!globalUserData.full_name,
+                                    hasBirthdate: !!globalUserData.birthdate,
+                                }, 'Dados do cadastro encontrados no global_user');
+                            }
+                        }
+                        catch (globalError) {
+                            fastify.log.warn({ err: globalError }, 'Erro ao buscar global_user (não crítico)');
+                        }
+                    }
+                    // Retornar estrutura com dados do cadastro se disponíveis
+                    profile = {
+                        global: {
+                            globalUserId: globalUserData?.global_user_id || localUser.global_user_id || '',
+                            fullName: globalUserData?.full_name || null,
+                            birthdate: globalUserData?.birthdate || null,
+                            avatarUrl: globalUserData?.avatar_url || null,
+                            metadata: globalUserData?.metadata || {},
+                            createdAt: globalUserData?.created_at || localUser.created_at,
+                            updatedAt: globalUserData?.updated_at || localUser.created_at,
+                        },
+                        local: {
+                            userId: localUser.user_id,
+                            tenantId: localUser.tenant_id,
+                            email: localUser.email,
+                            createdAt: localUser.created_at,
+                            plan: localUser.plan || 'free',
+                            isTest: localUser.is_test || false,
+                        },
+                        reputation: undefined,
+                        wallet: undefined,
+                        residence: undefined,
+                    };
+                }
+                else {
+                    // Para outros erros, logar e retornar 500
+                    console.error('[IdentityService] ❌ ERRO CRÍTICO:', {
+                        userId,
+                        tenantId: req.tenant.id,
+                        error: errorMessage,
+                    });
+                    fastify.log.error({ err: error }, 'Erro ao buscar perfil');
+                    return reply.status(500).send({
+                        ok: false,
+                        message: 'Erro ao buscar perfil',
+                        error: errorMessage,
+                    });
+                }
             }
             // 🔴 CRÍTICO: Serializar birthdate como string YYYY-MM-DD para evitar problemas de timezone
             // IMPORTANTE: Usar UTC para garantir que a data não mude de dia
@@ -38,12 +165,56 @@ const identityRoutes = async (fastify) => {
                 // Usar UTC para extrair ano, mês e dia (evita problemas de timezone)
                 serializedBirthdate = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
             }
+            // 🔴 FONTE ÚNICA DE VERDADE: Buscar profile_personal_confirmed do profile
+            // 🔴 CORREÇÃO CRÍTICA: Sempre buscar profile, mesmo que não exista (criar se necessário)
+            const { profileService } = await Promise.resolve().then(() => __importStar(require('@core/profile/profile.service')));
+            let userProfile = await profileService.getProfile(req.tenant.id, userId);
+            // 🔴 CORREÇÃO: Se profile não existe, criar vazio (primeiro acesso)
+            // Isso garante que sempre temos um profile para verificar a flag
+            if (!userProfile) {
+                try {
+                    userProfile = await profileService.createProfileIfNotExists(req.tenant.id, userId);
+                    fastify.log.info({
+                        userId,
+                        tenantId: req.tenant.id,
+                    }, 'Profile criado automaticamente para primeiro acesso');
+                }
+                catch (createError) {
+                    // Se falhar ao criar, logar mas continuar com valores padrão
+                    fastify.log.warn({ err: createError }, 'Erro ao criar profile automaticamente');
+                }
+            }
+            // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
+            // false → modal aparece, campos editáveis (primeiro acesso)
+            // true → modal não aparece, campos bloqueados (já confirmado)
+            // Se não tem profile, assume false (primeiro acesso - modal aparece)
+            const profilePersonalConfirmed = userProfile ? userProfile.profile_personal_confirmed : false;
+            const canEditPersonalData = userProfile ? userProfile.can_edit_personal_data : true;
+            // 🔴 CORREÇÃO: Garantir que profile.metadata inclui gender se existir no profile
+            // O gender pode estar no profile.metadata (salvo no cadastro)
+            const profileMetadata = userProfile?.metadata || {};
             const serializedProfile = {
                 ...profile,
                 global: {
                     ...profile.global,
                     birthdate: serializedBirthdate,
                 },
+                // 🔴 CORREÇÃO: Incluir profile completo para frontend ter acesso a metadata.gender
+                profile: userProfile ? {
+                    profileId: userProfile.profileId,
+                    tenantId: userProfile.tenantId,
+                    userId: userProfile.userId,
+                    fullName: userProfile.fullName,
+                    phone: userProfile.phone,
+                    metadata: profileMetadata, // Incluir metadata com gender
+                    createdAt: userProfile.createdAt,
+                    updatedAt: userProfile.updatedAt,
+                    profile_personal_confirmed: userProfile.profile_personal_confirmed,
+                    can_edit_personal_data: userProfile.can_edit_personal_data,
+                } : null,
+                // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
+                profile_personal_confirmed: profilePersonalConfirmed,
+                can_edit_personal_data: canEditPersonalData,
             };
             return reply.send({ ok: true, data: serializedProfile });
         }
@@ -166,37 +337,43 @@ const identityRoutes = async (fastify) => {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
-            // 🔴 CRÍTICO: Log de diagnóstico - verificar identidade do usuário
-            fastify.log.info({
-                authUser: {
-                    id: req.user.id,
-                    globalUserId: req.user.globalUserId,
-                    email: req.user.email,
-                },
-                tenantId: req.tenant.id,
-            }, '🔍 DIAGNÓSTICO: Identidade do usuário autenticado');
-            // Buscar global_user_id do usuário
-            const profile = await identity_service_1.identityService.getIdentityProfile(req.user.id, req.tenant.id);
-            if (!profile) {
-                fastify.log.error({
-                    userId: req.user.id,
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ error: 'User ID não encontrado' });
+            }
+            // 🔴 REGRA CRÍTICA: Buscar perfil - se não existir, lançar erro explícito
+            // NUNCA criar global_user em fluxo de update
+            let profile;
+            try {
+                profile = await identity_service_1.identityService.getIdentityProfile(userId, req.tenant.id);
+            }
+            catch (error) {
+                console.error('[IdentityService] ❌ ERRO CRÍTICO: Global user não encontrado para user_id', userId, {
                     tenantId: req.tenant.id,
-                }, '❌ Perfil não encontrado para atualização');
-                return reply.status(404).send({ error: 'Perfil não encontrado' });
+                    error: error instanceof Error ? error.message : String(error),
+                    message: 'Não foi possível buscar perfil. NÃO criando novo global_user em fluxo de update.',
+                    hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
+                });
+                fastify.log.error({ err: error }, 'Erro ao buscar perfil - NÃO criando novo global_user');
+                return reply.status(500).send({
+                    error: 'Erro ao buscar perfil',
+                    message: error instanceof Error ? error.message : String(error),
+                    hint: 'Global user não encontrado. Execute diagnóstico SQL para investigar múltiplos global_users.'
+                });
             }
             // 🔴 INSTRUMENTAÇÃO: Log padronizado para diagnóstico de múltiplos processos
             fastify.log.info({
                 pid: process.pid,
                 route: '/identity/update',
                 method: 'POST',
-                userId: req.user.id,
+                userId: userId,
                 tenantId: req.tenant.id,
                 globalUserId: profile.global.globalUserId,
             }, '[RUNTIME] POST /identity/update');
-            // 🔴 CRÍTICO: Log do global_user_id que será usado
+            // Log do global_user_id que será usado
             fastify.log.info({
                 pid: process.pid,
-                userId: req.user.id,
+                userId: userId,
                 globalUserId: profile.global.globalUserId,
                 profileExists: !!profile,
                 currentFullName: profile.global.fullName,
@@ -213,9 +390,12 @@ const identityRoutes = async (fastify) => {
                 birthdate: req.body?.birthdate,
                 fullNameType: typeof req.body?.fullName,
                 birthdateType: typeof req.body?.birthdate,
-                birthdateIsDate: req.body?.birthdate instanceof Date,
-                birthdateString: req.body?.birthdate ? String(req.body.birthdate) : null,
-                birthdateConstructor: req.body?.birthdate ? req.body.birthdate.constructor?.name : null,
+                birthdateIsDate: (() => {
+                    const bd = req.body?.birthdate;
+                    return bd != null && typeof bd === 'object' && bd?.constructor === Date;
+                })(),
+                birthdateString: req.body?.birthdate != null ? String(req.body.birthdate) : null,
+                birthdateConstructor: req.body?.birthdate != null ? req.body.birthdate?.constructor?.name : null,
             }, '🔍 DIAGNÓSTICO: Payload recebido do frontend (APÓS preHandler)');
             // 🔴 CRÍTICO: Normalizar birthdate ANTES de qualquer validação
             // Fastify pode estar convertendo string para Date automaticamente via JSON.parse
@@ -223,16 +403,18 @@ const identityRoutes = async (fastify) => {
             if (req.body?.birthdate !== null && req.body?.birthdate !== undefined && req.body?.birthdate !== '') {
                 let birthdateValue;
                 // Se for objeto Date, converter para YYYY-MM-DD imediatamente
-                if (req.body.birthdate instanceof Date) {
+                const birthdateObj = req.body.birthdate;
+                if (birthdateObj != null && typeof birthdateObj === 'object' && birthdateObj?.constructor === Date) {
+                    const birthdate = birthdateObj;
                     fastify.log.warn({
-                        birthdate: req.body.birthdate,
-                        birthdateType: typeof req.body.birthdate,
-                        birthdateString: req.body.birthdate.toString(),
+                        birthdate: birthdate,
+                        birthdateType: typeof birthdate,
+                        birthdateString: birthdate.toString(),
                     }, '⚠️ birthdate chegou como objeto Date (possível conversão automática), normalizando...');
                     // Converter Date para YYYY-MM-DD usando UTC
-                    const year = req.body.birthdate.getUTCFullYear();
-                    const month = String(req.body.birthdate.getUTCMonth() + 1).padStart(2, '0');
-                    const day = String(req.body.birthdate.getUTCDate()).padStart(2, '0');
+                    const year = birthdate.getUTCFullYear();
+                    const month = String(birthdate.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(birthdate.getUTCDate()).padStart(2, '0');
                     birthdateValue = `${year}-${month}-${day}`;
                     // Atualizar req.body para usar o valor normalizado
                     req.body.birthdate = birthdateValue;
@@ -250,7 +432,10 @@ const identityRoutes = async (fastify) => {
                         birthdateValue,
                         fullName: req.body?.fullName,
                         birthdateType: typeof req.body.birthdate,
-                        isDate: req.body.birthdate instanceof Date,
+                        isDate: (() => {
+                            const bd = req.body.birthdate;
+                            return bd != null && typeof bd === 'object' && bd?.constructor === Date;
+                        })(),
                     }, '❌ ERRO CRÍTICO: birthdate contém letras - provavelmente é um nome!');
                     return reply.status(400).send({
                         error: `Valor inválido para data de nascimento: "${birthdateValue}". O campo data de nascimento não pode conter letras. Verifique se os campos não estão trocados.`
@@ -336,6 +521,9 @@ const identityRoutes = async (fastify) => {
                 birthdateType: typeof updated.birthdate,
                 globalUserId: updated.globalUserId,
             }, '✅ Identidade global atualizada com sucesso');
+            // 🔧 FIX (onboarding only after first successful save): Onboarding é setado automaticamente em upsertProfile
+            // Não precisa chamar completeOnboarding manualmente aqui
+            // O upsertProfile já verifica se dados obrigatórios existem e seta onboarding_completed automaticamente
             // 🔴 CRÍTICO: Serializar birthdate como string YYYY-MM-DD para evitar problemas de timezone
             // IMPORTANTE: Usar UTC para garantir que a data não mude de dia
             let serializedBirthdate = null;
@@ -467,14 +655,24 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
+        // 🔴 Sem globalUserId: retornar 200 com payload vazio (não é erro)
         if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+            return reply.status(200).send({
+                hasWallet: false,
+                balance: 0,
+                currency: 'BRL',
+            });
         }
         try {
             // Buscar todas as contas do global_user_id
             const accounts = await account_service_1.accountService.getAccountsByGlobalUserId(req.user.globalUserId);
+            // 🔴 Sem conta: retornar 200 com payload vazio (não é erro)
             if (accounts.length === 0) {
-                return reply.status(404).send({ error: 'Nenhuma conta encontrada' });
+                return reply.status(200).send({
+                    hasWallet: false,
+                    balance: 0,
+                    currency: 'BRL',
+                });
             }
             // Usar conta primária (BRL) ou primeira disponível
             const primaryAccount = accounts.find(acc => acc.currency === 'BRL') || accounts[0];
@@ -627,9 +825,58 @@ const identityRoutes = async (fastify) => {
             return reply.status(500).send({ error: 'Erro ao atualizar configurações' });
         }
     });
+    /**
+     * POST /identity/confirm-first-access
+     * Confirma primeiro acesso (chamado pelo botão "Entendi, continuar" do modal)
+     * 🔴 FONTE ÚNICA DE VERDADE: Seta profile_personal_confirmed = true
+     * Isso bloqueia os campos permanentemente e esconde o modal
+     * - NÃO exige body (pode ser vazio)
+     */
+    fastify.post('/confirm-first-access', {
+        bodyLimit: 1024,
+        preHandler: async (req, reply) => {
+            // 🔴 CORREÇÃO: Aceitar body vazio ou null
+            // Se body está vazio ou null, normalizar para objeto vazio
+            if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+                req.body = {};
+            }
+        },
+    }, async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        if (!req.tenant) {
+            return reply.status(400).send({ error: 'Tenant não encontrado' });
+        }
+        try {
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ error: 'User ID não encontrado' });
+            }
+            const { profileService } = await Promise.resolve().then(() => __importStar(require('@core/profile/profile.service')));
+            // 🔴 FONTE ÚNICA DE VERDADE: Confirmar primeiro acesso
+            // Isso seta profile_personal_confirmed = true
+            await profileService.confirmFirstAccess(req.tenant.id, userId);
+            fastify.log.info({
+                userId,
+                tenantId: req.tenant.id,
+            }, '✅ Primeiro acesso confirmado - modal não aparecerá mais');
+            return reply.send({
+                ok: true,
+                message: 'Primeiro acesso confirmado com sucesso',
+                firstAccessConfirmed: true,
+            });
+        }
+        catch (error) {
+            fastify.log.error({ err: error }, 'Erro ao confirmar primeiro acesso');
+            return reply.status(500).send({
+                error: 'Erro ao confirmar primeiro acesso',
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
+    });
     // Registrar rotas de residence como sub-rotas
     // A rota GET /identity/residence está definida em residence.routes.ts
     await fastify.register(residence_routes_1.default, { prefix: '/residence' });
 };
 exports.default = identityRoutes;
-//# sourceMappingURL=identity.routes.js.map

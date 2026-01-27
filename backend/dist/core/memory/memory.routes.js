@@ -164,4 +164,3 @@ const memoryRoutes = async (fastify) => {
     });
 };
 exports.default = memoryRoutes;
-//# sourceMappingURL=memory.routes.js.map

@@ -66,4 +66,3 @@ async function processRidePayment(input) {
     // Delegar para distributionService que usa SplitEngine
     return await distribution_service_1.distributionService.processRidePayment(tenantId, ride, { total: totalAmount || ride.final_price || 0 });
 }
-//# sourceMappingURL=payment.js.map

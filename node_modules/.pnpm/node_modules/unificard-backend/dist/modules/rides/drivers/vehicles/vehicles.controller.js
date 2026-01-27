@@ -45,4 +45,3 @@ class VehiclesController {
 }
 exports.VehiclesController = VehiclesController;
 exports.vehiclesController = new VehiclesController();
-//# sourceMappingURL=vehicles.controller.js.map

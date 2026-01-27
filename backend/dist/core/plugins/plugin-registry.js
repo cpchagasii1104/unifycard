@@ -44,4 +44,3 @@ class PluginRegistry {
     }
 }
 exports.pluginRegistry = new PluginRegistry();
-//# sourceMappingURL=plugin-registry.js.map

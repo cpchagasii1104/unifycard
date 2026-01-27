@@ -70,4 +70,3 @@ listRecentUsers().catch((error) => {
     console.error('❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=list-recent-users.js.map

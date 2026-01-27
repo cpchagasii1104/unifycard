@@ -91,4 +91,3 @@ validateConnection().catch((error) => {
     console.error('❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=validate-database.js.map

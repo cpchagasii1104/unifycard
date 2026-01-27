@@ -38,4 +38,3 @@ class DistributionController {
 }
 exports.DistributionController = DistributionController;
 exports.distributionController = new DistributionController();
-//# sourceMappingURL=distribution.controller.js.map

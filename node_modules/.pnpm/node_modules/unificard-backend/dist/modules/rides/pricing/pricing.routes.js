@@ -231,4 +231,3 @@ const pricingRoutes = async (fastify) => {
     });
 };
 exports.default = pricingRoutes;
-//# sourceMappingURL=pricing.routes.js.map

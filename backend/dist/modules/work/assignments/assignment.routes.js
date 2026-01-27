@@ -86,4 +86,3 @@ const assignmentRoutes = async (fastify) => {
     });
 };
 exports.default = assignmentRoutes;
-//# sourceMappingURL=assignment.routes.js.map

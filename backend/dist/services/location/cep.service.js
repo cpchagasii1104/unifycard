@@ -81,7 +81,6 @@ class CEPService {
                             'Accept': 'application/json',
                             'User-Agent': 'Unificard-Backend/1.0',
                         },
-                        cache: 'no-store',
                     });
                     clearTimeout(timeoutId);
                     console.log(`[CEPService] ✅ ${api.name} respondeu com sucesso`);
@@ -194,4 +193,3 @@ class CEPService {
 }
 exports.CEPService = CEPService;
 exports.cepService = new CEPService();
-//# sourceMappingURL=cep.service.js.map

@@ -17,4 +17,3 @@ exports.addMemberSchema = zod_1.z.object({
 exports.linkEventSchema = zod_1.z.object({
     organizerId: zod_1.z.string().uuid('ID do organizador inválido'),
 });
-//# sourceMappingURL=organizers.schemas.js.map

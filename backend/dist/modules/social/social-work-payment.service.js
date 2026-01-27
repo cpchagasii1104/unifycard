@@ -6,7 +6,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.socialWorkPaymentService = void 0;
 const social_work_service_1 = require("./social-work.service");
-const schedule_service_1 = require("../schedule/schedule.service");
+// REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+// import { scheduleService } from '../schedule/schedule.service';
 const transaction_service_1 = require("@core/economy/transactions/transaction.service");
 const account_service_1 = require("@core/economy/accounts/account.service");
 const pool_1 = require("@core/database/pool");
@@ -43,34 +44,46 @@ class SocialWorkPaymentService {
         if (!providerGlobalUserId) {
             return null;
         }
+        // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+        // TODO: Migrar para unifiedAvailabilityService quando necessário
+        // Funcionalidade temporariamente desabilitada
+        return null;
+        /* CÓDIGO REMOVIDO:
         // 4. Buscar schedule do provider
-        const schedule = await schedule_service_1.scheduleService.getScheduleByUser(tenantId, providerGlobalUserId);
+        const schedule = await scheduleService.getScheduleByUser(tenantId, providerGlobalUserId);
         if (!schedule) {
-            return null;
+          return null;
         }
+    
         // 5. Buscar slots do schedule que estão reservados pelo customer e vinculados ao job
-        const scheduleWithSlots = await schedule_service_1.scheduleService.getScheduleWithSlots(tenantId, schedule.scheduleId);
+        const scheduleWithSlots = await scheduleService.getScheduleWithSlots(tenantId, schedule.scheduleId);
         if (!scheduleWithSlots || !scheduleWithSlots.slots) {
-            return null;
+          return null;
         }
+    
         // 6. Filtrar slots reservados pelo customer e vinculados ao job
-        const customerSlots = scheduleWithSlots.slots.filter((slot) => {
-            const metadata = slot.metadata || {};
-            const isReservedByCustomer = slot.reservedByGlobalUserId === customerGlobalUserId;
-            const isLinkedToJob = metadata.jobId === job.jobId || metadata.postId === postId;
-            const isReserved = slot.status === 'reserved';
-            return isReservedByCustomer && isLinkedToJob && isReserved;
+        const customerSlots = scheduleWithSlots.slots.filter((slot: ScheduleSlot) => {
+          const metadata = slot.metadata || {};
+          const isReservedByCustomer = slot.reservedByGlobalUserId === customerGlobalUserId;
+          const isLinkedToJob = metadata.jobId === job.jobId || metadata.postId === postId;
+          const isReserved = slot.status === 'reserved';
+          
+          return isReservedByCustomer && isLinkedToJob && isReserved;
         });
+    
         if (customerSlots.length === 0) {
-            return null;
+          return null;
         }
+    
         // Retornar o primeiro slot encontrado (ou o mais recente)
         const slot = customerSlots[0];
+    
         return {
-            jobId: job.jobId,
-            scheduleId: schedule.scheduleId,
-            slotId: slot.slotId,
+          jobId: job.jobId,
+          scheduleId: schedule.scheduleId,
+          slotId: slot.slotId,
         };
+        */
     }
     /**
      * Cria pagamento a partir de um post
@@ -127,4 +140,3 @@ class SocialWorkPaymentService {
     }
 }
 exports.socialWorkPaymentService = new SocialWorkPaymentService();
-//# sourceMappingURL=social-work-payment.service.js.map

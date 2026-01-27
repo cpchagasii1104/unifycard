@@ -1,0 +1,381 @@
+// backend/tests/integration/bank-transactions-splits.test.ts
+// SPRINT 2: TRANSACTIONS + SPLIT ENGINE
+// Testes de integração para transações com splits
+
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { pool } from '../../src/core/database/pool';
+import { bankAccountService } from '../../src/modules/bank/bank-account.service';
+import { bankTransactionService } from '../../src/modules/bank/bank-transaction.service';
+import { bankLedgerRepository } from '../../src/modules/bank/bank-ledger.repository';
+import { bankSplitRepository } from '../../src/modules/bank/bank-split.repository';
+import { v4 as uuidv4 } from 'uuid';
+
+describe('BankTransactions + Splits - Sprint 2', () => {
+  let testTenantId: string;
+  let testUserId: string;
+  let testAccountId: string;
+  let testOrganizerAccountId: string;
+  let testWorkerAccountId: string;
+
+  beforeAll(async () => {
+    // Criar tenant de teste
+    const tenantResult = await pool.query(
+      `INSERT INTO tenants (tenant_id, name, slug) 
+       VALUES (gen_random_uuid(), 'Test Bank Splits', 'test-bank-splits')
+       RETURNING tenant_id`
+    );
+    testTenantId = tenantResult.rows[0].tenant_id;
+
+    // Criar usuário de teste
+    const userResult = await pool.query(
+      `INSERT INTO users (user_id, tenant_id, email, password_hash)
+       VALUES (gen_random_uuid(), $1, 'test@splits.com', 'hash')
+       RETURNING user_id`,
+      [testTenantId]
+    );
+    testUserId = userResult.rows[0].user_id;
+
+    // Criar contas de teste
+    const account1 = await bankAccountService.getOrCreateAccount(testTenantId, {
+      ownerId: testUserId,
+      ownerType: 'user',
+      currency: 'BRL',
+    });
+    testAccountId = account1.accountId;
+
+    const account2 = await bankAccountService.getOrCreateAccount(testTenantId, {
+      ownerId: uuidv4(),
+      ownerType: 'user',
+      currency: 'BRL',
+    });
+    testOrganizerAccountId = account2.accountId;
+
+    const account3 = await bankAccountService.getOrCreateAccount(testTenantId, {
+      ownerId: uuidv4(),
+      ownerType: 'user',
+      currency: 'BRL',
+    });
+    testWorkerAccountId = account3.accountId;
+
+    // Depositar saldo inicial
+    await bankTransactionService.createSimpleTransaction(testTenantId, {
+      eventId: uuidv4(),
+      toAccountId: testAccountId,
+      amount: 1000,
+      currency: 'BRL',
+      transactionType: 'deposit',
+      description: 'Initial deposit',
+    });
+  });
+
+  afterAll(async () => {
+    // Limpar dados de teste
+    await pool.query('DELETE FROM bank_splits WHERE tenant_id = $1', [testTenantId]);
+    await pool.query('DELETE FROM bank_ledger WHERE tenant_id = $1', [testTenantId]);
+    await pool.query('DELETE FROM bank_transactions WHERE tenant_id = $1', [testTenantId]);
+    await pool.query('DELETE FROM bank_accounts WHERE tenant_id = $1', [testTenantId]);
+    await pool.query('DELETE FROM users WHERE tenant_id = $1', [testTenantId]);
+    await pool.query('DELETE FROM tenants WHERE tenant_id = $1', [testTenantId]);
+  });
+
+  describe('Simple Transactions', () => {
+    it('should create simple transaction without splits', async () => {
+      const eventId = uuidv4();
+      const result = await bankTransactionService.createSimpleTransaction(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        toAccountId: testOrganizerAccountId,
+        amount: 100,
+        currency: 'BRL',
+        transactionType: 'transfer',
+        description: 'Simple transfer',
+      });
+
+      expect(result.transaction.transactionId).toBeDefined();
+      expect(result.transaction.status).toBe('completed');
+      expect(result.ledgerEntries.length).toBe(2); // Debit + Credit
+
+      // Verificar saldos
+      const fromBalance = await bankLedgerRepository.calculateBalance(testTenantId, testAccountId);
+      const toBalance = await bankLedgerRepository.calculateBalance(testTenantId, testOrganizerAccountId);
+
+      expect(fromBalance.balance).toBe(900); // 1000 - 100
+      expect(toBalance.balance).toBe(100); // 0 + 100
+    });
+  });
+
+  describe('Transactions with Splits', () => {
+    it('should create service booking transaction with 3% fee split', async () => {
+      const eventId = uuidv4();
+      const result = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 100,
+        currency: 'BRL',
+        context: 'service_booking',
+        revenueShareAccountId: testWorkerAccountId,
+        description: 'Service booking',
+      });
+
+      expect(result.transaction.transactionId).toBeDefined();
+      expect(result.splits.length).toBe(2); // Worker (97%) + Fee (3%)
+
+      // Validar splits
+      const workerSplit = result.splits.find((s) => s.splitType === 'revenue_share');
+      const feeSplit = result.splits.find((s) => s.splitType === 'fee');
+
+      expect(workerSplit).toBeDefined();
+      expect(feeSplit).toBeDefined();
+      expect(workerSplit!.amount).toBe(97); // 100 * 0.97
+      expect(feeSplit!.amount).toBe(3); // 100 * 0.03
+
+      // Validar que soma dos splits = total
+      const total = result.splits.reduce((sum, split) => sum + split.amount, 0);
+      expect(total).toBe(100);
+
+      // Validar entradas no ledger
+      expect(result.ledgerEntries.length).toBe(3); // 1 debit + 2 credits (worker + fee)
+    });
+
+    it('should create event ticket transaction with organizer + fee + regional_fund + reserve', async () => {
+      const eventId = uuidv4();
+      const result = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 100,
+        currency: 'BRL',
+        context: 'event_ticket',
+        revenueShareAccountId: testOrganizerAccountId,
+        description: 'Event ticket',
+      });
+
+      expect(result.transaction.transactionId).toBeDefined();
+      expect(result.splits.length).toBe(4); // Organizer + Fee + Regional Fund + Reserve
+
+      // Validar splits
+      const organizerSplit = result.splits.find((s) => s.splitType === 'revenue_share');
+      const feeSplit = result.splits.find((s) => s.splitType === 'fee');
+      const regionalFundSplit = result.splits.find((s) => s.splitType === 'regional_fund');
+      const reserveSplit = result.splits.find((s) => s.splitType === 'reserve');
+
+      expect(organizerSplit).toBeDefined();
+      expect(feeSplit).toBeDefined();
+      expect(regionalFundSplit).toBeDefined();
+      expect(reserveSplit).toBeDefined();
+
+      expect(organizerSplit!.amount).toBe(70); // 100 * 0.70
+      expect(feeSplit!.amount).toBe(3); // 100 * 0.03
+      expect(regionalFundSplit!.amount).toBe(10); // 100 * 0.10
+      expect(reserveSplit!.amount).toBe(17); // 100 * 0.17
+
+      // Validar que soma dos splits = total
+      const total = result.splits.reduce((sum, split) => sum + split.amount, 0);
+      expect(total).toBe(100);
+
+      // Validar entradas no ledger
+      expect(result.ledgerEntries.length).toBe(5); // 1 debit + 4 credits
+    });
+
+    it('should create P2P transfer with 0% fee (100% to recipient)', async () => {
+      const eventId = uuidv4();
+      const result = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 50,
+        currency: 'BRL',
+        context: 'p2p_transfer',
+        revenueShareAccountId: testOrganizerAccountId,
+        description: 'P2P transfer',
+      });
+
+      expect(result.transaction.transactionId).toBeDefined();
+      expect(result.splits.length).toBe(1); // Apenas revenue_share (100%)
+
+      const revenueSplit = result.splits[0];
+      expect(revenueSplit.splitType).toBe('revenue_share');
+      expect(revenueSplit.amount).toBe(50); // 100% do total
+
+      // Validar entradas no ledger
+      expect(result.ledgerEntries.length).toBe(2); // 1 debit + 1 credit
+    });
+  });
+
+  describe('Transaction Reversal', () => {
+    it('should reverse a transaction and restore balances exactly', async () => {
+      // Criar transação inicial
+      const eventId = uuidv4();
+      const originalResult = await bankTransactionService.createSimpleTransaction(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        toAccountId: testOrganizerAccountId,
+        amount: 75,
+        currency: 'BRL',
+        transactionType: 'transfer',
+      });
+
+      // Capturar saldos antes da reversão
+      const fromBalanceBefore = await bankLedgerRepository.calculateBalance(testTenantId, testAccountId);
+      const toBalanceBefore = await bankLedgerRepository.calculateBalance(testTenantId, testOrganizerAccountId);
+
+      // Reverter transação
+      const reversalResult = await bankTransactionService.reverseTransaction(
+        testTenantId,
+        originalResult.transaction.transactionId
+      );
+
+      expect(reversalResult.reversalTransaction.transactionType).toBe('reversal');
+      expect(reversalResult.reversalTransaction.originalTransactionId).toBe(originalResult.transaction.transactionId);
+      expect(reversalResult.ledgerEntries.length).toBe(2); // Reversão de ambas as entradas
+
+      // Verificar que transação original foi marcada como reversed
+      const originalTransaction = await bankTransactionService.getTransactionById(
+        testTenantId,
+        originalResult.transaction.transactionId
+      );
+      expect(originalTransaction!.status).toBe('reversed');
+
+      // Verificar que saldos foram restaurados exatamente
+      const fromBalanceAfter = await bankLedgerRepository.calculateBalance(testTenantId, testAccountId);
+      const toBalanceAfter = await bankLedgerRepository.calculateBalance(testTenantId, testOrganizerAccountId);
+
+      // Saldo deve voltar ao estado antes da transação original
+      // (considerando outras transações que possam ter ocorrido)
+      const fromDifference = Math.abs(fromBalanceAfter.balance - (fromBalanceBefore.balance + 75));
+      const toDifference = Math.abs(toBalanceAfter.balance - (toBalanceBefore.balance - 75));
+
+      expect(fromDifference).toBeLessThan(0.01);
+      expect(toDifference).toBeLessThan(0.01);
+    });
+
+    it('should reverse transaction with splits and restore all balances', async () => {
+      // Criar transação com splits
+      const eventId = uuidv4();
+      const originalResult = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 200,
+        currency: 'BRL',
+        context: 'service_booking',
+        revenueShareAccountId: testWorkerAccountId,
+      });
+
+      // Capturar saldos antes da reversão
+      const fromBalanceBefore = await bankLedgerRepository.calculateBalance(testTenantId, testAccountId);
+      const workerBalanceBefore = await bankLedgerRepository.calculateBalance(testTenantId, testWorkerAccountId);
+
+      // Buscar conta de fee
+      const feeAccount = await bankAccountService.getSystemAccount(testTenantId, 'fee', 'BRL');
+      const feeBalanceBefore = await bankLedgerRepository.calculateBalance(testTenantId, feeAccount!.accountId);
+
+      // Reverter transação
+      const reversalResult = await bankTransactionService.reverseTransaction(
+        testTenantId,
+        originalResult.transaction.transactionId
+      );
+
+      expect(reversalResult.reversalTransaction.transactionType).toBe('reversal');
+
+      // Verificar que saldos foram restaurados
+      const fromBalanceAfter = await bankLedgerRepository.calculateBalance(testTenantId, testAccountId);
+      const workerBalanceAfter = await bankLedgerRepository.calculateBalance(testTenantId, testWorkerAccountId);
+      const feeBalanceAfter = await bankLedgerRepository.calculateBalance(testTenantId, feeAccount!.accountId);
+
+      // Saldos devem voltar ao estado antes da transação
+      const fromDifference = Math.abs(fromBalanceAfter.balance - (fromBalanceBefore.balance + 200));
+      const workerDifference = Math.abs(workerBalanceAfter.balance - (workerBalanceBefore.balance - 194)); // 200 * 0.97
+      const feeDifference = Math.abs(feeBalanceAfter.balance - (feeBalanceBefore.balance - 6)); // 200 * 0.03
+
+      expect(fromDifference).toBeLessThan(0.01);
+      expect(workerDifference).toBeLessThan(0.01);
+      expect(feeDifference).toBeLessThan(0.01);
+    });
+  });
+
+  describe('Invariants', () => {
+    it('should conserve money (total before = total after)', async () => {
+      // Capturar total de dinheiro antes
+      const accountsBefore = await bankAccountService.searchAccounts(testTenantId, {});
+      const totalBefore = await Promise.all(
+        accountsBefore.map((acc) => bankLedgerRepository.calculateBalance(testTenantId, acc.accountId))
+      );
+      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balance, 0);
+
+      // Criar transação com splits
+      const eventId = uuidv4();
+      await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 150,
+        currency: 'BRL',
+        context: 'event_ticket',
+        revenueShareAccountId: testOrganizerAccountId,
+      });
+
+      // Capturar total de dinheiro depois
+      const accountsAfter = await bankAccountService.searchAccounts(testTenantId, {});
+      const totalAfter = await Promise.all(
+        accountsAfter.map((acc) => bankLedgerRepository.calculateBalance(testTenantId, acc.accountId))
+      );
+      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balance, 0);
+
+      // Total deve ser igual (dinheiro não é criado nem destruído)
+      expect(Math.abs(sumBefore - sumAfter)).toBeLessThan(0.01);
+    });
+
+    it('should validate that sum of splits equals transaction total', async () => {
+      const eventId = uuidv4();
+      const result = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 123.45,
+        currency: 'BRL',
+        context: 'service_booking',
+        revenueShareAccountId: testWorkerAccountId,
+      });
+
+      // Validar via repository
+      const validation = await bankSplitRepository.validateSplitsSum(
+        testTenantId,
+        result.transaction.transactionId,
+        123.45
+      );
+
+      expect(validation.isValid).toBe(true);
+      expect(validation.difference).toBeLessThan(0.01);
+    });
+  });
+
+  describe('Transaction Details', () => {
+    it('should get transaction details with splits and ledger entries', async () => {
+      const eventId = uuidv4();
+      const createdResult = await bankTransactionService.createTransactionWithSplit(testTenantId, {
+        eventId,
+        fromAccountId: testAccountId,
+        amount: 100,
+        currency: 'BRL',
+        context: 'service_booking',
+        revenueShareAccountId: testWorkerAccountId,
+      });
+
+      const details = await bankTransactionService.getTransactionDetails(
+        testTenantId,
+        createdResult.transaction.transactionId
+      );
+
+      expect(details.transaction.transactionId).toBe(createdResult.transaction.transactionId);
+      expect(details.splits.length).toBe(2);
+      expect(details.ledgerEntries.length).toBe(3); // 1 debit + 2 credits
+
+      // Validar que todas as entradas do ledger estão presentes
+      const entryIds = details.ledgerEntries.map((e) => e.entryId);
+      expect(entryIds.length).toBe(entryIds.filter((id, index) => entryIds.indexOf(id) === index).length); // Sem duplicatas
+    });
+  });
+});
+
+
+
+
+
+
+

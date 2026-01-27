@@ -1,0 +1,305 @@
+/* frontend/src/components/events/EventRFQQuotesView.css */
+
+.event-rfq-quotes-view {
+  padding: 1.5rem;
+}
+
+.quotes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.quotes-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #333;
+}
+
+.rfq-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.status-open {
+  background: #28a745;
+  color: #fff;
+}
+
+.status-badge.status-closed {
+  background: #6c757d;
+  color: #fff;
+}
+
+.quotes-count {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.loading,
+.error,
+.no-quotes {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  color: #999;
+  margin-top: 0.5rem;
+}
+
+.quotes-controls {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.selected-count {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.btn-convert-bundle,
+.btn-convert-booking {
+  padding: 0.5rem 1rem;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-convert-bundle:hover,
+.btn-convert-booking:hover {
+  background: #218838;
+}
+
+.btn-clear-selection {
+  padding: 0.5rem 1rem;
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-selection:hover {
+  background: #5a6268;
+}
+
+.quotes-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.quotes-controls select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.quotes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.quote-card {
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.quote-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #007bff;
+}
+
+.quote-card.selected {
+  border-color: #007bff;
+  background: #e7f3ff;
+}
+
+.quote-checkbox {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.quote-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.quote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.quote-service h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.quote-provider {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.quote-price {
+  text-align: right;
+}
+
+.quote-price strong {
+  font-size: 1.5rem;
+  color: #28a745;
+}
+
+.quote-notes {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-left: 4px solid #007bff;
+  border-radius: 4px;
+}
+
+.quote-notes strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.quote-notes p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.quote-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  color: #999;
+  font-weight: 600;
+}
+
+.detail-item span:not(.detail-label) {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.quote-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+  flex-wrap: wrap;
+}
+
+.btn-select {
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-select:hover {
+  background: #0056b3;
+}
+
+.btn-convert-booking {
+  padding: 0.75rem 1.5rem;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-convert-booking:hover {
+  background: #218838;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .quote-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .quote-price {
+    text-align: left;
+  }
+
+  .quote-details {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+

@@ -42,4 +42,3 @@ const tenantRoutes = async (fastify) => {
     });
 };
 exports.default = tenantRoutes;
-//# sourceMappingURL=tenant.routes.js.map

@@ -1,0 +1,151 @@
+/* frontend/src/components/health/HealthSummaryCard.css */
+/* CONTINUOUS PRODUCTION: Estilos para Card de Resumo de Saúde - SPRINT 9 */
+
+.health-summary-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.health-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-line {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.health-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.health-header {
+  margin-bottom: 1rem;
+}
+
+.health-header h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+}
+
+.health-subtitle {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
+.health-signals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.health-signal-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  border-left: 4px solid #ddd;
+  transition: all 0.2s;
+}
+
+.health-signal-item:hover {
+  background: #f0f0f0;
+}
+
+.health-signal-item.health-signal-status-healthy {
+  border-left-color: #28a745;
+  background: #f0f9f4;
+}
+
+.health-signal-item.health-signal-status-attention {
+  border-left-color: #ffc107;
+  background: #fffbf0;
+}
+
+.health-signal-item.health-signal-status-critical {
+  border-left-color: #dc3545;
+  background: #fff5f5;
+}
+
+.health-signal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.health-signal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.health-signal-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.health-signal-item.health-signal-status-healthy .health-signal-icon {
+  color: #28a745;
+}
+
+.health-signal-item.health-signal-status-attention .health-signal-icon {
+  color: #ffc107;
+}
+
+.health-signal-item.health-signal-status-critical .health-signal-icon {
+  color: #dc3545;
+}
+
+.health-signal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.health-signal-description {
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.health-signal-observation {
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+.health-signal-source {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+
+
+
+
+
+

@@ -1,10 +1,11 @@
 "use strict";
 // src/modules/groups/groups.insights.service.ts
+// SPRINT 3: INTEGRATED WITH UNIFY BANK
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.groupsInsightsService = void 0;
 const groups_repository_1 = require("./groups.repository");
 const groups_service_1 = require("./groups.service");
-const account_service_1 = require("@core/economy/accounts/account.service");
+const bank_integration_service_1 = require("../bank/bank-integration.service");
 const memory_service_1 = require("@core/memory/memory.service");
 class GroupsInsightsService {
     async getGroupInsights(tenantId, groupId) {
@@ -14,15 +15,8 @@ class GroupsInsightsService {
         }
         const members = await groups_repository_1.groupsRepository.getMembers(tenantId, groupId);
         const memberCount = members.length;
-        // Buscar total recebido em splits
-        const groupAccount = await groups_repository_1.groupsRepository.getGroupAccount(tenantId, groupId);
-        let totalReceived = 0;
-        if (groupAccount) {
-            const account = await account_service_1.accountService.getAccountById(tenantId, groupAccount.accountId);
-            if (account) {
-                totalReceived = account.balance;
-            }
-        }
+        // SPRINT 3: Buscar saldo do Unify Bank (fonte da verdade)
+        const totalReceived = await bank_integration_service_1.bankIntegrationService.getGroupBalance(tenantId, groupId, 'BRL');
         // Buscar logs de participação do Memory (se método disponível)
         let participationLogs = [];
         try {
@@ -59,4 +53,3 @@ class GroupsInsightsService {
     }
 }
 exports.groupsInsightsService = new GroupsInsightsService();
-//# sourceMappingURL=groups.insights.service.js.map

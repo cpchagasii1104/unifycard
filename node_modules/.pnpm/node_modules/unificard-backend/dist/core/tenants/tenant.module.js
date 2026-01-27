@@ -8,4 +8,3 @@ const tenantModule = async (fastify) => {
     await fastify.register(tenant_routes_1.default);
 };
 exports.default = tenantModule;
-//# sourceMappingURL=tenant.module.js.map

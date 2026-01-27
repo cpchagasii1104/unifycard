@@ -8,4 +8,3 @@ const scheduleModule = async (fastify) => {
     await fastify.register(schedule_routes_1.default);
 };
 exports.default = scheduleModule;
-//# sourceMappingURL=schedule.module.js.map

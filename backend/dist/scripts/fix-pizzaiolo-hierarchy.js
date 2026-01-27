@@ -157,4 +157,3 @@ fixPizzaioloHierarchy()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=fix-pizzaiolo-hierarchy.js.map

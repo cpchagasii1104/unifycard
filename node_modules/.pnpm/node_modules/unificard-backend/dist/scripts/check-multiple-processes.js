@@ -53,4 +53,3 @@ checkMultipleProcesses().catch((error) => {
     console.error('❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=check-multiple-processes.js.map

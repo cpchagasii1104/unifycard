@@ -1,5 +1,6 @@
 "use strict";
 // src/modules/rides/rides/rides.service.ts
+// SPRINT 4: INTEGRATED WITH UNIFY BANK
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ridesService = exports.RidesService = void 0;
 const db_1 = require("@core/db");
@@ -8,6 +9,7 @@ const errors_1 = require("@core/errors");
 const pricing_service_1 = require("../pricing/pricing.service");
 const distribution_service_1 = require("../distribution/distribution.service");
 const review_service_1 = require("@core/reviews/review.service");
+const bank_integration_service_1 = require("../../bank/bank-integration.service");
 class RidesService {
     // ============================================================================================
     // 🔹 1. Criar ride a partir do request
@@ -180,12 +182,36 @@ class RidesService {
         };
     }
     // ============================================================================================
-    // 🔹 5. Cancelar corrida
+    // 🔹 5. Cancelar corrida (SPRINT 4: COM REVERSÃO DE TRANSAÇÃO)
     // ============================================================================================
     async cancelRide(tenantId, rideId, reason, cancelledBy) {
         const ride = await this.getRide(tenantId, rideId);
         if (ride.status === 'completed') {
             throw new errors_1.BadRequestError('Corrida já foi finalizada.');
+        }
+        // SPRINT 4: Reverter transação no Unify Bank se existir
+        // Buscar bankTransactionId do metadata do ride
+        const rideWithMetadata = await (0, db_1.runQueryWithTenant)(tenantId, {
+            text: `
+        SELECT metadata
+        FROM rides_rides
+        WHERE tenant_id = $1 AND ride_id = $2
+      `,
+            values: [tenantId, rideId],
+        });
+        let bankTransactionId;
+        if (rideWithMetadata?.metadata && typeof rideWithMetadata.metadata === 'object') {
+            bankTransactionId = rideWithMetadata.metadata.bankTransactionId;
+        }
+        // Reverter transação se existir (corrida já foi paga)
+        if (bankTransactionId) {
+            try {
+                await bank_integration_service_1.bankIntegrationService.reverseTransaction(tenantId, bankTransactionId);
+            }
+            catch (error) {
+                // Log mas não falha cancelamento se reversão falhar
+                console.error('Erro ao reverter transação no Unify Bank ao cancelar ride (não crítico):', error);
+            }
         }
         const updated = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
@@ -210,6 +236,7 @@ class RidesService {
                 rideId,
                 reason,
                 cancelledBy,
+                bankTransactionReversed: !!bankTransactionId,
             },
         });
         return updated;
@@ -294,4 +321,3 @@ class RidesService {
 }
 exports.RidesService = RidesService;
 exports.ridesService = new RidesService();
-//# sourceMappingURL=rides.service.js.map

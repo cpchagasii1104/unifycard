@@ -28,4 +28,3 @@ exports.listSkillsQuerySchema = zod_1.z.object({
         .optional()
         .transform(v => (v ? parseInt(v) : undefined)),
 });
-//# sourceMappingURL=skill.schemas.js.map

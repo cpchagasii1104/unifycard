@@ -139,4 +139,3 @@ class DemandService {
 }
 exports.DemandService = DemandService;
 exports.demandService = new DemandService();
-//# sourceMappingURL=demand.service.js.map

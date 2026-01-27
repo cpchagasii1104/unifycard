@@ -10,4 +10,3 @@ const catalogModule = async (fastify) => {
     await fastify.register(catalog_routes_1.default);
 };
 exports.default = catalogModule;
-//# sourceMappingURL=catalog.module.js.map

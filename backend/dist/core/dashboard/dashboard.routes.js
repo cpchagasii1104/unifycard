@@ -25,10 +25,13 @@ const dashboardRoutes = async (fastify) => {
         }
     };
     // Rota principal
-    fastify.get('/', dashboardHandler);
+    fastify.get('/', {
+        preHandler: [fastify.requirePermission(['dashboard:view'])],
+    }, dashboardHandler);
     // TODO: Remover após frontend migrar para rota canônica
     // Alias temporário para compatibilidade: /dashboard/dashboard -> /dashboard
-    fastify.get('/dashboard', dashboardHandler);
+    fastify.get('/dashboard', {
+        preHandler: [fastify.requirePermission(['dashboard:view'])],
+    }, dashboardHandler);
 };
 exports.default = dashboardRoutes;
-//# sourceMappingURL=dashboard.routes.js.map

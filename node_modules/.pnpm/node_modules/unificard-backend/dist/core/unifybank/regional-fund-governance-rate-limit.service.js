@@ -65,4 +65,3 @@ class RegionalFundGovernanceRateLimitService {
     }
 }
 exports.regionalFundGovernanceRateLimitService = new RegionalFundGovernanceRateLimitService();
-//# sourceMappingURL=regional-fund-governance-rate-limit.service.js.map

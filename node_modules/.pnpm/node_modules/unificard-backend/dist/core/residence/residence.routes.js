@@ -104,4 +104,3 @@ const residenceRoutes = async (fastify) => {
     });
 };
 exports.default = residenceRoutes;
-//# sourceMappingURL=residence.routes.js.map

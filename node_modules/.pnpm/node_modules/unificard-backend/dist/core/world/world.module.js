@@ -8,4 +8,3 @@ const worldModule = async (fastify) => {
     await fastify.register(world_routes_1.default);
 };
 exports.default = worldModule;
-//# sourceMappingURL=world.module.js.map

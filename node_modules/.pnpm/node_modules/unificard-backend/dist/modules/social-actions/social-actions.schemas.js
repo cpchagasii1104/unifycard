@@ -13,4 +13,3 @@ exports.executeActionSchema = zod_1.z.object({
     actionId: zod_1.z.string().uuid('ID da ação inválido'),
 });
 exports.actionStatusSchema = zod_1.z.enum(['available', 'executed', 'failed', 'cancelled']);
-//# sourceMappingURL=social-actions.schemas.js.map

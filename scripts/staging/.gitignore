@@ -1,0 +1,7 @@
+# Relatórios de smoke test
+reports/
+*.json
+
+
+
+

@@ -114,4 +114,3 @@ const checkoutRoutes = async (fastify) => {
     });
 };
 exports.default = checkoutRoutes;
-//# sourceMappingURL=checkout.routes.js.map

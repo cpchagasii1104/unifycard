@@ -1,0 +1,121 @@
+/* frontend/src/components/evidence/EvidenceViewer.css */
+/* Estilos para o Visualizador de Evidências */
+
+.evidence-viewer {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.evidence-viewer-loading,
+.evidence-viewer-error,
+.evidence-viewer-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.evidence-viewer-error {
+  color: #dc2626;
+}
+
+.evidence-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.evidence-viewer-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.evidence-viewer-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.evidence-viewer-info {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.info-item {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-item strong {
+  color: #111;
+  margin-right: 0.5rem;
+}
+
+.dispute-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dispute-status-none {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.dispute-status-open {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dispute-status-in_mediation {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dispute-status-resolved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.evidence-viewer-timeline {
+  margin-top: 1.5rem;
+}
+
+.evidence-viewer-timeline h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.evidence-viewer-notice {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+}
+
+.evidence-viewer-notice small {
+  color: #1e40af;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+
+
+

@@ -1,0 +1,101 @@
+/* frontend/src/components/bypass-detection/BypassAlert.css */
+/* Estilos para o Alerta de Bypass */
+
+.bypass-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bypass-alert-blocked {
+  background: #fee2e2;
+  border: 2px solid #dc2626;
+  color: #991b1b;
+}
+
+.bypass-alert-warning {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  color: #92400e;
+}
+
+.bypass-alert-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.bypass-alert-content {
+  flex: 1;
+}
+
+.bypass-alert-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.bypass-alert-message {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.bypass-alert-explanation {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bypass-alert-explanation p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.bypass-alert-explanation p:first-child {
+  margin-top: 0;
+}
+
+.bypass-alert-explanation p:last-child {
+  margin-bottom: 0;
+}
+
+.bypass-alert-explanation strong {
+  font-weight: 600;
+}
+
+.bypass-alert-dismiss {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bypass-alert-dismiss:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.bypass-alert-blocked .bypass-alert-dismiss {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #991b1b;
+}
+
+.bypass-alert-blocked .bypass-alert-dismiss:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+
+
+

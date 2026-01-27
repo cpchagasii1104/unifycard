@@ -38,4 +38,3 @@ const dynamicPricingRoutes = async (fastify) => {
     });
 };
 exports.default = dynamicPricingRoutes;
-//# sourceMappingURL=dynamic-pricing.routes.js.map

@@ -23,4 +23,3 @@ class CountryModel {
     }
 }
 exports.CountryModel = CountryModel;
-//# sourceMappingURL=country.model.js.map

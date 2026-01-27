@@ -1,6 +1,11 @@
 "use strict";
 // src/core/profile/profile-learning.service.ts
 // Serviço para gerenciar perfil de aprendizado/trilha
+//
+// 🔴 BLINDAGEM CANÔNICA: Aprendizado representa direção e interesse declarado
+// - NÃO mede capacidade, NÃO valida competência, NÃO bloqueia funcionalidades
+// - Progresso (beginner/intermediate/advanced) representa fase de exploração, não nível
+// - Por que isso NÃO pode virar decisão: aprendizado é autodireção, não validação
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -95,6 +100,7 @@ class ProfileLearningService {
         SELECT category_id, name, path, level
         FROM categories
         WHERE category_id = ANY($1::uuid[])
+          AND scope = 'learning'
           AND (status IS NULL OR status = 'active' OR status = 'auto_active')
         `, [input.learnings]);
             learnings = categoriesResult.rows.map((row) => ({
@@ -126,4 +132,3 @@ class ProfileLearningService {
     }
 }
 exports.profileLearningService = new ProfileLearningService();
-//# sourceMappingURL=profile-learning.service.js.map

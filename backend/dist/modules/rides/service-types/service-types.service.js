@@ -190,4 +190,3 @@ class ServiceTypesService {
 }
 exports.ServiceTypesService = ServiceTypesService;
 exports.serviceTypesService = new ServiceTypesService();
-//# sourceMappingURL=service-types.service.js.map

@@ -104,4 +104,3 @@ const worldRoutes = async (fastify) => {
     });
 };
 exports.default = worldRoutes;
-//# sourceMappingURL=world.routes.js.map

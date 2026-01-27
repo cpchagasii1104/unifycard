@@ -163,4 +163,3 @@ const roleRoutes = async (fastify) => {
     });
 };
 exports.default = roleRoutes;
-//# sourceMappingURL=role.routes.js.map

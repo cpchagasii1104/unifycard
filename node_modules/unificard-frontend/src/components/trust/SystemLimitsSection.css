@@ -1,0 +1,69 @@
+/* frontend/src/components/trust/SystemLimitsSection.css */
+/* CONTINUOUS PRODUCTION: Estilos para "O que NÃO faz" - SPRINT 12 */
+
+.system-limits-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.system-limits-section h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.system-limits-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.system-limits-block {
+  padding: 1rem;
+  background: #fff3cd;
+  border-left: 3px solid #ffc107;
+  border-radius: 4px;
+}
+
+.system-limits-block h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #856404;
+  font-weight: 600;
+}
+
+.system-limits-block p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #856404;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .system-limits-section {
+    padding: 1.5rem;
+  }
+
+  .system-limits-section h2 {
+    font-size: 1.25rem;
+  }
+
+  .system-limits-block h3 {
+    font-size: 1rem;
+  }
+
+  .system-limits-block p {
+    font-size: 0.9rem;
+  }
+}
+
+
+
+
+
+
+

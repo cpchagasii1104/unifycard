@@ -18,7 +18,11 @@ const planRoutes = async (fastify) => {
             return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
         }
         try {
-            const plan = await plan_gate_service_1.planGateService.getUserPlan(req.tenant.id, req.user.id || req.user.globalUserId || '');
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            }
+            const plan = await plan_gate_service_1.planGateService.getUserPlan(req.tenant.id, userId);
             // Buscar também is_test para verificar se pode alternar
             const userRow = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
           SELECT u.is_test,
@@ -29,7 +33,7 @@ const planRoutes = async (fastify) => {
           FROM users u
           WHERE u.user_id = $1
           LIMIT 1
-        `, [req.user.id]);
+        `, [userId]);
             const isTest = userRow?.is_test || false;
             const isAdmin = userRow?.role === 'admin';
             return reply.send({
@@ -70,6 +74,10 @@ const planRoutes = async (fastify) => {
                     message: 'Plano inválido. Deve ser: free, pro ou enterprise',
                 });
             }
+            const userId = req.user.userId;
+            if (!userId) {
+                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            }
             // Verificar se usuário pode alternar (teste ou admin)
             const userRow = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
           SELECT u.is_test,
@@ -80,7 +88,7 @@ const planRoutes = async (fastify) => {
           FROM users u
           WHERE u.user_id = $1
           LIMIT 1
-        `, [req.user.id]);
+        `, [userId]);
             const isTest = userRow?.is_test || false;
             const isAdmin = userRow?.role === 'admin';
             if (!isTest && !isAdmin) {
@@ -94,7 +102,7 @@ const planRoutes = async (fastify) => {
           UPDATE users
           SET plan = $1, updated_at = now()
           WHERE user_id = $2
-        `, [plan, req.user.id]);
+        `, [plan, userId]);
             return reply.send({
                 ok: true,
                 data: {
@@ -115,4 +123,3 @@ const planRoutes = async (fastify) => {
     });
 };
 exports.default = planRoutes;
-//# sourceMappingURL=plan.routes.js.map

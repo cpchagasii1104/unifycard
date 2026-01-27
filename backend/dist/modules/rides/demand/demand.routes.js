@@ -146,4 +146,3 @@ const demandRoutes = async (fastify) => {
     });
 };
 exports.default = demandRoutes;
-//# sourceMappingURL=demand.routes.js.map

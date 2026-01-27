@@ -93,4 +93,3 @@ const profileInferenceRoutes = async (fastify) => {
     });
 };
 exports.default = profileInferenceRoutes;
-//# sourceMappingURL=profile-inference.routes.js.map

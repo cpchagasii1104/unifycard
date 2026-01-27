@@ -221,4 +221,3 @@ class SocialLedgerService {
 }
 exports.SocialLedgerService = SocialLedgerService;
 exports.socialLedgerService = new SocialLedgerService();
-//# sourceMappingURL=social-ledger.service.js.map

@@ -2,6 +2,7 @@
 // src/core/matching/matching.routes.ts
 // Rotas para Matching Humano
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.matchingRoutes = void 0;
 const matching_service_1 = require("./matching.service");
 const matchingRoutes = async (fastify) => {
     /**
@@ -61,5 +62,4 @@ const matchingRoutes = async (fastify) => {
         }
     });
 };
-exports.default = matchingRoutes;
-//# sourceMappingURL=matching.routes.js.map
+exports.matchingRoutes = matchingRoutes;

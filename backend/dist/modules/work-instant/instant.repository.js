@@ -105,4 +105,3 @@ class InstantRepository {
     }
 }
 exports.instantRepository = new InstantRepository();
-//# sourceMappingURL=instant.repository.js.map

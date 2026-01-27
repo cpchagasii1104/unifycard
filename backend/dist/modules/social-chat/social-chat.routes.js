@@ -118,4 +118,3 @@ const socialChatRoutes = async (fastify) => {
     });
 };
 exports.default = socialChatRoutes;
-//# sourceMappingURL=social-chat.routes.js.map

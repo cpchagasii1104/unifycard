@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ridesModule = void 0;
 // import ridesRoutes from './rides.routes'; // TODO: refatorar
 // import matchingRoutes from './matching/matching.routes'; // TODO: refatorar
 // import pricingRoutes from './pricing/pricing.routes'; // TODO: refatorar
@@ -35,5 +36,5 @@ const ridesModule = async (fastify) => {
     await fastify.register(service_types_routes_1.default, { prefix: '/service-types' });
     await fastify.register(cities_routes_1.default, { prefix: '/cities' });
 };
+exports.ridesModule = ridesModule;
 exports.default = ridesModule;
-//# sourceMappingURL=rides.module.js.map

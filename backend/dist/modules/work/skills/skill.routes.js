@@ -77,4 +77,3 @@ const skillRoutes = async (fastify) => {
     });
 };
 exports.default = skillRoutes;
-//# sourceMappingURL=skill.routes.js.map

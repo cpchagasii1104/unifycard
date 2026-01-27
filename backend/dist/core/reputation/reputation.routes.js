@@ -27,4 +27,3 @@ const reputationRoutes = async (fastify) => {
     });
 };
 exports.default = reputationRoutes;
-//# sourceMappingURL=reputation.routes.js.map

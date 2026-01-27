@@ -400,4 +400,3 @@ const vehicleComplianceRoutes = async (fastify) => {
     });
 };
 exports.default = vehicleComplianceRoutes;
-//# sourceMappingURL=vehicle-compliance.routes.js.map

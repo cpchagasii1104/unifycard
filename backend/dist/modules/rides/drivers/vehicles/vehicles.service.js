@@ -115,4 +115,3 @@ class VehiclesService {
 }
 exports.VehiclesService = VehiclesService;
 exports.vehiclesService = new VehiclesService();
-//# sourceMappingURL=vehicles.service.js.map

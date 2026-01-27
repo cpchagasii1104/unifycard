@@ -123,4 +123,3 @@ const instrumentationPlugin = async (fastify) => {
     fastify.decorate('calculateMetrics', calculateMetrics);
 };
 exports.default = instrumentationPlugin;
-//# sourceMappingURL=instrumentation.plugin.js.map

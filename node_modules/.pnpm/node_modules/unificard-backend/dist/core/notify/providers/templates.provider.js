@@ -60,4 +60,3 @@ class TemplateProvider {
     }
 }
 exports.TemplateProvider = TemplateProvider;
-//# sourceMappingURL=templates.provider.js.map

@@ -1,13 +1,10 @@
 "use strict";
 // src/core/core.module.ts
 // Módulo CORE - Fonte única de identidade e dados do ecossistema
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const core_routes_1 = __importDefault(require("./core.routes"));
+exports.coreModule = void 0;
+const core_routes_1 = require("./core.routes");
 const coreModule = async (fastify) => {
-    await fastify.register(core_routes_1.default);
+    await fastify.register(core_routes_1.coreRoutes);
 };
-exports.default = coreModule;
-//# sourceMappingURL=core.module.js.map
+exports.coreModule = coreModule;

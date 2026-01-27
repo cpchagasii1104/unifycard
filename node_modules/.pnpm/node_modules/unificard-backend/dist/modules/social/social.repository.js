@@ -48,7 +48,11 @@ class SocialRepository {
             data.confidence,
             data.categories,
             JSON.stringify(data.suggestedActions),
-            JSON.stringify(data.metadata),
+            JSON.stringify({
+                ...data.metadata,
+                ...(data.createdByUserId && { created_by_user_id: data.createdByUserId }),
+                ...(data.createdAsActorId && { created_as_actor_id: data.createdAsActorId }),
+            }),
             data.eventId || null,
         ]);
         if (!row) {
@@ -153,4 +157,3 @@ class SocialRepository {
     }
 }
 exports.SocialRepository = SocialRepository;
-//# sourceMappingURL=social.repository.js.map

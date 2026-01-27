@@ -27,4 +27,3 @@ class CitiesController {
 }
 exports.CitiesController = CitiesController;
 exports.citiesController = new CitiesController();
-//# sourceMappingURL=cities.controller.js.map

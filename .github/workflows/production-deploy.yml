@@ -1,0 +1,146 @@
+# .github/workflows/production-deploy.yml
+# GitHub Actions workflow para deploy de produção
+# 🔴 BLINDAGEM: Requer aprovação manual para migrations
+
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Executar migrations?'
+        required: true
+        type: choice
+        options:
+          - 'no'
+          - 'yes'
+      run_smoke_test:
+        description: 'Executar smoke test?'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+
+env:
+  NODE_ENV: production
+  NODE_VERSION: '20'
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Setup production environment
+        run: |
+          export NODE_ENV=production
+          export DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}"
+          export JWT_SECRET="${{ secrets.PRODUCTION_JWT_SECRET }}"
+          export API_URL="${{ secrets.PRODUCTION_API_URL }}"
+          chmod +x scripts/production/*.sh
+          ./scripts/production/setup-production.sh
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.PRODUCTION_JWT_SECRET }}
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+      
+      - name: Run migrations (dry-run)
+        if: github.event.inputs.run_migrations == 'yes'
+        run: |
+          export NODE_ENV=production
+          export DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}"
+          ./scripts/production/migrate-production.sh --dry-run
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      
+      - name: Manual approval for migrations
+        if: github.event.inputs.run_migrations == 'yes'
+        uses: trstringer/manual-approval@v0.1.0
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ secrets.PRODUCTION_APPROVERS }}
+          minimum-approvals: 1
+          issue-title: 'Aprovação necessária: Executar migrations em produção'
+          issue-body: |
+            Migrations serão executadas em produção.
+            
+            **Database:** ${{ secrets.PRODUCTION_DATABASE_URL }}
+            **Dry-run:** ✅ Passou
+            
+            Por favor, revise e aprove se estiver correto.
+      
+      - name: Run migrations
+        if: github.event.inputs.run_migrations == 'yes'
+        run: |
+          export NODE_ENV=production
+          export DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}"
+          ./scripts/production/migrate-production.sh
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      
+      - name: Build backend
+        working-directory: ./backend
+        run: npm run build
+      
+      - name: Health check
+        run: |
+          export NODE_ENV=production
+          export DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}"
+          export API_URL="${{ secrets.PRODUCTION_API_URL }}"
+          # Assumindo que backend está rodando em outro job/instância
+          ./scripts/production/health-check.sh || echo "⚠️ Health check falhou (backend pode não estar rodando ainda)"
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+        continue-on-error: true
+      
+      - name: Smoke test (STRICT)
+        if: github.event.inputs.run_smoke_test == 'yes'
+        run: |
+          export NODE_ENV=production
+          export API_URL="${{ secrets.PRODUCTION_API_URL }}"
+          cd backend
+          STRICT=true npx ts-node scripts/production/smoke-production.ts
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+      
+      - name: Upload smoke test report
+        if: always() && github.event.inputs.run_smoke_test == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report-production
+          path: scripts/production/reports/smoke-report.json
+          retention-days: 30
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Migrations: ${{ github.event.inputs.run_migrations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Smoke Test: ${{ github.event.inputs.run_smoke_test }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f scripts/production/reports/smoke-report.json ]; then
+            echo "- Smoke Test Status: $(jq -r '.status' scripts/production/reports/smoke-report.json)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+
+
+

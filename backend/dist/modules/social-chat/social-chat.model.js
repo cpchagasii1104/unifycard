@@ -52,4 +52,3 @@ class SocialChatModel {
     }
 }
 exports.SocialChatModel = SocialChatModel;
-//# sourceMappingURL=social-chat.model.js.map

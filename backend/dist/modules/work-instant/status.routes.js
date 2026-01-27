@@ -337,4 +337,3 @@ const statusRoutes = async (fastify) => {
     });
 };
 exports.default = statusRoutes;
-//# sourceMappingURL=status.routes.js.map

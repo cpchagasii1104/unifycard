@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.identityService = void 0;
 // src/core/identity/identity.service.ts
@@ -60,22 +93,46 @@ class IdentityService {
     }
     /**
      * Cria uma identidade global para um usuário local
+     * 🔴 REGRA: NUNCA cria novo global_user se já existir vínculo
      */
     async createGlobalIdentityForUser(userId, tenantId) {
-        // Verificar se já existe link
+        // 🔴 VERIFICAÇÃO CRÍTICA: Verificar se já existe link
         const existingLink = await pool_1.pool.query(`
         SELECT id, global_user_id, user_id, tenant_id, created_at
         FROM user_identity_links
         WHERE user_id = $1 AND tenant_id = $2
+        ORDER BY created_at DESC
         LIMIT 1
       `, [userId, tenantId]);
         if (existingLink.rows.length > 0) {
-            // Já existe link, buscar global user
-            const globalUser = await this.getGlobalIdentity(existingLink.rows[0].global_user_id);
-            if (globalUser) {
+            // 🔴 REGRA: Já existe link - NUNCA criar novo global_user
+            // Buscar e retornar o global_user existente
+            const existingGlobalUserId = existingLink.rows[0].global_user_id;
+            console.log('[IdentityService] ⚠️ Link já existe, retornando global_user existente:', {
+                userId,
+                tenantId,
+                globalUserId: existingGlobalUserId,
+            });
+            try {
+                const globalUser = await this.getGlobalIdentity(existingGlobalUserId);
                 return globalUser;
             }
+            catch (error) {
+                // Se global_user não existe mas link existe, há dessincronização
+                console.error('[IdentityService] ❌ ERRO CRÍTICO: Link existe mas global_user não encontrado!', {
+                    userId,
+                    tenantId,
+                    globalUserId: existingGlobalUserId,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                throw new Error(`Dessincronização detectada: link existe mas global_user não encontrado para global_user_id: ${existingGlobalUserId}`);
+            }
         }
+        // 🔴 REGRA: Só criar novo global_user se NÃO existe link
+        console.log('[IdentityService] ✅ Nenhum link encontrado, criando novo global_user', {
+            userId,
+            tenantId,
+        });
         // Criar novo global user
         const newGlobalUser = await pool_1.pool.query(`
         INSERT INTO global_users (full_name, avatar_url, birthdate, metadata)
@@ -86,7 +143,7 @@ class IdentityService {
             throw new Error('Failed to create global identity');
         }
         const globalUser = this.toGlobalUser(newGlobalUser.rows[0]);
-        // Criar link
+        // Criar link (garante apenas 1 link por usuário)
         await this.linkLocalUserToGlobal(userId, globalUser.globalUserId, tenantId);
         // Atualizar users.global_user_id
         await (0, pool_2.runQueryWithTenant)(tenantId, `
@@ -106,9 +163,13 @@ class IdentityService {
     }
     /**
      * Busca identidade global por ID
+     * 🔴 REGRA: NUNCA retorna null - sempre lança erro se não encontrado
      */
     async getGlobalIdentity(globalUserId) {
         console.log('[IdentityService] 🔍 getGlobalIdentity: Buscando no banco', { globalUserId });
+        if (!globalUserId) {
+            throw new Error('globalUserId é obrigatório');
+        }
         // 🔴 DIAGNÓSTICO: Verificar quantos registros existem (não deveria ser > 1, mas vamos verificar)
         const countResult = await pool_1.pool.query(`SELECT COUNT(*) as count FROM global_users WHERE global_user_id = $1`, [globalUserId]);
         const recordCount = parseInt(countResult.rows[0]?.count || '0', 10);
@@ -117,20 +178,17 @@ class IdentityService {
                 globalUserId,
                 count: recordCount,
             });
+            throw new Error(`Múltiplos registros encontrados para global_user_id: ${globalUserId}. Execute DIAGNOSTICO_BIRTHDATE.sql para investigar.`);
         }
-        // 🔴 CORREÇÃO CRÍTICA: ORDER BY updated_at DESC para garantir registro mais recente
-        // NOTA: global_user_id é PRIMARY KEY, então não deveria ter múltiplos registros,
-        // mas adicionamos ORDER BY como garantia de que sempre retornamos o mais recente
+        // 🔴 CORREÇÃO: Buscar registro único (global_user_id é PRIMARY KEY)
         const result = await pool_1.pool.query(`
         SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
         FROM global_users
         WHERE global_user_id = $1
-        ORDER BY updated_at DESC
-        LIMIT 1
       `, [globalUserId]);
         if (!result.rows[0]) {
-            console.log('[IdentityService] ⚠️ getGlobalIdentity: NÃO encontrado no banco', { globalUserId });
-            return null;
+            console.error('[IdentityService] ❌ getGlobalIdentity: NÃO encontrado no banco', { globalUserId });
+            throw new Error(`Global identity não encontrada para global_user_id: ${globalUserId}`);
         }
         console.log('[IdentityService] ✅ getGlobalIdentity: Encontrado no banco', {
             globalUserId: result.rows[0].global_user_id,
@@ -155,6 +213,59 @@ class IdentityService {
             fullNameType: typeof updates.fullName,
             birthdateType: typeof updates.birthdate,
         });
+        // 🔴 IMUTABILIDADE: Verificar se dados imutáveis já existem antes de permitir alteração
+        const existingGlobalUser = await this.getGlobalIdentity(globalUserId);
+        // 🔴 PARTE 2 - ONBOARDING: Verificar se pode editar birthdate
+        // Buscar userId e tenantId para verificar onboarding
+        let canEditBirthdate = true;
+        try {
+            const linkResult = await pool_1.pool.query(`SELECT user_id, tenant_id FROM user_identity_links WHERE global_user_id = $1 LIMIT 1`, [globalUserId]);
+            if (linkResult.rows.length > 0) {
+                const { user_id, tenant_id } = linkResult.rows[0];
+                const { profileService } = await Promise.resolve().then(() => __importStar(require('@core/profile/profile.service')));
+                canEditBirthdate = await profileService.canEditPersonalData(tenant_id, user_id);
+            }
+        }
+        catch (err) {
+            // Se não conseguir verificar, assumir que não pode editar (mais seguro)
+            canEditBirthdate = false;
+        }
+        // 🔴 CORREÇÃO CRÍTICA: Só bloquear alteração se birthdate JÁ FOI PREENCHIDO (não é null/undefined)
+        // REGRA: Permitir salvar birthdate pela primeira vez, mesmo após onboarding, se ainda for null
+        const birthdateAlreadyExists = existingGlobalUser?.birthdate !== null && existingGlobalUser?.birthdate !== undefined;
+        if (birthdateAlreadyExists && updates.birthdate !== undefined && updates.birthdate !== null && !canEditBirthdate) {
+            console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de birthdate (dado imutável após onboarding):', {
+                existing: existingGlobalUser.birthdate,
+                attempted: updates.birthdate,
+                canEdit: canEditBirthdate,
+            });
+            // Remover birthdate dos updates
+            delete updates.birthdate;
+        }
+        else if (!birthdateAlreadyExists && updates.birthdate !== undefined && updates.birthdate !== null) {
+            console.log('[IdentityService] ✅ Permitindo salvar birthdate pela primeira vez:', {
+                attempted: updates.birthdate,
+                canEdit: canEditBirthdate,
+                onboardingStatus: canEditBirthdate ? 'não concluído' : 'concluído mas birthdate ainda null',
+            });
+        }
+        // 🔧 FIX (first personal save locks identity fields): Ignorar tentativa de alteração de fullName se dados estão bloqueados
+        if (updates.fullName && !canEditBirthdate) {
+            console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de fullName (dados bloqueados):', {
+                existing: existingGlobalUser.fullName,
+                attempted: updates.fullName,
+            });
+            // Remover fullName dos updates
+            delete updates.fullName;
+        }
+        else if (existingGlobalUser?.fullName && existingGlobalUser.fullName.trim().length > 0 && updates.fullName) {
+            console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de fullName (dado imutável):', {
+                existing: existingGlobalUser.fullName,
+                attempted: updates.fullName,
+            });
+            // Remover fullName dos updates
+            delete updates.fullName;
+        }
         // 🔴 CORREÇÃO CRÍTICA: Construir arrays de forma ordenada para garantir correspondência correta
         const updateFields = [];
         const values = [];
@@ -185,44 +296,41 @@ class IdentityService {
             // 🔴 CORREÇÃO DEFINITIVA: Reordenar validação
             // PRIMEIRO: Normalizar Date para YYYY-MM-DD
             // DEPOIS: Validar letras e formato
-            if (updates.birthdate !== null && updates.birthdate !== undefined && updates.birthdate !== '') {
+            // Se birthdate não está no payload (undefined), não entra neste if
+            // Se está no payload, processa normalmente (pode ser null ou Date/string)
+            const birthdateValue = updates.birthdate;
+            if (birthdateValue !== null && birthdateValue !== undefined) {
                 let dateStr;
                 // 🔴 PASSO 1: Se for Date, normalizar direto para YYYY-MM-DD (ANTES de validar letras)
-                if (updates.birthdate instanceof Date) {
+                if (birthdateValue instanceof Date) {
                     // Se for Date, extrair componentes UTC e formatar como YYYY-MM-DD
-                    const year = updates.birthdate.getUTCFullYear();
-                    const month = String(updates.birthdate.getUTCMonth() + 1).padStart(2, '0');
-                    const day = String(updates.birthdate.getUTCDate()).padStart(2, '0');
+                    const year = birthdateValue.getUTCFullYear();
+                    const month = String(birthdateValue.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(birthdateValue.getUTCDate()).padStart(2, '0');
                     dateStr = `${year}-${month}-${day}`;
                     console.log('[IdentityService] ✅ birthdate Date normalizado para:', dateStr);
                 }
-                // 🔴 PASSO 2: Se for string, validar e usar
-                else if (typeof updates.birthdate === 'string') {
-                    const birthdateStr = updates.birthdate.trim();
-                    // 🔴 VALIDAÇÃO CRÍTICA 1: Se contém letras, é definitivamente um nome (ERRO)
-                    // IMPORTANTE: Esta validação só roda DEPOIS de normalizar Date
-                    if (birthdateStr.match(/[a-zA-Z]/)) {
-                        console.error('[IdentityService] ❌ ERRO CRÍTICO: birthdate contém letras (parece ser um nome):', {
-                            birthdate: updates.birthdate,
-                            fullName: updates.fullName,
-                            allUpdates: Object.keys(updates),
+                // 🔴 PASSO 2: Se for string, normalizar usando função utilitária
+                else if (typeof birthdateValue === 'string') {
+                    const { normalizeBirthdate } = await Promise.resolve().then(() => __importStar(require('@utils/dateNormalizer')));
+                    try {
+                        // Normaliza DD/MM/YYYY ou YYYY-MM-DD para YYYY-MM-DD
+                        dateStr = normalizeBirthdate(birthdateValue);
+                        console.log('[IdentityService] ✅ birthdate normalizado:', {
+                            original: birthdateValue,
+                            normalized: dateStr,
                         });
-                        throw new Error(`Valor inválido para birthdate: "${updates.birthdate}". O campo data de nascimento não pode conter letras. Parece ser um nome. Verifique se os campos não estão trocados.`);
                     }
-                    // 🔴 VALIDAÇÃO CRÍTICA 2: Formato YYYY-MM-DD obrigatório
-                    const dateMatch = birthdateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                    if (!dateMatch) {
-                        console.error('[IdentityService] ❌ ERRO: Formato de data inválido:', {
-                            birthdate: updates.birthdate,
-                            format: 'Esperado: YYYY-MM-DD',
-                        });
-                        throw new Error(`Formato de data inválido: "${updates.birthdate}". Use o formato YYYY-MM-DD (ex: 1990-01-15).`);
+                    catch (normalizeError) {
+                        console.error('[IdentityService] ❌ Erro ao normalizar birthdate:', normalizeError);
+                        throw normalizeError; // Re-lançar erro com statusCode
                     }
-                    dateStr = birthdateStr;
                 }
                 else {
-                    console.error('[IdentityService] ❌ ERRO: Tipo de birthdate inválido:', typeof updates.birthdate, updates.birthdate);
-                    throw new Error(`Tipo de birthdate inválido: ${typeof updates.birthdate}`);
+                    console.error('[IdentityService] ❌ ERRO: Tipo de birthdate inválido:', typeof birthdateValue, birthdateValue);
+                    const error = new Error(`Tipo de birthdate inválido: ${typeof birthdateValue}`);
+                    error.statusCode = 400;
+                    throw error;
                 }
                 // 🔴 CRÍTICO: Usar CAST para garantir que PostgreSQL trate como DATE
                 updateFields.push(`birthdate = $${paramIndex}::DATE`);
@@ -387,26 +495,9 @@ class IdentityService {
                 updateFields,
                 values,
             });
-            // Se o registro não existe, criar usando os valores do update
-            console.log('[IdentityService] ⚠️ Registro não existe, criando novo...', {
-                globalUserId,
-                valueMap,
-            });
-            const newGlobalUser = await pool_1.pool.query(`
-          INSERT INTO global_users (global_user_id, full_name, avatar_url, birthdate, metadata, created_at, updated_at)
-          VALUES ($1, $2, $3, $4::DATE, $5, now(), now())
-          RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
-        `, [
-                globalUserId,
-                valueMap.fullName ?? null,
-                valueMap.avatarUrl ?? null,
-                valueMap.birthdate ?? null,
-                valueMap.metadata ?? '{}',
-            ]);
-            if (!newGlobalUser.rows[0]) {
-                throw new Error(`Failed to create global identity for global_user_id ${globalUserId}`);
-            }
-            return this.toGlobalUser(newGlobalUser.rows[0]);
+            // 🔴 REGRA: NÃO criar novo global_user se não existe
+            // Lançar erro explícito para indicar problema de dessincronização
+            throw new Error(`Global identity não encontrada para global_user_id: ${globalUserId}. Não é permitido criar novo registro via update.`);
         }
         if (!result.rows[0]) {
             console.error('[IdentityService] ❌ ERRO: UPDATE retornou 0 linhas no RETURNING');
@@ -467,15 +558,16 @@ class IdentityService {
         // 🔴 VALIDAÇÃO FINAL: Comparar dados salvos com dados que tentamos salvar
         // Normalizar birthdate do updates para comparação
         let expectedBirthdate = null;
-        if (updates.birthdate !== null && updates.birthdate !== undefined && updates.birthdate !== '') {
-            if (updates.birthdate instanceof Date) {
-                const year = updates.birthdate.getUTCFullYear();
-                const month = String(updates.birthdate.getUTCMonth() + 1).padStart(2, '0');
-                const day = String(updates.birthdate.getUTCDate()).padStart(2, '0');
+        const birthdateValue = updates.birthdate;
+        if (birthdateValue !== null && birthdateValue !== undefined) {
+            if (birthdateValue instanceof Date) {
+                const year = birthdateValue.getUTCFullYear();
+                const month = String(birthdateValue.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(birthdateValue.getUTCDate()).padStart(2, '0');
                 expectedBirthdate = `${year}-${month}-${day}`;
             }
-            else if (typeof updates.birthdate === 'string') {
-                expectedBirthdate = updates.birthdate.trim();
+            else if (typeof birthdateValue === 'string') {
+                expectedBirthdate = birthdateValue.trim();
             }
         }
         const expectedValues = {
@@ -526,35 +618,59 @@ class IdentityService {
     }
     /**
      * Liga um usuário local a uma identidade global
+     * 🔴 REGRA: Garantir que exista APENAS 1 user_identity_link por usuário
      */
     async linkLocalUserToGlobal(userId, globalUserId, tenantId) {
-        // Verificar se já existe link
+        // 🔴 VERIFICAÇÃO: Verificar se já existe link
         const existing = await pool_1.pool.query(`
         SELECT id, global_user_id, user_id, tenant_id, created_at
         FROM user_identity_links
         WHERE user_id = $1 AND tenant_id = $2
-        LIMIT 1
+        ORDER BY created_at DESC
       `, [userId, tenantId]);
         if (existing.rows.length > 0) {
-            // Atualizar link existente
-            const updated = await pool_1.pool.query(`
-          UPDATE user_identity_links
-          SET global_user_id = $1
-          WHERE id = $2
-          RETURNING id, global_user_id, user_id, tenant_id, created_at
-        `, [globalUserId, existing.rows[0].id]);
-            return this.toUserIdentityLink(updated.rows[0]);
+            // 🔴 REGRA: Se já existe link, verificar se é o mesmo global_user_id
+            const existingGlobalUserId = existing.rows[0].global_user_id;
+            if (existingGlobalUserId === globalUserId) {
+                // Mesmo global_user_id - retornar link existente
+                console.log('[IdentityService] ✅ Link já existe com mesmo global_user_id', {
+                    userId,
+                    tenantId,
+                    globalUserId,
+                });
+                return this.toUserIdentityLink(existing.rows[0]);
+            }
+            else {
+                // 🔴 ERRO: Tentativa de vincular a global_user diferente
+                console.error('[IdentityService] ❌ ERRO: Tentativa de vincular a global_user diferente!', {
+                    userId,
+                    tenantId,
+                    existingGlobalUserId,
+                    attemptedGlobalUserId: globalUserId,
+                });
+                throw new Error(`Usuário já está vinculado a outro global_user_id: ${existingGlobalUserId}. Não é permitido alterar o vínculo.`);
+            }
         }
-        // Criar novo link
+        // 🔴 REGRA: Criar novo link apenas se não existe nenhum
+        console.log('[IdentityService] ✅ Criando novo link', {
+            userId,
+            tenantId,
+            globalUserId,
+        });
         const result = await pool_1.pool.query(`
         INSERT INTO user_identity_links (global_user_id, user_id, tenant_id)
         VALUES ($1, $2, $3)
         RETURNING id, global_user_id, user_id, tenant_id, created_at
       `, [globalUserId, userId, tenantId]);
+        if (!result.rows[0]) {
+            throw new Error('Failed to create user identity link');
+        }
         return this.toUserIdentityLink(result.rows[0]);
     }
     /**
      * Busca perfil completo (global + local) do usuário
+     * 🔴 REGRA: Usa EXATAMENTE o mesmo método de resolução que updateGlobalIdentity
+     * Garante que ambos usem o mesmo global_user_id
      */
     async getIdentityProfile(userId, tenantId) {
         // Buscar dados locais
@@ -565,28 +681,57 @@ class IdentityService {
         LIMIT 1
       `, [userId]);
         if (!localUser) {
-            return null;
+            throw new Error(`Usuário local não encontrado para user_id: ${userId} (tenant: ${tenantId})`);
         }
-        // Buscar identidade global
-        let globalUser = null;
-        let resolvedGlobalUserId = localUser.global_user_id;
-        // 🔴 CORREÇÃO: Se users.global_user_id for NULL, buscar via user_identity_links
-        if (!resolvedGlobalUserId) {
-            console.log('[IdentityService] ⚠️ getIdentityProfile: global_user_id NULL em users, buscando via user_identity_links');
-            // 🔴 CORREÇÃO: ORDER BY para garantir link mais recente (embora não deveria ter múltiplos)
-            const linkResult = await pool_1.pool.query(`
-          SELECT global_user_id
-          FROM user_identity_links
-          WHERE user_id = $1 AND tenant_id = $2
-          ORDER BY created_at DESC
-          LIMIT 1
-        `, [userId, tenantId]);
-            if (linkResult.rows[0]?.global_user_id) {
-                resolvedGlobalUserId = linkResult.rows[0].global_user_id;
-                console.log('[IdentityService] ✅ getIdentityProfile: global_user_id encontrado via user_identity_links:', resolvedGlobalUserId);
-            }
-            else {
-                console.log('[IdentityService] ⚠️ getIdentityProfile: NENHUM link encontrado em user_identity_links para userId:', userId, 'tenantId:', tenantId);
+        // 🔴 REGRA CRÍTICA: Usar EXATAMENTE o mesmo método de resolução que updateGlobalIdentity
+        // Isso garante que ambos usem o mesmo global_user_id
+        const { resolveGlobalUserId } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+        let resolvedGlobalUserId;
+        try {
+            resolvedGlobalUserId = await resolveGlobalUserId(userId, tenantId);
+        }
+        catch (error) {
+            console.error('[IdentityService] ❌ ERRO CRÍTICO: Global user não encontrado para user_id', userId, {
+                tenantId,
+                error: error instanceof Error ? error.message : String(error),
+                message: 'Não foi possível resolver global_user_id. Possível dessincronização ou múltiplos global_users.',
+                hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
+            });
+            throw error;
+        }
+        // 🔴 VERIFICAÇÃO CRÍTICA: Detectar múltiplos global_users para o mesmo usuário
+        const allLinksResult = await pool_1.pool.query(`
+        SELECT global_user_id, created_at
+        FROM user_identity_links
+        WHERE user_id = $1 AND tenant_id = $2
+        ORDER BY created_at DESC
+      `, [userId, tenantId]);
+        if (allLinksResult.rows.length > 1) {
+            console.error('[IdentityService] ❌ ERRO CRÍTICO: MÚLTIPLOS global_users encontrados!', {
+                userId,
+                tenantId,
+                count: allLinksResult.rows.length,
+                globalUserIds: allLinksResult.rows.map(r => r.global_user_id),
+                resolvedGlobalUserId,
+                message: 'Este usuário tem múltiplos registros em user_identity_links!',
+                hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
+            });
+            throw new Error(`Múltiplos global_users encontrados para user_id: ${userId} (tenant: ${tenantId}). Execute diagnóstico SQL para investigar.`);
+        }
+        // 🔴 VERIFICAÇÃO: Detectar dessincronização entre users.global_user_id e user_identity_links
+        if (localUser.global_user_id && allLinksResult.rows.length > 0) {
+            const linkGlobalUserId = allLinksResult.rows[0].global_user_id;
+            if (localUser.global_user_id !== linkGlobalUserId || resolvedGlobalUserId !== linkGlobalUserId) {
+                console.error('[IdentityService] ❌ DESSINCRONIZAÇÃO DETECTADA!', {
+                    userId,
+                    tenantId,
+                    globalUserIdInUsers: localUser.global_user_id,
+                    globalUserIdInLinks: linkGlobalUserId,
+                    resolvedGlobalUserId,
+                    message: 'users.global_user_id diferente de user_identity_links.global_user_id!',
+                    hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
+                });
+                throw new Error(`Dessincronização detectada: users.global_user_id (${localUser.global_user_id}) diferente de user_identity_links.global_user_id (${linkGlobalUserId}) para user_id: ${userId}`);
             }
         }
         // 🔴 DIAGNÓSTICO: Log do global_user_id encontrado
@@ -596,66 +741,16 @@ class IdentityService {
             global_user_id_from_users: localUser.global_user_id,
             resolvedGlobalUserId,
         });
-        if (resolvedGlobalUserId) {
-            globalUser = await this.getGlobalIdentity(resolvedGlobalUserId);
-            console.log('[IdentityService] 🔍 getIdentityProfile: Resultado do getGlobalIdentity', {
-                found: !!globalUser,
-                globalUserId: resolvedGlobalUserId,
-                fullName: globalUser?.fullName,
-                birthdate: globalUser?.birthdate,
-                birthdateType: globalUser?.birthdate ? typeof globalUser.birthdate : null,
-                birthdateString: globalUser?.birthdate ? (globalUser.birthdate instanceof Date ? globalUser.birthdate.toISOString() : String(globalUser.birthdate)) : null,
-            });
-        }
-        else {
-            console.log('[IdentityService] ⚠️ getIdentityProfile: NENHUM global_user_id encontrado (nem em users, nem em user_identity_links)');
-        }
-        // Se não tem global_user_id, criar automaticamente
-        // 🔴 CRÍTICO: Só criar se realmente não encontrou nenhum global_user
-        // Isso pode acontecer se o registro foi deletado ou nunca foi criado
-        if (!globalUser) {
-            console.log('[IdentityService] ⚠️⚠️⚠️ ATENÇÃO: Global user não encontrado, criando novo');
-            console.log('[IdentityService] 🔍 DIAGNÓSTICO ANTES DE CRIAR:', {
-                userId,
-                tenantId,
-                resolvedGlobalUserId,
-                localUserGlobalUserId: localUser.global_user_id,
-                globalUserFound: !!globalUser,
-            });
-            // 🔴 VERIFICAR SE REALMENTE NÃO EXISTE NENHUM LINK ANTES DE CRIAR
-            // 🔴 CORREÇÃO: ORDER BY para garantir link mais recente
-            const finalCheck = await pool_1.pool.query(`
-          SELECT global_user_id
-          FROM user_identity_links
-          WHERE user_id = $1 AND tenant_id = $2
-          ORDER BY created_at DESC
-          LIMIT 1
-        `, [userId, tenantId]);
-            if (finalCheck.rows[0]?.global_user_id) {
-                console.log('[IdentityService] 🔍 ULTIMA VERIFICAÇÃO: Link encontrado! Buscando global_user:', finalCheck.rows[0].global_user_id);
-                globalUser = await this.getGlobalIdentity(finalCheck.rows[0].global_user_id);
-                if (globalUser) {
-                    console.log('[IdentityService] ✅ ULTIMA VERIFICAÇÃO: Global user encontrado:', {
-                        globalUserId: globalUser.globalUserId,
-                        fullName: globalUser.fullName,
-                        birthdate: globalUser.birthdate,
-                    });
-                }
-                else {
-                    console.log('[IdentityService] ❌ ULTIMA VERIFICAÇÃO: Link existe mas global_user não foi encontrado!');
-                }
-            }
-            // Se ainda não tem globalUser, criar novo
-            if (!globalUser) {
-                console.log('[IdentityService] ⚠️ CRIANDO NOVO GLOBAL_USER (último recurso)');
-                globalUser = await this.createGlobalIdentityForUser(userId, tenantId);
-                console.log('[IdentityService] 🔍 DIAGNÓSTICO APÓS CRIAR:', {
-                    globalUserId: globalUser.globalUserId,
-                    fullName: globalUser.fullName,
-                    birthdate: globalUser.birthdate,
-                });
-            }
-        }
+        // Buscar global user usando o global_user_id resolvido
+        const globalUser = await this.getGlobalIdentity(resolvedGlobalUserId);
+        console.log('[IdentityService] 🔍 getIdentityProfile: Resultado do getGlobalIdentity', {
+            found: !!globalUser,
+            globalUserId: resolvedGlobalUserId,
+            fullName: globalUser.fullName,
+            birthdate: globalUser.birthdate,
+            birthdateType: globalUser.birthdate ? typeof globalUser.birthdate : null,
+            birthdateString: globalUser.birthdate ? (globalUser.birthdate instanceof Date ? globalUser.birthdate.toISOString() : String(globalUser.birthdate)) : null,
+        });
         // Buscar reputação se global_user_id disponível
         let reputation;
         if (globalUser.globalUserId) {
@@ -767,4 +862,3 @@ class IdentityService {
     }
 }
 exports.identityService = new IdentityService();
-//# sourceMappingURL=identity.service.js.map

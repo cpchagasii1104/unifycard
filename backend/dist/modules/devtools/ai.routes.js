@@ -76,4 +76,3 @@ const aiRoutes = async (fastify) => {
     });
 };
 exports.default = aiRoutes;
-//# sourceMappingURL=ai.routes.js.map

@@ -33,13 +33,56 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.healthModule = void 0;
 const pool_1 = require("@core/database/pool");
+const fs_1 = require("fs");
+const path_1 = require("path");
+const packageJsonPath = (0, path_1.join)(process.cwd(), 'package.json');
+const packageJson = JSON.parse((0, fs_1.readFileSync)(packageJsonPath, 'utf-8'));
 const healthModule = async (fastify) => {
     // GET /health
     fastify.get('/', async () => {
-        const packageJson = require('../../../package.json');
         const { getDatabaseInfo } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
         const dbInfo = await getDatabaseInfo();
+        // Obter versão do mapa canônico de permissões
+        const canonicalPermissionsVersion = 'v1.3'; // Sincronizado com permission-keys.ts
+        // Verificar status dos módulos críticos
+        const modules = {};
+        try {
+            // Marketplace
+            const { marketplaceService } = await Promise.resolve().then(() => __importStar(require('@modules/marketplace/marketplace.service')));
+            marketplaceService.getHealth();
+            modules.marketplace = 'ok';
+        }
+        catch (err) {
+            modules.marketplace = 'error';
+        }
+        try {
+            // Social (verificar se registry está inicializado)
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            if (socialPortsRegistry) {
+                modules.social = 'ok';
+            }
+            else {
+                modules.social = 'error';
+            }
+        }
+        catch (err) {
+            modules.social = 'error';
+        }
+        try {
+            // Bank (verificar se registry está inicializado)
+            const { bankPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/bank/ports-registry')));
+            if (bankPortsRegistry) {
+                modules.bank = 'ok';
+            }
+            else {
+                modules.bank = 'error';
+            }
+        }
+        catch (err) {
+            modules.bank = 'error';
+        }
         // 🔴 INSTRUMENTAÇÃO: Retornar informações de runtime para diagnóstico
         const serverAddress = fastify.server.address();
         const actualPort = typeof serverAddress === 'string'
@@ -50,6 +93,8 @@ const healthModule = async (fastify) => {
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
             version: packageJson.version || '1.0.0',
+            canonical_permissions_version: canonicalPermissionsVersion,
+            modules,
             runtime: {
                 pid: process.pid,
                 nodeVersion: process.version,
@@ -90,5 +135,4 @@ const healthModule = async (fastify) => {
         return { status: 'live' };
     });
 };
-exports.default = healthModule;
-//# sourceMappingURL=health.module.js.map
+exports.healthModule = healthModule;

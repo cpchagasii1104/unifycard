@@ -43,4 +43,3 @@ const offerIndexRoutes = async (fastify) => {
     });
 };
 exports.default = offerIndexRoutes;
-//# sourceMappingURL=offer-index.routes.js.map

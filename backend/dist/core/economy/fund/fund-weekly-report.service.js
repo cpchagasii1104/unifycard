@@ -206,4 +206,3 @@ class FundWeeklyReportService {
     }
 }
 exports.fundWeeklyReportService = new FundWeeklyReportService();
-//# sourceMappingURL=fund-weekly-report.service.js.map

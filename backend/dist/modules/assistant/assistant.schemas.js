@@ -13,4 +13,3 @@ exports.sendAssistantMessageSchema = zod_1.z.object({
     targetCompanyId: zod_1.z.string().uuid('ID da empresa alvo inválido').optional(),
     sessionId: zod_1.z.string().uuid('ID da sessão inválido').optional(),
 });
-//# sourceMappingURL=assistant.schemas.js.map

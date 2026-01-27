@@ -1,0 +1,211 @@
+/* frontend/src/components/marketplace/MarketplaceHeader.css */
+/* Header do Marketplace estilo Mercado Livre */
+
+.marketplace-header {
+  background: #fff159;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.marketplace-header-top {
+  padding: 0.5rem 0;
+}
+
+.marketplace-header-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.marketplace-logo {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.logo-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2d3277;
+  line-height: 1.2;
+}
+
+.logo-marketplace {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #666;
+  line-height: 1;
+}
+
+.marketplace-search-form {
+  flex: 1;
+  max-width: 600px;
+  display: flex;
+  position: relative;
+}
+
+.marketplace-search-input {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 2px 0 0 2px;
+  font-size: 1rem;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.marketplace-search-input::placeholder {
+  color: #999;
+}
+
+.marketplace-search-button {
+  padding: 0.625rem 1rem;
+  background: #fff;
+  border: none;
+  border-radius: 0 2px 2px 0;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marketplace-search-button:hover {
+  background: #f5f5f5;
+}
+
+.search-icon {
+  font-size: 1.125rem;
+}
+
+.marketplace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: fit-content;
+}
+
+.header-action-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #2d3277;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+
+.header-action-link:hover {
+  text-decoration: underline;
+}
+
+.header-action-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marketplace-nav {
+  background: #fff159;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.marketplace-nav-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  overflow-x: auto;
+}
+
+.nav-link {
+  background: none;
+  border: none;
+  padding: 0.75rem 0;
+  color: #2d3277;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  text-decoration: underline;
+}
+
+.categories-link {
+  position: relative;
+}
+
+.categories-link.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.nav-arrow {
+  font-size: 0.625rem;
+  margin-left: 0.25rem;
+  transition: transform 0.2s;
+}
+
+.categories-link.active .nav-arrow {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 768px) {
+  .marketplace-header-container {
+    flex-wrap: wrap;
+  }
+
+  .marketplace-search-form {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .marketplace-logo {
+    min-width: 100px;
+  }
+
+  .logo-text {
+    font-size: 1.25rem;
+  }
+
+  .marketplace-header-actions {
+    gap: 0.5rem;
+  }
+
+  .action-text {
+    display: none;
+  }
+
+  .marketplace-nav-container {
+    gap: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0;
+  }
+}
+

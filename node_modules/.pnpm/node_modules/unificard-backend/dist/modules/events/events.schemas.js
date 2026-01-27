@@ -11,6 +11,7 @@ exports.createEventSchema = zod_1.z.object({
     cityId: zod_1.z.string().uuid('ID da cidade inválido').nullable().optional(),
     stateId: zod_1.z.string().uuid('ID do estado inválido').nullable().optional(),
     countryId: zod_1.z.string().uuid('ID do país inválido').nullable().optional(),
+    group_id: zod_1.z.string().uuid('ID do grupo inválido').optional(), // ID do grupo para vincular o evento
 }).refine((data) => data.endTime > data.startTime, {
     message: 'Data/hora de fim deve ser posterior à data/hora de início',
     path: ['endTime'],
@@ -30,4 +31,3 @@ exports.assignStaffSchema = zod_1.z.object({
 exports.checkInSchema = zod_1.z.object({
 // Não precisa de body, apenas do eventId na URL
 }).optional();
-//# sourceMappingURL=events.schemas.js.map

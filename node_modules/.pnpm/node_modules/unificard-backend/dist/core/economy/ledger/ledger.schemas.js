@@ -20,4 +20,3 @@ exports.summaryQuerySchema = zod_1.z.object({
     startDate: zod_1.z.string().datetime().optional(),
     endDate: zod_1.z.string().datetime().optional(),
 });
-//# sourceMappingURL=ledger.schemas.js.map

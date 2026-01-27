@@ -18,4 +18,3 @@ var InstantJobStatus;
     InstantJobStatus["CANCELLED"] = "cancelled";
     InstantJobStatus["EXPIRED"] = "expired";
 })(InstantJobStatus || (exports.InstantJobStatus = InstantJobStatus = {}));
-//# sourceMappingURL=instant.types.js.map

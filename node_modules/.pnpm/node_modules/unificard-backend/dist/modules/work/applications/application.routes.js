@@ -72,4 +72,3 @@ const applicationRoutes = async (fastify) => {
     });
 };
 exports.default = applicationRoutes;
-//# sourceMappingURL=application.routes.js.map

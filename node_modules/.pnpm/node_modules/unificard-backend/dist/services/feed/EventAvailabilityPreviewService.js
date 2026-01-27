@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EventAvailabilityPreviewService = void 0;
 // src/services/feed/EventAvailabilityPreviewService.ts
+// 🔴 READ-MODEL
+// NÃO usar para decisões.
+// Fonte canônica: unified-availability.service.ts
 // 🔴 CRÍTICO: Preview READ-ONLY, nunca reserva ou bloqueia slots
 const db_1 = require("@core/db");
 class EventAvailabilityPreviewService {
@@ -57,4 +60,3 @@ class EventAvailabilityPreviewService {
     }
 }
 exports.EventAvailabilityPreviewService = EventAvailabilityPreviewService;
-//# sourceMappingURL=EventAvailabilityPreviewService.js.map

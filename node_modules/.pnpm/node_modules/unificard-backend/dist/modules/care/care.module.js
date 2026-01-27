@@ -8,4 +8,3 @@ const careModule = async (fastify) => {
     await fastify.register(care_routes_1.default);
 };
 exports.default = careModule;
-//# sourceMappingURL=care.module.js.map

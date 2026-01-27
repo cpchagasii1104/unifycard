@@ -258,4 +258,3 @@ const availabilityRoutes = async (fastify) => {
     });
 };
 exports.default = availabilityRoutes;
-//# sourceMappingURL=availability.routes.js.map

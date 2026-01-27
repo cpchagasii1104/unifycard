@@ -44,4 +44,3 @@ async function resolveEventOrganizerAccount(tenantId, eventId) {
     // Evento sem organizador (não deveria acontecer)
     throw new Error(`Event ${eventId} has no organizer (neither company nor user)`);
 }
-//# sourceMappingURL=EventOrganizerResolver.js.map

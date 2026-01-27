@@ -7,4 +7,3 @@ exports.entityParamsSchema = zod_1.z.object({
     entityType: zod_1.z.string().min(1).max(50),
     entityId: zod_1.z.string().uuid('Invalid entity ID'),
 });
-//# sourceMappingURL=reputation.schemas.js.map

@@ -31,4 +31,3 @@ class AvailabilityController {
 }
 exports.AvailabilityController = AvailabilityController;
 exports.availabilityController = new AvailabilityController();
-//# sourceMappingURL=availability.controller.js.map

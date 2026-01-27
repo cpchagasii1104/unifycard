@@ -1,0 +1,36 @@
+/* frontend/src/components/invoicing/InvoiceCancelModal.css */
+/* Estilos para o Modal de Cancelamento de Invoice */
+
+.cancel-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cancel-warning p {
+  margin: 0.5rem 0;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.required {
+  color: #dc2626;
+}
+
+.btn-warning {
+  background: #f59e0b;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.btn-warning:disabled {
+  background: #9ca3af;
+}
+
+
+
+

@@ -8,4 +8,3 @@ const socialChatModule = async (fastify) => {
     await fastify.register(social_chat_routes_1.default);
 };
 exports.default = socialChatModule;
-//# sourceMappingURL=social-chat.module.js.map

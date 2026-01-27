@@ -74,9 +74,17 @@ const workerRoutes = async (fastify) => {
         const body = worker_schemas_1.updateWorkerSchema.parse(req.body);
         const tenantId = req.tenant.id;
         const { workerId } = params;
+        // 🔴 LOGGING: Log payload antes de processar para diagnóstico
+        fastify.log.info({
+            workerId,
+            tenantId,
+            hasAvailability: !!body.availability,
+            availabilityType: typeof body.availability,
+            availabilityIsNull: body.availability === null,
+            availabilityIsUndefined: body.availability === undefined,
+        }, '[WorkerRoutes] PATCH /work/workers/:workerId - Payload recebido');
         const worker = await worker_service_1.workerService.updateWorker(tenantId, workerId, body);
         return worker;
     });
 };
 exports.default = workerRoutes;
-//# sourceMappingURL=worker.routes.js.map

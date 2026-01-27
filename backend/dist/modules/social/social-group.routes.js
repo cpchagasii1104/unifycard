@@ -61,7 +61,8 @@ const socialGroupRoutes = async (fastify) => {
         const query = req.query || {};
         const requestId = req.requestId || req.id;
         try {
-            const feed = await social_group_service_1.socialGroupService.getGroupFeed(tenantId, groupId, {
+            const globalUserId = req.user.globalUserId || req.user.id;
+            const feed = await social_group_service_1.socialGroupService.getGroupFeed(tenantId, groupId, globalUserId, {
                 limit: query.limit ? Number(query.limit) : undefined,
                 offset: query.offset ? Number(query.offset) : undefined,
                 includeAutoPosts: query.includeAutoPosts === 'true',
@@ -176,6 +177,18 @@ const socialGroupRoutes = async (fastify) => {
         }
         return insights;
     });
+    /**
+     * GET /social/groups/suggestions
+     * Sugestões de grupos para o usuário
+     * Retorna lista vazia se feature não disponível (não quebra UI)
+     *
+     * NOTA: Implementação futura - por enquanto retorna lista vazia
+     * para não quebrar o frontend que espera este endpoint
+     */
+    fastify.get('/groups/suggestions', async (req, reply) => {
+        // 🔴 SEMPRE retornar 200 com lista vazia (não quebra UI)
+        // Feature ainda não implementada, mas endpoint existe para compatibilidade
+        return reply.send({ groups: [] });
+    });
 };
 exports.default = socialGroupRoutes;
-//# sourceMappingURL=social-group.routes.js.map

@@ -165,4 +165,3 @@ class PromotionsService {
 }
 exports.PromotionsService = PromotionsService;
 exports.promotionsService = new PromotionsService();
-//# sourceMappingURL=promotions.service.js.map

@@ -238,4 +238,3 @@ class SocialGroupRepository {
     }
 }
 exports.socialGroupRepository = new SocialGroupRepository();
-//# sourceMappingURL=social-group.repository.js.map

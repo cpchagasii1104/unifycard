@@ -23,7 +23,7 @@ class CategoryReviewService {
         c.description,
         c.level,
         c.path,
-        COALESCE(c.keywords, '[]'::jsonb) as keywords,
+        COALESCE(to_jsonb(c.keywords), '[]'::jsonb) as keywords,
         c.country_code,
         c.status,
         c.requires_review,
@@ -88,4 +88,3 @@ class CategoryReviewService {
     }
 }
 exports.categoryReviewService = new CategoryReviewService();
-//# sourceMappingURL=category-review.service.js.map

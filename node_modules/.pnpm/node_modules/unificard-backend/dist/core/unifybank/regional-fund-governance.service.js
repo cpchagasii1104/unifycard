@@ -1,6 +1,7 @@
 "use strict";
 // backend/src/core/unifybank/regional-fund-governance.service.ts
-// Serviço de Governança do Fundo Regional - FASE 8
+// CONTINUOUS PRODUCTION: MIGRATED TO UNIFY BANK
+// Serviço de Governança do Fundo Regional
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -40,8 +41,7 @@ const uuid_1 = require("uuid");
 const crypto_1 = require("crypto");
 const pool_1 = require("@core/database/pool");
 const pool_2 = require("@core/database/pool");
-const account_service_1 = require("@core/economy/accounts/account.service");
-const region_account_service_1 = require("@core/economy/region-account.service");
+const ports_registry_1 = require("@core/bank/ports-registry");
 const tenant_service_1 = require("@core/tenants/tenant.service");
 const world_service_1 = require("@core/world/services/world.service");
 class RegionalFundGovernanceService {
@@ -72,19 +72,19 @@ class RegionalFundGovernanceService {
     }
     /**
      * Conta usuários elegíveis para votar na região
-     * Elegíveis: usuários da mesma região com >= 1 transação
+     * Elegíveis: usuários da mesma região com >= 1 transação no Unify Bank
      */
     async countEligibleUsers(tenantId, regionId) {
         const result = await pool_1.pool.query(`
-      SELECT COUNT(DISTINCT u.global_user_id)::text as count
-      FROM users u
-      INNER JOIN global_users gu ON gu.global_user_id = u.global_user_id
-      WHERE u.tenant_id = $1
+      SELECT COUNT(DISTINCT ba.owner_id)::text as count
+      FROM bank_accounts ba
+      WHERE ba.tenant_id = $1
+        AND ba.owner_type = 'user'
         AND EXISTS (
           SELECT 1
-          FROM transactions t
-          WHERE (t.from_global_user_id = u.global_user_id OR t.to_global_user_id = u.global_user_id)
-            AND t.tenant_id = $1
+          FROM bank_ledger bl
+          WHERE bl.account_id = ba.account_id
+            AND bl.tenant_id = $1
         )
       `, [tenantId]);
         return parseInt(result.rows[0]?.count || '0', 10);
@@ -93,13 +93,20 @@ class RegionalFundGovernanceService {
      * Verifica se usuário é elegível para votar
      */
     async isUserEligible(tenantId, globalUserId, regionId) {
-        // Verificar se usuário tem pelo menos 1 transação
+        // Resolver userId do globalUserId
+        const userId = await this.getUserIdFromGlobalId(tenantId, globalUserId);
+        if (!userId) {
+            return false;
+        }
+        // Verificar se usuário tem pelo menos 1 transação no Unify Bank
         const result = await pool_1.pool.query(`
       SELECT COUNT(*)::text as count
-      FROM transactions
-      WHERE tenant_id = $1
-        AND (from_global_user_id = $2 OR to_global_user_id = $2)
-      `, [tenantId, globalUserId]);
+      FROM bank_ledger bl
+      INNER JOIN bank_accounts ba ON ba.account_id = bl.account_id
+      WHERE bl.tenant_id = $1
+        AND ba.owner_id = $2
+        AND ba.owner_type = 'user'
+      `, [tenantId, userId]);
         const transactionCount = parseInt(result.rows[0]?.count || '0', 10);
         return transactionCount >= this.MIN_ACTIVE_TRANSACTIONS;
     }
@@ -300,84 +307,31 @@ class RegionalFundGovernanceService {
         return `${hash.substring(0, 8)}-${hash.substring(8, 12)}-4${hash.substring(13, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
     }
     /**
-     * Executa transferência dentro de uma transação existente
-     * (versão interna que aceita client já em transação)
+     * Executa transferência usando Unify Bank
+     * (versão migrada para Unify Bank)
      */
     async transferWithClient(client, tenantId, fromAccount, toAccount, amount, eventId, metadata) {
-        // 1. Verificar idempotência
-        const existingTx = await client.query('SELECT transaction_id FROM transactions WHERE event_id = $1 LIMIT 1', [eventId]);
-        if (existingTx.rows.length > 0) {
-            return existingTx.rows[0].transaction_id;
-        }
-        // 2. Buscar e travar contas (FOR UPDATE)
-        const [firstAccount, secondAccount] = [fromAccount, toAccount].sort();
-        const accountsResult = await client.query(`SELECT account_id, balance, owner_type
-       FROM accounts 
-       WHERE account_id = ANY($1::text[])
-       ORDER BY account_id
-       FOR UPDATE`, [[firstAccount, secondAccount]]);
-        if (accountsResult.rows.length !== 2) {
-            throw new Error('Account(s) not found');
-        }
-        const accountsMap = new Map(accountsResult.rows.map((row) => [row.account_id, parseFloat(row.balance)]));
-        const accountsInfoMap = new Map(accountsResult.rows.map((row) => [
-            row.account_id,
-            {
-                balance: parseFloat(row.balance),
-                ownerType: row.owner_type,
-            },
-        ]));
-        const fromBalance = accountsMap.get(fromAccount);
-        const toBalance = accountsMap.get(toAccount);
-        // 3. Validar saldo suficiente
-        if (fromBalance < amount) {
-            throw new Error('Insufficient balance');
-        }
-        // ==========================================
-        // INVARIANTE 2: SALDO NÃO-NEGATIVO (USER_PRIMARY)
-        // ==========================================
-        // Calcular novos saldos primeiro
-        const newFromBalance = fromBalance - amount;
-        const newToBalance = toBalance + amount;
-        // Verificar se conta de usuário não ficará negativa
-        const fromAccountInfo = accountsInfoMap.get(fromAccount);
-        if (fromAccountInfo?.ownerType === 'user' && newFromBalance < 0) {
-            throw new Error(`Non-negative balance invariant violated: user account ${fromAccount} would have negative balance (${newFromBalance})`);
-        }
-        // 4. Resolver global_user_id (não usar owner_global_user_id - coluna pode não existir)
-        // Deixar como null - não é crítico para funcionamento da transferência
-        const fromGlobalUserId = null;
-        const toGlobalUserId = null;
-        // 6. Atualizar contas
-        await client.query(`UPDATE accounts 
-       SET balance = CASE account_id
-         WHEN $1 THEN $2
-         WHEN $3 THEN $4
-       END
-       WHERE account_id IN ($1, $3)`, [fromAccount, newFromBalance, toAccount, newToBalance]);
-        // 7. Criar transação
-        const txResult = await client.query(`INSERT INTO transactions (tenant_id, from_account, to_account, from_global_user_id, to_global_user_id, amount, event_id, status, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING transaction_id`, [tenantId, fromAccount, toAccount, fromGlobalUserId, toGlobalUserId, amount, eventId, 'completed', JSON.stringify(metadata)]);
-        const transactionId = txResult.rows[0].transaction_id;
-        // 8. Criar entradas no ledger
-        await client.query(`INSERT INTO ledger (tenant_id, account_id, transaction_id, entry_type, amount, balance_before, balance_after)
-       VALUES 
-         ($1, $2, $3, $4, $5, $6, $7),
-         ($1, $8, $3, $9, $5, $10, $11)`, [
-            tenantId,
-            fromAccount,
-            transactionId,
-            'debit',
+        // Construir autoria do sistema (governance é operação do sistema)
+        const { buildSystemAuthorship } = await Promise.resolve().then(() => __importStar(require('@modules/bank/financial-authorship.helper')));
+        const authorship = buildSystemAuthorship({
+            actingForAccountId: fromAccount, // Conta origem
+            actingForActorId: 'system', // Operação do sistema
+        });
+        // Usar bankTransactionService para criar transação simples
+        // Nota: bankTransactionService já gerencia idempotência, validação de saldo, e ledger
+        const bankTransaction = ports_registry_1.bankPortsRegistry.getBankTransaction();
+        const result = await bankTransaction.createSimpleTransaction(tenantId, {
+            eventId,
+            fromAccountId: fromAccount,
+            toAccountId: toAccount,
             amount,
-            fromBalance,
-            newFromBalance,
-            toAccount,
-            'credit',
-            toBalance,
-            newToBalance
-        ]);
-        return transactionId;
+            currency: 'BRL',
+            transactionType: 'transfer',
+            description: `Governance proposal execution: ${metadata.proposalId || 'unknown'}`,
+            metadata,
+            authorship, // Autoria do sistema
+        });
+        return result.transaction.transactionId;
     }
     /**
      * Executa uma proposta aprovada
@@ -450,58 +404,73 @@ class RegionalFundGovernanceService {
             // 7. Resolver contas ANTES de iniciar a parte crítica (garantir que existem)
             // Fazer commit temporário para resolver contas (podem criar novas contas)
             await client.query('COMMIT');
-            const userId = await this.getUserIdFromGlobalId(tenantId, proposalData.created_by);
-            const regionAccountId = await region_account_service_1.regionAccountService.resolveRegionAccountId({
-                tenantId,
-                userId: userId || undefined,
-            });
-            if (!regionAccountId) {
+            // Resolver conta regional no Unify Bank (conta de sistema regional_fund)
+            const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+            const regionalFundAccount = await bankAccount.getSystemAccount(tenantId, 'regional_fund', 'BRL');
+            if (!regionalFundAccount) {
                 throw new Error('Conta do fundo regional não encontrada');
             }
-            // Resolver conta de destino
+            const regionAccountId = regionalFundAccount.accountId;
+            // Resolver conta de destino no Unify Bank
             let targetAccountId;
             if (proposalData.target_type === 'project') {
                 if (!proposalData.target_id) {
                     throw new Error('targetId é obrigatório para projeto');
                 }
-                const existing = await pool_1.pool.query(`
-          SELECT account_id
-          FROM accounts
-          WHERE tenant_id = $1 AND owner_id = $2 AND owner_type = 'project' AND currency = 'BRL'
-          LIMIT 1
-          `, [tenantId, proposalData.target_id]);
-                if (existing.rows.length > 0) {
-                    targetAccountId = existing.rows[0].account_id;
+                // Projetos usam ownerType 'company' no Unify Bank
+                const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+                const account = await bankAccount.getAccountByOwner(tenantId, proposalData.target_id, 'company', 'BRL');
+                if (account) {
+                    targetAccountId = account.accountId;
                 }
                 else {
-                    const created = await pool_1.pool.query(`
-            INSERT INTO accounts (tenant_id, owner_id, owner_type, balance, currency)
-            VALUES ($1, $2, 'project', 0, 'BRL')
-            RETURNING account_id
-            `, [tenantId, proposalData.target_id]);
-                    targetAccountId = created.rows[0].account_id;
+                    const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+                    const created = await bankAccount.getOrCreateAccount(tenantId, {
+                        ownerId: proposalData.target_id,
+                        ownerType: 'company',
+                        currency: 'BRL',
+                    });
+                    targetAccountId = created.accountId;
                 }
             }
             else if (proposalData.target_type === 'group') {
                 if (!proposalData.target_id) {
                     throw new Error('targetId é obrigatório para grupo');
                 }
-                const { groupAccountService } = await Promise.resolve().then(() => __importStar(require('@core/economy/group-account.service')));
-                targetAccountId = await groupAccountService.createOrGetGroupAccount(tenantId, proposalData.target_id);
+                // Grupos usam ownerType 'company' no Unify Bank
+                const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+                const account = await bankAccount.getAccountByOwner(tenantId, proposalData.target_id, 'company', 'BRL');
+                if (account) {
+                    targetAccountId = account.accountId;
+                }
+                else {
+                    const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+                    const created = await bankAccount.getOrCreateAccount(tenantId, {
+                        ownerId: proposalData.target_id,
+                        ownerType: 'company',
+                        currency: 'BRL',
+                    });
+                    targetAccountId = created.accountId;
+                }
             }
             else if (proposalData.target_type === 'platform') {
-                const platformAccount = await account_service_1.accountService.getPlatformAccount(tenantId, 'BRL');
-                targetAccountId = platformAccount.accountId;
+                // Buscar conta de fee (plataforma) no Unify Bank
+                const bankAccount = ports_registry_1.bankPortsRegistry.getBankAccount();
+                const feeAccount = await bankAccount.getSystemAccount(tenantId, 'fee', 'BRL');
+                if (!feeAccount) {
+                    throw new Error('Conta da plataforma não encontrada');
+                }
+                targetAccountId = feeAccount.accountId;
             }
             else if (proposalData.target_type === 'regional_fund') {
-                const platformAccount = await account_service_1.accountService.getPlatformAccount(tenantId, 'BRL');
-                targetAccountId = platformAccount.accountId;
+                // Mesma conta regional
+                targetAccountId = regionAccountId;
             }
             else {
                 throw new Error(`Tipo de destino inválido: ${proposalData.target_type}`);
             }
-            // Verificar saldo antes de iniciar transação crítica
-            const balance = await account_service_1.accountService.getBalance(tenantId, regionAccountId);
+            // Verificar saldo antes de iniciar transação crítica (do Unify Bank)
+            const balance = await bankAccount.getBalance(tenantId, regionAccountId);
             const amount = parseFloat(proposalData.amount);
             if (balance < amount) {
                 throw new Error(`Saldo insuficiente no fundo regional (${balance} < ${amount})`);
@@ -718,6 +687,12 @@ class RegionalFundGovernanceService {
      * Público para uso nas rotas
      */
     isAdmin(globalUserId) {
+        /**
+         * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
+         * Motivo: Permitir acesso especial a governança de fundo regional para admins específicos (exceção ao modelo padrão)
+         * Contexto: Governança de fundo regional requer acesso especial
+         * Tipo: estrutural
+         */
         const adminIds = (process.env.GOVERNANCE_ADMIN_IDS || '').split(',').filter(Boolean);
         return adminIds.includes(globalUserId);
     }
@@ -735,4 +710,3 @@ class RegionalFundGovernanceService {
     }
 }
 exports.regionalFundGovernanceService = new RegionalFundGovernanceService();
-//# sourceMappingURL=regional-fund-governance.service.js.map

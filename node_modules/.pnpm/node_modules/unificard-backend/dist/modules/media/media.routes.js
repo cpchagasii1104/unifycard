@@ -77,4 +77,3 @@ const mediaRoutes = async (fastify) => {
     });
 };
 exports.default = mediaRoutes;
-//# sourceMappingURL=media.routes.js.map

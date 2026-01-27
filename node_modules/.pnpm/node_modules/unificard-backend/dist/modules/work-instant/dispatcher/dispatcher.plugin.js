@@ -7,16 +7,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dispatcher_gateway_1 = require("./dispatcher.gateway");
 const auth_service_1 = require("@core/auth/auth.service");
 const dispatcherPlugin = async (fastify) => {
-    // Registrar @fastify/websocket (opcional - só funciona se o módulo estiver instalado)
+    // Controle explícito via flag ENABLE_WEBSOCKET
+    const enableWebsocket = process.env.ENABLE_WEBSOCKET?.toLowerCase() === 'true';
+    if (!enableWebsocket) {
+        // WebSocket desabilitado explicitamente - não registrar e não gerar warning
+        return;
+    }
+    // ENABLE_WEBSOCKET=true - tentar registrar @fastify/websocket
+    // Se falhar, erro de boot (fail-fast) - dependência deve estar instalada
     try {
         const websocket = require('@fastify/websocket');
         await fastify.register(websocket);
     }
     catch (error) {
-        fastify.log.warn('@fastify/websocket não está instalado. WebSocket endpoints não estarão disponíveis.');
-        fastify.log.warn('Para habilitar WebSocket, execute: npm install @fastify/websocket');
-        // Retorna sem registrar as rotas WebSocket
-        return;
+        const errorMsg = 'ERRO FATAL: ENABLE_WEBSOCKET=true mas @fastify/websocket não está disponível. Execute: pnpm add @fastify/websocket';
+        fastify.log.error(errorMsg);
+        throw new Error(errorMsg);
     }
     /**
      * WebSocket endpoint para workers
@@ -24,13 +30,12 @@ const dispatcherPlugin = async (fastify) => {
      */
     fastify.get('/work/instant/ws', { websocket: true }, (connection, req) => {
         const requestId = req.requestId || 'unknown';
-        // Validar autenticação
-        const authHeader = req.headers?.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // Extrair token usando helper centralizado do authService
+        const token = auth_service_1.authService.extractTokenFromHeader(req.headers?.authorization);
+        if (!token) {
             connection.socket.close(1008, 'Unauthorized');
             return;
         }
-        const token = authHeader.substring(7).trim();
         // Verificar token de forma assíncrona
         auth_service_1.authService.verifyAccessToken(token)
             .then((payload) => {
@@ -83,13 +88,12 @@ const dispatcherPlugin = async (fastify) => {
      */
     fastify.get('/work/instant/ws-customer', { websocket: true }, (connection, req) => {
         const requestId = req.requestId || 'unknown';
-        // Validar autenticação
-        const authHeader = req.headers?.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // Extrair token usando helper centralizado do authService
+        const token = auth_service_1.authService.extractTokenFromHeader(req.headers?.authorization);
+        if (!token) {
             connection.socket.close(1008, 'Unauthorized');
             return;
         }
-        const token = authHeader.substring(7).trim();
         // Verificar token de forma assíncrona
         auth_service_1.authService.verifyAccessToken(token)
             .then((payload) => {
@@ -138,4 +142,3 @@ const dispatcherPlugin = async (fastify) => {
     });
 };
 exports.default = dispatcherPlugin;
-//# sourceMappingURL=dispatcher.plugin.js.map

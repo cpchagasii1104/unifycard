@@ -71,4 +71,3 @@ class SocialModel {
     }
 }
 exports.SocialModel = SocialModel;
-//# sourceMappingURL=social.model.js.map

@@ -50,4 +50,3 @@ const reviewRoutes = async (fastify) => {
     });
 };
 exports.default = reviewRoutes;
-//# sourceMappingURL=review.routes.js.map

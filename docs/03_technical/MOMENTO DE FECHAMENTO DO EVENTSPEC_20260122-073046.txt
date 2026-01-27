@@ -1,0 +1,70 @@
+# MOMENTO DE FECHAMENTO DO EVENTSPEC
+
+## DEFINIÇÃO CANÔNICA
+
+O EventSpec é construído de forma **incremental** durante a FASE 5
+(enquanto o usuário navega e preenche o formulário).
+
+Porém, ele **SÓ SE TORNA IMUTÁVEL** no momento em que ocorre
+a ação humana explícita de finalização do formulário.
+
+---
+
+## EVENTO DE FECHAMENTO
+
+O EventSpec é considerado **FECHADO** quando:
+
+- o usuário clica em:
+  **“Salvar planejamento da festa”**
+- e o sistema confirma a persistência final do snapshot
+
+Esse momento caracteriza:
+
+- o fechamento do snapshot declarativo
+- a transição de “rascunho em construção” para “registro imutável de intenção”
+
+---
+
+## REGRAS DE IMUTABILIDADE
+
+Após o fechamento:
+
+- o EventSpec NÃO pode ser alterado
+- qualquer alteração futura:
+  - gera um **NOVO EventSpec**
+  - com novo `spec_id`
+  - mantendo histórico completo (append-only)
+
+É proibido:
+- sobrescrever EventSpec fechado
+- editar parcialmente um snapshot já fechado
+- inferir campos faltantes após o fechamento
+
+---
+
+## RELAÇÃO COM O EVENT
+
+- O EventSpec fechado:
+  - NÃO executa nada
+  - NÃO cria EventDeclaration automaticamente
+  - NÃO dispara propostas, RFQs ou matching
+
+- Ele serve exclusivamente como:
+  - registro auditável da intenção humana naquele momento
+  - base histórica para análises futuras autorizadas
+
+---
+
+## FUNDAMENTO INSTITUCIONAL
+
+Esta regra é obrigatória conforme:
+
+- MATRIZ_FONTES_DE_VERDADE.md
+  > EventSpec = snapshot imutável declarativo
+- Database_Canonical_Truth_Contract.md
+  > Snapshots são append-only
+- Decision_Safety_and_Containment_Contract.md
+  > Nenhuma inferência após o fato
+
+Qualquer implementação que permita edição silenciosa
+de um EventSpec fechado é **violação institucional grave**.

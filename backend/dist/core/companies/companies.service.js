@@ -1,10 +1,45 @@
 "use strict";
 // src/core/companies/companies.service.ts
 // Service para gerenciar empresas (PJ)
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.companiesService = void 0;
 const crypto_1 = require("crypto");
 const pool_1 = require("@core/database/pool");
+const isTestOverrideUser_1 = require("../../utils/isTestOverrideUser");
+const pool_2 = require("@core/database/pool");
 class CompaniesService {
     /**
      * Busca dados do CNPJ na Receita Federal (API pública)
@@ -183,22 +218,66 @@ class CompaniesService {
      * Cria uma nova empresa
      * 🔴 SEMPRE salva, mesmo sem dados da Receita Federal
      */
-    async createCompany(globalUserId, input) {
+    async createCompany(globalUserId, input, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    operation: 'createCompany',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para createCompany');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                tenantId: finalTenantId,
+                operation: 'createCompany',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para createCompany');
+        }
+        // 🔴 Normalizar CNPJ defensivamente: remover formatação (pontos, barras, hífens)
+        const normalizedCNPJ = input.cnpj.replace(/\D/g, '');
         // 🔴 Validar APENAS formato do CNPJ (não dígitos verificadores)
-        const formatValidation = this.validateCNPJFormat(input.cnpj);
+        const formatValidation = this.validateCNPJFormat(normalizedCNPJ);
         if (!formatValidation.valid) {
             throw new Error(formatValidation.error || 'CNPJ deve ter 14 dígitos');
         }
-        const formattedCNPJ = this.formatCNPJ(input.cnpj);
-        // Verificar se já existe
-        const existing = await pool_1.pool.query(`
+        // formattedCNPJ já é apenas números (normalizado acima)
+        const formattedCNPJ = normalizedCNPJ;
+        // 🔴 CORREÇÃO: Verificar se já existe COM filtro tenant_id
+        const existing = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       SELECT company_id
       FROM companies
-      WHERE global_user_id = $1 AND cnpj = $2
+      WHERE tenant_id = $1 AND global_user_id = $2::uuid AND cnpj = $3
       LIMIT 1
-      `, [globalUserId, formattedCNPJ]);
-        if (existing.rows.length > 0) {
+      `, [finalTenantId, globalUserId, formattedCNPJ]);
+        if (existing && existing.rows && existing.rows.length > 0) {
             throw new Error('Empresa com este CNPJ já está cadastrada');
+        }
+        // OVERRIDE DE TESTE: Bypassar limite de PROVISIONAL para usuário de teste
+        const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, finalTenantId);
+        if (!userId || !(0, isTestOverrideUser_1.isTestOverrideUser)(userId)) {
+            // 🔴 CORREÇÃO: ANTI-FRAUDE com filtro tenant_id
+            const provisionalCount = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+        SELECT COUNT(*) as count
+        FROM companies
+        WHERE tenant_id = $1 AND global_user_id = $2::uuid 
+          AND company_status = 'PROVISIONAL'
+          AND status != 'suspended'
+        `, [finalTenantId, globalUserId]);
+            const currentProvisionalCount = parseInt((provisionalCount?.rows?.[0]?.count || '0'), 10);
+            const MAX_PROVISIONAL_PER_CPF = 3;
+            if (currentProvisionalCount >= MAX_PROVISIONAL_PER_CPF) {
+                throw new Error(`Limite de ${MAX_PROVISIONAL_PER_CPF} empresas em validação atingido. ` +
+                    `Complete a validação presencial de uma empresa existente ou aguarde a aprovação antes de cadastrar novas.`);
+            }
         }
         let revenueData = null;
         let companyName = input.companyName;
@@ -206,7 +285,8 @@ class CompaniesService {
         let address = input.address || {};
         let contact = input.contact || {};
         let activity = input.activity || {};
-        let companyStatus = 'draft';
+        // Status inicial: PROVISIONAL (permite uso social com limites)
+        let companyStatus = 'PROVISIONAL';
         let isVerified = false;
         // 🔴 Buscar dados da Receita Federal se solicitado (OPCIONAL - não bloqueia)
         if (input.fetchFromRevenue !== false) {
@@ -246,70 +326,78 @@ class CompaniesService {
                             description: a.text,
                         }));
                     }
-                    // Se conseguiu buscar da Receita, marcar como validated
-                    companyStatus = 'validated';
-                    isVerified = true;
+                    // Se conseguiu buscar da Receita, pode marcar como VERIFIED (mas por padrão fica PROVISIONAL)
+                    // VERIFIED só vem de validação presencial ou admin override
+                    // Por enquanto, mesmo com dados da Receita, fica PROVISIONAL
+                    companyStatus = 'PROVISIONAL';
+                    isVerified = false; // isVerified só true em VERIFIED+
                 }
                 else {
-                    // Se não conseguiu buscar, mas tem nome, marcar como manual
-                    if (companyName) {
-                        companyStatus = 'manual';
-                    }
-                    else {
-                        companyStatus = 'draft';
-                    }
+                    // Sem dados da Receita, mas com nome: PROVISIONAL
+                    companyStatus = 'PROVISIONAL';
                 }
             }
             catch (err) {
                 // 🔴 Erro na busca NÃO bloqueia cadastro
                 console.warn('[CompaniesService] Erro ao buscar da Receita (não bloqueante):', err);
-                if (companyName) {
-                    companyStatus = 'manual';
-                }
-                else {
-                    companyStatus = 'draft';
-                }
+                companyStatus = 'PROVISIONAL';
             }
         }
         else {
-            // Se não tentou buscar, mas tem nome, marcar como manual
-            if (companyName) {
-                companyStatus = 'manual';
-            }
-            else {
-                companyStatus = 'draft';
-            }
+            // Se não tentou buscar, mas tem nome: PROVISIONAL
+            companyStatus = 'PROVISIONAL';
         }
         // 🔴 Nome da empresa é obrigatório apenas se não veio da Receita
         if (!companyName) {
             throw new Error('Nome da empresa é obrigatório');
         }
-        // Se há empresa primária, desmarcar outras
+        // 🔴 CORREÇÃO: Se há empresa primária, desmarcar outras COM filtro tenant_id
         if (input.isPrimary) {
-            await pool_1.pool.query(`
-        UPDATE company_users
-        SET is_primary = false, updated_at = now()
-        WHERE global_user_id = $1
-        `, [globalUserId]);
+            // Primeiro, buscar company_ids do usuário neste tenant
+            const userCompanies = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+        SELECT c.company_id
+        FROM companies c
+        INNER JOIN company_users cu ON c.company_id = cu.company_id
+        WHERE c.tenant_id = $1 AND cu.global_user_id = $2::uuid AND cu.is_active = true
+        `, [finalTenantId, globalUserId]);
+            if (userCompanies && userCompanies.rows && userCompanies.rows.length > 0) {
+                const companyIds = userCompanies.rows.map(c => c.company_id);
+                await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+          UPDATE company_users
+          SET is_primary = false, updated_at = now()
+          WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid
+          `, [companyIds, globalUserId]);
+            }
+        }
+        // Preparar metadata com categorização mínima (sem decisão automática)
+        const metadata = {};
+        // Adicionar business_category se fornecido
+        if (input.businessCategory) {
+            metadata.business_category = input.businessCategory;
+        }
+        // Adicionar service_categories se fornecido
+        if (input.serviceCategories && input.serviceCategories.length > 0) {
+            metadata.service_categories = input.serviceCategories;
         }
         // Criar empresa
         const companyResult = await pool_1.pool.query(`
       INSERT INTO companies (
-        global_user_id, cnpj, company_name, trade_name, registration_date,
+        tenant_id, global_user_id, cnpj, company_name, trade_name, registration_date,
         cep, address, address_number, complement, neighborhood, city, state, country,
         phone, email, website,
         main_activity_code, main_activity_description, secondary_activities,
         revenue_data, status, is_verified, company_status, metadata
       )
       VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9, $10, $11, $12, $13,
-        $14, $15, $16,
-        $17, $18, $19,
-        $20, $21, $22, $23, $24
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11, $12, $13, $14,
+        $15, $16, $17,
+        $18, $19, $20,
+        $21, $22, $23, $24, $25
       )
       RETURNING company_id, created_at, updated_at
       `, [
+            finalTenantId,
             globalUserId,
             formattedCNPJ,
             companyName,
@@ -333,9 +421,21 @@ class CompaniesService {
             'active',
             isVerified, // Verificado se conseguiu buscar da Receita Federal
             companyStatus, // Status do cadastro
-            JSON.stringify({}), // Metadata inicial
+            JSON.stringify(metadata), // Metadata com categorização
         ]);
         const companyId = companyResult.rows[0].company_id;
+        // Criar domínios da empresa (obrigatório: pelo menos 1)
+        const domains = input.domains && input.domains.length > 0
+            ? input.domains
+            : ['market']; // Default: market para compatibilidade
+        for (const domain of domains) {
+            await pool_1.pool.query(`
+        INSERT INTO company_domains (company_id, domain, enabled, config)
+        VALUES ($1, $2, true, '{}'::jsonb)
+        ON CONFLICT (company_id, domain) DO UPDATE
+        SET enabled = true, updated_at = NOW()
+        `, [companyId, domain]);
+        }
         // Criar relacionamento usuário-empresa
         const defaultPermissions = {
             canManageCompany: input.permissions?.canManageCompany ?? (input.role === 'owner'),
@@ -367,8 +467,50 @@ class CompaniesService {
             input.isPrimary ?? false,
             JSON.stringify({}),
         ]);
+        // 🔴 CRÍTICO: Criar actor do tipo 'page' OBRIGATORIAMENTE após criar empresa
+        // Empresa NÃO pode existir sem actor
+        // Se falhar, fazer rollback da criação da empresa
+        // tenantId já foi resolvido no início do método
+        if (!finalTenantId) {
+            // Se não conseguir resolver tenantId, fazer rollback
+            await pool_1.pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [companyId]);
+            await pool_1.pool.query(`DELETE FROM company_users WHERE company_id = $1::uuid`, [companyId]);
+            await pool_1.pool.query(`DELETE FROM company_domains WHERE company_id = $1::uuid`, [companyId]);
+            throw new Error('Não foi possível determinar tenant_id. Empresa não foi criada.');
+        }
+        try {
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository = socialPortsRegistry.getActorRepository();
+            await actorRepository.findOrCreatePageActor(finalTenantId, companyId);
+        }
+        catch (err) {
+            // 🔴 ROLLBACK: Se criação do actor falhar, reverter criação da empresa
+            console.error('[CompaniesService] Erro ao criar actor para empresa (fazendo rollback):', err);
+            // Deletar empresa criada
+            await pool_1.pool.query(`DELETE FROM companies WHERE company_id = $1::uuid`, [companyId]);
+            // Deletar company_users criado
+            await pool_1.pool.query(`DELETE FROM company_users WHERE company_id = $1::uuid`, [companyId]);
+            // Deletar company_domains criados
+            await pool_1.pool.query(`DELETE FROM company_domains WHERE company_id = $1::uuid`, [companyId]);
+            throw new Error(`Falha ao criar actor para empresa. Empresa não foi criada. ` +
+                `Erro: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+        }
+        // Criar preferências de oportunidade (estrutura mínima, sem matching automático)
+        try {
+            await pool_1.pool.query(`
+        INSERT INTO company_opportunity_preferences (
+          company_id, tenant_id, receive_rfqs, receive_dispatches, matching_enabled
+        )
+        VALUES ($1::uuid, $2::uuid, false, false, false)
+        ON CONFLICT (company_id) DO NOTHING
+        `, [companyId, finalTenantId]);
+        }
+        catch (err) {
+            // Não bloquear se tabela não existir ainda (migration pode não ter rodado)
+            console.warn('[CompaniesService] Erro ao criar preferências de oportunidade (não bloqueante):', err);
+        }
         // Buscar empresa completa
-        const company = await this.getCompanyById(companyId, globalUserId);
+        const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         const companyUser = await this.getCompanyUserById(userResult.rows[0].company_user_id, globalUserId);
         if (!company || !companyUser) {
             throw new Error('Erro ao criar empresa');
@@ -376,19 +518,22 @@ class CompaniesService {
         return { company, companyUser };
     }
     /**
-     * Busca empresa por ID
+     * Resolve tenant_id a partir de global_user_id
      */
-    async getCompanyById(companyId, globalUserId) {
+    async resolveTenantIdFromGlobalUserId(globalUserId) {
         const result = await pool_1.pool.query(`
-      SELECT *
-      FROM companies
-      WHERE company_id = $1 AND global_user_id = $2
+      SELECT u.tenant_id
+      FROM users u
+      INNER JOIN global_users gu ON u.user_id = gu.user_id
+      WHERE gu.global_user_id = $1::uuid
       LIMIT 1
-      `, [companyId, globalUserId]);
-        if (!result.rows[0]) {
-            return null;
-        }
-        const row = result.rows[0];
+      `, [globalUserId]);
+        return result.rows[0]?.tenant_id || null;
+    }
+    /**
+     * Mapeia row do banco para Company
+     */
+    mapCompanyRow(row) {
         return {
             companyId: row.company_id,
             globalUserId: row.global_user_id,
@@ -418,7 +563,7 @@ class CompaniesService {
             },
             revenueData: row.revenue_data || undefined,
             status: row.status,
-            companyStatus: (row.company_status || 'draft'),
+            companyStatus: (row.company_status || 'PROVISIONAL'),
             isVerified: row.is_verified,
             metadata: row.metadata || undefined,
             createdAt: row.created_at,
@@ -426,10 +571,103 @@ class CompaniesService {
         };
     }
     /**
-     * Lista todas as empresas do usuário
+     * Busca empresa por ID
+     *
+     * 🔴 GARANTIA CANÔNICA: Cross-tenant leakage prevention
+     * - SEMPRE filtra por tenant_id para prevenir vazamento entre tenants
+     * - Nenhuma query pode usar apenas company_id isolado
+     * - Usa runQueryWithTenant para garantir isolamento de tenant
      */
-    async listCompanies(globalUserId) {
-        const result = await pool_1.pool.query(`
+    async getCompanyById(companyId, globalUserId, tenantId) {
+        // 🔴 CRÍTICO: tenantId é obrigatório para prevenir cross-tenant leakage
+        if (!tenantId) {
+            // 🔴 LOG CANÔNICO: Cross-tenant violation detectada
+            const { canonicalLogger } = await Promise.resolve().then(() => __importStar(require('@core/logging/canonical-logger')));
+            canonicalLogger.abuse(null, 'Cross-tenant violation: tenantId ausente em getCompanyById', {
+                companyId,
+                globalUserId,
+            });
+            throw new Error('CROSS_TENANT_LEAKAGE_PREVENTION: tenantId is required for getCompanyById');
+        }
+        // OVERRIDE DE TESTE: Ignorar ownership se for usuário de teste
+        const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, tenantId);
+        if (userId && (0, isTestOverrideUser_1.isTestOverrideUser)(userId)) {
+            // Buscar empresa sem verificar ownership (mas COM filtro tenant_id)
+            const result = await (0, pool_2.runQueryWithTenant)(tenantId, `
+        SELECT *
+        FROM companies
+        WHERE tenant_id = $1 AND company_id = $2::uuid
+        LIMIT 1
+        `, [tenantId, companyId]);
+            if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+                return null;
+            }
+            return this.mapCompanyRow(result.rows[0]);
+        }
+        // Comportamento normal (sem override) - usa runQueryWithTenant para garantir isolamento
+        const result = await (0, pool_2.runQueryWithTenant)(tenantId, `
+      SELECT *
+      FROM companies
+      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+      LIMIT 1
+      `, [tenantId, companyId, globalUserId]);
+        if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+            return null;
+        }
+        return this.mapCompanyRow(result.rows[0]);
+    }
+    /**
+     * Resolve user_id a partir de globalUserId (para override de teste)
+     */
+    async resolveUserIdFromGlobalUserId(globalUserId, tenantId) {
+        if (tenantId) {
+            const user = await (0, pool_2.runQueryWithTenant)(tenantId, `
+        SELECT user_id FROM users
+        WHERE global_user_id = $1::uuid
+        LIMIT 1
+        `, [globalUserId]);
+            return user?.rows?.[0]?.user_id || null;
+        }
+        const user = await pool_1.pool.query(`
+      SELECT user_id FROM users
+      WHERE global_user_id = $1::uuid
+      LIMIT 1
+      `, [globalUserId]);
+        return user.rows[0]?.user_id || null;
+    }
+    /**
+     * Lista todas as empresas do usuário
+     * OVERRIDE: Se for usuário de teste, retorna todas as empresas
+     */
+    async listCompanies(globalUserId, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    operation: 'listCompanies',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanies');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                tenantId: finalTenantId,
+                operation: 'listCompanies',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para listCompanies');
+        }
+        // OVERRIDE DE TESTE: Verificar se é usuário de teste
+        const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, finalTenantId);
+        if (userId && (0, isTestOverrideUser_1.isTestOverrideUser)(userId)) {
+            // 🔴 CORREÇÃO: Retornar TODAS as empresas (sem filtro de ownership, mas COM filtro tenant_id)
+            const allCompaniesResult = await (0, pool_2.runQueryWithTenant)(`
       SELECT 
         c.*,
         cu.company_user_id,
@@ -446,10 +684,87 @@ class CompaniesService {
         cu.created_at as cu_created_at,
         cu.updated_at as cu_updated_at
       FROM companies c
-      INNER JOIN company_users cu ON c.company_id = cu.company_id
-      WHERE c.global_user_id = $1 AND cu.is_active = true
-      ORDER BY cu.is_primary DESC, c.created_at DESC
-      `, [globalUserId]);
+      LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      WHERE c.tenant_id = $1
+      ORDER BY c.created_at DESC
+      `, [finalTenantId]);
+            return (allCompaniesResult?.rows || []).map(row => ({
+                companyId: row.company_id,
+                globalUserId: row.global_user_id,
+                cnpj: row.cnpj,
+                companyName: row.company_name,
+                tradeName: row.trade_name || undefined,
+                registrationDate: row.registration_date?.toISOString().split('T')[0],
+                address: {
+                    cep: row.cep || undefined,
+                    address: row.address || undefined,
+                    addressNumber: row.address_number || undefined,
+                    complement: row.complement || undefined,
+                    neighborhood: row.neighborhood || undefined,
+                    city: row.city || undefined,
+                    state: row.state || undefined,
+                    country: row.country || undefined,
+                },
+                contact: {
+                    phone: row.phone || undefined,
+                    email: row.email || undefined,
+                    website: row.website || undefined,
+                },
+                activity: {
+                    mainActivityCode: row.main_activity_code || undefined,
+                    mainActivityDescription: row.main_activity_description || undefined,
+                    secondaryActivities: row.secondary_activities || [],
+                },
+                revenueData: row.revenue_data || undefined,
+                status: row.status,
+                companyStatus: (row.company_status || 'PROVISIONAL'),
+                isVerified: row.is_verified,
+                metadata: row.metadata || undefined,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                userRole: {
+                    companyUserId: row.company_user_id,
+                    companyId: row.company_id,
+                    globalUserId: row.global_user_id,
+                    role: row.role,
+                    roleDescription: row.role_description || undefined,
+                    permissions: {
+                        canManageCompany: row.can_manage_company,
+                        canManageFinancial: row.can_manage_financial,
+                        canManageEmployees: row.can_manage_employees,
+                        canViewReports: row.can_view_reports,
+                        canManageServices: row.can_manage_services,
+                    },
+                    isActive: row.is_active,
+                    isPrimary: row.is_primary,
+                    metadata: row.cu_metadata || undefined,
+                    createdAt: row.cu_created_at,
+                    updatedAt: row.cu_updated_at,
+                },
+            }));
+        }
+        // 🔴 CORREÇÃO: Comportamento normal (sem override) COM filtro tenant_id
+        const result = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+      SELECT 
+        c.*,
+        cu.company_user_id,
+        cu.role,
+        cu.role_description,
+        cu.can_manage_company,
+        cu.can_manage_financial,
+        cu.can_manage_employees,
+        cu.can_view_reports,
+        cu.can_manage_services,
+        cu.is_active,
+        cu.is_primary,
+        cu.metadata as cu_metadata,
+        cu.created_at as cu_created_at,
+        cu.updated_at as cu_updated_at
+      FROM companies c
+      LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
+      WHERE c.tenant_id = $1 AND c.global_user_id = $2::uuid
+      ORDER BY c.created_at DESC
+      `, [finalTenantId, globalUserId]);
         return result.rows.map(row => ({
             companyId: row.company_id,
             globalUserId: row.global_user_id,
@@ -479,7 +794,7 @@ class CompaniesService {
             },
             revenueData: row.revenue_data || undefined,
             status: row.status,
-            companyStatus: (row.company_status || 'draft'),
+            companyStatus: (row.company_status || 'PROVISIONAL'),
             isVerified: row.is_verified,
             metadata: row.metadata || undefined,
             createdAt: row.created_at,
@@ -510,16 +825,21 @@ class CompaniesService {
      * 🔴 Bloqueia edição de CNPJ se company_status = 'validated'
      */
     async updateCompany(companyId, globalUserId, input) {
+        // 🔴 CRÍTICO: Resolver tenantId
+        const finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+        if (!finalTenantId) {
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompany');
+        }
         // 🔴 Verificar se empresa está validada - CNPJ não pode ser editado
-        const existing = await this.getCompanyById(companyId, globalUserId);
+        const existing = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         if (!existing) {
             throw new Error('Empresa não encontrada');
         }
-        // 🔴 PROTEÇÃO: Bloquear alteração de CNPJ se status for validated OU pending_doc
-        // Regra: Upload iniciado já congela o CNPJ
-        if (input.cnpj && (existing.companyStatus === 'validated' || existing.companyStatus === 'pending_doc')) {
+        // 🔴 PROTEÇÃO: Bloquear alteração de CNPJ se status for VERIFIED ou superior
+        // Regra: Empresas validadas não podem ter CNPJ alterado
+        if (input.cnpj && (existing.companyStatus === 'VERIFIED' || existing.companyStatus === 'APPROVED')) {
             throw new Error(`CNPJ não pode ser editado. ` +
-                `Empresa está com status "${existing.companyStatus === 'validated' ? 'validada' : 'aguardando validação de documento'}" e o CNPJ está bloqueado.`);
+                `Empresa está com status "${existing.companyStatus}" e o CNPJ está bloqueado.`);
         }
         const updates = [];
         const values = [];
@@ -603,13 +923,13 @@ class CompaniesService {
             return existing;
         }
         updates.push(`updated_at = now()`);
-        values.push(companyId, globalUserId);
-        await pool_1.pool.query(`
+        values.push(companyId, globalUserId, finalTenantId);
+        await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       UPDATE companies
       SET ${updates.join(', ')}
-      WHERE company_id = $${paramIdx} AND global_user_id = $${paramIdx + 1}
+      WHERE tenant_id = $${paramIdx + 2} AND company_id = $${paramIdx}::uuid AND global_user_id = $${paramIdx + 1}::uuid
       `, values);
-        const updated = await this.getCompanyById(companyId, globalUserId);
+        const updated = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         if (!updated) {
             throw new Error('Erro ao atualizar empresa');
         }
@@ -618,14 +938,43 @@ class CompaniesService {
     /**
      * Busca relacionamento usuário-empresa por ID
      */
-    async getCompanyUserById(companyUserId, globalUserId) {
-        const result = await pool_1.pool.query(`
-      SELECT *
-      FROM company_users
-      WHERE company_user_id = $1 AND global_user_id = $2
+    async getCompanyUserById(companyUserId, globalUserId, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    companyUserId,
+                    operation: 'getCompanyUserById',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para getCompanyUserById');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                companyUserId,
+                tenantId: finalTenantId,
+                operation: 'getCompanyUserById',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para getCompanyUserById');
+        }
+        // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
+        const result = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+      SELECT cu.*
+      FROM company_users cu
+      INNER JOIN companies c ON cu.company_id = c.company_id
+      WHERE cu.company_user_id = $1::uuid 
+        AND cu.global_user_id = $2::uuid
+        AND c.tenant_id = $3
       LIMIT 1
-      `, [companyUserId, globalUserId]);
-        if (!result.rows[0]) {
+      `, [companyUserId, globalUserId, finalTenantId]);
+        if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
             return null;
         }
         const row = result.rows[0];
@@ -652,7 +1001,32 @@ class CompaniesService {
     /**
      * Atualiza relacionamento usuário-empresa
      */
-    async updateCompanyUser(companyUserId, globalUserId, input) {
+    async updateCompanyUser(companyUserId, globalUserId, input, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    companyUserId,
+                    operation: 'updateCompanyUser',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompanyUser');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                companyUserId,
+                tenantId: finalTenantId,
+                operation: 'updateCompanyUser',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para updateCompanyUser');
+        }
         const updates = [];
         const values = [];
         let paramIdx = 1;
@@ -699,33 +1073,48 @@ class CompaniesService {
             paramIdx++;
         }
         if (input.isPrimary !== undefined) {
-            // Se está marcando como primária, desmarcar outras
+            // 🔴 CORREÇÃO: Se está marcando como primária, desmarcar outras COM filtro tenant_id
             if (input.isPrimary) {
-                await pool_1.pool.query(`
-          UPDATE company_users
-          SET is_primary = false, updated_at = now()
-          WHERE global_user_id = $1 AND company_user_id != $2
-          `, [globalUserId, companyUserId]);
+                // Buscar company_ids do usuário neste tenant
+                const userCompanies = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+          SELECT c.company_id
+          FROM companies c
+          INNER JOIN company_users cu ON c.company_id = cu.company_id
+          WHERE c.tenant_id = $1 AND cu.global_user_id = $2::uuid AND cu.is_active = true
+          `, [finalTenantId, globalUserId]);
+                if (userCompanies && userCompanies.rows && userCompanies.rows.length > 0) {
+                    const companyIds = userCompanies.rows.map(c => c.company_id);
+                    await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+            UPDATE company_users
+            SET is_primary = false, updated_at = now()
+            WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid AND company_user_id != $3::uuid
+            `, [companyIds, globalUserId, companyUserId]);
+                }
             }
             updates.push(`is_primary = $${paramIdx}`);
             values.push(input.isPrimary);
             paramIdx++;
         }
         if (updates.length === 0) {
-            const existing = await this.getCompanyUserById(companyUserId, globalUserId);
+            const existing = await this.getCompanyUserById(companyUserId, globalUserId, finalTenantId);
             if (!existing) {
                 throw new Error('Relacionamento não encontrado');
             }
             return existing;
         }
         updates.push(`updated_at = now()`);
-        values.push(companyUserId, globalUserId);
-        await pool_1.pool.query(`
-      UPDATE company_users
+        values.push(companyUserId, globalUserId, finalTenantId);
+        // 🔴 CORREÇÃO: UPDATE COM filtro tenant_id via JOIN
+        await (0, pool_2.runQueryWithTenant)(finalTenantId, `
+      UPDATE company_users cu
       SET ${updates.join(', ')}
-      WHERE company_user_id = $${paramIdx} AND global_user_id = $${paramIdx + 1}
+      FROM companies c
+      WHERE cu.company_id = c.company_id
+        AND cu.company_user_id = $${paramIdx}::uuid 
+        AND cu.global_user_id = $${paramIdx + 1}::uuid
+        AND c.tenant_id = $${paramIdx + 2}
       `, values);
-        const updated = await this.getCompanyUserById(companyUserId, globalUserId);
+        const updated = await this.getCompanyUserById(companyUserId, globalUserId, finalTenantId);
         if (!updated) {
             throw new Error('Erro ao atualizar relacionamento');
         }
@@ -733,31 +1122,46 @@ class CompaniesService {
     }
     /**
      * Remove empresa (soft delete)
-     * 🔴 PROTEÇÃO: Não permite excluir se houver documento ou transação associada
+     * 🔴 REGRA: Bloquear remoção apenas se houver transações financeiras vinculadas
+     * Permite remoção mesmo se company_status for APPROVED, desde que não haja transações
      */
-    async deleteCompany(companyId, globalUserId) {
+    async deleteCompany(companyId, globalUserId, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    companyId,
+                    operation: 'deleteCompany',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para deleteCompany');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                companyId,
+                tenantId: finalTenantId,
+                operation: 'deleteCompany',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para deleteCompany');
+        }
         // Verificar se empresa existe e pertence ao usuário
-        const company = await this.getCompanyById(companyId, globalUserId);
+        const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         if (!company) {
             throw new Error('Empresa não encontrada');
         }
-        // 🔴 PROTEÇÃO 1: Verificar se há documentos anexados
-        const documents = await pool_1.pool.query(`
-      SELECT COUNT(*) as count
-      FROM company_documents
-      WHERE company_id = $1 AND status != 'rejected'
-      `, [companyId]);
-        const docCount = parseInt(documents.rows[0]?.count || '0', 10);
-        if (docCount > 0) {
-            throw new Error(`Não é possível excluir a empresa. Existem ${docCount} documento(s) anexado(s). ` +
-                `Remova os documentos antes de excluir a empresa.`);
-        }
-        // 🔴 PROTEÇÃO 2: Verificar se há transações associadas
+        // 🔴 PROTEÇÃO: Verificar se há transações financeiras associadas
         // Buscar accounts vinculados à empresa (se houver owner_type = 'company')
         const accounts = await pool_1.pool.query(`
       SELECT account_id
       FROM accounts
-      WHERE owner_id = $1::text AND owner_type = 'company'
+      WHERE owner_id = $1::uuid AND owner_type = 'company'
       LIMIT 1
       `, [companyId]);
         if (accounts.rows.length > 0) {
@@ -774,21 +1178,46 @@ class CompaniesService {
                     `Empresas com histórico financeiro não podem ser excluídas.`);
             }
         }
-        // Se passou todas as verificações, fazer soft delete
-        const result = await pool_1.pool.query(`
+        // 🔴 CORREÇÃO: Se passou todas as verificações, fazer soft delete COM filtro tenant_id
+        const result = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       UPDATE companies
       SET status = 'inactive', updated_at = now()
-      WHERE company_id = $1 AND global_user_id = $2
-      `, [companyId, globalUserId]);
+      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+      `, [finalTenantId, companyId, globalUserId]);
         return result.rowCount !== null && result.rowCount > 0;
     }
     /**
      * Upload documento da empresa (PDF)
      * 🔴 SEGURANÇA: Valida MIME type + extensão, renomeia com UUID, registra auditoria
      */
-    async uploadCompanyDocument(companyId, globalUserId, file, documentType = 'cnpj_receita', userIp) {
+    async uploadCompanyDocument(companyId, globalUserId, file, documentType = 'cnpj_receita', userIp, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    companyId,
+                    operation: 'uploadCompanyDocument',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para uploadCompanyDocument');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                companyId,
+                tenantId: finalTenantId,
+                operation: 'uploadCompanyDocument',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para uploadCompanyDocument');
+        }
         // Verificar se empresa existe e pertence ao usuário
-        const company = await this.getCompanyById(companyId, globalUserId);
+        const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         if (!company) {
             throw new Error('Empresa não encontrada');
         }
@@ -813,8 +1242,9 @@ class CompaniesService {
         // Construir URL relativa do arquivo (com nome seguro)
         const fileUrl = `/uploads/companies/${companyId}/${uniqueFilename}`;
         // Nota: O arquivo será salvo no filesystem pelo route handler com este nome único
-        // Inserir documento no banco
-        const result = await pool_1.pool.query(`
+        // 🔴 CORREÇÃO: Inserir documento no banco COM validação de tenant_id via JOIN
+        // Nota: company_documents não tem tenant_id direto, então validamos via companies
+        const result = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       INSERT INTO company_documents (
         company_id,
         global_user_id,
@@ -825,7 +1255,11 @@ class CompaniesService {
         mime_type,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+      SELECT $1, $2, $3, $4, $5, $6, $7, 'pending'
+      FROM companies c
+      WHERE c.company_id = $1::uuid 
+        AND c.tenant_id = $8
+        AND c.global_user_id = $2::uuid
       ON CONFLICT (company_id, document_type, status) 
       WHERE status = 'pending'
       DO UPDATE SET
@@ -843,13 +1277,15 @@ class CompaniesService {
             fileUrl,
             file.size,
             file.mimetype,
+            finalTenantId,
         ]);
-        if (!result.rows[0]) {
+        if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
             throw new Error('Erro ao salvar documento');
         }
         // 🔴 AUDITORIA: Registrar log do upload
+        const documentId = result.rows[0].document_id;
         console.log('[CompaniesService] 📄 Upload de documento:', {
-            documentId: result.rows[0].document_id,
+            documentId,
             companyId,
             globalUserId,
             documentType,
@@ -858,16 +1294,16 @@ class CompaniesService {
             userIp: userIp || 'unknown',
             timestamp: new Date().toISOString(),
         });
-        // Atualizar status da empresa para 'pending_doc'
-        const statusUpdate = await pool_1.pool.query(`
+        // 🔴 CORREÇÃO: Atualizar status da empresa para 'PROVISIONAL' COM filtro tenant_id
+        const statusUpdate = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       UPDATE companies
-      SET company_status = 'pending_doc', updated_at = now()
-      WHERE company_id = $1 AND global_user_id = $2
-        AND company_status != 'validated'
+      SET company_status = 'PROVISIONAL', updated_at = now()
+      WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
+        AND company_status != 'VERIFIED'
       RETURNING company_status
-      `, [companyId, globalUserId]);
+      `, [finalTenantId, companyId, globalUserId]);
         // 🔴 AUDITORIA: Log de mudança de status
-        if (statusUpdate.rows[0]) {
+        if (statusUpdate && statusUpdate.rows && statusUpdate.rows.length > 0 && statusUpdate.rows[0]) {
             console.log('[CompaniesService] 📊 Status da empresa alterado:', {
                 companyId,
                 globalUserId,
@@ -878,37 +1314,66 @@ class CompaniesService {
             });
         }
         // Buscar status atualizado
-        const updatedCompany = await this.getCompanyById(companyId, globalUserId);
+        const updatedCompany = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         return {
             documentId: result.rows[0].document_id,
-            companyStatus: updatedCompany?.companyStatus || 'pending_doc',
-            fileName: uniqueFilename, // Retornar nome único para salvar no filesystem
+            companyStatus: updatedCompany?.companyStatus || 'PROVISIONAL',
+            fileName: uniqueFilename,
         };
     }
     /**
      * Lista documentos da empresa
      */
-    async listCompanyDocuments(companyId, globalUserId) {
+    async listCompanyDocuments(companyId, globalUserId, tenantId) {
+        // 🔴 CRÍTICO: Resolver tenantId se não fornecido
+        let finalTenantId = tenantId;
+        if (!finalTenantId) {
+            finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+            if (!finalTenantId) {
+                console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
+                    globalUserId,
+                    companyId,
+                    operation: 'listCompanyDocuments',
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanyDocuments');
+            }
+        }
+        // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
+        if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
+            console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
+                globalUserId,
+                companyId,
+                tenantId: finalTenantId,
+                operation: 'listCompanyDocuments',
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para listCompanyDocuments');
+        }
         // Verificar se empresa existe e pertence ao usuário
-        const company = await this.getCompanyById(companyId, globalUserId);
+        const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
         if (!company) {
             throw new Error('Empresa não encontrada');
         }
-        const result = await pool_1.pool.query(`
+        // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
+        const result = await (0, pool_2.runQueryWithTenant)(finalTenantId, `
       SELECT 
-        document_id,
-        document_type,
-        file_name,
-        file_path,
-        file_size,
-        mime_type,
-        status,
-        created_at,
-        updated_at
-      FROM company_documents
-      WHERE company_id = $1 AND global_user_id = $2
-      ORDER BY created_at DESC
-      `, [companyId, globalUserId]);
+        cd.document_id,
+        cd.document_type,
+        cd.file_name,
+        cd.file_path,
+        cd.file_size,
+        cd.mime_type,
+        cd.status,
+        cd.created_at,
+        cd.updated_at
+      FROM company_documents cd
+      INNER JOIN companies c ON cd.company_id = c.company_id
+      WHERE cd.company_id = $1::uuid 
+        AND cd.global_user_id = $2::uuid
+        AND c.tenant_id = $3
+      ORDER BY cd.created_at DESC
+      `, [companyId, globalUserId, finalTenantId]);
         return result.rows.map(row => ({
             documentId: row.document_id,
             documentType: row.document_type,
@@ -969,7 +1434,7 @@ class CompaniesService {
         const docResult = await pool_1.pool.query(`
       SELECT document_id, company_id, global_user_id, document_type, status
       FROM company_documents
-      WHERE document_id = $1
+      WHERE document_id = $1::uuid
       LIMIT 1
       `, [documentId]);
         if (!docResult.rows[0]) {
@@ -978,7 +1443,7 @@ class CompaniesService {
         const doc = docResult.rows[0];
         // Atualizar status do documento com metadata
         const currentMetadata = await pool_1.pool.query(`
-      SELECT metadata FROM company_documents WHERE document_id = $1
+      SELECT metadata FROM company_documents WHERE document_id = $1::uuid
       `, [documentId]);
         const existingMetadata = currentMetadata.rows[0]?.metadata || {};
         const updatedMetadata = {
@@ -993,14 +1458,14 @@ class CompaniesService {
         status = $1,
         metadata = $2::jsonb,
         updated_at = now()
-      WHERE document_id = $3
+      WHERE document_id = $3::uuid
       `, [status, JSON.stringify(updatedMetadata), documentId]);
-        // Se aprovado, atualizar status da empresa para 'validated'
+        // Se aprovado, atualizar status da empresa para 'VERIFIED'
         if (status === 'approved') {
             await pool_1.pool.query(`
         UPDATE companies
-        SET company_status = 'validated', is_verified = true, updated_at = now()
-        WHERE company_id = $1
+        SET company_status = 'VERIFIED', is_verified = true, updated_at = now()
+        WHERE company_id = $1::uuid
         `, [doc.company_id]);
             // 🔴 AUDITORIA: Log de aprovação
             console.log('[CompaniesService] ✅ Documento aprovado:', {
@@ -1028,14 +1493,70 @@ class CompaniesService {
         const companyResult = await pool_1.pool.query(`
       SELECT company_status
       FROM companies
-      WHERE company_id = $1
+      WHERE company_id = $1::uuid
       LIMIT 1
       `, [doc.company_id]);
         return {
             documentId,
-            companyStatus: companyResult.rows[0]?.company_status || 'pending_doc',
+            companyStatus: companyResult.rows[0]?.company_status || 'PROVISIONAL',
+        };
+    }
+    /**
+     * ADMIN OVERRIDE: Marca empresa como VERIFIED (apenas para testes internos)
+     * ⚠️ ATENÇÃO: Esta função é apenas para testes. Não deve ser usada em produção sem auditoria adequada.
+     *
+     * @param companyId ID da empresa
+     * @param adminGlobalUserId ID do admin que está fazendo o override
+     * @returns Empresa atualizada
+     */
+    async adminOverrideToVerified(companyId, adminGlobalUserId) {
+        // 🔴 CRÍTICO: Resolver tenantId
+        const finalTenantId = await this.resolveTenantIdFromGlobalUserId(adminGlobalUserId);
+        if (!finalTenantId) {
+            throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para adminOverrideToVerified');
+        }
+        // Buscar empresa
+        const company = await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId);
+        if (!company) {
+            throw new Error('Empresa não encontrada');
+        }
+        // Atualizar status para VERIFIED
+        const result = await pool_1.pool.query(`
+      UPDATE companies
+      SET 
+        company_status = 'VERIFIED',
+        is_verified = true,
+        updated_at = now(),
+        metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'validation_method', 'ADMIN_OVERRIDE',
+          'validated_by', 'SYSTEM_ADMIN',
+          'validated_at', now(),
+          'admin_global_user_id', $2::uuid
+        )
+      WHERE company_id = $1::uuid
+      RETURNING company_id, company_status, updated_at
+      `, [companyId, adminGlobalUserId]);
+        if (result.rows.length === 0) {
+            throw new Error('Erro ao atualizar status da empresa');
+        }
+        // Retornar empresa atualizada
+        return await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId);
+    }
+    /**
+     * Estrutura de dados para validação presencial (preparação para futuro)
+     * Esta função não implementa a UI, apenas prepara a estrutura de dados
+     */
+    async prepareInPersonValidation(companyId, employeeId, partnerStoreId) {
+        // Gerar token único para validação
+        const validationToken = `VAL-${companyId.substring(0, 8)}-${Date.now()}`;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // Token válido por 7 dias
+        // TODO: Criar tabela company_validations quando necessário
+        // Por enquanto, apenas retorna estrutura
+        return {
+            validationToken,
+            expiresAt,
         };
     }
 }
 exports.companiesService = new CompaniesService();
-//# sourceMappingURL=companies.service.js.map

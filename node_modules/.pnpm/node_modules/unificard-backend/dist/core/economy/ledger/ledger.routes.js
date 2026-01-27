@@ -88,4 +88,3 @@ const ledgerRoutes = async (fastify) => {
     });
 };
 exports.default = ledgerRoutes;
-//# sourceMappingURL=ledger.routes.js.map

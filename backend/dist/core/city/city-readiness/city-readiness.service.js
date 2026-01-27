@@ -638,4 +638,3 @@ class CityReadinessService {
     }
 }
 exports.cityReadinessService = new CityReadinessService();
-//# sourceMappingURL=city-readiness.service.js.map

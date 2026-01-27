@@ -1,0 +1,141 @@
+/* frontend/src/components/agreements/AgreementPanel.css */
+/* Estilos para o Painel de Negociação Assistida */
+
+.agreement-panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.agreement-panel-loading,
+.agreement-panel-error {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.agreement-panel-error {
+  color: #dc2626;
+}
+
+.agreement-panel-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.agreement-panel-hint {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+.agreement-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.agreement-panel-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.agreement-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.agreement-status-draft {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.agreement-status-proposed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.agreement-status-accepted {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.agreement-status-finalized {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.agreement-panel-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.agreement-panel-actions .btn-primary,
+.agreement-panel-actions .btn-secondary {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.agreement-panel-actions .btn-primary {
+  background: #2563eb;
+  color: white;
+  border: none;
+}
+
+.agreement-panel-actions .btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.agreement-panel-actions .btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.agreement-panel-actions .btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.agreement-panel-finalized {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.agreement-finalized-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.agreement-finalized-date {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+
+
+

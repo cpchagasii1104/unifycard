@@ -187,4 +187,3 @@ exports.AIKernel = AIKernel;
  * Exporta instância singleton para uso direto
  */
 exports.kernel = AIKernel.getInstance();
-//# sourceMappingURL=ai-kernel.js.map

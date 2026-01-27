@@ -388,4 +388,3 @@ const governanceRoutes = async (fastify) => {
     });
 };
 exports.default = governanceRoutes;
-//# sourceMappingURL=regional-fund-governance.routes.js.map

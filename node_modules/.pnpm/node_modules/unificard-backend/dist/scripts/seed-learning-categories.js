@@ -2,6 +2,39 @@
 // src/scripts/seed-learning-categories.ts
 // Seed de categorias de APRENDIZADO - Trilha de evolução
 // PRINCÍPIO: Foco em processo de aprendizagem, não em identidade profissional
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -497,6 +530,9 @@ async function seedLearningCategories() {
                 validateAdmin: false, // Scripts não validam admin
                 context: 'learning', // IMPORTANTE: Contexto de aprendizado
             });
+            // 🔧 FIX: Garantir scope='learning'
+            const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+            await pool.query(`UPDATE categories SET scope = 'learning' WHERE category_id = $1`, [level1Category.categoryId]);
             totalCreated++;
             console.log(`   ✅ Criada: ${level1Category.name} (${level1Category.categoryId})`);
             // Criar nível 2 (Subcategorias)
@@ -515,6 +551,8 @@ async function seedLearningCategories() {
                     validateAdmin: false,
                     context: 'learning',
                 });
+                // 🔧 FIX: Garantir scope='learning'
+                await pool.query(`UPDATE categories SET scope = 'learning' WHERE category_id = $1`, [level2Category.categoryId]);
                 totalCreated++;
                 console.log(`     ✅ Criada: ${level2Category.name} (${level2Category.categoryId})`);
                 // Criar nível 3 (Temas específicos)
@@ -533,6 +571,8 @@ async function seedLearningCategories() {
                             validateAdmin: false,
                             context: 'learning',
                         });
+                        // 🔧 FIX: Garantir scope='learning'
+                        await pool.query(`UPDATE categories SET scope = 'learning' WHERE category_id = $1`, [level3Category.categoryId]);
                         totalCreated++;
                         console.log(`       ✅ Criada: ${level3Category.name} (${level3Category.categoryId})`);
                     }
@@ -567,4 +607,3 @@ seedLearningCategories()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=seed-learning-categories.js.map

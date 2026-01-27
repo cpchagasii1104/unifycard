@@ -8,4 +8,3 @@ const memoryModule = async (fastify) => {
     await fastify.register(memory_routes_1.default);
 };
 exports.default = memoryModule;
-//# sourceMappingURL=memory.module.js.map

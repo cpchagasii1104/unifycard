@@ -118,4 +118,3 @@ const donationRoutes = async (fastify) => {
     });
 };
 exports.default = donationRoutes;
-//# sourceMappingURL=donation.routes.js.map

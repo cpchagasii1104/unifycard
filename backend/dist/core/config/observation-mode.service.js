@@ -36,4 +36,3 @@ class ObservationModeService {
     }
 }
 exports.observationModeService = new ObservationModeService();
-//# sourceMappingURL=observation-mode.service.js.map

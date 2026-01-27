@@ -8,6 +8,16 @@ function registerWorkNotifyHandlers(eventBus) {
     // 📩 1. Nova candidatura criada (worker → cliente)
     // ============================================================
     eventBus.registerHandler('work.application.created', async (event) => {
+        // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+        if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+            console.error('[WorkNotifyHandler] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+                eventType: event.type,
+                eventId: event.eventId,
+                tenantId: event.tenantId,
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.application.created notify handler');
+        }
         const { tenantId, payload } = event;
         if (!payload?.clientUserId)
             return;
@@ -30,6 +40,16 @@ function registerWorkNotifyHandlers(eventBus) {
     // 📩 2. Assignment criado (cliente aceitou worker)
     // ============================================================
     eventBus.registerHandler('work.assignment.created', async (event) => {
+        // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+        if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+            console.error('[WorkNotifyHandler] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+                eventType: event.type,
+                eventId: event.eventId,
+                tenantId: event.tenantId,
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.assignment.created notify handler');
+        }
         const { tenantId, payload } = event;
         if (!payload?.workerId)
             return;
@@ -52,6 +72,16 @@ function registerWorkNotifyHandlers(eventBus) {
     // 📩 3. Assignment completado (ambos devem avaliar)
     // ============================================================
     eventBus.registerHandler('work.assignment.completed', async (event) => {
+        // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+        if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+            console.error('[WorkNotifyHandler] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+                eventType: event.type,
+                eventId: event.eventId,
+                tenantId: event.tenantId,
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.assignment.completed notify handler');
+        }
         const { tenantId, payload } = event;
         if (!payload?.assignmentId)
             return;
@@ -92,6 +122,16 @@ function registerWorkNotifyHandlers(eventBus) {
     // 📩 4. Pagamento concluído — worker recebe confirmação
     // ============================================================
     eventBus.registerHandler('work.assignment.paid', async (event) => {
+        // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+        if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+            console.error('[WorkNotifyHandler] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+                eventType: event.type,
+                eventId: event.eventId,
+                tenantId: event.tenantId,
+                timestamp: new Date().toISOString(),
+            });
+            throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.assignment.paid notify handler');
+        }
         const { tenantId, payload } = event;
         if (!payload?.workerId)
             return;
@@ -111,4 +151,3 @@ function registerWorkNotifyHandlers(eventBus) {
         });
     });
 }
-//# sourceMappingURL=work-notify.handlers.js.map

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoryRepository = void 0;
 // src/core/categories/categories.repository.ts
 const pool_1 = require("@core/database/pool");
+const ssot_observability_service_1 = require("./ssot-observability.service");
 class CategoryRepository {
     _hasStatusColumn = null;
     /**
@@ -24,35 +25,103 @@ class CategoryRepository {
     }
     /**
      * Retorna a condição WHERE para filtrar por status (se a coluna existir)
+     * 🔴 CORREÇÃO DEFINITIVA: status = 'active' e 'auto_active' são visíveis
+     * Permite NULL para compatibilidade com categorias antigas
+     * auto_active também é visível (categorias criadas por IA e aprovadas automaticamente)
      */
     async getStatusCondition() {
         const hasStatus = await this.hasStatusColumn();
-        // FASE 3.6: Incluir auto_active como visível e usável
-        return hasStatus ? '(status IS NULL OR status = \'active\' OR status = \'auto_active\')' : '1=1';
+        if (!hasStatus) {
+            // Se coluna não existe, não filtrar - retornar todas
+            return '1=1';
+        }
+        // 🔴 CORREÇÃO: status = 'active' e 'auto_active' são visíveis, permite NULL (compatibilidade)
+        // auto_active também é visível - categorias criadas por IA e aprovadas automaticamente
+        // Se status for NULL, assume-se que é categoria antiga (compatibilidade)
+        return '(status IN (\'active\', \'auto_active\') OR status IS NULL)';
+    }
+    /**
+     * Núcleo canônico de filtros de leitura.
+     * REGRA: context filtra VISÃO (scope), nunca hierarquia (level/parent/leaf).
+     * REGRA: countryCode (quando fornecido) inclui globais (NULL) + país.
+     */
+    async buildCanonicalReadFilter(args) {
+        const { context, countryCode, includeNullScope = true } = args;
+        if (!context) {
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: null,
+                details: {
+                    method: 'buildCanonicalReadFilter',
+                    reason: 'context ausente no repository',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
+        }
+        const statusCondition = await this.getStatusCondition();
+        const params = [];
+        let idx = 1;
+        let whereSql = `${statusCondition}`;
+        // Contexto como filtro de visão, nunca como estrutura.
+        if (includeNullScope) {
+            whereSql += ` AND (scope = $${idx} OR scope IS NULL)`;
+        }
+        else {
+            whereSql += ` AND scope = $${idx}`;
+        }
+        params.push(context);
+        idx++;
+        // País canônico: país OU global (NULL)
+        if (countryCode !== undefined && countryCode !== null) {
+            whereSql += ` AND (country_code = $${idx} OR country_code IS NULL)`;
+            params.push(countryCode);
+            idx++;
+        }
+        return { whereSql, params };
     }
     /**
      * Busca categoria por ID
+     * REGRA CANÔNICA: Normaliza allowed_scopes para categorias raiz de grupo
      */
     async findById(categoryId, client) {
         const statusCondition = await this.getStatusCondition();
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             CASE 
+               WHEN keywords IS NULL THEN '[]'::jsonb
+               WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
+               ELSE to_jsonb(keywords)
+             END as keywords, 
+             country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE category_id = $1 AND ${statusCondition}
       LIMIT 1
       `, [categoryId]);
-        return result.rows[0] || null;
+        if (!result.rows[0]) {
+            return null;
+        }
+        const row = result.rows[0];
+        // REGRA CANÔNICA: Normalizar allowed_scopes para categorias raiz de grupo
+        if (row.level === 0 && row.scope === 'group') {
+            const metadata = row.metadata || {};
+            if (!metadata.allowed_scopes || !Array.isArray(metadata.allowed_scopes) || metadata.allowed_scopes.length === 0) {
+                // Default canônico para categorias raiz de grupo
+                metadata.allowed_scopes = ['national', 'state', 'city', 'neighborhood'];
+                row.metadata = metadata;
+            }
+        }
+        return row;
     }
     /**
      * Busca categoria por slug
+     * REGRA CANÔNICA: Normaliza allowed_scopes para categorias raiz de grupo
      */
     async findBySlug(slug, countryCode, client) {
         const statusCondition = await this.getStatusCondition();
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE slug = $1 AND ${statusCondition}
     `;
@@ -68,26 +137,41 @@ class CategoryRepository {
         }
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(query, params);
-        return result.rows[0] || null;
+        if (!result.rows[0]) {
+            return null;
+        }
+        const row = result.rows[0];
+        // REGRA CANÔNICA: Normalizar allowed_scopes para categorias raiz de grupo
+        if (row.level === 0 && row.scope === 'group') {
+            const metadata = row.metadata || {};
+            if (!metadata.allowed_scopes || !Array.isArray(metadata.allowed_scopes) || metadata.allowed_scopes.length === 0) {
+                metadata.allowed_scopes = ['national', 'state', 'city', 'neighborhood'];
+                row.metadata = metadata;
+            }
+        }
+        return row;
     }
     /**
      * FASE 3.7 — PROPERTY CANÔNICO
      * Busca categoria por (slug + parent_id) de forma 100% idempotente
      * Resolve definitivamente o erro: "could not determine data type of parameter $2"
+     *
+     * 🔴 CORREÇÃO: NÃO filtra por status - método interno de lookup
+     * Idempotência e busca de existentes devem encontrar categorias em QUALQUER status
      */
     async findBySlugAndParent(slug, parentId, client) {
-        const statusCondition = await this.getStatusCondition();
+        // 🔴 REMOVIDO: statusCondition - este método deve encontrar categorias em qualquer status
+        // Razão: usado para idempotência em create() e lookups internos
         // 🔒 CASO 1 — ROOT (parent_id IS NULL)
         if (parentId === null) {
             const queryClient = client || pool_1.pool;
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path,
-               COALESCE(keywords, '[]'::jsonb) as keywords,
-               country_code, created_at, updated_at
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
+               country_code, status, created_at, updated_at
         FROM categories
         WHERE slug = $1
           AND parent_id IS NULL
-          AND ${statusCondition}
         LIMIT 1
         `, [slug]);
             return result.rows[0] ?? null;
@@ -96,25 +180,25 @@ class CategoryRepository {
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path,
-             COALESCE(keywords, '[]'::jsonb) as keywords,
-             country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
+             country_code, status, created_at, updated_at
       FROM categories
       WHERE slug = $1
         AND parent_id = $2::uuid
-        AND ${statusCondition}
       LIMIT 1
       `, [slug, parentId]);
         return result.rows[0] ?? null;
     }
     /**
      * Busca todas as categorias raiz (sem parent)
+     * REGRA CANÔNICA: Normaliza allowed_scopes para categorias raiz de grupo
      * @param countryCode - Se fornecido, retorna apenas categorias globais (NULL) ou do país especificado
      */
     async findRootCategories(countryCode, client) {
         const statusCondition = await this.getStatusCondition();
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE parent_id IS NULL AND ${statusCondition}
     `;
@@ -124,32 +208,92 @@ class CategoryRepository {
             query += ` AND (country_code = $1 OR country_code IS NULL)`;
             params.push(countryCode);
         }
-        query += ` ORDER BY country_code DESC NULLS LAST, name ASC`;
+        query += ` ORDER BY level ASC, name ASC`;
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(query, params);
-        return result.rows;
+        // REGRA CANÔNICA: Normalizar allowed_scopes para categorias raiz de grupo
+        return result.rows.map((row) => {
+            if (row.level === 0 && row.scope === 'group') {
+                const metadata = row.metadata || {};
+                if (!metadata.allowed_scopes || !Array.isArray(metadata.allowed_scopes) || metadata.allowed_scopes.length === 0) {
+                    metadata.allowed_scopes = ['national', 'state', 'city', 'neighborhood'];
+                    row.metadata = metadata;
+                }
+            }
+            return row;
+        });
     }
     /**
      * Busca filhos de uma categoria
+     * @param parentId - ID da categoria pai
+     * @param context - Contexto obrigatório para leitura de categorias (SSOT)
      * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
      */
-    async findChildren(parentId, countryCode, client) {
-        const statusCondition = await this.getStatusCondition();
-        let query = `
-      SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
-      FROM categories
-      WHERE parent_id = $1 AND ${statusCondition}
-    `;
-        const params = [parentId];
-        if (countryCode !== undefined) {
-            // Se countryCode é fornecido, buscar categorias globais (NULL) ou do país
-            query += ` AND (country_code = $2 OR country_code IS NULL)`;
-            params.push(countryCode);
+    async findChildren(parentId, context, countryCode, client) {
+        if (!context) {
+            // Registrar SSOT_VIOLATION antes de lançar erro
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: null,
+                details: {
+                    method: 'findChildren',
+                    reason: 'context ausente no repository',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
         }
-        query += ` ORDER BY country_code DESC NULLS LAST, name ASC`;
+        // 🔴 FILTRO CANÔNICO: Usar buildCanonicalReadFilter para garantir consistência
+        const { whereSql, params } = await this.buildCanonicalReadFilter({
+            context,
+            countryCode,
+            includeNullScope: true,
+        });
+        // Calcular índice do parent_id (após os parâmetros canônicos)
+        const parentIdParamIndex = params.length + 1;
+        const finalParams = [...params, parentId];
+        let query = `
+      SELECT category_id, parent_id, name, slug, description, level, path,
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, created_at, updated_at
+      FROM categories
+      WHERE ${whereSql} AND parent_id = $${parentIdParamIndex}
+      ORDER BY level ASC, name ASC
+    `;
+        // 🔴 DIAGNÓSTICO: Log para investigar problema de children vazios
+        console.log('[CategoryRepository.findChildren] DIAGNÓSTICO:', {
+            parentId,
+            context,
+            countryCode,
+            query: query.replace(/\s+/g, ' ').trim(),
+        });
         const queryClient = client || pool_1.pool;
-        const result = await queryClient.query(query, params);
+        const result = await queryClient.query(query, finalParams);
+        // 🔴 DIAGNÓSTICO: Log do resultado
+        console.log('[CategoryRepository.findChildren] RESULTADO:', {
+            parentId,
+            rowCount: result.rows.length,
+            rows: result.rows.map((r) => ({
+                id: r.category_id,
+                name: r.name,
+                level: r.level,
+                status: r.status,
+            })),
+        });
+        // 🔴 DIAGNÓSTICO: Buscar SEM filtro de status para comparação
+        if (result.rows.length === 0) {
+            const debugQuery = `
+        SELECT category_id, name, level, status, scope
+        FROM categories
+        WHERE parent_id = $1
+        ORDER BY name ASC
+        LIMIT 10
+      `;
+            const debugResult = await queryClient.query(debugQuery, [parentId]);
+            console.log('[CategoryRepository.findChildren] DEBUG (sem filtro status):', {
+                parentId,
+                rowCount: debugResult.rows.length,
+                rows: debugResult.rows,
+            });
+        }
         return result.rows;
     }
     /**
@@ -162,7 +306,7 @@ class CategoryRepository {
             const queryClient = client || pool_1.pool;
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
         FROM categories
         WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
           AND parent_id IS NULL
@@ -175,7 +319,7 @@ class CategoryRepository {
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
       FROM categories
       WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
         AND parent_id = $2::uuid
@@ -195,7 +339,7 @@ class CategoryRepository {
             const queryClient = client || pool_1.pool;
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
         FROM categories
         WHERE LOWER(TRIM(name)) = $1
           AND parent_id IS NULL
@@ -208,7 +352,7 @@ class CategoryRepository {
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
       FROM categories
       WHERE LOWER(TRIM(name)) = $1
         AND parent_id = $2::uuid
@@ -220,9 +364,10 @@ class CategoryRepository {
     /**
      * Busca categorias por termo (busca inteligente com fuzzy matching)
      * Busca em: name, description, slug, keywords (se existir) e path
+     * @param context - Contexto obrigatório para filtro canônico
      * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
      */
-    async search(term, limit = 50, countryCode, client) {
+    async search(term, context, countryCode, limit = 50, client) {
         const searchTerm = term.toLowerCase().trim();
         const searchPattern = `%${searchTerm}%`;
         // Normalizar termo para busca (remover acentos, espaços extras)
@@ -253,15 +398,15 @@ class CategoryRepository {
         let fuzzyRelevance = '';
         if (keywordsExists) {
             keywordsCondition = `
-        -- Busca em keywords (array JSONB)
+        -- Busca em keywords (array TEXT[])
         OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(keywords) AS keyword
+          SELECT 1 FROM unnest(keywords) AS keyword
           WHERE LOWER(keyword) LIKE $3
         )`;
             keywordsRelevance = `
-          -- Keywords contém o termo (busca em array JSONB)
+          -- Keywords contém o termo (busca em array TEXT[])
           WHEN EXISTS (
-            SELECT 1 FROM jsonb_array_elements_text(keywords) AS keyword
+            SELECT 1 FROM unnest(keywords) AS keyword
             WHERE LOWER(keyword) LIKE $3
           ) THEN 40`;
         }
@@ -273,64 +418,65 @@ class CategoryRepository {
           -- Similaridade fuzzy (usando pg_trgm)
           WHEN similarity(LOWER(name), $1) > 0.3 THEN 20`;
         }
-        // Construir condição de país
-        let countryCondition = '';
-        const queryParams = [searchTerm, `${normalizedTerm}%`, searchPattern];
-        let paramOffset = 3;
-        if (countryCode !== undefined) {
-            countryCondition = ` AND (country_code = $${paramOffset + 1} OR country_code IS NULL)`;
-            queryParams.push(countryCode);
-            paramOffset++;
-        }
-        const limitParam = paramOffset + 1;
-        queryParams.push(limit);
-        const statusCondition = await this.getStatusCondition();
+        // 🔴 FILTRO CANÔNICO: Usar buildCanonicalReadFilter para garantir consistência
+        const { whereSql: canonicalWhereSql, params: canonicalParams } = await this.buildCanonicalReadFilter({ context, countryCode, includeNullScope: true });
         const queryClient = client || pool_1.pool;
+        // Calcular offset baseado no número de parâmetros canônicos
+        const canonicalParamCount = canonicalParams.length;
+        const searchParam1 = canonicalParamCount + 1;
+        const searchParam2 = canonicalParamCount + 2;
+        const searchParam3 = canonicalParamCount + 3;
+        const limitParam = canonicalParamCount + 4;
+        const finalParams = [...canonicalParams, searchTerm, `${normalizedTerm}%`, searchPattern, limit];
+        // Ajustar referências nos snippets dinâmicos
+        const adjustedKeywordsRelevance = keywordsRelevance.replace(/\$3/g, `$${searchParam3}`);
+        const adjustedFuzzyRelevance = fuzzyRelevance.replace(/\$1/g, `$${searchParam1}`);
+        const adjustedKeywordsCondition = keywordsCondition.replace(/\$3/g, `$${searchParam3}`);
+        const adjustedFuzzyCondition = fuzzyCondition.replace(/\$1/g, `$${searchParam1}`);
         const result = await queryClient.query(`
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at,
+        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at,
         -- Calcular relevância para ordenação
         CASE
           -- Match exato no nome (maior prioridade)
-          WHEN LOWER(name) = $1 THEN 100
+          WHEN LOWER(name) = $${searchParam1} THEN 100
           -- Match exato no slug
-          WHEN LOWER(slug) = $1 THEN 90
+          WHEN LOWER(slug) = $${searchParam1} THEN 90
           -- Nome começa com o termo
-          WHEN LOWER(name) LIKE $2 THEN 80
+          WHEN LOWER(name) LIKE $${searchParam2} THEN 80
           -- Slug começa com o termo
-          WHEN LOWER(slug) LIKE $2 THEN 70
+          WHEN LOWER(slug) LIKE $${searchParam2} THEN 70
           -- Nome contém o termo
-          WHEN LOWER(name) LIKE $3 THEN 60
+          WHEN LOWER(name) LIKE $${searchParam3} THEN 60
           -- Descrição contém o termo
-          WHEN LOWER(description) LIKE $3 THEN 50${keywordsRelevance}
+          WHEN LOWER(description) LIKE $${searchParam3} THEN 50${adjustedKeywordsRelevance}
           -- Path contém o termo
           WHEN EXISTS (
             SELECT 1 FROM unnest(path) AS path_item
-            WHERE LOWER(path_item) LIKE $3
-          ) THEN 30${fuzzyRelevance}
+            WHERE LOWER(path_item) LIKE $${searchParam3}
+          ) THEN 30${adjustedFuzzyRelevance}
           ELSE 10
         END AS relevance
       FROM categories
       WHERE 
-        ${statusCondition}
+        ${canonicalWhereSql}
         AND (
           -- Busca em name
-          LOWER(name) LIKE $3
+          LOWER(name) LIKE $${searchParam3}
           -- Busca em slug
-          OR LOWER(slug) LIKE $3
+          OR LOWER(slug) LIKE $${searchParam3}
           -- Busca em description
-          OR LOWER(description) LIKE $3${keywordsCondition}
+          OR LOWER(description) LIKE $${searchParam3}${adjustedKeywordsCondition}
           -- Busca em path (array de strings)
           OR EXISTS (
             SELECT 1 FROM unnest(path) AS path_item
-            WHERE LOWER(path_item) LIKE $3
-          )${fuzzyCondition}
+            WHERE LOWER(path_item) LIKE $${searchParam3}
+          )${adjustedFuzzyCondition}
         )
-        ${countryCondition}
       ORDER BY relevance DESC, country_code DESC NULLS LAST, name ASC
       LIMIT $${limitParam}
-      `, queryParams);
+      `, finalParams);
         return result.rows;
     }
     /**
@@ -339,6 +485,9 @@ class CategoryRepository {
      * CORREÇÃO: Prioriza busca por prefixo (começa com) antes de busca por contém
      */
     async autocomplete(query, context, countryCode, limit = 20, client) {
+        if (!context) {
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
+        }
         const searchTerm = query.toLowerCase().trim();
         if (!searchTerm || searchTerm.length < 1) {
             return [];
@@ -358,7 +507,20 @@ class CategoryRepository {
         // Verificar se keywords existe
         const hasKeywords = await pool_1.pool.query(`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'categories' AND column_name = 'keywords') as exists`);
         const keywordsExists = hasKeywords.rows[0]?.exists || false;
-        // Construir condições dinâmicas
+        // 🔴 FILTRO CANÔNICO: Usar buildCanonicalReadFilter para garantir consistência
+        const { whereSql: canonicalWhereSql, params: canonicalParams } = await this.buildCanonicalReadFilter({ context, countryCode, includeNullScope: true });
+        // Calcular offset baseado no número de parâmetros canônicos
+        const canonicalParamCount = canonicalParams.length;
+        // Parâmetros de busca (searchTerm, prefixPattern, normalizedPrefix, containsPattern)
+        // Índices começam após os parâmetros canônicos
+        const searchParam1 = canonicalParamCount + 1;
+        const searchParam2 = canonicalParamCount + 2;
+        const searchParam3 = canonicalParamCount + 3;
+        const searchParam4 = canonicalParamCount + 4;
+        const queryParams = [searchTerm, prefixPattern, normalizedPrefix, containsPattern];
+        const limitParam = canonicalParamCount + 5; // 4 parâmetros de busca + 1 limit
+        queryParams.push(limit);
+        // Construir condições dinâmicas (ajustar índices para começar após parâmetros canônicos)
         let keywordsCondition = '';
         let keywordsRelevance = '';
         let fuzzyCondition = '';
@@ -366,84 +528,58 @@ class CategoryRepository {
         if (keywordsExists) {
             keywordsCondition = `
         OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $3 OR LOWER(keyword) LIKE $4
+          SELECT 1 FROM unnest(keywords) AS keyword
+          WHERE LOWER(keyword) LIKE $${searchParam3} OR LOWER(keyword) LIKE $${searchParam4}
         )`;
             keywordsRelevance = `
         WHEN EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $3
+          SELECT 1 FROM unnest(keywords) AS keyword
+          WHERE LOWER(keyword) LIKE $${searchParam3}
         ) THEN 45
         WHEN EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $4
+          SELECT 1 FROM unnest(keywords) AS keyword
+          WHERE LOWER(keyword) LIKE $${searchParam4}
         ) THEN 40`;
         }
         if (pgTrgmExists) {
-            fuzzyCondition = `OR similarity(LOWER(name), $1) > 0.3`;
-            fuzzyRelevance = `WHEN similarity(LOWER(name), $1) > 0.3 THEN 20`;
+            fuzzyCondition = `OR similarity(LOWER(name), $${searchParam1}) > 0.3`;
+            fuzzyRelevance = `WHEN similarity(LOWER(name), $${searchParam1}) > 0.3 THEN 20`;
         }
-        // Filtrar por contexto: professional retorna apenas LEAF (sem filhos)
-        // CORREÇÃO CRÍTICA: Usar verificação de LEAF ao invés de level fixo
-        // Isso garante que profissões apareçam mesmo se estiverem em level 1
-        let leafCondition = '1=1'; // Padrão: qualquer categoria
-        if (context === 'professional') {
-            // Para professional: retornar SOMENTE categorias LEAF (sem filhos)
-            // CORREÇÃO: Verificar apenas se existe filho, sem filtro de status (mais performático)
-            // O statusCondition já filtra a categoria pai, então não precisamos filtrar filhos aqui
-            leafCondition = `NOT EXISTS (
-        SELECT 1 
-        FROM categories c2
-        WHERE c2.parent_id = categories.category_id
-      )`;
-        }
-        else {
-            // Para outros contexts: pode incluir subcategorias (level >= 1)
-            leafCondition = 'level >= 1';
-        }
-        // Construir condição de país - sempre incluir categorias globais (country_code IS NULL)
-        let countryCondition = '';
-        const queryParams = [searchTerm, prefixPattern, normalizedPrefix, containsPattern];
-        let paramOffset = 4;
-        if (countryCode !== undefined) {
-            countryCondition = ` AND (country_code = $${paramOffset + 1} OR country_code IS NULL)`;
-            queryParams.push(countryCode);
-            paramOffset++;
-        }
-        const limitParam = paramOffset + 1;
-        queryParams.push(limit);
-        const statusCondition = await this.getStatusCondition();
+        // 🔴 REGRA CANÔNICA: context filtra VISÃO, não estrutura.
+        // Autocomplete sugere categorias selecionáveis; por padrão evitamos ROOT.
+        const selectableCondition = `parent_id IS NOT NULL`;
         // CORREÇÃO CRÍTICA: Garantir que busca funcione mesmo sem status column
         // Se status não existe, buscar todas as categorias (assumindo que são active)
         const queryClient = client || pool_1.pool;
+        const finalParams = [...canonicalParams, ...queryParams];
         const result = await queryClient.query(`
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at,
+        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at,
         -- Calcular relevância para ordenação (prioriza prefixo)
         CASE
           -- Match exato no nome (maior prioridade)
-          WHEN LOWER(name) = $1 THEN 100
+          WHEN LOWER(name) = $${searchParam1} THEN 100
           -- Match exato no slug
-          WHEN LOWER(slug) = $1 THEN 90
+          WHEN LOWER(slug) = $${searchParam1} THEN 90
           -- Nome começa com o termo (prefixo) - ALTA PRIORIDADE
-          WHEN LOWER(name) LIKE $2 THEN 85
+          WHEN LOWER(name) LIKE $${searchParam2} THEN 85
           -- Slug começa com o termo (prefixo) - ALTA PRIORIDADE
-          WHEN LOWER(slug) LIKE $2 THEN 75
+          WHEN LOWER(slug) LIKE $${searchParam2} THEN 75
           -- Nome normalizado começa com o termo (prefixo sem acentos)
-          WHEN LOWER(name) LIKE $3 THEN 70
+          WHEN LOWER(name) LIKE $${searchParam3} THEN 70
           -- Slug normalizado começa com o termo
-          WHEN LOWER(slug) LIKE $3 THEN 65
+          WHEN LOWER(slug) LIKE $${searchParam3} THEN 65
           -- Nome contém o termo (fallback)
-          WHEN LOWER(name) LIKE $4 THEN 60
+          WHEN LOWER(name) LIKE $${searchParam4} THEN 60
           -- Slug contém o termo (fallback)
-          WHEN LOWER(slug) LIKE $4 THEN 55
+          WHEN LOWER(slug) LIKE $${searchParam4} THEN 55
           -- Keywords contém o termo (prefixo primeiro)
           ${keywordsRelevance}
           -- Path contém o termo (verifica último elemento do path)
           WHEN EXISTS (
             SELECT 1 FROM unnest(path) AS path_item
-            WHERE LOWER(path_item) LIKE $2 OR LOWER(path_item) LIKE $4
+            WHERE LOWER(path_item) LIKE $${searchParam2} OR LOWER(path_item) LIKE $${searchParam4}
           ) THEN 30
           -- Similaridade fuzzy (última opção)
           ${fuzzyRelevance}
@@ -451,29 +587,28 @@ class CategoryRepository {
         END AS relevance
       FROM categories
       WHERE 
-        ${statusCondition}
-        AND ${leafCondition}
+        ${canonicalWhereSql}
+        AND ${selectableCondition}
         AND (
           -- Busca em name (prefixo primeiro, depois contém) - CORRIGIDO: busca mais agressiva
-          LOWER(name) LIKE $2
-          OR LOWER(name) LIKE $4
-          OR LOWER(name) LIKE $3
+          LOWER(name) LIKE $${searchParam2}
+          OR LOWER(name) LIKE $${searchParam4}
+          OR LOWER(name) LIKE $${searchParam3}
           -- Busca em slug (prefixo primeiro, depois contém)
-          OR LOWER(slug) LIKE $2
-          OR LOWER(slug) LIKE $4
-          OR LOWER(slug) LIKE $3
+          OR LOWER(slug) LIKE $${searchParam2}
+          OR LOWER(slug) LIKE $${searchParam4}
+          OR LOWER(slug) LIKE $${searchParam3}
           -- Busca em keywords
           ${keywordsCondition}
           -- Busca em path (último elemento do path)
           OR EXISTS (
             SELECT 1 FROM unnest(path) AS path_item
-            WHERE LOWER(path_item) LIKE $2 OR LOWER(path_item) LIKE $4 OR LOWER(path_item) LIKE $3
+            WHERE LOWER(path_item) LIKE $${searchParam2} OR LOWER(path_item) LIKE $${searchParam4} OR LOWER(path_item) LIKE $${searchParam3}
           )${fuzzyCondition}
         )
-        ${countryCondition}
       ORDER BY relevance DESC, country_code DESC NULLS LAST, name ASC
       LIMIT $${limitParam}
-      `, queryParams);
+      `, finalParams);
         return result.rows;
     }
     /**
@@ -482,7 +617,6 @@ class CategoryRepository {
      * IDEMPOTÊNCIA: Retorna existente se (slug, parent_id) já existir (via constraint)
      */
     async create(data, client) {
-        const keywordsJson = data.keywords ? JSON.stringify(data.keywords) : '[]';
         // GOVERNANÇA: Por padrão, criar como 'pending' com requires_review=true
         const status = data.status || 'pending';
         const requiresReview = data.requiresReview !== undefined ? data.requiresReview : (status === 'pending');
@@ -495,9 +629,9 @@ class CategoryRepository {
           name, slug, description, parent_id, level, path, keywords, country_code,
           status, requires_review, created_by_ai
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10, $11)
         RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
-        `, [data.name, data.slug, data.description, data.parentId, data.level, data.path, keywordsJson, data.countryCode || null, status, requiresReview, createdByAI]);
+        `, [data.name, data.slug, data.description, data.parentId, data.level, data.path, data.keywords || [], data.countryCode || null, status, requiresReview, createdByAI]);
             return result.rows[0];
         }
         catch (error) {
@@ -509,6 +643,13 @@ class CategoryRepository {
                 // Buscar categoria existente por (slug, parent_id) usando o mesmo client
                 const existing = await this.findBySlugAndParent(data.slug, data.parentId, client);
                 if (existing) {
+                    // 🔴 CORREÇÃO: Se status solicitado é 'active' e existente não é, atualizar
+                    // Isso garante que re-execução do seed ativa categorias pendentes
+                    if (status === 'active' && existing.status !== 'active') {
+                        console.log(`[CategoryRepository.create] Atualizando status de '${existing.status}' para 'active': ${existing.name}`);
+                        await queryClient.query(`UPDATE categories SET status = 'active', is_active = true WHERE category_id = $1`, [existing.category_id]);
+                        existing.status = 'active';
+                    }
                     return existing;
                 }
             }
@@ -589,25 +730,82 @@ class CategoryRepository {
      * Busca todas as categorias
      * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
      */
-    async findAll(countryCode, client) {
-        const statusCondition = await this.getStatusCondition();
+    async findAll(countryCode, context, client) {
+        if (!context) {
+            // Registrar SSOT_VIOLATION antes de lançar erro
+            await ssot_observability_service_1.ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+                tenantId: null,
+                context: null,
+                details: {
+                    method: 'findAll',
+                    reason: 'context ausente no repository',
+                },
+            });
+            throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
+        }
+        // 🔴 FILTRO CANÔNICO: Usar buildCanonicalReadFilter para garantir consistência
+        const { whereSql, params } = await this.buildCanonicalReadFilter({
+            context,
+            countryCode,
+            includeNullScope: true,
+        });
+        // 🔴 CORREÇÃO: keywords é TEXT[], não jsonb
+        // Converter corretamente: TEXT[] -> jsonb usando to_jsonb() que funciona com arrays
+        // 🔴 GARANTIR: Root categories (parent_id IS NULL) não são filtradas
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(keywords, '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             CASE 
+               WHEN keywords IS NULL THEN '[]'::jsonb
+               WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
+               ELSE to_jsonb(keywords)
+             END as keywords, 
+             country_code, scope, metadata, created_at, updated_at
       FROM categories
-      WHERE ${statusCondition}
+      WHERE ${whereSql}
+      ORDER BY level ASC, name ASC
     `;
-        const params = [];
-        let paramIndex = 1;
-        if (countryCode !== undefined) {
-            query += ` AND (country_code = $${paramIndex} OR country_code IS NULL)`;
-            params.push(countryCode);
-            paramIndex++;
-        }
-        query += ` ORDER BY level ASC, country_code DESC NULLS LAST, name ASC`;
+        // 🔴 LOG DE DIAGNÓSTICO
+        console.log('[CategoryRepository.findAll] Query final:', query);
+        console.log('[CategoryRepository.findAll] Params:', params);
         const queryClient = client || pool_1.pool;
-        const result = await queryClient.query(query, params);
-        return result.rows;
+        try {
+            const result = await queryClient.query(query, params);
+            // 🔴 LOG DE DIAGNÓSTICO
+            const rootCount = result.rows.filter((r) => !r.parent_id).length;
+            console.log('[CategoryRepository.findAll] Resultado:', {
+                totalRows: result.rows.length,
+                rootCategories: rootCount,
+                sampleRows: result.rows.slice(0, 5).map((r) => ({
+                    id: r.category_id,
+                    name: r.name,
+                    parent_id: r.parent_id,
+                    country_code: r.country_code,
+                    level: r.level,
+                })),
+            });
+            // 🔴 INSPEÇÃO TEMPORÁRIA: Rastrear "Pedreiro"
+            const foundPedreiroRepo = result.rows.some((r) => r.name?.toLowerCase().includes('pedr') || r.slug?.toLowerCase().includes('pedr'));
+            const pedreiroRow = result.rows.find((r) => r.name?.toLowerCase().includes('pedr') || r.slug?.toLowerCase().includes('pedr'));
+            console.log('[INSPEÇÃO] Repository findAll:', {
+                countTotal: result.rows.length,
+                foundPedreiroRepo,
+                pedreiroInfo: pedreiroRow ? {
+                    id: pedreiroRow.category_id,
+                    name: pedreiroRow.name,
+                    slug: pedreiroRow.slug,
+                    parent_id: pedreiroRow.parent_id,
+                    level: pedreiroRow.level,
+                    scope: pedreiroRow.scope,
+                } : null,
+            });
+            return result.rows;
+        }
+        catch (error) {
+            console.error('[CategoryRepository.findAll] Erro na query:', error);
+            console.error('[CategoryRepository.findAll] Query:', query);
+            console.error('[CategoryRepository.findAll] Params:', params);
+            throw error;
+        }
     }
     /**
      * Registra auditoria de criação de categoria
@@ -664,4 +862,3 @@ class CategoryRepository {
     }
 }
 exports.CategoryRepository = CategoryRepository;
-//# sourceMappingURL=categories.repository.js.map

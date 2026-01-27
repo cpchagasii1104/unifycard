@@ -94,4 +94,3 @@ class SocialActionsRepository {
     }
 }
 exports.SocialActionsRepository = SocialActionsRepository;
-//# sourceMappingURL=social-actions.repository.js.map

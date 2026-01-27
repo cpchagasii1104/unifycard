@@ -1,0 +1,169 @@
+/* frontend/src/components/trust/TrustTransparencyCard.css */
+/* CONTINUOUS PRODUCTION: Estilos para Card de Transparência - SPRINT 12 */
+
+.trust-transparency-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.trust-transparency-card-header h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.trust-transparency-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.trust-transparency-card-intro {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #333;
+  line-height: 1.5;
+}
+
+.trust-transparency-card-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: none;
+}
+
+.trust-transparency-card-list li {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.5;
+}
+
+.trust-transparency-card-actions {
+  margin-top: 0.5rem;
+}
+
+.trust-transparency-card-button {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.trust-transparency-card-button:hover {
+  background: #0056b3;
+}
+
+/* Versão completa */
+.trust-transparency-full {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.trust-transparency-header {
+  margin-bottom: 2rem;
+}
+
+.trust-transparency-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.trust-transparency-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #666;
+}
+
+.trust-transparency-points {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.trust-transparency-point {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #007bff;
+}
+
+.trust-transparency-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.trust-transparency-content {
+  flex: 1;
+}
+
+.trust-transparency-content h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.trust-transparency-content p {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  color: #333;
+  line-height: 1.6;
+}
+
+.trust-transparency-link {
+  padding: 0.375rem 0.75rem;
+  background: none;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  color: #007bff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trust-transparency-link:hover {
+  background: #007bff;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .trust-transparency-full {
+    padding: 1.5rem;
+  }
+
+  .trust-transparency-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .trust-transparency-point {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .trust-transparency-icon {
+    font-size: 1.5rem;
+  }
+}
+
+
+
+
+
+
+

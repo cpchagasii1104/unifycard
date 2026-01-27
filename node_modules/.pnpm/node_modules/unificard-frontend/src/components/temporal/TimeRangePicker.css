@@ -1,0 +1,48 @@
+.time-range-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-range-picker .time-input {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 100px;
+}
+
+.time-range-picker .time-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.time-range-picker .time-input.error {
+  border-color: #dc3545;
+}
+
+.time-range-picker .time-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.time-range-picker .time-separator {
+  color: #666;
+  font-size: 14px;
+}
+
+.time-range-picker .field-error-small {
+  display: block;
+  width: 100%;
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.time-range-picker.has-error .time-input {
+  border-color: #dc3545;
+}
+
+

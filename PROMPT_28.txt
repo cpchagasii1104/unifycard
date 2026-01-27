@@ -1,0 +1,102 @@
+PROMPT 28 — Consolidação da Identidade Profissional (Currículo Econômico)
+
+OBJETIVO
+Criar a identidade profissional verificável de cada prestador/empresa,
+baseada exclusivamente em fatos econômicos reais do sistema.
+
+Não é ranking.
+Não é perfil social.
+Não é marketing.
+É histórico econômico auditável.
+
+PRINCÍPIO CENTRAL
+Confiança não se declara. Confiança se prova com execução registrada.
+
+FONTES DE DADOS (exclusivas)
+- Serviços executados (ServiceOrder concluído)
+- SLA real (tempo de resposta, atraso, violações)
+- Orçamentos enviados x aceitos
+- Contratos B2B executados
+- Disputas abertas / resolvidas
+- Avaliações bidirecionais (PROMPT 15)
+- Governança anti-desvio (PROMPT 14)
+- Capacidade e overload histórico (PROMPT 23)
+
+CONTRATO CANÔNICO
+ProfessionalEconomicIdentity.contract.ts
+
+Campos principais:
+- actor_id
+- region_id
+- first_activity_at
+- last_activity_at
+
+Blocos consolidados (read-only):
+1. ExecutionHistory
+   - total_services_completed
+   - total_services_canceled
+   - total_b2b_contracts_executed
+
+2. SLAHistory
+   - average_response_time
+   - on_time_execution_rate
+   - sla_violations_count
+   - last_sla_violation_at
+
+3. QuoteBehavior
+   - visits_completed
+   - quotes_sent
+   - quotes_accepted
+   - quote_to_execution_rate
+
+4. DisputeHistory
+   - disputes_opened
+   - disputes_resolved
+   - dispute_resolution_rate
+
+5. EvaluationSummary
+   - average_score_received
+   - average_score_given
+   - evaluation_consistency
+
+6. CapacityBehavior
+   - overload_events
+   - average_utilization_rate
+
+REGRAS FUNDAMENTAIS
+- Nenhum campo editável manualmente
+- Nenhuma exclusão de histórico
+- Atualização apenas por eventos do sistema
+- Snapshots periódicos imutáveis
+- Sem score único
+- Sem ranking global
+
+VISIBILIDADE
+- Prestador vê o próprio currículo completo
+- Empresas contratantes veem versão resumida (antes de contratar)
+- Usuário final vê apenas sinais indiretos (matching e disponibilidade)
+- Público geral NÃO vê
+
+INTEGRAÇÕES
+- Matching econômico (prioridade estrutural)
+- Mercado de capacidade B2B
+- Governança e Trust Layer
+- Expansão regional guiada
+
+O QUE NÃO É
+- Não é gamificação
+- Não é rede social
+- Não é vitrine de marketing
+- Não é sistema de reputação emocional
+
+RESULTADO PRÁTICO
+Cada prestador passa a ter um "CPF econômico":
+- histórico verificável
+- confiança mensurável
+- sem depender de anúncios, curtidas ou autopromoção
+
+O sistema passa a contratar histórico, não promessa.
+
+
+
+

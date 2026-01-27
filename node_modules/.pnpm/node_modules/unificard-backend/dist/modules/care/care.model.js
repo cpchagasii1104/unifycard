@@ -77,4 +77,3 @@ class CareMessageModel {
     }
 }
 exports.CareMessageModel = CareMessageModel;
-//# sourceMappingURL=care.model.js.map

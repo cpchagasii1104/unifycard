@@ -89,4 +89,3 @@ const rideRequestsRoutes = async (fastify) => {
     });
 };
 exports.default = rideRequestsRoutes;
-//# sourceMappingURL=ride-requests.routes.js.map

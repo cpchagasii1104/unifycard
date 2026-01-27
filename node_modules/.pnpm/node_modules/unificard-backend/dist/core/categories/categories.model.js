@@ -2,7 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoryModel = void 0;
 class CategoryModel {
+    /**
+     * Converte uma row do banco em Category canônica.
+     * ESTE MÉTODO É UM GATE DE SSOT.
+     */
     static fromRow(row) {
+        if (row.level === null || row.level === undefined) {
+            throw new Error(`Category ${row.slug} inválida: level ausente`);
+        }
+        const path = this.normalizePath(row.path, row.level, row.slug);
         return {
             categoryId: row.category_id,
             parentId: row.parent_id,
@@ -10,41 +18,16 @@ class CategoryModel {
             slug: row.slug,
             description: row.description,
             level: row.level,
-            path: row.path || [],
-            keywords: (() => {
-                if (!row.keywords)
-                    return [];
-                if (Array.isArray(row.keywords))
-                    return row.keywords;
-                // Se for JSONB do PostgreSQL, pode vir como objeto ou string
-                if (typeof row.keywords === 'string') {
-                    try {
-                        const parsed = JSON.parse(row.keywords);
-                        return Array.isArray(parsed) ? parsed : [];
-                    }
-                    catch {
-                        return [];
-                    }
-                }
-                // Se for objeto JSONB
-                if (typeof row.keywords === 'object') {
-                    try {
-                        const values = Object.values(row.keywords);
-                        return values.filter(v => typeof v === 'string');
-                    }
-                    catch {
-                        return [];
-                    }
-                }
-                return [];
-            })(),
+            path,
+            keywords: this.normalizeKeywords(row.keywords),
             countryCode: row.country_code || null,
-            status: row.status || 'active', // FASE 3.6: Suporta 'auto_active' também
-            requiresReview: row.requires_review || false,
-            createdByAI: row.created_by_ai || false,
-            approvedBy: row.approved_by || null,
-            approvedAt: row.approved_at || null,
-            rejectionReason: row.rejection_reason || null,
+            scope: row.scope,
+            status: row.status ?? 'active',
+            requiresReview: row.requires_review ?? false,
+            createdByAI: row.created_by_ai ?? false,
+            approvedBy: row.approved_by ?? null,
+            approvedAt: row.approved_at ?? null,
+            rejectionReason: row.rejection_reason ?? null,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -86,6 +69,49 @@ class CategoryModel {
             row.rejection_reason = category.rejectionReason;
         return row;
     }
+    // ============================
+    // Helpers canônicos (privados)
+    // ============================
+    static normalizePath(rawPath, level, slug) {
+        if (level === 0)
+            return [];
+        if (!Array.isArray(rawPath)) {
+            throw new Error(`Category ${slug} inválida: path ausente para level ${level}`);
+        }
+        if (rawPath.length !== level) {
+            throw new Error(`Category ${slug} inválida: path.length (${rawPath.length}) != level (${level})`);
+        }
+        if (!rawPath.every(p => typeof p === 'string' && p.length > 0)) {
+            throw new Error(`Category ${slug} inválida: path contém valores inválidos`);
+        }
+        return rawPath;
+    }
+    static normalizeKeywords(raw) {
+        if (!raw)
+            return [];
+        if (Array.isArray(raw)) {
+            return raw.filter(k => typeof k === 'string');
+        }
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed)
+                    ? parsed.filter(k => typeof k === 'string')
+                    : [];
+            }
+            catch {
+                return [];
+            }
+        }
+        if (typeof raw === 'object') {
+            try {
+                return Object.values(raw).filter(v => typeof v === 'string');
+            }
+            catch {
+                return [];
+            }
+        }
+        return [];
+    }
 }
 exports.CategoryModel = CategoryModel;
-//# sourceMappingURL=categories.model.js.map

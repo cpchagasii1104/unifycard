@@ -225,4 +225,3 @@ class RideRequestsService {
 }
 exports.RideRequestsService = RideRequestsService;
 exports.rideRequestsService = new RideRequestsService();
-//# sourceMappingURL=ride-requests.service.js.map

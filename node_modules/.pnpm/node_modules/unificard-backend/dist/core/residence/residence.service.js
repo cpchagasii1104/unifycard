@@ -232,4 +232,3 @@ class ResidenceService {
     }
 }
 exports.residenceService = new ResidenceService();
-//# sourceMappingURL=residence.service.js.map

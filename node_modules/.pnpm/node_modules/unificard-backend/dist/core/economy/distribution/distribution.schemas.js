@@ -23,4 +23,3 @@ exports.batchCalculateSchema = zod_1.z.object({
     amounts: zod_1.z.array(zod_1.z.number().positive()).min(1).max(100),
     config: exports.feeConfigSchema.optional(),
 });
-//# sourceMappingURL=distribution.schemas.js.map

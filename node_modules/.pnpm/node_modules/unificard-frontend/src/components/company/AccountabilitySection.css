@@ -1,0 +1,114 @@
+/* frontend/src/components/company/AccountabilitySection.css */
+/* CONTINUOUS PRODUCTION: Estilos para Seção de Responsabilidade - SPRINT 10 */
+
+.accountability-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.accountability-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-line {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.accountability-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.accountability-header {
+  margin-bottom: 1rem;
+}
+
+.accountability-header h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+}
+
+.accountability-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.accountability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.accountability-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.accountability-item:hover {
+  background: #f0f0f0;
+  border-color: #007bff;
+}
+
+.accountability-description {
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.accountability-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.accountability-meta-item {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.accountability-authority {
+  font-weight: 500;
+  color: #0056b3;
+  padding: 0.125rem 0.5rem;
+  background: #e7f3ff;
+  border-radius: 4px;
+}
+
+.accountability-date {
+  margin-left: auto;
+  color: #999;
+}
+
+
+
+
+
+
+

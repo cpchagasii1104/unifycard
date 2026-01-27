@@ -1,0 +1,121 @@
+/* frontend/src/components/marketplace/CheckoutVendorGroup.css */
+/* Estilos para grupo visual de vendedor */
+
+.checkout-vendor-group {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.vendor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.vendor-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.vendor-id {
+  font-size: 12px;
+  color: #888;
+}
+
+.vendor-items {
+  margin-bottom: 16px;
+}
+
+.vendor-order {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.vendor-order:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.vendor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-name {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.item-quantity {
+  font-size: 12px;
+  color: #666;
+}
+
+.item-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.item-unit-price {
+  font-size: 12px;
+  color: #888;
+}
+
+.item-subtotal {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.order-subtotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #666;
+}
+
+.order-subtotal strong {
+  color: #333;
+  font-size: 16px;
+}
+
+.vendor-subtotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #333;
+}
+
+.vendor-subtotal strong {
+  font-size: 18px;
+  color: #1976d2;
+}
+
+

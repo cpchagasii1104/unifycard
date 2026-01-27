@@ -1,0 +1,2722 @@
+// src/core/events/event.routes.ts
+// Rotas REST para eventos conforme CONTRATO DE EVENTOS v1
+// FASE 5: INTEGRAÇÃO CONTROLADA
+
+import { FastifyPluginAsync } from 'fastify';
+import { eventService } from './event.service';
+import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
+import { runQueryWithTenant } from '@core/database/pool';
+import { eventRateLimitService } from './event-rate-limit.service';
+import type {
+  CreateEventInput,
+  UpdateEventInput,
+  EventType,
+  EventVisibility,
+  DeclareEventInput,
+} from './event.types';
+import { operationalCommitmentsService } from './operational-commitments.service';
+import type {
+  CreateOperationalCommitmentInput,
+  CheckInInput,
+  CheckOutInput,
+  MarkFailedInput,
+} from './operational-commitments.types';
+import { eventCreationOrchestrator } from './event-creation.orchestrator';
+import type {
+  CreateDraftInput,
+  SetTimeWindowsInput,
+  SetOperationalCommitmentsInput,
+} from './event-creation.orchestrator';
+import { eventEconomicPhaseService } from './event-economic-phase.service';
+import type { AdvanceToEconomicPhaseInput } from './event-economic-phase.service';
+import { eventCustodyService } from './event-custody.service';
+import type { CreateCustodyInput } from './event-custody.service';
+import { eventSplitDeclarativeService } from './event-split-declarative.service';
+import type { CalculateSplitInput } from './event-split-declarative.service';
+import { eventPaymentPreparedService } from './event-payment-prepared.service';
+import type { AuthorizePaymentInput } from './event-payment-prepared.service';
+import { eventRefundChargebackService } from './event-refund-chargeback.service';
+import type {
+  RequestRefundInput,
+  ApproveRefundInput,
+  ExecuteRefundInput,
+  InitiateChargebackInput,
+} from './event-refund-chargeback.service';
+
+/**
+ * Helper: Obtém actor_id do usuário autenticado
+ */
+async function getAuthenticatedUserActor(
+  tenantId: string,
+  globalUserId: string
+): Promise<{ actor_id: string; actor_type: 'user' }> {
+  // Obter userId local
+  const user = await runQueryWithTenant<{ user_id: string }>(
+    tenantId,
+    `
+    SELECT user_id FROM users
+    WHERE global_user_id = $1 AND tenant_id = $2
+    LIMIT 1
+    `,
+    [globalUserId, tenantId]
+  );
+
+  if (!user) {
+    throw new NotFoundError('Usuário não encontrado no tenant');
+  }
+
+  // Obter ou criar actor do usuário
+  const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const actorRepository = socialPortsRegistry.getActorRepository();
+  const userActor = await actorRepository.findOrCreateUserActor(
+    tenantId,
+    user.user_id
+  );
+
+  return {
+    actor_id: userActor.actor_id,
+    actor_type: 'user',
+  };
+}
+
+const eventRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * POST /events
+   * Cria um novo evento
+   */
+  fastify.post<{
+    Body: CreateEventInput;
+  }>(
+    '/',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['actor_id', 'actor_type', 'event_type', 'title'],
+          properties: {
+            actor_id: { type: 'string', format: 'uuid' },
+            actor_type: { type: 'string', enum: ['user', 'page'] },
+            event_type: {
+              type: 'string',
+              enum: ['cultural', 'gastronomic', 'social', 'professional', 'community', 'spiritual', 'sports', 'private'],
+            },
+            event_subtype: { type: ['string', 'null'] },
+            title: { type: 'string', minLength: 1, maxLength: 255 },
+            description: { type: ['string', 'null'] },
+            datetime_start: { type: ['string', 'null'], format: 'date-time' },
+            datetime_end: { type: ['string', 'null'], format: 'date-time' },
+            visibility: {
+              type: 'string',
+              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+            },
+            ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
+            max_attendees: { type: ['integer', 'null'], minimum: 1 },
+            metadata: { type: ['object', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Validar que actor_id corresponde ao usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        // Obter actor do usuário autenticado
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        // Rate limiting: criação de eventos
+        const rateLimit = await eventRateLimitService.checkCreateRateLimit(
+          req.tenant.id,
+          userActor.actor_id
+        );
+        if (!rateLimit.allowed) {
+          return reply.status(429).send({
+            error: 'Limite de criação de eventos excedido',
+            resetAt: rateLimit.resetAt.toISOString(),
+          });
+        }
+
+        // Validar que actor_id do input corresponde ao actor do usuário autenticado
+        if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
+          return reply.status(403).send({ 
+            error: 'actor_id não corresponde ao usuário autenticado' 
+          });
+        }
+
+        // Se actor_type é 'page', validar que actor pertence ao usuário
+        if (req.body.actor_type === 'page') {
+          const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const actorRepository = socialPortsRegistry.getActorRepository();
+          const pageActor = await actorRepository.findById(req.tenant.id, req.body.actor_id);
+          if (!pageActor) {
+            return reply.status(404).send({ error: 'Actor (page) não encontrado' });
+          }
+          // Validar que page pertence ao usuário (via companies)
+          // TODO: Implementar validação completa de ownership de page
+        }
+
+        // Verificar débitos pendentes do actor efetivo (CONTRATO v1.4: bloqueia criação)
+        // CORREÇÃO: Verificar débitos do actor que está criando o evento (pode ser user ou page)
+        const { penaltyService } = await import('@core/reputation/penalty.service');
+        const effectiveActorType = req.body.actor_type as 'user' | 'page';
+        const debtCheck = await penaltyService.hasPendingDebts(
+          req.tenant.id,
+          req.body.actor_id,
+          effectiveActorType
+        );
+        if (debtCheck.hasDebt) {
+          const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
+          return reply.status(403).send({
+            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
+          });
+        }
+        
+        const event = await eventService.createEvent(req.tenant.id, req.body);
+
+        // Publicar evento no EventBus para criar post no feed
+        try {
+          const { eventBus } = await import('@core/events/event-bus');
+          await eventBus.publish({
+            tenantId: req.tenant.id,
+            type: 'event.created',
+            payload: {
+              eventId: event.id,
+              actorId: event.actor_id,
+              globalUserId: req.user.globalUserId,
+              title: event.title,
+              description: event.description,
+              eventType: event.event_type,
+              createdByGlobalUserId: req.user.globalUserId,
+            },
+          });
+        } catch (err) {
+          // Não quebra criação do evento se EventBus falhar
+          fastify.log.warn({ err }, 'Erro ao publicar evento no EventBus (não crítico)');
+        }
+
+        // Log estruturado: criação de evento
+        fastify.log.info({
+          tenant_id: req.tenant.id,
+          actor_id: userActor.actor_id,
+          event_id: event.id,
+          event_type: event.event_type,
+          ticket_price_cents: event.ticket_price_cents,
+          'economy.action': 'event.created',
+        }, 'Evento criado');
+
+        return reply.status(201).send({ event });
+      } catch (error) {
+        // Log estruturado: erro ao criar evento
+        if (error instanceof BadRequestError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            actor_id: req.body?.actor_id,
+            error: error.message,
+            'economy.action': 'event.create.error',
+            error_type: 'BadRequestError',
+          }, 'Erro ao criar evento (validação)');
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            actor_id: req.body?.actor_id,
+            error: error.message,
+            'economy.action': 'event.create.error',
+            error_type: 'NotFoundError',
+          }, 'Erro ao criar evento (não encontrado)');
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            actor_id: req.body?.actor_id,
+            error: error.message,
+            'economy.action': 'event.create.error',
+            error_type: 'ForbiddenError',
+          }, 'Erro ao criar evento (permissão)');
+          return reply.status(403).send({ error: error.message });
+        }
+        
+        fastify.log.error({
+          tenant_id: req.tenant?.id,
+          actor_id: req.body?.actor_id,
+          err: error,
+          'economy.action': 'event.create.error',
+          error_type: 'UnexpectedError',
+        }, 'Erro inesperado ao criar evento');
+        return reply.status(500).send({ error: 'Erro ao criar evento' });
+      }
+    }
+  );
+
+  /**
+   * PATCH /events/:id
+   * Atualiza um evento existente
+   */
+  fastify.patch<{
+    Params: { id: string };
+    Body: UpdateEventInput;
+  }>(
+    '/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', minLength: 1, maxLength: 255 },
+            description: { type: ['string', 'null'] },
+            datetime_start: { type: 'string', format: 'date-time' },
+            datetime_end: { type: 'string', format: 'date-time' },
+            event_subtype: { type: ['string', 'null'] },
+            visibility: {
+              type: 'string',
+              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+            },
+            ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
+            max_attendees: { type: ['integer', 'null'], minimum: 1 },
+            metadata: { type: ['object', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Obter actor_id do usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+        
+        const event = await eventService.updateEvent(
+          req.tenant.id,
+          req.params.id,
+          req.body,
+          userActor.actor_id
+        );
+
+        // Log estruturado: atualização de evento
+        fastify.log.info({
+          tenant_id: req.tenant.id,
+          actor_id: userActor.actor_id,
+          event_id: event.id,
+          'economy.action': 'event.updated',
+        }, 'Evento atualizado');
+
+        return reply.status(200).send({ event });
+      } catch (error) {
+        // Log estruturado: erro ao atualizar evento
+        if (error instanceof BadRequestError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.update.error',
+            error_type: 'BadRequestError',
+          }, 'Erro ao atualizar evento (validação)');
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.update.error',
+            error_type: 'NotFoundError',
+          }, 'Erro ao atualizar evento (não encontrado)');
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.update.error',
+            error_type: 'ForbiddenError',
+          }, 'Erro ao atualizar evento (permissão)');
+          return reply.status(403).send({ error: error.message });
+        }
+        
+        fastify.log.error({
+          tenant_id: req.tenant?.id,
+          event_id: req.params.id,
+          err: error,
+          'economy.action': 'event.update.error',
+          error_type: 'UnexpectedError',
+        }, 'Erro inesperado ao atualizar evento');
+        return reply.status(500).send({ error: 'Erro ao atualizar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/publish
+   * Publica um evento (muda status de draft para published)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/publish',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Obter actor_id do usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        // Buscar evento para obter actor efetivo (pode ser user ou page)
+        // CORREÇÃO: Verificar débitos do actor do evento, não sempre do user
+        const event = await eventService.getEvent(req.tenant.id, req.params.id);
+        if (!event) {
+          return reply.status(404).send({ error: 'Evento não encontrado' });
+        }
+
+        // Verificar débitos pendentes do actor efetivo do evento (CONTRATO v1.4: bloqueia publicação)
+        const { penaltyService } = await import('@core/reputation/penalty.service');
+        const effectiveActorType = event.actor_type as 'user' | 'page';
+        const debtCheck = await penaltyService.hasPendingDebts(
+          req.tenant.id,
+          event.actor_id,
+          effectiveActorType
+        );
+        if (debtCheck.hasDebt) {
+          const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
+          return reply.status(403).send({
+            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
+          });
+        }
+
+        // Rate limiting: publicação de eventos
+        const rateLimit = await eventRateLimitService.checkPublishRateLimit(
+          req.tenant.id,
+          userActor.actor_id
+        );
+        if (!rateLimit.allowed) {
+          return reply.status(429).send({
+            error: 'Limite de publicação de eventos excedido',
+            resetAt: rateLimit.resetAt.toISOString(),
+          });
+        }
+        
+        const publishedEvent = await eventService.publishEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        // Log estruturado: publicação de evento
+        fastify.log.info({
+          tenant_id: req.tenant.id,
+          actor_id: userActor.actor_id,
+          event_id: publishedEvent.id,
+          event_type: publishedEvent.event_type,
+          ticket_price_cents: publishedEvent.ticket_price_cents,
+          'economy.action': 'event.published',
+        }, 'Evento publicado');
+
+        return reply.status(200).send({ event: publishedEvent });
+      } catch (error) {
+        // Log estruturado: erro ao publicar evento
+        if (error instanceof BadRequestError) {
+          // Verificar se é erro econômico
+          const isEconomyError = error.message.includes('economia') || error.message.includes('split');
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': isEconomyError ? 'event.publish.error.economy' : 'event.publish.error',
+            error_type: 'BadRequestError',
+          }, isEconomyError ? 'Erro ao publicar evento (economia inválida)' : 'Erro ao publicar evento (validação)');
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.publish.error',
+            error_type: 'NotFoundError',
+          }, 'Erro ao publicar evento (não encontrado)');
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.publish.error',
+            error_type: 'ForbiddenError',
+          }, 'Erro ao publicar evento (permissão)');
+          return reply.status(403).send({ error: error.message });
+        }
+        
+        fastify.log.error({
+          tenant_id: req.tenant?.id,
+          event_id: req.params.id,
+          err: error,
+          'economy.action': 'event.publish.error',
+          error_type: 'UnexpectedError',
+        }, 'Erro inesperado ao publicar evento');
+        return reply.status(500).send({ error: 'Erro ao publicar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/cancel
+   * Cancela um evento (muda status para cancelled)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/cancel',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Obter actor_id do usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+        
+        const event = await eventService.cancelEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        // Log estruturado: cancelamento de evento
+        fastify.log.info({
+          tenant_id: req.tenant.id,
+          actor_id: userActor.actor_id,
+          event_id: event.id,
+          'economy.action': 'event.cancelled',
+        }, 'Evento cancelado');
+
+        return reply.status(200).send({ event });
+      } catch (error) {
+        // Log estruturado: erro ao cancelar evento
+        if (error instanceof BadRequestError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.cancel.error',
+            error_type: 'BadRequestError',
+          }, 'Erro ao cancelar evento (validação)');
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.cancel.error',
+            error_type: 'NotFoundError',
+          }, 'Erro ao cancelar evento (não encontrado)');
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            error: error.message,
+            'economy.action': 'event.cancel.error',
+            error_type: 'ForbiddenError',
+          }, 'Erro ao cancelar evento (permissão)');
+          return reply.status(403).send({ error: error.message });
+        }
+        
+        fastify.log.error({
+          tenant_id: req.tenant?.id,
+          event_id: req.params.id,
+          err: error,
+          'economy.action': 'event.cancel.error',
+          error_type: 'UnexpectedError',
+        }, 'Erro inesperado ao cancelar evento');
+        return reply.status(500).send({ error: 'Erro ao cancelar evento' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:id
+   * Busca um evento por ID
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const event = await eventService.getEvent(req.tenant.id, req.params.id);
+
+        if (!event) {
+          return reply.status(404).send({ error: 'Evento não encontrado' });
+        }
+
+        return reply.status(200).send({ event });
+      } catch (error) {
+        fastify.log.error({ err: error }, 'Erro ao buscar evento');
+        return reply.status(500).send({ error: 'Erro ao buscar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/checkout
+   * Processa checkout de ingresso de evento
+   * CONTRATO v1: Executa split, grava ledger, cria attendee
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: {
+      attendee_actor_id: string;
+      quantity?: number;
+    };
+  }>(
+    '/:id/checkout',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['attendee_actor_id'],
+          properties: {
+            attendee_actor_id: { type: 'string', format: 'uuid' },
+            quantity: { type: 'integer', minimum: 1, maximum: 10 },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Obter actor_id do usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        // Validar que attendee_actor_id corresponde ao usuário autenticado
+        // CORREÇÃO: attendee_actor_id pode ser user ou page, precisamos descobrir o tipo
+        const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const actorRepository = socialPortsRegistry.getActorRepository();
+        const attendeeActor = await actorRepository.findById(req.tenant.id, req.body.attendee_actor_id);
+        if (!attendeeActor) {
+          return reply.status(404).send({ error: 'Actor (attendee) não encontrado' });
+        }
+
+        // Validar ownership: se for user, deve ser o user autenticado; se for page, deve pertencer ao user
+        if (attendeeActor.actor_type === 'user' && req.body.attendee_actor_id !== userActor.actor_id) {
+          return reply.status(403).send({ 
+            error: 'attendee_actor_id não corresponde ao usuário autenticado' 
+          });
+        }
+        // TODO: Validar ownership de page (via companies)
+
+        // Verificar débitos pendentes do actor efetivo (CONTRATO v1.4: bloqueia checkout)
+        // CORREÇÃO: Verificar débitos do attendee_actor (pode ser user ou page)
+        const { penaltyService } = await import('@core/reputation/penalty.service');
+        const effectiveActorType = attendeeActor.actor_type as 'user' | 'page';
+        const debtCheck = await penaltyService.hasPendingDebts(
+          req.tenant.id,
+          req.body.attendee_actor_id,
+          effectiveActorType
+        );
+        if (debtCheck.hasDebt) {
+          const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
+          return reply.status(403).send({
+            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
+          });
+        }
+
+        // Rate limiting: checkout
+        const rateLimit = await eventRateLimitService.checkCheckoutRateLimit(
+          req.tenant.id,
+          userActor.actor_id
+        );
+        if (!rateLimit.allowed) {
+          return reply.status(429).send({
+            error: 'Limite de checkout excedido',
+            resetAt: rateLimit.resetAt.toISOString(),
+          });
+        }
+
+        const { eventEconomyService } = await import('./event-economy.service');
+        const result = await eventEconomyService.processCheckout(req.tenant.id, {
+          eventId: req.params.id,
+          attendeeActorId: req.body.attendee_actor_id,
+          quantity: req.body.quantity || 1,
+        });
+
+        // Log estruturado: checkout
+        fastify.log.info({
+          tenant_id: req.tenant.id,
+          actor_id: userActor.actor_id,
+          event_id: result.eventId,
+          attendee_id: result.attendeeId,
+          transaction_id: result.transactionId,
+          total_amount_cents: result.totalAmount,
+          'economy.action': 'event.checkout',
+        }, 'Checkout de evento processado');
+
+        return reply.status(200).send({ 
+          checkout: {
+            event_id: result.eventId,
+            attendee_id: result.attendeeId,
+            transaction_id: result.transactionId,
+            total_amount_cents: result.totalAmount,
+            splits: result.splitResult.splits.map((split) => ({
+              target_type: split.rule.targetType,
+              percentage: split.rule.percentage,
+              amount: split.amount,
+              transaction_id: split.transactionId,
+            })),
+          }
+        });
+      } catch (error) {
+        // Log estruturado: erro ao processar checkout
+        if (error instanceof BadRequestError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            attendee_actor_id: req.body?.attendee_actor_id,
+            error: error.message,
+            'economy.action': 'event.checkout.error',
+            error_type: 'BadRequestError',
+          }, 'Erro ao processar checkout (validação)');
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            attendee_actor_id: req.body?.attendee_actor_id,
+            error: error.message,
+            'economy.action': 'event.checkout.error',
+            error_type: 'NotFoundError',
+          }, 'Erro ao processar checkout (não encontrado)');
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          fastify.log.warn({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            attendee_actor_id: req.body?.attendee_actor_id,
+            error: error.message,
+            'economy.action': 'event.checkout.error',
+            error_type: 'ForbiddenError',
+          }, 'Erro ao processar checkout (permissão)');
+          return reply.status(403).send({ error: error.message });
+        }
+        
+        fastify.log.error({
+          tenant_id: req.tenant?.id,
+          event_id: req.params.id,
+          attendee_actor_id: req.body?.attendee_actor_id,
+          err: error,
+          'economy.action': 'event.checkout.error',
+          error_type: 'UnexpectedError',
+        }, 'Erro inesperado ao processar checkout');
+        return reply.status(500).send({ error: 'Erro ao processar checkout' });
+      }
+    }
+  );
+
+  /**
+   * ============================================================
+   * ROTAS V2 - EVENT DOMAIN MINIMUM CONTRACT
+   * ============================================================
+   * Rotas canônicas para lifecycle mínimo do evento
+   * Sem economia, sem agenda write, sem efeitos externos
+   */
+
+  /**
+   * POST /events/v2/draft
+   * Cria evento em draft (exige actor explícito)
+   */
+  fastify.post<{
+    Body: CreateEventInput;
+  }>(
+    '/v2/draft',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['actor_id', 'actor_type', 'event_type', 'title'],
+          properties: {
+            actor_id: { type: 'string', format: 'uuid' },
+            actor_type: { type: 'string', enum: ['user', 'page'] },
+            event_type: {
+              type: 'string',
+              enum: ['cultural', 'gastronomic', 'social', 'professional', 'community', 'spiritual', 'sports', 'private'],
+            },
+            event_subtype: { type: ['string', 'null'] },
+            title: { type: 'string', minLength: 1, maxLength: 255 },
+            description: { type: ['string', 'null'] },
+            datetime_start: { type: ['string', 'null'], format: 'date-time' },
+            datetime_end: { type: ['string', 'null'], format: 'date-time' },
+            visibility: {
+              type: 'string',
+              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+            },
+            ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
+            max_attendees: { type: ['integer', 'null'], minimum: 1 },
+            metadata: { type: ['object', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        // Validar que actor_id corresponde ao usuário autenticado
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        // Obter actor do usuário autenticado
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        // Validar que actor_id do input corresponde ao actor do usuário autenticado
+        if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
+          return reply.status(403).send({ 
+            error: 'actor_id não corresponde ao usuário autenticado' 
+          });
+        }
+
+        // V2: responsible_actor obrigatório (exigido explicitamente)
+        const event = await eventService.createDraftEvent(req.tenant.id, req.body);
+
+        return reply.status(201).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao criar draft de evento');
+        return reply.status(500).send({ error: 'Erro interno ao criar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/declare
+   * Declara evento (draft -> declared)
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: DeclareEventInput;
+  }>(
+    '/:id/v2/declare',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['title', 'visibility'],
+          properties: {
+            title: { type: 'string', minLength: 1, maxLength: 255 },
+            description: { type: ['string', 'null'] },
+            event_aspects: { type: ['array', 'null'], items: { type: 'string' } },
+            visibility: {
+              type: 'string',
+              enum: ['public', 'group', 'followers', 'private', 'unlisted'],
+            },
+            intent_flags: { type: ['array', 'null'], items: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventService.declareEvent(
+          req.tenant.id,
+          req.params.id,
+          req.body,
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao declarar evento');
+        return reply.status(500).send({ error: 'Erro interno ao declarar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/publish
+   * Publica evento (declared -> published)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/publish',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventService.publishEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao publicar evento');
+        return reply.status(500).send({ error: 'Erro interno ao publicar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/activate
+   * Ativa evento (published -> active)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/activate',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventService.activateEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao ativar evento');
+        return reply.status(500).send({ error: 'Erro interno ao ativar evento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/end
+   * Encerra evento (active -> ended)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/end',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventService.endEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao encerrar evento');
+        return reply.status(500).send({ error: 'Erro interno ao encerrar evento' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:id/v2/availability-rich
+   * Availability Rich Query por event_id (READ-ONLY, INFORMACIONAL)
+   * EVENT_DOMAIN_MINIMUM_CONTRACT FASE 3
+   * 
+   * Analisa disponibilidade para cada janela declarada usando Agenda Universal.
+   * Sem escrita. Sem mudança de estado. Apenas informação.
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/availability-rich',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const richAvailability = await eventService.getEventAvailabilityRich(
+          req.tenant.id,
+          req.params.id
+        );
+
+        return reply.status(200).send({ availability: richAvailability });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao consultar rich availability do evento');
+        return reply.status(500).send({ error: 'Erro interno ao consultar rich availability' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:id/v2/availability
+   * Consulta disponibilidade do evento na Agenda Universal (READ-ONLY)
+   * EVENT_DOMAIN_MINIMUM_CONTRACT FASE 2
+   */
+  fastify.get<{
+    Params: { id: string };
+    Querystring: {
+      start?: string;
+      end?: string;
+      city_id?: string;
+    };
+  }>(
+    '/:id/v2/availability',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            start: { type: 'string', format: 'date-time' },
+            end: { type: 'string', format: 'date-time' },
+            city_id: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const availability = await eventService.getEventAvailability(
+          req.tenant.id,
+          req.params.id,
+          {
+            datetime_start: req.query.start,
+            datetime_end: req.query.end,
+            location_context: req.query.city_id ? { city_id: req.query.city_id } : undefined,
+          }
+        );
+
+        return reply.status(200).send({ availability });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao consultar disponibilidade do evento');
+        return reply.status(500).send({ error: 'Erro interno ao consultar disponibilidade' });
+      }
+    }
+  );
+
+  /**
+   * ============================================================
+   * ROTAS V2 - OPERATIONAL COMMITMENTS (FASE 4: sem economia)
+   * ============================================================
+   */
+
+  /**
+   * POST /events/:id/v2/commitments
+   * Cria OperationalCommitment para um evento
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: Omit<CreateOperationalCommitmentInput, 'event_id'>;
+  }>(
+    '/:id/v2/commitments',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['responsible_actor_id', 'responsible_actor_type', 'role'],
+          properties: {
+            responsible_actor_id: { type: 'string', format: 'uuid' },
+            responsible_actor_type: { type: 'string', enum: ['user', 'page', 'group', 'channel'] },
+            role: { type: 'string' },
+            time_window_ref: {
+              type: ['object', 'null'],
+              properties: {
+                start_datetime: { type: 'string', format: 'date-time' },
+                end_datetime: { type: 'string', format: 'date-time' },
+                timezone: { type: ['string', 'null'] },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const commitment = await operationalCommitmentsService.createCommitment(
+          req.tenant.id,
+          {
+            event_id: req.params.id,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ commitment });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao criar commitment');
+        return reply.status(500).send({ error: 'Erro interno ao criar commitment' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:id/v2/commitments
+   * Lista OperationalCommitments de um evento
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/commitments',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const commitments = await operationalCommitmentsService.listCommitmentsByEvent(
+          req.tenant.id,
+          req.params.id
+        );
+
+        return reply.status(200).send({ commitments });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao listar commitments');
+        return reply.status(500).send({ error: 'Erro interno ao listar commitments' });
+      }
+    }
+  );
+
+  /**
+   * POST /commitments/:id/v2/check-in
+   * Check-in de OperationalCommitment
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: CheckInInput;
+  }>(
+    '/commitments/:id/v2/check-in',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          properties: {
+            observed_at: { type: ['string', 'null'], format: 'date-time' },
+            observed_by_actor_id: { type: ['string', 'null'], format: 'uuid' },
+            observed_by_actor_type: { type: ['string', 'null'], enum: ['user', 'page', 'group', 'channel'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const commitment = await operationalCommitmentsService.checkIn(
+          req.tenant.id,
+          req.params.id,
+          req.body
+        );
+
+        return reply.status(200).send({ commitment });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao fazer check-in');
+        return reply.status(500).send({ error: 'Erro interno ao fazer check-in' });
+      }
+    }
+  );
+
+  /**
+   * POST /commitments/:id/v2/check-out
+   * Check-out de OperationalCommitment
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: CheckOutInput;
+  }>(
+    '/commitments/:id/v2/check-out',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          properties: {
+            observed_at: { type: ['string', 'null'], format: 'date-time' },
+            observed_by_actor_id: { type: ['string', 'null'], format: 'uuid' },
+            observed_by_actor_type: { type: ['string', 'null'], enum: ['user', 'page', 'group', 'channel'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const commitment = await operationalCommitmentsService.checkOut(
+          req.tenant.id,
+          req.params.id,
+          req.body
+        );
+
+        return reply.status(200).send({ commitment });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao fazer check-out');
+        return reply.status(500).send({ error: 'Erro interno ao fazer check-out' });
+      }
+    }
+  );
+
+  /**
+   * POST /commitments/:id/v2/fail
+   * Marca OperationalCommitment como failed
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: MarkFailedInput;
+  }>(
+    '/commitments/:id/v2/fail',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['failure_reason'],
+          properties: {
+            failure_reason: { type: 'string' },
+            observed_at: { type: ['string', 'null'], format: 'date-time' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const commitment = await operationalCommitmentsService.markFailed(
+          req.tenant.id,
+          req.params.id,
+          req.body
+        );
+
+        return reply.status(200).send({ commitment });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao marcar como failed');
+        return reply.status(500).send({ error: 'Erro interno ao marcar como failed' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/cancel
+   * Cancela evento (* -> cancelled, exceto ended)
+   */
+  fastify.post<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/cancel',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventService.cancelEvent(
+          req.tenant.id,
+          req.params.id,
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao cancelar evento');
+        return reply.status(500).send({ error: 'Erro interno ao cancelar evento' });
+      }
+    }
+  );
+
+  /**
+   * ============================================================
+   * ROTAS V2 - EVENT CREATION ORCHESTRATION (FASE 5.0)
+   * ============================================================
+   */
+
+  /**
+   * POST /events/v2/create
+   * Cria ou avança um RASCUNHO
+   * Nunca "evento final"
+   * Nunca confirma nada
+   */
+  fastify.post<{
+    Body: CreateDraftInput;
+  }>(
+    '/v2/create',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            event: {
+              type: 'object',
+              properties: {
+                actor_id: { type: 'string', format: 'uuid' },
+                actor_type: { type: 'string', enum: ['user', 'page'] },
+                event_type: { type: 'string' },
+                title: { type: 'string' },
+                description: { type: ['string', 'null'] },
+                datetime_start: { type: ['string', 'null'], format: 'date-time' },
+                datetime_end: { type: ['string', 'null'], format: 'date-time' },
+                visibility: { type: 'string', enum: ['public', 'group', 'followers', 'private', 'unlisted'] },
+                max_attendees: { type: ['number', 'null'] },
+              },
+            },
+            event_id: { type: ['string', 'null'], format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventCreationOrchestrator.createOrAdvanceDraft(
+          req.tenant.id,
+          userActor.actor_id,
+          req.body
+        );
+
+        return reply.status(200).send({ 
+          event: {
+            ...event,
+            responsible_actor_id: event.responsible_actor_id || event.actor_id,
+            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+          }
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao criar ou avançar rascunho');
+        return reply.status(500).send({ error: 'Erro interno ao criar ou avançar rascunho' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:id/v2/time-windows
+   * Define as janelas de tempo desejadas para o evento
+   * Atualiza a EventDeclaration
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: Omit<SetTimeWindowsInput, 'event_id'>;
+  }>(
+    '/:id/v2/time-windows',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          properties: {
+            desired_time_windows: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['start_datetime', 'end_datetime'],
+                properties: {
+                  start_datetime: { type: 'string', format: 'date-time' },
+                  end_datetime: { type: 'string', format: 'date-time' },
+                  timezone: { type: ['string', 'null'] },
+                },
+              },
+            },
+            flexibility_level: { type: ['string', 'null'], enum: ['strict', 'flexible', 'very_flexible'] },
+            timezone: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const event = await eventCreationOrchestrator.setTimeWindows(
+          req.tenant.id,
+          {
+            event_id: req.params.id,
+            ...req.body,
+          },
+          userActor.actor_id
+        );
+
+        return reply.status(200).send({ event });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao definir janelas de tempo');
+        return reply.status(500).send({ error: 'Erro interno ao definir janelas de tempo' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:id/v2/summary
+   * Agrega estado declarativo completo
+   * Apenas leitura
+   * Nenhum side-effect
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/:id/v2/summary',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const summary = await eventCreationOrchestrator.getSummary(
+          req.tenant.id,
+          req.params.id
+        );
+
+        return reply.status(200).send({ summary });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao obter resumo do evento');
+        return reply.status(500).send({ error: 'Erro interno ao obter resumo do evento' });
+      }
+    }
+  );
+
+  /**
+   * ============================================================
+   * ROTAS V2 - ENDPOINTS ECONÔMICOS (FASE 6.0)
+   * FASE_6_ENDPOINTS_ECONOMICOS_V2.md
+   * ============================================================
+   * 
+   * 🔴 REGRAS ABSOLUTAS:
+   * - Nenhum endpoint executa sem evento explícito
+   * - Nenhum endpoint executa sem autorização explícita
+   * - Nenhum endpoint cria efeito colateral silencioso
+   * - Nenhum endpoint combina autorização + execução
+   * 
+   * Base path: /events/:eventId/economic/v2
+   */
+
+  /**
+   * POST /events/:eventId/economic/v2/advance
+   * Executar handoff da Fase 5.0 → Fase 6.0
+   * Emite: event.advance_to_economic_phase
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<AdvanceToEconomicPhaseInput, 'event_id'>;
+  }>(
+    '/:eventId/economic/v2/advance',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['user_authorization', 'terms_accepted'],
+          properties: {
+            user_authorization: { type: 'boolean' },
+            terms_accepted: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        await eventEconomicPhaseService.advanceToEconomicPhase(
+          req.tenant.id,
+          userActor.actor_id,
+          {
+            event_id: req.params.eventId,
+            ...req.body,
+          }
+        );
+
+        return reply.status(200).send({ 
+          message: 'Handoff para fase econômica executado. Evento emitido: event.advance_to_economic_phase',
+          event_id: req.params.eventId,
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao executar handoff para fase econômica');
+        return reply.status(500).send({ error: 'Erro interno ao executar handoff' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/custody
+   * Criar custódia
+   * Emite: event.custody.created
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<CreateCustodyInput, 'event_id'>;
+  }>(
+    '/:eventId/economic/v2/custody',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['amount_cents', 'currency', 'economic_owner_id', 'economic_owner_type', 'purpose'],
+          properties: {
+            amount_cents: { type: 'number', minimum: 1 },
+            currency: { type: 'string' },
+            economic_owner_id: { type: 'string', format: 'uuid' },
+            economic_owner_type: { type: 'string', enum: ['user', 'page', 'group', 'channel'] },
+            release_conditions: {
+              type: 'object',
+              properties: {
+                event_completed: { type: 'boolean' },
+                payment_authorized: { type: 'boolean' },
+                cancellation_approved: { type: 'boolean' },
+                manual_release: { type: 'boolean' },
+              },
+            },
+            purpose: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const custody = await eventCustodyService.createCustody(
+          req.tenant.id,
+          {
+            event_id: req.params.eventId,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ 
+          custody,
+          message: 'Custódia criada. Evento emitido: event.custody.created',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao criar custódia');
+        return reply.status(500).send({ error: 'Erro interno ao criar custódia' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:eventId/economic/v2/custody
+   * Retorna estado atual da custódia (read-only)
+   */
+  fastify.get<{
+    Params: { eventId: string };
+  }>(
+    '/:eventId/economic/v2/custody',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const custodies = await eventCustodyService.listCustodiesByEvent(
+          req.tenant.id,
+          req.params.eventId
+        );
+
+        return reply.status(200).send({ custodies });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao listar custódias');
+        return reply.status(500).send({ error: 'Erro interno ao listar custódias' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/split
+   * Calcular split declarativo
+   * Emite: event.split.calculated
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<CalculateSplitInput, 'event_id'>;
+  }>(
+    '/:eventId/economic/v2/split',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['custody_id', 'parts'],
+          properties: {
+            custody_id: { type: 'string', format: 'uuid' },
+            parts: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['target_id', 'target_type', 'amount_cents', 'percentage', 'role'],
+                properties: {
+                  target_id: { type: 'string' },
+                  target_type: { type: 'string', enum: ['user', 'page', 'group', 'channel', 'account'] },
+                  amount_cents: { type: 'number', minimum: 0 },
+                  percentage: { type: 'number', minimum: 0, maximum: 100 },
+                  role: { type: 'string' },
+                },
+              },
+            },
+            rules_version: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const split = await eventSplitDeclarativeService.calculateSplit(
+          req.tenant.id,
+          {
+            event_id: req.params.eventId,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ 
+          split,
+          message: 'Split calculado. Evento emitido: event.split.calculated',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao calcular split');
+        return reply.status(500).send({ error: 'Erro interno ao calcular split' });
+      }
+    }
+  );
+
+  /**
+   * GET /events/:eventId/economic/v2/split
+   * Retorna split atual (read-only)
+   */
+  fastify.get<{
+    Params: { eventId: string };
+  }>(
+    '/:eventId/economic/v2/split',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const splits = await eventSplitDeclarativeService.listSplitsByEvent(
+          req.tenant.id,
+          req.params.eventId
+        );
+
+        return reply.status(200).send({ splits });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao listar splits');
+        return reply.status(500).send({ error: 'Erro interno ao listar splits' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/payment/authorize
+   * Autorizar pagamento
+   * Emite: event.payment.authorized
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<AuthorizePaymentInput, 'event_id'>;
+  }>(
+    '/:eventId/economic/v2/payment/authorize',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['custody_id', 'split_id', 'user_authorization'],
+          properties: {
+            custody_id: { type: 'string', format: 'uuid' },
+            split_id: { type: 'string', format: 'uuid' },
+            user_authorization: { type: 'boolean' },
+            authorization_reason: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const authorization = await eventPaymentPreparedService.authorizePayment(
+          req.tenant.id,
+          userActor.actor_id,
+          {
+            event_id: req.params.eventId,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ 
+          authorization,
+          message: 'Pagamento autorizado. Evento emitido: event.payment.authorized',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao autorizar pagamento');
+        return reply.status(500).send({ error: 'Erro interno ao autorizar pagamento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/payment/revoke
+   * Revoga autorização antes da execução
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: { authorization_id: string; reason?: string };
+  }>(
+    '/:eventId/economic/v2/payment/revoke',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['authorization_id'],
+          properties: {
+            authorization_id: { type: 'string', format: 'uuid' },
+            reason: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        const authorization = await eventPaymentPreparedService.revokeAuthorization(
+          req.tenant.id,
+          req.body.authorization_id,
+          req.body.reason || 'Autorização revogada pelo usuário'
+        );
+
+        return reply.status(200).send({ 
+          authorization,
+          message: 'Autorização revogada',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao revogar autorização');
+        return reply.status(500).send({ error: 'Erro interno ao revogar autorização' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/payment/execute
+   * Executar pagamento real
+   * Emite: event.payment.executed
+   * 
+   * 🔴 NOTA: Este endpoint deve chamar serviço de execução REAL (se existir).
+   * Por enquanto, apenas valida e emite evento.
+   * Execução real será implementada em fase posterior.
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: { authorization_id: string; confirmation: boolean };
+  }>(
+    '/:eventId/economic/v2/payment/execute',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['authorization_id', 'confirmation', 'sandbox_mode'],
+          properties: {
+            authorization_id: { type: 'string', format: 'uuid' },
+            confirmation: { type: 'boolean' },
+            sandbox_mode: { type: 'boolean' }, // OBRIGATÓRIO: true para SANDBOX
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.body.confirmation) {
+          return reply.status(400).send({ error: 'Confirmação explícita é obrigatória' });
+        }
+
+        if (req.body.sandbox_mode !== true) {
+          return reply.status(400).send({ 
+            error: 'sandbox_mode=true é obrigatório. Nenhum dinheiro real será movido.',
+          });
+        }
+
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        // Verificar se há chargeback que congela execuções
+        const hasFrozen = await eventRefundChargebackService.hasFrozenExecutions(
+          req.tenant.id,
+          req.params.eventId
+        );
+        if (hasFrozen) {
+          return reply.status(403).send({ 
+            error: 'Execuções congeladas devido a chargeback ativo',
+          });
+        }
+
+        // Buscar autorização
+        const authorization = await eventPaymentPreparedService.getAuthorization(
+          req.tenant.id,
+          req.body.authorization_id
+        );
+        if (!authorization) {
+          return reply.status(404).send({ error: 'Autorização não encontrada' });
+        }
+        if (authorization.event_id !== req.params.eventId) {
+          return reply.status(400).send({ error: 'Autorização não pertence ao evento' });
+        }
+        if (authorization.status !== 'authorized') {
+          return reply.status(400).send({ 
+            error: `Autorização não está autorizada (status: ${authorization.status})`,
+          });
+        }
+
+        // Executar pagamento real (SANDBOX)
+        const { eventPaymentExecutionService } = await import('./event-payment-execution.service');
+        const execution = await eventPaymentExecutionService.executePayment(
+          req.tenant.id,
+          {
+            event_id: req.params.eventId,
+            authorization_id: req.body.authorization_id,
+            executed_by_actor_id: userActor.actor_id,
+            sandbox_mode: true, // 🔴 OBRIGATÓRIO: sempre true por enquanto
+          }
+        );
+
+        return reply.status(200).send({ 
+          execution,
+          message: 'Pagamento executado em modo SANDBOX. Evento emitido: event.payment.executed',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        if (error instanceof ForbiddenError) {
+          return reply.status(403).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao executar pagamento');
+        return reply.status(500).send({ error: 'Erro interno ao executar pagamento' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/refund
+   * Solicitar estorno
+   * Emite: event.refund.requested
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<RequestRefundInput, 'event_id' | 'requested_by_actor_id'>;
+  }>(
+    '/:eventId/economic/v2/refund',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['custody_id', 'refund_type', 'reason'],
+          properties: {
+            custody_id: { type: 'string', format: 'uuid' },
+            refund_type: { type: 'string', enum: ['full', 'partial', 'chargeback', 'cancellation'] },
+            amount_cents: { type: ['number', 'null'] },
+            reason: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const refund = await eventRefundChargebackService.requestRefund(
+          req.tenant.id,
+          {
+            event_id: req.params.eventId,
+            requested_by_actor_id: userActor.actor_id,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ 
+          refund,
+          message: 'Estorno solicitado. Evento emitido: event.refund.requested',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao solicitar estorno');
+        return reply.status(500).send({ error: 'Erro interno ao solicitar estorno' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/chargeback
+   * Iniciar chargeback externo
+   * Emite: event.chargeback.initiated
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: Omit<InitiateChargebackInput, 'event_id' | 'initiated_by_actor_id'>;
+  }>(
+    '/:eventId/economic/v2/chargeback',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['custody_id', 'amount_cents', 'reason'],
+          properties: {
+            custody_id: { type: 'string', format: 'uuid' },
+            amount_cents: { type: 'number', minimum: 1 },
+            external_reference: { type: ['string', 'null'] },
+            reason: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const chargeback = await eventRefundChargebackService.initiateChargeback(
+          req.tenant.id,
+          {
+            event_id: req.params.eventId,
+            initiated_by_actor_id: userActor.actor_id,
+            ...req.body,
+          }
+        );
+
+        return reply.status(201).send({ 
+          chargeback,
+          message: 'Chargeback iniciado. Evento emitido: event.chargeback.initiated. Execuções congeladas.',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao iniciar chargeback');
+        return reply.status(500).send({ error: 'Erro interno ao iniciar chargeback' });
+      }
+    }
+  );
+
+  /**
+   * POST /events/:eventId/economic/v2/chargeback/resolve
+   * Resolver chargeback
+   * Emite: event.chargeback.resolved
+   */
+  fastify.post<{
+    Params: { eventId: string };
+    Body: { chargeback_id: string; resolution: 'approved' | 'rejected'; resolution_reason?: string };
+  }>(
+    '/:eventId/economic/v2/chargeback/resolve',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['eventId'],
+          properties: {
+            eventId: { type: 'string', format: 'uuid' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['chargeback_id', 'resolution'],
+          properties: {
+            chargeback_id: { type: 'string', format: 'uuid' },
+            resolution: { type: 'string', enum: ['approved', 'rejected'] },
+            resolution_reason: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!req.user) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
+      }
+
+      try {
+        if (!req.user.globalUserId) {
+          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        }
+
+        const userActor = await getAuthenticatedUserActor(
+          req.tenant.id,
+          req.user.globalUserId
+        );
+
+        const chargeback = await eventRefundChargebackService.resolveChargeback(
+          req.tenant.id,
+          req.body.chargeback_id,
+          userActor.actor_id,
+          req.body.resolution,
+          req.body.resolution_reason
+        );
+
+        return reply.status(200).send({ 
+          chargeback,
+          message: 'Chargeback resolvido. Evento emitido: event.chargeback.resolved',
+        });
+      } catch (error) {
+        if (error instanceof BadRequestError) {
+          return reply.status(400).send({ error: error.message });
+        }
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message });
+        }
+        fastify.log.error({ err: error }, 'Erro ao resolver chargeback');
+        return reply.status(500).send({ error: 'Erro interno ao resolver chargeback' });
+      }
+    }
+  );
+};
+
+export default eventRoutes;
+

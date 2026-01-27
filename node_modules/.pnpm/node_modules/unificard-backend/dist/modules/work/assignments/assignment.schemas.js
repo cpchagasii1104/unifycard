@@ -58,4 +58,3 @@ exports.completeAssignmentBodySchema = zod_1.z.object({
     punctualityRating: zod_1.z.number().min(1).max(5).optional(),
     professionalismRating: zod_1.z.number().min(1).max(5).optional(),
 });
-//# sourceMappingURL=assignment.schemas.js.map

@@ -33,4 +33,3 @@ class WorkInsightsService {
     }
 }
 exports.workInsightsService = new WorkInsightsService();
-//# sourceMappingURL=work-insights.service.js.map

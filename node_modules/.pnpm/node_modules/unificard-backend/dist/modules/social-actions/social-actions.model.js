@@ -46,4 +46,3 @@ class SocialActionsModel {
     }
 }
 exports.SocialActionsModel = SocialActionsModel;
-//# sourceMappingURL=social-actions.model.js.map

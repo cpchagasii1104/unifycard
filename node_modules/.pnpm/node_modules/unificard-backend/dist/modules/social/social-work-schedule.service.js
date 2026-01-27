@@ -6,7 +6,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.socialWorkScheduleService = void 0;
 const social_work_service_1 = require("./social-work.service");
-const schedule_service_1 = require("../schedule/schedule.service");
+// REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+// import { scheduleService } from '../schedule/schedule.service';
 const pool_1 = require("@core/database/pool");
 class SocialWorkScheduleService {
     /**
@@ -44,36 +45,53 @@ class SocialWorkScheduleService {
         if (!providerGlobalUserId) {
             throw new Error('Provider global user ID not found');
         }
+        // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+        // TODO: Migrar para unifiedAvailabilityService quando necessário
+        throw new Error('Schedule functionality temporarily disabled - migration to Unified Availability pending');
+        /* CÓDIGO REMOVIDO:
         // 3. Criar ou buscar schedule do provider
-        const schedule = await schedule_service_1.scheduleService.getOrCreateUserSchedule(tenantId, providerGlobalUserId);
+        const schedule = await scheduleService.getOrCreateUserSchedule(
+          tenantId,
+          providerGlobalUserId
+        );
+    
         // 4. Resolver global_user_id do customer (quem está agendando)
         const customerGlobalUserId = await this.resolveGlobalUserId(tenantId, customerUserId);
         if (!customerGlobalUserId) {
-            throw new Error('Customer global user ID not found');
+          throw new Error('Customer global user ID not found');
         }
+    
         // 5. Adicionar slot como disponível primeiro
-        const slot = await schedule_service_1.scheduleService.addSlot(tenantId, schedule.scheduleId, {
-            startTime,
-            endTime,
-            status: 'available',
-            metadata: {
-                source: 'social_post',
-                postId,
-                jobId: job.jobId,
-                customerUserId,
-                providerUserId: job.clientUserId,
-            },
+        const slot = await scheduleService.addSlot(tenantId, schedule.scheduleId, {
+          startTime,
+          endTime,
+          status: 'available',
+          metadata: {
+            source: 'social_post',
+            postId,
+            jobId: job.jobId,
+            customerUserId,
+            providerUserId: job.clientUserId,
+          },
         });
+    
         // 6. Reservar o slot imediatamente para o customer
-        const reservedSlot = await schedule_service_1.scheduleService.reserveSlot(tenantId, schedule.scheduleId, {
+        const reservedSlot = await scheduleService.reserveSlot(
+          tenantId,
+          schedule.scheduleId,
+          {
             slotId: slot.slotId,
             metadata: {
-                source: 'social_post',
-                postId,
-                jobId: job.jobId,
+              source: 'social_post',
+              postId,
+              jobId: job.jobId,
             },
-        }, customerGlobalUserId);
+          },
+          customerGlobalUserId
+        );
+    
         return reservedSlot;
+        */
     }
     /**
      * Lista agendamentos (slots reservados) vinculados ao job do post
@@ -89,23 +107,30 @@ class SocialWorkScheduleService {
         if (!providerGlobalUserId) {
             return [];
         }
+        // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+        // TODO: Migrar para unifiedAvailabilityService quando necessário
+        return [];
+        /* CÓDIGO REMOVIDO:
         // 3. Buscar schedule do provider
-        const schedule = await schedule_service_1.scheduleService.getScheduleByUser(tenantId, providerGlobalUserId);
+        const schedule = await scheduleService.getScheduleByUser(tenantId, providerGlobalUserId);
         if (!schedule) {
-            return [];
+          return [];
         }
+    
         // 4. Buscar slots do schedule que estão vinculados ao job
-        const scheduleWithSlots = await schedule_service_1.scheduleService.getScheduleWithSlots(tenantId, schedule.scheduleId);
+        const scheduleWithSlots = await scheduleService.getScheduleWithSlots(tenantId, schedule.scheduleId);
         if (!scheduleWithSlots || !scheduleWithSlots.slots) {
-            return [];
+          return [];
         }
+    
         // 5. Filtrar slots que têm jobId no metadata
-        const jobSlots = scheduleWithSlots.slots.filter((slot) => {
-            const metadata = slot.metadata || {};
-            return metadata.jobId === job.jobId || metadata.postId === postId;
+        const jobSlots = scheduleWithSlots.slots.filter((slot: ScheduleSlot) => {
+          const metadata = slot.metadata || {};
+          return metadata.jobId === job.jobId || metadata.postId === postId;
         });
+    
         return jobSlots;
+        */
     }
 }
 exports.socialWorkScheduleService = new SocialWorkScheduleService();
-//# sourceMappingURL=social-work-schedule.service.js.map

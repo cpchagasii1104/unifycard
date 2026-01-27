@@ -89,4 +89,3 @@ exports.listWorkersQuerySchema = zod_1.z.object({
         .transform((v) => (v === undefined ? undefined : Number.parseInt(v, 10)))
         .refine((v) => v === undefined || (!Number.isNaN(v) && v >= 0), 'offset must be >= 0'),
 });
-//# sourceMappingURL=worker.schemas.js.map

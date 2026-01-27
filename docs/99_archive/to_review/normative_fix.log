@@ -1,0 +1,95 @@
+2026-01-22 08:16:25 | Normalization completed.
+2026-01-22 08:51:50 | Starting normalization (DryRun=False)
+2026-01-22 08:51:50 | NON-NORMATIVE detected: CANONICAL_CONTEXT_FOR_AI.md
+2026-01-22 08:51:50 |   -> Adding NON-NORMATIVE header
+2026-01-22 08:51:50 |   -> Moving to 04_guides
+2026-01-22 08:51:50 | Missing header: CAPACIDADES_ACTOR_CONTRATO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CONGELAMENTO_BASE_UNIFICARD.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: contrato_canonico_de_limites_tecnicos_irreversiveis_unifi_card.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CONTRATO_FEED_MATCHING_UNIFICARD.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CONTRATO_GRUPOS_V1.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | NON-NORMATIVE detected: CONTRATOS_OBSERVABILIDADE_RESUMO.md
+2026-01-22 08:51:50 |   -> Adding NON-NORMATIVE header
+2026-01-22 08:51:50 |   -> Moving to 04_guides
+2026-01-22 08:51:50 | Missing header: CORE_APROVACAO_FINANCEIRA_CANONICO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=Financial Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CORE_ESTORNOS_FINANCEIROS_CANONICO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=Financial Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=Financial Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CORE_TEMPORAL_HARDENING_CONTRACT.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: CORE_VS_MODULOS_CONTRACT.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=CORE Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: DOCUMENTO_INSTITUCIONAL_CANONICO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:50 | Missing header: EFFECTS_ACTOR_CONTRATO.md
+2026-01-22 08:51:50 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: EMPRESA_NASCIMENTO_CANONICO.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: Eventos_Canonicos_de_Formacao_UnifiCard.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: FASE_6_1_CONTRATO_UX_ECONOMICA.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: GAPS_PROCESSADO_CANONICO.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: GLOSSARIO_CANONICO.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: GO_LIVE_PRODUCAO_UNIFICARD.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: GOVERNANCA_CANONICA.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: GOVERNANCA_INICIAL.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: groups-create-contract.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: HARDENING_CYCLE_CLOSURE.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: IDENTITY_CORE_CONTRACT.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=Identity Governing=CORE_IDENTITY_AND_ACTORS_CONTRACT.md
+2026-01-22 08:51:51 | Missing header: INTENTS_ACTOR_CONTRATO.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: LEGADO_TEMPORAL_MIGRATION_PLAN.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: MAPA_CANONICO_PERMISSIONS_v1_20260122-073046.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: MAPA_CANONICO_PERMISSIONS_v1.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: Marketplace_Atributos_Canonicos.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: MASTER PLAN — AGENDA UNIVERSAL, UX TEMPORAL E GOVERNANÇA.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: MATRIZ_FONTES_DE_VERDADE.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:51 | Missing header: OBSERVABILIDADE_CONSTITUCIONAL.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=Observability Governing=CORE_OBSERVABILITY_CONTRACT.md
+2026-01-22 08:51:51 | Missing header: operational_commitment_minimum_contract.md
+2026-01-22 08:51:51 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: PADRAO_FRONTEND_CANONICO.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: PF_PRESTADOR_CANONICO.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: PROCESSAMENTO_GAPS_CANONICO.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: PROCESSO_OFICIAL_EVOLUCAO_UNIFICARD.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: READ_MODELS_CONTRATO.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: SERVICE_CANONICO.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: USER_PROFILE_CONTRACT_20260122-071728.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Missing header: USER_PROFILE_CONTRACT.md
+2026-01-22 08:51:52 |   -> Inserting header: Status=SUBORDINATED Domain=UNKNOWN Governing=CORE_IMUTAVEL.md
+2026-01-22 08:51:52 | Normalization completed.

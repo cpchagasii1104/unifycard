@@ -80,4 +80,3 @@ async function getWorkPatterns(userId) {
         mostFrequentJobTypes,
     };
 }
-//# sourceMappingURL=work.insights.js.map

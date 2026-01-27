@@ -23,4 +23,3 @@ exports.listReviewsQuerySchema = zod_1.z.object({
     limit: zod_1.z.string().transform(v => (v ? parseInt(v, 10) : 50)).optional(),
     offset: zod_1.z.string().transform(v => (v ? parseInt(v, 10) : 0)).optional(),
 });
-//# sourceMappingURL=review.schemas.js.map

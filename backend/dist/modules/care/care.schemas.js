@@ -9,4 +9,3 @@ exports.sendMessageSchema = zod_1.z.object({
     targetCompanyId: zod_1.z.string().uuid('ID da empresa alvo inválido').nullable().optional(),
     sessionId: zod_1.z.string().uuid('ID da sessão inválido').nullable().optional(),
 });
-//# sourceMappingURL=care.schemas.js.map

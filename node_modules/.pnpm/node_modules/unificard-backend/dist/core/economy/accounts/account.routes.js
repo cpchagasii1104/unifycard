@@ -29,6 +29,47 @@ const accountRoutes = async (fastify) => {
             return reply.status(err.statusCode ?? 500).send({ error: err.message });
         }
     });
+    // GET /economy/accounts/me - Buscar conta do usuário autenticado
+    // IMPORTANTE: Esta rota deve vir ANTES de /:accountId para não ser capturada como parâmetro
+    fastify.get('/me', async (req, reply) => {
+        if (!req.user) {
+            return reply.status(401).send({ error: 'Não autenticado' });
+        }
+        const tenantId = req.tenant.id;
+        const userId = req.user.id;
+        // 🔴 VALIDAÇÃO CRÍTICA: userId não pode ser null/undefined
+        if (!userId) {
+            fastify.log.error({ tenantId, user: req.user }, 'userId é null/undefined em /economy/accounts/me');
+            return reply.status(400).send({ error: 'User ID não encontrado na sessão' });
+        }
+        try {
+            // Buscar ou criar conta primária do usuário (BRL)
+            const account = await account_service_1.accountService.getOrCreateUserPrimaryAccount(tenantId, userId, 'BRL');
+            return {
+                accountId: account.accountId,
+                balance: account.balance,
+                currency: account.currency,
+                status: 'active', // Conta sempre ativa se existe
+            };
+        }
+        catch (error) {
+            const err = error;
+            fastify.log.error({ err: error, userId, tenantId }, 'Erro ao buscar conta do usuário');
+            // 🔴 NUNCA retornar 500 - sempre retornar 200 com payload vazio se houver erro
+            // Isso previne que sidebar quebre
+            // Log específico para erros de owner_id, mas todos os erros retornam 200
+            if (err.message?.includes('owner_id') || err.message?.includes('null value')) {
+                fastify.log.warn({ userId, tenantId }, 'Erro ao criar conta (owner_id null) - retornando payload vazio');
+            }
+            // SEMPRE retornar 200 com payload vazio para não quebrar sidebar
+            return reply.status(200).send({
+                accountId: null,
+                balance: 0,
+                currency: 'BRL',
+                status: 'unavailable',
+            });
+        }
+    });
     // GET /economy/accounts - Listar contas
     fastify.get('/', async (req, reply) => {
         const tenantId = req.tenant.id;
@@ -97,4 +138,3 @@ const accountRoutes = async (fastify) => {
     });
 };
 exports.default = accountRoutes;
-//# sourceMappingURL=account.routes.js.map

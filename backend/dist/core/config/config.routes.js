@@ -172,4 +172,3 @@ const configRoutes = async (fastify) => {
     });
 };
 exports.default = configRoutes;
-//# sourceMappingURL=config.routes.js.map

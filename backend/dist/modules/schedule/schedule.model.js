@@ -75,4 +75,3 @@ class ScheduleSlotModel {
     }
 }
 exports.ScheduleSlotModel = ScheduleSlotModel;
-//# sourceMappingURL=schedule.model.js.map

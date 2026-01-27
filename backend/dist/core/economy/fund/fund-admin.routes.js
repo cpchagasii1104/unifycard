@@ -8,10 +8,10 @@ const fundAdminRoutes = async (fastify) => {
     /**
      * GET /fund/admin/regions
      * Lista todas as regiões com dados agregados do fundo
-     * Requer permissão: economy:accounts:read (admin)
+     * Requer permissão: admin:view_fund_reports (admin)
      */
     fastify.get('/regions', {
-        preHandler: [fastify.requirePermission(['economy:accounts:read'])],
+        preHandler: [fastify.requirePermission(['admin:view_fund_reports'])],
     }, async (req, reply) => {
         const tenantId = req.tenant.id;
         const regions = await fund_admin_service_1.fundAdminService.listAllRegions(tenantId);
@@ -20,10 +20,10 @@ const fundAdminRoutes = async (fastify) => {
     /**
      * GET /fund/admin/export?format=csv|json
      * Exporta dados do fundo por região
-     * Requer permissão: economy:accounts:read (admin)
+     * Requer permissão: admin:view_fund_reports (admin)
      */
     fastify.get('/export', {
-        preHandler: [fastify.requirePermission(['economy:accounts:read'])],
+        preHandler: [fastify.requirePermission(['admin:view_fund_reports'])],
     }, async (req, reply) => {
         const tenantId = req.tenant.id;
         const { format = 'json' } = req.query;
@@ -72,10 +72,10 @@ const fundAdminRoutes = async (fastify) => {
     /**
      * GET /fund/admin/weekly-report
      * Retorna relatório semanal mais recente
-     * Requer permissão: economy:accounts:read (admin)
+     * Requer permissão: admin:view_fund_reports (admin)
      */
     fastify.get('/weekly-report', {
-        preHandler: [fastify.requirePermission(['economy:accounts:read'])],
+        preHandler: [fastify.requirePermission(['admin:view_fund_reports'])],
     }, async (req, reply) => {
         const tenantId = req.tenant.id;
         const report = await fund_weekly_report_service_1.fundWeeklyReportService.getLatestReport(tenantId);
@@ -89,4 +89,3 @@ const fundAdminRoutes = async (fastify) => {
     });
 };
 exports.default = fundAdminRoutes;
-//# sourceMappingURL=fund-admin.routes.js.map

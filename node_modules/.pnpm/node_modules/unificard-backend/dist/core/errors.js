@@ -1,7 +1,9 @@
 "use strict";
 // src/core/errors.ts
+// 🔴 BLINDAGEM: Sem vazamento de stack em produção
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InternalServerError = exports.UnprocessableEntityError = exports.ConflictError = exports.NotFoundError = exports.ForbiddenError = exports.UnauthorizedError = exports.BadRequestError = exports.AppError = void 0;
+exports.InternalServerError = exports.UnprocessableEntityError = exports.RateLimitError = exports.ConflictError = exports.NotFoundError = exports.ForbiddenError = exports.UnauthorizedError = exports.BadRequestError = exports.AppError = void 0;
+const error_codes_1 = require("./errors/error-codes");
 /**
  * Base class para erros da aplicação.
  * Carrega status HTTP, código interno opcional
@@ -10,10 +12,12 @@ exports.InternalServerError = exports.UnprocessableEntityError = exports.Conflic
 class AppError extends Error {
     statusCode;
     code;
+    isProduction;
     constructor(statusCode, message, code) {
         super(message);
         this.statusCode = statusCode;
-        this.code = code;
+        this.code = code || error_codes_1.ErrorCode.INTERNAL_ERROR;
+        this.isProduction = process.env.NODE_ENV === 'production';
         // Ajusta o nome do erro para o nome da classe
         this.name = this.constructor.name;
         // Mantém stack trace correta no Node
@@ -22,14 +26,23 @@ class AppError extends Error {
             anyError.captureStackTrace(this, this.constructor);
         }
     }
+    /**
+     * Retorna mensagem segura para produção
+     */
+    getSafeMessage() {
+        if (this.isProduction && this.statusCode >= 500) {
+            return error_codes_1.ERROR_MESSAGES[error_codes_1.ErrorCode.INTERNAL_ERROR];
+        }
+        return this.message;
+    }
 }
 exports.AppError = AppError;
 /**
  * 400 – Requisição inválida
  */
 class BadRequestError extends AppError {
-    constructor(message = "Bad request", code = "BAD_REQUEST") {
-        super(400, message, code);
+    constructor(message, code = error_codes_1.ErrorCode.BAD_REQUEST) {
+        super(400, message || error_codes_1.ERROR_MESSAGES[code], code);
     }
 }
 exports.BadRequestError = BadRequestError;
@@ -46,8 +59,8 @@ exports.UnauthorizedError = UnauthorizedError;
  * 403 – Usuário autenticado mas sem permissão
  */
 class ForbiddenError extends AppError {
-    constructor(message = "Forbidden", code = "FORBIDDEN") {
-        super(403, message, code);
+    constructor(message, code = error_codes_1.ErrorCode.FORBIDDEN) {
+        super(403, message || error_codes_1.ERROR_MESSAGES[code], code);
     }
 }
 exports.ForbiddenError = ForbiddenError;
@@ -55,8 +68,8 @@ exports.ForbiddenError = ForbiddenError;
  * 404 – Recurso não encontrado
  */
 class NotFoundError extends AppError {
-    constructor(message = "Not found", code = "NOT_FOUND") {
-        super(404, message, code);
+    constructor(message, code = error_codes_1.ErrorCode.NOT_FOUND) {
+        super(404, message || error_codes_1.ERROR_MESSAGES[code], code);
     }
 }
 exports.NotFoundError = NotFoundError;
@@ -64,11 +77,24 @@ exports.NotFoundError = NotFoundError;
  * 409 – Conflito de estado
  */
 class ConflictError extends AppError {
-    constructor(message = "Conflict", code = "CONFLICT") {
-        super(409, message, code);
+    constructor(message, code = error_codes_1.ErrorCode.CONFLICT) {
+        super(409, message || error_codes_1.ERROR_MESSAGES[code], code);
     }
 }
 exports.ConflictError = ConflictError;
+/**
+ * 429 – Limite de requisições excedido
+ */
+class RateLimitError extends AppError {
+    resetAt;
+    remaining;
+    constructor(message, resetAt, remaining, code = error_codes_1.ErrorCode.RATE_LIMIT_EXCEEDED) {
+        super(429, message || error_codes_1.ERROR_MESSAGES[code], code);
+        this.resetAt = resetAt;
+        this.remaining = remaining;
+    }
+}
+exports.RateLimitError = RateLimitError;
 /**
  * 422 – Entidade não processável (validou formato, mas lógica inválida)
  */
@@ -87,4 +113,3 @@ class InternalServerError extends AppError {
     }
 }
 exports.InternalServerError = InternalServerError;
-//# sourceMappingURL=errors.js.map

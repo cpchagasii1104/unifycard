@@ -228,4 +228,3 @@ checkPizzaioloHierarchy()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=check-pizzaiolo-hierarchy.js.map

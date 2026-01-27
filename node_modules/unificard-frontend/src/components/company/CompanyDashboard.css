@@ -1,0 +1,149 @@
+/* frontend/src/components/company/CompanyDashboard.css */
+/* CONTINUOUS PRODUCTION: Estilos para Painel da Empresa - SPRINT 2 */
+
+.company-dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Loading Skeleton */
+.company-dashboard-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.skeleton-header {
+  height: 100px;
+}
+
+.skeleton-tabs {
+  height: 50px;
+}
+
+.skeleton-content {
+  height: 400px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Error State */
+.company-dashboard-error {
+  text-align: center;
+  padding: 3rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+}
+
+.company-dashboard-error button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Header */
+.company-dashboard-header {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.company-header-info h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  color: #1a1a1a;
+}
+
+.company-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.company-type {
+  font-size: 0.9rem;
+  color: #666;
+  padding: 0.25rem 0.75rem;
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.company-actor-badge {
+  font-size: 0.85rem;
+  color: #007bff;
+  padding: 0.25rem 0.75rem;
+  background: #e7f3ff;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Tabs */
+.company-dashboard-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+}
+
+.company-tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #666;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.company-tab:hover {
+  color: #007bff;
+  background: #f8f9fa;
+}
+
+.company-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  font-weight: 600;
+}
+
+/* Content */
+.company-dashboard-content {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-height: 400px;
+}
+
+
+
+
+
+
+

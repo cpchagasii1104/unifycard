@@ -1,0 +1,124 @@
+# CODEOWNERS - Unificard Governance
+#
+# Este arquivo define os proprietários (owners) de código que devem revisar
+# mudanças em áreas críticas do sistema.
+#
+# REGRA: Qualquer PR que toque em áreas protegidas DEVE ser aprovado por
+# pelo menos um CODEOWNER antes de ser mergeado.
+#
+# Formato: <path> <@username ou @team>
+#
+# Referência: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ============================================================
+# CORE - Proteção Máxima
+# ============================================================
+# Todas as mudanças em core/ requerem aprovação obrigatória
+# Core é FROZEN e qualquer alteração deve ser revisada cuidadosamente
+
+# Core Auth (Autenticação)
+/backend/src/core/auth/ @unificard/core-team
+/backend/src/plugins/auth.plugin.ts @unificard/core-team
+/backend/src/plugins/tenant.plugin.ts @unificard/core-team
+
+# Core Authorization (Permissões e RBAC)
+/backend/src/core/authorization/ @unificard/core-team
+/backend/src/core/rbac/ @unificard/core-team
+/backend/src/plugins/rbac.plugin.ts @unificard/core-team
+
+# Core Categories (Categorias - FROZEN)
+/backend/src/core/categories/ @unificard/core-team
+/docs/architecture/adr/ADR-001-SSOT-READING.md @unificard/core-team
+/docs/architecture/adr/ADR-002-CORE-FROZEN.md @unificard/core-team
+/docs/architecture/principles/CORE-PRINCIPLES.md @unificard/core-team
+
+# Core Events (Eventos)
+/backend/src/core/events/ @unificard/core-team
+
+# Core Database (Banco de Dados)
+/backend/src/core/database/ @unificard/core-team
+/backend/migrations/ @unificard/core-team
+
+# Core Identity (Identidade)
+/backend/src/core/identity/ @unificard/core-team
+
+# Core Social (Social - Actors, etc)
+/backend/src/core/social/ @unificard/core-team
+
+# Core Tenants (Tenants)
+/backend/src/core/tenants/ @unificard/core-team
+
+# Core Action Context (Contexto de Ação)
+/backend/src/core/action-context/ @unificard/core-team
+/backend/src/plugins/action-context.plugin.ts @unificard/core-team
+
+# Core Companies (Empresas)
+/backend/src/core/companies/ @unificard/core-team
+
+# Core Profile (Perfil)
+/backend/src/core/profile/ @unificard/core-team
+
+# ============================================================
+# PLUGINS - Proteção Alta
+# ============================================================
+# Plugins são críticos para segurança e isolamento
+
+/backend/src/plugins/ @unificard/core-team
+
+# ============================================================
+# SERVER - Proteção Alta
+# ============================================================
+# Configuração do servidor e bootstrap
+
+/backend/src/server.ts @unificard/core-team
+
+# ============================================================
+# INVARIANTS - Proteção Máxima
+# ============================================================
+# Testes de invariantes e documentação de invariantes
+
+/backend/tests/invariants/ @unificard/core-team
+/docs/audit/SYSTEM-CANONICAL-INVARIANTS.md @unificard/core-team
+/docs/audit/ADVERSARIAL-SECURITY-PASS.md @unificard/core-team
+/docs/audit/CONCURRENCY-RACE-CONDITION-STRESS-PASS.md @unificard/core-team
+/docs/audit/SCHEMA-INVARIANT-HARDENING.md @unificard/core-team
+
+# ============================================================
+# CONTRATOS PÚBLICOS - Proteção Máxima
+# ============================================================
+# Contratos públicos não podem ser quebrados sem breaking change
+
+/docs/contracts/ @unificard/core-team
+/backend/src/core/auth/auth.routes.ts @unificard/core-team
+/backend/src/core/health/health.module.ts @unificard/core-team
+
+# ============================================================
+# DOCUMENTAÇÃO NORMATIVA - Proteção Máxima
+# ============================================================
+# Documentação normativa define regras institucionais
+
+/docs/01_normative/ @unificard/core-team
+/docs/architecture/ @unificard/core-team
+
+# ============================================================
+# GOVERNANÇA - Proteção Máxima
+# ============================================================
+# Arquivos de governança não podem ser alterados sem aprovação
+
+/.github/CODEOWNERS @unificard/core-team
+/.github/PULL_REQUEST_TEMPLATE.md @unificard/core-team
+/docs/operations/checklists/ @unificard/core-team
+/docs/governance/ @unificard/core-team
+
+# ============================================================
+# NOTA: Substituir @unificard/core-team pelo time real
+# ============================================================
+# Este arquivo usa @unificard/core-team como placeholder.
+# Substitua por:
+# - @username (usuário específico)
+# - @org/team-name (time do GitHub)
+# - Múltiplos owners: @user1 @user2 @team
+
+
+
+

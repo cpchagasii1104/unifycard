@@ -38,4 +38,3 @@ const productDemandRoutes = async (fastify) => {
     });
 };
 exports.default = productDemandRoutes;
-//# sourceMappingURL=product-demand.routes.js.map

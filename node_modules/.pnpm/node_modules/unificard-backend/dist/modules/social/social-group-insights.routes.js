@@ -83,4 +83,3 @@ Gere um resumo curto e sugestões de ações.`;
     });
 };
 exports.default = socialGroupInsightsRoutes;
-//# sourceMappingURL=social-group-insights.routes.js.map

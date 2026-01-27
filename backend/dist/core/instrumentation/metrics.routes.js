@@ -24,4 +24,3 @@ const metricsRoutes = async (fastify) => {
     });
 };
 exports.default = metricsRoutes;
-//# sourceMappingURL=metrics.routes.js.map

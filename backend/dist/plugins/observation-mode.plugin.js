@@ -50,4 +50,3 @@ const observationModePlugin = async (fastify) => {
     }
 };
 exports.default = observationModePlugin;
-//# sourceMappingURL=observation-mode.plugin.js.map

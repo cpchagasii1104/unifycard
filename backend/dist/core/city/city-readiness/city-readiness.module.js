@@ -10,4 +10,3 @@ const cityReadinessModule = async (fastify) => {
     await fastify.register(city_readiness_routes_1.default);
 };
 exports.default = cityReadinessModule;
-//# sourceMappingURL=city-readiness.module.js.map

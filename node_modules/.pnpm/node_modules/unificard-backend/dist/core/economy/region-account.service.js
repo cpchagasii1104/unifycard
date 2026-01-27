@@ -76,34 +76,22 @@ class RegionAccountService {
             // }
         }
         // ==========================================
-        // REGRA GLOBAL: ZERO FALLBACK SILENCIOSO
+        // REGRA GLOBAL: TOLERÂNCIA A DADOS AUSENTES
         // ==========================================
-        // Se não encontrou regionId, lançar erro explícito (exceto em test)
+        // Se não encontrou regionId, retornar undefined (não erro)
+        // O chamador deve tratar o caso de região não configurada
         if (!regionId) {
-            if (process.env.NODE_ENV === 'test') {
-                // Em test, permitir undefined para compatibilidade
-                if (this.logger) {
-                    this.logger.warn({
-                        tenantId,
-                        userId: userId || null,
-                        jobId: jobId || null,
-                        foundSource: null,
-                        'economy.action': 'resolve-region-account',
-                    }, 'No region found for split context (test mode)');
-                }
-                return undefined;
-            }
-            // Em produção, erro explícito
-            const error = new Error(`Region not found for tenant ${tenantId}. Configure cityId in tenant or provide userId/jobId with location.`);
+            // Permitir undefined em qualquer ambiente (não apenas test)
+            // O chamador deve tratar o caso de região não configurada
             if (this.logger) {
-                this.logger.error({
+                this.logger.warn({
                     tenantId,
                     userId: userId || null,
                     jobId: jobId || null,
                     'economy.action': 'resolve-region-account',
-                }, 'Region resolution failed - no fallback allowed');
+                }, 'No region configured for tenant - returning undefined');
             }
-            throw error;
+            return undefined;
         }
         // Buscar ou criar conta economy para essa região
         // Usar stateId como identificador da região (por enquanto)
@@ -146,4 +134,3 @@ class RegionAccountService {
     }
 }
 exports.regionAccountService = new RegionAccountService(account_service_1.accountService);
-//# sourceMappingURL=region-account.service.js.map

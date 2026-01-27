@@ -198,4 +198,3 @@ const serviceTypesRoutes = async (fastify) => {
     });
 };
 exports.default = serviceTypesRoutes;
-//# sourceMappingURL=service-types.routes.js.map

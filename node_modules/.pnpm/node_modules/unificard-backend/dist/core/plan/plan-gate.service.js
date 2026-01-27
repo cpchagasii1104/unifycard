@@ -11,12 +11,25 @@ class PlanGateService {
     /**
      * Obtém o plano do usuário do banco de dados
      * FASE 3.6: Busca plano real da tabela users
+     * DEV MODE: Permite override via variável de ambiente VITE_DEV_PLAN
      *
      * @param tenantId ID do tenant
      * @param userIdOrGlobalUserId ID do usuário (local) ou globalUserId
      * @returns Plano do usuário ('free', 'pro' ou 'enterprise')
      */
     async getUserPlan(tenantId, userIdOrGlobalUserId) {
+        /**
+         * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
+         * Motivo: Permitir testar features de planos PRO/ENTERPRISE em desenvolvimento (exceção ao modelo padrão)
+         * Contexto: Ambiente de desenvolvimento local
+         * Tipo: temporária
+         */
+        // 🔴 DEV MODE: Verificar flag de ambiente para permitir features em DEV
+        const devPlan = process.env.VITE_DEV_PLAN || process.env.DEV_PLAN;
+        if (devPlan && (devPlan === 'pro' || devPlan === 'enterprise')) {
+            console.log(`[PlanGate] DEV MODE: Usando plano ${devPlan} via variável de ambiente`);
+            return devPlan;
+        }
         try {
             // Tentar buscar por user_id primeiro (mais comum)
             const userRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -110,4 +123,3 @@ class PlanGateService {
     }
 }
 exports.planGateService = new PlanGateService();
-//# sourceMappingURL=plan-gate.service.js.map

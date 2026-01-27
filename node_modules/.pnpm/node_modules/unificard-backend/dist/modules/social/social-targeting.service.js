@@ -67,6 +67,8 @@ class SocialTargetingService {
             }
         }
         // 5. Professions (match de profissões/habilidades do CORE)
+        // 🔴 BLINDAGEM: Usa apenas professional_profile.skills (atuação real)
+        // Educação NÃO participa de targeting - é apenas informacional
         if (targeting?.professions && targeting.professions.length > 0) {
             const userSkills = userCoreProfile.professional_profile?.skills || [];
             const userCategoryIds = userSkills.map((s) => s.categoryId || s.category_id);
@@ -76,6 +78,11 @@ class SocialTargetingService {
                 totalScore += breakdown.intent_match;
             }
         }
+        // 🔴 BLINDAGEM EXPLÍCITA: Educação NÃO participa de targeting
+        // Por que isso NÃO pode virar decisão:
+        // - Educação não filtra vagas, não bloqueia oportunidades
+        // - Targeting usa apenas: profissão declarada, interesses, demografia, lifestyle
+        // - education_profile existe em userCoreProfile mas é ignorado intencionalmente
         // 6. Proximity (localização) - simplificado por enquanto
         if (targeting?.locations) {
             // TODO: Implementar cálculo de distância real quando houver dados de localização
@@ -135,4 +142,3 @@ class SocialTargetingService {
 }
 exports.SocialTargetingService = SocialTargetingService;
 exports.socialTargetingService = new SocialTargetingService();
-//# sourceMappingURL=social-targeting.service.js.map

@@ -256,4 +256,3 @@ class InstantService {
     }
 }
 exports.instantService = new InstantService();
-//# sourceMappingURL=instant.service.js.map

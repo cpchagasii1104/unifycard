@@ -1,0 +1,137 @@
+/* frontend/src/components/business-audit/AuditHistoryView.css */
+
+.audit-history-view {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  padding: 1.5rem;
+}
+
+.audit-history-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.audit-history-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.audit-context-info {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.context-type {
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #007bff;
+}
+
+.context-id {
+  font-family: monospace;
+  color: #999;
+}
+
+.audit-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.audit-log-item {
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.log-action {
+  color: #333;
+  font-size: 1rem;
+}
+
+.log-time {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.log-actor {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.log-actor .label {
+  color: #666;
+  font-weight: 600;
+}
+
+.log-actor .value {
+  color: #333;
+}
+
+.log-metadata {
+  margin-top: 0.5rem;
+}
+
+.log-metadata details {
+  cursor: pointer;
+}
+
+.log-metadata summary {
+  color: #007bff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.log-metadata pre {
+  background: #fff;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  color: #333;
+}
+
+.no-logs {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+}
+
+
+
+

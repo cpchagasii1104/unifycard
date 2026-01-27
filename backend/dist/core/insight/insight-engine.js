@@ -212,4 +212,3 @@ class InsightEngine {
 }
 exports.InsightEngine = InsightEngine;
 exports.insightEngine = new InsightEngine();
-//# sourceMappingURL=insight-engine.js.map

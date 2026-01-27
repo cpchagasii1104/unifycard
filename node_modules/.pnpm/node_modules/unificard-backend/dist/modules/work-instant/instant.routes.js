@@ -215,4 +215,3 @@ const instantRoutes = async (fastify) => {
     });
 };
 exports.default = instantRoutes;
-//# sourceMappingURL=instant.routes.js.map

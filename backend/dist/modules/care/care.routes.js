@@ -106,4 +106,3 @@ const careRoutes = async (fastify) => {
     });
 };
 exports.default = careRoutes;
-//# sourceMappingURL=care.routes.js.map

@@ -81,4 +81,3 @@ class SocialActionTrackingService {
 }
 exports.SocialActionTrackingService = SocialActionTrackingService;
 exports.socialActionTrackingService = new SocialActionTrackingService();
-//# sourceMappingURL=social-action-tracking.service.js.map

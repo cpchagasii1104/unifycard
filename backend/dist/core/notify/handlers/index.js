@@ -29,4 +29,3 @@ function registerAllNotifyHandlers(eventBus) {
     // registerMarketplaceNotifyHandlers(eventBus);
     // ============================================================
 }
-//# sourceMappingURL=index.js.map

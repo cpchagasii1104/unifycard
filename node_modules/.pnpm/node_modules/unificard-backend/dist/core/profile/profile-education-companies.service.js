@@ -263,4 +263,3 @@ class ProfileEducationCompaniesService {
     }
 }
 exports.profileEducationCompaniesService = new ProfileEducationCompaniesService();
-//# sourceMappingURL=profile-education-companies.service.js.map

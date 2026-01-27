@@ -76,4 +76,3 @@ const transactionRoutes = async (fastify) => {
     });
 };
 exports.default = transactionRoutes;
-//# sourceMappingURL=transaction.routes.js.map

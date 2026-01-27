@@ -37,31 +37,46 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.coreService = exports.CoreService = void 0;
 const pool_1 = require("@core/database/pool");
-const profile_service_1 = require("./profile/profile.service");
 const profile_professional_service_1 = require("./profile/profile-professional.service");
 const profile_physical_service_1 = require("./profile/profile-physical.service");
+const profile_education_service_1 = require("./profile/profile-education.service");
+const identity_service_1 = require("./identity/identity.service");
 class CoreService {
     /**
      * Busca perfil completo agregando dados de todos os módulos
      * NUNCA retorna erro se uma parte estiver vazia - retorna null ou array vazio
+     *
+     * @param actorId Opcional: se fornecido, busca profile do actor específico (PF/PJ/Group)
+     *                 Se não fornecido, usa actor PF do userId (compatibilidade)
      */
-    async getCompleteProfile(tenantId, userId, globalUserId) {
+    async getCompleteProfile(tenantId, userId, actorId) {
         // Inicializar estrutura com valores padrão
         const profile = {
             actor: null,
             personal_profile: null,
             professional_profile: null,
+            education_profile: null,
             physical_profile: null,
             addresses: [],
             contacts: [],
             interests: [],
             companies: [],
+            identity_status: 'INCOMPLETE', // Inicializar como INCOMPLETE, será calculado depois
         };
         try {
             // 1. Actor (para Social)
+            // 🔴 BLINDAGEM: Se actorId fornecido, busca actor específico (PF/PJ/Group)
+            // Se não fornecido, usa actor PF do userId (compatibilidade)
             try {
-                const { actorRepository } = await Promise.resolve().then(() => __importStar(require('@modules/social/actor.repository')));
-                const actor = await actorRepository.findOrCreateUserActor(tenantId, userId, globalUserId);
+                const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+                const actorRepository = socialPortsRegistry.getActorRepository();
+                let actor;
+                if (actorId) {
+                    actor = await actorRepository.findById(tenantId, actorId);
+                }
+                else {
+                    actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+                }
                 if (actor) {
                     profile.actor = {
                         actor_id: actor.actor_id,
@@ -71,6 +86,26 @@ class CoreService {
                         cover_url: actor.cover_url || null,
                         bio: actor.bio || null,
                     };
+                    // 🔴 BLINDAGEM: Para actors não-user (page/group/channel), alguns perfis não são suportados
+                    // Retornar estrutura vazia ao invés de dados de PF
+                    if (actor.actor_type !== 'user') {
+                        // Profile pessoal/profissional/saúde/aprendizado não são suportados para page/group/channel
+                        // Manter estrutura vazia (já inicializada acima)
+                        // Apenas education_profile pode ser usado (já é event-based por actor)
+                        // Buscar education_profile se actorId fornecido
+                        try {
+                            const { profileEducationService } = await Promise.resolve().then(() => __importStar(require('./profile/profile-education.service')));
+                            const educationProfile = await profileEducationService.getEducationProfile(tenantId, userId);
+                            if (educationProfile) {
+                                profile.education_profile = educationProfile;
+                            }
+                        }
+                        catch (err) {
+                            // Log mas não quebra
+                            console.error('Erro ao buscar education_profile:', err);
+                        }
+                        return profile;
+                    }
                 }
             }
             catch (err) {
@@ -80,52 +115,131 @@ class CoreService {
             // 2. Perfil pessoal básico
             // 🔴 CORREÇÃO CRÍTICA: profiles é SEMPRE a fonte de verdade
             // NUNCA usar identity/global_users como fonte primária ou sobrescrever valores válidos
+            // 2. Perfil pessoal - Query única com JOIN + geração garantida
+            let referralCode = null;
+            let cpf = null;
             try {
-                const personalProfile = await profile_service_1.profileService.getProfile(tenantId, userId);
-                if (personalProfile) {
-                    // 🔴 REGRA: Usar valores de profiles, mesmo se forem null/empty
-                    // NÃO fazer fallback para identity - profiles é a fonte de verdade
+                const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+                // Query única que busca referral_code e CPF de uma vez
+                const identityResult = await pool.query(`
+          SELECT u.referral_code, up.cpf
+          FROM users u
+          LEFT JOIN user_profiles up ON up.user_id = u.user_id
+          WHERE u.user_id = $1
+          LIMIT 1
+          `, [userId]);
+                const row = identityResult.rows[0];
+                if (row) {
+                    cpf = row.cpf || null;
+                    referralCode = row.referral_code || null;
+                    // 🔴 GERAÇÃO GARANTIDA: Se não tem código, gerar AGORA
+                    if (!referralCode) {
+                        const { referralService } = await Promise.resolve().then(() => __importStar(require('@core/referral/referral.service')));
+                        const { devLog } = await Promise.resolve().then(() => __importStar(require('@utils/devLog')));
+                        devLog.info('referral.code.generating', { userId });
+                        referralCode = await referralService.getOrCreateReferralCode(tenantId, userId);
+                        devLog.success('referral.code.generated', { userId, referralCode });
+                    }
+                }
+            }
+            catch (err) {
+                const { devLog } = await Promise.resolve().then(() => __importStar(require('@utils/devLog')));
+                devLog.error('referral.identity.fetch.error', {
+                    userId,
+                    tenantId,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+                // Fallback: tentar gerar código mesmo em caso de erro na query
+                try {
+                    const { referralService } = await Promise.resolve().then(() => __importStar(require('@core/referral/referral.service')));
+                    const { devLog } = await Promise.resolve().then(() => __importStar(require('@utils/devLog')));
+                    referralCode = await referralService.getOrCreateReferralCode(tenantId, userId);
+                    devLog.success('referral.code.generated.fallback', { userId, referralCode });
+                }
+                catch (genErr) {
+                    const { devLog } = await Promise.resolve().then(() => __importStar(require('@utils/devLog')));
+                    devLog.error('referral.code.generation.failed', {
+                        userId,
+                        error: genErr instanceof Error ? genErr.message : String(genErr),
+                    });
+                }
+            }
+            try {
+                // 🔴 CORREÇÃO CRÍTICA: Buscar CPF de user_profiles via JOIN explícito
+                // CPF NUNCA vem de profiles.metadata - sempre de user_profiles
+                const personalProfileRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
+          SELECT
+            p.full_name,
+            p.phone,
+            p.metadata,
+            up.cpf
+          FROM profiles p
+          LEFT JOIN user_profiles up ON up.user_id = p.user_id
+          WHERE p.tenant_id = $1 AND p.user_id = $2
+          ORDER BY p.updated_at DESC
+          LIMIT 1
+          `, [tenantId, userId]);
+                if (personalProfileRow) {
+                    const row = personalProfileRow;
+                    // 🔴 REGRA: CPF SEMPRE vem de user_profiles (fonte única de verdade)
+                    // Se não encontrou CPF na query acima, usar o que foi buscado anteriormente
+                    const finalCpf = row.cpf || cpf;
                     // 🔴 INSTRUMENTAÇÃO: Log do metadata ANTES de montar personal_profile
-                    console.log('[CoreService] 🔍 Metadata recebido de profileService.getProfile():', {
+                    console.log('[CoreService] 🔍 Dados recebidos da query com JOIN:', {
                         tenantId,
                         userId,
-                        metadataType: typeof personalProfile.metadata,
-                        metadataIsObject: personalProfile.metadata && typeof personalProfile.metadata === 'object',
-                        metadataKeys: personalProfile.metadata ? Object.keys(personalProfile.metadata) : [],
-                        hasAddress: !!personalProfile.metadata?.address,
-                        addressType: typeof personalProfile.metadata?.address,
-                        addressValue: personalProfile.metadata?.address,
+                        fullName: row.full_name,
+                        phone: row.phone,
+                        metadataType: typeof row.metadata,
+                        metadataIsObject: row.metadata && typeof row.metadata === 'object',
+                        metadataKeys: row.metadata ? Object.keys(row.metadata) : [],
+                        cpfFromUserProfiles: row.cpf,
+                        finalCpf: finalCpf,
+                        hasAddress: !!row.metadata?.address,
                     });
                     profile.personal_profile = {
                         // Preservar valores de profiles (null é válido, não fazer fallback)
-                        fullName: personalProfile.fullName ?? null,
-                        phone: personalProfile.phone ?? null,
+                        fullName: row.full_name ?? null,
+                        phone: row.phone ?? null,
                         // metadata SEMPRE vem de profiles, nunca de identity
-                        metadata: personalProfile.metadata || {},
+                        // metadata NUNCA contém CPF (regra de negócio)
+                        metadata: row.metadata || {},
+                        referralCode: referralCode,
+                        cpf: finalCpf, // ← FONTE ÚNICA: user_profiles
                     };
-                    console.log('[CoreService] ✅ personal_profile montado APENAS de profiles:', {
+                    console.log('[CoreService] ✅ personal_profile montado com CPF de user_profiles:', {
                         tenantId,
                         userId,
                         fullName: profile.personal_profile.fullName,
                         phone: profile.personal_profile.phone,
                         hasMetadata: !!profile.personal_profile.metadata,
                         metadataKeys: Object.keys(profile.personal_profile.metadata || {}),
-                        hasAddressInMetadata: !!profile.personal_profile.metadata?.address,
-                        addressKeys: profile.personal_profile.metadata?.address ? Object.keys(profile.personal_profile.metadata.address) : [],
-                        addressType: typeof profile.personal_profile.metadata?.address,
-                        addressValue: profile.personal_profile.metadata?.address,
+                        cpf: profile.personal_profile.cpf ? profile.personal_profile.cpf.substring(0, 3) + '***' : null,
+                        cpfSource: 'user_profiles',
                     });
                 }
                 else {
-                    // Se não existe profile, retornar null (NÃO criar vazio, NÃO buscar de identity)
-                    console.log('[CoreService] ⚠️ personal_profile não encontrado em profiles (retornando null)');
-                    profile.personal_profile = null;
+                    // Se não existe profile, criar estrutura mínima com referralCode
+                    console.log('[CoreService] ⚠️ personal_profile não encontrado em profiles (criando estrutura mínima)');
+                    profile.personal_profile = {
+                        fullName: null,
+                        phone: null,
+                        metadata: {},
+                        referralCode: referralCode,
+                        cpf: cpf, // ← FONTE ÚNICA: user_profiles (buscado anteriormente)
+                    };
                 }
             }
             catch (err) {
                 console.error('Erro ao buscar perfil pessoal:', err);
-                // Em caso de erro, retornar null (NÃO fazer fallback para identity)
-                profile.personal_profile = null;
+                // Em caso de erro, criar estrutura mínima com referralCode
+                profile.personal_profile = {
+                    fullName: null,
+                    phone: null,
+                    metadata: {},
+                    referralCode: referralCode,
+                    cpf: cpf, // ← FONTE ÚNICA: user_profiles (buscado anteriormente)
+                };
             }
             // 3. Perfil profissional
             try {
@@ -133,7 +247,6 @@ class CoreService {
                 if (professionalProfile) {
                     profile.professional_profile = {
                         skills: professionalProfile.skills || [],
-                        education: professionalProfile.education || [],
                         bio: professionalProfile.bio || null,
                         availability: professionalProfile.availability ? JSON.stringify(professionalProfile.availability) : null,
                     };
@@ -142,10 +255,24 @@ class CoreService {
             catch (err) {
                 console.error('Erro ao buscar perfil profissional:', err);
             }
+            // 3.5. Perfil educacional (DOMÍNIO SEPARADO DO PROFISSIONAL)
+            try {
+                const educationProfile = await profile_education_service_1.profileEducationService.getEducationProfile(tenantId, userId);
+                if (educationProfile) {
+                    profile.education_profile = {
+                        education: educationProfile.education || [],
+                    };
+                }
+            }
+            catch (err) {
+                console.error('Erro ao buscar perfil educacional:', err);
+            }
             // 4. Perfil físico/interesses
             try {
                 const physicalProfile = await profile_physical_service_1.profilePhysicalService.getPhysicalProfile(tenantId, userId);
                 if (physicalProfile) {
+                    // Extrair dados de saúde compartilhados (altura, peso, peso ideal) se existirem
+                    const sharedHealthData = physicalProfile.metadata?.sharedHealthData;
                     profile.physical_profile = {
                         interests: physicalProfile.interests || [],
                         lifestyle: physicalProfile.lifestyle || {
@@ -154,7 +281,14 @@ class CoreService {
                             relationshipStatus: null,
                             sexualOrientation: null,
                         },
-                        preferences: physicalProfile.preferences || {},
+                        preferences: {
+                            ...(physicalProfile.preferences || {}),
+                            ...(sharedHealthData ? {
+                                height: sharedHealthData.height,
+                                weight: sharedHealthData.weight,
+                                idealWeight: sharedHealthData.idealWeight,
+                            } : {}),
+                        },
                     };
                 }
             }
@@ -246,12 +380,14 @@ class CoreService {
                 // Se não encontrou, tentar buscar de companies (endereço da empresa principal)
                 if (profile.addresses.length === 0) {
                     const companyAddress = await (0, pool_1.runQueryWithTenant)(tenantId, `
-            SELECT cep, address, address_number, complement, neighborhood, city, state, country
-            FROM companies
-            WHERE global_user_id = $1 AND status = 'active'
-            ORDER BY created_at DESC
+            SELECT c.cep, c.address, c.address_number, c.complement, c.neighborhood, c.city, c.state, c.country
+            FROM companies c
+            INNER JOIN company_users cu ON c.company_id = cu.company_id
+            INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
+            WHERE uil.user_id = $1 AND uil.tenant_id = $2 AND c.status = 'active'
+            ORDER BY c.created_at DESC
             LIMIT 1
-            `, [globalUserId]);
+            `, [userId, tenantId]);
                     if (companyAddress) {
                         profile.addresses = [{
                                 address_id: 'company',
@@ -326,9 +462,10 @@ class CoreService {
           SELECT c.company_id, c.company_name, c.trade_name, c.cnpj, c.is_verified
           FROM companies c
           INNER JOIN company_users cu ON c.company_id = cu.company_id
-          WHERE cu.global_user_id = $1
+          INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
+          WHERE uil.user_id = $1 AND uil.tenant_id = $2
           ORDER BY c.created_at DESC
-          `, [globalUserId]);
+          `, [userId, tenantId]);
                 profile.companies = companies.map((row) => ({
                     company_id: row.company_id,
                     company_name: row.company_name,
@@ -340,15 +477,170 @@ class CoreService {
             catch (err) {
                 console.error('Erro ao buscar empresas:', err);
             }
+            // 🔴 IDENTITY STATUS: Calcular estado civil do usuário
+            // COMPLETE se todos os dados civis imutáveis estão presentes
+            const hasFullName = !!(profile.personal_profile?.fullName && profile.personal_profile.fullName.trim().length > 0);
+            const hasCpf = !!(profile.personal_profile?.cpf && profile.personal_profile.cpf.trim().length > 0);
+            // Buscar birthdate de identity (global_users)
+            let hasBirthdate = false;
+            try {
+                const identityData = await identity_service_1.identityService.getIdentityProfile(userId, tenantId);
+                hasBirthdate = !!(identityData?.global?.birthdate);
+            }
+            catch (err) {
+                console.warn('Erro ao buscar birthdate para identity_status:', err);
+            }
+            // Buscar gender de metadata
+            const gender = profile.personal_profile?.metadata?.gender;
+            const hasGender = !!(gender && (gender === 'male' || gender === 'female'));
+            // Calcular identity_status
+            profile.identity_status = (hasFullName && hasCpf && hasBirthdate && hasGender)
+                ? 'COMPLETE'
+                : 'INCOMPLETE';
+            console.log('[CoreService] 🔍 Identity Status calculado:', {
+                tenantId,
+                userId,
+                hasFullName,
+                hasCpf,
+                hasBirthdate,
+                hasGender,
+                identity_status: profile.identity_status,
+            });
             return profile;
         }
         catch (error) {
             // Se erro geral, logar mas retornar estrutura parcial
             console.error('Erro geral ao buscar perfil completo:', error);
+            // Garantir que identity_status está definido mesmo em caso de erro
+            if (!profile.identity_status) {
+                profile.identity_status = 'INCOMPLETE';
+            }
             return profile; // Retorna o que conseguiu buscar
         }
+    }
+    /**
+     * 🔴 PARTE 3 - BARRA DE PROGRESSO
+     * Calcula o progresso de preenchimento do perfil (0-100%)
+     * Regra: 100% só é atingido com validação presencial aprovada
+     */
+    async calculateProfileProgress(tenantId, userId) {
+        const completeProfile = await this.getCompleteProfile(tenantId, userId);
+        // 1. Dados pessoais básicos (25% do total)
+        let personalDataScore = 0;
+        const personalMax = 25;
+        if (completeProfile.personal_profile?.fullName)
+            personalDataScore += 5;
+        if (completeProfile.personal_profile?.cpf)
+            personalDataScore += 5;
+        if (completeProfile.personal_profile?.phone)
+            personalDataScore += 5;
+        const globalUser = await identity_service_1.identityService.getIdentityProfile(userId, tenantId);
+        if (globalUser?.global?.birthdate)
+            personalDataScore += 5;
+        if (completeProfile.personal_profile?.metadata?.gender)
+            personalDataScore += 5;
+        const personalData = Math.min(personalDataScore, personalMax);
+        // 2. Perfil profissional (20% do total)
+        let professionalScore = 0;
+        const professionalMax = 20;
+        if (completeProfile.professional_profile?.skills && completeProfile.professional_profile.skills.length > 0) {
+            professionalScore += 10;
+        }
+        if (completeProfile.professional_profile?.bio)
+            professionalScore += 10;
+        const professionalProfile = Math.min(professionalScore, professionalMax);
+        // 2.5. Perfil educacional - NÃO CONTRIBUI PARA SCORE
+        // Educação é apenas informacional, não gera score
+        // 3. Perfil físico/interesses (15% do total)
+        let physicalScore = 0;
+        const physicalMax = 15;
+        if (completeProfile.physical_profile?.interests && completeProfile.physical_profile.interests.length > 0) {
+            physicalScore += 10;
+        }
+        if (completeProfile.physical_profile?.lifestyle) {
+            const lifestyle = completeProfile.physical_profile.lifestyle;
+            if (lifestyle.drinks || lifestyle.smokes || lifestyle.relationshipStatus || lifestyle.sexualOrientation) {
+                physicalScore += 5;
+            }
+        }
+        const physicalProfile = Math.min(physicalScore, physicalMax);
+        // 4. Perfil de aprendizado - NÃO CONTRIBUI PARA SCORE
+        // 🔴 BLINDAGEM CANÔNICA: Aprendizado é interesse ativo e direção declarada
+        // NÃO representa completude de perfil, NÃO deve contribuir para score
+        // Aprendizado é autodireção, não validação de perfil completo
+        // Comentário explícito: "Aprendizado é interesse ativo, não completude."
+        const learningProfile = 0;
+        // 5. Empresas (10% do total)
+        let companiesScore = 0;
+        const companiesMax = 10;
+        if (completeProfile.companies && completeProfile.companies.length > 0) {
+            companiesScore = companiesMax;
+        }
+        const companies = Math.min(companiesScore, companiesMax);
+        // 6. Validação presencial (20% do total)
+        // 🔴 REGRA CRÍTICA: Validação presencial é necessária para 100%
+        let presentialValidation = 0;
+        const presentialMax = 20;
+        let hasPresentialValidation = false;
+        // Verificar se há empresa validada presencialmente
+        try {
+            const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+            if (globalUser?.global?.globalUserId) {
+                const validationResult = await pool.query(`
+          SELECT COUNT(*) as count
+          FROM companies c
+          JOIN company_validations cv ON cv.company_id = c.company_id
+          WHERE c.global_user_id = $1
+            AND cv.validation_method = 'in_person'
+            AND cv.status = 'approved'
+          `, [globalUser.global.globalUserId]);
+                const validationCount = parseInt(validationResult.rows[0]?.count || '0', 10);
+                if (validationCount > 0) {
+                    presentialValidation = presentialMax;
+                    hasPresentialValidation = true;
+                }
+            }
+        }
+        catch (err) {
+            // Ignorar erro - validação presencial não disponível
+        }
+        // Calcular progresso total
+        // 🔴 BLINDAGEM CANÔNICA: Educação NÃO contribui para score (é apenas informacional)
+        // 🔴 BLINDAGEM CANÔNICA: Aprendizado NÃO contribui para score (é interesse ativo, não completude)
+        // Aprendizado é autodireção e interesse declarado, não representa completude de perfil
+        const totalScore = personalData + professionalProfile + physicalProfile + learningProfile + companies + presentialValidation;
+        // Progresso máximo sem validação presencial: 80%
+        const maxProgressWithoutValidation = 80;
+        const progress = hasPresentialValidation ? totalScore : Math.min(totalScore, maxProgressWithoutValidation);
+        // Mensagens contextuais
+        const messages = [];
+        if (progress < 50) {
+            messages.push('Complete seu perfil para acessar todos os recursos');
+        }
+        else if (progress < 80) {
+            messages.push('Continue preenchendo seu perfil para desbloquear mais funcionalidades');
+        }
+        else if (progress < 100) {
+            messages.push('Para chegar a 100%, valide presencialmente em uma loja parceira');
+        }
+        else {
+            messages.push('Perfil completo! Você tem acesso a todos os recursos');
+        }
+        return {
+            progress,
+            maxProgressWithoutValidation,
+            hasPresentialValidation,
+            breakdown: {
+                personalData,
+                professionalProfile,
+                physicalProfile,
+                learningProfile,
+                companies,
+                presentialValidation,
+            },
+            messages,
+        };
     }
 }
 exports.CoreService = CoreService;
 exports.coreService = new CoreService();
-//# sourceMappingURL=core.service.js.map

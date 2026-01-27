@@ -11,8 +11,21 @@ const ai_kernel_1 = require("@core/ai/ai-kernel");
 /**
  * Handler para evento: work.job.created
  * Salva contexto no Memory Engine
+ *
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
  */
 async function onJobCreated(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[WorkExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.job.created handler');
+    }
     const payload = event.payload;
     // Salvar contexto no Memory Engine
     await memory_service_1.memoryService.saveContext('job_created', {
@@ -27,8 +40,21 @@ async function onJobCreated(event) {
  * Handler para evento: work.assignment.completed
  * - Salva contexto no Memory Engine
  * - Gera resumo da sessão via AI Kernel
+ *
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
  */
 async function onAssignmentCompleted(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[WorkExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for work.assignment.completed handler');
+    }
     const payload = event.payload;
     // 1. Salvar contexto no Memory Engine
     await memory_service_1.memoryService.saveContext('assignment_completed', {
@@ -61,4 +87,3 @@ async function onAssignmentCompleted(event) {
         timestamp: payload.timestamp,
     });
 }
-//# sourceMappingURL=work.executors.js.map

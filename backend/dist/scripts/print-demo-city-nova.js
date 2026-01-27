@@ -189,4 +189,3 @@ printDemoInfo().catch((error) => {
     console.error('Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=print-demo-city-nova.js.map

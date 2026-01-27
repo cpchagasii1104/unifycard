@@ -197,4 +197,3 @@ class CanonicalProductService {
     }
 }
 exports.canonicalProductService = new CanonicalProductService();
-//# sourceMappingURL=canonical-product.service.js.map

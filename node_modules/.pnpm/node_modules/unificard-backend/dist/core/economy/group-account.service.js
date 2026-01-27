@@ -101,4 +101,3 @@ class GroupAccountService {
     }
 }
 exports.groupAccountService = new GroupAccountService(account_service_1.accountService);
-//# sourceMappingURL=group-account.service.js.map

@@ -3,60 +3,75 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.errorHandlerPlugin = void 0;
 // src/plugins/error-handler.plugin.ts
+// 🔴 BLINDAGEM: Sem vazamento de stack em produção
 const fastify_plugin_1 = __importDefault(require("fastify-plugin"));
+const errors_1 = require("@core/errors");
+const error_codes_1 = require("@core/errors/error-codes");
 /**
  * Error Handler Plugin
  *
  * Responsabilidade:
- *  - Logar erros
+ *  - Logar erros com requestId
  *  - Padronizar resposta de erro
  *  - Não vazar stack trace em produção
  */
-const errorHandlerPlugin = async (fastify) => {
+const errorHandlerPluginImpl = async (fastify) => {
     fastify.setErrorHandler((error, request, reply) => {
+        const requestId = request.requestId || request.id;
+        const correlationId = request.headers['x-correlation-id'] || requestId;
         fastify.log.error({
             err: error,
             url: request.url,
             method: request.method,
+            requestId,
+            correlationId,
+            tenantId: request.tenant?.id,
+            userId: request.user?.id,
         });
         const statusCode = error.statusCode ?? 500;
         const isProduction = process.env.NODE_ENV === 'production';
         // Padronizar resposta de erro
+        // 🔴 FORMATO PADRÃO: { code, message, requestId? }
+        const errorCode = error instanceof errors_1.AppError
+            ? error.code
+            : error.code || error_codes_1.ErrorCode.INTERNAL_ERROR;
+        const safeMessage = error instanceof errors_1.AppError
+            ? error.getSafeMessage()
+            : (statusCode >= 500 && isProduction
+                ? 'Erro interno do servidor'
+                : error.message);
         const errorResponse = {
-            ok: false,
-            message: statusCode >= 500 && isProduction ? 'Internal server error' : error.message,
+            code: errorCode,
+            message: safeMessage,
         };
-        // Incluir código de erro se disponível (útil para tratamento no frontend)
-        // CORREÇÃO: Garantir que MISSING_TENANT seja sempre identificado corretamente
-        if (error.statusCode === 400) {
-            // Para erros 400, verificar se é tenant missing
-            const messageLower = error.message.toLowerCase();
-            if (messageLower.includes('tenant') || messageLower.includes('x-tenant-id')) {
-                errorResponse.code = 'MISSING_TENANT';
-                errorResponse.message = 'Tenant ID é obrigatório';
+        // Adicionar requestId para rastreabilidade
+        if (requestId) {
+            errorResponse.requestId = requestId;
+        }
+        // Adicionar informações específicas para rate limit
+        if (error instanceof errors_1.AppError && error.statusCode === 429) {
+            const rateLimitError = error;
+            if (rateLimitError.resetAt) {
+                errorResponse.resetAt = rateLimitError.resetAt.toISOString();
             }
-            else if (error.code) {
-                errorResponse.code = error.code;
-            }
-            else {
-                errorResponse.code = 'BAD_REQUEST';
+            if (rateLimitError.remaining !== undefined) {
+                errorResponse.remaining = rateLimitError.remaining;
             }
         }
-        else if (error.code) {
-            errorResponse.code = error.code;
-        }
-        else if (statusCode >= 500) {
-            errorResponse.code = 'INTERNAL_ERROR';
-        }
-        // Em desenvolvimento, incluir stack trace
-        if (!isProduction && error.stack) {
-            errorResponse.stack = error.stack;
+        // Em desenvolvimento, incluir stack trace e detalhes
+        if (!isProduction) {
+            if (error.stack) {
+                errorResponse.stack = error.stack;
+            }
+            if (error.details) {
+                errorResponse.details = error.details;
+            }
         }
         reply.status(statusCode).send(errorResponse);
     });
 };
-exports.default = (0, fastify_plugin_1.default)(errorHandlerPlugin, {
+exports.errorHandlerPlugin = (0, fastify_plugin_1.default)(errorHandlerPluginImpl, {
     name: 'error-handler-plugin',
 });
-//# sourceMappingURL=error-handler.plugin.js.map

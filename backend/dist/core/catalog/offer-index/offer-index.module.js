@@ -10,4 +10,3 @@ const offerIndexModule = async (fastify) => {
     await fastify.register(offer_index_routes_1.default);
 };
 exports.default = offerIndexModule;
-//# sourceMappingURL=offer-index.module.js.map

@@ -145,4 +145,3 @@ const vehiclesRoutes = async (fastify) => {
     });
 };
 exports.default = vehiclesRoutes;
-//# sourceMappingURL=vehicles.routes.js.map

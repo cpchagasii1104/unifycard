@@ -25,4 +25,3 @@ exports.setTimezoneSchema = zod_1.z.object({
 exports.setCurrencySchema = zod_1.z.object({
     currency: zod_1.z.string().length(3, 'Moeda deve ter 3 caracteres (ISO 4217)').min(1, 'Moeda é obrigatória'),
 });
-//# sourceMappingURL=root-config.schemas.js.map

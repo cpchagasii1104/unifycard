@@ -1,17 +1,48 @@
 "use strict";
 // src/modules/rides/distribution/distribution.service.ts
+// SPRINT 4: INTEGRATED WITH UNIFY BANK
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.distributionService = exports.DistributionService = void 0;
 const db_1 = require("@core/db");
 const event_bus_1 = require("@core/events/event-bus");
 const errors_1 = require("@core/errors");
-const account_service_1 = require("@core/economy/accounts/account.service");
-const split_service_1 = require("@core/economy/split.service");
-const region_account_service_1 = require("@core/economy/region-account.service");
-const group_account_service_1 = require("@core/economy/group-account.service");
+const bank_integration_service_1 = require("../../bank/bank-integration.service");
 class DistributionService {
     // ========================================================================
-    // 🔹 1. Processar pagamento final da corrida (INTEGRADO COM SPLITENGINE)
+    // 🔹 1. Processar pagamento final da corrida (INTEGRADO COM UNIFY BANK)
     // ========================================================================
     async processRidePayment(tenantId, ride, price) {
         const { ride_id, passenger_user_id, driver_id } = ride;
@@ -29,56 +60,40 @@ class DistributionService {
             throw new errors_1.NotFoundError('Driver not found');
         }
         const driverUserId = driverRow.user_id;
-        // 2. Buscar contas financeiras (usar currency do ride ou default 'BRL')
-        // Nota: Por enquanto usa 'BRL', mas pode ser expandido para usar currency do ride
-        const currency = 'BRL'; // TODO: Adicionar currency ao ride quando necessário
-        const passengerAccount = await account_service_1.accountService.getOrCreateUserPrimaryAccount(tenantId, passenger_user_id, currency);
-        const driverAccount = await account_service_1.accountService.getOrCreateUserPrimaryAccount(tenantId, driverUserId, currency);
-        const tenantAccount = await account_service_1.accountService.getPlatformAccount(tenantId, currency);
-        // 3. Resolver regionAccountId e groupAccountIds para splits
-        const regionAccountId = await region_account_service_1.regionAccountService.resolveRegionAccountId({
-            tenantId,
-            userId: driverUserId,
-        });
-        const groupAccountIds = await group_account_service_1.groupAccountService.resolveGroupAccountIds({
-            tenantId,
-            userId: driverUserId,
-        });
-        // 4. Preparar contexto para SplitEngine
-        const splitContext = {
-            tenantId,
+        // 2. Processar pagamento via Unify Bank
+        const bankResult = await bank_integration_service_1.bankIntegrationService.processRidePayment(tenantId, {
+            rideId: ride_id,
+            passengerUserId: passenger_user_id,
+            driverUserId: driverUserId,
             amount: price.total,
-            currency,
-            source: 'rides',
-            customerAccountId: passengerAccount.accountId,
-            workerAccountId: driverAccount.accountId,
-            tenantAccountId: tenantAccount.accountId,
-            regionAccountId,
-            groupAccountIds,
+            currency: 'BRL',
+            idempotencyKey: `ride-${ride_id}`,
             metadata: {
-                module: 'rides',
-                type: 'ride_payment',
-                rideId: ride_id,
                 driverId: driver_id,
-                driverUserId,
-                passengerUserId: passenger_user_id,
+                finalPrice: price.total,
             },
-        };
-        // 5. Aplicar splits via SplitEngine
-        const splitResult = await split_service_1.splitEngineService.applySplits(splitContext);
-        // 6. Extrair valores para compatibilidade com registro histórico
-        const driverSplit = splitResult.splits.find(s => s.rule.targetType === 'WORKER');
-        const platformSplit = splitResult.splits.find(s => s.rule.targetType === 'TENANT');
-        const regionSplit = splitResult.splits.find(s => s.rule.targetType === 'REGION');
-        const groupSplits = splitResult.splits.filter(s => s.rule.targetType === 'GROUP');
-        const driverAmount = driverSplit?.amount || 0;
-        const platformAmount = platformSplit?.amount || 0;
-        const regionAmount = regionSplit?.amount || 0;
-        const groupAmount = groupSplits.reduce((sum, s) => sum + s.amount, 0);
-        // 7. Gravar histórico no banco (compatibilidade)
-        await this.recordDistribution(tenantId, ride_id, price, driverAmount, platformAmount, regionAmount + groupAmount // communityAmount agora inclui region + groups
-        );
-        // 8. Emitir evento de pagamento concluído
+        });
+        // 3. Extrair valores dos splits para compatibilidade com registro histórico
+        const { bankAccountService } = await Promise.resolve().then(() => __importStar(require('../../bank/bank-account.service')));
+        const driverAccount = await bankAccountService.getAccountByOwner(tenantId, driverUserId, 'user', 'BRL');
+        const feeAccount = await bankAccountService.getSystemAccount(tenantId, 'fee', 'BRL');
+        const driverSplitAmount = bankResult.splits.find((s) => s.accountId === driverAccount?.accountId)?.amount || 0;
+        const feeSplitAmount = bankResult.splits.find((s) => s.accountId === feeAccount?.accountId)?.amount || 0;
+        const driverAmount = driverSplitAmount;
+        const platformAmount = feeSplitAmount; // Fee vai para plataforma
+        const communityAmount = 0; // Por enquanto, rides não têm community fund
+        // 4. Gravar histórico no banco (compatibilidade)
+        await this.recordDistribution(tenantId, ride_id, price, driverAmount, platformAmount, communityAmount);
+        // 5. Armazenar bankTransactionId no ride (via metadata JSONB)
+        await (0, db_1.runQueryWithTenant)(tenantId, {
+            text: `
+        UPDATE rides_rides
+        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('bankTransactionId', $3)
+        WHERE tenant_id = $1 AND ride_id = $2
+      `,
+            values: [tenantId, ride_id, bankResult.transactionId],
+        });
+        // 6. Emitir evento de pagamento concluído
         await event_bus_1.eventBus.emit({
             type: "rides.payment.completed",
             tenantId,
@@ -87,18 +102,17 @@ class DistributionService {
                 total: price.total,
                 driverAmount,
                 platformAmount,
-                regionAmount,
-                groupAmount,
-                splits: splitResult.splits,
+                communityAmount,
+                bankTransactionId: bankResult.transactionId,
             },
         });
         return {
             ok: true,
             driverAmount,
             platformAmount,
-            regionAmount,
-            groupAmount,
-            splits: splitResult.splits,
+            communityAmount,
+            bankTransactionId: bankResult.transactionId,
+            splits: bankResult.splits,
         };
     }
     // ========================================================================
@@ -203,4 +217,3 @@ class DistributionService {
 }
 exports.DistributionService = DistributionService;
 exports.distributionService = new DistributionService();
-//# sourceMappingURL=distribution.service.js.map

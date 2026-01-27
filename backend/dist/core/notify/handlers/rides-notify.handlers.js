@@ -3,10 +3,26 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerRidesNotifyHandlers = registerRidesNotifyHandlers;
 const notify_service_1 = require("@core/notify/notify.service");
+/**
+ * 🔴 GUARD CANÔNICO: Valida tenantId antes de processar evento
+ */
+function validateEventContext(event, handlerName) {
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error(`[RidesNotifyHandler] ❌ Evento rejeitado: tenantId ausente ou inválido`, {
+            handlerName,
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error(`EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for ${handlerName}`);
+    }
+}
 function registerRidesNotifyHandlers(eventBus) {
     const toString = (value) => String(value ?? '');
     // Quando uma nova solicitação de corrida é criada
     eventBus.subscribe('rides.ride_request.created', async (event) => {
+        validateEventContext(event, 'rides.ride_request.created notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const passengerId = toString(payload.passengerId);
@@ -27,6 +43,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Motorista atribuído à corrida
     eventBus.subscribe('rides.ride.driver_assigned', async (event) => {
+        validateEventContext(event, 'rides.ride.driver_assigned notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const passengerId = toString(payload.passengerId);
@@ -48,6 +65,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Corrida iniciada
     eventBus.subscribe('rides.ride.started', async (event) => {
+        validateEventContext(event, 'rides.ride.started notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const passengerId = toString(payload.passengerId);
@@ -68,6 +86,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Corrida concluída
     eventBus.subscribe('rides.ride.completed', async (event) => {
+        validateEventContext(event, 'rides.ride.completed notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const passengerId = toString(payload.passengerId);
@@ -92,6 +111,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Corrida cancelada
     eventBus.subscribe('rides.ride.cancelled', async (event) => {
+        validateEventContext(event, 'rides.ride.cancelled notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const passengerId = toString(payload.passengerId);
@@ -113,6 +133,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Motorista entrou em pausa forçada (limite 12h)
     eventBus.subscribe('rides.driver.forced_break', async (event) => {
+        validateEventContext(event, 'rides.driver.forced_break notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const driverId = toString(payload.driverId);
@@ -133,6 +154,7 @@ function registerRidesNotifyHandlers(eventBus) {
     });
     // Zona com alta demanda
     eventBus.subscribe('rides.zone.high_demand', async (event) => {
+        validateEventContext(event, 'rides.zone.high_demand notify handler');
         const { tenantId } = event;
         const payload = event.payload;
         const zoneId = toString(payload.zoneId);
@@ -152,4 +174,3 @@ function registerRidesNotifyHandlers(eventBus) {
         });
     });
 }
-//# sourceMappingURL=rides-notify.handlers.js.map

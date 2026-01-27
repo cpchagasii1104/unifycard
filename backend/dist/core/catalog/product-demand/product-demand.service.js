@@ -316,4 +316,3 @@ class ProductDemandService {
     }
 }
 exports.productDemandService = new ProductDemandService();
-//# sourceMappingURL=product-demand.service.js.map

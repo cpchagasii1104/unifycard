@@ -92,4 +92,3 @@ class EventLogSource {
     }
 }
 exports.eventLogSource = new EventLogSource();
-//# sourceMappingURL=event-log.source.js.map

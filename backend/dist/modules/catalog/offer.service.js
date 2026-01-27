@@ -73,4 +73,3 @@ class OfferService {
     }
 }
 exports.offerService = new OfferService();
-//# sourceMappingURL=offer.service.js.map

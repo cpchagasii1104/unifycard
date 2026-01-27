@@ -463,4 +463,3 @@ const lifecycleRoutes = async (fastify) => {
     });
 };
 exports.default = lifecycleRoutes;
-//# sourceMappingURL=lifecycle.routes.js.map

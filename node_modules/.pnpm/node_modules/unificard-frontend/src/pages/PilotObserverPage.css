@@ -1,0 +1,366 @@
+/* frontend/src/pages/PilotObserverPage.css */
+/* CONTINUOUS PRODUCTION: Estilos para Página de Observação - SPRINT 13 */
+
+.pilot-observer-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.pilot-observer-disabled,
+.pilot-observer-loading,
+.pilot-observer-empty {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #666;
+}
+
+.pilot-observer-hint {
+  font-size: 0.9rem;
+  color: #999;
+  margin-top: 0.5rem;
+}
+
+.pilot-observer-header {
+  margin-bottom: 2rem;
+}
+
+.pilot-observer-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  color: #1a1a1a;
+}
+
+.pilot-observer-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.pilot-observer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pilot-observer-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.pilot-observer-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.pilot-observer-event-type {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.pilot-observer-timestamp {
+  font-size: 0.85rem;
+  color: #999;
+  font-family: monospace;
+}
+
+.pilot-observer-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pilot-observer-detail {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.pilot-observer-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.pilot-observer-value {
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+/* SPRINT 14: Tabs */
+.pilot-observer-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.pilot-observer-tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #666;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pilot-observer-tab:hover {
+  color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.pilot-observer-tab.active {
+  color: #1a1a1a;
+  border-bottom-color: #007bff;
+  font-weight: 600;
+}
+
+/* SPRINT 14: Status */
+.pilot-observer-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.pilot-observer-status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.pilot-observer-status-accepted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.pilot-observer-status-revoked {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.pilot-observer-status-expired {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+/* SPRINT 14: Actions */
+.pilot-observer-item-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.pilot-observer-button-revoke {
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.pilot-observer-button-revoke:hover {
+  background: #c82333;
+}
+
+@media (max-width: 768px) {
+  .pilot-observer-page {
+    padding: 1rem;
+  }
+
+  .pilot-observer-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .pilot-observer-tabs {
+    flex-wrap: wrap;
+  }
+
+  .pilot-observer-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* SPRINT 15: Observação Humana */
+.pilot-observer-observation {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-user-selector {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.pilot-observer-button-initialize {
+  padding: 0.5rem 1rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.pilot-observer-button-initialize:hover {
+  background: #218838;
+}
+
+.pilot-observer-observation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.pilot-observer-section h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #1a1a1a;
+}
+
+.pilot-observer-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pilot-observer-checklist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.pilot-observer-checked-date {
+  font-size: 0.85rem;
+  color: #666;
+  margin-left: 1.5rem;
+}
+
+.pilot-observer-notes-form {
+  margin-bottom: 1.5rem;
+}
+
+.pilot-observer-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pilot-observer-note {
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.pilot-observer-note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.pilot-observer-note-content {
+  color: #1a1a1a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* SPRINT 16: Leitura Institucional */
+.pilot-observer-reading {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-reading-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-reading-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-subsection {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.pilot-observer-subsection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+}
+
+.pilot-observer-frictions-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pilot-observer-friction-group {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.pilot-observer-friction-group h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #1a1a1a;
+}
+
+.pilot-observer-hypotheses-form {
+  margin-bottom: 1.5rem;
+}
+
+.pilot-observer-hypotheses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

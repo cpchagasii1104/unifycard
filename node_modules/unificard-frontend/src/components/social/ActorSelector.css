@@ -1,0 +1,243 @@
+.actor-selector {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.loading-actors,
+.error-message {
+  padding: 0.75rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.error-message {
+  color: #ef4444;
+}
+
+.actor-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.actor-option {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background-color: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+}
+
+.actor-option:hover:not(:disabled) {
+  border-color: #2563eb;
+  background-color: #eff6ff;
+}
+
+.actor-option.active {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.actor-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actor-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actor-option-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.actor-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.actor-avatar-placeholder {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.actor-option.active .actor-avatar-placeholder {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.actor-option-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.actor-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.actor-option.active .actor-name {
+  color: white;
+}
+
+.actor-role {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.actor-option.active .actor-role {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.actor-subtitle {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.actor-option.active .actor-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.actor-context-info {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #1e40af;
+}
+
+.info-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+/* Modo compacto */
+.actor-selector-compact {
+  padding: 0.5rem;
+}
+
+.actor-compact-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.actor-avatar-small {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.actor-avatar-placeholder-small {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.actor-compact-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.actor-compact-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.actor-compact-role {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.actor-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+  transition: color 0.2s;
+}
+
+.actor-toggle-btn:hover {
+  color: #111827;
+}
+
+.actor-options-dropdown {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.retry-button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover {
+  background-color: #1d4ed8;
+}
+

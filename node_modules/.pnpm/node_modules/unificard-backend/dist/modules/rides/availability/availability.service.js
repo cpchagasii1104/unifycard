@@ -1,5 +1,16 @@
 "use strict";
 // src/modules/rides/availability/availability.service.ts
+// 🔴 LEGADO — Usa estrutura temporal paralela.
+// 🔴 NÃO USAR EM NOVO CÓDIGO.
+// 🔴 Migrar para unified-availability.service.ts
+// 
+// rides_driver_availability (is_online, dest_mode_enabled) representa:
+// - Estado operacional do motorista (disponível para corridas)
+// - NÃO bloqueia agenda temporal
+// - NÃO cria booking
+// - NÃO interfere em Unified Availability
+// 
+// Este é estado operacional, não agenda. A verdade temporal está em Unified Availability.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.availabilityService = exports.AvailabilityService = void 0;
 const db_1 = require("@core/db");
@@ -217,4 +228,3 @@ class AvailabilityService {
 }
 exports.AvailabilityService = AvailabilityService;
 exports.availabilityService = new AvailabilityService();
-//# sourceMappingURL=availability.service.js.map

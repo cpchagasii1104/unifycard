@@ -40,4 +40,3 @@ const locationRoutes = async (fastify) => {
     });
 };
 exports.default = locationRoutes;
-//# sourceMappingURL=location.routes.js.map

@@ -40,4 +40,3 @@ const zonesRoutes = async (fastify) => {
     });
 };
 exports.default = zonesRoutes;
-//# sourceMappingURL=zones.routes.js.map

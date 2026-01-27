@@ -142,4 +142,3 @@ const employeeRoutes = async (fastify) => {
     });
 };
 exports.default = employeeRoutes;
-//# sourceMappingURL=employee.routes.js.map

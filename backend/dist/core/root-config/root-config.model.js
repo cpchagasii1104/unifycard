@@ -20,4 +20,3 @@ class RootConfigModel {
     }
 }
 exports.RootConfigModel = RootConfigModel;
-//# sourceMappingURL=root-config.model.js.map

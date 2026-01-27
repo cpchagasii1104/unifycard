@@ -32,16 +32,13 @@ const transparencyAdminRoutes = async (fastify) => {
      * - 404: Fundo regional não encontrado
      * - 500: Erro inesperado
      */
-    fastify.get('/regional-fund/:regionId', async (req, reply) => {
+    fastify.get('/regional-fund/:regionId', {
+        preHandler: [fastify.requirePermission(['admin:view_regional_fund'])],
+    }, async (req, reply) => {
         // 1. Verificar autenticação
         if (!req.user || !req.user.id) {
             return reply.status(401).send({ error: 'Authentication required' });
         }
-        // TODO: Verificar se usuário é admin
-        // Por enquanto, aceitar qualquer usuário autenticado para MVP
-        // if (!req.user.isAdmin) {
-        //   return reply.status(403).send({ error: 'Admin access required' });
-        // }
         if (!req.tenant || !req.tenant.id) {
             return reply.status(400).send({ error: 'Tenant not found' });
         }
@@ -86,4 +83,3 @@ const transparencyAdminRoutes = async (fastify) => {
     });
 };
 exports.default = transparencyAdminRoutes;
-//# sourceMappingURL=transparency-admin.routes.js.map

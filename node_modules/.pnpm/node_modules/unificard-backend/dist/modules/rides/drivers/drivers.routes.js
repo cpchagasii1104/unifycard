@@ -95,4 +95,3 @@ const driversRoutes = async (fastify) => {
     });
 };
 exports.default = driversRoutes;
-//# sourceMappingURL=drivers.routes.js.map

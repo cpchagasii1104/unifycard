@@ -10,4 +10,3 @@ const canonicalProductModule = async (fastify) => {
     await fastify.register(canonical_product_routes_1.default);
 };
 exports.default = canonicalProductModule;
-//# sourceMappingURL=canonical-product.module.js.map

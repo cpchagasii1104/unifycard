@@ -185,4 +185,3 @@ class JobService {
     }
 }
 exports.jobService = new JobService();
-//# sourceMappingURL=job.service.js.map

@@ -149,4 +149,3 @@ const notifyRoutes = async (fastify) => {
     });
 };
 exports.default = notifyRoutes;
-//# sourceMappingURL=notify.routes.js.map

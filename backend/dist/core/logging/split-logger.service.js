@@ -82,4 +82,3 @@ class SplitLoggerService {
 }
 // Singleton instance (será injetado com logger do Fastify quando disponível)
 exports.splitLoggerService = new SplitLoggerService();
-//# sourceMappingURL=split-logger.service.js.map

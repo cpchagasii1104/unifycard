@@ -1,0 +1,258 @@
+// src/core/companies/company-members.routes.ts
+// Rotas para COMPANY MEMBERS
+// 🔴 BLINDAGEM: Base estrutural, NÃO CRM/ERP completo
+// 🔴 BLINDAGEM: Empresa NÃO pode editar agenda pessoal do funcionário
+
+import { FastifyPluginAsync } from 'fastify';
+import { companyMembersService } from './company-members.service';
+import { CompanyMemberRole, CompanyMemberStatus } from './company-members.types';
+import { z } from 'zod';
+
+const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * POST /companies/:companyId/members
+   * Adicionar membro à empresa
+   * 🔴 BLINDAGEM: companyId e actorId são OBRIGATÓRIOS
+   */
+  const createMemberSchema = z.object({
+    actorId: z.string().uuid(), // OBRIGATÓRIO: Actor CPF
+    role: z.nativeEnum(CompanyMemberRole).optional(),
+    status: z.nativeEnum(CompanyMemberStatus).optional(),
+    metadata: z.record(z.any()).optional(),
+  });
+
+  fastify.post<{
+    Params: { companyId: string };
+    Body: z.infer<typeof createMemberSchema>;
+  }>(
+    '/:companyId/members',
+    async (req, reply) => {
+      if (!req.user || !req.user.userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+      if (!req.tenant || !req.tenant.id) {
+        return reply.status(400).send({ error: 'Tenant not found' });
+      }
+
+      // Validar payload
+      const parsed = createMemberSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'Invalid request body',
+          details: parsed.error.errors,
+        });
+      }
+
+      try {
+        const member = await companyMembersService.createMember(
+          req.tenant.id,
+          req.user.userId,
+          {
+            companyId: req.params.companyId,
+            actorId: parsed.data.actorId,
+            role: parsed.data.role,
+            status: parsed.data.status,
+            metadata: parsed.data.metadata,
+          }
+        );
+
+        return reply.status(201).send({
+          ok: true,
+          data: {
+            memberId: member.memberId,
+            companyId: member.companyId,
+            actorId: member.actorId,
+            role: member.role,
+            status: member.status,
+            createdAt: member.createdAt.toISOString(),
+          },
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return reply.status(400).send({ error: error.errors });
+        }
+        fastify.log.error(error);
+        return reply.status(error.statusCode || 500).send({ error: error.message });
+      }
+    }
+  );
+
+  /**
+   * GET /companies/:companyId/members
+   * Listar membros da empresa
+   */
+  fastify.get<{
+    Params: { companyId: string };
+    Querystring: {
+      role?: string;
+      status?: string;
+    };
+  }>('/:companyId/members', async (req, reply) => {
+    if (!req.user || !req.user.userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    if (!req.tenant || !req.tenant.id) {
+      return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    try {
+      const filters: any = {
+        companyId: req.params.companyId,
+      };
+
+      if (req.query.role) {
+        filters.role = req.query.role as CompanyMemberRole;
+      }
+
+      if (req.query.status) {
+        filters.status = req.query.status as CompanyMemberStatus;
+      }
+
+      const members = await companyMembersService.listMembers(req.tenant.id, filters);
+
+      return reply.send({
+        ok: true,
+        data: members.map(m => ({
+          memberId: m.memberId,
+          companyId: m.companyId,
+          actorId: m.actorId,
+          role: m.role,
+          status: m.status,
+          createdAt: m.createdAt.toISOString(),
+          updatedAt: m.updatedAt.toISOString(),
+        })),
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(error.statusCode || 500).send({ error: error.message });
+    }
+  });
+
+  /**
+   * GET /companies/:companyId/members/:memberId
+   * Buscar membro por ID
+   */
+  fastify.get<{
+    Params: { companyId: string; memberId: string };
+  }>('/:companyId/members/:memberId', async (req, reply) => {
+    if (!req.user || !req.user.userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    if (!req.tenant || !req.tenant.id) {
+      return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    try {
+      const member = await companyMembersService.getMember(req.tenant.id, req.params.memberId);
+
+      return reply.send({
+        ok: true,
+        data: {
+          memberId: member.memberId,
+          companyId: member.companyId,
+          actorId: member.actorId,
+          role: member.role,
+          status: member.status,
+          createdAt: member.createdAt.toISOString(),
+          updatedAt: member.updatedAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(error.statusCode || 500).send({ error: error.message });
+    }
+  });
+
+  /**
+   * PUT /companies/:companyId/members/:memberId
+   * Atualizar membro
+   * 🔴 BLINDAGEM: Empresa pode atualizar role/status, mas NÃO agenda pessoal
+   */
+  const updateMemberSchema = z.object({
+    role: z.nativeEnum(CompanyMemberRole).optional(),
+    status: z.nativeEnum(CompanyMemberStatus).optional(),
+    metadata: z.record(z.any()).optional(),
+  });
+
+  fastify.put<{
+    Params: { companyId: string; memberId: string };
+    Body: z.infer<typeof updateMemberSchema>;
+  }>(
+    '/:companyId/members/:memberId',
+    async (req, reply) => {
+      if (!req.user || !req.user.userId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
+      if (!req.tenant || !req.tenant.id) {
+        return reply.status(400).send({ error: 'Tenant not found' });
+      }
+
+      // Validar payload
+      const parsed = updateMemberSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'Invalid request body',
+          details: parsed.error.errors,
+        });
+      }
+
+      try {
+        const member = await companyMembersService.updateMember(
+          req.tenant.id,
+          req.params.memberId,
+          req.user.userId,
+          parsed.data
+        );
+
+        return reply.send({
+          ok: true,
+          data: {
+            memberId: member.memberId,
+            companyId: member.companyId,
+            actorId: member.actorId,
+            role: member.role,
+            status: member.status,
+            updatedAt: member.updatedAt.toISOString(),
+          },
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return reply.status(400).send({ error: error.errors });
+        }
+        fastify.log.error(error);
+        return reply.status(error.statusCode || 500).send({ error: error.message });
+      }
+    }
+  );
+
+  /**
+   * DELETE /companies/:companyId/members/:memberId
+   * Remover membro
+   */
+  fastify.delete<{
+    Params: { companyId: string; memberId: string };
+  }>('/:companyId/members/:memberId', async (req, reply) => {
+    if (!req.user || !req.user.userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
+    if (!req.tenant || !req.tenant.id) {
+      return reply.status(400).send({ error: 'Tenant not found' });
+    }
+
+    try {
+      await companyMembersService.removeMember(
+        req.tenant.id,
+        req.params.memberId,
+        req.user.userId
+      );
+
+      return reply.status(204).send();
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(error.statusCode || 500).send({ error: error.message });
+    }
+  });
+};
+
+export default companyMembersRoutes;
+

@@ -120,4 +120,3 @@ class SkillService {
     }
 }
 exports.skillService = new SkillService();
-//# sourceMappingURL=skill.service.js.map

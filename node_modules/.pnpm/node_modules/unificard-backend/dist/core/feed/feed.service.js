@@ -1,9 +1,22 @@
 "use strict";
 // src/core/feed/feed.service.ts
 // Serviço de Feed Contextual - conteúdo que encontra a pessoa
+//
+// 🔴 BLINDAGEM CANÔNICA: Educação NÃO participa de feed
+// - Feed usa apenas: estado inferido, afinidade física/aprendizado
+// - Educação não filtra conteúdo, não prioriza posts
+// - Por que isso NÃO pode virar decisão: feed é sugestivo, não decisório
+//
+// 🔴 BLINDAGEM CANÔNICA: Aprendizado representa direção e interesse declarado
+// - Feed é baseado em direção/interesse similar, não em capacidade/nível
+// - Progresso (beginner/intermediate/advanced) representa fase de exploração, não validação
+// - NÃO filtra conteúdo por progresso, apenas sugere baseado em interesse similar
+// - Por que isso NÃO pode virar decisão: aprendizado é autodireção, não validação de competência
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.feedService = void 0;
 const profile_inference_service_1 = require("../profile/profile-inference.service");
+const memory_service_1 = require("../memory/memory.service");
+const memory_repository_1 = require("../memory/memory.repository");
 class FeedService {
     /**
      * Gera feed contextual baseado no estado inferido do usuário
@@ -197,6 +210,40 @@ class FeedService {
                 return undefined;
         }
     }
+    /**
+     * Registra ação do usuário sobre um conteúdo
+     */
+    async recordContentAction(tenantId, globalUserId, contentId, action) {
+        // 1. Registrar interação no sistema de memória (entities)
+        await memory_service_1.memoryService.registerInteraction(tenantId, globalUserId, {
+            entityId: contentId,
+            entityType: 'feed_content',
+            entityName: `Conteúdo do feed: ${contentId}`,
+            metadata: {
+                action,
+                timestamp: new Date().toISOString(),
+            },
+        });
+        // 2. Registrar também em interactions para histórico temporal
+        // Isso permite buscar interações recentes por data
+        const memoryRepository = new memory_repository_1.MemoryRepository();
+        await memoryRepository.upsertInteraction({
+            tenantId,
+            globalUserId,
+            intent: `feed_${action}`, // like, dislike, save, ignore
+            entityType: 'feed_content',
+            entityId: contentId,
+            entityName: `Conteúdo do feed: ${contentId}`,
+            parameters: {
+                action,
+                contentId,
+                timestamp: new Date().toISOString(),
+            },
+        });
+        // TODO: Em produção, também poderia:
+        // - Filtrar conteúdo ignorado/disliked do feed futuro
+        // - Priorizar conteúdo liked/saved
+        // - Conectar com sistema de recomendações
+    }
 }
 exports.feedService = new FeedService();
-//# sourceMappingURL=feed.service.js.map

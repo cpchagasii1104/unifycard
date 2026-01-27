@@ -224,4 +224,3 @@ class FundDashboardService {
     }
 }
 exports.fundDashboardService = new FundDashboardService();
-//# sourceMappingURL=fund-dashboard.service.js.map

@@ -1,1 +1,0 @@
-{"version":3,"file":"location.controller.d.ts","sourceRoot":"","sources":["../../../../src/modules/rides/location/location.controller.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,YAAY,EAAE,MAAM,SAAS,CAAC;AAG5D,qBAAa,kBAAkB;IACvB,MAAM,CAAC,GAAG,EAAE,cAAc,EAAE,KAAK,EAAE,YAAY;IAM/C,QAAQ,CAAC,GAAG,EAAE,cAAc,EAAE,KAAK,EAAE,YAAY;CAkBxD;AAED,eAAO,MAAM,kBAAkB,oBAA2B,CAAC"}

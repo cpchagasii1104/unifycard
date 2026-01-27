@@ -77,4 +77,3 @@ const citiesRoutes = async (fastify) => {
     });
 };
 exports.default = citiesRoutes;
-//# sourceMappingURL=cities.routes.js.map

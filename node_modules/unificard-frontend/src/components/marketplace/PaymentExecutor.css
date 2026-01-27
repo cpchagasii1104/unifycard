@@ -1,0 +1,131 @@
+/* frontend/src/components/marketplace/PaymentExecutor.css */
+
+.payment-executor {
+  margin-top: 32px;
+  padding: 24px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.payment-executor h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.payment-summary {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.summary-row.total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid #e0e0e0;
+  font-size: 18px;
+  color: #333;
+}
+
+.summary-row.total strong {
+  font-size: 24px;
+  color: #1976d2;
+}
+
+.payment-warning {
+  margin-bottom: 20px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+}
+
+.payment-warning p {
+  margin: 0;
+  font-size: 14px;
+  color: #856404;
+}
+
+.payment-warning strong {
+  color: #856404;
+}
+
+.payment-error {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #ffebee;
+  border-left: 4px solid #d32f2f;
+  border-radius: 4px;
+}
+
+.payment-error h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #d32f2f;
+}
+
+.payment-error p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #d32f2f;
+}
+
+.error-note {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+}
+
+.payment-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-execute {
+  padding: 14px 28px;
+  background-color: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-execute:hover:not(:disabled) {
+  background-color: #1b5e20;
+}
+
+.btn-execute:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.payment-success {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #e8f5e9;
+  border-left: 4px solid #2e7d32;
+  border-radius: 4px;
+}
+
+.payment-success p {
+  margin: 0;
+  font-size: 14px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+

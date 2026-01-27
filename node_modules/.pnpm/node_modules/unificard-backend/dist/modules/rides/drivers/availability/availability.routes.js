@@ -9,4 +9,3 @@ async function availabilityRoutes(app) {
     app.post('/rides/drivers/:driverId/:tenantId/availability/destination/disable', (req, reply) => availability_controller_1.availabilityController.disableDestinationMode(req, reply));
     app.get('/rides/drivers/:driverId/availability', (req, reply) => availability_controller_1.availabilityController.getAvailability(req, reply));
 }
-//# sourceMappingURL=availability.routes.js.map

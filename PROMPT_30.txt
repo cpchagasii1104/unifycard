@@ -1,0 +1,102 @@
+PROMPT 30 — Mercado de Capacidade (B2B de Serviços)
+
+OBJETIVO
+Permitir que empresas comprem e vendam capacidade futura de serviços
+de forma profissional, previsível e contratual.
+
+Não é marketplace de freelancer.
+Não é leilão.
+Não é anúncio.
+
+É capacidade produtiva negociada como ativo econômico.
+
+PRINCÍPIO CENTRAL
+Quem tem demanda recorrente compra capacidade.
+Quem tem capacidade ociosa vende capacidade.
+O sistema só conecta — não intermedeia subjetivamente.
+
+CASOS DE USO
+- Condomínios contratando manutenção recorrente
+- Indústrias comprando capacidade técnica mensal
+- Academias terceirizando limpeza/manutenção
+- Clínicas contratando serviços auxiliares
+- Redes comprando SLA garantido
+
+CONCEITO-CHAVE
+Capacidade ≠ serviço individual
+Capacidade = compromisso de atendimento futuro
+
+CONTRATO CANÔNICO
+ServiceCapacityContract.contract.ts
+
+Campos principais:
+- buyer_company_id
+- provider_company_id
+- service_template_id
+- region_id
+- capacity_type (hours | slots | volume)
+- capacity_amount
+- period (monthly | quarterly | custom)
+- sla_terms
+- price_terms
+- penalty_terms
+- status (draft | active | expired | breached)
+
+FORMAÇÃO DO CONTRATO
+1) Prestador publica capacidade disponível
+2) Comprador seleciona capacidade
+3) Contrato B2B é criado (usa engine existente)
+4) Capacidade fica reservada no sistema
+5) Serviços executados consomem a capacidade
+
+INTEGRAÇÃO COM CAPACIDADE REAL
+- Usa PROMPT 23 (ServiceResource & Capacity)
+- Capacidade contratada reduz capacidade disponível pública
+- Overbooking é tecnicamente impossível
+
+EXECUÇÃO
+- Cada serviço executado:
+  - consome parte da capacidade contratada
+  - registra evento de consumo
+- Se capacidade acabar:
+  - novos serviços daquele contrato não são aceitos
+
+PAGAMENTO
+- Pode ser:
+  - pré-pago
+  - faturado mensal
+  - híbrido
+- Usa PaymentPlan B2B existente
+- Multas por SLA via ledger (sem negociação manual)
+
+SLA E GOVERNANÇA
+- SLA do contrato é mais forte que SLA comum
+- Violação impacta:
+  - Trust da empresa
+  - elegibilidade para novos contratos
+- Reincidência bloqueia publicação de capacidade
+
+VISIBILIDADE
+- Contratos são privados entre empresas
+- Capacidade agregada pode alimentar métricas regionais
+- Usuário final nunca vê contratos B2B
+
+O QUE NÃO É
+- Não é anúncio
+- Não é ranking
+- Não é desconto
+- Não é intermediação humana
+
+RESULTADO PRÁTICO
+- Empresas compram previsibilidade
+- Prestadores monetizam ocioso
+- Região ganha estabilidade operacional
+- Plataforma ganha com uso real, não ads
+
+Capacidade vira contrato.
+Contrato vira execução.
+Execução vira confiança.
+
+
+
+

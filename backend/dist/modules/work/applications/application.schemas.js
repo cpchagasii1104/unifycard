@@ -23,4 +23,3 @@ exports.listApplicationsQuerySchema = zod_1.z.object({
     limit: zod_1.z.string().transform(v => (v ? parseInt(v) : 50)).optional(),
     offset: zod_1.z.string().transform(v => (v ? parseInt(v) : 0)).optional(),
 });
-//# sourceMappingURL=application.schemas.js.map

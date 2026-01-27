@@ -180,4 +180,3 @@ const profileEducationCompaniesRoutes = async (fastify) => {
     });
 };
 exports.default = profileEducationCompaniesRoutes;
-//# sourceMappingURL=profile-education-companies.routes.js.map

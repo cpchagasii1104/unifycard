@@ -62,6 +62,18 @@ exports.pool = new pg_1.Pool({
     min: Number(process.env.DATABASE_POOL_MIN || 2),
     max: Number(process.env.DATABASE_POOL_MAX || 10),
 });
+// 🔴 Configurar encoding UTF-8 e search_path para todas as conexões
+exports.pool.on('connect', async (client) => {
+    try {
+        // Garantir que o client está usando UTF-8
+        await client.query("SET client_encoding = 'UTF8'");
+        // 🔴 ADR: Garantir que search_path está configurado para public (schema padrão)
+        await client.query("SET search_path = 'public'");
+    }
+    catch (err) {
+        console.warn('⚠️ Erro ao configurar encoding UTF-8 ou search_path:', err);
+    }
+});
 // Logar informações de conexão ao carregar o módulo
 logDatabaseConnectionInfo();
 // Health check
@@ -227,4 +239,3 @@ async function closePool() {
     await exports.pool.end();
     console.log('✔ DB pool closed.');
 }
-//# sourceMappingURL=pool.js.map

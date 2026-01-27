@@ -237,4 +237,3 @@ const workerStatusRoutes = async (fastify) => {
     });
 };
 exports.default = workerStatusRoutes;
-//# sourceMappingURL=worker-status.routes.js.map

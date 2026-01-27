@@ -1,16 +1,24 @@
 "use strict";
 // src/core/catalog/catalog-payment.service.ts
+// ⚠️ DEPRECATED: Este serviço não está em uso ativo e usa @core/economy (legacy)
+// 
+// STATUS: P2 - Não alcançável via rotas HTTP ativas
+// 
+// NOTA: Este serviço será migrado para Unify Bank quando o fluxo de catálogo/marketplace
+// for implementado. Por enquanto, mantido para compatibilidade mas não deve ser usado
+// por módulos ativos.
 //
-// Serviço de pagamento para catálogo/marketplace (pedidos)
-// Integrado com SplitEngine para garantir redistribuição automática
-//
-// NOTA: Esta função será chamada quando o fluxo de finalização de pedido for implementado
+// Para novos pagamentos de catálogo, use:
+// - bankIntegrationService.processServiceBookingPayment() para serviços
+// - bankTransactionService.createTransactionWithSplit() com contexto apropriado
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.catalogPaymentService = void 0;
 const account_service_1 = require("../economy/accounts/account.service");
 const split_service_1 = require("../economy/split.service");
 const region_account_service_1 = require("../economy/region-account.service");
 const group_account_service_1 = require("../economy/group-account.service");
+const referral_split_service_1 = require("../economy/referral-split.service");
+const devLog_1 = require("@utils/devLog");
 class CatalogPaymentService {
     /**
      * Processa pagamento de pedido do catálogo
@@ -63,6 +71,34 @@ class CatalogPaymentService {
         };
         // 5. Aplicar splits via SplitEngine
         const splitResult = await split_service_1.splitEngineService.applySplits(splitContext);
+        // 6. Processar split de referral (se aplicável)
+        // Buscar transactionId do primeiro split (ou usar base transaction)
+        const baseTransactionId = splitResult.splits[0]?.transactionId || '';
+        if (baseTransactionId && sellerUserId) {
+            try {
+                await referral_split_service_1.referralSplitService.processReferralSplit({
+                    tenantId,
+                    transactionId: baseTransactionId,
+                    sourceUserId: sellerUserId, // Vendedor que recebeu o pagamento
+                    amountCents: Math.floor(amount * 100), // Converter para centavos
+                    percentageBps: 500, // 5% de comissão para indicador
+                    metadata: {
+                        type: 'service_payment',
+                        orderId,
+                        buyerUserId,
+                        sellerUserId,
+                    },
+                });
+            }
+            catch (err) {
+                // Não falha o pagamento se split falhar
+                devLog_1.devLog.warn('referral.split.service_payment_error', {
+                    error: err instanceof Error ? err.message : String(err),
+                    orderId,
+                    sellerUserId,
+                });
+            }
+        }
         return {
             transactionIds: splitResult.splits
                 .map(s => s.transactionId)
@@ -76,4 +112,3 @@ class CatalogPaymentService {
     }
 }
 exports.catalogPaymentService = new CatalogPaymentService();
-//# sourceMappingURL=catalog-payment.service.js.map

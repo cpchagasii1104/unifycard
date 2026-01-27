@@ -11,7 +11,21 @@ const memory_service_1 = require("@core/memory/memory.service");
  * Executores para eventos de grupos
  * Salva contexto no Memory e envia para AI Kernel
  */
+/**
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
+ */
 async function handleGroupCreated(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[GroupsExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for group.created handler');
+    }
     const { tenantId, payload } = event;
     const { groupId, name, ownerUserId } = payload;
     // Salvar no Memory
@@ -26,7 +40,21 @@ async function handleGroupCreated(event) {
     });
     // TODO: Enviar para AI Kernel gerar resumo
 }
+/**
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
+ */
 async function handleGroupMemberJoined(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[GroupsExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for group.member.joined handler');
+    }
     const { tenantId, payload } = event;
     const { groupId, userId, role } = payload;
     // Salvar no Memory
@@ -40,7 +68,21 @@ async function handleGroupMemberJoined(event) {
         },
     });
 }
+/**
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
+ */
 async function handleGroupMemberLeft(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[GroupsExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for group.member.left handler');
+    }
     const { tenantId, payload } = event;
     const { groupId, userId } = payload;
     // Salvar no Memory
@@ -53,7 +95,21 @@ async function handleGroupMemberLeft(event) {
         },
     });
 }
+/**
+ * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
+ * - tenantId é obrigatório e validado antes de processar
+ */
 async function handleGroupFundReceived(event) {
+    // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
+    if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
+        console.error('[GroupsExecutor] ❌ Evento rejeitado: tenantId ausente ou inválido', {
+            eventType: event.type,
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            timestamp: new Date().toISOString(),
+        });
+        throw new Error('EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required for group.fund.received handler');
+    }
     const { tenantId, payload } = event;
     const { groupId, amount, source, transactionId } = payload;
     // Salvar no Memory
@@ -80,4 +136,3 @@ function registerGroupEventHandlers() {
     // Handlers podem ser registrados em outros lugares se necessário
     // Por enquanto, eventos são apenas publicados
 }
-//# sourceMappingURL=groups.executors.js.map

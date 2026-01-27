@@ -1,0 +1,64 @@
+# PLANEJAMENTO INSTITUCIONAL — DESIGN SYSTEM & GOLDEN PATH
+# PROJETO: UNIFICARD
+# FASE: CONSISTÊNCIA VISUAL E COGNITIVA
+
+================================================================
+OBJETIVO
+================================================================
+
+Definir o DESIGN SYSTEM CANÔNICO e o GOLDEN PATH VISUAL
+do UnifiCard, garantindo que:
+
+- Arquétipos canônicos tenham identidade visual consistente
+- Usuários reconheçam padrões entre módulos
+- UX não vire regra escondida
+- Frontend continue como camada derivada
+
+================================================================
+ESCOPO
+================================================================
+
+- Somente definição conceitual e visual
+- Nenhuma alteração de regra de negócio
+- Nenhuma alteração de backend
+- Nenhuma decisão implícita
+
+================================================================
+TÓPICOS A DEFINIR
+================================================================
+
+1) Design System Canônico
+- Tipos de página por arquétipo
+- Layout base por arquétipo
+- Tipografia, espaçamento, hierarquia
+- Componentes permitidos por arquétipo
+
+2) Golden Path Visual
+- Caminho principal do usuário por módulo
+- Onde começa, onde termina
+- O que é destaque vs secundário
+- Onde decisões explícitas acontecem
+
+3) Identidade por Módulo
+- Marketplace (Mercado Livre-like)
+- Food / Serviços (iFood-like)
+- Mobility / Agenda (Uber-like)
+- Eventos (criação progressiva)
+
+================================================================
+REGRAS INQUEBRÁVEIS
+================================================================
+
+- UX NÃO cria regra
+- UX NÃO cria decisão
+- UX NÃO valida negócio
+- UX NÃO valida tempo
+- UX apenas orienta e expõe decisões humanas
+
+================================================================
+SAÍDA ESPERADA
+================================================================
+
+- Documento canônico de Design System
+- Documento canônico de Golden Path
+- Base para onboarding de devs e IAs

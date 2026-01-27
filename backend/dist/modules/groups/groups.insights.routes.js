@@ -35,4 +35,3 @@ const groupsInsightsRoutes = async (fastify) => {
     });
 };
 exports.default = groupsInsightsRoutes;
-//# sourceMappingURL=groups.insights.routes.js.map

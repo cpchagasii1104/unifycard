@@ -8,4 +8,3 @@ const devtoolsModule = async (fastify) => {
     await fastify.register(ai_routes_1.default, { prefix: '/ai' });
 };
 exports.default = devtoolsModule;
-//# sourceMappingURL=devtools.module.js.map

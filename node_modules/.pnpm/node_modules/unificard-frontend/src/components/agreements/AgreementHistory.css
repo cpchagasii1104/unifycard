@@ -1,0 +1,134 @@
+/* frontend/src/components/agreements/AgreementHistory.css */
+/* Estilos para o Histórico do Acordo */
+
+.agreement-history {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.agreement-history h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.agreement-timeline {
+  position: relative;
+  padding-left: 2rem;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -2rem;
+  top: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.timeline-item.active .timeline-marker {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.timeline-item.completed .timeline-marker {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.timeline-icon {
+  font-size: 0.875rem;
+}
+
+.timeline-content {
+  padding-left: 0.5rem;
+}
+
+.timeline-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-status strong {
+  font-size: 0.9rem;
+  color: #111;
+}
+
+.timeline-status-badge {
+  padding: 0.125rem 0.5rem;
+  background: #f3f4f6;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.timeline-item.active .timeline-status-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.timeline-item.completed .timeline-status-badge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.timeline-date {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-actor {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.timeline-connector {
+  position: absolute;
+  left: -1.5rem;
+  top: 2rem;
+  width: 2px;
+  height: calc(100% + 0.5rem);
+  background: #e5e7eb;
+  z-index: 0;
+}
+
+.timeline-item.completed .timeline-connector {
+  background: #10b981;
+}
+
+.agreement-history-notice {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+}
+
+.agreement-history-notice small {
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+
+
+

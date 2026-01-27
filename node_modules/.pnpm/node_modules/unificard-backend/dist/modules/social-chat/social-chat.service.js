@@ -151,4 +151,3 @@ class SocialChatService {
     }
 }
 exports.socialChatService = new SocialChatService();
-//# sourceMappingURL=social-chat.service.js.map

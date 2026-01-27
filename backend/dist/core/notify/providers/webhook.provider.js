@@ -50,4 +50,3 @@ class WebhookProvider {
     }
 }
 exports.WebhookProvider = WebhookProvider;
-//# sourceMappingURL=webhook.provider.js.map

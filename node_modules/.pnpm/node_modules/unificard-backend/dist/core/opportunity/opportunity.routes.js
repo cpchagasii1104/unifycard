@@ -63,4 +63,3 @@ const opportunityRoutes = async (fastify) => {
     });
 };
 exports.default = opportunityRoutes;
-//# sourceMappingURL=opportunity.routes.js.map

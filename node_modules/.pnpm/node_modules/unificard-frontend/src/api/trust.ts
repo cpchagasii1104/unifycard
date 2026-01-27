@@ -1,0 +1,87 @@
+// frontend/src/api/trust.ts
+// API client para Trust & Integrity Engine
+// 🔴 BLINDAGEM: Frontend apenas exibe score, não calcula
+
+import { apiFetch, apiFetchJson } from './client';
+
+/**
+ * Nível de risco
+ */
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+
+/**
+ * Trust Profile
+ */
+export interface TrustProfile {
+  profileId: string;
+  tenantId: string;
+  actorId: string;
+  currentScore: number;
+  riskLevel: RiskLevel;
+  totalEvents: number;
+  positiveEvents: number;
+  negativeEvents: number;
+  lastEventAt: string | null;
+  lastUpdatedAt: string;
+  createdAt: string;
+}
+
+/**
+ * Trust Event
+ */
+export interface TrustEvent {
+  eventId: string;
+  tenantId: string;
+  actorId: string;
+  eventType: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  scoreImpact: number;
+  contextType: string;
+  contextId: string;
+  evidencePackId: string;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+}
+
+/**
+ * Resultado de verificação
+ */
+export interface CanProceedResult {
+  canProceed: boolean;
+  reason?: string;
+  riskLevel: RiskLevel;
+  currentScore: number;
+}
+
+/**
+ * Busca trust profile por actor
+ */
+export async function getTrustProfile(actorId: string): Promise<TrustProfile> {
+  return apiFetchJson<TrustProfile>(`/trust/profile/${actorId}`);
+}
+
+/**
+ * Verifica se pode prosseguir com ação
+ */
+export async function canProceedWithAction(input: {
+  action: string;
+  actorId: string;
+  contextType?: string;
+  contextId?: string;
+}): Promise<CanProceedResult> {
+  const response = await apiFetch('/trust/can-proceed', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Erro ao verificar trust' }));
+    throw new Error(error.error || 'Erro ao verificar trust');
+  }
+
+  return response.json();
+}
+
+
+
+

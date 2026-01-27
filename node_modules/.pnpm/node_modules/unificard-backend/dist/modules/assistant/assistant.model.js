@@ -83,4 +83,3 @@ class AssistantModel {
     }
 }
 exports.AssistantModel = AssistantModel;
-//# sourceMappingURL=assistant.model.js.map

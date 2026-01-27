@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.workModule = void 0;
 const job_routes_1 = __importDefault(require("./jobs/job.routes"));
 const worker_routes_1 = __importDefault(require("./workers/worker.routes"));
 const skill_routes_1 = __importDefault(require("./skills/skill.routes"));
@@ -25,5 +26,5 @@ const workModule = async (fastify) => {
     await fastify.register(status_routes_1.default, { prefix: '/instant' });
     await fastify.register(dispatcher_plugin_1.default);
 };
+exports.workModule = workModule;
 exports.default = workModule;
-//# sourceMappingURL=work.module.js.map

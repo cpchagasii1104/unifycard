@@ -138,4 +138,3 @@ const socialActionsRoutes = async (fastify) => {
     });
 };
 exports.default = socialActionsRoutes;
-//# sourceMappingURL=social-actions.routes.js.map

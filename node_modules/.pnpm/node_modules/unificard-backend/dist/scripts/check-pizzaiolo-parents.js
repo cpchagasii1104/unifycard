@@ -123,4 +123,3 @@ checkPizzaioloParents()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=check-pizzaiolo-parents.js.map

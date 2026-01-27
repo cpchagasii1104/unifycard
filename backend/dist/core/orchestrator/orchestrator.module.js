@@ -8,4 +8,3 @@ const orchestratorModule = async (fastify) => {
     await fastify.register(orchestrator_routes_1.default);
 };
 exports.default = orchestratorModule;
-//# sourceMappingURL=orchestrator.module.js.map

@@ -1,0 +1,3 @@
+# Anti-Patterns Educacionais — UnifiCard
+
+Documento de Blindagem Estrutural...

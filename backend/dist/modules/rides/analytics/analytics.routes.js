@@ -242,4 +242,3 @@ const analyticsRoutes = async (fastify) => {
     });
 };
 exports.default = analyticsRoutes;
-//# sourceMappingURL=analytics.routes.js.map

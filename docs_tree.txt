@@ -1,0 +1,742 @@
+Listagem de caminhos de pasta para o volume Windows
+O número de série do volume é AA11-8EC7
+C:\UNIFICARD\DOCS
+¦   ARCHITECTURE_GUARDRAILS.md
+¦   AUDITORIA_ESTRUTURAL.md
+¦   AUDIT_REPORT_V2.md
+¦   AUTONOMY_RULES.md
+¦   BACKEND_READY_FRONTEND_CORRECTIONS.md
+¦   category_tree_constitution.md
+¦   CORRECOES_APLICADAS.md
+¦   CORRECOES_APLICADAS_FINAL.md
+¦   CORRECOES_BACKEND_DEFINITIVAS.md
+¦   CORRECOES_BUSCA_CATEGORIAS.md
+¦   CORRECOES_CRITICAS_APLICADAS.md
+¦   CORRECOES_FINAIS.md
+¦   CORRECOES_FRONTEND_PRIMEIRO_ACESSO.md
+¦   CORRECOES_POST_MIGRATION.md
+¦   DEV_USER_README.md
+¦   DIAGNOSTICO.md
+¦   DIAGNOSTICO_BIRTHDATE_RESULTADO.md
+¦   DIAGNOSTICO_SINGLETONS.md
+¦   DIAGNOSTICO_TELA_BRANCA.md
+¦   ECOSYSTEM_UNDERSTANDING.md
+¦   ENV_EXAMPLE.md
+¦   EXECUTAR_MIGRATION_089.md
+¦   fix-core-inflation.ps1
+¦   GOVERNANCE.md
+¦   GUIA_BASELINE_MIGRATIONS.md
+¦   IMPLEMENTACAO_IA_CATEGORIAS.md
+¦   ISOLAMENTO_MIGRATIONS_LATENTES.md
+¦   MOVE_FRONTEND_INSTRUCTIONS.md
+¦   NORMALIZACAO_CNPJ.md
+¦   normalize-normative.ps1
+¦   normative_fix.log
+¦   PATCH_APLICADO.md
+¦   README.md
+¦   RELATORIO_VALIDACAO_COMPLETA.md
+¦   REMOCAO_SEED_DO_PIPELINE.md
+¦   RESUMO_BASELINE_DEFINITIVO.md
+¦   RESUMO_CORRECOES.md
+¦   RESUMO_FIX_NIVEL2.md
+¦   RESUMO_SISTEMA_BASELINE.md
+¦   SCHEMA_GUARD_IMPLEMENTADO.md
+¦   SINCRONIZACAO_PROFILE_ACTOR.md
+¦   SISTEMA_BASELINE_VALIDADO.md
+¦   STAGING_SETUP.md
+¦   TESTE_COMPLETO_MIGRATIONS.md
+¦   VALIDACAO_BASELINE_FINAL.md
+¦   VALIDACAO_CORE_ONLY.md
+¦   VALIDACAO_EMPIRICA_PASSO_0.md
+¦   VALIDACAO_FINAL.md
+¦   VALIDACAO_SCHEMA_REAL.md
+¦   VIOLATIONS_INVENTORY.md
+¦   
++---01_normative
+¦       AGENDA_UNIVERSAL_CONTRACT.md
+¦       AGENDA_UNIVERSAL_CONTRACT.md.bak
+¦       ARQUETIPOS_PAGINA_CANONICOS.md
+¦       CAPACIDADES_ACTOR_CONTRATO.md
+¦       CATEGORY_SCOPES_SEMANTICS.md
+¦       CONGELAMENTO_BASE_UNIFICARD.md
+¦       CONTRACTS.md
+¦       CONTRACTS.md.bak
+¦       contrato_canonico_de_limites_tecnicos_irreversiveis_unifi_card.md
+¦       CONTRATO_FEED_MATCHING_UNIFICARD.md
+¦       CONTRATO_GRUPOS_V1.md
+¦       CORE_APROVACAO_FINANCEIRA_CANONICO.md
+¦       CORE_APROVACAO_FINANCEIRA_CANONICO.md.bak
+¦       CORE_CATEGORY_CONTRACT.md
+¦       CORE_CATEGORY_VALIDATION_MATRIX.md
+¦       CORE_ESTORNOS_FINANCEIROS_CANONICO.md
+¦       CORE_ESTORNOS_FINANCEIROS_CANONICO.md.bak
+¦       CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md
+¦       CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md.bak
+¦       CORE_FINANCIAL_CONTRACT.md
+¦       CORE_IDENTITY_AND_ACTORS_CONTRACT.md
+¦       CORE_IMUTAVEL.md
+¦       CORE_OBSERVABILITY_CONTRACT.md
+¦       CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+¦       CORE_PERMISSOES_FINANCEIRAS_CANONICO.md.bak
+¦       CORE_SPLIT_PAGAMENTO_CANONICO.md
+¦       CORE_SPLIT_PAGAMENTO_CANONICO.md.bak
+¦       CORE_TEMPORAL_CONTRACT.md
+¦       CORE_TEMPORAL_CONTRACT.md.bak
+¦       CORE_TEMPORAL_HARDENING_CONTRACT.md
+¦       CORE_TEMPORAL_HARDENING_CONTRACT.md.bak
+¦       CORE_VS_MODULOS_CONTRACT.md
+¦       CORE_VS_MODULOS_CONTRACT.md.bak
+¦       DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+¦       DOCUMENTO_INSTITUCIONAL_CANONICO.md
+¦       EFFECTS_ACTOR_CONTRATO.md
+¦       EMPRESA_NASCIMENTO_CANONICO.md
+¦       Eventos_Canonicos_de_Formacao_UnifiCard.md
+¦       FASE_6_1_CONTRATO_UX_ECONOMICA.md
+¦       GAPS_PROCESSADO_CANONICO.md
+¦       GLOSSARIO_CANONICO.md
+¦       GOVERNANCA_CANONICA.md
+¦       GOVERNANCA_CANONICA_v1.md
+¦       GOVERNANCA_E_VISAO_CANONICA_UNIFICARD.md
+¦       GOVERNANCA_INICIAL.md
+¦       GO_LIVE_PRODUCAO_UNIFICARD.md
+¦       groups-create-contract.md
+¦       HARDENING_CYCLE_CLOSURE.md
+¦       IDENTITY_CORE_CONTRACT.md
+¦       INTENTS_ACTOR_CONTRATO.md
+¦       LEGADO_TEMPORAL_MIGRATION_PLAN.md
+¦       MAPA_CANONICO_PERMISSIONS_v1.md
+¦       MAPA_CANONICO_PERMISSIONS_v1_20260122-073046.md
+¦       Marketplace_Atributos_Canonicos.md
+¦       MATRIZ_FONTES_DE_VERDADE.md
+¦       OBSERVABILIDADE_CONSTITUCIONAL.md
+¦       operational_commitment_minimum_contract.md
+¦       PF_PRESTADOR_CANONICO.md
+¦       POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md
+¦       PROCESSAMENTO_GAPS_CANONICO.md
+¦       PROCESSO_OFICIAL_EVOLUCAO_UNIFICARD.md
+¦       READ_MODELS_CONTRATO.md
+¦       SERVICE_CANONICO.md
+¦       USER_PROFILE_CONTRACT.md
+¦       USER_PROFILE_CONTRACT_20260122-071728.md
+¦       
++---02_decisions
+¦       audit-health-profile-integration.md
+¦       audit-professional-categories.md
+¦       AUDITORIA_CADASTRO_IMUTAVEL.md
+¦       AUDITORIA_CADASTRO_LOGIN_INDICACAO.md
+¦       AUDITORIA_COMPLETA_UNIFICARD.md
+¦       AUDITORIA_CONTRATO_TIME_WINDOWS.md
+¦       AUDITORIA_CORRECOES_POS_MIGRATIONS.md
+¦       AUDITORIA_CPF_COMPLETA.md
+¦       AUDITORIA_CPF_NAO_SALVA.md
+¦       AUDITORIA_DEFINITIVA_EMPRESAS.md
+¦       AUDITORIA_EMPRESAS_UNIFICARD.md
+¦       AUDITORIA_FINAL_EDUCACAO.md
+¦       AUDITORIA_MATCHING_EDUCACAO.md
+¦       AUDITORIA_MODELO_ACTORS.md
+¦       AUDITORIA_MODULO_APRENDIZADO.md
+¦       AUDITORIA_OWNERSHIP_FINANCEIRO_FASE1.md
+¦       AUDITORIA_SEGURANCA_CPF.md
+¦       AUDITORIA_SPLIT_ENGINE_GRUPOS.md
+¦       AUDIT_REPORT_V2.md
+¦       build_validation_report.md
+¦       CHECK_DUPLICIDADE_OBRIGATORIO.md
+¦       COMPARACAO_AUDITORIAS_CLAUDE_VS_CHATGPT.md
+¦       CORRECAO_AUTOCOMPLETE_CATEGORIAS_20260122-073046.md
+¦       CORRECAO_INDEX_IDEMPOTENTE_20260122-073046.md
+¦       CORRECAO_RBAC_IDEMPOTENTE_20260122-073046.md
+¦       CORRECAO_VALIDACAO_EMPRESAS_20260122-073046.md
+¦       CORRECOES_ESTRUTURAIS_20260122-073046.md
+¦       DECISION_CORE_CONTRACT.md
+¦       DECISION_CORE_HARDENING_CONTRACT.md
+¦       DECISION_SAFETY_AND_CONTAINMENT_CONTRACT.md
+¦       diagnostico_backend_offline.md
+¦       diagnostico_eventos_a.md
+¦       diagnostico_final.md
+¦       edge_cases_eventos_20260122-073046.md
+¦       estabilizacao_typescript_relatorio_final.md
+¦       estado_atual_modulo_eventos_20260122-073046.md
+¦       event_cta_audit_report.md
+¦       fluxo_visual_dinheiro_20260122-073046.md
+¦       golden_path.md
+¦       IDENTIDADE_INSTITUCIONAL_DECISAO.md
+¦       INVENTARIO_CORE_AUDITORIA.md
+¦       mapeamento_autenticacao_fase3_20260122-073046.md
+¦       padrao_arquitetural_modulos_20260122-073046.md
+¦       profiles_20260122-073046.md
+¦       PROMPT_CURSOR_FINAL_AUDITADO.md
+¦       proposta_step2_intencao_final_20260122-073046.md
+¦       relatorio_auditoria.md
+¦       RELATORIO_AUDITORIA_COMPLETA.md
+¦       RELATORIO_AUDITORIA_COMPLETA_UNIFICARD.md
+¦       RELATORIO_AUDITORIA_PLANEJAMENTO.md
+¦       relatorio_backend_connection.md
+¦       relatorio_correcoes_typescript.md
+¦       relatorio_validacao_final_eventos.md
+¦       SERVICE_BOOKING_DECISION_IMPLEMENTACAO_20260122-073046.md
+¦       smoke_test_analysis.md
+¦       smoke_test_ready.md
+¦       smoke_test_results.md
+¦       spec_dashboard_confianca_20260122-073046.md
+¦       status_atual_projeto_20260122-073046.md
+¦       validacao_ambiente_final.md
+¦       validacao_final_completa.md
+¦       validacao_pos_implementacao.md
+¦       
++---03_technical
+¦       01_birthday_form_flow.md
+¦       02_birthday_eventspec_v1_20260122-073046.md
+¦       03_birthday_data_mapping.md
+¦       04_birthday_guardrails.md
+¦       05_birthday_database_guidance.md
+¦       06_cart_and_multi_supplier_flow.md
+¦       AGENDA_UNIFICADA_MODELO_OPERACIONAL.md
+¦       AI_CATEGORY_HIERARCHY_CANONICAL_FLOW.md
+¦       AI_CATEGORY_HIERARCHY_DIAGNOSTIC_20260122-073046.md
+¦       ANALISE_ARQUITETURAL_VALIDACAO.md
+¦       ANALISE_CIRURGICA_FASE_3_7.md
+¦       ANALISE_MODULO_EVENTOS.md
+¦       ANALISE_TECNICA_MIGRATION_103.md
+¦       anti_patterns.md
+¦       ARCHITECTURAL_GUARDRAILS.md
+¦       ARCHITECTURAL_GUARDRAILS_20260122-071728.md
+¦       ARCHITECTURAL_SOURCE_OF_TRUTH.md
+¦       ARCHITECTURAL_VALIDATION_20260122-073046.md
+¦       ARCHITECTURE_CATEGORY_CORE_20260122-073046.md
+¦       archive-non-professions.sql
+¦       arquivos_criticos.md
+¦       backend-error_20260122-073046.log
+¦       backend-output_20260122-073046.log
+¦       backend-ts-errors_20260122-073046.txt
+¦       CATEGORY_SYSTEM_CONTRACT_UNIFICARD.md
+¦       changelog_recente.md
+¦       CONEXAO_EVENTOS_SERVICE_ORDERS.md
+¦       configurar_frontend.md
+¦       CONFIRMACAO_TECNICA_FASE_3_7.md
+¦       CONTRATO_BACKEND_UNIFICARD.md
+¦       CONTRATO_EVENTOS_V1.2.md
+¦       CONTRATO_EVENTOS_V1.3.md
+¦       CONTRATO_EVENTOS_V1.4_SECAO_5.10.md
+¦       CONTRATO_EVENTOS_V1.md
+¦       contributing.md
+¦       CORE_AUTORIA_FINANCEIRA_IMPLEMENTACAO.md
+¦       CORRECAO_CODIGO_INDICACAO.md
+¦       CORRECAO_LOCATION_CORE_ACTIVE.md
+¦       CORRECAO_LOCATION_CORE_NAME_DISPLAY.md
+¦       CORRECAO_TENANT_MISMATCH.md
+¦       CORRECOES_PRIORITARIAS_FRONTEND.md
+¦       CULTURAL_EVENT_FLOW.md
+¦       Database_Canonical_Truth_Contract.md
+¦       Database_Containment_Rules.md
+¦       DESBLOQUEIO_CRIACAO_GRUPOS.md
+¦       DEV_DATABASE_CLEANUP_GROUPS.md
+¦       diagnose-duplicates.sql
+¦       DIAGNOSTICO_EVENTOS_A.md
+¦       diagnostico_final.ps1
+¦       DIAGNOSTICO_GROUP_CATEGORIES.md
+¦       DIAGNOSTICO_MIGRATIONS_UNIFICARD.md
+¦       EDGE_CASES_EVENTOS.md
+¦       EMPRESA_ONBOARDING_PASSO_A_PASSO.md
+¦       erro_corrigido.md
+¦       ESTADO_ATUAL_MODULO_EVENTOS.md
+¦       EVENTOS_ESTADO_FINAL.md
+¦       EVENT_DOMAIN_MINIMUM_CONTRACT.md
+¦       EVENT_LIFECYCLE_DECISOES_TECNICAS.md
+¦       EVENT_STATS_READONLY.md
+¦       executar_backend_direto.ps1
+¦       executar_com_marca_dagua.ps1
+¦       exterminar_node_completo.ps1
+¦       FASE_16_IMPLEMENTACAO_COMPLETA.md
+¦       FASE_17_PRESENCA_CHECKIN.md
+¦       FASE_5_ANTI_ILUSAO_EVENTO.md
+¦       FASE_5_BIRTHDAY_PAGE_SET.md
+¦       FASE_5_CONTRATO_EVENT_CREATION_ORCHESTRATOR.md
+¦       FASE_5_EVENTSPEC_IMMUTABILITY_AND_VERSIONING_20260122-073046.md
+¦       FASE_5_EVENT_CREATION_MANIFESTO.md
+¦       FASE_5_HANDOFF_PARA_FASE_ECONOMICA.md
+¦       FASE_5_MAPA_FLUXO_EVENTO_ANIVERSARIO.md
+¦       FASE_5_WIZARD_DATA_FLOW.md
+¦       FASE_5_WIZARD_DATA_FLOW_20260122-073046.md
+¦       FASE_5_WIZARD_ORQUESTRATOR_CONTRACT.md
+¦       FASE_5_WIZARD_PAGE_REGISTRY.md
+¦       FASE_6_1_WIREFLOW_ECONOMICO.md
+¦       FASE_6_2_PAGAMENTO_SANDBOX.md
+¦       FASE_6_CONTRATO_CUSTODIA.md
+¦       FASE_6_CONTRATO_SPLIT_PAGAMENTO.md
+¦       FASE_6_ENDPOINTS_ECONOMICOS_V2.md
+¦       FASE_6_FLUXO_ESTORNO_CHARGEBACK.md
+¦       FASE_6_MANIFESTO_EXECUCAO_ECONOMICA.md
+¦       FASE_EVENTOS_ANCORA.md
+¦       FEATURE_CONSOLIDACAO_FINANCEIRA_CLOSURE.md
+¦       FEATURE_MARKETPLACE_MULTI_VENDOR.md
+¦       FEED_UX_VALIDATION.md
+¦       fix-duplicates.sql
+¦       fix-saude-duplicate.sql
+¦       FLUXO_COMPARATIVO_PF_PJ.md
+¦       FLUXO_EVENTOS_ASSISTIDOS.md
+¦       FLUXO_ONBOARDING_PF.md
+¦       FLUXO_ONBOARDING_PJ.md
+¦       fluxo_visual_dinheiro_duplicado.md
+¦       frontend-audience-description-field.md
+¦       frontend-category-allowed-scopes.md
+¦       frontend-fix-group-categories.md
+¦       frontend-group-form-example.tsx
+¦       frontend-profile-categories-validation.md
+¦       frontend-profile-changes-applied.md
+¦       frontend-profile-validation-report.md
+¦       frontend-ts-errors_20260122-073046.txt
+¦       FRONTEND_BACKEND_CONTRACT.md
+¦       GROUPS_STABILIZATION.md
+¦       guia_comparacao_zip_claudia.md
+¦       guia_execucao_local.md
+¦       HIERARQUIA_E_AUTORIDADE_DOS_DOCUMENTOS.md
+¦       higiene_repositorio_relatorio.md
+¦       hobbies.json
+¦       HOTFIX_BACKEND_CRASH.md
+¦       IMPLEMENTACAO_EVENTOS_ASSISTIDOS.md
+¦       INDEXACAO_CANONICA.md
+¦       INDEX_INSTITUCIONAL.md
+¦       INDEX_INSTITUCIONAL_UNIFICARD.md
+¦       iniciar_agora.md
+¦       iniciar_backend.bat
+¦       iniciar_backend.md
+¦       iniciar_backend.ps1
+¦       iniciar_backend_correto.ps1
+¦       iniciar_backend_workspace.bat
+¦       iniciar_backend_workspace.ps1
+¦       iniciar_servidores.ps1
+¦       iniciar_tudo.ps1
+¦       iniciar_tudo_completo.ps1
+¦       install-db.ps1
+¦       leia_me_primeiro.txt
+¦       leia_primeiro.md
+¦       matar_todos_node.ps1
+¦       MOMENTO DE FECHAMENTO DO EVENTSPEC_20260122-073046.txt
+¦       NORMALIZACAO_REACTIONS.md
+¦       ONBOARDING_IA_EXECUTORA.md
+¦       ONBOARDING_IA_GUARDIA.md
+¦       organize_docs.ps1
+¦       PF_ONBOARDING_PASSO_A_PASSO.md
+¦       PLANO_EXPOSICAO_FRONTEND.md
+¦       primeira_tarefa_planejamento.md
+¦       problema_resolvido.md
+¦       professional-categories-level2-complete.md
+¦       profile-categories-analysis.md
+¦       PROMPT_2_EVENT_LIFECYCLE_FINAL-1.md
+¦       PROMPT_EVENTOS_ANCORA.md
+¦       PROMPT_IA_GUARDIA_V2.md
+¦       PROPERTY_CATEGORY_HIERARCHY_IDEMPOTENT_STATUS_20260122-073046.md
+¦       regra-de-ouro.txt
+¦       regulamento_execucao.md
+¦       reiniciar_frontend.bat
+¦       RELATORIO_CHECKPOINT_UX_EVENTOS.md
+¦       RELATORIO_EXECUCAO_MIGRATION_103.md
+¦       relatorio_passo_3_3.md
+¦       RELATORIO_SANEAMENTO_CORE_ONLY.md
+¦       remove-non-professions.sql
+¦       resumo_correcoes_bootstrap.md
+¦       resumo_correcoes_finais.md
+¦       resumo_para_continuidade.md
+¦       resumo_problema_backend_20260122-073046.txt
+¦       RITUAL_DE_INICIALIZACAO_IA_GUARDIA.md
+¦       SELECAO_EVENTOS_PILOTO.md
+¦       SERVICE_ESTADOS_E_TRANSICOES.md
+¦       SOLUCAO_FINAL_REFERRAL_CPF_SPLIT.md
+¦       solucao_rapida.md
+¦       solucao_rapida.ps1
+¦       SPEC_DASHBOARD_CONFIANCA.md
+¦       stop-unificard.ps1
+¦       testar_backend.ps1
+¦       testar_backend_final.ps1
+¦       teste_binario.ps1
+¦       teste_definitivo.ps1
+¦       teste_direto.md
+¦       teste_server_ts.ps1
+¦       ts-errors.txt
+¦       typescript-errors.log
+¦       UNIFY_BANK_ESPECIFICACAO_COMPLETA.md
+¦       UX_MARKETPLACE_CHECKOUT_MULTI_VENDOR.md
+¦       VALIDACAO_MIGRATION_103.md
+¦       validar_package_json.ps1
+¦       veredito_aplicado.md
+¦       verevent_domain_minimum_contract.md
+¦       verificar_logs_backend.ps1
+¦       
++---04_guides
+¦       CANONICAL_CONTEXT_FOR_AI.md
+¦       comando_para_cursor.txt
+¦       CONTRATOS_OBSERVABILIDADE_RESUMO.md
+¦       CURSOR_PROMPT_BUILD_PATHS.md
+¦       CURSOR_PROMPT_FASE0B_VISIBILITY.md
+¦       CURSOR_PROMPT_FASE0_METADATA.md
+¦       CURSOR_PROMPT_FASE0_METADATA_20260122-080148.md
+¦       DESIGN_SYSTEM_CANONICO.md
+¦       engineering_readme.md
+¦       guia_correcao_cursor.md
+¦       guideline_metadata_contexto_agenda_universal.md
+¦       instrucoes_cursor_final.md
+¦       MASTER PLAN — AGENDA UNIVERSAL, UX TEMPORAL E GOVERNANÇA.md
+¦       PADRAO_FRONTEND_CANONICO.md
+¦       PROMPT_1_AGENDA_FUNCIONARIOS_FINAL.md
+¦       PROMPT_6_HARDENING.md
+¦       PROMPT_CORRECOES_TS.md
+¦       PROMPT_CURSOR_CPF_BLINDAGEM.md
+¦       PROMPT_CURSOR_GRUPOS_ECONOMICOS (1).md
+¦       PROMPT_CURSOR_GRUPOS_ECONOMICOS.md
+¦       PROMPT_CURSOR_SEGURANCA_CPF.md
+¦       PROMPT_CURSOR_SPLIT_CORRECOES (1).md
+¦       PROMPT_CURSOR_SPLIT_CORRECOES.md
+¦       PROPOSTA_FEED_COMO_FACILITADOR.md
+¦       README_20260122-073046.md
+¦       README_CURSOR_MODE_20260122-073046.md
+¦       README_ORGANIZACAO_20260122-073046.md
+¦       README_TREINAMENTO_IA_UNIFICARD_20260122-073046.md
+¦       _README_20260122-073046.md
+¦       
++---99_archive
+¦   +---to_delete
+¦   ¦       category-input-gate-complete.md
+¦   ¦       category-input-gate.md
+¦   ¦       CATEGORY_HARDENING_CHECKLIST.md
+¦   ¦       CHECKLIST_ATIVACAO_PILOTO_INTERNO.md
+¦   ¦       CHECKLIST_CI_REGRESSAO_TEMPORAL.md
+¦   ¦       CHECKLIST_CORRECOES_CRITICAS.md
+¦   ¦       CHECKLIST_CURSOR_EVENTOS.md
+¦   ¦       CHECKLIST_CURSOR_UNIFICARD.md
+¦   ¦       CHECKLIST_EMPRESAS_CURSOR.md
+¦   ¦       CHECKLIST_FASE_10_V2 (1).md
+¦   ¦       CHECKLIST_FASE_10_V2.md
+¦   ¦       CHECKLIST_IMPLEMENTACAO.md
+¦   ¦       CHECKLIST_IMPLEMENTACAO_EVENTOS.md
+¦   ¦       CHECKLIST_MIGRATION_098_GRUPOS.md
+¦   ¦       CHECKLIST_PRE_FRONTEND_OBRIGATORIO.md
+¦   ¦       CHECKLIST_PR_FRONTEND_CANONICO.md
+¦   ¦       CHECKLIST_TECNICO_IMPLEMENTACAO_EVENTOS.md
+¦   ¦       configurar_auto_start_windows.md
+¦   ¦       DESIGN SYSTEM & GOLDEN PATH.txt
+¦   ¦       FASE_5_CHECKLIST_PR.md
+¦   ¦       FASE_5_CHECKLIST_QA_TESTES.md
+¦   ¦       FASE_6_1_CHECKLIST_PR_FRONTEND.md
+¦   ¦       FASE_6_CHECKLIST_PR.md
+¦   ¦       FASE_6_CHECKLIST_QA.md
+¦   ¦       fix-professional-level2-complete.md
+¦   ¦       frontend-profile-categories-checklist.md
+¦   ¦       frontend-profile-final-checklist.md
+¦   ¦       GATE_D15_INDEXACAO.md
+¦   ¦       GOLDEN_PATH.md
+¦   ¦       golden_path_20260122-074548.md
+¦   ¦       golden_path_smoke_test.md
+¦   ¦       GOLDEN_PATH_VISUAL_CANONICO.md
+¦   ¦       groups-category-validation-checklist.md
+¦   ¦       implementacao_identity_status_gate_20260122-073046.md
+¦   ¦       PRODUCTION_CHECKLIST.md
+¦   ¦       profile-final-checklist.md
+¦   ¦       profile-validation-checklist.md
+¦   ¦       QUICK_START.md
+¦   ¦       readme_auto_start_20260122-073046.md
+¦   ¦       restart-unificard.ps1
+¦   ¦       resumo_sistema_auto_start.md
+¦   ¦       setup-category-input-gate.md
+¦   ¦       smoke-test-checklist.md
+¦   ¦       smoke_test_checklist.md
+¦   ¦       SPRINT_00_CONTACTS.md
+¦   ¦       SPRINT_1_UNIFY_BANK_TAREFAS_ATOMICAS.md
+¦   ¦       SPRINT_41.2_HARDENING.md
+¦   ¦       SPRINT_41.3_UX_OPERACIONAL.md
+¦   ¦       SPRINT_42.1_PDV_CORE.md
+¦   ¦       SPRINT_42.2_PDV_PAGAMENTO.md
+¦   ¦       SPRINT_42.3_PDV_FECHAMENTO.md
+¦   ¦       SPRINT_43_ESTOQUE_RESERVA.md
+¦   ¦       SPRINT_44_DOCUMENTO_FISCAL.md
+¦   ¦       SPRINT_45_FISCAL_ADAPTER.md
+¦   ¦       SPRINT_46_RELATORIOS.md
+¦   ¦       SPRINT_47_SOCIAL_MARKETPLACE_PLUGIN.md
+¦   ¦       SPRINT_48_PRICING.md
+¦   ¦       SPRINT_49_DASHBOARDS.md
+¦   ¦       SPRINT_50_AUTOMACOES.md
+¦   ¦       SPRINT_51_MULTI_EMPRESA.md
+¦   ¦       SPRINT_52_PERFORMANCE_HARDENING.md
+¦   ¦       SPRINT_53_FISCAL_PROVIDER_SEFAZ.md
+¦   ¦       SPRINT_54_FULFILLMENT.md
+¦   ¦       SPRINT_55_STOCK_TRANSFER.md
+¦   ¦       SPRINT_56_RECEBIMENTO_CONFERENCIA.md
+¦   ¦       SPRINT_57_AJUSTES_ESTOQUE.md
+¦   ¦       SPRINT_58_SLA_LOGISTICO.md
+¦   ¦       SPRINT_59_SUGESTAO_REPOSICAO.md
+¦   ¦       SPRINT_60_CUSTO_ESTOQUE_PARADO.md
+¦   ¦       SPRINT_61_MARGEM_REAL.md
+¦   ¦       SPRINT_62_SIMULADOR_DECISAO.md
+¦   ¦       SPRINT_63_ESTRATEGIA_PRECO.md
+¦   ¦       SPRINT_65_AUDITORIA_HARDENING_LOGICO.md
+¦   ¦       SPRINT_66_HARDENING_LOGICO.md
+¦   ¦       SPRINT_68_SERVICE_ORDERS_AGENDA.md
+¦   ¦       SPRINT_69_SUPPLIERS_PURCHASE_ORDERS.md
+¦   ¦       SPRINT_70_ACCOUNTS_PAYABLE.md
+¦   ¦       SPRINT_71_ACCOUNTS_RECEIVABLE.md
+¦   ¦       SPRINT_72_PAYMENT_METHODS_UNIFYCARD.md
+¦   ¦       SPRINT_73_UNIFYCARD_ACQUIRING.md
+¦   ¦       SPRINT_74_GROUPS_INDICACOES_COMISSOES.md
+¦   ¦       SPRINT_75_ERP_PERFIS_REGIME_TRIBUTARIO.md
+¦   ¦       SPRINT_76_EVENTS_TICKETING.md
+¦   ¦       SPRINT_77_SETTLEMENT_REGIONAL.md
+¦   ¦       SPRINT_78_GOVERNANCA_ORGANIZACIONAL.md
+¦   ¦       SPRINT_79_PAGINAS_PUBLICAS.md
+¦   ¦       SPRINT_80_FISCAL_REGIME_TRIBUTARIO.md
+¦   ¦       SPRINT_81_ERP_POR_SEGMENTO.md
+¦   ¦       SPRINT_82_UNIFYCARD_MULTI_METODOS.md
+¦   ¦       SPRINT_83_TAXA_REGIONAL_ECONOMIA_COMUNITARIA.md
+¦   ¦       SPRINT_84_EVENT_BILHETERIA_E_SETTLEMENT.md
+¦   ¦       SPRINT_84_KYC_BASICO.md
+¦   ¦       SPRINT_85_AGENDA_FINANCEIRA.md
+¦   ¦       SPRINT_85_PIX_INTEGRATION.md
+¦   ¦       SPRINT_86_PAYMENT_LINKS.md
+¦   ¦       SPRINT_87_ASSINATURAS.md
+¦   ¦       SPRINT_88_CRM_CANONICO.md
+¦   ¦       SPRINT_92_MENU_COMANDA_QR.md
+¦   ¦       SPRINT_93_LOYALTY.md
+¦   ¦       SPRINT_94_PRESENCA_CHECKIN_PROMO.md
+¦   ¦       SPRINT_95_LOCAL_CHAT_LIVE_PRESENCE.md
+¦   ¦       start-backend.ps1
+¦   ¦       start-unificard-silent.ps1
+¦   ¦       start-unificard.ps1
+¦   ¦       START_HERE_UNIFICARD.md
+¦   ¦       
+¦   +---to_review
+¦           ACORDO_FINAL_CLAUDE_CHATGPT.md
+¦           AGENDA_FUNCIONARIOS_DECISOES_TECNICAS.md
+¦           AJUSTES_UX_SERVICE_ORDERS.md
+¦           ANALISE_CHATGPT_VS_CLAUDE.md
+¦           ANALISE_COMPLETA_MODULO_GRUPOS.md
+¦           ANALISE_ESTADO_ATUAL_PROXIMOS_PASSOS.md
+¦           ANALISE_MEGA_REDE_SOCIAL_UNIFYCARD.md
+¦           ANALISE_MODULO_RIDES.md
+¦           ANALISE_MODULO_SERVICES.md
+¦           analysis
+¦           ANTI_PATTERNS.md
+¦           Anti_Patterns_Educacionais_UnifiCard.md
+¦           ARQUITETURA-COMPLETA.md
+¦           ARQUITETURA_PLUGIN_SYSTEM.md
+¦           ARQUITETURA_SOCIAL_HUB_2025.md
+¦           AVAILABILITY_CONFLICT_INBOX_INTEGRACAO.md
+¦           AVAILABILITY_PARTICIPANTS_IMPLEMENTACAO.md
+¦           BACKLOG_CRESCIMENTO.md
+¦           BRIEFING_PARA_CHATGPT.md
+¦           CAMADA-SUGESTOES.md
+¦           CATEGORIAS_GRUPOS_IMPLEMENTACAO.md
+¦           CICLO_VALOR_VISIVEL_DASHBOARDS.md
+¦           CLASSIFICACAO_UI_MODULOS_CANONICA.md
+¦           CLAUDE.md
+¦           COMPANY_MEMBERS_BASE_ESTRUTURAL.md
+¦           CORE_FINANCEIRO_INVARIANTES.md
+¦           CORRECOES_FINAIS_EDUCACAO.md
+¦           CORRECOES_MODELO_ACTORS.md
+¦           CORRECOES_MODULO_APRENDIZADO.md
+¦           CORRECOES_NECESSARIAS.md
+¦           CORRECOES_PRATICAS.md
+¦           CORRECOES_URGENTES.md
+¦           CULTURAL_PROFILE_MODEL.md
+¦           CURSOR_GUARDRAILS.md
+¦           CURSOR_INSTALAR_BANCO_AUTOMATICO.md
+¦           CURSOR_INSTALAR_BANCO_CONSOLIDADO.md
+¦           CURSOR_INSTALAR_BANCO_FINAL.md
+¦           cursor_modelo_de_ator_para_cria_o_de_po.md
+¦           cursor_plano_de_execu_o_imediato_do_sis.md
+¦           DIAGNOSTICO_401_ACTORS.md
+¦           DIAGNOSTICO_AGENDA_CATEGORIAS.md
+¦           DIAGNOSTICO_ERRO_REGIONAL_FUND.md
+¦           DIAGNOSTICO_MODULOS_COMPLETO.md
+¦           DIFFS_COMPANIES_SERVICE_FINAL.md
+¦           DIRECIONAMENTO_FINAL.md
+¦           ECONOMIC_DASHBOARD_IMPLEMENTACAO.md
+¦           ECOSSISTEMA_MINIMO_COMPLETO.md
+¦           ENCERRAMENTO-ATIVACAO.md
+¦           ESCOPO_PILOTO_FECHADO.md
+¦           ESTRUTURA_MENU_LATERAL.md
+¦           EXECUTION_REPORT.md
+¦           FECHAMENTO_CICLO_READONLY.md
+¦           FEED-CONTEXTUAL.md
+¦           FEED_PLUGIN_BATCH_CACHE.md
+¦           FEED_PLUGIN_SYSTEM_IMPLEMENTACAO.md
+¦           FLUXO_SERVICE_ORDERS_AGENDA.md
+¦           FLUXO_VISUAL_DINHEIRO.md
+¦           FRAMEWORK_OBSERVACAO_PILOTO.md
+¦           GO_LIVE_PILOT.md
+¦           GO_TO_MARKET.md
+¦           GROUP_CREATION_POLICY.md
+¦           GROUP_DASHBOARD_READONLY.md
+¦           GUIA_ESCALABILIDADE_MODULOS.md
+¦           HARDENING_MVP_FINAL.md
+¦           HEALTH_INTELLIGENT_SYSTEM.md
+¦           HEALTH_MATCHING_EXPLANATION.md
+¦           HEALTH_RELATIONAL_MODEL_QUERIES.md
+¦           IDENTIDADE_INSTITUCIONAL.md
+¦           IMPACTO_PASSIVO_READONLY.md
+¦           IMPLEMENTACAO_SERVICE_ORDERS_AGENDA.md
+¦           INDEX_INSTITUCIONAL.md
+¦           INSTRUCOES_APLICACAO_CPF.md
+¦           INTEGRACAO_ERP_CRM_REDE_SOCIAL.md
+¦           INTERESTS_AND_TASTES_EXPANSION.md
+¦           LOGICA_NAVEGACAO_WIZARD_ATUAL.md
+¦           LOGICA_NAVEGACAO_WIZARD_ESTRUTURADA.md
+¦           MATCHING-HUMANO.md
+¦           METRICAS_PRIORITARIAS.md
+¦           MEUS_COMPROMISSOS_READONLY.md
+¦           MODELO_ATOR.md
+¦           MODO_ATUACAO_FEED.md
+¦           MOTOR-INFERENCIA.md
+¦           OBSERVABILIDADE_CONSTITUCIONAL.md
+¦           OBSERVABILIDADE_PASSIVA.md
+¦           OPORTUNIDADES-SUAVES.md
+¦           OPPORTUNITY_DISPATCH_IMPLEMENTACAO.md
+¦           PAINEL_COMPROMISSOS_IMPLEMENTACAO.md
+¦           PENDENCIAS_READONLY.md
+¦           PERMISSOES_ACTOR_IMPLEMENTACAO.md
+¦           PILOTO_REAL_OPERACIONAL.md
+¦           PLANO_CONSOLIDACAO_SEQUENCIAL.md
+¦           PLANO_DE_PRS_CONSOLIDADO.md
+¦           PRODUCTION_DEPLOY.md
+¦           PROPOSTA_STEP2_INTENCAO.md
+¦           PROPOSTA_STEP2_INTENCAO_FINAL.md
+¦           PROPOSTA_UNIFIED_AVAILABILITY.md
+¦           QUERIES_VALIDACAO_INVARIANTES.sql
+¦           REGULAMENTO_EXECUCAO.md
+¦           RELATORIO_ALTERACOES_3H.md
+¦           RELATORIO_FASE1_SPLIT_PAGAMENTO.md
+¦           RELATORIO_ORGANIZACAO.md
+¦           RELEASE_CANDIDATE_v1.0-rc1.md
+¦           REORGANIZACAO-FISICO-PRAZER.md
+¦           REPORTING_CORE.md
+¦           REPORTING_DATA_MODEL.md
+¦           RESUMO_EXECUTIVO_MVP.md
+¦           seed-refactor-levels-0-1-2.md
+¦           SERVICE_AVAILABILITY_IMPLEMENTACAO.md
+¦           SERVICE_BOOKING_IMPLEMENTACAO.md
+¦           SERVICE_PAYMENT_EXECUTION_IMPLEMENTACAO.md
+¦           SERVICE_PAYMENT_REQUEST_IMPLEMENTACAO.md
+¦           SERVICOS_DOMAIN_IMPLEMENTACAO.md
+¦           SMOKE_TESTS.md
+¦           SOCIAL_INBOX_IMPLEMENTACAO.md
+¦           SPLIT_ENGINE_ESTADO_ATUAL.md
+¦           STAGING_DEPLOY.md
+¦           STRIPE_LIVE_SETUP.md
+¦           TAXA_ADMINISTRATIVA.md
+¦           TAXONOMIA-GLOBAL-UNIFICARD.md
+¦           TESTE_FLUXO_SERVICE_ORDERS.md
+¦           TEST_OVERRIDE_USERS.md
+¦           TRANSICOES_ESTADO_READONLY.md
+¦           TRAVAS-FINAIS.md
+¦           TRILHA-APRENDIZADO.md
+¦           TYPESCRIPT_FIX_REPORT.md
+¦           unificard-context.md
+¦           UNIFIED_AVAILABILITY_IMPLEMENTACAO.md
+¦           VALIDACAO_FASE9_ETAPA1.md
+¦           VALIDACAO_POS_IMPLEMENTACAO.md
+¦           VERIFICACAO_CONFORMIDADE_CANONICA.md
+¦           VISAO_ECONOMICA_PASSIVA.md
+¦           
++---architecture
+¦   +---adr
+¦   ¦       ADR-001-SSOT-READING.md
+¦   ¦       ADR-002-CORE-FROZEN.md
+¦   ¦       
+¦   +---diagrams
+¦   ¦       CATEGORY-TREE-CANONICAL.md
+¦   ¦       
+¦   +---integration
+¦   ¦       CATEGORY-TREE-MODULE-MAP.md
+¦   ¦       
+¦   +---principles
+¦           CORE-PRINCIPLES.md
+¦           
++---audit
+¦       ADVERSARIAL-SECURITY-PASS.md
+¦       CANONICAL-LOGGER-ENFORCEMENT-PASS.md
+¦       CONCURRENCY-RACE-CONDITION-STRESS-PASS.md
+¦       EVENT-REPLAY-IDEMPOTENCY-PASS.md
+¦       EXTERNAL-AUDIT-READINESS.md
+¦       FINAL-INSTITUTIONAL-FREEZE.md
+¦       FORENSICS-DRY-RUN-PASS.md
+¦       GLOBAL-USER-ID-TENANT-SAFETY-PASS.md
+¦       INCIDENT-FORENSICS-GUIDE.md
+¦       INSTITUTIONAL-TEST-HARNESS.md
+¦       LOG-COMPLETENESS-ASSERTION-PASS.md
+¦       LOG-LEVEL-CLASSIFICATION.md
+¦       LOG-LEVEL-SIGNAL-CLASSIFICATION-PASS.md
+¦       RATE-LIMIT-ABUSE-HARDENING-PASS.md
+¦       SCHEMA-INVARIANT-HARDENING.md
+¦       SECURITY-SIGNAL-EXPORT-PASS.md
+¦       SECURITY-SIGNAL-PIPELINE.md
+¦       SYSTEM-CANONICAL-INVARIANTS.md
+¦       SYSTEM-HARDENING-FINAL-AUDIT.md
+¦       TENANT-AWARE-INDEX-QUERY-PLAN-PASS.md
+¦       
++---contracts
+¦       PUBLIC-API-CONTRACT.md
+¦       
++---docs
+¦   +---04_guides
++---expansion
+¦   +---human
+¦           HUMAN-EXPANSION-MODEL.md
+¦           
++---governance
+¦   ¦   CODE-REVIEW-PROCESS.md
+¦   ¦   GOVERNANCE-OVERVIEW.md
+¦   ¦   SETUP-INSTRUCTIONS.md
+¦   ¦   
+¦   +---contexts
+¦   ¦       CONTEXTS-AND-SCOPES.md
+¦   ¦       
+¦   +---government
+¦           GOVERNMENT-SUPPORT-MODEL.md
+¦           
++---operations
+¦   +---checklists
+¦   ¦       PR-CHECKLIST-CATEGORIES.md
+¦   ¦       PR-CHECKLIST-INVARIANTS.md
+¦   ¦       
+¦   +---rollout
+¦           PHASE-1-SSOT-EXIT.md
+¦           
++---product
+¦       HUMAN-MVP-CODING-START.md
+¦       HUMAN-MVP-COMMIT-PLAN.md
+¦       HUMAN-MVP-COMPLETED.md
+¦       HUMAN-MVP-ENFORCEMENT.md
+¦       HUMAN-MVP-ENTITIES.md
+¦       HUMAN-MVP-EXECUTION-CONTRACT.md
+¦       HUMAN-MVP-EXECUTION-GO.md
+¦       HUMAN-MVP-FLOWS.md
+¦       HUMAN-MVP-IMPLEMENTATION-CHECKLIST.md
+¦       HUMAN-MVP-OBSERVATION-MODE.md
+¦       HUMAN-MVP.md
+¦       
++---system
+¦       SYSTEM-DECLARATION.md
+¦       
++---_reports
+        delete_candidates_20260122-073330.csv
+        delete_candidates_20260122-073511.csv
+        delete_candidates_contextual_20260122-073729.csv
+        delete_candidates_contextual_v2_20260122-074138.csv
+        delete_candidates_final_20260122-074548.csv
+        duplicates_by_hash_20260122-071354.csv
+        inventory_20260122-071354.csv
+        inventory_20260122-071354.json
+        inventory_final_20260122-074548.csv
+        inventory_v2_20260122-072713.csv
+        inventory_v2_20260122-072713.json
+        legacy_folder_file_moves_20260122-075118.csv
+        move_log_20260122-071728.csv
+        move_log_v2_20260122-073046.csv
+        move_to_delete_20260122-073916.csv
+        move_to_delete_by_hash_20260122-074025.csv
+        move_to_delete_by_hash_20260122-074255.csv
+        move_to_delete_by_hash_20260122-074355.csv
+        move_to_delete_final_20260122-074548.csv
+        move_to_delete_missed_20260122-074025.csv
+        move_to_delete_missed_20260122-074255.csv
+        move_to_delete_missed_20260122-074355.csv
+        removed_empty_folders_20260122-075118.csv
+        root_organization_20260122-080148.csv
+        

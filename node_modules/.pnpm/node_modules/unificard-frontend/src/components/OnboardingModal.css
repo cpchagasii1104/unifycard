@@ -1,0 +1,110 @@
+/* src/components/OnboardingModal.css */
+
+.onboarding-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-in;
+  /* 🔴 UX: Modal não pode ser fechado clicando fora */
+  pointer-events: auto;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.onboarding-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.onboarding-modal-header {
+  margin-bottom: 16px;
+}
+
+.onboarding-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.onboarding-modal-body {
+  margin-bottom: 24px;
+}
+
+.onboarding-modal-body p {
+  margin: 0 0 12px 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.onboarding-modal-body p:last-child {
+  margin-bottom: 0;
+}
+
+.onboarding-modal-note {
+  background-color: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.onboarding-modal-note strong {
+  color: #92400e;
+}
+
+.onboarding-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.onboarding-modal-button {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.onboarding-modal-button:hover {
+  background-color: #2563eb;
+}
+
+.onboarding-modal-button:active {
+  background-color: #1d4ed8;
+}
+

@@ -16,4 +16,3 @@ exports.registerInteractionSchema = zod_1.z.object({
     entityName: zod_1.z.string().optional(),
     metadata: zod_1.z.record(zod_1.z.any()).optional(),
 });
-//# sourceMappingURL=memory.schemas.js.map

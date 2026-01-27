@@ -31,4 +31,3 @@ class ServiceTypesController {
 }
 exports.ServiceTypesController = ServiceTypesController;
 exports.serviceTypesController = new ServiceTypesController();
-//# sourceMappingURL=service-types.controller.js.map

@@ -51,4 +51,3 @@ class EventContextBuilder {
     }
 }
 exports.EventContextBuilder = EventContextBuilder;
-//# sourceMappingURL=unifycard-event.types.js.map

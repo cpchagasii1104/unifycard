@@ -230,4 +230,3 @@ const socialWorkPaymentRoutes = async (fastify) => {
     });
 };
 exports.default = socialWorkPaymentRoutes;
-//# sourceMappingURL=social-work-payment.routes.js.map

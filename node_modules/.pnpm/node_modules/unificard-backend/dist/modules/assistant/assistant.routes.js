@@ -178,4 +178,3 @@ const assistantRoutes = async (fastify) => {
     });
 };
 exports.default = assistantRoutes;
-//# sourceMappingURL=assistant.routes.js.map

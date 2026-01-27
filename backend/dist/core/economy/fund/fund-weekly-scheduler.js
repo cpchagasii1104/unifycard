@@ -112,4 +112,3 @@ class FundWeeklyScheduler {
     }
 }
 exports.fundWeeklyScheduler = new FundWeeklyScheduler();
-//# sourceMappingURL=fund-weekly-scheduler.js.map

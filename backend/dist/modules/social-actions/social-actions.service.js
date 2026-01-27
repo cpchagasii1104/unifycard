@@ -4,7 +4,6 @@ exports.socialActionsService = void 0;
 const social_actions_repository_1 = require("./social-actions.repository");
 const social_actions_model_1 = require("./social-actions.model");
 const orchestrator_service_1 = require("@core/orchestrator/orchestrator.service");
-const schedule_service_1 = require("../schedule/schedule.service");
 class SocialActionsService {
     repository = new social_actions_repository_1.SocialActionsRepository();
     /**
@@ -66,61 +65,68 @@ class SocialActionsService {
         let error;
         let success = false;
         try {
+            // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
+            // TODO: Migrar para unifiedAvailabilityService quando necessário
+            if (action.intent === 'schedule_service') {
+                // Funcionalidade temporariamente desabilitada após remoção do schedule.service
+                executionResult = {
+                    message: 'Schedule functionality temporarily disabled - migration to Unified Availability pending',
+                };
+                success = false;
+            }
+            /* CÓDIGO REMOVIDO:
             // Se intent é schedule_service, integrar com módulo schedule
             if (action.intent === 'schedule_service') {
-                const { workerId, serviceId, date, time } = action.parameters;
-                if (workerId && date && time) {
-                    // Buscar ou criar agenda do profissional
-                    const schedule = await schedule_service_1.scheduleService.getOrCreateUserSchedule(tenantId, workerId);
-                    // Criar slot se necessário ou reservar existente
-                    const startTime = new Date(`${date}T${time}`);
-                    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hora padrão
-                    try {
-                        // Tentar adicionar e reservar slot
-                        const slot = await schedule_service_1.scheduleService.addSlot(tenantId, schedule.scheduleId, {
-                            startTime,
-                            endTime,
-                            status: 'reserved',
-                        });
-                        // Reservar o slot criado
-                        await schedule_service_1.scheduleService.reserveSlot(tenantId, schedule.scheduleId, { slotId: slot.slotId, actionId: actionId }, action.globalUserId);
-                        executionResult = {
-                            scheduleId: schedule.scheduleId,
-                            slotId: slot.slotId,
-                            startTime: slot.startTime,
-                            endTime: slot.endTime,
-                            message: 'Agendamento criado com sucesso',
-                        };
-                        success = true;
-                    }
-                    catch (slotError) {
-                        // Se falhar, tentar executar via orchestrator normal
-                        const result = await orchestrator_service_1.orchestratorService.execute(fastify, {
-                            intent: action.intent,
-                            parameters: action.parameters,
-                            userId: action.globalUserId,
-                            tenantId,
-                        });
-                        success = result.success;
-                        executionResult = result.result;
-                        error = result.error;
-                    }
+              const { workerId, serviceId, date, time } = action.parameters;
+              
+              if (workerId && date && time) {
+                // Buscar ou criar agenda do profissional
+                const schedule = await scheduleService.getOrCreateUserSchedule(tenantId, workerId);
+                
+                // Criar slot se necessário ou reservar existente
+                const startTime = new Date(`${date}T${time}`);
+                const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hora padrão
+                
+                try {
+                  // Tentar adicionar e reservar slot
+                  const slot = await scheduleService.addSlot(tenantId, schedule.scheduleId, {
+                    startTime,
+                    endTime,
+                    status: 'reserved',
+                  });
+                  
+                  // Reservar o slot criado
+                  await scheduleService.reserveSlot(
+                    tenantId,
+                    schedule.scheduleId,
+                    { slotId: slot.slotId, actionId: actionId },
+                    action.globalUserId
+                  );
+                  
+                  executionResult = {
+                    scheduleId: schedule.scheduleId,
+                    slotId: slot.slotId,
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    message: 'Agendamento criado com sucesso',
+                  };
+                  success = true;
+                } catch (slotError) {
+                  // Se falhar, tentar executar via orchestrator normal
+                  const result = await orchestratorService.execute(fastify, {
+                    intent: action.intent as any,
+                    parameters: action.parameters,
+                    userId: action.globalUserId,
+                    tenantId,
+                  });
+                  executionResult = result;
+                  success = true;
                 }
-                else {
-                    // Executar via orchestrator normal
-                    const result = await orchestrator_service_1.orchestratorService.execute(fastify, {
-                        intent: action.intent,
-                        parameters: action.parameters,
-                        userId: action.globalUserId,
-                        tenantId,
-                    });
-                    success = result.success;
-                    executionResult = result.result;
-                    error = result.error;
-                }
+              }
             }
-            else {
-                // Executar via orchestrator normal
+            */
+            // Se não for schedule_service, executar via orchestrator normal
+            if (action.intent !== 'schedule_service') {
                 const result = await orchestrator_service_1.orchestratorService.execute(fastify, {
                     intent: action.intent,
                     parameters: action.parameters,
@@ -168,4 +174,3 @@ class SocialActionsService {
     }
 }
 exports.socialActionsService = new SocialActionsService();
-//# sourceMappingURL=social-actions.service.js.map

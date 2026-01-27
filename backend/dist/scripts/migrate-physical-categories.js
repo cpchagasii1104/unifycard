@@ -159,4 +159,3 @@ migratePhysicalCategories()
     console.error('\n❌ Erro fatal:', error);
     process.exit(1);
 });
-//# sourceMappingURL=migrate-physical-categories.js.map

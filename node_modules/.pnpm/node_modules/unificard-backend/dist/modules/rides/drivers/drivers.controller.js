@@ -34,4 +34,3 @@ class DriversController {
 exports.DriversController = DriversController;
 exports.driversController = new DriversController();
 // drivers.controller.ts 
-//# sourceMappingURL=drivers.controller.js.map

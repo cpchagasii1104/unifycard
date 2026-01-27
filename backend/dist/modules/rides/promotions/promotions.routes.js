@@ -63,4 +63,3 @@ const promotionsRoutes = async (fastify) => {
     });
 };
 exports.default = promotionsRoutes;
-//# sourceMappingURL=promotions.routes.js.map

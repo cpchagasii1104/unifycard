@@ -51,4 +51,3 @@ async function checkCategories() {
     }
 }
 checkCategories();
-//# sourceMappingURL=check-categories.js.map

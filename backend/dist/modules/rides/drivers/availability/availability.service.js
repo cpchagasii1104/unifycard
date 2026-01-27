@@ -1,4 +1,7 @@
 "use strict";
+// 🔴 LEGADO — Usa estrutura temporal paralela.
+// 🔴 NÃO USAR EM NOVO CÓDIGO.
+// 🔴 Migrar para unified-availability.service.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.availabilityService = exports.AvailabilityService = void 0;
 const db_1 = require("@core/db");
@@ -112,4 +115,3 @@ class AvailabilityService {
 }
 exports.AvailabilityService = AvailabilityService;
 exports.availabilityService = new AvailabilityService();
-//# sourceMappingURL=availability.service.js.map

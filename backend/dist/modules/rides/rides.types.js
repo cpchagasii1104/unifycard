@@ -42,4 +42,3 @@ var DriverSessionStatus;
     DriverSessionStatus["ForcedBreak"] = "forced_break";
     DriverSessionStatus["Ended"] = "ended";
 })(DriverSessionStatus || (exports.DriverSessionStatus = DriverSessionStatus = {}));
-//# sourceMappingURL=rides.types.js.map

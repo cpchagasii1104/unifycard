@@ -37,6 +37,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.profilePhysicalService = void 0;
 const identity_service_1 = require("../identity/identity.service");
+const profile_health_facts_repository_1 = require("./profile-health-facts.repository");
+const profile_health_taxonomy_repository_1 = require("./profile-health-taxonomy.repository");
 class ProfilePhysicalService {
     /**
      * Busca perfil físico/interesses do usuário
@@ -68,12 +70,61 @@ class ProfilePhysicalService {
             sexualOrientation: null,
         };
         const preferences = metadata.preferences || {};
+        // Buscar dados de saúde compartilhados (altura, peso) se houver consentimento
+        let healthData = null;
+        try {
+            // Buscar actor_id do usuário
+            const identity = await identity_service_1.identityService.getIdentityProfile(userId, tenantId);
+            if (identity?.actors?.person?.actor_id) {
+                const actorId = identity.actors.person.actor_id;
+                // Verificar se há consentimento para compartilhar no perfil de relacionamento
+                const shareConsentTax = await profile_health_taxonomy_repository_1.profileHealthTaxonomyRepository.findBySlug(tenantId, 'compartilhar-perfil-relacionamento');
+                if (shareConsentTax) {
+                    const shareConsentFact = await profile_health_facts_repository_1.profileHealthFactsRepository.findByTaxonomyId(tenantId, actorId, shareConsentTax.taxonomyId);
+                    if (shareConsentFact?.valueBoolean === true) {
+                        // Buscar altura e peso
+                        const heightTax = await profile_health_taxonomy_repository_1.profileHealthTaxonomyRepository.findBySlug(tenantId, 'altura');
+                        const weightTax = await profile_health_taxonomy_repository_1.profileHealthTaxonomyRepository.findBySlug(tenantId, 'peso');
+                        let height;
+                        let weight;
+                        if (heightTax) {
+                            const heightFact = await profile_health_facts_repository_1.profileHealthFactsRepository.findByTaxonomyId(tenantId, actorId, heightTax.taxonomyId);
+                            if (heightFact?.valueNumber) {
+                                height = heightFact.valueNumber;
+                            }
+                        }
+                        if (weightTax) {
+                            const weightFact = await profile_health_facts_repository_1.profileHealthFactsRepository.findByTaxonomyId(tenantId, actorId, weightTax.taxonomyId);
+                            if (weightFact?.valueNumber) {
+                                weight = weightFact.valueNumber;
+                            }
+                        }
+                        if (height || weight) {
+                            healthData = { height, weight };
+                            // Calcular peso ideal (IMC 22.5 é considerado ideal)
+                            if (height && weight) {
+                                const heightInMeters = height / 100;
+                                const idealWeight = 22.5 * (heightInMeters * heightInMeters);
+                                healthData.idealWeight = Math.round(idealWeight * 10) / 10; // Arredondar para 1 casa decimal
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (error) {
+            // Log mas não quebra o fluxo
+            console.warn('[ProfilePhysicalService] Erro ao buscar dados de saúde compartilhados:', error);
+        }
         return {
             globalUserId,
             interests,
             lifestyle,
             preferences,
-            metadata: metadata.physicalMetadata || {},
+            metadata: {
+                ...(metadata.physicalMetadata || {}),
+                ...(healthData ? { sharedHealthData: healthData } : {}),
+            },
         };
     }
     /**
@@ -123,20 +174,21 @@ class ProfilePhysicalService {
       WHERE global_user_id = $2
       `, [JSON.stringify(updatedMetadata), globalUserId]);
         // Buscar categorias para montar o retorno completo
-        const { categoriesService } = await Promise.resolve().then(() => __importStar(require('../categories/categories.service')));
         const interestsWithDetails = [];
-        if (updatedMetadata.interests && Array.isArray(updatedMetadata.interests)) {
-            for (const categoryId of updatedMetadata.interests) {
-                const category = await categoriesService.getCategoryById(categoryId);
-                if (category) {
-                    interestsWithDetails.push({
-                        categoryId: category.categoryId,
-                        categoryName: category.name,
-                        categoryPath: category.path,
-                        level: category.level,
-                    });
-                }
-            }
+        if (updatedMetadata.interests && Array.isArray(updatedMetadata.interests) && updatedMetadata.interests.length > 0) {
+            const categoriesResult = await pool.query(`
+        SELECT category_id, name, path, level
+        FROM categories
+        WHERE category_id = ANY($1::uuid[])
+          AND scope = 'interest'
+          AND (status IS NULL OR status = 'active' OR status = 'auto_active')
+        `, [updatedMetadata.interests]);
+            interestsWithDetails.push(...categoriesResult.rows.map((row) => ({
+                categoryId: row.category_id,
+                categoryName: row.name,
+                categoryPath: row.path,
+                level: row.level,
+            })));
         }
         return {
             globalUserId,
@@ -148,4 +200,3 @@ class ProfilePhysicalService {
     }
 }
 exports.profilePhysicalService = new ProfilePhysicalService();
-//# sourceMappingURL=profile-physical.service.js.map

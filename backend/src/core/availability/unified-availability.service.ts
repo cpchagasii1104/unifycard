@@ -1,0 +1,503 @@
+// src/core/availability/unified-availability.service.ts
+// Service do CORE de UNIFIED AVAILABILITY
+// 🔴 BLINDAGEM: Availability NÃO decide quem pode agendar
+// 🔴 BLINDAGEM: Availability NÃO faz pagamento
+// 🔴 BLINDAGEM: Availability NÃO faz matching
+// 🔴 BLINDAGEM: Availability apenas expõe janelas disponíveis
+// 🔴 BLINDAGEM: NÃO cria lógica decisória automática
+
+import { unifiedAvailabilityRepository } from './unified-availability.repository';
+import { socialPortsRegistry } from '@core/social/ports-registry';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { eventBus } from '@core/events/event-bus';
+import { ActorEffect } from '@core/social/ports';
+import { v4 as uuidv4 } from 'uuid';
+import type {
+  UnifiedAvailability,
+  UnifiedBooking,
+  CreateUnifiedAvailabilityInput,
+  UpdateUnifiedAvailabilityInput,
+  CreateUnifiedBookingInput,
+  UpdateUnifiedBookingInput,
+  UnifiedAvailabilityFilters,
+  UnifiedBookingFilters,
+  CheckInInput,
+  CheckOutInput,
+  AvailabilityParticipant,
+  CreateAvailabilityParticipantInput,
+  UpdateAvailabilityParticipantInput,
+  AvailabilityParticipantFilters,
+  ConflictDetectionResult,
+  AvailabilityConflict,
+} from './unified-availability.types';
+import { UnifiedBookingStatus } from './unified-availability.types';
+
+class UnifiedAvailabilityService {
+  /**
+   * Cria uma nova disponibilidade
+   * 🔴 BLINDAGEM: ownerType e ownerId são OBRIGATÓRIOS
+   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   */
+  async createAvailability(
+    tenantId: string,
+    userId: string,
+    input: CreateUnifiedAvailabilityInput
+  ): Promise<UnifiedAvailability> {
+    // 🔴 BLINDAGEM: Validar que ownerType e ownerId foram fornecidos
+    if (!input.ownerType) {
+      throw new BadRequestError('ownerType é obrigatório para criar disponibilidade');
+    }
+    if (!input.ownerId) {
+      throw new BadRequestError('ownerId é obrigatório para criar disponibilidade');
+    }
+
+    // 🔴 BLINDAGEM: Validar que startDatetime e endDatetime foram fornecidos
+    if (!input.startDatetime || !input.endDatetime) {
+      throw new BadRequestError('startDatetime e endDatetime são obrigatórios');
+    }
+    if (input.endDatetime <= input.startDatetime) {
+      throw new BadRequestError('endDatetime deve ser posterior a startDatetime');
+    }
+
+    // 🔴 BLINDAGEM: Criar disponibilidade (trigger previne sobreposição)
+    // NÃO decide quem pode agendar, apenas expõe janelas
+    return await unifiedAvailabilityRepository.create(tenantId, input);
+  }
+
+  /**
+   * Busca disponibilidade por ID
+   */
+  async getAvailability(tenantId: string, availabilityId: string): Promise<UnifiedAvailability> {
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!availability) {
+      throw new NotFoundError('Disponibilidade não encontrada');
+    }
+    return availability;
+  }
+
+  /**
+   * Lista disponibilidades com filtros
+   * 🔴 BLINDAGEM: Ordenação apenas por start_datetime ASC
+   */
+  async listAvailabilities(
+    tenantId: string,
+    filters: UnifiedAvailabilityFilters
+  ): Promise<UnifiedAvailability[]> {
+    return await unifiedAvailabilityRepository.findAvailabilities(tenantId, filters);
+  }
+
+  /**
+   * Atualiza disponibilidade
+   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   */
+  async updateAvailability(
+    tenantId: string,
+    availabilityId: string,
+    userId: string,
+    input: UpdateUnifiedAvailabilityInput
+  ): Promise<UnifiedAvailability> {
+    // 🔴 BLINDAGEM: Validar que disponibilidade existe
+    const existing = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!existing) {
+      throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 BLINDAGEM: Atualizar disponibilidade (trigger previne sobreposição)
+    return await unifiedAvailabilityRepository.updateAvailability(tenantId, availabilityId, input);
+  }
+
+  /**
+   * Cria um novo booking
+   * 🔴 BLINDAGEM: availabilityId e requesterActorId são OBRIGATÓRIOS
+   * 🔴 BLINDAGEM: NÃO executa pagamento
+   * 🔴 BLINDAGEM: Se booking envolver actor participante (ou owner_type user) e houver conflito, emite effect AVAILABILITY_CONFLICT_DETECTED
+   */
+  async createBooking(
+    tenantId: string,
+    userId: string,
+    input: CreateUnifiedBookingInput
+  ): Promise<UnifiedBooking> {
+    // 🔴 BLINDAGEM: Validar que availabilityId foi fornecido
+    if (!input.availabilityId) {
+      throw new BadRequestError('availabilityId é obrigatório para criar booking');
+    }
+
+    // 🔴 BLINDAGEM: Validar que availability existe
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, input.availabilityId);
+    if (!availability) {
+      throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 BLINDAGEM: Validar que requesterActorId foi fornecido
+    if (!input.requesterActorId) {
+      throw new BadRequestError('requesterActorId é obrigatório para criar booking');
+    }
+
+    // 🔴 BLINDAGEM: Validar que requester actor existe
+    const actorRepository = socialPortsRegistry.getActorRepository();
+    const requesterActor = await actorRepository.findById(tenantId, input.requesterActorId);
+    if (!requesterActor) {
+      throw new NotFoundError('Actor solicitante não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Criar booking (NÃO executa pagamento)
+    const booking = await unifiedAvailabilityRepository.createBooking(tenantId, input);
+
+    // 🔴 BLINDAGEM: Detectar conflitos APÓS criar booking (não bloqueia)
+    // Se booking envolver owner_type user e houver conflito, emitir effect AVAILABILITY_CONFLICT_DETECTED
+    try {
+      // Verificar se availability tem owner_type user (pessoa física)
+      // Se sim, verificar se requester tem conflitos com suas próprias disponibilidades
+      if (availability.ownerType === 'user') {
+        const conflictResult = await this.detectConflicts(tenantId, input.availabilityId, input.requesterActorId);
+        
+        if (conflictResult.hasConflicts && conflictResult.conflicts.length > 0) {
+          // 🔴 BLINDAGEM: Emitir effect de conflito detectado (alerta, não bloqueio)
+          // O effect apenas registra o alerta, não bloqueia a criação do booking
+          const conflictingAvailabilityIds = conflictResult.conflicts.map(c => c.conflictAvailabilityId);
+          
+          // 🔴 HARDENING: Log estruturado antes de emitir effect
+          const { structuredLogger } = await import('@core/utils/structured-logger');
+          structuredLogger.logEffectEmission('info', 'Emitindo effect AVAILABILITY_CONFLICT_DETECTED', {
+            tenantId,
+            actorId: input.requesterActorId,
+            userId,
+            effectType: 'AVAILABILITY_CONFLICT_DETECTED',
+            availabilityId: input.availabilityId,
+            bookingId: booking.bookingId,
+            conflictCount: conflictResult.conflicts.length,
+          });
+          
+          await eventBus.publish({
+            eventId: uuidv4(),
+            tenantId,
+            type: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
+            version: 1,
+            payload: {
+              actorId: input.requesterActorId, // Actor que deve ser alertado (requester)
+              actorType: requesterActor.actor_type,
+              sourceId: input.availabilityId, // Availability principal
+              sourceType: 'availability',
+            },
+            metadata: {
+              availabilityId: input.availabilityId,
+              bookingId: booking.bookingId,
+              conflictingAvailabilityIds,
+              windowStart: availability.startDatetime.toISOString(),
+              windowEnd: availability.endDatetime.toISOString(),
+              source: 'booking_created', // Fonte do conflito
+              conflicts: conflictResult.conflicts.map(c => ({
+                conflictingAvailabilityId: c.conflictAvailabilityId,
+                conflictingOwnerType: c.conflictOwnerType,
+                conflictingOwnerId: c.conflictOwnerId,
+                conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
+                conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
+              })),
+            },
+          });
+        }
+      }
+    } catch (error) {
+      // 🔴 BLINDAGEM: Não quebrar fluxo principal se emissão de effect falhar
+      // O booking já foi criado, apenas o alerta não foi emitido
+      // 🔴 HARDENING: Log estruturado para observabilidade
+      const { structuredLogger } = await import('@core/utils/structured-logger');
+      structuredLogger.logEffectEmission('error', 'Erro ao emitir effect AVAILABILITY_CONFLICT_DETECTED (não crítico)', {
+        tenantId,
+        actorId: availability.ownerId,
+        userId,
+        effectType: 'AVAILABILITY_CONFLICT_DETECTED',
+        availabilityId: input.availabilityId,
+        bookingId: booking.bookingId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return booking;
+  }
+
+  /**
+   * Busca booking por ID
+   */
+  async getBooking(tenantId: string, bookingId: string): Promise<UnifiedBooking> {
+    const booking = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!booking) {
+      throw new NotFoundError('Booking não encontrado');
+    }
+    return booking;
+  }
+
+  /**
+   * Lista bookings com filtros
+   */
+  async listBookings(
+    tenantId: string,
+    filters: UnifiedBookingFilters
+  ): Promise<UnifiedBooking[]> {
+    return await unifiedAvailabilityRepository.findBookings(tenantId, filters);
+  }
+
+  /**
+   * Atualiza booking
+   * 🔴 BLINDAGEM: NÃO executa pagamento
+   */
+  async updateBooking(
+    tenantId: string,
+    bookingId: string,
+    userId: string,
+    input: UpdateUnifiedBookingInput
+  ): Promise<UnifiedBooking> {
+    // 🔴 BLINDAGEM: Validar que booking existe
+    const existing = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!existing) {
+      throw new NotFoundError('Booking não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Atualizar booking (NÃO executa pagamento)
+    return await unifiedAvailabilityRepository.updateBooking(tenantId, bookingId, input);
+  }
+
+  /**
+   * Realiza check-in
+   * 🔴 BLINDAGEM: Check-in é apenas registro, NÃO executa pagamento
+   */
+  async checkIn(
+    tenantId: string,
+    bookingId: string,
+    userId: string,
+    input: CheckInInput
+  ): Promise<UnifiedBooking> {
+    // 🔴 BLINDAGEM: Validar que booking existe
+    const booking = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!booking) {
+      throw new NotFoundError('Booking não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Validar que booking está confirmado antes de check-in
+    if (booking.status !== UnifiedBookingStatus.CONFIRMED) {
+      throw new BadRequestError('Apenas bookings confirmados podem fazer check-in');
+    }
+
+    // 🔴 BLINDAGEM: Realizar check-in (apenas registro, NÃO executa pagamento)
+    return await unifiedAvailabilityRepository.checkIn(tenantId, bookingId, input.metadata);
+  }
+
+  /**
+   * Realiza check-out
+   * 🔴 BLINDAGEM: Check-out é apenas registro, NÃO executa pagamento
+   */
+  async checkOut(
+    tenantId: string,
+    bookingId: string,
+    userId: string,
+    input: CheckOutInput
+  ): Promise<UnifiedBooking> {
+    // 🔴 BLINDAGEM: Validar que booking existe
+    const booking = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    if (!booking) {
+      throw new NotFoundError('Booking não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Validar que booking fez check-in antes de check-out
+    if (!booking.checkedInAt) {
+      throw new BadRequestError('Booking deve ter feito check-in antes de check-out');
+    }
+
+    // 🔴 BLINDAGEM: Realizar check-out (apenas registro, NÃO executa pagamento)
+    return await unifiedAvailabilityRepository.checkOut(tenantId, bookingId, input.metadata);
+  }
+
+  /**
+   * Cria um novo participante
+   * 🔴 BLINDAGEM: availabilityId e actorId são OBRIGATÓRIOS
+   * 🔴 BLINDAGEM: NÃO bloqueia automaticamente conflitos
+   * 🔴 BLINDAGEM: Se detectConflicts() retornar conflitos, emite effect AVAILABILITY_CONFLICT_DETECTED
+   */
+  async createParticipant(
+    tenantId: string,
+    userId: string,
+    input: CreateAvailabilityParticipantInput
+  ): Promise<AvailabilityParticipant> {
+    // 🔴 BLINDAGEM: Validar que availabilityId foi fornecido
+    if (!input.availabilityId) {
+      throw new BadRequestError('availabilityId é obrigatório para criar participante');
+    }
+
+    // 🔴 BLINDAGEM: Validar que availability existe
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, input.availabilityId);
+    if (!availability) {
+      throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 BLINDAGEM: Validar que actorId foi fornecido
+    if (!input.actorId) {
+      throw new BadRequestError('actorId é obrigatório para criar participante');
+    }
+
+    // 🔴 BLINDAGEM: Validar que actor existe
+    const actorRepository = socialPortsRegistry.getActorRepository();
+    const actor = await actorRepository.findById(tenantId, input.actorId);
+    if (!actor) {
+      throw new NotFoundError('Actor participante não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Criar participante (NÃO bloqueia conflitos)
+    const participant = await unifiedAvailabilityRepository.createParticipant(tenantId, input);
+
+    // 🔴 BLINDAGEM: Detectar conflitos APÓS criar participante (não bloqueia)
+    // Se houver conflitos, emitir effect AVAILABILITY_CONFLICT_DETECTED
+    try {
+      const conflictResult = await this.detectConflicts(tenantId, input.availabilityId, input.actorId);
+      
+      if (conflictResult.hasConflicts && conflictResult.conflicts.length > 0) {
+        // 🔴 BLINDAGEM: Emitir effect de conflito detectado (alerta, não bloqueio)
+        // O effect apenas registra o alerta, não bloqueia a criação do participante
+        const conflictingAvailabilityIds = conflictResult.conflicts.map(c => c.conflictAvailabilityId);
+        
+        // 🔴 HARDENING: Log estruturado antes de emitir effect
+        const { structuredLogger } = await import('@core/utils/structured-logger');
+        structuredLogger.logEffectEmission('info', 'Emitindo effect AVAILABILITY_CONFLICT_DETECTED', {
+          tenantId,
+          actorId: input.actorId,
+          userId,
+          effectType: 'AVAILABILITY_CONFLICT_DETECTED',
+          availabilityId: input.availabilityId,
+          conflictCount: conflictResult.conflicts.length,
+        });
+        
+        await eventBus.publish({
+          eventId: uuidv4(),
+          tenantId,
+          type: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
+          version: 1,
+          payload: {
+            actorId: input.actorId, // Actor que deve ser alertado (participante)
+            actorType: actor.actor_type,
+            sourceId: input.availabilityId, // Availability principal
+            sourceType: 'availability',
+          },
+          metadata: {
+            availabilityId: input.availabilityId,
+            conflictingAvailabilityIds,
+            windowStart: availability.startDatetime.toISOString(),
+            windowEnd: availability.endDatetime.toISOString(),
+            source: 'participant_added', // Fonte do conflito
+            conflicts: conflictResult.conflicts.map(c => ({
+              conflictingAvailabilityId: c.conflictAvailabilityId,
+              conflictingOwnerType: c.conflictOwnerType,
+              conflictingOwnerId: c.conflictOwnerId,
+              conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
+              conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
+            })),
+          },
+        });
+      }
+    } catch (error) {
+      // 🔴 BLINDAGEM: Não quebrar fluxo principal se emissão de effect falhar
+      // O participante já foi criado, apenas o alerta não foi emitido
+      // 🔴 HARDENING: Log estruturado para observabilidade
+      const { structuredLogger } = await import('@core/utils/structured-logger');
+      structuredLogger.logEffectEmission('error', 'Erro ao emitir effect AVAILABILITY_CONFLICT_DETECTED (não crítico)', {
+        tenantId,
+        actorId: input.actorId,
+        userId,
+        effectType: 'AVAILABILITY_CONFLICT_DETECTED',
+        availabilityId: input.availabilityId,
+        participantId: participant.participantId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return participant;
+  }
+
+  /**
+   * Busca participante por ID
+   */
+  async getParticipant(tenantId: string, participantId: string): Promise<AvailabilityParticipant> {
+    const participant = await unifiedAvailabilityRepository.findParticipantById(tenantId, participantId);
+    if (!participant) {
+      throw new NotFoundError('Participante não encontrado');
+    }
+    return participant;
+  }
+
+  /**
+   * Lista participantes com filtros
+   */
+  async listParticipants(
+    tenantId: string,
+    filters: AvailabilityParticipantFilters
+  ): Promise<AvailabilityParticipant[]> {
+    return await unifiedAvailabilityRepository.findParticipants(tenantId, filters);
+  }
+
+  /**
+   * Atualiza participante
+   */
+  async updateParticipant(
+    tenantId: string,
+    participantId: string,
+    userId: string,
+    input: UpdateAvailabilityParticipantInput
+  ): Promise<AvailabilityParticipant> {
+    // 🔴 BLINDAGEM: Validar que participante existe
+    const existing = await unifiedAvailabilityRepository.findParticipantById(tenantId, participantId);
+    if (!existing) {
+      throw new NotFoundError('Participante não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Atualizar participante
+    return await unifiedAvailabilityRepository.updateParticipant(tenantId, participantId, input);
+  }
+
+  /**
+   * Remove participante
+   */
+  async deleteParticipant(
+    tenantId: string,
+    participantId: string,
+    userId: string
+  ): Promise<void> {
+    // 🔴 BLINDAGEM: Validar que participante existe
+    const existing = await unifiedAvailabilityRepository.findParticipantById(tenantId, participantId);
+    if (!existing) {
+      throw new NotFoundError('Participante não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Remover participante
+    await unifiedAvailabilityRepository.deleteParticipant(tenantId, participantId);
+  }
+
+  /**
+   * Detecta conflitos de horário para um participante
+   * 🔴 BLINDAGEM: Esta função DETECTA conflitos, NÃO bloqueia
+   * 🔴 BLINDAGEM: A confirmação cabe ao usuário
+   * Retorna ALERTA, não bloqueio
+   */
+  async detectConflicts(
+    tenantId: string,
+    availabilityId: string,
+    actorId: string
+  ): Promise<ConflictDetectionResult> {
+    // 🔴 BLINDAGEM: Validar que availability existe
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!availability) {
+      throw new NotFoundError('Disponibilidade não encontrada');
+    }
+
+    // 🔴 BLINDAGEM: Validar que actor existe
+    const actorRepository = socialPortsRegistry.getActorRepository();
+    const actor = await actorRepository.findById(tenantId, actorId);
+    if (!actor) {
+      throw new NotFoundError('Actor não encontrado');
+    }
+
+    // 🔴 BLINDAGEM: Detectar conflitos (apenas informação, não decisão)
+    // Retorna ALERTA, não bloqueio
+    return await unifiedAvailabilityRepository.detectConflicts(tenantId, availabilityId, actorId);
+  }
+}
+
+export const unifiedAvailabilityService = new UnifiedAvailabilityService();
+

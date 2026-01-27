@@ -240,4 +240,3 @@ class SafetyService {
 }
 exports.SafetyService = SafetyService;
 exports.safetyService = new SafetyService();
-//# sourceMappingURL=safety.service.js.map

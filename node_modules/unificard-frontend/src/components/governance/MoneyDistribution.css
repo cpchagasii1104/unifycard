@@ -1,0 +1,131 @@
+/* frontend/src/components/governance/MoneyDistribution.css */
+/* CONTINUOUS PRODUCTION: Estilos para Visão de Distribuição - SPRINT 4 */
+
+.money-distribution {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.distribution-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-line {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.distribution-error,
+.distribution-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.distribution-header {
+  margin-bottom: 1.5rem;
+}
+
+.distribution-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: #1a1a1a;
+}
+
+.distribution-subtitle {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.distribution-source {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
+  color: #999;
+  font-style: italic;
+}
+
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.distribution-item {
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.distribution-destination {
+  margin-bottom: 0.75rem;
+}
+
+.distribution-destination-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.distribution-destination-desc {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.distribution-values {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.distribution-percentage {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.distribution-amount {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #28a745;
+}
+
+.distribution-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.distribution-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+
+
+
+
+
+

@@ -41,4 +41,3 @@ async function ridesRoutes(fastify) {
     await fastify.register(referrals_routes_1.default, { prefix: '/rides' });
     await fastify.register(ride_requests_routes_1.default, { prefix: '/rides' });
 }
-//# sourceMappingURL=rides.routes.js.map

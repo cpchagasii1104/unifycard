@@ -96,12 +96,42 @@ class WorkerService {
     }
     async createWorker(tenantId, userId, input) {
         const hasLocation = !!input.location;
+        // 🔴 INPUT DECLARATIVO — availability é apenas INPUT, não verdade temporal
+        // Preparar availability com cast explícito para JSONB
+        let availabilityValue = '{}';
+        if (input.availability !== null && input.availability !== undefined) {
+            // Validar que é um objeto válido (não array primitivo, não string, etc.)
+            if (typeof input.availability === 'object' && !Array.isArray(input.availability)) {
+                try {
+                    availabilityValue = JSON.stringify(input.availability);
+                    // Validar que o JSON é válido
+                    JSON.parse(availabilityValue);
+                }
+                catch (e) {
+                    // Se falhar ao stringify ou parse, logar e usar '{}'
+                    console.warn(`[WorkerService] Failed to stringify availability for new worker (user ${userId}):`, e);
+                    availabilityValue = '{}';
+                }
+            }
+            else {
+                // Se não for objeto válido, logar e usar '{}' (validação defensiva)
+                console.warn(`[WorkerService] Invalid availability format for new worker (user ${userId}):`, input.availability);
+                availabilityValue = '{}';
+            }
+        }
+        // 🔴 LOGGING: Log payload antes do SQL para diagnóstico
+        console.log(`[WorkerService] Creating worker for user ${userId} with availability:`, {
+            availabilityType: typeof input.availability,
+            availabilityValue: availabilityValue.substring(0, 200),
+            availabilityIsNull: input.availability === null,
+            availabilityIsUndefined: input.availability === undefined,
+        });
         const params = [
             tenantId,
             userId,
             input.bio ?? null,
             input.hourlyRate ?? null,
-            input.availability ?? {},
+            availabilityValue, // Sempre string JSON válida (nunca null)
         ];
         let locationExpression = 'NULL';
         if (hasLocation && input.location) {
@@ -109,6 +139,7 @@ class WorkerService {
             locationExpression =
                 'ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography';
         }
+        // 🔴 CORREÇÃO: Cast explícito ::jsonb para evitar erro "não foi possível determinar o tipo de dados do parâmetro $5"
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       INSERT INTO workers (
         tenant_id,
@@ -123,7 +154,7 @@ class WorkerService {
         $2,
         $3,
         $4,
-        $5,
+        $5::jsonb,
         ${locationExpression}
       )
       RETURNING
@@ -163,22 +194,57 @@ class WorkerService {
     }
     async updateWorker(tenantId, workerId, input) {
         const hasLocation = !!input.location;
+        // 🔴 INPUT DECLARATIVO — availability é apenas INPUT, não verdade temporal
+        // Preparar availability com cast explícito para JSONB
+        // Garantir que sempre seja string JSON válida ou null explícito
+        let availabilityValue = null;
+        if (input.availability !== null && input.availability !== undefined) {
+            // Validar que é um objeto válido (não array primitivo, não string, etc.)
+            if (typeof input.availability === 'object' && !Array.isArray(input.availability)) {
+                try {
+                    availabilityValue = JSON.stringify(input.availability);
+                    // Validar que o JSON é válido
+                    JSON.parse(availabilityValue);
+                }
+                catch (e) {
+                    // Se falhar ao stringify ou parse, logar e usar null
+                    console.warn(`[WorkerService] Failed to stringify availability for worker ${workerId}:`, e);
+                    availabilityValue = null;
+                }
+            }
+            else {
+                // Se não for objeto válido, logar e usar null (validação defensiva)
+                console.warn(`[WorkerService] Invalid availability format for worker ${workerId}:`, input.availability);
+                availabilityValue = null;
+            }
+        }
+        // 🔴 LOGGING: Log payload antes do SQL para diagnóstico
+        console.log(`[WorkerService] Updating worker ${workerId} with availability:`, {
+            availabilityType: typeof input.availability,
+            availabilityValue: availabilityValue ? availabilityValue.substring(0, 200) : null,
+            availabilityIsNull: input.availability === null,
+            availabilityIsUndefined: input.availability === undefined,
+        });
         const params = [
             tenantId,
             workerId,
             input.bio ?? null,
             input.hourlyRate ?? null,
-            input.availability ?? null,
+            availabilityValue, // Pode ser null ou string JSON válida
             hasLocation && input.location ? input.location.longitude : null,
             hasLocation && input.location ? input.location.latitude : null,
             input.isActive ?? null,
         ];
+        // 🔴 CORREÇÃO: Cast explícito ::jsonb para evitar erro "não foi possível determinar o tipo de dados do parâmetro $5"
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE workers
       SET
         bio = COALESCE($3, bio),
         hourly_rate = COALESCE($4, hourly_rate),
-        availability = COALESCE($5, availability),
+        availability = CASE 
+          WHEN $5 IS NULL THEN availability 
+          ELSE $5::jsonb 
+        END,
         location = CASE
           WHEN $6 IS NOT NULL AND $7 IS NOT NULL
             THEN ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography
@@ -227,6 +293,10 @@ class WorkerService {
     // ============================================================
     // 🔥 LIST WORKERS + REPUTAÇÃO EM MASSA
     // ============================================================
+    // 🔴 BLINDAGEM: Educação NÃO participa de filtros de workers
+    // - Filtros usam apenas: skillId, isActive, minReputation, localização
+    // - Educação não filtra workers, não bloqueia candidatos
+    // - Por que isso NÃO pode virar decisão: workers são filtrados por atuação real, não diploma
     async listWorkers(tenantId, options = {}) {
         const { skillId, isActive, minReputation, lat, lng, radiusKm, limit = 20, offset = 0, } = options;
         const params = [tenantId];
@@ -307,4 +377,3 @@ class WorkerService {
     }
 }
 exports.workerService = new WorkerService();
-//# sourceMappingURL=worker.service.js.map

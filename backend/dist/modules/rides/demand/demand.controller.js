@@ -28,4 +28,3 @@ class DemandController {
 }
 exports.DemandController = DemandController;
 exports.demandController = new DemandController();
-//# sourceMappingURL=demand.controller.js.map

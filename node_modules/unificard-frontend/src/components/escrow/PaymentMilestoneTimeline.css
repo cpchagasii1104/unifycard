@@ -1,0 +1,159 @@
+/* frontend/src/components/escrow/PaymentMilestoneTimeline.css */
+/* Estilos para Timeline de Marcos de Pagamento */
+
+.payment-milestone-timeline {
+  margin-top: 1.5rem;
+}
+
+.payment-milestone-timeline h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.payment-milestone-timeline-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.milestones-list {
+  position: relative;
+  padding-left: 2rem;
+}
+
+.milestone-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.milestone-item:last-child {
+  margin-bottom: 0;
+}
+
+.milestone-marker {
+  position: absolute;
+  left: -2rem;
+  top: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.milestone-pending .milestone-marker {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.milestone-authorized .milestone-marker {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.milestone-released .milestone-marker {
+  background: #d1fae5;
+  border-color: #10b981;
+}
+
+.milestone-icon {
+  font-size: 0.875rem;
+}
+
+.milestone-content {
+  padding-left: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.milestone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.milestone-header strong {
+  font-size: 0.9rem;
+  color: #111;
+}
+
+.milestone-amount {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.milestone-status {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.milestone-status strong {
+  color: #374151;
+}
+
+.milestone-date {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.milestone-transaction {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-family: monospace;
+  margin-bottom: 0.5rem;
+}
+
+.bank-transaction-id {
+  color: #9ca3af;
+}
+
+.milestone-actions {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.milestone-actions .btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.milestone-hint {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.milestone-connector {
+  position: absolute;
+  left: -1.5rem;
+  top: 2rem;
+  width: 2px;
+  height: calc(100% + 0.5rem);
+  background: #e5e7eb;
+  z-index: 0;
+}
+
+.milestone-authorized .milestone-connector,
+.milestone-released .milestone-connector {
+  background: #10b981;
+}
+
+
+
+

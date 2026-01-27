@@ -1,0 +1,80 @@
+/* frontend/src/components/agreements/AgreementReviewModal.css */
+/* Estilos para o Modal de Revisão antes de Finalizar */
+
+.agreement-review-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.agreement-review-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.agreement-review-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  color: #92400e;
+}
+
+.agreement-review-warning strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.agreement-review-checklist {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.agreement-review-checklist h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.agreement-review-checklist ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #4b5563;
+}
+
+.agreement-review-checklist li {
+  margin-bottom: 0.5rem;
+}
+
+.agreement-review-audit-notice {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+}
+
+.agreement-review-audit-notice small {
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+
+
+

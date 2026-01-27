@@ -10,4 +10,3 @@ const productDemandModule = async (fastify) => {
     await fastify.register(product_demand_routes_1.default);
 };
 exports.default = productDemandModule;
-//# sourceMappingURL=product-demand.module.js.map

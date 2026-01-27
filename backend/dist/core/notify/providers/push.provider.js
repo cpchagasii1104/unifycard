@@ -16,4 +16,3 @@ class PushProvider {
     }
 }
 exports.PushProvider = PushProvider;
-//# sourceMappingURL=push.provider.js.map
