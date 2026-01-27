@@ -4,7 +4,7 @@ Este documento define os **Gates formais de execução** do plano de correção 
 Cada Gate é **binário**: PASSA ou FALHA.
 Não existe “quase”, “parcial” ou “depois a gente vê”.
 
-Gate passado **não pode ser reaberto** sem registro explícito no FALSIFICATION_LOG.
+Gate passado **não pode ser reaberto** sem registro explícito no `FALSIFICATION_LOG.md`.
 
 ---
 
@@ -28,7 +28,7 @@ Congelar o estado real do sistema **antes de qualquer correção**.
 
 ### Critérios de PASS
 - `IMPACT_MATRIX.md` preenchido
-- `baseline/impact_matrix_snapshot.md` salvo
+- Snapshot de impacto salvo
 - `WRITE_SURFACE_BASELINE.md` preenchido
 - `baseline/write_surface_grep.txt` gerado (mesmo vazio)
 - `FALSIFICATION_LOG.md` criado
@@ -39,7 +39,7 @@ Congelar o estado real do sistema **antes de qualquer correção**.
 - Arquivos ausentes
 - Snapshot editado após criação
 
-**Status:** FECHADO
+**Status:** ✅ **FECHADO**
 
 ---
 
@@ -49,19 +49,23 @@ Congelar o estado real do sistema **antes de qualquer correção**.
 Declarar explicitamente **quem decide o quê** no sistema.
 
 ### Critérios de PASS
-- `SSOT_REGISTRY.md` preenchido
+- `SSOT_REGISTRY.md` preenchido e versionado
 - SSOT financeiro ancorado em:
   - `bank_ledger`
   - `bank_transactions`
   - `bank_splits`
+- Domínios NÃO-SSOT explicitamente declarados:
+  - payment intent
+  - UnifyCard
 - Estruturas proibidas explicitadas
 
 ### Critérios de FAIL
 - SSOT implícito
 - Saldo declarado fora do ledger
+- Domínio financeiro sem autoridade única
 - Estrutura inventada sem evidência
 
-**Status:** FECHADO
+**Status:** ✅ **FECHADO**
 
 ---
 
@@ -72,8 +76,8 @@ Impedir **novas violações** de SSOT no código.
 
 ### Ações esperadas
 - Proibir escrita em estruturas legacy
-- Criar guardas, asserts ou lint
-- Bloquear uso proibido em novos códigos
+- Criar guardas, asserts, lint ou bloqueios mecânicos
+- Impedir introdução de novas autoridades implícitas
 
 ### Critérios de PASS
 - Nenhum novo writer proibido possível
@@ -83,7 +87,7 @@ Impedir **novas violações** de SSOT no código.
 - “Depois a gente corrige”
 - Escrita legacy ainda possível
 
-**Status:** A EXECUTAR
+**Status:** ⏳ **A EXECUTAR**
 
 ---
 
@@ -93,7 +97,7 @@ Impedir **novas violações** de SSOT no código.
 Eliminar **todos os writers proibidos** identificados na Matriz de Impacto.
 
 ### Ações esperadas
-- Refatorar ou deletar arquivos “MORREM”
+- Refatorar ou deletar arquivos classificados como “MORREM”
 - Atualizar `WRITE_SURFACE_BASELINE.md`
 - Registrar falsificações encontradas
 
@@ -106,7 +110,7 @@ Eliminar **todos os writers proibidos** identificados na Matriz de Impacto.
 - Writer residual
 - Uso “temporário” não documentado
 
-**Status:** A EXECUTAR
+**Status:** ✅ **FECHADO (PASSOU TECNICAMENTE)**
 
 ---
 
@@ -117,18 +121,21 @@ Garantir que **todo dinheiro passa pelo Bank**.
 
 ### Ações esperadas
 - Eventos → Bank
-- Splits finais no Bank
-- Ledger bancário como única verdade
+- Splits finais exclusivamente no Bank
+- Ledger bancário como única verdade contábil
 
 ### Critérios de PASS
 - Nenhuma decisão financeira fora do Bank
-- Leitura legacy apenas informativa
+- Nenhuma aritmética financeira em JS
+- Leitura legacy apenas informativa / derivada
 
 ### Critérios de FAIL
 - Decisão híbrida
 - Saldo paralelo
+- Status financeiro fora do ledger
 
-**Status:** A EXECUTAR
+**Status:** ✅ **FECHADO (ESCOPO BANK)**  
+**Observação:** Marketplace, Services e Events ainda serão validados em Gates posteriores.
 
 ---
 
@@ -140,18 +147,20 @@ Remover **legado morto** e validar o SSOT final.
 ### Ações esperadas
 - Deletar tabelas proibidas
 - Remover código morto
-- Validar sistema sem legacy
+- Reset do schema para o mínimo canônico
+- Executar checklist completo de falsificação
 
 ### Critérios de PASS
-- Schema limpo
+- Schema limpo (sem legacy)
 - Código sem referência proibida
-- SSOT único operacional
+- SSOT único operacional ponta a ponta
 
 ### Critérios de FAIL
 - Legacy mantido “por segurança”
 - Referência oculta
+- Decisão financeira fora do Bank
 
-**Status:** A EXECUTAR
+**Status:** ⏳ **A EXECUTAR**
 
 ---
 

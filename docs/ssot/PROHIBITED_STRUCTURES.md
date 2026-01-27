@@ -5,7 +5,7 @@ como fonte de verdade, autoridade de decisão ou cálculo de estado no sistema U
 
 Qualquer uso fora do permitido aqui é considerado **violação grave de SSOT**.
 
-Este documento complementa o `SSOT_REGISTRY.md` e é **normativo**.
+Este documento complementa o `SSOT_REGISTRY.md` e é **normativo e vinculante**.
 
 ---
 
@@ -33,22 +33,30 @@ As estruturas abaixo **NUNCA** podem:
 - `transactions` (legacy)
 - `region_accounts`
 - `wallets` (se existir)
+- qualquer tabela de saldo fora de `bank_ledger`
 - `cached_balances` fora de `bank_accounts`
 
 Uso permitido:
 - histórico
 - visualização
 - debug
-- migração assistida (temporária)
+- migração assistida **temporária e documentada**
+
+Uso proibido:
+- decisão
+- cálculo
+- consolidação
+- autoridade implícita
 
 ---
 
 ## ESTRUTURAS DE PAGAMENTO NÃO-CANÔNICAS
 
-Estas estruturas **NÃO** são SSOT e **NÃO** podem decidir pagamento:
+Estas estruturas **NÃO** são SSOT e **NÃO** podem decidir pagamento ou dinheiro:
 
 - `payment_transactions`
 - `payment_splits`
+- `payment_intent_splits`
 - `settlements`
 - `payout_transactions`
 - `escrow_transactions`
@@ -58,34 +66,39 @@ Uso permitido:
 - logs operacionais
 - integração com adquirente
 - rastreabilidade técnica
+- conciliação informativa
 
 Uso proibido:
 - cálculo de saldo
 - split final
 - decisão financeira
+- marcação de estado final (`PAID`, `SETTLED`, etc.)
 
 ---
 
-## ESTRUTURAS DECLARATIVAS / INTERMEDIÁRIAS
+## ESTRUTURAS DECLARATIVAS / INTERMEDIÁRIAS (NÃO-SSOT)
 
-Estas estruturas **NÃO** decidem dinheiro:
+Estas estruturas **NUNCA** decidem dinheiro:
 
 - `event_split_declarative`
 - `event_refund`
 - `event_chargeback`
 - `service_payment_requests`
 - `service_payment_executions`
+- `payment_intents` (pré-financeiro)
 
 Uso permitido:
 - intenção
 - orquestração
 - workflow
 - pré-financeiro
+- notificação
 
 Uso proibido:
 - autoridade financeira
 - substituição de ledger
 - persistência de verdade contábil
+- inferência de saldo ou quitação
 
 ---
 
@@ -98,10 +111,12 @@ Os seguintes padrões são **explicitamente proibidos**:
   - `transactions`
   - `payment_transactions`
   - `event_*`
+  - `settlements`
 - Tratar `cached_balance` como verdade
-- Usar JOIN em tabelas proibidas para decisão
+- Usar JOIN em tabelas proibidas para **decisão**
 - Persistir “estado final” em repositório de negócio
 - Recalcular split fora do banco
+- Aritmética financeira fora do Bank (ex.: JS)
 
 ---
 
@@ -114,37 +129,41 @@ Os seguintes padrões são **explicitamente proibidos**:
   - bloquear conta
   - concluir evento financeiro
   - computar reputação financeira
+  - decidir acesso ou benefício financeiro
 
-Mesmo leitura “só para conferência” é proibida **se influenciar decisão**.
+Regra dura:
+> **Leitura que influencia decisão é autoridade implícita — e é proibida.**
 
 ---
 
 ## EXCEÇÕES CONTROLADAS
 
-Exceções só existem se:
+Exceções **só existem** se **TODOS** os critérios forem atendidos:
 1. Documentadas no `FALSIFICATION_LOG.md`
 2. Aprovadas por Gate explícito
-3. Com prazo de expiração
+3. Com **prazo de expiração definido**
+4. Sem impacto em decisão financeira final
 
-Exceção sem prazo = violação.
+Exceção sem prazo = **violação**.
 
 ---
 
 ## FISCALIZAÇÃO
 
 - Qualquer novo uso de estrutura proibida:
-  - é FAIL automático de Gate
+  - é **FAIL automático** de Gate
   - exige correção imediata
-- Refactors não podem reintroduzir uso proibido
-- Testes também obedecem estas regras
+- Refactors **não podem** reintroduzir uso proibido
+- Testes **também** obedecem estas regras
+- Ambiguidade é tratada como violação
 
 ---
 
 ## STATUS
 
-- **Gate 1:** PROIBIÇÕES DECLARADAS
-- **Gate 2:** BLOQUEIO EM CÓDIGO (A EXECUTAR)
-- **Gate 3:** REMOÇÃO DE USO (A EXECUTAR)
+- **Gate 1:** PROIBIÇÕES DECLARADAS (CONTEÚDO DEFINIDO)
+- **Gate 2:** BLOQUEIO EM CÓDIGO — A EXECUTAR
+- **Gate 3:** REMOÇÃO DE USO — A EXECUTAR
 
 ---
 
