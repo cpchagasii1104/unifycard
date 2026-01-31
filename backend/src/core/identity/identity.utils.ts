@@ -1,3 +1,21 @@
+/**
+ * ⚠️ LEGADO PRÉ-GATE-0 — CONGELADO
+ *
+ * Este arquivo contém lógica histórica anterior ao fechamento do Gate 0.
+ *
+ * Após o Gate 0:
+ * - users.global_user_id é a ÚNICA fonte de verdade para identidade global.
+ * - user_identity_links NÃO é autoridade.
+ * - resolveGlobalUserId NÃO deve ser usado como referência.
+ *
+ * Este arquivo:
+ * - NÃO deve ser refatorado
+ * - NÃO deve ser usado como modelo
+ * - NÃO deve ser expandido
+ *
+ * Qualquer alteração só é permitida após abertura formal do Gate 1.
+ */
+
 // src/core/identity/identity.utils.ts
 import { pool } from '@core/database/pool';
 import { runQueryWithTenant } from '@core/database/pool';
@@ -19,6 +37,7 @@ export async function resolveGlobalUserId(
 
   let resolvedGlobalUserId: string | null = null;
 
+  // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
   // Se tenantId fornecido, usar RLS
   if (tenantId) {
     const user = await runQueryWithTenant<{ global_user_id: string | null }>(
@@ -26,7 +45,7 @@ export async function resolveGlobalUserId(
       `
         SELECT global_user_id
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [userId]
@@ -34,22 +53,6 @@ export async function resolveGlobalUserId(
 
     if (user?.global_user_id) {
       resolvedGlobalUserId = user.global_user_id;
-    } else {
-      // Tentar via user_identity_links
-      const link = await pool.query<{ global_user_id: string }>(
-        `
-          SELECT global_user_id
-          FROM user_identity_links
-          WHERE user_id = $1 AND tenant_id = $2
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [userId, tenantId]
-      );
-
-      if (link.rows[0]?.global_user_id) {
-        resolvedGlobalUserId = link.rows[0].global_user_id;
-      }
     }
   } else {
     // Sem tenantId, buscar direto em users (sistema)
@@ -57,7 +60,7 @@ export async function resolveGlobalUserId(
       `
         SELECT global_user_id
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [userId]
@@ -65,22 +68,6 @@ export async function resolveGlobalUserId(
 
     if (user.rows[0]?.global_user_id) {
       resolvedGlobalUserId = user.rows[0].global_user_id;
-    } else {
-      // Tentar via user_identity_links (qualquer tenant)
-      const link = await pool.query<{ global_user_id: string }>(
-        `
-          SELECT global_user_id
-          FROM user_identity_links
-          WHERE user_id = $1
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [userId]
-      );
-
-      if (link.rows[0]?.global_user_id) {
-        resolvedGlobalUserId = link.rows[0].global_user_id;
-      }
     }
   }
 

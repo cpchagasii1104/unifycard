@@ -1,3 +1,21 @@
+/**
+ * ⚠️ LEGADO PRÉ-GATE-0 — CONGELADO
+ *
+ * Este arquivo contém lógica histórica anterior ao fechamento do Gate 0.
+ *
+ * Após o Gate 0:
+ * - users.global_user_id é a ÚNICA fonte de verdade para identidade global.
+ * - user_identity_links NÃO é autoridade.
+ * - resolveGlobalUserId NÃO deve ser usado como referência.
+ *
+ * Este arquivo:
+ * - NÃO deve ser refatorado
+ * - NÃO deve ser usado como modelo
+ * - NÃO deve ser expandido
+ *
+ * Qualquer alteração só é permitida após abertura formal do Gate 1.
+ */
+
 // src/core/auth/auth.service.ts
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
@@ -5,7 +23,6 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 
 import { runQueryWithTenant } from '@core/database/pool';
-import { identityService } from '@core/identity/identity.service';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import type {
   AuthUser,
@@ -31,7 +48,7 @@ const jwtSecret: string = JWT_SECRET;
 
 // Tipagem do usuário do banco
 interface UserRow {
-  user_id: string;
+  id: string;
   tenant_id: string;
   email: string;
   password_hash: string;
@@ -42,7 +59,7 @@ interface UserRow {
 class AuthService {
   private toAuthUser(row: UserRow): AuthUser {
     return {
-      userId: row.user_id,
+      userId: row.id,
       tenantId: row.tenant_id,
       email: row.email,
       createdAt: row.created_at,
@@ -110,9 +127,9 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         decoded.tenantId,
         `
-          SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, created_at, token_version
           FROM users
-          WHERE user_id = $1
+          WHERE id = $1
           LIMIT 1
         `,
         [decoded.sub]
@@ -207,7 +224,7 @@ class AuthService {
       try {
         await client.query(
           `
-          INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
+          INSERT INTO tenants (id, name, slug, created_at, updated_at)
           VALUES ($1, $2, $3, now(), now())
           `,
           [newTenantId, `Tenant ${emailSlug}`, tenantSlug]
@@ -222,8 +239,8 @@ class AuthService {
           tenantSlug,
         });
       } catch (err) {
-        client.release();
-        throw new Error('Falha ao criar tenant automaticamente');
+        console.error('Erro ao criar tenant automaticamente:', err);
+        throw err instanceof Error ? err : new Error('Falha ao criar tenant automaticamente');
       } finally {
         client.release();
       }
@@ -253,7 +270,7 @@ class AuthService {
           const { pool } = await import('@core/database/pool');
           const client = await pool.connect();
           try {
-            await client.query('DELETE FROM tenants WHERE tenant_id = $1', [finalTenantId]);
+            await client.query('DELETE FROM tenants WHERE id = $1', [finalTenantId]);
           } catch (err) {
             // Ignorar erro ao reverter
           } finally {
@@ -270,7 +287,7 @@ class AuthService {
     const existing = await runQueryWithTenant<UserRow>(
       finalTenantId,
       `
-        SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, created_at, token_version
         FROM users
         WHERE email = $1
         LIMIT 1
@@ -286,14 +303,56 @@ class AuthService {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const newUserId = randomUUID();
+
+    // 🔴 GARANTIA CANÔNICA: CPF é obrigatório para criar global_users
+    if (!cpf) {
+      const error = new Error('CPF é obrigatório para cadastro') as Error & { statusCode?: number };
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // 🔒 SEGURANÇA: Validar CPF antes de salvar
+    try {
+      validateCpfOrThrow(cpf);
+    } catch (validationError) {
+      const error = new Error(validationError instanceof Error ? validationError.message : 'CPF inválido') as Error & { statusCode?: number };
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const normalizedCpf = normalizeCpf(cpf);
+    const normalizedFullName = fullName ? normalizeFullName(fullName) : null;
+    
+    // 🔴 GARANTIA CANÔNICA: Criar/obter global_users ANTES de criar users
+    // UPSERT em global_users usando CPF como chave SSOT
+    const { pool } = await import('@core/database/pool');
+    const globalUserResult = await pool.query<{ global_user_id: string }>(
+      `
+        INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
+        VALUES ($1, $2, NULL, $3, '{}'::jsonb)
+        ON CONFLICT (cpf)
+        DO UPDATE SET cpf = EXCLUDED.cpf
+        RETURNING global_user_id
+      `,
+      [normalizedCpf, normalizedFullName, birthdate ? new Date(birthdate) : null]
+    );
+
+    if (!globalUserResult.rows[0]) {
+      throw new Error('Failed to create or retrieve global user');
+    }
+
+    const globalUserId = globalUserResult.rows[0].global_user_id;
+
+    // 🔴 GARANTIA CANÔNICA: Inserir users com global_user_id NO INSERT
     const inserted = await runQueryWithTenant<UserRow>(
       finalTenantId,
       `
-        INSERT INTO users (tenant_id, email, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING user_id, tenant_id, email, password_hash, created_at, token_version
+        INSERT INTO users (id, tenant_id, global_user_id, email, password_hash)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, tenant_id, email, password_hash, created_at, token_version
       `,
-      [finalTenantId, normalizedEmail, passwordHash]
+      [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]
     );
 
     if (!inserted) {
@@ -302,67 +361,35 @@ class AuthService {
 
     const user = this.toAuthUser(inserted);
     
-    // Salvar CPF na tabela user_profiles (se fornecido)
-    if (cpf) {
-      // 🔒 SEGURANÇA: Validar CPF antes de salvar
-      try {
-        validateCpfOrThrow(cpf);
-      } catch (validationError) {
-        const error = new Error(validationError instanceof Error ? validationError.message : 'CPF inválido') as Error & { statusCode?: number };
-        error.statusCode = 400;
+    // Salvar CPF na tabela profiles
+    try {
+      await pool.query(
+        `
+        INSERT INTO profiles (tenant_id, user_id, cpf)
+        VALUES ($1, $2, $3)
+        `,
+        [finalTenantId, user.userId, normalizedCpf]
+      );
+    } catch (dbError: any) {
+      // 🔒 SEGURANÇA: Capturar erro de unicidade (CPF duplicado)
+      if (dbError.code === '23505') {
+        // Constraint UNIQUE violada (CPF já existe)
+        const error = new Error('CPF já está em uso por outra conta') as Error & { statusCode?: number };
+        error.statusCode = 409;
         throw error;
       }
-      
-      const normalizedCpf = normalizeCpf(cpf);
-      const { pool } = await import('@core/database/pool');
-      
-      try {
-        await pool.query(
-          `
-          INSERT INTO user_profiles (user_id, cpf)
-          VALUES ($1, $2)
-          `,
-          [user.userId, normalizedCpf]
-        );
-      } catch (dbError: any) {
-        // 🔒 SEGURANÇA: Capturar erro de unicidade (CPF duplicado)
-        if (dbError.code === '23505') {
-          // Constraint UNIQUE violada (CPF já existe)
-          const error = new Error('CPF já está em uso por outra conta') as Error & { statusCode?: number };
-          error.statusCode = 409;
-          throw error;
-        }
-        // Re-lançar outros erros
-        throw dbError;
-      }
+      // Re-lançar outros erros
+      throw dbError;
     }
-    
-    // Criar identidade global automaticamente (ANTES de salvar dados do perfil)
-    let globalUserId: string | undefined = undefined;
-    try {
-      const created = await identityService.createGlobalIdentityForUser(user.userId, finalTenantId);
-      globalUserId = created.globalUserId;
-    } catch (error) {
-      // Log mas não falha o registro
-      console.error('Erro ao criar identidade global:', error);
-      // Tentar resolver se já existir
-      try {
-        const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-        const resolved = await resolveGlobalUserId(user.userId, finalTenantId);
-        if (resolved) {
-          globalUserId = resolved;
-        }
-      } catch (err) {
-        // Não crítico
-      }
-    }
+
+    // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
+    // user_identity_links NÃO é mais usado - removido conforme schema canônico
     
     // 🔴 PARTE 1 - CORREÇÃO BUG: Salvar nome, data de nascimento e sexo no cadastro
     // IMPORTANTE: Fazer isso DEPOIS de criar a identidade global para garantir que globalUserId existe
     if (fullName || birthdate || gender) {
       try {
         const { profileService } = await import('@core/profile/profile.service');
-        const { identityService } = await import('@core/identity/identity.service');
         
         // Preparar dados do perfil
         const profileMetadata: Record<string, any> = {};
@@ -371,37 +398,11 @@ class AuthService {
         }
         
         // Salvar nome e sexo no perfil
-        // 🔴 PADRONIZAÇÃO: Normalizar nome antes de salvar
-        const normalizedFullName = fullName ? normalizeFullName(fullName) : undefined;
+        // 🔴 PADRONIZAÇÃO: Usar nome já normalizado
         await profileService.upsertProfile(finalTenantId, user.userId, {
-          fullName: normalizedFullName,
+          fullName: normalizedFullName || undefined,
           metadata: Object.keys(profileMetadata).length > 0 ? profileMetadata : undefined,
         });
-        
-        // Salvar data de nascimento na identidade global
-        if (birthdate && globalUserId) {
-          try {
-            // 🔴 CRÍTICO: Normalizar birthdate para ISO antes de salvar
-            const { normalizeBirthdate } = await import('@utils/dateNormalizer');
-            const normalizedBirthdate = normalizeBirthdate(birthdate);
-            
-            // Converter string ISO para Date usando UTC
-            const dateMatch = normalizedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (dateMatch) {
-              const year = parseInt(dateMatch[1], 10);
-              const month = parseInt(dateMatch[2], 10) - 1; // JavaScript months are 0-indexed
-              const day = parseInt(dateMatch[3], 10);
-              const birthdateDate = new Date(Date.UTC(year, month, day));
-              
-              await identityService.updateGlobalIdentity(globalUserId, {
-                birthdate: birthdateDate,
-              });
-            }
-          } catch (identityError) {
-            // Log mas não falha o registro
-            console.warn('Erro ao salvar data de nascimento na identidade global:', identityError);
-          }
-        }
       } catch (profileError) {
         // Log mas não falha o registro
         console.warn('Erro ao salvar dados do perfil no cadastro (não crítico):', profileError);
@@ -500,21 +501,6 @@ class AuthService {
     // CRÍTICO: Incluir token_version do banco no token gerado
     const tokens = this.generateTokens(user, inserted.token_version, globalUserId);
 
-    // 🔴 GARANTIA CANÔNICA: tenantId SEMPRE presente no JWT (via generateTokens)
-    // generateTokens inclui user.tenantId no payload (linha 55)
-    // Validar que JWT contém tenantId
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.decode(tokens.accessToken) as any;
-    if (!decoded || !decoded.tenantId || decoded.tenantId !== finalTenantId) {
-      console.error('[AuthService] ❌ tenantId ausente ou incorreto no JWT após geração', {
-        userId: user.userId,
-        tenantId: finalTenantId,
-        jwtTenantId: decoded?.tenantId,
-        hasDecoded: !!decoded,
-      });
-      throw new Error('tenantId ausente ou incorreto no JWT após geração');
-    }
-
     // 🔴 LOG CANÔNICO: Registro completo com todas as garantias validadas
     console.log('[AuthService] ✅ Registro concluído com sucesso:', {
       userId: user.userId,
@@ -522,7 +508,6 @@ class AuthService {
       tenantWasCreated,
       tenantWasProvided: !tenantWasCreated,
       tokenVersion: inserted.token_version,
-      jwtContainsTenantId: decoded.tenantId === finalTenantId,
     });
 
     // 🔴 PARTE 2 - ONBOARDING: Usuário recém-criado sempre precisa de onboarding
@@ -553,7 +538,7 @@ class AuthService {
       // Buscar usuário apenas por email (tenant_id será obtido do usuário encontrado)
       const result = await client.query<UserRow>(
         `
-          SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, created_at, token_version
           FROM users
           WHERE email = $1
           LIMIT 1
@@ -567,7 +552,7 @@ class AuthService {
         // 🔴 LOG CANÔNICO: Login failure - user não encontrado
         canonicalLogger.warn(null, 'Login failure: User não encontrado', {
           email: normalizedEmail.substring(0, 3) + '***',
-          tenantId: tenantId || null,
+          tenantId: tenantId || undefined,
         });
         const error = new Error('Invalid credentials') as Error & { statusCode?: number };
         error.statusCode = 401;
@@ -583,7 +568,7 @@ class AuthService {
         // 🔴 LOG CANÔNICO: Login failure - senha incorreta
         canonicalLogger.warn(null, 'Login failure: Senha incorreta', {
           tenantId: userRow.tenant_id,
-          userId: userRow.user_id,
+          userId: userRow.id,
           email: normalizedEmail.substring(0, 3) + '***',
         });
         const error = new Error('Invalid credentials') as Error & { statusCode?: number };
@@ -593,15 +578,23 @@ class AuthService {
 
       const user = this.toAuthUser(userRow);
 
-      // Resolver globalUserId via user_identity_links (se disponível)
-      // Não é obrigatório - sistema funciona sem ele
+      // 🔴 GARANTIA CANÔNICA: Resolver globalUserId via users.global_user_id
       // Usar o tenant_id do usuário encontrado, não o passado como parâmetro
       let globalUserId: string | undefined = undefined;
       try {
-        const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-        const resolved = await resolveGlobalUserId(userRow.user_id, userTenantId);
-        if (resolved) {
-          globalUserId = resolved;
+        const userWithGlobal = await runQueryWithTenant<{ global_user_id: string | null }>(
+          userTenantId,
+          `
+            SELECT global_user_id
+            FROM users
+            WHERE id = $1
+            LIMIT 1
+          `,
+          [userRow.id]
+        );
+        
+        if (userWithGlobal?.global_user_id) {
+          globalUserId = userWithGlobal.global_user_id;
         }
       } catch (err) {
         // Não crítico - continuar sem globalUserId
@@ -614,7 +607,7 @@ class AuthService {
       // 🔴 LOG CANÔNICO: Login success
       canonicalLogger.info(null, 'Login success', {
         tenantId: userRow.tenant_id,
-        userId: userRow.user_id,
+        userId: userRow.id,
         email: normalizedEmail.substring(0, 3) + '***',
         tokenVersion: userRow.token_version,
       });
@@ -654,6 +647,13 @@ class AuthService {
         throw error;
       }
 
+      // 🔴 GARANTIA CANÔNICA: tenantId OBRIGATÓRIO no refresh token - fail fast
+      if (!decoded.tenantId || typeof decoded.tenantId !== 'string') {
+        const error = new Error('Invalid refresh token: tenantId missing') as Error & { statusCode?: number };
+        error.statusCode = 401;
+        throw error;
+      }
+
       if (decoded.tenantId !== tenantId) {
         const error = new Error('Invalid tenant for token') as Error & { statusCode?: number };
         error.statusCode = 401;
@@ -674,9 +674,9 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         tenantId,
       `
-        SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, created_at, token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
         [decoded.sub]
@@ -709,14 +709,23 @@ class AuthService {
 
       const user = this.toAuthUser(userRow);
       
-      // Resolver globalUserId via user_identity_links (se disponível)
+      // 🔴 GARANTIA CANÔNICA: Resolver globalUserId via users.global_user_id
       let globalUserId: string | undefined = decoded.globalUserId;
       if (!globalUserId) {
         try {
-          const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-          const resolved = await resolveGlobalUserId(userRow.user_id, tenantId);
-          if (resolved) {
-            globalUserId = resolved;
+          const userWithGlobal = await runQueryWithTenant<{ global_user_id: string | null }>(
+            tenantId,
+            `
+              SELECT global_user_id
+              FROM users
+              WHERE id = $1
+              LIMIT 1
+            `,
+            [userRow.id]
+          );
+          
+          if (userWithGlobal?.global_user_id) {
+            globalUserId = userWithGlobal.global_user_id;
           }
         } catch (err) {
           // Não crítico - continuar sem globalUserId
@@ -726,7 +735,7 @@ class AuthService {
       // 🔴 LOG CANÔNICO: Refresh token válido, gerando novos tokens
       canonicalLogger.info(null, 'Refresh token válido, gerando novos tokens', {
         tenantId,
-        userId: userRow.user_id,
+        userId: userRow.id,
         tokenVersion: userRow.token_version,
       });
       
@@ -739,6 +748,10 @@ class AuthService {
           error: err.message,
           stack: err.stack,
         });
+      }
+      // Preservar mensagem de erro específica se já existir
+      if (err.message && (err.message.includes('tokenVersion') || err.message.includes('tenantId') || err.message.includes('token type') || err.message.includes('User not found') || err.message.includes('Invalid tenant'))) {
+        throw err;
       }
       const error = new Error('Invalid refresh token') as Error & { statusCode?: number };
       error.statusCode = err.statusCode || 401;
@@ -768,13 +781,13 @@ class AuthService {
       `
         SELECT token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [userId]
     );
 
-    const currentTokenVersion = currentRow?.[0]?.token_version ?? null;
+    const currentTokenVersion = currentRow?.token_version ?? null;
 
     // Incrementar token_version (invalida todos os tokens existentes)
     await runQueryWithTenant(
@@ -782,7 +795,7 @@ class AuthService {
       `
         UPDATE users
         SET token_version = token_version + 1
-        WHERE user_id = $1
+        WHERE id = $1
       `,
       [userId]
     );
@@ -793,13 +806,13 @@ class AuthService {
       `
         SELECT token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [userId]
     );
 
-    const newTokenVersion = newRow?.[0]?.token_version ?? null;
+    const newTokenVersion = newRow?.token_version ?? null;
 
     // 🔴 LOG CANÔNICO: Invalidação concluída
     canonicalLogger.invalidation(null, 'Sessão invalidada com sucesso (logout)', {

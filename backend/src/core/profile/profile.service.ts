@@ -299,7 +299,7 @@ class ProfileService {
       try {
         const userLink = await runQueryWithTenant<{ global_user_id: string }>(
           tenantId,
-          `SELECT global_user_id FROM users WHERE user_id = $1 LIMIT 1`,
+          `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`,
           [userId]
         );
         
@@ -402,14 +402,14 @@ class ProfileService {
       throw new Error('Failed to create or update profile');
     }
 
-    // LGPD: CPF em user_profiles (imutável)
+    // LGPD: CPF em profiles (imutável)
     if (cpfToSave) {
       try {
         const { pool } = await import('@core/database/pool');
 
         const existing = await pool.query<{ cpf: string }>(
-          `SELECT cpf FROM user_profiles WHERE user_id = $1`,
-          [userId]
+          `SELECT cpf FROM profiles WHERE user_id = $1 AND tenant_id = $2`,
+          [userId, tenantId]
         );
 
         const existingCpf = existing.rows[0]?.cpf;
@@ -421,11 +421,10 @@ class ProfileService {
         try {
           await pool.query(
             `
-            INSERT INTO user_profiles (user_id, cpf)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO NOTHING
+            UPDATE profiles SET cpf = $2
+            WHERE tenant_id = $1 AND user_id = $3
             `,
-            [userId, cpfToSave]
+            [tenantId, cpfToSave, userId]
           );
         } catch (err: any) {
           if (err?.code === '23505') {
@@ -455,7 +454,7 @@ class ProfileService {
 
     const userLink = await runQueryWithTenant<{ global_user_id: string }>(
       tenantId,
-      `SELECT global_user_id FROM users WHERE user_id = $1 LIMIT 1`,
+      `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`,
       [userId]
     );
 

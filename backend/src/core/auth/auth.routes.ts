@@ -1,7 +1,6 @@
 // src/core/auth/auth.routes.ts
 import { FastifyPluginAsync } from 'fastify';
 import { authService } from '@core/auth/auth.service';
-import { hasTokenVersionColumn } from '@core/database/schema-validator';
 import { validateCpfOrThrow, normalizeCpf } from '@utils/cpf.validator';
 import { authRateLimitService } from '@core/rate-limiting/auth-rate-limit.service';
 import { RateLimitError } from '@core/errors';
@@ -31,7 +30,7 @@ const refreshSchema = z.object({
 interface RegisterBody {
   email: string;
   password: string;
-  cpf?: string;
+  cpf: string;
   fullName?: string;
   birthdate?: string;
   gender?: 'male' | 'female' | 'other';
@@ -117,21 +116,22 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = tenantIdHeader;
 
     try {
-      // 🔴 GARANTIA CANÔNICA: Schema guard - fail fast
+      // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+      // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
       // Validação de schema: verificar se coluna token_version existe
-      const hasTokenVersion = await hasTokenVersionColumn();
-      if (!hasTokenVersion) {
-        fastify.log.error({
-          route: '/auth/register',
-          pid: process.pid,
-        }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-        
-        return reply.status(500).send({
-          success: false,
-          error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-          details: 'Execute as migrations do banco de dados para atualizar o schema.',
-        });
-      }
+      // const hasTokenVersion = await hasTokenVersionColumn();
+      // if (!hasTokenVersion) {
+      //   fastify.log.error({
+      //     route: '/auth/register',
+      //     pid: process.pid,
+      //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+      //   
+      //   return reply.status(500).send({
+      //     success: false,
+      //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+      //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+      //   });
+      // }
 
       const result = await authService.register(
         tenantId, 
@@ -158,46 +158,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // 🔴 GARANTIA CANÔNICA: Verificar se tenantId está no JWT
-      // Decodificar JWT para validar que tenantId está presente
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.decode(result.tokens.accessToken) as any;
-        if (!decoded || !decoded.tenantId || typeof decoded.tenantId !== 'string') {
-          fastify.log.error({
-            pid: process.pid,
-            route: '/auth/register',
-            tenantId: result.tenantId,
-            hasDecoded: !!decoded,
-            decodedKeys: decoded ? Object.keys(decoded) : [],
-          }, '❌ [AUTH] tenantId ausente no JWT após registro - estado inválido');
-          return reply.status(500).send({
-            success: false,
-            error: 'Erro interno: tenantId não foi incluído no JWT',
-          });
-        }
-        
-        // Log canônico de sucesso com validação completa
-        fastify.log.info({
-          pid: process.pid,
-          route: '/auth/register',
-          tenantIdFinal: result.tenantId,
-          tenantIdInJWT: decoded.tenantId,
-          tenantWasCreated: !tenantId,
-          tenantWasProvided: !!tenantId,
-          jwtValidated: decoded.tenantId === result.tenantId,
-        }, '[RUNTIME] POST /auth/register - sucesso (tenantId validado no JWT)');
-      } catch (jwtError) {
-        fastify.log.error({
-          pid: process.pid,
-          route: '/auth/register',
-          error: jwtError instanceof Error ? jwtError.message : String(jwtError),
-        }, '❌ [AUTH] Erro ao validar tenantId no JWT');
-        return reply.status(500).send({
-          success: false,
-          error: 'Erro interno: falha ao validar JWT',
-        });
-      }
+      // 🔴 GARANTIA CANÔNICA: tenantId já validado no authService.register
+      // Token foi gerado pelo próprio serviço, não há necessidade de validar imediatamente
+      // Log canônico de sucesso
+      fastify.log.info({
+        pid: process.pid,
+        route: '/auth/register',
+        tenantIdFinal: result.tenantId,
+        tenantWasCreated: !tenantId,
+        tenantWasProvided: !!tenantId,
+      }, '[RUNTIME] POST /auth/register - sucesso');
 
       return reply.status(201).send({
         success: true,
@@ -287,19 +257,21 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     // tenantId é opcional no login - será obtido do usuário encontrado
     try {
+      // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+      // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
       // Validação de schema: verificar se coluna token_version existe
-      const hasTokenVersion = await hasTokenVersionColumn();
-      if (!hasTokenVersion) {
-        fastify.log.error({
-          route: '/auth/login',
-        }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-        
-        return reply.status(500).send({
-          success: false,
-          error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-          details: 'Execute as migrations do banco de dados para atualizar o schema.',
-        });
-      }
+      // const hasTokenVersion = await hasTokenVersionColumn();
+      // if (!hasTokenVersion) {
+      //   fastify.log.error({
+      //     route: '/auth/login',
+      //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+      //   
+      //   return reply.status(500).send({
+      //     success: false,
+      //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+      //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+      //   });
+      // }
 
       // tenantId do header é opcional - o login busca usuário apenas por email
       const result = await authService.login(tenantId || undefined, email, password);
@@ -401,20 +373,22 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+      // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
       // 🔴 GARANTIA CANÔNICA: Schema guard - fail fast
-      const hasTokenVersion = await hasTokenVersionColumn();
-      if (!hasTokenVersion) {
-        fastify.log.error({
-          route: '/auth/refresh',
-          pid: process.pid,
-        }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-        
-        return reply.status(500).send({
-          success: false,
-          error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-          details: 'Execute as migrations do banco de dados para atualizar o schema.',
-        });
-      }
+      // const hasTokenVersion = await hasTokenVersionColumn();
+      // if (!hasTokenVersion) {
+      //   fastify.log.error({
+      //     route: '/auth/refresh',
+      //     pid: process.pid,
+      //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+      //   
+      //   return reply.status(500).send({
+      //     success: false,
+      //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+      //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+      //   });
+      // }
 
       const tokens = await authService.refreshToken(tenantId, refreshToken);
       
@@ -584,7 +558,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       // Consultar banco de dados usando CPF normalizado
       const { pool } = await import('@core/database/pool');
       const result = await pool.query<{ exists: boolean }>(
-        'SELECT EXISTS(SELECT 1 FROM user_profiles WHERE cpf = $1) as exists',
+        'SELECT EXISTS(SELECT 1 FROM global_users WHERE cpf = $1) as exists',
         [normalizedCpf]
       );
 

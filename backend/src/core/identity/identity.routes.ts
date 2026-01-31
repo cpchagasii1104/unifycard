@@ -59,7 +59,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           const { pool } = await import('@core/database/pool');
           
           const localUser = await runQueryWithTenant<{
-            user_id: string;
+            id: string;
             tenant_id: string;
             email: string;
             created_at: Date;
@@ -68,7 +68,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
             is_test: boolean | null;
           }>(
             req.tenant.id,
-            `SELECT user_id, tenant_id, email, created_at, global_user_id, plan, is_test FROM users WHERE user_id = $1 LIMIT 1`,
+            `SELECT id, tenant_id, email, created_at, global_user_id, plan, is_test FROM users WHERE id = $1 LIMIT 1`,
             [userId]
           );
           
@@ -125,7 +125,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
               updatedAt: globalUserData?.updated_at || localUser.created_at,
             },
             local: {
-              userId: localUser.user_id,
+              userId: localUser.id,
               tenantId: localUser.tenant_id,
               email: localUser.email,
               createdAt: localUser.created_at,
