@@ -1,3 +1,21 @@
+/**
+ * ⚠️ LEGADO PRÉ-GATE-0 — CONGELADO
+ *
+ * Este arquivo contém lógica histórica anterior ao fechamento do Gate 0.
+ *
+ * Após o Gate 0:
+ * - users.global_user_id é a ÚNICA fonte de verdade para identidade global.
+ * - user_identity_links NÃO é autoridade.
+ * - resolveGlobalUserId NÃO deve ser usado como referência.
+ *
+ * Este arquivo:
+ * - NÃO deve ser refatorado
+ * - NÃO deve ser usado como modelo
+ * - NÃO deve ser expandido
+ *
+ * Qualquer alteração só é permitida após abertura formal do Gate 1.
+ */
+
 // src/core/identity/identity.service.ts
 import { pool } from '@core/database/pool';
 import { runQueryWithTenant } from '@core/database/pool';
@@ -81,87 +99,10 @@ class IdentityService {
     userId: string,
     tenantId: string
   ): Promise<GlobalUser> {
-    // 🔴 VERIFICAÇÃO CRÍTICA: Verificar se já existe link
-    const existingLink = await pool.query<UserIdentityLinkRow>(
-      `
-        SELECT id, global_user_id, user_id, tenant_id, created_at
-        FROM user_identity_links
-        WHERE user_id = $1 AND tenant_id = $2
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
-      [userId, tenantId]
+    throw new Error(
+      'DEPRECATED: Global identity must be created at register time with CPF. ' +
+      'createGlobalIdentityForUser is incompatible with Gate 0 schema.'
     );
-
-    if (existingLink.rows.length > 0) {
-      // 🔴 REGRA: Já existe link - NUNCA criar novo global_user
-      // Buscar e retornar o global_user existente
-      const existingGlobalUserId = existingLink.rows[0].global_user_id;
-      console.log('[IdentityService] ⚠️ Link já existe, retornando global_user existente:', {
-        userId,
-        tenantId,
-        globalUserId: existingGlobalUserId,
-      });
-      
-      try {
-        const globalUser = await this.getGlobalIdentity(existingGlobalUserId);
-        return globalUser;
-      } catch (error) {
-        // Se global_user não existe mas link existe, há dessincronização
-        console.error('[IdentityService] ❌ ERRO CRÍTICO: Link existe mas global_user não encontrado!', {
-          userId,
-          tenantId,
-          globalUserId: existingGlobalUserId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw new Error(`Dessincronização detectada: link existe mas global_user não encontrado para global_user_id: ${existingGlobalUserId}`);
-      }
-    }
-
-    // 🔴 REGRA: Só criar novo global_user se NÃO existe link
-    console.log('[IdentityService] ✅ Nenhum link encontrado, criando novo global_user', {
-      userId,
-      tenantId,
-    });
-
-    // Criar novo global user
-    const newGlobalUser = await pool.query<GlobalUserRow>(
-      `
-        INSERT INTO global_users (full_name, avatar_url, birthdate, metadata)
-        VALUES (NULL, NULL, NULL, '{}'::JSONB)
-        RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
-      `
-    );
-
-    if (!newGlobalUser.rows[0]) {
-      throw new Error('Failed to create global identity');
-    }
-
-    const globalUser = this.toGlobalUser(newGlobalUser.rows[0]);
-
-    // Criar link (garante apenas 1 link por usuário)
-    await this.linkLocalUserToGlobal(userId, globalUser.globalUserId, tenantId);
-
-    // Atualizar users.global_user_id
-    await runQueryWithTenant(
-      tenantId,
-      `
-        UPDATE users
-        SET global_user_id = $1
-        WHERE user_id = $2
-      `,
-      [globalUser.globalUserId, userId]
-    );
-
-    // Criar residência digital automaticamente a partir do root-config
-    try {
-      await residenceService.autoSetFromRootConfig(globalUser.globalUserId);
-    } catch (error) {
-      // Log mas não falha a criação de identidade
-      console.error('Erro ao criar residência digital:', error);
-    }
-
-    return globalUser;
   }
 
   /**
@@ -767,85 +708,33 @@ class IdentityService {
   ): Promise<IdentityProfile> {
     // Buscar dados locais
     const localUser = await runQueryWithTenant<{
-      user_id: string;
+      id: string;
       tenant_id: string;
       email: string;
       created_at: Date;
       global_user_id: string | null;
-      plan: string | null;
-      is_test: boolean | null;
     }>(
       tenantId,
       `
-        SELECT user_id, tenant_id, email, created_at, global_user_id, plan, is_test
+        SELECT id, tenant_id, email, created_at, global_user_id
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [userId]
     );
 
     if (!localUser) {
-      throw new Error(`Usuário local não encontrado para user_id: ${userId} (tenant: ${tenantId})`);
+      throw new Error(`Usuário local não encontrado para id: ${userId} (tenant: ${tenantId})`);
     }
 
-    // 🔴 REGRA CRÍTICA: Usar EXATAMENTE o mesmo método de resolução que updateGlobalIdentity
-    // Isso garante que ambos usem o mesmo global_user_id
-    const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-    let resolvedGlobalUserId: string;
-    
-    try {
-      resolvedGlobalUserId = await resolveGlobalUserId(userId, tenantId);
-    } catch (error) {
-      console.error('[IdentityService] ❌ ERRO CRÍTICO: Global user não encontrado para user_id', userId, {
-        tenantId,
-        error: error instanceof Error ? error.message : String(error),
-        message: 'Não foi possível resolver global_user_id. Possível dessincronização ou múltiplos global_users.',
-        hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
-      });
-      throw error;
+    // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
+    // user_identity_links NÃO existe mais no schema canônico
+    if (!localUser.global_user_id) {
+      throw new Error(`Global user não encontrado para user_id: ${userId} (tenant: ${tenantId}). users.global_user_id está vazio.`);
     }
     
-    // 🔴 VERIFICAÇÃO CRÍTICA: Detectar múltiplos global_users para o mesmo usuário
-    const allLinksResult = await pool.query<{ global_user_id: string; created_at: Date }>(
-      `
-        SELECT global_user_id, created_at
-        FROM user_identity_links
-        WHERE user_id = $1 AND tenant_id = $2
-        ORDER BY created_at DESC
-      `,
-      [userId, tenantId]
-    );
-
-    if (allLinksResult.rows.length > 1) {
-      console.error('[IdentityService] ❌ ERRO CRÍTICO: MÚLTIPLOS global_users encontrados!', {
-        userId,
-        tenantId,
-        count: allLinksResult.rows.length,
-        globalUserIds: allLinksResult.rows.map(r => r.global_user_id),
-        resolvedGlobalUserId,
-        message: 'Este usuário tem múltiplos registros em user_identity_links!',
-        hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
-      });
-      throw new Error(`Múltiplos global_users encontrados para user_id: ${userId} (tenant: ${tenantId}). Execute diagnóstico SQL para investigar.`);
-    }
-
-    // 🔴 VERIFICAÇÃO: Detectar dessincronização entre users.global_user_id e user_identity_links
-    if (localUser.global_user_id && allLinksResult.rows.length > 0) {
-      const linkGlobalUserId = allLinksResult.rows[0].global_user_id;
-      if (localUser.global_user_id !== linkGlobalUserId || resolvedGlobalUserId !== linkGlobalUserId) {
-        console.error('[IdentityService] ❌ DESSINCRONIZAÇÃO DETECTADA!', {
-          userId,
-          tenantId,
-          globalUserIdInUsers: localUser.global_user_id,
-          globalUserIdInLinks: linkGlobalUserId,
-          resolvedGlobalUserId,
-          message: 'users.global_user_id diferente de user_identity_links.global_user_id!',
-          hint: 'Execute DIAGNOSTICO_MULTIPLOS_GLOBAL_USERS.sql para investigar',
-        });
-        throw new Error(`Dessincronização detectada: users.global_user_id (${localUser.global_user_id}) diferente de user_identity_links.global_user_id (${linkGlobalUserId}) para user_id: ${userId}`);
-      }
-    }
+    const resolvedGlobalUserId = localUser.global_user_id;
     
     // 🔴 DIAGNÓSTICO: Log do global_user_id encontrado
     console.log('[IdentityService] 🔍 getIdentityProfile: Buscando global user', {
@@ -855,7 +744,7 @@ class IdentityService {
       resolvedGlobalUserId,
     });
     
-    // Buscar global user usando o global_user_id resolvido
+    // Buscar global user usando o global_user_id de users
     const globalUser = await this.getGlobalIdentity(resolvedGlobalUserId);
     
     console.log('[IdentityService] 🔍 getIdentityProfile: Resultado do getGlobalIdentity', {
@@ -971,12 +860,10 @@ class IdentityService {
     return {
       global: globalUser,
       local: {
-        userId: localUser.user_id,
+        userId: localUser.id,
         tenantId: localUser.tenant_id,
         email: localUser.email,
         createdAt: localUser.created_at,
-        plan: (localUser.plan as 'free' | 'pro' | 'enterprise') || 'free',
-        isTest: localUser.is_test || false,
       },
       reputation,
       wallet,

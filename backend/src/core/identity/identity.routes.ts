@@ -64,11 +64,9 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
             email: string;
             created_at: Date;
             global_user_id: string | null;
-            plan: string | null;
-            is_test: boolean | null;
           }>(
             req.tenant.id,
-            `SELECT id, tenant_id, email, created_at, global_user_id, plan, is_test FROM users WHERE id = $1 LIMIT 1`,
+            `SELECT id, tenant_id, email, created_at, global_user_id FROM users WHERE id = $1 LIMIT 1`,
             [userId]
           );
           
@@ -129,8 +127,6 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
               tenantId: localUser.tenant_id,
               email: localUser.email,
               createdAt: localUser.created_at,
-              plan: (localUser.plan as 'free' | 'pro' | 'enterprise') || 'free',
-              isTest: localUser.is_test || false,
             },
             reputation: undefined,
             wallet: undefined,

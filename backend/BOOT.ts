@@ -287,11 +287,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Escopo protegido
   console.log('[BOOT] Registrando escopo protegido e módulos...');
   await app.register(async (protectedScope) => {
-    await protectedScope.register(tenantPlugin);
     await protectedScope.register(authPlugin);
+    await protectedScope.register(tenantPlugin);
     await protectedScope.register(actionContextPlugin);
     await protectedScope.register(rbacPlugin);
-    console.log('[BOOT] Plugins de tenant, auth, action-context e rbac registrados');
+    console.log('[BOOT] Plugins de auth, tenant, action-context e rbac registrados');
 
     // ── IMPORTS DINÂMICOS (DOMÍNIO) ──
     // Imports individuais para evitar problemas de ordem no Promise.all
