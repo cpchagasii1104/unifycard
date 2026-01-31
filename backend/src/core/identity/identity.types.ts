@@ -20,22 +20,6 @@ export interface GlobalUserRow {
   metadata: Record<string, any>;
 }
 
-export interface UserIdentityLink {
-  id: string;
-  globalUserId: string;
-  userId: string;
-  tenantId: string;
-  createdAt: Date;
-}
-
-export interface UserIdentityLinkRow {
-  id: string;
-  global_user_id: string;
-  user_id: string;
-  tenant_id: string;
-  created_at: Date;
-}
-
 export interface UpdateGlobalIdentityInput {
   fullName?: string | null;
   avatarUrl?: string | null;

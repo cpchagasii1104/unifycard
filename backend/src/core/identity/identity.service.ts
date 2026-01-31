@@ -26,8 +26,6 @@ import { residenceService } from '@core/residence/residence.service';
 import type {
   GlobalUser,
   GlobalUserRow,
-  UserIdentityLink,
-  UserIdentityLinkRow,
   UpdateGlobalIdentityInput,
   IdentityProfile,
 } from './identity.types';
@@ -78,16 +76,6 @@ class IdentityService {
       avatarUrl: row.avatar_url,
       birthdate,
       metadata: row.metadata || {},
-    };
-  }
-
-  private toUserIdentityLink(row: UserIdentityLinkRow): UserIdentityLink {
-    return {
-      id: row.id,
-      globalUserId: row.global_user_id,
-      userId: row.user_id,
-      tenantId: row.tenant_id,
-      createdAt: row.created_at,
     };
   }
 
@@ -631,76 +619,7 @@ class IdentityService {
   }
 
   /**
-   * Liga um usuário local a uma identidade global
-   * 🔴 REGRA: Garantir que exista APENAS 1 user_identity_link por usuário
-   */
-  async linkLocalUserToGlobal(
-    userId: string,
-    globalUserId: string,
-    tenantId: string
-  ): Promise<UserIdentityLink> {
-    // 🔴 VERIFICAÇÃO: Verificar se já existe link
-    const existing = await pool.query<UserIdentityLinkRow>(
-      `
-        SELECT id, global_user_id, user_id, tenant_id, created_at
-        FROM user_identity_links
-        WHERE user_id = $1 AND tenant_id = $2
-        ORDER BY created_at DESC
-      `,
-      [userId, tenantId]
-    );
-
-    if (existing.rows.length > 0) {
-      // 🔴 REGRA: Se já existe link, verificar se é o mesmo global_user_id
-      const existingGlobalUserId = existing.rows[0].global_user_id;
-      
-      if (existingGlobalUserId === globalUserId) {
-        // Mesmo global_user_id - retornar link existente
-        console.log('[IdentityService] ✅ Link já existe com mesmo global_user_id', {
-          userId,
-          tenantId,
-          globalUserId,
-        });
-        return this.toUserIdentityLink(existing.rows[0]);
-      } else {
-        // 🔴 ERRO: Tentativa de vincular a global_user diferente
-        console.error('[IdentityService] ❌ ERRO: Tentativa de vincular a global_user diferente!', {
-          userId,
-          tenantId,
-          existingGlobalUserId,
-          attemptedGlobalUserId: globalUserId,
-        });
-        throw new Error(`Usuário já está vinculado a outro global_user_id: ${existingGlobalUserId}. Não é permitido alterar o vínculo.`);
-      }
-    }
-
-    // 🔴 REGRA: Criar novo link apenas se não existe nenhum
-    console.log('[IdentityService] ✅ Criando novo link', {
-      userId,
-      tenantId,
-      globalUserId,
-    });
-
-    const result = await pool.query<UserIdentityLinkRow>(
-      `
-        INSERT INTO user_identity_links (global_user_id, user_id, tenant_id)
-        VALUES ($1, $2, $3)
-        RETURNING id, global_user_id, user_id, tenant_id, created_at
-      `,
-      [globalUserId, userId, tenantId]
-    );
-
-    if (!result.rows[0]) {
-      throw new Error('Failed to create user identity link');
-    }
-
-    return this.toUserIdentityLink(result.rows[0]);
-  }
-
-  /**
    * Busca perfil completo (global + local) do usuário
-   * 🔴 REGRA: Usa EXATAMENTE o mesmo método de resolução que updateGlobalIdentity
-   * Garante que ambos usem o mesmo global_user_id
    */
   async getIdentityProfile(
     userId: string,
