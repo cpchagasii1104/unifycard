@@ -1,0 +1,706 @@
+
+backend\test-full-migrations.ts:42:    const timestamp = new Date().toISOString();
+backend\test-full-migrations.ts:43:    const logMessage = `[${timestamp}] ${message} ${args.length > 0 ? JSON.stringify(args) : ''}`;
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\core.d.ts:37:    timestamp?: "string" | "date";
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\runtime\timestamp.d.ts:1:declare function validTimestamp(str: string, allowDate: boolean): boolean;
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\runtime\timestamp.d.ts:2:declare namespace validTimestamp {
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\runtime\timestamp.d.ts:5:export default validTimestamp;
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\types\jtd-schema.d.ts:4:type StringType = "string" | "timestamp";
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\types\jtd-schema.d.ts:83:    type: "timestamp";
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\types\jtd-schema.d.ts:138:    type: "timestamp";
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\dist\vocabularies\jtd\type.d.ts:8:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType;
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\core.ts:107:  timestamp?: "string" | "date" // JTD only
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\compile\jtd\parse.ts:13:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\compile\jtd\parse.ts:264:    case "timestamp": {
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\compile\jtd\parse.ts:266:      const vts = useFunc(gen, validTimestamp)
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\compile\jtd\parse.ts:272:      gen.if(fail, () => parsingError(cxt, str`invalid timestamp`))
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\compile\jtd\serialize.ts:215:    case "timestamp":
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\refs\jtd-schema.ts:35:        "timestamp",
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\runtime\timestamp.ts:6:export default function validTimestamp(str: string, allowDate: boolean): boolean {
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\runtime\timestamp.ts:46:validTimestamp.code = 'require("ajv/dist/runtime/timestamp").default'
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\types\jtd-schema.ts:5:type StringType = "string" | "timestamp"
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\types\jtd-schema.ts:136:      ? {type: "timestamp"}
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\types\jtd-schema.ts:222:      : S extends {type: "timestamp"}
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:4:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:22:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:31:  const {timestamp, allowDate} = it.opts
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:32:  if (timestamp === "date") return _`${data} instanceof Date `
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:33:  const vts = useFunc(gen, validTimestamp)
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:36:  return timestamp === "string" ? validString : or(_`${data} instanceof Date`, validString)
+backend\node_modules\@fastify\ajv-compiler\node_modules\ajv\lib\vocabularies\jtd\type.ts:52:      case "timestamp": {
+backend\node_modules\@sinclair\typebox\typebox.d.ts:116:    exclusiveMaximumTimestamp?: number;
+backend\node_modules\@sinclair\typebox\typebox.d.ts:117:    exclusiveMinimumTimestamp?: number;
+backend\node_modules\@sinclair\typebox\typebox.d.ts:118:    maximumTimestamp?: number;
+backend\node_modules\@sinclair\typebox\typebox.d.ts:119:    minimumTimestamp?: number;
+backend\node_modules\@sinclair\typebox\errors\errors.d.ts:15:    DateExclusiveMinimumTimestamp = 12,
+backend\node_modules\@sinclair\typebox\errors\errors.d.ts:16:    DateExclusiveMaximumTimestamp = 13,
+backend\node_modules\@sinclair\typebox\errors\errors.d.ts:17:    DateMinimumTimestamp = 14,
+backend\node_modules\@sinclair\typebox\errors\errors.d.ts:18:    DateMaximumTimestamp = 15,
+backend\node_modules\@types\jsonwebtoken\index.d.ts:50:    noTimestamp?: boolean | undefined;
+backend\node_modules\@types\jsonwebtoken\index.d.ts:60:    clockTimestamp?: number | undefined;
+backend\node_modules\@types\pg\lib\type-overrides.d.ts:38:    TIMESTAMP = 1114,
+backend\node_modules\@types\uuid\index.d.ts:22:    /** RFC "timestamp" field (`Number` of milliseconds, unix epoch) */
+backend\node_modules\@types\uuid\index.d.ts:24:    /** RFC "timestamp" field (`Number` of nanoseconds to add to msecs, should be 0-10,000) */
+backend\node_modules\@typescript-eslint\scope-manager\dist\lib\es2017.date.d.ts:2:export declare const es2017_date: Record<string, ImplicitLibVariableOptions>;
+backend\node_modules\@typescript-eslint\scope-manager\dist\lib\es2020.date.d.ts:2:export declare const es2020_date: Record<string, ImplicitLibVariableOptions>;
+backend\node_modules\ajv-formats\node_modules\ajv\dist\core.d.ts:37:    timestamp?: "string" | "date";
+backend\node_modules\ajv-formats\node_modules\ajv\dist\runtime\timestamp.d.ts:1:declare function validTimestamp(str: string, allowDate: boolean): boolean;
+backend\node_modules\ajv-formats\node_modules\ajv\dist\runtime\timestamp.d.ts:2:declare namespace validTimestamp {
+backend\node_modules\ajv-formats\node_modules\ajv\dist\runtime\timestamp.d.ts:5:export default validTimestamp;
+backend\node_modules\ajv-formats\node_modules\ajv\dist\types\jtd-schema.d.ts:4:type StringType = "string" | "timestamp";
+backend\node_modules\ajv-formats\node_modules\ajv\dist\types\jtd-schema.d.ts:83:    type: "timestamp";
+backend\node_modules\ajv-formats\node_modules\ajv\dist\types\jtd-schema.d.ts:138:    type: "timestamp";
+backend\node_modules\ajv-formats\node_modules\ajv\dist\vocabularies\jtd\type.d.ts:8:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType;
+backend\node_modules\ajv-formats\node_modules\ajv\lib\core.ts:107:  timestamp?: "string" | "date" // JTD only
+backend\node_modules\ajv-formats\node_modules\ajv\lib\compile\jtd\parse.ts:13:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\ajv-formats\node_modules\ajv\lib\compile\jtd\parse.ts:264:    case "timestamp": {
+backend\node_modules\ajv-formats\node_modules\ajv\lib\compile\jtd\parse.ts:266:      const vts = useFunc(gen, validTimestamp)
+backend\node_modules\ajv-formats\node_modules\ajv\lib\compile\jtd\parse.ts:272:      gen.if(fail, () => parsingError(cxt, str`invalid timestamp`))
+backend\node_modules\ajv-formats\node_modules\ajv\lib\compile\jtd\serialize.ts:215:    case "timestamp":
+backend\node_modules\ajv-formats\node_modules\ajv\lib\refs\jtd-schema.ts:35:        "timestamp",
+backend\node_modules\ajv-formats\node_modules\ajv\lib\runtime\timestamp.ts:6:export default function validTimestamp(str: string, allowDate: boolean): boolean {
+backend\node_modules\ajv-formats\node_modules\ajv\lib\runtime\timestamp.ts:46:validTimestamp.code = 'require("ajv/dist/runtime/timestamp").default'
+backend\node_modules\ajv-formats\node_modules\ajv\lib\types\jtd-schema.ts:5:type StringType = "string" | "timestamp"
+backend\node_modules\ajv-formats\node_modules\ajv\lib\types\jtd-schema.ts:136:      ? {type: "timestamp"}
+backend\node_modules\ajv-formats\node_modules\ajv\lib\types\jtd-schema.ts:222:      : S extends {type: "timestamp"}
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:4:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:22:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:31:  const {timestamp, allowDate} = it.opts
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:32:  if (timestamp === "date") return _`${data} instanceof Date `
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:33:  const vts = useFunc(gen, validTimestamp)
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:36:  return timestamp === "string" ? validString : or(_`${data} instanceof Date`, validString)
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts:52:      case "timestamp": {
+backend\node_modules\baseline-browser-mapping\dist\index.d.ts:5:    release_date?: string;
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\core.d.ts:37:    timestamp?: "string" | "date";
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\runtime\timestamp.d.ts:1:declare function validTimestamp(str: string, allowDate: boolean): boolean;
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\runtime\timestamp.d.ts:2:declare namespace validTimestamp {
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\runtime\timestamp.d.ts:5:export default validTimestamp;
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\types\jtd-schema.d.ts:4:type StringType = "string" | "timestamp";
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\types\jtd-schema.d.ts:83:    type: "timestamp";
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\types\jtd-schema.d.ts:138:    type: "timestamp";
+backend\node_modules\fast-json-stringify\node_modules\ajv\dist\vocabularies\jtd\type.d.ts:8:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType;
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\core.ts:107:  timestamp?: "string" | "date" // JTD only
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\compile\jtd\parse.ts:13:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\compile\jtd\parse.ts:264:    case "timestamp": {
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\compile\jtd\parse.ts:266:      const vts = useFunc(gen, validTimestamp)
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\compile\jtd\parse.ts:272:      gen.if(fail, () => parsingError(cxt, str`invalid timestamp`))
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\compile\jtd\serialize.ts:215:    case "timestamp":
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\refs\jtd-schema.ts:35:        "timestamp",
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\runtime\timestamp.ts:6:export default function validTimestamp(str: string, allowDate: boolean): boolean {
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\runtime\timestamp.ts:46:validTimestamp.code = 'require("ajv/dist/runtime/timestamp").default'
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\types\jtd-schema.ts:5:type StringType = "string" | "timestamp"
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\types\jtd-schema.ts:136:      ? {type: "timestamp"}
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\types\jtd-schema.ts:222:      : S extends {type: "timestamp"}
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:4:import validTimestamp from "../../runtime/timestamp"
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:22:export type JTDType = "boolean" | "string" | "timestamp" | "float32" | "float64" | IntType
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:31:  const {timestamp, allowDate} = it.opts
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:32:  if (timestamp === "date") return _`${data} instanceof Date `
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:33:  const vts = useFunc(gen, validTimestamp)
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:36:  return timestamp === "string" ? validString : or(_`${data} instanceof Date`, validString)
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts:52:      case "timestamp": {
+backend\node_modules\logform\index.d.ts:56:  function timestamp(opts?: TimestampOptions): Format;
+backend\node_modules\logform\index.d.ts:183:   * The name of an alias for the timestamp property, that will be added to the `info` object.
+backend\node_modules\pg-types\index.d.ts:36:    TIMESTAMP = 1114,
+backend\node_modules\pg-types\index.d.ts:99:    'TIMESTAMP' |
+backend\node_modules\pino\pino.d.ts:371:         * Enables or disables the inclusion of a timestamp in the log message. If a function is supplied, it must
+backend\node_modules\pino\pino.d.ts:372:         * synchronously return a JSON string representation of the time. If set to `false`, no timestamp will be included in the output.
+backend\node_modules\pino\pino.d.ts:376:        timestamp?: TimeFn | boolean;
+backend\node_modules\pino\pino.d.ts:730:         * Unix epoch timestamp in milliseconds, the time is taken from the moment the logger method is called.
+backend\node_modules\pino\pino.d.ts:806:     * Provides functions for generating the timestamp property in the log output. You can set the `timestamp` option during
+backend\node_modules\pino\pino.d.ts:821:         * Returns an empty string. This function is used when the `timestamp` option is set to `false`.
+backend\node_modules\pino\test\types\pino.test-d.ts:273:    timestamp: pino.stdTimeFunctions.isoTime,
+backend\node_modules\pino\test\types\pino.test-d.ts:277:    timestamp: pino.stdTimeFunctions.isoTimeNano,
+backend\node_modules\pino-pretty\index.d.ts:82:     * The key in the JSON object to use for timestamp display.
+backend\node_modules\pino-pretty\test\types\pino-pretty.test-d.ts:28:  timestampKey: "timestamp",
+backend\node_modules\toad-cache\toad-cache.d.ts:119:    initForCache(cacheId: string, currentTimeStamp: string): void
+backend\node_modules\zod\src\v3\types.ts:1895:        code: ZodIssueCode.invalid_date,
+backend\node_modules\zod\src\v3\ZodError.ts:25:  "invalid_date",
+backend\node_modules\zod\src\v3\ZodError.ts:85:  code: typeof ZodIssueCode.invalid_date;
+backend\node_modules\zod\src\v3\locales\en.ts:35:    case ZodIssueCode.invalid_date:
+backend\node_modules\zod\src\v3\tests\coerce.test.ts:116:  expect(() => schema.parse("NOT_A_DATE")).toThrow(); // z.ZodError
+backend\node_modules\zod\src\v3\tests\primitive.test.ts:286:    expect((err as z.ZodError).issues[0].code).toEqual(z.ZodIssueCode.invalid_date);
+backend\node_modules\zod\src\v4\classic\schemas.ts:1009:  return core._date(ZodDate, params);
+backend\node_modules\zod\src\v4\classic\tests\coerce.test.ts:115:  expect(() => schema.parse("NOT_A_DATE")).toThrow(); // z.ZodError
+backend\node_modules\zod\src\v4\core\api.ts:756:export function _date<T extends schemas.$ZodDate>(Class: util.SchemaClass<T>, params?: string | $ZodDateParams): T {
+backend\node_modules\zod\src\v4\mini\schemas.ts:684:  return core._date(ZodMiniDate, params) as any;
+backend\node_modules\zod\v3\ZodError.d.ts:22:    invalid_date: "invalid_date";
+backend\node_modules\zod\v3\ZodError.d.ts:71:    code: typeof ZodIssueCode.invalid_date;
+backend\node_modules\zod\v4\core\api.d.ts:144:export declare function _date<T extends schemas.$ZodDate>(Class: util.SchemaClass<T>, params?: string | $ZodDateParams): T;
+backend\scripts\analyze-query-plans.ts:119:      ORDER BY timestamp DESC
+backend\scripts\analyze-query-plans.ts:129:      ORDER BY timestamp DESC
+backend\scripts\diagnose-post-migration.ts:244:  console.log(`Timestamp: ${new Date().toISOString()}\n`);
+backend\src\contracts\marketplace\RegionalImpactMetrics.contract.ts:41:  generatedAt: string; // Timestamp de geração (imutável)
+backend\src\contracts\marketplace\ReputationSnapshot.contract.ts:54:  createdAt: string; // Timestamp de criação (imutável)
+backend\src\core\ai\ai-kernel.ts:140:    timestamp: string;
+backend\src\core\ai\ai-kernel.ts:142:    return `Work session completed by user ${payload.userId} for job ${payload.jobId}. Assignment ${payload.assignmentId} with worker ${payload.workerId} finished at ${payload.timestamp}.`;
+backend\src\core\ai\memory\memory.service.ts:57:      timestamp: new Date().toISOString(),
+backend\src\core\ai\memory\memory.types.ts:5:  timestamp: string;
+backend\src\core\ai\patch\patch-apply.service.ts:68:      // Gerar nome do backup com timestamp
+backend\src\core\ai\patch\patch-apply.service.ts:69:      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+backend\src\core\ai\patch\patch-apply.service.ts:71:      const backupFileName = `${fileName}.${timestamp}.backup`;
+backend\src\core\ai\tasks\tasks.service.ts:104:        timestamp: new Date().toISOString(),
+backend\src\core\ai\tasks\tasks.types.ts:8:  timestamp: string;
+backend\src\core\alerts\alert.service.ts:11:  timestamp: Date;
+backend\src\core\alerts\alert.service.ts:32:      timestamp: new Date(),
+backend\src\core\catalog\canonical\canonical-product.service.ts:271:        timestamp: new Date().toISOString(),
+backend\src\core\catalog\dynamic-pricing\dynamic-pricing.service.ts:317:        timestamp: new Date().toISOString(),
+backend\src\core\catalog\dynamic-pricing\dynamic-pricing.service.ts:383:        timestamp: new Date().toISOString(),
+backend\src\core\catalog\offer-index\offer-index.service.ts:320:        timestamp: new Date().toISOString(),
+backend\src\core\catalog\product-demand\product-demand.service.ts:351:        timestamp: new Date().toISOString(),
+backend\src\core\catalog\product-demand\product-demand.service.ts:415:        timestamp: new Date().toISOString(),
+backend\src\core\categories\categories.service.ts:38:    timestamp: number;
+backend\src\core\categories\categories.service.ts:43:    timestamp: 0,
+backend\src\core\categories\categories.service.ts:49:    timestamp: number;
+backend\src\core\categories\categories.service.ts:499:      const cacheAge = (Date.now() - cached.timestamp) / 1000;
+backend\src\core\categories\categories.service.ts:537:      timestamp: Date.now(),
+backend\src\core\categories\categories.service.ts:598:      cacheAge: this.categoryTreeCache.data ? (Date.now() - this.categoryTreeCache.timestamp) / 1000 : null,
+backend\src\core\categories\categories.service.ts:603:      const cacheAge = (Date.now() - this.categoryTreeCache.timestamp) / 1000;
+backend\src\core\categories\categories.service.ts:730:          timestamp: Date.now(),
+backend\src\core\categories\categories.service.ts:738:          timestamp: 0,
+backend\src\core\categories\categories.service.ts:764:      timestamp: 0,
+backend\src\core\city\city-readiness\city-readiness.service.ts:808:          timestamp: new Date().toISOString(),
+backend\src\core\city\city-readiness\city-readiness.service.ts:823:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:236:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:248:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:435:        tenant_id, global_user_id, cnpj, company_name, trade_name, registration_date,
+backend\src\core\companies\companies.service.ts:645:    registration_date: Date | null;
+backend\src\core\companies\companies.service.ts:674:      registrationDate: row.registration_date?.toISOString().split('T')[0],
+backend\src\core\companies\companies.service.ts:735:        registration_date: Date | null;
+backend\src\core\companies\companies.service.ts:782:      registration_date: Date | null;
+backend\src\core\companies\companies.service.ts:863:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:875:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:890:      registration_date: Date | null;
+backend\src\core\companies\companies.service.ts:956:      registrationDate: row.registration_date?.toISOString().split('T')[0],
+backend\src\core\companies\companies.service.ts:1013:      registration_date: Date | null;
+backend\src\core\companies\companies.service.ts:1080:      registrationDate: row.registration_date?.toISOString().split('T')[0],
+backend\src\core\companies\companies.service.ts:1189:      updates.push(`registration_date = $${paramIdx}`);
+backend\src\core\companies\companies.service.ts:1273:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1286:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1366:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1379:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1515:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1528:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1612:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1625:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1722:      timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1746:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1787:          timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:1800:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:2009:        timestamp: new Date().toISOString(),
+backend\src\core\companies\companies.service.ts:2020:        timestamp: new Date().toISOString(),
+backend\src\core\config\observation-mode.service.ts:32:          timestamp: new Date().toISOString(),
+backend\src\core\economy\split.service.ts:344:          timestamp: new Date().toISOString(),
+backend\src\core\economy\split.service.ts:359:            timestamp: new Date().toISOString(),
+backend\src\core\economy\fund\fund-admin.service.ts:85:          last_transaction_date: Date | null;
+backend\src\core\economy\fund\fund-admin.service.ts:93:            MAX(created_at) as last_transaction_date,
+backend\src\core\economy\fund\fund-admin.service.ts:110:        const lastTransactionDate = row.last_transaction_date
+backend\src\core\economy\fund\fund-admin.service.ts:111:          ? row.last_transaction_date.toISOString()
+backend\src\core\economy\fund\fund-dashboard.service.ts:302:      last_transaction_date: Date | null;
+backend\src\core\economy\fund\fund-dashboard.service.ts:309:        MAX(t.created_at) as last_transaction_date
+backend\src\core\economy\fund\fund-dashboard.service.ts:326:      lastTransactionDate: row.last_transaction_date
+backend\src\core\economy\fund\fund-dashboard.service.ts:327:        ? row.last_transaction_date.toISOString().split('T')[0]
+backend\src\core\economy\fund\fund-dashboard.service.ts:350:      last_transaction_date: Date | null;
+backend\src\core\economy\fund\fund-dashboard.service.ts:357:        MAX(t.created_at) as last_transaction_date
+backend\src\core\economy\fund\fund-dashboard.service.ts:374:      lastTransactionDate: row.last_transaction_date
+backend\src\core\economy\fund\fund-dashboard.service.ts:375:        ? row.last_transaction_date.toISOString().split('T')[0]
+backend\src\core\economy\fund\fund-weekly-scheduler.ts:84:            timestamp: new Date().toISOString(),
+backend\src\core\events\event-bus.ts:132:            timestamp: new Date().toISOString(),
+backend\src\core\events\event.service.ts:503:   * - EventSpec.answers.event_date pode ser date_or_window como resposta de questionário
+backend\src\core\events\idempotency-tracker.ts:191:    timestamp: new Date().toISOString(),
+backend\src\core\events\operational-commitments.service.ts:183:   * - Registrar timestamp
+backend\src\core\events\operational-commitments.service.ts:230:   * - Registrar timestamp
+backend\src\core\events\specs\event-spec.service.ts:18:// - EventSpec.answers.event_date pode ser date_or_window como resposta de questionário
+backend\src\core\events\__tests__\operational-commitments.service.test.ts:90:      // Este teste verifica que timestamp é registrado
+backend\src\core\feed\feed-plugin.cache.ts:17:  cachedAt: number; // Timestamp em ms
+backend\src\core\feed\feed-plugin.cache.ts:18:  expiresAt: number; // Timestamp em ms
+backend\src\core\feed\feed-plugin.cache.ts:67:   * @param postUpdatedAt Timestamp de atualização do post (ISO string ou Date)
+backend\src\core\feed\feed-plugin.cache.ts:75:    // Se postUpdatedAt não for fornecido, usar timestamp atual (cache sempre expira)
+backend\src\core\feed\feed-plugin.cache.ts:90:   * @param postUpdatedAt Timestamp de atualização do post
+backend\src\core\feed\feed-plugin.cache.ts:124:   * @param postUpdatedAt Timestamp de atualização do post
+backend\src\core\feed\feed.service.ts:274:          timestamp: new Date().toISOString(),
+backend\src\core\feed\feed.service.ts:293:        timestamp: new Date().toISOString(),
+backend\src\core\health\health.module.ts:63:      timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:22:  timestamp: string;
+backend\src\core\logging\canonical-logger.ts:79:        timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:105:        timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:131:        timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:168:      timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:185:      timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:202:      timestamp: new Date().toISOString(),
+backend\src\core\logging\canonical-logger.ts:219:      timestamp: new Date().toISOString(),
+backend\src\core\logging\logger.ts:10:  winston.format.timestamp(),
+backend\src\core\logging\logger.ts:17:  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+backend\src\core\logging\logger.ts:19:  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+backend\src\core\logging\logger.ts:21:    return `${timestamp} [${level}]: ${message} ${metaStr}`;
+backend\src\core\logging\split-logger.service.ts:7:  timestamp: string;
+backend\src\core\logging\split-logger.service.ts:18:  timestamp: string;
+backend\src\core\logging\split-logger.service.ts:48:      timestamp: data.timestamp || new Date().toISOString(),
+backend\src\core\logging\split-logger.service.ts:71:      timestamp: data.timestamp || new Date().toISOString(),
+backend\src\core\logging\split-logger.service.ts:92:      timestamp: data.timestamp || new Date().toISOString(),
+backend\src\core\logging\structured-logger.ts:22:      timestamp: new Date().toISOString(),
+backend\src\core\logging\structured-logger.ts:34:      timestamp: new Date().toISOString(),
+backend\src\core\logging\structured-logger.ts:46:      timestamp: new Date().toISOString(),
+backend\src\core\logging\structured-logger.ts:63:      timestamp: new Date().toISOString(),
+backend\src\core\memory\memory.service.ts:17:  private contextStore: Array<{ key: string; data: any; timestamp: number }> = [];
+backend\src\core\memory\memory.service.ts:27:      timestamp: Date.now(),
+backend\src\core\memory\memory.service.ts:39:  getContextsByKey(key: string, filter?: (data: any) => boolean): Array<{ key: string; data: any; timestamp: number }> {
+backend\src\core\memory\memory.service.ts:46:    // Ordenar por timestamp (mais recente primeiro)
+backend\src\core\memory\memory.service.ts:47:    return results.sort((a, b) => b.timestamp - a.timestamp);
+backend\src\core\memory\memory.service.ts:53:  getContextsByUserId(userId: string, key?: string): Array<{ key: string; data: any; timestamp: number }> {
+backend\src\core\memory\memory.service.ts:63:    // Ordenar por timestamp (mais recente primeiro)
+backend\src\core\memory\memory.service.ts:64:    return results.sort((a, b) => b.timestamp - a.timestamp);
+backend\src\core\notify\handlers\rides-notify.handlers.ts:30:      timestamp: new Date().toISOString(),
+backend\src\core\notify\handlers\work-notify.handlers.ts:32:          timestamp: new Date().toISOString(),
+backend\src\core\notify\handlers\work-notify.handlers.ts:69:          timestamp: new Date().toISOString(),
+backend\src\core\notify\handlers\work-notify.handlers.ts:106:          timestamp: new Date().toISOString(),
+backend\src\core\notify\handlers\work-notify.handlers.ts:162:          timestamp: new Date().toISOString(),
+backend\src\core\observability\logger.ts:34:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\adapters\work.adapter.ts:117:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\groups-activity.executors.ts:26:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\groups.executors.ts:22:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\groups.executors.ts:55:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\groups.executors.ts:86:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\groups.executors.ts:116:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\work.executors.ts:24:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\work.executors.ts:32:    timestamp: string;
+backend\src\core\orchestrator\executors\work.executors.ts:41:    timestamp: payload.timestamp,
+backend\src\core\orchestrator\executors\work.executors.ts:61:      timestamp: new Date().toISOString(),
+backend\src\core\orchestrator\executors\work.executors.ts:72:    timestamp: string;
+backend\src\core\orchestrator\executors\work.executors.ts:84:    timestamp: payload.timestamp,
+backend\src\core\orchestrator\executors\work.executors.ts:96:    timestamp: payload.timestamp,
+backend\src\core\orchestrator\executors\work.executors.ts:106:    timestamp: payload.timestamp,
+backend\src\core\profile\profile-health-facts.repository.ts:31:  value_date: Date | null;
+backend\src\core\profile\profile-health-facts.repository.ts:60:      valueDate: row.value_date,
+backend\src\core\profile\profile-health-facts.repository.ts:76:             value_boolean, value_date, notes, metadata, health_declaration_id,
+backend\src\core\profile\profile-health-facts.repository.ts:99:             f.value_boolean, f.value_date, f.notes, f.metadata, f.health_declaration_id,
+backend\src\core\profile\profile-health-facts.repository.ts:123:             value_boolean, value_date, notes, metadata, health_declaration_id,
+backend\src\core\profile\profile-health-facts.repository.ts:169:         value_date, notes, metadata, health_declaration_id)
+backend\src\core\profile\profile-health-facts.repository.ts:176:        value_date = EXCLUDED.value_date,
+backend\src\core\profile\profile-health-facts.repository.ts:182:                value_boolean, value_date, notes, metadata, health_declaration_id,
+backend\src\core\profile\profile-inference-action.types.ts:12:  timestamp: string;
+backend\src\core\profile\profile-inference.service.ts:420:      timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:148:          timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:177:            timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:208:            timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:239:            timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:291:        timestamp: new Date().toISOString(),
+backend\src\core\rate-limiting\auth-rate-limit.service.ts:423:        timestamp: new Date().toISOString(),
+backend\src\core\unifybank\test-currency.service.ts:10:// - Rastreabilidade completa (adminId, userId, timestamp, reason)
+backend\src\core\utils\structured-logger.ts:30:      timestamp: new Date().toISOString(),
+backend\src\core\utils\structured-logger.ts:63:      timestamp: new Date().toISOString(),
+backend\src\core\utils\structured-logger.ts:95:      timestamp: new Date().toISOString(),
+backend\src\modules\assistant\assistant.routes.ts:220:            timestamp: new Date().toISOString(),
+backend\src\modules\automation\scheduled-action.service.ts:269:      timestamp: new Date().toISOString(),
+backend\src\modules\bank\bank-balance-by-cpf.service.ts:64:   * Timestamp de cálculo (runtime only, não persistido)
+backend\src\modules\bank\bank-balance-consolidation.types.ts:176:   * Timestamp de cálculo (runtime only, não persistido)
+backend\src\modules\bank\financial-authorship.types.ts:20:  decidedAt: string; // ISO 8601 timestamp
+backend\src\modules\bank\financial-authorship.types.ts:31:  decidedAt: string; // ISO 8601 timestamp
+backend\src\modules\bypass-detection\bypass-detection.service.ts:126:      timestamp: new Date(),
+backend\src\modules\care\care.service.ts:64:          timestamp: new Date(),
+backend\src\modules\care\care.service.ts:184:          timestamp: new Date(),
+backend\src\modules\care\care.types.ts:83:    timestamp: Date;
+backend\src\modules\escrow\escrow.service.ts:132:          timestamp: new Date(),
+backend\src\modules\escrow\escrow.service.ts:436:          timestamp: new Date(),
+backend\src\modules\evidence\evidence.repository.ts:41:        timestamp: new Date(e.timestamp),
+backend\src\modules\evidence\evidence.repository.ts:162:    // Ordenar por timestamp
+backend\src\modules\evidence\evidence.repository.ts:163:    updatedTimeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+backend\src\modules\evidence\evidence.service.ts:115:      timestamp: new Date(),
+backend\src\modules\evidence\evidence.service.ts:190:      timestamp: new Date(),
+backend\src\modules\evidence\evidence.types.ts:54:  timestamp: Date;
+backend\src\modules\groups\groups.insights.service.ts:48:        timestamp: log.timestamp || new Date(),
+backend\src\modules\groups\groups.types.ts:142:    timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-activity-execution.service.ts:21:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-activity-execution.service.ts:115:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-activity-execution.service.ts:143:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp-event-instance.service.ts:12:  scheduledAt: string; // ISO 8601 timestamp
+backend\src\modules\human-mvp\human-mvp-event-instance.service.ts:22:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-event-instance.service.ts:144:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-event-instance.service.ts:171:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp-matching.service.ts:15:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-matching.service.ts:129:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-matching.service.ts:154:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp-opportunity.service.ts:23:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-opportunity.service.ts:96:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-opportunity.service.ts:135:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp-service-offer.service.ts:21:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-service-offer.service.ts:98:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-service-offer.service.ts:122:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp-skill.service.ts:22:  timestamp: Date;
+backend\src\modules\human-mvp\human-mvp-skill.service.ts:88:      timestamp: new Date(),
+backend\src\modules\human-mvp\human-mvp-skill.service.ts:110:        event.timestamp,
+backend\src\modules\human-mvp\human-mvp.routes.ts:413:      scheduledAt: string; // ISO 8601 timestamp
+backend\src\modules\invoicing\invoice.service.ts:161:      timestamp: new Date(),
+backend\src\modules\invoicing\invoice.service.ts:219:      timestamp: new Date(),
+backend\src\modules\invoicing\invoice.service.ts:276:      timestamp: new Date(),
+backend\src\modules\ledger\ledger.repository.ts:35:  timestamp: Date;
+backend\src\modules\ledger\ledger.repository.ts:53:      timestamp: row.timestamp,
+backend\src\modules\ledger\ledger.repository.ts:138:      conditions.push(`timestamp >= $${paramIndex}`);
+backend\src\modules\ledger\ledger.repository.ts:144:      conditions.push(`timestamp <= $${paramIndex}`);
+backend\src\modules\ledger\ledger.repository.ts:159:          ORDER BY timestamp DESC, created_at DESC
+backend\src\modules\ledger\ledger.service.ts:48:      timestamp: entry.timestamp,
+backend\src\modules\ledger\ledger.types.ts:35:  timestamp: Date; // Imutável
+backend\src\modules\marketplace\accounts-payable.repository.ts:18:  due_date: Date;
+backend\src\modules\marketplace\accounts-payable.repository.ts:48:      dueDate: row.due_date,
+backend\src\modules\marketplace\accounts-payable.repository.ts:88:        amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:93:                amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:130:             amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:183:      conditions.push(`due_date >= $${paramIndex}`);
+backend\src\modules\marketplace\accounts-payable.repository.ts:190:      conditions.push(`due_date <= $${paramIndex}`);
+backend\src\modules\marketplace\accounts-payable.repository.ts:202:             amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:210:      ORDER BY due_date ASC
+backend\src\modules\marketplace\accounts-payable.repository.ts:236:                amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:273:                amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\accounts-payable.repository.ts:312:                amount_cents, currency, due_date, status,
+backend\src\modules\marketplace\inventory-lot.repository.ts:16:  manufacture_date: Date | null;
+backend\src\modules\marketplace\inventory-lot.repository.ts:17:  expiration_date: Date | null;
+backend\src\modules\marketplace\inventory-lot.repository.ts:32:      manufactureDate: row.manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:33:      expirationDate: row.expiration_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:50:        tenant_id, product_variant_id, lot_code, manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:51:        expiration_date, metadata
+backend\src\modules\marketplace\inventory-lot.repository.ts:54:      RETURNING id, tenant_id, product_variant_id, lot_code, manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:55:                expiration_date, metadata, created_at
+backend\src\modules\marketplace\inventory-lot.repository.ts:84:      SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:85:             expiration_date, metadata, created_at
+backend\src\modules\marketplace\inventory-lot.repository.ts:107:      SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:108:             expiration_date, metadata, created_at
+backend\src\modules\marketplace\inventory-lot.repository.ts:131:      SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
+backend\src\modules\marketplace\inventory-lot.repository.ts:132:             expiration_date, metadata, created_at
+backend\src\modules\marketplace\marketplace.routes.ts:985:      start_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:1848:      start_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:1849:      end_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:1887:      delivery_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:3052:      execution_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:3163:    Querystring: { start_date?: string; end_date?: string; category_id?: string };
+backend\src\modules\marketplace\marketplace.routes.ts:3169:      const { start_date, end_date, category_id } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:3172:      const endDate = end_date || new Date().toISOString();
+backend\src\modules\marketplace\marketplace.routes.ts:3173:      const startDate = start_date || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+backend\src\modules\marketplace\marketplace.routes.ts:3758:    Querystring: { start_date?: string; end_date?: string };
+backend\src\modules\marketplace\marketplace.routes.ts:3764:      const { start_date, end_date } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:3766:      const period = start_date && end_date ? { start_date, end_date } : undefined;
+backend\src\modules\marketplace\marketplace.routes.ts:3778:    Querystring: { start_date: string; end_date: string };
+backend\src\modules\marketplace\marketplace.routes.ts:3784:      const { start_date, end_date } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:3786:      if (!start_date || !end_date) {
+backend\src\modules\marketplace\marketplace.routes.ts:3787:        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+backend\src\modules\marketplace\marketplace.routes.ts:3791:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:3792:        end_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4328:      start_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4329:      end_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4337:      const { start_date, end_date, status } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:4340:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4341:        end_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4356:      start_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4357:      end_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4365:      const { start_date, end_date, status } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:4368:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4369:        end_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4384:      start_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4385:      end_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4392:      const { start_date, end_date } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:4394:      if (!start_date || !end_date) {
+backend\src\modules\marketplace\marketplace.routes.ts:4395:        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+backend\src\modules\marketplace\marketplace.routes.ts:4400:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4401:        end_date
+backend\src\modules\marketplace\marketplace.routes.ts:4415:      start_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4416:      end_date: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4423:      const { start_date, end_date } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:4425:      if (!start_date || !end_date) {
+backend\src\modules\marketplace\marketplace.routes.ts:4426:        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+backend\src\modules\marketplace\marketplace.routes.ts:4431:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4432:        end_date
+backend\src\modules\marketplace\marketplace.routes.ts:4722:      start_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4723:      end_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:4729:      const { region_id, period_type, start_date, end_date } = req.query;
+backend\src\modules\marketplace\marketplace.routes.ts:4734:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:4735:        end_date,
+backend\src\modules\marketplace\marketplace.routes.ts:5042:      start_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:5043:      end_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:5050:      const { actor_id, start_date, end_date } = req.query as {
+backend\src\modules\marketplace\marketplace.routes.ts:5052:        start_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:5053:        end_date?: string;
+backend\src\modules\marketplace\marketplace.routes.ts:5063:        start_date,
+backend\src\modules\marketplace\marketplace.routes.ts:5064:        end_date,
+backend\src\modules\marketplace\marketplace.service.ts:2095:          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
+backend\src\modules\marketplace\marketplace.service.ts:2104:      paymentPlan.due_date = dueDate;
+backend\src\modules\marketplace\marketplace.service.ts:3365:    start_date: string;
+backend\src\modules\marketplace\marketplace.service.ts:3410:      start_date: input.start_date,
+backend\src\modules\marketplace\marketplace.service.ts:3540:    const startDate = new Date(subscription.start_date);
+backend\src\modules\marketplace\marketplace.service.ts:3566:      c.start_date === cycleStartDate.toISOString().split('T')[0]
+backend\src\modules\marketplace\marketplace.service.ts:3627:      (paymentPlan as any).due_date = invoiceDueDate.toISOString().split('T')[0];
+backend\src\modules\marketplace\marketplace.service.ts:3636:      start_date: cycleStartDate.toISOString().split('T')[0],
+backend\src\modules\marketplace\marketplace.service.ts:3637:      end_date: cycleEndDate.toISOString().split('T')[0],
+backend\src\modules\marketplace\marketplace.service.ts:3645:      invoice_due_date: subscription.payment_method === 'invoice'
+backend\src\modules\marketplace\marketplace.service.ts:4000:    timestamp: string;
+backend\src\modules\marketplace\marketplace.service.ts:4091:      timestamp: new Date().toISOString(),
+backend\src\modules\marketplace\marketplace.service.ts:4128:      const eventDate = new Date(e.timestamp);
+backend\src\modules\marketplace\marketplace.service.ts:4916:    start_date: string;
+backend\src\modules\marketplace\marketplace.service.ts:4917:    end_date: string;
+backend\src\modules\marketplace\marketplace.service.ts:4947:      start_date: input.start_date,
+backend\src\modules\marketplace\marketplace.service.ts:4948:      end_date: input.end_date,
+backend\src\modules\marketplace\marketplace.service.ts:4995:    delivery_date: string;
+backend\src\modules\marketplace\marketplace.service.ts:5086:      delivery_date: input.delivery_date,
+backend\src\modules\marketplace\marketplace.service.ts:5087:      payment_due_date: paymentDueDate,
+backend\src\modules\marketplace\marketplace.service.ts:5219:        const dueDate = new Date(execution.payment_due_date);
+backend\src\modules\marketplace\marketplace.service.ts:5224:            payment_due_date: execution.payment_due_date,
+backend\src\modules\marketplace\marketplace.service.ts:7405:        scheduled_date: request.schedule.date || new Date().toISOString().split('T')[0],
+backend\src\modules\marketplace\marketplace.service.ts:7879:      timestamp: new Date().toISOString(),
+backend\src\modules\marketplace\marketplace.service.ts:8580:    timestamp: string;
+backend\src\modules\marketplace\marketplace.service.ts:8591:      timestamp: string;
+backend\src\modules\marketplace\marketplace.service.ts:8599:      timestamp: request.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8618:        timestamp: dispatch.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8635:          timestamp: preReservation.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8649:            timestamp: preReservation.expires_at,
+backend\src\modules\marketplace\marketplace.service.ts:8661:            timestamp: preReservation.confirmed_at,
+backend\src\modules\marketplace\marketplace.service.ts:8674:          timestamp: dispatch.expired_at || dispatch.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8686:          timestamp: dispatch.accepted_at,
+backend\src\modules\marketplace\marketplace.service.ts:8720:          timestamp: booking.confirmed_at,
+backend\src\modules\marketplace\marketplace.service.ts:8745:          timestamp: parentOrder.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8759:            timestamp: checkout.paid_at || checkout.created_at,
+backend\src\modules\marketplace\marketplace.service.ts:8773:        timestamp: request.expired_at,
+backend\src\modules\marketplace\marketplace.service.ts:8784:        timestamp: (request as any).completed_at,
+backend\src\modules\marketplace\marketplace.service.ts:8791:    // Ordenar por timestamp
+backend\src\modules\marketplace\marketplace.service.ts:8792:    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+backend\src\modules\marketplace\marketplace.service.ts:9394:    scheduled_date: string;
+backend\src\modules\marketplace\marketplace.service.ts:9404:      scheduled_date: input.scheduled_date,
+backend\src\modules\marketplace\marketplace.service.ts:9479:    execution_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:9512:      execution_date: input.execution_date,
+backend\src\modules\marketplace\marketplace.service.ts:9592:      date: quote.execution_date || visit.scheduled_date,
+backend\src\modules\marketplace\marketplace.service.ts:9831:        start_date: startDate,
+backend\src\modules\marketplace\marketplace.service.ts:9832:        end_date: endDate,
+backend\src\modules\marketplace\marketplace.service.ts:12435:      start_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:12436:      end_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:12443:    if (options?.start_date) {
+backend\src\modules\marketplace\marketplace.service.ts:12444:      compensations = compensations.filter(c => c.created_at >= options.start_date!);
+backend\src\modules\marketplace\marketplace.service.ts:12447:    if (options?.end_date) {
+backend\src\modules\marketplace\marketplace.service.ts:12448:      compensations = compensations.filter(c => c.created_at <= options.end_date!);
+backend\src\modules\marketplace\marketplace.service.ts:12464:      start_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:12465:      end_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:12475:    if (options?.start_date) {
+backend\src\modules\marketplace\marketplace.service.ts:12476:      compensations = compensations.filter(c => c.created_at >= options.start_date!);
+backend\src\modules\marketplace\marketplace.service.ts:12479:    if (options?.end_date) {
+backend\src\modules\marketplace\marketplace.service.ts:12480:      compensations = compensations.filter(c => c.created_at <= options.end_date!);
+backend\src\modules\marketplace\marketplace.service.ts:12499:      start_date: startDate,
+backend\src\modules\marketplace\marketplace.service.ts:12500:      end_date: endDate,
+backend\src\modules\marketplace\marketplace.service.ts:12552:      start_date: startDate,
+backend\src\modules\marketplace\marketplace.service.ts:12553:      end_date: endDate,
+backend\src\modules\marketplace\marketplace.service.ts:13795:    start_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:13796:    end_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:13808:    if (filters?.start_date) {
+backend\src\modules\marketplace\marketplace.service.ts:13809:      snapshots = snapshots.filter(s => s.period.start >= filters.start_date!);
+backend\src\modules\marketplace\marketplace.service.ts:13812:    if (filters?.end_date) {
+backend\src\modules\marketplace\marketplace.service.ts:13813:      snapshots = snapshots.filter(s => s.period.end <= filters.end_date!);
+backend\src\modules\marketplace\marketplace.service.ts:14727:    start_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:14728:    end_date?: string;
+backend\src\modules\marketplace\marketplace.service.ts:14733:    if (filters.start_date) {
+backend\src\modules\marketplace\marketplace.service.ts:14734:      reports = reports.filter(r => r.period.start >= filters.start_date!);
+backend\src\modules\marketplace\marketplace.service.ts:14737:    if (filters.end_date) {
+backend\src\modules\marketplace\marketplace.service.ts:14738:      reports = reports.filter(r => r.period.end <= filters.end_date!);
+backend\src\modules\marketplace\purchase-order.repository.ts:17:  order_date: Date;
+backend\src\modules\marketplace\purchase-order.repository.ts:18:  expected_delivery_date: Date | null;
+backend\src\modules\marketplace\purchase-order.repository.ts:69:      orderDate: row.order_date,
+backend\src\modules\marketplace\purchase-order.repository.ts:70:      expectedDeliveryDate: row.expected_delivery_date,
+backend\src\modules\marketplace\purchase-order.repository.ts:142:        order_date, expected_delivery_date,
+backend\src\modules\marketplace\purchase-order.repository.ts:149:                order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:191:             order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:233:      conditions.push(`order_date >= $${paramIndex}`);
+backend\src\modules\marketplace\purchase-order.repository.ts:240:      conditions.push(`order_date <= $${paramIndex}`);
+backend\src\modules\marketplace\purchase-order.repository.ts:252:             order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:261:      ORDER BY order_date DESC
+backend\src\modules\marketplace\purchase-order.repository.ts:424:                order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:455:                order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:486:                order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.repository.ts:524:                order_date, expected_delivery_date, received_at, completed_at,
+backend\src\modules\marketplace\purchase-order.service.ts:275:        // Calcular data de vencimento (30 dias após recebimento, ou usar expected_delivery_date se fornecido)
+backend\src\modules\payout\payout.service.ts:263:      timestamp: new Date(),
+backend\src\modules\payout\payout.service.ts:331:        timestamp: new Date(),
+backend\src\modules\payout\payout.service.ts:368:      timestamp: new Date(),
+backend\src\modules\payout\payout.service.ts:430:      timestamp: new Date(),
+backend\src\modules\policy-engine\policy-engine.service.ts:299:      timestamp: new Date(),
+backend\src\modules\policy-engine\policy-engine.service.ts:382:        timestamp: new Date(),
+backend\src\modules\reporting\reporting.service.ts:132:      const period = entry.timestamp.toISOString().substring(0, 7); // YYYY-MM
+backend\src\modules\reporting\reporting.service.ts:210:      const period = entry.timestamp.toISOString().substring(0, 7); // YYYY-MM
+backend\src\modules\risk-command-center\risk-dashboard.routes.ts:57:          timestamp: new Date().toISOString(),
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:322:        timestamp: event.createdAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:344:        timestamp: event.createdAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:371:          timestamp: pack.openedAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:389:          timestamp: pack.resolvedAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:419:          timestamp: payout.createdAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:438:          timestamp: payout.updatedAt || payout.createdAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:469:            timestamp: agreement.updatedAt,
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:486:    // Ordenar por timestamp (mais recente primeiro)
+backend\src\modules\risk-command-center\risk-dashboard.service.ts:487:    timeline.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+backend\src\modules\risk-command-center\risk-dashboard.types.ts:71:  timestamp: Date;
+backend\src\modules\services\services.routes.ts:243:      start_date?: string; // ISO 8601 date string
+backend\src\modules\services\services.routes.ts:244:      end_date?: string; // ISO 8601 date string
+backend\src\modules\services\services.routes.ts:274:        startDate: query.start_date,
+backend\src\modules\services\services.routes.ts:275:        endDate: query.end_date,
+backend\src\modules\services\services.service.ts:195:      next_available_date: string | null;
+backend\src\modules\services\services.service.ts:297:            next_available_date: nextAvailableDate,
+backend\src\modules\social\actor-audit.service.ts:31:      timestamp: new Date().toISOString(),
+backend\src\modules\social\event-feed.handlers.ts:24:      timestamp: new Date().toISOString(),
+backend\src\modules\social\event-feed.handlers.ts:126:      timestamp: new Date().toISOString(),
+backend\src\modules\social\intent-orchestrator.types.ts:45:  timestamp?: string;
+backend\src\modules\work\work.events.ts:24:      timestamp: new Date().toISOString(),
+backend\src\modules\work\work.events.ts:49:      timestamp: new Date().toISOString(),
+backend\src\modules\work\work.events.ts:74:      timestamp: new Date().toISOString(),
+backend\src\modules\work\work.events.ts:101:      timestamp: new Date().toISOString(),
+backend\src\modules\work\work.insights.ts:12:  timestamp: string;
+backend\src\modules\work\work.insights.ts:17:  timestamp: string;
+backend\src\modules\work\work.insights.ts:47:    timestamp: entry.data.timestamp || new Date(entry.timestamp).toISOString(),
+backend\src\modules\work\work.insights.ts:62:    timestamp: entry.data.timestamp || new Date(entry.timestamp).toISOString(),
+backend\src\modules\work\work.insights.ts:98:    if (entry.data.timestamp) {
+backend\src\modules\work\work.insights.ts:99:      const date = new Date(entry.data.timestamp);
+backend\src\modules\work\assignments\assignment.service.ts:366:          timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\instant.repository.ts:60:      timestamp: new Date(),
+backend\src\modules\work-instant\instant.service.ts:241:      timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\instant.types.ts:39:    timestamp: Date;
+backend\src\modules\work-instant\status.routes.ts:96:          timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\status.routes.ts:172:          timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\status.routes.ts:248:          timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\status.routes.ts:370:          timestamp: new Date().toISOString(),
+backend\src\modules\work-instant\worker-status.types.ts:10:  updatedAt: number; // timestamp
+backend\src\modules\work-instant\worker-status.types.ts:18:  lastSeen: number; // timestamp
+frontend\node_modules\@types\react\index.d.ts:927:         * A numeric timestamp for when React began rendering the current update.
+frontend\node_modules\@types\react\index.d.ts:933:         * A numeric timestamp for when React committed the current update. This value is shared
+frontend\node_modules\@types\react\index.d.ts:2199:        timeStamp: number;
+frontend\node_modules\@types\react\ts5.0\index.d.ts:928:         * A numeric timestamp for when React began rendering the current update.
+frontend\node_modules\@types\react\ts5.0\index.d.ts:934:         * A numeric timestamp for when React committed the current update. This value is shared
+frontend\node_modules\@types\react\ts5.0\index.d.ts:2200:        timeStamp: number;
+frontend\node_modules\@types\react-dom\test-utils\index.d.ts:31:    timeStamp?: Date | undefined;
+frontend\node_modules\baseline-browser-mapping\dist\index.d.ts:5:    release_date?: string;
+frontend\node_modules\vite\dist\node\index.d.ts:644:    timestamp?: boolean;
+frontend\node_modules\vite\dist\node\index.d.ts:857:    lastHMRTimestamp: number;
+frontend\node_modules\vite\dist\node\index.d.ts:858:    lastInvalidationTimestamp: number;
+frontend\node_modules\vite\dist\node\index.d.ts:883:    invalidateModule(mod: ModuleNode, seen?: Set<ModuleNode>, timestamp?: number, isHmr?: boolean, 
+frontend\node_modules\vite\dist\node\index.d.ts:1504:    timestamp: number;
+frontend\node_modules\vite\dist\node\index.d.ts:3139:     * The handler receives a context containing changed filename, timestamp, a
+frontend\node_modules\vite\types\hmrPayload.d.ts:22:  timestamp: number
+frontend\src\api\evidence.ts:45:  timestamp: string;
+frontend\src\api\health.ts:12:  timestamp: string;
+frontend\src\api\ledger.ts:25:  timestamp: string;
+frontend\src\api\marketplace.ts:1062:  start_date: string;
+frontend\src\api\marketplace.ts:1082:  start_date: string;
+frontend\src\api\marketplace.ts:1083:  end_date: string;
+frontend\src\api\marketplace.ts:1089:  invoice_due_date?: string;
+frontend\src\api\marketplace.ts:1097:  start_date: string;
+frontend\src\api\marketplace.ts:1979:  start_date: string;
+frontend\src\api\marketplace.ts:1980:  end_date: string;
+frontend\src\api\marketplace.ts:1998:  delivery_date: string;
+frontend\src\api\marketplace.ts:1999:  payment_due_date: string;
+frontend\src\api\marketplace.ts:2027:  start_date: string;
+frontend\src\api\marketplace.ts:2028:  end_date: string;
+frontend\src\api\marketplace.ts:2049:  delivery_date: string;
+frontend\src\api\marketplace.ts:2823:  timestamp: string;
+frontend\src\api\marketplace.ts:2958:  scheduled_date: string;
+frontend\src\api\marketplace.ts:2975:  execution_date?: string;
+frontend\src\api\marketplace.ts:3015:  execution_date?: string;
+frontend\src\api\marketplace.ts:3070:    start_date: string;
+frontend\src\api\marketplace.ts:3071:    end_date: string;
+frontend\src\api\marketplace.ts:3096:  if (startDate) params.append('start_date', startDate);
+frontend\src\api\marketplace.ts:3097:  if (endDate) params.append('end_date', endDate);
+frontend\src\api\marketplace.ts:3499:    start_date: string;
+frontend\src\api\marketplace.ts:3500:    end_date: string;
+frontend\src\api\marketplace.ts:3552:  if (startDate) params.append('start_date', startDate);
+frontend\src\api\marketplace.ts:3553:  if (endDate) params.append('end_date', endDate);
+frontend\src\api\marketplace.ts:3567:    `/marketplace/actors/${actorId}/evaluation-aggregates?start_date=${startDate}&end_date=${endDate}`
+frontend\src\api\marketplace.ts:4306:    start_date?: string;
+frontend\src\api\marketplace.ts:4307:    end_date?: string;
+frontend\src\api\marketplace.ts:4312:  if (options?.start_date) params.append('start_date', options.start_date);
+frontend\src\api\marketplace.ts:4313:  if (options?.end_date) params.append('end_date', options.end_date);
+frontend\src\api\marketplace.ts:4325:    start_date?: string;
+frontend\src\api\marketplace.ts:4326:    end_date?: string;
+frontend\src\api\marketplace.ts:4331:  if (options?.start_date) params.append('start_date', options.start_date);
+frontend\src\api\marketplace.ts:4332:  if (options?.end_date) params.append('end_date', options.end_date);
+frontend\src\api\marketplace.ts:4347:  params.append('start_date', startDate);
+frontend\src\api\marketplace.ts:4348:  params.append('end_date', endDate);
+frontend\src\api\marketplace.ts:4362:  params.append('start_date', startDate);
+frontend\src\api\marketplace.ts:4363:  params.append('end_date', endDate);
+frontend\src\api\marketplace.ts:4764:  start_date?: string;
+frontend\src\api\marketplace.ts:4765:  end_date?: string;
+frontend\src\api\marketplace.ts:4770:  if (filters?.start_date) params.append('start_date', filters.start_date);
+frontend\src\api\marketplace.ts:4771:  if (filters?.end_date) params.append('end_date', filters.end_date);
+frontend\src\api\marketplace.ts:5141:    start_date?: string;
+frontend\src\api\marketplace.ts:5142:    end_date?: string;
+frontend\src\api\marketplace.ts:5147:  if (filters?.start_date) params.append('start_date', filters.start_date);
+frontend\src\api\marketplace.ts:5148:  if (filters?.end_date) params.append('end_date', filters.end_date);
+frontend\src\api\risk-dashboard.ts:72:  timestamp: string;
+frontend\src\api\service-discovery.ts:15:  start_date?: string; // ISO 8601 date string
+frontend\src\api\service-discovery.ts:16:  end_date?: string; // ISO 8601 date string
+frontend\src\api\service-discovery.ts:58:    next_available_date: string | null; // ISO 8601 string
+frontend\src\api\service-discovery.ts:84:    if (filters.start_date) queryParams.append('start_date', filters.start_date);
+frontend\src\api\service-discovery.ts:85:    if (filters.end_date) queryParams.append('end_date', filters.end_date);
+frontend\src\api\service-discovery.ts:168:        next_available_date: nextAvailableDate,
+frontend\src\components\Profile.tsx:569:              timestamp: new Date().toISOString(),
+frontend\src\components\events\EventServiceDiscoveryModal.tsx:79:        start_date: startDate || undefined,
+frontend\src\components\events\EventServiceDiscoveryModal.tsx:80:        end_date: endDate || undefined,
+frontend\src\components\events\EventWizardAdaptive.tsx:89:          filters.start_date = answers.event_date_start;
+frontend\src\components\events\EventWizardAdaptive.tsx:92:          filters.end_date = answers.event_date_end;
+frontend\src\components\events\wizard\BirthdayWizard.tsx:32:    birth_date?: string; // ISO-8601
+frontend\src\components\events\wizard\BirthdayWizard.tsx:379:        <label htmlFor="birth_date" className="form-label">
+frontend\src\components\events\wizard\BirthdayWizard.tsx:383:          id="birth_date"
+frontend\src\components\events\wizard\BirthdayWizard.tsx:385:          value={wizardData.birthday_person?.birth_date || ''}
+frontend\src\components\events\wizard\BirthdayWizard.tsx:389:              birth_date: e.target.value || undefined,
+frontend\src\components\events\wizard\BirthdayWizard.tsx:1387:        <label htmlFor="time_window_date" className="form-label">
+frontend\src\components\events\wizard\BirthdayWizard.tsx:1391:          id="time_window_date"
+frontend\src\components\events\wizard\EventFoundationStep.tsx:24:  event_date: string | null;
+frontend\src\components\events\wizard\EventFoundationStep.tsx:59:    event_date: null,
+frontend\src\components\events\wizard\EventFoundationStep.tsx:262:            id="event_date"
+frontend\src\components\events\wizard\EventFoundationStep.tsx:264:            value={foundation.event_date}
+frontend\src\components\events\wizard\EventFoundationStep.tsx:265:            onChange={(value) => updateFoundation({ event_date: value })}
+frontend\src\components\events\wizard\Step3Context.tsx:24:      if (foundation.event_date && foundation.event_time_start) {
+frontend\src\components\events\wizard\Step3Context.tsx:25:        const startDateTime = `${foundation.event_date}T${foundation.event_time_start}`;
+frontend\src\components\events\wizard\Step3Context.tsx:37:          const endDateTime = `${foundation.event_date}T${foundation.event_time_end}`;
+frontend\src\components\events\wizard\Step3Context.tsx:149:              {foundation.event_date && foundation.event_time_start && (
+frontend\src\components\events\wizard\Step3Context.tsx:153:                    {foundation.event_date} às {foundation.event_time_start}
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:18:        birth_date?: string;
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:27:      birth_date?: string;
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:40: * - birthday_person.birth_date
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:55:    birth_date?: string;
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:65:    if (birthdayPerson.name || birthdayPerson.birth_date || birthdayPerson.gender) {
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:171:        <label htmlFor="birth_date" className="form-label">
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:175:          id="birth_date"
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:177:          value={birthdayPerson.birth_date || ''}
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx:180:            birth_date: e.target.value || undefined,
+frontend\src\components\events\wizard\pages\BirthdayTimeWindowPage.tsx:74:        <label htmlFor="time_window_date" className="form-label">
+frontend\src\components\events\wizard\pages\BirthdayTimeWindowPage.tsx:78:          id="time_window_date"
+frontend\src\components\evidence\EvidenceTimeline.tsx:89:            <div className="timeline-event-time">{formatDate(event.timestamp)}</div>
+frontend\src\components\ledger\LedgerContextStatement.tsx:126:                <td>{formatDate(entry.timestamp)}</td>
+frontend\src\components\social\CulturalEventCard.tsx:113:  const formatTimestamp = (dateString: string): string => {
+frontend\src\components\social\CulturalEventCard.tsx:264:        <time className="post-time">{formatTimestamp(event.created_at || event.datetime_start)}</time>
+frontend\src\components\social\TodayForYou.tsx:136:        const eventDateTimestamp = safeDate(event?.datetime_start, 0);
+frontend\src\components\social\TodayForYou.tsx:137:        if (eventDateTimestamp > 0) {
+frontend\src\components\social\TodayForYou.tsx:138:          const eventDate = new Date(eventDateTimestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+frontend\src\components\VoiceInput\voice.types.ts:18:    timestamp: string;
+frontend\src\pages\PilotObserverPage.tsx:461:                    <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:571:                    <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:720:                              <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:804:                                <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:827:                                <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:871:                                <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:927:                                      <span className="pilot-observer-timestamp">
+frontend\src\pages\PilotObserverPage.tsx:989:                              <span className="pilot-observer-timestamp">
+frontend\src\pages\RiskCommandCenterPage.tsx:527:                            {new Date(event.timestamp).toLocaleString('pt-BR')}
+frontend\src\pages\ServiceDiscoveryDetailPage.tsx:274:                {service.availability_summary.next_available_date && (
+frontend\src\pages\ServiceDiscoveryDetailPage.tsx:276:                    Próxima disponibilidade: {formatDateTime(service.availability_summary.next_available_date)}
+frontend\src\pages\ServiceDiscoveryPage.tsx:45:        start_date: startDate || undefined,
+frontend\src\pages\ServiceDiscoveryPage.tsx:46:        end_date: endDate || undefined,
+frontend\src\pages\ServiceDiscoveryPage.tsx:253:                    {service.availability_summary?.next_available_date && (
+frontend\src\pages\ServiceDiscoveryPage.tsx:255:                        Próxima disponibilidade: {new Date(service.availability_summary.next_available_date).toLocaleDateString('pt-BR')}
+frontend\src\pages\SharePage.tsx:38:        timestamp: Date.now(),
+frontend\src\pages\UserServiceTracker.tsx:299:                    {new Date(event.timestamp).toLocaleString()}
+frontend\src\services\pilot-observer.service.ts:75:  timestamp: string;
+frontend\src\services\pilot-observer.service.ts:117:      timestamp: new Date().toISOString(),
+frontend\src\types\dispute.ts:14:  openedAt: string; // ISO timestamp
+frontend\src\types\dispute.ts:19:  resolvedAt?: string; // ISO timestamp
+frontend\src\types\health-signal.ts:25:  createdAt: string; // Timestamp da detecção
+frontend\src\types\pending-action.ts:21:  createdAt: string; // Timestamp da detecção
+frontend\src\utils\event-spec-mapper.ts:70:    if (data.foundation.event_date) {
+frontend\src\utils\event-spec-mapper.ts:71:      answers.event_date = data.foundation.event_date;
+frontend\src\utils\guardrails.ts:74: * Valida e retorna timestamp de data com fallback
+frontend\src\utils\trustSignals.ts:21:  last_activity?: string; // Timestamp da última atividade
+frontend\src\utils\trustSignals.ts:58:    const createdDate = new Date(actorData.created_at).getTime();
+frontend\src\utils\trustSignals.ts:59:    const daysSinceCreation = (now - createdDate) / (1000 * 60 * 60 * 24);
+frontend\src\utils\trustSignals.ts:282:    const updatedDate = new Date(eventData.updated_at).getTime();
+frontend\src\utils\trustSignals.ts:283:    if (updatedDate > sevenDaysAgo) {
+frontend\src\utils\trustSignals.ts:292:    const createdDate = new Date(eventData.created_at).getTime();
+frontend\src\utils\trustSignals.ts:293:    if (createdDate > sevenDaysAgo) {
+

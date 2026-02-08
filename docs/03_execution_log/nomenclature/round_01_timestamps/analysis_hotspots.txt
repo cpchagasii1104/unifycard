@@ -1,0 +1,24 @@
+
+Name                                                                                   Count
+----                                                                                   -----
+backend\src\modules\marketplace\marketplace.service.ts                                    75
+backend\src\modules\marketplace\marketplace.routes.ts                                     54
+frontend\src\api\marketplace.ts                                                           45
+backend\src\core\companies\companies.service.ts                                           28
+backend\src\modules\marketplace\purchase-order.repository.ts                              15
+backend\src\modules\marketplace\inventory-lot.repository.ts                               14
+backend\src\modules\marketplace\accounts-payable.repository.ts                            12
+backend\src\core\categories\categories.service.ts                                         10
+backend\src\modules\risk-command-center\risk-dashboard.service.ts                          9
+frontend\src\components\events\wizard\pages\BirthdayProfilePage.tsx                        9
+backend\src\core\profile\profile-health-facts.repository.ts                                8
+backend\src\core\orchestrator\executors\work.executors.ts                                  8
+backend\src\core\memory\memory.service.ts                                                  8
+backend\src\core\economy\fund\fund-dashboard.service.ts                                    8
+backend\src\core\logging\canonical-logger.ts                                               8
+frontend\src\pages\PilotObserverPage.tsx                                                   8
+backend\node_modules\ajv-formats\node_modules\ajv\lib\vocabularies\jtd\type.ts             7
+frontend\src\components\events\wizard\BirthdayWizard.tsx                                   7
+backend\node_modules\fast-json-stringify\node_modules\ajv\lib\vocabularies\jtd\type.ts     7
+frontend\src\utils\trustSignals.ts                                                         7
+
