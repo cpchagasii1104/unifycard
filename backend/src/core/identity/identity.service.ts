@@ -70,8 +70,8 @@ class IdentityService {
 
     return {
       globalUserId: row.global_user_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       fullName: row.full_name,
       avatarUrl: row.avatar_url,
       birthdate,
@@ -122,7 +122,7 @@ class IdentityService {
     // 🔴 CORREÇÃO: Buscar registro único (global_user_id é PRIMARY KEY)
     const result = await pool.query<GlobalUserRow>(
       `
-        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
+        SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata
         FROM global_users
         WHERE global_user_id = $1
       `,
@@ -138,7 +138,7 @@ class IdentityService {
       globalUserId: result.rows[0].global_user_id,
       fullName: result.rows[0].full_name,
       birthdate: result.rows[0].birthdate,
-      updatedAt: result.rows[0].updated_at,
+      updatedAt: result.rows[0].updatedAt,
       recordCount,
     });
 
@@ -147,8 +147,10 @@ class IdentityService {
 
   /**
    * Atualiza identidade global
+   * 🔴 REGRA: Toda decisão de perfil é tenant-scoped
    */
   async updateGlobalIdentity(
+    tenantId: string,
     globalUserId: string,
     updates: UpdateGlobalIdentityInput
   ): Promise<GlobalUser> {
@@ -167,19 +169,22 @@ class IdentityService {
     const existingGlobalUser = await this.getGlobalIdentity(globalUserId);
     
     // 🔴 PARTE 2 - ONBOARDING: Verificar se pode editar birthdate
-    // Buscar userId e tenantId para verificar onboarding
+    // Buscar userId usando fonte canônica (users) com tenantId obrigatório
     let canEditBirthdate = true;
     try {
-      const linkResult = await pool.query<{ user_id: string; tenant_id: string }>(
-        `SELECT user_id, tenant_id FROM user_identity_links WHERE global_user_id = $1 LIMIT 1`,
-        [globalUserId]
+      const userResult = await runQueryWithTenant<{ user_id: string }>(
+        tenantId,
+        `SELECT user_id FROM users WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1`,
+        [globalUserId, tenantId]
       );
       
-      if (linkResult.rows.length > 0) {
-        const { user_id, tenant_id } = linkResult.rows[0];
-        const { profileService } = await import('@core/profile/profile.service');
-        canEditBirthdate = await profileService.canEditPersonalData(tenant_id, user_id);
+      if (!userResult || userResult.length === 0) {
+        throw new Error(`Usuário não encontrado para global_user_id: ${globalUserId} no tenant: ${tenantId}`);
       }
+      
+      const { user_id } = userResult;
+      const { profileService } = await import('@core/profile/profile.service');
+      canEditBirthdate = await profileService.canEditPersonalData(tenantId, user_id);
     } catch (err) {
       // Se não conseguir verificar, assumir que não pode editar (mais seguro)
       canEditBirthdate = false;
@@ -238,7 +243,7 @@ class IdentityService {
       
       console.log('[IdentityService] Adicionando fullName:', {
         field: `full_name = $${paramIndex}`,
-        value: updates.fullName,
+        valueCents: updates.fullName,
         paramIndex,
       });
       
@@ -324,7 +329,7 @@ class IdentityService {
       return existing;
     }
 
-    updateFields.push(`updated_at = now()`);
+    updateFields.push(`updatedAt = now()`);
     
     // 🔴 CRÍTICO: Log antes de construir SQL
     console.log('[IdentityService] Construindo SQL UPDATE:', {
@@ -336,7 +341,7 @@ class IdentityService {
     });
     
     // 🔴 VALIDAÇÃO CRÍTICA: Verificar se os valores correspondem aos campos
-    for (let i = 0; i < updateFields.length - 1; i++) { // -1 para excluir updated_at
+    for (let i = 0; i < updateFields.length - 1; i++) { // -1 para excluir updatedAt
       const field = updateFields[i];
       const fieldName = field.split('=')[0].trim();
       const value = values[i];
@@ -414,9 +419,9 @@ class IdentityService {
     });
     
     // 🔴 CRÍTICO: Buscar ANTES do UPDATE para comparar
-    // 🔴 CORREÇÃO: ORDER BY updated_at DESC para garantir registro mais recente
+    // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
     const beforeUpdate = await pool.query<GlobalUserRow>(
-      `SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updatedAt DESC LIMIT 1`,
       [globalUserId]
     );
     console.log('[IdentityService] 🔍 ANTES UPDATE - Estado atual no banco:', {
@@ -424,14 +429,14 @@ class IdentityService {
       exists: beforeUpdate.rows.length > 0,
       currentFullName: beforeUpdate.rows[0]?.full_name,
       currentBirthdate: beforeUpdate.rows[0]?.birthdate,
-      currentUpdatedAt: beforeUpdate.rows[0]?.updated_at,
+      currentUpdatedAt: beforeUpdate.rows[0]?.updatedAt,
     });
     
     const sqlQuery = `
       UPDATE global_users
       SET ${updateFieldsWithPlaceholders.join(', ')}
       WHERE global_user_id = $${updateValues.length}
-      RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+      RETURNING global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata, txid_current() as txid
     `;
     
     console.log('[IdentityService] 🔍 DIAGNÓSTICO: Executando UPDATE', {
@@ -441,7 +446,7 @@ class IdentityService {
       updateValues: updateValues.map((v, i) => ({ 
         index: i, 
         placeholder: `$${i + 1}`,
-        value: typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v,
+        valueCents: typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v,
         type: typeof v,
         isGlobalUserId: i === updateValues.length - 1 && v === globalUserId
       })),
@@ -499,14 +504,14 @@ class IdentityService {
     
     // 🔴 DIAGNÓSTICO CRÍTICO: Verificar se os dados realmente foram salvos
     // IMPORTANTE: Fazer uma nova query para garantir que os dados estão realmente no banco
-    // 🔴 CORREÇÃO: ORDER BY updated_at DESC para garantir registro mais recente
+    // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
     // 🔴 INSTRUMENTAÇÃO: Logar txid no GET após UPDATE
     const verifyResult = await pool.query<GlobalUserRow & { txid: string }>(
       `
-        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+        SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata, txid_current() as txid
         FROM global_users
         WHERE global_user_id = $1
-        ORDER BY updated_at DESC
+        ORDER BY updatedAt DESC
         LIMIT 1
       `,
       [globalUserId]
@@ -534,7 +539,7 @@ class IdentityService {
       globalUserId: savedData.global_user_id,
       fullName: savedData.full_name,
       birthdate: savedData.birthdate,
-      updatedAt: savedData.updated_at,
+      updatedAt: savedData.updatedAt,
       matches: savedData.global_user_id === globalUserId,
     });
     console.log('[IdentityService] 🔍 COMPARAÇÃO ANTES vs DEPOIS:', {
@@ -542,12 +547,12 @@ class IdentityService {
       afterFullName: savedData.full_name,
       beforeBirthdate: beforeUpdate.rows[0]?.birthdate,
       afterBirthdate: savedData.birthdate,
-      beforeUpdatedAt: beforeUpdate.rows[0]?.updated_at,
-      afterUpdatedAt: savedData.updated_at,
+      beforeUpdatedAt: beforeUpdate.rows[0]?.updatedAt,
+      afterUpdatedAt: savedData.updatedAt,
       changed: (
         beforeUpdate.rows[0]?.full_name !== savedData.full_name ||
         beforeUpdate.rows[0]?.birthdate?.toString() !== savedData.birthdate?.toString() ||
-        beforeUpdate.rows[0]?.updated_at?.getTime() !== savedData.updated_at?.getTime()
+        beforeUpdate.rows[0]?.updatedAt?.getTime() !== savedData.updatedAt?.getTime()
       ),
     });
     
@@ -630,12 +635,12 @@ class IdentityService {
       id: string;
       tenant_id: string;
       email: string;
-      created_at: Date;
+      createdAt: Date;
       global_user_id: string | null;
     }>(
       tenantId,
       `
-        SELECT id, tenant_id, email, created_at, global_user_id
+        SELECT id, tenant_id, email, createdAt, global_user_id
         FROM users
         WHERE id = $1
         LIMIT 1
@@ -782,7 +787,7 @@ class IdentityService {
         userId: localUser.id,
         tenantId: localUser.tenant_id,
         email: localUser.email,
-        createdAt: localUser.created_at,
+        createdAt: localUser.createdAt,
       },
       reputation,
       wallet,
@@ -792,4 +797,6 @@ class IdentityService {
 }
 
 export const identityService = new IdentityService();
+
+
 

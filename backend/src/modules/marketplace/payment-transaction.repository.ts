@@ -25,13 +25,13 @@ interface PaymentTransactionRow {
   tenant_id: string;
   payment_intent_id: string;
   bank_transaction_id: string | null;
-  amount: string;
+  amountCents: string;
   currency: string;
   status: string;
   error_code: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PaymentTransactionRepository {
@@ -45,13 +45,13 @@ class PaymentTransactionRepository {
       tenantId: row.tenant_id,
       paymentIntentId: row.payment_intent_id,
       bankTransactionId: row.bank_transaction_id,
-      amount: 0, // 🔴 dinheiro invalidado (Gate 3)
+      amountCents: 0, // 🔴 dinheiro invalidado (Gate 3)
       currency: row.currency as any,
       status: row.status as any,
       errorCode: row.error_code,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -70,12 +70,12 @@ class PaymentTransactionRepository {
         text: `
           SELECT id, tenant_id, payment_intent_id, bank_transaction_id,
                  amount, currency, status, error_code,
-                 metadata, created_at, updated_at
+                 metadata, createdAt, updatedAt
           FROM payment_transactions
           WHERE tenant_id = $1
             AND payment_intent_id = $2
             AND metadata->>'idempotency_key' = $3
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT 1
         `,
         values: [tenantId, paymentIntentId, idempotencyKey],
@@ -95,7 +95,7 @@ class PaymentTransactionRepository {
         text: `
           SELECT id, tenant_id, payment_intent_id, bank_transaction_id,
                  amount, currency, status, error_code,
-                 metadata, created_at, updated_at
+                 metadata, createdAt, updatedAt
           FROM payment_transactions
           WHERE tenant_id = $1 AND id = $2
           LIMIT 1
@@ -117,10 +117,10 @@ class PaymentTransactionRepository {
         text: `
           SELECT id, tenant_id, payment_intent_id, bank_transaction_id,
                  amount, currency, status, error_code,
-                 metadata, created_at, updated_at
+                 metadata, createdAt, updatedAt
           FROM payment_transactions
           WHERE tenant_id = $1 AND payment_intent_id = $2
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
         `,
         values: [tenantId, paymentIntentId],
       }
@@ -161,3 +161,5 @@ class PaymentTransactionRepository {
 
 export const paymentTransactionRepository =
   new PaymentTransactionRepository();
+
+

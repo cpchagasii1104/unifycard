@@ -24,7 +24,7 @@ class RegionalFundGovernanceRateLimitService {
       FROM regional_fund_proposals
       WHERE tenant_id = $1
         AND created_by = $2
-        AND created_at >= $3
+        AND createdAt >= $3
       `,
       [tenantId, globalUserId, oneMonthAgo]
     );
@@ -61,7 +61,7 @@ class RegionalFundGovernanceRateLimitService {
       SELECT COUNT(*)::text as count
       FROM regional_fund_votes
       WHERE global_user_id = $1
-        AND created_at >= $2
+        AND createdAt >= $2
         AND EXISTS (
           SELECT 1 FROM regional_fund_proposals p
           WHERE p.proposal_id = regional_fund_votes.proposal_id
@@ -87,6 +87,7 @@ class RegionalFundGovernanceRateLimitService {
 }
 
 export const regionalFundGovernanceRateLimitService = new RegionalFundGovernanceRateLimitService();
+
 
 
 

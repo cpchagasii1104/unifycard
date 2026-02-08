@@ -19,8 +19,8 @@ export interface Category {
   approvedBy?: string | null;
   approvedAt?: Date | null;
   rejectionReason?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CategoryRow {
@@ -38,10 +38,10 @@ export interface CategoryRow {
   requires_review?: boolean;
   created_by_ai?: boolean;
   approved_by?: string | null;
-  approved_at?: Date | null;
+  approvedAt?: Date | null;
   rejection_reason?: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CategoryTree extends Category {
@@ -160,6 +160,8 @@ export interface CategoryPathSuggestion {
   requiresReview: boolean; // true se confidence < threshold ou sem parent válido
   keywords?: string[];
 }
+
+
 
 
 

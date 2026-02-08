@@ -11,16 +11,16 @@ interface PaymentLinkRow {
   slug: string;
   title: string;
   description: string | null;
-  amount: string;
+  amountCents: string;
   currency: string;
-  expires_at: Date | null;
+  expiresAt: Date | null;
   max_uses: number | null;
   uses_count: number;
   status: string;
   contact_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface PaymentLinkPaymentRow {
@@ -32,8 +32,8 @@ interface PaymentLinkPaymentRow {
   contact_id: string | null;
   status: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PaymentLinkRepository {
@@ -45,16 +45,16 @@ class PaymentLinkRepository {
       slug: row.slug,
       title: row.title,
       description: row.description,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       currency: row.currency,
-      expiresAt: row.expires_at,
+      expiresAt: row.expiresAt,
       maxUses: row.max_uses,
       usesCount: row.uses_count,
       status: row.status as any,
       contactId: row.contact_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -68,8 +68,8 @@ class PaymentLinkRepository {
       contactId: row.contact_id,
       status: row.status as any,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -115,12 +115,12 @@ class PaymentLinkRepository {
       `
       INSERT INTO payment_links (
         tenant_id, created_by_actor_id, slug, title, description,
-        amount, currency, expires_at, max_uses, contact_id, metadata
+        amount, currency, expiresAt, max_uses, contact_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expires_at, max_uses, uses_count, status,
-                contact_id, metadata, created_at, updated_at
+                amount, currency, expiresAt, max_uses, uses_count, status,
+                contact_id, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -148,8 +148,8 @@ class PaymentLinkRepository {
       tenantId,
       `
       SELECT id, tenant_id, created_by_actor_id, slug, title, description,
-             amount, currency, expires_at, max_uses, uses_count, status,
-             contact_id, metadata, created_at, updated_at
+             amount, currency, expiresAt, max_uses, uses_count, status,
+             contact_id, metadata, createdAt, updatedAt
       FROM payment_links
       WHERE tenant_id = $1 AND slug = $2
       `,
@@ -171,8 +171,8 @@ class PaymentLinkRepository {
       tenantId,
       `
       SELECT id, tenant_id, created_by_actor_id, slug, title, description,
-             amount, currency, expires_at, max_uses, uses_count, status,
-             contact_id, metadata, created_at, updated_at
+             amount, currency, expiresAt, max_uses, uses_count, status,
+             contact_id, metadata, createdAt, updatedAt
       FROM payment_links
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -194,11 +194,11 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET uses_count = uses_count + 1, updated_at = NOW()
+      SET uses_count = uses_count + 1, updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expires_at, max_uses, uses_count, status,
-                contact_id, metadata, created_at, updated_at
+                amount, currency, expiresAt, max_uses, uses_count, status,
+                contact_id, metadata, createdAt, updatedAt
       `,
       [tenantId, linkId]
     );
@@ -214,11 +214,11 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET status = 'EXPIRED', updated_at = NOW()
+      SET status = 'EXPIRED', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'ACTIVE'
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expires_at, max_uses, uses_count, status,
-                contact_id, metadata, created_at, updated_at
+                amount, currency, expiresAt, max_uses, uses_count, status,
+                contact_id, metadata, createdAt, updatedAt
       `,
       [tenantId, linkId]
     );
@@ -234,11 +234,11 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET status = 'DISABLED', updated_at = NOW()
+      SET status = 'DISABLED', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expires_at, max_uses, uses_count, status,
-                contact_id, metadata, created_at, updated_at
+                amount, currency, expiresAt, max_uses, uses_count, status,
+                contact_id, metadata, createdAt, updatedAt
       `,
       [tenantId, linkId]
     );
@@ -264,7 +264,7 @@ class PaymentLinkRepository {
       VALUES ($1, $2, $3, $4, 'PENDING')
       RETURNING id, tenant_id, payment_link_id, payment_intent_id,
                 payment_transaction_id, contact_id, status, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, paymentLinkId, paymentIntentId, contactId || null]
     );
@@ -281,7 +281,7 @@ class PaymentLinkRepository {
     status: PaymentLinkPaymentStatus,
     paymentTransactionId?: string
   ): Promise<PaymentLinkPayment> {
-    const updates: string[] = ['status = $3', 'updated_at = NOW()'];
+    const updates: string[] = ['status = $3', 'updatedAt = NOW()'];
     const params: any[] = [tenantId, paymentIntentId, status];
     
     if (paymentTransactionId) {
@@ -297,7 +297,7 @@ class PaymentLinkRepository {
       WHERE tenant_id = $1 AND payment_intent_id = $2
       RETURNING id, tenant_id, payment_link_id, payment_intent_id,
                 payment_transaction_id, contact_id, status, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       params
     );
@@ -307,6 +307,9 @@ class PaymentLinkRepository {
 }
 
 export const paymentLinkRepository = new PaymentLinkRepository();
+
+
+
 
 
 

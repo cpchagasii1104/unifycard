@@ -12,26 +12,21 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
    */
   const requireRiskPermission = async (req: any, reply: any) => {
     const tenantId = req.tenant.id;
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
+
+    const actorId = req.actionContext.actorId;
 
     try {
       const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
-      const actor = await getActiveActor(tenantId, userId);
-      if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
-      }
 
       // Verificar permissão para acessar risk dashboard
       await businessAuthorizationService.requirePermission(
         tenantId,
-        userId,
-        actor.actor_id,
+        actorId,
+        actorId,
         'financial:view_all_ledger', // Reutilizar permissão de finance
         'risk_command_center'
       );
@@ -43,13 +38,12 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
   /**
    * Registrar auditoria de acesso
    */
-  const recordAccessAudit = async (tenantId: string, userId: string | null, actorId: string, action: string) => {
+  const recordAccessAudit = async (tenantId: string, actorId: string, action: string) => {
     try {
       const { recordBusinessAuditSafely } = await import('../business-audit/business-audit.helpers');
       await recordBusinessAuditSafely(tenantId, {
         action: 'risk_dashboard_viewed' as any,
         actorId,
-        userId,
         contextType: 'risk_command_center' as any,
         contextId: action,
         metadata: {
@@ -72,11 +66,14 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     { preHandler: requireRiskPermission },
     async (req, reply) => {
       const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-      const actorId = req.user?.actorId || '';
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      const actorId = req.actionContext.actorId;
 
       // Registrar auditoria
-      await recordAccessAudit(tenantId, userId, actorId, 'overview');
+      await recordAccessAudit(tenantId, actorId, 'overview');
 
       const overview = await riskDashboardService.getOverview(tenantId);
 
@@ -100,12 +97,15 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/risk/dashboard/actors', { preHandler: requireRiskPermission }, async (req, reply) => {
-    const tenantId = req.tenant.id;
-    const userId = req.user?.id || null;
-    const actorId = req.user?.actorId || '';
+      const tenantId = req.tenant.id;
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      const actorId = req.actionContext.actorId;
 
-    // Registrar auditoria
-    await recordAccessAudit(tenantId, userId, actorId, 'list_actors');
+      // Registrar auditoria
+      await recordAccessAudit(tenantId, actorId, 'list_actors');
 
     const filters: ActorRiskFilters = {
       riskLevel: req.query.riskLevel as any,
@@ -120,7 +120,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
 
     const profiles = await riskDashboardService.listActorRiskProfiles(tenantId, filters);
 
-    return reply.send({ profiles, total: profiles.length });
+    return reply.send({ profiles, totalCents: profiles.length });
   });
 
   /**
@@ -132,11 +132,14 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     { preHandler: requireRiskPermission },
     async (req, reply) => {
       const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-      const actorId = req.user?.actorId || '';
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      const actorId = req.actionContext.actorId;
 
       // Registrar auditoria
-      await recordAccessAudit(tenantId, userId, actorId, `view_actor:${req.params.actorId}`);
+      await recordAccessAudit(tenantId, actorId, `view_actor:${req.params.actorId}`);
 
       const profile = await riskDashboardService.getActorRiskProfile(tenantId, req.params.actorId);
 
@@ -153,11 +156,14 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     { preHandler: requireRiskPermission },
     async (req, reply) => {
       const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-      const actorId = req.user?.actorId || '';
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+      const actorId = req.actionContext.actorId;
 
       // Registrar auditoria
-      await recordAccessAudit(tenantId, userId, actorId, `view_timeline:${req.params.actorId}`);
+      await recordAccessAudit(tenantId, actorId, `view_timeline:${req.params.actorId}`);
 
       const timeline = await riskDashboardService.getActorRiskTimeline(tenantId, req.params.actorId);
 
@@ -167,6 +173,7 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default riskDashboardRoutes;
+
 
 
 

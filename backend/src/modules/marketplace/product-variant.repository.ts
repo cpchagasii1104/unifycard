@@ -18,8 +18,8 @@ interface ProductVariantRow {
   attributes: any;
   is_active: boolean;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class ProductVariantRepository {
@@ -36,8 +36,8 @@ class ProductVariantRepository {
       attributes: row.attributes || null,
       isActive: row.is_active,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -56,7 +56,7 @@ class ProductVariantRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, tenant_id, product_id, sku, plu, attributes, is_active,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -87,7 +87,7 @@ class ProductVariantRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_id, sku, plu, attributes, is_active,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM product_variants
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -109,7 +109,7 @@ class ProductVariantRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_id, sku, plu, attributes, is_active,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM product_variants
       WHERE tenant_id = $1 AND sku = $2
       LIMIT 1
@@ -141,7 +141,7 @@ class ProductVariantRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_id, sku, plu, attributes, is_active,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM product_variants
       ${whereClause}
       ORDER BY sku ASC
@@ -212,7 +212,7 @@ class ProductVariantRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, product_id, sku, plu, attributes, is_active,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       params
     );
@@ -226,4 +226,6 @@ class ProductVariantRepository {
 }
 
 export const productVariantRepository = new ProductVariantRepository();
+
+
 

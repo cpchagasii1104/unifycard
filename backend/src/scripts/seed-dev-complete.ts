@@ -343,14 +343,14 @@ async function seedFeatureFlags(): Promise<void> {
     // Feature flag para PRO (habilitado por padrão em DEV)
     await configService.upsertFeatureFlag(DEV_TENANT_ID, 'plan_pro_enabled', {
       description: 'Habilita plano PRO para usuários de teste',
-      enabled: true,
+        isEnabled: true,
       rolloutPercentage: 100,
     });
 
     // Feature flag para microfone (habilitado por padrão em DEV)
     await configService.upsertFeatureFlag(DEV_TENANT_ID, 'microphone_enabled', {
       description: 'Habilita reconhecimento de voz/microfone',
-      enabled: true,
+        isEnabled: true,
       rolloutPercentage: 100,
     });
 

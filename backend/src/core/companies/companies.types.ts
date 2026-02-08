@@ -18,8 +18,8 @@ export interface Company {
   companyStatus: CompanyStatus; // Status do cadastro
   isVerified: boolean;
   metadata?: Record<string, any>; // Raio X, análises, etc.
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CompanyAddress {
@@ -60,8 +60,8 @@ export interface CompanyUser {
   isActive: boolean;
   isPrimary: boolean; // Empresa principal
   metadata?: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CompanyPermissions {
@@ -78,10 +78,10 @@ export interface CompanyDomain {
   companyDomainId: string;
   companyId: string;
   domain: MarketplaceDomain;
-  enabled: boolean;
+  isEnabled: boolean;
   config: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateCompanyInput {
@@ -155,3 +155,4 @@ export interface RevenueFederalData {
     qual_rep_legal?: string;
   }>;
 }
+

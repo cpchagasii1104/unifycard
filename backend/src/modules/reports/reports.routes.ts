@@ -54,11 +54,16 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
     }
     if (query.consolidated === 'true') {
       // FASE 4: Verificação obrigatória de consolidated
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const { authorizationService } = await import('@core/authorization/authorization.service');
       const auth = await authorizationService.canActAs(
         tenantId,
-        actionContext?.actingUserId || req.user?.id,
-        actionContext?.actingActorId || req.user?.id,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         'view_consolidated_reports'
       );
       if (!auth.allowed) {
@@ -70,10 +75,15 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
       filters.consolidated = true;
     }
 
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const report = await salesReportService.generateReport(tenantId, {
       ...filters,
-      userId: actionContext?.actingUserId,
-      actorId: actionContext?.actingActorId,
+      userId: actionContext.actorId,
+      actorId: actionContext.actorId,
     });
     return reply.status(200).send(report);
   });
@@ -289,7 +299,7 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
 
     return reply.status(200).send({
       suggestions: suggestionsWithExplanation,
-      total: suggestions.length,
+      totalCents: suggestions.length,
     });
   });
 
@@ -583,4 +593,5 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default reportsRoutes;
+
 

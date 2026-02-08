@@ -12,13 +12,13 @@ interface PayoutTransactionRow {
   payment_split_id: string;
   recipient_actor_id: string;
   bank_transaction_id: string | null;
-  amount: string;
+  amountCents: string;
   currency: string;
   status: string;
   error_code: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PayoutTransactionRepository {
@@ -33,13 +33,13 @@ class PayoutTransactionRepository {
       paymentSplitId: row.payment_split_id,
       recipientActorId: row.recipient_actor_id,
       bankTransactionId: row.bank_transaction_id,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       currency: row.currency,
       status: row.status as any,
       errorCode: row.error_code,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -57,14 +57,14 @@ class PayoutTransactionRepository {
       `
       SELECT id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
              bank_transaction_id, amount, currency, status, error_code,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM payout_transactions
       WHERE tenant_id = $1
         AND payment_intent_id = $2
         AND payment_split_id = $3
         AND metadata->>'idempotency_key' = $4
         AND status IN ('PENDING', 'SUCCESS')
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 1
       `,
       [tenantId, paymentIntentId, paymentSplitId, idempotencyKey]
@@ -81,7 +81,7 @@ class PayoutTransactionRepository {
     paymentIntentId: string,
     paymentSplitId: string,
     recipientActorId: string,
-    amount: number,
+    amountCents: number,
     currency: string,
     idempotencyKey?: string
   ): Promise<PayoutTransaction> {
@@ -97,7 +97,7 @@ class PayoutTransactionRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
                 bank_transaction_id, amount, currency, status, error_code,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [tenantId, paymentIntentId, paymentSplitId, recipientActorId, amount, currency, 'PENDING', JSON.stringify(metadata)]
     );
@@ -121,7 +121,7 @@ class PayoutTransactionRepository {
       `
       SELECT id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
              bank_transaction_id, amount, currency, status, error_code,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM payout_transactions
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -144,10 +144,10 @@ class PayoutTransactionRepository {
       `
       SELECT id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
              bank_transaction_id, amount, currency, status, error_code,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM payout_transactions
       WHERE tenant_id = $1 AND payment_intent_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, paymentIntentId]
     );
@@ -171,7 +171,7 @@ class PayoutTransactionRepository {
       WHERE tenant_id = $2 AND id = $3
       RETURNING id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
                 bank_transaction_id, amount, currency, status, error_code,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [bankTransactionId, tenantId, transactionId]
     );
@@ -199,7 +199,7 @@ class PayoutTransactionRepository {
       WHERE tenant_id = $2 AND id = $3
       RETURNING id, tenant_id, payment_intent_id, payment_split_id, recipient_actor_id,
                 bank_transaction_id, amount, currency, status, error_code,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [errorCode || null, tenantId, transactionId]
     );
@@ -213,4 +213,7 @@ class PayoutTransactionRepository {
 }
 
 export const payoutTransactionRepository = new PayoutTransactionRepository();
+
+
+
 

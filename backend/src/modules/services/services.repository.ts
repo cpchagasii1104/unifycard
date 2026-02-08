@@ -30,9 +30,9 @@ class ServicesRepository {
       cityId: row.city_id,
       neighborhood: row.neighborhood,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      activatedAt: row.activated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      activatedAt: row.activatedAt,
     };
   }
 
@@ -59,7 +59,7 @@ class ServicesRepository {
         service_id, tenant_id, actor_id, name, slug, description, short_description,
         service_type, status, category_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
-        created_at, updated_at, activated_at
+        createdAt, updatedAt, activatedAt
       FROM services
       WHERE service_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -84,7 +84,7 @@ class ServicesRepository {
         service_id, tenant_id, actor_id, name, slug, description, short_description,
         service_type, status, category_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
-        created_at, updated_at, activated_at
+        createdAt, updatedAt, activatedAt
       FROM services
       WHERE actor_id = $1 AND tenant_id = $2
     `;
@@ -95,7 +95,7 @@ class ServicesRepository {
       params.push(filters.status);
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const rows = await runQueriesWithTenant<ServiceRow>(tenantId, query, params);
 
@@ -144,7 +144,7 @@ class ServicesRepository {
         service_id, tenant_id, actor_id, name, slug, description, short_description,
         service_type, status, category_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
-        created_at, updated_at, activated_at
+        createdAt, updatedAt, activatedAt
       `,
       [
         tenantId,
@@ -173,7 +173,7 @@ class ServicesRepository {
   /**
    * Busca serviços para descoberta com filtros explícitos
    * 🔴 BLINDAGEM: Apenas serviços com status = 'active'
-   * 🔴 BLINDAGEM: Ordem determinística (created_at ASC) - SEM ranking ou score
+   * 🔴 BLINDAGEM: Ordem determinística (createdAt ASC) - SEM ranking ou score
    */
   async discoverServices(
     tenantId: string,
@@ -231,11 +231,11 @@ class ServicesRepository {
         s.service_id, s.tenant_id, s.actor_id, s.name, s.slug, s.description, s.short_description,
         s.service_type, s.status, s.category_id, s.price_cents, s.currency, s.pricing_type,
         s.country_id, s.state_id, s.city_id, s.neighborhood, s.metadata,
-        s.created_at, s.updated_at, s.activated_at
+        s.createdAt, s.updatedAt, s.activatedAt
       FROM services s
       ${joinClause}
       WHERE ${conditions.join(' AND ')}
-      ORDER BY s.created_at ASC
+      ORDER BY s.createdAt ASC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
 
@@ -327,7 +327,7 @@ class ServicesRepository {
         service_id, tenant_id, actor_id, name, slug, description, short_description,
         service_type, status, category_id, price_cents, currency, pricing_type,
         country_id, state_id, city_id, neighborhood, metadata,
-        created_at, updated_at, activated_at
+        createdAt, updatedAt, activatedAt
       `,
       params
     );
@@ -337,4 +337,6 @@ class ServicesRepository {
 }
 
 export const servicesRepository = new ServicesRepository();
+
+
 

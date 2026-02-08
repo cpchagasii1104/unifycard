@@ -11,8 +11,8 @@ export interface GroupVote {
   description: string | null;
   status: VoteStatus;
   closesAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupVoteOption {
@@ -21,7 +21,7 @@ export interface GroupVoteOption {
   tenantId: string;
   text: string;
   displayOrder: number;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface GroupVoteResponse {
@@ -30,7 +30,7 @@ export interface GroupVoteResponse {
   optionId: string;
   tenantId: string;
   userId: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateVoteInput {
@@ -38,10 +38,10 @@ export interface CreateVoteInput {
   description?: string | null;
   options: string[]; // Array de textos das opções (mínimo 2, máximo 20 - validação app-level)
   closesAt?: string | null; // ISO 8601 datetime string
-  // 🔴 FASE 2: starts_at/ends_at são READ-MODEL ou INPUT declarativo, não verdade temporal
+  // 🔴 FASE 2: startsAt/endsAt são READ-MODEL ou INPUT declarativo, não verdade temporal
   // Não bloqueiam agenda, não resolvem conflito, não criam booking
-  starts_at?: string | null;
-  ends_at?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export interface VoteOptionWithCount extends GroupVoteOption {
@@ -60,7 +60,7 @@ export interface VoteWithVoters extends VoteWithOptions {
     optionId: string;
     userId: string;
     userName: string | null;
-    createdAt: Date;
+    createdAt: string;
   }>;
 }
 
@@ -73,9 +73,9 @@ interface GroupVoteRow {
   title: string;
   description: string | null;
   status: string;
-  closes_at: Date | null;
-  created_at: Date;
-  updated_at: Date;
+  closesAt: Date | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface GroupVoteOptionRow {
@@ -84,7 +84,7 @@ interface GroupVoteOptionRow {
   tenant_id: string;
   text: string;
   display_order: number;
-  created_at: Date;
+  createdAt: string;
 }
 
 interface GroupVoteResponseRow {
@@ -93,7 +93,7 @@ interface GroupVoteResponseRow {
   option_id: string;
   tenant_id: string;
   user_id: string;
-  created_at: Date;
+  createdAt: string;
 }
 
 export function toGroupVote(row: GroupVoteRow): GroupVote {
@@ -105,9 +105,9 @@ export function toGroupVote(row: GroupVoteRow): GroupVote {
     title: row.title,
     description: row.description,
     status: row.status as VoteStatus,
-    closesAt: row.closes_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    closesAt: row.closesAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -118,7 +118,7 @@ export function toGroupVoteOption(row: GroupVoteOptionRow): GroupVoteOption {
     tenantId: row.tenant_id,
     text: row.text,
     displayOrder: row.display_order,
-    createdAt: row.created_at,
+    createdAt: row.createdAt,
   };
 }
 
@@ -129,6 +129,9 @@ export function toGroupVoteResponse(row: GroupVoteResponseRow): GroupVoteRespons
     optionId: row.option_id,
     tenantId: row.tenant_id,
     userId: row.user_id,
-    createdAt: row.created_at,
+    createdAt: row.createdAt,
   };
 }
+
+
+

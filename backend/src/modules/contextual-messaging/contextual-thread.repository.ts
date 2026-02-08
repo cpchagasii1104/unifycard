@@ -19,8 +19,8 @@ interface ContextualThreadRow {
   title: string | null;
   participant_actor_ids: string[];
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface ContextualMessageRow {
@@ -31,7 +31,7 @@ interface ContextualMessageRow {
   sender_user_id: string | null;
   content: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class ContextualThreadRepository {
@@ -44,8 +44,8 @@ class ContextualThreadRepository {
       title: row.title,
       participantActorIds: row.participant_actor_ids,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -58,7 +58,7 @@ class ContextualThreadRepository {
       senderUserId: row.sender_user_id,
       content: row.content,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -77,7 +77,7 @@ class ContextualThreadRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
       RETURNING thread_id, tenant_id, context_type, context_id, title, 
-                participant_actor_ids, metadata, created_at, updated_at
+                participant_actor_ids, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -104,7 +104,7 @@ class ContextualThreadRepository {
       tenantId,
       `
       SELECT thread_id, tenant_id, context_type, context_id, title, 
-             participant_actor_ids, metadata, created_at, updated_at
+             participant_actor_ids, metadata, createdAt, updatedAt
       FROM contextual_threads
       WHERE tenant_id = $1 AND thread_id = $2
       `,
@@ -126,10 +126,10 @@ class ContextualThreadRepository {
       tenantId,
       `
       SELECT thread_id, tenant_id, context_type, context_id, title, 
-             participant_actor_ids, metadata, created_at, updated_at
+             participant_actor_ids, metadata, createdAt, updatedAt
       FROM contextual_threads
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       LIMIT 1
       `,
       [tenantId, contextType, contextId]
@@ -144,7 +144,7 @@ class ContextualThreadRepository {
   async findThreads(
     tenantId: string,
     filters: ContextualThreadFilters = {}
-  ): Promise<{ threads: ContextualThread[]; total: number }> {
+  ): Promise<{ threads: ContextualThread[]; totalCents: number }> {
     const conditions: string[] = ['tenant_id = $1'];
     const params: any[] = [tenantId];
     let paramIndex = 2;
@@ -187,10 +187,10 @@ class ContextualThreadRepository {
       tenantId,
       `
       SELECT thread_id, tenant_id, context_type, context_id, title, 
-             participant_actor_ids, metadata, created_at, updated_at
+             participant_actor_ids, metadata, createdAt, updatedAt
       FROM contextual_threads
       ${whereClause}
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `,
       [...params, limit, offset]
@@ -215,11 +215,11 @@ class ContextualThreadRepository {
       `
       UPDATE contextual_threads
       SET participant_actor_ids = array_append(participant_actor_ids, $3),
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND thread_id = $2
         AND NOT ($3 = ANY(participant_actor_ids))
       RETURNING thread_id, tenant_id, context_type, context_id, title, 
-                participant_actor_ids, metadata, created_at, updated_at
+                participant_actor_ids, metadata, createdAt, updatedAt
       `,
       [tenantId, threadId, actorId]
     );
@@ -249,7 +249,7 @@ class ContextualThreadRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
       RETURNING message_id, thread_id, tenant_id, sender_actor_id, sender_user_id, 
-                content, metadata, created_at
+                content, metadata, createdAt
       `,
       [
         threadId,
@@ -276,7 +276,7 @@ class ContextualThreadRepository {
     threadId: string,
     limit: number = 100,
     offset: number = 0
-  ): Promise<{ messages: ContextualMessage[]; total: number }> {
+  ): Promise<{ messages: ContextualMessage[]; totalCents: number }> {
     // Contar total
     const countRow = await runQueryWithTenant<{ count: string }>(
       tenantId,
@@ -295,10 +295,10 @@ class ContextualThreadRepository {
       tenantId,
       `
       SELECT message_id, thread_id, tenant_id, sender_actor_id, sender_user_id, 
-             content, metadata, created_at
+             content, metadata, createdAt
       FROM contextual_messages
       WHERE tenant_id = $1 AND thread_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       LIMIT $3 OFFSET $4
       `,
       [tenantId, threadId, limit, offset]
@@ -312,6 +312,9 @@ class ContextualThreadRepository {
 }
 
 export const contextualThreadRepository = new ContextualThreadRepository();
+
+
+
 
 
 

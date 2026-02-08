@@ -11,7 +11,7 @@ import { NotFoundError } from '@core/errors';
 export interface TrustDashboard {
   // Score principal
   currentScore: number;
-  scoreBadge: 'EXCELLENT' | 'GOOD' | 'WARNING' | 'CRITICAL' | 'BLOCKED';
+  scoreBadge: 'excellent' | 'good' | 'warning' | 'critical' | 'blocked';
   scoreMessage: string;
 
   // Estatísticas gerais
@@ -164,7 +164,7 @@ class TrustService {
     since.setMonth(since.getMonth() - months);
 
     const history = await runQueriesWithTenant<{
-      created_at: Date;
+      createdAt: Date;
       previous_score: number;
       new_score: number;
       change_amount: number;
@@ -173,17 +173,17 @@ class TrustService {
     }>(
       tenantId,
       `
-      SELECT created_at, previous_score, new_score, change_amount, reason, event_id
+      SELECT createdAt, previous_score, new_score, change_amount, reason, event_id
       FROM actor_score_history
       WHERE tenant_id = $1 AND actor_score_id = $2
-        AND created_at >= $3
-      ORDER BY created_at DESC
+        AND createdAt >= $3
+      ORDER BY createdAt DESC
       `,
       [tenantId, score.id, since]
     );
 
     return (history || []).map((h) => ({
-      date: h.created_at.toISOString(),
+      date: h.createdAt.toISOString(),
       score: h.new_score,
       change: h.change_amount,
       reason: h.reason,
@@ -232,7 +232,7 @@ class TrustService {
 
     // Calcular tempo na plataforma
     const timeOnPlatform = Math.floor(
-      (Date.now() - new Date(score.created_at).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - new Date(score.createdAt).getTime()) / (1000 * 60 * 60 * 24)
     );
 
     return {
@@ -400,14 +400,14 @@ class TrustService {
       tenantId,
       `
       SELECT 
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_received,
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'organizer' THEN amount_cents ELSE 0 END), 0) as as_organizer,
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'provider' THEN amount_cents ELSE 0 END), 0) as as_provider,
-        COALESCE(SUM(CASE WHEN entry_type = 'DEBIT' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_paid,
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'target' = 'community' THEN amount_cents ELSE 0 END), 0) as impact_community,
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'target' = 'city' THEN amount_cents ELSE 0 END), 0) as impact_city,
-        COALESCE(SUM(CASE WHEN entry_type = 'CREDIT' AND metadata->>'target' = 'region' THEN amount_cents ELSE 0 END), 0) as impact_region,
-        COALESCE((SELECT SUM(amount_cents) FROM actor_debts WHERE tenant_id = $1 AND debtor_actor_id = $2 AND status = 'PENDING'), 0) as pending_debts
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_received,
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'organizer' THEN amount_cents ELSE 0 END), 0) as as_organizer,
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'provider' THEN amount_cents ELSE 0 END), 0) as as_provider,
+        COALESCE(SUM(CASE WHEN entry_type = 'debit' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'community' THEN amount_cents ELSE 0 END), 0) as impact_community,
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'city' THEN amount_cents ELSE 0 END), 0) as impact_city,
+        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'region' THEN amount_cents ELSE 0 END), 0) as impact_region,
+        COALESCE((SELECT SUM(amount_cents) FROM actor_debts WHERE tenant_id = $1 AND debtor_actor_id = $2 AND status = 'pending'), 0) as pending_debts
       FROM ledger
       WHERE tenant_id = $1
       `,
@@ -479,7 +479,7 @@ class TrustService {
         COALESCE(SUM(amount_cents), 0) as total_received
       FROM actor_debts
       WHERE tenant_id = $1 AND creditor_actor_id = $2 AND creditor_actor_type = $3
-        AND status IN ('PAID', 'TRANSFERRED_TO_ORGANIZER')
+        AND status IN ('paid', 'transferred_to_organizer')
       `,
       [tenantId, actorId, actorType]
     );
@@ -514,16 +514,16 @@ class TrustService {
       penalty_type: string;
       reason: string;
       severity: string;
-      ends_at: Date | null;
+      endsAt: Date | null;
     }>(
       tenantId,
       `
-      SELECT id, penalty_type, reason, severity, ends_at
+      SELECT id, penalty_type, reason, severity, endsAt
       FROM actor_penalties
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-        AND status = 'ACTIVE'
-        AND (ends_at IS NULL OR ends_at > now())
-      ORDER BY created_at DESC
+        AND status = 'active'
+        AND (endsAt IS NULL OR endsAt > now())
+      ORDER BY createdAt DESC
       `,
       [tenantId, actorId, actorType]
     );
@@ -532,16 +532,16 @@ class TrustService {
       id: string;
       penalty_type: string;
       reason: string;
-      created_at: Date;
-      resolved_at: Date | null;
+      createdAt: Date;
+      resolvedAt: Date | null;
     }>(
       tenantId,
       `
-      SELECT id, penalty_type, reason, created_at, resolved_at
+      SELECT id, penalty_type, reason, createdAt, resolvedAt
       FROM actor_penalties
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
         AND status != 'ACTIVE'
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 20
       `,
       [tenantId, actorId, actorType]
@@ -553,14 +553,14 @@ class TrustService {
         type: p.penalty_type,
         reason: p.reason,
         severity: p.severity,
-        endsAt: p.ends_at,
+        endsAt: p.endsAt,
       })),
       history: (history || []).map((p) => ({
         id: p.id,
         type: p.penalty_type,
         reason: p.reason,
-        createdAt: p.created_at,
-        resolvedAt: p.resolved_at,
+        createdAt: p.createdAt,
+        resolvedAt: p.resolvedAt,
       })),
     };
   }
@@ -644,4 +644,5 @@ class TrustService {
 }
 
 export const trustService = new TrustService();
+
 

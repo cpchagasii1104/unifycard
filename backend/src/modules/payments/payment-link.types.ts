@@ -21,7 +21,7 @@ export interface PaymentLink {
   slug: string;
   title: string;
   description: string | null;
-  amount: number;
+  amountCents: number;
   currency: string;
   expiresAt: Date | null;
   maxUses: number | null;
@@ -29,8 +29,8 @@ export interface PaymentLink {
   status: PaymentLinkStatus;
   contactId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface PaymentLink {
 export interface CreatePaymentLinkInput {
   title: string;
   description?: string;
-  amount: number;
+  amountCents: number;
   currency?: string;
   expiresAt?: Date;
   maxUses?: number;
@@ -59,9 +59,11 @@ export interface PaymentLinkPayment {
   contactId: string | null;
   status: PaymentLinkPaymentStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
+
+
 
 
 

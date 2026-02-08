@@ -27,8 +27,8 @@ interface EscrowAccountRow {
   current_milestone: string | null;
   dispute_status: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface PaymentMilestoneRow {
@@ -38,13 +38,13 @@ interface PaymentMilestoneRow {
   amount_cents: number;
   percentage: number;
   status: string;
-  authorized_at: Date | null;
-  released_at: Date | null;
+  authorizedAt: Date | null;
+  releasedAt: Date | null;
   authorized_by_actor_id: string | null;
   released_by_actor_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface EscrowTransactionRow {
@@ -56,11 +56,11 @@ interface EscrowTransactionRow {
   currency: string;
   status: string;
   initiated_by_actor_id: string;
-  completed_at: Date | null;
+  completedAt: Date | null;
   failure_reason: string | null;
   bank_transaction_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class EscrowRepository {
@@ -81,8 +81,8 @@ class EscrowRepository {
       currentMilestone: row.current_milestone as any,
       disputeStatus: row.dispute_status as any,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -94,13 +94,13 @@ class EscrowRepository {
       amountCents: row.amount_cents,
       percentage: Number(row.percentage),
       status: row.status as any,
-      authorizedAt: row.authorized_at,
-      releasedAt: row.released_at,
+      authorizedAt: row.authorizedAt,
+      releasedAt: row.releasedAt,
       authorizedByActorId: row.authorized_by_actor_id,
       releasedByActorId: row.released_by_actor_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -114,11 +114,11 @@ class EscrowRepository {
       currency: row.currency,
       status: row.status as any,
       initiatedByActorId: row.initiated_by_actor_id,
-      completedAt: row.completed_at,
+      completedAt: row.completedAt,
       failureReason: row.failure_reason,
       bankTransactionId: row.bank_transaction_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -154,8 +154,8 @@ class EscrowRepository {
             evidencePackId,
             0, // Será atualizado com valor do agreement
             'BRL',
-            'PENDING',
-            'NONE',
+            'pending',
+            'none',
           ],
         },
       ],
@@ -179,7 +179,7 @@ class EscrowRepository {
       {
         text: `
           UPDATE escrow_accounts
-          SET total_amount_cents = $3, currency = $4, updated_at = NOW()
+          SET total_amount_cents = $3, currency = $4, updatedAt = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
@@ -252,7 +252,7 @@ class EscrowRepository {
         text: `
           SELECT * FROM escrow_accounts
           WHERE tenant_id = $1 AND agreement_id = $2
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT 1
         `,
         values: [tenantId, agreementId],
@@ -303,13 +303,13 @@ class EscrowRepository {
     let paramIndex = 4;
 
     if (status === 'AUTHORIZED' && authorizedByActorId) {
-      updates.push(`authorized_at = NOW()`, `authorized_by_actor_id = $${paramIndex}`);
+      updates.push(`authorizedAt = NOW()`, `authorized_by_actor_id = $${paramIndex}`);
       values.push(authorizedByActorId);
       paramIndex++;
     }
 
-    if (status === 'RELEASED' && releasedByActorId) {
-      updates.push(`released_at = NOW()`, `released_by_actor_id = $${paramIndex}`);
+    if (status === 'released' && releasedByActorId) {
+      updates.push(`releasedAt = NOW()`, `released_by_actor_id = $${paramIndex}`);
       values.push(releasedByActorId);
       paramIndex++;
     }
@@ -319,7 +319,7 @@ class EscrowRepository {
       {
         text: `
           UPDATE payment_milestones
-          SET ${updates.join(', ')}, updated_at = NOW()
+          SET ${updates.join(', ')}, updatedAt = NOW()
           WHERE milestone_id = $2
             AND escrow_id IN (SELECT escrow_id FROM escrow_accounts WHERE tenant_id = $1)
           RETURNING *
@@ -384,7 +384,7 @@ class EscrowRepository {
       {
         text: `
           UPDATE escrow_accounts
-          SET ${updates.join(', ')}, updated_at = NOW()
+          SET ${updates.join(', ')}, updatedAt = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
@@ -450,7 +450,7 @@ class EscrowRepository {
           SELECT et.* FROM escrow_transactions et
           INNER JOIN escrow_accounts ea ON et.escrow_id = ea.escrow_id
           WHERE ea.tenant_id = $1 AND et.escrow_id = $2
-          ORDER BY et.created_at DESC
+          ORDER BY et.createdAt DESC
         `,
         values: [tenantId, escrowId],
       },
@@ -473,7 +473,7 @@ class EscrowRepository {
       {
         text: `
           UPDATE escrow_accounts
-          SET service_order_id = $3, updated_at = NOW()
+          SET service_order_id = $3, updatedAt = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
@@ -532,7 +532,7 @@ class EscrowRepository {
         text: `
           SELECT * FROM escrow_accounts
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -545,4 +545,6 @@ class EscrowRepository {
 }
 
 export const escrowRepository = new EscrowRepository();
+
+
 

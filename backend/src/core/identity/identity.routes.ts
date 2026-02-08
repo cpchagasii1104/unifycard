@@ -25,15 +25,26 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const userId = req.user.userId;
-      if (!userId) {
-        return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+
+      const actorId = req.actionContext.actorId;
 
       // 🔴 CORREÇÃO CRÍTICA: Buscar perfil - se não existir, retornar estrutura parcial
       // NUNCA criar global_user em fluxo de GET, mas também NÃO retornar 500
       // Retornar estrutura mínima para permitir primeiro acesso
       // 🔴 CORREÇÃO DEFINITIVA: Se getIdentityProfile falhar, tentar buscar dados do cadastro
+      // Usar actorId do ActionContext (V2)
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findById(req.tenant.id, actorId);
+      if (!actor || !actor.user_id) {
+        return reply.status(404).send({ ok: false, message: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const userId = actor.user_id;
+      
       let profile: IdentityProfile | null = null;
       try {
         profile = await identityService.getIdentityProfile(userId, req.tenant.id);
@@ -62,11 +73,11 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
             id: string;
             tenant_id: string;
             email: string;
-            created_at: Date;
+            createdAt: Date;
             global_user_id: string | null;
           }>(
             req.tenant.id,
-            `SELECT id, tenant_id, email, created_at, global_user_id FROM users WHERE id = $1 LIMIT 1`,
+            `SELECT id, tenant_id, email, createdAt, global_user_id FROM users WHERE id = $1 LIMIT 1`,
             [userId]
           );
           
@@ -87,10 +98,10 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
                 birthdate: Date | null;
                 avatar_url: string | null;
                 metadata: any;
-                created_at: Date;
-                updated_at: Date;
+                createdAt: Date;
+                updatedAt: Date;
               }>(
-                `SELECT global_user_id, full_name, birthdate, avatar_url, metadata, created_at, updated_at 
+                `SELECT global_user_id, full_name, birthdate, avatar_url, metadata, createdAt, updatedAt 
                  FROM global_users 
                  WHERE global_user_id = $1 
                  LIMIT 1`,
@@ -119,14 +130,14 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
               birthdate: globalUserData?.birthdate || null,
               avatarUrl: globalUserData?.avatar_url || null,
               metadata: globalUserData?.metadata || {},
-              createdAt: globalUserData?.created_at || localUser.created_at,
-              updatedAt: globalUserData?.updated_at || localUser.created_at,
+              createdAt: globalUserData?.createdAt || localUser.createdAt,
+              updatedAt: globalUserData?.updatedAt || localUser.createdAt,
             },
             local: {
               userId: localUser.id,
               tenantId: localUser.tenant_id,
               email: localUser.email,
-              createdAt: localUser.created_at,
+              createdAt: localUser.createdAt,
             },
             reputation: undefined,
             wallet: undefined,
@@ -349,12 +360,22 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const userId = req.user.userId;
-        if (!userId) {
-          return reply.status(400).send({ error: 'User ID não encontrado' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
+        const actorId = req.actionContext.actorId;
+
         // 🔴 REGRA CRÍTICA: Buscar perfil - se não existir, lançar erro explícito
+        // Usar actorId do ActionContext (V2)
+        const { socialPortsRegistry } = await import('@core/social/ports-registry');
+        const actorRepository = socialPortsRegistry.getActorRepository();
+        const actor = await actorRepository.findById(req.tenant.id, actorId);
+        if (!actor || !actor.user_id) {
+          throw new NotFoundError('Actor não encontrado ou não é do tipo user');
+        }
+        const userId = actor.user_id;
         // NUNCA criar global_user em fluxo de update
         let profile: IdentityProfile;
         try {
@@ -541,6 +562,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         }, '🔍 DIAGNÓSTICO: Iniciando UPDATE');
 
         const updated = await identityService.updateGlobalIdentity(
+          req.tenant.id,
           profile.global.globalUserId,
           updates
         );
@@ -683,12 +705,13 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
-      const reputation = await reputationService.getScoreByGlobalUserId(req.user.globalUserId);
+      const reputation = await reputationService.getScoreByGlobalUserId(req.actionContext.actorId);
       
       if (!reputation) {
         return reply.status(404).send({ error: 'Reputação não encontrada' });
@@ -710,18 +733,24 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    // 🔴 Sem globalUserId: retornar 200 com payload vazio (não é erro)
-    if (!req.user.globalUserId) {
-      return reply.status(200).send({
-        hasWallet: false,
-        balance: 0,
-        currency: 'BRL',
-      });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
+      // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor || !actor.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+      const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
+      
       // Buscar todas as contas do global_user_id
-      const accounts = await accountService.getAccountsByGlobalUserId(req.user.globalUserId);
+      const accounts = await accountService.getAccountsByGlobalUserId(globalUserId);
       
       // 🔴 Sem conta: retornar 200 com payload vazio (não é erro)
       if (accounts.length === 0) {
@@ -737,7 +766,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Buscar últimas transações
       const transactions = await transactionService.getTransactionsByGlobalUserId(
-        req.user.globalUserId,
+        req.actionContext.actorId,
         { limit: 10 }
       );
 
@@ -763,7 +792,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return {
-        globalUserId: req.user.globalUserId,
+        globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
         balance: primaryAccount.balance,
         currency: primaryAccount.currency,
         totalIn,
@@ -785,8 +814,9 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -795,7 +825,16 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       // Buscar todas as contas do global_user_id
-      const accounts = await accountService.getAccountsByGlobalUserId(req.user.globalUserId);
+      // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry: socialPortsRegistry2 } = await import('@core/social/ports-registry');
+      const actorRepository2 = socialPortsRegistry2.getActorRepository();
+      const actor2 = await actorRepository2.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor2 || !actor2.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const { resolveGlobalUserId: resolveGlobalUserId2 } = await import('@core/identity/identity.utils');
+      const globalUserId2 = await resolveGlobalUserId2(actor2.user_id, req.tenant.id);
+      const accounts = await accountService.getAccountsByGlobalUserId(globalUserId2);
       
       if (accounts.length === 0) {
         return reply.status(404).send({ error: 'Nenhuma conta encontrada' });
@@ -824,7 +863,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       allEntries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       return {
-        globalUserId: req.user.globalUserId,
+        globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
         entries: allEntries.slice(0, 100), // Limitar a 100 entradas
         totalEntries: allEntries.length,
       };
@@ -843,12 +882,22 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
-      const globalUser = await identityService.getGlobalIdentity(req.user.globalUserId);
+      // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry: socialPortsRegistry3 } = await import('@core/social/ports-registry');
+      const actorRepository3 = socialPortsRegistry3.getActorRepository();
+      const actor3 = await actorRepository3.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor3 || !actor3.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const { resolveGlobalUserId: resolveGlobalUserId3 } = await import('@core/identity/identity.utils');
+      const globalUserId3 = await resolveGlobalUserId3(actor3.user_id, req.tenant.id);
+      const globalUser = await identityService.getGlobalIdentity(globalUserId3);
       if (!globalUser) {
         return reply.status(404).send({ error: 'Usuário não encontrado' });
       }
@@ -887,13 +936,23 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       try {
         // Buscar metadata atual
-        const globalUser = await identityService.getGlobalIdentity(req.user.globalUserId);
+        // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry: socialPortsRegistry3 } = await import('@core/social/ports-registry');
+      const actorRepository3 = socialPortsRegistry3.getActorRepository();
+      const actor3 = await actorRepository3.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor3 || !actor3.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const { resolveGlobalUserId: resolveGlobalUserId3 } = await import('@core/identity/identity.utils');
+      const globalUserId3 = await resolveGlobalUserId3(actor3.user_id, req.tenant.id);
+      const globalUser = await identityService.getGlobalIdentity(globalUserId3);
         if (!globalUser) {
           return reply.status(404).send({ error: 'Usuário não encontrado' });
         }
@@ -904,7 +963,16 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           userType: req.body.userType,
         };
 
-        const updated = await identityService.updateGlobalIdentity(req.user.globalUserId, {
+        // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+        const { socialPortsRegistry: socialPortsRegistry4 } = await import('@core/social/ports-registry');
+        const actorRepository4 = socialPortsRegistry4.getActorRepository();
+        const actor4 = await actorRepository4.findById(req.tenant.id, req.actionContext.actorId);
+        if (!actor4 || !actor4.user_id) {
+          return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+        }
+        const { resolveGlobalUserId: resolveGlobalUserId4 } = await import('@core/identity/identity.utils');
+        const globalUserId4 = await resolveGlobalUserId4(actor4.user_id, req.tenant.id);
+        const updated = await identityService.updateGlobalIdentity(req.tenant.id, globalUserId4, {
           metadata: updatedMetadata,
         });
 
@@ -942,10 +1010,12 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const userId = req.user.userId;
-      if (!userId) {
-        return reply.status(400).send({ error: 'User ID não encontrado' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+
+      const actorId = req.actionContext.actorId;
 
       const { profileService } = await import('@core/profile/profile.service');
       
@@ -978,4 +1048,5 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default identityRoutes;
+
 

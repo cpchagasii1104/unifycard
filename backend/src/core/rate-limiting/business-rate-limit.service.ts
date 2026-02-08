@@ -86,7 +86,7 @@ class BusinessRateLimitService {
         WHERE tenant_id = $1
           AND actor_id = $2
           AND action = $3
-          AND created_at >= $4
+          AND createdAt >= $4
         `,
         [tenantId, actorId, this._mapActionToAuditAction(action), windowStart]
       );
@@ -142,6 +142,7 @@ class BusinessRateLimitService {
 }
 
 export const businessRateLimitService = new BusinessRateLimitService();
+
 
 
 

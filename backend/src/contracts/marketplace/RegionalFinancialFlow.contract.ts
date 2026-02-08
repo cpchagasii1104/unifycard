@@ -28,26 +28,26 @@ export interface RegionalFinancialFlow {
     month: number; // 1-12
   };
   // Totais
-  total_transacted: number; // Total transacionado
-  total_fees: number; // Total de taxas
+  totalTransactedCents: number; // Total transacionado
+  totalFeesCents: number; // Total de taxas
   // Destino das taxas
-  regional_fund: {
-    total_revenue: number; // Total recebido pelo Fundo Regional
-    infrastructure_cost: number; // Total gasto em infraestrutura
-    net_balance: number; // Saldo líquido (receita - custos)
+  regionalFund: {
+    totalRevenueCents: number; // Total recebido pelo Fundo Regional
+    infrastructureCostCents: number; // Total gasto em infraestrutura
+    netBalanceCents: number; // Saldo líquido (receita - custos)
   };
   platform: {
-    total_revenue: number; // Total recebido pela Plataforma
+    totalRevenueCents: number; // Total recebido pela Plataforma
   };
   infrastructure: {
-    total_cost: number; // Total custo de infraestrutura
-    funded_by_regional_fund: number; // Financiado pelo Fundo Regional
+    totalCostCents: number; // Total custo de infraestrutura
+    fundedByRegionalFundCents: number; // Financiado pelo Fundo Regional
   };
   incentives: {
-    total_granted: number; // Total de incentivos concedidos
+    totalGrantedCents: number; // Total de incentivos concedidos
   };
   currency: string;
-  generated_at: string;
+  generatedAt: string;
 }
 
 

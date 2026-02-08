@@ -77,8 +77,8 @@ interface ActorScoreRow {
   total_no_shows: number;
   total_cancellations: number;
   total_complaints_received: number;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface ActorPenaltyRow {
@@ -90,12 +90,12 @@ interface ActorPenaltyRow {
   reason: string;
   event_id: string | null;
   severity: string;
-  starts_at: Date;
-  ends_at: Date | null;
+  startsAt: Date;
+  endsAt: Date | null;
   status: string;
   financial_amount_cents: number | null;
-  created_at: Date;
-  resolved_at: Date | null;
+  createdAt: Date;
+  resolvedAt: Date | null;
 }
 
 class PenaltyService {
@@ -128,8 +128,8 @@ class PenaltyService {
       await runQueryWithTenant(
         tenantId,
         `INSERT INTO actor_penalties 
-         (tenant_id, actor_id, actor_type, penalty_type, reason, event_id, severity, starts_at, ends_at, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, 'ACTIVE')
+         (tenant_id, actor_id, actor_type, penalty_type, reason, event_id, severity, startsAt, endsAt, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8, 'active')
          ON CONFLICT DO NOTHING`,
         [
           tenantId,
@@ -138,7 +138,7 @@ class PenaltyService {
           config.type,
           penaltyKey,
           eventId || null,
-          config.scoreChange <= -50 ? 'CRITICAL' : config.scoreChange <= -20 ? 'HIGH' : 'MEDIUM',
+          config.scoreChange <= -50 ? 'critical' : config.scoreChange <= -20 ? 'high' : 'medium',
           endsAt,
         ]
       );
@@ -211,7 +211,7 @@ class PenaltyService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE actor_scores 
-       SET current_score = $1, updated_at = now()
+       SET current_score = $1, updatedAt = now()
        WHERE tenant_id = $2 AND actor_id = $3 AND actor_type = $4`,
       [newScore, tenantId, actorId, actorType]
     );
@@ -256,14 +256,14 @@ class PenaltyService {
     actorId: string,
     actorType: 'user' | 'page' | 'group'
   ): Promise<{ hasDebt: boolean; totalAmountCents?: number }> {
-    const result = await runQueryWithTenant<{ total: string }>(
+    const result = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `SELECT COALESCE(SUM(amount_cents), 0)::text as total
        FROM actor_debts
        WHERE tenant_id = $1 
          AND debtor_actor_id = $2 
          AND debtor_actor_type = $3
-         AND status = 'PENDING'`,
+         AND status = 'pending'`,
       [tenantId, actorId, actorType]
     );
 
@@ -357,7 +357,7 @@ class PenaltyService {
       const { auditService } = await import('@core/audit/audit.service');
       const auditEvent = await auditService.record(tenantId, {
         event_type: 'RISK_SCORE_CHECK',
-        severity: strictMode ? 'HIGH' : 'MEDIUM',
+        severity: strictMode ? 'high' : 'medium',
         actor_id: actorId,
         actor_type: actorType === 'group' ? 'user' : actorType, // 'group' não suportado, usar 'user' como fallback
         source: 'penalty_service',
@@ -377,7 +377,7 @@ class PenaltyService {
         const { alertService } = await import('@modules/automation/alert.service');
         await alertService.createAlert(tenantId, {
           type: 'RISK_SCORE_LOW',
-          severity: strictMode ? 'HIGH' : 'MEDIUM',
+          severity: strictMode ? 'high' : 'medium',
           message: `Score baixo detectado para ação ${action}: ${reason}`,
           entityType: actorType,
           entityId: actorId,
@@ -579,7 +579,7 @@ class PenaltyService {
        WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
        AND status = 'ACTIVE'
        AND penalty_type = ANY($4)
-       AND (ends_at IS NULL OR ends_at > now())
+       AND (endsAt IS NULL OR endsAt > now())
        LIMIT 1`,
         [tenantId, actorId, actorType, types]
       )) || null
@@ -598,7 +598,7 @@ class PenaltyService {
        WHERE tenant_id = $1 
          AND actor_score_id IN (SELECT id FROM actor_scores WHERE actor_id = $2)
          AND reason IN ('BUYER_NO_SHOW', 'MULTIPLE_NO_SHOWS')
-         AND created_at >= $3`,
+         AND createdAt >= $3`,
       [tenantId, actorId, since]
     );
 
@@ -607,4 +607,6 @@ class PenaltyService {
 }
 
 export const penaltyService = new PenaltyService();
+
+
 

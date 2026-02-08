@@ -13,8 +13,8 @@ interface CompanyProfileRow {
   updated_by_actor_id: string | null;
   updated_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class CompanyProfileRepository {
@@ -28,8 +28,8 @@ class CompanyProfileRepository {
       updatedByActorId: row.updated_by_actor_id,
       updatedByUserId: row.updated_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -40,7 +40,7 @@ class CompanyProfileRepository {
       SELECT tenant_id, erp_profile, tax_regime,
              created_by_actor_id, created_by_user_id,
              updated_by_actor_id, updated_by_user_id,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM company_profiles
       WHERE tenant_id = $1
       `,
@@ -77,12 +77,12 @@ class CompanyProfileRepository {
             updated_by_actor_id = $4,
             updated_by_user_id = $5,
             metadata = $6::jsonb,
-            updated_at = NOW()
+            updatedAt = NOW()
         WHERE tenant_id = $1
         RETURNING tenant_id, erp_profile, tax_regime,
                   created_by_actor_id, created_by_user_id,
                   updated_by_actor_id, updated_by_user_id,
-                  metadata, created_at, updated_at
+                  metadata, createdAt, updatedAt
         `,
         [
           tenantId,
@@ -104,7 +104,7 @@ class CompanyProfileRepository {
         RETURNING tenant_id, erp_profile, tax_regime,
                   created_by_actor_id, created_by_user_id,
                   updated_by_actor_id, updated_by_user_id,
-                  metadata, created_at, updated_at
+                  metadata, createdAt, updatedAt
         `,
         [
           tenantId,
@@ -127,6 +127,8 @@ class CompanyProfileRepository {
 }
 
 export const companyProfileRepository = new CompanyProfileRepository();
+
+
 
 
 

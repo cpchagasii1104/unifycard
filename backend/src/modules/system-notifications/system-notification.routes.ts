@@ -25,12 +25,13 @@ const systemNotificationRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    // Se recipientActorId não for fornecido, usar o actor ativo
-    const recipientActorId = req.query.recipientActorId || actionContext?.actingActorId;
-
-    if (!recipientActorId) {
-      return reply.status(400).send({ error: 'recipientActorId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
+
+    // Se recipientActorId não for fornecido, usar o actor do ActionContext
+    const recipientActorId = req.query.recipientActorId || actionContext.actorId;
 
     try {
       const filters: SystemNotificationFilters = {
@@ -66,11 +67,13 @@ const systemNotificationRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    const recipientActorId = req.query.recipientActorId || actionContext?.actingActorId;
-
-    if (!recipientActorId) {
-      return reply.status(400).send({ error: 'recipientActorId é obrigatório' });
+    // ActionContext é obrigatório
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
+
+    const recipientActorId = req.query.recipientActorId || actionContext.actorId;
 
     try {
       const count = await systemNotificationService.countUnread(tenantId, recipientActorId);
@@ -145,11 +148,13 @@ const systemNotificationRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    const recipientActorId = req.body.recipientActorId || actionContext?.actingActorId;
-
-    if (!recipientActorId) {
-      return reply.status(400).send({ error: 'recipientActorId é obrigatório' });
+    // ActionContext é obrigatório
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
+
+    const recipientActorId = req.body.recipientActorId || actionContext.actorId;
 
     try {
       const result = await systemNotificationService.markAllAsRead(tenantId, recipientActorId);

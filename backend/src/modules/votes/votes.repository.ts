@@ -10,17 +10,17 @@ export interface VoteRow {
   description: string | null;
   status: 'draft' | 'active' | 'closed';
   created_by_actor_id: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  created_at: string;
-  updated_at: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface VoteOptionRow {
   option_id: string;
   vote_id: string;
   label: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface VoteResponseRow {
@@ -28,7 +28,7 @@ export interface VoteResponseRow {
   vote_id: string;
   vote_option_id: string;
   actor_id: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export class VotesRepository {
@@ -39,25 +39,25 @@ export class VotesRepository {
     title: string;
     description?: string;
     created_by_actor_id: string;
-    starts_at?: string;
-    ends_at?: string;
+    startsAt?: string;
+    endsAt?: string;
   }): Promise<VoteRow> {
     const row = await runQueryWithTenant<VoteRow>(
       tenantId,
       `
       INSERT INTO votes (
-        tenant_id, title, description, status, created_by_actor_id, starts_at, ends_at
+        tenant_id, title, description, status, created_by_actor_id, startsAt, endsAt
       )
       VALUES ($1, $2, $3, 'draft', $4, $5, $6)
-      RETURNING vote_id, tenant_id, title, description, status, created_by_actor_id, starts_at, ends_at, created_at, updated_at
+      RETURNING vote_id, tenant_id, title, description, status, created_by_actor_id, startsAt, endsAt, createdAt, updatedAt
       `,
       [
         tenantId,
         data.title,
         data.description || null,
         data.created_by_actor_id,
-        data.starts_at || null,
-        data.ends_at || null,
+        data.startsAt || null,
+        data.endsAt || null,
       ]
     );
 
@@ -75,7 +75,7 @@ export class VotesRepository {
     const row = await runQueryWithTenant<VoteRow>(
       tenantId,
       `
-      SELECT vote_id, tenant_id, title, description, status, created_by_actor_id, starts_at, ends_at, created_at, updated_at
+      SELECT vote_id, tenant_id, title, description, status, created_by_actor_id, startsAt, endsAt, createdAt, updatedAt
       FROM votes
       WHERE vote_id = $1 AND tenant_id = $2
       `,
@@ -92,7 +92,7 @@ export class VotesRepository {
     status?: 'draft' | 'active' | 'closed';
     limit?: number;
     offset?: number;
-  } = {}): Promise<{ rows: VoteRow[]; total: number }> {
+  } = {}): Promise<{ rows: VoteRow[]; totalCents: number }> {
     const limit = options.limit || 50;
     const offset = options.offset || 0;
     
@@ -107,10 +107,10 @@ export class VotesRepository {
     const rows = await runQueryWithTenant<VoteRow[]>(
       tenantId,
       `
-      SELECT vote_id, tenant_id, title, description, status, created_by_actor_id, starts_at, ends_at, created_at, updated_at
+      SELECT vote_id, tenant_id, title, description, status, created_by_actor_id, startsAt, endsAt, createdAt, updatedAt
       FROM votes
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
       params
@@ -128,7 +128,7 @@ export class VotesRepository {
 
     return {
       rows: rows || [],
-      total: parseInt(totalResult?.count || '0', 10),
+      totalCents: parseInt(totalResult?.count || '0', 10),
     };
   }
 
@@ -140,9 +140,9 @@ export class VotesRepository {
       tenantId,
       `
       UPDATE votes
-      SET status = $1, updated_at = now()
+      SET status = $1, updatedAt = now()
       WHERE vote_id = $2 AND tenant_id = $3
-      RETURNING vote_id, tenant_id, title, description, status, created_by_actor_id, starts_at, ends_at, created_at, updated_at
+      RETURNING vote_id, tenant_id, title, description, status, created_by_actor_id, startsAt, endsAt, createdAt, updatedAt
       `,
       [status, voteId, tenantId]
     );
@@ -163,7 +163,7 @@ export class VotesRepository {
       `
       INSERT INTO vote_options (vote_id, label)
       VALUES ($1, $2)
-      RETURNING option_id, vote_id, label, created_at
+      RETURNING option_id, vote_id, label, createdAt
       `,
       [voteId, label]
     );
@@ -182,11 +182,11 @@ export class VotesRepository {
     const rows = await runQueryWithTenant<VoteOptionRow[]>(
       tenantId,
       `
-      SELECT vo.option_id, vo.vote_id, vo.label, vo.created_at
+      SELECT vo.option_id, vo.vote_id, vo.label, vo.createdAt
       FROM vote_options vo
       INNER JOIN votes v ON v.vote_id = vo.vote_id
       WHERE vo.vote_id = $1 AND v.tenant_id = $2
-      ORDER BY vo.created_at ASC
+      ORDER BY vo.createdAt ASC
       `,
       [voteId, tenantId]
     );
@@ -206,7 +206,7 @@ export class VotesRepository {
     const existing = await runQueryWithTenant<VoteResponseRow>(
       tenantId,
       `
-      SELECT vr.response_id, vr.vote_id, vr.vote_option_id, vr.actor_id, vr.created_at
+      SELECT vr.response_id, vr.vote_id, vr.vote_option_id, vr.actor_id, vr.createdAt
       FROM vote_responses vr
       INNER JOIN votes v ON v.vote_id = vr.vote_id
       WHERE vr.vote_id = $1 AND vr.actor_id = $2 AND v.tenant_id = $3
@@ -223,7 +223,7 @@ export class VotesRepository {
       `
       INSERT INTO vote_responses (vote_id, vote_option_id, actor_id)
       VALUES ($1, $2, $3)
-      RETURNING response_id, vote_id, vote_option_id, actor_id, created_at
+      RETURNING response_id, vote_id, vote_option_id, actor_id, createdAt
       `,
       [data.vote_id, data.vote_option_id, data.actor_id]
     );
@@ -248,7 +248,7 @@ export class VotesRepository {
       option_id: string;
       label: string;
       count: string;
-      total: string;
+      totalCents: string;
     }>>(
       tenantId,
       `
@@ -262,7 +262,7 @@ export class VotesRepository {
       INNER JOIN votes v ON v.vote_id = vo.vote_id
       WHERE vo.vote_id = $1 AND v.tenant_id = $2
       GROUP BY vo.option_id, vo.label
-      ORDER BY vo.created_at ASC
+      ORDER BY vo.createdAt ASC
       `,
       [voteId, tenantId]
     );
@@ -303,6 +303,8 @@ export class VotesRepository {
 }
 
 export const votesRepository = new VotesRepository();
+
+
 
 
 

@@ -132,7 +132,7 @@ export class EmployeeService {
               reserved_via_action_id = NULL,
               updated_at = NOW()
             WHERE schedule_id = $1
-              AND start_time > $2
+              AND starts_at > $2
               AND status = 'reserved'
           `,
           values: [personalSchedule.schedule_id, now],
@@ -145,6 +145,7 @@ export class EmployeeService {
     });
   }
 }
+
 
 
 

@@ -18,13 +18,13 @@ export interface PayoutTransaction {
   paymentSplitId: string;
   recipientActorId: string;
   bankTransactionId?: string | null;
-  amount: number;
+  amountCents: number;
   currency: string;
   status: PayoutTransactionStatus;
   errorCode?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -34,6 +34,8 @@ export interface ExecutePayoutInput {
   paymentIntentId: string;
   actingUserId?: string;
 }
+
+
 
 
 

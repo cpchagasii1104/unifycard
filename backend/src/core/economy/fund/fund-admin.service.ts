@@ -90,9 +90,9 @@ class FundAdminService {
           SELECT 
             COALESCE(SUM(amount), 0) as total_amount,
             COUNT(*) as transaction_count,
-            MAX(created_at) as last_transaction_date,
-            COALESCE(SUM(CASE WHEN created_at >= $1 THEN amount ELSE 0 END), 0) as amount_7d,
-            COALESCE(SUM(CASE WHEN created_at >= $2 THEN amount ELSE 0 END), 0) as amount_30d
+            MAX(createdAt) as last_transaction_date,
+            COALESCE(SUM(CASE WHEN createdAt >= $1 THEN amount ELSE 0 END), 0) as amount_7d,
+            COALESCE(SUM(CASE WHEN createdAt >= $2 THEN amount ELSE 0 END), 0) as amount_30d
           FROM transactions
           WHERE tenant_id = $4
             AND to_account = $3
@@ -152,4 +152,5 @@ class FundAdminService {
 }
 
 export const fundAdminService = new FundAdminService();
+
 

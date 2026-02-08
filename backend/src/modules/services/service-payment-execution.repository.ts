@@ -25,12 +25,12 @@ class ServicePaymentExecutionRepository {
       paymentRequestId: row.payment_request_id,
       payerActorId: row.payer_actor_id,
       receiverActorId: row.receiver_actor_id,
-      amount: parseFloat(row.amount.toString()),
+      amountCents: parseFloat(row.amount.toString()),
       currency: row.currency,
-      executedAt: row.executed_at,
+      executedAt: row.executedAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -43,11 +43,11 @@ class ServicePaymentExecutionRepository {
       tenantId: row.tenant_id,
       executionId: row.execution_id,
       receiverActorId: row.receiver_actor_id,
-      amount: parseFloat(row.amount.toString()),
+      amountCents: parseFloat(row.amount.toString()),
       percentage: row.percentage ? parseFloat(row.percentage.toString()) : null,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -60,7 +60,7 @@ class ServicePaymentExecutionRepository {
       `
       SELECT 
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount, currency, executed_at, metadata, created_at, updated_at
+        amount, currency, executedAt, metadata, createdAt, updatedAt
       FROM service_payment_executions
       WHERE execution_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -85,7 +85,7 @@ class ServicePaymentExecutionRepository {
       `
       SELECT 
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount, currency, executed_at, metadata, created_at, updated_at
+        amount, currency, executedAt, metadata, createdAt, updatedAt
       FROM service_payment_executions
       WHERE payment_request_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -109,10 +109,10 @@ class ServicePaymentExecutionRepository {
       `
       SELECT 
         split_id, tenant_id, execution_id, receiver_actor_id,
-        amount, percentage, metadata, created_at, updated_at
+        amount, percentage, metadata, createdAt, updatedAt
       FROM payment_splits
       WHERE execution_id = $1 AND tenant_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [executionId, tenantId]
     );
@@ -130,7 +130,7 @@ class ServicePaymentExecutionRepository {
     paymentRequestId: string,
     payerActorId: string,
     receiverActorId: string,
-    amount: number,
+    amountCents: number,
     currency: string,
     bankTransactionId?: string
   ): Promise<ServicePaymentExecution> {
@@ -146,13 +146,13 @@ class ServicePaymentExecutionRepository {
       `
       INSERT INTO service_payment_executions (
         tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount, currency, executed_at, metadata
+        amount, currency, executedAt, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (payment_request_id) DO NOTHING
       RETURNING 
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
-        amount, currency, executed_at, metadata, created_at, updated_at
+        amount, currency, executedAt, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -183,7 +183,7 @@ class ServicePaymentExecutionRepository {
     tenantId: string,
     executionId: string,
     receiverActorId: string,
-    amount: number,
+    amountCents: number,
     percentage?: number | null,
     metadata?: Record<string, any>
   ): Promise<PaymentSplit> {
@@ -206,7 +206,7 @@ class ServicePaymentExecutionRepository {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING 
         split_id, tenant_id, execution_id, receiver_actor_id,
-        amount, percentage, metadata, created_at, updated_at
+        amount, percentage, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -223,4 +223,7 @@ class ServicePaymentExecutionRepository {
 }
 
 export const servicePaymentExecutionRepository = new ServicePaymentExecutionRepository();
+
+
+
 

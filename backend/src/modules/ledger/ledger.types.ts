@@ -42,7 +42,7 @@ export interface LedgerEntry {
   contextId: string;
   evidencePackId: string; // Obrigatório
   metadata: Record<string, any> | null; // splitIds, escrowId, agreementId, etc.
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -99,6 +99,7 @@ export interface ContextStatement {
   netAmountCents: number;
   currency: string;
 }
+
 
 
 

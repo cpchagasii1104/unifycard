@@ -29,7 +29,7 @@ class PilotHypothesesRepository {
       tenant_id: string;
       content: string;
       created_by_user_id: string;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -48,7 +48,7 @@ class PilotHypothesesRepository {
       tenantId: row.tenant_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -70,14 +70,14 @@ class PilotHypothesesRepository {
       tenant_id: string;
       content: string;
       created_by_user_id: string;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
         SELECT *
         FROM pilot_hypotheses
         WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT $2
         OFFSET $3
       `,
@@ -89,7 +89,7 @@ class PilotHypothesesRepository {
       tenantId: row.tenant_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
   }
 
@@ -116,6 +116,7 @@ class PilotHypothesesRepository {
 }
 
 export const pilotHypothesesRepository = new PilotHypothesesRepository();
+
 
 
 

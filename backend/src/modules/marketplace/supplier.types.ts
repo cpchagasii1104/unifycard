@@ -33,8 +33,8 @@ export interface Supplier {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -66,6 +66,7 @@ export interface SupplierFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

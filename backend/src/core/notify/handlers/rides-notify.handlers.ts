@@ -34,7 +34,7 @@ function validateEventContext(event: UnificardEvent, handlerName: string): void 
 }
 
 export function registerRidesNotifyHandlers(eventBus: EventBus) {
-  const toString = (value: unknown) => String(value ?? '');
+  const toString = (valueCents: unknown) => String(value ?? '');
 
   // Quando uma nova solicitação de corrida é criada
   eventBus.subscribe(
@@ -218,3 +218,4 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
     }
   );
 }
+

@@ -209,7 +209,7 @@ class EventFeedPlugin implements SocialFeedPlugin {
     // Assumindo que ticketPrice está em reais (ajustar se necessário)
     const priceInfo = event.ticketPrice
       ? {
-          amount: event.ticketPrice,
+          amountCents: event.ticketPrice,
           currency: 'BRL', // Default, pode ser extraído do evento se disponível
         }
       : null;
@@ -257,4 +257,5 @@ class EventFeedPlugin implements SocialFeedPlugin {
  * 🔴 BLINDAGEM: Singleton é apenas para acesso global, não para decisão
  */
 export const eventFeedPlugin = new EventFeedPlugin();
+
 

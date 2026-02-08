@@ -239,7 +239,7 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
     // Formatar preço se existir (priceCents está em centavos)
     const priceInfo = service.priceCents
       ? {
-          amount: service.priceCents / 100, // Converter centavos para reais
+          amountCents: service.priceCents / 100, // Converter centavos para reais
           amountCents: service.priceCents,
           currency: service.currency || 'BRL',
         }
@@ -291,4 +291,5 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
  * 🔴 BLINDAGEM: Singleton é apenas para acesso global, não para decisão
  */
 export const servicesFeedPlugin = new ServicesFeedPlugin();
+
 

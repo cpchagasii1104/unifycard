@@ -78,7 +78,7 @@ export interface BusinessAuditLog {
   contextType: BusinessAuditContextType;
   contextId: string;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -106,4 +106,5 @@ export interface BusinessAuditLogFilters {
   limit?: number;
   offset?: number;
 }
+
 

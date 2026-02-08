@@ -57,7 +57,7 @@ class BankBalanceConsolidationService {
 
     let query = `
       SELECT account_id, tenant_id, owner_id, owner_type, currency,
-             cached_balance, metadata, created_at, updated_at
+             cached_balance, metadata, createdAt, updatedAt
       FROM bank_accounts
       WHERE tenant_id = $1
     `;
@@ -86,18 +86,18 @@ class BankBalanceConsolidationService {
 
     // Filtros de data (se aplicável - filtrar por data de criação da conta)
     if (startDate) {
-      query += ` AND created_at >= $${paramIndex}`;
+      query += ` AND createdAt >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND created_at <= $${paramIndex}`;
+      query += ` AND createdAt <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const result = await client.query<{
       account_id: string;
@@ -107,8 +107,8 @@ class BankBalanceConsolidationService {
       currency: string;
       cached_balance: string;
       metadata: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(query, params);
 
     const allAccounts: BankAccount[] = result.rows.map((row) => ({
@@ -119,8 +119,8 @@ class BankBalanceConsolidationService {
       currency: row.currency as 'BRL' | 'USD' | 'EUR' | 'TEST',
       cachedBalance: parseFloat(row.cached_balance),
       metadata: row.metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     }));
 
     client.release();
@@ -319,4 +319,6 @@ class BankBalanceConsolidationService {
 }
 
 export const bankBalanceConsolidationService = new BankBalanceConsolidationService();
+
+
 

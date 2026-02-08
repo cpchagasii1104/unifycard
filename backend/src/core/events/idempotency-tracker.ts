@@ -59,11 +59,11 @@ export async function checkIdempotency(
         event_type as "eventType",
         handler_name as "handlerName",
         idempotency_key as "idempotencyKey",
-        processed_at as "processedAt",
+        processedAt as "processedAt",
         result_status as "resultStatus",
         result_data as "resultData",
         error_message as "errorMessage",
-        created_at as "createdAt"
+        createdAt as "createdAt"
       FROM event_idempotency_tracking
       WHERE tenant_id = $1 AND event_id = $2 AND handler_name = $3
       LIMIT 1
@@ -116,14 +116,14 @@ export async function recordIdempotencySuccess(
         idempotency_key,
         result_status,
         result_data,
-        processed_at
+        processedAt
       )
       VALUES ($1, $2, $3, $4, $5, 'success', $6, NOW())
       ON CONFLICT (tenant_id, event_id, handler_name)
       DO UPDATE SET
         result_status = 'success',
         result_data = EXCLUDED.result_data,
-        processed_at = NOW()
+        processedAt = NOW()
     `,
     [tenantId, eventId, eventType, handlerName, idempotencyKey, resultData ? JSON.stringify(resultData) : null]
   );
@@ -153,14 +153,14 @@ export async function recordIdempotencyError(
         idempotency_key,
         result_status,
         error_message,
-        processed_at
+        processedAt
       )
       VALUES ($1, $2, $3, $4, $5, 'error', $6, NOW())
       ON CONFLICT (tenant_id, event_id, handler_name)
       DO UPDATE SET
         result_status = 'error',
         error_message = EXCLUDED.error_message,
-        processed_at = NOW()
+        processedAt = NOW()
     `,
     [tenantId, eventId, eventType, handlerName, idempotencyKey, error.message]
   );
@@ -196,7 +196,7 @@ export async function recordIdempotencyReplay(
     tenantId,
     `
       UPDATE event_idempotency_tracking
-      SET processed_at = NOW()
+      SET processedAt = NOW()
       WHERE tenant_id = $1 AND event_id = $2 AND handler_name = $3
     `,
     [tenantId, eventId, handlerName]
@@ -257,4 +257,5 @@ export async function withIdempotency<T>(
     throw error;
   }
 }
+
 

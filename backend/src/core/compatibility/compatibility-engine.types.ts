@@ -2,7 +2,7 @@
 // Tipos do Motor de Compatibilidade
 // 🔴 BLINDAGEM: Validação técnica antes de booking
 
-export type CompatibilityStatus = 'OK' | 'WARNING' | 'BLOCKED';
+export type CompatibilityStatus = 'ok' | 'warning' | 'blocked';
 
 export interface CompatibilityResult {
   status: CompatibilityStatus;

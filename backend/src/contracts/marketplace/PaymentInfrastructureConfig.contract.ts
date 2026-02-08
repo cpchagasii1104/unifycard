@@ -19,24 +19,24 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface PaymentInfrastructureConfig {
-  config_id: string;
-  company_id: string;
+  configId: string;
+  companyId: string;
   // Configurações de aceitação
-  accept_unificard: boolean;
-  accept_external_gateway: boolean;
-  external_gateway_provider?: string; // Cielo, Stone, etc.
+  acceptUnificard: boolean;
+  acceptExternalGateway: boolean;
+  externalGatewayProvider?: string; // Cielo, Stone, etc.
   // Estrutura de taxas (determinística)
-  fee_structure: {
-    transaction_rate: number; // % sobre transação
-    regional_fund_percentage: number; // % da taxa que vai para Fundo Regional
-    platform_percentage: number; // % da taxa que vai para Plataforma
-    infrastructure_percentage: number; // % da taxa que cobre infraestrutura (debitado do Fundo Regional)
-    referral_percentage?: number; // % da taxa que vai para Indicação/Grupo
+  feeStructure: {
+    transactionRate: number; // % sobre transação
+    regionalFundPercentage: number; // % da taxa que vai para Fundo Regional
+    platformPercentage: number; // % da taxa que vai para Plataforma
+    infrastructurePercentage: number; // % da taxa que cobre infraestrutura (debitado do Fundo Regional)
+    referralPercentage?: number; // % da taxa que vai para Indicação/Grupo
   };
   // Status
   status: 'active' | 'suspended' | 'inactive';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

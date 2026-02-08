@@ -18,17 +18,17 @@ export async function getActiveReferral(
   // Tentar buscar da tabela referrals (nova)
   const referralResult = await runQueryWithTenant<{
     referrer_user_id: string;
-    ends_at: Date;
+    endsAt: Date;
     status: string;
   }>(
     tenantId,
     `
-      SELECT referrer_user_id, ends_at, status
+      SELECT referrer_user_id, endsAt, status
       FROM referrals
       WHERE tenant_id = $1 
         AND referred_user_id = $2 
         AND status = 'active'
-        AND ends_at > $3
+        AND endsAt > $3
       LIMIT 1
     `,
     [tenantId, userId, atDate]
@@ -41,11 +41,11 @@ export async function getActiveReferral(
   // Fallback: usar user_referral_links (legacy) para backward compatibility
   const legacyResult = await runQueryWithTenant<{
     referrer_user_id: string;
-    created_at: Date;
+    createdAt: Date;
   }>(
     tenantId,
     `
-      SELECT referrer_user_id, created_at
+      SELECT referrer_user_id, createdAt
       FROM user_referral_links
       WHERE tenant_id = $1 AND referred_user_id = $2
       LIMIT 1
@@ -58,7 +58,7 @@ export async function getActiveReferral(
   }
 
   const link = legacyResult[0];
-  const referralDate = new Date(link.created_at);
+  const referralDate = new Date(link.createdAt);
   const oneYearAgo = new Date(atDate);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
@@ -70,6 +70,7 @@ export async function getActiveReferral(
   // Após 1 ano, referral não é mais ativo
   return null;
 }
+
 
 
 

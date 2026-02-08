@@ -23,7 +23,7 @@ export interface UnifyCardMethod {
   feePercentage: number; // Ex: 0.0299 = 2.99%
   settlementDelayDays: number; // Dias para liquidação
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -35,6 +35,7 @@ export interface CreateUnifyCardMethodInput {
   settlementDelayDays?: number;
   metadata?: Record<string, any>;
 }
+
 
 
 

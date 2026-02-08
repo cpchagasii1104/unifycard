@@ -16,8 +16,8 @@ interface ProductPriceRow {
   valid_from: Date;
   valid_to: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class ProductPriceRepository {
@@ -34,8 +34,8 @@ class ProductPriceRepository {
       validFrom: row.valid_from,
       validTo: row.valid_to,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -54,7 +54,7 @@ class ProductPriceRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, tenant_id, product_variant_id, price, currency, valid_from, valid_to,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -86,7 +86,7 @@ class ProductPriceRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, price, currency, valid_from, valid_to,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM product_prices
       WHERE tenant_id = $1
         AND product_variant_id = $2
@@ -112,7 +112,7 @@ class ProductPriceRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, price, currency, valid_from, valid_to,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM product_prices
       WHERE tenant_id = $1 AND product_variant_id = $2
       ORDER BY valid_from DESC
@@ -125,6 +125,8 @@ class ProductPriceRepository {
 }
 
 export const productPriceRepository = new ProductPriceRepository();
+
+
 
 
 

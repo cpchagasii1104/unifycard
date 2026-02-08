@@ -14,14 +14,14 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const method = await unifyCardMethodService.createMethod(
       tenantId,
       req.body,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.status(201).send(method);
@@ -36,7 +36,7 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
 
     const methods = await unifyCardMethodService.listMethods(tenantId);
 
-    return reply.send({ methods, total: methods.length });
+    return reply.send({ methods, totalCents: methods.length });
   });
 
   /**
@@ -57,6 +57,7 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default unifyCardMethodRoutes;
+
 
 
 

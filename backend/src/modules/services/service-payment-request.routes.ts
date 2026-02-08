@@ -11,7 +11,7 @@ const createPaymentRequestSchema = z.object({
   serviceId: z.string().uuid(), // OBRIGATÓRIO
   payerActorId: z.string().uuid(), // OBRIGATÓRIO
   receiverActorId: z.string().uuid(), // OBRIGATÓRIO
-  amount: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
+  amountCents: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
   currency: z.string().optional(), // Default: 'FIC'
   metadata: z.record(z.any()).optional(),
 });
@@ -35,8 +35,9 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:serviceId/bookings/:bookingId/payments',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -54,13 +55,13 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const paymentRequest = await servicePaymentRequestService.createPaymentRequest(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             bookingId: req.params.bookingId, // bookingId vem da URL
             serviceId: req.params.serviceId, // serviceId vem da URL
             payerActorId: parsed.data.payerActorId,
             receiverActorId: parsed.data.receiverActorId,
-            amount: parsed.data.amount,
+            amountCents: parsed.data.amount,
             currency: parsed.data.currency,
             metadata: parsed.data.metadata,
           }
@@ -85,8 +86,9 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { serviceId: string; bookingId: string } }>(
     '/:serviceId/bookings/:bookingId/payments',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -115,4 +117,5 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default servicePaymentRequestRoutes;
+
 

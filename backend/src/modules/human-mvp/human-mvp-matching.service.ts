@@ -137,7 +137,7 @@ class HumanMvpMatchingService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, created_at
+        event_type, tenant_id, person_id, category_id, context, details, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
@@ -178,4 +178,5 @@ class HumanMvpMatchingService {
 }
 
 export const humanMvpMatchingService = new HumanMvpMatchingService();
+
 

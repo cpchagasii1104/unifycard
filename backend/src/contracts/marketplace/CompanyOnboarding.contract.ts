@@ -18,10 +18,10 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface CompanyOnboarding {
-  onboarding_id: string;
-  company_id: string; // ID da empresa criada
-  company_type: 'cnpj' | 'cpf' | 'mei';
-  company_name: string;
+  onboardingId: string;
+  companyId: string; // ID da empresa criada
+  companyType: 'cnpj' | 'cpf' | 'mei';
+  companyName: string;
   document: string; // CNPJ, CPF ou MEI
   // OBRIGATÓRIO: Categoria principal
   category: 'product' | 'service' | 'industry' | 'hub' | 'hybrid';
@@ -33,47 +33,47 @@ export interface CompanyOnboarding {
   };
   // OBRIGATÓRIO: Documentos
   documents: {
-    cnpj?: string; // CNPJ (obrigatório se company_type = 'cnpj')
-    qsa_document?: string; // Quadro Societário Atualizado
-    last_contractual_change?: string; // Última alteração contratual (ISO 8601)
-    address_proof?: string; // Comprovante de endereço (URL ou hash)
+    cnpj?: string; // CNPJ (obrigatório se companyType = 'cnpj')
+    qsaDocument?: string; // Quadro Societário Atualizado
+    lastContractualChange?: string; // Última alteração contratual (ISO 8601)
+    addressProof?: string; // Comprovante de endereço (URL ou hash)
   };
   // OBRIGATÓRIO: Conta bancária
-  bank_account: {
+  bankAccount: {
     type: 'unifibank' | 'external';
-    account_id?: string; // ID da conta no UnifiBank (se type = 'unifibank')
-    external_bank_name?: string; // Nome do banco externo
-    external_account_number?: string; // Número da conta externa
-    verified: boolean; // Verificação da conta
+    accountId?: string; // ID da conta no UnifiBank (se type = 'unifibank')
+    externalBankName?: string; // Nome do banco externo
+    externalAccountNumber?: string; // Número da conta externa
+    isVerified: boolean; // Verificação da conta
   };
   // Configurações de integração
-  marketplace_enabled: boolean; // Opt-in para aparecer no Marketplace
-  services_enabled: boolean; // Criar perfil de serviços
-  products_enabled: boolean; // Criar perfil de produtos
-  pdv_enabled: boolean; // Habilitar ERP Light + PDV
+  marketplaceEnabled: boolean; // Opt-in para aparecer no Marketplace
+  servicesEnabled: boolean; // Criar perfil de serviços
+  productsEnabled: boolean; // Criar perfil de produtos
+  pdvEnabled: boolean; // Habilitar ERP Light + PDV
   // Payment Infrastructure (obrigatório)
-  payment_infrastructure: {
-    accept_unificard: boolean; // Default recomendado
-    accept_external_gateway: boolean; // Cielo, Stone, etc.
-    external_gateway_provider?: string; // Nome do gateway externo
+  paymentInfrastructure: {
+    acceptUnificard: boolean; // Default recomendado
+    acceptExternalGateway: boolean; // Cielo, Stone, etc.
+    externalGatewayProvider?: string; // Nome do gateway externo
   };
   // Plan
-  plan_id: string; // Referência ao CompanyPlan
+  planId: string; // Referência ao CompanyPlan
   // Business Template (opcional - para importação de catálogo canônico)
-  business_template_id?: string; // Referência ao BusinessTemplate
+  businessTemplateId?: string; // Referência ao BusinessTemplate
   // Status
   status: 'draft' | 'in_progress' | 'completed' | 'failed';
   // Integrações criadas
-  economic_identity_id?: string;
-  store_id?: string;
-  branch_id?: string;
-  service_provider_id?: string;
-  industry_account_id?: string;
-  hub_id?: string;
-  payment_infrastructure_config_id?: string;
+  economicIdentityId?: string;
+  storeId?: string;
+  branchId?: string;
+  serviceProviderId?: string;
+  industryAccountId?: string;
+  hubId?: string;
+  paymentInfrastructureConfigId?: string;
   // Timestamps
-  created_at: string;
-  completed_at?: string;
-  updated_at: string;
+  createdAt: string;
+  completedAt?: string;
+  updatedAt: string;
 }
 

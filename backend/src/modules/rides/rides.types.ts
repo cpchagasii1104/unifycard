@@ -53,8 +53,8 @@ export interface Region {
   name: string;
   code?: string;
   metadata: JSONValue;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface City {
@@ -66,8 +66,8 @@ export interface City {
   center?: GeographyPoint;
   is_active: boolean;
   metadata: JSONValue;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Zone {
@@ -79,8 +79,8 @@ export interface Zone {
   centroid?: GeographyPoint;
   is_active: boolean;
   metadata: JSONValue;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // =========================================================
@@ -96,8 +96,8 @@ export interface RideServiceType {
   capacity: number;
   base_price: number;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CityServiceType {
@@ -107,8 +107,8 @@ export interface CityServiceType {
   service_type_id: UUID;
   is_enabled: boolean;
   metadata: JSONValue;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // =========================================================
@@ -132,10 +132,10 @@ export interface Driver {
   total_trips_cancelled_passenger: number;
   acceptance_rate?: number;
   cancellation_rate?: number;
-  last_metrics_calculated_at?: string;
+  last_metrics_calculatedAt?: string;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Vehicle {
@@ -153,8 +153,8 @@ export interface Vehicle {
 
   is_active: boolean;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DriverService {
@@ -163,8 +163,8 @@ export interface DriverService {
   driver_id: UUID;
   service_type_id: UUID;
   is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DriverLocation {
@@ -174,7 +174,7 @@ export interface DriverLocation {
   location: GeographyPoint;
   heading?: number;
   speed_kmh?: number;
-  updated_at: string;
+  updatedAt: string;
 }
 
 /**
@@ -202,7 +202,7 @@ export interface DriverAvailability {
   dest_lat?: number;
   dest_lng?: number;
 
-  updated_at: string;
+  updatedAt: string;
 }
 
 // =========================================================
@@ -214,8 +214,8 @@ export interface DriverSession {
   tenant_id: UUID;
   driver_id: UUID;
 
-  started_at: string;
-  ended_at?: string;
+  startedAt: string;
+  endedAt?: string;
 
   driving_time_minutes: number;
   online_time_minutes: number;
@@ -223,7 +223,7 @@ export interface DriverSession {
   max_driving_hours: number;
   is_forced_break: boolean;
   forced_break_until?: string;
-  last_break_at?: string;
+  last_breakAt?: string;
 }
 
 // =========================================================
@@ -257,8 +257,8 @@ export interface RideRequest {
 
   status: RideRequestStatus;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RideOffer {
@@ -267,7 +267,7 @@ export interface RideOffer {
   request_id: UUID;
   driver_id: UUID;
   status: string; // pending | accepted | rejected
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -284,19 +284,19 @@ export interface Ride {
 
   status: RideStatus;
 
-  accepted_at?: string;
-  arrived_at?: string;
-  started_at?: string;
-  completed_at?: string;
-  cancelled_at?: string;
+  acceptedAt?: string;
+  arrivedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
 
   total_distance_km?: number;
   total_duration_min?: number;
 
   final_price?: number;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RideLocation {
@@ -306,7 +306,7 @@ export interface RideLocation {
   location: GeographyPoint;
   speed_kmh?: number;
   heading?: number;
-  recorded_at: string;
+  recordedAt: string;
 }
 
 export interface RideEvent {
@@ -315,7 +315,7 @@ export interface RideEvent {
   ride_id: UUID;
   event_type: string;
   payload: JSONValue;
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -327,14 +327,14 @@ export interface RideWaitEvent {
   tenant_id: UUID;
   ride_id: UUID;
 
-  driver_arrived_at?: string;
-  passenger_notified_at?: string;
+  driver_arrivedAt?: string;
+  passenger_notifiedAt?: string;
 
   free_wait_seconds?: number;
   charged_wait_seconds?: number;
   wait_fee_amount?: number;
 
-  created_at: string;
+  createdAt: string;
 }
 
 export interface RideCancellation {
@@ -353,7 +353,7 @@ export interface RideCancellation {
   cancellation_fee_passenger?: number;
   amount_paid_to_driver?: number;
 
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -372,8 +372,8 @@ export interface PricingConfig {
   night_multiplier?: number;
   rain_multiplier?: number;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ZoneDemandPressure {
@@ -385,7 +385,7 @@ export interface ZoneDemandPressure {
   available_drivers: number;
   pressure?: number;
 
-  calculated_at: string;
+  calculatedAt: string;
 }
 
 export interface ZoneIncentive {
@@ -398,11 +398,11 @@ export interface ZoneIncentive {
 
   reason: string;
 
-  starts_at?: string;
-  expires_at?: string;
+  startsAt?: string;
+  expiresAt?: string;
   is_active: boolean;
 
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -421,7 +421,7 @@ export interface DistributionRule {
   percentage_referral: number;
 
   is_active: boolean;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface RideDistribution {
@@ -437,7 +437,7 @@ export interface RideDistribution {
 
   rule_snapshot: JSONValue;
 
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -450,7 +450,7 @@ export interface EmergencyContact {
   user_id: UUID;
   name: string;
   phone: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface RideShare {
@@ -458,7 +458,7 @@ export interface RideShare {
   tenant_id: UUID;
   ride_id: UUID;
   shared_with: UUID;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface RideDispute {
@@ -471,8 +471,8 @@ export interface RideDispute {
   reason?: string;
   resolution?: string;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DriverEarningsHistory {
@@ -481,9 +481,9 @@ export interface DriverEarningsHistory {
   driver_id: UUID;
 
   ride_id?: UUID;
-  amount: number;
+  amountCents: number;
 
-  created_at: string;
+  createdAt: string;
 }
 
 // =========================================================
@@ -503,8 +503,8 @@ export interface DriverPreferences {
   allow_late_night: boolean;
   service_type_ids?: UUID[];
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PassengerStats {
@@ -516,12 +516,14 @@ export interface PassengerStats {
   total_trips_cancelled: number;
   rating_avg?: number;
   rating_count: number;
-  last_trip_at?: string;
-  first_trip_at?: string;
+  last_tripAt?: string;
+  first_tripAt?: string;
 
   no_show_count: number;
   late_show_count: number;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
+

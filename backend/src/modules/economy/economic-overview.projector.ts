@@ -31,36 +31,36 @@ class EconomicOverviewProjector {
   ): Promise<ActorEconomicOverview> {
     // 🔴 BLINDAGEM: Buscar dados de PAYMENT_EXECUTION onde actor é payer ou receiver
     const executionsAsPayer = await runQueriesWithTenant<{
-      amount: number;
+      amountCents: number;
       currency: string;
-      executed_at: Date;
+      executedAt: Date;
       execution_id: string;
     }>(
       tenantId,
       `
       SELECT 
-        amount, currency, executed_at, execution_id
+        amount, currency, executedAt, execution_id
       FROM service_payment_executions
       WHERE payer_actor_id = $1 AND tenant_id = $2
-      ORDER BY executed_at DESC
+      ORDER BY executedAt DESC
       LIMIT 100
       `,
       [actorId, tenantId]
     );
 
     const executionsAsReceiver = await runQueriesWithTenant<{
-      amount: number;
+      amountCents: number;
       currency: string;
-      executed_at: Date;
+      executedAt: Date;
       execution_id: string;
     }>(
       tenantId,
       `
       SELECT 
-        amount, currency, executed_at, execution_id
+        amount, currency, executedAt, execution_id
       FROM service_payment_executions
       WHERE receiver_actor_id = $1 AND tenant_id = $2
-      ORDER BY executed_at DESC
+      ORDER BY executedAt DESC
       LIMIT 100
       `,
       [actorId, tenantId]
@@ -68,20 +68,20 @@ class EconomicOverviewProjector {
 
     // 🔴 BLINDAGEM: Buscar dados de PAYMENT_SPLIT onde actor é receiver
     const splitsAsReceiver = await runQueriesWithTenant<{
-      amount: number;
+      amountCents: number;
       currency: string;
-      executed_at: Date;
+      executedAt: Date;
       split_id: string;
       execution_id: string;
     }>(
       tenantId,
       `
       SELECT 
-        ps.amount, spe.currency, spe.executed_at, ps.split_id, ps.execution_id
+        ps.amount, spe.currency, spe.executedAt, ps.split_id, ps.execution_id
       FROM payment_splits ps
       INNER JOIN service_payment_executions spe ON ps.execution_id = spe.execution_id
       WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
-      ORDER BY spe.executed_at DESC
+      ORDER BY spe.executedAt DESC
       LIMIT 100
       `,
       [actorId, tenantId]
@@ -102,10 +102,10 @@ class EconomicOverviewProjector {
       lastTransactions.push({
         transactionId: e.execution_id,
         type: 'payment_execution',
-        amount: parseFloat(e.amount.toString()),
+        amountCents: parseFloat(e.amount.toString()),
         currency: e.currency,
         payerActorId: actorId,
-        executedAt: e.executed_at,
+        executedAt: e.executedAt,
         metadata: {},
       });
     });
@@ -115,10 +115,10 @@ class EconomicOverviewProjector {
       lastTransactions.push({
         transactionId: e.execution_id,
         type: 'payment_execution',
-        amount: parseFloat(e.amount.toString()),
+        amountCents: parseFloat(e.amount.toString()),
         currency: e.currency,
         receiverActorId: actorId,
-        executedAt: e.executed_at,
+        executedAt: e.executedAt,
         metadata: {},
       });
     });
@@ -128,10 +128,10 @@ class EconomicOverviewProjector {
       lastTransactions.push({
         transactionId: s.split_id,
         type: 'payment_split',
-        amount: parseFloat(s.amount.toString()),
+        amountCents: parseFloat(s.amount.toString()),
         currency: s.currency,
         receiverActorId: actorId,
-        executedAt: s.executed_at,
+        executedAt: s.executedAt,
         metadata: { executionId: s.execution_id },
       });
     });
@@ -166,18 +166,18 @@ class EconomicOverviewProjector {
   ): Promise<GroupEconomicOverview> {
     // 🔴 BLINDAGEM: Buscar dados de PAYMENT_EXECUTION onde grupo é receiver
     const executionsAsReceiver = await runQueriesWithTenant<{
-      amount: number;
+      amountCents: number;
       currency: string;
-      executed_at: Date;
+      executedAt: Date;
       execution_id: string;
     }>(
       tenantId,
       `
       SELECT 
-        amount, currency, executed_at, execution_id
+        amount, currency, executedAt, execution_id
       FROM service_payment_executions
       WHERE receiver_actor_id = $1 AND tenant_id = $2
-      ORDER BY executed_at DESC
+      ORDER BY executedAt DESC
       LIMIT 100
       `,
       [groupId, tenantId]
@@ -185,20 +185,20 @@ class EconomicOverviewProjector {
 
     // 🔴 BLINDAGEM: Buscar dados de PAYMENT_SPLIT onde grupo é receiver
     const splitsAsReceiver = await runQueriesWithTenant<{
-      amount: number;
+      amountCents: number;
       currency: string;
-      executed_at: Date;
+      executedAt: Date;
       split_id: string;
       execution_id: string;
     }>(
       tenantId,
       `
       SELECT 
-        ps.amount, spe.currency, spe.executed_at, ps.split_id, ps.execution_id
+        ps.amount, spe.currency, spe.executedAt, ps.split_id, ps.execution_id
       FROM payment_splits ps
       INNER JOIN service_payment_executions spe ON ps.execution_id = spe.execution_id
       WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
-      ORDER BY spe.executed_at DESC
+      ORDER BY spe.executedAt DESC
       LIMIT 100
       `,
       [groupId, tenantId]
@@ -218,10 +218,10 @@ class EconomicOverviewProjector {
       lastTransactions.push({
         transactionId: e.execution_id,
         type: 'payment_execution',
-        amount: parseFloat(e.amount.toString()),
+        amountCents: parseFloat(e.amount.toString()),
         currency: e.currency,
         receiverActorId: groupId,
-        executedAt: e.executed_at,
+        executedAt: e.executedAt,
         metadata: {},
       });
     });
@@ -231,10 +231,10 @@ class EconomicOverviewProjector {
       lastTransactions.push({
         transactionId: s.split_id,
         type: 'payment_split',
-        amount: parseFloat(s.amount.toString()),
+        amountCents: parseFloat(s.amount.toString()),
         currency: s.currency,
         receiverActorId: groupId,
-        executedAt: s.executed_at,
+        executedAt: s.executedAt,
         metadata: { executionId: s.execution_id },
       });
     });
@@ -273,4 +273,6 @@ class EconomicOverviewProjector {
 }
 
 export const economicOverviewProjector = new EconomicOverviewProjector();
+
+
 

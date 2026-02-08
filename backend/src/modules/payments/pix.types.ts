@@ -10,15 +10,15 @@ export interface PixCharge {
   paymentIntentId: string;
   provider: string;
   providerChargeId: string;
-  amount: number; // em centavos
+  amountCents: number; // em centavos
   currency: string;
   status: 'CREATED' | 'PAID' | 'EXPIRED' | 'CANCELLED';
   expiresAt: Date;
   paidAt: Date | null;
   payloadSnapshot: Record<string, any>; // QR Code, copia-e-cola, etc.
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -26,7 +26,7 @@ export interface PixCharge {
  */
 export interface CreatePixChargeInput {
   paymentIntentId: string;
-  amount: number; // em centavos
+  amountCents: number; // em centavos
   currency?: string;
   expiresInMinutes?: number;
   payerTaxId?: string;
@@ -49,8 +49,10 @@ export interface PixWebhookEvent {
   processedAt: Date | null;
   errorMessage: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
+
+
 
 
 

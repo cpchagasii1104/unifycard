@@ -21,23 +21,23 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface EconomicSustainabilitySnapshot {
-  snapshot_id: string;
-  actor_id: string;
-  actor_type: 'store' | 'service_provider';
+  snapshotId: string;
+  actorId: string;
+  actorType: 'store' | 'service_provider';
   period: {
     year: number;
     month: number; // 1-12
   };
-  total_fixed_cost: number; // Soma de todos os custos fixos
-  average_variable_cost: number; // Custo variável médio
-  average_price: number; // Preço médio praticado (baseado em vendas reais)
-  break_even_volume: number; // Volume necessário para cobrir custos fixos
-  current_margin_percentage: number; // Margem atual (percentual)
-  sustainability_status: 'healthy' | 'warning' | 'critical';
-  calculation_explanation: string; // Texto canônico, determinístico
+  totalFixedCost: number; // Soma de todos os custos fixos
+  averageVariableCost: number; // Custo variável médio
+  averagePrice: number; // Preço médio praticado (baseado em vendas reais)
+  breakEvenVolume: number; // Volume necessário para cobrir custos fixos
+  currentMarginPercentage: number; // Margem atual (percentual)
+  sustainabilityStatus: 'healthy' | 'warning' | 'critical';
+  calculationExplanation: string; // Texto canônico, determinístico
   currency: string;
-  created_at: string;
-  // NÃO incluir updated_at - snapshot é imutável
+  createdAt: string;
+  // NÃO incluir updatedAt - snapshot é imutável
 }
 
 

@@ -13,7 +13,7 @@ export interface WebAuthnCredential {
   publicKey: string;
   counter: number;
   friendlyName?: string | null;
-  createdAt: Date;
+  createdAt: string;
   lastUsedAt?: Date | null;
 }
 
@@ -26,7 +26,7 @@ export interface WebAuthnChallenge {
   userId: string;
   challenge: string;
   expiresAt: Date;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -52,10 +52,11 @@ export interface VerifyAssertionInput {
  * Resultado da verificação
  */
 export interface VerifyResult {
-  verified: boolean;
+  isVerified: boolean;
   error?: string;
   errorCode?: 'WEBAUTHN_NOT_REGISTERED' | 'INVALID_ASSERTION' | 'CHALLENGE_EXPIRED' | 'CHALLENGE_NOT_FOUND';
 }
+
 
 
 

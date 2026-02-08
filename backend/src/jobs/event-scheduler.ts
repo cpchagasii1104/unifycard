@@ -89,8 +89,8 @@ class EventScheduler {
     await pool.query(
       `
       UPDATE actor_penalties 
-      SET status = 'EXPIRED', resolved_at = now()
-      WHERE status = 'ACTIVE' 
+      SET status = 'expired', resolved_at = now()
+      WHERE status = 'active' 
         AND ends_at < now()
       `
     );
@@ -121,7 +121,7 @@ class EventScheduler {
       SELECT ad.id, ad.tenant_id, ad.event_id, ad.debtor_actor_id, ad.debtor_actor_type,
              ad.amount_cents, ad.guarantor_actor_id, ad.guarantor_actor_type
       FROM actor_debts ad
-      WHERE ad.status = 'PENDING'
+      WHERE ad.status = 'pending'
         AND ad.due_at < now()
         AND ad.guarantor_actor_id IS NOT NULL
       `
@@ -191,7 +191,7 @@ class EventScheduler {
       SELECT ad.id, ad.tenant_id, ad.event_id, ad.debtor_actor_id, ad.debtor_actor_type,
              ad.amount_cents
       FROM actor_debts ad
-      WHERE ad.status = 'PENDING'
+      WHERE ad.status = 'pending'
         AND ad.due_at < now()
       `
     );
@@ -234,7 +234,7 @@ class EventScheduler {
     debtId: string
   ): Promise<void> {
     // Verificar se há débitos pendentes
-    const pendingDebts = await pool.query<{ total: number }>(
+    const pendingDebts = await pool.query<{ totalCents: number }>(
       `
       SELECT COALESCE(SUM(amount_cents), 0) as total
       FROM actor_debts
@@ -264,4 +264,5 @@ class EventScheduler {
 }
 
 export const eventScheduler = new EventScheduler();
+
 

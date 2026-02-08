@@ -23,7 +23,7 @@ interface ProcessCatalogOrderPaymentInput {
   orderId: string;
   buyerUserId: string; // Usuário que está comprando
   sellerUserId?: string; // Vendedor/merchant (se houver)
-  amount: number;
+  amountCents: number;
   currency?: string;
 }
 
@@ -31,7 +31,7 @@ interface ProcessCatalogOrderPaymentResult {
   transactionIds: string[];
   splits: Array<{
     targetType: string;
-    amount: number;
+    amountCents: number;
     transactionId?: string;
   }>;
 }
@@ -146,7 +146,7 @@ class CatalogPaymentService {
         .filter((id): id is string => !!id),
       splits: splitResult.splits.map(s => ({
         targetType: s.rule.targetType,
-        amount: s.amount,
+        amountCents: s.amount,
         transactionId: s.transactionId,
       })),
     };
@@ -154,6 +154,7 @@ class CatalogPaymentService {
 }
 
 export const catalogPaymentService = new CatalogPaymentService();
+
 
 
 

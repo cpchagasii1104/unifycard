@@ -18,26 +18,26 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface B2BContractExecution {
-  execution_id: string;
-  contract_id: string;
-  order_id: string; // Order gerado para esta execução
-  payment_plan_id: string; // PaymentPlan executado
+  executionId: string;
+  contractId: string;
+  orderId: string; // Order gerado para esta execução
+  paymentPlanId: string; // PaymentPlan executado
   products: Array<{
-    product_id: string;
+    productId: string;
     quantity: number;
-    unit_price: number;
-    subtotal: number;
+    unitPriceCents: number;
+    subtotalCents: number;
   }>;
-  total_amount: number;
+  totalAmountCents: number;
   currency: string;
-  delivery_date: string; // Data prevista de entrega
-  payment_due_date: string; // Data de vencimento do pagamento
-  penalty_applied?: number; // Multa aplicada (se houver atraso)
+  deliveryDate: string; // Data prevista de entrega
+  paymentDueDate: string; // Data de vencimento do pagamento
+  penaltyAppliedCents?: number; // Multa aplicada (se houver atraso)
   status: 'pending' | 'delivered' | 'paid' | 'overdue' | 'penalized';
-  executed_at: string;
-  delivered_at?: string;
-  paid_at?: string;
-  // NÃO incluir updated_at - execução é imutável após criação
+  executedAt: string;
+  deliveredAt?: string;
+  paidAt?: string;
+  // NÃO incluir updatedAt - execução é imutável após criação
 }
 
 

@@ -11,16 +11,16 @@ interface TicketSaleRow {
   buyer_actor_id: string;
   payment_intent_id: string | null;
   status: string;
-  reserved_at: Date;
-  paid_at: Date | null;
-  cancelled_at: Date | null;
+  reservedAt: Date;
+  paidAt: Date | null;
+  cancelledAt: Date | null;
   cancelled_by_actor_id: string | null;
   cancellation_reason: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class TicketSaleRepository {
@@ -32,16 +32,16 @@ class TicketSaleRepository {
       buyerActorId: row.buyer_actor_id,
       paymentIntentId: row.payment_intent_id,
       status: row.status as any,
-      reservedAt: row.reserved_at,
-      paidAt: row.paid_at,
-      cancelledAt: row.cancelled_at,
+      reservedAt: row.reservedAt,
+      paidAt: row.paidAt,
+      cancelledAt: row.cancelledAt,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancellationReason: row.cancellation_reason,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -65,9 +65,9 @@ class TicketSaleRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
       RETURNING id, tenant_id, event_ticket_id, buyer_actor_id, payment_intent_id,
-                status, reserved_at, paid_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                status, reservedAt, paidAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -93,9 +93,9 @@ class TicketSaleRepository {
       tenantId,
       `
       SELECT id, tenant_id, event_ticket_id, buyer_actor_id, payment_intent_id,
-             status, reserved_at, paid_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+             status, reservedAt, paidAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM ticket_sales
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -115,13 +115,13 @@ class TicketSaleRepository {
       `
       UPDATE ticket_sales
       SET status = 'PAID',
-          paid_at = NOW(),
-          updated_at = NOW()
+          paidAt = NOW(),
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'RESERVED'
       RETURNING id, tenant_id, event_ticket_id, buyer_actor_id, payment_intent_id,
-                status, reserved_at, paid_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                status, reservedAt, paidAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, saleId]
     );
@@ -144,15 +144,15 @@ class TicketSaleRepository {
       `
       UPDATE ticket_sales
       SET status = 'CANCELLED',
-          cancelled_at = NOW(),
+          cancelledAt = NOW(),
           cancelled_by_actor_id = $3,
           cancellation_reason = $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'RESERVED'
       RETURNING id, tenant_id, event_ticket_id, buyer_actor_id, payment_intent_id,
-                status, reserved_at, paid_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                status, reservedAt, paidAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, saleId, cancelledByActorId, cancellationReason]
     );
@@ -169,12 +169,12 @@ class TicketSaleRepository {
       tenantId,
       `
       SELECT id, tenant_id, event_ticket_id, buyer_actor_id, payment_intent_id,
-             status, reserved_at, paid_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+             status, reservedAt, paidAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM ticket_sales
       WHERE tenant_id = $1 AND event_ticket_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, eventTicketId]
     );
@@ -184,6 +184,8 @@ class TicketSaleRepository {
 }
 
 export const ticketSaleRepository = new TicketSaleRepository();
+
+
 
 
 

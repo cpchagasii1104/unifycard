@@ -67,9 +67,9 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
       `INSERT INTO actor_debts (
         tenant_id, event_id, debtor_actor_id, debtor_actor_type,
         creditor_actor_id, creditor_actor_type, amount_cents, reason, status,
-        guarantor_actor_id, guarantor_actor_type, due_at
+        guarantor_actor_id, guarantor_actor_type, dueAt
       )
-      VALUES ($1, $2, $3, 'user', $3, 'user', 5000, 'CANCELLATION', 'PENDING', $3, 'user', now() + INTERVAL '7 days')`,
+      VALUES ($1, $2, $3, 'user', $3, 'user', 5000, 'CANCELLATION', 'pending', $3, 'user', now() + INTERVAL '7 days')`,
       [testTenantId, testEventId, testActorId]
     );
 
@@ -99,9 +99,9 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
       `INSERT INTO actor_debts (
         tenant_id, event_id, debtor_actor_id, debtor_actor_type,
         creditor_actor_id, creditor_actor_type, amount_cents, reason, status,
-        guarantor_actor_id, guarantor_actor_type, due_at
+        guarantor_actor_id, guarantor_actor_type, dueAt
       )
-      VALUES ($1, $2, $3, 'user', $3, 'user', 10000, 'NO_SHOW', 'PENDING', $3, 'user', now() + INTERVAL '7 days')`,
+      VALUES ($1, $2, $3, 'user', $3, 'user', 10000, 'NO_SHOW', 'pending', $3, 'user', now() + INTERVAL '7 days')`,
       [testTenantId, testEventId, testActorId]
     );
 
@@ -131,7 +131,7 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
       `INSERT INTO actor_debts (
         tenant_id, event_id, debtor_actor_id, debtor_actor_type,
         creditor_actor_id, creditor_actor_type, amount_cents, reason, status,
-        guarantor_actor_id, guarantor_actor_type, due_at, paid_at
+        guarantor_actor_id, guarantor_actor_type, dueAt, paidAt
       )
       VALUES ($1, $2, $3, 'user', $3, 'user', 5000, 'CANCELLATION', 'PAID', $3, 'user', now() - INTERVAL '1 day', now())
       ON CONFLICT DO NOTHING`,
@@ -165,7 +165,7 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
       `INSERT INTO actor_debts (
         tenant_id, event_id, debtor_actor_id, debtor_actor_type,
         creditor_actor_id, creditor_actor_type, amount_cents, reason, status,
-        guarantor_actor_id, guarantor_actor_type, due_at
+        guarantor_actor_id, guarantor_actor_type, dueAt
       )
       VALUES ($1, $2, $3, 'user', $3, 'user', 3000, 'CANCELLATION', 'PENDING', $3, 'user', now() + INTERVAL '7 days')`,
       [testTenantId, testEventId, newActorId]
@@ -191,4 +191,5 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
     );
   });
 });
+
 

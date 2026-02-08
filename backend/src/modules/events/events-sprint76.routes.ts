@@ -24,8 +24,8 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     // Converter datas se necessário
@@ -40,8 +40,8 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const event = await eventService.createEvent(
       tenantId,
       body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(event);
@@ -62,15 +62,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
   //   const tenantId = req.tenant!.id;
   //   const actionContext = (req as any).actionContext;
 
-  //   if (!actionContext?.actingActorId) {
-  //     return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+  //   if (!actionContext?.actorId) {
+  //     return reply.status(400).send({ error: 'actorId é obrigatório' });
   //   }
 
   //   const event = await eventService.publishEvent(
   //     tenantId,
   //     req.params.id,
-  //     actionContext.actingActorId,
-  //     actionContext.actingUserId
+  //     actionContext.actorId,
+  //     actionContext.actorId
   //   );
 
   //   return reply.send(event);
@@ -118,7 +118,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 
     const events = await eventService.listEvents(tenantId, filters);
 
-    return reply.send({ events, total: events.length });
+    return reply.send({ events, totalCents: events.length });
   });
 
   /**
@@ -152,16 +152,16 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const ticket = await ticketService.createTicketType(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(ticket);
@@ -178,16 +178,16 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const result = await ticketService.reserveTicket(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(result);
@@ -216,15 +216,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const ticketSale = await ticketService.cancelTicket(
       tenantId,
       req.params.id,
-      actionContext.actingActorId,
-      actionContext.actingUserId,
+      actionContext.actorId,
+      actionContext.actorId,
       req.body.cancellationReason
     );
 
@@ -243,15 +243,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const checkIn = await checkInService.checkIn(
       tenantId,
       req.params.ticketSaleId,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(checkIn);
@@ -265,15 +265,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const checkOut = await checkInService.checkOut(
       tenantId,
       req.params.ticketSaleId,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.send(checkOut);
@@ -281,6 +281,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 };
 
 export default eventsSprint76Routes;
+
 
 
 

@@ -55,7 +55,7 @@ interface EventSpecRow {
   answers: Record<string, any>;
   metadata: Record<string, any> | null;
   created_by: string;
-  created_at: string;
+  createdAt: string;
 }
 
 class EventSpecService {
@@ -64,17 +64,17 @@ class EventSpecService {
    */
   private toEventSpec(row: EventSpecRow): EventSpec {
     return {
-      spec_id: row.spec_id,
-      event_id: row.event_id,
-      tenant_id: row.tenant_id,
-      actor_id: row.actor_id,
-      actor_type: row.actor_type as 'user' | 'page' | 'group' | 'channel',
-      spec_version: row.spec_version as EventSpecVersion,
-      macro_intention: row.macro_intention as any,
+      specId: row.spec_id,
+      eventId: row.event_id || '',
+      tenantId: row.tenant_id,
+      actorId: row.actor_id,
+      actorType: row.actor_type as 'user' | 'page' | 'group' | 'channel',
+      specVersion: row.spec_version as EventSpecVersion,
+      macroIntention: row.macro_intention as any,
       subflow: row.subflow as any,
       answers: row.answers,
-      created_at: row.created_at,
-      created_by: row.created_by,
+      createdAt: row.createdAt,
+      createdBy: row.created_by,
       metadata: row.metadata || {},
     };
   }
@@ -87,20 +87,20 @@ class EventSpecService {
     const warnings: Array<{ field: string; message: string }> = [];
 
     // Validações obrigatórias
-    if (!input.tenant_id) {
-      errors.push({ field: 'tenant_id', message: 'tenant_id é obrigatório' });
+    if (!input.tenantId) {
+      errors.push({ field: 'tenantId', message: 'tenantId é obrigatório' });
     }
 
-    if (!input.actor_id) {
-      errors.push({ field: 'actor_id', message: 'actor_id é obrigatório' });
+    if (!input.actorId) {
+      errors.push({ field: 'actorId', message: 'actorId é obrigatório' });
     }
 
-    if (!input.actor_type) {
-      errors.push({ field: 'actor_type', message: 'actor_type é obrigatório' });
+    if (!input.actorType) {
+      errors.push({ field: 'actorType', message: 'actorType é obrigatório' });
     }
 
-    if (!input.macro_intention) {
-      errors.push({ field: 'macro_intention', message: 'macro_intention é obrigatório' });
+    if (!input.macroIntention) {
+      errors.push({ field: 'macroIntention', message: 'macroIntention é obrigatório' });
     }
 
     if (!input.subflow) {
@@ -113,18 +113,18 @@ class EventSpecService {
 
     // Validações de tipo
     const validActorTypes = ['user', 'page', 'group', 'channel'];
-    if (!validActorTypes.includes(input.actor_type)) {
+    if (!validActorTypes.includes(input.actorType)) {
       errors.push({
-        field: 'actor_type',
-        message: `actor_type deve ser um de: ${validActorTypes.join(', ')}`,
+        field: 'actorType',
+        message: `actorType deve ser um de: ${validActorTypes.join(', ')}`,
       });
     }
 
     const validMacroIntentions = ['celebrate', 'gather', 'teach', 'present', 'other'];
-    if (!validMacroIntentions.includes(input.macro_intention)) {
+    if (!validMacroIntentions.includes(input.macroIntention)) {
       errors.push({
-        field: 'macro_intention',
-        message: `macro_intention deve ser um de: ${validMacroIntentions.join(', ')}`,
+        field: 'macroIntention',
+        message: `macroIntention deve ser um de: ${validMacroIntentions.join(', ')}`,
       });
     }
 
@@ -232,19 +232,19 @@ class EventSpecService {
       RETURNING *
     `;
 
-    // 🔴 P0-2: Validar que event_id é obrigatório
-    if (!input.event_id) {
-      throw new BadRequestError('event_id é obrigatório. EventSpec deve sempre referenciar um Event existente (draft).');
+    // 🔴 P0-2: Validar que eventId é obrigatório
+    if (!input.eventId) {
+      throw new BadRequestError('eventId é obrigatório. EventSpec deve sempre referenciar um Event existente (draft).');
     }
 
     const result = await runQueryWithTenant<EventSpecRow>(tenantId, query, [
       specId,
-      input.tenant_id,
-      input.actor_id,
-      input.actor_type,
-      input.event_id, // 🔴 P0-2: event_id é obrigatório, não pode ser null
+      input.tenantId,
+      input.actorId,
+      input.actorType,
+      input.eventId, // 🔴 P0-2: eventId é obrigatório, não pode ser null
       1, // spec_version = 1 (primeira versão)
-      input.macro_intention,
+      input.macroIntention,
       input.subflow,
       JSON.stringify(answersWithTicket),
       JSON.stringify(metadata),
@@ -285,19 +285,19 @@ class EventSpecService {
     const params: any[] = [tenantId];
     let paramIndex = 2;
 
-    if (query.actor_id) {
+    if (query.actorId) {
       conditions.push(`actor_id = $${paramIndex++}`);
-      params.push(query.actor_id);
+      params.push(query.actorId);
     }
 
-    if (query.actor_type) {
+    if (query.actorType) {
       conditions.push(`actor_type = $${paramIndex++}`);
-      params.push(query.actor_type);
+      params.push(query.actorType);
     }
 
-    if (query.macro_intention) {
+    if (query.macroIntention) {
       conditions.push(`macro_intention = $${paramIndex++}`);
-      params.push(query.macro_intention);
+      params.push(query.macroIntention);
     }
 
     if (query.subflow) {
@@ -305,14 +305,14 @@ class EventSpecService {
       params.push(query.subflow);
     }
 
-    if (query.event_id) {
+    if (query.eventId) {
       conditions.push(`event_id = $${paramIndex++}`);
-      params.push(query.event_id);
+      params.push(query.eventId);
     }
 
-    if (query.spec_version) {
+    if (query.specVersion) {
       conditions.push(`spec_version = $${paramIndex++}`);
-      params.push(query.spec_version);
+      params.push(query.specVersion);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -323,7 +323,7 @@ class EventSpecService {
       SELECT *
       FROM event_specs
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
 
@@ -434,13 +434,13 @@ class EventSpecService {
     const updatedMetadata = {
       ...currentSpec.metadata,
       updated_by: userId,
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // 6. Persistir atualização
-    // 🔴 NOTA: Tabela event_specs não tem updated_at (imutável por design)
+    // 🔴 NOTA: Tabela event_specs não tem updatedAt (imutável por design)
     // Durante FASE 5 (construção), permitimos UPDATE incremental
-    // Metadata.updated_at registra quando foi atualizado
+    // Metadata.updatedAt registra quando foi atualizado
     const updateQuery = `
       UPDATE event_specs
       SET
@@ -498,13 +498,13 @@ class EventSpecService {
     const updatedMetadata = {
       ...currentSpec.metadata,
       closed: true,
-      closed_at: new Date().toISOString(),
+      closedAt: new Date().toISOString(),
       closed_by: userId,
     };
 
     // 4. Persistir fechamento
-    // 🔴 NOTA: Tabela event_specs não tem updated_at (imutável por design)
-    // Metadata.closed_at registra quando foi fechado
+    // 🔴 NOTA: Tabela event_specs não tem updatedAt (imutável por design)
+    // Metadata.closedAt registra quando foi fechado
     const updateQuery = `
       UPDATE event_specs
       SET
@@ -532,4 +532,5 @@ class EventSpecService {
 }
 
 export const eventSpecService = new EventSpecService();
+
 

@@ -35,8 +35,8 @@ interface PublicationMetadataRow {
   referral_code: string | null;
   created_by_actor_id: string;
   created_by_actor_type: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 class PublicationEngineService {
@@ -136,7 +136,7 @@ class PublicationEngineService {
       ];
 
       const updateQuery = `UPDATE publication_metadata 
-         SET ${updateFields}, updated_at = NOW()
+         SET ${updateFields}, updatedAt = NOW()
          WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3`;
       
       await runQueryWithTenant(tenantId, updateQuery, values);
@@ -278,8 +278,8 @@ class PublicationEngineService {
       referral_code: row.referral_code,
       created_by_actor_id: row.created_by_actor_id,
       created_by_actor_type: row.created_by_actor_type as any,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -325,7 +325,7 @@ class PublicationEngineService {
       payload: {
         link: url,
         referral_code: referralCode,
-        expires_at: input.expires_at,
+        expiresAt: input.expiresAt,
       },
       actor_id: actorId,
       actor_type: actorType,
@@ -334,7 +334,7 @@ class PublicationEngineService {
     return {
       url,
       referral_code: referralCode,
-      expires_at: input.expires_at || null,
+      expiresAt: input.expiresAt || null,
     };
   }
 
@@ -490,4 +490,5 @@ class PublicationEngineService {
 }
 
 export const publicationEngineService = new PublicationEngineService();
+
 

@@ -250,7 +250,7 @@ class RiskDashboardService {
           last30Days: bypass30,
           last90Days: bypass90,
           last180Days: bypass180,
-          total: bypassEvents.length,
+          totalCents: bypassEvents.length,
         },
         openDisputes,
         resolvedDisputes,
@@ -491,6 +491,7 @@ class RiskDashboardService {
 }
 
 export const riskDashboardService = new RiskDashboardService();
+
 
 
 

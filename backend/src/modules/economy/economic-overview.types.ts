@@ -14,7 +14,7 @@
 export interface EconomicTransaction {
   transactionId: string;
   type: 'payment_execution' | 'payment_split' | 'payment_request';
-  amount: number;
+  amountCents: number;
   currency: string;
   payerActorId?: string;
   receiverActorId?: string;
@@ -54,4 +54,5 @@ export interface GroupEconomicOverview {
   currency: string; // Moeda (default: 'FIC')
   lastUpdated: Date;
 }
+
 

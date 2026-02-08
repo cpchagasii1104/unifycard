@@ -11,20 +11,20 @@ interface EventRow {
   title: string;
   description: string | null;
   location_actor_id: string | null;
-  start_at: Date;
-  end_at: Date;
+  startAt: Date;
+  endAt: Date;
   status: string;
-  published_at: Date | null;
+  publishedAt: Date | null;
   published_by_actor_id: string | null;
-  closed_at: Date | null;
-  cancelled_at: Date | null;
+  closedAt: Date | null;
+  cancelledAt: Date | null;
   cancelled_by_actor_id: string | null;
   cancellation_reason: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class EventRepository {
@@ -36,20 +36,20 @@ class EventRepository {
       title: row.title,
       description: row.description,
       locationActorId: row.location_actor_id,
-      startAt: row.start_at,
-      endAt: row.end_at,
+      startAt: row.startAt,
+      endAt: row.endAt,
       status: row.status as any,
-      publishedAt: row.published_at,
+      publishedAt: row.publishedAt,
       publishedByActorId: row.published_by_actor_id,
-      closedAt: row.closed_at,
-      cancelledAt: row.cancelled_at,
+      closedAt: row.closedAt,
+      cancelledAt: row.cancelledAt,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancellationReason: row.cancellation_reason,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -72,16 +72,16 @@ class EventRepository {
       `
       INSERT INTO events (
         tenant_id, organizer_actor_id, title, description,
-        location_actor_id, start_at, end_at, status,
+        location_actor_id, startAt, endAt, status,
         created_by_actor_id, created_by_user_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, start_at, end_at, status,
-                published_at, published_by_actor_id,
-                closed_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                location_actor_id, startAt, endAt, status,
+                publishedAt, published_by_actor_id,
+                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -110,11 +110,11 @@ class EventRepository {
       tenantId,
       `
       SELECT id, tenant_id, organizer_actor_id, title, description,
-             location_actor_id, start_at, end_at, status,
-             published_at, published_by_actor_id,
-             closed_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+             location_actor_id, startAt, endAt, status,
+             publishedAt, published_by_actor_id,
+             closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM events
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -153,14 +153,14 @@ class EventRepository {
 
     if (filters.startAtFrom) {
       const dateFrom = filters.startAtFrom instanceof Date ? filters.startAtFrom : new Date(filters.startAtFrom);
-      conditions.push(`start_at >= $${paramIndex}`);
+      conditions.push(`startAt >= $${paramIndex}`);
       params.push(dateFrom);
       paramIndex++;
     }
 
     if (filters.startAtTo) {
       const dateTo = filters.startAtTo instanceof Date ? filters.startAtTo : new Date(filters.startAtTo);
-      conditions.push(`start_at <= $${paramIndex}`);
+      conditions.push(`startAt <= $${paramIndex}`);
       params.push(dateTo);
       paramIndex++;
     }
@@ -172,14 +172,14 @@ class EventRepository {
       tenantId,
       `
       SELECT id, tenant_id, organizer_actor_id, title, description,
-             location_actor_id, start_at, end_at, status,
-             published_at, published_by_actor_id,
-             closed_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+             location_actor_id, startAt, endAt, status,
+             publishedAt, published_by_actor_id,
+             closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM events
       WHERE ${conditions.join(' AND ')}
-      ORDER BY start_at ASC
+      ORDER BY startAt ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -198,16 +198,16 @@ class EventRepository {
       `
       UPDATE events
       SET status = 'PUBLISHED',
-          published_at = NOW(),
+          publishedAt = NOW(),
           published_by_actor_id = $3,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'DRAFT'
       RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, start_at, end_at, status,
-                published_at, published_by_actor_id,
-                closed_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                location_actor_id, startAt, endAt, status,
+                publishedAt, published_by_actor_id,
+                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, eventId, publishedByActorId]
     );
@@ -230,17 +230,17 @@ class EventRepository {
       `
       UPDATE events
       SET status = 'CANCELLED',
-          cancelled_at = NOW(),
+          cancelledAt = NOW(),
           cancelled_by_actor_id = $3,
           cancellation_reason = $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status IN ('DRAFT', 'PUBLISHED')
       RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, start_at, end_at, status,
-                published_at, published_by_actor_id,
-                closed_at, cancelled_at, cancelled_by_actor_id, cancellation_reason,
+                location_actor_id, startAt, endAt, status,
+                publishedAt, published_by_actor_id,
+                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, eventId, cancelledByActorId, cancellationReason]
     );
@@ -254,6 +254,8 @@ class EventRepository {
 }
 
 export const eventRepository = new EventRepository();
+
+
 
 
 

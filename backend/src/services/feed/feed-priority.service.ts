@@ -47,14 +47,14 @@ export class FeedPriorityService {
     // Buscar informações dos eventos (para calcular estado e plano do organizador)
     const eventsRows = await runQueriesWithTenant<{
       id: string;
-      start_time: Date;
-      end_time: Date;
+      starts_at: Date;
+      ends_at: Date;
       status: string;
       organizer_id: string | null;
     }>(
       tenantId,
       `
-      SELECT id, start_time, end_time, status, organizer_id
+      SELECT id, starts_at, ends_at, status, organizer_id
       FROM events
       WHERE id = ANY($1::uuid[])
       `,
@@ -120,8 +120,8 @@ export class FeedPriorityService {
 
       // Determinar estado
       const stateInfo = eventStateService.getEventState({
-        startTime: event.start_time,
-        endTime: event.end_time,
+        startTime: event.starts_at,
+        endTime: event.ends_at,
         status: event.status,
       });
 
@@ -184,4 +184,5 @@ export class FeedPriorityService {
 }
 
 export const feedPriorityService = new FeedPriorityService();
+
 

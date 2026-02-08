@@ -54,10 +54,10 @@ const vehiclesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             year,
             category,
             is_active,
-            created_at
+            createdAt
           FROM rides_vehicles
           WHERE tenant_id = $1
-          ORDER BY created_at DESC;
+          ORDER BY createdAt DESC;
         `,
         values: [tenantId],
       });
@@ -138,7 +138,7 @@ const vehiclesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const rows = await trx.query({
           text: `
             INSERT INTO rides_vehicles
-              (tenant_id, driver_id, plate, model, color, year, category, is_active, created_at)
+              (tenant_id, driver_id, plate, model, color, year, category, is_active, createdAt)
             VALUES
               ($1, $2, $3, $4, $5, $6, $7, true, now())
             RETURNING *;
@@ -184,7 +184,7 @@ const vehiclesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       const vehicle = await runQueryWithTenant<any>(tenantId, {
         text: `
           UPDATE rides_vehicles
-          SET is_active = $3, updated_at = NOW()
+          SET is_active = $3, updatedAt = NOW()
           WHERE tenant_id = $1 AND vehicle_id = $2
           RETURNING *;
         `,

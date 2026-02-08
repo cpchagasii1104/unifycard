@@ -35,7 +35,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
 
     for (const context of contexts) {
       await pool.query(
-        `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
+        `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
          VALUES ($1, $2, 'read', NOW())
          ON CONFLICT (tenant_id, context) DO NOTHING`,
         [SYSTEM_TENANT.tenantId, context]
@@ -49,7 +49,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
 
     // Criar tenants no banco
     await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
+      `INSERT INTO tenants (tenant_id, name, slug, createdAt, updatedAt)
        VALUES ($1, 'Government Tenant', 'government-test', NOW(), NOW()),
               ($2, 'Company Tenant', 'company-test', NOW(), NOW()),
               ($3, 'Person Tenant', 'person-test', NOW(), NOW())
@@ -61,7 +61,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // admin em government, infrastructure
     // read em professional, company
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
        VALUES ($1, 'government', 'admin', NOW()),
               ($1, 'infrastructure', 'admin', NOW()),
               ($1, 'professional', 'read', NOW()),
@@ -74,7 +74,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // write em company
     // read em professional
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
        VALUES ($1, 'company', 'write', NOW()),
               ($1, 'professional', 'read', NOW())
        ON CONFLICT (tenant_id, context) DO UPDATE SET permission = EXCLUDED.permission`,
@@ -85,7 +85,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // write em person
     // read em professional
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
        VALUES ($1, 'person', 'write', NOW()),
               ($1, 'professional', 'read', NOW())
        ON CONFLICT (tenant_id, context) DO UPDATE SET permission = EXCLUDED.permission`,
@@ -269,4 +269,5 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     });
   });
 });
+
 

@@ -180,9 +180,9 @@ export class SocialTargetingService {
    * REGRA: Nunca exclui completamente usuário por não bater 100% no targeting
    */
   rankPosts(
-    posts: Array<{ relevance_score: number; is_followed?: boolean; created_at: string }>,
+    posts: Array<{ relevance_score: number; is_followed?: boolean; createdAt: string }>,
     discoveryPercentage: number = 20
-  ): Array<{ relevance_score: number; is_followed?: boolean; created_at: string }> {
+  ): Array<{ relevance_score: number; is_followed?: boolean; createdAt: string }> {
     if (posts.length === 0) {
       return [];
     }
@@ -198,7 +198,7 @@ export class SocialTargetingService {
         return b.relevance_score - a.relevance_score;
       }
       // Por último por data
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     // Separar alta relevância e discovery
@@ -212,3 +212,4 @@ export class SocialTargetingService {
 }
 
 export const socialTargetingService = new SocialTargetingService();
+

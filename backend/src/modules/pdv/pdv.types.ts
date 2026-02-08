@@ -12,8 +12,8 @@ export interface PdvSession {
   openedAt: Date;
   closedAt: Date | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreatePdvSessionInput {
@@ -51,7 +51,7 @@ export interface AddItemByWeightInput {
 export interface PayOrderFromPdvInput {
   sessionId: string;
   orderId: string;
-  amount: number;
+  amountCents: number;
   currency?: string; // padrão: 'BRL'
   buyerActorId: string;
   sellerActorId: string;
@@ -71,9 +71,11 @@ export interface PdvSessionSummary {
   orders: Array<{
     id: string;
     status: string;
-    amount: number | null;
+    amountCents: number | null;
     paymentStatus: 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE';
-    createdAt: Date;
+    createdAt: string;
   }>;
 }
+
+
 

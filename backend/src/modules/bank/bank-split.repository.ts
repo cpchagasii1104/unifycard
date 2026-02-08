@@ -15,12 +15,12 @@ interface BankSplitRow {
   transaction_id: string;
   service_order_id: string | null;
   target_account_id: string;
-  amount: string;
+  amountCents: string;
   percentage: string | null;
   split_type: string;
   description: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class BankSplitRepository {
@@ -34,12 +34,12 @@ class BankSplitRepository {
       transactionId: row.transaction_id,
       serviceOrderId: row.service_order_id,
       targetAccountId: row.target_account_id,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       percentage: row.percentage ? parseFloat(row.percentage) : null,
       splitType: row.split_type as any,
       description: row.description,
       metadata: row.metadata,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -102,7 +102,7 @@ class BankSplitRepository {
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING split_id, tenant_id, transaction_id, service_order_id, target_account_id,
-                  amount, percentage, split_type, description, metadata, created_at
+                  amount, percentage, split_type, description, metadata, createdAt
         `,
         [
           tenantId,
@@ -146,10 +146,10 @@ class BankSplitRepository {
       const result = await client.query<BankSplitRow>(
         `
         SELECT split_id, tenant_id, transaction_id, service_order_id, target_account_id,
-               amount, percentage, split_type, description, metadata, created_at
+               amount, percentage, split_type, description, metadata, createdAt
         FROM bank_splits
         WHERE transaction_id = $1
-        ORDER BY created_at ASC
+        ORDER BY createdAt ASC
         `,
         [transactionId]
       );
@@ -167,11 +167,11 @@ class BankSplitRepository {
     tenantId: string,
     transactionId: string,
     transactionAmount: number
-  ): Promise<{ isValid: boolean; total: number; difference: number }> {
+  ): Promise<{ isValid: boolean; totalCents: number; difference: number }> {
     const client = await getClientWithTenant(tenantId);
 
     try {
-      const result = await client.query<{ total: string }>(
+      const result = await client.query<{ totalCents: string }>(
         `
         SELECT COALESCE(SUM(amount), 0) as total
         FROM bank_splits
@@ -206,10 +206,10 @@ class BankSplitRepository {
       const result = await client.query<BankSplitRow>(
         `
         SELECT split_id, tenant_id, transaction_id, service_order_id, target_account_id,
-               amount, percentage, split_type, description, metadata, created_at
+               amount, percentage, split_type, description, metadata, createdAt
         FROM bank_splits
         WHERE tenant_id = $1 AND service_order_id = $2
-        ORDER BY created_at ASC
+        ORDER BY createdAt ASC
         `,
         [tenantId, serviceOrderId]
       );
@@ -222,6 +222,9 @@ class BankSplitRepository {
 }
 
 export const bankSplitRepository = new BankSplitRepository();
+
+
+
 
 
 

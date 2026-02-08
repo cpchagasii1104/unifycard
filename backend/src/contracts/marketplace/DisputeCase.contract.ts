@@ -19,29 +19,30 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface DisputeCase {
-  dispute_id: string;
-  order_id: string;
-  checkout_id?: string; // Opcional, se houver checkout
-  actor_involved: {
-    actor_id: string;
-    actor_type: 'store' | 'hub' | 'industry' | 'service_provider' | 'customer';
+  disputeId: string;
+  orderId: string;
+  checkoutId?: string; // Opcional, se houver checkout
+  actorInvolved: {
+    actorId: string;
+    actorType: 'store' | 'hub' | 'industry' | 'service_provider' | 'customer';
     role: 'seller' | 'fulfillment' | 'buyer' | 'platform';
   };
   type: 'delivery' | 'quality' | 'payment' | 'cancellation' | 'other';
   status: 'open' | 'under_review' | 'resolved' | 'rejected' | 'escalated';
   description: string;
   resolution?: {
-    resolution_type: 'refund' | 'partial_refund' | 'replacement' | 'credit' | 'dismissed';
-    amount?: number; // Se houver reembolso
+    resolutionType: 'refund' | 'partial_refund' | 'replacement' | 'credit' | 'dismissed';
+    amountCents: number; // Se houver reembolso
     currency?: string;
-    ledger_entry_id?: string; // ID do novo lançamento gerado
-    resolved_by: string; // user_id ou 'system'
-    resolved_at: string;
+    ledgerEntryId?: string; // ID do novo lançamento gerado
+    resolvedBy: string; // userId ou 'system'
+    resolvedAt: string;
     notes?: string;
   };
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
 
 
 

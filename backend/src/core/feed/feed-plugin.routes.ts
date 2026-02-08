@@ -23,8 +23,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
    * 🔴 BLINDAGEM: Lista é apenas informação, não decisão
    */
   fastify.get('/plugins', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
@@ -55,8 +55,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
       intent: string;
     };
   }>('/posts/:postId/render', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
@@ -93,8 +93,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
           thumbnailUrl: dto.thumbnailUrl,
           metadata: dto.metadata,
           availableActions: dto.availableActions,
-          createdAt: dto.createdAt.toISOString(),
-          updatedAt: dto.updatedAt?.toISOString(),
+          createdAt: dto.createdAt,
+          updatedAt: dto.updatedAt,
         },
       });
     } catch (error) {
@@ -115,8 +115,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
       intent: string;
     };
   }>('/posts/:postId/actions', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
@@ -164,8 +164,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
       intent: string;
     };
   }>('/posts/:postId/resolve', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     try {
@@ -215,8 +215,9 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/render-batch',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -256,8 +257,8 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
               thumbnailUrl: result.dto.thumbnailUrl,
               metadata: result.dto.metadata,
               availableActions: result.dto.availableActions,
-              createdAt: result.dto.createdAt.toISOString(),
-              updatedAt: result.dto.updatedAt?.toISOString(),
+              createdAt: result.dto.createdAt,
+              updatedAt: result.dto.updatedAt,
             } : null,
             actions: result.actions,
           };

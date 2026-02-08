@@ -14,8 +14,8 @@ export interface ActorRow {
   cover_url: string | null;
   bio: string | null;
   metadata: any;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export class ActorRepository {
@@ -35,7 +35,7 @@ export class ActorRepository {
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM actors
       WHERE tenant_id = $1 AND actor_id = $2
       LIMIT 1
@@ -122,7 +122,7 @@ export class ActorRepository {
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM actors
       WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user'
       LIMIT 1
@@ -142,7 +142,7 @@ export class ActorRepository {
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM actors
       WHERE tenant_id = $1 AND company_id = $2 AND actor_type = 'page'
       LIMIT 1
@@ -195,7 +195,7 @@ export class ActorRepository {
       tenantId,
       `
       UPDATE actors
-      SET display_name = $1, updated_at = now()
+      SET display_name = $1, updatedAt = now()
       WHERE actor_id = $2
       RETURNING *
       `,
@@ -303,7 +303,7 @@ export class ActorRepository {
     });
 
     // 2. Actors de empresas onde o usuário tem permissão
-    // Busca empresas via user_identity_links para obter global_user_id e então buscar em company_users
+    // Busca empresas via JOIN direto entre company_users e users usando global_user_id
     const companyActors = await runQueriesWithTenant<ActorRow & { role: string; can_manage_company: boolean; company_status: string }>(
       tenantId,
       `
@@ -315,14 +315,14 @@ export class ActorRepository {
       FROM actors a
       INNER JOIN companies c ON a.company_id = c.company_id
       INNER JOIN company_users cu ON c.company_id = cu.company_id
-      INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
+      INNER JOIN users u ON cu.global_user_id = u.global_user_id
       WHERE a.tenant_id = $1
         AND a.actor_type = 'page'
-        AND uil.user_id = $2
-        AND uil.tenant_id = $1
+        AND u.user_id = $2
+        AND u.tenant_id = $1
         AND cu.is_active = true
         AND c.status != 'suspended'
-      ORDER BY cu.is_primary DESC, c.created_at DESC
+      ORDER BY cu.is_primary DESC, c.createdAt DESC
       `,
       [tenantId, userId]
     );
@@ -415,3 +415,4 @@ export class ActorRepository {
 }
 
 export const actorRepository = new ActorRepository();
+

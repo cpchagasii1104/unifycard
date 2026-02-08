@@ -20,36 +20,36 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface B2BCommercialContract {
-  contract_id: string;
-  supplier_id: string; // ID do fornecedor (loja, indústria, hub)
-  supplier_type: 'store' | 'hub' | 'industry';
-  buyer_id: string; // ID do comprador (loja, hub)
-  buyer_type: 'store' | 'hub';
+  contractId: string;
+  supplierId: string; // ID do fornecedor (loja, indústria, hub)
+  supplierType: 'store' | 'hub' | 'industry';
+  buyerId: string; // ID do comprador (loja, hub)
+  buyerType: 'store' | 'hub';
   region: {
     country: string;
     state: string;
     city: string;
   };
   products: Array<{
-    product_id: string;
+    productId: string;
     name: string;
-    unit_price: number;
+    unitPrice: number;
     currency: string;
-    minimum_quantity: number;
-    maximum_quantity?: number;
+    minimumQuantity: number;
+    maximumQuantity?: number;
   }>;
   terms: {
-    volume_commitment: number; // Volume total comprometido
-    delivery_schedule: 'weekly' | 'monthly' | 'quarterly';
-    payment_terms: 'net_15' | 'net_30' | 'net_60' | 'prepaid';
-    penalty_rate?: number; // Taxa de multa por atraso (percentual)
+    volumeCommitment: number; // Volume total comprometido
+    deliverySchedule: 'weekly' | 'monthly' | 'quarterly';
+    paymentTerms: 'net_15' | 'net_30' | 'net_60' | 'prepaid';
+    penaltyRate?: number; // Taxa de multa por atraso (percentual)
   };
   status: 'draft' | 'active' | 'fulfilled' | 'breached' | 'cancelled';
-  start_date: string;
-  end_date: string;
-  created_at: string;
-  signed_at?: string;
-  // NÃO incluir updated_at - contrato só pode ser assinado, não editado
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  signedAt?: string;
+  // NÃO incluir updatedAt - contrato só pode ser assinado, não editado
 }
 
 

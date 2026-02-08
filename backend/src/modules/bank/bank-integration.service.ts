@@ -113,12 +113,12 @@ class BankIntegrationService {
     input: {
       eventId: string;
       buyerUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amount: number }> }> {
+  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
     const { eventId, buyerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
 
     // SPRINT 36.2: Validar limite diário (enforcement)
@@ -185,7 +185,7 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
       })),
     };
   }
@@ -199,12 +199,12 @@ class BankIntegrationService {
     input: {
       eventId: string;
       buyerUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amount: number }> }> {
+  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
     const { eventId, buyerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
 
     // SPRINT 36.2: Validar limite diário (enforcement)
@@ -270,7 +270,7 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
       })),
     };
   }
@@ -286,12 +286,12 @@ class BankIntegrationService {
       serviceId: string;
       buyerUserId: string;
       providerUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amount: number }> }> {
+  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
     const { bookingId, serviceId, buyerUserId, providerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
 
     // SPRINT 36.2: Validar limite diário (enforcement)
@@ -355,7 +355,7 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
       })),
     };
   }
@@ -369,7 +369,7 @@ class BankIntegrationService {
     input: {
       groupId: string;
       contributorUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
@@ -501,12 +501,12 @@ class BankIntegrationService {
       rideId: string;
       passengerUserId: string;
       driverUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amount: number }> }> {
+  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
     const { rideId, passengerUserId, driverUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
 
     // Resolver contas
@@ -550,12 +550,13 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
       })),
     };
   }
 }
 
 export const bankIntegrationService = new BankIntegrationService();
+
 
 

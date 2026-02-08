@@ -22,11 +22,11 @@ class ServiceBookingDecisionRepository {
       bookingId: row.booking_id,
       decidedByActorId: row.decided_by_actor_id,
       status: row.status as BookingDecisionStatus,
-      decidedAt: row.decided_at,
+      decidedAt: row.decidedAt,
       reason: row.reason,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -39,8 +39,8 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decided_at, reason, metadata,
-        created_at, updated_at
+        status, decidedAt, reason, metadata,
+        createdAt, updatedAt
       FROM service_booking_decisions
       WHERE decision_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -67,8 +67,8 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decided_at, reason, metadata,
-        created_at, updated_at
+        status, decidedAt, reason, metadata,
+        createdAt, updatedAt
       FROM service_booking_decisions
       WHERE booking_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -106,14 +106,14 @@ class ServiceBookingDecisionRepository {
       `
       INSERT INTO service_booking_decisions (
         tenant_id, booking_id, decided_by_actor_id,
-        status, decided_at, reason, metadata
+        status, decidedAt, reason, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decided_at, reason, metadata,
-        created_at, updated_at
+        status, decidedAt, reason, metadata,
+        createdAt, updatedAt
       `,
       [
         tenantId,
@@ -136,4 +136,6 @@ class ServiceBookingDecisionRepository {
 }
 
 export const serviceBookingDecisionRepository = new ServiceBookingDecisionRepository();
+
+
 

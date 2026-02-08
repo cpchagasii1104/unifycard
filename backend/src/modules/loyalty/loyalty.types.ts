@@ -18,8 +18,8 @@ export interface LoyaltyAccount {
   lifetimeEarned: number;
   lifetimeRedeemed: number;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LoyaltyLedgerEntry {
@@ -34,7 +34,7 @@ export interface LoyaltyLedgerEntry {
   description: string | null;
   createdByActorId: string | null;
   createdByUserId: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface LoyaltyRule {
@@ -43,7 +43,7 @@ export interface LoyaltyRule {
   name: string;
   status: LoyaltyRuleStatus;
   ruleType: LoyaltyRuleType;
-  value: number;
+  valueCents: number;
   appliesTo: LoyaltyRuleAppliesTo;
   appliesId: string | null;
   minAmount: number | null;
@@ -51,7 +51,7 @@ export interface LoyaltyRule {
   validFrom: Date | null;
   validTo: Date | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface LoyaltyVoucher {
@@ -60,14 +60,14 @@ export interface LoyaltyVoucher {
   contactId: string;
   status: LoyaltyVoucherStatus;
   voucherType: LoyaltyVoucherType;
-  value: number | null;
+  valueCents: number | null;
   benefitCode: string | null;
   expiresAt: Date | null;
   createdFromLedgerId: string | null;
   usedReferenceType: string | null;
   usedReferenceId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
   usedAt: Date | null;
 }
 
@@ -75,7 +75,7 @@ export interface CreateLoyaltyRuleInput {
   name: string;
   status?: LoyaltyRuleStatus;
   ruleType: LoyaltyRuleType;
-  value: number;
+  valueCents: number;
   appliesTo: LoyaltyRuleAppliesTo;
   appliesId?: string | null;
   minAmount?: number | null;
@@ -89,14 +89,14 @@ export interface RedeemPointsInput {
   contactId: string;
   points: number;
   voucherType: LoyaltyVoucherType;
-  value?: number | null;
+  valueCents: number | null;
   benefitCode?: string | null;
   expiresAt?: Date | null;
 }
 
 export interface EarnFromPaymentInput {
   contactId: string;
-  amount: number; // valor da transação
+  amountCents: number; // valor da transação
   channel: 'PDV' | 'MARKETPLACE' | 'VENUE' | 'EVENT';
   actorId?: string;
   referenceType: string;
@@ -119,6 +119,8 @@ export interface LoyaltyRuleFilters {
   limit?: number;
   offset?: number;
 }
+
+
 
 
 

@@ -20,8 +20,8 @@ export interface PostRow {
   suggested_actions: any;
   metadata: any;
   event_id: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SocialRepositoryPort {
@@ -51,8 +51,10 @@ export interface SocialRepositoryPort {
       intent?: string;
       userId?: string;
     }
-  ): Promise<{ posts: PostRow[]; total: number; hasMore: boolean }>;
+  ): Promise<{ posts: PostRow[]; totalCents: number; hasMore: boolean }>;
 }
+
+
 
 
 

@@ -56,10 +56,10 @@ class CategoryReviewService {
         c.requires_review,
         c.created_by_ai,
         c.approved_by,
-        c.approved_at,
+        c.approvedAt,
         c.rejection_reason,
-        c.created_at,
-        c.updated_at,
+        c.createdAt,
+        c.updatedAt,
         -- Buscar metadados de auditoria da tabela category_ai_logs
         cal.ai_confidence as confidence,
         cal.original_text,
@@ -67,7 +67,7 @@ class CategoryReviewService {
       FROM categories c
       LEFT JOIN category_ai_logs cal ON cal.category_id = c.category_id
       WHERE c.status = 'pending' AND c.requires_review = true
-      ORDER BY c.created_at DESC
+      ORDER BY c.createdAt DESC
       `
     );
 
@@ -94,7 +94,7 @@ class CategoryReviewService {
     const approved = await categoriesService.approveCategory(categoryId, adminId);
 
     // Registrar auditoria adicional (se necessário)
-    // O categoriesService já atualiza approved_by e approved_at
+    // O categoriesService já atualiza approved_by e approvedAt
 
     return approved;
   }
@@ -132,6 +132,7 @@ class CategoryReviewService {
 }
 
 export const categoryReviewService = new CategoryReviewService();
+
 
 
 

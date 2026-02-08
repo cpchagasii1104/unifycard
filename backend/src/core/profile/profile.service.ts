@@ -98,10 +98,10 @@ class ProfileService {
       fullName: row.full_name ?? null,
       phone: row.phone ?? null,
       metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      profile_personal_confirmed: profilePersonalConfirmed,
-      can_edit_personal_data: canEditPersonalData,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      profilePersonalConfirmed: profilePersonalConfirmed,
+      canEditPersonalData: canEditPersonalData,
     };
   }
 
@@ -121,10 +121,10 @@ class ProfileService {
         SELECT
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${selectConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
         FROM profiles
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY updated_at DESC
+        ORDER BY updatedAt DESC
         LIMIT 1
       `,
       [tenantId, userId]
@@ -168,7 +168,7 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
       `,
       [tenantId, userId, JSON.stringify(initialMetadata)]
     );
@@ -255,7 +255,7 @@ class ProfileService {
       // Compat: se não existe coluna, manter o flag em metadata
       if (!hasColumn && existingProfile) {
         (metadataWithoutImmutables as any).profile_personal_confirmed =
-          existingProfile.profile_personal_confirmed === true;
+          existingProfile.profilePersonalConfirmed === true;
       }
     }
 
@@ -278,7 +278,7 @@ class ProfileService {
     
     if (attemptedToSavePersonalData && !personalDataLocked) {
       mergedMetadata.personal_data_locked = true;
-      mergedMetadata.personal_data_locked_at = new Date().toISOString();
+      mergedMetadata.personal_data_lockedAt = new Date().toISOString();
     }
 
     // 🔧 FIX (onboarding only after first successful save): Setar onboarding_completed automaticamente após primeiro salvamento bem-sucedido
@@ -326,7 +326,7 @@ class ProfileService {
       // Se todos os dados obrigatórios existem, marcar onboarding como concluído
       if (hasFullName && hasBirthdate && hasGender) {
         mergedMetadata.onboarding_completed = true;
-        mergedMetadata.onboarding_completed_at = new Date().toISOString();
+        mergedMetadata.onboarding_completedAt = new Date().toISOString();
       }
     }
 
@@ -371,7 +371,7 @@ class ProfileService {
 
     // metadata: sempre atualiza com o merge (preserva campos existentes)
     updateFields.push(`metadata = $5::JSONB`);
-    updateFields.push(`updated_at = now()`);
+    updateFields.push(`updatedAt = now()`);
 
     // confirmação: preserva (nunca “volta pra false”)
     if (hasColumn) {
@@ -393,7 +393,7 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
       `,
       [tenantId, userId, insertFullName, insertPhone, serializedMetadata]
     );
@@ -486,7 +486,7 @@ class ProfileService {
     const updatedMetadata = {
       ...existingMetadata,
       onboarding_completed: true,
-      onboarding_completed_at: new Date().toISOString(),
+      onboarding_completedAt: new Date().toISOString(),
     };
 
     return this.upsertProfile(tenantId, userId, { metadata: updatedMetadata });
@@ -509,7 +509,7 @@ class ProfileService {
           ON CONFLICT (tenant_id, user_id)
           DO UPDATE SET
             profile_personal_confirmed = true,
-            updated_at = now()
+            updatedAt = now()
           RETURNING profile_id
         `,
         [tenantId, userId]
@@ -531,7 +531,7 @@ class ProfileService {
         ON CONFLICT (tenant_id, user_id)
         DO UPDATE SET
           metadata = $3::JSONB,
-          updated_at = now()
+          updatedAt = now()
         RETURNING profile_id
       `,
       [tenantId, userId, JSON.stringify(merged)]
@@ -558,9 +558,10 @@ class ProfileService {
     // 🔧 FIX (first personal save locks identity fields): Verificar personal_data_locked primeiro
     const personalDataLocked = profile.metadata?.personal_data_locked === true;
     if (personalDataLocked) return false;
-    // Fallback para profile_personal_confirmed (compatibilidade)
-    return !profile.profile_personal_confirmed;
+    // Fallback para profilePersonalConfirmed (compatibilidade)
+    return !profile.profilePersonalConfirmed;
   }
 }
 
 export const profileService = new ProfileService();
+

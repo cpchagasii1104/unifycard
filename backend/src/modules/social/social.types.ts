@@ -28,8 +28,8 @@ export interface Post {
   // Campos para posts de serviços (extraídos do metadata)
   serviceInfo?: ServiceInfo; // Informações do serviço
   isServicePost?: boolean; // Flag para indicar que é um post de serviço
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PostRow {
@@ -46,8 +46,8 @@ export interface PostRow {
   suggested_actions: any; // JSONB
   metadata: any; // JSONB
   event_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MediaItem {
@@ -109,7 +109,10 @@ export interface FeedOptions {
 
 export interface FeedResult {
   posts: Post[];
-  total: number;
+  totalCents: number;
   hasMore: boolean;
 }
+
+
+
 

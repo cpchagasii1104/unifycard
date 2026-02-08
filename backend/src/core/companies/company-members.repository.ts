@@ -30,8 +30,8 @@ class CompanyMembersRepository {
       role: row.role as CompanyMemberRole,
       status: row.status as CompanyMemberStatus,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -127,7 +127,7 @@ class CompanyMembersRepository {
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const rows = await runQueriesWithTenant<CompanyMemberRow>(tenantId, query, params);
     return rows.map(this.toCompanyMember);
@@ -178,7 +178,7 @@ class CompanyMembersRepository {
       tenantId,
       `
       UPDATE company_members
-      SET ${fields.join(', ')}, updated_at = now()
+      SET ${fields.join(', ')}, updatedAt = now()
       WHERE member_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
       RETURNING *
       `,
@@ -213,4 +213,5 @@ class CompanyMembersRepository {
 }
 
 export const companyMembersRepository = new CompanyMembersRepository();
+
 

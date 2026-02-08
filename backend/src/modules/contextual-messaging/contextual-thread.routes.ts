@@ -20,8 +20,8 @@ const contextualThreadRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       try {
@@ -158,8 +158,8 @@ const contextualThreadRoutes: FastifyPluginAsync = async (fastify) => {
       const { threadId } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       try {
@@ -167,8 +167,8 @@ const contextualThreadRoutes: FastifyPluginAsync = async (fastify) => {
           tenantId,
           threadId,
           req.body,
-          actionContext.actingActorId,
-          actionContext.actingUserId
+          actionContext.actorId,
+          actionContext.actorId
         );
         return reply.status(201).send(message);
       } catch (error: any) {

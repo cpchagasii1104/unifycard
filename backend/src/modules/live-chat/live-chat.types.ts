@@ -20,8 +20,8 @@ export interface LivePresence {
   lastSeenAt: Date;
   expiresAt: Date;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatRoom {
@@ -32,7 +32,7 @@ export interface ChatRoom {
   roomType: ChatRoomType;
   status: ChatRoomStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ChatMessage {
@@ -44,7 +44,7 @@ export interface ChatMessage {
   status: ChatMessageStatus;
   clientMessageId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ChatBlock {
@@ -55,7 +55,7 @@ export interface ChatBlock {
   contextType: PresenceContextType;
   contextId: string;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ChatReport {
@@ -69,8 +69,8 @@ export interface ChatReport {
   details: string | null;
   status: ChatReportStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OptInInput {
@@ -106,6 +106,7 @@ export interface ChatMessageFilters {
   cursor?: string;
   limit?: number;
 }
+
 
 
 

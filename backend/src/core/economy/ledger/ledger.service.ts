@@ -14,10 +14,10 @@ type LedgerRow = {
   account_id: string;
   transaction_id: string;
   entry_type: string;
-  amount: string;
+  amountCents: string;
   balance_before: string;
   balance_after: string;
-  created_at: Date;
+  createdAt: Date;
 };
 
 class LedgerService {
@@ -31,10 +31,10 @@ class LedgerService {
       accountId: row.account_id,
       transactionId: row.transaction_id,
       entryType: row.entry_type as EntryType,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       balanceBefore: parseFloat(row.balance_before),
       balanceAfter: parseFloat(row.balance_after),
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -56,7 +56,7 @@ class LedgerService {
     try {
       let query = `
         SELECT entry_id, tenant_id, account_id, transaction_id, entry_type, 
-               amount, balance_before, balance_after, created_at
+               amount, balance_before, balance_after, createdAt
         FROM ledger
         WHERE account_id = $1
       `;
@@ -66,14 +66,14 @@ class LedgerService {
 
       // Filtro por data de início
       if (startDate) {
-        query += ` AND created_at >= $${paramIndex}`;
+        query += ` AND createdAt >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       // Filtro por data de fim
       if (endDate) {
-        query += ` AND created_at <= $${paramIndex}`;
+        query += ` AND createdAt <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
@@ -85,7 +85,7 @@ class LedgerService {
         paramIndex++;
       }
 
-      query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
       const result = await client.query<LedgerRow>(query, params);
@@ -105,7 +105,7 @@ class LedgerService {
     try {
       const result = await client.query<LedgerRow>(
         `SELECT entry_id, tenant_id, account_id, transaction_id, entry_type, 
-                amount, balance_before, balance_after, created_at
+                amount, balance_before, balance_after, createdAt
          FROM ledger
          WHERE entry_id = $1
          LIMIT 1`,
@@ -135,7 +135,7 @@ class LedgerService {
     try {
       const result = await client.query<LedgerRow>(
         `SELECT entry_id, tenant_id, account_id, transaction_id, entry_type, 
-                amount, balance_before, balance_after, created_at
+                amount, balance_before, balance_after, createdAt
          FROM ledger
          WHERE transaction_id = $1
          ORDER BY entry_type DESC`, // Crédito primeiro, depois débito
@@ -180,13 +180,13 @@ class LedgerService {
       let paramIndex = 2;
 
       if (startDate) {
-        query += ` AND created_at >= $${paramIndex}`;
+        query += ` AND createdAt >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        query += ` AND created_at <= $${paramIndex}`;
+        query += ` AND createdAt <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
@@ -231,7 +231,7 @@ class LedgerService {
         `SELECT entry_id, entry_type, amount, balance_before, balance_after
          FROM ledger
          WHERE account_id = $1
-         ORDER BY created_at ASC`,
+         ORDER BY createdAt ASC`,
         [accountId]
       );
 
@@ -248,7 +248,7 @@ class LedgerService {
         const amount = parseFloat(entry.amount);
 
         const expectedBalanceAfter =
-          entry.entry_type === 'credit' ? balanceBefore + amount : balanceBefore - amount;
+          entry.entry_type === 'credit' ? balanceBefore + amountCents: balanceBefore - amount;
 
         // Verifica se o balance_after está correto
         if (Math.abs(balanceAfter - expectedBalanceAfter) > 0.01) {
@@ -278,3 +278,4 @@ class LedgerService {
 }
 
 export const ledgerService = new LedgerService();
+

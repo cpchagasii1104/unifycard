@@ -49,7 +49,7 @@ export interface SimulatePriceChangeInput {
 export interface SimulateDiscountInput {
   productVariantId: string;
   actorId?: string;
-  discountPercentage?: number; // Desconto percentual (ex: 10 = 10%)
+  discountBps?: number; // Desconto percentual (ex: 10 = 10%)
   discountAmount?: number; // Desconto fixo (ex: 5.00)
   periodDays?: number;
 }

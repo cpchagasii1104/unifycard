@@ -14,10 +14,10 @@ export interface LedgerEntry {
   accountId: string;
   transactionId: string;
   entryType: EntryType;
-  amount: number;
+  amountCents: number;
   balanceBefore: number;
   balanceAfter: number;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -41,3 +41,4 @@ export interface LedgerSearchOptions {
   endDate?: Date;
   entryType?: EntryType;
 }
+

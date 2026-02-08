@@ -22,8 +22,8 @@ export interface PresenceRsvp {
   cancelledAt: Date | null;
   attendedAt: Date | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CheckinToken {
@@ -38,7 +38,7 @@ export interface CheckinToken {
   createdByActorId: string | null;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface Checkin {
@@ -52,7 +52,7 @@ export interface Checkin {
   status: CheckinStatus;
   referenceEventId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface PromoBenefit {
@@ -69,7 +69,7 @@ export interface PromoBenefit {
   validFrom: Date | null;
   validTo: Date | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface PromoBenefitRedemption {
@@ -81,7 +81,7 @@ export interface PromoBenefitRedemption {
   loyaltyLedgerId: string | null;
   voucherId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ConfirmPresenceInput {
@@ -138,6 +138,7 @@ export interface PresenceFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

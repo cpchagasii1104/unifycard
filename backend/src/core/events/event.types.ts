@@ -74,8 +74,8 @@ export const ACTOR_EVENT_TYPE_MATRIX: Record<EventType, { user: boolean; page: b
  * 🔴 DECLARAÇÃO PURA: NÃO é inferida, NÃO é autocorrigida, NÃO é decidida
  */
 export interface EventTimeWindow {
-  start_datetime: string; // ISO 8601
-  end_datetime: string; // ISO 8601
+  startDatetime: string; // ISO 8601
+  endDatetime: string; // ISO 8601
   timezone?: string; // Opcional: IANA timezone (ex: "America/Sao_Paulo")
 }
 
@@ -99,15 +99,15 @@ export type FlexibilityLevel = 'strict' | 'flexible' | 'very_flexible';
 export interface EventDeclaration {
   title: string;
   description?: string | null;
-  event_aspects: string[]; // Validado contra vocabulário fechado (obrigatório)
-  aspects_version: string; // Versão do vocabulário usado (ex: "v1")
+  eventAspects: string[]; // Validado contra vocabulário fechado (obrigatório)
+  aspectsVersion: string; // Versão do vocabulário usado (ex: "v1")
   visibility: EventVisibility;
-  intent_flags?: string[]; // Opcional: validado contra allowlist
-  declared_at: string; // ISO 8601
+  intentFlags?: string[]; // Opcional: validado contra allowlist
+  declaredAt: string; // ISO 8601
   
   // FASE 3: Declared Time Windows
-  desired_time_windows?: EventTimeWindow[]; // Opcional: declaração explícita de janelas desejadas
-  flexibility_level?: FlexibilityLevel; // Opcional: nível de flexibilidade declarado
+  desiredTimeWindows?: EventTimeWindow[]; // Opcional: declaração explícita de janelas desejadas
+  flexibilityLevel?: FlexibilityLevel; // Opcional: nível de flexibilidade declarado
   timezone?: string; // Opcional: timezone padrão para as janelas
 }
 
@@ -119,29 +119,29 @@ export interface EventDeclaration {
  */
 export interface Event {
   id: string;
-  tenant_id: string;
-  actor_id: string; // 🔴 LEGACY: usar responsible_actor_id no domínio
-  actor_type: ActorType;
-  event_type: EventType;
-  event_subtype?: string | null;
+  tenantId: string;
+  actorId: string; // 🔴 LEGACY: usar responsibleActorId no domínio
+  actorType: ActorType;
+  eventType: EventType;
+  eventSubtype?: string | null;
   title: string;
   description?: string | null;
-  datetime_start: string; // ISO 8601
-  datetime_end: string; // ISO 8601
+  datetimeStart: string; // ISO 8601
+  datetimeEnd: string; // ISO 8601
   status: EventStatus;
   visibility: EventVisibility;
-  ticket_price_cents?: number | null;
-  max_attendees?: number | null;
-  completed_at?: string | null; // ISO 8601
-  created_at: string; // ISO 8601
-  updated_at: string; // ISO 8601
+  ticketPriceCents?: number | null;
+  maxAttendees?: number | null;
+  completedAt?: string | null; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
   metadata?: Record<string, any>;
   
   // 🔴 DOMÍNIO CANÔNICO: Aliases e campos derivados
-  /** Alias canônico para actor_id (EVENT_DOMAIN_MINIMUM_CONTRACT) */
-  responsible_actor_id?: string; // Derivado de actor_id
-  /** Alias canônico para actor_type */
-  responsible_actor_type?: ActorType; // Derivado de actor_type
+  /** Alias canônico para actorId (EVENT_DOMAIN_MINIMUM_CONTRACT) */
+  responsibleActorId?: string; // Derivado de actorId
+  /** Alias canônico para actorType */
+  responsibleActorType?: ActorType; // Derivado de actorType
   /** Declaração do evento (quando existir) */
   declaration?: EventDeclaration | null;
 }
@@ -153,17 +153,17 @@ export interface Event {
  * Validação por etapa: ETAPA 0 não requer datas (serão definidas em ETAPA 3)
  */
 export interface CreateEventInput {
-  actor_id: string;
-  actor_type: ActorType;
-  event_type: EventType;
-  event_subtype?: string | null;
+  actorId: string;
+  actorType: ActorType;
+  eventType: EventType;
+  eventSubtype?: string | null;
   title: string;
   description?: string | null;
-  datetime_start?: string; // ISO 8601 - Opcional (FASE 5: validação por etapa)
-  datetime_end?: string; // ISO 8601 - Opcional (FASE 5: validação por etapa)
+  datetimeStart?: string; // ISO 8601 - Opcional (FASE 5: validação por etapa)
+  datetimeEnd?: string; // ISO 8601 - Opcional (FASE 5: validação por etapa)
   visibility?: EventVisibility;
-  ticket_price_cents?: number | null;
-  max_attendees?: number | null;
+  ticketPriceCents?: number | null;
+  maxAttendees?: number | null;
   metadata?: Record<string, any>;
 }
 
@@ -173,12 +173,12 @@ export interface CreateEventInput {
 export interface UpdateEventInput {
   title?: string;
   description?: string | null;
-  datetime_start?: string; // ISO 8601
-  datetime_end?: string; // ISO 8601
-  event_subtype?: string | null;
+  datetimeStart?: string; // ISO 8601
+  datetimeEnd?: string; // ISO 8601
+  eventSubtype?: string | null;
   visibility?: EventVisibility;
-  ticket_price_cents?: number | null;
-  max_attendees?: number | null;
+  ticketPriceCents?: number | null;
+  maxAttendees?: number | null;
   metadata?: Record<string, any>;
 }
 
@@ -211,13 +211,13 @@ export interface ActorEventTypeValidation {
 export interface DeclareEventInput {
   title: string;
   description?: string | null;
-  event_aspects: string[]; // OBRIGATÓRIO: validado contra vocabulário fechado
+  eventAspects: string[]; // OBRIGATÓRIO: validado contra vocabulário fechado
   visibility: EventVisibility;
-  intent_flags?: string[]; // Opcional: validado contra allowlist
+  intentFlags?: string[]; // Opcional: validado contra allowlist
   
   // FASE 3: Declared Time Windows
-  desired_time_windows?: EventTimeWindow[]; // Opcional: declaração explícita
-  flexibility_level?: FlexibilityLevel; // Opcional: nível de flexibilidade
+  desiredTimeWindows?: EventTimeWindow[]; // Opcional: declaração explícita
+  flexibilityLevel?: FlexibilityLevel; // Opcional: nível de flexibilidade
   timezone?: string; // Opcional: timezone padrão
 }
 

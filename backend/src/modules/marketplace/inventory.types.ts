@@ -24,7 +24,7 @@ export interface InventoryMovement {
   inventoryLotId?: string | null; // SPRINT 37.4: Lote opcional
   metadata?: Record<string, any> | null;
   createdByUserId?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -65,7 +65,7 @@ export interface InventoryBalance {
   tenantId: string;
   currentQuantity: number;
   unit: string;
-  updatedAt: Date;
+  updatedAt: string;
 }
 
 /**
@@ -80,7 +80,7 @@ export interface InventoryLot {
   manufactureDate?: Date | null;
   expirationDate?: Date | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -93,4 +93,5 @@ export interface CreateInventoryLotInput {
   expirationDate?: Date | null;
   metadata?: Record<string, any>;
 }
+
 

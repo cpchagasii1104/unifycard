@@ -78,7 +78,7 @@ class HumanMvpServiceOfferService {
     const result = await pool.query<{ id: string }>(
       `
       INSERT INTO human_mvp_service_offers (
-        tenant_id, person_id, skill_id, category_id, context, created_at, updated_at
+        tenant_id, person_id, skill_id, category_id, context, createdAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING id
@@ -108,7 +108,7 @@ class HumanMvpServiceOfferService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, created_at
+        event_type, tenant_id, person_id, category_id, context, details, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
@@ -126,5 +126,6 @@ class HumanMvpServiceOfferService {
 }
 
 export const humanMvpServiceOfferService = new HumanMvpServiceOfferService();
+
 
 

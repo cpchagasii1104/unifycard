@@ -13,35 +13,35 @@ export type VoucherClaimStatus = 'claimed' | 'redeemed' | 'expired' | 'cancelled
  * Resgate de voucher (claim)
  */
 export interface VoucherClaim {
-  claim_id: string;
-  offer_id: string;
-  claimer_user_id: string;
+  claimId: string;
+  offerId: string;
+  claimerUserId: string;
   
   status: VoucherClaimStatus;
   
-  claimed_at: string;
-  redemption_code: string; // Código curto, não adivinhável (ex: "ABC123")
+  claimedAt: string;
+  redemptionCode: string; // Código curto, não adivinhável (ex: "ABC123")
   
-  redeemed_at?: string;
-  expires_at: string; // Prazo individual do claim (min(end_at + redemption_deadline_policy, policy_default))
+  redeemedAt?: string;
+  expiresAt: string; // Prazo individual do claim (min(endAt + redemptionDeadlinePolicy, policyDefault))
   
-  store_checkin_required: boolean;
-  checked_in_at?: string; // Quando o usuário fez check-in (se exigido)
+  storeCheckinRequired: boolean;
+  checkedInAt?: string; // Quando o usuário fez check-in (se exigido)
   
   // Auditoria (anti-revenda)
   audit: {
-    ip_hash?: string; // Hash do IP (opcional, para detecção de abuso)
-    device_hash?: string; // Hash do device (opcional)
-    claimed_from_neighborhood?: string; // Bairro de onde foi resgatado
-    claimed_from_city?: string; // Cidade de onde foi resgatado
+    ipHash?: string; // Hash do IP (opcional, para detecção de abuso)
+    deviceHash?: string; // Hash do device (opcional)
+    claimedFromNeighborhood?: string; // Bairro de onde foi resgatado
+    claimedFromCity?: string; // Cidade de onde foi resgatado
   };
   
   // Vinculação após resgate
-  linked_order_id?: string; // Se type = product, vincula ao Order criado
-  linked_service_booking_id?: string; // Se type = service, vincula ao ServiceBooking criado
+  linkedOrderId?: string; // Se type = product, vincula ao Order criado
+  linkedServiceBookingId?: string; // Se type = service, vincula ao ServiceBooking criado
   
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   immutable: true; // Claim é imutável após criação (apenas status pode mudar)
 }
 

@@ -40,8 +40,8 @@ class RiskScoringEngine {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // Filtrar denúncias por período
-    const reportsLast7Days = reports.filter((r) => r.created_at >= sevenDaysAgo);
-    const reportsLast30Days = reports.filter((r) => r.created_at >= thirtyDaysAgo);
+    const reportsLast7Days = reports.filter((r) => r.createdAt >= sevenDaysAgo);
+    const reportsLast30Days = reports.filter((r) => r.createdAt >= thirtyDaysAgo);
 
     // Contar reporters únicos (antifraude)
     const uniqueReporters = new Set(reports.map((r) => r.reporter_user_id)).size;
@@ -56,13 +56,13 @@ class RiskScoringEngine {
     // Peso por severidade
     for (const report of reports) {
       switch (report.severity) {
-        case 'HIGH':
+        case 'high':
           score += 15;
           break;
-        case 'MEDIUM':
+        case 'medium':
           score += 8;
           break;
-        case 'LOW':
+        case 'low':
           score += 3;
           break;
       }
@@ -121,10 +121,11 @@ class RiskScoringEngine {
       tenant_id: tenantId,
       risk_level: result.riskLevel,
       risk_score: result.riskScore,
-      last_evaluated_at: new Date(),
+      last_evaluatedAt: new Date(),
     });
   }
 }
 
 export const riskScoringEngine = new RiskScoringEngine();
+
 

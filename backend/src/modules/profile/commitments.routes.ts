@@ -29,13 +29,17 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant.id;
-      const globalUserId = req.user.globalUserId || req.user.id;
-      const userId = req.user.userId || req.user.id;
+      const actorId = req.actionContext.actorId;
       
-      // Buscar actor do usuário
+      // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
-      const actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+      const actor = await actorRepository.findById(tenantId, actorId);
       if (!actor) {
         return reply.status(404).send({ error: 'Actor não encontrado' });
       }
@@ -44,26 +48,26 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsParticipatingRows = await runQueriesWithTenant<{
         event_id: string;
         title: string;
-        start_time: Date;
-        end_time: Date;
+        starts_at: Date;
+        ends_at: Date;
         status: string;
-        check_in_time: Date | null;
+        checked_in_at: Date | null;
       }>(
         tenantId,
         `
         SELECT 
           e.id as event_id,
           e.title,
-          e.start_time,
-          e.end_time,
+          e.starts_at,
+          e.ends_at,
           e.status,
-          ea.check_in_time
+          ea.checked_in_at
         FROM event_attendees ea
         JOIN events e ON ea.event_id = e.id
         WHERE ea.global_user_id = $1
           AND e.tenant_id = $2
           AND e.status IN ('published', 'ongoing')
-        ORDER BY e.start_time ASC
+        ORDER BY e.starts_at ASC
         LIMIT 20
         `,
         [globalUserId, tenantId]
@@ -72,28 +76,28 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsParticipating = eventsParticipatingRows.map((row) => ({
         eventId: row.event_id,
         title: row.title,
-        startTime: row.start_time.toISOString(),
-        endTime: row.end_time.toISOString(),
+        startTime: row.starts_at.toISOString(),
+        endTime: row.ends_at.toISOString(),
         status: row.status,
-        checkedIn: row.check_in_time !== null,
+        checkedIn: row.checked_in_at !== null,
       }));
 
       // 2. Eventos que organizo (created_by_global_user_id)
       const eventsOrganizingRows = await runQueriesWithTenant<{
         id: string;
         title: string;
-        start_time: Date;
-        end_time: Date;
+        starts_at: Date;
+        ends_at: Date;
         status: string;
       }>(
         tenantId,
         `
-        SELECT id, title, start_time, end_time, status
+        SELECT id, title, starts_at, ends_at, status
         FROM events
         WHERE tenant_id = $1
           AND created_by_global_user_id = $2
           AND status IN ('draft', 'published', 'ongoing')
-        ORDER BY start_time ASC
+        ORDER BY starts_at ASC
         LIMIT 20
         `,
         [tenantId, globalUserId]
@@ -102,8 +106,8 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsOrganizing = eventsOrganizingRows.map((row) => ({
         eventId: row.id,
         title: row.title,
-        startTime: row.start_time.toISOString(),
-        endTime: row.end_time.toISOString(),
+        startTime: row.starts_at.toISOString(),
+        endTime: row.ends_at.toISOString(),
         status: row.status,
       }));
 
@@ -114,16 +118,16 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         group_id: string;
         name: string;
         is_active: boolean;
-        created_at: Date;
+        createdAt: Date;
       }>(
         tenantId,
         `
-        SELECT group_id, name, is_active, created_at
+        SELECT group_id, name, is_active, createdAt
         FROM groups
         WHERE tenant_id = $1
           AND (owner_user_id = $2 OR owner_user_id = $3)
           AND is_active = true
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT 20
         `,
         [tenantId, userId, globalUserId]
@@ -133,7 +137,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         groupId: row.group_id,
         name: row.name,
         isActive: row.is_active,
-        createdAt: row.created_at.toISOString(),
+        createdAt: row.createdAt,
       }));
 
       // 4. Agenda (bookings) - próximos compromissos
@@ -141,7 +145,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         booking_id: string;
         availability_id: string;
         status: string;
-        requested_at: Date;
+        requestedAt: Date;
         start_datetime: Date;
         end_datetime: Date;
       }>(
@@ -151,7 +155,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
           b.booking_id,
           b.availability_id,
           b.status,
-          b.requested_at,
+          b.requestedAt,
           a.start_datetime,
           a.end_datetime
         FROM bookings b
@@ -170,7 +174,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         bookingId: row.booking_id,
         availabilityId: row.availability_id,
         status: row.status,
-        requestedAt: row.requested_at.toISOString(),
+        requestedAt: row.requestedAt.toISOString(),
         startDatetime: row.start_datetime.toISOString(),
         endDatetime: row.end_datetime.toISOString(),
       }));
@@ -222,6 +226,10 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default commitmentsRoutes;
+
+
+
+
 
 
 

@@ -8,7 +8,7 @@ export interface Menu {
   name: string;
   isActive: boolean;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface MenuItem {
@@ -21,7 +21,7 @@ export interface MenuItem {
   isAvailable: boolean;
   sortOrder: number;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateMenuInput {
@@ -43,6 +43,7 @@ export interface AddMenuItemInput {
 export interface MenuWithItems extends Menu {
   items: MenuItem[];
 }
+
 
 
 

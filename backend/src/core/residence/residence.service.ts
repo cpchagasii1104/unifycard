@@ -20,8 +20,8 @@ class ResidenceService {
       timezone: row.timezone,
       currency: row.currency,
       languages: row.languages || [],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -31,7 +31,7 @@ class ResidenceService {
   async getUserResidence(globalUserId: string): Promise<UserResidence | null> {
     const result = await pool.query<UserResidenceRow>(
       `
-      SELECT global_user_id, country_id, state_id, city_id, timezone, currency, languages, created_at, updated_at
+      SELECT global_user_id, country_id, state_id, city_id, timezone, currency, languages, createdAt, updatedAt
       FROM global_user_residence
       WHERE global_user_id = $1
       LIMIT 1
@@ -123,8 +123,8 @@ class ResidenceService {
         timezone = COALESCE(EXCLUDED.timezone, global_user_residence.timezone),
         currency = COALESCE(EXCLUDED.currency, global_user_residence.currency),
         languages = COALESCE(EXCLUDED.languages, global_user_residence.languages),
-        updated_at = now()
-      RETURNING global_user_id, country_id, state_id, city_id, timezone, currency, languages, created_at, updated_at
+        updatedAt = now()
+      RETURNING global_user_id, country_id, state_id, city_id, timezone, currency, languages, createdAt, updatedAt
       `,
       [
         globalUserId,
@@ -270,6 +270,7 @@ class ResidenceService {
 }
 
 export const residenceService = new ResidenceService();
+
 
 
 

@@ -124,7 +124,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         statement: {
           entries: [],
-          total: 0,
+          totalCents: 0,
           hasMore: false,
         },
       });
@@ -136,7 +136,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         statement: {
           entries: [],
-          total: 0,
+          totalCents: 0,
           hasMore: false,
         },
       });
@@ -153,7 +153,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         statement: {
           entries: [],
-          total: 0,
+          totalCents: 0,
           hasMore: false,
         },
       });
@@ -189,7 +189,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         statement: {
           entries: [],
-          total: 0,
+          totalCents: 0,
           hasMore: false,
         },
       });
@@ -329,6 +329,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default transparencyRoutes;
+
 
 
 

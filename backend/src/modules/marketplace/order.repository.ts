@@ -18,8 +18,8 @@ interface OrderRow {
   status: string;
   total_quantity: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class OrderRepository {
@@ -35,8 +35,8 @@ class OrderRepository {
       status: row.status as any,
       totalQuantity: parseFloat(row.total_quantity),
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -55,7 +55,7 @@ class OrderRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, tenant_id, buyer_actor_id, seller_actor_id, status,
-                total_quantity, metadata, created_at, updated_at
+                total_quantity, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -85,7 +85,7 @@ class OrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, buyer_actor_id, seller_actor_id, status,
-             total_quantity, metadata, created_at, updated_at
+             total_quantity, metadata, createdAt, updatedAt
       FROM orders
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -130,7 +130,7 @@ class OrderRepository {
     if (options.cursor) {
       try {
         const cursorDate = new Date(decodeURIComponent(options.cursor));
-        conditions.push(`created_at < $${paramIndex}`);
+        conditions.push(`createdAt < $${paramIndex}`);
         params.push(cursorDate);
         paramIndex++;
       } catch (e) {
@@ -149,10 +149,10 @@ class OrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, buyer_actor_id, seller_actor_id, status,
-             total_quantity, metadata, created_at, updated_at
+             total_quantity, metadata, createdAt, updatedAt
       FROM orders
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       ${limitClause}
       ${offsetClause}
       `,
@@ -204,7 +204,7 @@ class OrderRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, buyer_actor_id, seller_actor_id, status,
-                total_quantity, metadata, created_at, updated_at
+                total_quantity, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -237,4 +237,6 @@ class OrderRepository {
 }
 
 export const orderRepository = new OrderRepository();
+
+
 

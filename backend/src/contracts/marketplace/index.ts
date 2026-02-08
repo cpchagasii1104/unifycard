@@ -25,7 +25,6 @@ export type { IncentiveRule } from './IncentiveRule.contract';
 export type { IncentiveGrant } from './IncentiveGrant.contract';
 export type { B2BCommercialContract } from './B2BCommercialContract.contract';
 export type { B2BContractExecution } from './B2BContractExecution.contract';
-export type { OperationalCostProfile } from './OperationalCostProfile.contract';
 export type { EconomicSustainabilitySnapshot } from './EconomicSustainabilitySnapshot.contract';
 export type { ProductionBatch } from './ProductionBatch.contract';
 export type { BatchCommitment } from './BatchCommitment.contract';

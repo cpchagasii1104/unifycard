@@ -46,8 +46,8 @@ export interface Contact {
   userId: string | null;
   kycStatus: KycStatus; // SPRINT 84
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -88,4 +88,5 @@ export interface ContactFilters {
   limit?: number;
   offset?: number;
 }
+
 

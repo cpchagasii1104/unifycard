@@ -54,7 +54,7 @@ export class RideRequestsService {
         passenger_count,
         service_type_id, city_id,
         estimated_price,
-        status, created_at
+        status, createdAt
       )
       VALUES (
         $1, $2,
@@ -164,7 +164,7 @@ export class RideRequestsService {
           text: `
         INSERT INTO rides_request_offers (
           tenant_id, request_id, driver_id,
-          distance_km, created_at
+          distance_km, createdAt
         )
         VALUES ($1,$2,$3,$4, now())
         `,
@@ -225,7 +225,7 @@ export class RideRequestsService {
       UPDATE rides_ride_requests
       SET assigned_driver_id = $3,
           status = 'assigned',
-          assigned_at = now()
+          assignedAt = now()
       WHERE tenant_id = $1 AND request_id = $2
       RETURNING *
       `,
@@ -274,7 +274,7 @@ export class RideRequestsService {
       UPDATE rides_ride_requests
       SET status = 'cancelled',
           cancelled_by = $3,
-          cancelled_at = now()
+          cancelledAt = now()
       WHERE tenant_id = $1 AND request_id = $2
       `,
         values: [tenantId, requestId, userId],
@@ -295,3 +295,4 @@ export class RideRequestsService {
 }
 
 export const rideRequestsService = new RideRequestsService();
+

@@ -18,23 +18,23 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ActivationEvent {
-  activation_id: string;
-  rule_id: string;
+  activationId: string;
+  ruleId: string;
   region: {
     country: string;
     state: string;
     city: string;
   };
-  snapshot_id: string;
-  action_type: 'suggest_hub' | 'unlock_incentive' | 'enable_industry_onboarding';
-  action_payload?: {
-    incentive_type?: string;
-    max_amount?: number;
+  snapshotId: string;
+  actionType: 'suggest_hub' | 'unlock_incentive' | 'enable_industry_onboarding';
+  actionPayload?: {
+    incentiveType?: string;
+    maxAmount?: number;
   };
   status: 'triggered' | 'consumed';
-  created_at: string;
-  consumed_at?: string;
-  // NÃO incluir updated_at - evento é histórico e imutável
+  createdAt: string;
+  consumedAt?: string;
+  // NÃO incluir updatedAt - evento é histórico e imutável
 }
 
 

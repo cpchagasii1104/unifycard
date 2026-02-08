@@ -18,13 +18,13 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceCompletionSignal {
-  signal_id: string;
-  request_id: string;
-  actor_id: string;
+  signalId: string;
+  requestId: string;
+  actorId: string;
   role: 'customer' | 'provider';
   action: 'confirm_completed' | 'dispute' | 'cancel';
   reason?: 'service_not_done' | 'quality_issue' | 'wrong_service' | 'other';
-  created_at: string;
+  createdAt: string;
 }
 
 

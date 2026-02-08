@@ -46,7 +46,7 @@ export interface FeedItemDTO {
   availableActions?: FeedAction[]; // Ações que podem ser executadas (declaração, não execução)
   
   // Timestamps
-  createdAt: Date; // Data de criação
+  createdAt: string; // Data de criação
   updatedAt?: Date; // Data de atualização
 }
 
@@ -130,4 +130,5 @@ export interface PluginResolutionOptions {
   sourceId?: string; // ID da entidade fonte (opcional)
   metadata?: Record<string, any>; // Metadados adicionais (opcional)
 }
+
 

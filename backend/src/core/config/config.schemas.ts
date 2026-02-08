@@ -9,7 +9,7 @@ export const configKeySchema = z.object({
 export const setConfigSchema = z.object({
   module: z.string().min(1).max(50),
   key: z.string().min(1).max(100),
-  value: z.union([z.string(), z.number(), z.boolean(), z.record(z.any()), z.array(z.any())]),
+  valueCents: z.union([z.string(), z.number(), z.boolean(), z.record(z.any()), z.array(z.any())]),
   isSystem: z.boolean().optional(),
 });
 
@@ -41,3 +41,4 @@ export const listFlagsQuerySchema = z.object({
 
 export type SetConfigInput = z.infer<typeof setConfigSchema>;
 export type UpsertFlagInput = z.infer<typeof upsertFlagSchema>;
+

@@ -9,8 +9,8 @@ export interface EventOrganizer {
   description: string | null;
   logoUrl: string | null;
   ownerGlobalUserId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventOrganizerRow {
@@ -20,8 +20,8 @@ export interface EventOrganizerRow {
   description: string | null;
   logo_url: string | null;
   owner_global_user_id: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventOrganizerMember {
@@ -29,7 +29,7 @@ export interface EventOrganizerMember {
   organizerId: string;
   globalUserId: string;
   role: OrganizerRole;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface EventOrganizerMemberRow {
@@ -37,7 +37,7 @@ export interface EventOrganizerMemberRow {
   organizer_id: string;
   global_user_id: string;
   role: string;
-  created_at: Date;
+  createdAt: string;
 }
 
 export interface CreateOrganizerInput {
@@ -60,6 +60,8 @@ export interface EventOrganizerWithDetails extends EventOrganizer {
   memberCount?: number;
   eventCount?: number;
 }
+
+
 
 
 

@@ -63,7 +63,7 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       contactId: string;
       points: number;
       voucherType: 'DISCOUNT_FIXED' | 'DISCOUNT_PERCENT' | 'BENEFIT_FLAG';
-      value?: number | null;
+      valueCents: number | null;
       benefitCode?: string | null;
       expiresAt?: string | null;
     };
@@ -75,7 +75,7 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       contactId,
       points,
       voucherType,
-      value: value || null,
+      valueCents: value || null,
       benefitCode: benefitCode || null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     });
@@ -120,7 +120,7 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       name: string;
       status?: 'ACTIVE' | 'INACTIVE';
       ruleType: 'PERCENT_OF_AMOUNT' | 'FIXED_POINTS';
-      value: number;
+      valueCents: number;
       appliesTo: 'CHANNEL' | 'SEGMENT' | 'ACTOR' | 'EVENT' | 'VARIANT' | 'CATEGORY';
       appliesId?: string | null;
       minAmount?: number | null;
@@ -203,4 +203,5 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default loyaltyRoutes;
+
 

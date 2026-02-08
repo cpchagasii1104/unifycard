@@ -13,28 +13,25 @@ declare module 'fastify' {
 }
 
 /**
- * RBAC Plugin
- *
- * Fornece decorators para autorização em rotas:
- *  - requirePermission: usuário precisa de TODAS as permissions
- *  - requireAnyPermission: usuário precisa de pelo menos UMA permission
- *  - requireRole: usuário precisa de pelo menos UMA role
+ * RBAC V2 Plugin
  * 
- * 🔴 GARANTIAS CANÔNICAS:
- * - RBAC NUNCA roda em escopo público (apenas em protectedScope)
- * - RBAC exige tenant válido (req.tenant.id)
- * - RBAC exige user válido (req.user.id)
- * - RBAC exige actionContext válido (req.actionContext.actingActorId)
- * - Ordem obrigatória: auth → tenant → action-context → rbac
- * - Nenhum fallback silencioso - falhas são explícitas
+ * Conforme RBAC_V2_CONTRACT.md:
+ * - RBAC opera exclusivamente sobre ActionContext (SSOT)
+ * - RBAC recebe exclusivamente: actorId + intent + scope
+ * - RBAC NÃO referencia req.user
+ * - RBAC NÃO valida identidade técnica
+ * 
+ * Fornece decorators para autorização em rotas:
+ *  - requirePermission: actor precisa de TODAS as permissions para o intent no scope
+ *  - requireAnyPermission: actor precisa de pelo menos UMA permission para o intent no scope
+ *  - requireRole: actor precisa de pelo menos UMA role para o intent no scope
  */
 const rbacPluginImpl: FastifyPluginAsync = async (fastify) => {
   /**
-   * 🔴 GUARD CANÔNICO: Validação explícita de contexto completo antes de qualquer autorização
-   * Ordem obrigatória: tenant → user → actionContext (actor)
-   * Nenhuma autorização parcial ou implícita é permitida
+   * Validação de ActionContext obrigatório
+   * Conforme RBAC_V2_CONTRACT.md Seção 3
    */
-  function validateRBACContext(req: FastifyRequest, reply: FastifyReply, operation: string): void {
+  function validateActionContext(req: FastifyRequest, operation: string): void {
     // GUARD 1: Tenant obrigatório
     if (!req.tenant || !req.tenant.id) {
       fastify.log.error({
@@ -42,159 +39,180 @@ const rbacPluginImpl: FastifyPluginAsync = async (fastify) => {
         method: req.method,
         operation,
         reason: 'Tenant ausente no RBAC',
-      }, '❌ [RBAC] Falha: Tenant ausente');
-      throw fastify.httpErrors.unauthorized('RBAC_INVARIANT_VIOLATION: Tenant is required for authorization');
+      }, '❌ [RBAC V2] Falha: Tenant ausente');
+      throw fastify.httpErrors.unauthorized('RBAC_V2_INVARIANT_VIOLATION: Tenant is required');
     }
 
-    // GUARD 2: User obrigatório
-    if (!req.user || !req.user.id) {
+    // GUARD 2: ActionContext obrigatório
+    // Conforme RBAC_V2_CONTRACT.md Seção 3
+    if (!req.actionContext) {
       fastify.log.error({
         route: req.url,
         method: req.method,
         operation,
         tenantId: req.tenant.id,
-        reason: 'User ausente no RBAC',
-      }, '❌ [RBAC] Falha: User ausente');
-      throw fastify.httpErrors.unauthorized('RBAC_INVARIANT_VIOLATION: User is required for authorization');
+        reason: 'ActionContext ausente no RBAC',
+      }, '❌ [RBAC V2] Falha: ActionContext ausente');
+      throw fastify.httpErrors.badRequest('RBAC_V2_INVARIANT_VIOLATION: ActionContext is required. Ensure action-context-middleware runs before RBAC.');
     }
 
-    // GUARD 3: ActionContext (actor) obrigatório
-    // ActionContext é resolvido pelo action-context-plugin ANTES do RBAC
-    if (!req.actionContext || !req.actionContext.actingActorId) {
+    // GUARD 3: Campos mínimos obrigatórios
+    // Conforme ACTIONCONTEXT_CONTRACT.md Seção 3
+    if (!req.actionContext.actorId || req.actionContext.actorId.trim() === '') {
       fastify.log.error({
         route: req.url,
         method: req.method,
         operation,
         tenantId: req.tenant.id,
-        userId: req.user.id,
-        reason: 'ActionContext (actor) ausente no RBAC',
-      }, '❌ [RBAC] Falha: ActionContext ausente');
-      throw fastify.httpErrors.badRequest('RBAC_INVARIANT_VIOLATION: ActionContext (actor) is required for authorization. Ensure action-context-plugin runs before RBAC.');
+        reason: 'ActionContext.actorId ausente ou vazio',
+      }, '❌ [RBAC V2] Falha: actorId ausente');
+      throw fastify.httpErrors.badRequest('RBAC_V2_INVARIANT_VIOLATION: ActionContext.actorId is required');
     }
 
-    // GUARD 4: Verificar coerência tenant × actor
-    // (action-context-plugin já valida isso, mas garantia explícita para clareza arquitetural)
-    if (req.actionContext.actingUserId !== req.user.id) {
+    if (!req.actionContext.intent || req.actionContext.intent.trim() === '') {
       fastify.log.error({
         route: req.url,
         method: req.method,
         operation,
         tenantId: req.tenant.id,
-        userId: req.user.id,
-        actingUserId: req.actionContext.actingUserId,
-        reason: 'Incoerência: actingUserId !== req.user.id',
-      }, '❌ [RBAC] Falha: Incoerência user × actionContext');
-      throw fastify.httpErrors.badRequest('RBAC_INVARIANT_VIOLATION: ActionContext actingUserId must match req.user.id');
+        reason: 'ActionContext.intent ausente ou vazio',
+      }, '❌ [RBAC V2] Falha: intent ausente');
+      throw fastify.httpErrors.badRequest('RBAC_V2_INVARIANT_VIOLATION: ActionContext.intent is required');
+    }
+
+    if (!req.actionContext.scope || req.actionContext.scope.trim() === '') {
+      fastify.log.error({
+        route: req.url,
+        method: req.method,
+        operation,
+        tenantId: req.tenant.id,
+        reason: 'ActionContext.scope ausente ou vazio',
+      }, '❌ [RBAC V2] Falha: scope ausente');
+      throw fastify.httpErrors.badRequest('RBAC_V2_INVARIANT_VIOLATION: ActionContext.scope is required');
     }
   }
 
   // Decorator: requirePermission (TODAS)
+  // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
   fastify.decorate('requirePermission', (permissions: PermissionString[]) => {
     return async (req: FastifyRequest, reply: FastifyReply) => {
-      // 🔴 VALIDAÇÃO CANÔNICA: Contexto completo obrigatório
-      validateRBACContext(req, reply, 'requirePermission');
+      // Validação de ActionContext obrigatório
+      validateActionContext(req, 'requirePermission');
 
       const tenantId = req.tenant!.id;
-      const userId = req.user!.id;
-      const actorId = req.actionContext!.actingActorId;
+      const { actorId, intent, scope } = req.actionContext!;
 
       fastify.log.debug({
         route: req.url,
         method: req.method,
         tenantId,
-        userId,
         actorId,
+        intent,
+        scope,
         permissions,
-      }, '[RBAC] Verificando requirePermission');
+      }, '[RBAC V2] Verificando requirePermission');
 
-      const check = await rbacService.userHasAllPermissions(tenantId, userId, permissions);
+      // Usar método V2: actorHasAllPermissions
+      // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+      const check = await rbacService.actorHasAllPermissions(tenantId, actorId, intent, scope, permissions);
 
       if (!check.hasPermission) {
         fastify.log.warn({
           route: req.url,
           method: req.method,
           tenantId,
-          userId,
           actorId,
+          intent,
+          scope,
           permissions,
           reason: check.reason,
-        }, '[RBAC] Permissão negada: requirePermission');
+        }, '[RBAC V2] Permissão negada: requirePermission');
         throw fastify.httpErrors.forbidden(
-          check.reason || `Requires permissions: ${permissions.join(', ')}`
+          check.reason || `Requires permissions: ${permissions.join(', ')} for intent "${intent}" in scope "${scope}"`
         );
       }
     };
   });
 
   // Decorator: requireAnyPermission (QUALQUER UMA)
+  // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
   fastify.decorate('requireAnyPermission', (permissions: PermissionString[]) => {
     return async (req: FastifyRequest, reply: FastifyReply) => {
-      // 🔴 VALIDAÇÃO CANÔNICA: Contexto completo obrigatório
-      validateRBACContext(req, reply, 'requireAnyPermission');
+      // Validação de ActionContext obrigatório
+      validateActionContext(req, 'requireAnyPermission');
 
       const tenantId = req.tenant!.id;
-      const userId = req.user!.id;
-      const actorId = req.actionContext!.actingActorId;
+      const { actorId, intent, scope } = req.actionContext!;
 
       fastify.log.debug({
         route: req.url,
         method: req.method,
         tenantId,
-        userId,
         actorId,
+        intent,
+        scope,
         permissions,
-      }, '[RBAC] Verificando requireAnyPermission');
+      }, '[RBAC V2] Verificando requireAnyPermission');
 
-      const check = await rbacService.userHasAnyPermission(tenantId, userId, permissions);
+      // Usar método V2: actorHasAnyPermission
+      // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+      const check = await rbacService.actorHasAnyPermission(tenantId, actorId, intent, scope, permissions);
 
       if (!check.hasPermission) {
         fastify.log.warn({
           route: req.url,
           method: req.method,
           tenantId,
-          userId,
           actorId,
+          intent,
+          scope,
           permissions,
           reason: check.reason,
-        }, '[RBAC] Permissão negada: requireAnyPermission');
+        }, '[RBAC V2] Permissão negada: requireAnyPermission');
         throw fastify.httpErrors.forbidden(
-          check.reason || `Requires at least one of: ${permissions.join(', ')}`
+          check.reason || `Requires at least one of: ${permissions.join(', ')} for intent "${intent}" in scope "${scope}"`
         );
       }
     };
   });
 
   // Decorator: requireRole (QUALQUER UMA)
+  // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
   fastify.decorate('requireRole', (roles: string[]) => {
     return async (req: FastifyRequest, reply: FastifyReply) => {
-      // 🔴 VALIDAÇÃO CANÔNICA: Contexto completo obrigatório
-      validateRBACContext(req, reply, 'requireRole');
+      // Validação de ActionContext obrigatório
+      validateActionContext(req, 'requireRole');
 
       const tenantId = req.tenant!.id;
-      const userId = req.user!.id;
-      const actorId = req.actionContext!.actingActorId;
+      const { actorId, intent, scope } = req.actionContext!;
 
       fastify.log.debug({
         route: req.url,
         method: req.method,
         tenantId,
-        userId,
         actorId,
+        intent,
+        scope,
         roles,
-      }, '[RBAC] Verificando requireRole');
+      }, '[RBAC V2] Verificando requireRole');
 
-      const hasRole = await rbacService.userHasAnyRole(tenantId, userId, roles);
+      // Usar método V2: actorHasAnyRole
+      // Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+      const hasRole = await rbacService.actorHasAnyRole(tenantId, actorId, intent, scope, roles);
 
       if (!hasRole) {
         fastify.log.warn({
           route: req.url,
           method: req.method,
           tenantId,
-          userId,
           actorId,
+          intent,
+          scope,
           roles,
-        }, '[RBAC] Role negada: requireRole');
-        throw fastify.httpErrors.forbidden(`Requires one of roles: ${roles.join(', ')}`);
+        }, '[RBAC V2] Role negada: requireRole');
+        throw fastify.httpErrors.forbidden(
+          `Requires one of roles: ${roles.join(', ')} for intent "${intent}" in scope "${scope}"`
+        );
       }
     };
   });

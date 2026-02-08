@@ -62,7 +62,7 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
 
     const packs = await evidenceService.listPacks(tenantId, filters);
 
-    return reply.send({ packs, total: packs.length });
+    return reply.send({ packs, totalCents: packs.length });
   });
 
   /**
@@ -146,6 +146,7 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default evidenceRoutes;
+
 
 
 

@@ -4,8 +4,8 @@ export interface Tenant {
   name: string;
   slug: string;
   cityId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SetTenantRegionInput {
@@ -13,3 +13,4 @@ export interface SetTenantRegionInput {
   stateId?: string | null;
   cityId?: string | null;
 }
+

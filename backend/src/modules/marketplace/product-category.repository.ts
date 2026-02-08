@@ -19,8 +19,8 @@ interface ProductCategoryRow {
   parent_id: string | null;
   is_active: boolean;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class ProductCategoryRepository {
@@ -69,6 +69,7 @@ class ProductCategoryRepository {
 }
 
 export const productCategoryRepository = new ProductCategoryRepository();
+
 
 
 

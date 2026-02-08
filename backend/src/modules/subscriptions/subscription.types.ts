@@ -9,7 +9,7 @@ export interface Subscription {
   tenantId: string;
   contactId: string;
   paymentLinkId: string;
-  amount: number;
+  amountCents: number;
   currency: string;
   interval: SubscriptionInterval;
   intervalCount: number;
@@ -27,14 +27,14 @@ export interface Subscription {
   metadata: Record<string, any>;
   createdByActorId: string;
   createdByUserId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateSubscriptionInput {
   contactId: string;
   paymentLinkId: string;
-  amount: number;
+  amountCents: number;
   currency?: string;
   interval: SubscriptionInterval;
   intervalCount?: number;
@@ -51,6 +51,8 @@ export interface SubscriptionFilters {
   limit?: number;
   offset?: number;
 }
+
+
 
 
 

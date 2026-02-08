@@ -21,7 +21,7 @@ interface InventoryAdjustmentRow {
   reference_id: string | null;
   created_by_user_id: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class InventoryAdjustmentRepository {
@@ -42,7 +42,7 @@ class InventoryAdjustmentRepository {
       referenceId: row.reference_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -78,7 +78,7 @@ class InventoryAdjustmentRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id, tenant_id, actor_id, product_variant_id, inventory_lot_id,
                 adjustment_type, quantity, reason, reference_type, reference_id,
-                created_by_user_id, metadata, created_at
+                created_by_user_id, metadata, createdAt
       `,
       [
         tenantId,
@@ -114,7 +114,7 @@ class InventoryAdjustmentRepository {
       `
       SELECT id, tenant_id, actor_id, product_variant_id, inventory_lot_id,
              adjustment_type, quantity, reason, reference_type, reference_id,
-             created_by_user_id, metadata, created_at
+             created_by_user_id, metadata, createdAt
       FROM inventory_adjustments
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -167,13 +167,13 @@ class InventoryAdjustmentRepository {
     }
 
     if (options.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       params.push(options.startDate);
       paramIndex++;
     }
 
     if (options.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       params.push(options.endDate);
       paramIndex++;
     }
@@ -186,10 +186,10 @@ class InventoryAdjustmentRepository {
       `
       SELECT id, tenant_id, actor_id, product_variant_id, inventory_lot_id,
              adjustment_type, quantity, reason, reference_type, reference_id,
-             created_by_user_id, metadata, created_at
+             created_by_user_id, metadata, createdAt
       FROM inventory_adjustments
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT ${limit}
       OFFSET ${offset}
       `,
@@ -201,6 +201,8 @@ class InventoryAdjustmentRepository {
 }
 
 export const inventoryAdjustmentRepository = new InventoryAdjustmentRepository();
+
+
 
 
 

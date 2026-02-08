@@ -23,70 +23,71 @@ export type VoucherOfferStatus = 'draft' | 'active' | 'paused' | 'expired' | 'de
  * Oferta de voucher (ofertas relâmpago, benefícios imediatos)
  */
 export interface VoucherOffer {
-  offer_id: string;
-  issuer_actor_id: string; // Empresa/loja que emite
-  store_id: string;
+  offerId: string;
+  issuerActorId: string; // Empresa/loja que emite
+  storeId: string;
   
   type: VoucherType;
   title: string;
   description: string;
   
   // Visibilidade
-  visibility_scope: VoucherVisibilityScope;
-  restricted_group_ids?: string[]; // Se scope = restricted_group
+  visibilityScope: VoucherVisibilityScope;
+  restrictedGroupIds?: string[]; // Se scope = restricted_group
   
   // Janela de resgate
-  start_at: string; // Quando a oferta fica disponível para resgate
-  end_at: string; // Quando a oferta para de aceitar novos resgates
-  redemption_deadline_at?: string; // Prazo para usar após resgatar (opcional, padrão: end_at + X dias)
+  startAt: string; // Quando a oferta fica disponível para resgate
+  endAt: string; // Quando a oferta para de aceitar novos resgates
+  redemptionDeadlineAt?: string; // Prazo para usar após resgatar (opcional, padrão: endAt + X dias)
   
   // Quantidade
-  quantity_total: number; // Total de vouchers disponíveis
-  quantity_claimed: number; // Quantidade já resgatada
-  quantity_per_user: number; // Máximo por usuário (padrão: 1)
+  quantityTotal: number; // Total de vouchers disponíveis
+  quantityClaimed: number; // Quantidade já resgatada
+  quantityPerUser: number; // Máximo por usuário (padrão: 1)
   
   // Elegibilidade
   eligibility: {
-    min_trust_level?: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
-    new_users_only?: boolean; // Apenas usuários novos
-    first_purchase_required?: boolean; // Requer primeira compra
+    minTrustLevel?: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+    newUsersOnly?: boolean; // Apenas usuários novos
+    firstPurchaseRequired?: boolean; // Requer primeira compra
   };
   
   // Restrições
-  schedule_constraints?: {
+  scheduleConstraints?: {
     weekdays?: number[]; // 0 = domingo, 6 = sábado
-    time_start?: string; // Ex: "14:00"
-    time_end?: string; // Ex: "17:00"
+    timeStart?: string; // Ex: "14:00"
+    timeEnd?: string; // Ex: "17:00"
   };
   
-  pickup_constraints?: {
-    max_minutes_after_claim?: number; // Ex: 45 minutos após resgate
-    requires_checkin?: boolean; // Requer check-in geofence
+  pickupConstraints?: {
+    maxMinutesAfterClaim?: number; // Ex: 45 minutos após resgate
+    requiresCheckin?: boolean; // Requer check-in geofence
   };
   
   // Vinculação
-  linked_product_id?: string; // Se type = product
-  linked_service_template_id?: string; // Se type = service
-  linked_service_offering_id?: string; // Se type = service
-  linked_bundle_items?: Array<{
-    product_id?: string;
-    service_offering_id?: string;
+  linkedProductId?: string; // Se type = product
+  linkedServiceTemplateId?: string; // Se type = service
+  linkedServiceOfferingId?: string; // Se type = service
+  linkedBundleItems?: Array<{
+    productId?: string;
+    serviceOfferingId?: string;
     quantity: number;
   }>;
   
   // Valor (opcional, pode ser 100% desconto)
-  discount_value?: {
+  discountValue?: {
     type: 'percentage' | 'fixed';
-    amount: number; // Percentual (0-100) ou valor fixo em centavos
+    amountCents: number; // Percentual (0-100) ou valor fixo em centavos
     currency: string;
   };
   
   status: VoucherOfferStatus;
   
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   immutable: false; // Oferta pode ser atualizada (mas não após ativação)
 }
+
 
 
 

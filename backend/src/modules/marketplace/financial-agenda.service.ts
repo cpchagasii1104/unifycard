@@ -45,7 +45,7 @@ class FinancialAgendaService {
       id: payable.id,
       type: 'PAYABLE' as const,
       date: payable.dueDate,
-      amount: payable.amountCents,
+      amountCents: payable.amountCents,
       currency: payable.currency,
       description: `Conta a pagar - ${payable.referenceType}`,
       status: payable.status,
@@ -86,7 +86,7 @@ class FinancialAgendaService {
       id: receivable.id,
       type: 'RECEIVABLE' as const,
       date: receivable.expectedAt,
-      amount: receivable.amountCents,
+      amountCents: receivable.amountCents,
       currency: receivable.currency,
       description: `Conta a receber - ${receivable.sourceType}`,
       status: receivable.status,
@@ -119,8 +119,8 @@ class FinancialAgendaService {
     let filtered = settlements;
     if (startDate || endDate) {
       filtered = settlements.filter((settlement) => {
-        const plannedAt = settlement.metadata?.planned_at
-          ? new Date(settlement.metadata.planned_at)
+        const plannedAt = settlement.metadata?.plannedAt
+          ? new Date(settlement.metadata.plannedAt)
           : settlement.createdAt;
 
         if (startDate && plannedAt < startDate) {
@@ -138,10 +138,10 @@ class FinancialAgendaService {
     return filtered.map((settlement) => ({
       id: settlement.id,
       type: 'SETTLEMENT' as const,
-      date: settlement.metadata?.planned_at
-        ? new Date(settlement.metadata.planned_at)
+      date: settlement.metadata?.plannedAt
+        ? new Date(settlement.metadata.plannedAt)
         : settlement.createdAt,
-      amount: settlement.feeAmountCents,
+      amountCents: settlement.feeAmountCents,
       currency: settlement.currency,
       description: `Settlement regional - ${settlement.sourceType}`,
       status: settlement.status,
@@ -196,7 +196,7 @@ class FinancialAgendaService {
       id: action.id,
       type: 'SCHEDULED_ACTION' as const,
       date: action.scheduledFor,
-      amount: action.metadata?.amount_cents || 0,
+      amountCents: action.metadata?.amount_cents || 0,
       currency: action.metadata?.currency || 'BRL',
       description: `Ação programada - ${action.actionType}`,
       status: action.status,
@@ -313,6 +313,8 @@ class FinancialAgendaService {
 }
 
 export const financialAgendaService = new FinancialAgendaService();
+
+
 
 
 

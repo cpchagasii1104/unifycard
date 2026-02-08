@@ -3,7 +3,7 @@ export interface AuthUser {
   userId: string;
   tenantId: string;
   email: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface AuthTokens {
@@ -28,3 +28,4 @@ export interface JwtPayload {
   permissions?: string[];
   tokenVersion: number;
 }
+

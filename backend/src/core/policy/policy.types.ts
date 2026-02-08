@@ -18,10 +18,11 @@ export interface Policy {
   id: string;
   domain: PolicyDomain;
   key: string;
-  value: PolicyValue;
+  valueCents: PolicyValue;
   effectiveFrom: string; // ISO date string
   metadata?: Record<string, unknown>;
 }
+
 
 
 

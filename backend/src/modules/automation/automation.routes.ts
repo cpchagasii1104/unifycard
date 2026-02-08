@@ -77,14 +77,19 @@ const automationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const alert = await alertService.createAlert(tenantId, req.body as CreateAlertInput);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'ALERT_CREATED',
       severity: alert.severity,
-      actor_id: actionContext?.actingActorId || null,
-      actor_type: actionContext?.actingUserId ? 'user' : 'system',
+      actor_id: actionContext.actorId,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_id: alert.id,
@@ -108,13 +113,18 @@ const automationRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const alert = await alertService.updateAlertStatus(tenantId, id, req.body);
 
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'ALERT_STATUS_UPDATED',
         severity: 'LOW',
-        actor_id: actionContext?.actingActorId || null,
+        actor_id: actionContext.actorId,
         actor_type: 'user',
         source: 'automation',
         context: {
@@ -140,15 +150,16 @@ const automationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const action = await scheduledActionService.scheduleAction(
       tenantId,
       req.body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(action);
@@ -201,11 +212,16 @@ const automationRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const action = await scheduledActionService.cancelAction(
       tenantId,
       id,
-      actionContext?.actingActorId,
-      actionContext?.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return action;

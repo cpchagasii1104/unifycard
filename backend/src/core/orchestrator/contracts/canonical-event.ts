@@ -12,7 +12,7 @@ export interface CanonicalEvent {
   tenantId: string;
   regionId?: string;
   userId?: string;
-  amount?: number;
+  amountCents: number;
   currency?: string;
   occurredAt: string; // ISO date string
   metadata?: Record<string, unknown>;
@@ -31,6 +31,7 @@ export type CanonicalEventType =
   | 'region.fund.credited'
   | 'group.fund.credited'
   | 'other';
+
 
 
 

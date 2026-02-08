@@ -36,7 +36,7 @@ export async function updateEventDeclarationFromSpec(
   const eventSpec = await eventSpecService.getEventSpecById(tenantId, specId);
   
   // 2. Validar que EventSpec está associado ao Event correto
-  if (eventSpec.event_id !== eventId) {
+  if (eventSpec.eventId !== eventId) {
     throw new BadRequestError('EventSpec não está associado ao Event fornecido');
   }
 
@@ -47,7 +47,7 @@ export async function updateEventDeclarationFromSpec(
   }
 
   // 4. Validar permissão
-  if (event.actor_id !== actorId) {
+  if (event.actorId !== actorId) {
     throw new ForbiddenError('Apenas o criador do evento pode atualizar a declaração');
   }
 
@@ -58,19 +58,19 @@ export async function updateEventDeclarationFromSpec(
   if (answers.time_window) {
     const timeWindow = answers.time_window;
     
-    // Se tem date e start_time/end_time, construir time windows
+    // Se tem date e starts_at/ends_at, construir time windows
     if (timeWindow.date) {
       const dateStr = timeWindow.date; // ISO date string (YYYY-MM-DD)
-      const startTime = timeWindow.start_time || '00:00';
-      const endTime = timeWindow.end_time || '23:59';
+      const startTime = timeWindow.starts_at || '00:00';
+      const endTime = timeWindow.ends_at || '23:59';
       
       // Construir ISO datetime strings
       const startDatetime = `${dateStr}T${startTime}:00.000Z`;
       const endDatetime = `${dateStr}T${endTime}:00.000Z`;
       
       desiredTimeWindows.push({
-        start_datetime: startDatetime,
-        end_datetime: endDatetime,
+        startDatetime: startDatetime,
+        endDatetime: endDatetime,
         timezone: timeWindow.timezone || 'America/Sao_Paulo', // Default do sistema
       });
     }
@@ -101,4 +101,5 @@ export async function updateEventDeclarationFromSpec(
   // Por enquanto, apenas time windows são mapeados conforme P0-3
   // Outros campos podem ser adicionados futuramente se necessário
 }
+
 

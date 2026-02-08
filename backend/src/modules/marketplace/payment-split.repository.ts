@@ -23,11 +23,11 @@ interface PaymentSplitRow {
   tenant_id: string;
   payment_intent_id: string;
   recipient_actor_id: string;
-  amount: string;
+  amountCents: string;
   percentage: string | null;
   role: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class PaymentSplitRepository {
@@ -41,11 +41,11 @@ class PaymentSplitRepository {
       tenantId: row.tenant_id,
       paymentIntentId: row.payment_intent_id,
       recipientActorId: row.recipient_actor_id,
-      amount: 0, // 🔴 dinheiro invalidado (Gate 3)
+      amountCents: 0, // 🔴 dinheiro invalidado (Gate 3)
       percentage: null, // 🔴 percentuais inválidos fora do Bank
       role: row.role as any,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -89,10 +89,10 @@ class PaymentSplitRepository {
       {
         text: `
           SELECT id, tenant_id, payment_intent_id, recipient_actor_id,
-                 amount, percentage, role, metadata, created_at
+                 amount, percentage, role, metadata, createdAt
           FROM payment_splits
           WHERE tenant_id = $1 AND payment_intent_id = $2
-          ORDER BY created_at ASC
+          ORDER BY createdAt ASC
         `,
         values: [tenantId, paymentIntentId],
       }
@@ -103,6 +103,9 @@ class PaymentSplitRepository {
 }
 
 export const paymentSplitRepository = new PaymentSplitRepository();
+
+
+
 
 
 

@@ -16,7 +16,7 @@ type CityRow = {
   min_price: number | null;
   price_per_km: number | null;
   price_per_min: number | null;
-  enabled: boolean;
+  isEnabled: boolean;
   allows_multi_stop: boolean;
 };
 
@@ -37,7 +37,7 @@ export class CitiesService {
       min_price,
       price_per_km,
       price_per_min,
-      enabled = true,
+      isEnabled = true,
       allows_multi_stop = true,
     } = data;
 
@@ -73,7 +73,7 @@ export class CitiesService {
           lat, lng,
           base_fare, min_price, price_per_km, price_per_min,
           enabled, allows_multi_stop,
-          created_at
+          createdAt
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
         RETURNING *
@@ -89,7 +89,7 @@ export class CitiesService {
           min_price,
           price_per_km,
           price_per_min,
-          enabled,
+          isEnabled,
           allows_multi_stop,
         ],
       }
@@ -134,7 +134,7 @@ export class CitiesService {
           price_per_min = COALESCE($11, price_per_min),
           enabled = COALESCE($12, enabled),
           allows_multi_stop = COALESCE($13, allows_multi_stop),
-          updated_at = now()
+          updatedAt = now()
         WHERE tenant_id = $1 AND city_id = $2
         RETURNING *
         `,
@@ -150,7 +150,7 @@ export class CitiesService {
           patch.min_price,
           patch.price_per_km,
           patch.price_per_min,
-          patch.enabled,
+          patch.isEnabled,
           patch.allows_multi_stop,
         ],
       }
@@ -250,3 +250,4 @@ export class CitiesService {
 }
 
 export const citiesService = new CitiesService();
+

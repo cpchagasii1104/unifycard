@@ -105,10 +105,10 @@ const publicationEngineRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { entityType: string; entityId: string };
-    Body: { referral_code?: string; expires_at?: string };
+    Body: { referral_code?: string; expiresAt?: string };
   }>('/:entityType/:entityId/generate-link', async (request, reply) => {
     const { entityType, entityId } = request.params;
-    const { referral_code, expires_at } = request.body;
+    const { referral_code, expiresAt } = request.body;
     const tenantId = (request as any).tenant_id;
     const actorId = (request as any).actor_id;
     const actorType = (request as any).actor_type;
@@ -125,7 +125,7 @@ const publicationEngineRoutes: FastifyPluginAsync = async (fastify) => {
         entity_type: entityType as any,
         entity_id: entityId,
         referral_code: referral_code || null,
-        expires_at: expires_at || null,
+        expiresAt: expiresAt || null,
       }
     );
 
@@ -210,4 +210,5 @@ const publicationEngineRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export { publicationEngineRoutes };
+
 

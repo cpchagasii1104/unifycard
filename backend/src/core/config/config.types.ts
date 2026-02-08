@@ -13,11 +13,11 @@ export interface TenantConfigRow {
   tenant_id: string;
   module: string;
   key: string;
-  value: unknown;
+  valueCents: unknown;
   value_type: ConfigValueType;
   is_system: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FeatureFlagRow {
@@ -25,11 +25,11 @@ export interface FeatureFlagRow {
   tenant_id: string;
   flag_name: string;
   description: string | null;
-  enabled: boolean;
+  isEnabled: boolean;
   rollout_percentage: number;
   user_whitelist: string[] | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------
@@ -40,11 +40,11 @@ export interface TenantConfig {
   tenantId: string;
   module: string;
   key: string;
-  value: ConfigValue;
+  valueCents: ConfigValue;
   valueType: ConfigValueType;
   isSystem: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FeatureFlag {
@@ -52,11 +52,11 @@ export interface FeatureFlag {
   tenantId: string;
   flagName: string;
   description: string | null;
-  enabled: boolean;
+  isEnabled: boolean;
   rolloutPercentage: number;
   userWhitelist: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------
@@ -73,14 +73,14 @@ export interface ListConfigsOptions {
 }
 
 export interface UpsertFlagInput {
-  enabled: boolean;
+  isEnabled: boolean;
   rolloutPercentage?: number;
   userWhitelist?: string[];
 }
 
 export interface FeatureFlagUpsertInput {
   description?: string;
-  enabled?: boolean;
+  isEnabled?: boolean;
   rolloutPercentage?: number;
   userWhitelist?: string[];
 }
@@ -88,3 +88,6 @@ export interface FeatureFlagUpsertInput {
 export interface CheckFlagForUserOptions {
   userId?: string;
 }
+
+
+

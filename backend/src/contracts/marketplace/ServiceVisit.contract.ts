@@ -18,17 +18,17 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceVisit {
-  visit_id: string;
-  request_id: string;
-  dispatch_id: string;
-  provider_actor_id: string;
-  scheduled_date: string; // ISO 8601 date
-  scheduled_time: string; // HH:mm
+  visitId: string;
+  requestId: string;
+  dispatchId: string;
+  providerActorId: string;
+  scheduledDate: string; // ISO 8601 date
+  scheduledTime: string; // HH:mm
   status: 'visit_scheduled' | 'visit_completed' | 'visit_cancelled' | 'visit_expired';
-  created_at: string;
-  completed_at?: string; // Quando a visita foi realizada
-  cancelled_at?: string;
-  expired_at?: string;
+  createdAt: string;
+  completedAt?: string; // Quando a visita foi realizada
+  cancelledAt?: string;
+  expiredAt?: string;
 }
 
 

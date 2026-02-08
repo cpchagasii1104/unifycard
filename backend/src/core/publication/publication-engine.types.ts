@@ -57,8 +57,8 @@ export interface PublicationMetadata {
   referral_code: string | null;
   created_by_actor_id: string;
   created_by_actor_type: 'user' | 'page' | 'group' | 'channel';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -81,7 +81,7 @@ export interface GenerateLinkInput {
   entity_type: EntityType;
   entity_id: string;
   referral_code?: string | null;
-  expires_at?: string | null; // Opcional: link com expiração
+  expiresAt?: string | null; // Opcional: link com expiração
 }
 
 /**
@@ -90,7 +90,7 @@ export interface GenerateLinkInput {
 export interface GeneratedLink {
   url: string;
   referral_code: string | null;
-  expires_at: string | null;
+  expiresAt: string | null;
 }
 
 /**
@@ -160,6 +160,7 @@ export interface DestinationRules {
   entity_type: EntityType;
   actor_type: 'user' | 'page' | 'group' | 'channel';
 }
+
 
 
 

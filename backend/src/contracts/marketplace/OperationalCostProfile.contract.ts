@@ -23,14 +23,14 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface OperationalCostProfile {
-  profile_id: string;
-  actor_id: string; // ID da loja ou serviço
-  actor_type: 'store' | 'service_provider';
+  profileId: string;
+  actorId: string; // ID da loja ou serviço
+  actorType: 'store' | 'service_provider';
   period: {
     year: number;
     month: number; // 1-12
   };
-  fixed_costs: {
+  fixedCosts: {
     rent?: number; // Aluguel
     utilities?: number; // Energia, água, gás
     internet?: number; // Internet
@@ -38,16 +38,16 @@ export interface OperationalCostProfile {
     taxes?: number; // Impostos
     other?: number; // Outros custos fixos
   };
-  variable_costs: Array<{
-    product_id?: string; // Se aplicável
-    service_id?: string; // Se aplicável
-    cost_per_unit: number; // Custo médio por unidade
+  variableCosts: Array<{
+    productId?: string; // Se aplicável
+    serviceId?: string; // Se aplicável
+    costPerUnit: number; // Custo médio por unidade
     currency: string;
   }>;
-  declared_volume_expectation?: number; // Volume esperado (opcional)
+  declaredVolumeExpectation?: number; // Volume esperado (opcional)
   currency: string;
-  created_at: string;
-  updated_at: string; // Permite atualização (opt-in)
+  createdAt: string;
+  updatedAt: string; // Permite atualização (opt-in)
 }
 
 

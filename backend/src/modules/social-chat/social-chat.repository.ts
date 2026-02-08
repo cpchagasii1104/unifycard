@@ -10,7 +10,7 @@ export class SocialChatRepository {
     const row = await runQueryWithTenant<ChatMessageRow>(
       tenantId,
       `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       FROM social_chat_messages
       WHERE message_id = $1
       LIMIT 1
@@ -54,7 +54,7 @@ export class SocialChatRepository {
         metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       `,
       [
         data.conversationId,
@@ -85,23 +85,23 @@ export class SocialChatRepository {
     tenantId: string,
     conversationId: string,
     options: { limit?: number; offset?: number } = {}
-  ): Promise<{ rows: ChatMessageRow[]; total: number }> {
+  ): Promise<{ rows: ChatMessageRow[]; totalCents: number }> {
     const { limit = 100, offset = 0 } = options;
 
     const rows = await runQueriesWithTenant<ChatMessageRow>(
       tenantId,
       `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       FROM social_chat_messages
       WHERE conversation_id = $1
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       LIMIT $2 OFFSET $3
       `,
       [conversationId, limit, offset]
     );
 
     // Contar total
-    const countRow = await runQueryWithTenant<{ total: string }>(
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
       SELECT COUNT(*) as total
@@ -113,10 +113,12 @@ export class SocialChatRepository {
 
     return {
       rows,
-      total: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 }
+
+
 
 
 

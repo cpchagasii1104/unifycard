@@ -26,7 +26,7 @@ export interface RegionalFundInfo {
 export interface RegionalFundHistoryEntry {
   transactionId: string;
   type: 'credit' | 'debit';
-  amount: number;
+  amountCents: number;
   description?: string;
   createdAt: string;
   metadata?: Record<string, any>;
@@ -112,15 +112,15 @@ class BankBalanceByRegionService {
       // Buscar última transação (para lastTransactionDate)
       const lastTransaction = await runQueriesWithTenant<{
         transaction_id: string;
-        created_at: Date;
+        createdAt: Date;
       }>(
         tenantId,
         `
-        SELECT transaction_id, created_at
+        SELECT transaction_id, createdAt
         FROM bank_transactions
         WHERE tenant_id = $1
           AND (from_account_id = $2 OR to_account_id = $2)
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT 1
         `,
         [tenantId, row.account_id]
@@ -149,7 +149,7 @@ class BankBalanceByRegionService {
         accountId: row.account_id,
         currency: row.currency,
         balance: balance.balance,
-        lastTransactionDate: lastTransaction?.[0]?.created_at?.toISOString(),
+        lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
         transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
       });
     }
@@ -210,15 +210,15 @@ class BankBalanceByRegionService {
     // Buscar última transação
     const lastTransaction = await runQueriesWithTenant<{
       transaction_id: string;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
-      SELECT transaction_id, created_at
+      SELECT transaction_id, createdAt
       FROM bank_transactions
       WHERE tenant_id = $1
         AND (from_account_id = $2 OR to_account_id = $2)
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 1
       `,
       [tenantId, row.account_id]
@@ -246,7 +246,7 @@ class BankBalanceByRegionService {
       accountId: row.account_id,
       currency: row.currency,
       balance: balance.balance,
-      lastTransactionDate: lastTransaction?.[0]?.created_at?.toISOString(),
+      lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
       transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
     };
   }
@@ -291,7 +291,7 @@ class BankBalanceByRegionService {
         bt.currency,
         bt.transaction_type,
         bt.metadata,
-        bt.created_at
+        bt.createdAt
       FROM bank_transactions bt
       WHERE bt.tenant_id = $1
         AND (bt.from_account_id = $2 OR bt.to_account_id = $2)
@@ -301,29 +301,29 @@ class BankBalanceByRegionService {
     let paramIndex = 3;
 
     if (startDate) {
-      query += ` AND bt.created_at >= $${paramIndex}`;
+      query += ` AND bt.createdAt >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND bt.created_at <= $${paramIndex}`;
+      query += ` AND bt.createdAt <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY bt.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY bt.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const transactions = await runQueriesWithTenant<{
       transaction_id: string;
       from_account_id: string;
       to_account_id: string;
-      amount: string;
+      amountCents: string;
       currency: string;
       transaction_type: string;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(tenantId, query, params);
 
     // Processar transações
@@ -342,7 +342,7 @@ class BankBalanceByRegionService {
           type: 'credit',
           amount,
           description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
-          createdAt: tx.created_at.toISOString(),
+          createdAt: tx.createdAt.toISOString(),
           metadata: tx.metadata,
         });
       } else {
@@ -352,7 +352,7 @@ class BankBalanceByRegionService {
           type: 'debit',
           amount,
           description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
-          createdAt: tx.created_at.toISOString(),
+          createdAt: tx.createdAt.toISOString(),
           metadata: tx.metadata,
         });
       }
@@ -375,5 +375,7 @@ class BankBalanceByRegionService {
 }
 
 export const bankBalanceByRegionService = new BankBalanceByRegionService();
+
+
 
 

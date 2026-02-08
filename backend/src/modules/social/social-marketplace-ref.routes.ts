@@ -25,6 +25,11 @@ const socialMarketplaceRefRoutes = async (fastify: FastifyInstance) => {
       // Validar que post existe (leve validação)
       // Não bloqueia se post não existir (pode ser de módulo externo)
 
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const ref = await socialMarketplaceRefService.createRef(tenantId, req.body);
 
       // Registrar auditoria (leve, não bloqueia)
@@ -33,7 +38,7 @@ const socialMarketplaceRefRoutes = async (fastify: FastifyInstance) => {
         await auditService.record(tenantId, {
           event_type: 'SOCIAL_MARKETPLACE_REF_CREATED',
           severity: 'LOW',
-          actor_id: actionContext?.actingActorId || null,
+          actor_id: actionContext.actorId,
           actor_type: 'user',
           source: 'social',
           context: {

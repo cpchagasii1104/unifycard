@@ -19,7 +19,7 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface EconomicEvent {
-  event_id: string;
+  eventId: string;
   type:
     | 'order_created'
     | 'order_completed'
@@ -48,14 +48,15 @@ export interface EconomicEvent {
     state: string;
     city: string;
   };
-  actor_id: string; // ID do ator principal (loja, usuário, fundo, etc.)
-  actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider' | 'regional_fund';
-  reference_id?: string; // order_id, fund_id, subscription_id, etc.
-  amount?: number; // Quando aplicável (pedidos, alocações, etc.)
+  actorId: string; // ID do ator principal (loja, usuário, fundo, etc.)
+  actorType: 'user' | 'store' | 'hub' | 'industry' | 'service_provider' | 'regional_fund';
+  referenceId?: string; // orderId, fundId, subscriptionId, etc.
+  amountCents: number; // Quando aplicável (pedidos, alocações, etc.)
   currency?: string; // Quando aplicável
   visibility: 'public' | 'local' | 'restricted'; // Escopo de visibilidade
-  display_text: string; // Texto canônico gerado no backend
-  created_at: string;
-  // NÃO incluir updated_at - eventos são imutáveis
+  displayText: string; // Texto canônico gerado no backend
+  createdAt: string;
+  // NÃO incluir updatedAt - eventos são imutáveis
 }
+
 

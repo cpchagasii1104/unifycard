@@ -68,7 +68,7 @@ const mediaRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({
         media_id: mediaId,
         upload_url: `/api/media/upload/${mediaId}`, // Placeholder
-        expires_at: new Date(Date.now() + 3600000).toISOString(), // 1 hora
+        expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hora
       });
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao gerar presign');
@@ -101,3 +101,4 @@ const mediaRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default mediaRoutes;
+

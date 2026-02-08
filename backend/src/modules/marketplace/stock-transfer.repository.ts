@@ -16,11 +16,11 @@ interface StockTransferRow {
   to_actor_id: string;
   status: string;
   requested_by_user_id: string | null;
-  shipped_at: Date | null;
-  received_at: Date | null;
+  shippedAt: Date | null;
+  receivedAt: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface StockTransferItemRow {
@@ -32,7 +32,7 @@ interface StockTransferItemRow {
   inventory_lot_id: string | null;
   status: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class StockTransferRepository {
@@ -47,11 +47,11 @@ class StockTransferRepository {
       toActorId: row.to_actor_id,
       status: row.status as any,
       requestedByUserId: row.requested_by_user_id,
-      shippedAt: row.shipped_at,
-      receivedAt: row.received_at,
+      shippedAt: row.shippedAt,
+      receivedAt: row.receivedAt,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -68,7 +68,7 @@ class StockTransferRepository {
       inventoryLotId: row.inventory_lot_id,
       status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -92,7 +92,7 @@ class StockTransferRepository {
       )
       VALUES ($1, $2, $3, 'DRAFT', $4, $5)
       RETURNING id, tenant_id, from_actor_id, to_actor_id, status,
-                requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at
+                requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -121,7 +121,7 @@ class StockTransferRepository {
       tenantId,
       `
       SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at
+             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
       FROM stock_transfers
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -144,10 +144,10 @@ class StockTransferRepository {
       tenantId,
       `
       SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at
+             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
       FROM stock_transfers
       WHERE tenant_id = $1 AND from_actor_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3
       `,
       [tenantId, fromActorId, limit]
@@ -168,10 +168,10 @@ class StockTransferRepository {
       tenantId,
       `
       SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at
+             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
       FROM stock_transfers
       WHERE tenant_id = $1 AND to_actor_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3
       `,
       [tenantId, toActorId, limit]
@@ -195,13 +195,13 @@ class StockTransferRepository {
     let paramIndex = 2;
 
     if (shippedAt) {
-      updates.push(`shipped_at = $${paramIndex}`);
+      updates.push(`shippedAt = $${paramIndex}`);
       params.push(shippedAt);
       paramIndex++;
     }
 
     if (receivedAt) {
-      updates.push(`received_at = $${paramIndex}`);
+      updates.push(`receivedAt = $${paramIndex}`);
       params.push(receivedAt);
       paramIndex++;
     }
@@ -212,10 +212,10 @@ class StockTransferRepository {
       tenantId,
       `
       UPDATE stock_transfers
-      SET ${updates.join(', ')}, updated_at = NOW()
+      SET ${updates.join(', ')}, updatedAt = NOW()
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
       RETURNING id, tenant_id, from_actor_id, to_actor_id, status,
-                requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at
+                requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -243,7 +243,7 @@ class StockTransferRepository {
       )
       VALUES ($1, $2, $3, $4, $5, 'PENDING')
       RETURNING id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, created_at
+                inventory_lot_id, status, metadata, createdAt
       `,
       [
         tenantId,
@@ -272,10 +272,10 @@ class StockTransferRepository {
       tenantId,
       `
       SELECT id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, created_at
+             inventory_lot_id, status, metadata, createdAt
       FROM stock_transfer_items
       WHERE tenant_id = $1 AND stock_transfer_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, transferId]
     );
@@ -294,7 +294,7 @@ class StockTransferRepository {
       tenantId,
       `
       SELECT id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, created_at
+             inventory_lot_id, status, metadata, createdAt
       FROM stock_transfer_items
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -320,7 +320,7 @@ class StockTransferRepository {
       SET status = $1
       WHERE tenant_id = $2 AND id = $3
       RETURNING id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, created_at
+                inventory_lot_id, status, metadata, createdAt
       `,
       [status, tenantId, itemId]
     );
@@ -334,6 +334,8 @@ class StockTransferRepository {
 }
 
 export const stockTransferRepository = new StockTransferRepository();
+
+
 
 
 

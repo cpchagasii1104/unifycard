@@ -19,14 +19,14 @@ interface UnifyCardTransactionRow {
   fee_amount_cents: number;
   net_amount_cents: number;
   regional_account_id: string | null;
-  authorized_at: Date;
-  captured_at: Date | null;
-  settled_at: Date | null;
+  authorizedAt: Date;
+  capturedAt: Date | null;
+  settledAt: Date | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class UnifyCardRepository {
@@ -46,14 +46,14 @@ class UnifyCardRepository {
       feeAmountCents: row.fee_amount_cents,
       netAmountCents: row.net_amount_cents,
       regionalAccountId: row.regional_account_id,
-      authorizedAt: row.authorized_at,
-      capturedAt: row.captured_at,
-      settledAt: row.settled_at,
+      authorizedAt: row.authorizedAt,
+      capturedAt: row.capturedAt,
+      settledAt: row.settledAt,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -89,9 +89,9 @@ class UnifyCardRepository {
                 transaction_type, status,
                 gross_amount_cents, fee_amount_cents, net_amount_cents,
                 regional_account_id,
-                authorized_at, captured_at, settled_at,
+                authorizedAt, capturedAt, settledAt,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -127,9 +127,9 @@ class UnifyCardRepository {
              transaction_type, status,
              gross_amount_cents, fee_amount_cents, net_amount_cents,
              regional_account_id,
-             authorized_at, captured_at, settled_at,
+             authorizedAt, capturedAt, settledAt,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM unifycard_transactions
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -185,12 +185,12 @@ class UnifyCardRepository {
              transaction_type, status,
              gross_amount_cents, fee_amount_cents, net_amount_cents,
              regional_account_id,
-             authorized_at, captured_at, settled_at,
+             authorizedAt, capturedAt, settledAt,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM unifycard_transactions
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -208,16 +208,16 @@ class UnifyCardRepository {
       `
       UPDATE unifycard_transactions
       SET status = 'CAPTURED',
-          captured_at = NOW(),
-          updated_at = NOW()
+          capturedAt = NOW(),
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'AUTHORIZED'
       RETURNING id, tenant_id, actor_id, payment_intent_id, payment_method_id,
                 transaction_type, status,
                 gross_amount_cents, fee_amount_cents, net_amount_cents,
                 regional_account_id,
-                authorized_at, captured_at, settled_at,
+                authorizedAt, capturedAt, settledAt,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, transactionId]
     );
@@ -242,17 +242,17 @@ class UnifyCardRepository {
       `
       UPDATE unifycard_transactions
       SET status = 'SETTLED',
-          settled_at = NOW(),
+          settledAt = NOW(),
           regional_account_id = $3,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'CAPTURED'
       RETURNING id, tenant_id, actor_id, payment_intent_id, payment_method_id,
                 transaction_type, status,
                 gross_amount_cents, fee_amount_cents, net_amount_cents,
                 regional_account_id,
-                authorized_at, captured_at, settled_at,
+                authorizedAt, capturedAt, settledAt,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, transactionId, regionalAccountId]
     );
@@ -266,6 +266,8 @@ class UnifyCardRepository {
 }
 
 export const unifyCardRepository = new UnifyCardRepository();
+
+
 
 
 

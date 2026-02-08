@@ -10,7 +10,7 @@ import { pilotEventsService } from '../pilot/pilot-events.service';
 export interface P2PTransferParams {
   fromUserId: string;
   toUserId: string;
-  amount: number;
+  amountCents: number;
   eventId: string;
 }
 
@@ -18,7 +18,7 @@ export interface P2PTransferResult {
   transaction: {
     transactionId: string;
     eventId: string;
-    amount: number;
+    amountCents: number;
     currency: string;
     createdAt: Date;
   };
@@ -179,6 +179,7 @@ class BankP2PTransferService {
 }
 
 export const bankP2PTransferService = new BankP2PTransferService();
+
 
 
 

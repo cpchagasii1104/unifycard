@@ -150,7 +150,7 @@ describe('Event Checkout Hardening', () => {
       tenantId,
       `
         INSERT INTO events (
-          tenant_id, title, description, start_time, end_time,
+          tenant_id, title, description, starts_at, ends_at,
           city_id, created_by_global_user_id,
           event_type, status, ticket_price, accepts_consumption, timezone
         )
@@ -231,7 +231,7 @@ describe('Event Checkout Hardening', () => {
       // Verificar no ledger: 70% foi para organizador
       const organizerTransactions = await runQueriesWithTenant<{
         transaction_id: string;
-        amount: string;
+        amountCents: string;
         to_account: string;
       }>(
         tenantId,
@@ -257,7 +257,7 @@ describe('Event Checkout Hardening', () => {
         tenantId,
         `
           INSERT INTO events (
-            tenant_id, title, description, start_time, end_time,
+            tenant_id, title, description, starts_at, ends_at,
             city_id, created_by_global_user_id,
             event_type, status, ticket_price, timezone
           )
@@ -303,7 +303,7 @@ describe('Event Checkout Hardening', () => {
 
       const userTransactions = await runQueriesWithTenant<{
         transaction_id: string;
-        amount: string;
+        amountCents: string;
       }>(
         tenantId,
         `
@@ -526,7 +526,7 @@ describe('Event Checkout Hardening', () => {
         tenantId,
         `
           INSERT INTO events (
-            tenant_id, title, description, start_time, end_time,
+            tenant_id, title, description, starts_at, ends_at,
             city_id, created_by_global_user_id,
             event_type, status, ticket_price, max_capacity, current_occupancy, timezone
           )
@@ -599,6 +599,8 @@ describe('Event Checkout Hardening', () => {
     });
   });
 });
+
+
 
 
 

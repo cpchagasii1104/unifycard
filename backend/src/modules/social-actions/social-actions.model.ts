@@ -13,8 +13,8 @@ export class SocialActionsModel {
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : {},
       status: row.status as SocialAction['status'],
       executionResult: row.execution_result && typeof row.execution_result === 'object' ? row.execution_result : null,
-      createdAt: row.created_at,
-      executedAt: row.executed_at ?? null,
+      createdAt: row.createdAt,
+      executedAt: row.executedAt ?? null,
     };
   }
 
@@ -34,11 +34,13 @@ export class SocialActionsModel {
     if (action.parameters !== undefined) row.parameters = action.parameters;
     if (action.status !== undefined) row.status = action.status;
     if (action.executionResult !== undefined) row.execution_result = action.executionResult ?? null;
-    if (action.executedAt !== undefined) row.executed_at = action.executedAt ?? null;
+    if (action.executedAt !== undefined) row.executedAt = action.executedAt ?? null;
 
     return row;
   }
 }
+
+
 
 
 

@@ -19,10 +19,10 @@ interface AlertRow {
   entity_id: string | null;
   status: string;
   metadata: any;
-  created_at: Date;
-  acknowledged_at: Date | null;
-  resolved_at: Date | null;
-  updated_at: Date;
+  createdAt: Date;
+  acknowledgedAt: Date | null;
+  resolvedAt: Date | null;
+  updatedAt: Date;
 }
 
 class AlertRepository {
@@ -40,10 +40,10 @@ class AlertRepository {
       entityId: row.entity_id,
       status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      acknowledgedAt: row.acknowledged_at,
-      resolvedAt: row.resolved_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      acknowledgedAt: row.acknowledgedAt,
+      resolvedAt: row.resolvedAt,
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -62,7 +62,7 @@ class AlertRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, tenant_id, type, severity, message, entity_type, entity_id,
-                status, metadata, created_at, acknowledged_at, resolved_at, updated_at
+                status, metadata, createdAt, acknowledgedAt, resolvedAt, updatedAt
       `,
       [
         tenantId,
@@ -110,16 +110,16 @@ class AlertRepository {
       `
       UPDATE alerts
       SET status = $3,
-          acknowledged_at = COALESCE($4, acknowledged_at),
-          resolved_at = COALESCE($5, resolved_at),
+          acknowledgedAt = COALESCE($4, acknowledgedAt),
+          resolvedAt = COALESCE($5, resolvedAt),
           metadata = CASE
             WHEN $6 IS NOT NULL THEN metadata || jsonb_build_object('status_change_reason', $6)
             ELSE metadata
           END,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, type, severity, message, entity_type, entity_id,
-                status, metadata, created_at, acknowledged_at, resolved_at, updated_at
+                status, metadata, createdAt, acknowledgedAt, resolvedAt, updatedAt
       `,
       [
         tenantId,
@@ -149,7 +149,7 @@ class AlertRepository {
       tenantId,
       `
       SELECT id, tenant_id, type, severity, message, entity_type, entity_id,
-             status, metadata, created_at, acknowledged_at, resolved_at, updated_at
+             status, metadata, createdAt, acknowledgedAt, resolvedAt, updatedAt
       FROM alerts
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -168,7 +168,7 @@ class AlertRepository {
   ): Promise<Alert[]> {
     let query = `
       SELECT id, tenant_id, type, severity, message, entity_type, entity_id,
-             status, metadata, created_at, acknowledged_at, resolved_at, updated_at
+             status, metadata, createdAt, acknowledgedAt, resolvedAt, updatedAt
       FROM alerts
       WHERE tenant_id = $1
     `;
@@ -208,7 +208,7 @@ class AlertRepository {
 
     // SPRINT 52: Paginação padronizada
     const limit = Math.min(Math.max(filters.limit || 20, 1), 100);
-    query += ` ORDER BY created_at DESC LIMIT ${limit}`;
+    query += ` ORDER BY createdAt DESC LIMIT ${limit}`;
 
     if (filters.offset) {
       query += ` OFFSET ${filters.offset}`;
@@ -248,4 +248,6 @@ class AlertRepository {
 }
 
 export const alertRepository = new AlertRepository();
+
+
 

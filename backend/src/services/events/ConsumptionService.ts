@@ -123,7 +123,7 @@ export class ConsumptionService {
       const { checkoutService } = await import('../../core/checkout/CheckoutService');
 
       const checkoutRequest: CheckoutRequest = {
-        amount: totalAmount,
+        amountCents: totalAmount,
         currency: 'BRL',
         paymentMethod: 'UNIFYCARD',
         context: {
@@ -165,6 +165,7 @@ export class ConsumptionService {
     });
   }
 }
+
 
 
 

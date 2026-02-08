@@ -20,8 +20,8 @@ export interface OfferIndex {
     inStock: boolean;
     stockCount?: number;
   };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -29,7 +29,7 @@ export interface OfferIndex {
  */
 export interface OfferSearchResult {
   offers: OfferIndex[];
-  total: number;
+  totalCents: number;
   filters: {
     productId?: string;
     cityId?: string;
@@ -38,6 +38,8 @@ export interface OfferSearchResult {
     centerLng?: number;
   };
 }
+
+
 
 
 

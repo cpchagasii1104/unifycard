@@ -23,8 +23,8 @@ export interface NotifyTemplateRow {
   body: string;
   metadata: unknown;
   is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface NotifyTemplate {
@@ -37,8 +37,8 @@ export interface NotifyTemplate {
   body: string;
   metadata: NotificationPayload;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface NotificationQueueRow {
@@ -52,11 +52,11 @@ export interface NotificationQueueRow {
   status: string;
   retry_count: number;
   max_retries: number;
-  scheduled_at: Date;
-  sent_at: Date | null;
+  scheduledAt: Date;
+  sentAt: Date | null;
   last_error: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Notification {
@@ -73,8 +73,8 @@ export interface Notification {
   scheduledAt: Date;
   sentAt?: Date | null;
   lastError?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EnqueueNotificationInput {
@@ -124,3 +124,5 @@ export interface TemplateRenderContext {
   templateName: string;
   payload: NotificationPayload;
 }
+
+

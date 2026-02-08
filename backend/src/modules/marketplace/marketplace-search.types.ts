@@ -81,10 +81,11 @@ export interface MarketplaceSearchFilters {
  */
 export interface MarketplaceSearchResponse {
   results: MarketplaceSearchResult[];
-  total: number;
+  totalCents: number;
   filters: MarketplaceSearchFilters;
   rankingExplanation: string; // Explicação geral do ranking
 }
+
 
 
 

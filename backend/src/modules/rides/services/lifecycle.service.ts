@@ -47,7 +47,7 @@ class LifecycleService {
             destination,
             service_type_id,
             status,
-            created_at
+            createdAt
           )
           VALUES (
             $1,
@@ -125,7 +125,7 @@ class LifecycleService {
             vehicle_id,
             passenger_user_id,
             status,
-            created_at
+            createdAt
           )
           SELECT
             rr.ride_request_id,
@@ -178,7 +178,7 @@ class LifecycleService {
         text: `
           UPDATE rides_rides
           SET status = 'started',
-              started_at = NOW()
+              startedAt = NOW()
           WHERE ride_id = $1;
         `,
         values: [rideId],
@@ -186,7 +186,7 @@ class LifecycleService {
 
       await trx.query({
         text: `
-          INSERT INTO rides_ride_events (ride_id, event_type, occurred_at)
+          INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
           VALUES ($1, 'ride_started', NOW());
         `,
         values: [rideId],
@@ -243,7 +243,7 @@ class LifecycleService {
         text: `
           UPDATE rides_rides
           SET status = 'completed',
-              completed_at = NOW(),
+              completedAt = NOW(),
               final_price = $2,
               total_distance_km = $3,
               total_duration_minutes = $4,
@@ -264,7 +264,7 @@ class LifecycleService {
 
       await trx.query({
         text: `
-          INSERT INTO rides_ride_events (ride_id, event_type, occurred_at)
+          INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
           VALUES ($1, 'ride_completed', NOW());
         `,
         values: [rideId],
@@ -303,7 +303,7 @@ class LifecycleService {
       userId: ride.passenger_user_id,
       channel: "push",
       template: "ride_completed",
-      data: { rideId, amount: ride.final_price },
+      data: { rideId, amountCents: ride.final_price },
     });
 
     return ride;
@@ -311,3 +311,4 @@ class LifecycleService {
 }
 
 export const lifecycleService = new LifecycleService();
+

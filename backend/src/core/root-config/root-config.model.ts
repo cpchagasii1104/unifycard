@@ -14,11 +14,12 @@ export class RootConfigModel {
       timezone: row.timezone,
       currency: row.currency,
       languages: row.languages || [],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }
+
 
 
 

@@ -16,9 +16,9 @@ interface InventoryReservationRow {
   order_id: string;
   source: string;
   status: string;
-  expires_at: Date | null;
-  created_at: Date;
-  updated_at: Date;
+  expiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class InventoryReservationRepository {
@@ -34,9 +34,9 @@ class InventoryReservationRepository {
       orderId: row.order_id,
       source: row.source as any,
       status: row.status as any,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -51,11 +51,11 @@ class InventoryReservationRepository {
       tenantId,
       `
       INSERT INTO inventory_reservations (
-        tenant_id, product_variant_id, quantity, order_id, source, status, expires_at
+        tenant_id, product_variant_id, quantity, order_id, source, status, expiresAt
       )
       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
-                status, expires_at, created_at, updated_at
+                status, expiresAt, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -85,13 +85,13 @@ class InventoryReservationRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, quantity, order_id, source,
-             status, expires_at, created_at, updated_at
+             status, expiresAt, createdAt, updatedAt
       FROM inventory_reservations
       WHERE tenant_id = $1
         AND product_variant_id = $2
         AND status = 'ACTIVE'
-        AND (expires_at IS NULL OR expires_at > NOW())
-      ORDER BY created_at ASC
+        AND (expiresAt IS NULL OR expiresAt > NOW())
+      ORDER BY createdAt ASC
       `,
       [tenantId, productVariantId]
     );
@@ -114,7 +114,7 @@ class InventoryReservationRepository {
       WHERE tenant_id = $1
         AND product_variant_id = $2
         AND status = 'ACTIVE'
-        AND (expires_at IS NULL OR expires_at > NOW())
+        AND (expiresAt IS NULL OR expiresAt > NOW())
       `,
       [tenantId, productVariantId]
     );
@@ -133,10 +133,10 @@ class InventoryReservationRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, quantity, order_id, source,
-             status, expires_at, created_at, updated_at
+             status, expiresAt, createdAt, updatedAt
       FROM inventory_reservations
       WHERE tenant_id = $1 AND order_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, orderId]
     );
@@ -156,10 +156,10 @@ class InventoryReservationRepository {
       tenantId,
       `
       UPDATE inventory_reservations
-      SET status = $1, updated_at = NOW()
+      SET status = $1, updatedAt = NOW()
       WHERE tenant_id = $2 AND id = $3
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
-                status, expires_at, created_at, updated_at
+                status, expiresAt, createdAt, updatedAt
       `,
       [status, tenantId, reservationId]
     );
@@ -182,12 +182,12 @@ class InventoryReservationRepository {
       tenantId,
       `
       UPDATE inventory_reservations
-      SET status = 'RELEASED', updated_at = NOW()
+      SET status = 'RELEASED', updatedAt = NOW()
       WHERE tenant_id = $1
         AND order_id = $2
         AND status = 'ACTIVE'
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
-                status, expires_at, created_at, updated_at
+                status, expiresAt, createdAt, updatedAt
       `,
       [tenantId, orderId]
     );
@@ -206,12 +206,12 @@ class InventoryReservationRepository {
       tenantId,
       `
       UPDATE inventory_reservations
-      SET status = 'CONSUMED', updated_at = NOW()
+      SET status = 'CONSUMED', updatedAt = NOW()
       WHERE tenant_id = $1
         AND order_id = $2
         AND status = 'ACTIVE'
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
-                status, expires_at, created_at, updated_at
+                status, expiresAt, createdAt, updatedAt
       `,
       [tenantId, orderId]
     );
@@ -230,13 +230,13 @@ class InventoryReservationRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, quantity, order_id, source,
-             status, expires_at, created_at, updated_at
+             status, expiresAt, createdAt, updatedAt
       FROM inventory_reservations
       WHERE tenant_id = $1
         AND status = 'ACTIVE'
-        AND expires_at IS NOT NULL
-        AND expires_at <= NOW()
-      ORDER BY expires_at ASC
+        AND expiresAt IS NOT NULL
+        AND expiresAt <= NOW()
+      ORDER BY expiresAt ASC
       LIMIT $2
       `,
       [tenantId, limit]
@@ -247,6 +247,8 @@ class InventoryReservationRepository {
 }
 
 export const inventoryReservationRepository = new InventoryReservationRepository();
+
+
 
 
 

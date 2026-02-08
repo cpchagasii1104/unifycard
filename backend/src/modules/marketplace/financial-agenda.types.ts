@@ -8,7 +8,7 @@ export interface FinancialAgendaItem {
   id: string;
   type: 'PAYABLE' | 'RECEIVABLE' | 'SETTLEMENT' | 'SCHEDULED_ACTION';
   date: Date;
-  amount: number; // em centavos
+  amountCents: number; // em centavos
   currency: string;
   description: string;
   status: string;
@@ -42,6 +42,7 @@ export interface FinancialAgendaFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

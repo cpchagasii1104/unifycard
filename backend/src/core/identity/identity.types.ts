@@ -2,8 +2,8 @@
 
 export interface GlobalUser {
   globalUserId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   fullName: string | null;
   avatarUrl: string | null;
   birthdate: Date | null;
@@ -12,8 +12,8 @@ export interface GlobalUser {
 
 export interface GlobalUserRow {
   global_user_id: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
   full_name: string | null;
   avatar_url: string | null;
   birthdate: Date | string | null; // PostgreSQL pode retornar como string YYYY-MM-DD
@@ -33,7 +33,7 @@ export interface IdentityProfile {
     userId: string;
     tenantId: string;
     email: string;
-    createdAt: Date;
+    createdAt: string;
     plan?: 'free' | 'pro' | 'enterprise';
     isTest?: boolean;
   };
@@ -59,8 +59,8 @@ export interface IdentityProfile {
     lastTransactions: Array<{
       transactionId: string;
       type: 'credit' | 'debit';
-      amount: number;
-      createdAt: Date;
+      amountCents: number;
+      createdAt: string;
     }>;
   };
   residence?: {
@@ -83,4 +83,7 @@ export interface IdentityProfile {
     languages: string[];
   };
 }
+
+
+
 

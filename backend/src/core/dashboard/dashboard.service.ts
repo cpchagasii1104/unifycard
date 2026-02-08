@@ -57,7 +57,7 @@ class DashboardService {
               transactionId: tx.transactionId,
               type: isCredit ? 'credit' as const : 'debit' as const,
               amount,
-              createdAt: tx.createdAt.toISOString(),
+              createdAt: tx.createdAt,
             };
           });
 

@@ -26,15 +26,16 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId || !actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingActorId e actingUserId são obrigatórios' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const invite = await organizationInviteService.inviteUser(
       tenantId,
       req.body,
-      actionContext.actingUserId,
-      actionContext.actingActorId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(invite);
@@ -51,13 +52,14 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const member = await organizationInviteService.acceptInvite(tenantId, {
       token: req.body.token,
-      userId: actionContext.actingUserId,
+      userId: actionContext.actorId,
       actorId: req.body.actorId,
     });
 
@@ -72,15 +74,16 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId || !actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingActorId e actingUserId são obrigatórios' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const revokedInvite = await organizationInviteService.revokeInvite(
       tenantId,
       req.params.id,
-      actionContext.actingUserId,
-      actionContext.actingActorId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.send(revokedInvite);
@@ -112,7 +115,7 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
 
     const invites = await organizationInviteService.listInvites(tenantId, filters);
 
-    return reply.send({ invites, total: invites.length });
+    return reply.send({ invites, totalCents: invites.length });
   });
 
   // ============================================================
@@ -149,7 +152,7 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
 
     const members = await organizationMemberService.listMembers(tenantId, filters);
 
-    return reply.send({ members, total: members.length });
+    return reply.send({ members, totalCents: members.length });
   });
 
   /**
@@ -163,16 +166,17 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId || !actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingActorId e actingUserId são obrigatórios' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const member = await organizationMemberService.changeRole(
       tenantId,
       req.params.id,
       req.body.roleKey,
-      actionContext.actingUserId,
-      actionContext.actingActorId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.send(member);
@@ -186,15 +190,16 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId || !actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingActorId e actingUserId são obrigatórios' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     await organizationMemberService.removeMember(
       tenantId,
       req.params.id,
-      actionContext.actingUserId,
-      actionContext.actingActorId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(204).send();
@@ -313,3 +318,4 @@ const organizationRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default organizationRoutes;
+

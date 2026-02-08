@@ -41,12 +41,13 @@ class BusinessAuditLogService {
   async listLogs(
     tenantId: string,
     filters: BusinessAuditLogFilters = {}
-  ): Promise<{ logs: BusinessAuditLog[]; total: number }> {
+  ): Promise<{ logs: BusinessAuditLog[]; totalCents: number }> {
     return await businessAuditLogRepository.find(tenantId, filters);
   }
 }
 
 export const businessAuditLogService = new BusinessAuditLogService();
+
 
 
 

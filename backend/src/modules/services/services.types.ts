@@ -57,8 +57,8 @@ export interface Service {
   cityId?: string | null;
   neighborhood?: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   activatedAt?: Date | null; // Quando foi ativado pela primeira vez
 }
 
@@ -84,9 +84,9 @@ export interface ServiceRow {
   city_id: string | null;
   neighborhood: string | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
-  activated_at: Date | null;
+  createdAt: string;
+  updatedAt: string;
+  activatedAt: Date | null;
 }
 
 /**
@@ -131,4 +131,6 @@ export interface UpdateServiceInput {
   neighborhood?: string | null;
   metadata?: Record<string, any>;
 }
+
+
 

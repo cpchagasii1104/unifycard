@@ -17,10 +17,10 @@ export class RootConfigRepository {
           timezone,
           currency,
           languages,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM root_config
-        ORDER BY created_at ASC
+        ORDER BY createdAt ASC
         LIMIT 1
       `,
     });
@@ -74,7 +74,7 @@ export class RootConfigRepository {
           paramIndex++;
         }
 
-        updateFields.push(`updated_at = now()`);
+        updateFields.push(`updatedAt = now()`);
         values.push(existing[0].id);
 
         const result = await trx.query({
@@ -117,6 +117,7 @@ export class RootConfigRepository {
     });
   }
 }
+
 
 
 

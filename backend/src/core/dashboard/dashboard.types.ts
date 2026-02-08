@@ -11,7 +11,7 @@ export interface DashboardWallet {
   lastTransactions: Array<{
     transactionId: string;
     type: 'credit' | 'debit';
-    amount: number;
+    amountCents: number;
     createdAt: string;
   }>;
 }
@@ -26,6 +26,7 @@ export interface DashboardData {
   reputation: IdentityProfile['reputation'] | null;
   fund: RegionalFundView | null;
 }
+
 
 
 

@@ -18,14 +18,15 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const profile = await publicProfileService.createProfile(
       tenantId,
       req.body,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.status(201).send(profile);
@@ -42,15 +43,16 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const profile = await publicProfileService.updateProfile(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.send(profile);
@@ -106,7 +108,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
 
     const profiles = await publicProfileService.listPublicProfiles(tenantId, filters);
 
-    return reply.send({ profiles, total: profiles.length });
+    return reply.send({ profiles, totalCents: profiles.length });
   });
 
   /**
@@ -120,15 +122,16 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const profile = await publicProfileService.changeVisibility(
       tenantId,
       req.params.id,
       req.body.visibility,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.send(profile);
@@ -136,6 +139,7 @@ const publicProfileRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default publicProfileRoutes;
+
 
 
 

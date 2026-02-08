@@ -25,12 +25,12 @@ export interface ServicePaymentExecution {
   paymentRequestId: string; // OBRIGATÓRIO: Payment request relacionado
   payerActorId: string; // OBRIGATÓRIO: Actor que paga
   receiverActorId: string; // OBRIGATÓRIO: Actor que recebe (dono do service)
-  amount: number; // Valor executado (deve ser igual ao payment_request.amount)
+  amountCents: number; // Valor executado (deve ser igual ao payment_request.amountCents)
   currency: string; // Moeda (default: 'FIC' = Fictícia)
   executedAt: Date;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -46,11 +46,11 @@ export interface PaymentSplit {
   tenantId: string;
   executionId: string; // OBRIGATÓRIO: Execution relacionado
   receiverActorId: string; // OBRIGATÓRIO: Actor que recebe parte do split
-  amount: number; // Valor do split
+  amountCents: number; // Valor do split
   percentage?: number | null; // Porcentagem do split (opcional, para referência)
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -62,12 +62,12 @@ export interface ServicePaymentExecutionRow {
   payment_request_id: string;
   payer_actor_id: string;
   receiver_actor_id: string;
-  amount: number;
+  amountCents: number;
   currency: string;
-  executed_at: Date;
+  executedAt: Date;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -78,11 +78,11 @@ export interface PaymentSplitRow {
   tenant_id: string;
   execution_id: string;
   receiver_actor_id: string;
-  amount: number;
+  amountCents: number;
   percentage: number | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -101,8 +101,11 @@ export interface CreateServicePaymentExecutionInput {
  */
 export interface CreatePaymentSplitInput {
   receiverActorId: string; // OBRIGATÓRIO
-  amount: number; // OBRIGATÓRIO: Valor do split
+  amountCents: number; // OBRIGATÓRIO: Valor do split
   percentage?: number | null; // Opcional: Porcentagem do split
   metadata?: Record<string, any>;
 }
+
+
+
 

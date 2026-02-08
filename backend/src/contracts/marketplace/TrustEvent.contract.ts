@@ -18,17 +18,17 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface TrustEvent {
-  trust_event_id: string;
-  actor_id: string;
-  actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
+  trustEventId: string;
+  actorId: string;
+  actorType: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
   type: 'upgrade' | 'downgrade' | 'restriction' | 'suspension';
-  from_level: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
-  to_level: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  fromLevel: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  toLevel: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
   reason: string; // Motivo determinístico da mudança
   source: 'sla' | 'dispute' | 'payment' | 'manual_system' | 'verification';
-  metadata?: Record<string, any>; // Dados adicionais (ex: snapshot_id, dispute_id)
-  created_at: string;
-  // NÃO incluir updated_at - eventos são imutáveis
+  metadata?: Record<string, any>; // Dados adicionais (ex: snapshotId, disputeId)
+  createdAt: string;
+  // NÃO incluir updatedAt - eventos são imutáveis
 }
 
 

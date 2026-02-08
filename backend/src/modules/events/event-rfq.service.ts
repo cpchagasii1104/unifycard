@@ -144,7 +144,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -243,7 +243,7 @@ class EventRFQService {
 
     return {
       rfqs: normalizedRFQs,
-      total: normalizedRFQs.length,
+      totalCents: normalizedRFQs.length,
     };
   }
 
@@ -293,7 +293,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -434,7 +434,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -516,10 +516,12 @@ class EventRFQService {
 
     return {
       quotes: normalizedQuotes,
-      total: normalizedQuotes.length,
+      totalCents: normalizedQuotes.length,
     };
   }
 }
 
 export const eventRFQService = new EventRFQService();
+
+
 

@@ -18,7 +18,7 @@ export interface ImpactLedgerEntry {
   source_type: ImpactSourceType;
   source_id: string;
   metadata: Record<string, any> | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface ImpactBalance {
@@ -26,7 +26,7 @@ export interface ImpactBalance {
   actor_id: string;
   actor_type: ActorType;
   balance: number;
-  updated_at: string;
+  updatedAt: string;
 }
 
 export interface RecordImpactParams {
@@ -63,9 +63,9 @@ export class ImpactService {
     // Executar em transação: inserir no ledger + atualizar saldo
     const result = await runQueriesWithTenant<{
       entry_id: string;
-      entry_created_at: string;
+      entry_createdAt: string;
       new_balance: number;
-      balance_updated_at: string;
+      balance_updatedAt: string;
     }>(
       tenantId,
       `
@@ -75,7 +75,7 @@ export class ImpactService {
           source_type, source_id, metadata
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-        RETURNING id, created_at
+        RETURNING id, createdAt
       ),
       balance_upsert AS (
         INSERT INTO impact_balances (tenant_id, actor_id, actor_type, balance)
@@ -83,14 +83,14 @@ export class ImpactService {
         ON CONFLICT (tenant_id, actor_id, actor_type)
         DO UPDATE SET
           balance = impact_balances.balance + $5,
-          updated_at = NOW()
-        RETURNING balance, updated_at
+          updatedAt = NOW()
+        RETURNING balance, updatedAt
       )
       SELECT 
         li.id as entry_id,
-        li.created_at::text as entry_created_at,
+        li.createdAt::text as entry_createdAt,
         bu.balance as new_balance,
-        bu.updated_at::text as balance_updated_at
+        bu.updatedAt::text as balance_updatedAt
       FROM ledger_insert li
       CROSS JOIN balance_upsert bu
       `,
@@ -124,7 +124,7 @@ export class ImpactService {
         source_type: sourceType,
         source_id: sourceId,
         metadata: metadata || null,
-        created_at: row.entry_created_at,
+        createdAt: row.entry_createdAt,
       },
     };
 
@@ -163,11 +163,11 @@ export class ImpactService {
       actor_id: string;
       actor_type: string;
       balance: number;
-      updated_at: string;
+      updatedAt: string;
     }>(
       tenantId,
       `
-      SELECT tenant_id, actor_id, actor_type, balance, updated_at
+      SELECT tenant_id, actor_id, actor_type, balance, updatedAt
       FROM impact_balances
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       LIMIT 1
@@ -182,7 +182,7 @@ export class ImpactService {
         actor_id: actorId,
         actor_type: actorType,
         balance: 0,
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     }
 
@@ -192,7 +192,7 @@ export class ImpactService {
       actor_id: row.actor_id,
       actor_type: row.actor_type as ActorType,
       balance: row.balance,
-      updated_at: row.updated_at,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -215,16 +215,16 @@ export class ImpactService {
       source_type: string;
       source_id: string;
       metadata: any;
-      created_at: string;
+      createdAt: string;
     }>(
       tenantId,
       `
       SELECT 
         id, tenant_id, actor_id, actor_type, event_type, impact_delta,
-        source_type, source_id, metadata, created_at
+        source_type, source_id, metadata, createdAt
       FROM impact_ledger
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $4
       `,
       [tenantId, actorId, actorType, limit]
@@ -240,10 +240,12 @@ export class ImpactService {
       source_type: row.source_type as ImpactSourceType,
       source_id: row.source_id,
       metadata: row.metadata,
-      created_at: row.created_at,
+      createdAt: row.createdAt,
     }));
   }
 }
 
 export const impactService = new ImpactService();
+
+
 

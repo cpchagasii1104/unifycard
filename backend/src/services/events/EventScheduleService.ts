@@ -7,8 +7,8 @@ interface EventRow {
   tenant_id: string;
   event_type: string;
   timezone: string;
-  start_time: Date;
-  end_time: Date;
+  starts_at: Date;
+  ends_at: Date;
   max_capacity: number | null;
   schedule_id: string | null;
 }
@@ -108,7 +108,7 @@ export class EventScheduleService {
     return runTenantTransaction(tenantId, async (trx) => {
       const eventResult = await trx.query({
         text: `
-          SELECT id, event_type, start_time, end_time, max_capacity, schedule_id
+          SELECT id, event_type, starts_at, ends_at, max_capacity, schedule_id
           FROM events
           WHERE id = $1
         `,
@@ -132,10 +132,10 @@ export class EventScheduleService {
       // 🔴 CRÍTICO: Batch insert (não loop)
       await trx.query({
         text: `
-          INSERT INTO schedule_slots (schedule_id, start_time, end_time, status, metadata)
+          INSERT INTO schedule_slots (schedule_id, starts_at, ends_at, status, metadata)
           SELECT * FROM jsonb_to_recordset($1::jsonb)
-          AS t(schedule_id UUID, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, status TEXT, metadata JSONB)
-          ON CONFLICT (schedule_id, start_time, end_time) DO NOTHING
+          AS t(schedule_id UUID, starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, status TEXT, metadata JSONB)
+          ON CONFLICT (schedule_id, starts_at, ends_at) DO NOTHING
         `,
         values: [JSON.stringify(slots)],
       });
@@ -157,8 +157,8 @@ export class EventScheduleService {
         return [
           {
             schedule_id: scheduleId,
-            start_time: event.start_time,
-            end_time: event.end_time,
+            starts_at: event.starts_at,
+            ends_at: event.ends_at,
             status: 'available',
             metadata: {
               max_capacity: event.max_capacity,
@@ -170,8 +170,8 @@ export class EventScheduleService {
       case 'RESTAURANTE':
         // Slots de 1h durante funcionamento
         return this.generateHourlySlots(
-          event.start_time,
-          event.end_time,
+          event.starts_at,
+          event.ends_at,
           scheduleId
         );
 
@@ -181,8 +181,8 @@ export class EventScheduleService {
         return [
           {
             schedule_id: scheduleId,
-            start_time: event.start_time,
-            end_time: event.end_time,
+            starts_at: event.starts_at,
+            ends_at: event.ends_at,
             status: 'available',
             metadata: {
               max_capacity: event.max_capacity,
@@ -211,8 +211,8 @@ export class EventScheduleService {
 
       slots.push({
         schedule_id: scheduleId,
-        start_time: current.toUTC().toISO(),
-        end_time: (slotEnd > end ? end : slotEnd).toUTC().toISO(),
+        starts_at: current.toUTC().toISO(),
+        ends_at: (slotEnd > end ? end : slotEnd).toUTC().toISO(),
         status: 'available',
         metadata: {},
       });
@@ -223,6 +223,7 @@ export class EventScheduleService {
     return slots;
   }
 }
+
 
 
 

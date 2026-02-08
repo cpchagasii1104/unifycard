@@ -12,8 +12,8 @@ import { worldService } from '@core/world/services/world.service';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 
 export type ProposalType = 'PROJECT_FUNDING' | 'REGIONAL_REINVESTMENT' | 'COMMUNITY_EXPENSE';
-export type ProposalStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'EXECUTING' | 'EXECUTED' | 'REJECTED';
-export type VoteValue = 'YES' | 'NO';
+export type ProposalStatus = 'draft' | 'open' | 'closed' | 'executing' | 'executed' | 'rejected';
+export type VoteValue = 'yes' | 'no';
 
 export interface CreateProposalInput {
   title?: string;
@@ -21,7 +21,7 @@ export interface CreateProposalInput {
   proposalType?: ProposalType;
   targetType?: 'project' | 'group' | 'platform' | 'regional_fund';
   targetId?: string;
-  amount?: number;
+  amountCents: number;
   votingStartsAt?: Date;
   votingEndsAt?: Date;
 }
@@ -35,7 +35,7 @@ export interface Proposal {
   proposalType: ProposalType;
   targetType: string;
   targetId?: string;
-  amount: number;
+  amountCents: number;
   status: ProposalStatus;
   createdBy: string;
   createdAt: Date;
@@ -49,7 +49,7 @@ export interface Proposal {
 export interface VoteResult {
   yes: number;
   no: number;
-  total: number;
+  totalCents: number;
   quorumMet: boolean;
   approved: boolean;
 }
@@ -186,21 +186,21 @@ class RegionalFundGovernanceService {
       proposal_type: string;
       target_type: string;
       target_id: string | null;
-      amount: string;
+      amountCents: string;
       status: string;
       created_by: string;
-      created_at: Date;
-      updated_at: Date;
-      voting_starts_at: Date | null;
-      voting_ends_at: Date | null;
-      executed_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      voting_startsAt: Date | null;
+      voting_endsAt: Date | null;
+      executedAt: Date | null;
       metadata: any;
     }>(
       `
       INSERT INTO regional_fund_proposals (
         proposal_id, tenant_id, region_id, title, description,
         proposal_type, target_type, target_id, amount, status,
-        created_by, voting_starts_at, voting_ends_at, metadata
+        created_by, voting_startsAt, voting_endsAt, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
@@ -215,7 +215,7 @@ class RegionalFundGovernanceService {
         input.targetType,
         input.targetId || null,
         input.amount,
-        'DRAFT',
+        'draft',
         globalUserId,
         input.votingStartsAt,
         input.votingEndsAt,
@@ -240,11 +240,11 @@ class RegionalFundGovernanceService {
       const proposal = await client.query<{
         proposal_id: string;
         status: string;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
       }>(
         `
-        SELECT proposal_id, status, voting_starts_at, voting_ends_at
+        SELECT proposal_id, status, voting_startsAt, voting_endsAt
         FROM regional_fund_proposals
         WHERE proposal_id = $1 AND tenant_id = $2
         FOR UPDATE
@@ -256,8 +256,8 @@ class RegionalFundGovernanceService {
         throw new Error('Proposta não encontrada');
       }
 
-      if (proposal.rows[0].status !== 'DRAFT') {
-        throw new Error(`Proposta não está em DRAFT (status atual: ${proposal.rows[0].status})`);
+      if (proposal.rows[0].status !== 'draft') {
+        throw new Error(`Proposta não está em draft (status atual: ${proposal.rows[0].status})`);
       }
 
       // Atualizar status para OPEN
@@ -270,19 +270,19 @@ class RegionalFundGovernanceService {
         proposal_type: string;
         target_type: string;
         target_id: string | null;
-        amount: string;
+        amountCents: string;
         status: string;
         created_by: string;
-        created_at: Date;
-        updated_at: Date;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
-        executed_at: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
+        executedAt: Date | null;
         metadata: any;
       }>(
         `
         UPDATE regional_fund_proposals
-        SET status = 'OPEN', updated_at = now()
+        SET status = 'open', updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `,
@@ -318,11 +318,11 @@ class RegionalFundGovernanceService {
       const proposal = await client.query<{
         region_id: string;
         status: string;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
       }>(
         `
-        SELECT region_id, status, voting_starts_at, voting_ends_at
+        SELECT region_id, status, voting_startsAt, voting_endsAt
         FROM regional_fund_proposals
         WHERE proposal_id = $1 AND tenant_id = $2
         FOR UPDATE
@@ -336,17 +336,17 @@ class RegionalFundGovernanceService {
 
       const proposalData = proposal.rows[0];
 
-      if (proposalData.status !== 'OPEN') {
+      if (proposalData.status !== 'open') {
         throw new Error(`Proposta não está em votação (status: ${proposalData.status})`);
       }
 
       // 2. Verificar período de votação
       const now = new Date();
-      if (proposalData.voting_starts_at && now < proposalData.voting_starts_at) {
+      if (proposalData.voting_startsAt && now < proposalData.voting_startsAt) {
         throw new Error('Votação ainda não iniciou');
       }
 
-      if (proposalData.voting_ends_at && now > proposalData.voting_ends_at) {
+      if (proposalData.voting_endsAt && now > proposalData.voting_endsAt) {
         throw new Error('Votação já encerrou');
       }
 
@@ -431,19 +431,19 @@ class RegionalFundGovernanceService {
         proposal_type: string;
         target_type: string;
         target_id: string | null;
-        amount: string;
+        amountCents: string;
         status: string;
         created_by: string;
-        created_at: Date;
-        updated_at: Date;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
-        executed_at: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
+        executedAt: Date | null;
         metadata: any;
       }>(
         `
         UPDATE regional_fund_proposals
-        SET status = 'CLOSED', updated_at = now()
+        SET status = 'CLOSED', updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `,
@@ -480,7 +480,7 @@ class RegionalFundGovernanceService {
     tenantId: string,
     fromAccount: string,
     toAccount: string,
-    amount: number,
+    amountCents: number,
     eventId: string,
     metadata: Record<string, any>
   ): Promise<string> {
@@ -532,16 +532,16 @@ class RegionalFundGovernanceService {
         proposal_type: string;
         target_type: string;
         target_id: string | null;
-        amount: string;
+        amountCents: string;
         status: string;
         created_by: string;
-        created_at: Date;
-        updated_at: Date;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
-        executed_at: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
+        executedAt: Date | null;
         execution_transaction_id: string | null;
-        executing_at: Date | null;
+        executingAt: Date | null;
         metadata: any;
       }>(
         `
@@ -572,16 +572,16 @@ class RegionalFundGovernanceService {
           proposal_type: string;
           target_type: string;
           target_id: string | null;
-          amount: string;
+          amountCents: string;
           status: string;
           created_by: string;
-          created_at: Date;
-          updated_at: Date;
-          voting_starts_at: Date | null;
-          voting_ends_at: Date | null;
-          executed_at: Date | null;
+          createdAt: Date;
+          updatedAt: Date;
+          voting_startsAt: Date | null;
+          voting_endsAt: Date | null;
+          executedAt: Date | null;
           execution_transaction_id: string | null;
-          executing_at: Date | null;
+          executingAt: Date | null;
           metadata: any;
         }>(
           `SELECT * FROM regional_fund_proposals WHERE proposal_id = $1 AND tenant_id = $2`,
@@ -629,7 +629,7 @@ class RegionalFundGovernanceService {
         await client.query(
           `
           UPDATE regional_fund_proposals
-          SET status = 'REJECTED', updated_at = now()
+          SET status = 'REJECTED', updatedAt = now()
           WHERE proposal_id = $1 AND tenant_id = $2
           `,
           [proposalId, tenantId]
@@ -647,7 +647,7 @@ class RegionalFundGovernanceService {
         await client.query(
           `
           UPDATE regional_fund_proposals
-          SET status = 'REJECTED', updated_at = now()
+          SET status = 'REJECTED', updatedAt = now()
           WHERE proposal_id = $1 AND tenant_id = $2
           `,
           [proposalId, tenantId]
@@ -759,16 +759,16 @@ class RegionalFundGovernanceService {
           proposal_type: string;
           target_type: string;
           target_id: string | null;
-          amount: string;
+          amountCents: string;
           status: string;
           created_by: string;
-          created_at: Date;
-          updated_at: Date;
-          voting_starts_at: Date | null;
-          voting_ends_at: Date | null;
-          executed_at: Date | null;
+          createdAt: Date;
+          updatedAt: Date;
+          voting_startsAt: Date | null;
+          voting_endsAt: Date | null;
+          executedAt: Date | null;
           execution_transaction_id: string | null;
-          executing_at: Date | null;
+          executingAt: Date | null;
           metadata: any;
         }>(
           `SELECT * FROM regional_fund_proposals WHERE proposal_id = $1 AND tenant_id = $2`,
@@ -789,7 +789,7 @@ class RegionalFundGovernanceService {
       await client.query(
         `
         UPDATE regional_fund_proposals
-        SET status = 'EXECUTING', executing_at = now(), updated_at = now()
+        SET status = 'EXECUTING', executingAt = now(), updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         `,
         [proposalId, tenantId]
@@ -828,21 +828,21 @@ class RegionalFundGovernanceService {
         proposal_type: string;
         target_type: string;
         target_id: string | null;
-        amount: string;
+        amountCents: string;
         status: string;
         created_by: string;
-        created_at: Date;
-        updated_at: Date;
-        voting_starts_at: Date | null;
-        voting_ends_at: Date | null;
-        executed_at: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        voting_startsAt: Date | null;
+        voting_endsAt: Date | null;
+        executedAt: Date | null;
         execution_transaction_id: string | null;
-        executing_at: Date | null;
+        executingAt: Date | null;
         metadata: any;
       }>(
         `
         UPDATE regional_fund_proposals
-        SET status = 'EXECUTED', executed_at = now(), execution_transaction_id = $3, updated_at = now()
+        SET status = 'EXECUTED', executedAt = now(), execution_transaction_id = $3, updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `,
@@ -897,7 +897,7 @@ class RegionalFundGovernanceService {
       paramIndex++;
     }
 
-    query += ` ORDER BY p.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY p.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const proposals = await pool.query<{
@@ -909,14 +909,14 @@ class RegionalFundGovernanceService {
       proposal_type: string;
       target_type: string;
       target_id: string | null;
-      amount: string;
+      amountCents: string;
       status: string;
       created_by: string;
-      created_at: Date;
-      updated_at: Date;
-      voting_starts_at: Date | null;
-      voting_ends_at: Date | null;
-      executed_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      voting_startsAt: Date | null;
+      voting_endsAt: Date | null;
+      executedAt: Date | null;
       metadata: any;
     }>(query, params);
 
@@ -957,7 +957,7 @@ class RegionalFundGovernanceService {
         votes: {
           yes: yesVotes,
           no: noVotes,
-          total: totalVotes,
+          totalCents: totalVotes,
           quorumMet,
           approved: yesVotes > noVotes,
         },
@@ -981,14 +981,14 @@ class RegionalFundGovernanceService {
       proposal_type: string;
       target_type: string;
       target_id: string | null;
-      amount: string;
+      amountCents: string;
       status: string;
       created_by: string;
-      created_at: Date;
-      updated_at: Date;
-      voting_starts_at: Date | null;
-      voting_ends_at: Date | null;
-      executed_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      voting_startsAt: Date | null;
+      voting_endsAt: Date | null;
+      executedAt: Date | null;
       metadata: any;
     }>(
       `
@@ -1037,7 +1037,7 @@ class RegionalFundGovernanceService {
       votes: {
         yes: yesVotes,
         no: noVotes,
-        total: totalVotes,
+        totalCents: totalVotes,
         quorumMet,
         approved: yesVotes > noVotes,
       },
@@ -1057,14 +1057,14 @@ class RegionalFundGovernanceService {
     proposal_type: string;
     target_type: string;
     target_id: string | null;
-    amount: string;
+    amountCents: string;
     status: string;
     created_by: string;
-    created_at: Date;
-    updated_at: Date;
-    voting_starts_at: Date | null;
-    voting_ends_at: Date | null;
-    executed_at: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    voting_startsAt: Date | null;
+    voting_endsAt: Date | null;
+    executedAt: Date | null;
     metadata: any;
   }): Proposal {
     return {
@@ -1076,14 +1076,14 @@ class RegionalFundGovernanceService {
       proposalType: row.proposal_type as ProposalType,
       targetType: row.target_type,
       targetId: row.target_id || undefined,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       status: row.status as ProposalStatus,
       createdBy: row.created_by,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      votingStartsAt: row.voting_starts_at || undefined,
-      votingEndsAt: row.voting_ends_at || undefined,
-      executedAt: row.executed_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      votingStartsAt: row.voting_startsAt || undefined,
+      votingEndsAt: row.voting_endsAt || undefined,
+      executedAt: row.executedAt || undefined,
       metadata: row.metadata || {},
     };
   }
@@ -1100,16 +1100,16 @@ class RegionalFundGovernanceService {
     proposal_type: string;
     target_type: string;
     target_id: string | null;
-    amount: string;
+    amountCents: string;
     status: string;
     created_by: string;
-    created_at: Date;
-    updated_at: Date;
-    voting_starts_at: Date | null;
-    voting_ends_at: Date | null;
-    executed_at: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    voting_startsAt: Date | null;
+    voting_endsAt: Date | null;
+    executedAt: Date | null;
     execution_transaction_id: string | null;
-    executing_at: Date | null;
+    executingAt: Date | null;
     metadata: any;
   }): Proposal {
     return {
@@ -1121,14 +1121,14 @@ class RegionalFundGovernanceService {
       proposalType: row.proposal_type as ProposalType,
       targetType: row.target_type,
       targetId: row.target_id || undefined,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       status: row.status as ProposalStatus,
       createdBy: row.created_by,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      votingStartsAt: row.voting_starts_at || undefined,
-      votingEndsAt: row.voting_ends_at || undefined,
-      executedAt: row.executed_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      votingStartsAt: row.voting_startsAt || undefined,
+      votingEndsAt: row.voting_endsAt || undefined,
+      executedAt: row.executedAt || undefined,
       metadata: row.metadata || {},
     };
   }
@@ -1170,6 +1170,8 @@ class RegionalFundGovernanceService {
 }
 
 export const regionalFundGovernanceService = new RegionalFundGovernanceService();
+
+
 
 
 

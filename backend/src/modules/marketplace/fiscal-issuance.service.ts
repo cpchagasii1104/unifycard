@@ -149,7 +149,7 @@ class FiscalIssuanceService {
             protocolo: result.protocolo,
             xml: result.xml,
             provider_metadata: result.metadata,
-            issued_externally_at: new Date().toISOString(),
+            issued_externallyAt: new Date().toISOString(),
             attempt_id: attemptId, // SPRINT 53: Referência à tentativa
           }
         );
@@ -165,7 +165,7 @@ class FiscalIssuanceService {
             provider_error: result.errorCode,
             provider_error_message: result.errorMessage,
             provider_metadata: result.metadata,
-            failed_at: new Date().toISOString(),
+            failedAt: new Date().toISOString(),
             attempt_id: attemptId, // SPRINT 53: Referência à tentativa
           }
         );
@@ -205,7 +205,7 @@ class FiscalIssuanceService {
         {
           provider_error: 'PROVIDER_EXCEPTION',
           provider_error_message: error.message || 'Erro inesperado no provider',
-          failed_at: new Date().toISOString(),
+          failedAt: new Date().toISOString(),
         }
       );
 
@@ -273,7 +273,7 @@ class FiscalIssuanceService {
           {
             protocolo_cancelamento: result.protocoloCancelamento,
             provider_metadata: result.metadata,
-            cancelled_externally_at: new Date().toISOString(),
+            cancelled_externallyAt: new Date().toISOString(),
           }
         );
       } else {
@@ -342,7 +342,7 @@ class FiscalIssuanceService {
         document.status, // Não muda status, apenas atualiza metadata
         {
           external_status: status.status,
-          external_status_checked_at: new Date().toISOString(),
+          external_status_checkedAt: new Date().toISOString(),
           provider_metadata: status.metadata,
         }
       );
@@ -357,4 +357,5 @@ class FiscalIssuanceService {
 }
 
 export const fiscalIssuanceService = new FiscalIssuanceService();
+
 

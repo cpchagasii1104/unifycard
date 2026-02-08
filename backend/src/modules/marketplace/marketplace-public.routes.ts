@@ -138,7 +138,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   
   // GET /marketplace/stores?scope=city&value=São Paulo
   fastify.get('/stores', async (req, reply) => {
-    const query = req.query as { scope?: string; value?: string };
+    const query = req.query as { scope?: string; valueCents: string };
     const scope = query.scope;
     const value = query.value;
     
@@ -382,7 +382,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
         };
         commission?: {
           type: 'percentage' | 'fixed';
-          value: number;
+          valueCents: number;
         };
       };
     };
@@ -509,4 +509,5 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default marketplacePublicRoutes;
+
 

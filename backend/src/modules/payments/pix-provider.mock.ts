@@ -22,7 +22,7 @@ class MockPixProvider implements PixProvider {
   private charges: Map<string, {
     chargeId: string;
     status: PixChargeStatus;
-    amount: number;
+    amountCents: number;
     expiresAt: Date;
     paidAt?: Date;
     metadata?: Record<string, any>;
@@ -44,7 +44,7 @@ class MockPixProvider implements PixProvider {
     this.charges.set(chargeId, {
       chargeId,
       status: 'CREATED',
-      amount: input.amount,
+      amountCents: input.amount,
       expiresAt,
       metadata: input.metadata,
     });
@@ -76,7 +76,7 @@ class MockPixProvider implements PixProvider {
     return {
       chargeId: charge.chargeId,
       status: charge.status,
-      amount: charge.amount,
+      amountCents: charge.amount,
       expiresAt: charge.expiresAt,
       paidAt: charge.paidAt,
       metadata: charge.metadata,
@@ -90,14 +90,14 @@ class MockPixProvider implements PixProvider {
     }
 
     // Formato esperado do mock:
-    // { eventType: 'charge.paid', chargeId: '...', providerEventId: '...', paidAt: '...', amount: ... }
+    // { eventType: 'charge.paid', chargeId: '...', providerEventId: '...', paidAt: '...', amountCents: ... }
     if (payload.eventType && payload.chargeId && payload.providerEventId) {
       return {
         eventType: payload.eventType as any,
         chargeId: payload.chargeId,
         providerEventId: payload.providerEventId,
         paidAt: payload.paidAt ? new Date(payload.paidAt) : undefined,
-        amount: payload.amount,
+        amountCents: payload.amount,
         metadata: payload.metadata,
       };
     }
@@ -118,6 +118,7 @@ class MockPixProvider implements PixProvider {
 }
 
 export const mockPixProvider = new MockPixProvider();
+
 
 
 

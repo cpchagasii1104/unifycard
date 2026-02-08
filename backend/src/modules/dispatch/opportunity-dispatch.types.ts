@@ -47,8 +47,8 @@ export interface OpportunityDispatch {
   respondedAt?: Date | null; // Quando foi respondido (se response não for null)
   expiresAt?: Date | null; // Quando expira (opcional)
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -61,12 +61,12 @@ export interface OpportunityDispatchRow {
   opportunity_type: OpportunityType;
   target_actor_id: string;
   response: DispatchResponse | null;
-  dispatched_at: Date;
-  responded_at: Date | null;
-  expires_at: Date | null;
+  dispatchedAt: Date;
+  respondedAt: Date | null;
+  expiresAt: Date | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -99,4 +99,6 @@ export interface OpportunityDispatchFilters {
   targetActorId?: string;
   response?: DispatchResponse | null; // null = pendentes
 }
+
+
 

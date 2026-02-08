@@ -41,7 +41,7 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
       id: link.id,
       title: link.title,
       description: link.description,
-      amount: link.amount,
+      amountCents: link.amount,
       currency: link.currency,
       expiresAt: link.expiresAt?.toISOString() || null,
       maxUses: link.maxUses,
@@ -140,7 +140,7 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
     const { paymentIntentService } = await import('../marketplace/payment-intent.service');
     const intent = await paymentIntentService.createPaymentIntent(tenantId, {
       orderId: submittedOrder.id,
-      amount: link.amount,
+      amountCents: link.amount,
       currency: link.currency as any,
       paymentMethodId,
       metadata: {
@@ -169,7 +169,7 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
     return reply.send({
       paymentIntentId: authorizedIntent.id,
       availableMethods,
-      amount: link.amount,
+      amountCents: link.amount,
       currency: link.currency,
     });
   });
@@ -217,20 +217,20 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
         paymentIntent: {
           id: intent.id,
           status: intent.status,
-          amount: intent.amount,
+          amountCents: intent.amount,
           currency: intent.currency,
         },
         transaction: latestTransaction
           ? {
               id: latestTransaction.id,
               status: latestTransaction.status,
-              amount: latestTransaction.amount,
+              amountCents: latestTransaction.amount,
             }
           : null,
         link: {
           id: link.id,
           title: link.title,
-          amount: link.amount,
+          amountCents: link.amount,
           usesCount: link.usesCount,
         },
       });
@@ -241,7 +241,7 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
       link: {
         id: link.id,
         title: link.title,
-        amount: link.amount,
+        amountCents: link.amount,
         usesCount: link.usesCount,
         status: link.status,
       },
@@ -250,4 +250,5 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default publicPaymentLinkRoutes;
+
 

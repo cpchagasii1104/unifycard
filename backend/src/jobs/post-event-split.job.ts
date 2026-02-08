@@ -196,7 +196,7 @@ class PostEventSplitJob {
     // Por enquanto, vamos usar split engine para calcular
     const splitContext = {
       tenantId,
-      amount: remainder / 100, // Converter para reais
+      amountCents: remainder / 100, // Converter para reais
       currency: 'BRL' as const,
       source: 'event_ticket',
       customerAccountId: organizerAccount, // Conta de origem (escrow)
@@ -250,7 +250,7 @@ class PostEventSplitJob {
       FROM event_attendees ea
       WHERE ea.tenant_id = $1
         AND ea.event_id = $2
-        AND ea.check_in_status = 'PENDING'
+        AND ea.check_in_status = 'pending'
       `,
       [tenantId, eventId]
     );
@@ -334,4 +334,5 @@ class PostEventSplitJob {
 }
 
 export const postEventSplitJob = new PostEventSplitJob();
+
 

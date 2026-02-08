@@ -229,15 +229,15 @@ class CrmService {
         id: string;
         status: string;
         total_amount: number;
-        created_at: Date;
+        createdAt: Date;
       }>(
         tenantId,
         `
-        SELECT o.id, o.status, o.created_at
+        SELECT o.id, o.status, o.createdAt
         FROM orders o
         WHERE o.tenant_id = $1
           AND o.metadata->>'contact_id' = $2
-        ORDER BY o.created_at DESC
+        ORDER BY o.createdAt DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -259,7 +259,7 @@ class CrmService {
         events.push({
           id: `order-${order.id}`,
           type: 'ORDER_CREATED',
-          occurredAt: order.created_at,
+          occurredAt: order.createdAt,
           title: `Pedido criado`,
           description: `Pedido #${order.id.substring(0, 8)}${orderAmount > 0 ? ` - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orderAmount)}` : ''}`,
           metadata: {
@@ -317,15 +317,15 @@ class CrmService {
       const ticketSaleRows = await runQueriesWithTenant<{
         id: string;
         status: string;
-        created_at: Date;
+        createdAt: Date;
       }>(
         tenantId,
         `
-        SELECT ts.id, ts.status, ts.created_at
+        SELECT ts.id, ts.status, ts.createdAt
         FROM ticket_sales ts
         WHERE ts.tenant_id = $1
           AND ts.metadata->>'contact_id' = $2
-        ORDER BY ts.created_at DESC
+        ORDER BY ts.createdAt DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -335,7 +335,7 @@ class CrmService {
         events.push({
           id: `ticket-${sale.id}`,
           type: 'TICKET_PURCHASED',
-          occurredAt: sale.created_at,
+          occurredAt: sale.createdAt,
           title: `Ingresso comprado`,
           description: `Ingresso para evento`,
           metadata: {
@@ -360,15 +360,15 @@ class CrmService {
         payment_link_id: string;
         payment_intent_id: string;
         status: string;
-        updated_at: Date;
+        updatedAt: Date;
       }>(
         tenantId,
         `
-        SELECT plp.id, plp.payment_link_id, plp.payment_intent_id, plp.status, plp.updated_at
+        SELECT plp.id, plp.payment_link_id, plp.payment_intent_id, plp.status, plp.updatedAt
         FROM payment_link_payments plp
         WHERE plp.tenant_id = $1
           AND plp.contact_id = $2
-        ORDER BY plp.updated_at DESC
+        ORDER BY plp.updatedAt DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -379,7 +379,7 @@ class CrmService {
           events.push({
             id: `payment-link-${payment.id}`,
             type: 'PAYMENT_LINK_USED',
-            occurredAt: payment.updated_at,
+            occurredAt: payment.updatedAt,
             title: `Link de pagamento usado`,
             description: `Pagamento via link confirmado`,
             metadata: {
@@ -404,16 +404,16 @@ class CrmService {
         id: string;
         amount_cents: number;
         status: string;
-        expected_at: Date;
-        created_at: Date;
+        expectedAt: Date;
+        createdAt: Date;
       }>(
         tenantId,
         `
-        SELECT ar.id, ar.amount_cents, ar.status, ar.expected_at, ar.created_at
+        SELECT ar.id, ar.amount_cents, ar.status, ar.expectedAt, ar.createdAt
         FROM accounts_receivable ar
         WHERE ar.tenant_id = $1
           AND ar.metadata->>'contact_id' = $2
-        ORDER BY ar.created_at DESC
+        ORDER BY ar.createdAt DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -423,9 +423,9 @@ class CrmService {
         events.push({
           id: `receivable-${receivable.id}`,
           type: 'RECEIVABLE_CREATED',
-          occurredAt: receivable.created_at,
+          occurredAt: receivable.createdAt,
           title: `Conta a receber criada`,
-          description: `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receivable.amount_cents / 100)} - Vencimento: ${new Date(receivable.expected_at).toLocaleDateString('pt-BR')}`,
+          description: `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receivable.amount_cents / 100)} - Vencimento: ${new Date(receivable.expectedAt).toLocaleDateString('pt-BR')}`,
           metadata: {
             receivable_id: receivable.id,
             amount_cents: receivable.amount_cents,
@@ -449,16 +449,16 @@ class CrmService {
         document_type: string;
         status: string;
         total_amount: number;
-        created_at: Date;
-        updated_at: Date;
+        createdAt: Date;
+        updatedAt: Date;
       }>(
         tenantId,
         `
-        SELECT fd.id, fd.document_type, fd.status, fd.total_amount, fd.created_at, fd.updated_at
+        SELECT fd.id, fd.document_type, fd.status, fd.total_amount, fd.createdAt, fd.updatedAt
         FROM fiscal_documents fd
         WHERE fd.tenant_id = $1
           AND fd.metadata->>'contact_id' = $2
-        ORDER BY fd.created_at DESC
+        ORDER BY fd.createdAt DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -469,7 +469,7 @@ class CrmService {
           events.push({
             id: `fiscal-draft-${doc.id}`,
             type: 'FISCAL_DRAFT',
-            occurredAt: doc.created_at,
+            occurredAt: doc.createdAt,
             title: `Documento fiscal (rascunho)`,
             description: `${doc.document_type} - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(doc.total_amount)}`,
             metadata: {
@@ -485,7 +485,7 @@ class CrmService {
           events.push({
             id: `fiscal-issued-${doc.id}`,
             type: 'FISCAL_ISSUED',
-            occurredAt: doc.updated_at,
+            occurredAt: doc.updatedAt,
             title: `Documento fiscal emitido`,
             description: `${doc.document_type} - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(doc.total_amount)}`,
             metadata: {
@@ -609,4 +609,5 @@ class CrmService {
 }
 
 export const crmService = new CrmService();
+
 

@@ -14,7 +14,7 @@ import {
 import { eventBus } from '@core/events/event-bus';
 import * as crypto from 'crypto';
 
-function inferValueType(value: ConfigValue): ConfigValueType {
+function inferValueType(valueCents: ConfigValue): ConfigValueType {
   if (typeof value === 'string') return 'string';
   if (typeof value === 'number') return 'number';
   if (typeof value === 'boolean') return 'boolean';
@@ -40,8 +40,8 @@ function mapConfigRow(row: TenantConfigRow): TenantConfig {
     value,
     valueType: row.value_type,
     isSystem: row.is_system,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -51,11 +51,11 @@ function mapFeatureFlagRow(row: FeatureFlagRow): FeatureFlag {
     tenantId: row.tenant_id,
     flagName: row.flag_name,
     description: row.description,
-    enabled: row.enabled,
+    isEnabled: row.isEnabled,
     rolloutPercentage: row.rollout_percentage,
     userWhitelist: row.user_whitelist ?? [],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -72,7 +72,7 @@ class ConfigService {
     const row = await runQueryWithTenant<TenantConfigRow>(
       tenantId,
       `
-      SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+      SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
       FROM tenant_configs
       WHERE module = $1 AND key = $2
       LIMIT 1
@@ -110,7 +110,7 @@ class ConfigService {
     tenantId: string,
     module: string,
     key: string,
-    value: ConfigValue,
+    valueCents: ConfigValue,
     options: ConfigSetOptions = {}
   ): Promise<TenantConfig> {
     const valueType = inferValueType(value);
@@ -130,8 +130,8 @@ class ConfigService {
         value = EXCLUDED.value,
         value_type = EXCLUDED.value_type,
         is_system = EXCLUDED.is_system,
-        updated_at = now()
-      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        updatedAt = now()
+      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
       `,
       [tenantId, module, key, jsonValue, valueType, isSystem]
     );
@@ -190,7 +190,7 @@ class ConfigService {
 
     if (module) {
       query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
         FROM tenant_configs
         WHERE module = $1
         ORDER BY module, key
@@ -199,7 +199,7 @@ class ConfigService {
       params = [module, limit, offset];
     } else {
       query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
         FROM tenant_configs
         ORDER BY module, key
         LIMIT $1 OFFSET $2
@@ -222,8 +222,8 @@ class ConfigService {
     const row = await runQueryWithTenant<FeatureFlagRow>(
       tenantId,
       `
-      SELECT flag_id, tenant_id, flag_name, description, enabled,
-             rollout_percentage, user_whitelist, created_at, updated_at
+      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+             rollout_percentage, user_whitelist, createdAt, updatedAt
       FROM feature_flags
       WHERE flag_name = $1
       LIMIT 1
@@ -243,7 +243,7 @@ class ConfigService {
     const existing = await this.getFeatureFlag(tenantId, flagName);
 
     const description = input.description ?? existing?.description ?? null;
-    const enabled = input.enabled ?? existing?.enabled ?? false;
+    const enabled = input.isEnabled ?? existing?.isEnabled ?? false;
     const rolloutPercentage = input.rolloutPercentage ?? existing?.rolloutPercentage ?? 100;
     const userWhitelist = input.userWhitelist ?? existing?.userWhitelist ?? [];
 
@@ -261,9 +261,9 @@ class ConfigService {
         enabled = EXCLUDED.enabled,
         rollout_percentage = EXCLUDED.rollout_percentage,
         user_whitelist = EXCLUDED.user_whitelist,
-        updated_at = now()
-      RETURNING flag_id, tenant_id, flag_name, description, enabled,
-                rollout_percentage, user_whitelist, created_at, updated_at
+        updatedAt = now()
+      RETURNING flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+                rollout_percentage, user_whitelist, createdAt, updatedAt
       `,
       [tenantId, flagName, description, enabled, rolloutPercentage, userWhitelist]
     );
@@ -317,8 +317,8 @@ class ConfigService {
     const rows = await runQueriesWithTenant<FeatureFlagRow>(
       tenantId,
       `
-      SELECT flag_id, tenant_id, flag_name, description, enabled,
-             rollout_percentage, user_whitelist, created_at, updated_at
+      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+             rollout_percentage, user_whitelist, createdAt, updatedAt
       FROM feature_flags
       ORDER BY flag_name
       LIMIT $1 OFFSET $2
@@ -336,7 +336,7 @@ class ConfigService {
   ): Promise<boolean> {
     const flag = await this.getFeatureFlag(tenantId, flagName);
     if (!flag) return false;
-    if (!flag.enabled) return false;
+    if (!flag.isEnabled) return false;
 
     if (userId && flag.userWhitelist.includes(userId)) {
       return true;
@@ -361,3 +361,4 @@ class ConfigService {
 }
 
 export const configService = new ConfigService();
+

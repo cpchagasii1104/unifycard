@@ -48,8 +48,8 @@ interface ScheduleRow {
 
 interface SlotRow {
   slot_id: string;
-  start_time: Date;
-  end_time: Date;
+  starts_at: Date;
+  ends_at: Date;
   status: string;
 }
 
@@ -177,10 +177,10 @@ async function printDemoInfo() {
 
         // Buscar slots
         const slotsResult = await client.query<SlotRow>(
-          `SELECT slot_id, start_time, end_time, status 
+          `SELECT slot_id, starts_at, ends_at, status 
            FROM schedule_slots 
            WHERE schedule_id = $1 
-           ORDER BY start_time ASC`,
+           ORDER BY starts_at ASC`,
           [schedule.schedule_id]
         );
 
@@ -189,7 +189,7 @@ async function printDemoInfo() {
         } else {
           console.log(`   Slots (${slotsResult.rows.length}):`);
           slotsResult.rows.forEach((slot, index) => {
-            const start = new Date(slot.start_time).toLocaleString('pt-BR', {
+            const start = new Date(slot.starts_at).toLocaleString('pt-BR', {
               timeZone: 'America/Sao_Paulo',
               weekday: 'long',
               year: 'numeric',
@@ -198,7 +198,7 @@ async function printDemoInfo() {
               hour: '2-digit',
               minute: '2-digit',
             });
-            const end = new Date(slot.end_time).toLocaleString('pt-BR', {
+            const end = new Date(slot.ends_at).toLocaleString('pt-BR', {
               timeZone: 'America/Sao_Paulo',
               hour: '2-digit',
               minute: '2-digit',
@@ -282,6 +282,7 @@ printDemoInfo().catch((error) => {
   console.error('Erro fatal:', error);
   process.exit(1);
 });
+
 
 
 

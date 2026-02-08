@@ -24,8 +24,9 @@ const serviceBundleRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingUserId) {
-        return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const body = req.body;
@@ -41,7 +42,7 @@ const serviceBundleRoutes = async (fastify: FastifyInstance) => {
       try {
         const result = await serviceBundleService.createBundleBookings(
           tenantId,
-          actionContext.actingUserId,
+          actionContext.actorId,
           {
             ...body,
             scheduledStart,
@@ -119,8 +120,9 @@ const serviceBundleRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const body = req.body;
@@ -128,8 +130,8 @@ const serviceBundleRoutes = async (fastify: FastifyInstance) => {
       try {
         const result = await serviceBundleService.confirmBundle(tenantId, {
           ...body,
-          confirmedByActorId: actionContext.actingActorId,
-          confirmedByUserId: actionContext.actingUserId,
+          confirmedByActorId: actionContext.actorId,
+          confirmedByUserId: actionContext.actorId,
         });
 
         return reply.status(201).send(result);

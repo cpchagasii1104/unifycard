@@ -121,7 +121,7 @@ class AutomationService {
         original_event_id: event.context.eventId,
         orderId: event.context.orderId,
         errorCode: event.context.errorCode,
-        amount: event.context.amount,
+        amountCents: event.context.amount,
       },
     });
 
@@ -162,7 +162,7 @@ class AutomationService {
         paymentIntentId: event.context.paymentIntentId,
         recipientActorId: event.context.recipientActorId,
         errorCode: event.context.errorCode,
-        amount: event.context.amount,
+        amountCents: event.context.amount,
       },
     });
 
@@ -294,6 +294,7 @@ class AutomationService {
 }
 
 export const automationService = new AutomationService();
+
 
 
 

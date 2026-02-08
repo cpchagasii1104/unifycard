@@ -85,7 +85,7 @@ class SefazFiscalProvider implements FiscalProvider {
           provider: 'sefaz',
           enabled: false,
           payload_draft: payload,
-          skipped_at: new Date().toISOString(),
+          skippedAt: new Date().toISOString(),
         },
       };
     }
@@ -109,7 +109,7 @@ class SefazFiscalProvider implements FiscalProvider {
           metadata: {
             provider: 'sefaz',
             endpoint,
-            issued_at: new Date().toISOString(),
+            issuedAt: new Date().toISOString(),
             response_metadata: response.metadata,
           },
         };
@@ -122,7 +122,7 @@ class SefazFiscalProvider implements FiscalProvider {
           metadata: {
             provider: 'sefaz',
             endpoint,
-            failed_at: new Date().toISOString(),
+            failedAt: new Date().toISOString(),
             response_metadata: response.metadata,
           },
         };
@@ -137,7 +137,7 @@ class SefazFiscalProvider implements FiscalProvider {
           provider: 'sefaz',
           endpoint,
           exception: error.message,
-          failed_at: new Date().toISOString(),
+          failedAt: new Date().toISOString(),
         },
       };
     }
@@ -162,7 +162,7 @@ class SefazFiscalProvider implements FiscalProvider {
         errorMessage: 'Chave de acesso é obrigatória para cancelamento',
         metadata: {
           provider: 'sefaz',
-          failed_at: new Date().toISOString(),
+          failedAt: new Date().toISOString(),
         },
       };
     }
@@ -181,7 +181,7 @@ class SefazFiscalProvider implements FiscalProvider {
           enabled: false,
           chaveAcesso,
           reason,
-          skipped_at: new Date().toISOString(),
+          skippedAt: new Date().toISOString(),
         },
       };
     }
@@ -197,7 +197,7 @@ class SefazFiscalProvider implements FiscalProvider {
         provider: 'sefaz',
         chaveAcesso,
         reason,
-        failed_at: new Date().toISOString(),
+        failedAt: new Date().toISOString(),
       },
     };
   }
@@ -219,7 +219,7 @@ class SefazFiscalProvider implements FiscalProvider {
         metadata: {
           provider: 'sefaz',
           enabled: sefazEnabled,
-          checked_at: new Date().toISOString(),
+          checkedAt: new Date().toISOString(),
         },
       };
     }
@@ -233,7 +233,7 @@ class SefazFiscalProvider implements FiscalProvider {
       metadata: {
         provider: 'sefaz',
         not_implemented: true,
-        checked_at: new Date().toISOString(),
+        checkedAt: new Date().toISOString(),
       },
     };
   }
@@ -376,7 +376,7 @@ class SefazFiscalProvider implements FiscalProvider {
           },
         },
       })),
-      total: {
+      totalCents: {
         ICMSTot: {
           vBC: document.totalAmount.toFixed(2),
           vICMS: (document.totalAmount * 0.18).toFixed(2),
@@ -476,6 +476,8 @@ class SefazFiscalProvider implements FiscalProvider {
 }
 
 export const sefazFiscalProvider = new SefazFiscalProvider();
+
+
 
 
 

@@ -102,7 +102,7 @@ if (process.env.SLACK_WEBHOOK_URL) {
                   color: alert.level === 'critical' ? 'danger' : alert.level === 'error' ? 'warning' : 'good',
                   fields: Object.entries(alert.context).map(([key, value]) => ({
                     title: key,
-                    value: String(value),
+                    valueCents: String(value),
                     short: true,
                   })),
                 },
@@ -119,6 +119,7 @@ if (process.env.SLACK_WEBHOOK_URL) {
     }
   });
 }
+
 
 
 

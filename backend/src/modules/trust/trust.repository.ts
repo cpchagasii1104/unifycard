@@ -21,9 +21,9 @@ interface TrustProfileRow {
   total_events: number;
   positive_events: number;
   negative_events: number;
-  last_event_at: Date | null;
-  last_updated_at: Date;
-  created_at: Date;
+  last_eventAt: Date | null;
+  last_updatedAt: Date;
+  createdAt: Date;
 }
 
 interface TrustEventRow {
@@ -37,7 +37,7 @@ interface TrustEventRow {
   context_id: string;
   evidence_pack_id: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 interface TrustScoreSnapshotRow {
@@ -48,7 +48,7 @@ interface TrustScoreSnapshotRow {
   risk_level: string;
   triggered_by_event_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class TrustRepository {
@@ -62,9 +62,9 @@ class TrustRepository {
       totalEvents: row.total_events,
       positiveEvents: row.positive_events,
       negativeEvents: row.negative_events,
-      lastEventAt: row.last_event_at,
-      lastUpdatedAt: row.last_updated_at,
-      createdAt: row.created_at,
+      lastEventAt: row.last_eventAt,
+      lastUpdatedAt: row.last_updatedAt,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -80,7 +80,7 @@ class TrustRepository {
       contextId: row.context_id,
       evidencePackId: row.evidence_pack_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -93,7 +93,7 @@ class TrustRepository {
       riskLevel: row.risk_level as any,
       triggeredByEventId: row.triggered_by_event_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -174,8 +174,8 @@ class TrustRepository {
             risk_level = $4,
             total_events = total_events + 1,
             ${isPositive ? 'positive_events = positive_events + 1' : 'negative_events = negative_events + 1'},
-            last_event_at = NOW(),
-            last_updated_at = NOW()
+            last_eventAt = NOW(),
+            last_updatedAt = NOW()
           WHERE tenant_id = $1 AND actor_id = $2
           RETURNING *
         `,
@@ -303,7 +303,7 @@ class TrustRepository {
         text: `
           SELECT * FROM trust_events
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -380,7 +380,7 @@ class TrustRepository {
         text: `
           SELECT * FROM trust_score_snapshots
           WHERE tenant_id = $1 AND actor_id = $2
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $3
         `,
         values: [tenantId, actorId, limit],
@@ -393,6 +393,8 @@ class TrustRepository {
 }
 
 export const trustRepository = new TrustRepository();
+
+
 
 
 

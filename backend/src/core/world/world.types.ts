@@ -5,8 +5,8 @@ export interface Country {
   code: string; // ISO 3166-1 alpha-2 (ex: "BR", "US")
   name: string;
   nameEn: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface State {
@@ -15,8 +15,8 @@ export interface State {
   code: string; // Código do estado (ex: "SP", "RJ")
   name: string;
   nameEn: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface City {
@@ -26,8 +26,8 @@ export interface City {
   nameEn: string | null;
   latitude: number | null;
   longitude: number | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Database row types
@@ -36,8 +36,8 @@ export interface CountryRow {
   code: string;
   name: string;
   name_en: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StateRow {
@@ -46,8 +46,8 @@ export interface StateRow {
   code: string;
   name: string;
   name_en: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CityRow {
@@ -57,8 +57,8 @@ export interface CityRow {
   name_en: string | null;
   latitude: number | null;
   longitude: number | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CityFullPath {
@@ -80,4 +80,6 @@ export interface CityFullPath {
     code: string;
   };
 }
+
+
 

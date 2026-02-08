@@ -16,7 +16,7 @@ class CanonicalOrchestratorService {
         sourceModule: event.sourceModule,
         tenantId: event.tenantId,
         regionId: event.regionId || null,
-        amount: event.amount || null,
+        amountCents: event.amount || null,
         occurredAt: event.occurredAt,
         canonicalEventId: event.eventId,
         canonicalEventType: event.eventType,
@@ -32,6 +32,7 @@ class CanonicalOrchestratorService {
 }
 
 export const canonicalOrchestrator = new CanonicalOrchestratorService();
+
 
 
 

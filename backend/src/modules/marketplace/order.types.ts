@@ -5,7 +5,7 @@
 /**
  * Status do pedido
  */
-export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'CANCELLED' | 'EXPIRED';
+export type OrderStatus = 'draft' | 'submitted' | 'cancelled' | 'expired';
 
 /**
  * Pedido
@@ -19,8 +19,8 @@ export interface Order {
   status: OrderStatus;
   totalQuantity: number;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -64,7 +64,7 @@ export interface OrderItem {
   quantity: number;
   unit: string;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -97,7 +97,7 @@ export interface OrderStatusHistory {
   toStatus: OrderStatus;
   changedByUserId?: string | null;
   reason?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -108,4 +108,5 @@ export interface ChangeOrderStatusInput {
   reason?: string;
   changedByUserId?: string;
 }
+
 

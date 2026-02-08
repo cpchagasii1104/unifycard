@@ -32,10 +32,10 @@ export interface Group {
   financialPurpose?: string; // Finalidade dos recursos financeiros
   ownerUserId: string; // global_user_id
   isActive: boolean;
-  profitPercentage?: number; // 0-100, percentual de lucro que o grupo recebe
+  profitBps?: number; // 0-100, percentual de lucro que o grupo recebe
   metadata?: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupMember {
@@ -48,7 +48,7 @@ export interface GroupMember {
 export interface GroupAccount {
   groupId: string;
   accountId: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateGroupInput {
@@ -88,7 +88,7 @@ export interface UpdateGroupInput {
   isActive?: boolean;
   financial_purpose?: string; // Obrigatório se hasFinancialIntent = true
   metadata?: Record<string, any>;
-  profit_percentage?: number; // 0-100
+  profitBps?: number; // 0-100
 }
 
 export interface GroupCategory {
@@ -97,8 +97,8 @@ export interface GroupCategory {
   slug: string;
   icon?: string;
   description?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupWithMembers extends Group {
@@ -115,8 +115,8 @@ export interface GroupInvite {
   invitedByUserId: string;
   status: GroupInviteStatus;
   expiresAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateGroupInviteInput {
@@ -156,8 +156,8 @@ export interface GroupContactMessage {
   senderUserId: string;
   message: string;
   status: GroupContactMessageStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================
@@ -172,8 +172,8 @@ export interface GroupPost {
   content: string;
   media?: any[];
   isPinned: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupComment {
@@ -184,8 +184,8 @@ export interface GroupComment {
   targetId: string;
   userId: string;
   content: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupReaction {
@@ -196,7 +196,7 @@ export interface GroupReaction {
   targetId: string;
   userId: string;
   type: GroupReactionType;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface GroupReport {
@@ -208,8 +208,8 @@ export interface GroupReport {
   reporterUserId: string;
   reason: string;
   status: GroupReportStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================
@@ -224,15 +224,15 @@ export interface GroupPoll {
   options: string[]; // Array de opções
   createdBy: string;
   endsAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupPollVote {
   pollId: string;
   userId: string;
   optionIndex: number; // Índice da opção escolhida
-  createdAt: Date;
+  createdAt: string;
 }
 
 // ============================================================
@@ -265,8 +265,8 @@ export interface GroupSchedule {
   recurrence?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   dayOfWeek?: number; // 0 = domingo, 6 = sábado
   time?: string; // TIME format
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -282,7 +282,7 @@ export interface GroupSchedule {
  * - NÃO cria booking
  * - NÃO interfere em Unified Availability
  * 
- * Se group_events for mantida, starts_at/ends_at devem ser tratados apenas como:
+ * Se group_events for mantida, startsAt/endsAt devem ser tratados apenas como:
  * - INPUT declarativo para criação futura de evento (que criará availability)
  * - READ-MODEL para exibição de eventos do grupo
  * 
@@ -300,8 +300,8 @@ export interface GroupEvent {
   location?: string;
   visibility: GroupVisibility;
   createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================
@@ -318,7 +318,7 @@ export interface GroupTimeline {
   date: Date;
   mediaUrl?: string;
   relatedId?: string; // ID do evento, campanha, transação ou milestone
-  createdAt: Date;
+  createdAt: string;
 }
 
 // ============================================================
@@ -338,8 +338,8 @@ export interface GroupCampaign {
   currentValue: number; // Valor atual arrecadado/atingido
   status: GroupCampaignStatus;
   createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================
@@ -350,7 +350,7 @@ export interface GroupBalance {
   groupId: string;
   tenantId: string;
   currentBalance: number;
-  updatedAt: Date;
+  updatedAt: string;
 }
 
 export interface GroupTransaction {
@@ -360,12 +360,15 @@ export interface GroupTransaction {
   type: GroupTransactionType;
   category: string; // Ex: 'donation', 'event_revenue', 'expense_rent', etc
   description: string;
-  amount: number;
+  amountCents: number;
   createdBy: string;
   relatedCampaignId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
+
+
+
 
 
 

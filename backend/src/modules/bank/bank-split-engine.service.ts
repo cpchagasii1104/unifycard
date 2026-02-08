@@ -125,7 +125,7 @@ class BankSplitEngineService {
     const splits: Array<{
       splitType: BankSplitType;
       targetAccountId: string;
-      amount: number;
+      amountCents: number;
       percentage: number;
       metadata?: Record<string, any>;
     }> = [];
@@ -167,7 +167,7 @@ class BankSplitEngineService {
       splits.push({
         splitType: rule.splitType,
         targetAccountId,
-        amount: Math.round(amount * 100) / 100,
+        amountCents: Math.round(amount * 100) / 100,
         percentage: rule.percentage,
         metadata: rule.splitType === 'revenue_share' && revenueShareAccountId ? { revenueShareAccountId } : undefined,
       });
@@ -195,7 +195,7 @@ class BankSplitEngineService {
           splits.push({
             splitType: 'referral',
             targetAccountId: referrerAccount.accountId,
-            amount: Math.round(referralAmount * 100) / 100,
+            amountCents: Math.round(referralAmount * 100) / 100,
             percentage: REFERRAL_PERCENTAGE,
             metadata: { referrerUserId, referredUserId: fromUserId, allocationType: 'referral' },
           });
@@ -228,7 +228,7 @@ class BankSplitEngineService {
             splits.push({
               splitType: 'revenue_share', // Groups recebem como revenue_share
               targetAccountId: groupAccount.accountId,
-              amount: Math.round(groupAmount * 100) / 100,
+              amountCents: Math.round(groupAmount * 100) / 100,
               percentage: alloc.percentage / 100,
               metadata: { groupId: alloc.groupId, allocationType: 'user_group_allocation' },
             });
@@ -255,7 +255,7 @@ class BankSplitEngineService {
         splits.push({
           splitType: 'regional_fund',
           targetAccountId: regionalFundAccount.accountId,
-          amount: Math.round(profitAmount * 100) / 100,
+          amountCents: Math.round(profitAmount * 100) / 100,
           percentage: remainderPercentage / 100,
           metadata: { allocationType: 'remainder' },
         });
@@ -296,6 +296,7 @@ class BankSplitEngineService {
 }
 
 export const bankSplitEngineService = new BankSplitEngineService();
+
 
 
 

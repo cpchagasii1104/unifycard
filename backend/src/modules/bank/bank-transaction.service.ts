@@ -30,15 +30,15 @@ interface BankTransactionRow {
   event_id: string;
   from_account_id: string | null;
   to_account_id: string | null;
-  amount: string;
+  amountCents: string;
   currency: string;
   transaction_type: string;
   original_transaction_id: string | null;
   status: string;
   description: string | null;
   metadata: any;
-  created_at: Date;
-  settled_at: Date | null;
+  createdAt: Date;
+  settledAt: Date | null;
 }
 
 class BankTransactionService {
@@ -52,15 +52,15 @@ class BankTransactionService {
       eventId: row.event_id,
       fromAccountId: row.from_account_id,
       toAccountId: row.to_account_id,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       currency: row.currency as BankCurrency,
       transactionType: row.transaction_type as any,
       originalTransactionId: row.original_transaction_id,
       status: row.status as any,
       description: row.description,
       metadata: row.metadata,
-      createdAt: row.created_at,
-      settledAt: row.settled_at,
+      createdAt: row.createdAt.toISOString(),
+      settledAt: row.settledAt,
     };
   }
 
@@ -157,7 +157,7 @@ class BankTransactionService {
         VALUES ($1, $2, $3, $4, $5, $6, 'transfer', 'completed', $7, $8)
         RETURNING transaction_id, tenant_id, event_id, from_account_id, to_account_id,
                   amount, currency, transaction_type, original_transaction_id,
-                  status, description, metadata, created_at, settled_at
+                  status, description, metadata, createdAt, settledAt
         `,
         [
           tenantId,
@@ -206,7 +206,7 @@ class BankTransactionService {
 
       // Marcar transação como settled
       await client.query(
-        `UPDATE bank_transactions SET settled_at = NOW() WHERE transaction_id = $1`,
+        `UPDATE bank_transactions SET settledAt = NOW() WHERE transaction_id = $1`,
         [transaction.transactionId]
       );
 
@@ -247,7 +247,7 @@ class BankTransactionService {
         `
         SELECT transaction_id, tenant_id, event_id, from_account_id, to_account_id,
                amount, currency, transaction_type, original_transaction_id,
-               status, description, metadata, created_at, settled_at
+               status, description, metadata, createdAt, settledAt
         FROM bank_transactions
         WHERE transaction_id = $1
         LIMIT 1
@@ -280,7 +280,7 @@ class BankTransactionService {
       eventId: string;
       fromAccountId?: string;
       toAccountId?: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       transactionType: BankTransactionType;
       description?: string;
@@ -328,7 +328,7 @@ class BankTransactionService {
       eventId: string;
       fromAccountId?: string;
       toAccountId?: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       transactionType: BankTransactionType;
       description?: string;
@@ -413,7 +413,7 @@ class BankTransactionService {
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING transaction_id, tenant_id, event_id, from_account_id, to_account_id,
                   amount, currency, transaction_type, original_transaction_id,
-                  status, description, metadata, created_at, settled_at
+                  status, description, metadata, createdAt, settledAt
         `,
         [
           tenantId,
@@ -480,7 +480,7 @@ class BankTransactionService {
 
       // Marcar transação como settled
       await client.query(
-        `UPDATE bank_transactions SET settled_at = NOW() WHERE transaction_id = $1`,
+        `UPDATE bank_transactions SET settledAt = NOW() WHERE transaction_id = $1`,
         [transaction.transactionId]
       );
 
@@ -512,7 +512,7 @@ class BankTransactionService {
     input: {
       eventId: string;
       fromAccountId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       context: BankTransactionContext;
       revenueShareAccountId?: string; // Para organizer, worker, etc
@@ -563,7 +563,7 @@ class BankTransactionService {
     input: {
       eventId: string;
       fromAccountId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       context: BankTransactionContext;
       revenueShareAccountId?: string;
@@ -671,7 +671,7 @@ class BankTransactionService {
         VALUES ($1, $2, $3, NULL, $4, $5, 'split', 'completed', $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING transaction_id, tenant_id, event_id, from_account_id, to_account_id,
                   amount, currency, transaction_type, original_transaction_id,
-                  status, description, metadata, created_at, settled_at
+                  status, description, metadata, createdAt, settledAt
         `,
         [
           tenantId,
@@ -722,7 +722,7 @@ class BankTransactionService {
           accountId: splitCalc.targetAccountId,
           transactionId: transaction.transactionId,
           entryType: 'credit',
-          amount: splitCalc.amount,
+          amountCents: splitCalc.amount,
           balanceBefore: targetBalance.balance,
           balanceAfter: targetBalanceAfter,
           description: description || `Split: ${splitCalc.splitType}`,
@@ -737,7 +737,7 @@ class BankTransactionService {
         const split = await bankSplitRepository.createSplit(tenantId, {
           transactionId: transaction.transactionId,
           targetAccountId: splitCalc.targetAccountId,
-          amount: splitCalc.amount,
+          amountCents: splitCalc.amount,
           percentage: splitCalc.percentage,
           splitType: splitCalc.splitType,
           description: description || `Split: ${splitCalc.splitType}`,
@@ -761,7 +761,7 @@ class BankTransactionService {
 
       // Marcar transação como settled
       await client.query(
-        `UPDATE bank_transactions SET settled_at = NOW() WHERE transaction_id = $1`,
+        `UPDATE bank_transactions SET settledAt = NOW() WHERE transaction_id = $1`,
         [transaction.transactionId]
       );
 
@@ -834,7 +834,7 @@ class BankTransactionService {
         VALUES ($1, $2, $3, $4, $5, $6, 'reversal', $7, 'completed', $8, $9)
         RETURNING transaction_id, tenant_id, event_id, from_account_id, to_account_id,
                   amount, currency, transaction_type, original_transaction_id,
-                  status, description, metadata, created_at, settled_at
+                  status, description, metadata, createdAt, settledAt
         `,
         [
           tenantId,
@@ -857,14 +857,13 @@ class BankTransactionService {
         const currentBalance = await bankLedgerRepository.calculateBalance(tenantId, originalEntry.accountId);
         const reversedEntryType = originalEntry.entryType === 'credit' ? 'debit' : 'credit';
         const reversedBalanceAfter = reversedEntryType === 'credit'
-          ? currentBalance.balance + originalEntry.amount
-          : currentBalance.balance - originalEntry.amount;
+          ? currentBalance.balance + originalEntry.amountCents: currentBalance.balance - originalEntry.amount;
 
         const reversedEntry = await bankLedgerRepository.createEntry(tenantId, {
           accountId: originalEntry.accountId,
           transactionId: reversalTransaction.transactionId,
           entryType: reversedEntryType,
-          amount: originalEntry.amount,
+          amountCents: originalEntry.amount,
           balanceBefore: currentBalance.balance,
           balanceAfter: reversedBalanceAfter,
           description: `Reversal of ${originalEntry.description || 'transaction'}`,
@@ -888,7 +887,7 @@ class BankTransactionService {
 
       // Marcar transação de reversão como settled
       await client.query(
-        `UPDATE bank_transactions SET settled_at = NOW() WHERE transaction_id = $1`,
+        `UPDATE bank_transactions SET settledAt = NOW() WHERE transaction_id = $1`,
         [reversalTransaction.transactionId]
       );
 
@@ -915,7 +914,7 @@ class BankTransactionService {
   ): Promise<{
     transaction: BankTransaction;
     splits: BankSplit[];
-    ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit'; amount: number }>;
+    ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit'; amountCents: number }>;
   }> {
     const transaction = await this.getTransactionById(tenantId, transactionId);
     if (!transaction) {
@@ -932,13 +931,16 @@ class BankTransactionService {
         entryId: entry.entryId,
         accountId: entry.accountId,
         entryType: entry.entryType,
-        amount: entry.amount,
+        amountCents: entry.amount,
       })),
     };
   }
 }
 
 export const bankTransactionService = new BankTransactionService();
+
+
+
 
 
 

@@ -29,8 +29,8 @@ export class ProfileHealthRepository {
       section: row.section,
       payload: payload as Record<string, any> | null,
       consentScope: row.consent_scope,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -45,7 +45,7 @@ export class ProfileHealthRepository {
   ): Promise<HealthDeclaration[]> {
     let query = `
       SELECT id, tenant_id, actor_id, declaration_text, notes, consent, 
-             section, payload, consent_scope, created_at, updated_at
+             section, payload, consent_scope, createdAt, updatedAt
       FROM health_declarations
       WHERE tenant_id = $1 AND actor_id = $2
     `;
@@ -56,7 +56,7 @@ export class ProfileHealthRepository {
       params.push(section);
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const result = await pool.query<HealthDeclarationRow>(query, params);
 
@@ -70,7 +70,7 @@ export class ProfileHealthRepository {
     const result = await pool.query<HealthDeclarationRow>(
       `
       SELECT id, tenant_id, actor_id, declaration_text, notes, consent,
-             section, payload, consent_scope, created_at, updated_at
+             section, payload, consent_scope, createdAt, updatedAt
       FROM health_declarations
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -122,7 +122,7 @@ export class ProfileHealthRepository {
         (tenant_id, actor_id, declaration_text, notes, consent, section, payload, consent_scope)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, tenant_id, actor_id, declaration_text, notes, consent, 
-                section, payload, consent_scope, created_at, updated_at
+                section, payload, consent_scope, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -158,4 +158,5 @@ export class ProfileHealthRepository {
 }
 
 export const profileHealthRepository = new ProfileHealthRepository();
+
 

@@ -25,7 +25,7 @@ export interface SplitConfig {
 
 export interface SplitContext {
   tenantId: string;
-  amount: number;
+  amountCents: number;
   currency: string;
   source: string; // ex: 'work', 'work_instant', 'event_ticket', 'event_consumption'
   customerAccountId: string;
@@ -41,10 +41,11 @@ export interface SplitResult {
   totalAmount: number;
   splits: Array<{
     rule: SplitRule;
-    amount: number;
+    amountCents: number;
     transactionId?: string;
   }>;
 }
+
 
 
 

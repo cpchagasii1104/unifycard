@@ -61,7 +61,7 @@ const updateGroupSchema = z.object({
   isActive: z.boolean().optional(),
   financial_purpose: z.string().min(20).max(2000).optional(), // Obrigatório se hasFinancialIntent = true
   metadata: z.record(z.any()).optional(),
-  profit_percentage: z.number().min(0).max(100).optional(),
+  profitBps: z.number().min(0).max(100).optional(),
 });
 
 /**
@@ -75,10 +75,15 @@ async function requireGroupOwnerOrPermission(
   permission: PermissionString
 ): Promise<void> {
   const tenantId = req.tenant?.id;
-  // 🔴 CORREÇÃO: Usar mesma lógica de userId das outras rotas (PUT usa globalUserId || id)
-  const userId = req.user?.globalUserId || req.user?.id || req.user?.userId;
+  
+  // ActionContext é obrigatório (V2)
+  if (!req.actionContext || !req.actionContext.actorId) {
+    throw fastify.httpErrors.badRequest('ActionContext obrigatório');
+  }
 
-  if (!tenantId || !userId) {
+  const actorId = req.actionContext.actorId;
+
+  if (!tenantId) {
     throw fastify.httpErrors.unauthorized('Authentication required');
   }
 
@@ -92,11 +97,8 @@ async function requireGroupOwnerOrPermission(
   try {
     const group = await groupsService.getGroup(tenantId, groupId);
     if (group) {
-      // 🔴 CORREÇÃO: Comparar com ambos userId e globalUserId para garantir compatibilidade
-      // O ownerUserId pode ser armazenado como userId local ou globalUserId dependendo do contexto
-      const isOwner = group.ownerUserId === userId || 
-                      group.ownerUserId === req.user?.globalUserId ||
-                      group.ownerUserId === req.user?.id;
+      // ActionContext é obrigatório (V2)
+      const isOwner = group.ownerUserId === req.actionContext.actorId;
       
       if (isOwner) {
         /**
@@ -108,7 +110,8 @@ async function requireGroupOwnerOrPermission(
         // Owner tem permissão implícita - bypass RBAC
         req.log.info({
           tenantId,
-          userId,
+          actorId,
+          userId: userIdForCheck,
           groupId,
           ownerUserId: group.ownerUserId,
           permission,
@@ -119,7 +122,7 @@ async function requireGroupOwnerOrPermission(
 
       // 🔴 CORREÇÃO UX: Verificar se usuário é admin do grupo
       const { groupsRepository } = await import('./groups.repository');
-      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, userId);
+      const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, userIdForCheck);
       if (isAdmin) {
         /**
          * EXCEÇÃO INSTITUCIONAL (SPRINT 30)
@@ -143,13 +146,20 @@ async function requireGroupOwnerOrPermission(
   }
 
   // 2. Se não é owner, verificar RBAC
-  // 🔴 CORREÇÃO: RBAC usa userId local (req.user.id), não globalUserId
-  const rbacUserId = req.user?.id || req.user?.userId;
-  if (!rbacUserId) {
-    throw fastify.httpErrors.unauthorized('User ID required for RBAC check');
+  // ActionContext é obrigatório (V2)
+  if (!req.actionContext || !req.actionContext.actorId) {
+    throw fastify.httpErrors.badRequest('ActionContext obrigatório');
   }
 
-  const check = await rbacService.userHasAllPermissions(tenantId, rbacUserId, [permission]);
+  // TODO: Atualizar para usar método V2 do RBAC quando disponível
+  // Por enquanto, usando método legado com mapeamento temporário
+  const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const actorRepository = socialPortsRegistry.getActorRepository();
+  const actor = await actorRepository.findById(tenantId, req.actionContext.actorId);
+  if (!actor || !actor.user_id) {
+    throw fastify.httpErrors.badRequest('Actor não encontrado ou não é do tipo user');
+  }
+  const check = await rbacService.userHasAllPermissions(tenantId, actor.user_id, [permission]);
   if (!check.hasPermission) {
     req.log.warn({
       tenantId,
@@ -186,10 +196,19 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       const tenantId = req.tenant!.id;
-      // 🔴 CORREÇÃO: getCompleteProfile precisa do userId LOCAL, não do globalUserId
-      // O globalUserId é usado apenas para buscar birthdate em global_users
-      // Todos os outros dados (fullName, cpf, gender) vêm de tabelas locais (profiles, user_profiles)
-      const userId = req.user!.id || req.user!.userId;
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
+      // Resolver userId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor || !actor.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const userId = actor.user_id;
       const requestId = (req as any).requestId || req.id;
 
       // 🔴 GATE: Validar identity_status COMPLETE antes de criar grupo
@@ -197,7 +216,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         const { coreService } = await import('@core/core.service');
         const profile = await coreService.getCompleteProfile(tenantId, userId);
         
-        if (profile.identity_status !== 'COMPLETE') {
+        if (profile.identity_status !== 'complete') {
           return reply.status(403).send({
             error: 'Cadastro incompleto',
             message: 'Para criar um grupo, você precisa concluir seu cadastro básico (nome, CPF, data de nascimento e sexo).',
@@ -333,8 +352,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.id || req.user!.userId;
+      const userId = req.actionContext.actorId;
       const { groupId } = req.params;
       const requestId = (req as any).requestId || req.id;
 
@@ -370,7 +393,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         if (data.fields) {
           const fields = data.fields as any;
           if (fields.type) {
-            const typeValue = Array.isArray(fields.type) ? fields.type[0]?.value : fields.type.value;
+            const typeValue = Array.isArray(fields.type) ? fields.type[0]?.valueCents: fields.type.value;
             if (typeValue) {
               imageType = typeValue;
             }
@@ -395,11 +418,11 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         );
 
         // Atualizar URL no grupo
-        // 🔴 CORREÇÃO UX: Passar contexto do usuário para permitir comparação robusta
+        // ActionContext é obrigatório
         const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
+          globalUserId: req.actionContext!.actorId,
+          id: req.actionContext!.actorId,
+          userId: req.actionContext!.actorId,
         };
         const updateField = imageType === 'avatar' ? 'avatar_url' : 'cover_url';
         await groupsService.updateGroup(tenantId, groupId, userId, {
@@ -454,10 +477,14 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // O tenant plugin já garante que req.tenant e req.user estão disponíveis
     },
     async (req) => {
-      const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      if (!req.actionContext || !req.actionContext.actorId) {
+        throw fastify.httpErrors.badRequest('ActionContext obrigatório');
+      }
 
-      if (!tenantId || !userId) {
+      const tenantId = req.tenant!.id;
+      const userId = req.actionContext.actorId;
+
+      if (!tenantId) {
         throw fastify.httpErrors.unauthorized('Authentication required');
       }
 
@@ -548,8 +575,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
@@ -563,11 +594,11 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         // 🔴 CORREÇÃO UX: Passar contexto do usuário para permitir comparação robusta
-        // Isso garante que o owner seja sempre reconhecido, mesmo com diferenças entre userId/globalUserId
+        // ActionContext é obrigatório
         const userContext = {
-          globalUserId: req.user!.globalUserId,
-          id: req.user!.id,
-          userId: req.user!.userId,
+          globalUserId: req.actionContext!.actorId,
+          id: req.actionContext!.actorId,
+          userId: req.actionContext!.actorId,
         };
         const group = await groupsService.updateGroup(tenantId, id, userId, parsed.data, userContext);
 
@@ -610,8 +641,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
@@ -659,8 +694,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:join']),
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
@@ -704,8 +743,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:leave']),
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id } = req.params;
       const requestId = (req as any).requestId || req.id;
 
@@ -777,8 +820,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id, userId: memberUserId } = req.params;
       const { role } = req.body;
 
@@ -826,8 +873,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id, userId: memberUserId } = req.params;
 
       try {
@@ -869,8 +920,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:read']),
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id: groupId } = req.params;
 
       try {
@@ -1056,8 +1111,12 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:read']),
     },
     async (req, reply) => {
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant!.id;
-      const userId = req.user!.globalUserId || req.user!.id;
+      const userId = req.actionContext.actorId;
       const { id: groupId } = req.params;
       const { limit = 20, offset = 0 } = req.query as { limit?: number; offset?: number };
 
@@ -1078,7 +1137,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         const groupAccount = await groupsRepository.getGroupAccount(tenantId, groupId);
         
         if (!groupAccount) {
-          return reply.send({ ok: true, data: { entries: [], total: 0 } });
+          return reply.send({ ok: true, data: { entries: [], totalCents: 0 } });
         }
 
         // Buscar histórico do ledger
@@ -1090,13 +1149,13 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
             l.entry_id,
             l.amount,
             l.entry_type,
-            l.created_at,
+            l.createdAt,
             t.metadata
           FROM ledger l
           JOIN transactions t ON t.transaction_id = l.transaction_id
           WHERE l.account_id = $1
             AND l.entry_type = 'credit'
-          ORDER BY l.created_at DESC
+          ORDER BY l.createdAt DESC
           LIMIT $2 OFFSET $3
           `,
           [groupAccount.accountId, limit, offset]
@@ -1113,7 +1172,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
           ok: true,
           data: {
             entries: entries || [],
-            total: parseInt(countResult?.count || '0', 10),
+            totalCents: parseInt(countResult?.count || '0', 10),
           },
         });
       } catch (error) {
@@ -1464,4 +1523,6 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default groupsRoutes;
+
+
 

@@ -16,8 +16,8 @@ class SkillService {
       name: row.name,
       category: row.category,
       description: row.description ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -63,7 +63,7 @@ class SkillService {
         name = COALESCE($3, name),
         category = COALESCE($4, category),
         description = COALESCE($5, description),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND skill_id = $2
       RETURNING *
       `,
@@ -137,7 +137,7 @@ class SkillService {
   async listSkills(
     tenantId: string,
     filters: { category?: string; search?: string; limit?: number; offset?: number } = {},
-  ): Promise<{ skills: Skill[]; total: number }> {
+  ): Promise<{ skills: Skill[]; totalCents: number }> {
     const { category, search, limit = 50, offset = 0 } = filters;
     const params: any[] = [tenantId];
     let paramIdx = 2;
@@ -169,7 +169,7 @@ class SkillService {
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ total: string }>(
+    const count = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
       SELECT COUNT(*) AS total
@@ -181,9 +181,12 @@ class SkillService {
 
     return {
       skills: rows.map(row => this.toSkill(row)),
-      total: count ? Number(count.total) : 0,
+      totalCents: count ? Number(count.total) : 0,
     };
   }
 }
 
 export const skillService = new SkillService();
+
+
+

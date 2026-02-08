@@ -130,7 +130,7 @@ class TicketService {
     // Criar PaymentIntent
     const paymentIntent = await paymentIntentService.createPaymentIntent(tenantId, {
       orderId: submittedOrder.id,
-      amount: ticket.priceCents / 100, // Converter centavos para valor
+      amountCents: ticket.priceCents / 100, // Converter centavos para valor
       currency: ticket.currency,
       paymentMethodId: input.paymentMethodId,
       metadata: {
@@ -413,4 +413,5 @@ class TicketService {
 }
 
 export const ticketService = new TicketService();
+
 

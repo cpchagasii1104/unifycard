@@ -137,7 +137,7 @@ const careRoutes: FastifyPluginAsync = async (fastify) => {
           req.tenant.id,
           req.params.globalUserId
         );
-        return { sessions, total: sessions.length };
+        return { sessions, totalCents: sessions.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar sessões do usuário');
         return reply.status(500).send({ error: 'Erro ao buscar sessões do usuário' });
@@ -147,6 +147,7 @@ const careRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default careRoutes;
+
 
 
 

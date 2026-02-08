@@ -13,8 +13,8 @@ export interface ProductPrice {
   validFrom: Date;
   validTo: Date | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Promotion {
@@ -22,15 +22,15 @@ export interface Promotion {
   tenantId: string;
   name: string;
   type: PromotionType;
-  value: number;
+  valueCents: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom: Date;
   validTo: Date | null;
   isActive: boolean;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateProductPriceInput {
@@ -45,7 +45,7 @@ export interface CreateProductPriceInput {
 export interface CreatePromotionInput {
   name: string;
   type: PromotionType;
-  value: number;
+  valueCents: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom?: Date;
@@ -75,6 +75,8 @@ export interface PricingContext {
   userId?: string;
   date?: Date;
 }
+
+
 
 
 

@@ -44,7 +44,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
 
     const profiles = await trustEngineService.listTrustProfiles(tenantId, filters);
 
-    return reply.send({ profiles, total: profiles.length });
+    return reply.send({ profiles, totalCents: profiles.length });
   });
 
   /**
@@ -75,7 +75,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
 
     const events = await trustEngineService.listTrustEvents(tenantId, filters);
 
-    return reply.send({ events, total: events.length });
+    return reply.send({ events, totalCents: events.length });
   });
 
   /**
@@ -113,6 +113,7 @@ const trustRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default trustRoutes;
+
 
 
 

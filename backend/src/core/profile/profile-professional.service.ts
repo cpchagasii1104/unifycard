@@ -29,13 +29,13 @@ class ProfileProfessionalService {
 
     // Buscar metadata do global_user para educação
     const { pool } = await import('@core/database/pool');
-    // 🔴 CORREÇÃO: ORDER BY updated_at DESC para garantir registro mais recente
+    // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
     const userMetadataRow = await pool.query<{ metadata: any }>(
       `
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -65,7 +65,7 @@ class ProfileProfessionalService {
         COALESCE(usc.visit_price, NULL) as visit_price
       FROM user_skills_categories usc
       WHERE usc.global_user_id = $1
-      ORDER BY usc.updated_at DESC
+      ORDER BY usc.updatedAt DESC
       `,
       [globalUserId]
     );
@@ -93,7 +93,7 @@ class ProfileProfessionalService {
         is_active
       FROM predefined_services
       WHERE global_user_id = $1 AND is_active = true
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [globalUserId]
     );
@@ -204,7 +204,7 @@ class ProfileProfessionalService {
           visitPrice: row.visit_price ? Number(row.visit_price) : null,
           predefinedServices: predefinedServices.length > 0 ? predefinedServices : undefined,
           comboDiscountRules: comboDiscountRules.length > 0 ? comboDiscountRules : undefined,
-          verified: false, // Por enquanto sempre false, pode ser implementado depois
+          isVerified: false, // Por enquanto sempre false, pode ser implementado depois
         });
       } catch (error) {
         // 🔴 CRÍTICO: Nunca lançar erro por categoria inválida
@@ -229,7 +229,7 @@ class ProfileProfessionalService {
       SELECT bio, availability
       FROM workers
       WHERE tenant_id = $1 AND user_id = $2
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `,
       [tenantId, userId]
@@ -362,7 +362,7 @@ class ProfileProfessionalService {
           await pool.query(
             `
             UPDATE user_skills_categories
-            SET ${updates.join(', ')}, updated_at = now()
+            SET ${updates.join(', ')}, updatedAt = now()
             WHERE global_user_id = $${paramIdx} AND category_id = $${paramIdx + 1}
             `,
             values
@@ -435,7 +435,7 @@ class ProfileProfessionalService {
                     base_price = $3,
                     discount_percentage = $4,
                     is_active = COALESCE($5, true),
-                    updated_at = now()
+                    updatedAt = now()
                   WHERE service_id = $6
                   `,
                   [
@@ -570,7 +570,7 @@ class ProfileProfessionalService {
             await pool.query(
               `
               UPDATE predefined_services
-              SET is_active = false, updated_at = now()
+              SET is_active = false, updatedAt = now()
               WHERE service_id = ANY($1)
               `,
               [Array.from(existingIds)]
@@ -603,7 +603,7 @@ class ProfileProfessionalService {
                   discount_percentage = $2,
                   description = $3,
                   is_active = COALESCE($4, true),
-                  updated_at = now()
+                  updatedAt = now()
                 WHERE rule_id = $5
                 `,
                 [
@@ -641,7 +641,7 @@ class ProfileProfessionalService {
             await pool.query(
               `
               UPDATE combo_discount_rules
-              SET is_active = false, updated_at = now()
+              SET is_active = false, updatedAt = now()
               WHERE rule_id = ANY($1)
               `,
               [Array.from(existingRuleIds)]
@@ -660,7 +660,7 @@ class ProfileProfessionalService {
       SELECT worker_id
       FROM workers
       WHERE tenant_id = $1 AND user_id = $2
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `,
       [tenantId, userId]
@@ -714,7 +714,7 @@ class ProfileProfessionalService {
             WHEN $2 IS NULL THEN availability 
             ELSE $2::jsonb 
           END,
-          updated_at = now()
+          updatedAt = now()
         WHERE tenant_id = $3 AND user_id = $4
         `,
         [
@@ -757,4 +757,5 @@ class ProfileProfessionalService {
 }
 
 export const profileProfessionalService = new ProfileProfessionalService();
+
 

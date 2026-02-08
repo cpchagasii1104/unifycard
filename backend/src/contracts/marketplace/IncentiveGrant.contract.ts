@@ -18,30 +18,31 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface IncentiveGrant {
-  grant_id: string;
-  rule_id: string;
-  actor_id: string;
-  actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
+  grantId: string;
+  ruleId: string;
+  actorId: string;
+  actorType: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
   region: {
     country: string;
     state: string;
     city: string;
   };
-  incentive_type: 'delivery' | 'onboarding' | 'service' | 'logistics';
-  amount: number; // Valor do incentivo concedido
+  incentiveType: 'delivery' | 'onboarding' | 'service' | 'logistics';
+  amountCents: number; // Valor do incentivo concedido
   currency: string;
   reference: {
-    order_id?: string;
-    delivery_id?: string;
-    subscription_id?: string;
-    onboarding_id?: string;
+    orderId?: string;
+    deliveryId?: string;
+    subscriptionId?: string;
+    onboardingId?: string;
   };
   status: 'granted' | 'consumed' | 'expired';
-  granted_at: string;
-  consumed_at?: string;
-  expired_at?: string;
-  // NÃO incluir updated_at - grant é imutável após criação
+  grantedAt: string;
+  consumedAt?: string;
+  expiredAt?: string;
+  // NÃO incluir updatedAt - grant é imutável após criação
 }
+
 
 
 

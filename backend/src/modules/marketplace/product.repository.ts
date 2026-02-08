@@ -19,8 +19,8 @@ interface ProductRow {
   product_type: string;
   is_active: boolean;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class ProductRepository {
@@ -37,8 +37,8 @@ class ProductRepository {
       productType: row.product_type as any,
       isActive: row.is_active,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -57,7 +57,7 @@ class ProductRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, tenant_id, name, description, category_id, product_type,
-                is_active, metadata, created_at, updated_at
+                is_active, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -88,7 +88,7 @@ class ProductRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, description, category_id, product_type,
-             is_active, metadata, created_at, updated_at
+             is_active, metadata, createdAt, updatedAt
       FROM products
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -138,7 +138,7 @@ class ProductRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, description, category_id, product_type,
-             is_active, metadata, created_at, updated_at
+             is_active, metadata, createdAt, updatedAt
       FROM products
       ${whereClause}
       ORDER BY name ASC
@@ -215,7 +215,7 @@ class ProductRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, name, description, category_id, product_type,
-                is_active, metadata, created_at, updated_at
+                is_active, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -229,6 +229,8 @@ class ProductRepository {
 }
 
 export const productRepository = new ProductRepository();
+
+
 
 
 

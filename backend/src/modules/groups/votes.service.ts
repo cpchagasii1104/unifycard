@@ -34,7 +34,7 @@ class VotesService {
     }
 
     // Validar: status === 'open' (será criado como 'open')
-    // Validar: closes_at (se definido) deve ser futuro
+    // Validar: closesAt (se definido) deve ser futuro
     if (input.closesAt) {
       const closesAt = new Date(input.closesAt);
       const now = new Date();
@@ -49,10 +49,10 @@ class VotesService {
       const voteRows = await trx.query({
         text: `
           INSERT INTO group_votes (
-            tenant_id, group_id, created_by_user_id, title, description, status, closes_at
+            tenant_id, group_id, created_by_user_id, title, description, status, closesAt
           )
           VALUES ($1, $2, $3, $4, $5, 'open', $6)
-          RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
+          RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
         `,
         values: [
           tenantId,
@@ -76,9 +76,9 @@ class VotesService {
         title: string;
         description: string | null;
         status: string;
-        closes_at: Date | null;
-        created_at: Date;
-        updated_at: Date;
+        closesAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
       };
       const vote = toGroupVote(voteRow);
 
@@ -91,7 +91,7 @@ class VotesService {
               vote_id, tenant_id, text, display_order
             )
             VALUES ($1, $2, $3, $4)
-            RETURNING option_id, vote_id, tenant_id, text, display_order, created_at
+            RETURNING option_id, vote_id, tenant_id, text, display_order, createdAt
           `,
           values: [vote.voteId, tenantId, input.options[i], i],
         });
@@ -103,7 +103,7 @@ class VotesService {
             tenant_id: string;
             text: string;
             display_order: number;
-            created_at: Date;
+            createdAt: Date;
           };
           createdOptions.push(toGroupVoteOption(optionRow));
         }
@@ -196,7 +196,7 @@ class VotesService {
             tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
           )
           VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, '{}'::jsonb, $7::jsonb)
-          RETURNING post_id, created_at, updated_at
+          RETURNING post_id, createdAt, updatedAt
         `,
         values: [
           tenantId,
@@ -285,7 +285,7 @@ class VotesService {
       throw new Error('Votação está fechada');
     }
 
-    // Validar: closes_at não passou
+    // Validar: closesAt não passou
     if (vote.closesAt && new Date(vote.closesAt) <= new Date()) {
       throw new Error('Votação já foi encerrada');
     }
@@ -324,3 +324,4 @@ class VotesService {
 }
 
 export const votesService = new VotesService();
+

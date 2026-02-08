@@ -209,7 +209,7 @@ const socialWorkScheduleRoutes: FastifyPluginAsync = async (fastify) => {
           postId,
           jobId: job.jobId,
           schedules: slots,
-          total: slots.length,
+          totalCents: slots.length,
         };
       } catch (error) {
         req.log.error({
@@ -231,6 +231,7 @@ const socialWorkScheduleRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default socialWorkScheduleRoutes;
+
 
 
 

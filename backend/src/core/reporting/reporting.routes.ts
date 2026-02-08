@@ -171,7 +171,7 @@ const reportingRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.send({
           reports: result.reports,
-          total: result.total,
+          totalCents: result.total,
           limit,
           offset,
         });
@@ -306,4 +306,5 @@ const reportingRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default reportingRoutes;
+
 

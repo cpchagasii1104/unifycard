@@ -37,8 +37,8 @@ export interface CompanyMember {
   role: CompanyMemberRole;
   status: CompanyMemberStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -52,8 +52,8 @@ export interface CompanyMemberRow {
   role: string;
   status: string;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -86,4 +86,6 @@ export interface CompanyMemberFilters {
   role?: CompanyMemberRole;
   status?: CompanyMemberStatus;
 }
+
+
 

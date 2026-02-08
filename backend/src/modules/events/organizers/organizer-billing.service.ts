@@ -55,9 +55,9 @@ export class OrganizerBillingService {
       current_period_end: Date;
       payment_gateway: string | null;
       payment_gateway_subscription_id: string | null;
-      canceled_at: Date | null;
-      created_at: Date;
-      updated_at: Date;
+      canceledAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -73,7 +73,7 @@ export class OrganizerBillingService {
         payment_gateway_subscription_id
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id, organizer_id, plan, status, current_period_start, current_period_end,
-                payment_gateway, payment_gateway_subscription_id, canceled_at, created_at, updated_at
+                payment_gateway, payment_gateway_subscription_id, canceledAt, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -93,7 +93,7 @@ export class OrganizerBillingService {
       tenantId,
       `
       UPDATE event_organizers
-      SET plan = $1, plan_expires_at = $2, updated_at = now()
+      SET plan = $1, plan_expiresAt = $2, updatedAt = now()
       WHERE id = $3
       `,
       [input.plan, periodEnd, input.organizerId]
@@ -118,17 +118,17 @@ export class OrganizerBillingService {
       current_period_end: Date;
       payment_gateway: string | null;
       payment_gateway_subscription_id: string | null;
-      canceled_at: Date | null;
-      created_at: Date;
-      updated_at: Date;
+      canceledAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
       SELECT id, organizer_id, plan, status, current_period_start, current_period_end,
-             payment_gateway, payment_gateway_subscription_id, canceled_at, created_at, updated_at
+             payment_gateway, payment_gateway_subscription_id, canceledAt, createdAt, updatedAt
       FROM organizer_subscriptions
       WHERE organizer_id = $1 AND status = 'active'
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 1
       `,
       [organizerId]
@@ -160,7 +160,7 @@ export class OrganizerBillingService {
       tenantId,
       `
       UPDATE organizer_subscriptions
-      SET status = $1, updated_at = now(), canceled_at = CASE WHEN $1 = 'canceled' THEN now() ELSE canceled_at END
+      SET status = $1, updatedAt = now(), canceledAt = CASE WHEN $1 = 'canceled' THEN now() ELSE canceledAt END
       WHERE id = $2
       `,
       [status, subscriptionId]
@@ -186,7 +186,7 @@ export class OrganizerBillingService {
         tenantId,
         `
         UPDATE organizer_subscriptions
-        SET status = 'canceled', canceled_at = current_period_end, updated_at = now()
+        SET status = 'canceled', canceledAt = current_period_end, updatedAt = now()
         WHERE id = $1
         `,
         [subscription.id]
@@ -199,7 +199,7 @@ export class OrganizerBillingService {
         tenantId,
         `
         UPDATE event_organizers
-        SET plan = 'free', plan_expires_at = NULL, updated_at = now()
+        SET plan = 'free', plan_expiresAt = NULL, updatedAt = now()
         WHERE id = $1
         `,
         [organizerId]
@@ -247,9 +247,9 @@ export class OrganizerBillingService {
       current_period_end: Date;
       payment_gateway: string | null;
       payment_gateway_subscription_id: string | null;
-      canceled_at: Date | null;
-      created_at: Date;
-      updated_at: Date;
+      canceledAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -258,11 +258,11 @@ export class OrganizerBillingService {
         status = 'active',
         current_period_start = $1,
         current_period_end = $2,
-        canceled_at = NULL,
-        updated_at = now()
+        canceledAt = NULL,
+        updatedAt = now()
       WHERE id = $3
       RETURNING id, organizer_id, plan, status, current_period_start, current_period_end,
-                payment_gateway, payment_gateway_subscription_id, canceled_at, created_at, updated_at
+                payment_gateway, payment_gateway_subscription_id, canceledAt, createdAt, updatedAt
       `,
       [now, newPeriodEnd, subscriptionId]
     );
@@ -272,7 +272,7 @@ export class OrganizerBillingService {
       tenantId,
       `
       UPDATE event_organizers
-      SET plan_expires_at = $1, updated_at = now()
+      SET plan_expiresAt = $1, updatedAt = now()
       WHERE id = $2
       `,
       [newPeriodEnd, subscription.organizer_id]
@@ -307,7 +307,7 @@ export class OrganizerBillingService {
         tenantId,
         `
         UPDATE event_organizers
-        SET plan = 'free', plan_expires_at = NULL, updated_at = now()
+        SET plan = 'free', plan_expiresAt = NULL, updatedAt = now()
         WHERE id = $1
         `,
         [sub.organizer_id]
@@ -326,9 +326,9 @@ export class OrganizerBillingService {
     current_period_end: Date;
     payment_gateway: string | null;
     payment_gateway_subscription_id: string | null;
-    canceled_at: Date | null;
-    created_at: Date;
-    updated_at: Date;
+    canceledAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
   }): OrganizerSubscription {
     return {
       id: row.id,
@@ -339,12 +339,14 @@ export class OrganizerBillingService {
       currentPeriodEnd: row.current_period_end,
       paymentGateway: row.payment_gateway || undefined,
       paymentGatewaySubscriptionId: row.payment_gateway_subscription_id || undefined,
-      canceledAt: row.canceled_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      canceledAt: row.canceledAt,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 }
 
 export const organizerBillingService = new OrganizerBillingService();
+
+
 

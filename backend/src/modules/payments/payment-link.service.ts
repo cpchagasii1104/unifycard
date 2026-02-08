@@ -44,7 +44,7 @@ class PaymentLinkService {
       eventType: 'PAYMENT_LINK_CREATED',
       linkId: link.id,
       slug: link.slug,
-      amount: link.amount,
+      amountCents: link.amount,
       createdByActorId,
     });
 
@@ -174,6 +174,7 @@ class PaymentLinkService {
 }
 
 export const paymentLinkService = new PaymentLinkService();
+
 
 
 

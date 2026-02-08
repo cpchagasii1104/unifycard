@@ -50,7 +50,7 @@ class SubscriptionService {
       }
     }
 
-    // 4. Definir next_run_at (default: agora + 5min)
+    // 4. Definir next_runAt (default: agora + 5min)
     const nextRunAt = input.nextRunAt || new Date(Date.now() + 5 * 60 * 1000);
 
     // 5. Criar assinatura
@@ -70,7 +70,7 @@ class SubscriptionService {
       subscriptionId: subscription.id,
       contactId: input.contactId,
       paymentLinkId: input.paymentLinkId,
-      amount: input.amount,
+      amountCents: input.amount,
       interval: input.interval,
       createdByActorId,
       createdByUserId,
@@ -127,7 +127,7 @@ class SubscriptionService {
       throw new Error(`Assinatura não está pausada (status: ${subscription.status})`);
     }
 
-    // Recalcular next_run_at se estiver no passado
+    // Recalcular next_runAt se estiver no passado
     let nextRunAt = subscription.nextRunAt;
     if (nextRunAt < new Date()) {
       nextRunAt = new Date(Date.now() + 5 * 60 * 1000); // Agora + 5min
@@ -207,7 +207,7 @@ class SubscriptionService {
         // Criar ScheduledAction
         await this.createRunAction(tenantId, subscription);
 
-        // Marcar last_run_at
+        // Marcar last_runAt
         await subscriptionRepository.markLastRun(tenantId, subscription.id, null);
 
         scheduled++;
@@ -252,7 +252,7 @@ class SubscriptionService {
           subscription_id: subscription.id,
           payment_link_id: subscription.paymentLinkId,
           contact_id: subscription.contactId,
-          amount: subscription.amount,
+          amountCents: subscription.amount,
           currency: subscription.currency,
           source: 'SUBSCRIPTION',
         },
@@ -273,7 +273,7 @@ class SubscriptionService {
     subscriptionId: string,
     idempotencyKey?: string
   ): Promise<{ paymentIntentId: string; status: 'PENDING' | 'SUCCESS' }> {
-    // 1. Revalidar subscription ACTIVE e next_run_at vencido
+    // 1. Revalidar subscription ACTIVE e next_runAt vencido
     const subscription = await subscriptionRepository.getSubscriptionById(tenantId, subscriptionId);
     if (!subscription) {
       throw new Error(`Assinatura não encontrada: ${subscriptionId}`);
@@ -284,7 +284,7 @@ class SubscriptionService {
     }
 
     if (subscription.nextRunAt > new Date()) {
-      throw new Error(`Assinatura ainda não está vencida (next_run_at: ${subscription.nextRunAt})`);
+      throw new Error(`Assinatura ainda não está vencida (next_runAt: ${subscription.nextRunAt})`);
     }
 
     // 2. Buscar payment link
@@ -316,7 +316,7 @@ class SubscriptionService {
     // Criar PaymentIntent
     const intent = await paymentIntentService.createPaymentIntent(tenantId, {
       orderId: submittedOrder.id,
-      amount: subscription.amount, // Override do amount do subscription
+      amountCents: subscription.amount, // Override do amount do subscription
       currency: subscription.currency as any,
       metadata: {
         payment_link_id: paymentLink.id,
@@ -385,7 +385,7 @@ class SubscriptionService {
     // Marcar sucesso
     await subscriptionRepository.markSuccess(tenantId, subscriptionId);
 
-    // Recalcular next_run_at
+    // Recalcular next_runAt
     const nextRunAt = this.calculateNextRunAt(subscription);
     await subscriptionRepository.updateNextRunAt(tenantId, subscriptionId, nextRunAt);
 
@@ -503,4 +503,6 @@ class SubscriptionService {
 }
 
 export const subscriptionService = new SubscriptionService();
+
+
 

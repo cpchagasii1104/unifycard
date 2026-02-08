@@ -32,18 +32,18 @@ const socialGroupInsightsRoutes: FastifyPluginAsync = async (fastify) => {
           post_id: string;
           content: string;
           metadata: any;
-          created_at: Date;
+          createdAt: Date;
         }>(
           tenantId,
           `
-          SELECT post_id, content, metadata, created_at
+          SELECT post_id, content, metadata, createdAt
           FROM posts
           WHERE tenant_id = $1
             AND metadata->>'groupId' = ANY($2::text[])
             AND metadata->>'type' = 'system_auto_post'
             AND metadata->>'source' = 'economic_impact'
-            AND created_at >= NOW() - INTERVAL '30 days'
-          ORDER BY created_at DESC
+            AND createdAt >= NOW() - INTERVAL '30 days'
+          ORDER BY createdAt DESC
           LIMIT 20
           `,
           [tenantId, groupIds]
@@ -107,4 +107,5 @@ Gere um resumo curto e sugestões de ações.`;
 };
 
 export default socialGroupInsightsRoutes;
+
 

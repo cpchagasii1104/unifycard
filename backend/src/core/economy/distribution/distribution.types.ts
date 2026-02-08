@@ -46,7 +46,7 @@ export interface DistributionResult {
 export interface AutoDistributeInput {
   fromAccount?: string;
   toAccount?: string;
-  amount?: number;
+  amountCents: number;
   groupAccount?: string; // Opcional: se houver grupo envolvido
   config?: Partial<FeeConfig>; // Permite override de config
 }

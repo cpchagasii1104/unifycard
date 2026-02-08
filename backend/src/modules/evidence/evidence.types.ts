@@ -79,8 +79,8 @@ export interface EvidencePack {
   retentionUntil: Date | null; // Data de retenção (configurável)
   timeline: EvidenceEvent[]; // Timeline ordenada e imutável
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -125,4 +125,5 @@ export interface EvidencePackFilters {
  * Formato de exportação
  */
 export type ExportFormat = 'json' | 'pdf';
+
 

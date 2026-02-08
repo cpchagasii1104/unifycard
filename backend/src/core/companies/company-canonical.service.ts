@@ -36,7 +36,7 @@ export interface CompanyCanonical {
   country: string;
   state: 'CREATED';
   global_user_id: string | null;
-  created_at: Date;
+  createdAt: Date;
 }
 
 /**
@@ -104,7 +104,7 @@ class CompanyCanonicalService {
       country: string;
       state: string;
       global_user_id: string | null;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -117,8 +117,8 @@ class CompanyCanonicalService {
         country,
         state,
         global_user_id,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NOW(), NOW())
       RETURNING 
@@ -130,7 +130,7 @@ class CompanyCanonicalService {
         country,
         state,
         global_user_id,
-        created_at
+        createdAt
       `,
       [
         companyId,
@@ -156,7 +156,7 @@ class CompanyCanonicalService {
       country: companyRow.country,
       state: 'CREATED',
       global_user_id: companyRow.global_user_id,
-      created_at: companyRow.created_at,
+      createdAt: companyRow.createdAt,
     };
 
     // 3. Emitir evento COMPANY_CREATED (ÚNICO evento permitido)
@@ -187,4 +187,5 @@ class CompanyCanonicalService {
 }
 
 export const companyCanonicalService = new CompanyCanonicalService();
+
 

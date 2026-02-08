@@ -37,8 +37,8 @@ export interface ScheduledAction {
   executionErrorCode: string | null;
   executionErrorMessage: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -65,6 +65,7 @@ export interface ScheduledActionFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

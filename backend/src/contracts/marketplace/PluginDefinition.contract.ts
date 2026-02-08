@@ -34,28 +34,28 @@ export type PluginHook =
   | 'after_report_generation';
 
 export interface PluginDefinition {
-  plugin_id: string;
+  pluginId: string;
   name: string;
   description: string;
   category: PluginCategory;
   version: string;
-  allowed_hooks: PluginHook[];
-  allowed_contracts: string[]; // IDs de contratos públicos que o plugin pode consumir
+  allowedHooks: PluginHook[];
+  allowedContracts: string[]; // IDs de contratos públicos que o plugin pode consumir
   status: 'active' | 'inactive' | 'deprecated';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   metadata?: Record<string, any>; // Metadados específicos do plugin
 }
 
 export interface PluginExecution {
-  execution_id: string;
-  plugin_id: string;
+  executionId: string;
+  pluginId: string;
   hook: PluginHook;
-  input_data: Record<string, any>; // Dados de entrada (apenas contratos públicos)
-  output_data?: Record<string, any>; // Dados de saída (não pode alterar ledger/trust/payment)
+  inputData: Record<string, any>; // Dados de entrada (apenas contratos públicos)
+  outputData?: Record<string, any>; // Dados de saída (não pode alterar ledger/trust/payment)
   status: 'pending' | 'executed' | 'failed';
-  executed_at?: string;
-  error_message?: string;
+  executedAt?: string;
+  errorMessage?: string;
 }
 
 

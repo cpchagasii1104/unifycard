@@ -1,29 +1,29 @@
-﻿// src/types/unifycard-event.types.ts
+// src/types/unifycard-event.types.ts
 
 /**
- * ðŸ”´ CRÃTICO: Contrato formal de contexto de evento
- * UnifyCard â†’ UnifyBank SEMPRE usa este formato
+ * 🔴 CRÍTICO: Contrato formal de contexto de evento
+ * UnifyCard → UnifyBank SEMPRE usa este formato
  */
 export interface UnifyCardEventContext {
-  // Tipo de mÃ³dulo
+  // Tipo de módulo
   module: 'EVENT' | 'CONSUMPTION' | 'PARKING';
   
-  // IdentificaÃ§Ã£o
+  // Identificação
   entityType: 'event';
-  entityId: string; // eventId
+  entityId: string; // event_id
   eventType: string; // SHOW, BAR, RESTAURANTE, etc
   
-  // LocalizaÃ§Ã£o (para split regional)
+  // Localização (para split regional)
   cityId: string;
   
-  // UsuÃ¡rio
+  // Usuário
   globalUserId: string;
   
-  // ðŸ”´ MVP: Consumo herda split do evento
-  // parentModule indica que consumo Ã© filho de evento
+  // 🔴 MVP: Consumo herda split do evento
+  // parentModule indica que consumo é filho de evento
   parentModule?: 'EVENT'; // Apenas para CONSUMPTION
   
-  // ReferÃªncias opcionais
+  // Referências opcionais
   ticketId?: string;
   consumptionId?: string;
   parkingId?: string;
@@ -31,7 +31,7 @@ export interface UnifyCardEventContext {
 }
 
 /**
- * ValidaÃ§Ã£o em runtime
+ * Validação em runtime
  */
 export function validateEventContext(ctx: any): ctx is UnifyCardEventContext {
   if (!ctx || typeof ctx !== 'object') return false;
@@ -86,12 +86,11 @@ export class EventContextBuilder {
       cityId: params.cityId,
       globalUserId: params.userId,
       consumptionId: params.consumptionId,
-      // ðŸ”´ MVP: Consumo herda split do evento (sem regra prÃ³pria)
+      // 🔴 MVP: Consumo herda split do evento (sem regra própria)
       parentModule: 'EVENT'
     };
   }
 }
-
 
 
 

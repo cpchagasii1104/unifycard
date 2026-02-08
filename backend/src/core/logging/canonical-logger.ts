@@ -36,7 +36,7 @@ function extractCorrelationContext(req?: FastifyRequest | null): CanonicalLogCon
     correlationId: reqAny.correlationId || req.headers['x-correlation-id'] || undefined,
     tenantId: reqAny.tenant?.id || req.headers['x-tenant-id'] || undefined,
     userId: reqAny.user?.id || reqAny.user?.userId || undefined,
-    actorId: reqAny.actionContext?.actingActorId || undefined,
+    actorId: reqAny.actionContext?.actorId || undefined,
   };
 }
 

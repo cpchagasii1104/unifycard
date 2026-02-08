@@ -33,7 +33,7 @@ export class CognitiveDensityRepository {
       intent_type: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -52,7 +52,7 @@ export class CognitiveDensityRepository {
         intent_type = EXCLUDED.intent_type,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -89,7 +89,7 @@ export class CognitiveDensityRepository {
       intentType: row.intent_type || undefined,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -115,7 +115,7 @@ export class NormalizationRepository {
       action_category: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -135,7 +135,7 @@ export class NormalizationRepository {
         action_category = EXCLUDED.action_category,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -174,7 +174,7 @@ export class NormalizationRepository {
       actionCategory: row.action_category || undefined,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -200,7 +200,7 @@ export class HumanConcentrationRepository {
       domain_type: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -221,7 +221,7 @@ export class HumanConcentrationRepository {
         domain_type = EXCLUDED.domain_type,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -260,7 +260,7 @@ export class HumanConcentrationRepository {
       domainType: row.domain_type || undefined,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -287,7 +287,7 @@ export class VisibilityRepository {
       feed_section: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -309,7 +309,7 @@ export class VisibilityRepository {
         feed_section = EXCLUDED.feed_section,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -350,7 +350,7 @@ export class VisibilityRepository {
       feedSection: row.feed_section || undefined,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -376,7 +376,7 @@ export class PatternBreakRepository {
       pattern_type: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -396,7 +396,7 @@ export class PatternBreakRepository {
         semantic_variation_score = EXCLUDED.semantic_variation_score,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -435,7 +435,7 @@ export class PatternBreakRepository {
       patternType: row.pattern_type || undefined,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -462,7 +462,7 @@ export class TemporalMemoryRepository {
       aggregation_level: string | null;
       sample_size: number;
       confidence: string;
-      computed_at: Date;
+      computedAt: Date;
     }>(
       tenantId,
       `
@@ -483,7 +483,7 @@ export class TemporalMemoryRepository {
         aggregation_level = EXCLUDED.aggregation_level,
         sample_size = EXCLUDED.sample_size,
         confidence = EXCLUDED.confidence,
-        computed_at = now()
+        computedAt = now()
       RETURNING *
       `,
       [
@@ -524,7 +524,7 @@ export class TemporalMemoryRepository {
       aggregationLevel: row.aggregation_level as any,
       sampleSize: Number(row.sample_size),
       confidence: row.confidence as any,
-      computedAt: row.computed_at,
+      computedAt: row.computedAt,
     };
   }
 }
@@ -536,4 +536,5 @@ export const humanConcentrationRepository = new HumanConcentrationRepository();
 export const visibilityRepository = new VisibilityRepository();
 export const patternBreakRepository = new PatternBreakRepository();
 export const temporalMemoryRepository = new TemporalMemoryRepository();
+
 

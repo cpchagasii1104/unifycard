@@ -20,7 +20,7 @@ const INITIAL_BALANCE_AMOUNT = 1000; // 1000 MFI para novos usuários
 export async function creditInitialBalance(
   tenantId: string,
   userId: string,
-  amount: number = INITIAL_BALANCE_AMOUNT
+  amountCents: number = INITIAL_BALANCE_AMOUNT
 ): Promise<string> {
   // 1. Resolver ou criar conta do usuário
   const userAccount = await bankAccountService.getOrCreateAccount(tenantId, {
@@ -81,6 +81,7 @@ if (require.main === module) {
       process.exit(1);
     });
 }
+
 
 
 

@@ -14,8 +14,8 @@ export class CountryRepository {
           code,
           name,
           name_en,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM countries
         ORDER BY name ASC
       `,
@@ -33,8 +33,8 @@ export class CountryRepository {
           code,
           name,
           name_en,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM countries
         WHERE country_id = $1
       `,
@@ -54,8 +54,8 @@ export class CountryRepository {
           code,
           name,
           name_en,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM countries
         WHERE UPPER(code) = UPPER($1)
       `,
@@ -64,6 +64,7 @@ export class CountryRepository {
     return rows[0];
   }
 }
+
 
 
 

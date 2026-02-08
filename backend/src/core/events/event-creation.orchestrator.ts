@@ -47,16 +47,16 @@ import type {
  */
 export interface CreateDraftInput {
   event?: CreateEventInput; // Se fornecido, cria novo draft
-  event_id?: string; // Se fornecido, trabalha com draft existente
+  eventId?: string; // Se fornecido, trabalha com draft existente
 }
 
 /**
  * Input para definir time windows
  */
 export interface SetTimeWindowsInput {
-  event_id: string;
-  desired_time_windows: EventTimeWindow[];
-  flexibility_level?: 'strict' | 'flexible' | 'very_flexible';
+  eventId: string;
+  desiredTimeWindows: EventTimeWindow[];
+  flexibilityLevel?: 'strict' | 'flexible' | 'very_flexible';
   timezone?: string;
 }
 
@@ -64,8 +64,8 @@ export interface SetTimeWindowsInput {
  * Input para definir operational commitments
  */
 export interface SetOperationalCommitmentsInput {
-  event_id: string;
-  commitments: Array<Omit<CreateOperationalCommitmentInput, 'event_id'>>;
+  eventId: string;
+  commitments: Array<Omit<CreateOperationalCommitmentInput, 'eventId'>>;
 }
 
 /**
@@ -78,10 +78,10 @@ export interface EconomicPreview {
     max: number;
     scenarios: Array<{
       scenario: string;
-      amount: number;
+      amountCents: number;
       breakdown: Array<{
         item: string;
-        amount: number;
+        amountCents: number;
       }>;
     }>;
   };
@@ -97,10 +97,10 @@ export interface EventSummary {
   declaration?: {
     title: string;
     description?: string | null;
-    event_aspects: string[];
+    eventAspects: string[];
     visibility: string;
-    desired_time_windows?: EventTimeWindow[];
-    flexibility_level?: string;
+    desiredTimeWindows?: EventTimeWindow[];
+    flexibilityLevel?: string;
   };
   availability?: {
     status: 'insufficient_declaration' | 'analyzed';
@@ -129,9 +129,9 @@ class EventCreationOrchestrator {
     actorId: string,
     input: CreateDraftInput
   ): Promise<Event> {
-    // Se event_id fornecido, retornar draft existente
-    if (input.event_id) {
-      const existingEvent = await eventService.getEvent(tenantId, input.event_id);
+    // Se eventId fornecido, retornar draft existente
+    if (input.eventId) {
+      const existingEvent = await eventService.getEvent(tenantId, input.eventId);
       if (!existingEvent) {
         throw new NotFoundError('Rascunho não encontrado');
       }
@@ -147,7 +147,7 @@ class EventCreationOrchestrator {
       return await eventService.createDraftEvent(tenantId, input.event);
     }
 
-    throw new BadRequestError('Forneça event ou event_id');
+    throw new BadRequestError('Forneça event ou eventId');
   }
 
   /**
@@ -178,13 +178,13 @@ class EventCreationOrchestrator {
     actorId: string
   ): Promise<Event> {
     // Buscar evento
-    const event = await eventService.getEvent(tenantId, input.event_id);
+    const event = await eventService.getEvent(tenantId, input.eventId);
     if (!event) {
       throw new NotFoundError('Evento não encontrado');
     }
 
     // Validar permissão
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode definir time windows');
     }
 
@@ -199,9 +199,9 @@ class EventCreationOrchestrator {
     // Funciona em DRAFT, DECLARED, PUBLISHED
     return await eventService.updateTimeWindows(
       tenantId,
-      input.event_id,
-      input.desired_time_windows,
-      input.flexibility_level,
+      input.eventId,
+      input.desiredTimeWindows,
+      input.flexibilityLevel,
       input.timezone,
       actorId
     );
@@ -221,7 +221,7 @@ class EventCreationOrchestrator {
       const commitment = await operationalCommitmentsService.createCommitment(
         tenantId,
         {
-          event_id: input.event_id,
+          eventId: input.eventId,
           ...commitmentInput,
         }
       );
@@ -266,26 +266,26 @@ class EventCreationOrchestrator {
         scenarios: [
           {
             scenario: 'cenario_minimo',
-            amount: 0,
+            amountCents: 0,
             breakdown: [
-              { item: 'infraestrutura', amount: 0 },
-              { item: 'operacional', amount: 0 },
+              { item: 'infraestrutura', amountCents: 0 },
+              { item: 'operacional', amountCents: 0 },
             ],
           },
           {
             scenario: 'cenario_medio',
-            amount: 5000,
+            amountCents: 5000,
             breakdown: [
-              { item: 'infraestrutura', amount: 2000 },
-              { item: 'operacional', amount: 3000 },
+              { item: 'infraestrutura', amountCents: 2000 },
+              { item: 'operacional', amountCents: 3000 },
             ],
           },
           {
             scenario: 'cenario_maximo',
-            amount: 10000,
+            amountCents: 10000,
             breakdown: [
-              { item: 'infraestrutura', amount: 4000 },
-              { item: 'operacional', amount: 6000 },
+              { item: 'infraestrutura', amountCents: 4000 },
+              { item: 'operacional', amountCents: 6000 },
             ],
           },
         ],
@@ -312,7 +312,7 @@ class EventCreationOrchestrator {
 
     // 2. Buscar availability rich (se houver declaration)
     let availability;
-    if (event.declaration?.desired_time_windows && event.declaration.desired_time_windows.length > 0) {
+    if (event.declaration?.desiredTimeWindows && event.declaration.desiredTimeWindows.length > 0) {
       try {
         const richAvailability = await this.getAvailabilityRich(tenantId, eventId);
         availability = richAvailability;
@@ -342,10 +342,10 @@ class EventCreationOrchestrator {
       declaration: event.declaration ? {
         title: event.declaration.title,
         description: event.declaration.description,
-        event_aspects: event.declaration.event_aspects,
+        eventAspects: event.declaration.eventAspects,
         visibility: event.declaration.visibility,
-        desired_time_windows: event.declaration.desired_time_windows,
-        flexibility_level: event.declaration.flexibility_level,
+        desiredTimeWindows: event.declaration.desiredTimeWindows,
+        flexibilityLevel: event.declaration.flexibilityLevel,
       } : undefined,
       availability,
       commitments,
@@ -355,4 +355,5 @@ class EventCreationOrchestrator {
 }
 
 export const eventCreationOrchestrator = new EventCreationOrchestrator();
+
 

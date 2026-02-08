@@ -63,7 +63,7 @@ export interface AIContext {
     lastTransactions: Array<{
       transactionId: string;
       type: 'credit' | 'debit';
-      amount: number;
+      amountCents: number;
     }>;
   };
 }
@@ -136,4 +136,5 @@ export const loadAIContext = (): AIContext => {
     }
   };
 };
+
 

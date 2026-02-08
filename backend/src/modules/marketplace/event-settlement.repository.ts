@@ -18,12 +18,12 @@ interface EventSettlementRow {
   currency: string;
   status: string;
   settlement_id: string | null;
-  settled_at: Date | null;
+  settledAt: Date | null;
   settled_by_actor_id: string | null;
   settled_by_user_id: string | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class EventSettlementRepository {
@@ -39,12 +39,12 @@ class EventSettlementRepository {
       currency: row.currency,
       status: row.status as any,
       settlementId: row.settlement_id,
-      settledAt: row.settled_at,
+      settledAt: row.settledAt,
       settledByActorId: row.settled_by_actor_id,
       settledByUserId: row.settled_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -68,8 +68,8 @@ class EventSettlementRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id, tenant_id, event_id, gross_revenue, commissions_amount,
                 regional_fee_amount, net_amount, currency, status, settlement_id,
-                settled_at, settled_by_actor_id, settled_by_user_id,
-                metadata, created_at, updated_at
+                settledAt, settled_by_actor_id, settled_by_user_id,
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -96,8 +96,8 @@ class EventSettlementRepository {
       `
       SELECT id, tenant_id, event_id, gross_revenue, commissions_amount,
              regional_fee_amount, net_amount, currency, status, settlement_id,
-             settled_at, settled_by_actor_id, settled_by_user_id,
-             metadata, created_at, updated_at
+             settledAt, settled_by_actor_id, settled_by_user_id,
+             metadata, createdAt, updatedAt
       FROM event_settlements
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -120,11 +120,11 @@ class EventSettlementRepository {
       `
       SELECT id, tenant_id, event_id, gross_revenue, commissions_amount,
              regional_fee_amount, net_amount, currency, status, settlement_id,
-             settled_at, settled_by_actor_id, settled_by_user_id,
-             metadata, created_at, updated_at
+             settledAt, settled_by_actor_id, settled_by_user_id,
+             metadata, createdAt, updatedAt
       FROM event_settlements
       WHERE tenant_id = $1 AND event_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 1
       `,
       [tenantId, eventId]
@@ -150,14 +150,14 @@ class EventSettlementRepository {
       UPDATE event_settlements
       SET status = 'SETTLED',
           settlement_id = $3,
-          settled_at = NOW(),
+          settledAt = NOW(),
           settled_by_actor_id = $4,
           settled_by_user_id = $5
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, event_id, gross_revenue, commissions_amount,
                 regional_fee_amount, net_amount, currency, status, settlement_id,
-                settled_at, settled_by_actor_id, settled_by_user_id,
-                metadata, created_at, updated_at
+                settledAt, settled_by_actor_id, settled_by_user_id,
+                metadata, createdAt, updatedAt
       `,
       [tenantId, settlementId, settlementCoreId, settledByActorId, settledByUserId]
     );
@@ -167,4 +167,6 @@ class EventSettlementRepository {
 }
 
 export const eventSettlementRepository = new EventSettlementRepository();
+
+
 

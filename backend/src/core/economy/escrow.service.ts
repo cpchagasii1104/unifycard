@@ -44,11 +44,11 @@ interface EscrowRow {
   total_refunded_cents: number;
   current_balance_cents: number;
   status: 'COLLECTING' | 'LOCKED' | 'RELEASING' | 'COMPLETED' | 'REFUNDING';
-  locked_at: Date | null;
-  release_started_at: Date | null;
-  completed_at: Date | null;
-  created_at: Date;
-  updated_at: Date;
+  lockedAt: Date | null;
+  release_startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface EscrowTransactionRow {
@@ -64,7 +64,7 @@ interface EscrowTransactionRow {
   reason: string | null;
   metadata: any;
   idempotency_key: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class EscrowService {
@@ -133,7 +133,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET total_collected_cents = total_collected_cents + $1, updated_at = now()
+       SET total_collected_cents = total_collected_cents + $1, updatedAt = now()
        WHERE id = $2`,
       [amountCents, escrow.id]
     );
@@ -141,7 +141,7 @@ class EscrowService {
     await eventBus.publish({
       tenantId,
       type: 'escrow.deposit',
-      payload: { eventId, amount: amountCents, ticketId },
+      payload: { eventId, amountCents: amountCents, ticketId },
     });
   }
 
@@ -163,7 +163,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET status = 'LOCKED', locked_at = now(), updated_at = now()
+       SET status = 'LOCKED', lockedAt = now(), updatedAt = now()
        WHERE event_id = $1 AND status = 'COLLECTING'`,
       [eventId]
     );
@@ -192,7 +192,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET status = 'RELEASING', release_started_at = now(), updated_at = now()
+       SET status = 'RELEASING', release_startedAt = now(), updatedAt = now()
        WHERE event_id = $1 AND status = 'LOCKED'`,
       [eventId]
     );
@@ -219,9 +219,9 @@ class EscrowService {
     }
 
     // HARD LOCK: Verificar que evento está COMPLETED
-    const event = await runQueryWithTenant<{ status: string; completed_at: Date | null }>(
+    const event = await runQueryWithTenant<{ status: string; completedAt: Date | null }>(
       tenantId,
-      `SELECT status, completed_at FROM events WHERE id = $1`,
+      `SELECT status, completedAt FROM events WHERE id = $1`,
       [eventId]
     );
 
@@ -233,8 +233,8 @@ class EscrowService {
       throw new BadRequestError(`HARD LOCK: Evento deve estar COMPLETED para liberar escrow. Status atual: ${event.status}. Liberação manual proibida.`);
     }
 
-    if (!event.completed_at) {
-      throw new BadRequestError('HARD LOCK: Evento deve ter completed_at definido');
+    if (!event.completedAt) {
+      throw new BadRequestError('HARD LOCK: Evento deve ter completedAt definido');
     }
 
     const escrow = await this.getEscrowByEvent(tenantId, eventId);
@@ -264,7 +264,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET total_released_cents = total_released_cents + $1, updated_at = now()
+       SET total_released_cents = total_released_cents + $1, updatedAt = now()
        WHERE id = $2`,
       [amountCents, escrow.id]
     );
@@ -277,7 +277,7 @@ class EscrowService {
       await transactionService.transfer(tenantId, {
         fromAccount: escrowAccountId,
         toAccount: destinationAccountId,
-        amount: amountCents / 100, // Converter centavos para reais
+        amountCents: amountCents / 100, // Converter centavos para reais
         metadata: {
           module: 'EVENT_ESCROW_RELEASE',
           eventId,
@@ -292,7 +292,7 @@ class EscrowService {
     await eventBus.publish({
       tenantId,
       type: 'escrow.release',
-      payload: { eventId, destinationAccountId, amount: amountCents, participantId },
+      payload: { eventId, destinationAccountId, amountCents: amountCents, participantId },
     });
   }
 
@@ -337,7 +337,7 @@ class EscrowService {
       tenantId,
       `SELECT * FROM event_escrow_transactions 
        WHERE escrow_id = $1 AND ticket_id = $2 AND transaction_type = 'DEPOSIT'
-       ORDER BY created_at DESC
+       ORDER BY createdAt DESC
        LIMIT 1`,
       [escrow.id, ticketId]
     );
@@ -358,7 +358,7 @@ class EscrowService {
         original.amount_cents,
         original.source_account_id,
         ticketId,
-        reason || 'CANCELLED',
+        reason || 'cancelled',
         idempotencyKey,
       ]
     );
@@ -367,7 +367,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET total_refunded_cents = total_refunded_cents + $1, updated_at = now()
+       SET total_refunded_cents = total_refunded_cents + $1, updatedAt = now()
        WHERE id = $2`,
       [original.amount_cents, escrow.id]
     );
@@ -375,7 +375,7 @@ class EscrowService {
     await eventBus.publish({
       tenantId,
       type: 'escrow.refund',
-      payload: { eventId, ticketId, amount: original.amount_cents },
+      payload: { eventId, ticketId, amountCents: original.amount_cents },
     });
   }
 
@@ -392,7 +392,7 @@ class EscrowService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE event_escrow 
-       SET status = 'COMPLETED', completed_at = now(), updated_at = now()
+       SET status = 'COMPLETED', completedAt = now(), updatedAt = now()
        WHERE event_id = $1`,
       [eventId]
     );
@@ -440,4 +440,6 @@ class EscrowService {
 }
 
 export const escrowService = new EscrowService();
+
+
 

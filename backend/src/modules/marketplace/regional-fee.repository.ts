@@ -19,7 +19,7 @@ interface RegionalFeeRow {
   fee_amount: number;
   settlement_id: string | null;
   metadata: Record<string, any>;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class RegionalFeeRepository {
@@ -35,7 +35,7 @@ class RegionalFeeRepository {
       feeAmount: Number(row.fee_amount),
       settlementId: row.settlement_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -53,7 +53,7 @@ class RegionalFeeRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id, tenant_id, region_id, source_type, source_id,
                 gross_amount, fee_percentage, fee_amount, settlement_id,
-                metadata, created_at
+                metadata, createdAt
       `,
       [
         tenantId,
@@ -77,7 +77,7 @@ class RegionalFeeRepository {
       `
       SELECT id, tenant_id, region_id, source_type, source_id,
              gross_amount, fee_percentage, fee_amount, settlement_id,
-             metadata, created_at
+             metadata, createdAt
       FROM regional_fees
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -128,13 +128,13 @@ class RegionalFeeRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       params.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       params.push(filters.endDate);
       paramIndex++;
     }
@@ -147,10 +147,10 @@ class RegionalFeeRepository {
       `
       SELECT id, tenant_id, region_id, source_type, source_id,
              gross_amount, fee_percentage, fee_amount, settlement_id,
-             metadata, created_at
+             metadata, createdAt
       FROM regional_fees
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -170,13 +170,13 @@ class RegionalFeeRepository {
     let paramIndex = 3;
 
     if (startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       params.push(endDate);
       paramIndex++;
     }
@@ -186,10 +186,10 @@ class RegionalFeeRepository {
       `
       SELECT id, tenant_id, region_id, source_type, source_id,
              gross_amount, fee_percentage, fee_amount, settlement_id,
-             metadata, created_at
+             metadata, createdAt
       FROM regional_fees
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       params
     );
@@ -210,7 +210,7 @@ class RegionalFeeRepository {
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, region_id, source_type, source_id,
                 gross_amount, fee_percentage, fee_amount, settlement_id,
-                metadata, created_at
+                metadata, createdAt
       `,
       [tenantId, feeId, settlementId]
     );
@@ -220,4 +220,6 @@ class RegionalFeeRepository {
 }
 
 export const regionalFeeRepository = new RegionalFeeRepository();
+
+
 

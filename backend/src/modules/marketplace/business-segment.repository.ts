@@ -11,8 +11,8 @@ interface BusinessSegmentRow {
   segment_type: string;
   enabled_modules: any;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class BusinessSegmentRepository {
@@ -24,8 +24,8 @@ class BusinessSegmentRepository {
       segmentType: row.segment_type as any,
       enabledModules: Array.isArray(row.enabled_modules) ? row.enabled_modules : [],
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -34,7 +34,7 @@ class BusinessSegmentRepository {
       tenantId,
       `
       SELECT id, tenant_id, company_profile_tenant_id, segment_type,
-        enabled_modules, metadata, created_at, updated_at
+        enabled_modules, metadata, createdAt, updatedAt
       FROM business_segments
       WHERE tenant_id = $1
       `,
@@ -65,10 +65,10 @@ class BusinessSegmentRepository {
         SET segment_type = $3,
             enabled_modules = $4,
             metadata = $5,
-            updated_at = NOW()
+            updatedAt = NOW()
         WHERE tenant_id = $1
         RETURNING id, tenant_id, company_profile_tenant_id, segment_type,
-          enabled_modules, metadata, created_at, updated_at
+          enabled_modules, metadata, createdAt, updatedAt
         `,
         [
           tenantId,
@@ -95,7 +95,7 @@ class BusinessSegmentRepository {
         )
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id, tenant_id, company_profile_tenant_id, segment_type,
-          enabled_modules, metadata, created_at, updated_at
+          enabled_modules, metadata, createdAt, updatedAt
         `,
         [
           tenantId,
@@ -116,6 +116,8 @@ class BusinessSegmentRepository {
 }
 
 export const businessSegmentRepository = new BusinessSegmentRepository();
+
+
 
 
 

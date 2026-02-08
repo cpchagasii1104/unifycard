@@ -60,8 +60,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -75,7 +75,7 @@ class ActorRegistryService {
           entity_table = EXCLUDED.entity_table,
           entity_id = EXCLUDED.entity_id,
           capabilities_json = EXCLUDED.capabilities_json,
-          updated_at = NOW()
+          updatedAt = NOW()
         RETURNING *
       `,
       [tenantId, actorId, actorType, entityTable, entityId, JSON.stringify(finalCapabilities)]
@@ -89,8 +89,8 @@ class ActorRegistryService {
       entityTable: result[0].entity_table,
       entityId: result[0].entity_id,
       capabilities: result[0].capabilities_json,
-      createdAt: result[0].created_at,
-      updatedAt: result[0].updated_at,
+      createdAt: result[0].createdAt,
+      updatedAt: result[0].updatedAt,
     };
   }
 
@@ -109,8 +109,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -135,8 +135,8 @@ class ActorRegistryService {
       entityTable: row.entity_table,
       entityId: row.entity_id,
       capabilities: row.capabilities_json,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -156,8 +156,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -182,8 +182,8 @@ class ActorRegistryService {
       entityTable: row.entity_table,
       entityId: row.entity_id,
       capabilities: row.capabilities_json,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -238,6 +238,7 @@ class ActorRegistryService {
 }
 
 export const actorRegistryService = new ActorRegistryService();
+
 
 
 

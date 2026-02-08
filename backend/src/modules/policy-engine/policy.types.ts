@@ -55,8 +55,8 @@ export interface PolicyRule {
   activatedAt: Date | null;
   activatedByUserId: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -85,8 +85,8 @@ export interface PolicyDecision {
   revokedByActorId: string | null;
   revocationReason: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -154,6 +154,7 @@ export interface PolicyDecisionFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

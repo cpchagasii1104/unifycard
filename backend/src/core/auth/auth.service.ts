@@ -52,7 +52,7 @@ interface UserRow {
   tenant_id: string;
   email: string;
   password_hash: string;
-  created_at: Date;
+  createdAt: Date;
   token_version: number;
 }
 
@@ -62,7 +62,7 @@ class AuthService {
       userId: row.id,
       tenantId: row.tenant_id,
       email: row.email,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -127,7 +127,7 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         decoded.tenantId,
         `
-          SELECT id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, createdAt, token_version
           FROM users
           WHERE id = $1
           LIMIT 1
@@ -224,7 +224,7 @@ class AuthService {
       try {
         await client.query(
           `
-          INSERT INTO tenants (id, name, slug, created_at, updated_at)
+          INSERT INTO tenants (id, name, slug, createdAt, updatedAt)
           VALUES ($1, $2, $3, now(), now())
           `,
           [newTenantId, `Tenant ${emailSlug}`, tenantSlug]
@@ -287,7 +287,7 @@ class AuthService {
     const existing = await runQueryWithTenant<UserRow>(
       finalTenantId,
       `
-        SELECT id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, createdAt, token_version
         FROM users
         WHERE email = $1
         LIMIT 1
@@ -350,7 +350,7 @@ class AuthService {
       `
         INSERT INTO users (id, tenant_id, global_user_id, email, password_hash)
         VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, tenant_id, email, password_hash, created_at, token_version
+        RETURNING id, tenant_id, email, password_hash, createdAt, token_version
       `,
       [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]
     );
@@ -538,7 +538,7 @@ class AuthService {
       // Buscar usuário apenas por email (tenant_id será obtido do usuário encontrado)
       const result = await client.query<UserRow>(
         `
-          SELECT id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, createdAt, token_version
           FROM users
           WHERE email = $1
           LIMIT 1
@@ -674,7 +674,7 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         tenantId,
       `
-        SELECT id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, createdAt, token_version
         FROM users
         WHERE id = $1
         LIMIT 1
@@ -825,3 +825,4 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+

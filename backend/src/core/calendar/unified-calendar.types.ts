@@ -70,8 +70,8 @@ export interface UnifiedCalendarEntry {
   metadata: Record<string, any>;
   
   // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -88,6 +88,7 @@ export interface UnifiedCalendarFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

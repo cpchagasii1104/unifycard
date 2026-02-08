@@ -132,7 +132,7 @@ export function validatePhone(phone: string): ValidationResult {
 /**
  * Normaliza tax_id (CPF/CNPJ) removendo formatação
  */
-export function normalizeTaxId(value: string): string {
+export function normalizeTaxId(valueCents: string): string {
   if (!value) {
     return '';
   }
@@ -142,7 +142,7 @@ export function normalizeTaxId(value: string): string {
 /**
  * Normaliza telefone removendo formatação
  */
-export function normalizePhone(value: string): string {
+export function normalizePhone(valueCents: string): string {
   if (!value) {
     return '';
   }
@@ -159,6 +159,7 @@ export function validateTaxId(taxId: string, type: 'PERSON' | 'COMPANY'): Valida
     return validateCNPJ(taxId);
   }
 }
+
 
 
 

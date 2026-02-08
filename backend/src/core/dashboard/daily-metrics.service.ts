@@ -125,7 +125,7 @@ export class DailyMetricsService {
       `
       SELECT COUNT(DISTINCT id) as count
       FROM event_organizers
-      WHERE created_at >= NOW() - INTERVAL '30 days'
+      WHERE createdAt >= NOW() - INTERVAL '30 days'
       `
     );
     return parseInt(result.rows[0]?.count || '0', 10);
@@ -136,7 +136,7 @@ export class DailyMetricsService {
       `
       SELECT COUNT(*) as count
       FROM events
-      WHERE created_at >= $1 AND created_at < $2
+      WHERE createdAt >= $1 AND createdAt < $2
       `,
       [start, end]
     );
@@ -168,7 +168,7 @@ export class DailyMetricsService {
       SELECT COUNT(*) as count
       FROM event_metrics
       WHERE type = 'VIEW'
-        AND created_at >= $1 AND created_at < $2
+        AND createdAt >= $1 AND createdAt < $2
       `,
       [start, end]
     );
@@ -178,7 +178,7 @@ export class DailyMetricsService {
       SELECT COUNT(*) as count
       FROM event_metrics
       WHERE type = 'CONVERSION'
-        AND created_at >= $1 AND created_at < $2
+        AND createdAt >= $1 AND createdAt < $2
       `,
       [start, end]
     );
@@ -193,6 +193,7 @@ export class DailyMetricsService {
 }
 
 export const dailyMetricsService = new DailyMetricsService();
+
 
 
 

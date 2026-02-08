@@ -15,8 +15,8 @@ export interface FiscalDocument {
   totalAmount: number;
   metadata: Record<string, any> | null;
   issuedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FiscalDocumentItem {
@@ -26,7 +26,7 @@ export interface FiscalDocumentItem {
   quantity: number;
   unit: string;
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateFiscalDocumentInput {
@@ -45,6 +45,7 @@ export interface CancelFiscalDocumentInput {
   reason?: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

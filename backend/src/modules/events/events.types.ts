@@ -24,8 +24,8 @@ export interface Event {
   currentOccupancy?: number;
   status: 'draft' | 'published' | 'cancelled' | 'finished' | 'completed' | 'archived';
   timezone?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventRow {
@@ -33,14 +33,14 @@ export interface EventRow {
   tenant_id: string;
   title: string;
   description: string | null;
-  start_time: Date;
-  end_time: Date;
+  starts_at: Date;
+  ends_at: Date;
   city_id: string | null;
   state_id: string | null;
   country_id: string | null;
   created_by_global_user_id: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventSession {
@@ -49,18 +49,18 @@ export interface EventSession {
   name: string;
   startTime: Date;
   endTime: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventSessionRow {
   id: string;
   event_id: string;
   name: string;
-  start_time: Date;
-  end_time: Date;
-  created_at: Date;
-  updated_at: Date;
+  starts_at: Date;
+  ends_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventLocation {
@@ -68,8 +68,8 @@ export interface EventLocation {
   eventId: string;
   name: string;
   capacity: number | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventLocationRow {
@@ -77,8 +77,8 @@ export interface EventLocationRow {
   event_id: string;
   name: string;
   capacity: number | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventStaff {
@@ -87,7 +87,7 @@ export interface EventStaff {
   globalUserId: string;
   role: string;
   assignedByGlobalUserId: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface EventStaffRow {
@@ -96,7 +96,7 @@ export interface EventStaffRow {
   global_user_id: string;
   role: string;
   assigned_by_global_user_id: string;
-  created_at: Date;
+  createdAt: string;
 }
 
 export interface EventAttendee {
@@ -104,15 +104,15 @@ export interface EventAttendee {
   eventId: string;
   globalUserId: string;
   checkInTime: Date | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface EventAttendeeRow {
   id: string;
   event_id: string;
   global_user_id: string;
-  check_in_time: Date | null;
-  created_at: Date;
+  checked_in_at: Date | null;
+  createdAt: string;
 }
 
 export interface CreateEventInput {
@@ -170,10 +170,10 @@ export interface EventActor {
   role: EventActorRole;
   canPublish: boolean;
   canEdit: boolean;
-  revenueSharePercent: number | null;
+  revenueShareBps: number | null;
   status: EventActorStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface EventActorRow {
@@ -186,8 +186,8 @@ export interface EventActorRow {
   can_edit: boolean;
   revenue_share_percent: number | null;
   status: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateEventInput {
@@ -210,12 +210,16 @@ export interface AddActorToEventInput {
   role: EventActorRole;
   canPublish?: boolean;
   canEdit?: boolean;
-  revenueSharePercent?: number | null;
+  revenueShareBps?: number | null;
 }
 
 export interface EventWithActors extends Event {
   actors?: EventActor[];
 }
+
+
+
+
 
 
 

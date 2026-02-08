@@ -19,7 +19,7 @@ export interface OrganizationRole {
   tenantId: string;
   roleKey: OrganizationRoleKey;
   description: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -42,8 +42,8 @@ export interface OrganizationMember {
   userId: string;
   roleId: string;
   status: OrganizationMemberStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -69,7 +69,7 @@ export interface OrganizationInvite {
   status: OrganizationInviteStatus;
   token: string;
   expiresAt: Date;
-  createdAt: Date;
+  createdAt: string;
   acceptedAt: Date | null;
 }
 
@@ -108,3 +108,4 @@ export interface OrganizationMemberFilters {
   limit?: number;
   offset?: number;
 }
+

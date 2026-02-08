@@ -21,12 +21,12 @@ export interface PaymentIntent {
   id: string;
   tenantId: string;
   orderId: string;
-  amount: number;
+  amountCents: number;
   currency: PaymentCurrency;
   status: PaymentIntentStatus;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -34,7 +34,7 @@ export interface PaymentIntent {
  */
 export interface CreatePaymentIntentInput {
   orderId: string;
-  amount: number;
+  amountCents: number;
   currency?: PaymentCurrency;
   paymentMethodId?: string; // SPRINT 72: Método de pagamento selecionado
   metadata?: Record<string, any>;
@@ -62,13 +62,13 @@ export interface PaymentTransaction {
   tenantId: string;
   paymentIntentId: string;
   bankTransactionId?: string | null;
-  amount: number;
+  amountCents: number;
   currency: PaymentCurrency;
   status: PaymentTransactionStatus;
   errorCode?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -80,4 +80,6 @@ export interface ExecutePaymentInput {
   sellerActorId: string;
   actingUserId?: string;
 }
+
+
 

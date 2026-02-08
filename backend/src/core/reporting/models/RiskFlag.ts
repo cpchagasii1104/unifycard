@@ -11,8 +11,8 @@ export interface RiskFlag {
   tenant_id: string; // UUID
   risk_level: RiskLevel;
   risk_score: number; // INTEGER
-  last_evaluated_at: Date;
-  created_at: Date;
+  last_evaluatedAt: Date;
+  createdAt: Date;
 }
 
 export interface RiskFlagRow {
@@ -23,9 +23,10 @@ export interface RiskFlagRow {
   tenant_id: string;
   risk_level: string;
   risk_score: number;
-  last_evaluated_at: Date;
-  created_at: Date;
+  last_evaluatedAt: Date;
+  createdAt: Date;
 }
+
 
 
 

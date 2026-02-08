@@ -22,8 +22,8 @@ class OrganizersService {
       description: row.description,
       logoUrl: row.logo_url,
       ownerGlobalUserId: row.owner_global_user_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -33,7 +33,7 @@ class OrganizersService {
       organizerId: row.organizer_id,
       globalUserId: row.global_user_id,
       role: row.role as OrganizerRole,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -61,7 +61,7 @@ class OrganizersService {
     const member = await runQueryWithTenant<EventOrganizerMemberRow>(
       tenantId,
       `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -95,7 +95,7 @@ class OrganizersService {
         owner_global_user_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      RETURNING id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -131,7 +131,7 @@ class OrganizersService {
     const existing = await runQueryWithTenant<EventOrganizerMemberRow>(
       tenantId,
       `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -147,7 +147,7 @@ class OrganizersService {
         UPDATE event_organizer_members
         SET role = $1
         WHERE organizer_id = $2 AND global_user_id = $3
-        RETURNING id, organizer_id, global_user_id, role, created_at
+        RETURNING id, organizer_id, global_user_id, role, createdAt
         `,
         [role, organizerId, globalUserId]
       );
@@ -159,7 +159,7 @@ class OrganizersService {
       `
       INSERT INTO event_organizer_members (organizer_id, global_user_id, role)
       VALUES ($1, $2, $3)
-      RETURNING id, organizer_id, global_user_id, role, created_at
+      RETURNING id, organizer_id, global_user_id, role, createdAt
       `,
       [organizerId, globalUserId, role]
     );
@@ -231,7 +231,7 @@ class OrganizersService {
     const row = await runQueryWithTenant<EventOrganizerRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       FROM event_organizers
       WHERE id = $1
       LIMIT 1
@@ -255,10 +255,10 @@ class OrganizersService {
     const membersRows = await runQueriesWithTenant<EventOrganizerMemberRow>(
       tenantId,
       `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1
-      ORDER BY role ASC, created_at ASC
+      ORDER BY role ASC, createdAt ASC
       `,
       [organizerId]
     );
@@ -294,9 +294,9 @@ class OrganizersService {
     const rows = await runQueriesWithTenant<EventOrganizerRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       FROM event_organizers
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $1 OFFSET $2
       `,
       [limit, offset]
@@ -351,6 +351,8 @@ class OrganizersService {
 }
 
 export const organizersService = new OrganizersService();
+
+
 
 
 

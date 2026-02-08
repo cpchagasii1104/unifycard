@@ -25,7 +25,7 @@ class EventLogSource implements CanonicalEventSource {
     try {
       // Construir query baseada em filtros
       let query = `
-        SELECT event_id, tenant_id, event_type, event_version, payload, metadata, created_at
+        SELECT event_id, tenant_id, event_type, event_version, payload, metadata, createdAt
         FROM event_log
         WHERE tenant_id = $1
       `;
@@ -49,19 +49,19 @@ class EventLogSource implements CanonicalEventSource {
 
       // Filtro por data de início
       if (filters.startDate) {
-        query += ` AND created_at >= $${paramIndex}`;
+        query += ` AND createdAt >= $${paramIndex}`;
         params.push(filters.startDate);
         paramIndex++;
       }
 
       // Filtro por data de fim
       if (filters.endDate) {
-        query += ` AND created_at <= $${paramIndex}`;
+        query += ` AND createdAt <= $${paramIndex}`;
         params.push(filters.endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY created_at ASC`;
+      query += ` ORDER BY createdAt ASC`;
 
       const result = await client.query<{
         event_id: string;
@@ -70,7 +70,7 @@ class EventLogSource implements CanonicalEventSource {
         event_version: number;
         payload: any;
         metadata: any;
-        created_at: Date;
+        createdAt: Date;
       }>(query, params);
 
       // Converter eventos do event_log para CanonicalEvent
@@ -85,7 +85,7 @@ class EventLogSource implements CanonicalEventSource {
           version: row.event_version,
           payload: row.payload,
           metadata: row.metadata || {},
-          createdAt: row.created_at,
+          createdAt: row.createdAt,
         };
 
         // Traduzir para CanonicalEvent
@@ -117,4 +117,5 @@ class EventLogSource implements CanonicalEventSource {
 }
 
 export const eventLogSource = new EventLogSource();
+
 

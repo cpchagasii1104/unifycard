@@ -25,11 +25,11 @@ export interface GroupFeedResult {
     postId: string;
     content: string;
     globalUserId: string;
-    createdAt: Date;
+    createdAt: string;
     metadata: Record<string, any>;
     isAutoPost?: boolean; // Se é auto-post econômico
   }>;
-  total: number;
+  totalCents: number;
   hasMore: boolean;
 }
 
@@ -40,14 +40,14 @@ export interface GroupInsights {
   recentAutoPosts: Array<{
     postId: string;
     content: string;
-    amount: number;
-    createdAt: Date;
+    amountCents: number;
+    createdAt: string;
     assignmentId?: string;
     jobId?: string;
   }>;
   monthlyGrowth: {
     month: string;
-    amount: number;
+    amountCents: number;
   }[];
   memberCount: number;
   mostActiveMember?: {
@@ -66,14 +66,14 @@ export interface ImpactFeedItem {
   content: string;
   globalUserId?: string;
   groupId?: string;
-  amount?: number;
-  createdAt: Date;
+  amountCents: number;
+  createdAt: string;
   metadata: Record<string, any>;
 }
 
 export interface ImpactFeedResult {
   items: ImpactFeedItem[];
-  total: number;
+  totalCents: number;
   hasMore: boolean;
 }
 
@@ -86,6 +86,8 @@ export interface AISummaryResult {
     recentActivity: number;
   };
 }
+
+
 
 
 

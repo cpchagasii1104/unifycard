@@ -69,8 +69,8 @@ export interface UnifiedAvailability {
   timezone: string; // IANA timezone
   capacity?: number | null; // Capacidade (NULL = ilimitado)
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -89,8 +89,8 @@ export interface UnifiedBooking {
   checkedOutAt?: Date | null; // Quando foi feito check-out
   notes?: string | null; // Notas opcionais
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   cancelledAt?: Date | null;
   expiredAt?: Date | null;
   confirmedAt?: Date | null;
@@ -111,8 +111,8 @@ export interface UnifiedAvailabilityRow {
   timezone: string;
   capacity: number | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -124,16 +124,16 @@ export interface UnifiedBookingRow {
   availability_id: string;
   requester_actor_id: string;
   status: UnifiedBookingStatus;
-  requested_at: Date;
-  checked_in_at: Date | null;
-  checked_out_at: Date | null;
+  requestedAt: Date;
+  checked_inAt: Date | null;
+  checked_outAt: Date | null;
   notes: string | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
-  cancelled_at: Date | null;
-  expired_at: Date | null;
-  confirmed_at: Date | null;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt: Date | null;
+  expiredAt: Date | null;
+  confirmedAt: Date | null;
 }
 
 /**
@@ -245,8 +245,8 @@ export interface AvailabilityParticipant {
   actorId: string; // OBRIGATÓRIO: Actor participante (CPF)
   role: ParticipantRole;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -259,8 +259,8 @@ export interface AvailabilityParticipantRow {
   actor_id: string;
   role: ParticipantRole;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -314,4 +314,6 @@ export interface ConflictDetectionResult {
   conflicts: AvailabilityConflict[];
   message?: string; // Mensagem de alerta (opcional)
 }
+
+
 

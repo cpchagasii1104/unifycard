@@ -20,7 +20,7 @@ export interface CommissionRule {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -58,6 +58,7 @@ export interface CommissionCalculation {
   appliesId: string | null;
   snapshot: Record<string, any>;
 }
+
 
 
 

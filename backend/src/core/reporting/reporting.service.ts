@@ -48,8 +48,8 @@ class ReportingService {
       tenant_id: tenantId,
       reason_code: input.reason_code,
       description: input.description,
-      status: 'OPEN', // Status inicial
-      severity: 'LOW', // Severidade inicial
+      status: 'open', // Status inicial
+      severity: 'low', // Severidade inicial
     });
 
     // Criar evento de audit trail
@@ -115,7 +115,7 @@ class ReportingService {
       limit?: number;
       offset?: number;
     }
-  ): Promise<{ reports: Report[]; total: number }> {
+  ): Promise<{ reports: Report[]; totalCents: number }> {
     return reportingRepository.findReports(tenantId, filters);
   }
 
@@ -131,7 +131,7 @@ class ReportingService {
    * Conforme REPORTING_CORE.md:
    * - comentário obrigatório ao encerrar
    * - criar evento correspondente
-   * - atualizar resolved_at quando aplicável
+   * - atualizar resolvedAt quando aplicável
    */
   async updateReportStatus(
     tenantId: string,
@@ -148,7 +148,7 @@ class ReportingService {
       throw new Error('Comentário é obrigatório ao encerrar uma denúncia');
     }
 
-    // Determinar resolved_at
+    // Determinar resolvedAt
     const resolvedAt =
       input.status === 'RESOLVED' || input.status === 'DISMISSED' ? new Date() : undefined;
 
@@ -211,6 +211,8 @@ class ReportingService {
 }
 
 export const reportingService = new ReportingService();
+
+
 
 
 

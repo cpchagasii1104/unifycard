@@ -29,10 +29,10 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         // Verificar se grupo existe
         const groupRow = await runQueryWithTenant<{
           group_id: string;
-          created_at: Date;
+          createdAt: Date;
         }>(
           tenantId,
-          `SELECT group_id, created_at FROM groups WHERE group_id = $1 AND tenant_id = $2`,
+          `SELECT group_id, createdAt FROM groups WHERE group_id = $1 AND tenant_id = $2`,
           [groupId, tenantId]
         );
 
@@ -49,7 +49,7 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         const lifetimeEvents = lifetimeEventsRow ? Number(lifetimeEventsRow.count) : 0;
 
         // Volume econômico total (soma de execuções e splits onde grupo é receiver)
-        const lifetimeEconomicVolumeRow = await runQueryWithTenant<{ total: string }>(
+        const lifetimeEconomicVolumeRow = await runQueryWithTenant<{ totalCents: string }>(
           tenantId,
           `
           SELECT COALESCE(
@@ -74,7 +74,7 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.send({
           lifetimeEvents,
           lifetimeEconomicVolume,
-          createdAt: groupRow.created_at.toISOString(),
+          createdAt: groupRow.createdAt.toISOString(),
         });
       } catch (error) {
         req.log.error({ err: error, groupId }, 'Erro ao buscar resumo de fechamento do grupo');
@@ -86,4 +86,6 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default groupsClosureRoutes;
+
+
 

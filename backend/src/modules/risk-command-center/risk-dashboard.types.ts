@@ -42,7 +42,7 @@ export interface ActorRiskProfile {
     last30Days: number;
     last90Days: number;
     last180Days: number;
-    total: number;
+    totalCents: number;
   };
   openDisputes: number;
   resolvedDisputes: number;
@@ -102,6 +102,7 @@ export interface ActorRiskFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

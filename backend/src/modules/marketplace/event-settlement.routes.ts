@@ -37,11 +37,10 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const eventId = req.params.id;
     const actionContext = (req as any).actionContext;
-    const actingUserId = actionContext?.actingUserId;
-    const actingActorId = actionContext?.actingActorId;
+    const actorId = actionContext?.actorId;
 
-    if (!actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     // Buscar settlement
@@ -58,8 +57,8 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
       {
         settlementId: req.body.settlementId,
       },
-      actingActorId,
-      actingUserId
+      actorId,
+      actorId
     );
 
     return reply.send({ settlement: settledSettlement });

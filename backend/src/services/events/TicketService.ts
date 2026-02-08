@@ -13,8 +13,8 @@ interface EventRow {
   max_capacity: number | null;
   current_occupancy: number;
   status: string;
-  start_time: Date;
-  end_time: Date | null;
+  starts_at: Date;
+  ends_at: Date | null;
   schedule_id: string | null;
 }
 
@@ -59,7 +59,7 @@ export class TicketService {
         text: `
           SELECT 
             id, tenant_id, event_type, city_id, ticket_price,
-            max_capacity, current_occupancy, status, start_time, end_time, schedule_id
+            max_capacity, current_occupancy, status, starts_at, ends_at, schedule_id
           FROM events
           WHERE id = $1
           FOR UPDATE
@@ -206,7 +206,7 @@ export class TicketService {
       const { checkoutService } = await import('../../core/checkout/CheckoutService');
 
       const checkoutRequest: CheckoutRequest = {
-        amount: event.ticket_price || 0,
+        amountCents: event.ticket_price || 0,
         currency: 'BRL',
         paymentMethod: 'UNIFYCARD',
         context: {
@@ -256,7 +256,7 @@ export class TicketService {
     event: {
       id: string;
       title: string;
-      start_time: Date;
+      starts_at: Date;
     };
   }> {
     return runTenantTransaction(tenantId, async (trx) => {
@@ -282,7 +282,7 @@ export class TicketService {
 
       const eventResult = await trx.query({
         text: `
-          SELECT id, title, start_time, end_time
+          SELECT id, title, starts_at, ends_at
           FROM events
           WHERE id = $1
         `,
@@ -296,16 +296,16 @@ export class TicketService {
       const event = eventResult[0] as {
         id: string;
         title: string;
-        start_time: Date;
-        end_time: Date | null;
+        starts_at: Date;
+        ends_at: Date | null;
       };
 
       const now = new Date();
-      if (now < event.start_time) {
+      if (now < event.starts_at) {
         throw new Error('Event has not started yet');
       }
 
-      if (event.end_time && now > event.end_time) {
+      if (event.ends_at && now > event.ends_at) {
         throw new Error('Event has ended');
       }
 
@@ -325,12 +325,14 @@ export class TicketService {
         event: {
           id: event.id,
           title: event.title,
-          start_time: event.start_time,
+          starts_at: event.starts_at,
         },
       };
     });
   }
 }
+
+
 
 
 

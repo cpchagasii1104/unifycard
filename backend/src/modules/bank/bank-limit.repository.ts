@@ -15,14 +15,14 @@ interface BankLimitChangeRequestRow {
   actor_id: string;
   limit_type: string;
   requested_amount: string;
-  requested_at: Date;
-  effective_at: Date;
+  requestedAt: Date;
+  effectiveAt: Date;
   status: string;
   requested_by_user_id: string | null;
   authority_source: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class BankLimitRepository {
@@ -36,14 +36,14 @@ class BankLimitRepository {
       actorId: row.actor_id,
       limitType: row.limit_type as BankLimitType,
       requestedAmount: parseFloat(row.requested_amount),
-      requestedAt: row.requested_at,
-      effectiveAt: row.effective_at,
+      requestedAt: row.requestedAt,
+      effectiveAt: row.effectiveAt,
       status: row.status as LimitChangeRequestStatus,
       requestedByUserId: row.requested_by_user_id,
       authoritySource: row.authority_source as 'self' | 'delegated' | 'system',
       metadata: row.metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -61,14 +61,14 @@ class BankLimitRepository {
       `
       INSERT INTO bank_limit_change_requests (
         tenant_id, actor_id, limit_type, requested_amount,
-        requested_at, effective_at, status,
+        requestedAt, effectiveAt, status,
         requested_by_user_id, authority_source, metadata
       )
       VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7, $8, $9)
       RETURNING id, tenant_id, actor_id, limit_type, requested_amount,
-                requested_at, effective_at, status,
+                requestedAt, effectiveAt, status,
                 requested_by_user_id, authority_source, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -107,7 +107,7 @@ class BankLimitRepository {
         AND actor_id = $2
         AND limit_type = $3
         AND status = 'applied'
-      ORDER BY effective_at DESC, created_at DESC
+      ORDER BY effectiveAt DESC, createdAt DESC
       LIMIT 1
       `,
       [tenantId, actorId, limitType]
@@ -117,13 +117,13 @@ class BankLimitRepository {
   }
 
   /**
-   * Busca pedidos pendentes que devem ser aplicados (effective_at <= now)
+   * Busca pedidos pendentes que devem ser aplicados (effectiveAt <= now)
    */
   async getPendingRequestsDue(
     tenantId: string,
     actorId?: string
   ): Promise<BankLimitChangeRequest[]> {
-    const conditions = ['tenant_id = $1', "status = 'pending'", 'effective_at <= NOW()'];
+    const conditions = ['tenant_id = $1', "status = 'pending'", 'effectiveAt <= NOW()'];
     const params: any[] = [tenantId];
 
     if (actorId) {
@@ -135,12 +135,12 @@ class BankLimitRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, limit_type, requested_amount,
-             requested_at, effective_at, status,
+             requestedAt, effectiveAt, status,
              requested_by_user_id, authority_source, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM bank_limit_change_requests
       WHERE ${conditions.join(' AND ')}
-      ORDER BY effective_at ASC, created_at ASC
+      ORDER BY effectiveAt ASC, createdAt ASC
       `,
       params
     );
@@ -160,7 +160,7 @@ class BankLimitRepository {
       tenantId,
       `
       UPDATE bank_limit_change_requests
-      SET status = $1, updated_at = NOW()
+      SET status = $1, updatedAt = NOW()
       WHERE id = $2 AND tenant_id = $3
       `,
       [status, requestId, tenantId]
@@ -178,12 +178,12 @@ class BankLimitRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, limit_type, requested_amount,
-             requested_at, effective_at, status,
+             requestedAt, effectiveAt, status,
              requested_by_user_id, authority_source, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM bank_limit_change_requests
       WHERE tenant_id = $1 AND actor_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, actorId]
     );
@@ -203,15 +203,15 @@ class BankLimitRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, limit_type, requested_amount,
-             requested_at, effective_at, status,
+             requestedAt, effectiveAt, status,
              requested_by_user_id, authority_source, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM bank_limit_change_requests
       WHERE tenant_id = $1
         AND actor_id = $2
         AND limit_type = $3
         AND status = 'pending'
-      ORDER BY effective_at ASC
+      ORDER BY effectiveAt ASC
       LIMIT 1
       `,
       [tenantId, actorId, limitType]
@@ -222,6 +222,8 @@ class BankLimitRepository {
 }
 
 export const bankLimitRepository = new BankLimitRepository();
+
+
 
 
 

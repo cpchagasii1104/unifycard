@@ -23,8 +23,8 @@ export interface ReviewRow {
   punctuality_rating: number | null;
   professionalism_rating: number | null;
   context: any | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Review {
@@ -63,3 +63,4 @@ export interface ListReviewsFilters {
   limit?: number;
   offset?: number;
 }
+

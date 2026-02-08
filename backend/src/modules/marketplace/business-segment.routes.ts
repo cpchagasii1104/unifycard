@@ -14,14 +14,14 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const segment = await businessSegmentService.setSegment(
       tenantId,
       req.body,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.status(201).send(segment);
@@ -51,14 +51,14 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const segment = await businessSegmentService.updateSegment(
       tenantId,
       req.body,
-      actionContext.actingUserId
+      actionContext.actorId
     );
 
     return reply.send(segment);

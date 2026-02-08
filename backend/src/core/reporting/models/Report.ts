@@ -22,9 +22,9 @@ export type ReportReasonCode =
   | 'IMPERSONATION'
   | 'OTHER';
 
-export type ReportStatus = 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
+export type ReportStatus = 'open' | 'under_review' | 'resolved' | 'dismissed';
 
-export type ReportSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+export type ReportSeverity = 'low' | 'medium' | 'high';
 
 export interface Report {
   id: string; // UUID
@@ -38,9 +38,9 @@ export interface Report {
   status: ReportStatus;
   severity: ReportSeverity;
   risk_score?: number; // INTEGER
-  created_at: Date;
-  updated_at: Date;
-  resolved_at?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt?: Date;
 }
 
 export interface ReportRow {
@@ -55,10 +55,11 @@ export interface ReportRow {
   status: string;
   severity: string;
   risk_score: number | null;
-  created_at: Date;
-  updated_at: Date;
-  resolved_at: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt: Date | null;
 }
+
 
 
 

@@ -22,21 +22,21 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface IncentiveRule {
-  rule_id: string;
+  ruleId: string;
   region: {
     country: string;
     state: string;
     city: string;
   };
-  incentive_type: 'delivery' | 'onboarding' | 'service' | 'logistics';
-  max_amount: number; // Valor máximo do incentivo
-  max_per_actor: number; // Valor máximo por ator
-  max_per_period: number; // Valor máximo por período (mensal)
+  incentiveType: 'delivery' | 'onboarding' | 'service' | 'logistics';
+  maxAmountCents: number; // Valor máximo do incentivo
+  maxPerActor: number; // Valor máximo por ator
+  maxPerPeriod: number; // Valor máximo por período (mensal)
   currency: string;
-  requires_trust_level: 'L2' | 'L3' | 'L4' | 'L5'; // Trust level mínimo
+  requiresTrustLevel: 'L2' | 'L3' | 'L4' | 'L5'; // Trust level mínimo
   status: 'active' | 'paused';
-  created_at: string;
-  // NÃO incluir updated_at - regra só pode ser pausada, nunca editada
+  createdAt: string;
+  // NÃO incluir updatedAt - regra só pode ser pausada, nunca editada
 }
 
 

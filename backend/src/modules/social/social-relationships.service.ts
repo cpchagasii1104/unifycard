@@ -7,7 +7,7 @@ export interface UserRelationship {
   user_id: string;
   target_user_id: string;
   category: 'business' | 'friend' | 'family' | 'entertainment';
-  created_at: string;
+  createdAt: string;
 }
 
 export interface CreateRelationshipInput {
@@ -43,7 +43,7 @@ export class SocialRelationshipsService {
       user_id: userId,
       target_user_id: input.target_user_id,
       category: input.category,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.relationships.set(relationshipId, relationship);
@@ -105,6 +105,7 @@ export class SocialRelationshipsService {
 }
 
 export const socialRelationshipsService = new SocialRelationshipsService();
+
 
 
 

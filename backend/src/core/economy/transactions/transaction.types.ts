@@ -15,11 +15,11 @@ export interface Transaction {
   toAccount: string;
   fromGlobalUserId?: string | null;
   toGlobalUserId?: string | null;
-  amount: number;
+  amountCents: number;
   eventId: string;
   status: TransactionStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -28,7 +28,7 @@ export interface Transaction {
 export interface CreateTransactionInput {
   fromAccount?: string;
   toAccount?: string;
-  amount?: number;
+  amountCents: number;
   eventId?: string; // Para idempotência
   metadata?: Record<string, any>;
 }
@@ -41,3 +41,4 @@ export interface TransferResult {
   fromAccountBalance: number;
   toAccountBalance: number;
 }
+

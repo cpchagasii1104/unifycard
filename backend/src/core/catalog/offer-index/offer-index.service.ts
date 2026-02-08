@@ -15,8 +15,8 @@ interface OfferIndexRow {
   price: string;
   stock: number | null;
   active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface MerchantLocationRow {
@@ -59,8 +59,8 @@ class OfferIndexService {
         inStock: row.active && (row.stock === null || row.stock > 0),
         stockCount: row.stock || undefined,
       },
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -84,7 +84,7 @@ class OfferIndexService {
     let query = `
       SELECT id, tenant_id, product_id, merchant_id, 
              location_region_id, location_city_id, price, stock, active,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM product_offers
       WHERE tenant_id = $1
         AND product_id = $2
@@ -190,7 +190,7 @@ class OfferIndexService {
 
     const result: OfferSearchResult = {
       offers: filteredOffers,
-      total: filteredOffers.length,
+      totalCents: filteredOffers.length,
       filters: {
         productId,
         cityId,
@@ -254,7 +254,7 @@ class OfferIndexService {
     let query = `
       SELECT id, tenant_id, product_id, merchant_id, 
              location_region_id, location_city_id, price, stock, active,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM product_offers
       WHERE tenant_id = $1
         AND merchant_id = $2
@@ -268,7 +268,7 @@ class OfferIndexService {
       params.push(productId);
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` ORDER BY createdAt DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<OfferIndexRow>(
@@ -287,7 +287,7 @@ class OfferIndexService {
 
     return {
       offers,
-      total: offers.length,
+      totalCents: offers.length,
       filters: {
         productId,
       },
@@ -352,4 +352,6 @@ class OfferIndexService {
 }
 
 export const offerIndexService = new OfferIndexService();
+
+
 

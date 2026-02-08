@@ -14,7 +14,7 @@ interface ReferralCodeRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class ReferralRepository {
@@ -29,7 +29,7 @@ class ReferralRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -49,7 +49,7 @@ class ReferralRepository {
       `
       INSERT INTO referral_codes (tenant_id, code, owner_actor_id, group_id, created_by_actor_id, created_by_user_id, metadata)
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-      RETURNING id, tenant_id, code, owner_actor_id, group_id, is_active, created_by_actor_id, created_by_user_id, metadata, created_at
+      RETURNING id, tenant_id, code, owner_actor_id, group_id, is_active, created_by_actor_id, created_by_user_id, metadata, createdAt
       `,
       [
         tenantId,
@@ -73,7 +73,7 @@ class ReferralRepository {
     const rows = await runQueriesWithTenant<ReferralCodeRow>(
       tenantId,
       `
-      SELECT id, tenant_id, code, owner_actor_id, group_id, is_active, created_by_actor_id, created_by_user_id, metadata, created_at
+      SELECT id, tenant_id, code, owner_actor_id, group_id, is_active, created_by_actor_id, created_by_user_id, metadata, createdAt
       FROM referral_codes
       WHERE tenant_id = $1 AND code = $2 AND is_active = true
       LIMIT 1
@@ -90,6 +90,8 @@ class ReferralRepository {
 }
 
 export const referralRepository = new ReferralRepository();
+
+
 
 
 

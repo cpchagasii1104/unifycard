@@ -36,12 +36,12 @@ export interface BankSplit {
   transactionId: string;
   serviceOrderId?: string | null;
   targetAccountId: string;
-  amount: number;
+  amountCents: number;
   percentage?: number | null;
   splitType: BankSplitType;
   description?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface CreateBankSplitInput {
   transactionId: string;
   serviceOrderId?: string | null;
   targetAccountId: string;
-  amount: number;
+  amountCents: number;
   percentage?: number;
   splitType: BankSplitType;
   description?: string;
@@ -83,7 +83,7 @@ export interface BankSplitCalculation {
   splits: Array<{
     splitType: BankSplitType;
     targetAccountId: string;
-    amount: number;
+    amountCents: number;
     percentage: number;
     metadata?: Record<string, any>; // Metadata opcional (ex: groupId para group allocations)
   }>;
@@ -94,6 +94,8 @@ export interface BankSplitCalculation {
  * Nome das contas do sistema
  */
 export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow';
+
+
 
 
 

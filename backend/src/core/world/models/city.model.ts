@@ -13,8 +13,8 @@ export class CityModel {
       nameEn: row.name_en,
       latitude: row.latitude,
       longitude: row.longitude,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -25,6 +25,7 @@ export class CityModel {
     return rows.map(row => this.fromRow(row));
   }
 }
+
 
 
 

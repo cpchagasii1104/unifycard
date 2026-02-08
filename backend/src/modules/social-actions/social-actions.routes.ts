@@ -134,7 +134,7 @@ const socialActionsRoutes: FastifyPluginAsync = async (fastify) => {
           req.tenant.id,
           req.params.postId
         );
-        return { actions, total: actions.length };
+        return { actions, totalCents: actions.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar ações do post');
         return reply.status(500).send({ error: 'Erro ao buscar ações do post' });
@@ -192,6 +192,7 @@ const socialActionsRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default socialActionsRoutes;
+
 
 
 

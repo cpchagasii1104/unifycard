@@ -38,8 +38,8 @@ export interface MyOrderItem {
   currency: string;
   
   // Datas
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   scheduledStart: Date | null;
   scheduledEnd: Date | null;
   completedAt: Date | null;
@@ -86,6 +86,7 @@ export interface MyOrdersStats {
   currency: string;
   openDisputes: number;
 }
+
 
 
 

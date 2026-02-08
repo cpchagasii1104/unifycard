@@ -39,9 +39,9 @@ interface EventRow {
   visibility: string;
   ticket_price_cents: number | null;
   max_attendees: number | null;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   metadata: Record<string, any> | null;
 }
 
@@ -52,42 +52,42 @@ class EventService {
   private toEvent(row: EventRow): Event {
     const event = {
       id: row.id,
-      tenant_id: row.tenant_id,
-      actor_id: row.actor_id,
-      actor_type: row.actor_type as ActorType,
-      event_type: row.event_type as EventType,
-      event_subtype: row.event_subtype,
+      tenantId: row.tenant_id,
+      actorId: row.actor_id,
+      actorType: row.actor_type as ActorType,
+      eventType: row.event_type as EventType,
+      eventSubtype: row.event_subtype,
       title: row.title,
       description: row.description,
-      datetime_start: row.datetime_start,
-      datetime_end: row.datetime_end,
+      datetimeStart: row.datetime_start,
+      datetimeEnd: row.datetime_end,
       status: row.status as EventStatus,
       visibility: row.visibility as EventVisibility,
-      ticket_price_cents: row.ticket_price_cents,
-      max_attendees: row.max_attendees,
-      completed_at: row.completed_at,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      ticketPriceCents: row.ticket_price_cents,
+      maxAttendees: row.max_attendees,
+      completedAt: row.completedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       metadata: row.metadata || {},
     };
     
     // Enriquecer com campos canônicos (aliases)
     const enriched = enrichEventWithCanonicalFields({
       id: event.id,
-      tenant_id: event.tenant_id,
-      actor_id: event.actor_id,
-      actor_type: event.actor_type,
+      tenantId: event.tenantId,
+      actorId: event.actorId,
+      actorType: event.actorType,
       status: event.status,
       visibility: event.visibility,
       declaration: null, // Será preenchido se existir
-      created_at: event.created_at,
-      updated_at: event.updated_at,
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt,
     });
     
     return {
       ...event,
-      responsible_actor_id: enriched.responsible_actor_id,
-      responsible_actor_type: enriched.responsible_actor_type,
+      responsibleActorId: enriched.responsibleActorId,
+      responsibleActorType: enriched.responsibleActorType,
       declaration: enriched.declaration,
     };
   }
@@ -166,42 +166,42 @@ class EventService {
     input: CreateEventInput
   ): Promise<Event> {
     // 1. Validar Actor × EventType
-    const actorValidation = this.validateActorEventType(input.actor_type, input.event_type);
+    const actorValidation = this.validateActorEventType(input.actorType, input.eventType);
     if (!actorValidation.valid) {
       throw new BadRequestError(actorValidation.reason || 'Validação Actor × EventType falhou');
     }
 
-    // 2. Validar event_type
-    if (!this.validateEventType(input.event_type)) {
-      throw new BadRequestError(`Event type '${input.event_type}' não é válido`);
+    // 2. Validar eventType
+    if (!this.validateEventType(input.eventType)) {
+      throw new BadRequestError(`Event type '${input.eventType}' não é válido`);
     }
 
     // 3. Validar datas (FASE 5: apenas se AMBAS forem fornecidas)
     // ETAPA 0 não requer datas - serão definidas em ETAPA 3
-    if (input.datetime_start && input.datetime_end) {
-      const startDate = new Date(input.datetime_start);
-      const endDate = new Date(input.datetime_end);
+    if (input.datetimeStart && input.datetimeEnd) {
+      const startDate = new Date(input.datetimeStart);
+      const endDate = new Date(input.datetimeEnd);
       
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new BadRequestError('Datas inválidas');
       }
 
       if (endDate <= startDate) {
-        throw new BadRequestError('datetime_end deve ser posterior a datetime_start');
+        throw new BadRequestError('datetimeEnd deve ser posterior a datetimeStart');
       }
     }
 
-    // 4. Validar ticket_price_cents (se fornecido)
-    if (input.ticket_price_cents !== undefined && input.ticket_price_cents !== null) {
-      if (input.ticket_price_cents < 0) {
-        throw new BadRequestError('ticket_price_cents não pode ser negativo');
+    // 4. Validar ticketPriceCents (se fornecido)
+    if (input.ticketPriceCents !== undefined && input.ticketPriceCents !== null) {
+      if (input.ticketPriceCents < 0) {
+        throw new BadRequestError('ticketPriceCents não pode ser negativo');
       }
     }
 
-    // 5. Validar max_attendees (se fornecido)
-    if (input.max_attendees !== undefined && input.max_attendees !== null) {
-      if (input.max_attendees <= 0) {
-        throw new BadRequestError('max_attendees deve ser maior que zero');
+    // 5. Validar maxAttendees (se fornecido)
+    if (input.maxAttendees !== undefined && input.maxAttendees !== null) {
+      if (input.maxAttendees <= 0) {
+        throw new BadRequestError('maxAttendees deve ser maior que zero');
       }
     }
 
@@ -222,18 +222,18 @@ class EventService {
         AND actor_type = $3
       LIMIT 1
       `,
-      [tenantId, input.actor_id, input.actor_type]
+      [tenantId, input.actorId, input.actorType]
     );
 
     if (!actor) {
-      throw new BadRequestError(`Actor '${input.actor_id}' (${input.actor_type}) não encontrado`);
+      throw new BadRequestError(`Actor '${input.actorId}' (${input.actorType}) não encontrado`);
     }
 
     // 8. Criar evento
     const visibility = input.visibility || 'public';
-    // FASE 5: datetime_start e datetime_end são opcionais (ETAPA 0 não requer datas)
-    const datetimeStart = input.datetime_start || null;
-    const datetimeEnd = input.datetime_end || null;
+    // FASE 5: datetimeStart e datetimeEnd são opcionais (ETAPA 0 não requer datas)
+    const datetimeStart = input.datetimeStart || null;
+    const datetimeEnd = input.datetimeEnd || null;
     
     const row = await runQueryWithTenant<EventRow>(
       tenantId,
@@ -259,18 +259,18 @@ class EventService {
       `,
       [
         tenantId,
-        input.actor_id,
-        input.actor_type,
-        input.event_type,
-        input.event_subtype || null,
+        input.actorId,
+        input.actorType,
+        input.eventType,
+        input.eventSubtype || null,
         input.title,
         input.description || null,
         datetimeStart,
         datetimeEnd,
         'draft', // Sempre começa como draft
         visibility,
-        input.ticket_price_cents || null,
-        input.max_attendees || null,
+        input.ticketPriceCents || null,
+        input.maxAttendees || null,
         JSON.stringify(input.metadata || {}),
       ]
     );
@@ -308,7 +308,7 @@ class EventService {
     }
 
     // 2. Validar permissão (criador ou owner/admin do grupo)
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       // Verificar se evento pertence a grupo e se usuário é owner/admin
       const groupEvent = await runQueryWithTenant<{ group_id: string }>(
         tenantId,
@@ -356,30 +356,30 @@ class EventService {
     }
 
     // 5. Validar datas (se fornecidas)
-    if (input.datetime_start || input.datetime_end) {
-      const startDate = input.datetime_start ? new Date(input.datetime_start) : new Date(event.datetime_start);
-      const endDate = input.datetime_end ? new Date(input.datetime_end) : new Date(event.datetime_end);
+    if (input.datetimeStart || input.datetimeEnd) {
+      const startDate = input.datetimeStart ? new Date(input.datetimeStart) : new Date(event.datetimeStart);
+      const endDate = input.datetimeEnd ? new Date(input.datetimeEnd) : new Date(event.datetimeEnd);
       
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new BadRequestError('Datas inválidas');
       }
 
       if (endDate <= startDate) {
-        throw new BadRequestError('datetime_end deve ser posterior a datetime_start');
+        throw new BadRequestError('datetimeEnd deve ser posterior a datetimeStart');
       }
     }
 
-    // 6. Validar ticket_price_cents (se fornecido)
-    if (input.ticket_price_cents !== undefined && input.ticket_price_cents !== null) {
-      if (input.ticket_price_cents < 0) {
-        throw new BadRequestError('ticket_price_cents não pode ser negativo');
+    // 6. Validar ticketPriceCents (se fornecido)
+    if (input.ticketPriceCents !== undefined && input.ticketPriceCents !== null) {
+      if (input.ticketPriceCents < 0) {
+        throw new BadRequestError('ticketPriceCents não pode ser negativo');
       }
     }
 
-    // 7. Validar max_attendees (se fornecido)
-    if (input.max_attendees !== undefined && input.max_attendees !== null) {
-      if (input.max_attendees <= 0) {
-        throw new BadRequestError('max_attendees deve ser maior que zero');
+    // 7. Validar maxAttendees (se fornecido)
+    if (input.maxAttendees !== undefined && input.maxAttendees !== null) {
+      if (input.maxAttendees <= 0) {
+        throw new BadRequestError('maxAttendees deve ser maior que zero');
       }
     }
 
@@ -409,19 +409,19 @@ class EventService {
       values.push(input.description);
     }
 
-    if (input.datetime_start !== undefined) {
+    if (input.datetimeStart !== undefined) {
       updates.push(`datetime_start = $${paramIndex++}`);
-      values.push(input.datetime_start);
+      values.push(input.datetimeStart);
     }
 
-    if (input.datetime_end !== undefined) {
+    if (input.datetimeEnd !== undefined) {
       updates.push(`datetime_end = $${paramIndex++}`);
-      values.push(input.datetime_end);
+      values.push(input.datetimeEnd);
     }
 
-    if (input.event_subtype !== undefined) {
+    if (input.eventSubtype !== undefined) {
       updates.push(`event_subtype = $${paramIndex++}`);
-      values.push(input.event_subtype);
+      values.push(input.eventSubtype);
     }
 
     if (input.visibility !== undefined) {
@@ -432,14 +432,14 @@ class EventService {
       values.push(input.visibility);
     }
 
-    if (input.ticket_price_cents !== undefined) {
+    if (input.ticketPriceCents !== undefined) {
       updates.push(`ticket_price_cents = $${paramIndex++}`);
-      values.push(input.ticket_price_cents);
+      values.push(input.ticketPriceCents);
     }
 
-    if (input.max_attendees !== undefined) {
+    if (input.maxAttendees !== undefined) {
       updates.push(`max_attendees = $${paramIndex++}`);
-      values.push(input.max_attendees);
+      values.push(input.maxAttendees);
     }
 
     if (input.metadata !== undefined) {
@@ -451,8 +451,8 @@ class EventService {
       return event; // Nada para atualizar
     }
 
-    // Adicionar updated_at
-    updates.push(`updated_at = NOW()`);
+    // Adicionar updatedAt
+    updates.push(`updatedAt = NOW()`);
 
     // Adicionar parâmetros finais
     values.push(tenantId, eventId);
@@ -530,33 +530,33 @@ class EventService {
     }
 
     // 2. Validar permissão
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode declará-lo');
     }
 
     // 3. Validar transição via aggregate
     assertTransitionAllowed(event.status, 'declared');
 
-    // 4. 🔴 VALIDAÇÃO OBRIGATÓRIA: event_aspects é obrigatório e NÃO pode ser inferido
-    if (!declarationInput.event_aspects || declarationInput.event_aspects.length === 0) {
+    // 4. 🔴 VALIDAÇÃO OBRIGATÓRIA: eventAspects é obrigatório e NÃO pode ser inferido
+    if (!declarationInput.eventAspects || declarationInput.eventAspects.length === 0) {
       throw new BadRequestError(
-        'event_aspects é obrigatório e deve vir do vocabulário fechado. ' +
+        'eventAspects é obrigatório e deve vir do vocabulário fechado. ' +
         'Não é possível inferir aspectos automaticamente.'
       );
     }
 
-    // 5. Validar event_aspects contra vocabulário fechado
-    const aspectsValidation = validateAspects(declarationInput.event_aspects);
+    // 5. Validar eventAspects contra vocabulário fechado
+    const aspectsValidation = validateAspects(declarationInput.eventAspects);
 
     // 6. Validar visibility como declaração (apenas checar se é valor permitido)
     if (!this.validateVisibility(declarationInput.visibility)) {
       throw new BadRequestError(`Visibility '${declarationInput.visibility}' não é válido`);
     }
 
-    // 7. Validar intent_flags contra allowlist (se fornecido)
+    // 7. Validar intentFlags contra allowlist (se fornecido)
     const validIntentFlags = ['wants_services', 'wants_voting', 'wants_ticketing'];
-    if (declarationInput.intent_flags && declarationInput.intent_flags.length > 0) {
-      const invalidFlags = declarationInput.intent_flags.filter(
+    if (declarationInput.intentFlags && declarationInput.intentFlags.length > 0) {
+      const invalidFlags = declarationInput.intentFlags.filter(
         flag => !validIntentFlags.includes(flag)
       );
       if (invalidFlags.length > 0) {
@@ -567,32 +567,32 @@ class EventService {
       }
     }
 
-    // 8. 🔴 FASE 3: Validar desired_time_windows (APENAS FORMA, NÃO DECISÃO)
+    // 8. 🔴 FASE 3: Validar desiredTimeWindows (APENAS FORMA, NÃO DECISÃO)
     // NUNCA inferir, NUNCA completar, NUNCA ajustar, NUNCA corrigir
     let normalizedTimeWindows: EventTimeWindow[] | undefined;
-    if (declarationInput.desired_time_windows !== undefined) {
+    if (declarationInput.desiredTimeWindows !== undefined) {
       // Array pode ser vazio (permitido)
       normalizedTimeWindows = [];
       
-      for (const window of declarationInput.desired_time_windows) {
+      for (const window of declarationInput.desiredTimeWindows) {
         // Validação de FORMA apenas:
-        // - start_datetime e end_datetime obrigatórios
+        // - startDatetime e endDatetime obrigatórios
         // - start < end
         // - timezone opcional, mas se fornecido deve ser string não-vazia
         
-        if (!window.start_datetime || !window.end_datetime) {
-          throw new BadRequestError('Cada janela de tempo deve ter start_datetime e end_datetime');
+        if (!window.startDatetime || !window.endDatetime) {
+          throw new BadRequestError('Cada janela de tempo deve ter startDatetime e endDatetime');
         }
         
-        const startDate = new Date(window.start_datetime);
-        const endDate = new Date(window.end_datetime);
+        const startDate = new Date(window.startDatetime);
+        const endDate = new Date(window.endDatetime);
         
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
           throw new BadRequestError('Datas inválidas na janela de tempo');
         }
         
         if (endDate <= startDate) {
-          throw new BadRequestError('end_datetime deve ser posterior a start_datetime na janela de tempo');
+          throw new BadRequestError('endDatetime deve ser posterior a startDatetime na janela de tempo');
         }
         
         if (window.timezone !== undefined && (!window.timezone || window.timezone.trim() === '')) {
@@ -601,19 +601,19 @@ class EventService {
         
         // Normalização mecânica apenas: trim de timezone se fornecido
         normalizedTimeWindows.push({
-          start_datetime: window.start_datetime, // ISO já validado
-          end_datetime: window.end_datetime, // ISO já validado
+          startDatetime: window.startDatetime, // ISO já validado
+          endDatetime: window.endDatetime, // ISO já validado
           timezone: window.timezone?.trim() || undefined,
         });
       }
     }
 
-    // 9. Validar flexibility_level (se fornecido)
+    // 9. Validar flexibilityLevel (se fornecido)
     const validFlexibilityLevels: FlexibilityLevel[] = ['strict', 'flexible', 'very_flexible'];
-    if (declarationInput.flexibility_level !== undefined) {
-      if (!validFlexibilityLevels.includes(declarationInput.flexibility_level)) {
+    if (declarationInput.flexibilityLevel !== undefined) {
+      if (!validFlexibilityLevels.includes(declarationInput.flexibilityLevel)) {
         throw new BadRequestError(
-          `Flexibility level '${declarationInput.flexibility_level}' não é válido. ` +
+          `Flexibility level '${declarationInput.flexibilityLevel}' não é válido. ` +
           `Valores válidos: ${validFlexibilityLevels.join(', ')}`
         );
       }
@@ -623,36 +623,43 @@ class EventService {
     const declaration: EventDeclaration = {
       title: declarationInput.title,
       description: declarationInput.description || null,
-      event_aspects: aspectsValidation.normalized, // Normalizado e validado
-      aspects_version: aspectsValidation.version, // Versão do vocabulário
+      eventAspects: aspectsValidation.normalized, // Normalizado e validado
+      aspectsVersion: aspectsValidation.version, // Versão do vocabulário
       visibility: declarationInput.visibility, // Validado
-      intent_flags: declarationInput.intent_flags || [], // Validado contra allowlist
-      declared_at: new Date().toISOString(),
+      intentFlags: declarationInput.intentFlags || [], // Validado contra allowlist
+      declaredAt: new Date().toISOString(),
       
       // FASE 3: Declared Time Windows (sem inferência)
-      desired_time_windows: normalizedTimeWindows, // Pode ser undefined ou array vazio
-      flexibility_level: declarationInput.flexibility_level, // Opcional
+      desiredTimeWindows: normalizedTimeWindows, // Pode ser undefined ou array vazio
+      flexibilityLevel: declarationInput.flexibilityLevel, // Opcional
       timezone: declarationInput.timezone?.trim() || undefined, // Opcional, normalizado
     };
 
     // 11. Persistir declaration completa em metadata.declaration (JSONB)
     // NÃO criar tabela nova
+    // Nota: metadata.declaration usa snake_case para persistência (JSONB)
+    // mas a declaração em memória (EventDeclaration) usa camelCase
     const metadata = event.metadata || {};
     metadata.declaration = {
       title: declaration.title,
       description: declaration.description,
-      event_aspects: declaration.event_aspects,
-      aspects_version: declaration.aspects_version,
+      event_aspects: declaration.eventAspects, // Converter camelCase para snake_case na persistência
+      aspects_version: declaration.aspectsVersion,
       visibility: declaration.visibility,
-      intent_flags: declaration.intent_flags,
-      declared_at: declaration.declared_at,
+      intent_flags: declaration.intentFlags,
+      declaredAt: declaration.declaredAt,
       
       // FASE 3: Persistir time windows (se fornecidos)
-      ...(declaration.desired_time_windows !== undefined && {
-        desired_time_windows: declaration.desired_time_windows,
+      // Converter EventTimeWindow[] (camelCase) para snake_case na persistência
+      ...(declaration.desiredTimeWindows !== undefined && {
+        desired_time_windows: declaration.desiredTimeWindows.map(w => ({
+          start_datetime: w.startDatetime,
+          end_datetime: w.endDatetime,
+          timezone: w.timezone,
+        })),
       }),
-      ...(declaration.flexibility_level !== undefined && {
-        flexibility_level: declaration.flexibility_level,
+      ...(declaration.flexibilityLevel !== undefined && {
+        flexibility_level: declaration.flexibilityLevel,
       }),
       ...(declaration.timezone !== undefined && {
         timezone: declaration.timezone,
@@ -670,7 +677,7 @@ class EventService {
         description = $2,
         visibility = $3,
         metadata = $4,
-        updated_at = NOW()
+        updatedAt = NOW()
       WHERE tenant_id = $5 AND id = $6
       RETURNING *
       `,
@@ -710,7 +717,7 @@ class EventService {
     }
 
     // 2. Validar permissão
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode publicá-lo');
     }
 
@@ -730,7 +737,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'published', updated_at = NOW()
+      SET status = 'published', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -760,7 +767,7 @@ class EventService {
     }
 
     // 2. Validar permissão
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode ativá-lo');
     }
 
@@ -772,7 +779,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'active', updated_at = NOW()
+      SET status = 'active', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -802,7 +809,7 @@ class EventService {
     }
 
     // 2. Validar permissão
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode encerrá-lo');
     }
 
@@ -814,7 +821,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'ended', updated_at = NOW()
+      SET status = 'ended', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -844,7 +851,7 @@ class EventService {
     }
 
     // 2. Validar permissão (criador ou owner/admin do grupo)
-    if (event.actor_id !== actorId) {
+    if (event.actorId !== actorId) {
       // Verificar se evento pertence a grupo e se usuário é owner/admin
       const groupEvent = await runQueryWithTenant<{ group_id: string }>(
         tenantId,
@@ -881,7 +888,7 @@ class EventService {
       tenantId,
       `
       UPDATE events
-      SET status = 'cancelled', updated_at = NOW()
+      SET status = 'cancelled', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING *
       `,
@@ -930,8 +937,8 @@ class EventService {
 
     // 2. Usar janela do evento ou query fornecida
     // FASE 5: datetime_start e datetime_end podem ser opcionais (ETAPA 0)
-    const startDatetime = query?.datetime_start || event.datetime_start;
-    const endDatetime = query?.datetime_end || event.datetime_end;
+    const startDatetime = query?.datetimeStart || event.datetimeStart;
+    const endDatetime = query?.datetimeEnd || event.datetimeEnd;
     
     // Se não houver datas no evento nem na query, retornar informação parcial
     if (!startDatetime || !endDatetime) {
@@ -956,8 +963,8 @@ class EventService {
 
       // Consultar disponibilidades do responsible_actor (se necessário)
       const actorAvailabilities = await unifiedAvailabilityService.listAvailabilities(tenantId, {
-        ownerType: event.actor_type === 'user' ? AvailabilityOwnerType.USER : AvailabilityOwnerType.PAGE,
-        ownerId: event.actor_id,
+        ownerType: event.actorType === 'user' ? AvailabilityOwnerType.USER : AvailabilityOwnerType.PAGE,
+        ownerId: event.actorId,
       });
 
       // 4. Detectar conflitos (informacional apenas)
@@ -1050,12 +1057,12 @@ class EventService {
       throw new NotFoundError('Evento não encontrado');
     }
 
-    // 2. Verificar se há desired_time_windows
-    if (!event.declaration?.desired_time_windows || event.declaration.desired_time_windows.length === 0) {
+    // 2. Verificar se há desiredTimeWindows
+    if (!event.declaration?.desiredTimeWindows || event.declaration.desiredTimeWindows.length === 0) {
       return {
         status: 'insufficient_declaration',
         windows: [],
-        notes: 'Evento não possui janelas de tempo declaradas. Adicione desired_time_windows na declaration.',
+        notes: 'Evento não possui janelas de tempo declaradas. Adicione desiredTimeWindows na declaration.',
       };
     }
 
@@ -1083,14 +1090,14 @@ class EventService {
       }> = [];
 
       // 4. Para cada janela declarada, analisar disponibilidade
-      for (const window of event.declaration.desired_time_windows) {
-        const windowStart = new Date(window.start_datetime);
-        const windowEnd = new Date(window.end_datetime);
+      for (const window of event.declaration.desiredTimeWindows) {
+        const windowStart = new Date(window.startDatetime);
+        const windowEnd = new Date(window.endDatetime);
 
         // 4.1. Consultar disponibilidades do responsible_actor (READ-ONLY)
         const actorAvailabilities = await unifiedAvailabilityService.listAvailabilities(tenantId, {
-          ownerType: event.actor_type === 'user' ? AvailabilityOwnerType.USER : AvailabilityOwnerType.PAGE,
-          ownerId: event.actor_id,
+          ownerType: event.actorType === 'user' ? AvailabilityOwnerType.USER : AvailabilityOwnerType.PAGE,
+          ownerId: event.actorId,
         });
 
         // 4.2. Consultar disponibilidades do evento (se existirem) (READ-ONLY)
@@ -1199,9 +1206,9 @@ class EventService {
         visibility,
         ticket_price_cents,
         max_attendees,
-        completed_at,
-        created_at,
-        updated_at,
+        completedAt,
+        createdAt,
+        updatedAt,
         metadata
       FROM events
       WHERE tenant_id = $1 AND id = $2
@@ -1217,31 +1224,38 @@ class EventService {
     const event = this.toEvent(row);
     
     // Recuperar declaration do metadata se existir
-    // 🔴 REGRA CANÔNICA: Recuperar mesmo se declared_at for null (draft)
+    // 🔴 REGRA CANÔNICA: Recuperar mesmo se declaredAt for null (draft)
     // Time windows podem existir em draft sem declaration completa
+    // Nota: metadata.declaration está em snake_case (JSONB), converter para camelCase
     if (row.metadata && typeof row.metadata === 'object' && 'declaration' in row.metadata) {
       const decl = row.metadata.declaration as any;
       if (decl) {
-        // Se tem declared_at, é declaration completa
-        // Se não tem declared_at mas tem campos, é declaration parcial (draft)
-        const isCompleteDeclaration = decl.declared_at !== null && decl.declared_at !== undefined;
+        // Se tem declaredAt, é declaration completa
+        // Se não tem declaredAt mas tem campos, é declaration parcial (draft)
+        const isCompleteDeclaration = decl.declaredAt !== null && decl.declaredAt !== undefined;
         
         // Construir declaration (pode ser parcial em draft)
+        // Converter snake_case (metadata) para camelCase (EventDeclaration)
         event.declaration = {
           title: decl.title || event.title,
           description: decl.description || event.description,
-          event_aspects: decl.event_aspects || [],
-          aspects_version: decl.aspects_version || 'v1',
+          eventAspects: decl.event_aspects || [],
+          aspectsVersion: decl.aspects_version || 'v1',
           visibility: decl.visibility || event.visibility,
-          intent_flags: decl.intent_flags || [],
-          declared_at: decl.declared_at || (null as any), // null se draft (cast para compatibilidade com tipo)
+          intentFlags: decl.intent_flags || [],
+          declaredAt: decl.declaredAt || (null as any), // null se draft (cast para compatibilidade com tipo)
           
           // FASE 3: Recuperar time windows (se existirem) - mesmo em draft
+          // Converter snake_case (metadata) para camelCase (EventTimeWindow[])
           ...(decl.desired_time_windows !== undefined && {
-            desired_time_windows: decl.desired_time_windows,
+            desiredTimeWindows: decl.desired_time_windows.map((w: any) => ({
+              startDatetime: w.start_datetime,
+              endDatetime: w.end_datetime,
+              timezone: w.timezone,
+            })),
           }),
           ...(decl.flexibility_level !== undefined && {
-            flexibility_level: decl.flexibility_level,
+            flexibilityLevel: decl.flexibility_level,
           }),
           ...(decl.timezone !== undefined && {
             timezone: decl.timezone,
@@ -1279,7 +1293,7 @@ class EventService {
     }
 
     // 2. Validar permissão (se actorId fornecido)
-    if (actorId && event.actor_id !== actorId) {
+    if (actorId && event.actorId !== actorId) {
       throw new ForbiddenError('Apenas o criador do evento pode atualizar time windows');
     }
 
@@ -1289,23 +1303,23 @@ class EventService {
     
     for (const window of desiredTimeWindows) {
       // Validação de FORMA apenas:
-      // - start_datetime e end_datetime obrigatórios
+      // - startDatetime e endDatetime obrigatórios
       // - start < end
       // - timezone opcional, mas se fornecido deve ser string não-vazia
       
-      if (!window.start_datetime || !window.end_datetime) {
-        throw new BadRequestError('Cada janela de tempo deve ter start_datetime e end_datetime');
+      if (!window.startDatetime || !window.endDatetime) {
+        throw new BadRequestError('Cada janela de tempo deve ter startDatetime e endDatetime');
       }
       
-      const startDate = new Date(window.start_datetime);
-      const endDate = new Date(window.end_datetime);
+      const startDate = new Date(window.startDatetime);
+      const endDate = new Date(window.endDatetime);
       
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new BadRequestError('Datas inválidas na janela de tempo');
       }
       
       if (endDate <= startDate) {
-        throw new BadRequestError('end_datetime deve ser posterior a start_datetime na janela de tempo');
+        throw new BadRequestError('endDatetime deve ser posterior a startDatetime na janela de tempo');
       }
       
       if (window.timezone !== undefined && (!window.timezone || window.timezone.trim() === '')) {
@@ -1314,8 +1328,8 @@ class EventService {
       
       // Normalização mecânica apenas: trim de timezone se fornecido
       normalizedTimeWindows.push({
-        start_datetime: window.start_datetime, // ISO já validado
-        end_datetime: window.end_datetime, // ISO já validado
+        startDatetime: window.startDatetime, // ISO já validado
+        endDatetime: window.endDatetime, // ISO já validado
         timezone: window.timezone?.trim() || undefined,
       });
     }
@@ -1333,11 +1347,17 @@ class EventService {
     const metadata = event.metadata || {};
     
     // Se já tem declaration, atualizar dentro dela
-    if (metadata.declaration && typeof metadata.declaration === 'object' && metadata.declaration.declared_at) {
+    // Nota: metadata.declaration usa snake_case para persistência (JSONB)
+    if (metadata.declaration && typeof metadata.declaration === 'object' && metadata.declaration.declaredAt) {
       // Declaration já existe (evento declarado) - apenas atualizar time windows
+      // Converter EventTimeWindow[] (camelCase) para snake_case na persistência
       metadata.declaration = {
         ...metadata.declaration,
-        desired_time_windows: normalizedTimeWindows,
+        desired_time_windows: normalizedTimeWindows.map(w => ({
+          start_datetime: w.startDatetime,
+          end_datetime: w.endDatetime,
+          timezone: w.timezone,
+        })),
         ...(flexibilityLevel !== undefined && { flexibility_level: flexibilityLevel }),
         ...(timezone !== undefined && { timezone: timezone.trim() || undefined }),
       };
@@ -1347,6 +1367,7 @@ class EventService {
       const existingAspects = (metadata.declaration as any)?.event_aspects || [];
       const existingAspectsVersion = (metadata.declaration as any)?.aspects_version || 'v1';
       
+      // Converter EventTimeWindow[] (camelCase) para snake_case na persistência
       metadata.declaration = {
         title: event.title,
         description: event.description || null,
@@ -1354,8 +1375,12 @@ class EventService {
         aspects_version: existingAspectsVersion,
         visibility: event.visibility,
         intent_flags: (metadata.declaration as any)?.intent_flags || [],
-        declared_at: (metadata.declaration as any)?.declared_at || null, // null se draft
-        desired_time_windows: normalizedTimeWindows,
+        declaredAt: (metadata.declaration as any)?.declaredAt || null, // null se draft
+        desired_time_windows: normalizedTimeWindows.map(w => ({
+          start_datetime: w.startDatetime,
+          end_datetime: w.endDatetime,
+          timezone: w.timezone,
+        })),
         ...(flexibilityLevel !== undefined && { flexibility_level: flexibilityLevel }),
         ...(timezone !== undefined && { timezone: timezone.trim() || undefined }),
       };
@@ -1368,7 +1393,7 @@ class EventService {
       UPDATE events
       SET 
         metadata = $1,
-        updated_at = NOW()
+        updatedAt = NOW()
       WHERE tenant_id = $2 AND id = $3
       RETURNING *
       `,
@@ -1392,4 +1417,5 @@ class EventService {
 }
 
 export const eventService = new EventService();
+
 

@@ -70,7 +70,7 @@ export class EventMetricsDashboardService {
     const eventRow = await runQueriesWithTenant<any>(
       tenantId,
       `
-      SELECT id, title, start_time, end_time, status
+      SELECT id, title, starts_at, ends_at, status
       FROM events
       WHERE id = $1
       `,
@@ -83,8 +83,8 @@ export class EventMetricsDashboardService {
 
     const event = eventRow[0];
     const stateInfo = eventStateService.getEventState({
-      startTime: event.start_time,
-      endTime: event.end_time,
+      startTime: event.starts_at,
+      endTime: event.ends_at,
       status: event.status,
     });
 
@@ -112,18 +112,18 @@ export class EventMetricsDashboardService {
       tenantId,
       `
       WITH event_times AS (
-        SELECT start_time, end_time, status
+        SELECT starts_at, ends_at, status
         FROM events
         WHERE id = $1
       ),
       metrics_with_state AS (
         SELECT 
           em.metric_type,
-          em.created_at,
+          em.createdAt,
           CASE
-            WHEN em.created_at < et.start_time THEN 'PRE'
-            WHEN em.created_at >= et.start_time AND em.created_at <= et.end_time THEN 'DURING'
-            WHEN em.created_at > et.end_time OR et.status = 'FINISHED' THEN 'POST'
+            WHEN em.createdAt < et.starts_at THEN 'PRE'
+            WHEN em.createdAt >= et.starts_at AND em.createdAt <= et.ends_at THEN 'DURING'
+            WHEN em.createdAt > et.ends_at OR et.status = 'FINISHED' THEN 'POST'
             ELSE 'UNKNOWN'
           END as state
         FROM event_metrics em
@@ -333,6 +333,8 @@ export class EventMetricsDashboardService {
 }
 
 export const eventMetricsDashboardService = new EventMetricsDashboardService();
+
+
 
 
 

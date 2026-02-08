@@ -25,15 +25,15 @@ class ReviewService {
       punctualityRating: row.punctuality_rating ?? undefined,
       professionalismRating: row.professionalism_rating ?? undefined,
       context: (row.context ?? undefined) as any,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
   async getById(tenantId: string, reviewId: string): Promise<Review | null> {
     const row = await runQueryWithTenant<ReviewRow>(
       tenantId,
-      `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at FROM reviews WHERE review_id = $1`,
+      `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt FROM reviews WHERE review_id = $1`,
       [reviewId],
     );
     return row ? this.toReview(row) : null;
@@ -113,7 +113,7 @@ class ReviewService {
   async listReviews(
     tenantId: string,
     filters: ListReviewsFilters,
-  ): Promise<{ reviews: Review[]; total: number }> {
+  ): Promise<{ reviews: Review[]; totalCents: number }> {
     const { entityType, entityId, authorUserId, limit = 50, offset = 0 } =
       filters;
 
@@ -144,16 +144,16 @@ class ReviewService {
     const rows = await runQueriesWithTenant<ReviewRow>(
       tenantId,
       `
-      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at
+      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt
       FROM reviews
       WHERE ${whereSQL}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${i} OFFSET $${i + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ total: string }>(
+    const count = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `SELECT COUNT(*) AS total FROM reviews WHERE ${whereSQL}`,
       params,
@@ -165,9 +165,11 @@ class ReviewService {
 
     return {
       reviews: rows.map(r => this.toReview(r)),
-      total: Number(count.total),
+      totalCents: Number(count.total),
     };
   }
 }
 
 export const reviewService = new ReviewService();
+
+

@@ -136,7 +136,7 @@ class BankPolicyService {
   async setPolicy(
     tenantId: string,
     key: string,
-    value: any,
+    valueCents: any,
     status: 'active' | 'deprecated' | 'draft' = 'active'
   ): Promise<void> {
     // Buscar última versão
@@ -178,6 +178,7 @@ class BankPolicyService {
 }
 
 export const bankPolicyService = new BankPolicyService();
+
 
 
 

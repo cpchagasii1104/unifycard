@@ -89,7 +89,7 @@ class LivePresenceService {
     contextId: string,
     contactId: string
   ): Promise<LivePresence> {
-    // Calcular novo expires_at
+    // Calcular novo expiresAt
     const ttlMinutes = policyRegistry.getPolicyValue<number>('live_chat', 'ttl_minutes', 20);
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + ttlMinutes);
@@ -119,7 +119,7 @@ class LivePresenceService {
     contextId: string,
     limit: number = 50
   ): Promise<LivePresence[]> {
-    // Retorna APENAS opted_in=true AND status=ONLINE AND expires_at > now
+    // Retorna APENAS opted_in=true AND status=ONLINE AND expiresAt > now
     return await livePresenceRepository.listOnline(tenantId, contextType, contextId, limit);
   }
 
@@ -159,6 +159,7 @@ class LivePresenceService {
 }
 
 export const livePresenceService = new LivePresenceService();
+
 
 
 

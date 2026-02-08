@@ -20,20 +20,20 @@
 export type ProductTemplateType = 'industrialized' | 'own' | 'service';
 
 export interface ProductTemplate {
-  template_id: string;
+  templateId: string;
   name: string;
   description?: string;
-  category_id: string;
+  categoryId: string;
   type: ProductTemplateType;
-  default_unit: string; // kg, un, l, m, etc.
-  canonical_images: {
+  defaultUnit: string; // kg, un, l, m, etc.
+  canonicalImages: {
     main?: string;
     thumbnail?: string;
   };
   attributes: Record<string, any>; // volume, embalagem, duração, etc.
   version: string; // v1, v2, etc.
-  created_at: string;
-  updated_at?: string; // Apenas para novos imports, nunca altera template existente
+  createdAt: string;
+  updatedAt?: string; // Apenas para novos imports, nunca altera template existente
   // Imutável após criação
   immutable: true;
 }

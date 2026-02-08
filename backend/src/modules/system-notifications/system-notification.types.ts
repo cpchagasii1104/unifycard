@@ -34,7 +34,7 @@ export interface SystemNotification {
   message: string;
   metadata?: Record<string, any> | null;
   readAt: Date | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -61,6 +61,7 @@ export interface SystemNotificationFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

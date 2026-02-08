@@ -15,16 +15,16 @@ interface SettlementRow {
   net_amount_cents: number;
   currency: string;
   status: string;
-  settled_at: Date | null;
+  settledAt: Date | null;
   settled_by_actor_id: string | null;
   settled_by_user_id: string | null;
-  failed_at: Date | null;
+  failedAt: Date | null;
   failure_reason: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class SettlementRepository {
@@ -40,16 +40,16 @@ class SettlementRepository {
       netAmountCents: row.net_amount_cents,
       currency: row.currency,
       status: row.status as any,
-      settledAt: row.settled_at,
+      settledAt: row.settledAt,
       settledByActorId: row.settled_by_actor_id,
       settledByUserId: row.settled_by_user_id,
-      failedAt: row.failed_at,
+      failedAt: row.failedAt,
       failureReason: row.failure_reason,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -79,10 +79,10 @@ class SettlementRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
       RETURNING id, tenant_id, region_id, source_type, source_id,
                 gross_amount_cents, fee_amount_cents, net_amount_cents, currency,
-                status, settled_at, settled_by_actor_id, settled_by_user_id,
-                failed_at, failure_reason,
+                status, settledAt, settled_by_actor_id, settled_by_user_id,
+                failedAt, failure_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -113,10 +113,10 @@ class SettlementRepository {
       `
       SELECT id, tenant_id, region_id, source_type, source_id,
              gross_amount_cents, fee_amount_cents, net_amount_cents, currency,
-             status, settled_at, settled_by_actor_id, settled_by_user_id,
-             failed_at, failure_reason,
+             status, settledAt, settled_by_actor_id, settled_by_user_id,
+             failedAt, failure_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM settlements
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -161,13 +161,13 @@ class SettlementRepository {
       `
       SELECT id, tenant_id, region_id, source_type, source_id,
              gross_amount_cents, fee_amount_cents, net_amount_cents, currency,
-             status, settled_at, settled_by_actor_id, settled_by_user_id,
-             failed_at, failure_reason,
+             status, settledAt, settled_by_actor_id, settled_by_user_id,
+             failedAt, failure_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM settlements
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -187,17 +187,17 @@ class SettlementRepository {
       `
       UPDATE settlements
       SET status = 'SETTLED',
-          settled_at = NOW(),
+          settledAt = NOW(),
           settled_by_actor_id = $3,
           settled_by_user_id = $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
       RETURNING id, tenant_id, region_id, source_type, source_id,
                 gross_amount_cents, fee_amount_cents, net_amount_cents, currency,
-                status, settled_at, settled_by_actor_id, settled_by_user_id,
-                failed_at, failure_reason,
+                status, settledAt, settled_by_actor_id, settled_by_user_id,
+                failedAt, failure_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, settlementId, settledByActorId, settledByUserId]
     );
@@ -219,16 +219,16 @@ class SettlementRepository {
       `
       UPDATE settlements
       SET status = 'FAILED',
-          failed_at = NOW(),
+          failedAt = NOW(),
           failure_reason = $3,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
       RETURNING id, tenant_id, region_id, source_type, source_id,
                 gross_amount_cents, fee_amount_cents, net_amount_cents, currency,
-                status, settled_at, settled_by_actor_id, settled_by_user_id,
-                failed_at, failure_reason,
+                status, settledAt, settled_by_actor_id, settled_by_user_id,
+                failedAt, failure_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, settlementId, failureReason]
     );
@@ -242,6 +242,8 @@ class SettlementRepository {
 }
 
 export const settlementRepository = new SettlementRepository();
+
+
 
 
 

@@ -43,10 +43,10 @@ class HumanMvpActivityExecutionService {
       person_id: string;
       category_id: string;
       context: CategoryContext;
-      executed_at: Date | null;
+      executedAt: Date | null;
     }>(
       `
-      SELECT id, tenant_id, opportunity_id, person_id, category_id, context, executed_at
+      SELECT id, tenant_id, opportunity_id, person_id, category_id, context, executedAt
       FROM human_mvp_event_instances
       WHERE id = $1
         AND tenant_id = $2
@@ -62,7 +62,7 @@ class HumanMvpActivityExecutionService {
     const eventInstance = eventInstanceResult.rows[0];
 
     // VALIDAÇÃO 2: EventInstance ainda não foi executado
-    if (eventInstance.executed_at !== null) {
+    if (eventInstance.executedAt !== null) {
       throw new Error('EventInstance já foi executado');
     }
 
@@ -82,15 +82,15 @@ class HumanMvpActivityExecutionService {
       throw new Error(`CONTEXT_ACCESS_DENIED: Tenant ${tenantId} não tem permissão de escrita no context ${context}`);
     }
 
-    // Registrar execução (atualizar executed_at)
+    // Registrar execução (atualizar executedAt)
     const executedAt = new Date();
     const result = await pool.query<{ id: string }>(
       `
       UPDATE human_mvp_event_instances
-      SET executed_at = $1, updated_at = NOW()
+      SET executedAt = $1, updatedAt = NOW()
       WHERE id = $2
         AND tenant_id = $3
-        AND executed_at IS NULL
+        AND executedAt IS NULL
       RETURNING id
       `,
       [executedAt, input.eventInstanceId, tenantId]
@@ -125,7 +125,7 @@ class HumanMvpActivityExecutionService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, created_at
+        event_type, tenant_id, person_id, category_id, context, details, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
@@ -147,6 +147,7 @@ class HumanMvpActivityExecutionService {
 }
 
 export const humanMvpActivityExecutionService = new HumanMvpActivityExecutionService();
+
 
 
 

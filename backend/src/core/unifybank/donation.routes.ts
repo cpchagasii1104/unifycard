@@ -13,7 +13,7 @@ const createDonationSchema = z.object({
     errorMap: () => ({ message: 'targetType must be "user", "project", or "group"' }),
   }),
   targetId: z.string().uuid('Invalid target ID'),
-  amount: z.number().positive('Amount must be greater than zero'),
+  amountCents: z.number().positive('Amount must be greater than zero'),
   message: z.string().max(500, 'Message too long').optional(),
   eventId: z.string().uuid('Invalid event ID').optional(),
 });
@@ -94,7 +94,7 @@ const donationRoutes: FastifyPluginAsync = async (fastify) => {
           fromUserId: result.fromUserId,
           targetType: result.targetType,
           targetId: result.targetId,
-          amount: result.amount,
+          amountCents: result.amount,
           message: result.message,
           feedPostId: result.feedPostId,
           splitGroupId: result.splitGroupId,
@@ -135,6 +135,7 @@ const donationRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default donationRoutes;
+
 
 
 

@@ -112,11 +112,11 @@ export interface Refund {
   requested_by_actor_id: string;
   approved_by_actor_id?: string;
   executed_by_actor_id?: string;
-  requested_at: string;
-  approved_at?: string;
-  executed_at?: string;
-  rejected_at?: string;
-  cancelled_at?: string;
+  requestedAt: string;
+  approvedAt?: string;
+  executedAt?: string;
+  rejectedAt?: string;
+  cancelledAt?: string;
 }
 
 /**
@@ -134,8 +134,8 @@ export interface Chargeback {
   reason: string;
   initiated_by_actor_id: string;
   resolved_by_actor_id?: string;
-  initiated_at: string;
-  resolved_at?: string;
+  initiatedAt: string;
+  resolvedAt?: string;
   frozen_executions: boolean; // Congela novas execuções
 }
 
@@ -152,11 +152,11 @@ interface RefundRow {
   requested_by_actor_id: string;
   approved_by_actor_id: string | null;
   executed_by_actor_id: string | null;
-  requested_at: string;
-  approved_at: string | null;
-  executed_at: string | null;
-  rejected_at: string | null;
-  cancelled_at: string | null;
+  requestedAt: string;
+  approvedAt: string | null;
+  executedAt: string | null;
+  rejectedAt: string | null;
+  cancelledAt: string | null;
 }
 
 interface ChargebackRow {
@@ -171,8 +171,8 @@ interface ChargebackRow {
   reason: string;
   initiated_by_actor_id: string;
   resolved_by_actor_id: string | null;
-  initiated_at: string;
-  resolved_at: string | null;
+  initiatedAt: string;
+  resolvedAt: string | null;
   frozen_executions: boolean;
 }
 
@@ -226,7 +226,7 @@ class EventRefundChargebackService {
       INSERT INTO event_refund (
         id, tenant_id, event_id, custody_id,
         refund_type, amount_cents, currency, status,
-        reason, requested_by_actor_id, requested_at
+        reason, requested_by_actor_id, requestedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
       RETURNING *
@@ -295,7 +295,7 @@ class EventRefundChargebackService {
       tenantId,
       `
       UPDATE event_refund
-      SET status = 'approved', approved_by_actor_id = $1, approved_at = NOW(), updated_at = NOW()
+      SET status = 'approved', approved_by_actor_id = $1, approvedAt = NOW(), updatedAt = NOW()
       WHERE id = $2 AND tenant_id = $3
       RETURNING *
       `,
@@ -361,7 +361,7 @@ class EventRefundChargebackService {
       tenantId,
       `
       UPDATE event_refund
-      SET status = 'executed', executed_by_actor_id = $1, executed_at = NOW(), updated_at = NOW()
+      SET status = 'executed', executed_by_actor_id = $1, executedAt = NOW(), updatedAt = NOW()
       WHERE id = $2 AND tenant_id = $3
       RETURNING *
       `,
@@ -428,7 +428,7 @@ class EventRefundChargebackService {
         id, tenant_id, event_id, custody_id,
         amount_cents, currency, status,
         external_reference, reason, initiated_by_actor_id,
-        frozen_executions, initiated_at
+        frozen_executions, initiatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
       RETURNING *
@@ -503,7 +503,7 @@ class EventRefundChargebackService {
       tenantId,
       `
       UPDATE event_chargeback
-      SET status = $1, resolved_by_actor_id = $2, resolved_at = NOW(), updated_at = NOW()
+      SET status = $1, resolved_by_actor_id = $2, resolvedAt = NOW(), updatedAt = NOW()
       WHERE id = $3 AND tenant_id = $4
       RETURNING *
       `,
@@ -619,7 +619,7 @@ class EventRefundChargebackService {
       SELECT *
       FROM event_refund
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY requested_at DESC
+      ORDER BY requestedAt DESC
       `,
       [eventId, tenantId]
     );
@@ -640,7 +640,7 @@ class EventRefundChargebackService {
       SELECT *
       FROM event_chargeback
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY initiated_at DESC
+      ORDER BY initiatedAt DESC
       `,
       [eventId, tenantId]
     );
@@ -665,11 +665,11 @@ class EventRefundChargebackService {
       requested_by_actor_id: row.requested_by_actor_id,
       approved_by_actor_id: row.approved_by_actor_id || undefined,
       executed_by_actor_id: row.executed_by_actor_id || undefined,
-      requested_at: row.requested_at,
-      approved_at: row.approved_at || undefined,
-      executed_at: row.executed_at || undefined,
-      rejected_at: row.rejected_at || undefined,
-      cancelled_at: row.cancelled_at || undefined,
+      requestedAt: row.requestedAt,
+      approvedAt: row.approvedAt || undefined,
+      executedAt: row.executedAt || undefined,
+      rejectedAt: row.rejectedAt || undefined,
+      cancelledAt: row.cancelledAt || undefined,
     };
   }
 
@@ -689,12 +689,13 @@ class EventRefundChargebackService {
       reason: row.reason,
       initiated_by_actor_id: row.initiated_by_actor_id,
       resolved_by_actor_id: row.resolved_by_actor_id || undefined,
-      initiated_at: row.initiated_at,
-      resolved_at: row.resolved_at || undefined,
+      initiatedAt: row.initiatedAt,
+      resolvedAt: row.resolvedAt || undefined,
       frozen_executions: row.frozen_executions,
     };
   }
 }
 
 export const eventRefundChargebackService = new EventRefundChargebackService();
+
 

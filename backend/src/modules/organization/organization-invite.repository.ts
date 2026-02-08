@@ -13,9 +13,9 @@ interface OrganizationInviteRow {
   invited_by_user_id: string;
   status: string;
   token: string;
-  expires_at: Date;
-  created_at: Date;
-  accepted_at: Date | null;
+  expiresAt: Date;
+  createdAt: Date;
+  acceptedAt: Date | null;
 }
 
 class OrganizationInviteRepository {
@@ -28,9 +28,9 @@ class OrganizationInviteRepository {
       invitedByUserId: row.invited_by_user_id,
       status: row.status as any,
       token: row.token,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-      acceptedAt: row.accepted_at,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt.toISOString(),
+      acceptedAt: row.acceptedAt,
     };
   }
 
@@ -50,10 +50,10 @@ class OrganizationInviteRepository {
       tenantId,
       `
       INSERT INTO organization_invites (
-        tenant_id, email, role_id, invited_by_user_id, token, expires_at
+        tenant_id, email, role_id, invited_by_user_id, token, expiresAt
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       `,
       [
         tenantId,
@@ -76,7 +76,7 @@ class OrganizationInviteRepository {
     const rows = await runQueriesWithTenant<OrganizationInviteRow>(
       tenantId,
       `
-      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       FROM organization_invites
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -96,7 +96,7 @@ class OrganizationInviteRepository {
     
     const result = await pool.query<OrganizationInviteRow>(
       `
-      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       FROM organization_invites
       WHERE token = $1
       `,
@@ -127,10 +127,10 @@ class OrganizationInviteRepository {
     const rows = await runQueriesWithTenant<OrganizationInviteRow>(
       tenantId,
       `
-      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      SELECT id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       FROM organization_invites
       WHERE ${conditions.join(' AND ')}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -145,9 +145,9 @@ class OrganizationInviteRepository {
       `
       UPDATE organization_invites
       SET status = 'ACCEPTED',
-          accepted_at = NOW()
+          acceptedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
-      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       `,
       [tenantId, inviteId]
     );
@@ -166,7 +166,7 @@ class OrganizationInviteRepository {
       UPDATE organization_invites
       SET status = 'REJECTED'
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
-      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       `,
       [tenantId, inviteId]
     );
@@ -185,7 +185,7 @@ class OrganizationInviteRepository {
       UPDATE organization_invites
       SET status = 'EXPIRED'
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
-      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       `,
       [tenantId, inviteId]
     );
@@ -205,7 +205,7 @@ class OrganizationInviteRepository {
       UPDATE organization_invites
       SET status = 'REJECTED'
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
-      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expires_at, created_at, accepted_at
+      RETURNING id, tenant_id, email, role_id, invited_by_user_id, status, token, expiresAt, createdAt, acceptedAt
       `,
       [tenantId, inviteId]
     );
@@ -219,4 +219,6 @@ class OrganizationInviteRepository {
 }
 
 export const organizationInviteRepository = new OrganizationInviteRepository();
+
+
 

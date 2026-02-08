@@ -19,11 +19,11 @@ interface TabRow {
   status: string;
   table_label: string | null;
   qr_token: string;
-  opened_at: Date;
-  closed_at: Date | null;
+  openedAt: Date;
+  closedAt: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface TabOrderRow {
@@ -31,7 +31,7 @@ interface TabOrderRow {
   tenant_id: string;
   tab_id: string;
   order_id: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class TabRepository {
@@ -45,11 +45,11 @@ class TabRepository {
       status: row.status as TabStatus,
       tableLabel: row.table_label,
       qrToken: row.qr_token,
-      openedAt: row.opened_at,
-      closedAt: row.closed_at,
+      openedAt: row.openedAt,
+      closedAt: row.closedAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -87,8 +87,8 @@ class TabRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
       RETURNING id, tenant_id, actor_id, opened_by_contact_id, opened_by_user_id,
-                status, table_label, qr_token, opened_at, closed_at,
-                metadata, created_at, updated_at
+                status, table_label, qr_token, openedAt, closedAt,
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -114,8 +114,8 @@ class TabRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, opened_by_contact_id, opened_by_user_id,
-             status, table_label, qr_token, opened_at, closed_at,
-             metadata, created_at, updated_at
+             status, table_label, qr_token, openedAt, closedAt,
+             metadata, createdAt, updatedAt
       FROM tabs
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -130,8 +130,8 @@ class TabRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, opened_by_contact_id, opened_by_user_id,
-             status, table_label, qr_token, opened_at, closed_at,
-             metadata, created_at, updated_at
+             status, table_label, qr_token, openedAt, closedAt,
+             metadata, createdAt, updatedAt
       FROM tabs
       WHERE tenant_id = $1 AND qr_token = $2
       `,
@@ -165,11 +165,11 @@ class TabRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, opened_by_contact_id, opened_by_user_id,
-             status, table_label, qr_token, opened_at, closed_at,
-             metadata, created_at, updated_at
+             status, table_label, qr_token, openedAt, closedAt,
+             metadata, createdAt, updatedAt
       FROM tabs
       WHERE ${conditions.join(' AND ')}
-      ORDER BY opened_at DESC
+      ORDER BY openedAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -184,12 +184,12 @@ class TabRepository {
       `
       UPDATE tabs
       SET status = 'CLOSED',
-          closed_at = NOW(),
+          closedAt = NOW(),
           metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{summary}', $1::jsonb)
       WHERE tenant_id = $2 AND id = $3 AND status = 'OPEN'
       RETURNING id, tenant_id, actor_id, opened_by_contact_id, opened_by_user_id,
-                status, table_label, qr_token, opened_at, closed_at,
-                metadata, created_at, updated_at
+                status, table_label, qr_token, openedAt, closedAt,
+                metadata, createdAt, updatedAt
       `,
       [JSON.stringify(summary || {}), tenantId, tabId]
     );
@@ -217,10 +217,10 @@ class TabRepository {
     const rows = await runQueriesWithTenant<TabOrderRow>(
       tenantId,
       `
-      SELECT id, tenant_id, tab_id, order_id, created_at
+      SELECT id, tenant_id, tab_id, order_id, createdAt
       FROM tab_orders
       WHERE tenant_id = $1 AND tab_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, tabId]
     );
@@ -228,12 +228,14 @@ class TabRepository {
     return rows.map((row) => ({
       id: row.id,
       orderId: row.order_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     }));
   }
 }
 
 export const tabRepository = new TabRepository();
+
+
 
 
 

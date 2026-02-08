@@ -55,8 +55,8 @@ export function getTrustSignals(actorData: ActorTrustData): TrustSignal[] {
 
   // Novo usuário (menos de 30 dias)
   if (actorData.created_at) {
-    const createdDate = new Date(actorData.created_at).getTime();
-    const daysSinceCreation = (now - createdDate) / (1000 * 60 * 60 * 24);
+    const createdAt = new Date(actorData.created_at).getTime();
+    const daysSinceCreation = (now - createdAt) / (1000 * 60 * 60 * 24);
     if (daysSinceCreation < 30) {
       signals.push({
         type: 'badge',
@@ -279,8 +279,8 @@ export function getEventTrustSignals(eventData: {
 
   // 3. Evento ativo recentemente (prioridade média)
   if (eventData.updated_at) {
-    const updatedDate = new Date(eventData.updated_at).getTime();
-    if (updatedDate > sevenDaysAgo) {
+    const updatedAt = new Date(eventData.updated_at).getTime();
+    if (updatedAt > sevenDaysAgo) {
       signals.push({
         type: 'badge',
         label: 'Ativo recentemente',
@@ -289,8 +289,8 @@ export function getEventTrustSignals(eventData: {
       });
     }
   } else if (eventData.created_at) {
-    const createdDate = new Date(eventData.created_at).getTime();
-    if (createdDate > sevenDaysAgo) {
+    const createdAt = new Date(eventData.created_at).getTime();
+    if (createdAt > sevenDaysAgo) {
       signals.push({
         type: 'badge',
         label: 'Evento recente',
@@ -315,5 +315,6 @@ export function getEventTrustSignals(eventData: {
   // Limitar a 2-3 sinais mais importantes
   return signals.slice(0, 3);
 }
+
 
 

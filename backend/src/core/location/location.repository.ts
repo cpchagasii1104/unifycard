@@ -30,7 +30,7 @@ class LocationRepository {
       id: row.country_id,
       code: row.code,
       name: row.name,
-      active: true, // Assumir todos ativos se coluna não existir
+      isActive: true, // Assumir todos ativos se coluna não existir
     }));
   }
 
@@ -273,7 +273,7 @@ class LocationRepository {
       id: row.id,
       code: row.code,
       name: row.name,
-      active: true, // Assumir ativo se coluna não existir
+      isActive: true, // Assumir ativo se coluna não existir
     };
   }
 

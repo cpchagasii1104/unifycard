@@ -10,7 +10,7 @@ import { rbacService } from '@core/rbac/rbac.service';
 import { z } from 'zod';
 
 const paymentFromPostSchema = z.object({
-  amount: z.number().positive('Amount must be greater than zero'),
+  amountCents: z.number().positive('Amount must be greater than zero'),
 });
 
 const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
@@ -22,7 +22,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { postId: string };
     Body: {
-      amount: number;
+      amountCents: number;
     };
   }>(
     '/posts/:postId/pay',
@@ -39,7 +39,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           type: 'object',
           required: ['amount'],
           properties: {
-            amount: { type: 'number', minimum: 0.01 },
+            amountCents: { type: 'number', minimum: 0.01 },
           },
         },
       },
@@ -65,7 +65,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
         globalUserId,
         'social-work.action': 'payment-from-post',
         postId,
-        amount: validated.amount,
+        amountCents: validated.amount,
         source: 'social_post',
       }, 'Creating payment from social post');
 
@@ -113,7 +113,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           jobId: scheduledJob.jobId,
           scheduleId: scheduledJob.scheduleId,
           slotId: scheduledJob.slotId,
-          amount: validated.amount,
+          amountCents: validated.amount,
           transactionId: transaction.transactionId,
           providerUserId: jobFull.clientUserId,
           source: 'social_post',
@@ -219,7 +219,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           postId,
           jobId: job.jobId,
           payments: [], // TODO: Implementar busca real
-          total: 0,
+          totalCents: 0,
         };
       } catch (error) {
         req.log.error({
@@ -241,4 +241,5 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default socialWorkPaymentRoutes;
+
 

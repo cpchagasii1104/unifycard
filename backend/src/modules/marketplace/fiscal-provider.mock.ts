@@ -55,7 +55,7 @@ class MockFiscalProvider implements FiscalProvider {
         protocolo,
         metadata: {
           provider: 'mock',
-          issued_at: new Date().toISOString(),
+          issuedAt: new Date().toISOString(),
         },
       };
     } else {
@@ -67,7 +67,7 @@ class MockFiscalProvider implements FiscalProvider {
         errorMessage: 'Erro simulado do provider mock',
         metadata: {
           provider: 'mock',
-          failed_at: new Date().toISOString(),
+          failedAt: new Date().toISOString(),
         },
       };
     }
@@ -91,7 +91,7 @@ class MockFiscalProvider implements FiscalProvider {
         protocoloCancelamento: `MOCK-CANCEL-${Date.now()}`,
         metadata: {
           provider: 'mock',
-          cancelled_at: new Date().toISOString(),
+          cancelledAt: new Date().toISOString(),
           reason,
         },
       };
@@ -103,7 +103,7 @@ class MockFiscalProvider implements FiscalProvider {
         errorMessage: 'Erro simulado ao cancelar',
         metadata: {
           provider: 'mock',
-          failed_at: new Date().toISOString(),
+          failedAt: new Date().toISOString(),
         },
       };
     }
@@ -124,13 +124,14 @@ class MockFiscalProvider implements FiscalProvider {
       protocolo: chaveAcesso ? `MOCK-PROTOCOL-${documentId}` : undefined,
       metadata: {
         provider: 'mock',
-        checked_at: new Date().toISOString(),
+        checkedAt: new Date().toISOString(),
       },
     };
   }
 }
 
 export const mockFiscalProvider = new MockFiscalProvider();
+
 
 
 

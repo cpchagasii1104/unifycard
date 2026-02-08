@@ -86,7 +86,7 @@ describe('OperationalCommitmentsService - Lifecycle Factual', () => {
       expect(true).toBe(true); // Placeholder - validação real
     });
 
-    it('deve registrar checked_in_at', async () => {
+    it('deve registrar checked_inAt', async () => {
       // Este teste verifica que timestamp é registrado
       expect(true).toBe(true); // Placeholder - validação real
     });
@@ -116,4 +116,5 @@ describe('OperationalCommitmentsService - Lifecycle Factual', () => {
     });
   });
 });
+
 

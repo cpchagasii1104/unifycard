@@ -15,8 +15,8 @@ export class StateRepository {
           code,
           name,
           name_en,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM states
         WHERE country_id = $1
         ORDER BY name ASC
@@ -37,8 +37,8 @@ export class StateRepository {
           code,
           name,
           name_en,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM states
         WHERE state_id = $1
       `,
@@ -47,6 +47,7 @@ export class StateRepository {
     return rows[0];
   }
 }
+
 
 
 

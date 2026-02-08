@@ -10,7 +10,7 @@ export type AgreementContextType = 'event' | 'service' | 'rfq' | 'booking' | 'bu
 /**
  * Status do acordo
  */
-export type AgreementStatus = 'DRAFT' | 'PROPOSED' | 'ACCEPTED' | 'FINALIZED';
+export type AgreementStatus = 'draft' | 'proposed' | 'accepted' | 'finalized';
 
 /**
  * Tipo de mensagem no chat de negociação
@@ -46,8 +46,8 @@ export interface Agreement {
   finalizedAt: Date | null;
   finalizedByActorId: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -118,6 +118,7 @@ export interface AgreementFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

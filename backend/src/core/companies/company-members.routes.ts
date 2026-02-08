@@ -27,8 +27,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:companyId/members',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -46,7 +46,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const member = await companyMembersService.createMember(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             companyId: req.params.companyId,
             actorId: parsed.data.actorId,
@@ -64,7 +64,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
             actorId: member.actorId,
             role: member.role,
             status: member.status,
-            createdAt: member.createdAt.toISOString(),
+            createdAt: member.createdAt,
           },
         });
       } catch (error) {
@@ -88,8 +88,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       status?: string;
     };
   }>('/:companyId/members', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -118,8 +119,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
           actorId: m.actorId,
           role: m.role,
           status: m.status,
-          createdAt: m.createdAt.toISOString(),
-          updatedAt: m.updatedAt.toISOString(),
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
         })),
       });
     } catch (error) {
@@ -135,8 +136,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { companyId: string; memberId: string };
   }>('/:companyId/members/:memberId', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -153,8 +155,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
           actorId: member.actorId,
           role: member.role,
           status: member.status,
-          createdAt: member.createdAt.toISOString(),
-          updatedAt: member.updatedAt.toISOString(),
+          createdAt: member.createdAt,
+          updatedAt: member.updatedAt,
         },
       });
     } catch (error) {
@@ -180,8 +182,8 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:companyId/members/:memberId',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -200,7 +202,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
         const member = await companyMembersService.updateMember(
           req.tenant.id,
           req.params.memberId,
-          req.user.userId,
+          req.actionContext.actorId,
           parsed.data
         );
 
@@ -212,7 +214,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
             actorId: member.actorId,
             role: member.role,
             status: member.status,
-            updatedAt: member.updatedAt.toISOString(),
+            updatedAt: member.updatedAt,
           },
         });
       } catch (error) {
@@ -232,8 +234,9 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{
     Params: { companyId: string; memberId: string };
   }>('/:companyId/members/:memberId', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -243,7 +246,7 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       await companyMembersService.removeMember(
         req.tenant.id,
         req.params.memberId,
-        req.user.userId
+        req.actionContext.actorId
       );
 
       return reply.status(204).send();

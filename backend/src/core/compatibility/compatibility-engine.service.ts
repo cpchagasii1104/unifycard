@@ -22,7 +22,7 @@ class CompatibilityEngineService {
     } = input;
 
     const result: CompatibilityResult = {
-      status: 'OK',
+      status: 'ok',
       missingRequired: [],
       missingOptional: [],
       extraAvailable: [],
@@ -40,7 +40,7 @@ class CompatibilityEngineService {
 
     if (capacityMismatch) {
       result.capacityMismatch = true;
-      result.status = 'BLOCKED';
+      result.status = 'blocked';
       result.pricing.reason.push('Capacidade do evento fora do range do setup');
     }
 
@@ -52,7 +52,7 @@ class CompatibilityEngineService {
 
     if (missingRequired.length > 0) {
       result.missingRequired = missingRequired;
-      result.status = 'BLOCKED';
+      result.status = 'blocked';
       result.pricing.reason.push(`Faltam itens obrigatórios: ${missingRequired.join(', ')}`);
     }
 
@@ -63,8 +63,8 @@ class CompatibilityEngineService {
 
     if (missingOptional.length > 0) {
       result.missingOptional = missingOptional;
-      if (result.status === 'OK') {
-        result.status = 'WARNING';
+      if (result.status === 'ok') {
+        result.status = 'warning';
       }
       result.pricing.reason.push(`Itens opcionais não disponíveis: ${missingOptional.join(', ')}`);
     }
@@ -82,8 +82,8 @@ class CompatibilityEngineService {
     // 5. Verificar se requer produção assistida (XL/XXL)
     if (eventCapacity.capacityClass === 'XL' || eventCapacity.capacityClass === 'XXL') {
       result.requiresProductionAssistance = true;
-      if (result.status === 'OK') {
-        result.status = 'WARNING';
+      if (result.status === 'ok') {
+        result.status = 'warning';
       }
       result.pricing.reason.push('Eventos XL/XXL requerem produção assistida');
     }

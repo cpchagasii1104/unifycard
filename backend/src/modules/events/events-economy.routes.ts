@@ -61,14 +61,14 @@ const eventsEconomyRoutes: FastifyPluginAsync = async (fastify) => {
         if (eventRow.ticket_price_cents && eventRow.ticket_price_cents > 0) {
           // Buscar total real de checkouts/pagamentos relacionados ao evento
           // Tentar buscar de ledger ou transações relacionadas
-          const ledgerTotalRow = await runQueryWithTenant<{ total: string }>(
+          const ledgerTotalRow = await runQueryWithTenant<{ totalCents: string }>(
             tenantId,
             `
             SELECT COALESCE(SUM(amount_cents), 0) as total
             FROM ledger
             WHERE tenant_id = $1
               AND metadata->>'event_id' = $2
-              AND entry_type = 'CREDIT'
+              AND entry_type = 'credit'
             `,
             [tenantId, eventId]
           );
@@ -97,4 +97,5 @@ const eventsEconomyRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default eventsEconomyRoutes;
+
 

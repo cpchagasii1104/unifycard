@@ -31,8 +31,8 @@ class AssignmentService {
       paymentType: row.payment_type,
       status: row.status,
       paymentTransactionId: row.payment_transaction_id ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -107,7 +107,7 @@ class AssignmentService {
       UPDATE job_assignments
       SET
         status = COALESCE($3, status),
-        updated_at = now()
+        updatedAt = now()
       WHERE assignment_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -137,7 +137,7 @@ class AssignmentService {
   async listAssignments(
     tenantId: string,
     filters: any,
-  ): Promise<{ assignments: JobAssignment[]; total: number }> {
+  ): Promise<{ assignments: JobAssignment[]; totalCents: number }> {
     const { jobId, workerId, status, limit = 50, offset = 0 } = filters;
 
     const params: any[] = [tenantId];
@@ -170,13 +170,13 @@ class AssignmentService {
       SELECT *
       FROM job_assignments
       WHERE ${whereSQL}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${idx} OFFSET $${idx + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ total: string }>(
+    const count = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `SELECT COUNT(*) AS total FROM job_assignments WHERE ${whereSQL}`,
       params,
@@ -184,7 +184,7 @@ class AssignmentService {
 
     return {
       assignments: rows.map(r => this.toAssignment(r)),
-      total: count ? Number(count.total) : 0,
+      totalCents: count ? Number(count.total) : 0,
     };
   }
 
@@ -212,7 +212,7 @@ class AssignmentService {
       tenantId,
       `
       UPDATE job_assignments
-      SET status = 'completed', updated_at = now()
+      SET status = 'completed', updatedAt = now()
       WHERE assignment_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -310,7 +310,7 @@ class AssignmentService {
       console.log({
         tenantId,
         assignmentId: assignment.assignmentId,
-        amount: assignment.agreedRate,
+        amountCents: assignment.agreedRate,
         hasRegionAccount: !!regionAccountId,
         groupAccountsCount: groupAccountIds.length,
         source: options?.source || 'work',
@@ -319,7 +319,7 @@ class AssignmentService {
 
       const splitContext = {
         tenantId,
-        amount: assignment.agreedRate,
+        amountCents: assignment.agreedRate,
         currency: 'BRL',
         source,
         customerAccountId: clientAccount.accountId,
@@ -366,7 +366,7 @@ class AssignmentService {
           timestamp: new Date().toISOString(),
           module: 'work',
           regionId,
-          amount: assignment.agreedRate,
+          amountCents: assignment.agreedRate,
           transactionId: regionSplit.transactionId,
           tenantId,
           assignmentId: assignment.assignmentId,
@@ -385,7 +385,7 @@ class AssignmentService {
           tenantId,
           `
           UPDATE job_assignments
-          SET payment_transaction_id = $3, updated_at = now()
+          SET payment_transaction_id = $3, updatedAt = now()
           WHERE tenant_id = $1 AND assignment_id = $2
           RETURNING *
           `,
@@ -408,12 +408,12 @@ class AssignmentService {
           workerUserId,
           clientUserId,
           paymentTransactionId: mainTransactionId,
-          amount: assignment.agreedRate,
+          amountCents: assignment.agreedRate,
           splitResult: {
             totalAmount: splitResult.totalAmount,
             splits: splitResult.splits.map((s) => ({
               targetType: s.rule.targetType,
-              amount: s.amount,
+              amountCents: s.amount,
               transactionId: s.transactionId || null,
             })),
           },
@@ -458,3 +458,6 @@ class AssignmentService {
 }
 
 export const assignmentService = new AssignmentService();
+
+
+

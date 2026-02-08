@@ -34,11 +34,11 @@ const eventsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         // Verificar se evento existe
         const eventRow = await runQueryWithTenant<{
           id: string;
-          start_time: Date;
-          end_time: Date;
+          starts_at: Date;
+          ends_at: Date;
         }>(
           tenantId,
-          `SELECT id, start_time, end_time FROM events WHERE id = $1 AND tenant_id = $2`,
+          `SELECT id, starts_at, ends_at FROM events WHERE id = $1 AND tenant_id = $2`,
           [eventId, tenantId]
         );
 
@@ -56,14 +56,14 @@ const eventsClosureRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Total coletado (se houver ticket_price)
         let totalCollected = 0;
-        const ledgerTotalRow = await runQueryWithTenant<{ total: string }>(
+        const ledgerTotalRow = await runQueryWithTenant<{ totalCents: string }>(
           tenantId,
           `
           SELECT COALESCE(SUM(amount_cents), 0) as total
           FROM ledger
           WHERE tenant_id = $1
             AND metadata->>'event_id' = $2
-            AND entry_type = 'CREDIT'
+            AND entry_type = 'credit'
           `,
           [tenantId, eventId]
         );
@@ -72,8 +72,8 @@ const eventsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.send({
           participantsCount,
           totalCollected,
-          startedAt: eventRow.start_time.toISOString(),
-          endedAt: eventRow.end_time.toISOString(),
+          startedAt: eventRow.starts_at.toISOString(),
+          endedAt: eventRow.ends_at.toISOString(),
         });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar resumo de fechamento do evento');
@@ -84,4 +84,6 @@ const eventsClosureRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default eventsClosureRoutes;
+
+
 

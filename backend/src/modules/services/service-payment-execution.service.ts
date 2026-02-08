@@ -80,7 +80,7 @@ class ServicePaymentExecutionService {
           serviceId: paymentRequest.serviceId,
           buyerUserId: payerUserId,
           providerUserId: receiverUserId,
-          amount: paymentRequest.amount,
+          amountCents: paymentRequest.amountCents,
           currency: 'BRL',
           idempotencyKey: `execution-${paymentRequest.paymentRequestId}`,
           metadata: {
@@ -116,7 +116,7 @@ class ServicePaymentExecutionService {
           serviceId: paymentRequest.serviceId,
           buyerUserId: payerUserId,
           providerUserId: receiverUserId,
-          amount: paymentRequest.amount,
+          amountCents: paymentRequest.amountCents,
           currency: 'BRL',
           idempotencyKey: execution.executionId,
           metadata: {
@@ -139,9 +139,9 @@ class ServicePaymentExecutionService {
     
     if (input.splits && input.splits.length > 0) {
       // 🔴 BLINDAGEM: Validar que soma dos splits = amount da execution
-      const splitsSum = input.splits.reduce((sum, split) => sum + split.amount, 0);
-      if (Math.abs(splitsSum - execution.amount) > 0.01) {
-        throw new BadRequestError(`Soma dos splits (${splitsSum}) deve ser igual ao amount da execution (${execution.amount})`);
+      const splitsSum = input.splits.reduce((sum, split) => sum + split.amountCents, 0);
+      if (Math.abs(splitsSum - execution.amountCents) > 0.01) {
+        throw new BadRequestError(`Soma dos splits (${splitsSum}) deve ser igual ao amountCents da execution (${execution.amountCents})`);
       }
 
       // Criar cada split
@@ -156,7 +156,7 @@ class ServicePaymentExecutionService {
           tenantId,
           execution.executionId,
           splitInput.receiverActorId,
-          splitInput.amount,
+          splitInput.amountCents,
           splitInput.percentage,
           splitInput.metadata
         );
@@ -168,7 +168,7 @@ class ServicePaymentExecutionService {
         tenantId,
         execution.executionId,
         paymentRequest.receiverActorId,
-        paymentRequest.amount,
+        paymentRequest.amountCents,
         100.0, // 100% para o receiver principal
         {}
       );
@@ -196,7 +196,7 @@ class ServicePaymentExecutionService {
           sourceType: 'service_payment_execution',
           metadata: {
             paymentRequestId: paymentRequest.paymentRequestId,
-            amount: execution.amount,
+            amountCents: execution.amountCents,
             currency: execution.currency,
             splitsCount: splits.length,
           },
@@ -223,7 +223,7 @@ class ServicePaymentExecutionService {
             sourceType: 'payment_split',
             metadata: {
               executionId: execution.executionId,
-              amount: split.amount,
+              amountCents: split.amountCents,
               percentage: split.percentage,
             },
           },
@@ -269,4 +269,5 @@ class ServicePaymentExecutionService {
 }
 
 export const servicePaymentExecutionService = new ServicePaymentExecutionService();
+
 

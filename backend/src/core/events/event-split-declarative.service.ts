@@ -62,8 +62,8 @@ export interface DeclarativeSplit {
   parts: SplitPart[];
   rules_version?: string;
   status: 'calculated' | 'invalidated' | 'executed';
-  calculated_at: string;
-  updated_at: string;
+  calculatedAt: string;
+  updatedAt: string;
 }
 
 interface SplitRow {
@@ -76,8 +76,8 @@ interface SplitRow {
   parts: any;
   rules_version: string | null;
   status: string;
-  calculated_at: string;
-  updated_at: string;
+  calculatedAt: string;
+  updatedAt: string;
 }
 
 class EventSplitDeclarativeService {
@@ -138,7 +138,7 @@ class EventSplitDeclarativeService {
       INSERT INTO event_split_declarative (
         id, tenant_id, event_id, custody_id,
         total_amount_cents, currency, parts,
-        rules_version, status, calculated_at, updated_at
+        rules_version, status, calculatedAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
@@ -204,7 +204,7 @@ class EventSplitDeclarativeService {
       tenantId,
       `
       UPDATE event_split_declarative
-      SET status = 'invalidated', updated_at = NOW()
+      SET status = 'invalidated', updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING *
       `,
@@ -256,7 +256,7 @@ class EventSplitDeclarativeService {
       SELECT *
       FROM event_split_declarative
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY calculated_at DESC
+      ORDER BY calculatedAt DESC
       `,
       [eventId, tenantId]
     );
@@ -313,11 +313,12 @@ class EventSplitDeclarativeService {
       parts: row.parts as SplitPart[],
       rules_version: row.rules_version || undefined,
       status: row.status as 'calculated' | 'invalidated' | 'executed',
-      calculated_at: row.calculated_at,
-      updated_at: row.updated_at,
+      calculatedAt: row.calculatedAt,
+      updatedAt: row.updatedAt,
     };
   }
 }
 
 export const eventSplitDeclarativeService = new EventSplitDeclarativeService();
+
 

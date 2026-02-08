@@ -920,8 +920,8 @@ if (!hasReadAccess) {
       keywords: cat.keywords || [],
       countryCode: cat.countryCode || null,
       scope: cat.scope || null,
-      createdAt: cat.createdAt || new Date(),
-      updatedAt: cat.updatedAt || new Date(),
+      createdAt: cat.createdAt,
+      updatedAt: cat.updatedAt,
     }));
   }
 
@@ -1253,7 +1253,7 @@ if (!hasReadAccess) {
         years_experience = EXCLUDED.years_experience,
         hourly_rate = EXCLUDED.hourly_rate,
         pricing_type = COALESCE(EXCLUDED.pricing_type, user_skills_categories.pricing_type),
-        updated_at = now()
+        updatedAt = now()
       `,
       [globalUserId, input.categoryId, input.skillLevel ?? 0, input.yearsExperience ?? 0, input.hourlyRate ?? null, (input as any).pricingType || 'hourly']
     );
@@ -2575,7 +2575,7 @@ Responda em JSON com:
       // Usar update direto no banco
       await pool.query(
         `UPDATE categories 
-         SET status = $1, requires_review = $2, updated_at = NOW()
+         SET status = $1, requires_review = $2, updatedAt = NOW()
          WHERE category_id = $3`,
         ['pending_review', true, pendingCategory.categoryId]
       );
@@ -2914,7 +2914,7 @@ Responda em JSON com:
       SET status = 'active',
           requires_review = false,
           approved_by = $1,
-          approved_at = now()
+          approvedAt = now()
       WHERE category_id = $2
       `,
       [approvedByUserId, categoryId]
@@ -2987,11 +2987,11 @@ Responda em JSON com:
       SELECT 
         category_id, parent_id, name, slug, description, level, path,
         COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code,
-        status, requires_review, created_by_ai, approved_by, approved_at, rejection_reason,
-        created_at, updated_at
+        status, requires_review, created_by_ai, approved_by, approvedAt, rejection_reason,
+        createdAt, updatedAt
       FROM categories
       WHERE status = 'pending' AND requires_review = true
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `
     );
 
@@ -3070,4 +3070,5 @@ Responda em JSON com:
 }
 
 export const categoriesService = new CategoriesService();
+
 

@@ -7,17 +7,17 @@
 /**
  * Status do escrow account
  */
-export type EscrowStatus = 'PENDING' | 'FUNDS_HELD' | 'READY_TO_RELEASE' | 'RELEASED' | 'REFUNDED' | 'BLOCKED_BY_DISPUTE';
+export type EscrowStatus = 'pending' | 'funds_held' | 'ready_to_release' | 'released' | 'refunded' | 'blocked_by_dispute';
 
 /**
  * Marco de pagamento
  */
-export type PaymentMilestone = 'CONFIRMED' | 'STARTED' | 'COMPLETED';
+export type PaymentMilestone = 'confirmed' | 'started' | 'completed';
 
 /**
  * Tipo de transação escrow
  */
-export type EscrowTransactionType = 'HOLD' | 'RELEASE' | 'REFUND';
+export type EscrowTransactionType = 'hold' | 'release' | 'refund';
 
 /**
  * Escrow Account
@@ -42,10 +42,10 @@ export interface EscrowAccount {
   refundedAmountCents: number; // Valor reembolsado
   status: EscrowStatus;
   currentMilestone: PaymentMilestone | null;
-  disputeStatus: 'NONE' | 'OPEN' | 'RESOLVED'; // Sincronizado com EvidencePack
+  disputeStatus: 'none' | 'open' | 'resolved'; // Sincronizado com EvidencePack
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -62,14 +62,14 @@ export interface PaymentMilestoneRecord {
   milestone: PaymentMilestone;
   amountCents: number;
   percentage: number; // % do total
-  status: 'PENDING' | 'AUTHORIZED' | 'RELEASED';
+  status: 'pending' | 'authorized' | 'released';
   authorizedAt: Date | null;
   releasedAt: Date | null;
   authorizedByActorId: string | null;
   releasedByActorId: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -87,13 +87,13 @@ export interface EscrowTransaction {
   transactionType: EscrowTransactionType;
   amountCents: number;
   currency: string;
-  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   initiatedByActorId: string;
   completedAt: Date | null;
   failureReason: string | null;
   bankTransactionId: string | null; // ID da transação bancária
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -146,10 +146,11 @@ export interface EscrowFilters {
   serviceOrderId?: string;
   bundleId?: string;
   status?: EscrowStatus;
-  disputeStatus?: 'NONE' | 'OPEN' | 'RESOLVED';
+  disputeStatus?: 'none' | 'open' | 'resolved';
   limit?: number;
   offset?: number;
 }
+
 
 
 

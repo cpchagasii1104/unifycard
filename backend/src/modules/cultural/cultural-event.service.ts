@@ -19,12 +19,12 @@ export type EventType =
   | 'INTERVENCAO';
 
 export type EventStatus =
-  | 'DRAFT'
-  | 'PUBLISHED'
-  | 'CONFIRMED'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'ARCHIVED';
+  | 'draft'
+  | 'published'
+  | 'confirmed'
+  | 'completed'
+  | 'cancelled'
+  | 'archived';
 
 export interface RevenueSplit {
   target_type: 'CULTURAL_PROFILE' | 'REGION' | 'FUND';
@@ -47,9 +47,9 @@ export interface CulturalEvent {
   visibility: 'PUBLIC' | 'LOCAL' | 'PRIVATE';
   ticket_price_cents: number | null;
   max_attendees: number | null;
-  created_at: string;
-  updated_at: string;
-  completed_at: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 }
 
 export interface CreateCulturalEventInput {
@@ -167,9 +167,9 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       `
@@ -182,7 +182,7 @@ class CulturalEventService {
       RETURNING id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
                 event_type, title, description, datetime_start, datetime_end,
                 location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-                created_at, updated_at, completed_at
+                createdAt, updatedAt, completedAt
       `,
       [
         eventId,
@@ -195,7 +195,7 @@ class CulturalEventService {
         input.datetime_start,
         input.datetime_end,
         input.location_cultural_profile_id || null,
-        'DRAFT',
+        'draft',
         input.visibility || 'PUBLIC',
         input.ticket_price_cents || null,
         input.max_attendees || null,
@@ -245,9 +245,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     };
   }
 
@@ -278,7 +278,7 @@ class CulturalEventService {
       throw new Error('Evento não encontrado');
     }
 
-    if (event[0].status !== 'DRAFT') {
+    if (event[0].status !== 'draft') {
       throw new Error('Apenas eventos em DRAFT podem ser publicados');
     }
 
@@ -298,19 +298,19 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       `
       UPDATE cultural_events
-      SET status = 'PUBLISHED', updated_at = NOW()
+      SET status = 'published', updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
                 event_type, title, description, datetime_start, datetime_end,
                 location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-                created_at, updated_at, completed_at
+                createdAt, updatedAt, completedAt
       `,
       [eventId, tenantId]
     );
@@ -335,9 +335,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     };
   }
 
@@ -369,7 +369,7 @@ class CulturalEventService {
       throw new Error('Evento não encontrado');
     }
 
-    if (event[0].status !== 'PUBLISHED') {
+    if (event[0].status !== 'published') {
       throw new Error('Apenas eventos PUBLISHED podem ser confirmados por local');
     }
 
@@ -414,21 +414,21 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       `
       UPDATE cultural_events
-      SET status = 'CONFIRMED',
+      SET status = 'confirmed',
           location_cultural_profile_id = $3,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
                 event_type, title, description, datetime_start, datetime_end,
                 location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-                created_at, updated_at, completed_at
+                createdAt, updatedAt, completedAt
       `,
       [eventId, tenantId, locationProfileId]
     );
@@ -453,9 +453,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     };
   }
 
@@ -488,7 +488,7 @@ class CulturalEventService {
       throw new Error('Evento não encontrado');
     }
 
-    if (event[0].status !== 'CONFIRMED' && event[0].status !== 'PUBLISHED') {
+    if (event[0].status !== 'confirmed' && event[0].status !== 'published') {
       throw new Error('Apenas eventos CONFIRMED ou PUBLISHED podem ser completados');
     }
 
@@ -508,19 +508,19 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       `
       UPDATE cultural_events
-      SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW()
+      SET status = 'completed', completedAt = NOW(), updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
                 event_type, title, description, datetime_start, datetime_end,
                 location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-                created_at, updated_at, completed_at
+                createdAt, updatedAt, completedAt
       `,
       [eventId, tenantId]
     );
@@ -618,9 +618,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     };
   }
 
@@ -646,16 +646,16 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       `
       SELECT id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
              event_type, title, description, datetime_start, datetime_end,
              location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-             created_at, updated_at, completed_at
+             createdAt, updatedAt, completedAt
       FROM cultural_events
       WHERE id = $1 AND tenant_id = $2
       LIMIT 1
@@ -683,9 +683,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     };
   }
 
@@ -702,11 +702,11 @@ class CulturalEventService {
       SELECT id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
              event_type, title, description, datetime_start, datetime_end,
              location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-             created_at, updated_at, completed_at
+             createdAt, updatedAt, completedAt
       FROM cultural_events
       WHERE tenant_id = $1 
         AND visibility = 'PUBLIC'
-        AND status IN ('PUBLISHED', 'CONFIRMED')
+        AND status IN ('published', 'confirmed')
         AND id > $2
       ORDER BY datetime_start ASC
       LIMIT $3
@@ -715,11 +715,11 @@ class CulturalEventService {
       SELECT id, tenant_id, created_by_cultural_profile_id, co_creators_cultural_profile_ids,
              event_type, title, description, datetime_start, datetime_end,
              location_cultural_profile_id, status, visibility, ticket_price_cents, max_attendees,
-             created_at, updated_at, completed_at
+             createdAt, updatedAt, completedAt
       FROM cultural_events
       WHERE tenant_id = $1 
         AND visibility = 'PUBLIC'
-        AND status IN ('PUBLISHED', 'CONFIRMED')
+        AND status IN ('published', 'confirmed')
       ORDER BY datetime_start ASC
       LIMIT $2
       `;
@@ -739,9 +739,9 @@ class CulturalEventService {
       visibility: string;
       ticket_price_cents: number | null;
       max_attendees: number | null;
-      created_at: string;
-      updated_at: string;
-      completed_at: string | null;
+      createdAt: string;
+      updatedAt: string;
+      completedAt: string | null;
     }>(
       tenantId,
       query,
@@ -763,9 +763,9 @@ class CulturalEventService {
       visibility: row.visibility as 'PUBLIC' | 'LOCAL' | 'PRIVATE',
       ticket_price_cents: row.ticket_price_cents,
       max_attendees: row.max_attendees,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      completed_at: row.completed_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
     }));
 
     const hasMore = events.length > limit;
@@ -813,7 +813,7 @@ class CulturalEventService {
   async generateCheckInQR(
     tenantId: string,
     eventId: string
-  ): Promise<{ qr_code: string; expires_at: string; event: CulturalEvent }> {
+  ): Promise<{ qr_code: string; expiresAt: string; event: CulturalEvent }> {
     // Buscar evento
     const event = await this.getEvent(tenantId, eventId);
     if (!event) {
@@ -821,7 +821,7 @@ class CulturalEventService {
     }
 
     // Validar que evento está publicado ou confirmado
-    if (event.status !== 'PUBLISHED' && event.status !== 'CONFIRMED') {
+    if (event.status !== 'published' && event.status !== 'confirmed') {
       throw new Error('Evento deve estar PUBLISHED ou CONFIRMED para gerar QR code');
     }
 
@@ -832,7 +832,7 @@ class CulturalEventService {
     const payload = {
       event_id: eventId,
       tenant_id: tenantId,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
 
     const secret = process.env.JWT_SECRET;
@@ -844,7 +844,7 @@ class CulturalEventService {
 
     return {
       qr_code: qrCode,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
       event,
     };
   }
@@ -858,7 +858,7 @@ class CulturalEventService {
       const decoded = authService.verifyJWT<{
         event_id: string;
         tenant_id: string;
-        expires_at: string;
+        expiresAt: string;
       }>(qrCode);
 
       // Validar tenant
@@ -867,7 +867,7 @@ class CulturalEventService {
       }
 
       // Validar expiração (jwt.verify já valida expiração, mas mantemos validação explícita para clareza)
-      const expiresAt = new Date(decoded.expires_at);
+      const expiresAt = new Date(decoded.expiresAt);
       if (new Date() > expiresAt) {
         throw new Error('QR code expirado');
       }
@@ -905,7 +905,7 @@ class CulturalEventService {
       event_id: string;
       actor_id: string;
       actor_type: string;
-      check_in_time: string;
+      checked_in_at: string;
       method: string;
     };
     impact_generated: number;
@@ -965,11 +965,11 @@ class CulturalEventService {
     // Verificar se já fez check-in
     const existing = await runQueryWithTenant<{
       id: string;
-      created_at: string;
+      createdAt: string;
     }>(
       tenantId,
       `
-      SELECT id, created_at
+      SELECT id, createdAt
       FROM cultural_event_checkins
       WHERE tenant_id = $1 
         AND event_id = $2 
@@ -987,7 +987,7 @@ class CulturalEventService {
     // Inserir check-in
     const checkIn = await runQueryWithTenant<{
       id: string;
-      created_at: string;
+      createdAt: string;
     }>(
       tenantId,
       `
@@ -997,7 +997,7 @@ class CulturalEventService {
         check_in_method, geo_lat, geo_lng, device_fingerprint, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-      RETURNING id, created_at
+      RETURNING id, createdAt
       `,
       [
         tenantId,
@@ -1068,7 +1068,7 @@ class CulturalEventService {
         event_id: eventId,
         actor_id: params.actor_id,
         actor_type: params.actor_type,
-        check_in_time: checkIn.created_at,
+        checked_in_at: checkIn.createdAt,
         method: params.method,
       },
       impact_generated: 1,
@@ -1136,11 +1136,11 @@ class CulturalEventService {
       actor_id: string;
       actor_type: string;
       actor_display_name: string;
-      check_in_time: string;
+      checked_in_at: string;
       method: string;
       checked_in_by: { id: string; type: string; name: string } | null;
     }>;
-    total: number;
+    totalCents: number;
     next_cursor: string | null;
   }> {
     const { limit = 50, cursor, requesterActorId, requesterActorType } = options;
@@ -1157,7 +1157,7 @@ class CulturalEventService {
       SELECT 
         cec.id, cec.actor_id, cec.actor_type, cec.check_in_method,
         cec.checked_in_by_actor_id, cec.checked_in_by_actor_type,
-        cec.created_at,
+        cec.createdAt,
         COUNT(*) OVER() as total
       FROM cultural_event_checkins cec
       WHERE cec.tenant_id = $1 AND cec.event_id = $2
@@ -1177,7 +1177,7 @@ class CulturalEventService {
       queryParams.push(cursor);
     }
 
-    query += ` ORDER BY cec.created_at DESC LIMIT $${queryParams.length + 1}`;
+    query += ` ORDER BY cec.createdAt DESC LIMIT $${queryParams.length + 1}`;
     queryParams.push(limit + 1);
 
     const result = await runQueriesWithTenant<{
@@ -1187,8 +1187,8 @@ class CulturalEventService {
       check_in_method: string;
       checked_in_by_actor_id: string | null;
       checked_in_by_actor_type: string | null;
-      created_at: string;
-      total: number;
+      createdAt: string;
+      totalCents: number;
     }>(tenantId, query, queryParams);
 
     const total = result[0]?.total || 0;
@@ -1205,7 +1205,7 @@ class CulturalEventService {
           actor_id: ci.actor_id,
           actor_type: ci.actor_type,
           actor_display_name: ci.actor_id, // Placeholder
-          check_in_time: ci.created_at,
+          checked_in_at: ci.createdAt,
           method: ci.check_in_method,
           checked_in_by: ci.checked_in_by_actor_id
             ? {
@@ -1220,7 +1220,7 @@ class CulturalEventService {
 
     return {
       check_ins: checkInsWithNames,
-      total: Number(total),
+      totalCents: Number(total),
       next_cursor: hasMore ? checkIns[checkIns.length - 1].id : null,
     };
   }
@@ -1235,7 +1235,7 @@ class CulturalEventService {
     actorType: 'user' | 'page' | 'cultural_profile'
   ): Promise<{
     has_checked_in: boolean;
-    check_in_time: string | null;
+    checked_in_at: string | null;
     method: string | null;
     can_check_in: boolean;
     event_status: EventStatus;
@@ -1252,12 +1252,12 @@ class CulturalEventService {
     // Buscar check-in existente
     const checkIn = await runQueryWithTenant<{
       id: string;
-      created_at: string;
+      createdAt: string;
       check_in_method: string;
     }>(
       tenantId,
       `
-      SELECT id, created_at, check_in_method
+      SELECT id, createdAt, check_in_method
       FROM cultural_event_checkins
       WHERE tenant_id = $1 
         AND event_id = $2 
@@ -1280,11 +1280,11 @@ class CulturalEventService {
     const canCheckIn = !hasCheckedIn && 
                        now >= checkInStart && 
                        now <= checkInEnd &&
-                       (event.status === 'PUBLISHED' || event.status === 'CONFIRMED');
+                       (event.status === 'published' || event.status === 'confirmed');
 
     return {
       has_checked_in: hasCheckedIn,
-      check_in_time: checkIn?.created_at || null,
+      checked_in_at: checkIn?.createdAt || null,
       method: checkIn?.check_in_method || null,
       can_check_in: canCheckIn,
       event_status: event.status,
@@ -1297,4 +1297,8 @@ class CulturalEventService {
 }
 
 export const culturalEventService = new CulturalEventService();
+
+
+
+
 

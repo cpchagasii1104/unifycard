@@ -40,7 +40,7 @@ export interface BypassDetectionEvent {
   expectedValue?: any; // Valor esperado (ex: valor do agreement)
   messageContent?: string; // Conteúdo da mensagem (se aplicável)
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -145,6 +145,7 @@ export const BYPASS_SEVERITY_THRESHOLDS = {
     BLOCKED: 3,
   },
 } as const;
+
 
 
 

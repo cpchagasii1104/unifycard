@@ -29,7 +29,7 @@ class DistributionService {
    * @param config - Configuração de fees (opcional, usa default se não fornecido)
    * @returns Cálculo detalhado dos fees
    */
-  calculateFees(amount: number, config: Partial<FeeConfig> = {}): FeeCalculation {
+  calculateFees(amountCents: number, config: Partial<FeeConfig> = {}): FeeCalculation {
     const finalConfig: FeeConfig = {
       ...DEFAULT_FEE_CONFIG,
       ...config,
@@ -104,7 +104,7 @@ class DistributionService {
       await transactionService.transfer(tenantId, {
         fromAccount,
         toAccount,
-        amount: calculation.netAmount,
+        amountCents: calculation.netAmount,
         eventId: mainEventId,
         metadata: {
           type: 'main_transfer',
@@ -118,7 +118,7 @@ class DistributionService {
         await transactionService.transfer(tenantId, {
           fromAccount,
           toAccount: platformAccount.accountId,
-          amount: calculation.platformFee,
+          amountCents: calculation.platformFee,
           eventId: platformFeeEventId,
           metadata: {
             type: 'platform_fee',
@@ -132,7 +132,7 @@ class DistributionService {
         await transactionService.transfer(tenantId, {
           fromAccount,
           toAccount: communityAccount.accountId,
-          amount: calculation.communityFee,
+          amountCents: calculation.communityFee,
           eventId: communityFeeEventId,
           metadata: {
             type: 'community_fee',
@@ -146,7 +146,7 @@ class DistributionService {
         await transactionService.transfer(tenantId, {
           fromAccount,
           toAccount: groupAccount,
-          amount: calculation.groupFee,
+          amountCents: calculation.groupFee,
           eventId: groupFeeEventId,
           metadata: {
             type: 'group_fee',
@@ -219,7 +219,7 @@ class DistributionService {
    * Útil para preview antes de confirmar
    */
   async simulateDistribution(
-    amount: number,
+    amountCents: number,
     config: Partial<FeeConfig> = {}
   ): Promise<FeeCalculation> {
     return this.calculateFees(amount, config);

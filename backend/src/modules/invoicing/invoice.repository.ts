@@ -26,12 +26,12 @@ interface InvoiceRow {
   currency: string;
   status: string;
   fiscal_metadata: any;
-  issued_at: Date | null;
-  cancelled_at: Date | null;
+  issuedAt: Date | null;
+  cancelledAt: Date | null;
   cancellation_reason: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class InvoiceRepository {
@@ -53,12 +53,12 @@ class InvoiceRepository {
       currency: row.currency,
       status: row.status as any,
       fiscalMetadata: row.fiscal_metadata || null,
-      issuedAt: row.issued_at,
-      cancelledAt: row.cancelled_at,
+      issuedAt: row.issuedAt,
+      cancelledAt: row.cancelledAt,
       cancellationReason: row.cancellation_reason,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -139,14 +139,14 @@ class InvoiceRepository {
     const values: any[] = [tenantId, invoiceId, status];
     let paramIndex = 4;
 
-    if (status === 'ISSUED' && issuedAt) {
-      updates.push(`issued_at = $${paramIndex}`);
+    if (status === 'issued' && issuedAt) {
+      updates.push(`issuedAt = $${paramIndex}`);
       values.push(issuedAt);
       paramIndex++;
     }
 
-    if (status === 'CANCELLED') {
-      updates.push(`cancelled_at = NOW()`);
+    if (status === 'cancelled') {
+      updates.push(`cancelledAt = NOW()`);
       if (cancellationReason) {
         updates.push(`cancellation_reason = $${paramIndex}`);
         values.push(cancellationReason);
@@ -159,7 +159,7 @@ class InvoiceRepository {
       {
         text: `
           UPDATE invoices
-          SET ${updates.join(', ')}, updated_at = NOW()
+          SET ${updates.join(', ')}, updatedAt = NOW()
           WHERE tenant_id = $1 AND invoice_id = $2
           RETURNING *
         `,
@@ -256,13 +256,13 @@ class InvoiceRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -276,7 +276,7 @@ class InvoiceRepository {
         text: `
           SELECT * FROM invoices
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -289,6 +289,8 @@ class InvoiceRepository {
 }
 
 export const invoiceRepository = new InvoiceRepository();
+
+
 
 
 

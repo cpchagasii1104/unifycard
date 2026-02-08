@@ -119,7 +119,7 @@ class CommissionService {
         rule_id: rule?.id || null,
         applies_to: appliesTo,
         applies_id: appliesId,
-        calculated_at: new Date().toISOString(),
+        calculatedAt: new Date().toISOString(),
       },
     };
   }
@@ -153,6 +153,7 @@ class CommissionService {
 }
 
 export const commissionService = new CommissionService();
+
 
 
 

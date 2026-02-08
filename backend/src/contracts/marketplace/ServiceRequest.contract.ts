@@ -20,31 +20,31 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceRequest {
-  request_id: string;
-  requester_actor_id: string; // user
+  requestId: string;
+  requesterActorId: string; // user
   city: string;
   neighborhood?: string; // Local determinístico; sem GPS
   intent: 'now' | 'scheduled' | 'bundle' | 'quote_required';
-  service_items: Array<{
-    offering_id: string;
+  serviceItems: Array<{
+    offeringId: string;
     quantity: number;
   }>;
   schedule: {
     mode: 'now' | 'scheduled';
-    max_wait_minutes?: number; // Para 'now'
+    maxWaitMinutes?: number; // Para 'now'
     date?: string; // ISO 8601 - Para 'scheduled'
-    time_window_minutes?: number; // Para 'scheduled'
+    timeWindowMinutes?: number; // Para 'scheduled'
   };
   constraints: {
-    provider_radius_mode: 'same_neighborhood' | 'same_city'; // Sem distância real
-    min_trust_level_required: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
-    allow_multiple_providers: boolean; // Para bundle
+    providerRadiusMode: 'same_neighborhood' | 'same_city'; // Sem distância real
+    minTrustLevelRequired: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+    allowMultipleProviders: boolean; // Para bundle
   };
   status: 'open' | 'dispatched' | 'accepted' | 'expired' | 'cancelled';
-  created_at: string;
-  dispatched_at?: string;
-  accepted_at?: string;
-  expired_at?: string;
-  cancelled_at?: string;
+  createdAt: string;
+  dispatchedAt?: string;
+  acceptedAt?: string;
+  expiredAt?: string;
+  cancelledAt?: string;
 }
 

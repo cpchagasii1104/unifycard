@@ -88,8 +88,9 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       if (!req.tenant) {
@@ -101,7 +102,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         const post = await socialService.createPost(
           req.server,
           req.tenant.id,
-          req.user.globalUserId,
+          req.actionContext.actorId,
           validated as CreatePostInput
         );
         return reply.status(201).send(post);
@@ -189,7 +190,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND created_at >= $2
+          AND createdAt >= $2
           AND visibility = 'PUBLIC'
         `,
         [tenantId, oneDayAgo]
@@ -206,7 +207,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND created_at >= $2
+          AND createdAt >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -221,9 +222,9 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('PUBLISHED', 'ONGOING')
-          AND start_time >= NOW()
-          AND start_time <= $2
+          AND status IN ('published', 'ongoing')
+          AND starts_at >= NOW()
+          AND starts_at <= $2
         `,
         [tenantId, sevenDaysFromNow]
       );
@@ -236,7 +237,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND created_at >= $2
+          AND createdAt >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -261,6 +262,8 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default socialRoutes;
+
+
 
 
 

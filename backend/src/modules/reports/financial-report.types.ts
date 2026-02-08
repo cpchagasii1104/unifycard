@@ -41,11 +41,12 @@ export interface FinancialReport {
   pending: Array<{
     paymentIntentId: string;
     orderId: string;
-    amount: number;
+    amountCents: number;
     status: string;
     errorCode?: string;
   }>;
 }
+
 
 
 

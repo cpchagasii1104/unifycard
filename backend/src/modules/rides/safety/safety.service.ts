@@ -12,7 +12,7 @@ interface EmergencyContactRow {
   user_id: string;
   name: string;
   phone: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 export class SafetyService {
@@ -29,7 +29,7 @@ export class SafetyService {
     const row = await runQueryWithTenant<EmergencyContactRow>(tenantId, {
       text: `
         INSERT INTO rides_emergency_contacts (
-          tenant_id, user_id, name, phone, created_at
+          tenant_id, user_id, name, phone, createdAt
         )
         VALUES ($1, $2, $3, $4, now())
         RETURNING *
@@ -53,7 +53,7 @@ export class SafetyService {
         SELECT *
         FROM rides_emergency_contacts
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
       values: [tenantId, userId],
     });
@@ -121,7 +121,7 @@ export class SafetyService {
       text: `
         INSERT INTO rides_safety_alerts (
           tenant_id, ride_id, triggered_by_user_id,
-          created_at
+          createdAt
         )
         VALUES ($1, $2, $3, now())
         RETURNING alert_id
@@ -174,14 +174,14 @@ export class SafetyService {
       user_id: string;
       share_token: string;
       share_url: string;
-      expires_at: Date;
-      created_at: Date;
+      expiresAt: Date;
+      createdAt: Date;
     }>(tenantId, {
       text: `
         INSERT INTO rides_ride_shares (
           tenant_id, ride_id, user_id,
           share_token, share_url,
-          expires_at, created_at
+          expiresAt, createdAt
         )
         VALUES (
           $1, $2, $3,
@@ -239,13 +239,13 @@ export class SafetyService {
       reason: string;
       details: any;
       status: string;
-      created_at: Date;
+      createdAt: Date;
     }>(tenantId, {
       text: `
         INSERT INTO rides_disputes (
           tenant_id, ride_id, opened_by_user_id,
           reason, details, status,
-          created_at
+          createdAt
         )
         VALUES ($1, $2, $3, $4, $5, 'open', now())
         RETURNING *
@@ -281,14 +281,14 @@ export class SafetyService {
       user_id: string;
       share_token: string;
       share_url: string;
-      expires_at: Date;
-      created_at: Date;
+      expiresAt: Date;
+      createdAt: Date;
     }>(tenantId, {
       text: `
         SELECT *
         FROM rides_ride_shares
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
       values: [tenantId, rideId],
     });
@@ -306,14 +306,14 @@ export class SafetyService {
       reason: string;
       details: any;
       status: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(tenantId, {
       text: `
         SELECT *
         FROM rides_disputes
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
       values: [tenantId, rideId],
     });
@@ -321,3 +321,4 @@ export class SafetyService {
 }
 
 export const safetyService = new SafetyService();
+

@@ -12,7 +12,7 @@ export interface StockTransferReceipt {
   status: StockTransferReceiptStatus;
   notes?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface StockTransferReceiptItem {
@@ -24,7 +24,7 @@ export interface StockTransferReceiptItem {
   receivedQuantity: number;
   inventoryLotId?: string | null;
   discrepancyReason?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface StartReceiptInput {
@@ -45,6 +45,7 @@ export interface FinalizeReceiptInput {
   notes?: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

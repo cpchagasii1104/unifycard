@@ -34,11 +34,11 @@ interface AccountRow {
   owner_type: string;
   balance: string;
   currency: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 interface CountRow {
-  total: string;
+  totalCents: string;
 }
 
 class AccountService {
@@ -54,7 +54,7 @@ class AccountService {
       ownerType: row.owner_type as OwnerType,
       balance: 0, // 🔴 saldo legado INVALIDADO por definição
       currency: row.currency as Currency,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -92,7 +92,7 @@ class AccountService {
       tenantId,
       {
         text: `
-          SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
+          SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, createdAt
           FROM accounts
           WHERE account_id = $1
           LIMIT 1
@@ -113,10 +113,10 @@ class AccountService {
       tenantId,
       {
         text: `
-          SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
+          SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, createdAt
           FROM accounts
           WHERE owner_id = $1 AND owner_type = $2
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
         `,
         values: [ownerId, ownerType],
       }
@@ -141,7 +141,7 @@ class AccountService {
     const { limit = 50, offset = 0, ownerType } = options;
 
     let sql = `
-      SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, created_at
+      SELECT account_id, tenant_id, owner_id, owner_type, balance, currency, createdAt
       FROM accounts
     `;
 
@@ -152,7 +152,7 @@ class AccountService {
       params.push(ownerType);
     }
 
-    sql += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    sql += ` ORDER BY createdAt DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<AccountRow>(tenantId, {
@@ -173,7 +173,7 @@ class AccountService {
 
     return {
       accounts: rows.map((r) => this.toAccount(r)),
-      total: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 
@@ -210,3 +210,4 @@ class AccountService {
 }
 
 export const accountService = new AccountService();
+

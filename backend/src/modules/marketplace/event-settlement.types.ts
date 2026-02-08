@@ -30,8 +30,8 @@ export interface EventSettlement {
   settledByActorId: string | null;
   settledByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -51,6 +51,7 @@ export interface CreateEventSettlementInput {
 export interface SettleEventSettlementInput {
   settlementId?: string; // Settlement core vinculado
 }
+
 
 
 

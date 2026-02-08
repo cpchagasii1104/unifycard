@@ -28,8 +28,8 @@ export interface BankAccount {
   currency: BankCurrency;
   cachedBalance: number; // Cache apenas - saldo real vem do ledger
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -47,7 +47,7 @@ export interface CreateBankAccountInput {
  */
 export interface BankAccountsSearchResult {
   accounts: BankAccount[];
-  total: number;
+  totalCents: number;
 }
 
 /**
@@ -60,6 +60,8 @@ export interface BankAccountSearchOptions {
   limit?: number;
   offset?: number;
 }
+
+
 
 
 

@@ -18,7 +18,7 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface RegionalFund {
-  regional_fund_id: string;
+  regionalFundId: string;
   region: {
     country: string;
     state: string;
@@ -27,17 +27,17 @@ export interface RegionalFund {
   balance: number; // Saldo atual do fundo
   currency: string; // Moeda (ex: 'BRL')
   rules: {
-    min_reserve: number; // Reserva mínima (fundo nunca pode zerar abaixo disso)
-    max_monthly_outflow: number; // Saída máxima mensal permitida
-    allowed_uses: Array<'infrastructure' | 'incentives' | 'subsidies' | 'community_services'>;
+    minReserve: number; // Reserva mínima (fundo nunca pode zerar abaixo disso)
+    maxMonthlyOutflow: number; // Saída máxima mensal permitida
+    allowedUses: Array<'infrastructure' | 'incentives' | 'subsidies' | 'community_services'>;
   };
   governance: {
-    decision_model: 'automatic' | 'council';
-    council_actor_ids?: string[]; // IDs dos atores do conselho (se decision_model = 'council')
+    decisionModel: 'automatic' | 'council';
+    councilActorIds?: string[]; // IDs dos atores do conselho (se decisionModel = 'council')
   };
   status: 'active' | 'restricted';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

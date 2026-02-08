@@ -34,8 +34,8 @@ class RegionalFeeService {
       throw new Error('grossAmount deve ser maior ou igual a zero');
     }
 
-    if (input.feePercentage < 0) {
-      throw new Error('feePercentage deve ser maior ou igual a zero');
+    if (input.feeBps < 0) {
+      throw new Error('feeBps deve ser maior ou igual a zero');
     }
 
     if (input.feeAmount < 0) {
@@ -53,7 +53,7 @@ class RegionalFeeService {
       sourceType: input.sourceType,
       sourceId: input.sourceId,
       grossAmount: input.grossAmount,
-      feePercentage: input.feePercentage,
+      feeBps: input.feeBps,
       feeAmount: input.feeAmount,
       createdByActorId,
       createdByUserId,

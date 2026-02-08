@@ -135,13 +135,13 @@ class ProfileEducationCompaniesService {
       id: string;
       global_user_id: string;
       category_id: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `INSERT INTO user_education (global_user_id, category_id)
        VALUES ($1, $2)
        ON CONFLICT (global_user_id, category_id) DO NOTHING
-       RETURNING id, global_user_id, category_id, created_at, updated_at`,
+       RETURNING id, global_user_id, category_id, createdAt, updatedAt`,
       [globalUserId, category.categoryId]
     );
 
@@ -151,10 +151,10 @@ class ProfileEducationCompaniesService {
         id: string;
         global_user_id: string;
         category_id: string;
-        created_at: Date;
-        updated_at: Date;
+        createdAt: Date;
+        updatedAt: Date;
       }>(
-        `SELECT id, global_user_id, category_id, created_at, updated_at
+        `SELECT id, global_user_id, category_id, createdAt, updatedAt
          FROM user_education
          WHERE global_user_id = $1 AND category_id = $2
          LIMIT 1`,
@@ -172,8 +172,8 @@ class ProfileEducationCompaniesService {
         globalUserId: existing.rows[0].global_user_id,
         categoryId: existing.rows[0].category_id,
         categoryName: category.name,
-        createdAt: existing.rows[0].created_at,
-        updatedAt: existing.rows[0].updated_at,
+        createdAt: existing.rows[0].createdAt,
+        updatedAt: existing.rows[0].updatedAt,
       };
     }
 
@@ -182,8 +182,8 @@ class ProfileEducationCompaniesService {
       globalUserId: result.rows[0].global_user_id,
       categoryId: result.rows[0].category_id,
       categoryName: category.name,
-      createdAt: result.rows[0].created_at,
-      updatedAt: result.rows[0].updated_at,
+      createdAt: result.rows[0].createdAt,
+      updatedAt: result.rows[0].updatedAt,
     };
   }
 
@@ -285,13 +285,13 @@ class ProfileEducationCompaniesService {
       id: string;
       global_user_id: string;
       category_id: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `INSERT INTO user_companies (global_user_id, category_id)
        VALUES ($1, $2)
        ON CONFLICT (global_user_id, category_id) DO NOTHING
-       RETURNING id, global_user_id, category_id, created_at, updated_at`,
+       RETURNING id, global_user_id, category_id, createdAt, updatedAt`,
       [globalUserId, category.categoryId]
     );
 
@@ -301,10 +301,10 @@ class ProfileEducationCompaniesService {
         id: string;
         global_user_id: string;
         category_id: string;
-        created_at: Date;
-        updated_at: Date;
+        createdAt: Date;
+        updatedAt: Date;
       }>(
-        `SELECT id, global_user_id, category_id, created_at, updated_at
+        `SELECT id, global_user_id, category_id, createdAt, updatedAt
          FROM user_companies
          WHERE global_user_id = $1 AND category_id = $2
          LIMIT 1`,
@@ -322,8 +322,8 @@ class ProfileEducationCompaniesService {
         globalUserId: existing.rows[0].global_user_id,
         categoryId: existing.rows[0].category_id,
         categoryName: category.name,
-        createdAt: existing.rows[0].created_at,
-        updatedAt: existing.rows[0].updated_at,
+        createdAt: existing.rows[0].createdAt,
+        updatedAt: existing.rows[0].updatedAt,
       };
     }
 
@@ -332,8 +332,8 @@ class ProfileEducationCompaniesService {
       globalUserId: result.rows[0].global_user_id,
       categoryId: result.rows[0].category_id,
       categoryName: category.name,
-      createdAt: result.rows[0].created_at,
-      updatedAt: result.rows[0].updated_at,
+      createdAt: result.rows[0].createdAt,
+      updatedAt: result.rows[0].updatedAt,
     };
   }
 
@@ -346,14 +346,14 @@ class ProfileEducationCompaniesService {
       global_user_id: string;
       category_id: string;
       category_name: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
-      `SELECT ue.id, ue.global_user_id, ue.category_id, c.name as category_name, ue.created_at, ue.updated_at
+      `SELECT ue.id, ue.global_user_id, ue.category_id, c.name as category_name, ue.createdAt, ue.updatedAt
        FROM user_education ue
        JOIN categories c ON c.category_id = ue.category_id
        WHERE ue.global_user_id = $1
-       ORDER BY ue.created_at DESC`,
+       ORDER BY ue.createdAt DESC`,
       [globalUserId]
     );
 
@@ -362,8 +362,8 @@ class ProfileEducationCompaniesService {
       globalUserId: row.global_user_id,
       categoryId: row.category_id,
       categoryName: row.category_name,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     }));
   }
 
@@ -376,14 +376,14 @@ class ProfileEducationCompaniesService {
       global_user_id: string;
       category_id: string;
       category_name: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
-      `SELECT uc.id, uc.global_user_id, uc.category_id, c.name as category_name, uc.created_at, uc.updated_at
+      `SELECT uc.id, uc.global_user_id, uc.category_id, c.name as category_name, uc.createdAt, uc.updatedAt
        FROM user_companies uc
        JOIN categories c ON c.category_id = uc.category_id
        WHERE uc.global_user_id = $1
-       ORDER BY uc.created_at DESC`,
+       ORDER BY uc.createdAt DESC`,
       [globalUserId]
     );
 
@@ -392,14 +392,15 @@ class ProfileEducationCompaniesService {
       globalUserId: row.global_user_id,
       categoryId: row.category_id,
       categoryName: row.category_name,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     }));
   }
 }
 
 export const profileEducationCompaniesService = new ProfileEducationCompaniesService();
 export type { EducationEntry, CompanyEntry, AddEducationInput, AddCompanyInput };
+
 
 
 

@@ -55,7 +55,7 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
       const contacts = await runQueriesWithTenant<any>(tenantId, {
         text: `
-          SELECT contact_id, user_id, name, phone, created_at
+          SELECT contact_id, user_id, name, phone, createdAt
           FROM rides_emergency_contacts
           WHERE tenant_id = $1 AND user_id = $2;
         `,
@@ -138,7 +138,7 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       // registrar evento
       await runQueryWithTenant(tenantId, {
         text: `
-          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurred_at)
+          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
           VALUES ($1, 'sos_triggered', jsonb_build_object(
             'lat', $2,
             'lng', $3,
@@ -248,7 +248,7 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
                 tenant_id,
                 ride_id,
                 contact_id,
-                shared_at
+                sharedAt
               )
               VALUES ($1, $2, $3, NOW());
             `,
@@ -314,7 +314,7 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
               reported_by_user_id,
               type,
               description,
-              created_at
+              createdAt
             )
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING *;
@@ -343,3 +343,4 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 };
 
 export default safetyRoutes;
+

@@ -55,7 +55,7 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
             FROM rides_rides
             WHERE driver_id = $1
               AND status = 'completed'
-              AND completed_at::date = NOW()::date
+              AND completedAt::date = NOW()::date
           ),
           earnings_today AS (
             SELECT COALESCE(SUM(driver_amount), 0) AS amount
@@ -63,7 +63,7 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
             WHERE ride_id IN (
               SELECT ride_id FROM rides_rides WHERE driver_id = $1
             )
-            AND distributed_at::date = NOW()::date
+            AND distributedAt::date = NOW()::date
           ),
           rating AS (
             SELECT rating_avg, total_rides
@@ -119,13 +119,13 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
       const rows = await runQueryWithTenant(tenantId, {
         text: `
           SELECT
-            DATE_TRUNC('hour', distributed_at) AS hour,
+            DATE_TRUNC('hour', distributedAt) AS hour,
             SUM(driver_amount) AS earnings
           FROM rides_ride_distributions
           WHERE ride_id IN (
             SELECT ride_id FROM rides_rides WHERE driver_id = $1
           )
-            AND distributed_at > NOW() - INTERVAL '24 hours'
+            AND distributedAt > NOW() - INTERVAL '24 hours'
           GROUP BY hour
           ORDER BY hour ASC;
         `,
@@ -166,7 +166,7 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
             dp.level,
             dp.active_requests,
             dp.available_drivers,
-            dp.calculated_at
+            dp.calculatedAt
           FROM rides_zones z
           LEFT JOIN rides_zone_demand_pressure dp
             ON dp.zone_id = z.zone_id
@@ -206,21 +206,21 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
             SELECT COUNT(*) AS total
             FROM rides_rides
             WHERE status = 'completed'
-              AND completed_at::date = NOW()::date
+              AND completedAt::date = NOW()::date
               AND ($1::text IS NULL OR city_id::text = $1)
           ),
           cancellations AS (
             SELECT COUNT(*) AS total
             FROM rides_rides
             WHERE status = 'cancelled'
-              AND cancelled_at::date = NOW()::date
+              AND cancelledAt::date = NOW()::date
               AND ($1::text IS NULL OR city_id::text = $1)
           ),
           avg_duration AS (
             SELECT COALESCE(AVG(total_duration_minutes), 0) AS avg_minutes
             FROM rides_rides
             WHERE status = 'completed'
-              AND completed_at > NOW() - INTERVAL '24 hours'
+              AND completedAt > NOW() - INTERVAL '24 hours'
               AND ($1::text IS NULL OR city_id::text = $1)
           ),
           drivers_online AS (
@@ -272,27 +272,27 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
           ),
           rides_per_day AS (
             SELECT
-              completed_at::date AS day,
+              completedAt::date AS day,
               COUNT(*) AS rides
             FROM rides_rides
             WHERE status = 'completed'
-              AND completed_at > NOW() - INTERVAL '7 days'
+              AND completedAt > NOW() - INTERVAL '7 days'
             GROUP BY day
           ),
           revenue AS (
             SELECT
-              distributed_at::date AS day,
+              distributedAt::date AS day,
               SUM(driver_amount + platform_fee + community_fee) AS revenue
             FROM rides_ride_distributions
-            WHERE distributed_at > NOW() - INTERVAL '7 days'
+            WHERE distributedAt > NOW() - INTERVAL '7 days'
             GROUP BY day
           ),
           rating AS (
             SELECT
-              r.completed_at::date AS day,
+              r.completedAt::date AS day,
               AVG(COALESCE(r.driver_rating, r.passenger_rating)) AS avg_rating
             FROM rides_rides r
-            WHERE r.completed_at > NOW() - INTERVAL '7 days'
+            WHERE r.completedAt > NOW() - INTERVAL '7 days'
             GROUP BY day
           )
           SELECT
@@ -315,3 +315,4 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
 };
 
 export default analyticsRoutes;
+

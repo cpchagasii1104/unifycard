@@ -21,8 +21,8 @@ export interface EventRSVP {
   guest_name: string | null;
   status: RSVPStatus;
   notes: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateRSVPInput {
@@ -49,8 +49,8 @@ interface EventRSVPRow {
   guest_name: string | null;
   status: string;
   notes: string | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface RSVPCountRow {
@@ -101,7 +101,7 @@ class EventRSVPService {
       await runQueryWithTenant(
         tenantId,
         `UPDATE event_rsvp 
-         SET status = $1, notes = $2, updated_at = NOW()
+         SET status = $1, notes = $2, updatedAt = NOW()
          WHERE tenant_id = $3 AND event_id = $4 AND id = $5`,
         [
           input.status,
@@ -254,11 +254,12 @@ class EventRSVPService {
       guest_name: row.guest_name,
       status: row.status as RSVPStatus,
       notes: row.notes,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }
 
 export const eventRSVPService = new EventRSVPService();
+
 

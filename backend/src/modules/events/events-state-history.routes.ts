@@ -35,11 +35,11 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         const eventRow = await runQueryWithTenant<{
           id: string;
           status: string;
-          created_at: Date;
-          updated_at: Date;
+          createdAt: Date;
+          updatedAt: Date;
         }>(
           tenantId,
-          `SELECT id, status, created_at, updated_at FROM events WHERE id = $1 AND tenant_id = $2`,
+          `SELECT id, status, createdAt, updatedAt FROM events WHERE id = $1 AND tenant_id = $2`,
           [eventId, tenantId]
         );
 
@@ -49,7 +49,7 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
 
         // 🔴 BLINDAGEM: Usar apenas dados reais já existentes
         // Se houver tabela de histórico de estados, usar ela
-        // Caso contrário, usar created_at como primeira transição e updated_at como última
+        // Caso contrário, usar createdAt como primeira transição e updatedAt como última
         // Não inferir estados intermediários
 
         const history: Array<{ state: string; changedAt: string }> = [];
@@ -57,10 +57,10 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         // Estado inicial (criação)
         history.push({
           state: eventRow.status,
-          changedAt: eventRow.created_at.toISOString(),
+          changedAt: eventRow.createdAt.toISOString(),
         });
 
-        // Se updated_at for diferente de created_at, pode haver mudança de estado
+        // Se updatedAt for diferente de createdAt, pode haver mudança de estado
         // Mas sem tabela de histórico, não podemos saber estados intermediários
         // Por enquanto, apenas retornamos o estado atual na criação
         // Se houver uma tabela de histórico no futuro, ela será consultada aqui
@@ -78,4 +78,5 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default eventsStateHistoryRoutes;
+
 

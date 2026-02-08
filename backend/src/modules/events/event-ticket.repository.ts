@@ -16,8 +16,8 @@ interface EventTicketRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class EventTicketRepository {
@@ -34,8 +34,8 @@ class EventTicketRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -56,7 +56,7 @@ class EventTicketRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
       RETURNING id, tenant_id, event_id, ticket_type, price_cents, currency,
                 quantity_total, quantity_sold, created_by_actor_id, created_by_user_id,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -84,7 +84,7 @@ class EventTicketRepository {
       `
       SELECT id, tenant_id, event_id, ticket_type, price_cents, currency,
              quantity_total, quantity_sold, created_by_actor_id, created_by_user_id,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM event_tickets
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -104,7 +104,7 @@ class EventTicketRepository {
       `
       SELECT id, tenant_id, event_id, ticket_type, price_cents, currency,
              quantity_total, quantity_sold, created_by_actor_id, created_by_user_id,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM event_tickets
       WHERE tenant_id = $1 AND event_id = $2
       ORDER BY ticket_type ASC
@@ -121,11 +121,11 @@ class EventTicketRepository {
       `
       UPDATE event_tickets
       SET quantity_sold = quantity_sold + 1,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND quantity_sold < quantity_total
       RETURNING id, tenant_id, event_id, ticket_type, price_cents, currency,
                 quantity_total, quantity_sold, created_by_actor_id, created_by_user_id,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [tenantId, ticketId]
     );
@@ -139,6 +139,8 @@ class EventTicketRepository {
 }
 
 export const eventTicketRepository = new EventTicketRepository();
+
+
 
 
 

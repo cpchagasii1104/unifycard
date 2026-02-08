@@ -16,7 +16,7 @@ export interface CreateDonationInput {
   fromUserId: string;
   targetType: DonationTargetType;
   targetId: string;
-  amount: number;
+  amountCents: number;
   message?: string;
   eventId?: string;
 }
@@ -27,7 +27,7 @@ export interface DonationResult {
   fromUserId: string;
   targetType: DonationTargetType;
   targetId: string;
-  amount: number;
+  amountCents: number;
   message?: string;
   feedPostId?: string;
   splitGroupId?: string; // ID do grupo de splits aplicados
@@ -150,7 +150,7 @@ class DonationService {
       WHERE t.tenant_id = $1
         AND t.from_account_id = $2
         AND t.metadata->>'type' = 'donation'
-        AND t.created_at >= $3
+        AND t.createdAt >= $3
       `,
       [tenantId, userAccount.accountId, today]
     );
@@ -175,7 +175,7 @@ class DonationService {
     donation: {
       targetType: DonationTargetType;
       targetId: string;
-      amount: number;
+      amountCents: number;
       message?: string;
       transactionId: string;
     }
@@ -197,7 +197,7 @@ class DonationService {
           type: 'DONATION',
           targetType: donation.targetType,
           targetId: donation.targetId,
-          amount: donation.amount,
+          amountCents: donation.amount,
           message: donation.message,
           transactionId: donation.transactionId,
         },
@@ -371,6 +371,8 @@ class DonationService {
 }
 
 export const donationService = new DonationService();
+
+
 
 
 

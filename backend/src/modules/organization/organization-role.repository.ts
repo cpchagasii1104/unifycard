@@ -9,7 +9,7 @@ interface OrganizationRoleRow {
   tenant_id: string;
   role_key: string;
   description: string | null;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class OrganizationRoleRepository {
@@ -19,7 +19,7 @@ class OrganizationRoleRepository {
       tenantId: row.tenant_id,
       roleKey: row.role_key as any,
       description: row.description,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -27,7 +27,7 @@ class OrganizationRoleRepository {
     const rows = await runQueriesWithTenant<OrganizationRoleRow>(
       tenantId,
       `
-      SELECT id, tenant_id, role_key, description, created_at
+      SELECT id, tenant_id, role_key, description, createdAt
       FROM organization_roles
       WHERE tenant_id = $1
       ORDER BY role_key ASC
@@ -42,7 +42,7 @@ class OrganizationRoleRepository {
     const rows = await runQueriesWithTenant<OrganizationRoleRow>(
       tenantId,
       `
-      SELECT id, tenant_id, role_key, description, created_at
+      SELECT id, tenant_id, role_key, description, createdAt
       FROM organization_roles
       WHERE tenant_id = $1 AND role_key = $2
       `,
@@ -60,7 +60,7 @@ class OrganizationRoleRepository {
     const rows = await runQueriesWithTenant<OrganizationRoleRow>(
       tenantId,
       `
-      SELECT id, tenant_id, role_key, description, created_at
+      SELECT id, tenant_id, role_key, description, createdAt
       FROM organization_roles
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -76,6 +76,8 @@ class OrganizationRoleRepository {
 }
 
 export const organizationRoleRepository = new OrganizationRoleRepository();
+
+
 
 
 

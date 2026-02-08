@@ -26,7 +26,7 @@ export type PixChargeStatus = 'CREATED' | 'PAID' | 'EXPIRED' | 'CANCELLED';
 export interface PixChargeData {
   chargeId: string;
   status: PixChargeStatus;
-  amount: number; // em centavos
+  amountCents: number; // em centavos
   expiresAt: Date;
   paidAt?: Date;
   metadata?: Record<string, any>;
@@ -40,7 +40,7 @@ export interface PixWebhookEvent {
   chargeId: string; // ID do charge no provider
   providerEventId: string; // ID do evento no provider (para idempotência)
   paidAt?: Date;
-  amount?: number; // em centavos
+  amountCents: number; // em centavos
   metadata?: Record<string, any>;
 }
 
@@ -48,7 +48,7 @@ export interface PixWebhookEvent {
  * Input para criar charge PIX
  */
 export interface CreatePixChargeInput {
-  amount: number; // em centavos
+  amountCents: number; // em centavos
   description?: string;
   expiresInMinutes?: number; // Tempo de expiração em minutos (padrão: 30)
   payerTaxId?: string; // CPF/CNPJ do pagador (opcional)
@@ -91,6 +91,7 @@ export interface PixProvider {
    */
   parseWebhook(payload: any): PixWebhookEvent | null;
 }
+
 
 
 

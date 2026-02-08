@@ -14,8 +14,8 @@ export interface StockTransfer {
   shippedAt?: Date | null;
   receivedAt?: Date | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StockTransferItem {
@@ -27,7 +27,7 @@ export interface StockTransferItem {
   inventoryLotId?: string | null;
   status: StockTransferItemStatus;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateStockTransferInput {
@@ -51,4 +51,5 @@ export interface ShipStockTransferInput {
 export interface ReceiveStockTransferInput {
   metadata?: Record<string, any>;
 }
+
 

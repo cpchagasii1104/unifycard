@@ -182,7 +182,7 @@ export class AIEngine {
                 lastTransactions: transactions.slice(0, 3).map(tx => ({
                   transactionId: tx.transactionId,
                   type: tx.toGlobalUserId === globalUserId ? 'credit' as const : 'debit' as const,
-                  amount: tx.amount,
+                  amountCents: tx.amount,
                 })),
               };
               reasoning.push(`Wallet detectada: saldo ${primaryAccount.currency} ${primaryAccount.balance.toFixed(2)}`);
@@ -261,4 +261,5 @@ export class AIEngine {
     return { valid, reasons };
   }
 }
+
 

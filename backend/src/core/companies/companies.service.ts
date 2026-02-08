@@ -403,7 +403,7 @@ class CompaniesService {
           finalTenantId,
           `
           UPDATE company_users
-          SET is_primary = false, updated_at = now()
+          SET is_primary = false, updatedAt = now()
           WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid
           `,
           [companyIds, globalUserId]
@@ -427,12 +427,12 @@ class CompaniesService {
     // Criar empresa
     const companyResult = await pool.query<{
       company_id: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `
       INSERT INTO companies (
-        tenant_id, global_user_id, cnpj, company_name, trade_name, registration_date,
+        tenant_id, global_user_id, cnpj, company_name, trade_name, registered_at,
         cep, address, address_number, complement, neighborhood, city, state, country,
         phone, email, website,
         main_activity_code, main_activity_description, secondary_activities,
@@ -445,7 +445,7 @@ class CompaniesService {
         $18, $19, $20,
         $21, $22, $23, $24, $25
       )
-      RETURNING company_id, created_at, updated_at
+      RETURNING company_id, createdAt, updatedAt
       `,
       [
         finalTenantId,
@@ -489,7 +489,7 @@ class CompaniesService {
         INSERT INTO company_domains (company_id, domain, enabled, config)
         VALUES ($1, $2, true, '{}'::jsonb)
         ON CONFLICT (company_id, domain) DO UPDATE
-        SET enabled = true, updated_at = NOW()
+        SET enabled = true, updatedAt = NOW()
         `,
         [companyId, domain]
       );
@@ -506,8 +506,8 @@ class CompaniesService {
 
     const userResult = await pool.query<{
       company_user_id: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `
       INSERT INTO company_users (
@@ -517,7 +517,7 @@ class CompaniesService {
         is_active, is_primary, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING company_user_id, created_at, updated_at
+      RETURNING company_user_id, createdAt, updatedAt
       `,
       [
         companyId,
@@ -642,7 +642,7 @@ class CompaniesService {
     cnpj: string;
     company_name: string;
     trade_name: string | null;
-    registration_date: Date | null;
+    registered_at: Date | null;
     cep: string | null;
     address: string | null;
     address_number: string | null;
@@ -662,8 +662,8 @@ class CompaniesService {
     company_status: string;
     is_verified: boolean;
     metadata: any;
-    created_at: Date;
-    updated_at: Date;
+    createdAt: Date;
+    updatedAt: Date;
   }): Company {
     return {
       companyId: row.company_id,
@@ -671,7 +671,7 @@ class CompaniesService {
       cnpj: row.cnpj,
       companyName: row.company_name,
       tradeName: row.trade_name || undefined,
-      registrationDate: row.registration_date?.toISOString().split('T')[0],
+      registrationDate: row.registered_at?.toISOString().split('T')[0],
       address: {
         cep: row.cep || undefined,
         address: row.address || undefined,
@@ -697,8 +697,8 @@ class CompaniesService {
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
       metadata: row.metadata || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -732,7 +732,7 @@ class CompaniesService {
         cnpj: string;
         company_name: string;
         trade_name: string | null;
-        registration_date: Date | null;
+        registered_at: Date | null;
         cep: string | null;
         address: string | null;
         address_number: string | null;
@@ -752,8 +752,8 @@ class CompaniesService {
         company_status: string;
         is_verified: boolean;
         metadata: any;
-        created_at: Date;
-        updated_at: Date;
+        createdAt: Date;
+        updatedAt: Date;
       }>(
         tenantId,
         `
@@ -779,7 +779,7 @@ class CompaniesService {
       cnpj: string;
       company_name: string;
       trade_name: string | null;
-      registration_date: Date | null;
+      registered_at: Date | null;
       cep: string | null;
       address: string | null;
       address_number: string | null;
@@ -799,8 +799,8 @@ class CompaniesService {
       company_status: string;
       is_verified: boolean;
       metadata: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -887,7 +887,7 @@ class CompaniesService {
       cnpj: string;
       company_name: string;
       trade_name: string | null;
-      registration_date: Date | null;
+      registered_at: Date | null;
       cep: string | null;
       address: string | null;
       address_number: string | null;
@@ -907,8 +907,8 @@ class CompaniesService {
       company_status: string;
       is_verified: boolean;
       metadata: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
       company_user_id: string;
       role: string;
       role_description: string | null;
@@ -920,8 +920,8 @@ class CompaniesService {
       is_active: boolean;
       is_primary: boolean;
       cu_metadata: any;
-      cu_created_at: Date;
-      cu_updated_at: Date;
+      cu_createdAt: Date;
+      cu_updatedAt: Date;
     }>(
       `
       SELECT 
@@ -937,12 +937,12 @@ class CompaniesService {
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
-        cu.created_at as cu_created_at,
-        cu.updated_at as cu_updated_at
+        cu.createdAt as cu_createdAt,
+        cu.updatedAt as cu_updatedAt
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
       WHERE c.tenant_id = $1
-      ORDER BY c.created_at DESC
+      ORDER BY c.createdAt DESC
       `,
       [finalTenantId]
     );
@@ -953,7 +953,7 @@ class CompaniesService {
       cnpj: row.cnpj,
       companyName: row.company_name,
       tradeName: row.trade_name || undefined,
-      registrationDate: row.registration_date?.toISOString().split('T')[0],
+      registrationDate: row.registered_at?.toISOString().split('T')[0],
       address: {
         cep: row.cep || undefined,
         address: row.address || undefined,
@@ -979,8 +979,8 @@ class CompaniesService {
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
       metadata: row.metadata || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       userRole: {
         companyUserId: row.company_user_id,
         companyId: row.company_id,
@@ -997,8 +997,8 @@ class CompaniesService {
         isActive: row.is_active,
         isPrimary: row.is_primary,
         metadata: row.cu_metadata || undefined,
-        createdAt: row.cu_created_at,
-        updatedAt: row.cu_updated_at,
+        createdAt: row.cu_createdAt,
+        updatedAt: row.cu_updatedAt,
       },
     }));
     }
@@ -1010,7 +1010,7 @@ class CompaniesService {
       cnpj: string;
       company_name: string;
       trade_name: string | null;
-      registration_date: Date | null;
+      registered_at: Date | null;
       cep: string | null;
       address: string | null;
       address_number: string | null;
@@ -1030,8 +1030,8 @@ class CompaniesService {
       company_status: string;
       is_verified: boolean;
       metadata: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
       company_user_id: string;
       role: string;
       role_description: string | null;
@@ -1043,8 +1043,8 @@ class CompaniesService {
       is_active: boolean;
       is_primary: boolean;
       cu_metadata: any;
-      cu_created_at: Date;
-      cu_updated_at: Date;
+      cu_createdAt: Date;
+      cu_updatedAt: Date;
     }>(
       finalTenantId,
       `
@@ -1061,12 +1061,12 @@ class CompaniesService {
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
-        cu.created_at as cu_created_at,
-        cu.updated_at as cu_updated_at
+        cu.createdAt as cu_createdAt,
+        cu.updatedAt as cu_updatedAt
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
       WHERE c.tenant_id = $1 AND c.global_user_id = $2::uuid
-      ORDER BY c.created_at DESC
+      ORDER BY c.createdAt DESC
       `,
       [finalTenantId, globalUserId]
     );
@@ -1077,7 +1077,7 @@ class CompaniesService {
       cnpj: row.cnpj,
       companyName: row.company_name,
       tradeName: row.trade_name || undefined,
-      registrationDate: row.registration_date?.toISOString().split('T')[0],
+      registrationDate: row.registered_at?.toISOString().split('T')[0],
       address: {
         cep: row.cep || undefined,
         address: row.address || undefined,
@@ -1103,8 +1103,8 @@ class CompaniesService {
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
       metadata: row.metadata || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       userRole: {
         companyUserId: row.company_user_id,
         companyId: row.company_id,
@@ -1121,8 +1121,8 @@ class CompaniesService {
         isActive: row.is_active,
         isPrimary: row.is_primary,
         metadata: row.cu_metadata || undefined,
-        createdAt: row.cu_created_at,
-        updatedAt: row.cu_updated_at,
+        createdAt: row.cu_createdAt,
+        updatedAt: row.cu_updatedAt,
       },
     }));
   }
@@ -1186,7 +1186,7 @@ class CompaniesService {
     }
 
     if (input.registrationDate !== undefined) {
-      updates.push(`registration_date = $${paramIdx}`);
+      updates.push(`registered_at = $${paramIdx}`);
       values.push(input.registrationDate ? new Date(input.registrationDate) : null);
       paramIdx++;
     }
@@ -1236,7 +1236,7 @@ class CompaniesService {
       return existing;
     }
 
-    updates.push(`updated_at = now()`);
+    updates.push(`updatedAt = now()`);
     values.push(companyId, globalUserId, finalTenantId);
 
     await runQueryWithTenant(
@@ -1303,8 +1303,8 @@ class CompaniesService {
       is_active: boolean;
       is_primary: boolean;
       metadata: any;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       finalTenantId,
       `
@@ -1340,8 +1340,8 @@ class CompaniesService {
       isActive: row.is_active,
       isPrimary: row.is_primary,
       metadata: row.metadata || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -1451,7 +1451,7 @@ class CompaniesService {
             finalTenantId,
             `
             UPDATE company_users
-            SET is_primary = false, updated_at = now()
+            SET is_primary = false, updatedAt = now()
             WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid AND company_user_id != $3::uuid
             `,
             [companyIds, globalUserId, companyUserId]
@@ -1471,7 +1471,7 @@ class CompaniesService {
       return existing;
     }
 
-    updates.push(`updated_at = now()`);
+    updates.push(`updatedAt = now()`);
     values.push(companyUserId, globalUserId, finalTenantId);
 
     // 🔴 CORREÇÃO: UPDATE COM filtro tenant_id via JOIN
@@ -1574,7 +1574,7 @@ class CompaniesService {
       finalTenantId,
       `
       UPDATE companies
-      SET status = 'inactive', updated_at = now()
+      SET status = 'inactive', updatedAt = now()
       WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
       `,
       [finalTenantId, companyId, globalUserId]
@@ -1690,7 +1690,7 @@ class CompaniesService {
         file_path = EXCLUDED.file_path,
         file_size = EXCLUDED.file_size,
         mime_type = EXCLUDED.mime_type,
-        updated_at = now()
+        updatedAt = now()
       RETURNING document_id
       `,
       [
@@ -1727,7 +1727,7 @@ class CompaniesService {
       finalTenantId,
       `
       UPDATE companies
-      SET company_status = 'PROVISIONAL', updated_at = now()
+      SET company_status = 'PROVISIONAL', updatedAt = now()
       WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
         AND company_status != 'VERIFIED'
       RETURNING company_status
@@ -1817,8 +1817,8 @@ class CompaniesService {
       file_size: number;
       mime_type: string;
       status: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       finalTenantId,
       `
@@ -1830,14 +1830,14 @@ class CompaniesService {
         cd.file_size,
         cd.mime_type,
         cd.status,
-        cd.created_at,
-        cd.updated_at
+        cd.createdAt,
+        cd.updatedAt
       FROM company_documents cd
       INNER JOIN companies c ON cd.company_id = c.company_id
       WHERE cd.company_id = $1::uuid 
         AND cd.global_user_id = $2::uuid
         AND c.tenant_id = $3
-      ORDER BY cd.created_at DESC
+      ORDER BY cd.createdAt DESC
       `,
       [companyId, globalUserId, finalTenantId]
     );
@@ -1850,8 +1850,8 @@ class CompaniesService {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     }));
   }
 
@@ -1885,8 +1885,8 @@ class CompaniesService {
       file_size: number;
       mime_type: string;
       status: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `
       SELECT 
@@ -1901,12 +1901,12 @@ class CompaniesService {
         cd.file_size,
         cd.mime_type,
         cd.status,
-        cd.created_at,
-        cd.updated_at
+        cd.createdAt,
+        cd.updatedAt
       FROM company_documents cd
       INNER JOIN companies c ON cd.company_id = c.company_id
       WHERE cd.status = 'pending'
-      ORDER BY cd.created_at ASC
+      ORDER BY cd.createdAt ASC
       `,
       []
     );
@@ -1923,8 +1923,8 @@ class CompaniesService {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     }));
   }
 
@@ -1972,7 +1972,7 @@ class CompaniesService {
     const updatedMetadata = {
       ...existingMetadata,
       approved_by: adminUserId || null,
-      approved_at: new Date().toISOString(),
+      approvedAt: new Date().toISOString(),
       ...(status === 'rejected' && rejectedReason ? { rejected_reason: rejectedReason } : {}),
     };
 
@@ -1982,7 +1982,7 @@ class CompaniesService {
       SET 
         status = $1,
         metadata = $2::jsonb,
-        updated_at = now()
+        updatedAt = now()
       WHERE document_id = $3::uuid
       `,
       [status, JSON.stringify(updatedMetadata), documentId]
@@ -1993,7 +1993,7 @@ class CompaniesService {
       await pool.query(
         `
         UPDATE companies
-        SET company_status = 'VERIFIED', is_verified = true, updated_at = now()
+        SET company_status = 'VERIFIED', is_verified = true, updatedAt = now()
         WHERE company_id = $1::uuid
         `,
         [doc.company_id]
@@ -2066,22 +2066,22 @@ class CompaniesService {
     const result = await pool.query<{
       company_id: string;
       company_status: string;
-      updated_at: Date;
+      updatedAt: Date;
     }>(
       `
       UPDATE companies
       SET 
         company_status = 'VERIFIED',
         is_verified = true,
-        updated_at = now(),
+        updatedAt = now(),
         metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
           'validation_method', 'ADMIN_OVERRIDE',
           'validated_by', 'SYSTEM_ADMIN',
-          'validated_at', now(),
+          'validatedAt', now(),
           'admin_global_user_id', $2::uuid
         )
       WHERE company_id = $1::uuid
-      RETURNING company_id, company_status, updated_at
+      RETURNING company_id, company_status, updatedAt
       `,
       [companyId, adminGlobalUserId]
     );
@@ -2121,3 +2121,5 @@ class CompaniesService {
 }
 
 export const companiesService = new CompaniesService();
+
+

@@ -8,7 +8,7 @@ export interface Country {
   id: string;
   code: string; // ISO 3166-1 alpha-2
   name: string;
-  active: boolean;
+  isActive: boolean;
 }
 
 /**
@@ -67,7 +67,7 @@ export interface CountryRow {
   country_id: string;
   code: string;
   name: string;
-  active: boolean;
+  isActive: boolean;
 }
 
 export interface StateRow {

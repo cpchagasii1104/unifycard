@@ -9,8 +9,8 @@ export interface CreateVoteInput {
   title: string;
   description?: string;
   options: string[];
-  starts_at?: string;
-  ends_at?: string;
+  startsAt?: string;
+  endsAt?: string;
 }
 
 export interface VoteWithOptions extends VoteRow {
@@ -46,8 +46,8 @@ export class VotesService {
       title: input.title,
       description: input.description,
       created_by_actor_id: actorId,
-      starts_at: input.starts_at,
-      ends_at: input.ends_at,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
     });
 
     // Adicionar opções
@@ -211,7 +211,7 @@ export class VotesService {
       limit?: number;
       offset?: number;
     } = {}
-  ): Promise<{ votes: VoteWithOptions[]; total: number }> {
+  ): Promise<{ votes: VoteWithOptions[]; totalCents: number }> {
     const { rows, total } = await votesRepository.list(tenantId, options);
 
     const votes: VoteWithOptions[] = [];
@@ -291,6 +291,8 @@ export class VotesService {
 }
 
 export const votesService = new VotesService();
+
+
 
 
 

@@ -23,8 +23,8 @@ export interface CompanyProfile {
   updatedByActorId: string | null;
   updatedByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -35,6 +35,7 @@ export interface SetCompanyProfileInput {
   taxRegime: TaxRegime;
   metadata?: Record<string, any>;
 }
+
 
 
 

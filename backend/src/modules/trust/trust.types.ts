@@ -57,8 +57,8 @@ export interface TrustProfile {
   positiveEvents: number;
   negativeEvents: number;
   lastEventAt: Date | null;
-  lastUpdatedAt: Date;
-  createdAt: Date;
+  lastupdatedAt: string;
+  createdAt: string;
 }
 
 /**
@@ -80,7 +80,7 @@ export interface TrustEvent {
   contextId: string;
   evidencePackId: string; // Obrigatório: sempre deve ter evidência
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -98,7 +98,7 @@ export interface TrustScoreSnapshot {
   riskLevel: RiskLevel;
   triggeredByEventId: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -158,4 +158,5 @@ export interface TrustEventFilters {
   limit?: number;
   offset?: number;
 }
+
 

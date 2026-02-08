@@ -18,7 +18,7 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface RegionalImpactMetrics {
-  snapshot_id: string;
+  snapshotId: string;
   region: {
     country: string;
     state: string;
@@ -28,18 +28,18 @@ export interface RegionalImpactMetrics {
     year: number;
     month: number; // 1-12
   };
-  total_transactions_amount: number; // Total movimentado no período
-  total_orders_count: number; // Número de pedidos executados
-  total_services_count: number; // Número de serviços confirmados
-  total_subscriptions_active: number; // Número de assinaturas ativas no período
-  total_stores_active: number; // Número de lojas ativas (com pedidos)
-  total_industrial_products_active: number; // Número de produtos industriais ativados
-  regional_fund_inflow: number; // Entrada no fundo regional
-  regional_fund_outflow: number; // Saída do fundo regional
-  average_ticket: number; // Ticket médio (total_transactions_amount / total_orders_count)
+  totalTransactionsAmount: number; // Total movimentado no período
+  totalOrdersCount: number; // Número de pedidos executados
+  totalServicesCount: number; // Número de serviços confirmados
+  totalSubscriptionsActive: number; // Número de assinaturas ativas no período
+  totalStoresActive: number; // Número de lojas ativas (com pedidos)
+  totalIndustrialProductsActive: number; // Número de produtos industriais ativados
+  regionalFundInflow: number; // Entrada no fundo regional
+  regionalFundOutflow: number; // Saída do fundo regional
+  averageTicket: number; // Ticket médio (totalTransactionsAmount / totalOrdersCount)
   currency: string; // Moeda (ex: 'BRL')
-  generated_at: string; // Timestamp de geração (imutável)
-  // NÃO incluir updated_at - snapshot é imutável
+  generatedAt: string; // Timestamp de geração (imutável)
+  // NÃO incluir updatedAt - snapshot é imutável
 }
 
 

@@ -15,19 +15,20 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface PaymentPlan {
-  payment_plan_id: string;
-  checkout_id: string;
+  paymentPlanId: string;
+  checkoutId: string;
   method: 'balance' | 'card' | 'invoice';
-  total: number;
+  totalCents: number;
   splits: Array<{
     type: 'seller' | 'platform' | 'affiliate' | 'regional_fund' | 'industry' | 'hub';
-    target_id: string;
-    amount: number;
+    targetId: string;
+    amountCents: number;
     currency: string;
   }>;
   status: 'calculated' | 'executed';
-  issued_at?: string; // B2B: data de emissão
-  due_date?: string; // B2B: data de vencimento
-  paid_at?: string; // B2B: data de pagamento
+  issuedAt?: string; // B2B: data de emissão
+  dueDate?: string; // B2B: data de vencimento
+  paidAt?: string; // B2B: data de pagamento
 }
+
 

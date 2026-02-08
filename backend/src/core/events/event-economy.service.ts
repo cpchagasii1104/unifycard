@@ -34,7 +34,7 @@ export interface EventCheckoutResult {
   attendeeId: string; // ID do registro em event_attendees
   transactionId: string;
   splitResult: SplitResult;
-  totalAmount: number; // Em centavos
+  totalAmountCents: number; // Em centavos
 }
 
 class EventEconomyService {
@@ -69,7 +69,7 @@ class EventEconomyService {
     }
 
     // Evento gratuito não precisa de split
-    if (!event.ticket_price_cents || event.ticket_price_cents === 0) {
+    if (!event.ticketPriceCents || event.ticketPriceCents === 0) {
       return { isValid: true };
     }
 
@@ -81,8 +81,8 @@ class EventEconomyService {
     // Validar que actor tem conta (necessário para split)
     const organizerAccount = await this.resolveOrganizerAccount(
       tenantId,
-      event.actor_id,
-      event.actor_type
+      event.actorId,
+      event.actorType
     );
 
     if (!organizerAccount) {
@@ -96,7 +96,7 @@ class EventEconomyService {
     try {
       const splitContext: SplitContext = {
         tenantId,
-        amount: event.ticket_price_cents / 100, // Converter centavos para reais
+        amountCents: event.ticketPriceCents / 100, // Converter centavos para reais
         currency: 'BRL',
         source: 'event_ticket',
         customerAccountId: '', // Não necessário para validação
@@ -243,15 +243,15 @@ class EventEconomyService {
       throw new NotFoundError('Evento não encontrado');
     }
 
-    if (!event.ticket_price_cents || event.ticket_price_cents === 0) {
+    if (!event.ticketPriceCents || event.ticketPriceCents === 0) {
       throw new BadRequestError('Evento gratuito não possui split');
     }
 
     // Resolver conta do organizador
     const organizerAccount = await this.resolveOrganizerAccount(
       tenantId,
-      event.actor_id,
-      event.actor_type
+      event.actorId,
+      event.actorType
     );
 
     if (!organizerAccount) {
@@ -261,7 +261,7 @@ class EventEconomyService {
     // Calcular split
     const splitContext: SplitContext = {
       tenantId,
-      amount: event.ticket_price_cents / 100, // Converter centavos para reais
+      amountCents: event.ticketPriceCents / 100, // Converter centavos para reais
       currency: 'BRL',
       source: 'event_ticket',
       customerAccountId: '', // Não necessário para cálculo
@@ -282,7 +282,7 @@ class EventEconomyService {
 
     return {
       eventId: event.id,
-      ticketPriceCents: event.ticket_price_cents,
+      ticketPriceCents: event.ticketPriceCents,
       splits: splitResult.splits.map((split) => ({
         targetType: split.rule.targetType as 'EVENT_ORGANIZER' | 'TENANT' | 'REGION' | 'GROUP',
         percentage: split.rule.percentage,
@@ -358,7 +358,7 @@ class EventEconomyService {
         SELECT COUNT(*) as count
         FROM event_attendees
         WHERE tenant_id = $1 AND event_id = $2 
-          AND (check_in_status = 'CONFIRMED' OR check_in_status = 'PENDING')
+          AND (check_in_status = 'confirmed' OR check_in_status = 'pending')
         `,
         [tenantId, eventId]
       );
@@ -460,7 +460,7 @@ class EventEconomyService {
     await transactionService.transfer(tenantId, {
       fromAccount: customerAccount,
       toAccount: escrowAccountId,
-      amount: totalAmountCents / 100, // Converter para reais
+      amountCents: totalAmountCents / 100, // Converter para reais
       eventId: transactionId,
       metadata: {
         module: 'EVENT_TICKET',
@@ -481,7 +481,7 @@ class EventEconomyService {
     });
 
     // 8. Criar registro de attendee
-    // CONTRATO v1.3: check_in_status começa como 'PENDING' (check-in será feito depois)
+    // CONTRATO v1.3: check_in_status começa como 'pending' (check-in será feito depois)
     const attendee = await runQueryWithTenant<{ id: string }>(
       tenantId,
       `
@@ -490,7 +490,7 @@ class EventEconomyService {
       )
       VALUES ($1, $2, $3, 'PENDING', $4, $5)
       ON CONFLICT (tenant_id, event_id, actor_id) DO UPDATE
-      SET metadata = $5, transaction_id = $4, updated_at = NOW()
+      SET metadata = $5, transaction_id = $4, updatedAt = NOW()
       RETURNING id
       `,
       [
@@ -502,7 +502,7 @@ class EventEconomyService {
           checkout_transaction_id: transactionId,
           quantity,
           total_amount_cents: totalAmountCents,
-          checkout_at: new Date().toISOString(),
+          checkoutAt: new Date().toISOString(),
           escrow_deposit: true, // CONTRATO v1.3: dinheiro está em escrow
           escrow_id: escrow.id,
         }),
@@ -560,7 +560,7 @@ class EventEconomyService {
         totalAmount: totalAmountCents / 100,
         splits: [], // Split será feito pós-evento
       },
-      totalAmount: totalAmountCents,
+      totalAmountCents: totalAmountCents,
     };
   }
 
@@ -604,4 +604,6 @@ class EventEconomyService {
 }
 
 export const eventEconomyService = new EventEconomyService();
+
+
 

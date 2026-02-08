@@ -9,7 +9,7 @@ import { bankP2PTransferService } from './bank-p2p-transfer.service';
 // Schema de validação do payload
 const p2pTransferSchema = z.object({
   toUserId: z.string().uuid('Invalid destination user ID'),
-  amount: z.number().positive('Amount must be greater than zero'),
+  amountCents: z.number().positive('Amount must be greater than zero'),
   eventId: z.string().uuid('Invalid event ID').optional(),
 });
 
@@ -111,6 +111,7 @@ const bankP2PTransferRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default bankP2PTransferRoutes;
+
 
 
 

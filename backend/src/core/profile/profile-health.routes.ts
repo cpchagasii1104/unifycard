@@ -72,7 +72,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       const actorUtils = socialPortsRegistry.getActorUtils();
       const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
         allowUserFallback: true,
-        userId: req.user.id,
+        userId: req.actionContext.actorId,
       });
 
       const category = req.query.category as any;
@@ -129,16 +129,11 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
-      if (actionContext?.actingActorId) {
-        actorId = actionContext.actingActorId;
-      } else {
-        const actorUtils = socialPortsRegistry.getActorUtils();
-        const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
-          allowUserFallback: true,
-          userId: req.user.id,
-        });
-        actorId = currentActor.actor_id;
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
+      actorId = actionContext.actorId;
 
       const fact = await profileHealthFactsRepository.upsert(req.tenant.id, actorId, {
         taxonomyId: req.body.taxonomyId,
@@ -194,16 +189,11 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
-      if (actionContext?.actingActorId) {
-        actorId = actionContext.actingActorId;
-      } else {
-        const actorUtils = socialPortsRegistry.getActorUtils();
-        const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
-          allowUserFallback: true,
-          userId: req.user.id,
-        });
-        actorId = currentActor.actor_id;
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
+      actorId = actionContext.actorId;
 
       await profileHealthFactsRepository.delete(req.tenant.id, actorId, req.params.id);
 
@@ -241,7 +231,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       const actorUtils = socialPortsRegistry.getActorUtils();
       const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
         allowUserFallback: true,
-        userId: req.user.id,
+        userId: req.actionContext.actorId,
       });
 
       const section = (req.query as any)?.section as string | undefined;
@@ -289,16 +279,11 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
-      if (actionContext?.actingActorId) {
-        actorId = actionContext.actingActorId;
-      } else {
-        const actorUtils = socialPortsRegistry.getActorUtils();
-        const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
-          allowUserFallback: true,
-          userId: req.user.id,
-        });
-        actorId = currentActor.actor_id;
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
+      actorId = actionContext.actorId;
 
       const input = req.body;
 
@@ -345,16 +330,11 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
-      if (actionContext?.actingActorId) {
-        actorId = actionContext.actingActorId;
-      } else {
-        const actorUtils = socialPortsRegistry.getActorUtils();
-        const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
-          allowUserFallback: true,
-          userId: req.user.id,
-        });
-        actorId = currentActor.actor_id;
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
+      actorId = actionContext.actorId;
 
       await profileHealthService.deleteDeclaration(req.tenant.id, actorId, req.params.id);
 

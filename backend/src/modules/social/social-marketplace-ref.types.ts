@@ -10,7 +10,7 @@ export interface SocialMarketplaceRef {
   refType: SocialMarketplaceRefType;
   refId: string;
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateSocialMarketplaceRefInput {
@@ -30,6 +30,7 @@ export interface SocialMarketplaceRefWithDetails {
     link: string;
   };
 }
+
 
 
 

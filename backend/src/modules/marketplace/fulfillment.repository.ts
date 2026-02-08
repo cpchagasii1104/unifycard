@@ -15,10 +15,10 @@ interface FulfillmentOrderRow {
   source: string;
   status: string;
   picked_by_user_id: string | null;
-  shipped_at: Date | null;
+  shippedAt: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface FulfillmentItemRow {
@@ -30,7 +30,7 @@ interface FulfillmentItemRow {
   inventory_lot_id: string | null;
   status: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class FulfillmentRepository {
@@ -45,10 +45,10 @@ class FulfillmentRepository {
       source: row.source as any,
       status: row.status as any,
       pickedByUserId: row.picked_by_user_id,
-      shippedAt: row.shipped_at,
+      shippedAt: row.shippedAt,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -65,7 +65,7 @@ class FulfillmentRepository {
       inventoryLotId: row.inventory_lot_id,
       status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -84,7 +84,7 @@ class FulfillmentRepository {
       )
       VALUES ($1, $2, $3, 'PENDING', $4)
       RETURNING id, tenant_id, order_id, source, status,
-                picked_by_user_id, shipped_at, metadata, created_at, updated_at
+                picked_by_user_id, shippedAt, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -112,7 +112,7 @@ class FulfillmentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, source, status,
-             picked_by_user_id, shipped_at, metadata, created_at, updated_at
+             picked_by_user_id, shippedAt, metadata, createdAt, updatedAt
       FROM fulfillment_orders
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -134,7 +134,7 @@ class FulfillmentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, source, status,
-             picked_by_user_id, shipped_at, metadata, created_at, updated_at
+             picked_by_user_id, shippedAt, metadata, createdAt, updatedAt
       FROM fulfillment_orders
       WHERE tenant_id = $1 AND order_id = $2
       LIMIT 1
@@ -166,7 +166,7 @@ class FulfillmentRepository {
     }
 
     if (shippedAt) {
-      updates.push(`shipped_at = $${paramIndex}`);
+      updates.push(`shippedAt = $${paramIndex}`);
       params.push(shippedAt);
       paramIndex++;
     }
@@ -177,10 +177,10 @@ class FulfillmentRepository {
       tenantId,
       `
       UPDATE fulfillment_orders
-      SET ${updates.join(', ')}, updated_at = NOW()
+      SET ${updates.join(', ')}, updatedAt = NOW()
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
       RETURNING id, tenant_id, order_id, source, status,
-                picked_by_user_id, shipped_at, metadata, created_at, updated_at
+                picked_by_user_id, shippedAt, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -210,7 +210,7 @@ class FulfillmentRepository {
       )
       VALUES ($1, $2, $3, $4, $5, 'PENDING')
       RETURNING id, tenant_id, fulfillment_order_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, created_at
+                inventory_lot_id, status, metadata, createdAt
       `,
       [tenantId, fulfillmentOrderId, productVariantId, quantity, inventoryLotId || null]
     );
@@ -233,10 +233,10 @@ class FulfillmentRepository {
       tenantId,
       `
       SELECT id, tenant_id, fulfillment_order_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, created_at
+             inventory_lot_id, status, metadata, createdAt
       FROM fulfillment_items
       WHERE tenant_id = $1 AND fulfillment_order_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, fulfillmentOrderId]
     );
@@ -255,7 +255,7 @@ class FulfillmentRepository {
       tenantId,
       `
       SELECT id, tenant_id, fulfillment_order_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, created_at
+             inventory_lot_id, status, metadata, createdAt
       FROM fulfillment_items
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -294,7 +294,7 @@ class FulfillmentRepository {
       SET ${updates.join(', ')}
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
       RETURNING id, tenant_id, fulfillment_order_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, created_at
+                inventory_lot_id, status, metadata, createdAt
       `,
       params
     );
@@ -308,6 +308,8 @@ class FulfillmentRepository {
 }
 
 export const fulfillmentRepository = new FulfillmentRepository();
+
+
 
 
 

@@ -27,7 +27,7 @@ const pixRoutes = async (fastify: FastifyInstance) => {
       qrCodeText: charge.payloadSnapshot.qrCodeText,
       expiresAt: charge.expiresAt.toISOString(),
       paidAt: charge.paidAt?.toISOString() || null,
-      amount: charge.amount,
+      amountCents: charge.amount,
       currency: charge.currency,
     });
   });
@@ -136,4 +136,5 @@ export const pixWebhookRoutes = async (fastify: FastifyInstance) => {
     return reply.send({ success: true });
   });
 };
+
 

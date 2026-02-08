@@ -64,7 +64,7 @@ class SystemNotificationService {
   async listNotifications(
     tenantId: string,
     filters: SystemNotificationFilters = {}
-  ): Promise<{ notifications: SystemNotification[]; total: number }> {
+  ): Promise<{ notifications: SystemNotification[]; totalCents: number }> {
     return await systemNotificationRepository.find(tenantId, filters);
   }
 
@@ -101,4 +101,5 @@ class SystemNotificationService {
 }
 
 export const systemNotificationService = new SystemNotificationService();
+
 

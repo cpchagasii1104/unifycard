@@ -17,8 +17,8 @@ type RoleRow = {
   name: string;
   description: string | null;
   is_system_role: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type PermissionRow = {
@@ -28,8 +28,8 @@ type PermissionRow = {
   action: string;
   description: string | null;
   is_system_permission: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type UserRoleRow = {
@@ -37,7 +37,7 @@ type UserRoleRow = {
   tenant_id: string;
   user_id: string;
   role_id: string;
-  assigned_at: Date;
+  assignedAt: Date;
   assigned_by: string | null;
 };
 
@@ -53,8 +53,8 @@ class RBACService {
       name: row.name,
       description: row.description,
       isSystemRole: row.is_system_role,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -66,17 +66,161 @@ class RBACService {
       action: row.action,
       description: row.description,
       isSystemPermission: row.is_system_permission,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
   // ===========================
-  // VERIFICAÇÕES DE PERMISSÃO
+  // VERIFICAÇÕES DE PERMISSÃO V2 (ACTORID + INTENT + SCOPE)
+  // ===========================
+
+  /**
+   * Verifica se um actor tem uma permission específica para um intent e scope
+   * Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+   * 
+   * RBAC V2 NÃO converte actorId → userId.
+   * RBAC V2 decide EXCLUSIVAMENTE com actorId + intent + scope.
+   */
+  async actorHasPermission(
+    tenantId: string,
+    actorId: string,
+    intent: string,
+    scope: string,
+    permission: PermissionString
+  ): Promise<PermissionCheck> {
+    const [resource, action] = permission.split(':');
+
+    if (!resource || !action) {
+      return {
+        hasPermission: false,
+        actorId,
+        permission,
+        reason: 'Invalid permission format. Expected "resource:action"',
+      };
+    }
+
+    // Verificar se actor existe (consulta permitida, mas não participa da decisão)
+    const actorExists = await runQueryWithTenant<{ exists: boolean }>(
+      tenantId,
+      'SELECT EXISTS(SELECT 1 FROM actors WHERE actor_id = $1 AND tenant_id = $2) as exists',
+      [actorId, tenantId]
+    );
+
+    if (!actorExists?.exists) {
+      return {
+        hasPermission: false,
+        actorId,
+        permission,
+        reason: `Actor not found: ${actorId}`,
+      };
+    }
+
+    // Decisão RBAC V2: consultar permissões diretamente pelo actorId
+    // Conforme RBAC_V2_CONTRACT.md: decide apenas com actorId + intent + scope
+    // NOTA: Função SQL encapsula mapeamento actor_id → permissões sem expor user_id
+    const result = await runQueryWithTenant<{ has_permission: boolean }>(
+      tenantId,
+      `SELECT actor_has_permission($1, $2, $3, $4) as has_permission`,
+      [tenantId, actorId, resource, action]
+    );
+
+    return {
+      hasPermission: result?.has_permission ?? false,
+      actorId,
+      permission,
+    };
+  }
+
+  /**
+   * Verifica se um actor tem QUALQUER uma das permissions listadas para um intent e scope
+   * Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+   */
+  async actorHasAnyPermission(
+    tenantId: string,
+    actorId: string,
+    intent: string,
+    scope: string,
+    permissions: PermissionString[]
+  ): Promise<PermissionCheck> {
+    for (const permission of permissions) {
+      const check = await this.actorHasPermission(tenantId, actorId, intent, scope, permission);
+      if (check.hasPermission) {
+        return check;
+      }
+    }
+
+    return {
+      hasPermission: false,
+      actorId,
+      permission: permissions.join(' OR ') as PermissionString,
+      reason: `Actor does not have any of the required permissions: ${permissions.join(', ')} for intent "${intent}" in scope "${scope}"`,
+    };
+  }
+
+  /**
+   * Verifica se um actor tem TODAS as permissions listadas para um intent e scope
+   * Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+   */
+  async actorHasAllPermissions(
+    tenantId: string,
+    actorId: string,
+    intent: string,
+    scope: string,
+    permissions: PermissionString[]
+  ): Promise<PermissionCheck> {
+    for (const permission of permissions) {
+      const check = await this.actorHasPermission(tenantId, actorId, intent, scope, permission);
+      if (!check.hasPermission) {
+        return {
+          hasPermission: false,
+          actorId,
+          permission: permissions.join(' AND ') as PermissionString,
+          reason: `Actor is missing required permission: ${permission} for intent "${intent}" in scope "${scope}"`,
+        };
+      }
+    }
+
+    return {
+      hasPermission: true,
+      actorId,
+      permission: permissions.join(' AND ') as PermissionString,
+    };
+  }
+
+  /**
+   * Verifica se um actor tem QUALQUER uma das roles listadas para um intent e scope
+   * Conforme RBAC_V2_CONTRACT.md Seção 2: decide apenas com actorId + intent + scope
+   * 
+   * RBAC V2 NÃO converte actorId → userId.
+   * RBAC V2 decide EXCLUSIVAMENTE com actorId + intent + scope.
+   */
+  async actorHasAnyRole(
+    tenantId: string,
+    actorId: string,
+    intent: string,
+    scope: string,
+    roleNames: string[]
+  ): Promise<boolean> {
+    // Decisão RBAC V2: consultar roles diretamente pelo actorId
+    // Conforme RBAC_V2_CONTRACT.md: decide apenas com actorId + intent + scope
+    // NOTA: Função SQL encapsula mapeamento actor_id → roles sem expor user_id
+    const result = await runQueryWithTenant<{ exists: boolean }>(
+      tenantId,
+      `SELECT actor_has_any_role($1, $2, $3::text[]) as exists`,
+      [tenantId, actorId, roleNames]
+    );
+
+    return result?.exists ?? false;
+  }
+
+  // ===========================
+  // VERIFICAÇÕES DE PERMISSÃO (LEGADO - DEPRECATED)
   // ===========================
 
   /**
    * Verifica se um usuário tem uma permission específica
+   * @deprecated Use actorHasPermission instead. Conforme RBAC_V2_CONTRACT.md
    */
   async userHasPermission(
     tenantId: string,
@@ -102,13 +246,14 @@ class RBACService {
 
     return {
       hasPermission: result?.has_permission ?? false,
-      userId,
+      userId, // Deprecated
       permission,
     };
   }
 
   /**
    * Verifica se usuário tem QUALQUER uma das permissions listadas
+   * @deprecated Use actorHasAnyPermission instead. Conforme RBAC_V2_CONTRACT.md
    */
   async userHasAnyPermission(
     tenantId: string,
@@ -124,7 +269,7 @@ class RBACService {
 
     return {
       hasPermission: false,
-      userId,
+      userId, // Deprecated
       permission: permissions.join(' OR ') as PermissionString,
       reason: `User does not have any of the required permissions: ${permissions.join(', ')}`,
     };
@@ -132,6 +277,7 @@ class RBACService {
 
   /**
    * Verifica se usuário tem TODAS as permissions listadas
+   * @deprecated Use actorHasAllPermissions instead. Conforme RBAC_V2_CONTRACT.md
    */
   async userHasAllPermissions(
     tenantId: string,
@@ -143,7 +289,7 @@ class RBACService {
       if (!check.hasPermission) {
         return {
           hasPermission: false,
-          userId,
+          userId, // Deprecated
           permission: permissions.join(' AND ') as PermissionString,
           reason: `User is missing required permission: ${permission}`,
         };
@@ -152,7 +298,7 @@ class RBACService {
 
     return {
       hasPermission: true,
-      userId,
+      userId, // Deprecated
       permission: permissions.join(' AND ') as PermissionString,
     };
   }
@@ -222,6 +368,7 @@ class RBACService {
 
   /**
    * Verifica se usuário tem QUALQUER uma das roles listadas
+   * @deprecated Use actorHasAnyRole instead. Conforme RBAC_V2_CONTRACT.md
    */
   async userHasAnyRole(
     tenantId: string,
@@ -260,7 +407,7 @@ class RBACService {
       `INSERT INTO user_roles (tenant_id, user_id, role_id, assigned_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (tenant_id, user_id, role_id) DO UPDATE 
-       SET assigned_at = now()
+       SET assignedAt = now()
        RETURNING *`,
       [tenantId, userId, roleId, assignedBy]
     );
@@ -274,7 +421,7 @@ class RBACService {
       tenantId: row.tenant_id,
       userId: row.user_id,
       roleId: row.role_id,
-      assignedAt: row.assigned_at,
+      assignedAt: row.assignedAt,
       assignedBy: row.assigned_by,
     };
   }

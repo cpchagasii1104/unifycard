@@ -26,14 +26,14 @@ import type { EventStatus, ActorType, EventVisibility, EventDeclaration } from '
  */
 export interface EventAggregate {
   id: string;
-  tenant_id: string;
-  responsible_actor_id: string; // Obrigatório, explícito
-  responsible_actor_type: ActorType;
+  tenantId: string;
+  responsibleActorId: string; // Obrigatório, explícito
+  responsibleActorType: ActorType;
   status: EventStatus; // Canônico: draft, declared, published, active, ended, cancelled
   visibility: EventVisibility;
   declaration?: EventDeclaration | null;
-  created_at: string; // ISO 8601
-  updated_at: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
 }
 
 /**
@@ -118,25 +118,25 @@ export function isCanonicalStatus(status: EventStatus): boolean {
  */
 export function enrichEventWithCanonicalFields(event: {
   id: string;
-  tenant_id: string;
-  actor_id: string;
-  actor_type: ActorType;
+  tenantId: string;
+  actorId: string;
+  actorType: ActorType;
   status: EventStatus;
   visibility: EventVisibility;
   declaration?: EventDeclaration | null;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }): EventAggregate {
   return {
     id: event.id,
-    tenant_id: event.tenant_id,
-    responsible_actor_id: event.actor_id, // Alias canônico
-    responsible_actor_type: event.actor_type,
+    tenantId: event.tenantId,
+    responsibleActorId: event.actorId, // Alias canônico
+    responsibleActorType: event.actorType,
     status: mapToCanonicalStatus(event.status),
     visibility: event.visibility,
     declaration: event.declaration || null,
-    created_at: event.created_at,
-    updated_at: event.updated_at,
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
   };
 }
 

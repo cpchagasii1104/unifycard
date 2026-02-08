@@ -31,14 +31,14 @@ export interface BankTransaction {
   eventId: string; // Para idempotência
   fromAccountId?: string | null;
   toAccountId?: string | null;
-  amount: number;
+  amountCents: number;
   currency: BankCurrency;
   transactionType: BankTransactionType;
   originalTransactionId?: string | null; // Para reversões
   status: BankTransactionStatus;
   description?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
   settledAt?: Date | null;
 }
 
@@ -49,7 +49,7 @@ export interface CreateBankTransactionInput {
   eventId: string; // Para idempotência
   fromAccountId?: string;
   toAccountId?: string;
-  amount: number;
+  amountCents: number;
   currency?: BankCurrency;
   transactionType: BankTransactionType;
   originalTransactionId?: string; // Para reversões
@@ -69,7 +69,7 @@ export interface BankTransferResult {
   transactionId: string;
   fromAccountId: string;
   toAccountId: string;
-  amount: number;
+  amountCents: number;
   currency: BankCurrency;
   fromBalance: number; // Saldo após transferência
   toBalance: number;  // Saldo após transferência
@@ -78,6 +78,8 @@ export interface BankTransferResult {
     toEntry: string;   // entryId do crédito
   };
 }
+
+
 
 
 

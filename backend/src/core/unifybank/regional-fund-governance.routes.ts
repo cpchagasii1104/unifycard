@@ -15,7 +15,7 @@ const createProposalSchema = z.object({
   proposalType: z.enum(['PROJECT_FUNDING', 'REGIONAL_REINVESTMENT', 'COMMUNITY_EXPENSE']),
   targetType: z.enum(['project', 'group', 'platform', 'regional_fund']),
   targetId: z.string().uuid().optional(),
-  amount: z.number().positive(),
+  amountCents: z.number().positive(),
   votingStartsAt: z.coerce.date(),
   votingEndsAt: z.coerce.date(),
 });
@@ -26,7 +26,7 @@ const voteSchema = z.object({
 
 const listProposalsQuerySchema = z.object({
   regionId: z.string().optional(),
-  status: z.enum(['DRAFT', 'OPEN', 'CLOSED', 'EXECUTED', 'REJECTED']).optional(),
+  status: z.enum(['draft', 'open', 'closed', 'executed', 'rejected']).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
   offset: z.coerce.number().int().min(0).optional().default(0),
 });
@@ -482,6 +482,7 @@ const governanceRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default governanceRoutes;
+
 
 
 

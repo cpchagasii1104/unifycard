@@ -108,7 +108,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
 
     const invoices = await invoiceService.listInvoices(tenantId, filters);
 
-    return reply.send({ invoices, total: invoices.length });
+    return reply.send({ invoices, totalCents: invoices.length });
   });
 
   /**
@@ -153,6 +153,7 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default invoiceRoutes;
+
 
 
 

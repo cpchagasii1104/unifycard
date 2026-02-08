@@ -55,12 +55,12 @@ class InventorySlaService {
         SELECT DISTINCT ON (im.product_variant_id)
           im.product_variant_id,
           im.movement_type,
-          im.created_at,
+          im.createdAt,
           im.unit
         FROM inventory_movements im
         WHERE im.tenant_id = $1
           ${options.productVariantId ? `AND im.product_variant_id = $${paramIndex - 1}` : ''}
-        ORDER BY im.product_variant_id, im.created_at DESC
+        ORDER BY im.product_variant_id, im.createdAt DESC
       ),
       current_balances AS (
         SELECT
@@ -90,28 +90,28 @@ class InventorySlaService {
       last_in_movements AS (
         SELECT DISTINCT ON (im.product_variant_id)
           im.product_variant_id,
-          im.created_at AS last_in_at
+          im.createdAt AS last_inAt
         FROM inventory_movements im
         WHERE im.tenant_id = $1
           AND im.movement_type = 'IN'
           ${options.productVariantId ? `AND im.product_variant_id = $${paramIndex - 1}` : ''}
-        ORDER BY im.product_variant_id, im.created_at DESC
+        ORDER BY im.product_variant_id, im.createdAt DESC
       )
       SELECT
         cb.product_variant_id,
         cb.current_quantity::numeric,
         cb.unit,
         COALESCE(
-          EXTRACT(EPOCH FROM (NOW() - lim.last_in_at)) / 86400,
+          EXTRACT(EPOCH FROM (NOW() - lim.last_inAt)) / 86400,
           0
         )::integer AS days_in_stock,
-        lim.last_in_at AS last_movement_at,
+        lim.last_inAt AS last_movementAt,
         'IN' AS last_movement_type
       FROM current_balances cb
       LEFT JOIN last_in_movements lim ON cb.product_variant_id = lim.product_variant_id
       WHERE cb.current_quantity > 0
-        ${options.minDaysInStock ? `AND COALESCE(EXTRACT(EPOCH FROM (NOW() - lim.last_in_at)) / 86400, 0) >= $${paramIndex}` : ''}
-        ${options.maxDaysInStock ? `AND COALESCE(EXTRACT(EPOCH FROM (NOW() - lim.last_in_at)) / 86400, 0) <= $${paramIndex + (options.minDaysInStock ? 1 : 0)}` : ''}
+        ${options.minDaysInStock ? `AND COALESCE(EXTRACT(EPOCH FROM (NOW() - lim.last_inAt)) / 86400, 0) >= $${paramIndex}` : ''}
+        ${options.maxDaysInStock ? `AND COALESCE(EXTRACT(EPOCH FROM (NOW() - lim.last_inAt)) / 86400, 0) <= $${paramIndex + (options.minDaysInStock ? 1 : 0)}` : ''}
       ORDER BY days_in_stock DESC
       LIMIT ${options.limit || 100}
       OFFSET ${options.offset || 0}
@@ -141,7 +141,7 @@ class InventorySlaService {
       currentQuantity: parseFloat(row.current_quantity),
       unit: row.unit || 'un',
       daysInStock: parseInt(row.days_in_stock) || 0,
-      lastMovementAt: row.last_movement_at ? new Date(row.last_movement_at) : null,
+      lastMovementAt: row.last_movementAt ? new Date(row.last_movementAt) : null,
       lastMovementType: row.last_movement_type as 'IN' | 'OUT' | 'ADJUSTMENT' | null,
     }));
   }
@@ -186,7 +186,7 @@ class InventorySlaService {
       WITH receipt_info AS (
         SELECT
           str.stock_transfer_id,
-          MIN(str.created_at) AS receiving_started_at
+          MIN(str.createdAt) AS receiving_startedAt
         FROM stock_transfer_receipts str
         WHERE str.tenant_id = $1
         GROUP BY str.stock_transfer_id
@@ -196,30 +196,30 @@ class InventorySlaService {
         st.from_actor_id,
         st.to_actor_id,
         st.status,
-        st.created_at,
-        st.shipped_at,
-        ri.receiving_started_at,
-        st.received_at,
+        st.createdAt,
+        st.shippedAt,
+        ri.receiving_startedAt,
+        st.receivedAt,
         -- Tempos em dias
         CASE 
-          WHEN st.shipped_at IS NOT NULL AND ri.receiving_started_at IS NOT NULL
-          THEN EXTRACT(EPOCH FROM (ri.receiving_started_at - st.shipped_at)) / 86400
+          WHEN st.shippedAt IS NOT NULL AND ri.receiving_startedAt IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (ri.receiving_startedAt - st.shippedAt)) / 86400
           ELSE NULL
         END AS days_shipped_to_receiving,
         CASE 
-          WHEN ri.receiving_started_at IS NOT NULL AND st.received_at IS NOT NULL
-          THEN EXTRACT(EPOCH FROM (st.received_at - ri.receiving_started_at)) / 86400
+          WHEN ri.receiving_startedAt IS NOT NULL AND st.receivedAt IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (st.receivedAt - ri.receiving_startedAt)) / 86400
           ELSE NULL
         END AS days_receiving_to_received,
         CASE 
-          WHEN st.shipped_at IS NOT NULL AND st.received_at IS NOT NULL
-          THEN EXTRACT(EPOCH FROM (st.received_at - st.shipped_at)) / 86400
+          WHEN st.shippedAt IS NOT NULL AND st.receivedAt IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (st.receivedAt - st.shippedAt)) / 86400
           ELSE NULL
         END AS total_days
       FROM stock_transfers st
       LEFT JOIN receipt_info ri ON st.id = ri.stock_transfer_id
       WHERE ${conditions.join(' AND ')}
-      ORDER BY st.created_at DESC
+      ORDER BY st.createdAt DESC
       LIMIT ${options.limit || 100}
       OFFSET ${options.offset || 0}
     `;
@@ -238,14 +238,14 @@ class InventorySlaService {
       let isOverdue = false;
       let overdueReason: string | undefined;
 
-      if (row.status === 'SHIPPED' && row.shipped_at) {
-        const daysSinceShipped = (Date.now() - new Date(row.shipped_at).getTime()) / (1000 * 60 * 60 * 24);
+      if (row.status === 'SHIPPED' && row.shippedAt) {
+        const daysSinceShipped = (Date.now() - new Date(row.shippedAt).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceShipped > maxDaysShippedToReceiving) {
           isOverdue = true;
           overdueReason = `Atrasado: ${daysSinceShipped.toFixed(1)} dias desde SHIPPED (SLA: ${maxDaysShippedToReceiving} dias)`;
         }
-      } else if (row.status === 'RECEIVING' && row.receiving_started_at) {
-        const daysSinceReceiving = (Date.now() - new Date(row.receiving_started_at).getTime()) / (1000 * 60 * 60 * 24);
+      } else if (row.status === 'RECEIVING' && row.receiving_startedAt) {
+        const daysSinceReceiving = (Date.now() - new Date(row.receiving_startedAt).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceReceiving > maxDaysReceivingToReceived) {
           isOverdue = true;
           overdueReason = `Atrasado: ${daysSinceReceiving.toFixed(1)} dias desde RECEIVING (SLA: ${maxDaysReceivingToReceived} dias)`;
@@ -262,16 +262,16 @@ class InventorySlaService {
         fromActorId: row.from_actor_id,
         toActorId: row.to_actor_id,
         status: row.status,
-        daysInDraft: row.created_at && row.shipped_at
-          ? (new Date(row.shipped_at).getTime() - new Date(row.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        daysInDraft: row.createdAt && row.shippedAt
+          ? (new Date(row.shippedAt).getTime() - new Date(row.createdAt).getTime()) / (1000 * 60 * 60 * 24)
           : null,
         daysShippedToReceiving,
         daysReceivingToReceived,
         totalDays: row.total_days ? parseFloat(row.total_days) : null,
-        createdAt: new Date(row.created_at),
-        shippedAt: row.shipped_at ? new Date(row.shipped_at) : null,
-        receivingStartedAt: row.receiving_started_at ? new Date(row.receiving_started_at) : null,
-        receivedAt: row.received_at ? new Date(row.received_at) : null,
+        createdAt: new Date(row.createdAt),
+        shippedAt: row.shippedAt ? new Date(row.shippedAt) : null,
+        receivingStartedAt: row.receiving_startedAt ? new Date(row.receiving_startedAt) : null,
+        receivedAt: row.receivedAt ? new Date(row.receivedAt) : null,
         isOverdue,
         overdueReason,
       };
@@ -293,6 +293,7 @@ class InventorySlaService {
 }
 
 export const inventorySlaService = new InventorySlaService();
+
 
 
 

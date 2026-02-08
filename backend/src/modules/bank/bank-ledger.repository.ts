@@ -17,12 +17,12 @@ interface BankLedgerRow {
   account_id: string;
   transaction_id: string;
   entry_type: string;
-  amount: string;
+  amountCents: string;
   balance_before: string;
   balance_after: string;
   description: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class BankLedgerRepository {
@@ -36,12 +36,12 @@ class BankLedgerRepository {
       accountId: row.account_id,
       transactionId: row.transaction_id,
       entryType: row.entry_type as 'credit' | 'debit',
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       balanceBefore: parseFloat(row.balance_before),
       balanceAfter: parseFloat(row.balance_after),
       description: row.description,
       metadata: row.metadata,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -111,7 +111,7 @@ class BankLedgerRepository {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING entry_id, tenant_id, account_id, transaction_id, entry_type,
                   amount, balance_before, balance_after,
-                  description, metadata, created_at
+                  description, metadata, createdAt
         `,
         [
           tenantId,
@@ -167,7 +167,7 @@ class BankLedgerRepository {
       let query = `
         SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
                amount, balance_before, balance_after,
-               description, metadata, created_at
+               description, metadata, createdAt
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
       `;
@@ -182,18 +182,18 @@ class BankLedgerRepository {
       }
 
       if (startDate) {
-        query += ` AND created_at >= $${paramIndex}`;
+        query += ` AND createdAt >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        query += ` AND created_at <= $${paramIndex}`;
+        query += ` AND createdAt <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
       const result = await client.query<BankLedgerRow>(query, params);
@@ -221,10 +221,10 @@ class BankLedgerRepository {
         `
         SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
                amount, balance_before, balance_after,
-               description, metadata, created_at
+               description, metadata, createdAt
         FROM bank_ledger
         WHERE tenant_id = $1 AND transaction_id = $2
-        ORDER BY entry_type DESC, created_at ASC
+        ORDER BY entry_type DESC, createdAt ASC
         `,
         [tenantId, transactionId]
       );
@@ -256,7 +256,7 @@ class BankLedgerRepository {
         total_credits: string;
         total_debits: string;
         entry_count: string;
-        last_entry_at: Date | null;
+        last_entryAt: Date | null;
       }>(
         `
         SELECT 
@@ -270,7 +270,7 @@ class BankLedgerRepository {
           COALESCE(SUM(CASE WHEN entry_type = 'credit' THEN amount ELSE 0 END), 0) as total_credits,
           COALESCE(SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE 0 END), 0) as total_debits,
           COUNT(*)::bigint as entry_count,
-          MAX(created_at) as last_entry_at
+          MAX(createdAt) as last_entryAt
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
         `,
@@ -296,7 +296,7 @@ class BankLedgerRepository {
         totalCredits: parseFloat(row.total_credits),
         totalDebits: parseFloat(row.total_debits),
         entryCount: parseInt(row.entry_count, 10),
-        lastEntryAt: row.last_entry_at,
+        lastEntryAt: row.last_entryAt,
       };
     } finally {
       client.release();
@@ -320,10 +320,10 @@ class BankLedgerRepository {
         `
         SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
                amount, balance_before, balance_after,
-               description, metadata, created_at
+               description, metadata, createdAt
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
-        ORDER BY created_at DESC, entry_id DESC
+        ORDER BY createdAt DESC, entry_id DESC
         LIMIT 1
         `,
         [tenantId, accountId]
@@ -341,6 +341,9 @@ class BankLedgerRepository {
 }
 
 export const bankLedgerRepository = new BankLedgerRepository();
+
+
+
 
 
 

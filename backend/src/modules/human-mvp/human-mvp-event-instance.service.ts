@@ -116,7 +116,7 @@ class HumanMvpEventInstanceService {
     const result = await pool.query<{ id: string }>(
       `
       INSERT INTO human_mvp_event_instances (
-        tenant_id, opportunity_id, person_id, category_id, context, scheduled_at, created_at, updated_at
+        tenant_id, opportunity_id, person_id, category_id, context, scheduledAt, createdAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING id
@@ -154,7 +154,7 @@ class HumanMvpEventInstanceService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, created_at
+        event_type, tenant_id, person_id, category_id, context, details, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
@@ -175,6 +175,7 @@ class HumanMvpEventInstanceService {
 }
 
 export const humanMvpEventInstanceService = new HumanMvpEventInstanceService();
+
 
 
 

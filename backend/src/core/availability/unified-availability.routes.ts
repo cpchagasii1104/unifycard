@@ -79,8 +79,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -108,7 +109,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const availability = await unifiedAvailabilityService.createAvailability(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             ownerType: parsed.data.ownerType, // OBRIGATÓRIO
             ownerId: parsed.data.ownerId, // OBRIGATÓRIO
@@ -136,8 +137,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             timezone: availability.timezone,
             capacity: availability.capacity,
             metadata: availability.metadata,
-            createdAt: availability.createdAt.toISOString(),
-            updatedAt: availability.updatedAt.toISOString(),
+            createdAt: availability.createdAt,
+            updatedAt: availability.updatedAt,
           },
         });
       } catch (error) {
@@ -164,8 +165,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       endDatetime?: string;
     };
   }>('/', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -209,8 +211,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           timezone: a.timezone,
           capacity: a.capacity,
           metadata: a.metadata,
-          createdAt: a.createdAt.toISOString(),
-          updatedAt: a.updatedAt.toISOString(),
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
         })),
       });
     } catch (error: any) {
@@ -247,8 +249,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
    * Buscar disponibilidade por ID
    */
   fastify.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -272,8 +275,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           endDatetime: availability.endDatetime.toISOString(),
           timezone: availability.timezone,
           capacity: availability.capacity,
-          createdAt: availability.createdAt.toISOString(),
-          updatedAt: availability.updatedAt.toISOString(),
+          createdAt: availability.createdAt,
+          updatedAt: availability.updatedAt,
         },
       });
     } catch (error) {
@@ -293,8 +296,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:id',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -331,7 +335,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const availability = await unifiedAvailabilityService.updateAvailability(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           updateData
         );
 
@@ -349,8 +353,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             timezone: availability.timezone,
             capacity: availability.capacity,
             metadata: availability.metadata,
-            createdAt: availability.createdAt.toISOString(),
-            updatedAt: availability.updatedAt.toISOString(),
+            createdAt: availability.createdAt,
+            updatedAt: availability.updatedAt,
           },
         });
       } catch (error) {
@@ -374,8 +378,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/bookings',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -393,7 +398,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const booking = await unifiedAvailabilityService.createBooking(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             availabilityId: parsed.data.availabilityId, // OBRIGATÓRIO
             requesterActorId: parsed.data.requesterActorId, // OBRIGATÓRIO
@@ -430,8 +435,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       status?: string;
     };
   }>('/bookings', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -501,8 +507,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
    * Buscar booking por ID
    */
   fastify.get<{ Params: { id: string } }>('/bookings/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -525,7 +532,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           checkedInAt: booking.checkedInAt?.toISOString(),
           checkedOutAt: booking.checkedOutAt?.toISOString(),
           notes: booking.notes,
-          createdAt: booking.createdAt.toISOString(),
+          createdAt: booking.createdAt,
         },
       });
     } catch (error) {
@@ -545,8 +552,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/bookings/:id',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -565,7 +573,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const booking = await unifiedAvailabilityService.updateBooking(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           parsed.data
         );
 
@@ -595,8 +603,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/bookings/:id/check-in',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -615,7 +624,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const booking = await unifiedAvailabilityService.checkIn(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           parsed.data
         );
 
@@ -645,8 +654,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/bookings/:id/check-out',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -665,7 +675,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const booking = await unifiedAvailabilityService.checkOut(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           parsed.data
         );
 
@@ -703,8 +713,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/:availabilityId/participants',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -723,7 +734,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         // 🔴 BLINDAGEM: Criar participante (NÃO bloqueia conflitos)
         const participant = await unifiedAvailabilityService.createParticipant(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             availabilityId: req.params.availabilityId, // OBRIGATÓRIO
             actorId: parsed.data.actorId, // OBRIGATÓRIO
@@ -746,7 +757,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             availabilityId: participant.availabilityId,
             actorId: participant.actorId,
             role: participant.role,
-            createdAt: participant.createdAt.toISOString(),
+            createdAt: participant.createdAt,
           },
           // 🔴 BLINDAGEM: Conflitos são ALERTA, não bloqueio
           // A confirmação cabe ao usuário
@@ -782,8 +793,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       role?: string;
     };
   }>('/:availabilityId/participants', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -810,7 +822,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           availabilityId: p.availabilityId,
           actorId: p.actorId,
           role: p.role,
-          createdAt: p.createdAt.toISOString(),
+          createdAt: p.createdAt,
         })),
       });
     } catch (error: any) {
@@ -848,8 +860,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
    * Buscar participante por ID
    */
   fastify.get<{ Params: { id: string } }>('/participants/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -868,8 +881,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           availabilityId: participant.availabilityId,
           actorId: participant.actorId,
           role: participant.role,
-          createdAt: participant.createdAt.toISOString(),
-          updatedAt: participant.updatedAt.toISOString(),
+          createdAt: participant.createdAt,
+          updatedAt: participant.updatedAt,
         },
       });
     } catch (error) {
@@ -893,8 +906,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     '/participants/:id',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -913,7 +927,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         const participant = await unifiedAvailabilityService.updateParticipant(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           parsed.data
         );
 
@@ -936,8 +950,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
    * Remover participante
    */
   fastify.delete<{ Params: { id: string } }>('/participants/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -947,7 +962,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       await unifiedAvailabilityService.deleteParticipant(
         req.tenant.id,
         req.params.id,
-        req.user.userId
+        req.actionContext.actorId
       );
 
       return reply.status(204).send();
@@ -967,8 +982,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { availabilityId: string; actorId: string };
   }>('/:availabilityId/participants/:actorId/conflicts', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });

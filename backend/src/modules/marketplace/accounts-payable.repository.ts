@@ -15,21 +15,21 @@ interface AccountsPayableRow {
   reference_id: string;
   amount_cents: number;
   currency: string;
-  due_date: Date;
+  due_at: Date;
   status: string;
   scheduled_action_id: string | null;
-  paid_at: Date | null;
+  paidAt: Date | null;
   paid_by_actor_id: string | null;
   paid_by_user_id: string | null;
-  cancelled_at: Date | null;
+  cancelledAt: Date | null;
   cancelled_by_actor_id: string | null;
   cancelled_by_user_id: string | null;
   cancellation_reason: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class AccountsPayableRepository {
@@ -45,21 +45,21 @@ class AccountsPayableRepository {
       referenceId: row.reference_id,
       amountCents: row.amount_cents,
       currency: row.currency,
-      dueDate: row.due_date,
+      dueDate: row.due_at,
       status: row.status as any,
       scheduledActionId: row.scheduled_action_id,
-      paidAt: row.paid_at,
+      paidAt: row.paidAt,
       paidByActorId: row.paid_by_actor_id,
       paidByUserId: row.paid_by_user_id,
-      cancelledAt: row.cancelled_at,
+      cancelledAt: row.cancelledAt,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancelledByUserId: row.cancelled_by_user_id,
       cancellationReason: row.cancellation_reason,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -85,17 +85,17 @@ class AccountsPayableRepository {
       `
       INSERT INTO accounts_payable (
         tenant_id, supplier_id, reference_type, reference_id,
-        amount_cents, currency, due_date, status,
+        amount_cents, currency, due_at, status,
         created_by_actor_id, created_by_user_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING id, tenant_id, supplier_id, reference_type, reference_id,
-                amount_cents, currency, due_date, status,
+                amount_cents, currency, due_at, status,
                 scheduled_action_id,
-                paid_at, paid_by_actor_id, paid_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                paidAt, paid_by_actor_id, paid_by_user_id,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -105,7 +105,7 @@ class AccountsPayableRepository {
         input.amountCents,
         input.currency,
         input.dueDate,
-        'OPEN',
+        'open',
         input.createdByActorId,
         input.createdByUserId,
         JSON.stringify(input.metadata),
@@ -127,12 +127,12 @@ class AccountsPayableRepository {
       tenantId,
       `
       SELECT id, tenant_id, supplier_id, reference_type, reference_id,
-             amount_cents, currency, due_date, status,
+             amount_cents, currency, due_at, status,
              scheduled_action_id,
-             paid_at, paid_by_actor_id, paid_by_user_id,
-             cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+             paidAt, paid_by_actor_id, paid_by_user_id,
+             cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM accounts_payable
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -180,14 +180,14 @@ class AccountsPayableRepository {
 
     if (filters.dueDateFrom) {
       const dateFrom = filters.dueDateFrom instanceof Date ? filters.dueDateFrom : new Date(filters.dueDateFrom);
-      conditions.push(`due_date >= $${paramIndex}`);
+      conditions.push(`due_at >= $${paramIndex}`);
       params.push(dateFrom);
       paramIndex++;
     }
 
     if (filters.dueDateTo) {
       const dateTo = filters.dueDateTo instanceof Date ? filters.dueDateTo : new Date(filters.dueDateTo);
-      conditions.push(`due_date <= $${paramIndex}`);
+      conditions.push(`due_at <= $${paramIndex}`);
       params.push(dateTo);
       paramIndex++;
     }
@@ -199,15 +199,15 @@ class AccountsPayableRepository {
       tenantId,
       `
       SELECT id, tenant_id, supplier_id, reference_type, reference_id,
-             amount_cents, currency, due_date, status,
+             amount_cents, currency, due_at, status,
              scheduled_action_id,
-             paid_at, paid_by_actor_id, paid_by_user_id,
-             cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+             paidAt, paid_by_actor_id, paid_by_user_id,
+             cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM accounts_payable
       WHERE ${conditions.join(' AND ')}
-      ORDER BY due_date ASC
+      ORDER BY due_at ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -228,17 +228,17 @@ class AccountsPayableRepository {
       tenantId,
       `
       UPDATE accounts_payable
-      SET status = 'SCHEDULED',
+      SET status = 'scheduled',
           scheduled_action_id = $3,
-          updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'OPEN'
+          updatedAt = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status = 'open'
       RETURNING id, tenant_id, supplier_id, reference_type, reference_id,
-                amount_cents, currency, due_date, status,
+                amount_cents, currency, due_at, status,
                 scheduled_action_id,
-                paid_at, paid_by_actor_id, paid_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                paidAt, paid_by_actor_id, paid_by_user_id,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, payableId, scheduledActionId]
     );
@@ -263,19 +263,19 @@ class AccountsPayableRepository {
       tenantId,
       `
       UPDATE accounts_payable
-      SET status = 'PAID',
-          paid_at = NOW(),
+      SET status = 'paid',
+          paidAt = NOW(),
           paid_by_actor_id = $3,
           paid_by_user_id = $4,
-          updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('OPEN', 'SCHEDULED')
+          updatedAt = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status IN ('open', 'scheduled')
       RETURNING id, tenant_id, supplier_id, reference_type, reference_id,
-                amount_cents, currency, due_date, status,
+                amount_cents, currency, due_at, status,
                 scheduled_action_id,
-                paid_at, paid_by_actor_id, paid_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                paidAt, paid_by_actor_id, paid_by_user_id,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, payableId, paidByActorId, paidByUserId]
     );
@@ -301,20 +301,20 @@ class AccountsPayableRepository {
       tenantId,
       `
       UPDATE accounts_payable
-      SET status = 'CANCELLED',
-          cancelled_at = NOW(),
+      SET status = 'cancelled',
+          cancelledAt = NOW(),
           cancelled_by_actor_id = $3,
           cancelled_by_user_id = $4,
           cancellation_reason = $5,
-          updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('OPEN', 'SCHEDULED')
+          updatedAt = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status IN ('open', 'scheduled')
       RETURNING id, tenant_id, supplier_id, reference_type, reference_id,
-                amount_cents, currency, due_date, status,
+                amount_cents, currency, due_at, status,
                 scheduled_action_id,
-                paid_at, paid_by_actor_id, paid_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                paidAt, paid_by_actor_id, paid_by_user_id,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, payableId, cancelledByActorId, cancelledByUserId, cancellationReason]
     );
@@ -328,6 +328,9 @@ class AccountsPayableRepository {
 }
 
 export const accountsPayableRepository = new AccountsPayableRepository();
+
+
+
 
 
 

@@ -101,7 +101,7 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
 
     const escrows = await escrowService.listEscrowAccounts(tenantId, filters);
 
-    return reply.send({ escrows, total: escrows.length });
+    return reply.send({ escrows, totalCents: escrows.length });
   });
 
   /**
@@ -209,6 +209,7 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default escrowRoutes;
+
 
 
 

@@ -212,7 +212,7 @@ export function mapEventSpecToCreateRFQInput(
 
   // Mapear time_window para date do RFQ
   const date = answers.time_window?.date || 
-               answers.time_window?.start_time || 
+               answers.time_window?.starts_at || 
                null;
 
   // Mapear critérios do RFQ
@@ -231,3 +231,4 @@ export function mapEventSpecToCreateRFQInput(
     criteria,
   };
 }
+

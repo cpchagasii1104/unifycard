@@ -20,7 +20,7 @@
 export type RevenueSource = 'transaction' | 'b2b' | 'subscription' | 'terminal' | 'logistics';
 
 export interface RevenueSnapshot {
-  snapshot_id: string;
+  snapshotId: string;
   region: {
     country: string;
     state: string;
@@ -33,43 +33,43 @@ export interface RevenueSnapshot {
   // Receitas por fonte
   revenues: {
     transaction: {
-      total_amount: number;
-      platform_revenue: number;
-      regional_fund_revenue: number;
-      infrastructure_cost: number; // Debitado do Fundo Regional
+      totalAmountCents: number;
+      platformRevenueCents: number;
+      regionalFundRevenueCents: number;
+      infrastructureCostCents: number; // Debitado do Fundo Regional
     };
     b2b: {
-      total_amount: number;
-      platform_revenue: number;
-      regional_fund_revenue: number;
+      totalAmountCents: number;
+      platformRevenueCents: number;
+      regionalFundRevenueCents: number;
     };
     subscription: {
-      total_amount: number;
-      platform_revenue: number;
-      regional_fund_revenue: number;
+      totalAmountCents: number;
+      platformRevenueCents: number;
+      regionalFundRevenueCents: number;
     };
     terminal: {
-      total_amount: number;
-      platform_revenue: number;
-      regional_fund_revenue: number;
-      infrastructure_cost: number;
+      totalAmountCents: number;
+      platformRevenueCents: number;
+      regionalFundRevenueCents: number;
+      infrastructureCostCents: number;
     };
     logistics: {
-      total_amount: number;
-      platform_revenue: number;
-      regional_fund_revenue: number;
+      totalAmountCents: number;
+      platformRevenueCents: number;
+      regionalFundRevenueCents: number;
     };
   };
   // Totais
-  total_transacted: number; // Total movimentado
-  total_fees: number; // Total de taxas
-  total_platform_revenue: number; // Total receita da plataforma
-  total_regional_fund_revenue: number; // Total receita do Fundo Regional
-  total_infrastructure_cost: number; // Total custo de infraestrutura (debitado do Fundo Regional)
-  total_incentives: number; // Total de incentivos concedidos
+  totalTransactedCents: number; // Total movimentado
+  totalFeesCents: number; // Total de taxas
+  totalPlatformRevenueCents: number; // Total receita da plataforma
+  totalRegionalFundRevenueCents: number; // Total receita do Fundo Regional
+  totalInfrastructureCostCents: number; // Total custo de infraestrutura (debitado do Fundo Regional)
+  totalIncentivesCents: number; // Total de incentivos concedidos
   currency: string;
-  created_at: string;
-  // NÃO incluir updated_at - snapshot é imutável
+  createdAt: string;
+  // NÃO incluir updatedAt - snapshot é imutável
 }
 
 

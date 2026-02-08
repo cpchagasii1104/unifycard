@@ -136,7 +136,7 @@ class EventEconomicPhaseService {
         actor_id: actorId,
         user_authorization: input.user_authorization,
         terms_accepted: input.terms_accepted,
-        advanced_at: new Date().toISOString(),
+        advancedAt: new Date().toISOString(),
       },
     });
   }
@@ -224,4 +224,5 @@ class EventEconomicPhaseService {
 }
 
 export const eventEconomicPhaseService = new EventEconomicPhaseService();
+
 

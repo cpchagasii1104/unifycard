@@ -115,13 +115,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const category = await productCatalogService.createCategory(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_CATEGORY_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { category_id: category.id, name: category.name },
@@ -146,13 +151,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const attribute = await productCatalogService.createAttribute(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ATTRIBUTE_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { attribute_id: attribute.id, name: attribute.name },
@@ -172,13 +182,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const product = await productCatalogService.createProduct(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PRODUCT_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { product_id: product.id, name: product.name },
@@ -204,6 +219,11 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { productId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const variant = await productCatalogService.createVariant(tenantId, {
       ...req.body,
       productId,
@@ -213,7 +233,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_VARIANT_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { variant_id: variant.id, product_id: productId, sku: variant.sku },
@@ -271,13 +291,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const price = await pricingService.createPrice(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PRICE_CREATED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { price_id: price.id, variant_id: price.productVariantId, price: price.price },
@@ -306,13 +331,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const promotion = await pricingService.createPromotion(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PROMOTION_CREATED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { promotion_id: promotion.id, name: promotion.name, type: promotion.type },
@@ -344,13 +374,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const movement = await inventoryService.addMovement(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_INVENTORY_MOVEMENT',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: {
@@ -411,13 +446,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const lot = await inventoryLotService.createLot(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_INVENTORY_LOT_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { lot_id: lot.id, variant_id: lot.productVariantId, lot_code: lot.lotCode },
@@ -450,13 +490,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const order = await orderService.createOrder(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ORDER_CREATED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { order_id: order.id, buyer_actor_id: order.buyerActorId, seller_actor_id: order.sellerActorId },
@@ -482,13 +527,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { orderId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const item = await orderService.addItem(tenantId, orderId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ORDER_ITEM_ADDED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { order_id: orderId, item_id: item.id, variant_id: item.productVariantId },
@@ -505,13 +555,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { orderId, itemId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     await orderService.removeItem(tenantId, orderId, itemId);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ORDER_ITEM_REMOVED',
       severity: 'LOW',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { order_id: orderId, item_id: itemId },
@@ -528,13 +583,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { orderId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const order = await orderService.submitOrder(tenantId, orderId);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ORDER_SUBMITTED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { order_id: orderId },
@@ -551,13 +611,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { orderId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const order = await orderService.cancelOrder(tenantId, orderId);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_ORDER_CANCELLED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { order_id: orderId },
@@ -586,16 +651,21 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const intent = await paymentIntentService.createPaymentIntent(tenantId, req.body as any);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PAYMENT_INTENT_CREATED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
-      context: { payment_intent_id: intent.id, order_id: intent.orderId, amount: intent.amount },
+      context: { payment_intent_id: intent.id, order_id: intent.orderId, amountCents: intent.amount },
     });
 
     return reply.status(201).send(intent);
@@ -609,13 +679,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const { intentId } = req.params;
     const actionContext = (req as any).actionContext;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const intent = await paymentIntentService.authorizePaymentIntent(tenantId, intentId);
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PAYMENT_INTENT_AUTHORIZED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { payment_intent_id: intentId },
@@ -630,16 +705,22 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (req, reply) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
-    const { paymentIntentId, buyerActorId, sellerActorId, actingUserId } = req.body as any;
+    const { paymentIntentId, buyerActorId, sellerActorId } = req.body as any;
     
     // SPRINT 41.2: Idempotência - aceitar header opcional Idempotency-Key
     const idempotencyKey = (req.headers['idempotency-key'] as string) || undefined;
+
+    // ActionContext é obrigatório
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
 
     const transaction = await paymentExecutionService.executePayment(tenantId, {
       paymentIntentId,
       buyerActorId,
       sellerActorId,
-      actingUserId: actingUserId || actionContext?.actingUserId,
+      actingUserId: actionContext.actorId,
       idempotencyKey,
     });
 
@@ -655,13 +736,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     const actionContext = (req as any).actionContext;
     const { paymentIntentId, splits } = req.body as any;
 
+    // ActionContext é obrigatório
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const definedSplits = await paymentSplitService.defineSplits(tenantId, paymentIntentId, { splits });
 
     // Registrar auditoria
     await auditService.record(tenantId, {
       event_type: 'MARKETPLACE_PAYMENT_SPLITS_DEFINED',
       severity: 'MEDIUM',
-      actor_id: actionContext?.actingActorId || null,
+      actor_id: actionContext.actorId,
       actor_type: 'user',
       source: 'marketplace',
       context: { payment_intent_id: paymentIntentId, splits_count: definedSplits.length },
@@ -676,14 +762,19 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (req, reply) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
-    const { paymentIntentId, actingUserId } = req.body as any;
+    const { paymentIntentId } = req.body as any;
     
     // SPRINT 41.2: Idempotência - aceitar header opcional Idempotency-Key
     const idempotencyKey = (req.headers['idempotency-key'] as string) || undefined;
 
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const payouts = await payoutService.executePayout(tenantId, {
       paymentIntentId,
-      actingUserId: actingUserId || actionContext?.actingUserId,
+      actingUserId: actionContext.actorId,
       idempotencyKey,
     });
 
@@ -767,7 +858,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { paymentPlanId: string } }>('/payment-plan/:paymentPlanId/execute', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
-    const userId = actionContext?.actingActorId;
+    const userId = actionContext?.actorId;
 
     if (!userId) {
       return reply.status(401).send({ error: 'Usuário não autenticado' });
@@ -982,7 +1073,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     Body: {
       type: 'product' | 'service' | 'mixed';
       billing_cycle: 'weekly' | 'monthly' | 'yearly';
-      start_date: string;
+      starts_at: string;
       linked_entities: {
         products?: Array<{ product_id: string; store_id: string; quantity: number }>;
         service_offerings?: Array<{ offering_id: string; store_id: string; quantity: number }>;
@@ -1340,7 +1431,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       actor_type: 'store' | 'hub' | 'industry' | 'service_provider';
       actor_id: string;
       metrics: {
-        fulfillment_time: { target_hours: number; max_hours: number };
+        fulfilled_at: { target_hours: number; max_hours: number };
         cancellation_rate: { target_percentage: number; max_percentage: number };
         dispute_rate: { target_percentage: number; max_percentage: number };
       };
@@ -1357,9 +1448,9 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
         };
       };
       penalties: {
-        fulfillment_time_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
-        cancellation_rate_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
-        dispute_rate_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+        fulfillment_time_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+        cancellation_rate_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+        dispute_rate_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
       };
     };
   }>('/sla-contracts', {
@@ -1480,7 +1571,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { disputeId: string };
     Body: {
       resolution_type: 'refund' | 'partial_refund' | 'replacement' | 'credit' | 'dismissed';
-      amount?: number;
+      amountCents: number;
       currency?: string;
       resolved_by: string;
       notes?: string;
@@ -1763,7 +1854,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       rule_id: string;
       actor_id: string;
       actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
-      amount: number;
+      amountCents: number;
       reference: {
         order_id?: string;
         delivery_id?: string;
@@ -1845,8 +1936,8 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
         payment_terms: 'net_15' | 'net_30' | 'net_60' | 'prepaid';
         penalty_rate?: number;
       };
-      start_date: string;
-      end_date: string;
+      starts_at: string;
+      ends_at: string;
     };
   }>('/b2b-contracts', {
     preHandler: requirePermission('marketplace_manage_catalog'),
@@ -1884,7 +1975,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
         product_id: string;
         quantity: number;
       }>;
-      delivery_date: string;
+      delivered_at: string;
     };
   }>('/b2b-contracts/:contractId/execute', {
     preHandler: requirePermission('marketplace_manage_catalog'),
@@ -2075,7 +2166,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       product_id: string;
       min_quantity: number;
       max_quantity?: number;
-      unit_price: { amount: number; currency: string };
+      unit_price: { amountCents: number; currency: string };
       commit_deadline: string;
       regions_allowed: Array<{ country: string; state: string; city: string }>;
     };
@@ -2296,7 +2387,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
         account_id?: string;
         external_bank_name?: string;
         external_account_number?: string;
-        verified: boolean;
+        isVerified: boolean;
       };
       marketplace_enabled: boolean;
       services_enabled: boolean;
@@ -3046,7 +3137,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       request_id: string;
       visit_id: string;
       provider_actor_id: string;
-      service_value: { amount: number; currency: string };
+      service_value: { amountCents: number; currency: string };
       description: string;
       requires_materials: boolean;
       execution_date?: string;
@@ -3160,17 +3251,17 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /marketplace/providers/:providerActorId/governance-metrics
   fastify.get<{
     Params: { providerActorId: string };
-    Querystring: { start_date?: string; end_date?: string; category_id?: string };
+    Querystring: { starts_at?: string; ends_at?: string; category_id?: string };
   }>('/providers/:providerActorId/governance-metrics', {
     // Rota pública (provider vê suas próprias métricas)
   }, async (req, reply) => {
     try {
       const { providerActorId } = req.params;
-      const { start_date, end_date, category_id } = req.query;
+      const { starts_at, ends_at, category_id } = req.query;
 
       // Default: últimos 30 dias
-      const endDate = end_date || new Date().toISOString();
-      const startDate = start_date || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const endDate = ends_at || new Date().toISOString();
+      const startDate = starts_at || new Date(new Date(endDate).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
       const metrics = marketplaceService.calculateServiceGovernanceMetrics(
         providerActorId,
@@ -3279,7 +3370,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /marketplace/stores/:storeId/products/:productId/activate
   fastify.post<{
     Params: { storeId: string; productId: string };
-    Body: { price: { amount: number; currency: string }; stock?: { quantity: number; unit: string } };
+    Body: { price: { amountCents: number; currency: string }; stock?: { quantity: number; unit: string } };
   }>('/stores/:storeId/products/:productId/activate', {
     // Rota protegida (empresa ativa produto)
   }, async (req, reply) => {
@@ -3324,7 +3415,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /marketplace/service-offerings/:offeringId/activate
   fastify.post<{
     Params: { offeringId: string };
-    Body: { price: { amount: number; currency: string }; duration_minutes?: number };
+    Body: { price: { amountCents: number; currency: string }; duration_minutes?: number };
   }>('/service-offerings/:offeringId/activate', {
     // Rota protegida (empresa ativa serviço)
   }, async (req, reply) => {
@@ -3559,7 +3650,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /marketplace/plugins/register
   fastify.post<{
-    Body: Omit<PluginDefinition, 'plugin_id' | 'created_at' | 'updated_at'>;
+    Body: Omit<PluginDefinition, 'plugin_id' | 'createdAt' | 'updatedAt'>;
   }>('/plugins/register', {
     // Rota protegida (registrar plugin)
   }, async (req, reply) => {
@@ -3755,15 +3846,15 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /marketplace/actors/:actorId/evaluations
   fastify.get<{
     Params: { actorId: string };
-    Querystring: { start_date?: string; end_date?: string };
+    Querystring: { starts_at?: string; ends_at?: string };
   }>('/actors/:actorId/evaluations', {
     // Rota protegida (ver avaliações de um ator)
   }, async (req, reply) => {
     try {
       const { actorId } = req.params;
-      const { start_date, end_date } = req.query;
+      const { starts_at, ends_at } = req.query;
 
-      const period = start_date && end_date ? { start_date, end_date } : undefined;
+      const period = starts_at && ends_at ? { starts_at, ends_at } : undefined;
       const evaluations = marketplaceService.getActorEvaluations(actorId, period);
       return reply.status(200).send({ evaluations });
     } catch (error: any) {
@@ -3775,21 +3866,21 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /marketplace/actors/:actorId/evaluation-aggregates
   fastify.get<{
     Params: { actorId: string };
-    Querystring: { start_date: string; end_date: string };
+    Querystring: { starts_at: string; ends_at: string };
   }>('/actors/:actorId/evaluation-aggregates', {
     // Rota protegida (ver agregados de avaliação)
   }, async (req, reply) => {
     try {
       const { actorId } = req.params;
-      const { start_date, end_date } = req.query;
+      const { starts_at, ends_at } = req.query;
 
-      if (!start_date || !end_date) {
-        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+      if (!starts_at || !ends_at) {
+        return reply.status(400).send({ error: 'starts_at e ends_at são obrigatórios' });
       }
 
       const aggregates = marketplaceService.calculateEvaluationAggregates(actorId, {
-        start_date,
-        end_date,
+        starts_at,
+        ends_at,
       });
 
       return reply.status(200).send(aggregates);
@@ -4325,8 +4416,8 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { resourceId: string };
     Querystring: {
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
       status?: 'calculated' | 'pending' | 'paid' | 'cancelled';
     };
   }>('/resources/:resourceId/compensations', {
@@ -4334,11 +4425,11 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (req, reply) => {
     try {
       const { resourceId } = req.params;
-      const { start_date, end_date, status } = req.query;
+      const { starts_at, ends_at, status } = req.query;
 
       const compensations = marketplaceService.getResourceCompensations(resourceId, {
-        start_date,
-        end_date,
+        starts_at,
+        ends_at,
         status: status as any,
       });
 
@@ -4353,8 +4444,8 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { storeId: string };
     Querystring: {
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
       status?: 'calculated' | 'pending' | 'paid' | 'cancelled';
     };
   }>('/stores/:storeId/compensations', {
@@ -4362,11 +4453,11 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   }, async (req, reply) => {
     try {
       const { storeId } = req.params;
-      const { start_date, end_date, status } = req.query;
+      const { starts_at, ends_at, status } = req.query;
 
       const compensations = marketplaceService.getCompanyCompensations(storeId, {
-        start_date,
-        end_date,
+        starts_at,
+        ends_at,
         status: status as any,
       });
 
@@ -4381,24 +4472,24 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { resourceId: string };
     Querystring: {
-      start_date: string;
-      end_date: string;
+      starts_at: string;
+      ends_at: string;
     };
   }>('/resources/:resourceId/compensation-history', {
     // Rota protegida (gerar histórico de compensações)
   }, async (req, reply) => {
     try {
       const { resourceId } = req.params;
-      const { start_date, end_date } = req.query;
+      const { starts_at, ends_at } = req.query;
 
-      if (!start_date || !end_date) {
-        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+      if (!starts_at || !ends_at) {
+        return reply.status(400).send({ error: 'starts_at e ends_at são obrigatórios' });
       }
 
       const history = marketplaceService.generateResourceCompensationHistory(
         resourceId,
-        start_date,
-        end_date
+        starts_at,
+        ends_at
       );
 
       return reply.status(200).send(history);
@@ -4412,24 +4503,24 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { storeId: string };
     Querystring: {
-      start_date: string;
-      end_date: string;
+      starts_at: string;
+      ends_at: string;
     };
   }>('/stores/:storeId/compensation-report', {
     // Rota protegida (gerar relatório contábil de compensações)
   }, async (req, reply) => {
     try {
       const { storeId } = req.params;
-      const { start_date, end_date } = req.query;
+      const { starts_at, ends_at } = req.query;
 
-      if (!start_date || !end_date) {
-        return reply.status(400).send({ error: 'start_date e end_date são obrigatórios' });
+      if (!starts_at || !ends_at) {
+        return reply.status(400).send({ error: 'starts_at e ends_at são obrigatórios' });
       }
 
       const report = marketplaceService.generateCompanyCompensationReport(
         storeId,
-        start_date,
-        end_date
+        starts_at,
+        ends_at
       );
 
       return reply.status(200).send(report);
@@ -4500,9 +4591,9 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       description: string;
       visibility_scope: 'local_neighborhood' | 'city' | 'restricted_group';
       restricted_group_ids?: string[];
-      start_at: string;
-      end_at: string;
-      redemption_deadline_at?: string;
+      startAt: string;
+      endAt: string;
+      redemption_deadlineAt?: string;
       quantity_total: number;
       quantity_per_user?: number;
       eligibility?: {
@@ -4529,7 +4620,7 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       }>;
       discount_value?: {
         type: 'percentage' | 'fixed';
-        amount: number;
+        amountCents: number;
         currency: string;
       };
     };
@@ -4719,20 +4810,20 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     Querystring: {
       region_id?: string;
       period_type?: 'weekly' | 'monthly';
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
     };
   }>('/regional-capacity/snapshots', {
     // Rota protegida (listar snapshots)
   }, async (req, reply) => {
     try {
-      const { region_id, period_type, start_date, end_date } = req.query;
+      const { region_id, period_type, starts_at, ends_at } = req.query;
 
       const snapshots = marketplaceService.listRegionalCapacitySnapshots({
         region_id,
         period_type: period_type as any,
-        start_date,
-        end_date,
+        starts_at,
+        ends_at,
       });
 
       return reply.status(200).send({ snapshots });
@@ -4915,21 +5006,21 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     Body: {
       company_id: string;
       fixed_costs_monthly?: {
-        rent?: { amount: number; currency: string };
-        salaries?: { amount: number; currency: string };
-        pro_labore?: { amount: number; currency: string };
-        systems?: { amount: number; currency: string };
-        other?: { amount: number; currency: string };
+        rent?: { amountCents: number; currency: string };
+        salaries?: { amountCents: number; currency: string };
+        pro_labore?: { amountCents: number; currency: string };
+        systems?: { amountCents: number; currency: string };
+        other?: { amountCents: number; currency: string };
       };
       variable_costs_per_service?: {
-        materials?: { amount: number; currency: string };
-        commission?: { amount: number; currency: string };
-        transportation?: { amount: number; currency: string };
-        other?: { amount: number; currency: string };
+        materials?: { amountCents: number; currency: string };
+        commission?: { amountCents: number; currency: string };
+        transportation?: { amountCents: number; currency: string };
+        other?: { amountCents: number; currency: string };
       };
       costs_per_hour?: {
-        fixed_cost_per_hour?: { amount: number; currency: string };
-        variable_cost_per_hour?: { amount: number; currency: string };
+        fixed_cost_per_hour?: { amountCents: number; currency: string };
+        variable_cost_per_hour?: { amountCents: number; currency: string };
       };
     };
   }>('/stores/:storeId/operational-cost-profile', {
@@ -5039,18 +5130,18 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { storeId: string };
     Querystring: {
       actor_id: string;
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
     };
   }>('/stores/:storeId/pricing-assistance-reports', {
     // Rota protegida (listar relatórios de precificação assistida)
   }, async (req, reply) => {
     try {
       const { storeId } = req.params;
-      const { actor_id, start_date, end_date } = req.query as {
+      const { actor_id, starts_at, ends_at } = req.query as {
         actor_id: string;
-        start_date?: string;
-        end_date?: string;
+        starts_at?: string;
+        ends_at?: string;
       };
 
       if (!actor_id) {
@@ -5060,8 +5151,8 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
       const reports = marketplaceService.listPricingAssistanceReports({
         store_id: storeId,
         actor_id,
-        start_date,
-        end_date,
+        starts_at,
+        ends_at,
       });
 
       return reply.status(200).send({ reports });
@@ -5073,4 +5164,8 @@ const marketplaceRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default marketplaceRoutes;
+
+
+
+
 

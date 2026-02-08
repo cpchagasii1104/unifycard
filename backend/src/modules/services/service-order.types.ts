@@ -4,7 +4,7 @@
 /**
  * Status da ordem de serviço
  */
-export type ServiceOrderStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type ServiceOrderStatus = 'draft' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
 
 /**
  * Ordem de Serviço
@@ -44,8 +44,8 @@ export interface ServiceOrder {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -123,10 +123,10 @@ export interface ServiceOrderFilters {
  */
 export interface ServiceOrderFinancialTerms {
   serviceOrderId: string;
-  grossAmount: number; // Valor bruto em centavos
-  platformFeePercentage: number; // Percentual da comissão (ex: 3 = 3%)
-  platformFee: number; // Valor da comissão em centavos
-  providerNetAmount: number; // Valor líquido do prestador em centavos
+  grossAmountCents: number; // Valor bruto em centavos
+  platformFeeBps: number; // Percentual da comissão (ex: 3 = 3%)
+  platformFeeCents: number; // Valor da comissão em centavos
+  providerNetAmountCents: number; // Valor líquido do prestador em centavos
   currency: string;
   providerActorId: string;
   platformActorId: string; // ID da conta da plataforma
@@ -139,6 +139,7 @@ export interface ConfirmFinancialTermsInput {
   confirmedByActorId: string;
   confirmedByUserId?: string;
 }
+
 
 
 

@@ -34,10 +34,10 @@ interface RideRow {
   stops: any;
   status: string;
   final_price?: number;
-  driver_arrived_at?: Date;
-  started_at?: Date;
-  completed_at?: Date;
-  cancelled_at?: Date;
+  driver_arrivedAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  cancelledAt?: Date;
   cancel_reason?: string;
   cancelled_by?: string;
 }
@@ -48,7 +48,7 @@ interface RideStopRow {
   ride_id: string;
   stop_order: number;
   status: string;
-  completed_at?: Date;
+  completedAt?: Date;
 }
 
 export class RidesService {
@@ -79,7 +79,7 @@ export class RidesService {
           driver_id, service_type_id,
           passenger_count,
           origin, destination, stops,
-          status, created_at
+          status, createdAt
         )
         VALUES (
           $1, $2, $3,
@@ -131,8 +131,8 @@ export class RidesService {
       text: `
         UPDATE rides_rides
         SET status = 'driver_arrived',
-            driver_arrived_at = now(),
-            updated_at = now()
+            driver_arrivedAt = now(),
+            updatedAt = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
@@ -168,8 +168,8 @@ export class RidesService {
       text: `
         UPDATE rides_rides
         SET status = 'in_progress',
-            started_at = now(),
-            updated_at = now()
+            startedAt = now(),
+            updatedAt = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
@@ -208,9 +208,9 @@ export class RidesService {
       text: `
         UPDATE rides_rides
         SET status = 'completed',
-            completed_at = now(),
+            completedAt = now(),
             final_price = $3,
-            updated_at = now()
+            updatedAt = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
@@ -294,8 +294,8 @@ export class RidesService {
         SET status = 'cancelled',
             cancel_reason = $3,
             cancelled_by = $4,
-            cancelled_at = now(),
-            updated_at = now()
+            cancelledAt = now(),
+            updatedAt = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
@@ -328,8 +328,8 @@ export class RidesService {
       text: `
         UPDATE rides_ride_stops
         SET status = 'completed',
-            completed_at = now(),
-            updated_at = now()
+            completedAt = now(),
+            updatedAt = now()
         WHERE tenant_id = $1 AND ride_id = $2 AND stop_order = $3
         RETURNING *
       `,
@@ -350,7 +350,7 @@ export class RidesService {
     await runQueryWithTenant(tenantId, {
       text: `
         INSERT INTO rides_ride_locations (
-          tenant_id, ride_id, location, created_at
+          tenant_id, ride_id, location, createdAt
         )
         VALUES (
           $1, $2,
@@ -410,3 +410,4 @@ export class RidesService {
 }
 
 export const ridesService = new RidesService();
+

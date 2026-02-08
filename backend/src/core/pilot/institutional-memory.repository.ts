@@ -37,9 +37,9 @@ class InstitutionalMemoryRepository {
       author_user_id: string;
       context: string;
       version: number;
-      created_at: Date;
-      updated_at: Date;
-      deleted_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
     }>(
       tenantId,
       `
@@ -65,9 +65,9 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      deletedAt: row.deleted_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt || undefined,
     };
   }
 
@@ -89,7 +89,7 @@ class InstitutionalMemoryRepository {
       SELECT *
       FROM institutional_memory_declarations
       WHERE tenant_id = $1
-        AND deleted_at IS NULL
+        AND deletedAt IS NULL
     `;
     const params: any[] = [tenantId];
 
@@ -99,7 +99,7 @@ class InstitutionalMemoryRepository {
     }
 
     query += `
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
@@ -112,9 +112,9 @@ class InstitutionalMemoryRepository {
       author_user_id: string;
       context: string;
       version: number;
-      created_at: Date;
-      updated_at: Date;
-      deleted_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
     }>(tenantId, query, params);
 
     return result.map((row) => ({
@@ -124,9 +124,9 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      deletedAt: row.deleted_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt || undefined,
     }));
   }
 
@@ -152,9 +152,9 @@ class InstitutionalMemoryRepository {
       author_user_id: string;
       context: string;
       version: number;
-      created_at: Date;
-      updated_at: Date;
-      deleted_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
     }>(
       tenantId,
       `
@@ -181,9 +181,9 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      deletedAt: row.deleted_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt || undefined,
     };
   }
 
@@ -198,10 +198,10 @@ class InstitutionalMemoryRepository {
       tenantId,
       `
         UPDATE institutional_memory_declarations
-        SET deleted_at = NOW()
+        SET deletedAt = NOW()
         WHERE tenant_id = $1
           AND declaration_id = $2
-          AND deleted_at IS NULL
+          AND deletedAt IS NULL
         RETURNING 1
       `,
       [tenantId, declarationId]
@@ -224,9 +224,9 @@ class InstitutionalMemoryRepository {
       author_user_id: string;
       context: string;
       version: number;
-      created_at: Date;
-      updated_at: Date;
-      deleted_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
     }>(
       tenantId,
       `
@@ -234,7 +234,7 @@ class InstitutionalMemoryRepository {
         FROM institutional_memory_declarations
         WHERE tenant_id = $1
           AND declaration_id = $2
-          AND deleted_at IS NULL
+          AND deletedAt IS NULL
         LIMIT 1
       `,
       [tenantId, declarationId]
@@ -252,14 +252,15 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      deletedAt: row.deleted_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt || undefined,
     };
   }
 }
 
 export const institutionalMemoryRepository = new InstitutionalMemoryRepository();
+
 
 
 

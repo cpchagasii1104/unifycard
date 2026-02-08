@@ -21,11 +21,12 @@ export async function ensureSystemTenant(): Promise<void> {
 
   if (result.rows.length === 0) {
     await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
+      `INSERT INTO tenants (tenant_id, name, slug, createdAt, updatedAt)
        VALUES ($1, 'System Tenant', 'system-tenant', NOW(), NOW())
        ON CONFLICT (tenant_id) DO NOTHING`,
       [SYSTEM_TENANT.tenantId]
     );
   }
 }
+
 

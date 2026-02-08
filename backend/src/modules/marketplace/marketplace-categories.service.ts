@@ -282,7 +282,7 @@ class MarketplaceCategoriesService {
         tenantId,
         `
         UPDATE actor_category_imports
-        SET category_ids = $1::uuid[], metadata = $2::jsonb, updated_at = NOW()
+        SET category_ids = $1::uuid[], metadata = $2::jsonb, updatedAt = NOW()
         WHERE actor_id = $3 AND tenant_id = $4
         `,
         [updatedCategoryIds, JSON.stringify(input.metadata || {}), actorId, tenantId]
@@ -369,13 +369,13 @@ class MarketplaceCategoriesService {
     const row = await runQueryWithTenant<{
       actor_id: string;
       category_ids: string[];
-      imported_at: Date;
+      importedAt: Date;
       imported_by_actor_id: string;
       metadata: any;
     }>(
       tenantId,
       `
-      SELECT actor_id, category_ids, imported_at, imported_by_actor_id, metadata
+      SELECT actor_id, category_ids, importedAt, imported_by_actor_id, metadata
       FROM actor_category_imports
       WHERE actor_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -388,7 +388,7 @@ class MarketplaceCategoriesService {
     return {
       actorId: row.actor_id,
       categoryIds: row.category_ids,
-      importedAt: row.imported_at,
+      importedAt: row.importedAt,
       importedByActorId: row.imported_by_actor_id,
       metadata: row.metadata || {},
     };
@@ -472,4 +472,5 @@ class MarketplaceCategoriesService {
 }
 
 export const marketplaceCategoriesService = new MarketplaceCategoriesService();
+
 

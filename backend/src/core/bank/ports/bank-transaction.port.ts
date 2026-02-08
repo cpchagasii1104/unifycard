@@ -35,7 +35,7 @@ export interface BankTransaction {
   eventId: string;
   fromAccountId?: string | null;
   toAccountId?: string | null;
-  amount: number;
+  amountCents: number;
   currency: BankCurrency;
   transactionType: BankTransactionType;
   originalTransactionId?: string | null;
@@ -51,7 +51,7 @@ export interface BankSplit {
   tenantId: string;
   transactionId: string;
   targetAccountId: string;
-  amount: number;
+  amountCents: number;
   percentage?: number | null;
   splitType: string;
   description?: string | null;
@@ -66,7 +66,7 @@ export interface BankTransactionPort {
       eventId: string;
       fromAccountId?: string;
       toAccountId?: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       transactionType: BankTransactionType;
       description?: string;
@@ -82,7 +82,7 @@ export interface BankTransactionPort {
     input: {
       eventId: string;
       fromAccountId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       context: BankTransactionContext;
       revenueShareAccountId?: string;
@@ -96,6 +96,7 @@ export interface BankTransactionPort {
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }>;
 }
+
 
 
 

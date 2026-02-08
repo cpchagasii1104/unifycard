@@ -21,8 +21,8 @@ export interface ActorRow {
   cover_url: string | null;
   bio: string | null;
   metadata: any;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ActorRepositoryPort {
@@ -48,6 +48,7 @@ export interface ActorRepositoryPort {
     userId: string
   ): Promise<Array<ActorRow & { user_role?: string; can_post?: boolean; company_status?: string }>>;
 }
+
 
 
 

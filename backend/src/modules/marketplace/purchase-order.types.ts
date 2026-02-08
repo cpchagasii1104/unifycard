@@ -4,7 +4,7 @@
 /**
  * Status da ordem de compra
  */
-export type PurchaseOrderStatus = 'DRAFT' | 'SUBMITTED' | 'RECEIVED' | 'COMPLETED' | 'CANCELLED';
+export type PurchaseOrderStatus = 'draft' | 'submitted' | 'received' | 'completed' | 'cancelled';
 
 /**
  * Ordem de Compra
@@ -42,8 +42,8 @@ export interface PurchaseOrder {
   cancelledByActorId: string | null;
   cancellationReason: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -64,8 +64,8 @@ export interface PurchaseOrderItem {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -130,6 +130,7 @@ export interface PurchaseOrderFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

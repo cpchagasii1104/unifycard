@@ -53,6 +53,6 @@ export async function processRidePayment(input: ProcessRidePaymentInput) {
   return await distributionService.processRidePayment(
     tenantId,
     ride,
-    { total: totalAmount || ride.final_price || 0 }
+    { totalCents: totalAmount || ride.final_price || 0 }
   );
 }

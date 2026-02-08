@@ -21,10 +21,10 @@ class TenantService {
       name: string;
       slug: string;
       city_id: string | null;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
-      'SELECT tenant_id, name, slug, city_id, created_at, updated_at FROM tenants WHERE tenant_id = $1 LIMIT 1',
+      'SELECT tenant_id, name, slug, city_id, createdAt, updatedAt FROM tenants WHERE tenant_id = $1 LIMIT 1',
       [tenantId]
     );
 
@@ -38,8 +38,8 @@ class TenantService {
       name: row.name,
       slug: row.slug,
       cityId: row.city_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -109,13 +109,13 @@ class TenantService {
       name: string;
       slug: string;
       city_id: string | null;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       `UPDATE tenants 
-       SET city_id = $1, updated_at = now()
+       SET city_id = $1, updatedAt = now()
        WHERE tenant_id = $2
-       RETURNING tenant_id, name, slug, city_id, created_at, updated_at`,
+       RETURNING tenant_id, name, slug, city_id, createdAt, updatedAt`,
       [finalCityId, tenantId]
     );
 
@@ -129,10 +129,11 @@ class TenantService {
       name: updatedRow.name,
       slug: updatedRow.slug,
       cityId: updatedRow.city_id,
-      createdAt: updatedRow.created_at,
-      updatedAt: updatedRow.updated_at,
+      createdAt: updatedRow.createdAt,
+      updatedAt: updatedRow.updatedAt,
     };
   }
 }
 
 export const tenantService = new TenantService();
+

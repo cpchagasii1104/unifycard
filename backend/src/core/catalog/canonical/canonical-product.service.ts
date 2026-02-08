@@ -18,8 +18,8 @@ interface CanonicalProductRow {
   attributes: any;
   category_id: string | null;
   type: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
@@ -41,8 +41,8 @@ class CanonicalProductService {
       attributes: row.attributes || {},
       categoryId: row.category_id || undefined,
       type: 'INDUSTRIAL',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -66,7 +66,7 @@ class CanonicalProductService {
 
     // Construir query de busca
     let sqlQuery = `
-      SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+      SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
       FROM canonical_products
       WHERE tenant_id = $1
         AND (
@@ -164,7 +164,7 @@ class CanonicalProductService {
       tenantId,
       {
         text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND gtin = $2
         LIMIT 1
@@ -187,7 +187,7 @@ class CanonicalProductService {
       tenantId,
       {
         text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND id = $2
         LIMIT 1
@@ -216,7 +216,7 @@ class CanonicalProductService {
       tenantId,
       {
         text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND category_id = $2
         ORDER BY name ASC
@@ -299,6 +299,7 @@ class CanonicalProductService {
 }
 
 export const canonicalProductService = new CanonicalProductService();
+
 
 
 

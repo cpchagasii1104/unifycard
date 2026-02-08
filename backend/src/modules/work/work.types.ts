@@ -18,8 +18,8 @@ export interface WorkerRow {
   response_time_avg_minutes: number | null;
   is_active: boolean;
   is_verified: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SkillRow {
@@ -28,8 +28,8 @@ export interface SkillRow {
   name: string;
   category: string | null;
   description: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JobRow {
@@ -42,10 +42,10 @@ export interface JobRow {
   location: unknown | null; // GEOGRAPHY(POINT)
   budget_min: string | null;
   budget_max: string | null;
-  scheduled_at: Date | null;
+  scheduledAt: Date | null;
   status: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JobApplicationRow {
@@ -56,8 +56,8 @@ export interface JobApplicationRow {
   proposed_rate: string | null;
   message: string | null;
   status: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JobAssignmentRow {
@@ -70,8 +70,8 @@ export interface JobAssignmentRow {
   payment_type: string;
   status: string;
   payment_transaction_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================
@@ -93,8 +93,8 @@ export interface Worker {
   responseTimeAvgMinutes?: number;
   isActive: boolean;
   isVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   // preenchido dinamicamente pelo ReputationService
   reputation?: unknown;
 }
@@ -105,8 +105,8 @@ export interface Skill {
   name: string;
   category: string | null;
   description?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Job {
@@ -123,8 +123,8 @@ export interface Job {
   // deixar flexível para evoluir depois.
   location: unknown | null;
   status: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   // Preenchido dinamicamente pelo ReputationService
   clientReputation?: unknown;
 }
@@ -137,8 +137,8 @@ export interface JobApplication {
   proposedRate: number;
   message?: string;
   status: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   // Preenchido dinamicamente pelo ReputationService
   workerReputation?: unknown;
 }
@@ -153,8 +153,8 @@ export interface JobAssignment {
   paymentType: string;
   status: string;
   paymentTransactionId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================
@@ -249,3 +249,5 @@ export interface SearchWorkersFilters {
   limit?: number;
   offset?: number;
 }
+
+

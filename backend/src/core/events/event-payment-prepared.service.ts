@@ -54,11 +54,11 @@ export interface PaymentAuthorization {
   status: PaymentAuthorizationStatus;
   user_authorization: boolean;
   authorization_reason?: string;
-  authorized_at: string;
-  updated_at: string;
-  revoked_at?: string;
-  executed_at?: string;
-  cancelled_at?: string;
+  authorizedAt: string;
+  updatedAt: string;
+  revokedAt?: string;
+  executedAt?: string;
+  cancelledAt?: string;
 }
 
 interface PaymentAuthorizationRow {
@@ -70,11 +70,11 @@ interface PaymentAuthorizationRow {
   status: string;
   user_authorization: boolean;
   authorization_reason: string | null;
-  authorized_at: string;
-  updated_at: string;
-  revoked_at: string | null;
-  executed_at: string | null;
-  cancelled_at: string | null;
+  authorizedAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+  executedAt: string | null;
+  cancelledAt: string | null;
 }
 
 class EventPaymentPreparedService {
@@ -149,7 +149,7 @@ class EventPaymentPreparedService {
       INSERT INTO event_payment_authorization (
         id, tenant_id, event_id, custody_id, split_id,
         status, user_authorization, authorization_reason,
-        authorized_at, updated_at
+        authorizedAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING *
@@ -184,7 +184,7 @@ class EventPaymentPreparedService {
         actor_id: actorId,
         user_authorization: input.user_authorization,
         authorization_reason: input.authorization_reason,
-        authorized_at: authorization.authorized_at,
+        authorizedAt: authorization.authorizedAt,
       },
     });
 
@@ -215,7 +215,7 @@ class EventPaymentPreparedService {
       tenantId,
       `
       UPDATE event_payment_authorization
-      SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+      SET status = 'revoked', revokedAt = NOW(), updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING *
       `,
@@ -267,7 +267,7 @@ class EventPaymentPreparedService {
       SELECT *
       FROM event_payment_authorization
       WHERE event_id = $1 AND tenant_id = $2 AND status = 'authorized'
-      ORDER BY authorized_at DESC
+      ORDER BY authorizedAt DESC
       LIMIT 1
       `,
       [eventId, tenantId]
@@ -293,7 +293,7 @@ class EventPaymentPreparedService {
       SELECT *
       FROM event_payment_authorization
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY authorized_at DESC
+      ORDER BY authorizedAt DESC
       `,
       [eventId, tenantId]
     );
@@ -314,14 +314,15 @@ class EventPaymentPreparedService {
       status: row.status as PaymentAuthorizationStatus,
       user_authorization: row.user_authorization,
       authorization_reason: row.authorization_reason || undefined,
-      authorized_at: row.authorized_at,
-      updated_at: row.updated_at,
-      revoked_at: row.revoked_at || undefined,
-      executed_at: row.executed_at || undefined,
-      cancelled_at: row.cancelled_at || undefined,
+      authorizedAt: row.authorizedAt,
+      updatedAt: row.updatedAt,
+      revokedAt: row.revokedAt || undefined,
+      executedAt: row.executedAt || undefined,
+      cancelledAt: row.cancelledAt || undefined,
     };
   }
 }
 
 export const eventPaymentPreparedService = new EventPaymentPreparedService();
+
 

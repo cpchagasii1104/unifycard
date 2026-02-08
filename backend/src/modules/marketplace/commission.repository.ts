@@ -15,7 +15,7 @@ interface CommissionRuleRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class CommissionRepository {
@@ -31,7 +31,7 @@ class CommissionRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -53,7 +53,7 @@ class CommissionRepository {
       `
       INSERT INTO commission_rules (tenant_id, applies_to, applies_id, base_percentage, regional_percentage, platform_percentage, created_by_actor_id, created_by_user_id, metadata)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-      RETURNING id, tenant_id, applies_to, applies_id, base_percentage, regional_percentage, platform_percentage, created_by_actor_id, created_by_user_id, metadata, created_at
+      RETURNING id, tenant_id, applies_to, applies_id, base_percentage, regional_percentage, platform_percentage, created_by_actor_id, created_by_user_id, metadata, createdAt
       `,
       [
         tenantId,
@@ -83,7 +83,7 @@ class CommissionRepository {
     const rows = await runQueriesWithTenant<CommissionRuleRow>(
       tenantId,
       `
-      SELECT id, tenant_id, applies_to, applies_id, base_percentage, regional_percentage, platform_percentage, created_by_actor_id, created_by_user_id, metadata, created_at
+      SELECT id, tenant_id, applies_to, applies_id, base_percentage, regional_percentage, platform_percentage, created_by_actor_id, created_by_user_id, metadata, createdAt
       FROM commission_rules
       WHERE tenant_id = $1 AND applies_to = $2 AND applies_id = $3
       LIMIT 1
@@ -100,6 +100,8 @@ class CommissionRepository {
 }
 
 export const commissionRepository = new CommissionRepository();
+
+
 
 
 

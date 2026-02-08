@@ -20,7 +20,7 @@ const TEST_CURRENCY: Currency = 'TEST';
 interface EmitTestCurrencyInput {
   tenantId: string;
   userId: string;
-  amount: number;
+  amountCents: number;
   reason: string;
   adminId: string;
 }
@@ -29,7 +29,7 @@ interface EmitTestCurrencyResult {
   transactionId: string;
   accountId: string;
   newBalance: number;
-  amount: number;
+  amountCents: number;
   reason: string;
   emittedAt: Date;
 }
@@ -38,7 +38,7 @@ interface TestCurrencyLedgerEntry {
   entryId: string;
   transactionId: string;
   accountId: string;
-  amount: number;
+  amountCents: number;
   reason: string;
   adminId: string;
   userId: string;
@@ -123,13 +123,13 @@ class TestCurrencyService {
     userId: string,
     limit: number = 50,
     offset: number = 0
-  ): Promise<{ entries: TestCurrencyLedgerEntry[]; total: number }> {
+  ): Promise<{ entries: TestCurrencyLedgerEntry[]; totalCents: number }> {
     // Buscar conta do usuário em TEST
     const userAccounts = await accountService.getAccountsByOwner(tenantId, userId, 'user');
     const testAccount = userAccounts.find(acc => acc.currency === TEST_CURRENCY);
 
     if (!testAccount) {
-      return { entries: [], total: 0 };
+      return { entries: [], totalCents: 0 };
     }
 
     // Buscar entradas no ledger que são créditos (emissões)
@@ -137,8 +137,8 @@ class TestCurrencyService {
       entry_id: string;
       transaction_id: string;
       account_id: string;
-      amount: string;
-      created_at: Date;
+      amountCents: string;
+      createdAt: Date;
       metadata: any;
     }>(
       tenantId,
@@ -148,7 +148,7 @@ class TestCurrencyService {
         l.transaction_id,
         l.account_id,
         l.amount,
-        l.created_at,
+        l.createdAt,
         t.metadata
       FROM ledger l
       INNER JOIN transactions t ON t.transaction_id = l.transaction_id
@@ -157,7 +157,7 @@ class TestCurrencyService {
         AND l.entry_type = 'credit'
         AND t.metadata->>'type' = 'test_currency_emission'
         AND t.currency = 'TEST'
-      ORDER BY l.created_at DESC
+      ORDER BY l.createdAt DESC
       LIMIT $2 OFFSET $3
       `,
       [testAccount.accountId, limit, offset]
@@ -182,16 +182,16 @@ class TestCurrencyService {
       entryId: row.entry_id,
       transactionId: row.transaction_id,
       accountId: row.account_id,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       reason: row.metadata?.reason || 'N/A',
       adminId: row.metadata?.adminId || 'N/A',
       userId: row.metadata?.userId || userId,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
 
     return {
       entries,
-      total: parseInt(totalRow?.count || '0', 10),
+      totalCents: parseInt(totalRow?.count || '0', 10),
     };
   }
 
@@ -204,6 +204,8 @@ class TestCurrencyService {
 }
 
 export const testCurrencyService = new TestCurrencyService();
+
+
 
 
 

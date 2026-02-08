@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 const emitTestCurrencySchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
-  amount: z.number().positive('Amount must be positive').max(1000000, 'Maximum amount is 1,000,000'),
+  amountCents: z.number().positive('Amount must be positive').max(1000000, 'Maximum amount is 1,000,000'),
   reason: z.string().min(1, 'Reason is required').max(500, 'Reason too long'),
 });
 
@@ -22,7 +22,7 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Body: {
       userId: string;
-      amount: number;
+      amountCents: number;
       reason: string;
     };
   }>(
@@ -34,7 +34,7 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
           required: ['userId', 'amount', 'reason'],
           properties: {
             userId: { type: 'string', format: 'uuid' },
-            amount: { type: 'number', minimum: 0.01, maximum: 1000000 },
+            amountCents: { type: 'number', minimum: 0.01, maximum: 1000000 },
             reason: { type: 'string', minLength: 1, maxLength: 500 },
           },
         },
@@ -62,7 +62,7 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
         const result = await testCurrencyService.emitTestCurrency({
           tenantId: req.tenant.id,
           userId: parsed.data.userId,
-          amount: parsed.data.amount,
+          amountCents: parsed.data.amount,
           reason: parsed.data.reason,
           adminId: req.user.id,
         });
@@ -140,6 +140,7 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default testCurrencyRoutes;
+
 
 
 

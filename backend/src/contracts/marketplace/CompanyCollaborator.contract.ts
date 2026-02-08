@@ -20,18 +20,18 @@ import { ActorRole } from './ActorRole.contract';
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface CompanyCollaborator {
-  collaboration_id: string;
-  company_id: string;
-  actor_id: string; // ID do ator colaborador
+  collaborationId: string;
+  companyId: string;
+  actorId: string; // ID do ator colaborador
   role: ActorRole;
   permissions: string[]; // Permissões explícitas do mapa canônico
   status: 'invited' | 'accepted' | 'revoked' | 'declined';
-  invited_by: string; // ID do ator que convidou
-  invited_at: string;
-  accepted_at?: string;
-  revoked_at?: string;
-  declined_at?: string;
-  revoked_by?: string; // ID do ator que revogou
+  invitedBy: string; // ID do ator que convidou
+  invitedAt: string;
+  acceptedAt?: string;
+  revokedAt?: string;
+  declinedAt?: string;
+  revokedBy?: string; // ID do ator que revogou
 }
 
 

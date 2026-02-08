@@ -118,7 +118,7 @@ class PaymentExecutionService {
         
         pixCharge = await pixService.createPixCharge(tenantId, {
           paymentIntentId,
-          amount: Math.round(intent.amount * 100), // em centavos
+          amountCents: Math.round(intent.amount * 100), // em centavos
           currency: intent.currency,
           expiresInMinutes: 30,
           payerTaxId,
@@ -152,7 +152,7 @@ class PaymentExecutionService {
         pix_charge_id: pixCharge.id,
         pix_qr_code: pixCharge.payloadSnapshot.qrCode,
         pix_qr_code_text: pixCharge.payloadSnapshot.qrCodeText,
-        pix_expires_at: pixCharge.expiresAt.toISOString(),
+        pix_expiresAt: pixCharge.expiresAt.toISOString(),
       });
       
       // Retornar transaction com QR Code (não executa pagamento ainda)
@@ -265,7 +265,7 @@ class PaymentExecutionService {
           eventId,
           fromAccountId: buyerAccountId,
           toAccountId: sellerAccountId,
-          amount: intent.amount, // NÃO recalcular, usar amount do intent
+          amountCents: intent.amount, // NÃO recalcular, usar amount do intent
           currency: intent.currency as BankCurrency,
           description: `Marketplace payment: Order ${intent.orderId}`,
           metadata: {
@@ -318,7 +318,7 @@ class PaymentExecutionService {
         paymentIntentId,
         transactionId: successTransaction.id,
         bankTransactionId: bankResult.transactionId,
-        amount: intent.amount,
+        amountCents: intent.amount,
         currency: intent.currency,
       });
 
@@ -576,7 +576,7 @@ class PaymentExecutionService {
 
           const earned = await loyaltyService.earnFromPaymentSuccess(tenantId, {
             contactId: payerContactId,
-            amount: intent.amount,
+            amountCents: intent.amount,
             channel,
             actorId: order.sellerActorId,
             referenceType: 'payment_transaction',
@@ -620,7 +620,7 @@ class PaymentExecutionService {
         paymentIntentId,
         transactionId: failedTransaction.id,
         errorCode,
-        amount: intent.amount,
+        amountCents: intent.amount,
         currency: intent.currency,
       }, error);
 
@@ -658,7 +658,7 @@ class PaymentExecutionService {
             orderId: intent.orderId,
             paymentIntentId,
             errorCode,
-            amount: intent.amount,
+            amountCents: intent.amount,
             eventId: uuidv4(),
           },
         });
@@ -849,7 +849,7 @@ class PaymentExecutionService {
 
           await loyaltyService.earnFromPaymentSuccess(tenantId, {
             contactId: payerContactId,
-            amount: intent.amount,
+            amountCents: intent.amount,
             channel,
             actorId: order.sellerActorId,
             referenceType: 'payment_transaction',
@@ -878,4 +878,6 @@ class PaymentExecutionService {
 }
 
 export const paymentExecutionService = new PaymentExecutionService();
+
+
 

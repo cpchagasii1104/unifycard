@@ -15,7 +15,7 @@ export interface FiscalProviderAttempt {
   errorCode?: string | null;
   errorMessage?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateFiscalProviderAttemptInput {
@@ -27,6 +27,7 @@ export interface CreateFiscalProviderAttemptInput {
   errorMessage?: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

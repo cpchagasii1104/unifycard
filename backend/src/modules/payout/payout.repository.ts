@@ -23,9 +23,9 @@ interface PayoutBatchRow {
   blocked_count: number;
   evidence_pack_id: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
-  executed_at: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  executedAt: Date | null;
 }
 
 interface PayoutOrderRow {
@@ -44,11 +44,11 @@ interface PayoutOrderRow {
   block_reason: string | null;
   execution_metadata: any;
   failure_reason: string | null;
-  executed_at: Date | null;
-  failed_at: Date | null;
+  executedAt: Date | null;
+  failedAt: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PayoutRepository {
@@ -65,9 +65,9 @@ class PayoutRepository {
       blockedCount: row.blocked_count,
       evidencePackId: row.evidence_pack_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      executedAt: row.executed_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      executedAt: row.executedAt,
     };
   }
 
@@ -88,11 +88,11 @@ class PayoutRepository {
       blockReason: row.block_reason,
       executionMetadata: row.execution_metadata || {},
       failureReason: row.failure_reason,
-      executedAt: row.executed_at,
-      failedAt: row.failed_at,
+      executedAt: row.executedAt,
+      failedAt: row.failedAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -194,7 +194,7 @@ class PayoutRepository {
     let paramIndex = 4;
 
     if (status === 'EXECUTED') {
-      updates.push(`executed_at = NOW()`);
+      updates.push(`executedAt = NOW()`);
       if (executionMetadata) {
         updates.push(`execution_metadata = $${paramIndex}`);
         values.push(JSON.stringify(executionMetadata));
@@ -203,7 +203,7 @@ class PayoutRepository {
     }
 
     if (status === 'FAILED') {
-      updates.push(`failed_at = NOW()`);
+      updates.push(`failedAt = NOW()`);
       if (failureReason) {
         updates.push(`failure_reason = $${paramIndex}`);
         values.push(failureReason);
@@ -222,7 +222,7 @@ class PayoutRepository {
       {
         text: `
           UPDATE payout_orders
-          SET ${updates.join(', ')}, updated_at = NOW()
+          SET ${updates.join(', ')}, updatedAt = NOW()
           WHERE tenant_id = $1 AND order_id = $2
           RETURNING *
         `,
@@ -249,7 +249,7 @@ class PayoutRepository {
             failed_count = (SELECT COUNT(*) FROM payout_orders WHERE batch_id = $2 AND status = 'FAILED'),
             blocked_count = (SELECT COUNT(*) FROM payout_orders WHERE batch_id = $2 AND status = 'BLOCKED'),
             total_amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM payout_orders WHERE batch_id = $2),
-            updated_at = NOW()
+            updatedAt = NOW()
           WHERE tenant_id = $1 AND batch_id = $2
           RETURNING *
         `,
@@ -316,13 +316,13 @@ class PayoutRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -336,7 +336,7 @@ class PayoutRepository {
         text: `
           SELECT * FROM payout_batches
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -380,13 +380,13 @@ class PayoutRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -400,7 +400,7 @@ class PayoutRepository {
         text: `
           SELECT * FROM payout_orders
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -435,6 +435,8 @@ class PayoutRepository {
 }
 
 export const payoutRepository = new PayoutRepository();
+
+
 
 
 

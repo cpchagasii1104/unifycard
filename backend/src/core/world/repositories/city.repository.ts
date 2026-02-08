@@ -16,8 +16,8 @@ export class CityRepository {
           name_en,
           latitude,
           longitude,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM cities
         WHERE state_id = $1
         ORDER BY name ASC
@@ -39,8 +39,8 @@ export class CityRepository {
           name_en,
           latitude,
           longitude,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM cities
         WHERE city_id = $1
       `,
@@ -62,8 +62,8 @@ export class CityRepository {
         c.name_en,
         c.latitude,
         c.longitude,
-        c.created_at,
-        c.updated_at
+        c.createdAt,
+        c.updatedAt
       FROM cities c
       INNER JOIN states s ON c.state_id = s.state_id
       WHERE (
@@ -93,6 +93,7 @@ export class CityRepository {
     });
   }
 }
+
 
 
 

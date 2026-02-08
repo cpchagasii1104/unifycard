@@ -8,7 +8,7 @@ export interface SocialGroup {
   name: string;
   member_ids: string[];
   purpose: 'business' | 'friends' | 'mixed';
-  created_at: string;
+  createdAt: string;
 }
 
 export interface CreateSocialGroupInput {
@@ -33,7 +33,7 @@ export class SocialGroupsLightService {
       name: input.name,
       member_ids: input.member_ids || [],
       purpose: input.purpose,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.groups.set(groupId, group);
@@ -101,6 +101,7 @@ export class SocialGroupsLightService {
 }
 
 export const socialGroupsLightService = new SocialGroupsLightService();
+
 
 
 

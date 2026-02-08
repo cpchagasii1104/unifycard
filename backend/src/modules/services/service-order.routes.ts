@@ -30,8 +30,9 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const { bookingId, decisionId } = req.body;
@@ -49,8 +50,8 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
           tenantId,
           bookingId,
           decisionId,
-          actionContext.actingActorId,
-          actionContext.actingUserId
+          actionContext.actorId,
+          actionContext.actorId
         );
 
         return reply.status(201).send(order);
@@ -71,8 +72,9 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     // Converter scheduledStart e scheduledEnd de string para Date
@@ -87,8 +89,8 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     const order = await serviceOrderService.createOrder(
       tenantId,
       body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+          actionContext.actorId,
+          actionContext.actorId
     );
 
     return reply.status(201).send(order);
@@ -143,13 +145,14 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const order = await serviceOrderService.confirmOrder(tenantId, id, {
-        confirmedByActorId: actionContext.actingActorId,
-        confirmedByUserId: actionContext.actingUserId,
+        confirmedByActorId: actionContext.actorId,
+        confirmedByUserId: actionContext.actorId,
       });
 
       return order;
@@ -167,13 +170,14 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const order = await serviceOrderService.startOrder(tenantId, id, {
-        startedByActorId: actionContext.actingActorId,
-        startedByUserId: actionContext.actingUserId,
+        startedByActorId: actionContext.actorId,
+        startedByUserId: actionContext.actorId,
         workerNotes: req.body.workerNotes,
       });
 
@@ -192,13 +196,14 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const order = await serviceOrderService.completeOrder(tenantId, id, {
-        completedByActorId: actionContext.actingActorId,
-        completedByUserId: actionContext.actingUserId,
+        completedByActorId: actionContext.actorId,
+        completedByUserId: actionContext.actorId,
         workerNotes: req.body.workerNotes,
       });
 
@@ -217,13 +222,14 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       const order = await serviceOrderService.cancelOrder(tenantId, id, {
-        cancelledByActorId: actionContext.actingActorId,
-        cancelledByUserId: actionContext.actingUserId,
+        cancelledByActorId: actionContext.actorId,
+        cancelledByUserId: actionContext.actorId,
         cancellationReason: req.body.cancellationReason,
       });
 
@@ -284,14 +290,15 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      // ActionContext é obrigatório (V2)
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
       }
 
       try {
         const result = await serviceOrderService.confirmFinancialTerms(tenantId, id, {
-          confirmedByActorId: actionContext.actingActorId,
-          confirmedByUserId: actionContext.actingUserId,
+          confirmedByActorId: actionContext.actorId,
+          confirmedByUserId: actionContext.actorId,
         });
 
         return reply.status(201).send(result);

@@ -19,8 +19,8 @@ export interface CanonicalProduct {
   attributes: Record<string, unknown>; // JSONB
   categoryId: string;
   type: 'INDUSTRIAL';
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -37,9 +37,9 @@ export interface ProductOffer {
     regionId?: string;
     cityId?: string;
   };
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -55,8 +55,8 @@ export interface LocalProduct {
   attributes: Record<string, unknown>; // JSONB
   categoryId: string;
   type: 'LOCAL';
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -66,8 +66,10 @@ export interface CatalogSearchResult {
   canonicalProducts: CanonicalProduct[];
   localProducts: LocalProduct[];
   offers: ProductOffer[];
-  total: number;
+  totalCents: number;
 }
+
+
 
 
 

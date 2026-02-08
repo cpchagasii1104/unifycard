@@ -18,8 +18,8 @@ interface CanonicalProductRow {
   attributes: any;
   category_id: string | null;
   type: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface LocalProductRow {
@@ -32,8 +32,8 @@ interface LocalProductRow {
   attributes: any;
   category_id: string | null;
   type: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class CatalogService {
@@ -51,8 +51,8 @@ class CatalogService {
       attributes: row.attributes || {},
       categoryId: row.category_id || '',
       type: 'INDUSTRIAL',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -70,8 +70,8 @@ class CatalogService {
       attributes: row.attributes || {},
       categoryId: row.category_id || '',
       type: 'LOCAL',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -83,7 +83,7 @@ class CatalogService {
       tenantId,
       {
         text: `
-          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
           FROM canonical_products
           WHERE tenant_id = $1 AND gtin = $2
         `,
@@ -102,7 +102,7 @@ class CatalogService {
       tenantId,
       {
         text: `
-          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
           FROM canonical_products
           WHERE tenant_id = $1 AND id = $2
         `,
@@ -145,7 +145,7 @@ class CatalogService {
     // Produtos canônicos
     if (type === 'ALL' || type === 'INDUSTRIAL') {
       let canonicalQuery = `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1
           AND (name ILIKE $2 OR brand ILIKE $2 OR gtin = $3)
@@ -176,7 +176,7 @@ class CatalogService {
     // Produtos locais
     if (type === 'ALL' || type === 'LOCAL') {
       let localQuery = `
-        SELECT id, tenant_id, merchant_id, name, description, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, merchant_id, name, description, images, attributes, category_id, type, createdAt, updatedAt
         FROM local_products
         WHERE tenant_id = $1
           AND (name ILIKE $2 OR description ILIKE $2)
@@ -208,9 +208,12 @@ class CatalogService {
       canonicalProducts,
       localProducts,
       offers: [],
-      total: canonicalProducts.length + localProducts.length,
+      totalCents: canonicalProducts.length + localProducts.length,
     };
   }
 }
 
 export const catalogService = new CatalogService();
+
+
+

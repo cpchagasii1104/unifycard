@@ -35,7 +35,7 @@ export interface EducationEvent {
   actorId: string; // ID do actor que criou o evento
   eventType: EducationEventType;
   payload: EducationEventPayload;
-  createdAt: Date;
+  createdAt: string;
   version: number;
   metadata?: Record<string, unknown>;
 }
@@ -54,7 +54,7 @@ export interface EducationEntry {
   // Histórico de eventos (opcional, para exibição)
   events?: Array<{
     eventType: EducationEventType;
-    createdAt: Date;
+    createdAt: string;
     metadata?: Record<string, unknown>;
   }>;
 }
@@ -69,3 +69,4 @@ export interface CreateEducationEventInput {
   eventType: EducationEventType;
   payload: EducationEventPayload;
 }
+

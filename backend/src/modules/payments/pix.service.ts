@@ -75,7 +75,7 @@ class PixService {
 
     // Criar charge no provider
     const providerResult = await provider.createCharge({
-      amount: input.amount,
+      amountCents: input.amount,
       description: `Pagamento ${input.paymentIntentId}`,
       expiresInMinutes: input.expiresInMinutes || 30,
       payerTaxId: input.payerTaxId,
@@ -193,6 +193,7 @@ class PixService {
 }
 
 export const pixService = new PixService();
+
 
 
 

@@ -38,7 +38,7 @@ export interface FundDashboardData {
   // Receitas detalhadas por módulo
   revenue: {
     byModule: RevenueByModule[];
-    total: number;
+    totalCents: number;
     growth: {
       currentPeriod: number;
       previousPeriod: number;
@@ -49,7 +49,7 @@ export interface FundDashboardData {
   // Custos operacionais
   costs: {
     byCategory: OperationalCost[];
-    total: number;
+    totalCents: number;
     growth: {
       currentPeriod: number;
       previousPeriod: number;
@@ -221,7 +221,7 @@ class FundDashboardService {
         },
         revenue: {
           byModule: revenueByModule,
-          total: totalRevenue,
+          totalCents: totalRevenue,
           growth: {
             currentPeriod: totalRevenue,
             previousPeriod: previousTotalRevenue,
@@ -233,7 +233,7 @@ class FundDashboardService {
         },
         costs: {
           byCategory: costsByCategory,
-          total: totalCosts,
+          totalCents: totalCosts,
           growth: {
             currentPeriod: totalCosts,
             previousPeriod: previousTotalCosts,
@@ -306,12 +306,12 @@ class FundDashboardService {
         COALESCE(t.metadata->>'module', 'unknown') as module,
         COALESCE(SUM(t.amount), 0) as total_amount,
         COUNT(*) as transaction_count,
-        MAX(t.created_at) as last_transaction_date
+        MAX(t.createdAt) as last_transaction_date
       FROM transactions t
       WHERE t.tenant_id = $1
         AND t.to_account = $2
-        AND t.created_at >= $3
-        AND t.created_at <= $4
+        AND t.createdAt >= $3
+        AND t.createdAt <= $4
       GROUP BY COALESCE(t.metadata->>'module', 'unknown')
       ORDER BY total_amount DESC
       `,
@@ -354,12 +354,12 @@ class FundDashboardService {
         COALESCE(t.metadata->>'category', t.metadata->>'type', 'other') as category,
         COALESCE(SUM(t.amount), 0) as total_amount,
         COUNT(*) as transaction_count,
-        MAX(t.created_at) as last_transaction_date
+        MAX(t.createdAt) as last_transaction_date
       FROM transactions t
       WHERE t.tenant_id = $1
         AND t.from_account = $2
-        AND t.created_at >= $3
-        AND t.created_at <= $4
+        AND t.createdAt >= $3
+        AND t.createdAt <= $4
       GROUP BY COALESCE(t.metadata->>'category', t.metadata->>'type', 'other')
       ORDER BY total_amount DESC
       `,
@@ -379,4 +379,6 @@ class FundDashboardService {
 }
 
 export const fundDashboardService = new FundDashboardService();
+
+
 

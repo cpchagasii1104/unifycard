@@ -14,9 +14,9 @@ export interface RideVehicle {
   service_type_id?: string;
   is_verified: boolean;
   verified_by_partner_id?: string;
-  verified_at?: Date;
-  created_at: Date;
-  updated_at: Date;
+  verifiedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateVehicleInput {
@@ -59,7 +59,7 @@ export class VehiclesService {
         service_type_id,
         is_verified,
         verified_by_partner_id,
-        verified_at
+        verifiedAt
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,false,null,null
@@ -111,7 +111,7 @@ export class VehiclesService {
       {
         text: `
       UPDATE rides_vehicles
-      SET ${fields.join(', ')}, updated_at = now()
+      SET ${fields.join(', ')}, updatedAt = now()
       WHERE vehicle_id = $${idx}
       RETURNING *
       `,
@@ -134,7 +134,7 @@ export class VehiclesService {
       SELECT *
       FROM rides_vehicles
       WHERE driver_id = $1
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
         values: [driverId],
       }
@@ -165,8 +165,8 @@ export class VehiclesService {
       SET
         is_verified = true,
         verified_by_partner_id = $2,
-        verified_at = now(),
-        updated_at = now()
+        verifiedAt = now(),
+        updatedAt = now()
       WHERE vehicle_id = $1
       RETURNING *
       `,
@@ -183,3 +183,4 @@ export class VehiclesService {
 }
 
 export const vehiclesService = new VehiclesService();
+

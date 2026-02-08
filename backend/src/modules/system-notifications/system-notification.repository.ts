@@ -18,8 +18,8 @@ interface SystemNotificationRow {
   context_id: string;
   message: string;
   metadata: any;
-  read_at: Date | null;
-  created_at: Date;
+  readAt: Date | null;
+  createdAt: Date;
 }
 
 class SystemNotificationRepository {
@@ -33,8 +33,8 @@ class SystemNotificationRepository {
       contextId: row.context_id,
       message: row.message,
       metadata: row.metadata || {},
-      readAt: row.read_at,
-      createdAt: row.created_at,
+      readAt: row.readAt,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -53,7 +53,7 @@ class SystemNotificationRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING notification_id, tenant_id, recipient_actor_id, type, context_type, context_id,
-                message, metadata, read_at, created_at
+                message, metadata, readAt, createdAt
       `,
       [
         tenantId,
@@ -84,7 +84,7 @@ class SystemNotificationRepository {
       tenantId,
       `
       SELECT notification_id, tenant_id, recipient_actor_id, type, context_type, context_id,
-             message, metadata, read_at, created_at
+             message, metadata, readAt, createdAt
       FROM system_notifications
       WHERE tenant_id = $1 AND notification_id = $2
       `,
@@ -100,7 +100,7 @@ class SystemNotificationRepository {
   async find(
     tenantId: string,
     filters: SystemNotificationFilters = {}
-  ): Promise<{ notifications: SystemNotification[]; total: number }> {
+  ): Promise<{ notifications: SystemNotification[]; totalCents: number }> {
     const conditions: string[] = ['tenant_id = $1'];
     const params: any[] = [tenantId];
     let paramIndex = 2;
@@ -126,7 +126,7 @@ class SystemNotificationRepository {
     }
 
     if (filters.unreadOnly) {
-      conditions.push(`read_at IS NULL`);
+      conditions.push(`readAt IS NULL`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -152,10 +152,10 @@ class SystemNotificationRepository {
       tenantId,
       `
       SELECT notification_id, tenant_id, recipient_actor_id, type, context_type, context_id,
-             message, metadata, read_at, created_at
+             message, metadata, readAt, createdAt
       FROM system_notifications
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `,
       [...params, limit, offset]
@@ -179,7 +179,7 @@ class SystemNotificationRepository {
       `
       SELECT COUNT(*) as count
       FROM system_notifications
-      WHERE tenant_id = $1 AND recipient_actor_id = $2 AND read_at IS NULL
+      WHERE tenant_id = $1 AND recipient_actor_id = $2 AND readAt IS NULL
       `,
       [tenantId, recipientActorId]
     );
@@ -198,10 +198,10 @@ class SystemNotificationRepository {
       tenantId,
       `
       UPDATE system_notifications
-      SET read_at = NOW()
-      WHERE tenant_id = $1 AND notification_id = $2 AND read_at IS NULL
+      SET readAt = NOW()
+      WHERE tenant_id = $1 AND notification_id = $2 AND readAt IS NULL
       RETURNING notification_id, tenant_id, recipient_actor_id, type, context_type, context_id,
-                message, metadata, read_at, created_at
+                message, metadata, readAt, createdAt
       `,
       [tenantId, notificationId]
     );
@@ -224,8 +224,8 @@ class SystemNotificationRepository {
       tenantId,
       `
       UPDATE system_notifications
-      SET read_at = NOW()
-      WHERE tenant_id = $1 AND recipient_actor_id = $2 AND read_at IS NULL
+      SET readAt = NOW()
+      WHERE tenant_id = $1 AND recipient_actor_id = $2 AND readAt IS NULL
       RETURNING COUNT(*) as count
       `,
       [tenantId, recipientActorId]
@@ -236,6 +236,9 @@ class SystemNotificationRepository {
 }
 
 export const systemNotificationRepository = new SystemNotificationRepository();
+
+
+
 
 
 

@@ -39,7 +39,7 @@ class ProfileLearningService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -82,7 +82,7 @@ class ProfileLearningService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -129,7 +129,7 @@ class ProfileLearningService {
     await pool.query(
       `
       UPDATE global_users
-      SET metadata = $1::jsonb, updated_at = now()
+      SET metadata = $1::jsonb, updatedAt = now()
       WHERE global_user_id = $2
       `,
       [JSON.stringify(updatedMetadata), globalUserId]
@@ -145,6 +145,7 @@ class ProfileLearningService {
 }
 
 export const profileLearningService = new ProfileLearningService();
+
 
 
 

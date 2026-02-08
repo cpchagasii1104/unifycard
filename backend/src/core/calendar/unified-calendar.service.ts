@@ -106,8 +106,8 @@ class UnifiedCalendarService {
         status,
         capacity,
         metadata,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       FROM availability
       WHERE tenant_id = $1
         AND status = 'active'
@@ -146,8 +146,8 @@ class UnifiedCalendarService {
           ownerId: row.owner_id,
           capacity: row.capacity,
         },
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
       };
     });
   }
@@ -171,8 +171,8 @@ class UnifiedCalendarService {
         timezone,
         status,
         metadata,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       FROM events
       WHERE tenant_id = $1
         AND status IN ('published', 'draft')
@@ -220,11 +220,12 @@ class UnifiedCalendarService {
       metadata: {
         ...row.metadata,
       },
-      createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
-      updatedAt: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
+      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
+      updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(row.updatedAt),
     }));
   }
 }
 
 export const unifiedCalendarService = new UnifiedCalendarService();
+
 

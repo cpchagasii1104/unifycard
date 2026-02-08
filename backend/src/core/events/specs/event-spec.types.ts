@@ -41,29 +41,29 @@ export interface QuestionnaireAnswers {
  */
 export interface EventSpec {
   // Identificação
-  spec_id: string; // UUID único do spec
-  event_id: string; // 🔴 P0-2: OBRIGATÓRIO - ID do evento associado (draft)
-  tenant_id: string;
-  actor_id: string;
-  actor_type: 'user' | 'page' | 'group' | 'channel';
+  specId: string; // UUID único do spec
+  eventId: string; // 🔴 P0-2: OBRIGATÓRIO - ID do evento associado (draft)
+  tenantId: string;
+  actorId: string;
+  actorType: 'user' | 'page' | 'group' | 'channel';
   
   // Versão e tipo
-  spec_version: EventSpecVersion; // Versão do schema do EventSpec
-  macro_intention: MacroIntention;
+  specVersion: EventSpecVersion; // Versão do schema do EventSpec
+  macroIntention: MacroIntention;
   subflow: Subflow;
   
   // Respostas do questionário
   answers: QuestionnaireAnswers;
   
   // Metadados de criação
-  created_at: string; // ISO 8601
-  created_by: string; // user_id que preencheu o questionário
+  createdAt: string; // ISO 8601
+  createdBy: string; // user_id que preencheu o questionário
   
   // Metadados opcionais
   metadata?: {
-    questionnaire_version?: number; // Versão do DSL usado
-    completed_steps?: string[]; // IDs dos steps completados
-    skipped_steps?: string[]; // IDs dos steps pulados (se houver)
+    questionnaireVersion?: number; // Versão do DSL usado
+    completedSteps?: string[]; // IDs dos steps completados
+    skippedSteps?: string[]; // IDs dos steps pulados (se houver)
     [key: string]: any; // Outros metadados
   };
 }
@@ -72,13 +72,13 @@ export interface EventSpec {
  * Input para criar EventSpec
  */
 export interface CreateEventSpecInput {
-  tenant_id: string;
-  actor_id: string;
-  actor_type: 'user' | 'page' | 'group' | 'channel';
-  macro_intention: MacroIntention;
+  tenantId: string;
+  actorId: string;
+  actorType: 'user' | 'page' | 'group' | 'channel';
+  macroIntention: MacroIntention;
   subflow: Subflow;
   answers: QuestionnaireAnswers;
-  event_id: string; // 🔴 P0-2: OBRIGATÓRIO - EventSpec sempre referencia Event existente (draft)
+  eventId: string; // 🔴 P0-2: OBRIGATÓRIO - EventSpec sempre referencia Event existente (draft)
   metadata?: Record<string, any>;
 }
 
@@ -101,13 +101,13 @@ export interface EventSpecValidation {
  * Query para buscar EventSpecs
  */
 export interface EventSpecQuery {
-  tenant_id?: string;
-  actor_id?: string;
-  actor_type?: 'user' | 'page' | 'group' | 'channel';
-  macro_intention?: MacroIntention;
+  tenantId?: string;
+  actorId?: string;
+  actorType?: 'user' | 'page' | 'group' | 'channel';
+  macroIntention?: MacroIntention;
   subflow?: Subflow;
-  event_id?: string;
-  spec_version?: EventSpecVersion;
+  eventId?: string;
+  specVersion?: EventSpecVersion;
   limit?: number;
   offset?: number;
 }

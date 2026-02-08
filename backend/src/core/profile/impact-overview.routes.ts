@@ -26,13 +26,17 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const tenantId = req.tenant.id;
-      const globalUserId = req.user.globalUserId || req.user.id;
-      const userId = req.user.userId || req.user.id;
+      const actorId = req.actionContext.actorId;
       
-      // Buscar actor do usuário
+      // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
-      const actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+      const actor = await actorRepository.findById(tenantId, actorId);
       if (!actor) {
         return reply.status(404).send({ error: 'Actor não encontrado' });
       }
@@ -47,7 +51,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
           AND created_by_global_user_id = $2
           AND (
             status = 'draft'
-            OR (status = 'published' AND end_time < now() AND status != 'completed' AND status != 'archived')
+            OR (status = 'published' AND ends_at < now() AND status != 'completed' AND status != 'archived')
           )
         `,
         [tenantId, globalUserId]
@@ -66,7 +70,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
           AND e.created_by_global_user_id = $2
           AND (
             e.status = 'draft'
-            OR (e.status = 'published' AND e.end_time < now() AND e.status != 'completed' AND e.status != 'archived')
+            OR (e.status = 'published' AND e.ends_at < now() AND e.status != 'completed' AND e.status != 'archived')
           )
         `,
         [tenantId, globalUserId]
@@ -119,7 +123,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
 
       // 3. Valores bloqueados (pagamentos pendentes + bookings pendentes com valor estimado)
       // Pagamentos pendentes
-      const moneyLockedPaymentsRow = await runQueryWithTenant<{ total: string }>(
+      const moneyLockedPaymentsRow = await runQueryWithTenant<{ totalCents: string }>(
         tenantId,
         `
         SELECT COALESCE(SUM(amount), 0)::text as total
@@ -145,8 +149,8 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
         WHERE tenant_id = $1
           AND created_by_global_user_id = $2
           AND status IN ('published', 'ongoing')
-          AND start_time <= now()
-          AND end_time >= now()
+          AND starts_at <= now()
+          AND ends_at >= now()
         `,
         [tenantId, globalUserId]
       );
@@ -186,4 +190,6 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default impactOverviewRoutes;
+
+
 

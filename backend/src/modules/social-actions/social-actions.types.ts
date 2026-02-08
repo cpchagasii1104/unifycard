@@ -12,7 +12,7 @@ export interface SocialAction {
   parameters: Record<string, any>;
   status: ActionStatus;
   executionResult?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
   executedAt: Date | null;
 }
 
@@ -26,8 +26,8 @@ export interface SocialActionRow {
   parameters: any; // JSONB
   status: string;
   execution_result: any; // JSONB
-  created_at: Date;
-  executed_at: Date | null;
+  createdAt: string;
+  executedAt: Date | null;
 }
 
 export interface CreateActionInput {
@@ -45,6 +45,8 @@ export interface ExecuteActionResult {
   error?: string;
   executedAt: Date;
 }
+
+
 
 
 

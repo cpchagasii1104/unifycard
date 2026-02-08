@@ -50,8 +50,8 @@ export interface EventRFQ {
   items: RFQItem[];          // Lista de necessidades ou serviços
   criteria: RFQCriteria;     // Critérios do RFQ
   status: RFQStatus;         // Status do RFQ
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   closedAt?: Date | null;    // Quando foi fechado
 }
 
@@ -77,8 +77,8 @@ export interface QuoteResponse {
   notes?: string | null;     // Observações do prestador
   validityDays?: number | null; // Validade da proposta em dias
   validUntil?: Date | null;  // Data de validade
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -106,7 +106,7 @@ export interface CreateEventRFQResult {
  */
 export interface EventRFQListResult {
   rfqs: EventRFQ[];
-  total: number;
+  totalCents: number;
 }
 
 /**
@@ -114,8 +114,10 @@ export interface EventRFQListResult {
  */
 export interface QuoteListResult {
   quotes: QuoteResponse[];
-  total: number;
+  totalCents: number;
 }
+
+
 
 
 

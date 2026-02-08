@@ -20,19 +20,19 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface IndustryAccount {
-  industry_id: string;
+  industryId: string;
   name: string;
   cnpj: string;
-  categories_supported: string[]; // IDs de categorias que a indústria suporta
-  default_margin_rules: {
-    hub_margin_percentage: number; // Margem sugerida para hubs (ex: 15%)
-    store_margin_percentage: number; // Margem sugerida para lojas (ex: 25%)
-    minimum_price?: number; // Preço mínimo sugerido
+  categoriesSupported: string[]; // IDs de categorias que a indústria suporta
+  defaultMarginRules: {
+    hubMarginPercentage: number; // Margem sugerida para hubs (ex: 15%)
+    storeMarginPercentage: number; // Margem sugerida para lojas (ex: 25%)
+    minimumPrice?: number; // Preço mínimo sugerido
   };
-  authorized_hubs: string[]; // IDs de hubs autorizados
-  active: boolean;
-  created_at: string;
-  updated_at: string;
+  authorizedHubs: string[]; // IDs de hubs autorizados
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

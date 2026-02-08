@@ -18,37 +18,37 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceEvaluation {
-  evaluation_id: string;
-  request_id: string;
-  evaluator_type: 'user' | 'provider';
-  evaluator_actor_id: string;
-  target_actor_id: string;
+  evaluationId: string;
+  requestId: string;
+  evaluatorType: 'user' | 'provider';
+  evaluatorActorId: string;
+  targetActorId: string;
   scores: {
-    execution_quality: number; // 1-5
+    executionQuality: number; // 1-5
     punctuality: number; // 1-5
     communication: number; // 1-5
     compliance: number; // 1-5
   };
-  created_at: string;
+  createdAt: string;
   // Imutável após criação
   immutable: true;
 }
 
 export interface EvaluationAggregate {
-  actor_id: string;
+  actorId: string;
   period: {
-    start_date: string;
-    end_date: string;
+    startDate: string;
+    endDate: string;
   };
-  total_evaluations: number;
-  average_scores: {
-    execution_quality: number;
+  totalEvaluations: number;
+  averageScores: {
+    executionQuality: number;
     punctuality: number;
     communication: number;
     compliance: number;
   };
-  overall_average: number;
-  low_score_count: number; // Quantidade de avaliações com média < 3
+  overallAverage: number;
+  lowScoreCount: number; // Quantidade de avaliações com média < 3
   trend: 'improving' | 'stable' | 'declining';
 }
 

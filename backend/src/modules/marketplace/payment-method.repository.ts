@@ -19,7 +19,7 @@ interface PaymentMethodRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class PaymentMethodRepository {
@@ -39,7 +39,7 @@ class PaymentMethodRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -72,7 +72,7 @@ class PaymentMethodRepository {
       RETURNING id, tenant_id, actor_id, type, provider,
                 fee_percentage, settlement_days, is_default,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at
+                createdAt
       `,
       [
         tenantId,
@@ -105,7 +105,7 @@ class PaymentMethodRepository {
       SELECT id, tenant_id, actor_id, type, provider,
              fee_percentage, settlement_days, is_default,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at
+             createdAt
       FROM payment_methods
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -160,10 +160,10 @@ class PaymentMethodRepository {
       SELECT id, tenant_id, actor_id, type, provider,
              fee_percentage, settlement_days, is_default,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at
+             createdAt
       FROM payment_methods
       WHERE ${conditions.join(' AND ')}
-      ORDER BY is_default DESC, created_at DESC
+      ORDER BY is_default DESC, createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -182,7 +182,7 @@ class PaymentMethodRepository {
       SELECT id, tenant_id, actor_id, type, provider,
              fee_percentage, settlement_days, is_default,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at
+             createdAt
       FROM payment_methods
       WHERE tenant_id = $1 AND actor_id = $2 AND is_default = true
       LIMIT 1
@@ -214,6 +214,8 @@ class PaymentMethodRepository {
 }
 
 export const paymentMethodRepository = new PaymentMethodRepository();
+
+
 
 
 

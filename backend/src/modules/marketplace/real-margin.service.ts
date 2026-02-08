@@ -94,8 +94,8 @@ class RealMarginService {
         INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
         WHERE ${conditions.join(' AND ')}
           AND pt.status = 'SUCCESS'
-          AND o.created_at >= $${paramIndex - 1}
-          AND o.created_at <= $${paramIndex}
+          AND o.createdAt >= $${paramIndex - 1}
+          AND o.createdAt <= $${paramIndex}
         GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
       ),
       platform_fees AS (
@@ -112,8 +112,8 @@ class RealMarginService {
         WHERE ps.tenant_id = $1
           AND ps.role = 'PLATFORM'
           AND pt.status = 'SUCCESS'
-          AND o.created_at >= $${paramIndex - 1}
-          AND o.created_at <= $${paramIndex}
+          AND o.createdAt >= $${paramIndex - 1}
+          AND o.createdAt <= $${paramIndex}
           ${options.productVariantId ? `AND oi.product_variant_id = $${paramIndex - 2}` : ''}
           ${options.actorId ? `AND o.buyer_actor_id = $${paramIndex - 1}` : ''}
         GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
@@ -132,8 +132,8 @@ class RealMarginService {
         WHERE ps.tenant_id = $1
           AND ps.role = 'SELLER'
           AND pt.status = 'SUCCESS'
-          AND o.created_at >= $${paramIndex - 1}
-          AND o.created_at <= $${paramIndex}
+          AND o.createdAt >= $${paramIndex - 1}
+          AND o.createdAt <= $${paramIndex}
           ${options.productVariantId ? `AND oi.product_variant_id = $${paramIndex - 2}` : ''}
           ${options.actorId ? `AND o.buyer_actor_id = $${paramIndex - 1}` : ''}
         GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
@@ -402,4 +402,5 @@ class RealMarginService {
 }
 
 export const realMarginService = new RealMarginService();
+
 

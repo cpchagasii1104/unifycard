@@ -15,8 +15,8 @@ export interface CanonicalProduct {
   attributes: Record<string, unknown>; // JSONB: peso, volume, etc.
   categoryId?: string;
   type: 'INDUSTRIAL'; // Sempre INDUSTRIAL para produtos canônicos
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -24,13 +24,15 @@ export interface CanonicalProduct {
  */
 export interface CanonicalProductSearchResult {
   products: CanonicalProduct[];
-  total: number;
+  totalCents: number;
   query: string;
   filters?: {
     categoryId?: string;
     brand?: string;
   };
 }
+
+
 
 
 

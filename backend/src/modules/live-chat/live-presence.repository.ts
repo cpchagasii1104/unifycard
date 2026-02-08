@@ -16,11 +16,11 @@ interface LivePresenceRow {
   contact_id: string;
   status: string;
   opted_in: boolean;
-  last_seen_at: Date;
-  expires_at: Date;
+  last_seenAt: Date;
+  expiresAt: Date;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class LivePresenceRepository {
@@ -33,11 +33,11 @@ class LivePresenceRepository {
       contactId: row.contact_id,
       status: row.status as LivePresenceStatus,
       optedIn: row.opted_in,
-      lastSeenAt: row.last_seen_at,
-      expiresAt: row.expires_at,
+      lastSeenAt: row.last_seenAt,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -55,18 +55,18 @@ class LivePresenceRepository {
       `
       INSERT INTO live_presence (
         tenant_id, context_type, context_id, contact_id, status, opted_in,
-        last_seen_at, expires_at, metadata
+        last_seenAt, expiresAt, metadata
       )
       VALUES ($1, $2, $3, $4, 'ONLINE', true, $5, $6, '{}'::jsonb)
       ON CONFLICT (tenant_id, context_type, context_id, contact_id)
       DO UPDATE SET
         status = 'ONLINE',
         opted_in = true,
-        last_seen_at = $5,
-        expires_at = $6,
-        updated_at = NOW()
+        last_seenAt = $5,
+        expiresAt = $6,
+        updatedAt = NOW()
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, opted_in,
-                last_seen_at, expires_at, metadata, created_at, updated_at
+                last_seenAt, expiresAt, metadata, createdAt, updatedAt
       `,
       [tenantId, contextType, contextId, contactId, now, expiresAt]
     );
@@ -90,10 +90,10 @@ class LivePresenceRepository {
       UPDATE live_presence
       SET status = 'OFFLINE',
           opted_in = false,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, opted_in,
-                last_seen_at, expires_at, metadata, created_at, updated_at
+                last_seenAt, expiresAt, metadata, createdAt, updatedAt
       `,
       [tenantId, contextType, contextId, contactId]
     );
@@ -118,13 +118,13 @@ class LivePresenceRepository {
       tenantId,
       `
       UPDATE live_presence
-      SET last_seen_at = $1,
-          expires_at = $2,
-          updated_at = NOW()
+      SET last_seenAt = $1,
+          expiresAt = $2,
+          updatedAt = NOW()
       WHERE tenant_id = $3 AND context_type = $4 AND context_id = $5 AND contact_id = $6
         AND opted_in = true
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, opted_in,
-                last_seen_at, expires_at, metadata, created_at, updated_at
+                last_seenAt, expiresAt, metadata, createdAt, updatedAt
       `,
       [now, expiresAt, tenantId, contextType, contextId, contactId]
     );
@@ -148,13 +148,13 @@ class LivePresenceRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, status, opted_in,
-             last_seen_at, expires_at, metadata, created_at, updated_at
+             last_seenAt, expiresAt, metadata, createdAt, updatedAt
       FROM live_presence
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
         AND opted_in = true
         AND status = 'ONLINE'
-        AND expires_at > $4
-      ORDER BY last_seen_at DESC
+        AND expiresAt > $4
+      ORDER BY last_seenAt DESC
       LIMIT $5
       `,
       [tenantId, contextType, contextId, now, limit]
@@ -173,7 +173,7 @@ class LivePresenceRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, status, opted_in,
-             last_seen_at, expires_at, metadata, created_at, updated_at
+             last_seenAt, expiresAt, metadata, createdAt, updatedAt
       FROM live_presence
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4
       `,
@@ -185,6 +185,8 @@ class LivePresenceRepository {
 }
 
 export const livePresenceRepository = new LivePresenceRepository();
+
+
 
 
 

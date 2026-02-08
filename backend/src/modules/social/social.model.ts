@@ -41,8 +41,8 @@ export class SocialModel {
       eventId: row.event_id || undefined,
       serviceInfo,
       isServicePost,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -67,4 +67,6 @@ export class SocialModel {
     return row;
   }
 }
+
+
 

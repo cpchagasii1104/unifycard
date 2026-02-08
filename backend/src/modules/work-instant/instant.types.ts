@@ -32,7 +32,7 @@ export interface InstantRequest {
   tempJobId?: string; // Job criado temporariamente para o assignment
   assignmentId?: string; // Assignment criado quando worker aceita
   acceptedByWorkerId?: string;
-  createdAt: Date;
+  createdAt: string;
   expiresAt: Date;
   statusHistory?: Array<{
     status: InstantJobStatus;
@@ -56,4 +56,5 @@ export interface WorkerMatch {
   rating?: number;
   estimatedTime?: number; // em minutos
 }
+
 

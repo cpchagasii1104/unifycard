@@ -33,8 +33,8 @@ interface ProductOfferRow {
   location_region_id: string | null;
   location_city_id: string | null;
   active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class StoreOnboardingService {
@@ -268,7 +268,7 @@ class StoreOnboardingService {
       tenantId,
       `
       SELECT id, tenant_id, product_id, merchant_id, price, stock, 
-             location_region_id, location_city_id, active, created_at, updated_at
+             location_region_id, location_city_id, active, createdAt, updatedAt
       FROM product_offers
       WHERE tenant_id = $1 AND product_id = $2 AND merchant_id = $3
       LIMIT 1
@@ -294,11 +294,11 @@ class StoreOnboardingService {
   ): Promise<ProductOfferRow> {
     const query = `
       INSERT INTO product_offers (
-        tenant_id, product_id, merchant_id, price, stock, active, created_at, updated_at
+        tenant_id, product_id, merchant_id, price, stock, active, createdAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING id, tenant_id, product_id, merchant_id, price, stock, 
-                location_region_id, location_city_id, active, created_at, updated_at
+                location_region_id, location_city_id, active, createdAt, updatedAt
     `;
 
     const row = await runQueryWithTenant<ProductOfferRow>(tenantId, query, [
@@ -315,4 +315,5 @@ class StoreOnboardingService {
 }
 
 export const storeOnboardingService = new StoreOnboardingService();
+
 

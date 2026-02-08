@@ -47,7 +47,7 @@ export interface MonthOverview {
   trends: {
     dailySales: Array<{
       date: string;
-      amount: number;
+      amountCents: number;
       orders: number;
     }>;
   };
@@ -81,4 +81,5 @@ export interface DashboardOverview {
     }>;
   };
 }
+
 

@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 const createPaymentSplitSchema = z.object({
   receiverActorId: z.string().uuid({ message: 'receiverActorId é obrigatório' }), // OBRIGATÓRIO
-  amount: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
+  amountCents: z.number().positive('Valor deve ser maior que zero'), // OBRIGATÓRIO
   percentage: z.number().min(0).max(100).nullable().optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -108,4 +108,5 @@ const servicePaymentExecutionRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default servicePaymentExecutionRoutes;
+
 

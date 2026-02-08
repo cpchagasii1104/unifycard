@@ -46,36 +46,26 @@ import type {
 /**
  * Helper: Obtém actor_id do usuário autenticado
  */
+/**
+ * Helper: Obtém actor do ActionContext
+ * Conforme ACTIONCONTEXT_CONTRACT.md: ActionContext é SSOT
+ */
 async function getAuthenticatedUserActor(
   tenantId: string,
-  globalUserId: string
+  actorId: string
 ): Promise<{ actor_id: string; actor_type: 'user' }> {
-  // Obter userId local
-  const user = await runQueryWithTenant<{ user_id: string }>(
-    tenantId,
-    `
-    SELECT user_id FROM users
-    WHERE global_user_id = $1 AND tenant_id = $2
-    LIMIT 1
-    `,
-    [globalUserId, tenantId]
-  );
-
-  if (!user) {
-    throw new NotFoundError('Usuário não encontrado no tenant');
-  }
-
-  // Obter ou criar actor do usuário
+  // Verificar se actor existe
   const { socialPortsRegistry } = await import('@core/social/ports-registry');
   const actorRepository = socialPortsRegistry.getActorRepository();
-  const userActor = await actorRepository.findOrCreateUserActor(
-    tenantId,
-    user.user_id
-  );
+  const actor = await actorRepository.findById(tenantId, actorId);
+
+  if (!actor) {
+    throw new NotFoundError('Actor não encontrado no tenant');
+  }
 
   return {
-    actor_id: userActor.actor_id,
-    actor_type: 'user',
+    actor_id: actor.actor_id,
+    actor_type: actor.actor_type as 'user',
   };
 }
 
@@ -126,15 +116,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Validar que actor_id corresponde ao usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
-        // Obter actor do usuário autenticado
+        // Obter actor do ActionContext
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         // Rate limiting: criação de eventos
@@ -194,12 +185,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             type: 'event.created',
             payload: {
               eventId: event.id,
-              actorId: event.actor_id,
-              globalUserId: req.user.globalUserId,
+              actorId: event.actorId,
+              globalUserId: req.actionContext!.actorId,
               title: event.title,
               description: event.description,
-              eventType: event.event_type,
-              createdByGlobalUserId: req.user.globalUserId,
+              eventType: event.eventType,
+              createdByGlobalUserId: req.actionContext!.actorId,
             },
           });
         } catch (err) {
@@ -212,8 +203,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           tenant_id: req.tenant.id,
           actor_id: userActor.actor_id,
           event_id: event.id,
-          event_type: event.event_type,
-          ticket_price_cents: event.ticket_price_cents,
+          event_type: event.eventType,
+          ticket_price_cents: event.ticketPriceCents,
           'economy.action': 'event.created',
         }, 'Evento criado');
 
@@ -310,14 +301,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Obter actor_id do usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
         
         const event = await eventService.updateEvent(
@@ -410,14 +402,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Obter actor_id do usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         // Buscar evento para obter actor efetivo (pode ser user ou page)
@@ -429,10 +422,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Verificar débitos pendentes do actor efetivo do evento (CONTRATO v1.4: bloqueia publicação)
         const { penaltyService } = await import('@core/reputation/penalty.service');
-        const effectiveActorType = event.actor_type as 'user' | 'page';
+        const effectiveActorType = event.actorType as 'user' | 'page';
         const debtCheck = await penaltyService.hasPendingDebts(
           req.tenant.id,
-          event.actor_id,
+          event.actorId,
           effectiveActorType
         );
         if (debtCheck.hasDebt) {
@@ -465,8 +458,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           tenant_id: req.tenant.id,
           actor_id: userActor.actor_id,
           event_id: publishedEvent.id,
-          event_type: publishedEvent.event_type,
-          ticket_price_cents: publishedEvent.ticket_price_cents,
+          event_type: publishedEvent.eventType,
+          ticket_price_cents: publishedEvent.ticketPriceCents,
           'economy.action': 'event.published',
         }, 'Evento publicado');
 
@@ -547,14 +540,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Obter actor_id do usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
         
         const event = await eventService.cancelEvent(
@@ -698,14 +692,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Obter actor_id do usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         // Validar que attendee_actor_id corresponde ao usuário autenticado
@@ -767,7 +762,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           event_id: result.eventId,
           attendee_id: result.attendeeId,
           transaction_id: result.transactionId,
-          total_amount_cents: result.totalAmount,
+          total_amount_cents: result.totalAmountCents,
           'economy.action': 'event.checkout',
         }, 'Checkout de evento processado');
 
@@ -776,11 +771,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             event_id: result.eventId,
             attendee_id: result.attendeeId,
             transaction_id: result.transactionId,
-            total_amount_cents: result.totalAmount,
+            total_amount_cents: result.totalAmountCents,
             splits: result.splitResult.splits.map((split) => ({
               target_type: split.rule.targetType,
               percentage: split.rule.percentage,
-              amount: split.amount,
+              amountCents: split.amountCents,
               transaction_id: split.transactionId,
             })),
           }
@@ -888,15 +883,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        // Validar que actor_id corresponde ao usuário autenticado
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
-        // Obter actor do usuário autenticado
+        // Obter actor do ActionContext
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         // Validar que actor_id do input corresponde ao actor do usuário autenticado
@@ -912,8 +908,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(201).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -970,13 +966,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventService.declareEvent(
@@ -989,8 +987,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1038,13 +1036,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventService.publishEvent(
@@ -1056,8 +1056,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1105,13 +1105,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventService.activateEvent(
@@ -1123,8 +1125,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1172,13 +1174,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventService.endEvent(
@@ -1190,8 +1194,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1464,7 +1468,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         body: {
           type: 'object',
           properties: {
-            observed_at: { type: ['string', 'null'], format: 'date-time' },
+            observedAt: { type: ['string', 'null'], format: 'date-time' },
             observed_by_actor_id: { type: ['string', 'null'], format: 'uuid' },
             observed_by_actor_type: { type: ['string', 'null'], enum: ['user', 'page', 'group', 'channel'] },
           },
@@ -1522,7 +1526,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         body: {
           type: 'object',
           properties: {
-            observed_at: { type: ['string', 'null'], format: 'date-time' },
+            observedAt: { type: ['string', 'null'], format: 'date-time' },
             observed_by_actor_id: { type: ['string', 'null'], format: 'uuid' },
             observed_by_actor_type: { type: ['string', 'null'], enum: ['user', 'page', 'group', 'channel'] },
           },
@@ -1582,7 +1586,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           required: ['failure_reason'],
           properties: {
             failure_reason: { type: 'string' },
-            observed_at: { type: ['string', 'null'], format: 'date-time' },
+            observedAt: { type: ['string', 'null'], format: 'date-time' },
           },
         },
       },
@@ -1646,13 +1650,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventService.cancelEvent(
@@ -1664,8 +1670,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1734,13 +1740,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventCreationOrchestrator.createOrAdvanceDraft(
@@ -1752,8 +1760,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ 
           event: {
             ...event,
-            responsible_actor_id: event.responsible_actor_id || event.actor_id,
-            responsible_actor_type: event.responsible_actor_type || event.actor_type,
+            responsible_actor_id: event.responsibleActorId || event.actorId,
+            responsible_actor_type: event.responsibleActorType || event.actorType,
           }
         });
       } catch (error) {
@@ -1819,13 +1827,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const event = await eventCreationOrchestrator.setTimeWindows(
@@ -1952,13 +1962,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         await eventEconomicPhaseService.advanceToEconomicPhase(
@@ -2272,13 +2284,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const authorization = await eventPaymentPreparedService.authorizePayment(
@@ -2422,13 +2436,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         // Verificar se há chargeback que congela execuções
@@ -2532,13 +2548,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const refund = await eventRefundChargebackService.requestRefund(
@@ -2608,13 +2626,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const chargeback = await eventRefundChargebackService.initiateChargeback(
@@ -2683,13 +2703,15 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        if (!req.user.globalUserId) {
-          return reply.status(400).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
 
         const userActor = await getAuthenticatedUserActor(
           req.tenant.id,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         const chargeback = await eventRefundChargebackService.resolveChargeback(
@@ -2719,4 +2741,6 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default eventRoutes;
+
+
 

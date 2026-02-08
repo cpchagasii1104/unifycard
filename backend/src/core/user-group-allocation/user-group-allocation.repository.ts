@@ -35,8 +35,8 @@ class UserGroupAllocationRepository {
         user_id: string;
         group_id: string;
         percentage_bps: string;
-        created_at: Date;
-        updated_at: Date;
+        createdAt: Date;
+        updatedAt: Date;
       }>(
         tenantId,
         `
@@ -46,11 +46,11 @@ class UserGroupAllocationRepository {
             user_id,
             group_id,
             percentage_bps,
-            created_at,
-            updated_at
+            createdAt,
+            updatedAt
           FROM user_group_allocations
           WHERE tenant_id = $1 AND user_id = $2
-          ORDER BY created_at ASC
+          ORDER BY createdAt ASC
         `,
         [tenantId, userId]
       );
@@ -66,8 +66,8 @@ class UserGroupAllocationRepository {
         userId: row.user_id,
         groupId: row.group_id,
         percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
       }));
     } catch (error) {
       // Em caso de erro (ex: tabela não existe, query falha), retornar array vazio
@@ -90,8 +90,8 @@ class UserGroupAllocationRepository {
       user_id: string;
       group_id: string;
       percentage_bps: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -101,8 +101,8 @@ class UserGroupAllocationRepository {
           user_id,
           group_id,
           percentage_bps,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
         FROM user_group_allocations
         WHERE tenant_id = $1 AND user_id = $2 AND group_id = $3
         LIMIT 1
@@ -121,8 +121,8 @@ class UserGroupAllocationRepository {
       userId: row.user_id,
       groupId: row.group_id,
       percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -139,8 +139,8 @@ class UserGroupAllocationRepository {
       user_id: string;
       group_id: string;
       percentage_bps: string;
-      created_at: Date;
-      updated_at: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -151,15 +151,15 @@ class UserGroupAllocationRepository {
         ON CONFLICT (tenant_id, user_id, group_id)
         DO UPDATE SET
           percentage_bps = EXCLUDED.percentage_bps,
-          updated_at = NOW()
+          updatedAt = NOW()
         RETURNING 
           allocation_id,
           tenant_id,
           user_id,
           group_id,
           percentage_bps,
-          created_at,
-          updated_at
+          createdAt,
+          updatedAt
       `,
       [tenantId, input.userId, input.groupId, Math.round(input.percentage * 100)] // Converter para bps
     );
@@ -171,8 +171,8 @@ class UserGroupAllocationRepository {
       userId: row.user_id,
       groupId: row.group_id,
       percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -239,6 +239,7 @@ class UserGroupAllocationRepository {
 }
 
 export const userGroupAllocationRepository = new UserGroupAllocationRepository();
+
 
 
 

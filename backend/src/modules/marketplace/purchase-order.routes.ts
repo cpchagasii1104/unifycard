@@ -19,14 +19,14 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const order = await purchaseOrderService.createPO(
       tenantId,
       req.body,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -92,15 +92,15 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const item = await purchaseOrderService.addItem(
         tenantId,
         id,
         req.body,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId
       );
 
@@ -117,14 +117,14 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const order = await purchaseOrderService.submitPO(
       tenantId,
       id,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -169,14 +169,14 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const order = await purchaseOrderService.cancelPO(
         tenantId,
         id,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId,
         req.body.cancellationReason
       );

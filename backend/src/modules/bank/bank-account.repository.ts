@@ -19,8 +19,8 @@ interface BankAccountRow {
   currency: string;
   cached_balance: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class BankAccountRepository {
@@ -36,8 +36,8 @@ class BankAccountRepository {
       currency: row.currency as BankCurrency,
       cachedBalance: parseFloat(row.cached_balance),
       metadata: row.metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -56,7 +56,7 @@ class BankAccountRepository {
       tenantId,
       `
       SELECT account_id, tenant_id, owner_id, owner_type, currency,
-             cached_balance, metadata, created_at, updated_at
+             cached_balance, metadata, createdAt, updatedAt
       FROM bank_accounts
       WHERE tenant_id = $1 AND account_id = $2
       LIMIT 1
@@ -80,7 +80,7 @@ class BankAccountRepository {
       tenantId,
       `
       SELECT account_id, tenant_id, owner_id, owner_type, currency,
-             cached_balance, metadata, created_at, updated_at
+             cached_balance, metadata, createdAt, updatedAt
       FROM bank_accounts
       WHERE tenant_id = $1
         AND owner_id = $2
@@ -111,7 +111,7 @@ class BankAccountRepository {
 
     let query = `
       SELECT account_id, tenant_id, owner_id, owner_type, currency,
-             cached_balance, metadata, created_at, updated_at
+             cached_balance, metadata, createdAt, updatedAt
       FROM bank_accounts
       WHERE tenant_id = $1
     `;
@@ -137,7 +137,7 @@ class BankAccountRepository {
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<BankAccountRow>(
@@ -167,7 +167,7 @@ class BankAccountRepository {
       )
       VALUES ($1, $2, $3, $4, 0, $5)
       RETURNING account_id, tenant_id, owner_id, owner_type, currency,
-                cached_balance, metadata, created_at, updated_at
+                cached_balance, metadata, createdAt, updatedAt
       `,
       [tenantId, ownerId, ownerType, currency, metadata ? JSON.stringify(metadata) : null]
     );
@@ -194,7 +194,7 @@ class BankAccountRepository {
       tenantId,
       `
       UPDATE bank_accounts
-      SET cached_balance = $1, updated_at = NOW()
+      SET cached_balance = $1, updatedAt = NOW()
       WHERE tenant_id = $2 AND account_id = $3
       `,
       [balance, tenantId, accountId]
@@ -218,7 +218,7 @@ class BankAccountRepository {
       tenantId,
       `
       SELECT account_id, tenant_id, owner_id, owner_type, currency,
-             cached_balance, metadata, created_at, updated_at
+             cached_balance, metadata, createdAt, updatedAt
       FROM bank_accounts
       WHERE tenant_id = $1
         AND owner_id = uuid_from_string($2)
@@ -234,6 +234,8 @@ class BankAccountRepository {
 }
 
 export const bankAccountRepository = new BankAccountRepository();
+
+
 
 
 

@@ -84,7 +84,7 @@ const companyCanonicalRoutes: FastifyPluginAsync = async (fastify) => {
             document_number: company.document_number,
             country: company.country,
             state: company.state,
-            created_at: company.created_at,
+            createdAt: company.createdAt,
           },
         });
       } catch (error: any) {
@@ -99,4 +99,5 @@ const companyCanonicalRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default companyCanonicalRoutes;
+
 

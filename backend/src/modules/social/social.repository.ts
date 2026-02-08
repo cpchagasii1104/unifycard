@@ -10,7 +10,7 @@ export class SocialRepository {
     const row = await runQueryWithTenant<PostRow>(
       tenantId,
       `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       FROM posts
       WHERE post_id = $1
       LIMIT 1
@@ -58,7 +58,7 @@ export class SocialRepository {
         event_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       `,
       [
         data.tenantId,
@@ -102,7 +102,7 @@ export class SocialRepository {
       startDate?: Date;
       endDate?: Date;
     } = {}
-  ): Promise<{ rows: PostRow[]; total: number }> {
+  ): Promise<{ rows: PostRow[]; totalCents: number }> {
     const {
       limit = 50,
       offset = 0,
@@ -115,7 +115,7 @@ export class SocialRepository {
     } = options;
 
     let query = `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       FROM posts
       WHERE tenant_id = $1
     `;
@@ -148,18 +148,18 @@ export class SocialRepository {
     }
 
     if (startDate) {
-      query += ` AND created_at >= $${paramIndex}`;
+      query += ` AND createdAt >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND created_at <= $${paramIndex}`;
+      query += ` AND createdAt <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<PostRow>(tenantId, query, params);
@@ -194,18 +194,18 @@ export class SocialRepository {
     }
 
     if (startDate) {
-      countQuery += ` AND created_at >= $${countParamIndex}`;
+      countQuery += ` AND createdAt >= $${countParamIndex}`;
       countParams.push(startDate);
       countParamIndex++;
     }
 
     if (endDate) {
-      countQuery += ` AND created_at <= $${countParamIndex}`;
+      countQuery += ` AND createdAt <= $${countParamIndex}`;
       countParams.push(endDate);
       countParamIndex++;
     }
 
-    const countRow = await runQueryWithTenant<{ total: string }>(
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       countQuery,
       countParams
@@ -213,7 +213,7 @@ export class SocialRepository {
 
     return {
       rows,
-      total: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 
@@ -225,11 +225,13 @@ export class SocialRepository {
       tenantId,
       `
       UPDATE posts
-      SET metadata = $1, updated_at = now()
+      SET metadata = $1, updatedAt = now()
       WHERE post_id = $2
       `,
       [JSON.stringify(metadata), postId]
     );
   }
 }
+
+
 

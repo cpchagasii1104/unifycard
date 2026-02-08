@@ -35,7 +35,7 @@ export class ZonesService {
       INSERT INTO rides_zones (
         tenant_id, city_id,
         name, polygon, area_m2,
-        created_at
+        createdAt
       )
       VALUES (
         $1, $2,
@@ -113,7 +113,7 @@ export class ZonesService {
           polygon
         ),
         area_m2 = COALESCE($5, area_m2),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND zone_id = $2
       RETURNING *
       `,
@@ -172,11 +172,11 @@ export class ZonesService {
   // 🔹 4. Listar zonas de uma cidade
   // ============================================================================================
   async listZonesByCity(tenantId: string, cityId: string) {
-    return runQueriesWithTenant<{ zone_id: string; name: string; area_m2: number; created_at: Date }>(
+    return runQueriesWithTenant<{ zone_id: string; name: string; area_m2: number; createdAt: Date }>(
       tenantId,
       {
         text: `
-      SELECT zone_id, name, area_m2, created_at
+      SELECT zone_id, name, area_m2, createdAt
       FROM rides_zones
       WHERE tenant_id = $1 AND city_id = $2
       ORDER BY name ASC
@@ -262,3 +262,4 @@ export class ZonesService {
 }
 
 export const zonesService = new ZonesService();
+

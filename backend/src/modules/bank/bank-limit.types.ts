@@ -32,8 +32,8 @@ export interface BankLimitChangeRequest {
   requestedByUserId?: string | null;
   authoritySource: AuthoritySource;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -42,7 +42,7 @@ export interface BankLimitChangeRequest {
 export interface RequestLimitChangeInput {
   actorId: string;
   limitType: BankLimitType;
-  amount: number;
+  amountCents: number;
   requestedByUserId?: string;
   authoritySource?: AuthoritySource;
   metadata?: Record<string, any>;
@@ -57,7 +57,7 @@ export interface CurrentLimits {
   limits: Record<BankLimitType, {
     current: number;
     pending?: {
-      amount: number;
+      amountCents: number;
       effectiveAt: Date;
     } | null;
   }>;
@@ -72,4 +72,6 @@ export interface ActorLimit {
   pendingAmount?: number | null;
   pendingEffectiveAt?: Date | null;
 }
+
+
 

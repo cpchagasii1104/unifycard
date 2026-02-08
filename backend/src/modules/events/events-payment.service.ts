@@ -11,7 +11,7 @@ interface ProcessEventPaymentInput {
   eventId: string;
   attendeeUserId: string; // Usuário que está comprando ingresso
   organizerId?: string; // Organizador do evento (se houver)
-  amount: number;
+  amountCents: number;
   currency?: string;
 }
 
@@ -19,7 +19,7 @@ interface ProcessEventPaymentResult {
   transactionIds: string[];
   splits: Array<{
     targetType: string;
-    amount: number;
+    amountCents: number;
     transactionId?: string;
   }>;
 }
@@ -62,7 +62,7 @@ class EventsPaymentService {
       transactionIds: [result.transactionId],
       splits: result.splits.map((split) => ({
         targetType: 'revenue_share', // Simplificado - detalhes estão no bank
-        amount: split.amount,
+        amountCents: split.amount,
         transactionId: result.transactionId,
       })),
     };
@@ -70,6 +70,7 @@ class EventsPaymentService {
 }
 
 export const eventsPaymentService = new EventsPaymentService();
+
 
 
 

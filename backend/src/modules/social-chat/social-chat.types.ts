@@ -13,7 +13,7 @@ export interface ChatMessage {
   categories: string[];
   suggestedActions: SuggestedAction[];
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface ChatMessageRow {
@@ -29,7 +29,7 @@ export interface ChatMessageRow {
   categories: string[];
   suggested_actions: any; // JSONB
   metadata: any; // JSONB
-  created_at: Date;
+  createdAt: string;
 }
 
 export interface MediaItem {
@@ -66,14 +66,17 @@ export interface MessageAnalysis {
 export interface Conversation {
   conversationId: string;
   messages: ChatMessage[];
-  total: number;
+  totalCents: number;
   actions: Array<{
     actionId: string;
     intent: string;
     status: string;
-    createdAt: Date;
+    createdAt: string;
   }>;
 }
+
+
+
 
 
 

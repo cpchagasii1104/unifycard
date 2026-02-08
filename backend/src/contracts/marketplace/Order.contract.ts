@@ -15,21 +15,21 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface Order {
-  order_id: string;
-  store_id: string;
+  orderId: string;
+  storeId: string;
   channel: 'online' | 'physical' | 'b2b';
   origin: 'marketplace' | 'store_pdv' | 'external';
-  customer_id?: string; // Opcional: para PDV e B2B
+  customerId?: string; // Opcional: para PDV e B2B
   items: Array<{
-    product_id: string;
+    productId: string;
     name: string;
     price: {
-      amount: number;
+      amountCents: number;
       currency: string;
     };
     quantity: number;
     subtotal: number;
   }>;
-  total: number;
+  totalCents: number;
 }
 

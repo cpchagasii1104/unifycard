@@ -24,7 +24,7 @@ export interface ListWorkersOptions {
 
 export interface WorkersSearchResult {
   workers: Worker[];
-  total: number;
+  totalCents: number;
 }
 
 class WorkerService {
@@ -46,8 +46,8 @@ class WorkerService {
       responseTimeAvgMinutes: row.response_time_avg_minutes ?? undefined,
       isActive: row.is_active,
       isVerified: row.is_verified,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -74,8 +74,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       FROM workers
       WHERE worker_id = $1
       `,
@@ -122,8 +122,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       FROM workers
       WHERE user_id = $1
       `,
@@ -233,8 +233,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       `,
       params,
     );
@@ -331,7 +331,7 @@ class WorkerService {
           ELSE location
         END,
         is_active = COALESCE($8, is_active),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1
         AND worker_id = $2
       RETURNING
@@ -350,8 +350,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       `,
       params,
     );
@@ -471,17 +471,17 @@ class WorkerService {
         w.response_time_avg_minutes,
         w.is_active,
         w.is_verified,
-        w.created_at,
-        w.updated_at
+        w.createdAt,
+        w.updatedAt
       ${baseQuery}
       ${whereSql}
-      ORDER BY w.reputation_score DESC, w.created_at DESC
+      ORDER BY w.reputation_score DESC, w.createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset],
     );
 
-    const countRow = await runQueryWithTenant<{ total: string }>(
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
       SELECT COUNT(*) AS total
@@ -509,3 +509,6 @@ class WorkerService {
 }
 
 export const workerService = new WorkerService();
+
+
+

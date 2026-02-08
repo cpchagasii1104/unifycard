@@ -14,8 +14,8 @@ export interface InventoryReservation {
   source: InventoryReservationSource;
   status: InventoryReservationStatus;
   expiresAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReserveStockInput {
@@ -32,6 +32,7 @@ export interface AvailableStock {
   reservedQuantity: number; // Quantidade reservada (ACTIVE)
   availableQuantity: number; // Disponível = totalBalance - reservedQuantity
 }
+
 
 
 

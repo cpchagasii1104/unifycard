@@ -1,7 +1,7 @@
 // backend/src/core/actor-delegation/actor-delegation.repository.ts
 // CONTINUOUS PRODUCTION: Repository para delegações entre actors
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface ActorDelegation {
   delegationId: string;
@@ -34,37 +34,37 @@ class ActorDelegationRepository {
     input: CreateActorDelegationInput
   ): Promise<ActorDelegation> {
     // Revogar delegações anteriores ativas (se existirem)
-    await runQueryWithTenant(
+    (await runQueryWithTenant(
       tenantId,
       `
         UPDATE actor_delegations
-        SET status = 'revoked', revoked_at = NOW()
+        SET status = 'revoked', revokedAt = NOW()
         WHERE tenant_id = $1
           AND user_actor_id = $2
           AND institutional_actor_id = $3
           AND status = 'active'
       `,
       [tenantId, input.userActorId, input.institutionalActorId]
-    );
+    ));
 
-    const result = await runQueryWithTenant<{
+    const result = (await runQueriesWithTenant<{
       delegation_id: string;
       tenant_id: string;
       user_actor_id: string;
       institutional_actor_id: string;
       scopes_json: any;
       is_transitive: boolean;
-      expires_at: Date | null;
+      expiresAt: Date | null;
       status: string;
-      created_at: Date;
-      updated_at: Date;
-      revoked_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      revokedAt: Date | null;
     }>(
       tenantId,
       `
         INSERT INTO actor_delegations (
           tenant_id, user_actor_id, institutional_actor_id,
-          scopes_json, is_transitive, expires_at, status
+          scopes_json, is_transitive, expiresAt, status
         )
         VALUES ($1, $2, $3, $4, $5, $6, 'active')
         RETURNING *
@@ -77,7 +77,7 @@ class ActorDelegationRepository {
         input.isTransitive || false,
         input.expiresAt || null,
       ]
-    );
+    ));
 
     const row = result[0];
     return {
@@ -87,11 +87,11 @@ class ActorDelegationRepository {
       institutionalActorId: row.institutional_actor_id,
       scopes: row.scopes_json || [],
       isTransitive: row.is_transitive,
-      expiresAt: row.expires_at || undefined,
+      expiresAt: row.expiresAt || undefined,
       status: row.status as 'active' | 'revoked' | 'expired',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      revokedAt: row.revoked_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      revokedAt: row.revokedAt || undefined,
     };
   }
 
@@ -102,18 +102,18 @@ class ActorDelegationRepository {
     tenantId: string,
     userActorId: string
   ): Promise<ActorDelegation[]> {
-    const result = await runQueryWithTenant<{
+    const result = (await runQueriesWithTenant<{
       delegation_id: string;
       tenant_id: string;
       user_actor_id: string;
       institutional_actor_id: string;
       scopes_json: any;
       is_transitive: boolean;
-      expires_at: Date | null;
+      expiresAt: Date | null;
       status: string;
-      created_at: Date;
-      updated_at: Date;
-      revoked_at: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      revokedAt: Date | null;
     }>(
       tenantId,
       `
@@ -122,11 +122,11 @@ class ActorDelegationRepository {
         WHERE tenant_id = $1
           AND user_actor_id = $2
           AND status = 'active'
-          AND (expires_at IS NULL OR expires_at > NOW())
-        ORDER BY created_at DESC
+          AND (expiresAt IS NULL OR expiresAt > NOW())
+        ORDER BY createdAt DESC
       `,
       [tenantId, userActorId]
-    );
+    ));
 
     return result.map((row) => ({
       delegationId: row.delegation_id,
@@ -135,11 +135,11 @@ class ActorDelegationRepository {
       institutionalActorId: row.institutional_actor_id,
       scopes: row.scopes_json || [],
       isTransitive: row.is_transitive,
-      expiresAt: row.expires_at || undefined,
+      expiresAt: row.expiresAt || undefined,
       status: row.status as 'active' | 'revoked' | 'expired',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      revokedAt: row.revoked_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      revokedAt: row.revokedAt || undefined,
     }));
   }
 
@@ -150,22 +150,25 @@ class ActorDelegationRepository {
     tenantId: string,
     delegationId: string
   ): Promise<boolean> {
-    const result = await runQueryWithTenant<{ delegation_id: string }>(
+    const result = (await runQueriesWithTenant<{
+      delegation_id: string;
+    }>(
       tenantId,
       `
         UPDATE actor_delegations
-        SET status = 'revoked', revoked_at = NOW()
+        SET status = 'revoked', revokedAt = NOW()
         WHERE tenant_id = $1 AND delegation_id = $2 AND status = 'active'
         RETURNING delegation_id
       `,
       [tenantId, delegationId]
-    );
+    ));
 
     return result.length > 0;
   }
 }
 
 export const actorDelegationRepository = new ActorDelegationRepository();
+
 
 
 

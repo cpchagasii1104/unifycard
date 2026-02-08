@@ -12,7 +12,7 @@ type CreateCityBody = {
   min_price?: number | null;
   price_per_km?: number | null;
   price_per_min?: number | null;
-  enabled?: boolean;
+  isEnabled?: boolean;
   allows_multi_stop?: boolean;
 };
 

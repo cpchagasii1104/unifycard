@@ -57,15 +57,24 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
 
         const tenantId = (req as any).tenant.id;
 
-        // GUARD: User obrigatório
-        if (!req.user) {
-          return reply.status(401).send({
+        // GUARD: ActionContext obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({
             ok: false,
-            error: 'USER_REQUIRED',
+            error: 'ACTION_CONTEXT_REQUIRED',
+            message: 'ActionContext é obrigatório',
           });
         }
 
-        const globalUserId = req.user.globalUserId || req.user.user_id;
+        // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+        const { socialPortsRegistry } = await import('@core/social/ports-registry');
+        const actorRepository = socialPortsRegistry.getActorRepository();
+        const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+        if (!actor || !actor.user_id) {
+          return reply.status(404).send({ ok: false, message: 'Actor não encontrado ou não é do tipo user' });
+        }
+        const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+        const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
 
         // Validar input
         const { categoryId, context, personId } = req.body;
@@ -476,7 +485,7 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
         if (error.message === 'Data/hora inválida' || error.message === 'Data/hora deve ser futura') {
           return reply.status(400).send({
             ok: false,
-            error: 'INVALID_SCHEDULED_AT',
+            error: 'INVALID_SCHEDULEDAt',
             message: error.message,
           });
         }
@@ -619,4 +628,5 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default humanMvpRoutes;
+
 

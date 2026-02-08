@@ -49,8 +49,8 @@ class ServicePaymentRequestService {
     if (!input.receiverActorId) {
       throw new BadRequestError('receiverActorId é obrigatório para criar payment request');
     }
-    if (!input.amount || input.amount <= 0) {
-      throw new BadRequestError('amount deve ser maior que zero');
+    if (!input.amountCents || input.amountCents <= 0) {
+      throw new BadRequestError('amountCents deve ser maior que zero');
     }
 
     // 🔴 BLINDAGEM: Validar que booking existe via Unified Availability
@@ -131,7 +131,7 @@ class ServicePaymentRequestService {
           metadata: {
             bookingId: booking.bookingId,
             serviceId: service.serviceId,
-            amount: paymentRequest.amount,
+            amountCents: paymentRequest.amountCents,
             currency: paymentRequest.currency,
             status: paymentRequest.status,
           },
@@ -244,7 +244,7 @@ class ServicePaymentRequestService {
             metadata: {
               bookingId: currentPaymentRequest.bookingId,
               serviceId: service.serviceId,
-              amount: updatedPaymentRequest.amount,
+              amountCents: updatedPaymentRequest.amountCents,
               currency: updatedPaymentRequest.currency,
               status: updatedPaymentRequest.status,
               cancelled: true,
@@ -268,4 +268,5 @@ class ServicePaymentRequestService {
 }
 
 export const servicePaymentRequestService = new ServicePaymentRequestService();
+
 

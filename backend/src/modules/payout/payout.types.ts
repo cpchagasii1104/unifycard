@@ -33,8 +33,8 @@ export interface PayoutBatch {
   blockedCount: number;
   evidencePackId: string; // Obrigatório
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   executedAt: Date | null;
 }
 
@@ -65,8 +65,8 @@ export interface PayoutOrder {
   executedAt: Date | null;
   failedAt: Date | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -136,6 +136,7 @@ export interface PayoutOrderFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

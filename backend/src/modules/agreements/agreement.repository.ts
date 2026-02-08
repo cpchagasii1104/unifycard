@@ -28,11 +28,11 @@ interface AgreementRow {
   status: string;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  finalized_at: Date | null;
+  finalizedAt: Date | null;
   finalized_by_actor_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class AgreementRepository {
@@ -55,11 +55,11 @@ class AgreementRepository {
       status: row.status as any,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      finalizedAt: row.finalized_at,
+      finalizedAt: row.finalizedAt,
       finalizedByActorId: row.finalized_by_actor_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -100,7 +100,7 @@ class AgreementRepository {
             JSON.stringify(input.excludedItems || []),
             input.responsibilities || null,
             input.capacityAssumptions || null,
-            'DRAFT',
+            'draft',
             input.requesterActorId, // Por padrão, criado pelo requester
             userId,
             JSON.stringify(input.metadata || {}),
@@ -147,7 +147,7 @@ class AgreementRepository {
         text: `
           SELECT * FROM agreements
           WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
         `,
         values: [tenantId, contextType, contextId],
       },
@@ -171,8 +171,8 @@ class AgreementRepository {
       {
         text: `
           SELECT * FROM agreements
-          WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = 'FINALIZED'
-          ORDER BY finalized_at DESC
+          WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = 'finalized'
+          ORDER BY finalizedAt DESC
           LIMIT 1
         `,
         values: [tenantId, contextType, contextId],
@@ -240,7 +240,7 @@ class AgreementRepository {
         text: `
           SELECT * FROM agreements
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -354,8 +354,8 @@ class AgreementRepository {
     const values: any[] = [tenantId, agreementId, status];
     let paramIndex = 4;
 
-    if (status === 'FINALIZED') {
-      updates.push(`finalized_at = NOW()`);
+    if (status === 'finalized') {
+      updates.push(`finalizedAt = NOW()`);
       if (finalizedByActorId) {
         updates.push(`finalized_by_actor_id = $${paramIndex}`);
         values.push(finalizedByActorId);
@@ -386,4 +386,6 @@ class AgreementRepository {
 }
 
 export const agreementRepository = new AgreementRepository();
+
+
 

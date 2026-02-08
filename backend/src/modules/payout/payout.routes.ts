@@ -79,7 +79,7 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
 
     const batches = await payoutService.listBatches(tenantId, filters);
 
-    return reply.send({ batches, total: batches.length });
+    return reply.send({ batches, totalCents: batches.length });
   });
 
   /**
@@ -127,7 +127,7 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
 
     const orders = await payoutService.listOrders(tenantId, filters);
 
-    return reply.send({ orders, total: orders.length });
+    return reply.send({ orders, totalCents: orders.length });
   });
 
   /**
@@ -187,6 +187,7 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default payoutRoutes;
+
 
 
 

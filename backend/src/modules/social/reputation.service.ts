@@ -15,8 +15,8 @@ export interface ActorReputation {
   active_days: number;
   diversity_score: number;
   reputation_level: number;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -51,7 +51,7 @@ export class ReputationService {
     const activeDaysResult = await runQueryWithTenant<{ distinct_days: number }>(
       tenantId,
       `
-      SELECT COUNT(DISTINCT DATE(created_at))::int as distinct_days
+      SELECT COUNT(DISTINCT DATE(createdAt))::int as distinct_days
       FROM impact_ledger
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       `,
@@ -92,8 +92,8 @@ export class ReputationService {
       active_days: number;
       diversity_score: number;
       reputation_level: number;
-      created_at: string;
-      updated_at: string;
+      createdAt: string;
+      updatedAt: string;
     }>(
       tenantId,
       `
@@ -107,8 +107,8 @@ export class ReputationService {
         active_days = EXCLUDED.active_days,
         diversity_score = EXCLUDED.diversity_score,
         reputation_level = EXCLUDED.reputation_level,
-        updated_at = NOW()
-      RETURNING tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, created_at, updated_at
+        updatedAt = NOW()
+      RETURNING tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, createdAt, updatedAt
       `,
       [tenantId, actorId, actorType, impactTotal, activeDays, diversityScore, reputationLevel]
     );
@@ -142,8 +142,8 @@ export class ReputationService {
       active_days: row.active_days,
       diversity_score: row.diversity_score,
       reputation_level: row.reputation_level,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -196,12 +196,12 @@ export class ReputationService {
       active_days: number;
       diversity_score: number;
       reputation_level: number;
-      created_at: string;
-      updated_at: string;
+      createdAt: string;
+      updatedAt: string;
     }>(
       tenantId,
       `
-      SELECT tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, created_at, updated_at
+      SELECT tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, createdAt, updatedAt
       FROM actor_reputation
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       LIMIT 1
@@ -219,8 +219,8 @@ export class ReputationService {
         active_days: 0,
         diversity_score: 0,
         reputation_level: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     }
 
@@ -233,8 +233,8 @@ export class ReputationService {
       active_days: row.active_days,
       diversity_score: row.diversity_score,
       reputation_level: row.reputation_level,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -329,4 +329,6 @@ export class ReputationService {
 }
 
 export const reputationService = new ReputationService();
+
+
 

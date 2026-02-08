@@ -18,59 +18,60 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface SLAContract {
-  sla_id: string;
-  actor_type: 'store' | 'hub' | 'industry' | 'service_provider';
-  actor_id: string; // ID do ator (store_id, hub_id, industry_id, etc.)
+  slaId: string;
+  actorType: 'store' | 'hub' | 'industry' | 'service_provider';
+  actorId: string; // ID do ator (storeId, hubId, industryId, etc.)
   metrics: {
-    fulfillment_time: {
-      target_hours: number; // Tempo alvo em horas
-      max_hours: number; // Tempo máximo permitido
+    fulfillmentTime: {
+      targetHours: number; // Tempo alvo em horas
+      maxHours: number; // Tempo máximo permitido
       unit: 'hours';
     };
-    cancellation_rate: {
-      target_percentage: number; // Taxa alvo (ex: 2%)
-      max_percentage: number; // Taxa máxima permitida (ex: 5%)
+    cancellationRate: {
+      targetPercentage: number; // Taxa alvo (ex: 2%)
+      maxPercentage: number; // Taxa máxima permitida (ex: 5%)
       unit: 'percentage';
     };
-    dispute_rate: {
-      target_percentage: number; // Taxa alvo (ex: 1%)
-      max_percentage: number; // Taxa máxima permitida (ex: 3%)
+    disputeRate: {
+      targetPercentage: number; // Taxa alvo (ex: 1%)
+      maxPercentage: number; // Taxa máxima permitida (ex: 3%)
       unit: 'percentage';
     };
   };
   thresholds: {
     warning: {
-      fulfillment_time_hours: number;
-      cancellation_rate_percentage: number;
-      dispute_rate_percentage: number;
+      fulfillmentTimeHours: number;
+      cancellationRatePercentage: number;
+      disputeRatePercentage: number;
     };
     violation: {
-      fulfillment_time_hours: number;
-      cancellation_rate_percentage: number;
-      dispute_rate_percentage: number;
+      fulfillmentTimeHours: number;
+      cancellationRatePercentage: number;
+      disputeRatePercentage: number;
     };
   };
   penalties: {
-    fulfillment_time_violation: {
+    fulfillmentTimeViolation: {
       type: 'percentage' | 'fixed';
-      value: number; // Percentual sobre split ou valor fixo
-      redirect_to: 'regional_fund' | 'customer' | 'platform';
+      valueCents: number; // Percentual sobre split ou valor fixo
+      redirectTo: 'regional_fund' | 'customer' | 'platform';
     };
-    cancellation_rate_violation: {
+    cancellationRateViolation: {
       type: 'percentage' | 'fixed';
-      value: number;
-      redirect_to: 'regional_fund' | 'customer' | 'platform';
+      valueCents: number;
+      redirectTo: 'regional_fund' | 'customer' | 'platform';
     };
-    dispute_rate_violation: {
+    disputeRateViolation: {
       type: 'percentage' | 'fixed';
-      value: number;
-      redirect_to: 'regional_fund' | 'customer' | 'platform';
+      valueCents: number;
+      redirectTo: 'regional_fund' | 'customer' | 'platform';
     };
   };
-  active: boolean;
-  created_at: string;
-  updated_at: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
+
 
 
 

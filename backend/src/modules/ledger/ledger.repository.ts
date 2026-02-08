@@ -42,7 +42,7 @@ interface LedgerEntryRow {
   context_id: string;
   evidence_pack_id: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class LedgerRepository {
@@ -60,7 +60,7 @@ class LedgerRepository {
       contextId: row.context_id,
       evidencePackId: row.evidence_pack_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -156,7 +156,7 @@ class LedgerRepository {
           SELECT *
           FROM ledger_entries
           WHERE ${conditions.join(' AND ')}
-          ORDER BY timestamp DESC, created_at DESC
+          ORDER BY timestamp DESC, createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -184,3 +184,5 @@ class LedgerRepository {
 }
 
 export const ledgerRepository = new LedgerRepository();
+
+

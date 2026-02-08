@@ -209,7 +209,7 @@ class FiscalDocumentService {
       'ISSUED',
       {
         ...input.metadata,
-        issued_at: new Date().toISOString(),
+        issuedAt: new Date().toISOString(),
       }
     );
 
@@ -261,7 +261,7 @@ class FiscalDocumentService {
       'CANCELLED',
       {
         ...input.metadata,
-        cancelled_at: new Date().toISOString(),
+        cancelledAt: new Date().toISOString(),
         cancellation_reason: input.reason,
       }
     );
@@ -283,4 +283,5 @@ class FiscalDocumentService {
 }
 
 export const fiscalDocumentService = new FiscalDocumentService();
+
 

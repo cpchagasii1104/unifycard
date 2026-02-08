@@ -16,11 +16,11 @@ export interface PaymentSplit {
   tenantId: string;
   paymentIntentId: string;
   recipientActorId: string;
-  amount: number;
+  amountCents: number;
   percentage?: number | null;
   role: PaymentSplitRole;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -28,7 +28,7 @@ export interface PaymentSplit {
  */
 export interface CreatePaymentSplitInput {
   recipientActorId: string;
-  amount: number;
+  amountCents: number;
   percentage?: number;
   role: PaymentSplitRole;
   metadata?: Record<string, any>;
@@ -40,6 +40,8 @@ export interface CreatePaymentSplitInput {
 export interface DefineSplitsInput {
   splits: CreatePaymentSplitInput[];
 }
+
+
 
 
 

@@ -48,7 +48,7 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
 
     const orders = await myOrdersService.listMyOrders(tenantId, actor.actor_id, filters);
 
-    return reply.send({ orders, total: orders.length });
+    return reply.send({ orders, totalCents: orders.length });
   });
 
   /**
@@ -77,6 +77,7 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default myOrdersRoutes;
+
 
 
 

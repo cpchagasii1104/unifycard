@@ -10,7 +10,7 @@ export class SocialActionsRepository {
     const row = await runQueryWithTenant<SocialActionRow>(
       tenantId,
       `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE action_id = $1
       LIMIT 1
@@ -44,7 +44,7 @@ export class SocialActionsRepository {
         parameters
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       `,
       [
         data.postId,
@@ -78,9 +78,9 @@ export class SocialActionsRepository {
       UPDATE social_actions
       SET status = $1,
           execution_result = $2,
-          executed_at = now()
+          executedAt = now()
       WHERE action_id = $3
-      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       `,
       [status, JSON.stringify(executionResult), actionId]
     );
@@ -95,10 +95,10 @@ export class SocialActionsRepository {
     const rows = await runQueriesWithTenant<SocialActionRow>(
       tenantId,
       `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE post_id = $1
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [postId]
     );
@@ -117,7 +117,7 @@ export class SocialActionsRepository {
     const { limit = 50, offset = 0, status } = options;
 
     let query = `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE global_user_id = $1
     `;
@@ -131,7 +131,7 @@ export class SocialActionsRepository {
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<SocialActionRow>(tenantId, query, params);
@@ -139,4 +139,5 @@ export class SocialActionsRepository {
     return rows;
   }
 }
+
 

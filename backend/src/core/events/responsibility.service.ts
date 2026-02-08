@@ -78,8 +78,8 @@ export class ResponsibilityService {
       causatorActorId = mainAttraction.actor_id;
       causatorActorType = mainAttraction.actor_type as 'user' | 'page';
     } else if (cancellationReason === 'ORGANIZER') {
-      causatorActorId = event.actor_id;
-      causatorActorType = event.actor_type as 'user' | 'page';
+      causatorActorId = event.actorId;
+      causatorActorType = event.actorType as 'user' | 'page';
     } else {
       // Força maior: ninguém é causador
       // Apenas reembolsar compradores e pagar quem cumpriu do escrow
@@ -142,14 +142,14 @@ export class ResponsibilityService {
         if (causatorBalanceCents < remainingDebt) {
           await this.createDebt(tenantId, {
             eventId,
-            debtorActorId: event.actor_id, // Organizador recebe débito
-            debtorActorType: event.actor_type as 'user' | 'page',
+            debtorActorId: event.actorId, // Organizador recebe débito
+            debtorActorType: event.actorType as 'user' | 'page',
             creditorActorId: participant.actor_id,
             creditorActorType: participant.actor_type as 'user' | 'page',
             amountCents: remainingDebt,
             reason: 'CANCELLATION',
-            guarantorActorId: event.actor_id, // Organizador é garantidor final
-            guarantorActorType: event.actor_type as 'user' | 'page',
+            guarantorActorId: event.actorId, // Organizador é garantidor final
+            guarantorActorType: event.actorType as 'user' | 'page',
             metadata: { originalDebtor: causatorActorId, transferred: true },
           });
 
@@ -173,8 +173,8 @@ export class ResponsibilityService {
             creditorActorType: participant.actor_type as 'user' | 'page',
             amountCents: remainingDebt,
             reason: 'CANCELLATION',
-            guarantorActorId: event.actor_id, // Organizador é garantidor
-            guarantorActorType: event.actor_type as 'user' | 'page',
+            guarantorActorId: event.actorId, // Organizador é garantidor
+            guarantorActorType: event.actorType as 'user' | 'page',
           });
         }
       }
@@ -249,7 +249,7 @@ export class ResponsibilityService {
       `
       SELECT id FROM event_attendees
       WHERE tenant_id = $1 AND event_id = $2
-        AND check_in_status = 'PENDING'
+        AND check_in_status = 'pending'
       `,
       [tenantId, eventId]
     );
@@ -271,7 +271,7 @@ export class ResponsibilityService {
   /**
    * Cria débito de responsabilização
    * CONTRATO v1.3: Débito registrado para cobrança
-   * CONTRATO v1.4: Inclui due_at (SLA de 7 dias) e metadata completa
+   * CONTRATO v1.4: Inclui dueAt (SLA de 7 dias) e metadata completa
    */
   private async createDebt(
     tenantId: string,
@@ -305,9 +305,9 @@ export class ResponsibilityService {
         creditor_actor_id, creditor_actor_type,
         amount_cents, reason, status,
         guarantor_actor_id, guarantor_actor_type,
-        due_at, metadata
+        dueAt, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', $9, $10, now() + INTERVAL '7 days', $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10, now() + INTERVAL '7 days', $11)
       `,
       [
         tenantId,
@@ -363,4 +363,5 @@ export class ResponsibilityService {
 }
 
 export const responsibilityService = new ResponsibilityService();
+
 

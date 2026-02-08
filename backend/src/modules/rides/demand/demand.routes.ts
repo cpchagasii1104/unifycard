@@ -17,7 +17,7 @@ interface ZoneParams {
 }
 
 interface CreateIncentiveBody {
-  value: number;
+  valueCents: number;
   reason?: string;
 }
 
@@ -47,7 +47,7 @@ const demandRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             dp.level,
             dp.active_requests,
             dp.available_drivers,
-            dp.calculated_at
+            dp.calculatedAt
           FROM rides_zones z
           LEFT JOIN rides_zone_demand_pressure dp
             ON dp.zone_id = z.zone_id
@@ -136,7 +136,7 @@ const demandRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             dp.level,
             dp.active_requests,
             dp.available_drivers,
-            dp.calculated_at
+            dp.calculatedAt
           FROM rides_zones z
           LEFT JOIN rides_zone_demand_pressure dp
             ON dp.zone_id = z.zone_id
@@ -194,3 +194,4 @@ const demandRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 };
 
 export default demandRoutes;
+

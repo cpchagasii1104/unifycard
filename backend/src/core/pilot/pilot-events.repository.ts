@@ -63,15 +63,15 @@ class PilotEventsRepository {
       event_type: string;
       actor_id: string;
       actor_type: string;
-      occurred_at: Date;
+      occurredAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
         INSERT INTO pilot_events (
           tenant_id, event_type, actor_id, actor_type,
-          occurred_at, metadata
+          occurredAt, metadata
         )
         VALUES ($1, $2, $3, $4, NOW(), $5)
         RETURNING *
@@ -92,9 +92,9 @@ class PilotEventsRepository {
       eventType: row.event_type as PilotEventType,
       actorId: row.actor_id,
       actorType: row.actor_type as 'user' | 'page' | 'group' | 'company',
-      occurredAt: row.occurred_at,
+      occurredAt: row.occurredAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -112,9 +112,9 @@ class PilotEventsRepository {
       event_type: string;
       actor_id: string;
       actor_type: string;
-      occurred_at: Date;
+      occurredAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -123,7 +123,7 @@ class PilotEventsRepository {
         WHERE tenant_id = $1
           AND actor_id = $2
           AND event_type = $3
-        ORDER BY occurred_at DESC
+        ORDER BY occurredAt DESC
         LIMIT 1
       `,
       [tenantId, actorId, eventType]
@@ -140,9 +140,9 @@ class PilotEventsRepository {
       eventType: row.event_type as PilotEventType,
       actorId: row.actor_id,
       actorType: row.actor_type as 'user' | 'page' | 'group' | 'company',
-      occurredAt: row.occurred_at,
+      occurredAt: row.occurredAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -174,7 +174,7 @@ class PilotEventsRepository {
     }
 
     query += `
-      ORDER BY occurred_at DESC
+      ORDER BY occurredAt DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
@@ -186,9 +186,9 @@ class PilotEventsRepository {
       event_type: string;
       actor_id: string;
       actor_type: string;
-      occurred_at: Date;
+      occurredAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(tenantId, query, params);
 
     return result.map((row) => ({
@@ -197,9 +197,9 @@ class PilotEventsRepository {
       eventType: row.event_type as PilotEventType,
       actorId: row.actor_id,
       actorType: row.actor_type as 'user' | 'page' | 'group' | 'company',
-      occurredAt: row.occurred_at,
+      occurredAt: row.occurredAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
   }
 
@@ -222,7 +222,7 @@ class PilotEventsRepository {
       params.push(eventType);
     }
 
-    const result = await runQueryWithTenant<{ total: string }>(
+    const result = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       query,
       params
@@ -233,4 +233,6 @@ class PilotEventsRepository {
 }
 
 export const pilotEventsRepository = new PilotEventsRepository();
+
+
 

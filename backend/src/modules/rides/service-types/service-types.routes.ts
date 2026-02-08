@@ -178,11 +178,11 @@ const serviceTypesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
             d.user_id,
             d.status,
             d.level,
-            ds.created_at
+            ds.createdAt
           FROM rides_driver_services ds
           JOIN rides_drivers d ON d.driver_id = ds.driver_id
           WHERE ds.service_type_id = $1 AND d.tenant_id = $2
-          ORDER BY d.created_at DESC;
+          ORDER BY d.createdAt DESC;
         `,
         values: [id, tenantId],
       });
@@ -256,7 +256,7 @@ const serviceTypesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
             INSERT INTO rides_driver_services (
               driver_id,
               service_type_id,
-              created_at
+              createdAt
             )
             VALUES ($1, $2, NOW())
             RETURNING *;
@@ -274,3 +274,4 @@ const serviceTypesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
 };
 
 export default serviceTypesRoutes;
+

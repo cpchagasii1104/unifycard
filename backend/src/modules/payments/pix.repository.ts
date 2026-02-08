@@ -10,15 +10,15 @@ interface PixChargeRow {
   payment_intent_id: string;
   provider: string;
   provider_charge_id: string;
-  amount: number;
+  amountCents: number;
   currency: string;
   status: string;
-  expires_at: Date;
-  paid_at: Date | null;
+  expiresAt: Date;
+  paidAt: Date | null;
   payload_snapshot: any;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PixChargeRepository {
@@ -29,15 +29,15 @@ class PixChargeRepository {
       paymentIntentId: row.payment_intent_id,
       provider: row.provider,
       providerChargeId: row.provider_charge_id,
-      amount: row.amount,
+      amountCents: row.amount,
       currency: row.currency,
       status: row.status as any,
-      expiresAt: row.expires_at,
-      paidAt: row.paid_at,
+      expiresAt: row.expiresAt,
+      paidAt: row.paidAt,
       payloadSnapshot: row.payload_snapshot || {},
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -53,12 +53,12 @@ class PixChargeRepository {
       `
       INSERT INTO pix_charges (
         tenant_id, payment_intent_id, provider, provider_charge_id,
-        amount, currency, status, expires_at, payload_snapshot, metadata
+        amount, currency, status, expiresAt, payload_snapshot, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, 'CREATED', $7, $8::jsonb, $9::jsonb)
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expires_at, paid_at,
-                payload_snapshot, metadata, created_at, updated_at
+                amount, currency, status, expiresAt, paidAt,
+                payload_snapshot, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -83,8 +83,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expires_at, paid_at,
-             payload_snapshot, metadata, created_at, updated_at
+             amount, currency, status, expiresAt, paidAt,
+             payload_snapshot, metadata, createdAt, updatedAt
       FROM pix_charges
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -106,8 +106,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expires_at, paid_at,
-             payload_snapshot, metadata, created_at, updated_at
+             amount, currency, status, expiresAt, paidAt,
+             payload_snapshot, metadata, createdAt, updatedAt
       FROM pix_charges
       WHERE tenant_id = $1 AND payment_intent_id = $2
       `,
@@ -130,8 +130,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expires_at, paid_at,
-             payload_snapshot, metadata, created_at, updated_at
+             amount, currency, status, expiresAt, paidAt,
+             payload_snapshot, metadata, createdAt, updatedAt
       FROM pix_charges
       WHERE tenant_id = $1 AND provider = $2 AND provider_charge_id = $3
       `,
@@ -150,11 +150,11 @@ class PixChargeRepository {
       tenantId,
       `
       UPDATE pix_charges
-      SET status = 'PAID', paid_at = $3, updated_at = NOW()
+      SET status = 'PAID', paidAt = $3, updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'CREATED'
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expires_at, paid_at,
-                payload_snapshot, metadata, created_at, updated_at
+                amount, currency, status, expiresAt, paidAt,
+                payload_snapshot, metadata, createdAt, updatedAt
       `,
       [tenantId, chargeId, paidAt]
     );
@@ -167,11 +167,11 @@ class PixChargeRepository {
       tenantId,
       `
       UPDATE pix_charges
-      SET status = 'EXPIRED', updated_at = NOW()
+      SET status = 'EXPIRED', updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'CREATED'
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expires_at, paid_at,
-                payload_snapshot, metadata, created_at, updated_at
+                amount, currency, status, expiresAt, paidAt,
+                payload_snapshot, metadata, createdAt, updatedAt
       `,
       [tenantId, chargeId]
     );
@@ -181,6 +181,9 @@ class PixChargeRepository {
 }
 
 export const pixChargeRepository = new PixChargeRepository();
+
+
+
 
 
 

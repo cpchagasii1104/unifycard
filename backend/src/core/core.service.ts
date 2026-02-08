@@ -60,7 +60,7 @@ export interface CompleteProfile {
   contacts: Array<{
     contact_id: string;
     type: string;
-    value: string;
+    valueCents: string;
     is_primary: boolean;
   }>;
   interests: Array<{
@@ -235,7 +235,7 @@ export class CoreService {
           FROM profiles p
           LEFT JOIN user_profiles up ON up.user_id = p.user_id
           WHERE p.tenant_id = $1 AND p.user_id = $2
-          ORDER BY p.updated_at DESC
+          ORDER BY p.updatedAt DESC
           LIMIT 1
           `,
           [tenantId, userId]
@@ -383,7 +383,7 @@ export class CoreService {
           SELECT metadata
           FROM profiles
           WHERE tenant_id = $1 AND user_id = $2
-          ORDER BY updated_at DESC
+          ORDER BY updatedAt DESC
           LIMIT 1
           `,
           [tenantId, userId]
@@ -472,9 +472,9 @@ export class CoreService {
             SELECT c.cep, c.address, c.address_number, c.complement, c.neighborhood, c.city, c.state, c.country
             FROM companies c
             INNER JOIN company_users cu ON c.company_id = cu.company_id
-            INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
-            WHERE uil.user_id = $1 AND uil.tenant_id = $2 AND c.status = 'active'
-            ORDER BY c.created_at DESC
+            INNER JOIN users u ON cu.global_user_id = u.global_user_id
+            WHERE u.user_id = $1 AND u.tenant_id = $2 AND c.status = 'active'
+            ORDER BY c.createdAt DESC
             LIMIT 1
             `,
             [userId, tenantId]
@@ -519,7 +519,7 @@ export class CoreService {
           contacts.push({
             contact_id: 'phone',
             type: 'phone',
-            value: profile.personal_profile.phone,
+            valueCents: profile.personal_profile.phone,
             is_primary: true,
           });
         }
@@ -533,7 +533,7 @@ export class CoreService {
           contacts.push({
             contact_id: 'email',
             type: 'email',
-            value: userEmail.email,
+            valueCents: userEmail.email,
             is_primary: false,
           });
         }
@@ -561,9 +561,9 @@ export class CoreService {
           SELECT c.company_id, c.company_name, c.trade_name, c.cnpj, c.is_verified
           FROM companies c
           INNER JOIN company_users cu ON c.company_id = cu.company_id
-          INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
-          WHERE uil.user_id = $1 AND uil.tenant_id = $2
-          ORDER BY c.created_at DESC
+          INNER JOIN users u ON cu.global_user_id = u.global_user_id
+          WHERE u.user_id = $1 AND u.tenant_id = $2
+          ORDER BY c.createdAt DESC
           `,
           [userId, tenantId]
         );
@@ -780,4 +780,6 @@ export class CoreService {
 }
 
 export const coreService = new CoreService();
+
+
 

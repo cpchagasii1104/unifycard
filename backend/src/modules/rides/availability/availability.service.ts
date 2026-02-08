@@ -74,11 +74,11 @@ export class AvailabilityService {
         text: `
           INSERT INTO rides_driver_sessions (
             tenant_id, driver_id, vehicle_id, city_id,
-            started_at, is_forced_break
+            startedAt, is_forced_break
           )
           VALUES ($1, $2, $3, null, now(), false)
-          ON CONFLICT (driver_id) WHERE ended_at IS NULL
-          DO UPDATE SET updated_at = now()
+          ON CONFLICT (driver_id) WHERE endedAt IS NULL
+          DO UPDATE SET updatedAt = now()
           RETURNING session_id
         `,
         values: [tenantId, driverId, driver.active_vehicle_id],
@@ -89,11 +89,11 @@ export class AvailabilityService {
       text: `
         INSERT INTO rides_driver_availability (
           tenant_id, driver_id, is_online, destination_mode_enabled,
-          created_at, updated_at
+          createdAt, updatedAt
         )
         VALUES ($1,$2,true,false,now(),now())
         ON CONFLICT (tenant_id, driver_id)
-        DO UPDATE SET is_online = true, updated_at = now()
+        DO UPDATE SET is_online = true, updatedAt = now()
         RETURNING *
       `,
       values: [tenantId, driverId],
@@ -102,7 +102,7 @@ export class AvailabilityService {
     await runQueryWithTenant(tenantId, {
       text: `
         INSERT INTO rides_driver_locations (
-          tenant_id, driver_id, location, updated_at
+          tenant_id, driver_id, location, updatedAt
         )
         VALUES (
           $1,$2,
@@ -112,7 +112,7 @@ export class AvailabilityService {
         ON CONFLICT (tenant_id, driver_id)
         DO UPDATE SET
           location = EXCLUDED.location,
-          updated_at = now()
+          updatedAt = now()
       `,
       values: [tenantId, driverId, lat, lng],
     });
@@ -135,8 +135,8 @@ export class AvailabilityService {
     await runQueryWithTenant(tenantId, {
       text: `
         UPDATE rides_driver_sessions
-        SET ended_at = now(), updated_at = now()
-        WHERE tenant_id = $1 AND driver_id = $2 AND ended_at IS NULL
+        SET endedAt = now(), updatedAt = now()
+        WHERE tenant_id = $1 AND driver_id = $2 AND endedAt IS NULL
       `,
       values: [tenantId, driverId],
     });
@@ -144,7 +144,7 @@ export class AvailabilityService {
     await runQueryWithTenant(tenantId, {
       text: `
         UPDATE rides_driver_availability
-        SET is_online = false, updated_at = now()
+        SET is_online = false, updatedAt = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -185,7 +185,7 @@ export class AvailabilityService {
         SET destination_mode_enabled = $3,
             destination_mode_lat = CASE WHEN $3 THEN $4 ELSE NULL END,
             destination_mode_lng = CASE WHEN $3 THEN $5 ELSE NULL END,
-            updated_at = now()
+            updatedAt = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -218,8 +218,8 @@ export class AvailabilityService {
       text: `
         UPDATE rides_driver_sessions
         SET driving_time_minutes = driving_time_minutes + $3,
-            updated_at = now()
-        WHERE tenant_id = $1 AND driver_id = $2 AND ended_at IS NULL
+            updatedAt = now()
+        WHERE tenant_id = $1 AND driver_id = $2 AND endedAt IS NULL
       `,
       values: [tenantId, driverId, minutes],
     });
@@ -261,7 +261,7 @@ export class AvailabilityService {
         SELECT *
         FROM rides_driver_sessions
         WHERE tenant_id = $1 AND driver_id = $2
-        ORDER BY started_at DESC
+        ORDER BY startedAt DESC
         LIMIT 1
       `,
       values: [tenantId, driverId],
@@ -269,10 +269,10 @@ export class AvailabilityService {
 
     const destinations = await runQueriesWithTenant<any>(tenantId, {
       text: `
-        SELECT destination_id, lat, lng, expires_at
+        SELECT destination_id, lat, lng, expiresAt
         FROM rides_driver_destinations
         WHERE tenant_id = $1 AND driver_id = $2
-        ORDER BY expires_at DESC
+        ORDER BY expiresAt DESC
       `,
       values: [tenantId, driverId],
     });
@@ -286,4 +286,5 @@ export class AvailabilityService {
 }
 
 export const availabilityService = new AvailabilityService();
+
 

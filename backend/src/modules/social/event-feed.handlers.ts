@@ -55,14 +55,14 @@ async function handleEventCreated(event: UnificardEvent): Promise<void> {
       event_type: string;
       actor_id: string;
       created_by_global_user_id: string | null;
-      start_time: Date;
-      end_time: Date;
+      starts_at: Date;
+      ends_at: Date;
       status: string;
     }>(
       tenantId,
       `
         SELECT id, title, description, event_type, actor_id, 
-               created_by_global_user_id, start_time, end_time, status
+               created_by_global_user_id, starts_at, ends_at, status
         FROM events
         WHERE id = $1
         LIMIT 1
@@ -96,8 +96,8 @@ async function handleEventCreated(event: UnificardEvent): Promise<void> {
         event_id: eventId,
         event_type: (eventType || eventRow.event_type) as string,
         actor_id: eventRow.actor_id,
-        start_time: eventRow.start_time.toISOString(),
-        end_time: eventRow.end_time.toISOString(),
+        starts_at: eventRow.starts_at.toISOString(),
+        ends_at: eventRow.ends_at.toISOString(),
         status: eventRow.status,
       },
       eventId: eventId as string,
@@ -187,6 +187,7 @@ export function registerEventFeedHandlers(): void {
   
   console.log('[EventFeedHandler] Handlers de eventos registrados para feed social');
 }
+
 
 
 

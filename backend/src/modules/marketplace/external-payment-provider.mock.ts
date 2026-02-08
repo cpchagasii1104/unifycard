@@ -32,12 +32,12 @@ export class MockExternalPaymentProvider implements ExternalPaymentProvider {
       return {
         external_payment_id: `ext_pay_${uuidv4()}`,
         status: 'succeeded',
-        amount: input.amount,
+        amountCents: input.amount,
         currency: input.currency,
         metadata: {
           ...input.metadata,
           mock: true,
-          simulated_at: new Date().toISOString(),
+          simulatedAt: new Date().toISOString(),
         },
       };
     } else {
@@ -53,6 +53,8 @@ export class MockExternalPaymentProvider implements ExternalPaymentProvider {
 
 // Instância padrão (100% sucesso para desenvolvimento)
 export const mockExternalPaymentProvider = new MockExternalPaymentProvider(1.0);
+
+
 
 
 

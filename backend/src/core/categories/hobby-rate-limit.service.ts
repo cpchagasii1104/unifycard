@@ -34,7 +34,7 @@ class HobbyRateLimitService {
         FROM category_input_audit
         WHERE actor_id = $1
           AND context = 'hobby'
-          AND created_at >= $2
+          AND createdAt >= $2
         `,
         [userId, windowStart]
       );
@@ -108,6 +108,7 @@ class HobbyRateLimitService {
 
 export const hobbyRateLimitService = new HobbyRateLimitService();
 export type { RateLimitResult };
+
 
 
 

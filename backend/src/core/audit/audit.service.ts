@@ -5,7 +5,7 @@
 import { randomUUID } from 'crypto';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
-export type AuditSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AuditSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type AuditSource = 'impact' | 'validation' | 'reputation' | 'social' | 'cultural_event_checkin' | 'penalty_service' | 'bank_limit' | 'automation';
 
 export interface AuditEvent {
@@ -19,8 +19,8 @@ export interface AuditEvent {
   employee_id: string | null;
   source: AuditSource;
   context: Record<string, any>;
-  created_at: string;
-  resolved_at: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
   resolution_note: string | null;
 }
 
@@ -53,8 +53,8 @@ class AuditService {
         employee_id: string | null;
         source: string;
         context: Record<string, any>;
-        created_at: string;
-        resolved_at: string | null;
+        createdAt: string;
+        resolvedAt: string | null;
         resolution_note: string | null;
       }>(
         tenantId,
@@ -65,8 +65,8 @@ class AuditService {
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
         RETURNING id, tenant_id, event_type, severity, actor_id, actor_type,
-                  company_id, employee_id, source, context, created_at,
-                  resolved_at, resolution_note
+                  company_id, employee_id, source, context, createdAt,
+                  resolvedAt, resolution_note
         `,
         [
           tenantId,
@@ -97,14 +97,14 @@ class AuditService {
         employee_id: row.employee_id,
         source: row.source as AuditSource,
         context: row.context,
-        created_at: row.created_at,
-        resolved_at: row.resolved_at,
+        createdAt: row.createdAt,
+        resolvedAt: row.resolvedAt,
         resolution_note: row.resolution_note,
       };
 
       // Emitir evento interno (para futuras integrações: email, webhook, etc)
       // Por enquanto, apenas log estruturado
-      if (input.severity === 'CRITICAL' || input.severity === 'HIGH') {
+      if (input.severity === 'critical' || input.severity === 'high') {
         console.warn('[AUDIT]', JSON.stringify({
           event_type: input.event_type,
           severity: input.severity,
@@ -137,15 +137,15 @@ class AuditService {
       // Buscar histórico de impacto nas últimas 24h
       const impactHistory = await runQueriesWithTenant<{
         impact_delta: number;
-        created_at: string;
+        createdAt: string;
       }>(
         tenantId,
         `
-        SELECT impact_delta, created_at
+        SELECT impact_delta, createdAt
         FROM impact_ledger
         WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-          AND created_at >= NOW() - INTERVAL '24 hours'
-        ORDER BY created_at DESC
+          AND createdAt >= NOW() - INTERVAL '24 hours'
+        ORDER BY createdAt DESC
         `,
         [tenantId, actorId, actorType]
       );
@@ -160,11 +160,11 @@ class AuditService {
         // Verificar se empresa é nova (criada há menos de 7 dias)
         const company = await runQueriesWithTenant<{
           company_id: string;
-          created_at: string;
+          createdAt: string;
         }>(
           tenantId,
           `
-          SELECT company_id, created_at
+          SELECT company_id, createdAt
           FROM companies c
           JOIN actors a ON a.company_id = c.company_id
           WHERE a.actor_id = $1 AND a.tenant_id = $2
@@ -174,11 +174,11 @@ class AuditService {
         );
 
         if (company && company.length > 0) {
-          const companyAge = (Date.now() - new Date(company[0].created_at).getTime()) / (1000 * 60 * 60 * 24);
+          const companyAge = (Date.now() - new Date(company[0].createdAt).getTime()) / (1000 * 60 * 60 * 24);
           if (companyAge < 7) {
             await this.record(tenantId, {
               event_type: 'COMPANY_IMPACT_SPIKE',
-              severity: 'MEDIUM',
+              severity: 'medium',
               actor_id: actorId,
               actor_type: actorType,
               company_id: company[0].company_id,
@@ -215,7 +215,7 @@ class AuditService {
         SELECT COUNT(*)::int as count
         FROM company_validations
         WHERE tenant_id = $1 AND validated_by_employee_id = $2
-          AND validated_at >= NOW() - INTERVAL '24 hours'
+          AND validatedAt >= NOW() - INTERVAL '24 hours'
         `,
         [tenantId, employeeId]
       );
@@ -229,7 +229,7 @@ class AuditService {
         SELECT COUNT(*)::int as count
         FROM company_validations
         WHERE tenant_id = $1 AND validated_by_employee_id = $2
-          AND validated_at >= NOW() - INTERVAL '1 hour'
+          AND validatedAt >= NOW() - INTERVAL '1 hour'
         `,
         [tenantId, employeeId]
       );
@@ -254,7 +254,7 @@ class AuditService {
       if (count24h > 20 || count1h > 10) {
         await this.record(tenantId, {
           event_type: 'EMPLOYEE_VALIDATION_SPIKE',
-          severity: 'HIGH',
+          severity: 'high',
           employee_id: employeeId,
           source: 'validation',
           context: {
@@ -284,11 +284,11 @@ class AuditService {
       // Buscar nível anterior
       const previousReputation = await runQueriesWithTenant<{
         reputation_level: number;
-        updated_at: string;
+        updatedAt: string;
       }>(
         tenantId,
         `
-        SELECT reputation_level, updated_at
+        SELECT reputation_level, updatedAt
         FROM actor_reputation
         WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
         LIMIT 1
@@ -343,7 +343,7 @@ class AuditService {
         SELECT event_type, COUNT(*)::int as count
         FROM impact_ledger
         WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-          AND created_at >= NOW() - INTERVAL '24 hours'
+          AND createdAt >= NOW() - INTERVAL '24 hours'
         GROUP BY event_type
         ORDER BY count DESC
         `,
@@ -360,7 +360,7 @@ class AuditService {
       if (dominantRatio > 0.8 && totalEvents >= 10) {
         await this.record(tenantId, {
           event_type: 'LOW_ACTION_DIVERSITY',
-          severity: 'LOW',
+          severity: 'low',
           actor_id: actorId,
           actor_type: actorType,
           source: 'social',
@@ -423,28 +423,28 @@ class AuditService {
       employee_id: string | null;
       source: string;
       context: Record<string, any>;
-      created_at: string;
-      resolved_at: string | null;
+      createdAt: string;
+      resolvedAt: string | null;
       resolution_note: string | null;
     }>(
       tenantId,
       severity
         ? `
         SELECT id, tenant_id, event_type, severity, actor_id, actor_type,
-               company_id, employee_id, source, context, created_at,
-               resolved_at, resolution_note
+               company_id, employee_id, source, context, createdAt,
+               resolvedAt, resolution_note
         FROM audit_events
-        WHERE tenant_id = $1 AND resolved_at IS NULL AND severity = $2
-        ORDER BY created_at DESC
+        WHERE tenant_id = $1 AND resolvedAt IS NULL AND severity = $2
+        ORDER BY createdAt DESC
         LIMIT $3
         `
         : `
         SELECT id, tenant_id, event_type, severity, actor_id, actor_type,
-               company_id, employee_id, source, context, created_at,
-               resolved_at, resolution_note
+               company_id, employee_id, source, context, createdAt,
+               resolvedAt, resolution_note
         FROM audit_events
-        WHERE tenant_id = $1 AND resolved_at IS NULL
-        ORDER BY severity DESC, created_at DESC
+        WHERE tenant_id = $1 AND resolvedAt IS NULL
+        ORDER BY severity DESC, createdAt DESC
         LIMIT $2
         `,
       severity ? [tenantId, severity, limit] : [tenantId, limit]
@@ -461,14 +461,15 @@ class AuditService {
       employee_id: row.employee_id,
       source: row.source as AuditSource,
       context: row.context,
-      created_at: row.created_at,
-      resolved_at: row.resolved_at,
+      createdAt: row.createdAt,
+      resolvedAt: row.resolvedAt,
       resolution_note: row.resolution_note,
     }));
   }
 }
 
 export const auditService = new AuditService();
+
 
 
 

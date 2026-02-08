@@ -35,7 +35,7 @@ export interface ProfessionalSkill {
   visitPrice: number | null; // Preço da visita (se chargeVisit = true)
   predefinedServices?: PredefinedService[]; // Serviços pré-definidos com valores fixos
   comboDiscountRules?: ComboDiscountRule[]; // Regras de desconto para combos (múltiplos serviços)
-  verified: boolean;
+  isVerified: boolean;
 }
 
 export interface ProfessionalProfile {

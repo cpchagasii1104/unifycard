@@ -23,11 +23,11 @@ interface PolicyRuleRow {
   conditions: any;
   actions: any;
   is_active: boolean;
-  activated_at: Date | null;
+  activatedAt: Date | null;
   activated_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface PolicyDecisionRow {
@@ -42,14 +42,14 @@ interface PolicyDecisionRow {
   applied_by_user_id: string;
   applied_by_actor_id: string;
   evidence_pack_id: string | null;
-  expires_at: Date | null;
-  revoked_at: Date | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
   revoked_by_user_id: string | null;
   revoked_by_actor_id: string | null;
   revocation_reason: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PolicyRepository {
@@ -64,11 +64,11 @@ class PolicyRepository {
       conditions: row.conditions,
       actions: row.actions,
       isActive: row.is_active,
-      activatedAt: row.activated_at,
+      activatedAt: row.activatedAt,
       activatedByUserId: row.activated_by_user_id,
       metadata: row.metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -85,14 +85,14 @@ class PolicyRepository {
       appliedByUserId: row.applied_by_user_id,
       appliedByActorId: row.applied_by_actor_id,
       evidencePackId: row.evidence_pack_id,
-      expiresAt: row.expires_at,
-      revokedAt: row.revoked_at,
+      expiresAt: row.expiresAt,
+      revokedAt: row.revokedAt,
       revokedByUserId: row.revoked_by_user_id,
       revokedByActorId: row.revoked_by_actor_id,
       revocationReason: row.revocation_reason,
       metadata: row.metadata,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -185,7 +185,7 @@ class PolicyRepository {
         text: `
           SELECT * FROM policy_rules
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -220,9 +220,9 @@ class PolicyRepository {
           SET
             version = version + 1,
             is_active = true,
-            activated_at = NOW(),
+            activatedAt = NOW(),
             activated_by_user_id = $3,
-            updated_at = NOW()
+            updatedAt = NOW()
           WHERE tenant_id = $1 AND policy_id = $2
           RETURNING *
         `,
@@ -245,7 +245,7 @@ class PolicyRepository {
           UPDATE policy_rules
           SET
             is_active = false,
-            updated_at = NOW()
+            updatedAt = NOW()
           WHERE tenant_id = $1 AND policy_id = $2
           RETURNING *
         `,
@@ -294,7 +294,7 @@ class PolicyRepository {
           INSERT INTO policy_decisions (
             decision_id, tenant_id, policy_id, policy_version, actor_id,
             status, applied_actions, reason, applied_by_user_id, applied_by_actor_id,
-            evidence_pack_id, expires_at, metadata
+            evidence_pack_id, expiresAt, metadata
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
           ) RETURNING *
@@ -382,7 +382,7 @@ class PolicyRepository {
         text: `
           SELECT * FROM policy_decisions
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -410,11 +410,11 @@ class PolicyRepository {
           UPDATE policy_decisions
           SET
             status = 'REVOKED',
-            revoked_at = NOW(),
+            revokedAt = NOW(),
             revoked_by_user_id = $3,
             revoked_by_actor_id = $4,
             revocation_reason = $5,
-            updated_at = NOW()
+            updatedAt = NOW()
           WHERE tenant_id = $1 AND decision_id = $2 AND status = 'ACTIVE'
           RETURNING *
         `,
@@ -444,6 +444,8 @@ class PolicyRepository {
 }
 
 export const policyRepository = new PolicyRepository();
+
+
 
 
 

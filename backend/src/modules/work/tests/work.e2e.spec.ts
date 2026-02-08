@@ -383,7 +383,7 @@ describe('Work Module E2E Tests', () => {
         entry_id: string;
         account_id: string;
         entry_type: string;
-        amount: string;
+        amountCents: string;
         transaction_id: string;
       }>(
         tenantId,
@@ -452,4 +452,5 @@ describe('Work Module E2E Tests', () => {
     });
   });
 });
+
 

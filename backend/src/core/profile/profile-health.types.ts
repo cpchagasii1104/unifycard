@@ -14,8 +14,8 @@ export interface HealthDeclaration {
   section: HealthSection | null;
   payload: Record<string, any> | null; // Dados estruturados (JSONB)
   consentScope: string | null; // Consentimento granular por seção
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateHealthDeclarationInput {
@@ -39,7 +39,9 @@ export interface HealthDeclarationRow {
   section: HealthSection | null;
   payload: Record<string, any> | null;
   consent_scope: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
+
+
 

@@ -39,7 +39,7 @@ export class DistributionService {
       rideId: ride_id,
       passengerUserId: passenger_user_id,
       driverUserId: driverUserId,
-      amount: price.total,
+      amountCents: price.total,
       currency: 'BRL',
       idempotencyKey: `ride-${ride_id}`,
       metadata: {
@@ -86,7 +86,7 @@ export class DistributionService {
       tenantId,
       payload: {
         rideId: ride_id,
-        total: price.total,
+        totalCents: price.total,
         driverAmount,
         platformAmount,
         communityAmount,
@@ -124,7 +124,7 @@ export class DistributionService {
   // ========================================================================
   // 🔹 3. Aplicar regra de distribuição
   // ========================================================================
-  applyDistribution(total: number, rule: any) {
+  applyDistribution(totalCents: number, rule: any) {
     const platformAmount = +(total * (rule.platform_pct / 100)).toFixed(2);
     const communityAmount = rule.community_fund_enabled
       ? +(total * (rule.community_pct / 100)).toFixed(2)
@@ -158,7 +158,7 @@ export class DistributionService {
         tenant_id, ride_id,
         total_amount, driver_amount,
         platform_amount, community_amount,
-        calculated_at
+        calculatedAt
       )
       VALUES ($1,$2,$3,$4,$5,$6, now())
       `,
@@ -206,7 +206,7 @@ export class DistributionService {
         SELECT *
         FROM rides_ride_distributions
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY calculated_at DESC
+        ORDER BY calculatedAt DESC
         LIMIT 1
       `,
         values: [tenantId, rideId],
@@ -237,7 +237,7 @@ export class DistributionService {
 
     // Calcular preço (simplificado - pode ser melhorado)
     const price = {
-      total: ride.final_price || 0,
+      totalCents: ride.final_price || 0,
     };
 
     return this.processRidePayment(tenantId, ride, price);
@@ -245,4 +245,6 @@ export class DistributionService {
 }
 
 export const distributionService = new DistributionService();
+
+
 

@@ -10,8 +10,8 @@ interface RegionAccountRow {
   region_id: string;
   balance_cents: number;
   currency: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class RegionAccountRepository {
@@ -22,8 +22,8 @@ class RegionAccountRepository {
       regionId: row.region_id,
       balanceCents: row.balance_cents,
       currency: row.currency,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -46,9 +46,9 @@ class RegionAccountRepository {
         tenant_id, region_id, balance_cents, currency
       )
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (tenant_id, region_id, currency) DO UPDATE SET updated_at = NOW()
+      ON CONFLICT (tenant_id, region_id, currency) DO UPDATE SET updatedAt = NOW()
       RETURNING id, tenant_id, region_id, balance_cents, currency,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, regionId, 0, currency]
     );
@@ -69,7 +69,7 @@ class RegionAccountRepository {
       tenantId,
       `
       SELECT id, tenant_id, region_id, balance_cents, currency,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM region_accounts
       WHERE tenant_id = $1 AND region_id = $2 AND currency = $3
       `,
@@ -94,10 +94,10 @@ class RegionAccountRepository {
       `
       UPDATE region_accounts
       SET balance_cents = balance_cents + $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND region_id = $2 AND currency = $3
       RETURNING id, tenant_id, region_id, balance_cents, currency,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, regionId, currency, amountCents]
     );
@@ -120,11 +120,11 @@ class RegionAccountRepository {
       `
       UPDATE region_accounts
       SET balance_cents = balance_cents - $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND region_id = $2 AND currency = $3
         AND balance_cents >= $4
       RETURNING id, tenant_id, region_id, balance_cents, currency,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, regionId, currency, amountCents]
     );
@@ -138,6 +138,8 @@ class RegionAccountRepository {
 }
 
 export const regionAccountRepository = new RegionAccountRepository();
+
+
 
 
 

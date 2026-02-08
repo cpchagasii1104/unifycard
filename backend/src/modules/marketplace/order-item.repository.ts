@@ -16,7 +16,7 @@ interface OrderItemRow {
   quantity: string;
   unit: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class OrderItemRepository {
@@ -31,7 +31,7 @@ class OrderItemRepository {
       quantity: parseFloat(row.quantity),
       unit: row.unit,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -50,7 +50,7 @@ class OrderItemRepository {
         order_id, product_variant_id, quantity, unit, metadata
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, order_id, product_variant_id, quantity, unit, metadata, created_at
+      RETURNING id, order_id, product_variant_id, quantity, unit, metadata, createdAt
       `,
       [
         orderId,
@@ -79,7 +79,7 @@ class OrderItemRepository {
       tenantId,
       `
       SELECT oi.id, oi.order_id, oi.product_variant_id, oi.quantity, oi.unit,
-             oi.metadata, oi.created_at
+             oi.metadata, oi.createdAt
       FROM order_items oi
       INNER JOIN orders o ON oi.order_id = o.id
       WHERE o.tenant_id = $1 AND oi.id = $2
@@ -102,11 +102,11 @@ class OrderItemRepository {
       tenantId,
       `
       SELECT oi.id, oi.order_id, oi.product_variant_id, oi.quantity, oi.unit,
-             oi.metadata, oi.created_at
+             oi.metadata, oi.createdAt
       FROM order_items oi
       INNER JOIN orders o ON oi.order_id = o.id
       WHERE o.tenant_id = $1 AND oi.order_id = $2
-      ORDER BY oi.created_at ASC
+      ORDER BY oi.createdAt ASC
       `,
       [tenantId, orderId]
     );
@@ -166,7 +166,7 @@ class OrderItemRepository {
         AND o.tenant_id = $1
       RETURNING order_items.id, order_items.order_id, order_items.product_variant_id,
                 order_items.quantity, order_items.unit, order_items.metadata,
-                order_items.created_at
+                order_items.createdAt
       `,
       params
     );
@@ -210,7 +210,7 @@ class OrderItemRepository {
     tenantId: string,
     orderId: string
   ): Promise<number> {
-    const result = await runQueryWithTenant<{ total: string }>(
+    const result = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
       SELECT COALESCE(SUM(oi.quantity), 0)::text as total
@@ -226,6 +226,9 @@ class OrderItemRepository {
 }
 
 export const orderItemRepository = new OrderItemRepository();
+
+
+
 
 
 

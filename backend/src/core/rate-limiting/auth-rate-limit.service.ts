@@ -320,7 +320,7 @@ class AuthRateLimitService {
         WHERE key_type = $1
           AND action = $2
           AND key_value = $3
-          AND attempted_at >= $4
+          AND attemptedAt >= $4
         `,
         [keyType, action, key, windowStart]
       );
@@ -349,7 +349,7 @@ class AuthRateLimitService {
       // Registrar por IP (sempre)
       await pool.query(
         `
-        INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
+        INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
         VALUES ('ip', $1, $2, $3, $4)
         ON CONFLICT DO NOTHING
         `,
@@ -360,7 +360,7 @@ class AuthRateLimitService {
       if (tenantId) {
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
           VALUES ('tenant', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -372,7 +372,7 @@ class AuthRateLimitService {
       if (userId && tenantId) {
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
           VALUES ('user', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -385,7 +385,7 @@ class AuthRateLimitService {
         const normalizedEmail = email.toLowerCase().trim();
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
           VALUES ('email', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -412,7 +412,7 @@ class AuthRateLimitService {
       await pool.query(
         `
         DELETE FROM auth_rate_limit_logs
-        WHERE attempted_at < $1
+        WHERE attemptedAt < $1
         `,
         [cutoffDate]
       );
@@ -429,4 +429,5 @@ class AuthRateLimitService {
 }
 
 export const authRateLimitService = new AuthRateLimitService();
+
 

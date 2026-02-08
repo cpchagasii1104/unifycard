@@ -45,7 +45,7 @@ export interface CrmNote {
   note: string;
   visibility: CrmNoteVisibility;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -56,7 +56,7 @@ export interface CrmTag {
   tenantId: string;
   name: string;
   color: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -67,7 +67,7 @@ export interface CrmContactTag {
   tenantId: string;
   contactId: string;
   tagId: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -82,8 +82,8 @@ export interface CrmConsent {
   updatedByActorId: string;
   updatedByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -140,6 +140,7 @@ export interface CrmTimelineFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

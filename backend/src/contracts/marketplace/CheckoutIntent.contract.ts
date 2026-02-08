@@ -15,26 +15,27 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface CheckoutIntent {
-  checkout_id: string;
+  checkoutId: string;
   orders: Array<{
-    store_id: string;
+    storeId: string;
     items: Array<{
-      product_id: string;
+      productId: string;
       quantity: number;
-      unit_price: number;
+      unitPrice: number;
       subtotal: number;
     }>;
     subtotal: number;
   }>;
-  total: number;
-  payment_options: {
-    allow_balance: boolean;
-    allow_card: boolean;
-    allow_invoice: boolean;
+  totalCents: number;
+  paymentOptions: {
+    allowBalance: boolean;
+    allowCard: boolean;
+    allowInvoice: boolean;
   };
   status: 'open' | 'confirmed' | 'paid' | 'invoiced';
-  attribution_id?: string;
+  attributionId?: string;
 }
+
 
 
 

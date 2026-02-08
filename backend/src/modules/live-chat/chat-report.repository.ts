@@ -18,8 +18,8 @@ interface ChatReportRow {
   details: string | null;
   status: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class ChatReportRepository {
@@ -35,8 +35,8 @@ class ChatReportRepository {
       details: row.details,
       status: row.status as any,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -58,7 +58,7 @@ class ChatReportRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'OPEN', '{}'::jsonb)
       RETURNING id, tenant_id, reporter_contact_id, reported_contact_id, room_id, message_id,
-                reason_code, details, status, metadata, created_at, updated_at
+                reason_code, details, status, metadata, createdAt, updatedAt
       `,
       [tenantId, reporterContactId, reportedContactId, roomId, messageId, reasonCode, details]
     );
@@ -72,6 +72,8 @@ class ChatReportRepository {
 }
 
 export const chatReportRepository = new ChatReportRepository();
+
+
 
 
 

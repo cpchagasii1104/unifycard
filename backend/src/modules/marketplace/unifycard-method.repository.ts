@@ -12,7 +12,7 @@ interface UnifyCardMethodRow {
   fee_percentage: number;
   settlement_delay_days: number;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class UnifyCardMethodRepository {
@@ -25,7 +25,7 @@ class UnifyCardMethodRepository {
       feePercentage: parseFloat(row.fee_percentage.toString()),
       settlementDelayDays: row.settlement_delay_days,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -46,7 +46,7 @@ class UnifyCardMethodRepository {
         tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata
       )
       VALUES ($1, $2, 'UNIFYCARD', $3, $4, $5)
-      RETURNING id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, created_at
+      RETURNING id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, createdAt
       `,
       [
         tenantId,
@@ -68,7 +68,7 @@ class UnifyCardMethodRepository {
     const rows = await runQueriesWithTenant<UnifyCardMethodRow>(
       tenantId,
       `
-      SELECT id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, created_at
+      SELECT id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, createdAt
       FROM unifycard_payment_methods
       WHERE tenant_id = $1
       ORDER BY method_type ASC
@@ -83,7 +83,7 @@ class UnifyCardMethodRepository {
     const row = await runQueryWithTenant<UnifyCardMethodRow>(
       tenantId,
       `
-      SELECT id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, created_at
+      SELECT id, tenant_id, method_type, provider, fee_percentage, settlement_delay_days, metadata, createdAt
       FROM unifycard_payment_methods
       WHERE tenant_id = $1 AND method_type = $2
       `,
@@ -99,6 +99,8 @@ class UnifyCardMethodRepository {
 }
 
 export const unifyCardMethodRepository = new UnifyCardMethodRepository();
+
+
 
 
 

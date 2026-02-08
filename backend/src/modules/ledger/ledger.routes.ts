@@ -12,26 +12,21 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
    */
   const requireLedgerPermission = async (req: any, reply: any) => {
     const tenantId = req.tenant.id;
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
+
+    const actorId = req.actionContext.actorId;
 
     try {
       const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
-      const actor = await getActiveActor(tenantId, userId);
-      if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
-      }
 
       // Verificar se tem permissão para ver ledger global
       const hasPermission = await businessAuthorizationService.hasAnyPermission(
         tenantId,
-        userId,
-        actor.actor_id,
+        actorId,
+        actorId,
         ['financial:view_ledger', 'financial:view_all_ledger']
       );
 
@@ -85,7 +80,7 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
 
     const entries = await ledgerService.listEntries(tenantId, filters);
 
-    return reply.send({ entries, total: entries.length });
+    return reply.send({ entries, totalCents: entries.length });
   });
 
   /**
@@ -136,6 +131,7 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default ledgerRoutes;
+
 
 
 

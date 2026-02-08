@@ -61,7 +61,7 @@ export interface PaymentExecutionResult {
   total_amount_cents: number;
   currency: string;
   transaction_ids: string[]; // IDs de transações no bank (SANDBOX)
-  executed_at: string;
+  executedAt: string;
   sandbox_mode: boolean;
 }
 
@@ -76,8 +76,8 @@ interface PaymentExecutionRow {
   currency: string;
   transaction_ids: string[];
   status: 'executed' | 'failed' | 'reversed';
-  executed_at: Date;
-  created_at: Date;
+  executedAt: Date;
+  createdAt: Date;
 }
 
 class EventPaymentExecutionService {
@@ -248,7 +248,7 @@ class EventPaymentExecutionService {
           eventId: uuidv4(),
           fromAccountId: payerAccountId,
           toAccountId: targetAccountId,
-          amount: part.amount_cents / 100, // Converter de cents para valor
+          amountCents: part.amount_cents / 100, // Converter de cents para valor
           currency: custody.currency as any,
           description: `Event payment split: ${part.role} (SANDBOX)`,
           metadata: {
@@ -275,7 +275,7 @@ class EventPaymentExecutionService {
       `
       INSERT INTO event_payment_execution (
         id, tenant_id, event_id, authorization_id, custody_id, split_id,
-        total_amount_cents, currency, transaction_ids, status, executed_at
+        total_amount_cents, currency, transaction_ids, status, executedAt
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'executed', NOW())
       RETURNING *
       `,
@@ -301,7 +301,7 @@ class EventPaymentExecutionService {
       tenantId,
       `
       UPDATE event_payment_authorization
-      SET status = 'executed', executed_at = NOW(), updated_at = NOW()
+      SET status = 'executed', executedAt = NOW(), updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       `,
       [authorization_id, tenantId]
@@ -312,7 +312,7 @@ class EventPaymentExecutionService {
       tenantId,
       `
       UPDATE event_split_declarative
-      SET status = 'executed', executed_at = NOW(), updated_at = NOW()
+      SET status = 'executed', executedAt = NOW(), updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       `,
       [split.id, tenantId]
@@ -330,7 +330,7 @@ class EventPaymentExecutionService {
       total_amount_cents: custody.amount_cents,
       currency: custody.currency,
       transaction_ids: transactionIds,
-      executed_at: row[0].executed_at.toISOString(),
+      executedAt: row[0].executedAt.toISOString(),
       sandbox_mode: true,
     };
 
@@ -348,7 +348,7 @@ class EventPaymentExecutionService {
         currency: custody.currency,
         transaction_ids: transactionIds,
         executed_by_actor_id: executed_by_actor_id,
-        executed_at: execution.executed_at,
+        executedAt: execution.executedAt,
         sandbox_mode: true,
       },
       metadata: {
@@ -391,11 +391,13 @@ class EventPaymentExecutionService {
       total_amount_cents: row[0].total_amount_cents,
       currency: row[0].currency,
       transaction_ids: JSON.parse(row[0].transaction_ids as any) || [],
-      executed_at: row[0].executed_at.toISOString(),
+      executedAt: row[0].executedAt.toISOString(),
       sandbox_mode: true, // Assumimos que todas as execuções são SANDBOX por enquanto
     };
   }
 }
 
 export const eventPaymentExecutionService = new EventPaymentExecutionService();
+
+
 

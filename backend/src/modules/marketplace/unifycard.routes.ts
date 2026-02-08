@@ -19,19 +19,19 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     // Actor que receberá (seller)
-    const actorId = req.body.actorId || actionContext.actingActorId;
+    const actorId = actionContext.actorId;
 
     const transaction = await unifyCardService.authorize(
       tenantId,
       req.body,
       actorId,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return reply.status(201).send(transaction);
@@ -45,15 +45,15 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const transaction = await unifyCardService.capture(
       tenantId,
       req.body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return transaction;
@@ -67,15 +67,15 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const transaction = await unifyCardService.settle(
       tenantId,
       req.body,
-      actionContext.actingActorId,
-      actionContext.actingUserId
+      actionContext.actorId,
+      actionContext.actorId
     );
 
     return transaction;

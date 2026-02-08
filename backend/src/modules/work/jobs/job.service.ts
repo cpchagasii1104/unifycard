@@ -22,11 +22,11 @@ class JobService {
       requiredSkills: row.required_skills ?? [],
       budgetMin: row.budget_min ? Number(row.budget_min) : undefined,
       budgetMax: row.budget_max ? Number(row.budget_max) : undefined,
-      scheduledAt: row.scheduled_at ?? undefined,
+      scheduledAt: row.scheduledAt ?? undefined,
       location: row.location ?? null,
       status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -91,7 +91,7 @@ class JobService {
         required_skills,
         budget_min,
         budget_max,
-        scheduled_at,
+        scheduledAt,
         location
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,${locationExpr})
@@ -139,9 +139,9 @@ class JobService {
         description = COALESCE($4, description),
         budget_min = COALESCE($5, budget_min),
         budget_max = COALESCE($6, budget_max),
-        scheduled_at = COALESCE($7, scheduled_at),
+        scheduledAt = COALESCE($7, scheduledAt),
         status = COALESCE($8, status),
-        updated_at = now()
+        updatedAt = now()
       WHERE job_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -187,7 +187,7 @@ class JobService {
   async listJobs(
     tenantId: string,
     filters: any,
-  ): Promise<{ jobs: Job[]; total: number }> {
+  ): Promise<{ jobs: Job[]; totalCents: number }> {
     const {
       search,
       status,
@@ -251,13 +251,13 @@ class JobService {
       `
       SELECT * FROM jobs
       WHERE ${whereSQL}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${i} OFFSET $${i + 1}
       `,
       [...params, limit, offset],
     );
 
-    const totalRow = await runQueryWithTenant<{ total: string }>(
+    const totalRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
       SELECT COUNT(*) AS total
@@ -280,9 +280,12 @@ class JobService {
 
     return {
       jobs,
-      total: totalRow ? Number(totalRow.total) : 0,
+      totalCents: totalRow ? Number(totalRow.total) : 0,
     };
   }
 }
 
 export const jobService = new JobService();
+
+
+

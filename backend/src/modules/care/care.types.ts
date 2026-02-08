@@ -9,8 +9,8 @@ export interface CareSession {
   lastMessage: string | null;
   state: CareSessionState;
   context: CareSessionContext;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CareSessionRow {
@@ -22,8 +22,8 @@ export interface CareSessionRow {
   last_message: string | null;
   state: any; // JSONB
   context: any; // JSONB
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CareMessage {
@@ -34,7 +34,7 @@ export interface CareMessage {
   intent: string | null;
   parameters: Record<string, any> | null;
   aiReasoning: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CareMessageRow {
@@ -45,7 +45,7 @@ export interface CareMessageRow {
   intent: string | null;
   parameters: any; // JSONB
   ai_reasoning: any; // JSONB
-  created_at: Date;
+  createdAt: string;
 }
 
 export interface CareSessionState {
@@ -111,6 +111,8 @@ export interface CareSessionWithMessages extends CareSession {
   messages: CareMessage[];
   totalMessages: number;
 }
+
+
 
 
 

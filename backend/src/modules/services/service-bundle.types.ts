@@ -38,8 +38,8 @@ export interface ServiceBundle {
   serviceIds: string[];           // IDs dos serviços incluídos
   dependencyType: BundleDependencyType; // Tipo de dependência
   validationRules: BundleValidationRules; // Regras de validação
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -122,4 +122,5 @@ export interface ConfirmBundleResult {
     serviceOrderId: string;
   }>;
 }
+
 

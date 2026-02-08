@@ -19,21 +19,21 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServicePreReservation {
-  pre_reservation_id: string;
-  dispatch_id: string;
-  request_id: string;
-  provider_actor_id: string;
-  offering_id: string;
+  preReservationId: string;
+  dispatchId: string;
+  requestId: string;
+  providerActorId: string;
+  offeringId: string;
   date: string; // ISO 8601 date
   time: string; // HH:mm
   quantity: number;
-  hold_duration_minutes: number; // Duração da pré-reserva (padrão: 10)
-  expires_at: string; // ISO 8601 - Quando a pré-reserva expira
+  holdDurationMinutes: number; // Duração da pré-reserva (padrão: 10)
+  expiresAt: string; // ISO 8601 - Quando a pré-reserva expira
   status: 'active' | 'confirmed' | 'expired' | 'released';
-  created_at: string;
-  confirmed_at?: string; // Quando vira ServiceBooking confirmado
-  expired_at?: string; // Quando expira sem resposta
-  released_at?: string; // Quando é liberada manualmente
+  createdAt: string;
+  confirmedAt?: string; // Quando vira ServiceBooking confirmado
+  expiredAt?: string; // Quando expira sem resposta
+  releasedAt?: string; // Quando é liberada manualmente
 }
 
 

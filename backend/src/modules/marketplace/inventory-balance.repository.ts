@@ -10,7 +10,7 @@ interface InventoryBalanceRow {
   tenant_id: string;
   current_quantity: string;
   unit: string;
-  updated_at: Date;
+  updatedAt: Date;
 }
 
 class InventoryBalanceRepository {
@@ -23,7 +23,7 @@ class InventoryBalanceRepository {
       tenantId: row.tenant_id,
       currentQuantity: parseFloat(row.current_quantity),
       unit: row.unit,
-      updatedAt: row.updated_at,
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -38,7 +38,7 @@ class InventoryBalanceRepository {
     const row = await runQueryWithTenant<InventoryBalanceRow>(
       tenantId,
       `
-      SELECT product_variant_id, tenant_id, current_quantity, unit, updated_at
+      SELECT product_variant_id, tenant_id, current_quantity, unit, updatedAt
       FROM inventory_balances
       WHERE tenant_id = $1 AND product_variant_id = $2
       LIMIT 1
@@ -63,15 +63,15 @@ class InventoryBalanceRepository {
       tenantId,
       `
       INSERT INTO inventory_balances (
-        product_variant_id, tenant_id, current_quantity, unit, updated_at
+        product_variant_id, tenant_id, current_quantity, unit, updatedAt
       )
       VALUES ($1, $2, $3, $4, NOW())
       ON CONFLICT (product_variant_id)
       DO UPDATE SET
         current_quantity = $3,
         unit = $4,
-        updated_at = NOW()
-      RETURNING product_variant_id, tenant_id, current_quantity, unit, updated_at
+        updatedAt = NOW()
+      RETURNING product_variant_id, tenant_id, current_quantity, unit, updatedAt
       `,
       [productVariantId, tenantId, quantity, unit]
     );
@@ -91,7 +91,7 @@ class InventoryBalanceRepository {
     productVariantIds?: string[]
   ): Promise<InventoryBalance[]> {
     let query = `
-      SELECT product_variant_id, tenant_id, current_quantity, unit, updated_at
+      SELECT product_variant_id, tenant_id, current_quantity, unit, updatedAt
       FROM inventory_balances
       WHERE tenant_id = $1
     `;
@@ -102,7 +102,7 @@ class InventoryBalanceRepository {
       params.push(productVariantIds);
     }
 
-    query += ` ORDER BY updated_at DESC`;
+    query += ` ORDER BY updatedAt DESC`;
 
     const rows = await runQueriesWithTenant<InventoryBalanceRow>(
       tenantId,
@@ -115,6 +115,8 @@ class InventoryBalanceRepository {
 }
 
 export const inventoryBalanceRepository = new InventoryBalanceRepository();
+
+
 
 
 

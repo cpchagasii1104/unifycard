@@ -21,8 +21,9 @@ const businessAuthorizationRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingUserId) {
-      return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+    // ActionContext é obrigatório (V2)
+    if (!actionContext || !actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
     }
 
     const { action, actorId, contextId } = req.query;
@@ -34,7 +35,7 @@ const businessAuthorizationRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const result = await businessAuthorizationService.checkPermission(
         tenantId,
-        actionContext.actingUserId,
+        actionContext.actorId,
         actorId,
         action as BusinessAction,
         contextId

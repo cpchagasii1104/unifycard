@@ -154,7 +154,7 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
               ride_request_id,
               driver_id,
               status,
-              sent_at
+              sentAt
             )
             VALUES ($1, $2, $3, 'sent', NOW())
             RETURNING *;
@@ -209,7 +209,7 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const rows = await trx.query({
           text: `
             UPDATE rides_ride_offers
-            SET status = 'accepted', responded_at = NOW()
+            SET status = 'accepted', respondedAt = NOW()
             WHERE tenant_id = $1 AND offer_id = $2
               AND driver_id = $3
             RETURNING *;
@@ -264,7 +264,7 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const rows = await trx.query({
           text: `
             UPDATE rides_ride_offers
-            SET status = 'rejected', responded_at = NOW()
+            SET status = 'rejected', respondedAt = NOW()
             WHERE tenant_id = $1 AND offer_id = $2
               AND driver_id = $3
             RETURNING *;
@@ -301,7 +301,7 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           SELECT *
           FROM rides_ride_offers
           WHERE tenant_id = $1 AND ride_request_id = $2
-          ORDER BY sent_at DESC;
+          ORDER BY sentAt DESC;
         `,
         values: [tenantId, rideRequestId],
       });
@@ -312,3 +312,4 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 };
 
 export default matchingRoutes;
+

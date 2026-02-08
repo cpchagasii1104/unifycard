@@ -130,7 +130,7 @@ class ProfileEducationService {
       event_version: number;
       payload: any;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -140,12 +140,12 @@ class ProfileEducationService {
         event_version,
         payload,
         metadata,
-        created_at
+        createdAt
       FROM event_log
       WHERE tenant_id = $1
         AND event_type LIKE 'educacao.%'
         AND (metadata->>'actorId')::text = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, actorId]
     );
@@ -156,7 +156,7 @@ class ProfileEducationService {
       actorId,
       eventType: row.event_type as EducationEventType,
       payload: row.payload,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
       version: row.event_version,
       metadata: row.metadata || {},
     }));
@@ -243,3 +243,4 @@ class ProfileEducationService {
 }
 
 export const profileEducationService = new ProfileEducationService();
+

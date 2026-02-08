@@ -18,7 +18,7 @@ export interface ReportEvent {
   actor_id?: string; // UUID (se aplicável)
   event_type: ReportEventType;
   metadata?: Record<string, any>; // JSONB
-  created_at: Date;
+  createdAt: Date;
 }
 
 export interface ReportEventRow {
@@ -28,8 +28,9 @@ export interface ReportEventRow {
   actor_id: string | null;
   event_type: string;
   metadata: Record<string, any> | null;
-  created_at: Date;
+  createdAt: Date;
 }
+
 
 
 

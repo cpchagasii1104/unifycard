@@ -18,12 +18,12 @@ export class MemoryModel {
       globalUserId: row.global_user_id,
       category: row.category,
       key: row.key,
-      value: row.value,
+      valueCents: row.value,
       confidence: row.confidence,
       usageCount: row.usage_count,
-      lastUsedAt: row.last_used_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      lastUsedAt: row.last_usedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -42,10 +42,10 @@ export class MemoryModel {
       entityName: row.entity_name,
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : {},
       interactionCount: row.interaction_count,
-      firstInteractionAt: row.first_interaction_at,
-      lastInteractionAt: row.last_interaction_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      firstInteractionAt: row.first_interactionAt,
+      lastInteractionAt: row.last_interactionAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -65,9 +65,9 @@ export class MemoryModel {
       entityMetadata: row.entity_metadata && typeof row.entity_metadata === 'object' ? row.entity_metadata : {},
       relevanceScore: row.relevance_score,
       interactionCount: row.interaction_count,
-      lastInteractionAt: row.last_interaction_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      lastInteractionAt: row.last_interactionAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -84,9 +84,9 @@ export class MemoryModel {
       intent: row.intent,
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : {},
       usageCount: row.usage_count,
-      lastUsedAt: row.last_used_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      lastUsedAt: row.last_usedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -94,6 +94,8 @@ export class MemoryModel {
     return rows.map((row) => this.shortcutFromRow(row));
   }
 }
+
+
 
 
 

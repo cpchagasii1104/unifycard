@@ -19,26 +19,26 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface PaymentTerminal {
-  terminal_id: string;
-  company_id: string;
-  terminal_type: 'unified_card' | 'external';
+  terminalId: string;
+  companyId: string;
+  terminalType: 'unified_card' | 'external';
   provider?: string; // Cielo, Stone, etc. (se external)
   status: 'requested' | 'approved' | 'active' | 'suspended' | 'cancelled';
   // Taxas (sempre registradas no ledger)
-  transaction_fee_structure: {
-    base_rate: number; // Taxa base (%)
-    regional_fund_percentage: number; // % da taxa que vai para Fundo Regional
-    platform_percentage: number; // % da taxa que vai para Plataforma
-    referral_percentage?: number; // % da taxa que vai para Indicação/Grupo
+  transactionFeeStructure: {
+    baseRate: number; // Taxa base (%)
+    regionalFundPercentage: number; // % da taxa que vai para Fundo Regional
+    platformPercentage: number; // % da taxa que vai para Plataforma
+    referralPercentage?: number; // % da taxa que vai para Indicação/Grupo
   };
   // Limites
-  monthly_transaction_limit?: number; // Limite mensal (se aplicável)
+  monthlyTransactionLimit?: number; // Limite mensal (se aplicável)
   // Timestamps
-  requested_at: string;
-  approved_at?: string;
-  activated_at?: string;
-  created_at: string;
-  updated_at: string;
+  requestedAt: string;
+  approvedAt?: string;
+  activatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

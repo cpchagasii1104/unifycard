@@ -62,7 +62,7 @@ export class DemandService {
       WHERE tenant_id = $1 
         AND zone_id = $2
         AND is_active = true
-        AND expires_at > now()
+        AND expiresAt > now()
       ORDER BY incentive_value DESC
       `,
       values: [tenantId, zoneId],
@@ -141,7 +141,7 @@ export class DemandService {
       UPDATE rides_zone_incentives
       SET is_active = false
       WHERE tenant_id = $1
-        AND expires_at < now()
+        AND expiresAt < now()
       `,
       values: [tenantId],
     });
@@ -151,3 +151,4 @@ export class DemandService {
 }
 
 export const demandService = new DemandService();
+

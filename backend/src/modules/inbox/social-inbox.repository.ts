@@ -26,10 +26,10 @@ class SocialInboxRepository {
       sourceId: row.source_id,
       status: row.status,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      readAt: row.read_at || undefined,
-      archivedAt: row.archived_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      readAt: row.readAt || undefined,
+      archivedAt: row.archivedAt || undefined,
     };
   }
 
@@ -64,7 +64,7 @@ class SocialInboxRepository {
       ON CONFLICT (actor_id, source_type, source_id) 
       DO UPDATE SET 
         metadata = EXCLUDED.metadata,
-        updated_at = now()
+        updatedAt = now()
       RETURNING *
       `,
       [
@@ -97,7 +97,7 @@ class SocialInboxRepository {
 
   /**
    * Lista items do inbox com filtros
-   * 🔴 BLINDAGEM: Ordenação apenas por created_at DESC (mais recente primeiro)
+   * 🔴 BLINDAGEM: Ordenação apenas por createdAt DESC (mais recente primeiro)
    * 🔴 BLINDAGEM: NUNCA por score, NUNCA por importância
    */
   async find(tenantId: string, filters: SocialInboxFilters): Promise<SocialInboxItem[]> {
@@ -120,9 +120,9 @@ class SocialInboxRepository {
       paramIndex++;
     }
 
-    // 🔴 BLINDAGEM: Ordenação apenas por created_at DESC (mais recente primeiro)
+    // 🔴 BLINDAGEM: Ordenação apenas por createdAt DESC (mais recente primeiro)
     // NUNCA por score, NUNCA por importância
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const rows = await runQueriesWithTenant<SocialInboxItemRow>(tenantId, query, params);
     return rows.map(this.toSocialInboxItem);
@@ -147,9 +147,9 @@ class SocialInboxRepository {
 
     // Atualizar timestamps baseado no status
     if (status === InboxItemStatus.READ) {
-      updateFields.push(`read_at = now()`);
+      updateFields.push(`readAt = now()`);
     } else if (status === InboxItemStatus.ARCHIVED) {
-      updateFields.push(`archived_at = now()`);
+      updateFields.push(`archivedAt = now()`);
     }
 
     params.push(inboxItemId, tenantId);
@@ -159,7 +159,7 @@ class SocialInboxRepository {
       tenantId,
       `
       UPDATE social_inbox_items
-      SET ${updateFields.join(', ')}, updated_at = now()
+      SET ${updateFields.join(', ')}, updatedAt = now()
       WHERE inbox_item_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
       RETURNING *
       `,
@@ -222,4 +222,6 @@ class SocialInboxRepository {
 }
 
 export const socialInboxRepository = new SocialInboxRepository();
+
+
 

@@ -48,17 +48,17 @@ class PilotInvitesRepository {
       email: string;
       invited_by_user_id: string;
       status: string;
-      invited_at: Date;
-      accepted_at: Date | null;
-      expires_at: Date;
+      invitedAt: Date;
+      acceptedAt: Date | null;
+      expiresAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
         INSERT INTO pilot_invites (
           tenant_id, email, invited_by_user_id, status,
-          expires_at, metadata
+          expiresAt, metadata
         )
         VALUES ($1, $2, $3, 'pending', $4, $5)
         RETURNING *
@@ -79,11 +79,11 @@ class PilotInvitesRepository {
       email: row.email,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as PilotInviteStatus,
-      invitedAt: row.invited_at,
-      acceptedAt: row.accepted_at || undefined,
-      expiresAt: row.expires_at,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt || undefined,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -100,11 +100,11 @@ class PilotInvitesRepository {
       email: string;
       invited_by_user_id: string;
       status: string;
-      invited_at: Date;
-      accepted_at: Date | null;
-      expires_at: Date;
+      invitedAt: Date;
+      acceptedAt: Date | null;
+      expiresAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -113,8 +113,8 @@ class PilotInvitesRepository {
         WHERE tenant_id = $1
           AND LOWER(email) = LOWER($2)
           AND status = 'pending'
-          AND expires_at > NOW()
-        ORDER BY invited_at DESC
+          AND expiresAt > NOW()
+        ORDER BY invitedAt DESC
         LIMIT 1
       `,
       [tenantId, email]
@@ -131,11 +131,11 @@ class PilotInvitesRepository {
       email: row.email,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as PilotInviteStatus,
-      invitedAt: row.invited_at,
-      acceptedAt: row.accepted_at || undefined,
-      expiresAt: row.expires_at,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt || undefined,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -152,21 +152,21 @@ class PilotInvitesRepository {
       email: string;
       invited_by_user_id: string;
       status: string;
-      invited_at: Date;
-      accepted_at: Date | null;
-      expires_at: Date;
+      invitedAt: Date;
+      acceptedAt: Date | null;
+      expiresAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
         UPDATE pilot_invites
         SET status = 'accepted',
-            accepted_at = NOW()
+            acceptedAt = NOW()
         WHERE tenant_id = $1
           AND LOWER(email) = LOWER($2)
           AND status = 'pending'
-          AND expires_at > NOW()
+          AND expiresAt > NOW()
         RETURNING *
       `,
       [tenantId, email]
@@ -183,11 +183,11 @@ class PilotInvitesRepository {
       email: row.email,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as PilotInviteStatus,
-      invitedAt: row.invited_at,
-      acceptedAt: row.accepted_at || undefined,
-      expiresAt: row.expires_at,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt || undefined,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -204,11 +204,11 @@ class PilotInvitesRepository {
       email: string;
       invited_by_user_id: string;
       status: string;
-      invited_at: Date;
-      accepted_at: Date | null;
-      expires_at: Date;
+      invitedAt: Date;
+      acceptedAt: Date | null;
+      expiresAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -233,11 +233,11 @@ class PilotInvitesRepository {
       email: row.email,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as PilotInviteStatus,
-      invitedAt: row.invited_at,
-      acceptedAt: row.accepted_at || undefined,
-      expiresAt: row.expires_at,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt || undefined,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -268,7 +268,7 @@ class PilotInvitesRepository {
     }
 
     query += `
-      ORDER BY invited_at DESC
+      ORDER BY invitedAt DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
@@ -280,11 +280,11 @@ class PilotInvitesRepository {
       email: string;
       invited_by_user_id: string;
       status: string;
-      invited_at: Date;
-      accepted_at: Date | null;
-      expires_at: Date;
+      invitedAt: Date;
+      acceptedAt: Date | null;
+      expiresAt: Date;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(tenantId, query, params);
 
     return result.map((row) => ({
@@ -293,11 +293,11 @@ class PilotInvitesRepository {
       email: row.email,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as PilotInviteStatus,
-      invitedAt: row.invited_at,
-      acceptedAt: row.accepted_at || undefined,
-      expiresAt: row.expires_at,
+      invitedAt: row.invitedAt,
+      acceptedAt: row.acceptedAt || undefined,
+      expiresAt: row.expiresAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
   }
 
@@ -312,7 +312,7 @@ class PilotInvitesRepository {
         SET status = 'expired'
         WHERE tenant_id = $1
           AND status = 'pending'
-          AND expires_at <= NOW()
+          AND expiresAt <= NOW()
         RETURNING COUNT(*) as count
       `,
       [tenantId]
@@ -323,6 +323,7 @@ class PilotInvitesRepository {
 }
 
 export const pilotInvitesRepository = new PilotInvitesRepository();
+
 
 
 

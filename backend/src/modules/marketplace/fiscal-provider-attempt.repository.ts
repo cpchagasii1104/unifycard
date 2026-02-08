@@ -17,7 +17,7 @@ interface FiscalProviderAttemptRow {
   error_code: string | null;
   error_message: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class FiscalProviderAttemptRepository {
@@ -35,7 +35,7 @@ class FiscalProviderAttemptRepository {
       errorCode: row.error_code,
       errorMessage: row.error_message,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -55,7 +55,7 @@ class FiscalProviderAttemptRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, tenant_id, fiscal_document_id, provider, action, status,
-                error_code, error_message, metadata, created_at
+                error_code, error_message, metadata, createdAt
       `,
       [
         tenantId,
@@ -87,10 +87,10 @@ class FiscalProviderAttemptRepository {
       tenantId,
       `
       SELECT id, tenant_id, fiscal_document_id, provider, action, status,
-             error_code, error_message, metadata, created_at
+             error_code, error_message, metadata, createdAt
       FROM fiscal_provider_attempts
       WHERE tenant_id = $1 AND fiscal_document_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, fiscalDocumentId]
     );
@@ -110,10 +110,10 @@ class FiscalProviderAttemptRepository {
       tenantId,
       `
       SELECT id, tenant_id, fiscal_document_id, provider, action, status,
-             error_code, error_message, metadata, created_at
+             error_code, error_message, metadata, createdAt
       FROM fiscal_provider_attempts
       WHERE tenant_id = $1 AND provider = $2 AND status = $3
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 100
       `,
       [tenantId, provider, status]
@@ -124,6 +124,8 @@ class FiscalProviderAttemptRepository {
 }
 
 export const fiscalProviderAttemptRepository = new FiscalProviderAttemptRepository();
+
+
 
 
 

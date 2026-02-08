@@ -34,8 +34,8 @@ export type OperationalCommitmentRole = string;
  * Armazenado como JSONB informacional.
  */
 export interface TimeWindowRef {
-  start_datetime: string; // ISO 8601
-  end_datetime: string; // ISO 8601
+  startDatetime: string; // ISO 8601
+  endDatetime: string; // ISO 8601
   timezone?: string; // IANA timezone (opcional)
 }
 
@@ -57,72 +57,72 @@ export interface TimeWindowRef {
  */
 export interface OperationalCommitment {
   id: string;
-  event_id: string;
-  tenant_id: string; // Derivado do event
+  eventId: string;
+  tenantId: string; // Derivado do event
   
   // Actor explícito obrigatório (CANÔNICO)
-  responsible_actor_id: string;
-  responsible_actor_type: 'user' | 'page' | 'group' | 'channel';
+  responsibleActorId: string;
+  responsibleActorType: 'user' | 'page' | 'group' | 'channel';
   
   role: OperationalCommitmentRole;
   status: OperationalCommitmentStatus;
   
   // Referência a janela de tempo (opcional, apenas referência)
-  time_window_ref?: TimeWindowRef | null;
+  timeWindowRef?: TimeWindowRef | null;
   
   // Timestamps de check-in/check-out
-  checked_in_at?: string | null; // ISO 8601
-  checked_out_at?: string | null; // ISO 8601
+  checkedInAt?: string | null; // ISO 8601
+  checkedOutAt?: string | null; // ISO 8601
   
   // Motivo de falha (se status = failed)
-  failure_reason?: string | null;
+  failureReason?: string | null;
   
   // Rastreamento de origem
   source?: 'legacy' | 'v2';
   
   // Timestamps
-  created_at: string; // ISO 8601
-  updated_at: string; // ISO 8601
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
   
   // 🔴 LEGACY: Mantido para compatibilidade
-  global_user_id?: string | null;
-  assigned_by_global_user_id?: string | null;
+  globalUserId?: string | null;
+  assignedByGlobalUserId?: string | null;
 }
 
 /**
  * Input para criar OperationalCommitment
  */
 export interface CreateOperationalCommitmentInput {
-  event_id: string;
-  responsible_actor_id: string; // Obrigatório, explícito
-  responsible_actor_type: 'user' | 'page' | 'group' | 'channel';
+  eventId: string;
+  responsibleActorId: string; // Obrigatório, explícito
+  responsibleActorType: 'user' | 'page' | 'group' | 'channel';
   role: OperationalCommitmentRole;
-  time_window_ref?: TimeWindowRef | null;
+  timeWindowRef?: TimeWindowRef | null;
 }
 
 /**
  * Input para check-in
  */
 export interface CheckInInput {
-  observed_at?: string; // ISO 8601 (opcional, usa now() se não fornecido)
-  observed_by_actor_id?: string; // Opcional: quem observou o check-in
-  observed_by_actor_type?: 'user' | 'page' | 'group' | 'channel';
+  observedAt?: string; // ISO 8601 (opcional, usa now() se não fornecido)
+  observedByActorId?: string; // Opcional: quem observou o check-in
+  observedByActorType?: 'user' | 'page' | 'group' | 'channel';
 }
 
 /**
  * Input para check-out
  */
 export interface CheckOutInput {
-  observed_at?: string; // ISO 8601 (opcional, usa now() se não fornecido)
-  observed_by_actor_id?: string; // Opcional: quem observou o check-out
-  observed_by_actor_type?: 'user' | 'page' | 'group' | 'channel';
+  observedAt?: string; // ISO 8601 (opcional, usa now() se não fornecido)
+  observedByActorId?: string; // Opcional: quem observou o check-out
+  observedByActorType?: 'user' | 'page' | 'group' | 'channel';
 }
 
 /**
  * Input para marcar como failed
  */
 export interface MarkFailedInput {
-  failure_reason: string; // Obrigatório
-  observed_at?: string; // ISO 8601 (opcional, usa now() se não fornecido)
+  failureReason: string; // Obrigatório
+  observedAt?: string; // ISO 8601 (opcional, usa now() se não fornecido)
 }
 

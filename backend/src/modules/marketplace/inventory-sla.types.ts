@@ -42,7 +42,7 @@ export interface TransferSla {
   totalDays: number | null; // Tempo total (SHIPPED → RECEIVED)
   
   // Datas
-  createdAt: Date;
+  createdAt: string;
   shippedAt: Date | null;
   receivingStartedAt: Date | null; // Quando status mudou para RECEIVING
   receivedAt: Date | null;
@@ -73,6 +73,7 @@ export interface SlaConfig {
   maxDaysShippedToReceiving?: number; // SLA padrão: SHIPPED → RECEIVING (ex: 3 dias)
   maxDaysReceivingToReceived?: number; // SLA padrão: RECEIVING → RECEIVED (ex: 1 dia)
 }
+
 
 
 

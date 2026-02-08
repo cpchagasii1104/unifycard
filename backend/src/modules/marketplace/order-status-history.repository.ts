@@ -12,7 +12,7 @@ interface OrderStatusHistoryRow {
   to_status: string;
   changed_by_user_id: string | null;
   reason: string | null;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class OrderStatusHistoryRepository {
@@ -27,7 +27,7 @@ class OrderStatusHistoryRepository {
       toStatus: row.to_status as any,
       changedByUserId: row.changed_by_user_id,
       reason: row.reason,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -50,7 +50,7 @@ class OrderStatusHistoryRepository {
       )
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, order_id, from_status, to_status, changed_by_user_id,
-                reason, created_at
+                reason, createdAt
       `,
       [orderId, fromStatus, toStatus, changedByUserId || null, reason || null]
     );
@@ -73,11 +73,11 @@ class OrderStatusHistoryRepository {
       tenantId,
       `
       SELECT osh.id, osh.order_id, osh.from_status, osh.to_status,
-             osh.changed_by_user_id, osh.reason, osh.created_at
+             osh.changed_by_user_id, osh.reason, osh.createdAt
       FROM order_status_history osh
       INNER JOIN orders o ON osh.order_id = o.id
       WHERE o.tenant_id = $1 AND osh.order_id = $2
-      ORDER BY osh.created_at ASC
+      ORDER BY osh.createdAt ASC
       `,
       [tenantId, orderId]
     );
@@ -96,11 +96,11 @@ class OrderStatusHistoryRepository {
       tenantId,
       `
       SELECT osh.id, osh.order_id, osh.from_status, osh.to_status,
-             osh.changed_by_user_id, osh.reason, osh.created_at
+             osh.changed_by_user_id, osh.reason, osh.createdAt
       FROM order_status_history osh
       INNER JOIN orders o ON osh.order_id = o.id
       WHERE o.tenant_id = $1 AND osh.order_id = $2
-      ORDER BY osh.created_at DESC
+      ORDER BY osh.createdAt DESC
       LIMIT 1
       `,
       [tenantId, orderId]
@@ -111,6 +111,8 @@ class OrderStatusHistoryRepository {
 }
 
 export const orderStatusHistoryRepository = new OrderStatusHistoryRepository();
+
+
 
 
 

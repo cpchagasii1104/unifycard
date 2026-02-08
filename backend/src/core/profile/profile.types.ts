@@ -7,22 +7,22 @@ export interface Profile {
   fullName: string | null;
   phone: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   /**
    * 🔴 FONTE ÚNICA DE VERDADE: Flag explícita que indica se o primeiro acesso foi confirmado
    * false → modal de primeiro acesso aparece, campos editáveis
    * true → modal não aparece, campos bloqueados permanentemente
    * NUNCA inferir pela existência de dados (birthdate, gender, etc)
    */
-  profile_personal_confirmed: boolean;
+  profilePersonalConfirmed: boolean;
   /**
    * Flag explícita que indica se o usuário pode editar dados pessoais (nome, data nascimento, sexo)
    * true → pode editar
    * false → não pode editar (cadeado ativo)
-   * Deve estar sincronizado com profile_personal_confirmed
+   * Deve estar sincronizado com profilePersonalConfirmed
    */
-  can_edit_personal_data: boolean;
+  canEditPersonalData: boolean;
 }
 
 export interface ProfileRow {
@@ -33,8 +33,8 @@ export interface ProfileRow {
   phone: string | null;
   metadata: any; // JSONB
   profile_personal_confirmed: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UpdateProfileInput {
@@ -42,6 +42,8 @@ export interface UpdateProfileInput {
   phone?: string;
   metadata?: Record<string, any>;
 }
+
+
 
 
 

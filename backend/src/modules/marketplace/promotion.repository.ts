@@ -12,15 +12,15 @@ interface PromotionRow {
   tenant_id: string;
   name: string;
   type: string;
-  value: string;
+  valueCents: string;
   applies_to: string;
   applies_id: string;
   valid_from: Date;
   valid_to: Date | null;
   is_active: boolean;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PromotionRepository {
@@ -33,15 +33,15 @@ class PromotionRepository {
       tenantId: row.tenant_id,
       name: row.name,
       type: row.type as any,
-      value: parseFloat(row.value),
+      valueCents: parseFloat(row.value),
       appliesTo: row.applies_to as any,
       appliesId: row.applies_id,
       validFrom: row.valid_from,
       validTo: row.valid_to,
       isActive: row.is_active,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -61,7 +61,7 @@ class PromotionRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id, tenant_id, name, type, value, applies_to, applies_id,
-                valid_from, valid_to, is_active, metadata, created_at, updated_at
+                valid_from, valid_to, is_active, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -124,7 +124,7 @@ class PromotionRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, type, value, applies_to, applies_id,
-             valid_from, valid_to, is_active, metadata, created_at, updated_at
+             valid_from, valid_to, is_active, metadata, createdAt, updatedAt
       FROM promotions
       WHERE tenant_id = $1
         AND is_active = true
@@ -148,7 +148,7 @@ class PromotionRepository {
   ): Promise<Promotion[]> {
     let query = `
       SELECT id, tenant_id, name, type, value, applies_to, applies_id,
-             valid_from, valid_to, is_active, metadata, created_at, updated_at
+             valid_from, valid_to, is_active, metadata, createdAt, updatedAt
       FROM promotions
       WHERE tenant_id = $1
     `;
@@ -159,7 +159,7 @@ class PromotionRepository {
       params.push(isActive);
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     const rows = await runQueriesWithTenant<PromotionRow>(
       tenantId,
@@ -172,6 +172,9 @@ class PromotionRepository {
 }
 
 export const promotionRepository = new PromotionRepository();
+
+
+
 
 
 

@@ -12,7 +12,7 @@ export interface Group {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -32,6 +32,7 @@ export interface GroupFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

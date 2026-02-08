@@ -70,7 +70,7 @@ class ReferralSplitService {
           JOIN users u_source ON u_source.user_id = lrs.source_user_id
           JOIN users u_beneficiary ON u_beneficiary.user_id = lrs.beneficiary_user_id
           WHERE lrs.status = 'pending'
-          ORDER BY lrs.created_at ASC
+          ORDER BY lrs.createdAt ASC
           LIMIT $1
         `,
         values: [limit],
@@ -113,8 +113,8 @@ class ReferralSplitService {
       SELECT 
         lrs.split_id,
         lrs.status,
-        lrs.created_at,
-        lrs.credited_at,
+        lrs.createdAt,
+        lrs.creditedAt,
         lrs.metadata,
         u.email as source_email,
         p.full_name as source_name
@@ -133,7 +133,7 @@ class ReferralSplitService {
     }
 
     query += `
-      ORDER BY lrs.created_at DESC
+      ORDER BY lrs.createdAt DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
@@ -169,3 +169,4 @@ class ReferralSplitService {
 }
 
 export const referralSplitService = new ReferralSplitService();
+

@@ -119,7 +119,7 @@ class PayoutService {
             eventId,
             fromAccountId: platformAccount.accountId,
             toAccountId: recipientAccountId,
-            amount: split.amount, // NÃO recalcular, usar amount do split
+            amountCents: split.amount, // NÃO recalcular, usar amount do split
             currency: intent.currency as BankCurrency,
             description: `Marketplace payout: Split ${split.id}`,
             metadata: {
@@ -186,7 +186,7 @@ class PayoutService {
                 paymentSplitId: split.id,
                 recipientActorId: split.recipientActorId,
                 errorCode,
-                amount: split.amount,
+                amountCents: split.amount,
                 eventId: uuidv4(),
               },
             });
@@ -331,4 +331,5 @@ class PayoutService {
 }
 
 export const payoutService = new PayoutService();
+
 

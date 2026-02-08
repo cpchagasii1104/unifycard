@@ -18,21 +18,21 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceTemplateCanonical {
-  template_id: string;
+  templateId: string;
   name: string;
   description?: string;
-  category_id: string;
+  categoryId: string;
   type: 'one_time' | 'recurring' | 'quote_required';
-  default_duration_minutes?: number;
-  default_pricing_model: 'fixed' | 'hourly' | 'per_unit';
-  canonical_images: {
+  defaultDurationMinutes?: number;
+  defaultPricingModel: 'fixed' | 'hourly' | 'per_unit';
+  canonicalImages: {
     icon?: string;
     banner?: string;
   };
   attributes: Record<string, any>; // Requisitos, materiais, etc.
   version: string; // v1, v2, etc.
-  created_at: string;
-  updated_at?: string; // Apenas para novos imports, nunca altera template existente
+  createdAt: string;
+  updatedAt?: string; // Apenas para novos imports, nunca altera template existente
   // Imutável após criação
   immutable: true;
 }

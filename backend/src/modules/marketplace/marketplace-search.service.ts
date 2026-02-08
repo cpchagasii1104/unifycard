@@ -108,7 +108,7 @@ class MarketplaceSearchService {
 
     return {
       results: paginated,
-      total: filtered.length,
+      totalCents: filtered.length,
       filters,
       rankingExplanation: this.generateRankingExplanation(),
     };
@@ -548,4 +548,5 @@ class MarketplaceSearchService {
 }
 
 export const marketplaceSearchService = new MarketplaceSearchService();
+
 

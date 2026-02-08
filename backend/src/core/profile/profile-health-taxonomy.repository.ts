@@ -33,8 +33,8 @@ export interface HealthTaxonomyRow {
   description: string | null;
   metadata: Record<string, any>;
   is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class ProfileHealthTaxonomyRepository {
@@ -64,6 +64,7 @@ export class ProfileHealthTaxonomyRepository {
 }
 
 export const profileHealthTaxonomyRepository = new ProfileHealthTaxonomyRepository();
+
 
 
 

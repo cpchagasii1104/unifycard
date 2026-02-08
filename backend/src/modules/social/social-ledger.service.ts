@@ -18,7 +18,7 @@ export interface SocialLedgerEntry {
   description: string | null;
   metadata: Record<string, any>;
   idempotency_key: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface UserLedgerSummary {
@@ -63,7 +63,7 @@ export class SocialLedgerService {
 
     const entry = await runQueryWithTenant<{
       ledger_id: string;
-      created_at: string;
+      createdAt: string;
     }>(
       tenantId,
       `
@@ -75,7 +75,7 @@ export class SocialLedgerService {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
       DO NOTHING
-      RETURNING ledger_id, created_at
+      RETURNING ledger_id, createdAt
       `,
       [
         tenantId,
@@ -98,11 +98,11 @@ export class SocialLedgerService {
     if (!entry && data.idempotency_key) {
       const existing = await runQueryWithTenant<{
         ledger_id: string;
-        created_at: string;
+        createdAt: string;
       }>(
         tenantId,
         `
-        SELECT ledger_id, created_at
+        SELECT ledger_id, createdAt
         FROM social_ledger
         WHERE tenant_id = $1 AND idempotency_key = $2
         LIMIT 1
@@ -135,7 +135,7 @@ export class SocialLedgerService {
       description: data.description || null,
       metadata: data.metadata || {},
       idempotency_key: data.idempotency_key || null,
-      created_at: entry.created_at,
+      createdAt: entry.createdAt,
     };
   }
 
@@ -149,7 +149,7 @@ export class SocialLedgerService {
       SELECT 
         ledger_id, tenant_id, post_id, cta_id, transaction_id,
         recipient_actor_id, recipient_group_id, owner_actor_id,
-        amount_cents, currency, amount_type, description, metadata, idempotency_key, created_at
+        amount_cents, currency, amount_type, description, metadata, idempotency_key, createdAt
       FROM social_ledger
       WHERE ledger_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -174,7 +174,7 @@ export class SocialLedgerService {
       description: row.description,
       metadata: row.metadata || {},
       idempotency_key: row.idempotency_key,
-      created_at: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -225,7 +225,7 @@ export class SocialLedgerService {
       SELECT 
         sl.ledger_id, sl.tenant_id, sl.post_id, sl.cta_id, sl.transaction_id,
         sl.recipient_actor_id, sl.recipient_group_id, sl.owner_actor_id,
-        sl.amount_cents, sl.currency, sl.amount_type, sl.description, sl.metadata, sl.idempotency_key, sl.created_at
+        sl.amount_cents, sl.currency, sl.amount_type, sl.description, sl.metadata, sl.idempotency_key, sl.createdAt
       FROM social_ledger sl
       WHERE sl.tenant_id = $1 
         AND (
@@ -237,7 +237,7 @@ export class SocialLedgerService {
             WHERE u.global_user_id = $3
           )
         )
-      ORDER BY sl.created_at DESC
+      ORDER BY sl.createdAt DESC
       LIMIT $4
       `,
       [tenantId, actor.actor_id, globalUserId, limit]
@@ -258,7 +258,7 @@ export class SocialLedgerService {
       description: row.description,
       metadata: row.metadata || {},
       idempotency_key: row.idempotency_key,
-      created_at: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     }));
   }
 
@@ -324,6 +324,8 @@ export class SocialLedgerService {
 }
 
 export const socialLedgerService = new SocialLedgerService();
+
+
 
 
 

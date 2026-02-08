@@ -109,7 +109,7 @@ class WebAuthnService {
 
     if (!credential) {
       return {
-        verified: false,
+        isVerified: false,
         error: 'Credential not found',
         errorCode: 'WEBAUTHN_NOT_REGISTERED',
       };
@@ -126,7 +126,7 @@ class WebAuthnService {
       challengeFromClient = clientData.challenge;
     } catch {
       return {
-        verified: false,
+        isVerified: false,
         error: 'Invalid clientDataJSON',
         errorCode: 'INVALID_ASSERTION',
       };
@@ -141,7 +141,7 @@ class WebAuthnService {
 
     if (!challenge) {
       return {
-        verified: false,
+        isVerified: false,
         error: 'Challenge expired or not found',
         errorCode: 'CHALLENGE_EXPIRED',
       };
@@ -160,7 +160,7 @@ class WebAuthnService {
 
     if (!hasRequiredData) {
       return {
-        verified: false,
+        isVerified: false,
         error: 'Missing required assertion data',
         errorCode: 'INVALID_ASSERTION',
       };
@@ -179,7 +179,7 @@ class WebAuthnService {
 
     // 7. HOTFIX: Retornar erro explícito indicando que verificação não está implementada
     return {
-      verified: false,
+      isVerified: false,
       error: 'WebAuthn cryptographic verification not yet implemented',
       errorCode: 'WEBAUTHN_VERIFY_NOT_IMPLEMENTED',
     };

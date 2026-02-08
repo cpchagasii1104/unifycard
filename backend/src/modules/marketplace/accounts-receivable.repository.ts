@@ -16,20 +16,20 @@ interface AccountsReceivableRow {
   amount_cents: number;
   currency: string;
   status: string;
-  expected_at: Date;
-  received_at: Date | null;
+  expectedAt: Date;
+  receivedAt: Date | null;
   payment_method: string | null;
   received_by_actor_id: string | null;
   received_by_user_id: string | null;
-  cancelled_at: Date | null;
+  cancelledAt: Date | null;
   cancelled_by_actor_id: string | null;
   cancelled_by_user_id: string | null;
   cancellation_reason: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class AccountsReceivableRepository {
@@ -46,20 +46,20 @@ class AccountsReceivableRepository {
       amountCents: row.amount_cents,
       currency: row.currency,
       status: row.status as any,
-      expectedAt: row.expected_at,
-      receivedAt: row.received_at,
+      expectedAt: row.expectedAt,
+      receivedAt: row.receivedAt,
       paymentMethod: row.payment_method,
       receivedByActorId: row.received_by_actor_id,
       receivedByUserId: row.received_by_user_id,
-      cancelledAt: row.cancelled_at,
+      cancelledAt: row.cancelledAt,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancelledByUserId: row.cancelled_by_user_id,
       cancellationReason: row.cancellation_reason,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -86,18 +86,18 @@ class AccountsReceivableRepository {
       `
       INSERT INTO accounts_receivable (
         tenant_id, actor_id, source_type, source_id,
-        amount_cents, currency, status, expected_at,
+        amount_cents, currency, status, expectedAt,
         payment_method,
         created_by_actor_id, created_by_user_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
       RETURNING id, tenant_id, actor_id, source_type, source_id,
-                amount_cents, currency, status, expected_at, received_at,
+                amount_cents, currency, status, expectedAt, receivedAt,
                 payment_method,
                 received_by_actor_id, received_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -130,12 +130,12 @@ class AccountsReceivableRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, source_type, source_id,
-             amount_cents, currency, status, expected_at, received_at,
+             amount_cents, currency, status, expectedAt, receivedAt,
              payment_method,
              received_by_actor_id, received_by_user_id,
-             cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+             cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM accounts_receivable
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -183,14 +183,14 @@ class AccountsReceivableRepository {
 
     if (filters.expectedAtFrom) {
       const dateFrom = filters.expectedAtFrom instanceof Date ? filters.expectedAtFrom : new Date(filters.expectedAtFrom);
-      conditions.push(`expected_at >= $${paramIndex}`);
+      conditions.push(`expectedAt >= $${paramIndex}`);
       params.push(dateFrom);
       paramIndex++;
     }
 
     if (filters.expectedAtTo) {
       const dateTo = filters.expectedAtTo instanceof Date ? filters.expectedAtTo : new Date(filters.expectedAtTo);
-      conditions.push(`expected_at <= $${paramIndex}`);
+      conditions.push(`expectedAt <= $${paramIndex}`);
       params.push(dateTo);
       paramIndex++;
     }
@@ -202,15 +202,15 @@ class AccountsReceivableRepository {
       tenantId,
       `
       SELECT id, tenant_id, actor_id, source_type, source_id,
-             amount_cents, currency, status, expected_at, received_at,
+             amount_cents, currency, status, expectedAt, receivedAt,
              payment_method,
              received_by_actor_id, received_by_user_id,
-             cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+             cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM accounts_receivable
       WHERE ${conditions.join(' AND ')}
-      ORDER BY expected_at ASC
+      ORDER BY expectedAt ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -233,18 +233,18 @@ class AccountsReceivableRepository {
       `
       UPDATE accounts_receivable
       SET status = 'RECEIVED',
-          received_at = NOW(),
+          receivedAt = NOW(),
           received_by_actor_id = $3,
           received_by_user_id = $4,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
       RETURNING id, tenant_id, actor_id, source_type, source_id,
-                amount_cents, currency, status, expected_at, received_at,
+                amount_cents, currency, status, expectedAt, receivedAt,
                 payment_method,
                 received_by_actor_id, received_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, receivableId, receivedByActorId, receivedByUserId]
     );
@@ -271,19 +271,19 @@ class AccountsReceivableRepository {
       `
       UPDATE accounts_receivable
       SET status = 'CANCELLED',
-          cancelled_at = NOW(),
+          cancelledAt = NOW(),
           cancelled_by_actor_id = $3,
           cancelled_by_user_id = $4,
           cancellation_reason = $5,
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
       RETURNING id, tenant_id, actor_id, source_type, source_id,
-                amount_cents, currency, status, expected_at, received_at,
+                amount_cents, currency, status, expectedAt, receivedAt,
                 payment_method,
                 received_by_actor_id, received_by_user_id,
-                cancelled_at, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
+                cancelledAt, cancelled_by_actor_id, cancelled_by_user_id, cancellation_reason,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, receivableId, cancelledByActorId, cancelledByUserId, cancellationReason]
     );
@@ -297,6 +297,8 @@ class AccountsReceivableRepository {
 }
 
 export const accountsReceivableRepository = new AccountsReceivableRepository();
+
+
 
 
 

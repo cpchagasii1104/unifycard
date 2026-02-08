@@ -28,8 +28,9 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
       sourceType?: string;
     };
   }>('/actors/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -60,9 +61,9 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
           sourceType: item.sourceType,
           sourceId: item.sourceId,
           status: item.status,
-          createdAt: item.createdAt.toISOString(),
-          readAt: item.readAt?.toISOString(),
-          archivedAt: item.archivedAt?.toISOString(),
+          createdAt: item.createdAt,
+          readAt: item.readAt,
+          archivedAt: item.archivedAt,
           metadata: item.metadata,
         })),
       });
@@ -78,8 +79,9 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
    * 🔴 BLINDAGEM: Apenas organização, não decisão
    */
   fastify.get<{ Params: { id: string } }>('/actors/:id/counter', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -105,8 +107,9 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
    * 🔴 BLINDAGEM: NÃO cria ação automática
    */
   fastify.post<{ Params: { itemId: string } }>('/:itemId/read', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -116,7 +119,7 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
       const item = await socialInboxService.markAsRead(
         req.tenant.id,
         req.params.itemId,
-        req.user.userId
+        req.actionContext.actorId
       );
 
       return reply.send({
@@ -137,8 +140,9 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
    * 🔴 BLINDAGEM: NÃO cria ação automática
    */
   fastify.post<{ Params: { itemId: string } }>('/:itemId/archive', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -148,7 +152,7 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
       const item = await socialInboxService.archive(
         req.tenant.id,
         req.params.itemId,
-        req.user.userId
+        req.actionContext.actorId
       );
 
       return reply.send({

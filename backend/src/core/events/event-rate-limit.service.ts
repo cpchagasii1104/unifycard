@@ -69,7 +69,7 @@ class EventRateLimitService {
         query = `
           SELECT COUNT(*)::text as count
           FROM events
-          WHERE tenant_id = $1 AND actor_id = $2 AND created_at >= $3
+          WHERE tenant_id = $1 AND actor_id = $2 AND createdAt >= $3
         `;
         params = [tenantId, actorId, windowStart];
       } else if (action === 'publish') {
@@ -78,14 +78,14 @@ class EventRateLimitService {
           FROM events
           WHERE tenant_id = $1 AND actor_id = $2 
             AND status = 'published' 
-            AND updated_at >= $3
+            AND updatedAt >= $3
         `;
         params = [tenantId, actorId, windowStart];
       } else if (action === 'checkout') {
         query = `
           SELECT COUNT(*)::text as count
           FROM event_attendees
-          WHERE tenant_id = $1 AND actor_id = $2 AND created_at >= $3
+          WHERE tenant_id = $1 AND actor_id = $2 AND createdAt >= $3
         `;
         params = [tenantId, actorId, windowStart];
       }
@@ -125,6 +125,7 @@ class EventRateLimitService {
 }
 
 export const eventRateLimitService = new EventRateLimitService();
+
 
 
 

@@ -4,12 +4,12 @@
 /**
  * Status da conta a pagar
  */
-export type AccountsPayableStatus = 'OPEN' | 'SCHEDULED' | 'PAID' | 'CANCELLED';
+export type AccountsPayableStatus = 'open' | 'scheduled' | 'paid' | 'cancelled';
 
 /**
  * Tipo de referência
  */
-export type AccountsPayableReferenceType = 'PURCHASE_ORDER' | 'MANUAL';
+export type AccountsPayableReferenceType = 'purchase_order' | 'manual';
 
 /**
  * Conta a Pagar
@@ -44,8 +44,8 @@ export interface AccountsPayable {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -92,6 +92,7 @@ export interface AccountsPayableFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

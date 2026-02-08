@@ -79,7 +79,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -135,7 +135,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -178,18 +178,18 @@ class BankReconciliationHistoryRepository {
     }
 
     if (filters.startDate) {
-      query += ` AND created_at >= $${paramIndex}`;
+      query += ` AND createdAt >= $${paramIndex}`;
       params.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      query += ` AND created_at <= $${paramIndex}`;
+      query += ` AND createdAt <= $${paramIndex}`;
       params.push(filters.endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query += ` ORDER BY createdAt DESC`;
 
     if (filters.limit) {
       query += ` LIMIT $${paramIndex}`;
@@ -214,7 +214,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      created_at: Date;
+      createdAt: Date;
     }>(tenantId, query, params);
 
     return rows.map(row => this.toReconciliationHistoryEntry(row));
@@ -234,7 +234,7 @@ class BankReconciliationHistoryRepository {
     notes: string | null;
     metadata: any;
     performed_by_user_id: string | null;
-    created_at: Date;
+    createdAt: Date;
   }): ReconciliationHistoryEntry {
     return {
       reconciliationId: row.reconciliation_id,
@@ -247,11 +247,13 @@ class BankReconciliationHistoryRepository {
       notes: row.notes || undefined,
       metadata: row.metadata || {},
       performedByUserId: row.performed_by_user_id || undefined,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 }
 
 export const bankReconciliationHistoryRepository = new BankReconciliationHistoryRepository();
+
+
 
 

@@ -7,11 +7,11 @@ export interface ReputationRow {
   entity_global_user_id: string | null;
   global_score: string;
   rating_count: number;
-  last_rating_at: string | null;
+  last_ratingAt: string | null;
   quality_score: string | null;
   punctuality_score: string | null;
   professionalism_score: string | null;
-  updated_at: string;
+  updatedAt: string;
 }
 
 export interface ReputationScore {
@@ -39,3 +39,4 @@ export interface ReviewCreatedEventPayload {
   professionalismRating?: number;
   sourceModule: string;
 }
+

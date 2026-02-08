@@ -11,8 +11,8 @@ export class CountryModel {
       code: row.code,
       name: row.name,
       nameEn: row.name_en,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -23,6 +23,7 @@ export class CountryModel {
     return rows.map(row => this.fromRow(row));
   }
 }
+
 
 
 

@@ -12,7 +12,7 @@ interface GroupRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class GroupRepository {
@@ -25,7 +25,7 @@ class GroupRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -44,7 +44,7 @@ class GroupRepository {
       `
       INSERT INTO groups (tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata)
       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-      RETURNING id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, created_at
+      RETURNING id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, createdAt
       `,
       [
         tenantId,
@@ -84,7 +84,7 @@ class GroupRepository {
     const rows = await runQueriesWithTenant<GroupRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, created_at
+      SELECT id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, createdAt
       FROM groups
       WHERE ${conditions.join(' AND ')}
       ORDER BY name ASC
@@ -100,7 +100,7 @@ class GroupRepository {
     const rows = await runQueriesWithTenant<GroupRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, created_at
+      SELECT id, tenant_id, name, parent_group_id, created_by_actor_id, created_by_user_id, metadata, createdAt
       FROM groups
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -116,6 +116,8 @@ class GroupRepository {
 }
 
 export const groupRepository = new GroupRepository();
+
+
 
 
 

@@ -18,25 +18,25 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface RegionalFundAllocation {
-  allocation_id: string;
-  regional_fund_id: string;
+  allocationId: string;
+  regionalFundId: string;
   type: 'subsidy' | 'incentive' | 'reimbursement' | 'infrastructure';
-  target_actor_id: string; // ID do ator que recebe a alocação
-  target_actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
+  targetActorId: string; // ID do ator que recebe a alocação
+  targetActorType: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
   reference?: {
-    order_id?: string;
-    subscription_id?: string;
-    project_id?: string;
-    delivery_id?: string;
+    orderId?: string;
+    subscriptionId?: string;
+    projectId?: string;
+    deliveryId?: string;
   };
-  amount: number;
+  amountCents: number;
   currency: string;
   reason: string; // Motivo determinístico da alocação
   status: 'pending' | 'approved' | 'executed' | 'rejected';
-  ledger_entry_id?: string; // ID do lançamento no ledger (quando executado)
-  created_at: string;
-  executed_at?: string;
-  // NÃO incluir updated_at - alocações são imutáveis após criação
+  ledgerEntryId?: string; // ID do lançamento no ledger (quando executado)
+  createdAt: string;
+  executedAt?: string;
+  // NÃO incluir updatedAt - alocações são imutáveis após criação
 }
 
 

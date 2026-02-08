@@ -32,7 +32,7 @@ class PilotNotesRepository {
       observed_user_id: string;
       content: string;
       created_by_user_id: string;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -52,7 +52,7 @@ class PilotNotesRepository {
       observedUserId: row.observed_user_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -76,7 +76,7 @@ class PilotNotesRepository {
       observed_user_id: string;
       content: string;
       created_by_user_id: string;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
@@ -84,7 +84,7 @@ class PilotNotesRepository {
         FROM pilot_notes
         WHERE tenant_id = $1
           AND observed_user_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT $3
         OFFSET $4
       `,
@@ -97,7 +97,7 @@ class PilotNotesRepository {
       observedUserId: row.observed_user_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
   }
 
@@ -124,6 +124,7 @@ class PilotNotesRepository {
 }
 
 export const pilotNotesRepository = new PilotNotesRepository();
+
 
 
 

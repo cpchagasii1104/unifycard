@@ -18,18 +18,18 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServicePaymentHold {
-  hold_id: string;
-  request_id: string;
-  payment_plan_id: string;
-  amount: number;
+  holdId: string;
+  requestId: string;
+  paymentPlanId: string;
+  amountCents: number;
   currency: string;
   status: 'held' | 'released' | 'disputed' | 'expired';
-  created_at: string;
-  release_deadline_at: string; // ISO 8601 - Quando o hold expira (auto-release se não houver disputa)
-  release_policy: 'client_confirm' | 'auto_after_deadline' | 'provider_confirm_with_proof';
-  released_at?: string; // ISO 8601 - Quando foi liberado
-  released_by?: string; // actor_id que liberou (customer, provider, ou 'auto')
-  dispute_case_id?: string; // ID do DisputeCase se houver disputa
+  createdAt: string;
+  releaseDeadlineAt: string; // ISO 8601 - Quando o hold expira (auto-release se não houver disputa)
+  releasePolicy: 'client_confirm' | 'auto_after_deadline' | 'provider_confirm_with_proof';
+  releasedAt?: string; // ISO 8601 - Quando foi liberado
+  releasedBy?: string; // actorId que liberou (customer, provider, ou 'auto')
+  disputeCaseId?: string; // ID do DisputeCase se houver disputa
 }
 
 

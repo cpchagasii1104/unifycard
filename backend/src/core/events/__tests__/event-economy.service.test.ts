@@ -34,14 +34,14 @@ describe('EventEconomyService', () => {
     testGlobalUserId = uuidv4();
 
     await pool.query(
-      `INSERT INTO global_users (global_user_id, full_name, created_at)
+      `INSERT INTO global_users (global_user_id, full_name, createdAt)
        VALUES ($1, 'Test User Economy', now())
        ON CONFLICT (global_user_id) DO NOTHING`,
       [testGlobalUserId]
     );
 
     await pool.query(
-      `INSERT INTO users (user_id, tenant_id, email, global_user_id, created_at)
+      `INSERT INTO users (user_id, tenant_id, email, global_user_id, createdAt)
        VALUES ($1, $2, 'test@economy.com', $3, now())
        ON CONFLICT (user_id) DO NOTHING`,
       [testUserId, testTenantId, testGlobalUserId]
@@ -218,6 +218,7 @@ describe('EventEconomyService', () => {
     });
   });
 });
+
 
 
 

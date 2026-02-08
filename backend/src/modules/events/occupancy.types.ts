@@ -31,8 +31,8 @@ export interface PersonOccupancyConfig {
 export interface SlotOccupancyConfig {
   slots: Array<{
     id: string;
-    start_time: string; // ISO string
-    end_time: string; // ISO string
+    starts_at: string; // ISO string
+    ends_at: string; // ISO string
     price_cents?: number;
   }>;
   slot_duration_minutes: number; // Duração padrão de cada slot
@@ -58,8 +58,8 @@ export interface EventOccupancyModel {
   no_show_penalty_currency: string;
   auto_cancel_after_minutes: number | null;
   config: TableOccupancyConfig | PersonOccupancyConfig | SlotOccupancyConfig | HybridOccupancyConfig;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Input para criar/atualizar modelo de ocupação
@@ -90,11 +90,11 @@ export interface EventReservation {
   reservation_price_cents: number | null;
   reservation_currency: string;
   transaction_id: string | null;
-  check_in_time: Date | null;
+  checked_in_at: Date | null;
   no_show_time: Date | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Input para criar reserva
@@ -113,6 +113,10 @@ export interface OccupancyModelSuggestion {
   reasoning: string;
   suggested_config?: Partial<TableOccupancyConfig | PersonOccupancyConfig | SlotOccupancyConfig>;
 }
+
+
+
+
 
 
 

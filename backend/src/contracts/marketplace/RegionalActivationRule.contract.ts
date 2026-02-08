@@ -20,7 +20,7 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface RegionalActivationRule {
-  rule_id: string;
+  ruleId: string;
   region: {
     country: string;
     state: string;
@@ -28,21 +28,22 @@ export interface RegionalActivationRule {
   };
   trigger: {
     metric: 'total_transactions_amount' | 'total_orders_count' | 'total_stores_active';
-    operator: '>=' | '<=';
-    value: number;
+    operator: '>=' | '<='; 
+    valueCents: number;
     period: 'monthly';
   };
   action: {
     type: 'suggest_hub' | 'unlock_incentive' | 'enable_industry_onboarding';
     payload?: {
-      incentive_type?: string;
-      max_amount?: number;
+      incentiveType?: string;
+      maxAmount?: number;
     };
   };
   status: 'active' | 'paused';
-  created_at: string;
-  // NÃO incluir updated_at - regra só pode ser pausada, nunca editada
+  createdAt: string;
+  // NÃO incluir updatedAt - regra só pode ser pausada, nunca editada
 }
+
 
 
 

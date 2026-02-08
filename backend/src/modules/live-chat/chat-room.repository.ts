@@ -16,7 +16,7 @@ interface ChatRoomRow {
   room_type: string;
   status: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class ChatRoomRepository {
@@ -29,7 +29,7 @@ class ChatRoomRepository {
       roomType: row.room_type as ChatRoomType,
       status: row.status as any,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -53,8 +53,8 @@ class ChatRoomRepository {
         tenant_id, context_type, context_id, room_type, status, metadata
       )
       VALUES ($1, $2, $3, $4, 'ACTIVE', '{}'::jsonb)
-      ON CONFLICT (tenant_id, context_type, context_id, room_type) DO UPDATE SET updated_at = NOW()
-      RETURNING id, tenant_id, context_type, context_id, room_type, status, metadata, created_at
+      ON CONFLICT (tenant_id, context_type, context_id, room_type) DO UPDATE SET updatedAt = NOW()
+      RETURNING id, tenant_id, context_type, context_id, room_type, status, metadata, createdAt
       `,
       [tenantId, contextType, contextId, roomType]
     );
@@ -75,7 +75,7 @@ class ChatRoomRepository {
     const row = await runQueryWithTenant<ChatRoomRow>(
       tenantId,
       `
-      SELECT id, tenant_id, context_type, context_id, room_type, status, metadata, created_at
+      SELECT id, tenant_id, context_type, context_id, room_type, status, metadata, createdAt
       FROM chat_rooms
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND room_type = $4
         AND status = 'ACTIVE'
@@ -100,6 +100,8 @@ class ChatRoomRepository {
 }
 
 export const chatRoomRepository = new ChatRoomRepository();
+
+
 
 
 

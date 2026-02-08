@@ -34,7 +34,7 @@ export interface PaymentMethod {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -61,6 +61,7 @@ export interface PaymentMethodFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

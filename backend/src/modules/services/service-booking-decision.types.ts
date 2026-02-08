@@ -31,8 +31,8 @@ export interface ServiceBookingDecision {
   decidedAt: Date;
   reason?: string | null; // Motivo da decisão (opcional)
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -44,11 +44,11 @@ export interface ServiceBookingDecisionRow {
   booking_id: string;
   decided_by_actor_id: string;
   status: BookingDecisionStatus;
-  decided_at: Date;
+  decidedAt: Date;
   reason: string | null;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -63,4 +63,6 @@ export interface CreateServiceBookingDecisionInput {
   reason?: string | null;
   metadata?: Record<string, any>;
 }
+
+
 

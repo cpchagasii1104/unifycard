@@ -20,7 +20,7 @@ export interface FundSummary {
 
 export interface FundHistoryEntry {
   date: string; // YYYY-MM-DD
-  amount: number;
+  amountCents: number;
 }
 
 class FundService {
@@ -65,17 +65,17 @@ class FundService {
       // Buscar transações onde to_account é a conta de região e metadata indica split REGION do módulo work
       const result = await client.query<{
         transaction_id: string;
-        amount: string;
-        created_at: Date;
+        amountCents: string;
+        createdAt: Date;
         metadata: any;
       }>(
         `
-        SELECT transaction_id, amount, created_at, metadata
+        SELECT transaction_id, amount, createdAt, metadata
         FROM transactions
         WHERE to_account = $1
           AND metadata->>'module' = 'work'
           AND metadata->>'splitTargetType' = 'REGION'
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT 1000
         `,
         [regionAccountId]
@@ -86,8 +86,8 @@ class FundService {
 
       // Obter última atualização
       const lastTransaction = allTransactions[0];
-      const lastUpdated = lastTransaction?.created_at
-        ? lastTransaction.created_at.toISOString()
+      const lastUpdated = lastTransaction?.createdAt
+        ? lastTransaction.createdAt.toISOString()
         : new Date().toISOString();
 
       return {
@@ -127,19 +127,19 @@ class FundService {
       // Buscar transações onde to_account é a conta de região, metadata.module = 'work' e splitTargetType = 'REGION'
       const result = await client.query<{
         date: string;
-        amount: string;
+        amountCents: string;
       }>(
         `
         SELECT 
-          DATE(created_at) as date,
+          DATE(createdAt) as date,
           SUM(amount) as amount
         FROM transactions
         WHERE to_account = $1
           AND metadata->>'module' = 'work'
           AND metadata->>'splitTargetType' = 'REGION'
-          AND created_at >= $2
-          AND created_at <= $3
-        GROUP BY DATE(created_at)
+          AND createdAt >= $2
+          AND createdAt <= $3
+        GROUP BY DATE(createdAt)
         ORDER BY date ASC
         `,
         [regionAccountId, startDate, endDate]
@@ -148,7 +148,7 @@ class FundService {
       // Converter para formato esperado
       const history: FundHistoryEntry[] = result.rows.map((row) => ({
         date: row.date,
-        amount: parseFloat(row.amount),
+        amountCents: parseFloat(row.amount),
       }));
 
       return history;
@@ -159,4 +159,6 @@ class FundService {
 }
 
 export const fundService = new FundService();
+
+
 

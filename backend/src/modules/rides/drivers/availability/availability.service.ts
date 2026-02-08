@@ -28,7 +28,7 @@ export class AvailabilityService {
         current_zone_id = $3,
         current_lat = $4,
         current_lng = $5,
-        updated_at = now()
+        updatedAt = now()
       RETURNING *
       `,
       values: [
@@ -50,7 +50,7 @@ export class AvailabilityService {
       SET 
         is_online = false,
         destination_enabled = false,
-        updated_at = now()
+        updatedAt = now()
       WHERE driver_id = $1
       RETURNING *
       `,
@@ -70,7 +70,7 @@ export class AvailabilityService {
         destination_lng = $3,
         destination_deadline = $4,
         destination_slots_remaining = $5,
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND driver_id = $6
       RETURNING *
       `,
@@ -96,7 +96,7 @@ export class AvailabilityService {
         destination_lat = null,
         destination_lng = null,
         destination_deadline = null,
-        updated_at = now()
+        updatedAt = now()
       WHERE driver_id = $1 AND tenant_id = $2
       RETURNING *
       `,
@@ -111,7 +111,7 @@ export class AvailabilityService {
       text: `
       UPDATE rides_driver_availability
       SET destination_slots_remaining = destination_slots_remaining + 1,
-          updated_at = now()
+          updatedAt = now()
       WHERE driver_id = $1 AND tenant_id = $2
       `,
       values: [driverId, tenantId],
@@ -128,3 +128,4 @@ export class AvailabilityService {
 }
 
 export const availabilityService = new AvailabilityService();
+

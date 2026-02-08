@@ -165,7 +165,7 @@ class DashboardService {
       trends: {
         dailySales: salesReport30Days.byPeriod.map((period) => ({
           date: period.period,
-          amount: period.totalPaid,
+          amountCents: period.totalPaid,
           orders: period.totalOrders,
         })),
       },
@@ -291,4 +291,5 @@ class DashboardService {
 }
 
 export const dashboardService = new DashboardService();
+
 

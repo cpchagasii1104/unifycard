@@ -18,7 +18,7 @@ interface BusinessAuditLogRow {
   context_type: string;
   context_id: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class BusinessAuditLogRepository {
@@ -32,7 +32,7 @@ class BusinessAuditLogRepository {
       contextType: row.context_type as any,
       contextId: row.context_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -49,7 +49,7 @@ class BusinessAuditLogRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-                metadata, created_at
+                metadata, createdAt
       `,
       [
         tenantId,
@@ -77,7 +77,7 @@ class BusinessAuditLogRepository {
       tenantId,
       `
       SELECT log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-             metadata, created_at
+             metadata, createdAt
       FROM business_audit_logs
       WHERE tenant_id = $1 AND log_id = $2
       `,
@@ -89,12 +89,12 @@ class BusinessAuditLogRepository {
 
   /**
    * Listar logs com filtros
-   * 🔴 BLINDAGEM: Ordenação apenas por created_at DESC (mais recente primeiro)
+   * 🔴 BLINDAGEM: Ordenação apenas por createdAt DESC (mais recente primeiro)
    */
   async find(
     tenantId: string,
     filters: BusinessAuditLogFilters = {}
-  ): Promise<{ logs: BusinessAuditLog[]; total: number }> {
+  ): Promise<{ logs: BusinessAuditLog[]; totalCents: number }> {
     const conditions: string[] = ['tenant_id = $1'];
     const params: any[] = [tenantId];
     let paramIndex = 2;
@@ -120,12 +120,12 @@ class BusinessAuditLogRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`created_at >= $${paramIndex++}`);
+      conditions.push(`createdAt >= $${paramIndex++}`);
       params.push(filters.startDate);
     }
 
     if (filters.endDate) {
-      conditions.push(`created_at <= $${paramIndex++}`);
+      conditions.push(`createdAt <= $${paramIndex++}`);
       params.push(filters.endDate);
     }
 
@@ -152,10 +152,10 @@ class BusinessAuditLogRepository {
       tenantId,
       `
       SELECT log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-             metadata, created_at
+             metadata, createdAt
       FROM business_audit_logs
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `,
       [...params, limit, offset]
@@ -169,6 +169,9 @@ class BusinessAuditLogRepository {
 }
 
 export const businessAuditLogRepository = new BusinessAuditLogRepository();
+
+
+
 
 
 

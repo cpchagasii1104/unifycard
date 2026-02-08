@@ -103,7 +103,7 @@ interface MigrationFile {
 
 interface ExecutedMigration {
   filename: string;
-  executed_at: Date;
+  executedAt: Date;
 }
 
 /**
@@ -132,14 +132,14 @@ async function ensureMigrationsTable(): Promise<void> {
         CREATE TABLE schema_migrations (
           id SERIAL PRIMARY KEY,
           filename VARCHAR(255) NOT NULL UNIQUE,
-          executed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          executedAt TIMESTAMPTZ NOT NULL DEFAULT now(),
           checksum VARCHAR(64),
           execution_time_ms INTEGER,
           CONSTRAINT unique_filename UNIQUE (filename)
         );
         
         CREATE INDEX idx_schema_migrations_filename ON schema_migrations (filename);
-        CREATE INDEX idx_schema_migrations_executed_at ON schema_migrations (executed_at);
+        CREATE INDEX idx_schema_migrations_executedAt ON schema_migrations (executedAt);
       `);
       
       console.log('✅ Tabela schema_migrations criada\n');
@@ -180,7 +180,7 @@ async function getExecutedMigrations(): Promise<Set<string>> {
   const client = await pool.connect();
   try {
     const result = await client.query<ExecutedMigration>(
-      'SELECT filename FROM schema_migrations ORDER BY executed_at'
+      'SELECT filename FROM schema_migrations ORDER BY executedAt'
     );
     return new Set(result.rows.map((row) => row.filename));
   } finally {
@@ -303,7 +303,7 @@ async function performAutoBaseline(allMigrations: MigrationFile[]): Promise<void
       // Marcar como executada (sem checksum, pois não executamos de fato)
       // NOTA: Isso apenas registra no controle, NÃO executa o SQL da migration
       await client.query(
-        `INSERT INTO schema_migrations (filename, executed_at, checksum)
+        `INSERT INTO schema_migrations (filename, executedAt, checksum)
          VALUES ($1, now(), NULL)
          ON CONFLICT (filename) DO NOTHING`,
         [filename]
@@ -637,3 +637,4 @@ main().catch((error) => {
   console.error('Erro não tratado:', error);
   process.exit(1);
 });
+

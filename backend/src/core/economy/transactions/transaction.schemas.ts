@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const createTransferSchema = z.object({
   fromAccount: z.string().uuid('Invalid source account ID'),
   toAccount: z.string().uuid('Invalid destination account ID'),
-  amount: z.number().positive('Amount must be greater than zero'),
+  amountCents: z.number().positive('Amount must be greater than zero'),
   eventId: z.string().uuid('Invalid event ID').optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -42,3 +42,4 @@ export const listTransactionsQuerySchema = z.object({
 });
 
 export type CreateTransferInput = z.infer<typeof createTransferSchema>;
+

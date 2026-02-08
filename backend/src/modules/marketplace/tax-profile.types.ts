@@ -31,8 +31,8 @@ export interface TaxProfile {
   isIcmsContributor: boolean;
   isServiceProvider: boolean;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -59,4 +59,5 @@ export const ALLOWED_DOCUMENT_TYPES_BY_REGIME: Record<TaxRegime, string[]> = {
   PRESUMIDO: ['NFE', 'NONE'], // NF-e (NFS-e será adicionado futuramente)
   REAL: ['NFE', 'NONE'], // NF-e completa (NFS-e será adicionado futuramente)
 };
+
 

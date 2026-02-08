@@ -36,36 +36,36 @@ export type ProductType = 'industrialized' | 'own' | 'both';
 export type CompanyPlanType = 'Basic' | 'Professional' | 'Industrial';
 
 export interface BusinessTemplate {
-  template_id: string;
+  templateId: string;
   name: string;
   description: string;
   type: BusinessTemplateType;
   version: string; // v1, v2, etc.
-  category_ids: string[]; // Categorias de produtos/serviços padrão
-  allowed_product_types: ProductType; // industrialized, own, both
-  default_product_templates: string[]; // IDs de ProductTemplate
-  default_service_templates: string[]; // IDs de ServiceTemplateCanonical
-  operational_config: {
-    requires_agenda: boolean;
-    supports_dispatch: boolean;
-    supports_quote_flow: boolean;
-    supports_pdv: boolean;
-    supports_b2b: boolean;
+  categoryIds: string[]; // Categorias de produtos/serviços padrão
+  allowedProductTypes: ProductType; // industrialized, own, both
+  defaultProductTemplates: string[]; // IDs de ProductTemplate
+  defaultServiceTemplates: string[]; // IDs de ServiceTemplateCanonical
+  operationalConfig: {
+    requiresAgenda: boolean;
+    supportsDispatch: boolean;
+    supportsQuoteFlow: boolean;
+    supportsPdv: boolean;
+    supportsB2b: boolean;
   };
-  default_roles_enabled: Array<'manager' | 'sales' | 'service_operator' | 'accountant'>;
-  recommended_plan: CompanyPlanType;
-  canonical_images: {
+  defaultRolesEnabled: Array<'manager' | 'sales' | 'service_operator' | 'accountant'>;
+  recommendedPlan: CompanyPlanType;
+  canonicalImages: {
     logo?: string;
     banner?: string;
     icon?: string;
   };
   flags: {
-    allows_own_products: boolean;
-    allows_industrial_products: boolean;
-    allows_services: boolean;
+    allowsOwnProducts: boolean;
+    allowsIndustrialProducts: boolean;
+    allowsServices: boolean;
   };
-  created_at: string;
-  updated_at?: string; // Apenas para novos imports, nunca altera template existente
+  createdAt: string;
+  updatedAt?: string; // Apenas para novos imports, nunca altera template existente
   // Imutável após criação
   immutable: true;
 }

@@ -22,7 +22,7 @@ interface InventoryMovementRow {
   inventory_lot_id: string | null; // SPRINT 37.4: Lote opcional
   metadata: any;
   created_by_user_id: string | null;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class InventoryMovementRepository {
@@ -43,7 +43,7 @@ class InventoryMovementRepository {
       inventoryLotId: row.inventory_lot_id, // SPRINT 37.4: Lote opcional
       metadata: row.metadata || null,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -64,7 +64,7 @@ class InventoryMovementRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id, tenant_id, product_variant_id, movement_type, quantity,
                 unit, reason, reference_type, reference_id, inventory_lot_id, metadata,
-                created_by_user_id, created_at
+                created_by_user_id, createdAt
       `,
       [
         tenantId,
@@ -122,13 +122,13 @@ class InventoryMovementRepository {
     }
 
     if (options.startDate) {
-      conditions.push(`created_at >= $${paramIndex}`);
+      conditions.push(`createdAt >= $${paramIndex}`);
       params.push(options.startDate);
       paramIndex++;
     }
 
     if (options.endDate) {
-      conditions.push(`created_at <= $${paramIndex}`);
+      conditions.push(`createdAt <= $${paramIndex}`);
       params.push(options.endDate);
       paramIndex++;
     }
@@ -142,10 +142,10 @@ class InventoryMovementRepository {
       `
       SELECT id, tenant_id, product_variant_id, movement_type, quantity,
              unit, reason, reference_type, reference_id, inventory_lot_id, metadata,
-             created_by_user_id, created_at
+             created_by_user_id, createdAt
       FROM inventory_movements
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       ${limitClause}
       ${offsetClause}
       `,
@@ -195,4 +195,6 @@ class InventoryMovementRepository {
 }
 
 export const inventoryMovementRepository = new InventoryMovementRepository();
+
+
 

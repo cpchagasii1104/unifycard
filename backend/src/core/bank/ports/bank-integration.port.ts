@@ -14,14 +14,14 @@ export interface BankIntegrationPort {
     input: {
       eventId: string;
       buyerUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
   ): Promise<{
     transactionId: string;
-    splits: Array<{ accountId: string; amount: number }>;
+    splits: Array<{ accountId: string; amountCents: number }>;
   }>;
   
   processEventConsumptionPayment(
@@ -29,14 +29,14 @@ export interface BankIntegrationPort {
     input: {
       eventId: string;
       buyerUserId: string;
-      amount: number;
+      amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
       metadata?: Record<string, any>;
     }
   ): Promise<{
     transactionId: string;
-    splits: Array<{ accountId: string; amount: number }>;
+    splits: Array<{ accountId: string; amountCents: number }>;
   }>;
   
   getUserBalance(
@@ -45,6 +45,7 @@ export interface BankIntegrationPort {
     currency?: BankCurrency
   ): Promise<number>;
 }
+
 
 
 

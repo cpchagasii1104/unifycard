@@ -23,8 +23,8 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const { eventId } = req.params;
@@ -33,7 +33,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       try {
         const result = await eventRFQService.createRFQ(
           tenantId,
-          actionContext.actingActorId,
+          actionContext.actorId,
           {
             ...body,
             eventId,
@@ -108,8 +108,8 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const { eventId, rfqId } = req.params;
@@ -119,7 +119,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
           tenantId,
           eventId,
           rfqId,
-          actionContext.actingActorId,
+          actionContext.actorId,
           actionContext.actingUserId
         );
         return reply.send({ rfq });
@@ -142,8 +142,8 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const { eventId, rfqId } = req.params;
@@ -153,7 +153,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
         const quote = await eventRFQService.createQuote(
           tenantId,
           eventId,
-          actionContext.actingActorId,
+          actionContext.actorId,
           {
             ...body,
             rfqId,
@@ -203,8 +203,8 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const { eventId, specId } = req.params;
@@ -219,7 +219,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
           tenantId,
           eventId,
           specId,
-          actionContext.actingActorId
+          actionContext.actorId
         );
         
         // Converter EventSpec em CreateEventRFQInput
@@ -228,7 +228,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
         // Criar RFQ
         const result = await eventRFQService.createRFQ(
           tenantId,
-          actionContext.actingActorId,
+          actionContext.actorId,
           rfqInput,
           actionContext.actingUserId
         );
@@ -294,8 +294,8 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const { eventId, rfqId } = req.params;

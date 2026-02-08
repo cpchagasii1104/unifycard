@@ -19,35 +19,36 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface CompanyPlan {
-  plan_id: string;
+  planId: string;
   name: string; // 'basic' | 'professional' | 'industrial' | 'hub'
-  display_name: string; // Nome para exibição
+  displayName: string; // Nome para exibição
   description: string;
   // Capacidades desbloqueadas
   capabilities: {
-    max_stores?: number; // Número máximo de lojas
-    max_branches?: number; // Número máximo de filiais
-    max_products?: number; // Número máximo de produtos
-    max_services?: number; // Número máximo de serviços
-    max_monthly_transactions?: number; // Limite mensal de transações
-    b2b_contracts_enabled: boolean; // Permite contratos B2B
-    industry_enabled: boolean; // Permite criar produtos industriais
-    hub_enabled: boolean; // Permite criar hubs
-    batch_production_enabled: boolean; // Permite criar lotes de produção
-    pdv_enabled: boolean; // Permite usar PDV
-    advanced_analytics: boolean; // Analytics avançados
+    maxStores?: number; // Número máximo de lojas
+    maxBranches?: number; // Número máximo de filiais
+    maxProducts?: number; // Número máximo de produtos
+    maxServices?: number; // Número máximo de serviços
+    maxMonthlyTransactions?: number; // Limite mensal de transações
+    b2bContractsEnabled: boolean; // Permite contratos B2B
+    industryEnabled: boolean; // Permite criar produtos industriais
+    hubEnabled: boolean; // Permite criar hubs
+    batchProductionEnabled: boolean; // Permite criar lotes de produção
+    pdvEnabled: boolean; // Permite usar PDV
+    advancedAnalytics: boolean; // Analytics avançados
   };
   // Preço (se aplicável)
   price?: {
-    amount: number;
+    amountCents: number;
     currency: string;
-    billing_cycle: 'monthly' | 'yearly';
+    billingCycle: 'monthly' | 'yearly';
   };
   // Status
   status: 'active' | 'inactive';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
 
 
 

@@ -39,7 +39,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND created_at >= $3
+        AND createdAt >= $3
       `,
       [tenantId, groupId, thirtyDaysAgo]
     );
@@ -70,11 +70,11 @@ class SocialGroupRepository {
     tenantId: string,
     groupId: string,
     options: GroupFeedOptions = {}
-  ): Promise<{ rows: any[]; total: number }> {
+  ): Promise<{ rows: any[]; totalCents: number }> {
     const { limit = 50, offset = 0, includeAutoPosts = true } = options;
 
     let query = `
-      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, createdAt, updatedAt
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
@@ -87,7 +87,7 @@ class SocialGroupRepository {
       query += ` AND metadata->>'type' != 'system_auto_post'`;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $3 OFFSET $4`;
+    query += ` ORDER BY createdAt DESC LIMIT $3 OFFSET $4`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant(tenantId, query, params);
@@ -105,7 +105,7 @@ class SocialGroupRepository {
       countQuery += ` AND metadata->>'type' != 'system_auto_post'`;
     }
 
-    const countRow = await runQueryWithTenant<{ total: string }>(
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       countQuery,
       countParams
@@ -113,7 +113,7 @@ class SocialGroupRepository {
 
     return {
       rows,
-      total: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 
@@ -144,17 +144,17 @@ class SocialGroupRepository {
       post_id: string;
       content: string;
       metadata: any;
-      created_at: Date;
+      createdAt: Date;
     }>(
       tenantId,
       `
-      SELECT post_id, content, metadata, created_at
+      SELECT post_id, content, metadata, createdAt
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 20
       `,
       [tenantId, groupId]
@@ -163,8 +163,8 @@ class SocialGroupRepository {
     const recentAutoPosts = autoPosts.map((p) => ({
       postId: p.post_id,
       content: p.content,
-      amount: p.metadata?.splitAmount || 0,
-      createdAt: p.created_at,
+      amountCents: p.metadata?.splitAmount || 0,
+      createdAt: p.createdAt.toISOString(),
       assignmentId: p.metadata?.assignmentId,
       jobId: p.metadata?.jobId,
     }));
@@ -183,7 +183,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND created_at >= NOW() - INTERVAL '30 days'
+        AND createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY global_user_id
       ORDER BY post_count DESC
       LIMIT 1
@@ -203,7 +203,7 @@ class SocialGroupRepository {
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'activity' IS NOT NULL
-        AND created_at >= NOW() - INTERVAL '30 days'
+        AND createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY metadata->>'activity'
       ORDER BY count DESC
       LIMIT 5
@@ -237,23 +237,23 @@ class SocialGroupRepository {
   private async calculateMonthlyGrowth(
     tenantId: string,
     groupId: string
-  ): Promise<Array<{ month: string; amount: number }>> {
+  ): Promise<Array<{ month: string; amountCents: number }>> {
     const growth = await runQueriesWithTenant<{
       month: string;
-      amount: string;
+      amountCents: string;
     }>(
       tenantId,
       `
       SELECT 
-        TO_CHAR(created_at, 'YYYY-MM') as month,
+        TO_CHAR(createdAt, 'YYYY-MM') as month,
         SUM((metadata->>'splitAmount')::numeric) as amount
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-        AND created_at >= NOW() - INTERVAL '6 months'
-      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        AND createdAt >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(createdAt, 'YYYY-MM')
       ORDER BY month DESC
       `,
       [tenantId, groupId]
@@ -261,7 +261,7 @@ class SocialGroupRepository {
 
     return growth.map((g) => ({
       month: g.month,
-      amount: Number(g.amount || 0),
+      amountCents: Number(g.amount || 0),
     }));
   }
 
@@ -272,7 +272,7 @@ class SocialGroupRepository {
     tenantId: string,
     userId: string,
     options: { limit?: number; offset?: number } = {}
-  ): Promise<{ items: any[]; total: number }> {
+  ): Promise<{ items: any[]; totalCents: number }> {
     const { limit = 50, offset = 0 } = options;
 
     // Buscar grupos do usuário
@@ -280,19 +280,19 @@ class SocialGroupRepository {
     const groupIds = userGroups.map((g) => g.groupId);
 
     if (groupIds.length === 0) {
-      return { items: [], total: 0 };
+      return { items: [], totalCents: 0 };
     }
 
     // Buscar posts de grupos + auto-posts econômicos
     const query = `
-      SELECT post_id, global_user_id, content, metadata, created_at
+      SELECT post_id, global_user_id, content, metadata, createdAt
       FROM posts
       WHERE tenant_id = $1
         AND (
           metadata->>'groupId' = ANY($2::text[])
           OR (metadata->>'source' = 'economic_impact' AND metadata->>'groupId' = ANY($2::text[]))
         )
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3 OFFSET $4
     `;
 
@@ -314,7 +314,7 @@ class SocialGroupRepository {
         )
     `;
 
-    const countRow = await runQueryWithTenant<{ total: string }>(
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       countQuery,
       [tenantId, groupIds]
@@ -322,10 +322,12 @@ class SocialGroupRepository {
 
     return {
       items: rows,
-      total: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 }
 
 export const socialGroupRepository = new SocialGroupRepository();
+
+
 

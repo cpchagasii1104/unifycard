@@ -16,12 +16,12 @@ export interface BankLedgerEntry {
   accountId: string;
   transactionId: string;
   entryType: BankLedgerEntryType;
-  amount: number;
+  amountCents: number;
   balanceBefore: number;
   balanceAfter: number;
   description?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -31,7 +31,7 @@ export interface CreateBankLedgerEntryInput {
   accountId: string;
   transactionId: string;
   entryType: BankLedgerEntryType;
-  amount: number;
+  amountCents: number;
   balanceBefore: number;
   balanceAfter: number;
   description?: string;
@@ -67,6 +67,8 @@ export interface BankAccountBalance {
   entryCount: number;
   lastEntryAt?: Date | null;
 }
+
+
 
 
 

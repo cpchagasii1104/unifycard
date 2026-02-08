@@ -29,10 +29,10 @@ class EventsMultiActorService {
       tenantId: row.tenant_id,
       title: row.title,
       description: row.description,
-      startTime: row.start_time,
-      endTime: row.end_time,
-      datetimeStart: row.datetime_start || row.start_time,
-      datetimeEnd: row.datetime_end || row.end_time,
+      startTime: row.starts_at,
+      endTime: row.ends_at,
+      datetimeStart: row.datetime_start || row.starts_at,
+      datetimeEnd: row.datetime_end || row.ends_at,
       locationName: row.location_name || null,
       capacity: row.capacity || null,
       cityId: row.city_id,
@@ -41,8 +41,8 @@ class EventsMultiActorService {
       createdByGlobalUserId: row.created_by_global_user_id,
       createdByActorId: row.created_by_actor_id || null,
       status: (row.status || 'draft') as Event['status'],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -58,10 +58,10 @@ class EventsMultiActorService {
       role: row.role as EventActor['role'],
       canPublish: row.can_publish,
       canEdit: row.can_edit,
-      revenueSharePercent: row.revenue_share_percent,
+      revenueShareBps: row.revenue_share_percent,
       status: row.status as EventActor['status'],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -97,8 +97,8 @@ class EventsMultiActorService {
           tenant_id,
           title,
           description,
-          start_time,
-          end_time,
+          starts_at,
+          ends_at,
           datetime_start,
           datetime_end,
           location_name,
@@ -198,7 +198,7 @@ class EventsMultiActorService {
         input.role,
         input.canPublish || false,
         input.canEdit || false,
-        input.revenueSharePercent || null,
+        input.revenueShareBps || null,
       ]
     );
 
@@ -217,7 +217,7 @@ class EventsMultiActorService {
       tenantId,
       `
         UPDATE event_actor
-        SET status = $1, updated_at = now()
+        SET status = $1, updatedAt = now()
         WHERE id = $2 AND tenant_id = $3
         RETURNING *
       `,
@@ -260,7 +260,7 @@ class EventsMultiActorService {
       tenantId,
       `
         UPDATE events
-        SET status = 'published', updated_at = now()
+        SET status = 'published', updatedAt = now()
         WHERE id = $1 AND tenant_id = $2
         RETURNING *
       `,
@@ -320,7 +320,7 @@ class EventsMultiActorService {
     tenantId: string,
     actorId: string,
     options: { status?: Event['status']; limit?: number; offset?: number } = {}
-  ): Promise<{ events: Event[]; total: number }> {
+  ): Promise<{ events: Event[]; totalCents: number }> {
     const { status, limit = 50, offset = 0 } = options;
 
     let query = `
@@ -366,7 +366,7 @@ class EventsMultiActorService {
       countParams.push(status);
     }
 
-    const countRows = await runQueriesWithTenant<{ total: string }>(
+    const countRows = await runQueriesWithTenant<{ totalCents: string }>(
       tenantId,
       countQuery,
       countParams
@@ -374,10 +374,14 @@ class EventsMultiActorService {
 
     return {
       events: eventRows.map((row) => this.toEvent(row)),
-      total: parseInt(countRows[0]?.total || '0', 10),
+      totalCents: parseInt(countRows[0]?.total || '0', 10),
     };
   }
 }
 
 export const eventsMultiActorService = new EventsMultiActorService();
+
+
+
+
 

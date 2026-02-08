@@ -101,7 +101,7 @@ async function checkDemoData(): Promise<{
  * Verifica migrations executadas
  */
 async function checkMigrations(): Promise<{
-  total: number;
+  totalCents: number;
   latentMigrations: string[];
 }> {
   const client = await pool.connect();
@@ -134,7 +134,7 @@ async function checkMigrations(): Promise<{
     `, [latentMigrations]);
 
     return {
-      total: parseInt(totalResult.rows[0]?.count || '0', 10),
+      totalCents: parseInt(totalResult.rows[0]?.count || '0', 10),
       latentMigrations: executedLatent.rows.map((r) => r.filename),
     };
   } finally {
@@ -297,6 +297,7 @@ main().catch((error) => {
   console.error('Erro não tratado:', error);
   process.exit(1);
 });
+
 
 
 

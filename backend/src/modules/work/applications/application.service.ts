@@ -21,8 +21,8 @@ class ApplicationService {
       proposedRate: row.proposed_rate ? Number(row.proposed_rate) : 0,
       message: row.message ?? undefined,
       status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -117,7 +117,7 @@ class ApplicationService {
       UPDATE job_applications
       SET
         status = COALESCE($3, status),
-        updated_at = now()
+        updatedAt = now()
       WHERE application_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -154,7 +154,7 @@ class ApplicationService {
   async listApplications(
     tenantId: string,
     filters: any,
-  ): Promise<{ applications: JobApplication[]; total: number }> {
+  ): Promise<{ applications: JobApplication[]; totalCents: number }> {
     const { jobId, workerId, status, limit = 50, offset = 0 } = filters;
 
     const params: any[] = [tenantId];
@@ -187,13 +187,13 @@ class ApplicationService {
       SELECT *
       FROM job_applications
       WHERE ${whereSQL}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${idx} OFFSET $${idx + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ total: string }>(
+    const count = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `SELECT COUNT(*) AS total FROM job_applications WHERE ${whereSQL}`,
       params,
@@ -212,9 +212,12 @@ class ApplicationService {
 
     return {
       applications,
-      total: count ? Number(count.total) : 0,
+      totalCents: count ? Number(count.total) : 0,
     };
   }
 }
 
 export const applicationService = new ApplicationService();
+
+
+

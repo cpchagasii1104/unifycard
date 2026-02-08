@@ -48,7 +48,7 @@ export class CheckoutService {
       // TODO: Integrar com serviço real de UnifyCard quando disponível
       const paymentResult = await this.mockUnifyCardCharge({
         userId: input.context.globalUserId,
-        amount: input.amount,
+        amountCents: input.amount,
       });
 
       if (!paymentResult.success) {
@@ -66,7 +66,7 @@ export class CheckoutService {
         result = await bankIntegration.processEventTicketPayment(tenantId, {
           eventId: input.context.eventId,
           buyerUserId: userId,
-          amount: input.amount,
+          amountCents: input.amount,
           currency: 'BRL',
           idempotencyKey: input.idempotencyKey,
           metadata: {
@@ -84,7 +84,7 @@ export class CheckoutService {
         result = await bankIntegration.processEventConsumptionPayment(tenantId, {
           eventId: input.context.eventId,
           buyerUserId: userId,
-          amount: input.amount,
+          amountCents: input.amount,
           currency: 'BRL',
           idempotencyKey: input.idempotencyKey,
           metadata: {
@@ -112,7 +112,7 @@ export class CheckoutService {
    */
   private async mockUnifyCardCharge(params: {
     userId: string;
-    amount: number;
+    amountCents: number;
   }): Promise<{ success: boolean; error?: string }> {
     // Por enquanto, apenas valida se há saldo suficiente
     // Em produção, aqui seria uma chamada HTTP/RPC ao serviço de UnifyCard
@@ -123,7 +123,7 @@ export class CheckoutService {
     //   method: 'POST',
     //   body: JSON.stringify({
     //     userId: params.userId,
-    //     amount: params.amount,
+    //     amountCents: params.amount,
     //   }),
     // });
 
@@ -133,6 +133,7 @@ export class CheckoutService {
 }
 
 export const checkoutService = new CheckoutService();
+
 
 
 

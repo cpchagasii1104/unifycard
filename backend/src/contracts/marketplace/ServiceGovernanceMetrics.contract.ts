@@ -18,29 +18,29 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceGovernanceMetrics {
-  provider_actor_id: string;
-  category_id?: string; // Opcional: métricas por categoria
+  providerActorId: string;
+  categoryId?: string; // Opcional: métricas por categoria
   period: {
-    start_date: string; // ISO 8601
-    end_date: string; // ISO 8601
+    startDate: string; // ISO 8601
+    endDate: string; // ISO 8601
   };
   // Métricas canônicas
-  visitas_sem_orcamento: number;
-  orcamentos_enviados: number;
-  orcamentos_aceitos: number;
-  orcamentos_recusados: number;
-  orcamentos_expirados: number;
-  taxa_quote_to_execution: number; // Percentual (0-100)
+  visitasSemOrcamento: number;
+  orcamentosEnviados: number;
+  orcamentosAceitos: number;
+  orcamentosRecusados: number;
+  orcamentosExpirados: number;
+  taxaQuoteToExecution: number; // Percentual (0-100)
   // Status de governança
   status: 'healthy' | 'warning' | 'sla_violation' | 'trust_penalty';
-  warnings_count: number;
-  sla_violations_count: number;
-  trust_downgrades_count: number;
+  warningsCount: number;
+  slaViolationsCount: number;
+  trustDowngradesCount: number;
   // Timestamps
-  calculated_at: string;
-  last_warning_at?: string;
-  last_sla_violation_at?: string;
-  last_trust_downgrade_at?: string;
+  calculatedAt: string;
+  lastWarningAt?: string;
+  lastSlaViolationAt?: string;
+  lastTrustDowngradeAt?: string;
 }
 
 

@@ -114,7 +114,7 @@ class FundVisibilityService {
     
     let entries = historyEntries.map((entry) => ({
       date: entry.date,
-      amount: entry.amount,
+      amountCents: entry.amount,
       transactionCount: 0, // Será preenchido abaixo
     }));
 
@@ -127,15 +127,15 @@ class FundVisibilityService {
         }>(
           `
           SELECT 
-            DATE(created_at) as date,
+            DATE(createdAt) as date,
             COUNT(*)::text as count
           FROM transactions
           WHERE to_account = $1
             AND metadata->>'module' = 'work'
             AND metadata->>'splitTargetType' = 'REGION'
-            AND created_at >= $2
-            AND created_at <= $3
-          GROUP BY DATE(created_at)
+            AND createdAt >= $2
+            AND createdAt <= $3
+          GROUP BY DATE(createdAt)
           ORDER BY date ASC
           `,
           [regionAccountId, startDate, endDate]
@@ -269,4 +269,6 @@ class FundVisibilityService {
 }
 
 export const fundVisibilityService = new FundVisibilityService();
+
+
 

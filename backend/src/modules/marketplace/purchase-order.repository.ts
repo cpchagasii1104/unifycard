@@ -16,8 +16,8 @@ interface PurchaseOrderRow {
   status: string;
   order_date: Date;
   expected_delivery_date: Date | null;
-  received_at: Date | null;
-  completed_at: Date | null;
+  receivedAt: Date | null;
+  completedAt: Date | null;
   delivery_address: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
@@ -26,14 +26,14 @@ interface PurchaseOrderRow {
   internal_notes: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  submitted_at: Date | null;
+  submittedAt: Date | null;
   submitted_by_actor_id: string | null;
-  cancelled_at: Date | null;
+  cancelledAt: Date | null;
   cancelled_by_actor_id: string | null;
   cancellation_reason: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface PurchaseOrderItemRow {
@@ -51,8 +51,8 @@ interface PurchaseOrderItemRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PurchaseOrderRepository {
@@ -68,8 +68,8 @@ class PurchaseOrderRepository {
       status: row.status as any,
       orderDate: row.order_date,
       expectedDeliveryDate: row.expected_delivery_date,
-      receivedAt: row.received_at,
-      completedAt: row.completed_at,
+      receivedAt: row.receivedAt,
+      completedAt: row.completedAt,
       deliveryAddress: row.delivery_address,
       deliveryCity: row.delivery_city,
       deliveryState: row.delivery_state,
@@ -78,14 +78,14 @@ class PurchaseOrderRepository {
       internalNotes: row.internal_notes,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      submittedAt: row.submitted_at,
+      submittedAt: row.submittedAt,
       submittedByActorId: row.submitted_by_actor_id,
-      cancelledAt: row.cancelled_at,
+      cancelledAt: row.cancelledAt,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancellationReason: row.cancellation_reason,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -108,8 +108,8 @@ class PurchaseOrderRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -146,19 +146,19 @@ class PurchaseOrderRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
       RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, received_at, completed_at,
+                order_date, expected_delivery_date, receivedAt, completedAt,
                 delivery_address, delivery_city, delivery_state, delivery_zip_code,
                 notes, internal_notes,
                 created_by_actor_id, created_by_user_id,
-                submitted_at, submitted_by_actor_id,
-                cancelled_at, cancelled_by_actor_id, cancellation_reason,
-                metadata, created_at, updated_at
+                submittedAt, submitted_by_actor_id,
+                cancelledAt, cancelled_by_actor_id, cancellation_reason,
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
         input.supplierId,
         input.orderNumber,
-        'DRAFT',
+        'draft',
         input.orderDate,
         input.expectedDeliveryDate,
         input.deliveryAddress,
@@ -188,13 +188,13 @@ class PurchaseOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, supplier_id, order_number, status,
-             order_date, expected_delivery_date, received_at, completed_at,
+             order_date, expected_delivery_date, receivedAt, completedAt,
              delivery_address, delivery_city, delivery_state, delivery_zip_code,
              notes, internal_notes,
              created_by_actor_id, created_by_user_id,
-             submitted_at, submitted_by_actor_id,
-             cancelled_at, cancelled_by_actor_id, cancellation_reason,
-             metadata, created_at, updated_at
+             submittedAt, submitted_by_actor_id,
+             cancelledAt, cancelled_by_actor_id, cancellation_reason,
+             metadata, createdAt, updatedAt
       FROM purchase_orders
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -249,13 +249,13 @@ class PurchaseOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, supplier_id, order_number, status,
-             order_date, expected_delivery_date, received_at, completed_at,
+             order_date, expected_delivery_date, receivedAt, completedAt,
              delivery_address, delivery_city, delivery_state, delivery_zip_code,
              notes, internal_notes,
              created_by_actor_id, created_by_user_id,
-             submitted_at, submitted_by_actor_id,
-             cancelled_at, cancelled_by_actor_id, cancellation_reason,
-             metadata, created_at, updated_at
+             submittedAt, submitted_by_actor_id,
+             cancelledAt, cancelled_by_actor_id, cancellation_reason,
+             metadata, createdAt, updatedAt
       FROM purchase_orders
       WHERE ${conditions.join(' AND ')}
       ORDER BY order_date DESC
@@ -300,7 +300,7 @@ class PurchaseOrderRepository {
                 quantity_ordered, quantity_received, unit,
                 unit_price_cents, currency, total_price_cents, notes,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -337,10 +337,10 @@ class PurchaseOrderRepository {
              quantity_ordered, quantity_received, unit,
              unit_price_cents, currency, total_price_cents, notes,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM purchase_order_items
       WHERE tenant_id = $1 AND purchase_order_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, orderId]
     );
@@ -359,7 +359,7 @@ class PurchaseOrderRepository {
              quantity_ordered, quantity_received, unit,
              unit_price_cents, currency, total_price_cents, notes,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM purchase_order_items
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -385,13 +385,13 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_order_items
-      SET quantity_received = $3, updated_at = NOW()
+      SET quantity_received = $3, updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, purchase_order_id, product_variant_id,
                 quantity_ordered, quantity_received, unit,
                 unit_price_cents, currency, total_price_cents, notes,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [tenantId, itemId, quantityReceived]
     );
@@ -416,18 +416,18 @@ class PurchaseOrderRepository {
       `
       UPDATE purchase_orders
       SET status = 'SUBMITTED',
-          submitted_at = NOW(),
+          submittedAt = NOW(),
           submitted_by_actor_id = $3,
-          updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'DRAFT'
+          updatedAt = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
       RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, received_at, completed_at,
+                order_date, expected_delivery_date, receivedAt, completedAt,
                 delivery_address, delivery_city, delivery_state, delivery_zip_code,
                 notes, internal_notes,
                 created_by_actor_id, created_by_user_id,
-                submitted_at, submitted_by_actor_id,
-                cancelled_at, cancelled_by_actor_id, cancellation_reason,
-                metadata, created_at, updated_at
+                submittedAt, submitted_by_actor_id,
+                cancelledAt, cancelled_by_actor_id, cancellation_reason,
+                metadata, createdAt, updatedAt
       `,
       [tenantId, orderId, submittedByActorId]
     );
@@ -448,17 +448,17 @@ class PurchaseOrderRepository {
       `
       UPDATE purchase_orders
       SET status = 'RECEIVED',
-          received_at = COALESCE(received_at, NOW()),
-          updated_at = NOW()
+          receivedAt = COALESCE(receivedAt, NOW()),
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status IN ('SUBMITTED', 'RECEIVED')
       RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, received_at, completed_at,
+                order_date, expected_delivery_date, receivedAt, completedAt,
                 delivery_address, delivery_city, delivery_state, delivery_zip_code,
                 notes, internal_notes,
                 created_by_actor_id, created_by_user_id,
-                submitted_at, submitted_by_actor_id,
-                cancelled_at, cancelled_by_actor_id, cancellation_reason,
-                metadata, created_at, updated_at
+                submittedAt, submitted_by_actor_id,
+                cancelledAt, cancelled_by_actor_id, cancellation_reason,
+                metadata, createdAt, updatedAt
       `,
       [tenantId, orderId]
     );
@@ -478,18 +478,18 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'COMPLETED',
-          completed_at = NOW(),
-          updated_at = NOW()
+      SET status = 'completed',
+          completedAt = NOW(),
+          updatedAt = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'RECEIVED'
       RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, received_at, completed_at,
+                order_date, expected_delivery_date, receivedAt, completedAt,
                 delivery_address, delivery_city, delivery_state, delivery_zip_code,
                 notes, internal_notes,
                 created_by_actor_id, created_by_user_id,
-                submitted_at, submitted_by_actor_id,
-                cancelled_at, cancelled_by_actor_id, cancellation_reason,
-                metadata, created_at, updated_at
+                submittedAt, submitted_by_actor_id,
+                cancelledAt, cancelled_by_actor_id, cancellation_reason,
+                metadata, createdAt, updatedAt
       `,
       [tenantId, orderId]
     );
@@ -514,20 +514,20 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'CANCELLED',
-          cancelled_at = NOW(),
+      SET status = 'cancelled',
+          cancelledAt = NOW(),
           cancelled_by_actor_id = $3,
           cancellation_reason = $4,
-          updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('DRAFT', 'SUBMITTED')
+          updatedAt = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status IN ('draft', 'submitted')
       RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, received_at, completed_at,
+                order_date, expected_delivery_date, receivedAt, completedAt,
                 delivery_address, delivery_city, delivery_state, delivery_zip_code,
                 notes, internal_notes,
                 created_by_actor_id, created_by_user_id,
-                submitted_at, submitted_by_actor_id,
-                cancelled_at, cancelled_by_actor_id, cancellation_reason,
-                metadata, created_at, updated_at
+                submittedAt, submitted_by_actor_id,
+                cancelledAt, cancelled_by_actor_id, cancellation_reason,
+                metadata, createdAt, updatedAt
       `,
       [tenantId, orderId, cancelledByActorId, cancellationReason]
     );
@@ -541,6 +541,8 @@ class PurchaseOrderRepository {
 }
 
 export const purchaseOrderRepository = new PurchaseOrderRepository();
+
+
 
 
 

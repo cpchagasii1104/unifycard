@@ -26,7 +26,7 @@ export interface PricingInput {
 }
 
 export interface PricingResult {
-  total: number;
+  totalCents: number;
   baseFare: number;
   distanceCost: number;
   timeCost: number;
@@ -45,7 +45,7 @@ class PricingService {
         SELECT *
         FROM rides_pricing_config
         WHERE is_active = TRUE
-        ORDER BY updated_at DESC
+        ORDER BY updatedAt DESC
         LIMIT 1;
       `,
     });
@@ -81,7 +81,7 @@ class PricingService {
   async getActiveIncentives(tenantId: string, lat: number, lng: number) {
     const rows = await runQueryWithTenant(tenantId, {
       text: `
-        SELECT value
+        SELECT incentive_value as valueCents
         FROM rides_zone_incentives
         WHERE zone_id = (
           SELECT zone_id
@@ -94,7 +94,7 @@ class PricingService {
       values: [lng, lat],
     });
 
-    return rows.reduce((sum: number, r: { value: string | number }) => sum + Number(r.value), 0);
+    return rows.reduce((sum: number, r: { valueCents: string | number }) => sum + Number(r.valueCents), 0);
   }
 
   async calculate(input: PricingInput): Promise<PricingResult> {
@@ -131,7 +131,7 @@ class PricingService {
     const finalFareBeforeTip = subtotalWithMin + incentive;
 
     return {
-      total: finalFareBeforeTip,
+      totalCents: finalFareBeforeTip,
       baseFare,
       distanceCost,
       timeCost,
@@ -146,3 +146,4 @@ class PricingService {
 }
 
 export const pricingService = new PricingService();
+

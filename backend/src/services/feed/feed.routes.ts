@@ -44,7 +44,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
       // Retornar no formato do contrato
       const response: FeedResponse = {
         items: result.items,
-        total: result.total,
+        totalCents: result.total,
         posts: result.posts, // Compatibilidade reversa
       };
 
@@ -96,6 +96,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default feedRoutes;
+
 
 
 

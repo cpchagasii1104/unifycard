@@ -18,9 +18,9 @@ interface FiscalDocumentRow {
   status: string;
   total_amount: string;
   metadata: any;
-  issued_at: Date | null;
-  created_at: Date;
-  updated_at: Date;
+  issuedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface FiscalDocumentItemRow {
@@ -30,7 +30,7 @@ interface FiscalDocumentItemRow {
   quantity: string;
   unit: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 class FiscalDocumentRepository {
@@ -47,9 +47,9 @@ class FiscalDocumentRepository {
       status: row.status as any,
       totalAmount: parseFloat(row.total_amount),
       metadata: row.metadata || null,
-      issuedAt: row.issued_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      issuedAt: row.issuedAt,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -64,7 +64,7 @@ class FiscalDocumentRepository {
       quantity: parseFloat(row.quantity),
       unit: row.unit,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -83,7 +83,7 @@ class FiscalDocumentRepository {
       )
       VALUES ($1, $2, $3, $4, 'DRAFT', $5, $6)
       RETURNING id, tenant_id, order_id, payment_intent_id, document_type, status,
-                total_amount, metadata, issued_at, created_at, updated_at
+                total_amount, metadata, issuedAt, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -113,7 +113,7 @@ class FiscalDocumentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, payment_intent_id, document_type, status,
-             total_amount, metadata, issued_at, created_at, updated_at
+             total_amount, metadata, issuedAt, createdAt, updatedAt
       FROM fiscal_documents
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -135,10 +135,10 @@ class FiscalDocumentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, payment_intent_id, document_type, status,
-             total_amount, metadata, issued_at, created_at, updated_at
+             total_amount, metadata, issuedAt, createdAt, updatedAt
       FROM fiscal_documents
       WHERE tenant_id = $1 AND order_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 1
       `,
       [tenantId, orderId]
@@ -158,10 +158,10 @@ class FiscalDocumentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, payment_intent_id, document_type, status,
-             total_amount, metadata, issued_at, created_at, updated_at
+             total_amount, metadata, issuedAt, createdAt, updatedAt
       FROM fiscal_documents
       WHERE tenant_id = $1 AND order_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, orderId]
     );
@@ -181,7 +181,7 @@ class FiscalDocumentRepository {
     const updateMetadata = metadata
       ? `metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb,`
       : '';
-    const updateIssuedAt = status === 'ISSUED' ? `issued_at = NOW(),` : '';
+    const updateIssuedAt = status === 'ISSUED' ? `issuedAt = NOW(),` : '';
 
     const params: any[] = [];
     let paramIndex = 1;
@@ -199,10 +199,10 @@ class FiscalDocumentRepository {
       SET status = $${paramIndex - 1},
           ${updateIssuedAt}
           ${updateMetadata}
-          updated_at = NOW()
+          updatedAt = NOW()
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
       RETURNING id, tenant_id, order_id, payment_intent_id, document_type, status,
-                total_amount, metadata, issued_at, created_at, updated_at
+                total_amount, metadata, issuedAt, createdAt, updatedAt
       `,
       params
     );
@@ -232,7 +232,7 @@ class FiscalDocumentRepository {
         fiscal_document_id, product_variant_id, quantity, unit, metadata
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, fiscal_document_id, product_variant_id, quantity, unit, metadata, created_at
+      RETURNING id, fiscal_document_id, product_variant_id, quantity, unit, metadata, createdAt
       `,
       [
         fiscalDocumentId,
@@ -261,11 +261,11 @@ class FiscalDocumentRepository {
       tenantId,
       `
       SELECT fi.id, fi.fiscal_document_id, fi.product_variant_id, fi.quantity, fi.unit,
-             fi.metadata, fi.created_at
+             fi.metadata, fi.createdAt
       FROM fiscal_document_items fi
       INNER JOIN fiscal_documents fd ON fi.fiscal_document_id = fd.id
       WHERE fd.tenant_id = $1 AND fi.fiscal_document_id = $2
-      ORDER BY fi.created_at ASC
+      ORDER BY fi.createdAt ASC
       `,
       [tenantId, fiscalDocumentId]
     );
@@ -275,6 +275,8 @@ class FiscalDocumentRepository {
 }
 
 export const fiscalDocumentRepository = new FiscalDocumentRepository();
+
+
 
 
 

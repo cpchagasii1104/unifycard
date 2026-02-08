@@ -18,33 +18,33 @@ export type CompensationModel =
  * Configuração de compensação de um recurso
  */
 export interface ResourceCompensationConfig {
-  resource_id: string;
-  compensation_model: CompensationModel;
+  resourceId: string;
+  compensationModel: CompensationModel;
   
   // Para fixed_percent
-  percent_value?: number; // Percentual (0-100)
+  percentValueBps?: number; // Percentual (0-100)
   
   // Para fixed_value
-  fixed_amount?: number; // Valor fixo em centavos
+  fixedAmountCents?: number; // Valor fixo em centavos
   currency?: string; // Moeda (padrão: BRL)
   
   // Para salary
-  monthly_salary?: number; // Salário mensal em centavos
+  monthlySalaryCents?: number; // Salário mensal em centavos
   
   // Para mixed
-  base_salary?: number; // Salário base mensal
-  variable_percent?: number; // Percentual variável sobre o valor do serviço
+  baseSalaryCents?: number; // Salário base mensal
+  variablePercentBps?: number; // Percentual variável sobre o valor do serviço
   
   // Regras adicionais
-  min_compensation?: number; // Compensação mínima por serviço (em centavos)
-  max_compensation?: number; // Compensação máxima por serviço (em centavos)
+  minCompensationCents?: number; // Compensação mínima por serviço (em centavos)
+  maxCompensationCents?: number; // Compensação máxima por serviço (em centavos)
   
-  active: boolean;
-  effective_from: string; // Data de início da vigência
-  effective_until?: string; // Data de fim da vigência (opcional)
+  isActive: boolean;
+  effectiveFrom: string; // Data de início da vigência
+  effectiveUntil?: string; // Data de fim da vigência (opcional)
   
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   immutable: false; // Configuração pode ser atualizada
 }
 
@@ -52,46 +52,46 @@ export interface ResourceCompensationConfig {
  * Repasse interno registrado após conclusão de serviço
  */
 export interface ResourceCompensation {
-  compensation_id: string;
-  resource_id: string;
-  service_order_id: string; // ServiceOrder que gerou a compensação
-  service_booking_id: string; // ServiceBooking associado
-  store_id: string; // Empresa que repassa
+  compensationId: string;
+  resourceId: string;
+  serviceOrderId: string; // ServiceOrder que gerou a compensação
+  serviceBookingId: string; // ServiceBooking associado
+  storeId: string; // Empresa que repassa
   
   // Valor do serviço
-  service_value: {
-    amount: number; // Em centavos
+  serviceValue: {
+    amountCents: number; // Em centavos
     currency: string;
   };
   
   // Compensação calculada
-  compensation_amount: {
-    amount: number; // Em centavos
+  compensationAmount: {
+    amountCents: number; // Em centavos
     currency: string;
   };
   
   // Modelo usado
-  compensation_model: CompensationModel;
-  calculation_details: {
-    base_value?: number;
-    percent_applied?: number;
-    fixed_value_applied?: number;
+  compensationModel: CompensationModel;
+  calculationDetails: {
+    baseValue?: number;
+    percentApplied?: number;
+    fixedValueApplied?: number;
     adjustments?: Array<{
       type: 'min_limit' | 'max_limit' | 'salary_adjustment';
-      amount: number;
+      amountCents: number;
       reason: string;
     }>;
   };
   
   // Status do repasse
   status: 'calculated' | 'pending' | 'paid' | 'cancelled';
-  paid_at?: string;
+  paidAt?: string;
   
   // Referência ao ledger
-  ledger_entry_id?: string; // ID da entrada no ledger (tipo: resource_compensation)
+  ledgerEntryId?: string; // ID da entrada no ledger (tipo: resource_compensation)
   
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   immutable: true; // Compensação é imutável após criação
 }
 
@@ -99,7 +99,7 @@ export interface ResourceCompensation {
  * Histórico de compensações por recurso
  */
 export interface ResourceCompensationHistory {
-  resource_id: string;
+  resourceId: string;
   period: {
     start: string;
     end: string;
@@ -108,23 +108,23 @@ export interface ResourceCompensationHistory {
   compensations: ResourceCompensation[];
   
   // Totais agregados
-  total_services: number;
-  total_compensation: {
-    amount: number; // Em centavos
+  totalServices: number;
+  totalCompensation: {
+    amountCents: number; // Em centavos
     currency: string;
   };
-  average_per_service: {
-    amount: number;
+  averagePerService: {
+    amountCents: number;
     currency: string;
   };
   
   // Por modelo
-  by_model: Record<CompensationModel, {
+  byModel: Record<CompensationModel, {
     count: number;
-    total: number;
+    totalCents: number;
   }>;
   
-  generated_at: string;
+  generatedAt: string;
   immutable: true; // Histórico é snapshot imutável
 }
 
@@ -132,44 +132,44 @@ export interface ResourceCompensationHistory {
  * Relatório contábil de compensações por empresa
  */
 export interface CompanyCompensationReport {
-  company_id: string;
-  store_id: string;
+  companyId: string;
+  storeId: string;
   period: {
     start: string;
     end: string;
   };
   
   // Totais
-  total_compensations_paid: {
-    amount: number; // Em centavos
+  totalCompensationsPaid: {
+    amountCents: number; // Em centavos
     currency: string;
   };
-  total_resources: number;
-  total_services: number;
+  totalResources: number;
+  totalServices: number;
   
   // Por recurso
-  by_resource: Array<{
-    resource_id: string;
-    resource_name: string;
-    compensation_model: CompensationModel;
-    services_count: number;
-    total_compensation: {
-      amount: number;
+  byResource: Array<{
+    resourceId: string;
+    resourceName: string;
+    compensationModel: CompensationModel;
+    servicesCount: number;
+    totalCompensation: {
+      amountCents: number;
       currency: string;
     };
   }>;
   
   // Por modelo
-  by_model: Record<CompensationModel, {
-    resources_count: number;
-    services_count: number;
-    total_compensation: {
-      amount: number;
+  byModel: Record<CompensationModel, {
+    resourcesCount: number;
+    servicesCount: number;
+    totalCompensation: {
+      amountCents: number;
       currency: string;
     };
   }>;
   
-  generated_at: string;
+  generatedAt: string;
   immutable: true; // Relatório é snapshot imutável
 }
 

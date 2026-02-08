@@ -44,8 +44,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       if (!req.tenant) {
@@ -75,7 +76,7 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         const organizer = await organizersService.createOrganizer(
           req.tenant.id,
           validated,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
 
         return reply.status(201).send({
@@ -126,8 +127,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       if (!req.tenant) {
@@ -140,7 +142,7 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
           req.tenant.id,
           req.params.id,
           validated,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
         return reply.status(201).send(member);
       } catch (error) {
@@ -186,8 +188,9 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       if (!req.tenant) {
@@ -200,7 +203,7 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
           req.tenant.id,
           req.params.eventId,
           validated.organizerId,
-          req.user.globalUserId
+          req.actionContext.actorId
         );
         return reply.status(200).send({ success: true, message: 'Evento vinculado ao organizador' });
       } catch (error) {
@@ -248,7 +251,7 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
           limit: req.query.limit,
           offset: req.query.offset,
         });
-        return { organizers, total: organizers.length };
+        return { organizers, totalCents: organizers.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao listar organizadores');
         return reply.status(500).send({ error: 'Erro ao listar organizadores' });
@@ -340,11 +343,11 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         // Buscar plano atual
         const organizerRow = await runQueryWithTenant<{
           plan: string;
-          plan_expires_at: Date | null;
+          plan_expiresAt: Date | null;
         }>(
           req.tenant.id,
           `
-          SELECT plan, plan_expires_at
+          SELECT plan, plan_expiresAt
           FROM event_organizers
           WHERE id = $1
           `,
@@ -357,8 +360,8 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         return {
           plan,
           planInfo,
-          expiresAt: organizerRow?.plan_expires_at || null,
-          isExpired: organizerRow?.plan_expires_at ? organizerRow.plan_expires_at < new Date() : false,
+          expiresAt: organizerRow?.plan_expiresAt || null,
+          isExpired: organizerRow?.plan_expiresAt ? organizerRow.plan_expiresAt < new Date() : false,
         };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar plano do organizador');
@@ -398,10 +401,15 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Verificar se é owner ou admin
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+        }
+
         const hasPermission = await organizersService.hasPermission(
           req.tenant.id,
           req.params.id,
-          req.user.globalUserId || '',
+          req.actionContext.actorId,
           ['owner', 'admin']
         );
 
@@ -524,10 +532,15 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(404).send({ error: 'Organizador não encontrado' });
         }
 
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+        }
+
         const hasPermission = await organizersService.hasPermission(
           req.tenant.id,
           req.params.id,
-          req.user.globalUserId || '',
+          req.actionContext.actorId,
           ['owner', 'admin']
         );
 
@@ -535,13 +548,19 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(403).send({ error: 'Sem permissão para gerenciar assinatura' });
         }
 
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+        }
+
         const customer = await stripeService.createCustomer({
           email: req.body.email,
           name: req.body.name,
+
           metadata: {
             organizerId: req.params.id,
             tenantId: req.tenant.id,
-            globalUserId: req.user.globalUserId || '',
+            globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
           },
         });
 
@@ -749,7 +768,7 @@ async function handleSubscriptionUpdated(fastify: any, event: Stripe.Event) {
       subscription.tenant_id,
       `
       UPDATE organizer_subscriptions
-      SET current_period_end = $1, updated_at = now()
+      SET current_period_end = $1, updatedAt = now()
       WHERE id = $2
       `,
       [new Date(currentPeriodEnd * 1000), subscription.id]
@@ -758,4 +777,6 @@ async function handleSubscriptionUpdated(fastify: any, event: Stripe.Event) {
 }
 
 export default organizersRoutes;
+
+
 

@@ -34,8 +34,8 @@ export interface PublicProfile {
   coverUrl: string | null;
   visibility: PublicProfileVisibility;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -75,6 +75,7 @@ export interface PublicProfileFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

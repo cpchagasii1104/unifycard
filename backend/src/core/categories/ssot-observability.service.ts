@@ -24,7 +24,7 @@ class SSOTObservabilityService {
   ): Promise<void> {
     try {
       await pool.query(
-        `INSERT INTO ssot_violations (type, tenant_id, context, details, created_at)
+        `INSERT INTO ssot_violations (type, tenant_id, context, details, createdAt)
          VALUES ($1, $2, $3, $4, NOW())`,
         [
           type,
@@ -74,13 +74,13 @@ class SSOTObservabilityService {
     }
 
     if (options?.startDate) {
-      query += ` AND created_at >= $${paramIndex}`;
+      query += ` AND createdAt >= $${paramIndex}`;
       params.push(options.startDate);
       paramIndex++;
     }
 
     if (options?.endDate) {
-      query += ` AND created_at <= $${paramIndex}`;
+      query += ` AND createdAt <= $${paramIndex}`;
       params.push(options.endDate);
       paramIndex++;
     }
@@ -101,7 +101,7 @@ class SSOTObservabilityService {
 
     // Buscar eventos recentes
     let recentQuery = `
-      SELECT id, type, tenant_id, context, details, created_at
+      SELECT id, type, tenant_id, context, details, createdAt
       FROM ssot_violations
       WHERE 1=1
     `;
@@ -115,18 +115,18 @@ class SSOTObservabilityService {
     }
 
     if (options?.startDate) {
-      recentQuery += ` AND created_at >= $${recentParamIndex}`;
+      recentQuery += ` AND createdAt >= $${recentParamIndex}`;
       recentParams.push(options.startDate);
       recentParamIndex++;
     }
 
     if (options?.endDate) {
-      recentQuery += ` AND created_at <= $${recentParamIndex}`;
+      recentQuery += ` AND createdAt <= $${recentParamIndex}`;
       recentParams.push(options.endDate);
       recentParamIndex++;
     }
 
-    recentQuery += ` ORDER BY created_at DESC LIMIT 50`;
+    recentQuery += ` ORDER BY createdAt DESC LIMIT 50`;
 
     const recentResult = await pool.query(recentQuery, recentParams);
 
@@ -136,7 +136,7 @@ class SSOTObservabilityService {
       tenantId: row.tenant_id,
       context: row.context,
       details: typeof row.details === 'string' ? JSON.parse(row.details) : row.details,
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     }));
 
     return { counts, recent };
@@ -144,6 +144,7 @@ class SSOTObservabilityService {
 }
 
 export const ssotObservabilityService = new SSOTObservabilityService();
+
 
 
 

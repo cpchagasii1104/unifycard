@@ -42,8 +42,8 @@ export interface SocialInboxItem {
   sourceId: string; // OBRIGATÓRIO: ID da entidade fonte
   status: InboxItemStatus;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   readAt?: Date | null; // Quando foi lido (se status = 'read')
   archivedAt?: Date | null; // Quando foi arquivado (se status = 'archived')
 }
@@ -59,10 +59,10 @@ export interface SocialInboxItemRow {
   source_id: string;
   status: InboxItemStatus;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
-  read_at: Date | null;
-  archived_at: Date | null;
+  createdAt: string;
+  updatedAt: string;
+  readAt: Date | null;
+  archivedAt: Date | null;
 }
 
 /**
@@ -87,4 +87,6 @@ export interface SocialInboxFilters {
   status?: InboxItemStatus | null; // null = todos
   sourceType?: InboxSourceType;
 }
+
+
 

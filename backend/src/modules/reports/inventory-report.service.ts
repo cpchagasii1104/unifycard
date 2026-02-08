@@ -126,7 +126,7 @@ class InventoryReportService {
 
     let query = `
       SELECT
-        DATE(im.created_at) as period,
+        DATE(im.createdAt) as period,
         im.product_variant_id as variant_id,
         pv.sku as variant_name,
         SUM(CASE WHEN im.movement_type = 'OUT' THEN im.quantity ELSE 0 END) as consumed_quantity,
@@ -135,8 +135,8 @@ class InventoryReportService {
       INNER JOIN product_variants pv ON im.product_variant_id = pv.id
       WHERE im.tenant_id = $1
         AND im.movement_type = 'OUT'
-        AND im.created_at >= $2
-        AND im.created_at <= $3
+        AND im.createdAt >= $2
+        AND im.createdAt <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -152,7 +152,7 @@ class InventoryReportService {
     }
 
     query += `
-      GROUP BY DATE(im.created_at), im.product_variant_id, pv.sku, im.unit
+      GROUP BY DATE(im.createdAt), im.product_variant_id, pv.sku, im.unit
       ORDER BY period ASC, variant_id ASC
     `;
 
@@ -187,6 +187,7 @@ class InventoryReportService {
 }
 
 export const inventoryReportService = new InventoryReportService();
+
 
 
 

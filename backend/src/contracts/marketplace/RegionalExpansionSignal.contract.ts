@@ -30,41 +30,41 @@ export type ExpansionUnlockFeature =
  * Gerado automaticamente a partir de snapshots de capacidade regional
  */
 export interface RegionalExpansionSignal {
-  signal_id: string;
-  region_id: string; // cidade ou bairro
-  service_category: string; // Categoria de serviço afetada
+  signalId: string;
+  regionId: string; // cidade ou bairro
+  serviceCategory: string; // Categoria de serviço afetada
   
-  signal_type: ExpansionSignalType;
-  bottleneck_cause: BottleneckCause;
+  signalType: ExpansionSignalType;
+  bottleneckCause: BottleneckCause;
   
   // Métricas que dispararam o sinal
-  triggering_metrics: {
+  triggeringMetrics: {
     status: RegionalCapacityStatus; // Status da capacidade regional
-    sla_risk_level: SLARiskLevel; // Risco de SLA
-    request_expiration_rate: number; // Taxa de expiração de requests
-    dispatch_rejection_rate: number; // Taxa de rejeição de dispatches
-    avg_utilization_rate: number; // Taxa média de utilização
-    overloaded_resources_ratio: number; // Proporção de recursos sobrecarregados
+    slaRiskLevel: SLARiskLevel; // Risco de SLA
+    requestExpirationRate: number; // Taxa de expiração de requests
+    dispatchRejectionRate: number; // Taxa de rejeição de dispatches
+    avgUtilizationRate: number; // Taxa média de utilização
+    overloadedResourcesRatio: number; // Proporção de recursos sobrecarregados
   };
   
   // Horário crítico (se aplicável)
-  critical_time_window?: {
+  criticalTimeWindow?: {
     weekdays?: number[]; // Dias da semana críticos
-    time_start?: string; // Horário de início crítico
-    time_end?: string; // Horário de fim crítico
+    timeStart?: string; // Horário de início crítico
+    timeEnd?: string; // Horário de fim crítico
   };
   
   // Snapshot de origem
-  source_snapshot_id: string; // ID do snapshot que gerou este sinal
+  sourceSnapshotId: string; // ID do snapshot que gerou este sinal
   
   // Funcionalidades desbloqueadas
-  unlocked_features: ExpansionUnlockFeature[];
+  unlockedFeatures: ExpansionUnlockFeature[];
   
   // Status do sinal
   status: 'active' | 'resolved' | 'expired'; // active = ainda relevante, resolved = gargalo resolvido, expired = expirou
   
-  created_at: string;
-  resolved_at?: string; // Quando o gargalo foi resolvido
+  createdAt: string;
+  resolvedAt?: string; // Quando o gargalo foi resolvido
   immutable: true; // Sinais são imutáveis
 }
 
@@ -72,26 +72,26 @@ export interface RegionalExpansionSignal {
  * Desbloqueio de expansão (registro de funcionalidade habilitada)
  */
 export interface ExpansionUnlock {
-  unlock_id: string;
-  signal_id: string; // Sinal que gerou este desbloqueio
-  region_id: string;
-  service_category: string;
+  unlockId: string;
+  signalId: string; // Sinal que gerou este desbloqueio
+  regionId: string;
+  serviceCategory: string;
   
   feature: ExpansionUnlockFeature;
   
   // Detalhes do desbloqueio
   details: {
     description: string; // Descrição do que foi desbloqueado
-    eligibility_criteria?: string[]; // Critérios de elegibilidade
-    available_until?: string; // Data até quando está disponível
+    eligibilityCriteria?: string[]; // Critérios de elegibilidade
+    availableUntil?: string; // Data até quando está disponível
   };
   
   // Status
   status: 'available' | 'consumed' | 'expired';
-  consumed_at?: string; // Quando foi consumido/utilizado
+  consumedAt?: string; // Quando foi consumido/utilizado
   
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   immutable: false; // Desbloqueios podem ser atualizados (status)
 }
 

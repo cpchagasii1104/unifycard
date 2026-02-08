@@ -6,16 +6,17 @@ export type ExternalPaymentStatus = 'pending' | 'succeeded' | 'failed' | 'cancel
 export interface ExternalChargeResult {
   external_payment_id: string;
   status: ExternalPaymentStatus;
-  amount: number;
+  amountCents: number;
   currency: string;
   metadata?: Record<string, any>;
 }
 
 export interface CreateExternalChargeInput {
-  amount: number;
+  amountCents: number;
   currency: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

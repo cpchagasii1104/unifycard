@@ -17,8 +17,8 @@ export class PromotionsService {
       discount_type,     // percent | fixed
       discount_value,
       max_uses,
-      starts_at,
-      expires_at,
+      startsAt,
+      expiresAt,
       min_distance_km,
       min_price,
       applicable_city_id,
@@ -36,10 +36,10 @@ export class PromotionsService {
       INSERT INTO rides_promotions (
         tenant_id, title, description, promo_code,
         discount_type, discount_value, max_uses,
-        starts_at, expires_at,
+        startsAt, expiresAt,
         min_distance_km, min_price,
         applicable_city_id, applicable_service_type_id,
-        created_at
+        createdAt
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now()
@@ -54,8 +54,8 @@ export class PromotionsService {
           discount_type,
           discount_value,
           max_uses,
-          starts_at,
-          expires_at,
+          startsAt,
+          expiresAt,
           min_distance_km,
           min_price,
           applicable_city_id,
@@ -91,7 +91,7 @@ export class PromotionsService {
       FROM rides_promotions
       WHERE tenant_id = $1
         AND LOWER(promo_code) = LOWER($2)
-        AND expires_at > now()
+        AND expiresAt > now()
         AND (max_uses IS NULL OR uses_count < max_uses)
       `,
         values: [tenantId, promoCode],
@@ -160,7 +160,7 @@ export class PromotionsService {
       {
         text: `
       INSERT INTO rides_driver_promotion_progress (
-        tenant_id, promotion_id, ride_id, used_at
+        tenant_id, promotion_id, ride_id, usedAt
       )
       VALUES ($1,$2,$3,now())
       `,
@@ -204,9 +204,9 @@ export class PromotionsService {
       WHERE tenant_id = $1
         AND (applicable_city_id IS NULL OR applicable_city_id = $2)
         AND (applicable_service_type_id IS NULL OR applicable_service_type_id = $3)
-        AND expires_at > now()
+        AND expiresAt > now()
         AND (max_uses IS NULL OR uses_count < max_uses)
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
         values: [tenantId, cityId, serviceTypeId],
       }
@@ -215,3 +215,4 @@ export class PromotionsService {
 }
 
 export const promotionsService = new PromotionsService();
+

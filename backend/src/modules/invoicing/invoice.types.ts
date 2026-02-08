@@ -6,12 +6,12 @@
 /**
  * Status do invoice
  */
-export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'CANCELLED';
+export type InvoiceStatus = 'draft' | 'issued' | 'cancelled';
 
 /**
  * Tipo de invoice
  */
-export type InvoiceType = 'SERVICE_PROVIDER' | 'PLATFORM_FEE';
+export type InvoiceType = 'service_provider' | 'platform_fee';
 
 /**
  * Invoice Item (Item Faturado)
@@ -65,8 +65,8 @@ export interface Invoice {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   metadata: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -119,6 +119,7 @@ export interface InvoiceFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

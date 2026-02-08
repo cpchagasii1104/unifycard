@@ -26,7 +26,7 @@ export class DriversService {
         INSERT INTO rides_drivers (
           tenant_id, user_id,
           status, level,
-          created_at
+          createdAt
         )
         VALUES ($1,$2,'pending','bronze',now())
         RETURNING *
@@ -60,17 +60,17 @@ export class DriversService {
       text: `
         INSERT INTO rides_driver_documents (
           tenant_id, driver_id, type,
-          number, expires_at, file_url, extra,
-          created_at
+          number, expiresAt, file_url, extra,
+          createdAt
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7, now())
         ON CONFLICT (tenant_id, driver_id, type)
         DO UPDATE SET
           number = EXCLUDED.number,
-          expires_at = EXCLUDED.expires_at,
+          expiresAt = EXCLUDED.expiresAt,
           file_url = EXCLUDED.file_url,
           extra = EXCLUDED.extra,
-          updated_at = now()
+          updatedAt = now()
       `,
       values: [tenantId, driverId, type, number, expiresAt, fileUrl, extra || {}],
     });
@@ -88,11 +88,11 @@ export class DriversService {
   // 🔹 3. Validar documentos e aprovar motorista
   // ============================================================================
   async approveDriver(tenantId: string, driverId: string) {
-    const docs = await runQueriesWithTenant<{ type: string; expires_at: string }>(
+    const docs = await runQueriesWithTenant<{ type: string; expiresAt: string }>(
       tenantId,
       {
         text: `
-          SELECT type, expires_at
+          SELECT type, expiresAt
           FROM rides_driver_documents
           WHERE tenant_id = $1 AND driver_id = $2
         `,
@@ -105,7 +105,7 @@ export class DriversService {
     for (const r of required) {
       const doc = docs.find((d) => d.type === r);
       if (!doc) throw new BadRequestError(`Documento obrigatório faltando: ${r}`);
-      if (new Date(doc.expires_at) < new Date()) {
+      if (new Date(doc.expiresAt) < new Date()) {
         throw new BadRequestError(`Documento expirado: ${r}`);
       }
     }
@@ -113,7 +113,7 @@ export class DriversService {
     const updated = await runQueryWithTenant<any>(tenantId, {
       text: `
         UPDATE rides_drivers
-        SET status = 'approved', updated_at = now()
+        SET status = 'approved', updatedAt = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -136,7 +136,7 @@ export class DriversService {
     const updated = await runQueryWithTenant<any>(tenantId, {
       text: `
         UPDATE rides_drivers
-        SET status = 'suspended', updated_at = now()
+        SET status = 'suspended', updatedAt = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -160,10 +160,10 @@ export class DriversService {
       tenantId,
       {
         text: `
-          SELECT driver_id, type, expires_at
+          SELECT driver_id, type, expiresAt
           FROM rides_driver_documents
           WHERE tenant_id = $1
-            AND expires_at < now()
+            AND expiresAt < now()
         `,
         values: [tenantId],
       }
@@ -228,7 +228,7 @@ export class DriversService {
           ) AS total_rides
         FROM rides_drivers d
         WHERE d.tenant_id = $1
-        ORDER BY d.created_at DESC
+        ORDER BY d.createdAt DESC
       `,
       values: [tenantId],
     });
@@ -242,7 +242,7 @@ export class DriversService {
           status = COALESCE($3, status),
           level = COALESCE($4, level),
           active_vehicle_id = COALESCE($5, active_vehicle_id),
-          updated_at = now()
+          updatedAt = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -267,3 +267,4 @@ export class DriversService {
 }
 
 export const driversService = new DriversService();
+

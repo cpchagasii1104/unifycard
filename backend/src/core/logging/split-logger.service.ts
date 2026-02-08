@@ -7,7 +7,7 @@ interface SplitLogData {
   timestamp: string;
   module: string;
   regionId?: string;
-  amount: number;
+  amountCents: number;
   transactionId: string;
   tenantId: string;
   splitTargetType?: string;
@@ -18,7 +18,7 @@ interface WorkTransactionLogData {
   timestamp: string;
   module: 'work';
   regionId?: string;
-  amount: number;
+  amountCents: number;
   transactionId: string;
   tenantId: string;
   assignmentId?: string;
@@ -48,7 +48,7 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amount: data.amount,
+      amountCents: data.amount,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       splitTargetType: data.splitTargetType || null,
@@ -71,7 +71,7 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amount: data.amount,
+      amountCents: data.amount,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       logType: 'region_credit',
@@ -92,7 +92,7 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amount: data.amount,
+      amountCents: data.amount,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       assignmentId: data.assignmentId || null,
@@ -111,4 +111,5 @@ class SplitLoggerService {
 
 // Singleton instance (será injetado com logger do Fastify quando disponível)
 export const splitLoggerService = new SplitLoggerService();
+
 

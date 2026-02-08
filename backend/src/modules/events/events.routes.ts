@@ -366,7 +366,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           limit
         );
 
-        return { posts, total: posts.length };
+        return { posts, totalCents: posts.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar posts do evento');
         return reply.status(500).send({ error: 'Erro ao buscar posts do evento' });
@@ -469,7 +469,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           limit
         );
 
-        return { participants, total: participants.length };
+        return { participants, totalCents: participants.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar participantes do evento');
         return reply.status(500).send({ error: 'Erro ao buscar participantes do evento' });
@@ -708,7 +708,7 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           offset: req.query.offset,
         });
 
-        return { events, total: events.length };
+        return { events, totalCents: events.length };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar eventos');
         return reply.status(500).send({ error: 'Erro ao buscar eventos' });
@@ -740,4 +740,5 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default eventsRoutes;
+
 

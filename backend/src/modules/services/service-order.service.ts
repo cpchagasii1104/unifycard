@@ -150,8 +150,8 @@ class ServiceOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'DRAFT') {
-      throw new Error(`Ordem não está em DRAFT (status: ${order.status})`);
+    if (order.status !== 'draft') {
+      throw new Error(`Ordem não está em draft (status: ${order.status})`);
     }
 
     // 2. 🔴 CORREÇÃO FASE 1B: Verificar conflitos (apenas alerta, não bloqueia)
@@ -250,8 +250,8 @@ class ServiceOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'CONFIRMED') {
-      throw new Error(`Ordem não está em CONFIRMED (status: ${order.status})`);
+    if (order.status !== 'confirmed') {
+      throw new Error(`Ordem não está em confirmed (status: ${order.status})`);
     }
 
     // 2. Iniciar ordem
@@ -324,8 +324,8 @@ class ServiceOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'IN_PROGRESS') {
-      throw new Error(`Ordem não está em IN_PROGRESS (status: ${order.status})`);
+    if (order.status !== 'in_progress') {
+      throw new Error(`Ordem não está em in_progress (status: ${order.status})`);
     }
 
     // 1.5. 🔴 BLINDAGEM: Validar escrow antes de completar (se houver agreement)
@@ -342,7 +342,7 @@ class ServiceOrderService {
             'event',
             booking.metadata.eventId
           );
-          const finalizedAgreement = agreements.find((a) => a.status === 'FINALIZED');
+          const finalizedAgreement = agreements.find((a) => a.status === 'finalized');
 
           if (finalizedAgreement) {
             // Verificar se existe escrow
@@ -355,14 +355,14 @@ class ServiceOrderService {
               );
             }
 
-            // Validar que milestone COMPLETED está autorizado ou pode ser autorizado
+            // Validar que milestone completed está autorizado ou pode ser autorizado
             const milestones = await escrowService.listMilestones(tenantId, escrow.escrowId);
-            const completedMilestone = milestones.find((m) => m.milestone === 'COMPLETED');
+            const completedMilestone = milestones.find((m) => m.milestone === 'completed');
 
-            if (completedMilestone && completedMilestone.status === 'PENDING') {
-              // Autorizar milestone COMPLETED automaticamente ao completar ordem
+            if (completedMilestone && completedMilestone.status === 'pending') {
+              // Autorizar milestone completed automaticamente ao completar ordem
               await escrowService.authorizeMilestone(tenantId, escrow.escrowId, {
-                milestone: 'COMPLETED',
+                milestone: 'completed',
                 authorizedByActorId: input.completedByActorId,
                 authorizedByUserId: input.completedByUserId || null,
               });
@@ -449,7 +449,7 @@ class ServiceOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (!['DRAFT', 'CONFIRMED', 'IN_PROGRESS'].includes(order.status)) {
+    if (!['draft', 'confirmed', 'in_progress'].includes(order.status)) {
       throw new Error(`Ordem não pode ser cancelada (status: ${order.status})`);
     }
 
@@ -539,7 +539,7 @@ class ServiceOrderService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.createdByActorId || data.confirmedByActorId || data.startedByActorId || data.completedByActorId || data.cancelledByActorId || null,
         actor_type: 'user',
         source: 'automation',
@@ -774,9 +774,9 @@ class ServiceOrderService {
                 agreementId: finalizedAgreement.agreementId,
                 serviceOrderId: confirmedOrder.id,
                 milestones: [
-                  { milestone: 'CONFIRMED', percentage: 30 },
-                  { milestone: 'STARTED', percentage: 20 },
-                  { milestone: 'COMPLETED', percentage: 50 },
+                  { milestone: 'confirmed', percentage: 30 },
+                  { milestone: 'started', percentage: 20 },
+                  { milestone: 'completed', percentage: 50 },
                 ],
               },
               evidencePack?.packId || null
@@ -862,8 +862,8 @@ class ServiceOrderService {
     }
 
     // 4. Calcular comissão (3% padrão para service_booking)
-    const PLATFORM_FEE_PERCENTAGE = 3; // 3%
-    const platformFeeCents = Math.round((grossAmountCents * PLATFORM_FEE_PERCENTAGE) / 100);
+    const PLATFORM_FEE_BPS = 3; // 3%
+    const platformFeeCents = Math.round((grossAmountCents * PLATFORM_FEE_BPS) / 100);
     const providerNetAmountCents = grossAmountCents - platformFeeCents;
 
     // 5. Obter conta da plataforma
@@ -874,10 +874,10 @@ class ServiceOrderService {
 
     return {
       serviceOrderId: order.id,
-      grossAmount: grossAmountCents,
-      platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
-      platformFee: platformFeeCents,
-      providerNetAmount: providerNetAmountCents,
+      grossAmountCents: grossAmountCents,
+      platformFeeBps: PLATFORM_FEE_BPS,
+      platformFeeCents: platformFeeCents,
+      providerNetAmountCents: providerNetAmountCents,
       currency: service.currency || 'BRL',
       providerActorId: order.workerActorId,
       platformActorId: platformAccount.accountId,
@@ -920,8 +920,8 @@ class ServiceOrderService {
       throw new Error(`Service Order não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'CONFIRMED') {
-      throw new Error(`Service Order deve estar CONFIRMED (status atual: ${order.status})`);
+    if (order.status !== 'confirmed') {
+      throw new Error(`Service Order deve estar confirmed (status atual: ${order.status})`);
     }
 
     // 2. Verificar se já existe split para esta ordem
@@ -978,8 +978,8 @@ class ServiceOrderService {
       transactionId,
       serviceOrderId: orderId,
       targetAccountId: terms.platformActorId,
-      amount: terms.platformFee / 100, // Converter centavos para reais
-      percentage: terms.platformFeePercentage,
+      amountCents: terms.platformFeeCents / 100, // Converter centavos para reais
+      percentage: terms.platformFeeBps,
       splitType: 'fee',
       description: `Comissão da plataforma - Service Order #${orderId.substring(0, 8)}`,
       metadata: {
@@ -997,8 +997,8 @@ class ServiceOrderService {
       transactionId,
       serviceOrderId: orderId,
       targetAccountId: providerAccountId,
-      amount: terms.providerNetAmount / 100, // Converter centavos para reais
-      percentage: 100 - terms.platformFeePercentage,
+      amountCents: terms.providerNetAmountCents / 100, // Converter centavos para reais
+      percentage: 100 - terms.platformFeeBps,
       splitType: 'revenue_share',
       description: `Valor líquido do prestador - Service Order #${orderId.substring(0, 8)}`,
       metadata: {
@@ -1048,9 +1048,9 @@ class ServiceOrderService {
       status: order.status,
       createdByActorId: input.confirmedByActorId,
       createdByUserId: input.confirmedByUserId,
-      grossAmount: terms.grossAmount,
-      platformFee: terms.platformFee,
-      providerNetAmount: terms.providerNetAmount,
+      grossAmount: terms.grossAmountCents,
+      platformFee: terms.platformFeeCents,
+      providerNetAmount: terms.providerNetAmountCents,
     });
 
     // 8. Registrar log de auditoria de negócio (não bloqueante)
@@ -1063,10 +1063,10 @@ class ServiceOrderService {
         contextType: 'service_order',
         contextId: order.id,
         metadata: {
-          grossAmount: terms.grossAmount,
-          platformFeePercentage: terms.platformFeePercentage,
-          platformFeeAmount: terms.platformFeeAmount,
-          providerNetAmount: terms.providerNetAmount,
+          grossAmount: terms.grossAmountCents,
+          platformFeeBps: terms.platformFeeBps,
+          platformFeeAmount: terms.platformFeeCents,
+          providerNetAmount: terms.providerNetAmountCents,
           currency: terms.currency,
         },
       });
@@ -1134,4 +1134,5 @@ class ServiceOrderService {
 }
 
 export const serviceOrderService = new ServiceOrderService();
+
 

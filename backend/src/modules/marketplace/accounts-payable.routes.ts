@@ -21,8 +21,8 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const tenantId = req.tenant!.id;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       // Converter dueDate se necessário
@@ -34,7 +34,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const payable = await accountsPayableService.createFromPurchaseOrder(
         tenantId,
         body,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId
       );
 
@@ -50,8 +50,8 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     // Converter dueDate se necessário
@@ -63,7 +63,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
     const payable = await accountsPayableService.createManualPayable(
       tenantId,
       body,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -119,8 +119,8 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       // Converter scheduledFor se necessário
@@ -133,7 +133,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
         tenantId,
         id,
         body,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId
       );
 
@@ -150,14 +150,14 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const payable = await accountsPayableService.markAsPaid(
       tenantId,
       id,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -175,14 +175,14 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const payable = await accountsPayableService.cancelPayable(
         tenantId,
         id,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId,
         req.body.cancellationReason
       );

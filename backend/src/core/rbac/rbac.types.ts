@@ -9,8 +9,8 @@ export interface Role {
   name: string;
   description: string | null;
   isSystemRole: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -23,8 +23,8 @@ export interface Permission {
   action: string;
   description: string | null;
   isSystemPermission: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -118,7 +118,8 @@ export type PermissionString = `${string}:${string}`;
  */
 export interface PermissionCheck {
   hasPermission: boolean;
-  userId: string;
+  userId?: string; // Deprecated: usar actorId
+  actorId?: string; // V2: usar actorId
   permission: PermissionString;
   reason?: string;
 }

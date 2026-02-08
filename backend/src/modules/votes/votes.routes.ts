@@ -10,8 +10,8 @@ const createVoteSchema = z.object({
   title: z.string().min(1).max(500),
   description: z.string().optional(),
   options: z.array(z.string().min(1).max(255)).min(2),
-  starts_at: z.string().datetime().optional(),
-  ends_at: z.string().datetime().optional(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().optional(),
 });
 
 const voteSchema = z.object({
@@ -35,8 +35,9 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       const parsed = createVoteSchema.safeParse(req.body);
@@ -54,8 +55,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const vote = await votesService.createVote(
         req.tenant.id,
-        req.user.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         activeActor.actor_id,
         parsed.data as CreateVoteInput
       );
@@ -83,8 +84,9 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       const { activeActor } = req as any;
@@ -94,8 +96,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const vote = await votesService.publishVote(
         req.tenant.id,
-        req.user.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         req.params.id,
         activeActor.actor_id
       );
@@ -227,8 +229,9 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Não autenticado' });
       }
 
-      if (!req.user.globalUserId) {
-        return reply.status(404).send({ error: 'Identidade global não encontrada' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
 
       const { activeActor } = req as any;
@@ -238,8 +241,8 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const vote = await votesService.closeVote(
         req.tenant.id,
-        req.user.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         req.params.id,
         activeActor.actor_id
       );
@@ -275,9 +278,9 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         status: vote.status,
         total_votes: vote.total_votes || 0,
         results: vote.results || [],
-        created_at: vote.created_at,
-        starts_at: vote.starts_at,
-        ends_at: vote.ends_at,
+        createdAt: vote.createdAt,
+        startsAt: vote.startsAt,
+        endsAt: vote.endsAt,
       });
     } catch (error: any) {
       fastify.log.error({ err: error }, 'Erro ao buscar auditoria');
@@ -287,6 +290,7 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default votesRoutes;
+
 
 
 

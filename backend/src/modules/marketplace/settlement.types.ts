@@ -40,8 +40,8 @@ export interface Settlement {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -80,8 +80,8 @@ export interface RegionAccount {
   regionId: string;
   balanceCents: number;
   currency: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -101,6 +101,7 @@ export interface DebitRegionAccountInput {
   currency?: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

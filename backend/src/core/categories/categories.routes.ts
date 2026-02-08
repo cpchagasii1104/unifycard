@@ -606,7 +606,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
           req.query.limit || 50
         );
         
-        return reply.send({ ok: true, data: { categories, total: categories.length } });
+        return reply.send({ ok: true, data: { categories, totalCents: categories.length } });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar categorias');
         
@@ -695,7 +695,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         const children = await categoriesService.getChildren(req.params.categoryId);
-        return reply.send({ ok: true, data: { children, total: children.length } });
+        return reply.send({ ok: true, data: { children, totalCents: children.length } });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar filhos da categoria');
         return reply.status(500).send({ 
@@ -1211,6 +1211,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default categoriesRoutes;
+
 
 
 

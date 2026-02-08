@@ -34,7 +34,7 @@ export interface RegionalFundSummary {
   };
 
   // Como o dinheiro é dividido (split completo)
-  // Mostra transparência total: de cada R$ 100, para onde vai
+  // Mostra transparência totalCents: de cada R$ 100, para onde vai
   // Valores em percentual (70 = 70%, 15 = 15%, etc)
   splitBreakdown: {
     worker: number; // 70 - vai para o trabalhador
@@ -50,7 +50,7 @@ export interface RegionalFundSummary {
  */
 export interface RegionalFundHistoryEntry {
   date: string; // YYYY-MM-DD
-  amount: number; // Valor que entrou neste dia
+  amountCents: number; // Valor que entrou neste dia
   transactionCount: number; // Quantas transações contribuíram
 }
 
@@ -106,4 +106,5 @@ export interface RegionalFundView {
   history: RegionalFundHistory;
   projection: RegionalFundProjection;
 }
+
 

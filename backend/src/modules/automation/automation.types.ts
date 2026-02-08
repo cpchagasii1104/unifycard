@@ -12,9 +12,9 @@ export type AlertType =
   | 'RISK_SCORE_LOW' // SPRINT 66: Alerta para score baixo
   | 'OTHER';
 
-export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
 
-export type AlertStatus = 'OPEN' | 'ACK' | 'RESOLVED';
+export type AlertStatus = 'open' | 'ack' | 'resolved';
 
 export interface Alert {
   id: string;
@@ -26,10 +26,10 @@ export interface Alert {
   entityId: string | null;
   status: AlertStatus;
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
   acknowledgedAt: Date | null;
   resolvedAt: Date | null;
-  updatedAt: Date;
+  updatedAt: string;
 }
 
 export interface CreateAlertInput {
@@ -63,4 +63,5 @@ export interface AutomationEvent {
   entityId: string;
   context: Record<string, any>;
 }
+
 

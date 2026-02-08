@@ -14,8 +14,8 @@ export interface FulfillmentOrder {
   pickedByUserId?: string | null;
   shippedAt?: Date | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FulfillmentItem {
@@ -27,7 +27,7 @@ export interface FulfillmentItem {
   inventoryLotId?: string | null;
   status: FulfillmentItemStatus;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateFulfillmentOrderInput {
@@ -47,6 +47,7 @@ export interface ShipFulfillmentOrderInput {
   fulfillmentOrderId: string;
   metadata?: Record<string, any>;
 }
+
 
 
 

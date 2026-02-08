@@ -19,8 +19,8 @@ interface CreatePromotionBody {
   discount_type: 'percent' | 'fixed';
   discount_value: number;
   max_uses?: number;
-  starts_at?: Date;
-  expires_at?: Date;
+  startsAt?: Date;
+  expiresAt?: Date;
   min_distance_km?: number;
   min_price?: number;
   applicable_city_id?: string;
@@ -129,3 +129,4 @@ const promotionsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =>
 };
 
 export default promotionsRoutes;
+

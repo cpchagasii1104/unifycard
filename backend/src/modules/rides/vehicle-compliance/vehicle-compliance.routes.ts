@@ -74,11 +74,11 @@ interface DriverDocumentRow {
   file_size_bytes: number | null;
   file_mime_type: string | null;
   status: string;
-  expires_at: Date | null;
+  expiresAt: Date | null;
   is_current: boolean;
-  uploaded_at: Date;
-  created_at: Date;
-  updated_at: Date;
+  uploadedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface VehicleDocumentRow {
@@ -90,11 +90,11 @@ interface VehicleDocumentRow {
   file_size_bytes: number | null;
   file_mime_type: string | null;
   status: string;
-  expires_at: Date | null;
+  expiresAt: Date | null;
   is_current: boolean;
-  uploaded_at: Date;
-  created_at: Date;
-  updated_at: Date;
+  uploadedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -124,14 +124,14 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
             file_size_bytes,
             file_mime_type,
             status,
-            expires_at,
+            expiresAt,
             is_current,
-            uploaded_at,
-            created_at,
-            updated_at
+            uploadedAt,
+            createdAt,
+            updatedAt
           FROM rides_driver_documents
           WHERE driver_id = $1
-          ORDER BY uploaded_at DESC;
+          ORDER BY uploadedAt DESC;
         `,
         values: [driverId],
       });
@@ -192,7 +192,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         await trx.query({
           text: `
             UPDATE rides_driver_documents
-            SET is_current = false, updated_at = now()
+            SET is_current = false, updatedAt = now()
             WHERE driver_id = $1
               AND document_type = $2
               AND is_current = true;
@@ -211,7 +211,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               extracted_data,
-              expires_at,
+              expiresAt,
               status,
               is_current
             )
@@ -231,11 +231,11 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               status,
-              expires_at,
+              expiresAt,
               is_current,
-              uploaded_at,
-              created_at,
-              updated_at;
+              uploadedAt,
+              createdAt,
+              updatedAt;
           `,
           values: [
             tenantId,
@@ -290,14 +290,14 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
             file_size_bytes,
             file_mime_type,
             status,
-            expires_at,
+            expiresAt,
             is_current,
-            uploaded_at,
-            created_at,
-            updated_at
+            uploadedAt,
+            createdAt,
+            updatedAt
           FROM rides_vehicle_documents
           WHERE vehicle_id = $1
-          ORDER BY uploaded_at DESC;
+          ORDER BY uploadedAt DESC;
         `,
         values: [vehicleId],
       });
@@ -358,7 +358,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         await trx.query({
           text: `
             UPDATE rides_vehicle_documents
-            SET is_current = false, updated_at = now()
+            SET is_current = false, updatedAt = now()
             WHERE vehicle_id = $1
               AND document_type = $2
               AND is_current = true;
@@ -377,7 +377,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               extracted_data,
-              expires_at,
+              expiresAt,
               status,
               is_current
             )
@@ -397,11 +397,11 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               status,
-              expires_at,
+              expiresAt,
               is_current,
-              uploaded_at,
-              created_at,
-              updated_at;
+              uploadedAt,
+              createdAt,
+              updatedAt;
           `,
           values: [
             tenantId,
@@ -465,32 +465,32 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         driver_id: string;
         document_type: string;
         status: string;
-        verified_at: Date | null;
+        verifiedAt: Date | null;
         rejected_reason: string | null;
         rejection_code: string | null;
-        updated_at: Date;
+        updatedAt: Date;
       }>(tenantId, {
         text: `
           UPDATE rides_driver_documents
           SET
             status = $2,
-            verified_at = CASE 
+            verifiedAt = CASE 
               WHEN $2 IN ('approved', 'rejected') THEN now()
-              ELSE verified_at
+              ELSE verifiedAt
             END,
             rejected_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE rejected_reason END,
             rejection_code = CASE WHEN $2 = 'rejected' THEN $4 ELSE rejection_code END,
-            updated_at = now()
+            updatedAt = now()
           WHERE document_id = $1
           RETURNING
             document_id,
             driver_id,
             document_type,
             status,
-            verified_at,
+            verifiedAt,
             rejected_reason,
             rejection_code,
-            updated_at;
+            updatedAt;
         `,
         values: [documentId, normalized, rejectedReason ?? null, rejectionCode ?? null],
       });
@@ -538,32 +538,32 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         vehicle_id: string;
         document_type: string;
         status: string;
-        verified_at: Date | null;
+        verifiedAt: Date | null;
         rejected_reason: string | null;
         rejection_code: string | null;
-        updated_at: Date;
+        updatedAt: Date;
       }>(tenantId, {
         text: `
           UPDATE rides_vehicle_documents
           SET
             status = $2,
-            verified_at = CASE 
+            verifiedAt = CASE 
               WHEN $2 IN ('approved', 'rejected') THEN now()
-              ELSE verified_at
+              ELSE verifiedAt
             END,
             rejected_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE rejected_reason END,
             rejection_code = CASE WHEN $2 = 'rejected' THEN $4 ELSE rejection_code END,
-            updated_at = now()
+            updatedAt = now()
           WHERE document_id = $1
           RETURNING
             document_id,
             vehicle_id,
             document_type,
             status,
-            verified_at,
+            verifiedAt,
             rejected_reason,
             rejection_code,
-            updated_at;
+            updatedAt;
         `,
         values: [documentId, normalized, rejectedReason ?? null, rejectionCode ?? null],
       });
@@ -578,3 +578,4 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
 };
 
 export default vehicleComplianceRoutes;
+

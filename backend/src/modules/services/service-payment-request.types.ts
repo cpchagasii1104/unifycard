@@ -36,12 +36,12 @@ export interface ServicePaymentRequest {
   payerActorId: string; // OBRIGATÓRIO: Actor que paga
   receiverActorId: string; // OBRIGATÓRIO: Actor que recebe (dono do service)
   status: PaymentRequestStatus;
-  amount: number; // Valor do pagamento
+  amountCents: number; // Valor do pagamento
   currency: string; // Moeda (default: 'FIC' = Fictícia)
   requestedAt: Date;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   cancelledAt?: Date | null; // Quando foi cancelado (se status = 'cancelled')
   expiredAt?: Date | null; // Quando expirou (se status = 'expired')
 }
@@ -57,14 +57,14 @@ export interface ServicePaymentRequestRow {
   payer_actor_id: string;
   receiver_actor_id: string;
   status: PaymentRequestStatus;
-  amount: number;
+  amountCents: number;
   currency: string;
-  requested_at: Date;
+  requestedAt: Date;
   metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
-  cancelled_at: Date | null;
-  expired_at: Date | null;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt: Date | null;
+  expiredAt: Date | null;
 }
 
 /**
@@ -77,7 +77,7 @@ export interface CreateServicePaymentRequestInput {
   serviceId: string; // OBRIGATÓRIO
   payerActorId: string; // OBRIGATÓRIO
   receiverActorId: string; // OBRIGATÓRIO
-  amount: number; // OBRIGATÓRIO: Valor do pagamento
+  amountCents: number; // OBRIGATÓRIO: Valor do pagamento
   currency?: string; // Default: 'FIC'
   metadata?: Record<string, any>;
 }
@@ -89,4 +89,7 @@ export interface UpdateServicePaymentRequestInput {
   status?: PaymentRequestStatus;
   metadata?: Record<string, any>;
 }
+
+
+
 

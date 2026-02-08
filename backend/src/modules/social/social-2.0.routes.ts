@@ -80,8 +80,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -131,7 +132,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
       const feed = await social2Service.getFeed(
         req.tenant.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
         cursor,
         safeLimit,
         actorType,
@@ -164,8 +165,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -175,10 +177,12 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     try {
       const validated = createPostSchema.parse(req.body);
       
-      // CONTINUOUS PRODUCTION: Usar action context se disponível
-      const actionContext = (req as any).actionContext;
-      const createdByUserId = actionContext?.actingUserId || req.user.id;
-      const createdAsActorId = actionContext?.actingActorId || validated.actor_id;
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
+      const createdAsActorId = req.actionContext.actorId;
       
       // CONTINUOUS PRODUCTION: Verificar permissão específica para publicar feed
       // Action context já foi resolvido pelo middleware
@@ -195,8 +199,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       
       const post = await social2Service.createPost(
         req.tenant.id,
-        req.user.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         validated.content,
         validated.actor_id,
         validated.media_ids || [],
@@ -237,8 +241,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -255,7 +260,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       const reaction = await social2Service.toggleReaction(
         req.tenant.id,
         req.params.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
         validated.reaction_type,
         actorId,
         actorType
@@ -324,8 +329,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -337,7 +343,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       const comment = await social2Service.createComment(
         req.tenant.id,
         req.params.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
         validated.content,
         validated.parent_comment_id
       );
@@ -366,14 +372,15 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const userId = req.user.userId;
-      if (!userId) {
-        return reply.status(400).send({ error: 'User ID não encontrado' });
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+
+      const actorId = req.actionContext.actorId;
 
       const actors = await actorRepository.findAvailableActors(
         req.tenant.id,
-        userId
+        actorId
       );
 
       // 🔴 AUDITORIA: Registrar troca de actor se houver mudança
@@ -408,10 +415,11 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const userId = req.user.userId;
-      if (!userId) {
-        return reply.status(400).send({ error: 'User ID não encontrado' });
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+
+      const actorId = req.actionContext.actorId;
 
       const { from_actor_id, to_actor_id } = req.body;
 
@@ -486,7 +494,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
           )
           LIMIT 1
           `,
-          [req.user.globalUserId]
+          [req.actionContext.actorId]
         );
         if (user) {
           const currentActor = await actorRepository.findOrCreateUserActor(
@@ -524,8 +532,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -542,7 +551,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         )
         LIMIT 1
         `,
-        [req.user.globalUserId]
+        [req.actionContext.actorId]
       );
 
       if (!user) {
@@ -578,8 +587,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -596,7 +606,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         )
         LIMIT 1
         `,
-        [req.user.globalUserId]
+        [req.actionContext.actorId]
       );
 
       if (!user) {
@@ -632,8 +642,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -644,7 +655,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       const limit = parseInt(req.query.limit || '50', 10);
       const entries = await socialLedgerService.getUserLedger(
         req.tenant.id,
-        req.user.globalUserId,
+        req.actionContext.actorId,
         limit
       );
       return reply.send({ entries });
@@ -663,8 +674,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -674,7 +686,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     try {
       const summary = await socialLedgerService.getUserLedgerSummary(
         req.tenant.id,
-        req.user.globalUserId
+        req.actionContext.actorId
       );
       return reply.send(summary);
     } catch (error) {
@@ -697,8 +709,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ error: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -743,7 +756,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         WHERE global_user_id = $1 AND tenant_id = $2
         LIMIT 1
         `,
-        [req.user.globalUserId, req.tenant.id]
+        [req.actionContext.actorId, req.tenant.id]
       );
 
       if (!user) {
@@ -769,7 +782,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Gerar idempotency_key único
-      const idempotencyKey = `cta_${cta.cta_id}_${req.user.globalUserId}_${Date.now()}`;
+      const idempotencyKey = `cta_${cta.cta_id}_${req.actionContext.actorId}_${Date.now()}`;
 
       // Criar entrada de receita para o destinatário
       const revenueEntry = await socialLedgerService.recordEntry(
@@ -785,7 +798,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
           description: `Receita de ${cta.cta_type === 'booking' ? 'agendamento' : cta.cta_type === 'service' ? 'serviço' : 'pagamento'}`,
           metadata: {
             notes: req.body.notes,
-            confirmed_at: new Date().toISOString(),
+            confirmedAt: new Date().toISOString(),
           },
           idempotency_key: `${idempotencyKey}_revenue`,
         }
@@ -901,8 +914,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ ok: false, message: 'Não autenticado' });
     }
 
-    if (!req.user.globalUserId) {
-      return reply.status(404).send({ ok: false, message: 'Identidade global não encontrada' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
     if (!req.tenant) {
@@ -918,7 +932,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         WHERE global_user_id = $1 AND tenant_id = $2
         LIMIT 1
         `,
-        [req.user.globalUserId, req.tenant.id]
+        [req.actionContext.actorId, req.tenant.id]
       );
 
       if (!user) {
@@ -1150,3 +1164,4 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default social2Routes;
+

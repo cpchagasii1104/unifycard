@@ -44,8 +44,8 @@ export interface AccountsReceivable {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -91,6 +91,7 @@ export interface AccountsReceivableFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

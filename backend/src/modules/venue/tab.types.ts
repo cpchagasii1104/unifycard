@@ -15,8 +15,8 @@ export interface Tab {
   openedAt: Date;
   closedAt: Date | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OpenTabInput {
@@ -37,9 +37,10 @@ export interface TabWithOrders extends Tab {
   orders: Array<{
     id: string;
     orderId: string;
-    createdAt: Date;
+    createdAt: string;
   }>;
 }
+
 
 
 

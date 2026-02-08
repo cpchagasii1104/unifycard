@@ -68,7 +68,7 @@ const policyRoutes = async (fastify: FastifyInstance) => {
 
     const policies = await policyEngineService.listPolicies(tenantId, filters);
 
-    return reply.send({ policies, total: policies.length });
+    return reply.send({ policies, totalCents: policies.length });
   });
 
   /**
@@ -172,7 +172,7 @@ const policyRoutes = async (fastify: FastifyInstance) => {
 
     const decisions = await policyEngineService.listDecisions(tenantId, filters);
 
-    return reply.send({ decisions, total: decisions.length });
+    return reply.send({ decisions, totalCents: decisions.length });
   });
 
   /**
@@ -254,6 +254,7 @@ const policyRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default policyRoutes;
+
 
 
 

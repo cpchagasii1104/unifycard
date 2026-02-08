@@ -26,8 +26,8 @@ interface SupplierRow {
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class SupplierRepository {
@@ -54,8 +54,8 @@ class SupplierRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -97,7 +97,7 @@ class SupplierRepository {
                 address, city, state, zip_code, country,
                 tax_id, registration_number, status,
                 created_by_actor_id, created_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -138,7 +138,7 @@ class SupplierRepository {
              address, city, state, zip_code, country,
              tax_id, registration_number, status,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM suppliers
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -182,7 +182,7 @@ class SupplierRepository {
              address, city, state, zip_code, country,
              tax_id, registration_number, status,
              created_by_actor_id, created_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM suppliers
       WHERE ${conditions.join(' AND ')}
       ORDER BY name ASC
@@ -196,6 +196,8 @@ class SupplierRepository {
 }
 
 export const supplierRepository = new SupplierRepository();
+
+
 
 
 

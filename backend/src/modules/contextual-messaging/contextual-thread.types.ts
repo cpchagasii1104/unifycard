@@ -20,8 +20,8 @@ export interface ContextualThread {
   title?: string | null; // Título opcional da thread
   participantActorIds: string[]; // Actors participantes
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -35,7 +35,7 @@ export interface ContextualMessage {
   senderUserId?: string | null; // User que enviou (opcional, para auditoria)
   content: string;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -68,6 +68,7 @@ export interface ContextualThreadFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

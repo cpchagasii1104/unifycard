@@ -15,19 +15,20 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface DeliveryOrder {
-  delivery_id: string;
-  checkout_id: string;
-  store_id: string;
+  deliveryId: string;
+  checkoutId: string;
+  storeId: string;
   type: 'own' | 'third_party';
   vehicle: 'bike' | 'moto' | 'car' | 'van';
-  eta_minutes: number;
+  etaMinutes: number;
   cost: {
-    amount: number;
+    amountCents: number;
     currency: string;
     payer: 'seller' | 'buyer' | 'platform';
   };
   status: 'created' | 'assigned' | 'in_transit' | 'delivered';
 }
+
 
 
 

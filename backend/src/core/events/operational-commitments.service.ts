@@ -50,14 +50,14 @@ interface OperationalCommitmentRow {
   global_user_id: string | null;
   role: string;
   assigned_by_global_user_id: string | null;
-  created_at: string;
-  updated_at: string | null;
+  createdAt: string;
+  updatedAt: string | null;
   responsible_actor_id: string | null;
   responsible_actor_type: string | null;
   status: string | null;
   time_window_ref: Record<string, any> | null;
-  checked_in_at: string | null;
-  checked_out_at: string | null;
+  checked_inAt: string | null;
+  checked_outAt: string | null;
   failure_reason: string | null;
   source: string | null;
 }
@@ -69,21 +69,21 @@ class OperationalCommitmentsService {
   private toCommitment(row: OperationalCommitmentRow, tenantId: string): OperationalCommitment {
     return {
       id: row.id,
-      event_id: row.event_id,
-      tenant_id: tenantId,
-      responsible_actor_id: row.responsible_actor_id || '',
-      responsible_actor_type: (row.responsible_actor_type || 'user') as 'user' | 'page' | 'group' | 'channel',
+      eventId: row.event_id,
+      tenantId: tenantId,
+      responsibleActorId: row.responsible_actor_id || '',
+      responsibleActorType: (row.responsible_actor_type || 'user') as 'user' | 'page' | 'group' | 'channel',
       role: row.role,
       status: (row.status || 'expected') as OperationalCommitmentStatus,
-      time_window_ref: row.time_window_ref as any,
-      checked_in_at: row.checked_in_at,
-      checked_out_at: row.checked_out_at,
-      failure_reason: row.failure_reason,
+      timeWindowRef: row.time_window_ref as any,
+      checkedInAt: row.checked_inAt,
+      checkedOutAt: row.checked_outAt,
+      failureReason: row.failure_reason,
       source: (row.source || 'legacy') as 'legacy' | 'v2',
-      created_at: row.created_at,
-      updated_at: row.updated_at || row.created_at,
-      global_user_id: row.global_user_id,
-      assigned_by_global_user_id: row.assigned_by_global_user_id,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt || row.createdAt,
+      globalUserId: row.global_user_id,
+      assignedByGlobalUserId: row.assigned_by_global_user_id,
     };
   }
 
@@ -109,7 +109,7 @@ class OperationalCommitmentsService {
       WHERE id = $1 AND tenant_id = $2
       LIMIT 1
       `,
-      [input.event_id, tenantId]
+      [input.eventId, tenantId]
     );
 
     if (!event || event.length === 0) {
@@ -117,8 +117,8 @@ class OperationalCommitmentsService {
     }
 
     // 2. Validar actor explícito (obrigatório)
-    if (!input.responsible_actor_id || !input.responsible_actor_type) {
-      throw new BadRequestError('responsible_actor_id e responsible_actor_type são obrigatórios');
+    if (!input.responsibleActorId || !input.responsibleActorType) {
+      throw new BadRequestError('responsibleActorId e responsibleActorType são obrigatórios');
     }
 
     // 3. Validar que actor existe
@@ -132,11 +132,11 @@ class OperationalCommitmentsService {
         AND actor_type = $3
       LIMIT 1
       `,
-      [tenantId, input.responsible_actor_id, input.responsible_actor_type]
+      [tenantId, input.responsibleActorId, input.responsibleActorType]
     );
 
     if (!actor || actor.length === 0) {
-      throw new BadRequestError(`Actor '${input.responsible_actor_id}' (${input.responsible_actor_type}) não encontrado`);
+      throw new BadRequestError(`Actor '${input.responsibleActorId}' (${input.responsibleActorType}) não encontrado`);
     }
 
     // 4. Criar commitment (status inicial: 'expected')
@@ -151,19 +151,19 @@ class OperationalCommitmentsService {
         status,
         time_window_ref,
         source,
-        created_at,
-        updated_at
+        createdAt,
+        updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
       `,
       [
-        input.event_id,
-        input.responsible_actor_id,
-        input.responsible_actor_type,
+        input.eventId,
+        input.responsibleActorId,
+        input.responsibleActorType,
         input.role,
         'expected',
-        input.time_window_ref ? JSON.stringify(input.time_window_ref) : null,
+        input.timeWindowRef ? JSON.stringify(input.timeWindowRef) : null,
         'v2',
       ]
     );
@@ -199,7 +199,7 @@ class OperationalCommitmentsService {
     assertTransitionAllowed(commitment.status, 'checked_in');
 
     // 3. Registrar check-in (fato)
-    const observedAt = input.observed_at || new Date().toISOString();
+    const observedAt = input.observedAt || new Date().toISOString();
 
     const row = await runQueryWithTenant<OperationalCommitmentRow>(
       tenantId,
@@ -207,8 +207,8 @@ class OperationalCommitmentsService {
       UPDATE event_staff
       SET 
         status = 'checked_in',
-        checked_in_at = $1,
-        updated_at = NOW()
+        checked_inAt = $1,
+        updatedAt = NOW()
       WHERE id = $2
       RETURNING *
       `,
@@ -246,7 +246,7 @@ class OperationalCommitmentsService {
     assertTransitionAllowed(commitment.status, 'checked_out');
 
     // 3. Registrar check-out (fato)
-    const observedAt = input.observed_at || new Date().toISOString();
+    const observedAt = input.observedAt || new Date().toISOString();
 
     const row = await runQueryWithTenant<OperationalCommitmentRow>(
       tenantId,
@@ -254,8 +254,8 @@ class OperationalCommitmentsService {
       UPDATE event_staff
       SET 
         status = 'checked_out',
-        checked_out_at = $1,
-        updated_at = NOW()
+        checked_outAt = $1,
+        updatedAt = NOW()
       WHERE id = $2
       RETURNING *
       `,
@@ -300,11 +300,11 @@ class OperationalCommitmentsService {
       SET 
         status = 'failed',
         failure_reason = $1,
-        updated_at = NOW()
+        updatedAt = NOW()
       WHERE id = $2
       RETURNING *
       `,
-      [input.failure_reason, commitmentId]
+      [input.failureReason, commitmentId]
     );
 
     if (!row || row.length === 0) {
@@ -355,7 +355,7 @@ class OperationalCommitmentsService {
       FROM event_staff es
       INNER JOIN events e ON e.id = es.event_id
       WHERE es.event_id = $1 AND e.tenant_id = $2
-      ORDER BY es.created_at DESC
+      ORDER BY es.createdAt DESC
       `,
       [eventId, tenantId]
     );
@@ -365,4 +365,5 @@ class OperationalCommitmentsService {
 }
 
 export const operationalCommitmentsService = new OperationalCommitmentsService();
+
 

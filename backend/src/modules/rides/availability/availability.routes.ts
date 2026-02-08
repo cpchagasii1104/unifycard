@@ -99,7 +99,7 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           text: `
             INSERT INTO rides_driver_sessions (
               driver_id, vehicle_id, city_id,
-              started_at, driving_minutes, forced_break_until
+              startedAt, driving_minutes, forced_break_until
             )
             VALUES ($1, $2, $3, NOW(), $4, $5)
             RETURNING *;
@@ -117,13 +117,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const [availability] = (await trx.query({
           text: `
             INSERT INTO rides_driver_availability (
-              driver_id, is_available, updated_at
+              driver_id, is_available, updatedAt
             )
             VALUES ($1, TRUE, NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               is_available = TRUE,
-              updated_at = NOW()
+              updatedAt = NOW()
             RETURNING *;
           `,
           values: [driverId],
@@ -133,13 +133,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await trx.query({
           text: `
             INSERT INTO rides_driver_locations (
-              driver_id, location, updated_at
+              driver_id, location, updatedAt
             )
             VALUES ($1, ST_Point($2, $3), NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               location = ST_Point($2, $3),
-              updated_at = NOW();
+              updatedAt = NOW();
           `,
           values: [driverId, lng, lat],
         });
@@ -190,9 +190,9 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await trx.query({
           text: `
             UPDATE rides_driver_sessions
-            SET ended_at = NOW()
+            SET endedAt = NOW()
             WHERE driver_id = $1
-              AND ended_at IS NULL;
+              AND endedAt IS NULL;
           `,
           values: [driverId],
         });
@@ -201,7 +201,7 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const [availability] = (await trx.query({
           text: `
             UPDATE rides_driver_availability
-            SET is_available = FALSE, updated_at = NOW()
+            SET is_available = FALSE, updatedAt = NOW()
             WHERE driver_id = $1
             RETURNING *;
           `,
@@ -259,13 +259,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await trx.query({
           text: `
             INSERT INTO rides_driver_locations (
-              driver_id, location, updated_at
+              driver_id, location, updatedAt
             )
             VALUES ($1, ST_Point($2, $3), NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               location = ST_Point($2, $3),
-              updated_at = NOW();
+              updatedAt = NOW();
           `,
           values: [driverId, lng, lat],
         });
@@ -327,7 +327,7 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
           SELECT *
           FROM rides_driver_sessions
           WHERE driver_id = (SELECT driver_id FROM d)
-          ORDER BY started_at DESC
+          ORDER BY startedAt DESC
           LIMIT 1
         ),
         earnings AS (
@@ -347,3 +347,4 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
 };
 
 export default availabilityRoutes;
+

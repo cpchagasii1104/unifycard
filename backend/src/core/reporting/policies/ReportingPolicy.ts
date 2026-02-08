@@ -16,8 +16,8 @@ class ReportingPolicy {
     // Buscar denúncias recentes do reporter
     const recentReports = await reportingRepository.findReportsByReporter(tenantId, reporterUserId, 100, 0);
 
-    const reportsLastHour = recentReports.filter((r) => r.created_at >= oneHourAgo);
-    const reportsLastDay = recentReports.filter((r) => r.created_at >= oneDayAgo);
+    const reportsLastHour = recentReports.filter((r) => r.createdAt >= oneHourAgo);
+    const reportsLastDay = recentReports.filter((r) => r.createdAt >= oneDayAgo);
 
     // Limites (conforme REPORTING_CORE.md)
     if (reportsLastHour.length >= 5) {
@@ -48,6 +48,7 @@ class ReportingPolicy {
 }
 
 export const reportingPolicy = new ReportingPolicy();
+
 
 
 

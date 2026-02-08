@@ -19,8 +19,8 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ProviderPresence {
-  presence_id: string;
-  provider_actor_id: string; // ID do provider (store/service_provider)
+  presenceId: string;
+  providerActorId: string; // ID do provider (store/service_provider)
   status: 'online' | 'offline';
   region: {
     country: string;
@@ -28,16 +28,16 @@ export interface ProviderPresence {
     city: string;
     neighborhood?: string;
   };
-  last_seen: string; // ISO 8601 - Última vez que foi visto online
-  response_sla_metrics?: {
-    average_response_time_minutes: number; // Tempo médio de resposta a dispatches
-    total_dispatches_received: number; // Total de dispatches recebidos
-    total_dispatches_accepted: number; // Total de dispatches aceitos
-    total_dispatches_declined: number; // Total de dispatches recusados
-    last_response_time_minutes?: number; // Tempo de resposta do último dispatch
+  lastSeen: string; // ISO 8601 - Última vez que foi visto online
+  responseSlaMetrics?: {
+    averageResponseTimeMinutes: number; // Tempo médio de resposta a dispatches
+    totalDispatchesReceived: number; // Total de dispatches recebidos
+    totalDispatchesAccepted: number; // Total de dispatches aceitos
+    totalDispatchesDeclined: number; // Total de dispatches recusados
+    lastResponseTimeMinutes?: number; // Tempo de resposta do último dispatch
   };
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

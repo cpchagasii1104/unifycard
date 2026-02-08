@@ -154,7 +154,7 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
 
     const overview = await reportingService.getTrustOverview(tenantId, filters);
 
-    return reply.send({ overview, total: overview.length });
+    return reply.send({ overview, totalCents: overview.length });
   });
 
   /**
@@ -177,7 +177,7 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
 
     const overview = await reportingService.getDisputeOverview(tenantId, filters);
 
-    return reply.send({ overview, total: overview.length });
+    return reply.send({ overview, totalCents: overview.length });
   });
 
   /**
@@ -214,6 +214,7 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default reportingRoutes;
+
 
 
 

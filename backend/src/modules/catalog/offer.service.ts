@@ -14,8 +14,8 @@ interface ProductOfferRow {
   location_region_id: string | null;
   location_city_id: string | null;
   active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class OfferService {
@@ -34,9 +34,9 @@ class OfferService {
         regionId: row.location_region_id || undefined,
         cityId: row.location_city_id || undefined,
       },
-      active: row.active,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      isActive: row.active,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -64,7 +64,7 @@ class OfferService {
 
     let query = `
       SELECT id, tenant_id, product_id, merchant_id, price, stock, 
-             location_region_id, location_city_id, active, created_at, updated_at
+             location_region_id, location_city_id, active, createdAt, updatedAt
       FROM product_offers
       WHERE tenant_id = $1 AND product_id = $2
     `;
@@ -105,7 +105,7 @@ class OfferService {
       {
         text: `
         SELECT id, tenant_id, product_id, merchant_id, price, stock, 
-               location_region_id, location_city_id, active, created_at, updated_at
+               location_region_id, location_city_id, active, createdAt, updatedAt
         FROM product_offers
         WHERE tenant_id = $1 AND id = $2
         `,
@@ -118,4 +118,6 @@ class OfferService {
 }
 
 export const offerService = new OfferService();
+
+
 

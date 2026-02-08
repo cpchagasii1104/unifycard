@@ -21,7 +21,7 @@ interface CrmNoteRow {
   note: string;
   visibility: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 }
 
 interface CrmTagRow {
@@ -29,7 +29,7 @@ interface CrmTagRow {
   tenant_id: string;
   name: string;
   color: string | null;
-  created_at: Date;
+  createdAt: Date;
 }
 
 interface CrmContactTagRow {
@@ -37,7 +37,7 @@ interface CrmContactTagRow {
   tenant_id: string;
   contact_id: string;
   tag_id: string;
-  created_at: Date;
+  createdAt: Date;
 }
 
 interface CrmConsentRow {
@@ -49,8 +49,8 @@ interface CrmConsentRow {
   updated_by_actor_id: string;
   updated_by_user_id: string | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class CrmRepository {
@@ -64,7 +64,7 @@ class CrmRepository {
       note: row.note,
       visibility: row.visibility as any,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -74,7 +74,7 @@ class CrmRepository {
       tenantId: row.tenant_id,
       name: row.name,
       color: row.color,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -84,7 +84,7 @@ class CrmRepository {
       tenantId: row.tenant_id,
       contactId: row.contact_id,
       tagId: row.tag_id,
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -98,8 +98,8 @@ class CrmRepository {
       updatedByActorId: row.updated_by_actor_id,
       updatedByUserId: row.updated_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -122,7 +122,7 @@ class CrmRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING id, tenant_id, contact_id, author_actor_id, author_user_id,
-                note, visibility, metadata, created_at
+                note, visibility, metadata, createdAt
       `,
       [
         tenantId,
@@ -146,10 +146,10 @@ class CrmRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, author_actor_id, author_user_id,
-             note, visibility, metadata, created_at
+             note, visibility, metadata, createdAt
       FROM crm_notes
       WHERE tenant_id = $1 AND contact_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, contactId]
     );
@@ -172,7 +172,7 @@ class CrmRepository {
       VALUES ($1, $2, $3)
       ON CONFLICT (tenant_id, name) DO UPDATE
       SET name = EXCLUDED.name
-      RETURNING id, tenant_id, name, color, created_at
+      RETURNING id, tenant_id, name, color, createdAt
       `,
       [tenantId, input.name.trim(), input.color || null]
     );
@@ -184,7 +184,7 @@ class CrmRepository {
     const rows = await runQueriesWithTenant<CrmTagRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, color, created_at
+      SELECT id, tenant_id, name, color, createdAt
       FROM crm_tags
       WHERE tenant_id = $1
       ORDER BY name ASC
@@ -199,7 +199,7 @@ class CrmRepository {
     const row = await runQueryWithTenant<CrmTagRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, color, created_at
+      SELECT id, tenant_id, name, color, createdAt
       FROM crm_tags
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -228,7 +228,7 @@ class CrmRepository {
       INSERT INTO crm_contact_tags (tenant_id, contact_id, tag_id)
       VALUES ($1, $2, $3)
       ON CONFLICT (tenant_id, contact_id, tag_id) DO NOTHING
-      RETURNING id, tenant_id, contact_id, tag_id, created_at
+      RETURNING id, tenant_id, contact_id, tag_id, createdAt
       `,
       [tenantId, contactId, tagId]
     );
@@ -268,7 +268,7 @@ class CrmRepository {
     const row = await runQueryWithTenant<CrmContactTagRow>(
       tenantId,
       `
-      SELECT id, tenant_id, contact_id, tag_id, created_at
+      SELECT id, tenant_id, contact_id, tag_id, createdAt
       FROM crm_contact_tags
       WHERE tenant_id = $1 AND contact_id = $2 AND tag_id = $3
       `,
@@ -286,10 +286,10 @@ class CrmRepository {
     const rows = await runQueriesWithTenant<CrmContactTagRow>(
       tenantId,
       `
-      SELECT id, tenant_id, contact_id, tag_id, created_at
+      SELECT id, tenant_id, contact_id, tag_id, createdAt
       FROM crm_contact_tags
       WHERE tenant_id = $1 AND contact_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, contactId]
     );
@@ -320,10 +320,10 @@ class CrmRepository {
           updated_by_actor_id = EXCLUDED.updated_by_actor_id,
           updated_by_user_id = EXCLUDED.updated_by_user_id,
           metadata = EXCLUDED.metadata,
-          updated_at = NOW()
+          updatedAt = NOW()
       RETURNING id, tenant_id, contact_id, channel, status,
                 updated_by_actor_id, updated_by_user_id, metadata,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -345,7 +345,7 @@ class CrmRepository {
       `
       SELECT id, tenant_id, contact_id, channel, status,
              updated_by_actor_id, updated_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM crm_consents
       WHERE tenant_id = $1 AND contact_id = $2
       ORDER BY channel ASC
@@ -366,7 +366,7 @@ class CrmRepository {
       `
       SELECT id, tenant_id, contact_id, channel, status,
              updated_by_actor_id, updated_by_user_id, metadata,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM crm_consents
       WHERE tenant_id = $1 AND contact_id = $2 AND channel = $3
       `,
@@ -382,6 +382,8 @@ class CrmRepository {
 }
 
 export const crmRepository = new CrmRepository();
+
+
 
 
 

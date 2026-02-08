@@ -14,7 +14,7 @@ export interface ReferralCode {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -35,6 +35,7 @@ export interface ResolvedReferralCode {
   ownerActorId: string;
   groupId: string | null;
 }
+
 
 
 

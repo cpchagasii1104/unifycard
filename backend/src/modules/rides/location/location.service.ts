@@ -35,7 +35,7 @@ export class LocationService {
       {
         text: `
       INSERT INTO rides_driver_locations (
-        tenant_id, driver_id, location, updated_at
+        tenant_id, driver_id, location, updatedAt
       )
       VALUES (
         $1, $2,
@@ -45,7 +45,7 @@ export class LocationService {
       ON CONFLICT (tenant_id, driver_id)
       DO UPDATE SET 
         location = EXCLUDED.location,
-        updated_at = now()
+        updatedAt = now()
       `,
         values: [tenantId, driverId, lat, lng],
       }
@@ -201,14 +201,14 @@ export class LocationService {
   // 🔹 2. Última localização do motorista (para matching)
   // ================================================================================
   async getDriverLocation(tenantId: string, driverId: string) {
-    const row = await runQueryWithTenant<{ lat: number; lng: number; updated_at: Date }>(
+    const row = await runQueryWithTenant<{ lat: number; lng: number; updatedAt: Date }>(
       tenantId,
       {
         text: `
       SELECT 
         ST_Y(location::geometry) AS lat,
         ST_X(location::geometry) AS lng,
-        updated_at
+        updatedAt
       FROM rides_driver_locations
       WHERE tenant_id = $1 AND driver_id = $2
       `,
@@ -245,3 +245,4 @@ export class LocationService {
 }
 
 export const locationService = new LocationService();
+

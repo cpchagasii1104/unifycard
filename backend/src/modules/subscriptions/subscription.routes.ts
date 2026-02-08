@@ -17,7 +17,7 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
     Body: {
       contactId: string;
       paymentLinkId: string;
-      amount: number;
+      amountCents: number;
       currency?: string;
       interval: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
       intervalCount?: number;
@@ -200,4 +200,5 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default subscriptionRoutes;
+
 

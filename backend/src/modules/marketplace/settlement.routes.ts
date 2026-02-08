@@ -49,7 +49,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
 
     const settlements = await settlementService.listSettlements(tenantId, filters);
 
-    return reply.send({ settlements, total: settlements.length });
+    return reply.send({ settlements, totalCents: settlements.length });
   });
 
   /**
@@ -76,14 +76,14 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const settlement = await settlementService.settle(
       tenantId,
       req.params.id,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -125,15 +125,15 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const account = await regionAccountService.credit(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -151,15 +151,15 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const account = await regionAccountService.debit(
       tenantId,
       req.params.id,
       req.body,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -168,6 +168,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default settlementRoutes;
+
 
 
 

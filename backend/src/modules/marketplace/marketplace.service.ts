@@ -486,12 +486,12 @@ export class MarketplaceService {
    * @param scope - Escopo regional opcional (ex: 'city', 'state')
    * @param value - Valor do filtro opcional (ex: 'São Paulo')
    */
-  getStores(scope?: string, value?: string): {
+  getStores(scope?: string, valueCents: string): {
     domain: string;
     version: string;
     scope_applied?: {
       scope: string;
-      value: string;
+      valueCents: string;
       filter_field: string;
     };
     stores: Array<{
@@ -1129,9 +1129,9 @@ export class MarketplaceService {
       category_id: string;
       attributes: Record<string, any>;
       images: string[];
-      enabled: boolean;
+      isEnabled: boolean;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       } | null;
       stock: {
@@ -1156,64 +1156,64 @@ export class MarketplaceService {
     const canonicalProducts = this.getCanonicalProducts();
     
     // Dados de ativação de produtos por loja (in-memory)
-    // Estrutura: store_id -> product_id -> { enabled, price, stock }
+    // Estrutura: store_id -> product_id -> { isEnabled, price, stock }
     const storeProductActivations: Record<string, Record<string, {
-      enabled: boolean;
-      price: { amount: number; currency: string } | null;
+      isEnabled: boolean;
+      price: { amountCents: number; currency: string } | null;
       stock: { quantity: number; unit: string } | null;
     }>> = {
       'store-001': {
         'product-001': { // Arroz
-          enabled: true,
-          price: { amount: 24.90, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 24.90, currency: 'BRL' },
           stock: { quantity: 50, unit: 'pacote' },
         },
         'product-002': { // Feijão
-          enabled: true,
-          price: { amount: 8.50, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 8.50, currency: 'BRL' },
           stock: { quantity: 30, unit: 'pacote' },
         },
         'product-003': { // Água
-          enabled: true,
-          price: { amount: 2.50, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 2.50, currency: 'BRL' },
           stock: { quantity: 0, unit: 'garrafa' }, // Indisponível
         },
         'product-004': { // Leite
-          enabled: true,
-          price: { amount: 5.90, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 5.90, currency: 'BRL' },
           stock: { quantity: 20, unit: 'caixa' },
         },
       },
       'store-002': {
         'product-005': { // Paracetamol
-          enabled: true,
-          price: { amount: 12.90, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 12.90, currency: 'BRL' },
           stock: { quantity: 15, unit: 'caixa' },
         },
         'product-006': { // Shampoo
-          enabled: true,
-          price: { amount: 18.50, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 18.50, currency: 'BRL' },
           stock: { quantity: 25, unit: 'frasco' },
         },
         'product-007': { // Vitamina C
-          enabled: true,
-          price: { amount: 35.90, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 35.90, currency: 'BRL' },
           stock: { quantity: 0, unit: 'frasco' }, // Indisponível
         },
       },
       'store-003': {
         'product-008': { // Cimento
-          enabled: true,
-          price: { amount: 28.90, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 28.90, currency: 'BRL' },
           stock: { quantity: 100, unit: 'saco' },
         },
         'product-009': { // Martelo
-          enabled: true,
-          price: { amount: 45.00, currency: 'BRL' },
+          isEnabled: true,
+          price: { amountCents: 45.00, currency: 'BRL' },
           stock: { quantity: 8, unit: 'unidade' },
         },
         'product-010': { // Tinta
-          enabled: true,
+          isEnabled: true,
           price: null, // Preço não definido ainda
           stock: { quantity: 5, unit: 'balde' },
         },
@@ -1225,7 +1225,7 @@ export class MarketplaceService {
     
     // Filtrar produtos canônicos que estão ativados
     let filteredProducts = canonicalProducts.products.filter(product => 
-      storeActivations[product.id]?.enabled === true
+      storeActivations[product.id]?.isEnabled === true
     );
 
     // Aplicar filtro por categoria se fornecido
@@ -1245,7 +1245,7 @@ export class MarketplaceService {
         category_id: product.category_id,
         attributes: product.attributes,
         images: product.images,
-        enabled: activation?.enabled || false,
+        isEnabled: activation?.isEnabled || false,
         price: activation?.price || null,
         stock: activation?.stock || null,
         industry_id: (activation as any)?.industry_id,
@@ -1276,13 +1276,13 @@ export class MarketplaceService {
       product_id: string;
       name: string;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       };
       quantity: number;
       subtotal: number;
     }>;
-    total: number;
+    totalCents: number;
   }> = new Map();
 
   /**
@@ -1294,7 +1294,7 @@ export class MarketplaceService {
     name?: string;
     phone?: string;
     linked_user_id?: string;
-    created_at: string;
+    createdAt: string;
   }> = new Map();
 
   /**
@@ -1306,7 +1306,7 @@ export class MarketplaceService {
     channel: 'online' | 'physical' | 'b2b';
     origin: 'marketplace' | 'store_pdv' | 'external';
     items: never[];
-    total: number;
+    totalCents: number;
   } {
     // Verificar se a loja existe
     const storesData = this.getStores();
@@ -1325,7 +1325,7 @@ export class MarketplaceService {
       channel: 'online' as const,
       origin: 'marketplace' as const,
       items: [],
-      total: 0,
+      totalCents: 0,
     };
     
     this.orders.set(orderId, order);
@@ -1354,13 +1354,13 @@ export class MarketplaceService {
       product_id: string;
       name: string;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       };
       quantity: number;
       subtotal: number;
     }>;
-    total: number;
+    totalCents: number;
   } {
     // Verificar se a loja existe
     const storesData = this.getStores();
@@ -1385,7 +1385,7 @@ export class MarketplaceService {
       product_id: string;
       name: string;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       };
       quantity: number;
@@ -1399,7 +1399,7 @@ export class MarketplaceService {
         throw new Error(`Produto ${inputItem.product_id} não encontrado nesta loja`);
       }
 
-      if (!product.enabled) {
+      if (!product.isEnabled) {
         throw new Error(`Produto ${product.name} não está ativado`);
       }
 
@@ -1438,7 +1438,7 @@ export class MarketplaceService {
       });
     }
 
-    const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const totalCents = items.reduce((sum, item) => sum + item.subtotal, 0);
 
     const order = {
       order_id: orderId,
@@ -1447,7 +1447,7 @@ export class MarketplaceService {
       origin: 'store_pdv' as const,
       customer_id: input.customer_id,
       items,
-      total,
+      totalCents,
     };
     
     this.orders.set(orderId, order);
@@ -1469,7 +1469,7 @@ export class MarketplaceService {
     name?: string;
     phone?: string;
     linked_user_id?: string;
-    created_at: string;
+    createdAt: string;
   } {
     // Verificar se já existe cliente com mesmo phone ou linked_user_id
     let existingCustomer = Array.from(this.storeCustomers.values()).find(
@@ -1496,7 +1496,7 @@ export class MarketplaceService {
       name: input.name,
       phone: input.phone,
       linked_user_id: input.linked_user_id,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.storeCustomers.set(customerId, customer);
@@ -1512,7 +1512,7 @@ export class MarketplaceService {
     name?: string;
     phone?: string;
     linked_user_id?: string;
-    created_at: string;
+    createdAt: string;
   } | null {
     return this.storeCustomers.get(customerId) || null;
   }
@@ -1545,7 +1545,7 @@ export class MarketplaceService {
       throw new Error('Produto não encontrado nesta loja');
     }
 
-    if (!product.enabled) {
+    if (!product.isEnabled) {
       throw new Error('Produto não está ativado');
     }
 
@@ -1597,7 +1597,7 @@ export class MarketplaceService {
     }
 
     // Recalcular total
-    order.total = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+    order.totalCents = order.items.reduce((sum, item) => sum + item.subtotal, 0);
 
     return order;
   }
@@ -1671,12 +1671,12 @@ export class MarketplaceService {
     });
 
     // Calcular total geral
-    const total = checkoutOrders.reduce((sum, order) => sum + order.subtotal, 0);
+    const totalCents = checkoutOrders.reduce((sum, order) => sum + order.subtotal, 0);
 
     const checkout = {
       checkout_id: checkoutId,
       orders: checkoutOrders,
-      total,
+      totalCents,
       payment_options: {
         allow_balance: true,
         allow_card: true,
@@ -1746,7 +1746,7 @@ export class MarketplaceService {
         this.applyTrustGuards({
           actor_id: order.store_id,
           action: 'invoice',
-          amount: order.subtotal,
+          amountCents: order.subtotal,
         });
       }
     }
@@ -1783,7 +1783,7 @@ export class MarketplaceService {
       payment_plan_id: paymentPlanId,
       checkout_id: checkoutId,
       method,
-      total: checkout.total,
+      totalCents: checkout.totalCents,
       splits: [], // Splits serão calculados via engine canônico em executePaymentPlan
       status: 'calculated' as const,
       attribution_id: attributionId || undefined, // Preservar attribution para uso posterior
@@ -1834,7 +1834,7 @@ export class MarketplaceService {
       const hold = this.createServicePaymentHold(
         serviceRequestId,
         paymentPlanId,
-        checkout.total,
+        checkout.totalCents,
         'BRL',
         'client_confirm', // Política padrão
         24 // 24 horas para auto-release
@@ -1870,11 +1870,11 @@ export class MarketplaceService {
     payment_plan_id: string;
     checkout_id: string;
     method: 'balance' | 'card' | 'invoice';
-    total: number;
+    totalCents: number;
     splits: Array<{
       type: 'seller' | 'platform' | 'affiliate' | 'regional_fund';
       target_id: string;
-      amount: number;
+      amountCents: number;
       currency: string;
     }>;
     status: 'calculated' | 'executed';
@@ -1913,8 +1913,8 @@ export class MarketplaceService {
 
       // 2. Validar saldo
       const buyerBalance = await bankAccount.getBalance(tenantId, buyerAccount.accountId);
-      if (buyerBalance.balance < paymentPlan.total) {
-        throw new Error(`Saldo insuficiente. Disponível: ${buyerBalance.balance}, Necessário: ${paymentPlan.total}`);
+      if (buyerBalance.balance < paymentPlan.totalCents) {
+        throw new Error(`Saldo insuficiente. Disponível: ${buyerBalance.balance}, Necessário: ${paymentPlan.totalCents}`);
       }
 
       // 🔴 CORREÇÃO INSTITUCIONAL: Usar engine canônico de split
@@ -1970,7 +1970,7 @@ export class MarketplaceService {
       const consolidatedSplits = new Map<string, {
         splitType: string;
         targetAccountId: string;
-        amount: number;
+        amountCents: number;
         percentage?: number;
         metadata?: Record<string, any>;
       }>();
@@ -2004,7 +2004,7 @@ export class MarketplaceService {
           const transactionResult = await bankTransactionService.createTransactionWithSplit(tenantId, {
             eventId: `${eventId}-store-${storeId}`,
             fromAccountId: buyerAccount.accountId,
-            amount: storeSubtotal,
+            amountCents: storeSubtotal,
             currency: 'BRL',
             context: 'service_booking', // Contexto válido (splits são resolvidos via policies/metadata)
             revenueShareAccountId: storeAccount.accountId, // Conta do vendedor
@@ -2031,7 +2031,7 @@ export class MarketplaceService {
             consolidatedSplits.set(key, {
               splitType: split.splitType,
               targetAccountId: split.targetAccountId,
-              amount: split.amount,
+              amountCents: split.amount,
               percentage: split.percentage || undefined,
               metadata: {
                 store_id: storeId,
@@ -2055,7 +2055,7 @@ export class MarketplaceService {
               split.splitType === 'regional_fund' ? 'regional_fund' :
               split.splitType === 'referral' ? 'affiliate' : 'affiliate',
         target_id: split.metadata?.store_id || split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
         currency: 'BRL',
       }));
       this.paymentPlans.set(paymentPlanId, paymentPlan);
@@ -2065,7 +2065,7 @@ export class MarketplaceService {
       if (checkoutFinal) {
         // Adicionar campo 'paid' ao checkout (extensão do contrato)
         (checkoutFinal as any).paid = true;
-        (checkoutFinal as any).paid_at = new Date().toISOString();
+        (checkoutFinal as any).paidAt = new Date().toISOString();
         this.checkouts.set(paymentPlan.checkout_id, checkoutFinal);
       }
 
@@ -2083,7 +2083,7 @@ export class MarketplaceService {
         eventId: `${eventId}-invoice`,
         fromAccountId: null, // Não debitar agora
         toAccountId: null, // Será creditado quando fatura for paga
-        amount: paymentPlan.total,
+        amountCents: paymentPlan.totalCents,
         currency: 'BRL',
         transactionType: 'transfer', // Tipo válido para fatura pendente
         description: `Marketplace invoice: ${paymentPlan.checkout_id}`,
@@ -2092,7 +2092,7 @@ export class MarketplaceService {
           payment_plan_id: paymentPlanId,
           checkout_id: paymentPlan.checkout_id,
           invoice_id: invoiceId,
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
+          due_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
         },
       });
 
@@ -2100,9 +2100,9 @@ export class MarketplaceService {
       const issuedAt = new Date().toISOString();
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 dias
       paymentPlan.status = 'executed';
-      paymentPlan.issued_at = issuedAt;
-      paymentPlan.due_date = dueDate;
-      paymentPlan.paid_at = undefined; // Será preenchido quando fatura for paga
+      paymentPlan.issuedAt = issuedAt;
+      paymentPlan.due_at = dueDate;
+      paymentPlan.paidAt = undefined; // Será preenchido quando fatura for paga
       this.paymentPlans.set(paymentPlanId, paymentPlan);
 
       // Marcar checkout como faturado
@@ -2110,7 +2110,7 @@ export class MarketplaceService {
       if (checkout) {
         (checkout as any).invoiced = true;
         (checkout as any).invoice_id = invoiceId;
-        (checkout as any).invoiced_at = issuedAt;
+        (checkout as any).invoicedAt = issuedAt;
         this.checkouts.set(paymentPlan.checkout_id, checkout);
       }
 
@@ -2132,7 +2132,7 @@ export class MarketplaceService {
       let externalChargeResult;
       try {
         externalChargeResult = await externalProvider.createCharge({
-          amount: paymentPlan.total,
+          amountCents: paymentPlan.totalCents,
           currency: 'BRL',
           metadata: {
             payment_plan_id: paymentPlanId,
@@ -2195,7 +2195,7 @@ export class MarketplaceService {
         eventId: `${eventId}-external-inflow`,
         fromAccountId: undefined, // External inflow não tem origem interna
         toAccountId: platformAccount.accountId,
-        amount: paymentPlan.total,
+        amountCents: paymentPlan.totalCents,
         currency: 'BRL',
         transactionType: 'deposit', // Tipo válido para external inflow
         description: `Marketplace external payment (card): ${paymentPlan.checkout_id}`,
@@ -2224,7 +2224,7 @@ export class MarketplaceService {
         const consolidatedSplits = new Map<string, {
           splitType: string;
           targetAccountId: string;
-          amount: number;
+          amountCents: number;
           percentage?: number;
           metadata?: Record<string, any>;
         }>();
@@ -2259,7 +2259,7 @@ export class MarketplaceService {
           const transactionResult = await bankTransactionService.createTransactionWithSplit(tenantId, {
             eventId: `${eventId}-store-${storeId}`,
             fromAccountId: platformAccount.accountId, // Origem: conta da plataforma
-            amount: storeSubtotal,
+            amountCents: storeSubtotal,
             currency: 'BRL',
             context: 'service_booking', // Contexto válido (splits são resolvidos via policies/metadata)
             revenueShareAccountId: storeAccount.accountId, // Conta do vendedor
@@ -2288,7 +2288,7 @@ export class MarketplaceService {
               consolidatedSplits.set(key, {
                 splitType: split.splitType,
                 targetAccountId: split.targetAccountId,
-                amount: split.amount,
+                amountCents: split.amount,
                 percentage: split.percentage || undefined,
                 metadata: {
                   store_id: storeId,
@@ -2313,7 +2313,7 @@ export class MarketplaceService {
               split.splitType === 'regional_fund' ? 'regional_fund' :
               split.splitType === 'referral' ? 'affiliate' : 'affiliate',
         target_id: split.metadata?.store_id || split.targetAccountId,
-        amount: split.amount,
+        amountCents: split.amount,
         currency: 'BRL',
       }));
       this.paymentPlans.set(paymentPlanId, paymentPlan);
@@ -2322,7 +2322,7 @@ export class MarketplaceService {
       const checkoutFinal = this.checkouts.get(paymentPlan.checkout_id);
       if (checkoutFinal) {
         (checkoutFinal as any).paid = true;
-        (checkoutFinal as any).paid_at = new Date().toISOString();
+        (checkoutFinal as any).paidAt = new Date().toISOString();
         (checkoutFinal as any).external_payment_id = externalChargeResult.external_payment_id;
         this.checkouts.set(paymentPlan.checkout_id, checkoutFinal);
       }
@@ -2401,7 +2401,7 @@ export class MarketplaceService {
       vehicle: 'bike' | 'moto' | 'car' | 'van';
       eta_minutes: number;
       cost: {
-        amount: number;
+        amountCents: number;
         currency: string;
         payer: 'seller' | 'buyer' | 'platform';
       };
@@ -2430,7 +2430,7 @@ export class MarketplaceService {
         vehicle: preferences.default_vehicle,
         eta_minutes: preferences.eta_minutes,
         cost: {
-          amount: preferences.base_cost,
+          amountCents: preferences.base_cost,
           currency: 'BRL',
           payer: preferences.cost_payer,
         },
@@ -2601,7 +2601,7 @@ export class MarketplaceService {
     vehicle: 'bike' | 'moto' | 'car' | 'van';
     eta_minutes: number;
     cost: {
-      amount: number;
+      amountCents: number;
       currency: string;
       payer: 'seller' | 'buyer' | 'platform';
     };
@@ -2630,9 +2630,9 @@ export class MarketplaceService {
     };
     commission?: {
       type: 'percentage' | 'fixed';
-      value: number;
+      valueCents: number;
     };
-    created_at: string;
+    createdAt: string;
   }> = new Map();
 
   private shares: Map<string, {
@@ -2641,7 +2641,7 @@ export class MarketplaceService {
     share_url: string;
     content_type: 'product' | 'service' | 'store';
     content_id: string;
-    created_at: string;
+    createdAt: string;
   }> = new Map();
 
   /**
@@ -2661,7 +2661,7 @@ export class MarketplaceService {
     };
     commission?: {
       type: 'percentage' | 'fixed';
-      value: number;
+      valueCents: number;
     };
   }): {
     attribution_id: string;
@@ -2678,9 +2678,9 @@ export class MarketplaceService {
     };
     commission?: {
       type: 'percentage' | 'fixed';
-      value: number;
+      valueCents: number;
     };
-    created_at: string;
+    createdAt: string;
   } {
     const attributionId = `attribution-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -2690,7 +2690,7 @@ export class MarketplaceService {
       intent: input.intent,
       visibility: input.visibility,
       commission: input.commission,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.attributions.set(attributionId, attribution);
@@ -2718,7 +2718,7 @@ export class MarketplaceService {
       };
       commission?: {
         type: 'percentage' | 'fixed';
-        value: number;
+        valueCents: number;
       };
     };
   }): {
@@ -2739,7 +2739,7 @@ export class MarketplaceService {
       share_url: shareUrl,
       content_type: input.content_type,
       content_id: input.content_id,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.shares.set(shareId, share);
@@ -2769,9 +2769,9 @@ export class MarketplaceService {
     };
     commission?: {
       type: 'percentage' | 'fixed';
-      value: number;
+      valueCents: number;
     };
-    created_at: string;
+    createdAt: string;
   } | null {
     return this.attributions.get(attributionId) || null;
   }
@@ -2879,12 +2879,12 @@ export class MarketplaceService {
     store_id: string;
     template_id: string;
     price: {
-      amount: number;
+      amountCents: number;
       currency: string;
     };
     duration_minutes?: number;
     recurrence?: 'weekly' | 'monthly';
-    active: boolean;
+    isActive: boolean;
   }> = new Map();
 
   /**
@@ -2894,8 +2894,8 @@ export class MarketplaceService {
   private serviceAvailabilities: Map<string, Array<{
     offering_id: string;
     weekday: number; // 0 = domingo, 1 = segunda, ..., 6 = sábado
-    start_time: string; // HH:mm
-    end_time: string; // HH:mm
+    starts_at: string; // HH:mm
+    ends_at: string; // HH:mm
     capacity: number; // Quantos clientes podem agendar neste slot
   }>> = new Map();
 
@@ -2911,7 +2911,7 @@ export class MarketplaceService {
     time: string; // HH:mm
     quantity: number;
     status: 'reserved' | 'confirmed' | 'cancelled';
-    created_at: string;
+    createdAt: string;
   }> = new Map();
 
   /**
@@ -2931,16 +2931,16 @@ export class MarketplaceService {
       name: string;
       description: string;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       };
       duration_minutes?: number;
       recurrence?: 'weekly' | 'monthly';
-      active: boolean;
+      isActive: boolean;
     }>;
   } {
     const offerings = Array.from(this.serviceOfferings.values())
-      .filter(o => o.store_id === storeId && o.active)
+      .filter(o => o.store_id === storeId && o.isActive)
       .map(o => {
         const template = this.getServiceTemplates().templates.find(t => t.template_id === o.template_id);
         return {
@@ -2951,7 +2951,7 @@ export class MarketplaceService {
           price: o.price,
           duration_minutes: o.duration_minutes || template?.default_duration_minutes,
           recurrence: o.recurrence,
-          active: o.active,
+          isActive: o.isActive,
         };
       });
 
@@ -2966,8 +2966,8 @@ export class MarketplaceService {
    */
   getServiceAvailability(offeringId: string): Array<{
     weekday: number;
-    start_time: string;
-    end_time: string;
+    starts_at: string;
+    ends_at: string;
     capacity: number;
   }> {
     return this.serviceAvailabilities.get(offeringId) || [];
@@ -2990,11 +2990,11 @@ export class MarketplaceService {
     time: string;
     quantity: number;
     status: 'reserved' | 'confirmed' | 'cancelled';
-    created_at: string;
+    createdAt: string;
   } {
     // Validar que o serviço existe e está ativo
     const offering = this.serviceOfferings.get(input.offering_id);
-    if (!offering || !offering.active) {
+    if (!offering || !offering.isActive) {
       throw new Error('Serviço não encontrado ou inativo');
     }
 
@@ -3010,7 +3010,7 @@ export class MarketplaceService {
 
     // Validar horário dentro do slot
     const requestedTime = input.time;
-    if (requestedTime < slot.start_time || requestedTime >= slot.end_time) {
+    if (requestedTime < slot.starts_at || requestedTime >= slot.ends_at) {
       throw new Error('Horário fora do período disponível');
     }
 
@@ -3038,7 +3038,7 @@ export class MarketplaceService {
       time: input.time,
       quantity: input.quantity,
       status: 'reserved' as const,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceBookings.set(bookingId, booking);
@@ -3053,7 +3053,7 @@ export class MarketplaceService {
     order_id: string;
     offering_id: string;
     price: {
-      amount: number;
+      amountCents: number;
       currency: string;
     };
   } {
@@ -3082,11 +3082,11 @@ export class MarketplaceService {
       booking_id: bookingId,
       offering_id: booking.offering_id,
       price: {
-        amount: totalPrice,
+        amountCents: totalPrice,
         currency: offering.price.currency,
       },
       channel: 'online' as const,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceOrders.set(orderId, serviceOrder);
@@ -3114,7 +3114,7 @@ export class MarketplaceService {
     time: string;
     quantity: number;
     status: 'reserved' | 'confirmed' | 'cancelled';
-    created_at: string;
+    createdAt: string;
   } | null {
     return this.serviceBookings.get(bookingId) || null;
   }
@@ -3146,13 +3146,13 @@ export class MarketplaceService {
       product_id: string;
       name: string;
       price: {
-        amount: number;
+        amountCents: number;
         currency: string;
       };
       quantity: number;
       subtotal: number;
     }>;
-    total: number;
+    totalCents: number;
   } {
     const order = this.orders.get(orderId);
     if (!order) {
@@ -3189,7 +3189,7 @@ export class MarketplaceService {
     });
 
     // Recalcular total
-    order.total = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+    order.totalCents = order.items.reduce((sum, item) => sum + item.subtotal, 0);
     
     this.orders.set(orderId, order);
     
@@ -3199,7 +3199,7 @@ export class MarketplaceService {
       channel: order.channel,
       origin: order.origin,
       items: order.items,
-      total: order.total,
+      totalCents: order.totalCents,
     };
   }
 
@@ -3213,7 +3213,7 @@ export class MarketplaceService {
       offering_id: offering1Id,
       store_id: 'store-001',
       template_id: 'gym-session',
-      price: { amount: 50.00, currency: 'BRL' },
+      price: { amountCents: 50.00, currency: 'BRL' },
       duration_minutes: 60,
       active: true,
     });
@@ -3223,27 +3223,27 @@ export class MarketplaceService {
       offering_id: offering2Id,
       store_id: 'store-001',
       template_id: 'consultation',
-      price: { amount: 150.00, currency: 'BRL' },
+      price: { amountCents: 150.00, currency: 'BRL' },
       duration_minutes: 30,
       active: true,
     });
 
     // Criar disponibilidade para offering-001 (segunda a sexta, 8h-18h)
     this.serviceAvailabilities.set(offering1Id, [
-      { offering_id: offering1Id, weekday: 1, start_time: '08:00', end_time: '18:00', capacity: 5 },
-      { offering_id: offering1Id, weekday: 2, start_time: '08:00', end_time: '18:00', capacity: 5 },
-      { offering_id: offering1Id, weekday: 3, start_time: '08:00', end_time: '18:00', capacity: 5 },
-      { offering_id: offering1Id, weekday: 4, start_time: '08:00', end_time: '18:00', capacity: 5 },
-      { offering_id: offering1Id, weekday: 5, start_time: '08:00', end_time: '18:00', capacity: 5 },
+      { offering_id: offering1Id, weekday: 1, starts_at: '08:00', ends_at: '18:00', capacity: 5 },
+      { offering_id: offering1Id, weekday: 2, starts_at: '08:00', ends_at: '18:00', capacity: 5 },
+      { offering_id: offering1Id, weekday: 3, starts_at: '08:00', ends_at: '18:00', capacity: 5 },
+      { offering_id: offering1Id, weekday: 4, starts_at: '08:00', ends_at: '18:00', capacity: 5 },
+      { offering_id: offering1Id, weekday: 5, starts_at: '08:00', ends_at: '18:00', capacity: 5 },
     ]);
 
     // Criar disponibilidade para offering-002 (segunda a sexta, 9h-17h)
     this.serviceAvailabilities.set(offering2Id, [
-      { offering_id: offering2Id, weekday: 1, start_time: '09:00', end_time: '17:00', capacity: 3 },
-      { offering_id: offering2Id, weekday: 2, start_time: '09:00', end_time: '17:00', capacity: 3 },
-      { offering_id: offering2Id, weekday: 3, start_time: '09:00', end_time: '17:00', capacity: 3 },
-      { offering_id: offering2Id, weekday: 4, start_time: '09:00', end_time: '17:00', capacity: 3 },
-      { offering_id: offering2Id, weekday: 5, start_time: '09:00', end_time: '17:00', capacity: 3 },
+      { offering_id: offering2Id, weekday: 1, starts_at: '09:00', ends_at: '17:00', capacity: 3 },
+      { offering_id: offering2Id, weekday: 2, starts_at: '09:00', ends_at: '17:00', capacity: 3 },
+      { offering_id: offering2Id, weekday: 3, starts_at: '09:00', ends_at: '17:00', capacity: 3 },
+      { offering_id: offering2Id, weekday: 4, starts_at: '09:00', ends_at: '17:00', capacity: 3 },
+      { offering_id: offering2Id, weekday: 5, starts_at: '09:00', ends_at: '17:00', capacity: 3 },
     ]);
 
     // ============================================================
@@ -3258,7 +3258,7 @@ export class MarketplaceService {
       offering_id: manicureOffering1Id,
       store_id: 'store-001',
       template_id: 'beauty-service',
-      price: { amount: 30.00, currency: 'BRL' },
+      price: { amountCents: 30.00, currency: 'BRL' },
       duration_minutes: 60,
       active: true,
     });
@@ -3267,7 +3267,7 @@ export class MarketplaceService {
       offering_id: manicureOffering2Id,
       store_id: 'store-002',
       template_id: 'beauty-service',
-      price: { amount: 35.00, currency: 'BRL' },
+      price: { amountCents: 35.00, currency: 'BRL' },
       duration_minutes: 60,
       active: true,
     });
@@ -3277,16 +3277,16 @@ export class MarketplaceService {
     this.serviceAvailabilities.set(manicureOffering1Id, allWeekdays.map(w => ({
       offering_id: manicureOffering1Id,
       weekday: w,
-      start_time: '08:00',
-      end_time: '20:00',
+      starts_at: '08:00',
+      ends_at: '20:00',
       capacity: 5,
     })));
 
     this.serviceAvailabilities.set(manicureOffering2Id, allWeekdays.map(w => ({
       offering_id: manicureOffering2Id,
       weekday: w,
-      start_time: '08:00',
-      end_time: '20:00',
+      starts_at: '08:00',
+      ends_at: '20:00',
       capacity: 5,
     })));
 
@@ -3302,7 +3302,7 @@ export class MarketplaceService {
       offering_id: limpezaOfferingId,
       store_id: 'store-001',
       template_id: 'cleaning-service',
-      price: { amount: 150.00, currency: 'BRL' },
+      price: { amountCents: 150.00, currency: 'BRL' },
       duration_minutes: 120,
       active: true,
     });
@@ -3311,7 +3311,7 @@ export class MarketplaceService {
       offering_id: caixaAguaOfferingId,
       store_id: 'store-002',
       template_id: 'maintenance-service',
-      price: { amount: 200.00, currency: 'BRL' },
+      price: { amountCents: 200.00, currency: 'BRL' },
       duration_minutes: 90,
       active: true,
     });
@@ -3321,16 +3321,16 @@ export class MarketplaceService {
     this.serviceAvailabilities.set(limpezaOfferingId, weekdays.map(w => ({
       offering_id: limpezaOfferingId,
       weekday: w,
-      start_time: '08:00',
-      end_time: '18:00',
+      starts_at: '08:00',
+      ends_at: '18:00',
       capacity: 3,
     })));
 
     this.serviceAvailabilities.set(caixaAguaOfferingId, weekdays.map(w => ({
       offering_id: caixaAguaOfferingId,
       weekday: w,
-      start_time: '08:00',
-      end_time: '18:00',
+      starts_at: '08:00',
+      ends_at: '18:00',
       capacity: 2,
     })));
 
@@ -3362,7 +3362,7 @@ export class MarketplaceService {
   createSubscription(input: {
     type: 'product' | 'service' | 'mixed';
     billing_cycle: 'weekly' | 'monthly' | 'yearly';
-    start_date: string;
+    starts_at: string;
     linked_entities: {
       products?: Array<{ product_id: string; store_id: string; quantity: number }>;
       service_offerings?: Array<{ offering_id: string; store_id: string; quantity: number }>;
@@ -3384,7 +3384,7 @@ export class MarketplaceService {
       for (const productLink of input.linked_entities.products) {
         const storeProducts = this.getStoreProducts(productLink.store_id, undefined);
         const product = storeProducts?.products.find(p => p.product_id === productLink.product_id);
-        if (!product || !product.enabled) {
+        if (!product || !product.isEnabled) {
           throw new Error(`Produto ${productLink.product_id} não encontrado ou inativo`);
         }
       }
@@ -3395,7 +3395,7 @@ export class MarketplaceService {
       for (const serviceLink of input.linked_entities.service_offerings) {
         const offerings = this.getStoreServiceOfferings(serviceLink.store_id);
         const offering = offerings.offerings.find(o => o.offering_id === serviceLink.offering_id);
-        if (!offering || !offering.active) {
+        if (!offering || !offering.isActive) {
           throw new Error(`Serviço ${serviceLink.offering_id} não encontrado ou inativo`);
         }
       }
@@ -3407,15 +3407,15 @@ export class MarketplaceService {
       subscription_id: subscriptionId,
       type: input.type,
       billing_cycle: input.billing_cycle,
-      start_date: input.start_date,
+      starts_at: input.starts_at,
       status: 'active',
       linked_entities: input.linked_entities,
       customer_id: input.customer_id,
       store_id: input.store_id,
       payment_method: input.payment_method,
       attribution_id: input.attribution_id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.subscriptions.set(subscriptionId, subscription);
@@ -3463,7 +3463,7 @@ export class MarketplaceService {
     }
 
     subscription.status = 'paused';
-    subscription.updated_at = new Date().toISOString();
+    subscription.updatedAt = new Date().toISOString();
 
     marketplaceLogger.init('Subscription pausada', { subscription_id: subscriptionId });
 
@@ -3484,7 +3484,7 @@ export class MarketplaceService {
     }
 
     subscription.status = 'active';
-    subscription.updated_at = new Date().toISOString();
+    subscription.updatedAt = new Date().toISOString();
 
     marketplaceLogger.init('Subscription retomada', { subscription_id: subscriptionId });
 
@@ -3505,8 +3505,8 @@ export class MarketplaceService {
     }
 
     subscription.status = 'cancelled';
-    subscription.cancelled_at = new Date().toISOString();
-    subscription.updated_at = new Date().toISOString();
+    subscription.cancelledAt = new Date().toISOString();
+    subscription.updatedAt = new Date().toISOString();
 
     marketplaceLogger.init('Subscription cancelada', { subscription_id: subscriptionId });
 
@@ -3537,7 +3537,7 @@ export class MarketplaceService {
     }
 
     // Calcular datas do ciclo baseado no billing_cycle
-    const startDate = new Date(subscription.start_date);
+    const startDate = new Date(subscription.starts_at);
     const cycles = this.subscriptionCycles.get(subscriptionId) || [];
     const cycleNumber = cycles.length + 1;
 
@@ -3563,7 +3563,7 @@ export class MarketplaceService {
 
     // Verificar se já existe ciclo para este período
     const existingCycle = cycles.find(c => 
-      c.start_date === cycleStartDate.toISOString().split('T')[0]
+      c.starts_at === cycleStartDate.toISOString().split('T')[0]
     );
     if (existingCycle) {
       throw new Error('Ciclo já foi gerado para este período');
@@ -3623,8 +3623,8 @@ export class MarketplaceService {
       const invoiceDueDate = new Date(cycleEndDate);
       invoiceDueDate.setDate(invoiceDueDate.getDate() + 30); // 30 dias após fim do ciclo
 
-      (paymentPlan as any).issued_at = invoiceIssuedAt;
-      (paymentPlan as any).due_date = invoiceDueDate.toISOString().split('T')[0];
+      (paymentPlan as any).issuedAt = invoiceIssuedAt;
+      (paymentPlan as any).due_at = invoiceDueDate.toISOString().split('T')[0];
     }
 
     // Criar SubscriptionCycle
@@ -3633,19 +3633,19 @@ export class MarketplaceService {
       cycle_id: cycleId,
       subscription_id: subscriptionId,
       cycle_number: cycleNumber,
-      start_date: cycleStartDate.toISOString().split('T')[0],
-      end_date: cycleEndDate.toISOString().split('T')[0],
+      starts_at: cycleStartDate.toISOString().split('T')[0],
+      ends_at: cycleEndDate.toISOString().split('T')[0],
       status: 'billed',
       order_id: order.order_id,
       checkout_id: checkout.checkout_id,
       payment_plan_id: paymentPlan.payment_plan_id,
-      invoice_issued_at: subscription.payment_method === 'invoice' 
+      invoice_issuedAt: subscription.payment_method === 'invoice' 
         ? new Date().toISOString() 
         : undefined,
       invoice_due_date: subscription.payment_method === 'invoice'
         ? new Date(cycleEndDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         : undefined,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     cycles.push(cycle);
@@ -3709,8 +3709,8 @@ export class MarketplaceService {
     cnpj: string;
     categories_supported: string[];
     default_margin_rules: {
-      hub_margin_percentage: number;
-      store_margin_percentage: number;
+      hubMarginBps: number;
+      storeMarginBps: number;
       minimum_price?: number;
     };
     authorized_hubs?: string[];
@@ -3724,9 +3724,9 @@ export class MarketplaceService {
       categories_supported: input.categories_supported,
       default_margin_rules: input.default_margin_rules,
       authorized_hubs: input.authorized_hubs || [],
-      active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.industryAccounts.set(industryId, industry);
@@ -3748,7 +3748,7 @@ export class MarketplaceService {
    */
   getIndustryAccounts(): IndustryAccount[] {
     return Array.from(this.industryAccounts.values())
-      .filter(i => i.active);
+      .filter(i => i.isActive);
   }
 
   /**
@@ -3796,9 +3796,9 @@ export class MarketplaceService {
       fulfillment_type: input.fulfillment_type,
       margin_override: input.margin_override,
       logistics_profile: input.logistics_profile,
-      active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.distributionHubs.set(hubId, hub);
@@ -3806,7 +3806,7 @@ export class MarketplaceService {
     // Adicionar hub à lista de hubs autorizados da indústria
     if (!industry.authorized_hubs.includes(hubId)) {
       industry.authorized_hubs.push(hubId);
-      industry.updated_at = new Date().toISOString();
+      industry.updatedAt = new Date().toISOString();
     }
 
     marketplaceLogger.init('Distribution hub criado', { hub_id: hubId, industry_id: input.industry_id });
@@ -3826,7 +3826,7 @@ export class MarketplaceService {
    */
   getIndustryHubs(industryId: string): DistributionHub[] {
     return Array.from(this.distributionHubs.values())
-      .filter(h => h.industry_id === industryId && h.active);
+      .filter(h => h.industry_id === industryId && h.isActive);
   }
 
   /**
@@ -3836,7 +3836,7 @@ export class MarketplaceService {
   findHubForProduct(productId: string, city: string, state: string): DistributionHub | null {
     const hubs = Array.from(this.distributionHubs.values())
       .filter(h => 
-        h.active &&
+        h.isActive &&
         h.supported_products.includes(productId) &&
         h.location.city === city &&
         h.location.state === state
@@ -3888,7 +3888,7 @@ export class MarketplaceService {
       payment_plan_id: paymentPlanId,
       checkout_id: checkoutId,
       method,
-      total: checkout.total,
+      totalCents: checkout.totalCents,
       splits: [], // Splits serão calculados via engine canônico em executePaymentPlan
       status: 'calculated',
     };
@@ -3916,7 +3916,7 @@ export class MarketplaceService {
       throw new Error('Hub não encontrado');
     }
 
-    if (!hub.active) {
+    if (!hub.isActive) {
       throw new Error('Hub não está ativo');
     }
 
@@ -3944,7 +3944,7 @@ export class MarketplaceService {
       vehicle: defaultVehicle,
       eta_minutes: hub.logistics_profile.default_eta_minutes,
       cost: {
-        amount: baseCost,
+        amountCents: baseCost,
         currency: 'BRL',
         payer: 'buyer', // Cliente paga o frete
       },
@@ -4008,7 +4008,7 @@ export class MarketplaceService {
     actor_type: 'store' | 'hub' | 'industry' | 'service_provider';
     actor_id: string;
     metrics: {
-      fulfillment_time: { target_hours: number; max_hours: number };
+      fulfilled_at: { target_hours: number; max_hours: number };
       cancellation_rate: { target_percentage: number; max_percentage: number };
       dispute_rate: { target_percentage: number; max_percentage: number };
     };
@@ -4025,9 +4025,9 @@ export class MarketplaceService {
       };
     };
     penalties: {
-      fulfillment_time_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
-      cancellation_rate_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
-      dispute_rate_violation: { type: 'percentage' | 'fixed'; value: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+      fulfillment_time_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+      cancellation_rate_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
+      dispute_rate_violation: { type: 'percentage' | 'fixed'; valueCents: number; redirect_to: 'regional_fund' | 'customer' | 'platform' };
     };
   }): SLAContract {
     const slaId = `sla-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -4037,15 +4037,15 @@ export class MarketplaceService {
       actor_type: input.actor_type,
       actor_id: input.actor_id,
       metrics: {
-        fulfillment_time: { ...input.metrics.fulfillment_time, unit: 'hours' },
+        fulfilled_at: { ...input.metrics.fulfilled_at, unit: 'hours' },
         cancellation_rate: { ...input.metrics.cancellation_rate, unit: 'percentage' },
         dispute_rate: { ...input.metrics.dispute_rate, unit: 'percentage' },
       },
       thresholds: input.thresholds,
       penalties: input.penalties,
-      active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.slaContracts.set(slaId, sla);
@@ -4067,7 +4067,7 @@ export class MarketplaceService {
    */
   getSLAContractByActor(actorId: string, actorType: 'store' | 'hub' | 'industry' | 'service_provider'): SLAContract | null {
     for (const sla of this.slaContracts.values()) {
-      if (sla.actor_id === actorId && sla.actor_type === actorType && sla.active) {
+      if (sla.actor_id === actorId && sla.actor_type === actorType && sla.isActive) {
         return sla;
       }
     }
@@ -4155,7 +4155,7 @@ export class MarketplaceService {
       if (e.event_type !== 'delivered' || !e.fulfillment_time_hours) return false;
       const sla = this.getSLAContractByActor(actorId, actorType);
       if (!sla) return false;
-      return e.fulfillment_time_hours <= sla.metrics.fulfillment_time.target_hours;
+      return e.fulfillment_time_hours <= sla.metrics.fulfilled_at.target_hours;
     }).length;
 
     const onTimeDeliveryPercentage = fulfilledOrders > 0
@@ -4173,8 +4173,8 @@ export class MarketplaceService {
 
     if (sla) {
       // Penalidade por atraso
-      if (averageFulfillmentTime > sla.metrics.fulfillment_time.target_hours) {
-        const excessHours = averageFulfillmentTime - sla.metrics.fulfillment_time.target_hours;
+      if (averageFulfillmentTime > sla.metrics.fulfilled_at.target_hours) {
+        const excessHours = averageFulfillmentTime - sla.metrics.fulfilled_at.target_hours;
         fulfillmentPenalty = Math.min(excessHours * 2, 30); // Máximo 30 pontos
       }
 
@@ -4194,9 +4194,9 @@ export class MarketplaceService {
     const finalScore = Math.max(0, baseScore - fulfillmentPenalty - cancellationPenalty - disputePenalty);
 
     // Determinar status de SLA
-    const getSLAStatus = (value: number, warning: number, violation: number): 'compliant' | 'warning' | 'violation' => {
-      if (value <= warning) return 'compliant';
-      if (value <= violation) return 'warning';
+    const getSLAStatus = (valueCents: number, warning: number, violation: number): 'compliant' | 'warning' | 'violation' => {
+      if (valueCents <= warning) return 'compliant';
+      if (valueCents <= violation) return 'warning';
       return 'violation';
     };
 
@@ -4254,12 +4254,12 @@ export class MarketplaceService {
         final_score: finalScore,
       },
       sla_status: {
-        fulfillment_time: fulfillmentTimeStatus,
+        fulfilled_at: fulfillmentTimeStatus,
         cancellation_rate: cancellationRateStatus,
         dispute_rate: disputeRateStatus,
         overall: overallStatus,
       },
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     existingSnapshots.push(snapshot);
@@ -4328,7 +4328,7 @@ export class MarketplaceService {
           const penaltySplits: Array<{
             type: 'seller' | 'platform' | 'affiliate' | 'regional_fund' | 'industry' | 'hub';
             target_id: string;
-            amount: number;
+            amountCents: number;
             currency: string;
           }> = [];
 
@@ -4340,36 +4340,36 @@ export class MarketplaceService {
           // Buscar split do seller para calcular penalidade base
           // NOTA: Este split é apenas para cálculo, não será modificado
           const sellerSplit = paymentPlan.splits.find(s => s.type === 'seller' && s.target_id === order.store_id);
-          if (sellerSplit && sellerSplit.amount > 0) {
+          if (sellerSplit && sellerSplit.amountCents > 0) {
             let penaltyAmount = 0;
 
             // Calcular penalidade total (baseado no split original, não modificado)
-            if (latestSnapshot.sla_status.fulfillment_time === 'violation') {
+            if (latestSnapshot.sla_status.fulfilled_at === 'violation') {
               if (sla.penalties.fulfillment_time_violation.type === 'percentage') {
-                penaltyAmount += (sellerSplit.amount * sla.penalties.fulfillment_time_violation.value) / 100;
+                penaltyAmount += (sellerSplit.amountCents * sla.penalties.fulfillment_time_violation.valueCents) / 100;
               } else {
-                penaltyAmount += sla.penalties.fulfillment_time_violation.value;
+                penaltyAmount += sla.penalties.fulfillment_time_violation.valueCents;
               }
             }
 
             if (latestSnapshot.sla_status.cancellation_rate === 'violation') {
               if (sla.penalties.cancellation_rate_violation.type === 'percentage') {
-                penaltyAmount += (sellerSplit.amount * sla.penalties.cancellation_rate_violation.value) / 100;
+                penaltyAmount += (sellerSplit.amountCents * sla.penalties.cancellation_rate_violation.valueCents) / 100;
               } else {
-                penaltyAmount += sla.penalties.cancellation_rate_violation.value;
+                penaltyAmount += sla.penalties.cancellation_rate_violation.valueCents;
               }
             }
 
             if (latestSnapshot.sla_status.dispute_rate === 'violation') {
               if (sla.penalties.dispute_rate_violation.type === 'percentage') {
-                penaltyAmount += (sellerSplit.amount * sla.penalties.dispute_rate_violation.value) / 100;
+                penaltyAmount += (sellerSplit.amountCents * sla.penalties.dispute_rate_violation.valueCents) / 100;
               } else {
-                penaltyAmount += sla.penalties.dispute_rate_violation.value;
+                penaltyAmount += sla.penalties.dispute_rate_violation.valueCents;
               }
             }
 
             // Limitar penalidade ao valor do split original
-            penaltyAmount = Math.min(penaltyAmount, sellerSplit.amount);
+            penaltyAmount = Math.min(penaltyAmount, sellerSplit.amountCents);
 
             if (penaltyAmount > 0) {
               // Registrar penalidade para criação de nova transação via Core
@@ -4378,7 +4378,7 @@ export class MarketplaceService {
               penaltySplits.push({
                 type: sla.penalties.fulfillment_time_violation.redirect_to === 'regional_fund' ? 'regional_fund' : 'platform',
                 target_id: sla.penalties.fulfillment_time_violation.redirect_to,
-                amount: penaltyAmount,
+                amountCents: penaltyAmount,
                 currency: 'BRL',
               });
 
@@ -4389,7 +4389,7 @@ export class MarketplaceService {
                 penalty_amount: penaltyAmount,
                 redirect_to: sla.penalties.fulfillment_time_violation.redirect_to,
                 sla_violations: {
-                  fulfillment_time: latestSnapshot.sla_status.fulfillment_time === 'violation',
+                  fulfilled_at: latestSnapshot.sla_status.fulfilled_at === 'violation',
                   cancellation_rate: latestSnapshot.sla_status.cancellation_rate === 'violation',
                   dispute_rate: latestSnapshot.sla_status.dispute_rate === 'violation',
                 },
@@ -4438,8 +4438,8 @@ export class MarketplaceService {
       type: input.type,
       status: 'open',
       description: input.description,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.disputeCases.set(disputeId, dispute);
@@ -4465,7 +4465,7 @@ export class MarketplaceService {
     disputeId: string,
     resolution: {
       resolution_type: 'refund' | 'partial_refund' | 'replacement' | 'credit' | 'dismissed';
-      amount?: number;
+      amountCents: number;
       currency?: string;
       resolved_by: string;
       notes?: string;
@@ -4484,9 +4484,9 @@ export class MarketplaceService {
     dispute.status = 'resolved';
     dispute.resolution = {
       ...resolution,
-      resolved_at: new Date().toISOString(),
+      resolvedAt: new Date().toISOString(),
     };
-    dispute.updated_at = new Date().toISOString();
+    dispute.updatedAt = new Date().toISOString();
 
     // Se houver reembolso, criar novo lançamento no ledger
     if (resolution.resolution_type === 'refund' || resolution.resolution_type === 'partial_refund') {
@@ -4582,7 +4582,7 @@ export class MarketplaceService {
       currency: 'BRL',
       requires_trust_level: input.requires_trust_level,
       status: 'active',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.incentiveRules.set(ruleId, rule);
@@ -4603,7 +4603,7 @@ export class MarketplaceService {
     rule_id: string;
     actor_id: string;
     actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
-    amount: number;
+    amountCents: number;
     reference: {
       order_id?: string;
       delivery_id?: string;
@@ -4648,7 +4648,7 @@ export class MarketplaceService {
       if (g.actor_id !== input.actor_id || g.rule_id !== input.rule_id || g.status !== 'consumed') {
         return false;
       }
-      const grantDate = new Date(g.granted_at);
+      const grantDate = new Date(g.grantedAt);
       return grantDate.getMonth() === currentMonth && grantDate.getFullYear() === currentYear;
     });
 
@@ -4670,7 +4670,7 @@ export class MarketplaceService {
       ) {
         return false;
       }
-      const grantDate = new Date(g.granted_at);
+      const grantDate = new Date(g.grantedAt);
       return grantDate.getMonth() === currentMonth && grantDate.getFullYear() === currentYear;
     });
 
@@ -4703,11 +4703,11 @@ export class MarketplaceService {
       actor_type: input.actor_type,
       region: rule.region,
       incentive_type: rule.incentive_type,
-      amount: input.amount,
+      amountCents: input.amount,
       currency: rule.currency,
       reference: input.reference,
       status: 'granted',
-      granted_at: new Date().toISOString(),
+      grantedAt: new Date().toISOString(),
     };
 
     this.incentiveGrants.push(grant);
@@ -4719,7 +4719,7 @@ export class MarketplaceService {
       grant_id: grantId,
       rule_id: input.rule_id,
       actor_id: input.actor_id,
-      amount: input.amount,
+      amountCents: input.amount,
     });
 
     return grant;
@@ -4755,7 +4755,7 @@ export class MarketplaceService {
         type: 'incentive',
         target_actor_id: grant.actor_id,
         target_actor_type: grant.actor_type,
-        amount: grant.amount,
+        amountCents: grant.amount,
         reason: `Incentivo ${grant.incentive_type} para ${grant.actor_id}`,
         reference: {
           order_id: grant.reference.order_id,
@@ -4771,11 +4771,11 @@ export class MarketplaceService {
 
       // Marcar grant como consumido
       grant.status = 'consumed';
-      grant.consumed_at = new Date().toISOString();
+      grant.consumedAt = new Date().toISOString();
 
       marketplaceLogger.init('Incentivo consumido', {
         grant_id: grantId,
-        amount: grant.amount,
+        amountCents: grant.amount,
       });
     } catch (err) {
       marketplaceLogger.error('Erro ao consumir incentivo', err);
@@ -4793,7 +4793,7 @@ export class MarketplaceService {
       actor_id: grant.actor_id,
       actor_type: grant.actor_type,
       reference_id: grant.grant_id,
-      amount: grant.amount,
+      amountCents: grant.amount,
       currency: grant.currency,
       visibility: 'public', // Incentivo é público
     });
@@ -4856,7 +4856,7 @@ export class MarketplaceService {
         if (g.actor_id !== actorId || g.rule_id !== rule.rule_id || g.status !== 'consumed') {
           return false;
         }
-        const grantDate = new Date(g.granted_at);
+        const grantDate = new Date(g.grantedAt);
         return grantDate.getMonth() === currentMonth && grantDate.getFullYear() === currentYear;
       });
 
@@ -4911,10 +4911,10 @@ export class MarketplaceService {
       volume_commitment: number;
       delivery_schedule: 'weekly' | 'monthly' | 'quarterly';
       payment_terms: 'net_15' | 'net_30' | 'net_60' | 'prepaid';
-      penalty_rate?: number;
+      penaltyBps?: number;
     };
-    start_date: string;
-    end_date: string;
+    starts_at: string;
+    ends_at: string;
   }): B2BCommercialContract {
     // Validar trust levels (B2B requer trust >= L3)
     const supplierIdentity = this.getEconomicIdentity(input.supplier_id);
@@ -4944,9 +4944,9 @@ export class MarketplaceService {
       products: input.products,
       terms: input.terms,
       status: 'draft',
-      start_date: input.start_date,
-      end_date: input.end_date,
-      created_at: new Date().toISOString(),
+      starts_at: input.starts_at,
+      ends_at: input.ends_at,
+      createdAt: new Date().toISOString(),
     };
 
     this.b2bContracts.set(contractId, contract);
@@ -4974,7 +4974,7 @@ export class MarketplaceService {
     }
 
     contract.status = 'active';
-    contract.signed_at = new Date().toISOString();
+    contract.signedAt = new Date().toISOString();
 
     this.b2bContracts.set(contractId, contract);
 
@@ -4992,7 +4992,7 @@ export class MarketplaceService {
       product_id: string;
       quantity: number;
     }>;
-    delivery_date: string;
+    delivered_at: string;
   }): B2BContractExecution {
     const contract = this.b2bContracts.get(input.contract_id);
     if (!contract) {
@@ -5081,12 +5081,12 @@ export class MarketplaceService {
       order_id: order.order_id,
       payment_plan_id: paymentPlan.payment_plan_id,
       products: executionProducts,
-      total_amount: totalAmount,
+      totalAmountCents: totalAmount,
       currency: contract.products[0]?.currency || 'BRL',
-      delivery_date: input.delivery_date,
+      delivered_at: input.delivered_at,
       payment_due_date: paymentDueDate,
       status: 'pending',
-      executed_at: new Date().toISOString(),
+      executedAt: new Date().toISOString(),
     };
 
     this.b2bContractExecutions.push(execution);
@@ -5148,14 +5148,14 @@ export class MarketplaceService {
       throw new Error('Contrato não encontrado');
     }
 
-    if (!contract.terms.penalty_rate) {
+    if (!contract.terms.penaltyBps) {
       throw new Error('Contrato não possui taxa de multa configurada');
     }
 
     // Calcular multa
-    const penaltyAmount = (execution.total_amount * contract.terms.penalty_rate) / 100;
+    const penaltyAmount = (execution.totalAmountCents * contract.terms.penaltyBps) / 100;
 
-    execution.penalty_applied = penaltyAmount;
+    execution.penaltyAppliedCents = penaltyAmount;
     execution.status = 'penalized';
 
     marketplaceLogger.init('Multa aplicada ao contrato B2B', {
@@ -5180,7 +5180,7 @@ export class MarketplaceService {
     }
 
     execution.status = 'delivered';
-    execution.delivered_at = new Date().toISOString();
+    execution.deliveredAt = new Date().toISOString();
 
     marketplaceLogger.init('Execução de contrato B2B marcada como entregue', {
       execution_id: executionId,
@@ -5201,7 +5201,7 @@ export class MarketplaceService {
     }
 
     execution.status = 'paid';
-    execution.paid_at = new Date().toISOString();
+    execution.paidAt = new Date().toISOString();
 
     marketplaceLogger.init('Execução de contrato B2B marcada como paga', {
       execution_id: executionId,
@@ -5298,8 +5298,8 @@ export class MarketplaceService {
       variable_costs: input.variable_costs,
       declared_volume_expectation: input.declared_volume_expectation,
       currency: input.variable_costs[0]?.currency || 'BRL',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.operationalCostProfiles.set(profileId, profile);
@@ -5366,7 +5366,7 @@ export class MarketplaceService {
       profile.declared_volume_expectation = input.declared_volume_expectation;
     }
 
-    profile.updated_at = new Date().toISOString();
+    profile.updatedAt = new Date().toISOString();
     this.operationalCostProfiles.set(profileId, profile);
 
     marketplaceLogger.init('Perfil de custo operacional atualizado', { profile_id: profileId });
@@ -5433,7 +5433,7 @@ export class MarketplaceService {
       sustainability_status: sustainabilityStatus,
       calculation_explanation: calculationExplanation,
       currency: profile.currency,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.economicSustainabilitySnapshots.set(snapshotId, snapshot);
@@ -5487,7 +5487,7 @@ export class MarketplaceService {
         return false;
       }
 
-      // Orders não têm created_at, usar aproximação via eventos
+      // Orders não têm createdAt, usar aproximação via eventos
       const orderEvents = this.economicEvents.filter(
         e =>
           e.reference_id === order.order_id &&
@@ -5498,7 +5498,7 @@ export class MarketplaceService {
         return false;
       }
 
-      const eventDate = new Date(orderEvents[0].created_at);
+      const eventDate = new Date(orderEvents[0].createdAt);
       return eventDate >= startDate && eventDate <= endDate;
     });
 
@@ -5648,7 +5648,7 @@ export class MarketplaceService {
     product_id: string;
     min_quantity: number;
     max_quantity?: number;
-    unit_price: { amount: number; currency: string };
+    unit_price: { amountCents: number; currency: string };
     commit_deadline: string; // ISO 8601
     regions_allowed: Array<{ country: string; state: string; city: string }>;
   }): ProductionBatch {
@@ -5683,8 +5683,8 @@ export class MarketplaceService {
       regions_allowed: input.regions_allowed,
       status: 'open',
       total_committed_quantity: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.productionBatches.set(batchId, batch);
@@ -5784,7 +5784,7 @@ export class MarketplaceService {
       actor_id: input.actor_id,
       actor_type: input.actor_type,
       quantity: input.quantity,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       status: 'active',
     };
 
@@ -5792,7 +5792,7 @@ export class MarketplaceService {
 
     // Atualizar quantidade total comprometida do lote
     batch.total_committed_quantity += input.quantity;
-    batch.updated_at = new Date().toISOString();
+    batch.updatedAt = new Date().toISOString();
     this.productionBatches.set(input.batch_id, batch);
 
     marketplaceLogger.init('Compromisso de compra em lote criado', {
@@ -5832,11 +5832,11 @@ export class MarketplaceService {
 
     // Atualizar compromisso
     commitment.status = 'cancelled';
-    commitment.cancelled_at = new Date().toISOString();
+    commitment.cancelledAt = new Date().toISOString();
 
     // Atualizar quantidade total comprometida do lote
     batch.total_committed_quantity -= commitment.quantity;
-    batch.updated_at = new Date().toISOString();
+    batch.updatedAt = new Date().toISOString();
     this.productionBatches.set(commitment.batch_id, batch);
 
     marketplaceLogger.init('Compromisso de compra em lote cancelado', {
@@ -5885,8 +5885,8 @@ export class MarketplaceService {
     if (batch.total_committed_quantity < batch.min_quantity) {
       // Lote expira (não executa)
       batch.status = 'expired';
-      batch.closed_at = new Date().toISOString();
-      batch.updated_at = new Date().toISOString();
+      batch.closedAt = new Date().toISOString();
+      batch.updatedAt = new Date().toISOString();
       this.productionBatches.set(batchId, batch);
 
       marketplaceLogger.init('Lote de produção expirado (quantidade mínima não atingida)', {
@@ -5897,8 +5897,8 @@ export class MarketplaceService {
     } else {
       // Lote fecha (será executado)
       batch.status = 'closed';
-      batch.closed_at = new Date().toISOString();
-      batch.updated_at = new Date().toISOString();
+      batch.closedAt = new Date().toISOString();
+      batch.updatedAt = new Date().toISOString();
       this.productionBatches.set(batchId, batch);
 
       marketplaceLogger.init('Lote de produção fechado (quantidade mínima atingida)', {
@@ -5987,7 +5987,7 @@ export class MarketplaceService {
 
     // Marcar lote como executado
     batch.status = 'executed';
-    batch.updated_at = new Date().toISOString();
+    batch.updatedAt = new Date().toISOString();
     this.productionBatches.set(batchId, batch);
 
     // Registrar evento econômico (se método existir)
@@ -6020,7 +6020,7 @@ export class MarketplaceService {
   getAllProductionBatches(): ProductionBatch[] {
     return Array.from(this.productionBatches.values()).sort((a, b) => {
       // Ordenar por data de criação (mais recente primeiro)
-      return b.created_at.localeCompare(a.created_at);
+      return b.createdAt.localeCompare(a.createdAt);
     });
   }
 
@@ -6070,8 +6070,8 @@ export class MarketplaceService {
         advanced_analytics: false,
       },
       status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Plano Profissional
@@ -6094,13 +6094,13 @@ export class MarketplaceService {
         advanced_analytics: true,
       },
       price: {
-        amount: 99.00,
+        amountCents: 99.00,
         currency: 'BRL',
         billing_cycle: 'monthly',
       },
       status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Plano Industrial / Hub
@@ -6123,13 +6123,13 @@ export class MarketplaceService {
         advanced_analytics: true,
       },
       price: {
-        amount: 499.00,
+        amountCents: 499.00,
         currency: 'BRL',
         billing_cycle: 'monthly',
       },
       status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.companyPlans.set('basic', basicPlan);
@@ -6238,8 +6238,8 @@ export class MarketplaceService {
       payment_terminal_provider: input.payment_terminal_provider,
       plan_id: planId,
       status: 'draft',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.companyOnboardings.set(onboardingId, onboarding);
@@ -6288,7 +6288,7 @@ export class MarketplaceService {
       throw new Error('Conta bancária é obrigatória');
     }
 
-    if (!onboarding.bank_account.verified) {
+    if (!onboarding.bank_account.isVerified) {
       throw new Error('Conta bancária deve ser verificada antes de completar o onboarding');
     }
 
@@ -6297,7 +6297,7 @@ export class MarketplaceService {
     }
 
     onboarding.status = 'in_progress';
-    onboarding.updated_at = new Date().toISOString();
+    onboarding.updatedAt = new Date().toISOString();
     this.companyOnboardings.set(onboardingId, onboarding);
 
     try {
@@ -6324,7 +6324,7 @@ export class MarketplaceService {
         actor_type: this.mapCategoryToActorType(onboarding.category),
         verified_assets: {
           document_verified: true,
-          bank_account_verified: onboarding.bank_account.verified,
+          bank_account_verified: onboarding.bank_account.isVerified,
           company_registered: onboarding.company_type !== 'cpf',
         },
       });
@@ -6443,8 +6443,8 @@ export class MarketplaceService {
 
       // 6. Marcar onboarding como completado
       onboarding.status = 'completed';
-      onboarding.completed_at = new Date().toISOString();
-      onboarding.updated_at = new Date().toISOString();
+      onboarding.completedAt = new Date().toISOString();
+      onboarding.updatedAt = new Date().toISOString();
       this.companyOnboardings.set(onboardingId, onboarding);
 
       marketplaceLogger.init('Onboarding de empresa completado', {
@@ -6456,7 +6456,7 @@ export class MarketplaceService {
       return onboarding;
     } catch (error: any) {
       onboarding.status = 'failed';
-      onboarding.updated_at = new Date().toISOString();
+      onboarding.updatedAt = new Date().toISOString();
       this.companyOnboardings.set(onboardingId, onboarding);
 
       marketplaceLogger.error('Erro ao completar onboarding', error);
@@ -6509,9 +6509,9 @@ export class MarketplaceService {
       provider: input.provider,
       status: 'requested',
       transaction_fee_structure: transactionFeeStructure,
-      requested_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      requestedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.paymentTerminals.set(terminalId, terminal);
@@ -6535,8 +6535,8 @@ export class MarketplaceService {
     }
 
     terminal.status = 'approved';
-    terminal.approved_at = new Date().toISOString();
-    terminal.updated_at = new Date().toISOString();
+    terminal.approvedAt = new Date().toISOString();
+    terminal.updatedAt = new Date().toISOString();
     this.paymentTerminals.set(terminalId, terminal);
 
     marketplaceLogger.init('Maquininha de pagamento aprovada', {
@@ -6560,8 +6560,8 @@ export class MarketplaceService {
     }
 
     terminal.status = 'active';
-    terminal.activated_at = new Date().toISOString();
-    terminal.updated_at = new Date().toISOString();
+    terminal.activatedAt = new Date().toISOString();
+    terminal.updatedAt = new Date().toISOString();
     this.paymentTerminals.set(terminalId, terminal);
 
     // Registrar evento econômico: Fundo Regional financiou infraestrutura
@@ -6576,7 +6576,7 @@ export class MarketplaceService {
         // Registrar crédito no Fundo Regional (taxa administrativa)
         this.recordRegionalFundCredit({
           regional_fund_id: regionalFund.regional_fund_id,
-          amount: 0, // Valor será calculado nas transações
+          amountCents: 0, // Valor será calculado nas transações
           currency: 'BRL',
           source: 'payment_terminal_setup',
           reference_id: terminalId,
@@ -6586,7 +6586,7 @@ export class MarketplaceService {
         if (typeof (this as any).recordRegionalFundCreditEvent === 'function') {
           (this as any).recordRegionalFundCreditEvent({
             regional_fund_id: regionalFund.regional_fund_id,
-            amount: 0,
+            amountCents: 0,
             currency: 'BRL',
             source: 'payment_terminal_setup',
           });
@@ -6743,8 +6743,8 @@ export class MarketplaceService {
       external_gateway_provider: input.external_gateway_provider,
       fee_structure: feeStructure,
       status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.paymentInfrastructureConfigs.set(configId, config);
@@ -6832,7 +6832,7 @@ export class MarketplaceService {
       total_infrastructure_cost: 0,
       total_incentives: 0,
       currency: 'BRL',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.revenueSnapshots.set(snapshotId, snapshot);
@@ -6884,25 +6884,25 @@ export class MarketplaceService {
     const flow: RegionalFinancialFlow = {
       region,
       period,
-      total_transacted: snapshot.total_transacted,
-      total_fees: snapshot.total_fees,
-      regional_fund: {
-        total_revenue: snapshot.total_regional_fund_revenue,
-        infrastructure_cost: snapshot.total_infrastructure_cost,
-        net_balance: snapshot.total_regional_fund_revenue - snapshot.total_infrastructure_cost,
+      totalTransactedCents: snapshot.totalTransactedCents,
+      totalFeesCents: snapshot.totalFeesCents,
+      regionalFund: {
+        totalRevenueCents: snapshot.totalRegionalFundRevenueCents,
+        infrastructureCostCents: snapshot.totalInfrastructureCostCents,
+        netBalanceCents: snapshot.totalRegionalFundRevenueCents - snapshot.totalInfrastructureCostCents,
       },
       platform: {
-        total_revenue: snapshot.total_platform_revenue,
+        totalRevenueCents: snapshot.totalPlatformRevenueCents,
       },
       infrastructure: {
-        total_cost: snapshot.total_infrastructure_cost,
-        funded_by_regional_fund: snapshot.total_infrastructure_cost,
+        totalCostCents: snapshot.totalInfrastructureCostCents,
+        fundedByRegionalFundCents: snapshot.totalInfrastructureCostCents,
       },
       incentives: {
-        total_granted: snapshot.total_incentives,
+        totalGrantedCents: snapshot.totalIncentivesCents,
       },
       currency: snapshot.currency,
-      generated_at: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
     };
 
     return flow;
@@ -6968,7 +6968,7 @@ export class MarketplaceService {
         throw new Error(`Service offering não encontrado: ${item.offering_id}`);
       }
 
-      if (!offering.active) {
+      if (!offering.isActive) {
         throw new Error(`Service offering não está ativo: ${item.offering_id}`);
       }
 
@@ -7003,7 +7003,7 @@ export class MarketplaceService {
       schedule: input.schedule,
       constraints: input.constraints,
       status: 'open',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceRequests.set(requestId, request);
@@ -7013,7 +7013,7 @@ export class MarketplaceService {
     userHistory.push({
       request_id: requestId,
       service_items: input.service_items,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     });
     this.userRequestHistory.set(input.requester_actor_id, userHistory);
 
@@ -7072,7 +7072,7 @@ export class MarketplaceService {
 
       // Buscar providers que têm este offering
       const providersWithOffering = Array.from(this.serviceOfferings.values())
-        .filter(o => o.offering_id === item.offering_id && o.active)
+        .filter(o => o.offering_id === item.offering_id && o.isActive)
         .map(o => o.store_id);
 
       for (const providerId of providersWithOffering) {
@@ -7268,7 +7268,7 @@ export class MarketplaceService {
     );
 
     if (existingDispatch) {
-      const dispatchAge = Date.now() - new Date(existingDispatch.created_at).getTime();
+      const dispatchAge = Date.now() - new Date(existingDispatch.createdAt).getTime();
       const tenMinutes = 10 * 60 * 1000;
       if (dispatchAge < tenMinutes) {
         throw new Error('Já existe dispatch ativo para esta requisição (aguarde 10 minutos)');
@@ -7305,7 +7305,7 @@ export class MarketplaceService {
         region: true,
       },
       status: 'sent',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceDispatches.set(dispatchId, dispatch);
@@ -7325,7 +7325,7 @@ export class MarketplaceService {
 
     // Atualizar status da requisição
     request.status = 'dispatched';
-    request.dispatched_at = new Date().toISOString();
+    request.dispatchedAt = new Date().toISOString();
     this.serviceRequests.set(requestId, request);
 
     marketplaceLogger.init('Dispatch de requisição de serviço criado', {
@@ -7387,12 +7387,12 @@ export class MarketplaceService {
     // Marcar dispatch como aceito
     dispatch.status = 'accepted';
     dispatch.accepted_by = providerActorId;
-    dispatch.accepted_at = new Date().toISOString();
+    dispatch.acceptedAt = new Date().toISOString();
     this.serviceDispatches.set(dispatchId, dispatch);
 
     // Marcar requisição como aceita
     request.status = 'accepted';
-    request.accepted_at = new Date().toISOString();
+    request.acceptedAt = new Date().toISOString();
     this.serviceRequests.set(dispatch.request_id, request);
 
     // Se intent for quote_required, criar ServiceVisit ao invés de ServiceBooking
@@ -7402,8 +7402,8 @@ export class MarketplaceService {
         request_id: request.request_id,
         dispatch_id: dispatchId,
         provider_actor_id: providerActorId,
-        scheduled_date: request.schedule.date || new Date().toISOString().split('T')[0],
-        scheduled_time: '09:00', // Default, pode ser ajustado
+        scheduled_at: request.schedule.date || new Date().toISOString().split('T')[0],
+        scheduled_at: '09:00', // Default, pode ser ajustado
       });
 
       // Registrar evento econômico
@@ -7474,7 +7474,7 @@ export class MarketplaceService {
             offering_id: item.offering_id,
             user_id: request.requester_actor_id,
             date: today.toISOString().split('T')[0],
-            time: todayAvailability.start_time,
+            time: todayAvailability.starts_at,
             quantity: item.quantity,
           });
 
@@ -7495,7 +7495,7 @@ export class MarketplaceService {
             offering_id: item.offering_id,
             user_id: request.requester_actor_id,
             date: request.schedule.date.split('T')[0],
-            time: scheduledAvailability.start_time,
+            time: scheduledAvailability.starts_at,
             quantity: item.quantity,
           });
 
@@ -7635,7 +7635,7 @@ export class MarketplaceService {
     let shouldExpire = false;
 
     if (request.intent === 'now' && request.schedule.max_wait_minutes) {
-      const requestAge = (now.getTime() - new Date(request.created_at).getTime()) / (1000 * 60);
+      const requestAge = (now.getTime() - new Date(request.createdAt).getTime()) / (1000 * 60);
       if (requestAge > request.schedule.max_wait_minutes) {
         shouldExpire = true;
       }
@@ -7651,7 +7651,7 @@ export class MarketplaceService {
     }
 
     request.status = 'expired';
-    request.expired_at = new Date().toISOString();
+    request.expiredAt = new Date().toISOString();
     this.serviceRequests.set(requestId, request);
 
     // Expirar dispatch ativo se houver
@@ -7660,7 +7660,7 @@ export class MarketplaceService {
     );
     if (activeDispatch) {
       activeDispatch.status = 'expired';
-      activeDispatch.expired_at = new Date().toISOString();
+      activeDispatch.expiredAt = new Date().toISOString();
       this.serviceDispatches.set(activeDispatch.dispatch_id, activeDispatch);
     }
 
@@ -7726,8 +7726,8 @@ export class MarketplaceService {
     dispatch_id: string;
     provider_actor_id: string;
     request_id: string;
-    sent_at: string;
-    responded_at?: string;
+    sentAt: string;
+    respondedAt?: string;
     response_time_minutes?: number;
     status: 'pending' | 'accepted' | 'declined' | 'expired';
   }> = new Map(); // dispatch_id -> response_time
@@ -7754,7 +7754,7 @@ export class MarketplaceService {
         status: input.status,
         region: input.region,
         last_seen: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     } else {
       const presenceId = `presence-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -7770,8 +7770,8 @@ export class MarketplaceService {
           total_dispatches_accepted: 0,
           total_dispatches_declined: 0,
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     }
 
@@ -7803,7 +7803,7 @@ export class MarketplaceService {
       dispatch_id: dispatchId,
       provider_actor_id: providerActorId,
       request_id: requestId,
-      sent_at: new Date().toISOString(),
+      sentAt: new Date().toISOString(),
       status: 'pending',
     });
 
@@ -7811,7 +7811,7 @@ export class MarketplaceService {
     const presence = this.providerPresences.get(providerActorId);
     if (presence && presence.response_sla_metrics) {
       presence.response_sla_metrics.total_dispatches_received += 1;
-      presence.updated_at = new Date().toISOString();
+      presence.updatedAt = new Date().toISOString();
       this.providerPresences.set(providerActorId, presence);
     }
   }
@@ -7826,10 +7826,10 @@ export class MarketplaceService {
     }
 
     const respondedAt = new Date().toISOString();
-    const sentAt = new Date(responseTime.sent_at);
+    const sentAt = new Date(responseTime.sentAt);
     const responseTimeMinutes = (new Date(respondedAt).getTime() - sentAt.getTime()) / (1000 * 60);
 
-    responseTime.responded_at = respondedAt;
+    responseTime.respondedAt = respondedAt;
     responseTime.response_time_minutes = responseTimeMinutes;
     responseTime.status = status;
     this.dispatchResponseTimes.set(dispatchId, responseTime);
@@ -7853,7 +7853,7 @@ export class MarketplaceService {
         presence.response_sla_metrics.last_response_time_minutes = responseTimeMinutes;
       }
 
-      presence.updated_at = new Date().toISOString();
+      presence.updatedAt = new Date().toISOString();
       this.providerPresences.set(responseTime.provider_actor_id, presence);
     }
 
@@ -7944,11 +7944,11 @@ export class MarketplaceService {
       pre_reservation_id: string;
       date: string;
       time: string;
-      expires_at: string;
+      expiresAt: string;
       status: 'active' | 'expired';
     };
     status: 'sent' | 'accepted' | 'declined' | 'expired';
-    created_at: string;
+    createdAt: string;
   }> {
     const inbox: Array<{
       dispatch_id: string;
@@ -7956,7 +7956,7 @@ export class MarketplaceService {
       request_summary: any;
       pre_reservation?: any;
       status: string;
-      created_at: string;
+      createdAt: string;
     }> = [];
 
     // Buscar todos os dispatches onde o provider é candidato
@@ -7995,7 +7995,7 @@ export class MarketplaceService {
           const weekday = scheduledDate.getDay();
           const scheduledSlot = availability.find(a => a.weekday === weekday);
           if (scheduledSlot) {
-            serviceTime = scheduledSlot.start_time;
+            serviceTime = scheduledSlot.starts_at;
           }
         }
       } else if (request.intent === 'now') {
@@ -8005,7 +8005,7 @@ export class MarketplaceService {
         if (availability && availability.length > 0) {
           const todaySlot = availability.find(a => a.weekday === today.getDay());
           if (todaySlot) {
-            serviceTime = todaySlot.start_time;
+            serviceTime = todaySlot.starts_at;
           }
         }
       }
@@ -8028,16 +8028,16 @@ export class MarketplaceService {
           pre_reservation_id: activePreReservation.pre_reservation_id,
           date: activePreReservation.date,
           time: activePreReservation.time,
-          expires_at: activePreReservation.expires_at,
+          expiresAt: activePreReservation.expiresAt,
           status: activePreReservation.status,
         } : undefined,
         status: dispatch.status,
-        created_at: dispatch.created_at,
+        createdAt: dispatch.createdAt,
       });
     }
 
-    // Ordenar por created_at (mais recente primeiro)
-    inbox.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Ordenar por createdAt (mais recente primeiro)
+    inbox.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return inbox;
   }
@@ -8050,7 +8050,7 @@ export class MarketplaceService {
     provider_actor_id: string;
     is_eligible: boolean;
     pre_reservation_status?: 'active' | 'expired' | 'confirmed' | 'released';
-    pre_reservation_expires_at?: string;
+    pre_reservation_expiresAt?: string;
     time_remaining_minutes?: number;
     already_accepted: boolean;
     accepted_by?: string;
@@ -8076,9 +8076,9 @@ export class MarketplaceService {
 
     if (activePreReservation) {
       preReservationStatus = 'active';
-      expiresAt = activePreReservation.expires_at;
+      expiresAt = activePreReservation.expiresAt;
       const now = new Date();
-      const expires = new Date(activePreReservation.expires_at);
+      const expires = new Date(activePreReservation.expiresAt);
       timeRemainingMinutes = Math.max(0, Math.floor((expires.getTime() - now.getTime()) / (1000 * 60)));
     } else if (confirmedPreReservation) {
       preReservationStatus = 'confirmed';
@@ -8096,7 +8096,7 @@ export class MarketplaceService {
       provider_actor_id: providerActorId,
       is_eligible: isEligible,
       pre_reservation_status: preReservationStatus,
-      pre_reservation_expires_at: expiresAt,
+      pre_reservation_expiresAt: expiresAt,
       time_remaining_minutes: timeRemainingMinutes,
       already_accepted: dispatch.status === 'accepted',
       accepted_by: dispatch.accepted_by,
@@ -8120,7 +8120,7 @@ export class MarketplaceService {
   private userRequestHistory: Map<string, Array<{
     request_id: string;
     service_items: Array<{ offering_id: string; quantity: number }>;
-    created_at: string;
+    createdAt: string;
   }>> = new Map(); // requester_actor_id -> requests
 
   /**
@@ -8151,9 +8151,9 @@ export class MarketplaceService {
       time: input.time,
       quantity: input.quantity,
       hold_duration_minutes: holdDuration,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
       status: 'active',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.servicePreReservations.set(preReservationId, preReservation);
@@ -8178,7 +8178,7 @@ export class MarketplaceService {
       pre_reservation_id: preReservationId,
       dispatch_id: input.dispatch_id,
       provider_actor_id: input.provider_actor_id,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     });
 
     return preReservation;
@@ -8202,7 +8202,7 @@ export class MarketplaceService {
     }
 
     // Verificar horário dentro do slot
-    if (time < slot.start_time || time >= slot.end_time) {
+    if (time < slot.starts_at || time >= slot.ends_at) {
       return false;
     }
 
@@ -8224,7 +8224,7 @@ export class MarketplaceService {
         pr.date === date &&
         pr.time === time &&
         pr.status === 'active' &&
-        new Date(pr.expires_at) > new Date()
+        new Date(pr.expiresAt) > new Date()
       );
 
     const totalHeld = activePreReservations.reduce((sum, pr) => sum + pr.quantity, 0);
@@ -8316,7 +8316,7 @@ export class MarketplaceService {
 
     // Verificar se há request recente com os mesmos itens
     const recentDuplicate = userHistory.find(req => {
-      if (new Date(req.created_at) < fiveMinutesAgo) {
+      if (new Date(req.createdAt) < fiveMinutesAgo) {
         return false;
       }
 
@@ -8391,7 +8391,7 @@ export class MarketplaceService {
           const today = now.getDay();
           const todaySlot = availability.find(a => a.weekday === today);
           if (todaySlot) {
-            targetTime = todaySlot.start_time;
+            targetTime = todaySlot.starts_at;
           } else {
             continue; // Sem disponibilidade hoje
           }
@@ -8407,7 +8407,7 @@ export class MarketplaceService {
           const weekday = scheduledDate.getDay();
           const scheduledSlot = availability.find(a => a.weekday === weekday);
           if (scheduledSlot) {
-            targetTime = scheduledSlot.start_time;
+            targetTime = scheduledSlot.starts_at;
           } else {
             continue; // Sem disponibilidade na data
           }
@@ -8464,7 +8464,7 @@ export class MarketplaceService {
     }
 
     // Verificar se não expirou
-    if (new Date(preReservation.expires_at) < new Date()) {
+    if (new Date(preReservation.expiresAt) < new Date()) {
       throw new Error('Pré-reserva expirada');
     }
 
@@ -8484,7 +8484,7 @@ export class MarketplaceService {
 
     // Marcar pré-reserva como confirmada
     preReservation.status = 'confirmed';
-    preReservation.confirmed_at = new Date().toISOString();
+    preReservation.confirmedAt = new Date().toISOString();
     this.servicePreReservations.set(preReservationId, preReservation);
 
     // Registrar evento econômico (restricted)
@@ -8522,9 +8522,9 @@ export class MarketplaceService {
     const expiredPreReservations: ServicePreReservation[] = [];
 
     for (const preReservation of this.servicePreReservations.values()) {
-      if (preReservation.status === 'active' && new Date(preReservation.expires_at) < now) {
+      if (preReservation.status === 'active' && new Date(preReservation.expiresAt) < now) {
         preReservation.status = 'expired';
-        preReservation.expired_at = now.toISOString();
+        preReservation.expiredAt = now.toISOString();
         this.servicePreReservations.set(preReservation.pre_reservation_id, preReservation);
         expiredPreReservations.push(preReservation);
 
@@ -8596,7 +8596,7 @@ export class MarketplaceService {
     // Evento: service_request_created
     timeline.push({
       type: 'service_request_created',
-      timestamp: request.created_at,
+      timestamp: request.createdAt,
       actor_id: request.requester_actor_id,
       payload: {
         intent: request.intent,
@@ -8609,13 +8609,13 @@ export class MarketplaceService {
     // Buscar dispatches relacionados
     const dispatches = Array.from(this.serviceDispatches.values())
       .filter(d => d.request_id === requestId)
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     for (const dispatch of dispatches) {
       // Evento: service_dispatch_sent
       timeline.push({
         type: 'service_dispatch_sent',
-        timestamp: dispatch.created_at,
+        timestamp: dispatch.createdAt,
         payload: {
           dispatch_id: dispatch.dispatch_id,
           candidates_count: dispatch.candidates.length,
@@ -8632,13 +8632,13 @@ export class MarketplaceService {
         // Evento: service_pre_reservation_created
         timeline.push({
           type: 'service_pre_reservation_created',
-          timestamp: preReservation.created_at,
+          timestamp: preReservation.createdAt,
           actor_id: preReservation.provider_actor_id,
           payload: {
             pre_reservation_id: preReservation.pre_reservation_id,
             date: preReservation.date,
             time: preReservation.time,
-            expires_at: preReservation.expires_at,
+            expiresAt: preReservation.expiresAt,
           },
         });
 
@@ -8646,7 +8646,7 @@ export class MarketplaceService {
         if (preReservation.status === 'expired') {
           timeline.push({
             type: 'service_pre_reservation_expired',
-            timestamp: preReservation.expires_at,
+            timestamp: preReservation.expiresAt,
             actor_id: preReservation.provider_actor_id,
             payload: {
               pre_reservation_id: preReservation.pre_reservation_id,
@@ -8655,10 +8655,10 @@ export class MarketplaceService {
         }
 
         // Se confirmada
-        if (preReservation.status === 'confirmed' && preReservation.confirmed_at) {
+        if (preReservation.status === 'confirmed' && preReservation.confirmedAt) {
           timeline.push({
             type: 'service_pre_reservation_confirmed',
-            timestamp: preReservation.confirmed_at,
+            timestamp: preReservation.confirmedAt,
             actor_id: preReservation.provider_actor_id,
             payload: {
               pre_reservation_id: preReservation.pre_reservation_id,
@@ -8671,7 +8671,7 @@ export class MarketplaceService {
       if (dispatch.status === 'declined') {
         timeline.push({
           type: 'service_dispatch_declined',
-          timestamp: dispatch.expired_at || dispatch.created_at,
+          timestamp: dispatch.expiredAt || dispatch.createdAt,
           actor_id: dispatch.accepted_by, // Provider que recusou (se houver)
           payload: {
             dispatch_id: dispatch.dispatch_id,
@@ -8680,10 +8680,10 @@ export class MarketplaceService {
       }
 
       // Se dispatch foi aceito
-      if (dispatch.status === 'accepted' && dispatch.accepted_at) {
+      if (dispatch.status === 'accepted' && dispatch.acceptedAt) {
         timeline.push({
           type: 'service_dispatch_accepted',
-          timestamp: dispatch.accepted_at,
+          timestamp: dispatch.acceptedAt,
           actor_id: dispatch.accepted_by,
           payload: {
             dispatch_id: dispatch.dispatch_id,
@@ -8714,10 +8714,10 @@ export class MarketplaceService {
     }
 
     for (const booking of bookings) {
-      if (booking.status === 'confirmed' && booking.confirmed_at) {
+      if (booking.status === 'confirmed' && booking.confirmedAt) {
         timeline.push({
           type: 'service_booking_confirmed',
-          timestamp: booking.confirmed_at,
+          timestamp: booking.confirmedAt,
           payload: {
             booking_id: booking.booking_id,
             date: booking.date,
@@ -8742,10 +8742,10 @@ export class MarketplaceService {
       if (parentOrder) {
         timeline.push({
           type: 'order_created',
-          timestamp: parentOrder.created_at,
+          timestamp: parentOrder.createdAt,
           payload: {
             order_id: parentOrder.order_id,
-            total: parentOrder.total,
+            totalCents: parentOrder.totalCents,
           },
         });
 
@@ -8756,7 +8756,7 @@ export class MarketplaceService {
         if (checkout && checkout.status === 'paid') {
           timeline.push({
             type: 'order_paid',
-            timestamp: checkout.paid_at || checkout.created_at,
+            timestamp: checkout.paidAt || checkout.createdAt,
             payload: {
               checkout_id: checkout.checkout_id,
               order_id: parentOrder.order_id,
@@ -8767,10 +8767,10 @@ export class MarketplaceService {
     }
 
     // Se request foi expirada
-    if (request.status === 'expired' && request.expired_at) {
+    if (request.status === 'expired' && request.expiredAt) {
       timeline.push({
         type: 'service_request_expired',
-        timestamp: request.expired_at,
+        timestamp: request.expiredAt,
         payload: {
           request_id: requestId,
         },
@@ -8778,10 +8778,10 @@ export class MarketplaceService {
     }
 
     // Se request foi completada
-    if (request.status === 'completed' && (request as any).completed_at) {
+    if (request.status === 'completed' && (request as any).completedAt) {
       timeline.push({
         type: 'service_completed',
-        timestamp: (request as any).completed_at,
+        timestamp: (request as any).completedAt,
         payload: {
           request_id: requestId,
         },
@@ -8803,7 +8803,7 @@ export class MarketplaceService {
     intent: 'now' | 'scheduled' | 'bundle';
     provider?: {
       provider_actor_id: string;
-      confirmed_at: string;
+      confirmedAt: string;
     };
     confirmed_schedule?: {
       date: string;
@@ -8894,14 +8894,14 @@ export class MarketplaceService {
     }
 
     // Buscar provider confirmado
-    let provider: { provider_actor_id: string; confirmed_at: string } | undefined;
+    let provider: { provider_actor_id: string; confirmedAt: string } | undefined;
     const acceptedDispatch = Array.from(this.serviceDispatches.values())
       .find(d => d.request_id === requestId && d.status === 'accepted');
 
-    if (acceptedDispatch && acceptedDispatch.accepted_by && acceptedDispatch.accepted_at) {
+    if (acceptedDispatch && acceptedDispatch.accepted_by && acceptedDispatch.acceptedAt) {
       provider = {
         provider_actor_id: acceptedDispatch.accepted_by,
-        confirmed_at: acceptedDispatch.accepted_at,
+        confirmedAt: acceptedDispatch.acceptedAt,
       };
     }
 
@@ -8974,7 +8974,7 @@ export class MarketplaceService {
   createServicePaymentHold(
     requestId: string,
     paymentPlanId: string,
-    amount: number,
+    amountCents: number,
     currency: string,
     releasePolicy: 'client_confirm' | 'auto_after_deadline' | 'provider_confirm_with_proof' = 'client_confirm',
     releaseDeadlineHours: number = 24
@@ -8990,8 +8990,8 @@ export class MarketplaceService {
       amount,
       currency,
       status: 'held',
-      created_at: now.toISOString(),
-      release_deadline_at: deadline.toISOString(),
+      createdAt: now.toISOString(),
+      release_deadlineAt: deadline.toISOString(),
       release_policy: releasePolicy,
     };
 
@@ -9043,7 +9043,7 @@ export class MarketplaceService {
       role,
       action,
       reason,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceCompletionSignals.set(signalId, signal);
@@ -9064,7 +9064,7 @@ export class MarketplaceService {
    */
   confirmServiceCompletedByCustomer(requestId: string, customerActorId: string): {
     hold_id: string;
-    released_at: string;
+    releasedAt: string;
     status: 'released';
   } {
     const request = this.serviceRequests.get(requestId);
@@ -9099,7 +9099,7 @@ export class MarketplaceService {
    */
   confirmServiceCompletedByProvider(requestId: string, providerActorId: string): {
     hold_id: string;
-    released_at: string;
+    releasedAt: string;
     status: 'released';
   } {
     const request = this.serviceRequests.get(requestId);
@@ -9227,7 +9227,7 @@ export class MarketplaceService {
     let releasedCount = 0;
 
     for (const hold of this.servicePaymentHolds.values()) {
-      if (hold.status === 'held' && new Date(hold.release_deadline_at) <= now) {
+      if (hold.status === 'held' && new Date(hold.release_deadlineAt) <= now) {
         // Verificar se há disputa
         const hasDispute = Array.from(this.serviceCompletionSignals.values())
           .some(s => s.request_id === hold.request_id && s.action === 'dispute');
@@ -9260,7 +9260,7 @@ export class MarketplaceService {
    */
   private releaseServicePaymentHold(holdId: string, releasedBy: string): {
     hold_id: string;
-    released_at: string;
+    releasedAt: string;
     status: 'released';
   } {
     const hold = this.servicePaymentHolds.get(holdId);
@@ -9283,7 +9283,7 @@ export class MarketplaceService {
     if (paymentPlan.status === 'executed') {
       const releasedAt = new Date().toISOString();
       hold.status = 'released';
-      hold.released_at = releasedAt;
+      hold.releasedAt = releasedAt;
       hold.released_by = releasedBy;
       this.servicePaymentHolds.set(holdId, hold);
 
@@ -9299,7 +9299,7 @@ export class MarketplaceService {
 
       return {
         hold_id: holdId,
-        released_at: releasedAt,
+        releasedAt: releasedAt,
         status: 'released',
       };
     }
@@ -9313,7 +9313,7 @@ export class MarketplaceService {
    */
   completeServiceRequest(requestId: string, completedBy: string): {
     request_id: string;
-    completed_at: string;
+    completedAt: string;
     status: 'completed';
   } {
     const request = this.serviceRequests.get(requestId);
@@ -9342,7 +9342,7 @@ export class MarketplaceService {
     // Marcar request como completo
     request.status = 'completed';
     const completedAt = new Date().toISOString();
-    (request as any).completed_at = completedAt;
+    (request as any).completedAt = completedAt;
 
     this.serviceRequests.set(requestId, request);
 
@@ -9370,12 +9370,12 @@ export class MarketplaceService {
     marketplaceLogger.init('Serviço marcado como completo', {
       request_id: requestId,
       provider_actor_id: completedBy,
-      completed_at: completedAt,
+      completedAt: completedAt,
     });
 
     return {
       request_id: requestId,
-      completed_at: completedAt,
+      completedAt: completedAt,
       status: 'completed',
     };
   }
@@ -9391,8 +9391,8 @@ export class MarketplaceService {
     request_id: string;
     dispatch_id: string;
     provider_actor_id: string;
-    scheduled_date: string;
-    scheduled_time: string;
+    scheduled_at: string;
+    scheduled_at: string;
   }): ServiceVisit {
     const visitId = `visit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -9401,10 +9401,10 @@ export class MarketplaceService {
       request_id: input.request_id,
       dispatch_id: input.dispatch_id,
       provider_actor_id: input.provider_actor_id,
-      scheduled_date: input.scheduled_date,
-      scheduled_time: input.scheduled_time,
+      scheduled_at: input.scheduled_at,
+      scheduled_at: input.scheduled_at,
       status: 'visit_scheduled',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceVisits.set(visitId, visit);
@@ -9432,7 +9432,7 @@ export class MarketplaceService {
     }
 
     visit.status = 'visit_completed';
-    visit.completed_at = new Date().toISOString();
+    visit.completedAt = new Date().toISOString();
     this.serviceVisits.set(visitId, visit);
 
     // Atualizar métricas de governança
@@ -9473,7 +9473,7 @@ export class MarketplaceService {
     request_id: string;
     visit_id: string;
     provider_actor_id: string;
-    service_value: { amount: number; currency: string };
+    service_value: { amountCents: number; currency: string };
     description: string;
     requires_materials: boolean;
     execution_date?: string;
@@ -9512,7 +9512,7 @@ export class MarketplaceService {
       execution_date: input.execution_date,
       execution_time: input.execution_time,
       status: 'pending',
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     this.serviceQuotes.set(quoteId, quote);
@@ -9589,8 +9589,8 @@ export class MarketplaceService {
     const booking = this.createServiceBooking({
       offering_id: request.service_items[0].offering_id, // Usar primeiro item
       user_id: customerActorId,
-      date: quote.execution_date || visit.scheduled_date,
-      time: quote.execution_time || visit.scheduled_time,
+      date: quote.execution_date || visit.scheduled_at,
+      time: quote.execution_time || visit.scheduled_at,
       quantity: request.service_items[0].quantity,
     });
 
@@ -9624,7 +9624,7 @@ export class MarketplaceService {
 
     // Marcar quote como aceito
     quote.status = 'accepted';
-    quote.accepted_at = new Date().toISOString();
+    quote.acceptedAt = new Date().toISOString();
     quote.booking_id = booking.booking_id;
     quote.order_id = order.order_id;
     this.serviceQuotes.set(quoteId, quote);
@@ -9696,7 +9696,7 @@ export class MarketplaceService {
 
     // Marcar quote como recusado
     quote.status = 'declined';
-    quote.declined_at = new Date().toISOString();
+    quote.declinedAt = new Date().toISOString();
     this.serviceQuotes.set(quoteId, quote);
 
     // Atualizar métricas de governança
@@ -9772,7 +9772,7 @@ export class MarketplaceService {
     const visits = Array.from(this.serviceVisits.values())
       .filter(v => {
         if (v.provider_actor_id !== providerActorId) return false;
-        const visitDate = new Date(v.created_at);
+        const visitDate = new Date(v.createdAt);
         return visitDate >= start && visitDate <= end;
       });
 
@@ -9780,7 +9780,7 @@ export class MarketplaceService {
     const quotes = Array.from(this.serviceQuotes.values())
       .filter(q => {
         if (q.provider_actor_id !== providerActorId) return false;
-        const quoteDate = new Date(q.created_at);
+        const quoteDate = new Date(q.createdAt);
         return quoteDate >= start && quoteDate <= end;
       });
 
@@ -9828,8 +9828,8 @@ export class MarketplaceService {
       provider_actor_id: providerActorId,
       category_id: categoryId,
       period: {
-        start_date: startDate,
-        end_date: endDate,
+        starts_at: startDate,
+        ends_at: endDate,
       },
       visitas_sem_orcamento,
       orcamentos_enviados,
@@ -9841,10 +9841,10 @@ export class MarketplaceService {
       warnings_count: status === 'warning' ? warnings_count + 1 : warnings_count,
       sla_violations_count: status === 'sla_violation' ? sla_violations_count + 1 : sla_violations_count,
       trust_downgrades_count,
-      calculated_at: new Date().toISOString(),
-      last_warning_at: status === 'warning' ? new Date().toISOString() : existingMetrics?.last_warning_at,
-      last_sla_violation_at: status === 'sla_violation' ? new Date().toISOString() : existingMetrics?.last_sla_violation_at,
-      last_trust_downgrade_at: existingMetrics?.last_trust_downgrade_at,
+      calculatedAt: new Date().toISOString(),
+      last_warningAt: status === 'warning' ? new Date().toISOString() : existingMetrics?.last_warningAt,
+      last_sla_violationAt: status === 'sla_violation' ? new Date().toISOString() : existingMetrics?.last_sla_violationAt,
+      last_trust_downgradeAt: existingMetrics?.last_trust_downgradeAt,
     };
 
     this.serviceGovernanceMetrics.set(providerActorId, metrics);
@@ -9896,7 +9896,7 @@ export class MarketplaceService {
         if (typeof (this as any).downgradeTrustLevel === 'function') {
           (this as any).downgradeTrustLevel(providerActorId, 'service_governance_recurring_violation');
           metrics.trust_downgrades_count += 1;
-          metrics.last_trust_downgrade_at = new Date().toISOString();
+          metrics.last_trust_downgradeAt = new Date().toISOString();
           this.serviceGovernanceMetrics.set(providerActorId, metrics);
         }
       } catch (err) {
@@ -9943,7 +9943,7 @@ export class MarketplaceService {
     category_id: string;
     business_template_id?: string;
     usage_count: number;
-    last_used_at: string;
+    last_usedAt: string;
   }> = new Map(); // template_id -> audit
 
   /**
@@ -9969,7 +9969,7 @@ export class MarketplaceService {
           marca_sugerida: 'Tio João',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -9988,7 +9988,7 @@ export class MarketplaceService {
           embalagem: 'plástico',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10007,7 +10007,7 @@ export class MarketplaceService {
           embalagem: 'plástico',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Farmácia
@@ -10028,7 +10028,7 @@ export class MarketplaceService {
           prescricao: 'isento',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10048,7 +10048,7 @@ export class MarketplaceService {
           prescricao: 'isento',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Distribuidora de Bebidas
@@ -10069,7 +10069,7 @@ export class MarketplaceService {
           teor_alcoolico: '4.5%',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10088,7 +10088,7 @@ export class MarketplaceService {
           embalagem: 'PET',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Material de Construção
@@ -10108,7 +10108,7 @@ export class MarketplaceService {
           embalagem: 'papel',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10127,7 +10127,7 @@ export class MarketplaceService {
           embalagem: 'pallet',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
     ];
@@ -10164,7 +10164,7 @@ export class MarketplaceService {
           max_distance_km: 10,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Serviços de Saúde
@@ -10184,7 +10184,7 @@ export class MarketplaceService {
           requires_license: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10204,7 +10204,7 @@ export class MarketplaceService {
           requires_appointment: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10224,7 +10224,7 @@ export class MarketplaceService {
           requires_appointment: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Serviços de Fitness
@@ -10244,7 +10244,7 @@ export class MarketplaceService {
           billing_cycle: 'monthly',
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10263,7 +10263,7 @@ export class MarketplaceService {
           requires_certification: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Serviços de Beleza
@@ -10283,7 +10283,7 @@ export class MarketplaceService {
           requires_appointment: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10302,7 +10302,7 @@ export class MarketplaceService {
           requires_appointment: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       {
@@ -10321,7 +10321,7 @@ export class MarketplaceService {
           requires_appointment: true,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Serviços de Alimentação
@@ -10342,7 +10342,7 @@ export class MarketplaceService {
           min_guests: 10,
         },
         version: 'v1',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
     ];
@@ -10373,7 +10373,7 @@ export class MarketplaceService {
   private businessTemplateUsageAudit: Map<string, {
     template_id: string;
     usage_count: number;
-    last_used_at: string;
+    last_usedAt: string;
     companies: string[]; // IDs de empresas que usam este template
   }> = new Map(); // template_id -> audit
 
@@ -10390,7 +10390,7 @@ export class MarketplaceService {
     quote_flow_enabled: boolean;
     pdv_enabled: boolean;
     b2b_enabled: boolean;
-    updated_at: string;
+    updatedAt: string;
   }> = new Map(); // company_id -> state
 
   /**
@@ -10432,7 +10432,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Farmácia
@@ -10471,7 +10471,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Distribuidora de Bebidas
@@ -10507,7 +10507,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Academia
@@ -10543,7 +10543,7 @@ export class MarketplaceService {
           allows_industrial_products: false,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Clínica
@@ -10579,7 +10579,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Prestador de Serviços
@@ -10615,7 +10615,7 @@ export class MarketplaceService {
           allows_industrial_products: false,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Restaurante
@@ -10650,7 +10650,7 @@ export class MarketplaceService {
           allows_industrial_products: false,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Material de Construção
@@ -10686,7 +10686,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Serviços de Beleza
@@ -10723,7 +10723,7 @@ export class MarketplaceService {
           allows_industrial_products: false,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
       // Clínica de Saúde
@@ -10759,7 +10759,7 @@ export class MarketplaceService {
           allows_industrial_products: true,
           allows_services: true,
         },
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       },
     ];
@@ -10818,7 +10818,7 @@ export class MarketplaceService {
     quote_flow_enabled: boolean;
     pdv_enabled: boolean;
     b2b_enabled: boolean;
-    updated_at: string;
+    updatedAt: string;
   } {
     let state = this.companyActivationStates.get(companyId);
     if (!state) {
@@ -10831,13 +10831,13 @@ export class MarketplaceService {
         quote_flow_enabled: false,
         pdv_enabled: false,
         b2b_enabled: false,
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     }
 
     // Atualizar campos
     Object.assign(state, updates);
-    state.updated_at = new Date().toISOString();
+    state.updatedAt = new Date().toISOString();
 
     this.companyActivationStates.set(companyId, state);
 
@@ -10861,7 +10861,7 @@ export class MarketplaceService {
     quote_flow_enabled: boolean;
     pdv_enabled: boolean;
     b2b_enabled: boolean;
-    updated_at: string;
+    updatedAt: string;
   } | null {
     return this.companyActivationStates.get(companyId) || null;
   }
@@ -10875,7 +10875,7 @@ export class MarketplaceService {
       audit = {
         template_id: templateId,
         usage_count: 0,
-        last_used_at: new Date().toISOString(),
+        last_usedAt: new Date().toISOString(),
         companies: [],
       };
     }
@@ -10885,7 +10885,7 @@ export class MarketplaceService {
       audit.usage_count += 1;
     }
 
-    audit.last_used_at = new Date().toISOString();
+    audit.last_usedAt = new Date().toISOString();
     this.businessTemplateUsageAudit.set(templateId, audit);
   }
 
@@ -10895,7 +10895,7 @@ export class MarketplaceService {
   getBusinessTemplateUsageAudit(templateId?: string): Array<{
     template_id: string;
     usage_count: number;
-    last_used_at: string;
+    last_usedAt: string;
     companies: string[];
   }> {
     if (templateId) {
@@ -11028,14 +11028,14 @@ export class MarketplaceService {
       const existingAudit = this.templateUsageAudit.get(auditKey);
       if (existingAudit) {
         existingAudit.usage_count += 1;
-        existingAudit.last_used_at = new Date().toISOString();
+        existingAudit.last_usedAt = new Date().toISOString();
       } else {
         this.templateUsageAudit.set(auditKey, {
           template_id: templateId,
           template_type: 'product',
           category_id: template.category_id,
           usage_count: 1,
-          last_used_at: new Date().toISOString(),
+          last_usedAt: new Date().toISOString(),
         });
       }
     }
@@ -11113,12 +11113,12 @@ export class MarketplaceService {
         store_id: storeId,
         template_id: templateId,
         price: {
-          amount: 0, // Preço padrão, será ajustado pelo dono
+          amountCents: 0, // Preço padrão, será ajustado pelo dono
           currency: 'BRL',
         },
         duration_minutes: template.default_duration_minutes || 60,
         recurrence: template.type === 'recurring' ? { cycle: 'monthly' } : null,
-        active: false, // Inactive por padrão
+        isActive: false, // Inactive por padrão
       };
 
       this.serviceOfferings.set(offeringId, offering);
@@ -11135,14 +11135,14 @@ export class MarketplaceService {
       const existingAudit = this.templateUsageAudit.get(auditKey);
       if (existingAudit) {
         existingAudit.usage_count += 1;
-        existingAudit.last_used_at = new Date().toISOString();
+        existingAudit.last_usedAt = new Date().toISOString();
       } else {
         this.templateUsageAudit.set(auditKey, {
           template_id: templateId,
           template_type: 'service',
           category_id: template.category_id,
           usage_count: 1,
-          last_used_at: new Date().toISOString(),
+          last_usedAt: new Date().toISOString(),
         });
       }
     }
@@ -11295,7 +11295,7 @@ export class MarketplaceService {
     category_id: string;
     business_template_id?: string;
     usage_count: number;
-    last_used_at: string;
+    last_usedAt: string;
   }> {
     let audits = Array.from(this.templateUsageAudit.values());
 
@@ -11453,7 +11453,7 @@ export class MarketplaceService {
         variable_percent?: number;
         min_compensation?: number;
         max_compensation?: number;
-        active: boolean;
+        isActive: boolean;
         effective_from: string;
         effective_until?: string;
       };
@@ -11481,7 +11481,7 @@ export class MarketplaceService {
       required_for_services: options.required_for_services || [],
       status: existing?.status || 'active',
       status_reason: existing?.status_reason,
-      status_updated_at: existing?.status_updated_at || now,
+      status_updatedAt: existing?.status_updatedAt || now,
       historical_metrics: existing?.historical_metrics || {
         average_execution_time_minutes: 0,
         sla_response_rate: 1.0,
@@ -11499,8 +11499,8 @@ export class MarketplaceService {
         slots_available: 0,
         risk_level: 'low',
       },
-      created_at: existing?.created_at || now,
-      updated_at: now,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
       immutable: false,
     };
 
@@ -11516,7 +11516,7 @@ export class MarketplaceService {
         variable_percent: options.compensation_config.variable_percent,
         min_compensation: options.compensation_config.min_compensation,
         max_compensation: options.compensation_config.max_compensation,
-        active: options.compensation_config.active,
+        isActive: options.compensation_config.isActive,
         effective_from: options.compensation_config.effective_from,
         effective_until: options.compensation_config.effective_until,
       });
@@ -11566,8 +11566,8 @@ export class MarketplaceService {
 
     resource.status = status;
     resource.status_reason = reason;
-    resource.status_updated_at = new Date().toISOString();
-    resource.updated_at = new Date().toISOString();
+    resource.status_updatedAt = new Date().toISOString();
+    resource.updatedAt = new Date().toISOString();
 
     this.serviceResources.set(resourceId, resource);
 
@@ -11614,7 +11614,7 @@ export class MarketplaceService {
       service_template_id: serviceTemplateId,
       required_resources: requiredResourceIds,
       all_required: allRequired,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -11675,8 +11675,8 @@ export class MarketplaceService {
 
         if (avail.weekday === currentWeekday) {
           // Calcular slots disponíveis no horário
-          const startHour = parseInt(avail.start_time.split(':')[0]);
-          const endHour = parseInt(avail.end_time.split(':')[0]);
+          const startHour = parseInt(avail.starts_at.split(':')[0]);
+          const endHour = parseInt(avail.ends_at.split(':')[0]);
           const durationMinutes = offering.duration_minutes || 60;
           const slotsPerHour = 60 / durationMinutes;
           const hoursAvailable = endHour - startHour;
@@ -11700,7 +11700,7 @@ export class MarketplaceService {
         return dependencies.some(d => d.required_resources.includes(resourceId));
       })
       .filter(pr => {
-        const expiresAt = new Date(pr.expires_at);
+        const expiresAt = new Date(pr.expiresAt);
         return expiresAt > now && !pr.confirmed;
       });
 
@@ -11808,7 +11808,7 @@ export class MarketplaceService {
         ? (metrics.last_30_days_services / 30) / capacity.total_slots_available
         : 0,
       historical_peak_utilization: Math.min(1.0, metrics.last_30_days_services / capacity.total_slots_available),
-      calculated_at: new Date().toISOString(),
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -11912,7 +11912,7 @@ export class MarketplaceService {
       saturation_rate: saturationRate,
       rejected_services_count: rejectedCount,
       rejected_services_last_30_days: rejectedCount,
-      calculated_at: new Date().toISOString(),
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -12016,13 +12016,13 @@ export class MarketplaceService {
   /**
    * Registrar evento de capacidade
    */
-  private recordCapacityEvent(event: Omit<CapacityEvent, 'event_id' | 'created_at' | 'immutable'>): void {
+  private recordCapacityEvent(event: Omit<CapacityEvent, 'event_id' | 'createdAt' | 'immutable'>): void {
     const eventId = `capacity-event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const capacityEvent: CapacityEvent = {
       event_id: eventId,
       ...event,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -12035,7 +12035,7 @@ export class MarketplaceService {
         region: 'local', // TODO: Obter região real
         actor_id: event.store_id,
         reference_id: event.details.service_request_id,
-        amount: null,
+        amountCents: null,
         currency: null,
         visibility: 'restricted',
       });
@@ -12086,7 +12086,7 @@ export class MarketplaceService {
    */
   setResourceCompensationConfig(
     resourceId: string,
-    config: Omit<ResourceCompensationConfig, 'resource_id' | 'created_at' | 'updated_at'>
+    config: Omit<ResourceCompensationConfig, 'resource_id' | 'createdAt' | 'updatedAt'>
   ): ResourceCompensationConfig {
     const now = new Date().toISOString();
     const existing = this.resourceCompensationConfigs.get(resourceId);
@@ -12094,8 +12094,8 @@ export class MarketplaceService {
     const compensationConfig: ResourceCompensationConfig = {
       resource_id: resourceId,
       ...config,
-      created_at: existing?.created_at || now,
-      updated_at: now,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
       immutable: false,
     };
 
@@ -12113,11 +12113,11 @@ export class MarketplaceService {
         variable_percent: config.variable_percent,
         min_compensation: config.min_compensation,
         max_compensation: config.max_compensation,
-        active: config.active,
+        isActive: config.isActive,
         effective_from: config.effective_from,
         effective_until: config.effective_until,
       };
-      resource.updated_at = now;
+      resource.updatedAt = now;
       this.serviceResources.set(resourceId, resource);
     }
 
@@ -12143,7 +12143,7 @@ export class MarketplaceService {
     resourceId: string,
     serviceOrderId: string,
     serviceBookingId: string,
-    serviceValue: { amount: number; currency: string }
+    serviceValue: { amountCents: number; currency: string }
   ): ResourceCompensation {
     const resource = this.serviceResources.get(resourceId);
     if (!resource) {
@@ -12151,7 +12151,7 @@ export class MarketplaceService {
     }
 
     const config = this.resourceCompensationConfigs.get(resourceId);
-    if (!config || !config.active) {
+    if (!config || !config.isActive) {
       // Sem configuração ou inativa = modelo 'none' (100% fica na empresa)
       return this.createCompensationRecord(
         resourceId,
@@ -12160,7 +12160,7 @@ export class MarketplaceService {
         resource.store_id,
         serviceValue,
         'none',
-        { amount: 0, currency: serviceValue.currency },
+        { amountCents: 0, currency: serviceValue.currency },
         {}
       );
     }
@@ -12230,7 +12230,7 @@ export class MarketplaceService {
       compensationAmount = config.min_compensation;
       calculationDetails.adjustments!.push({
         type: 'min_limit',
-        amount: adjustment,
+        amountCents: adjustment,
         reason: `Aplicado limite mínimo de ${config.min_compensation / 100} ${serviceValue.currency}`,
       });
     }
@@ -12240,7 +12240,7 @@ export class MarketplaceService {
       compensationAmount = config.max_compensation;
       calculationDetails.adjustments!.push({
         type: 'max_limit',
-        amount: -adjustment,
+        amountCents: -adjustment,
         reason: `Aplicado limite máximo de ${config.max_compensation / 100} ${serviceValue.currency}`,
       });
     }
@@ -12252,7 +12252,7 @@ export class MarketplaceService {
       resource.store_id,
       serviceValue,
       config.compensation_model,
-      { amount: compensationAmount, currency: serviceValue.currency },
+      { amountCents: compensationAmount, currency: serviceValue.currency },
       calculationDetails
     );
   }
@@ -12265,9 +12265,9 @@ export class MarketplaceService {
     serviceOrderId: string,
     serviceBookingId: string,
     storeId: string,
-    serviceValue: { amount: number; currency: string },
+    serviceValue: { amountCents: number; currency: string },
     model: CompensationModel,
-    compensationAmount: { amount: number; currency: string },
+    compensationAmount: { amountCents: number; currency: string },
     calculationDetails: ResourceCompensation['calculation_details']
   ): ResourceCompensation {
     const compensationId = `compensation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -12284,8 +12284,8 @@ export class MarketplaceService {
       compensation_model: model,
       calculation_details: calculationDetails,
       status: 'calculated',
-      created_at: now,
-      updated_at: now,
+      createdAt: now,
+      updatedAt: now,
       immutable: true,
     };
 
@@ -12295,7 +12295,7 @@ export class MarketplaceService {
       compensation_id: compensationId,
       resource_id: resourceId,
       service_order_id: serviceOrderId,
-      amount: compensationAmount.amount,
+      amountCents: compensationAmount.amount,
       model,
     });
 
@@ -12339,7 +12339,7 @@ export class MarketplaceService {
 
     // Valor do serviço (do ServiceOrder)
     const serviceValue = {
-      amount: serviceOrder.price.amount,
+      amountCents: serviceOrder.price.amount,
       currency: serviceOrder.price.currency,
     };
 
@@ -12355,7 +12355,7 @@ export class MarketplaceService {
       );
 
       // Se compensação > 0, registrar no ledger
-      if (compensation.compensation_amount.amount > 0) {
+      if (compensation.compensationAmount.amountCents > 0) {
         try {
           // Registrar repasse interno no ledger
           const ledgerEntryId = await this.recordResourceCompensationLedger(
@@ -12366,7 +12366,7 @@ export class MarketplaceService {
 
           compensation.ledger_entry_id = ledgerEntryId;
           compensation.status = 'pending'; // Aguardando confirmação de pagamento
-          compensation.updated_at = new Date().toISOString();
+          compensation.updatedAt = new Date().toISOString();
           this.resourceCompensations.set(compensation.compensation_id, compensation);
         } catch (error: any) {
           marketplaceLogger.error('Erro ao registrar compensação no ledger', error);
@@ -12396,7 +12396,7 @@ export class MarketplaceService {
     marketplaceLogger.init('Repasse interno registrado no ledger', {
       compensation_id: compensation.compensation_id,
       resource_id: resourceId,
-      amount: compensation.compensation_amount.amount,
+      amountCents: compensation.compensationAmount.amountCents,
       ledger_entry_id: ledgerEntryId,
     });
 
@@ -12413,8 +12413,8 @@ export class MarketplaceService {
     }
 
     compensation.status = 'paid';
-    compensation.paid_at = new Date().toISOString();
-    compensation.updated_at = new Date().toISOString();
+    compensation.paidAt = new Date().toISOString();
+    compensation.updatedAt = new Date().toISOString();
 
     this.resourceCompensations.set(compensationId, compensation);
 
@@ -12432,27 +12432,27 @@ export class MarketplaceService {
   getResourceCompensations(
     resourceId: string,
     options?: {
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
       status?: ResourceCompensation['status'];
     }
   ): ResourceCompensation[] {
     let compensations = Array.from(this.resourceCompensations.values())
       .filter(c => c.resource_id === resourceId);
 
-    if (options?.start_date) {
-      compensations = compensations.filter(c => c.created_at >= options.start_date!);
+    if (options?.starts_at) {
+      compensations = compensations.filter(c => c.createdAt >= options.starts_at!);
     }
 
-    if (options?.end_date) {
-      compensations = compensations.filter(c => c.created_at <= options.end_date!);
+    if (options?.ends_at) {
+      compensations = compensations.filter(c => c.createdAt <= options.ends_at!);
     }
 
     if (options?.status) {
       compensations = compensations.filter(c => c.status === options.status);
     }
 
-    return compensations.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return compensations.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -12461,8 +12461,8 @@ export class MarketplaceService {
   getCompanyCompensations(
     storeId: string,
     options?: {
-      start_date?: string;
-      end_date?: string;
+      starts_at?: string;
+      ends_at?: string;
       status?: ResourceCompensation['status'];
     }
   ): ResourceCompensation[] {
@@ -12472,19 +12472,19 @@ export class MarketplaceService {
     let compensations = Array.from(this.resourceCompensations.values())
       .filter(c => resourceIds.includes(c.resource_id));
 
-    if (options?.start_date) {
-      compensations = compensations.filter(c => c.created_at >= options.start_date!);
+    if (options?.starts_at) {
+      compensations = compensations.filter(c => c.createdAt >= options.starts_at!);
     }
 
-    if (options?.end_date) {
-      compensations = compensations.filter(c => c.created_at <= options.end_date!);
+    if (options?.ends_at) {
+      compensations = compensations.filter(c => c.createdAt <= options.ends_at!);
     }
 
     if (options?.status) {
       compensations = compensations.filter(c => c.status === options.status);
     }
 
-    return compensations.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return compensations.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -12496,27 +12496,27 @@ export class MarketplaceService {
     endDate: string
   ): ResourceCompensationHistory {
     const compensations = this.getResourceCompensations(resourceId, {
-      start_date: startDate,
-      end_date: endDate,
+      starts_at: startDate,
+      ends_at: endDate,
     });
 
     const totalCompensation = compensations.reduce(
-      (sum, c) => sum + c.compensation_amount.amount,
+      (sum, c) => sum + c.compensationAmount.amountCents,
       0
     );
 
-    const byModel: Record<CompensationModel, { count: number; total: number }> = {
-      none: { count: 0, total: 0 },
-      fixed_percent: { count: 0, total: 0 },
-      fixed_value: { count: 0, total: 0 },
-      salary: { count: 0, total: 0 },
-      mixed: { count: 0, total: 0 },
+    const byModel: Record<CompensationModel, { count: number; totalCents: number }> = {
+      none: { count: 0, totalCents: 0 },
+      fixed_percent: { count: 0, totalCents: 0 },
+      fixed_value: { count: 0, totalCents: 0 },
+      salary: { count: 0, totalCents: 0 },
+      mixed: { count: 0, totalCents: 0 },
     };
 
     for (const comp of compensations) {
       const model = comp.compensation_model;
       byModel[model].count += 1;
-      byModel[model].total += comp.compensation_amount.amount;
+      byModel[model].totalCents += comp.compensationAmount.amountCents;
     }
 
     const history: ResourceCompensationHistory = {
@@ -12525,15 +12525,15 @@ export class MarketplaceService {
       compensations,
       total_services: compensations.length,
       total_compensation: {
-        amount: totalCompensation,
+        amountCents: totalCompensation,
         currency: compensations[0]?.compensation_amount.currency || 'BRL',
       },
       average_per_service: {
-        amount: compensations.length > 0 ? Math.round(totalCompensation / compensations.length) : 0,
+        amountCents: compensations.length > 0 ? Math.round(totalCompensation / compensations.length) : 0,
         currency: compensations[0]?.compensation_amount.currency || 'BRL',
       },
       by_model: byModel,
-      generated_at: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -12549,13 +12549,13 @@ export class MarketplaceService {
     endDate: string
   ): CompanyCompensationReport {
     const compensations = this.getCompanyCompensations(storeId, {
-      start_date: startDate,
-      end_date: endDate,
+      starts_at: startDate,
+      ends_at: endDate,
     });
 
     const resources = this.getServiceResourcesByStore(storeId);
     const totalCompensation = compensations.reduce(
-      (sum, c) => sum + c.compensation_amount.amount,
+      (sum, c) => sum + c.compensationAmount.amountCents,
       0
     );
 
@@ -12565,7 +12565,7 @@ export class MarketplaceService {
       resource_name: string;
       compensation_model: CompensationModel;
       services_count: number;
-      total_compensation: number;
+      total_compensationCents: number;
     }>();
 
     for (const comp of compensations) {
@@ -12575,14 +12575,14 @@ export class MarketplaceService {
       const existing = byResourceMap.get(comp.resource_id);
       if (existing) {
         existing.services_count += 1;
-        existing.total_compensation += comp.compensation_amount.amount;
+        existing.total_compensationCents += comp.compensationAmount.amountCents;
       } else {
         byResourceMap.set(comp.resource_id, {
           resource_id: comp.resource_id,
           resource_name: resource.name,
           compensation_model: comp.compensation_model,
           services_count: 1,
-          total_compensation: comp.compensation_amount.amount,
+          total_compensationCents: comp.compensationAmount.amountCents,
         });
       }
     }
@@ -12591,20 +12591,20 @@ export class MarketplaceService {
     const byModel: Record<CompensationModel, {
       resources_count: number;
       services_count: number;
-      total_compensation: { amount: number; currency: string };
+      total_compensation: { amountCents: number; currency: string };
     }> = {
-      none: { resources_count: 0, services_count: 0, total_compensation: { amount: 0, currency: 'BRL' } },
-      fixed_percent: { resources_count: 0, services_count: 0, total_compensation: { amount: 0, currency: 'BRL' } },
-      fixed_value: { resources_count: 0, services_count: 0, total_compensation: { amount: 0, currency: 'BRL' } },
-      salary: { resources_count: 0, services_count: 0, total_compensation: { amount: 0, currency: 'BRL' } },
-      mixed: { resources_count: 0, services_count: 0, total_compensation: { amount: 0, currency: 'BRL' } },
+      none: { resources_count: 0, services_count: 0, total_compensation: { amountCents: 0, currency: 'BRL' } },
+      fixed_percent: { resources_count: 0, services_count: 0, total_compensation: { amountCents: 0, currency: 'BRL' } },
+      fixed_value: { resources_count: 0, services_count: 0, total_compensation: { amountCents: 0, currency: 'BRL' } },
+      salary: { resources_count: 0, services_count: 0, total_compensation: { amountCents: 0, currency: 'BRL' } },
+      mixed: { resources_count: 0, services_count: 0, total_compensation: { amountCents: 0, currency: 'BRL' } },
     };
 
     const modelResources = new Set<string>();
     for (const comp of compensations) {
       const model = comp.compensation_model;
       byModel[model].services_count += 1;
-      byModel[model].total_compensation.amount += comp.compensation_amount.amount;
+      byModel[model].total_compensation.amountCents += comp.compensationAmount.amountCents;
       modelResources.add(`${model}-${comp.resource_id}`);
     }
 
@@ -12618,14 +12618,14 @@ export class MarketplaceService {
       store_id: storeId,
       period: { start: startDate, end: endDate },
       total_compensations_paid: {
-        amount: totalCompensation,
+        amountCents: totalCompensation,
         currency: compensations[0]?.compensation_amount.currency || 'BRL',
       },
       total_resources: resources.length,
       total_services: compensations.length,
       by_resource: Array.from(byResourceMap.values()),
       by_model: byModel,
-      generated_at: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -12684,11 +12684,11 @@ export class MarketplaceService {
   createVoucherOffer(
     issuerActorId: string,
     storeId: string,
-    offer: Omit<VoucherOffer, 'offer_id' | 'issuer_actor_id' | 'store_id' | 'quantity_claimed' | 'status' | 'created_at' | 'updated_at'>
+    offer: Omit<VoucherOffer, 'offer_id' | 'issuer_actor_id' | 'store_id' | 'quantity_claimed' | 'status' | 'createdAt' | 'updatedAt'>
   ): VoucherOffer {
     // Validações obrigatórias
-    if (!offer.start_at || !offer.end_at) {
-      throw new Error('Janela start_at e end_at são obrigatórias');
+    if (!offer.startAt || !offer.endAt) {
+      throw new Error('Janela startAt e endAt são obrigatórias');
     }
 
     if (offer.quantity_total <= 0) {
@@ -12726,8 +12726,8 @@ export class MarketplaceService {
       ...offer,
       quantity_claimed: 0,
       status: 'draft',
-      created_at: now,
-      updated_at: now,
+      createdAt: now,
+      updatedAt: now,
       immutable: false,
     };
 
@@ -12767,16 +12767,16 @@ export class MarketplaceService {
 
     // Verificar se ainda está dentro da janela
     const now = new Date();
-    const endAt = new Date(offer.end_at);
+    const endAt = new Date(offer.endAt);
     if (now > endAt) {
       offer.status = 'expired';
-      offer.updated_at = new Date().toISOString();
+      offer.updatedAt = new Date().toISOString();
       this.voucherOffers.set(offerId, offer);
       return offer;
     }
 
     offer.status = 'active';
-    offer.updated_at = new Date().toISOString();
+    offer.updatedAt = new Date().toISOString();
     this.voucherOffers.set(offerId, offer);
 
     // Registrar evento
@@ -12812,7 +12812,7 @@ export class MarketplaceService {
     }
 
     offer.status = 'paused';
-    offer.updated_at = new Date().toISOString();
+    offer.updatedAt = new Date().toISOString();
     this.voucherOffers.set(offerId, offer);
 
     // Registrar evento
@@ -12906,8 +12906,8 @@ export class MarketplaceService {
     // Verificar se ainda está dentro da janela
     const now = new Date();
     offers = offers.filter(offer => {
-      const startAt = new Date(offer.start_at);
-      const endAt = new Date(offer.end_at);
+      const startAt = new Date(offer.startAt);
+      const endAt = new Date(offer.endAt);
       return now >= startAt && now <= endAt;
     });
 
@@ -12916,7 +12916,7 @@ export class MarketplaceService {
       return offer.quantity_claimed < offer.quantity_total;
     });
 
-    return offers.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return offers.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -12940,8 +12940,8 @@ export class MarketplaceService {
 
     // Verificar se ainda está dentro da janela
     const now = new Date();
-    const startAt = new Date(offer.start_at);
-    const endAt = new Date(offer.end_at);
+    const startAt = new Date(offer.startAt);
+    const endAt = new Date(offer.endAt);
     if (now < startAt || now > endAt) {
       throw new Error('Oferta fora da janela de resgate');
     }
@@ -12949,7 +12949,7 @@ export class MarketplaceService {
     // Verificar se ainda há quantidade disponível
     if (offer.quantity_claimed >= offer.quantity_total) {
       offer.status = 'depleted';
-      offer.updated_at = new Date().toISOString();
+      offer.updatedAt = new Date().toISOString();
       this.voucherOffers.set(offerId, offer);
       throw new Error('Oferta esgotada');
     }
@@ -12991,10 +12991,10 @@ export class MarketplaceService {
     // Gerar código de resgate único
     const redemptionCode = this.generateRedemptionCode();
 
-    // Calcular expires_at
-    const redemptionDeadline = offer.redemption_deadline_at
-      ? new Date(offer.redemption_deadline_at)
-      : new Date(endAt.getTime() + 7 * 24 * 60 * 60 * 1000); // Padrão: 7 dias após end_at
+    // Calcular expiresAt
+    const redemptionDeadline = offer.redemption_deadlineAt
+      ? new Date(offer.redemption_deadlineAt)
+      : new Date(endAt.getTime() + 7 * 24 * 60 * 60 * 1000); // Padrão: 7 dias após endAt
 
     const claimId = `voucher-claim-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const claim: VoucherClaim = {
@@ -13002,9 +13002,9 @@ export class MarketplaceService {
       offer_id: offerId,
       claimer_user_id: userId,
       status: 'claimed',
-      claimed_at: now.toISOString(),
+      claimedAt: now.toISOString(),
       redemption_code: redemptionCode,
-      expires_at: redemptionDeadline.toISOString(),
+      expiresAt: redemptionDeadline.toISOString(),
       store_checkin_required: offer.pickup_constraints?.requires_checkin || false,
       audit: {
         ip_hash: audit?.ip_hash,
@@ -13012,8 +13012,8 @@ export class MarketplaceService {
         claimed_from_neighborhood: audit?.neighborhood,
         claimed_from_city: audit?.city,
       },
-      created_at: now.toISOString(),
-      updated_at: now.toISOString(),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
       immutable: true,
     };
 
@@ -13024,7 +13024,7 @@ export class MarketplaceService {
     if (offer.quantity_claimed >= offer.quantity_total) {
       offer.status = 'depleted';
     }
-    offer.updated_at = new Date().toISOString();
+    offer.updatedAt = new Date().toISOString();
     this.voucherOffers.set(offerId, offer);
 
     // Registrar evento
@@ -13098,10 +13098,10 @@ export class MarketplaceService {
 
     // Verificar se não expirou
     const now = new Date();
-    const expiresAt = new Date(claim.expires_at);
+    const expiresAt = new Date(claim.expiresAt);
     if (now > expiresAt) {
       claim.status = 'expired';
-      claim.updated_at = now.toISOString();
+      claim.updatedAt = now.toISOString();
       this.voucherClaims.set(claimId, claim);
       throw new Error('Claim expirado');
     }
@@ -13112,14 +13112,14 @@ export class MarketplaceService {
     }
 
     // Verificar check-in (se exigido)
-    if (claim.store_checkin_required && !claim.checked_in_at) {
+    if (claim.store_checkin_required && !claim.checked_inAt) {
       throw new Error('Check-in obrigatório antes do resgate');
     }
 
     // Resgatar voucher
     claim.status = 'redeemed';
-    claim.redeemed_at = now.toISOString();
-    claim.updated_at = now.toISOString();
+    claim.redeemedAt = now.toISOString();
+    claim.updatedAt = now.toISOString();
     this.voucherClaims.set(claimId, claim);
 
     let orderId: string | undefined;
@@ -13203,7 +13203,7 @@ export class MarketplaceService {
     }
 
     claim.status = 'no_show';
-    claim.updated_at = new Date().toISOString();
+    claim.updatedAt = new Date().toISOString();
     this.voucherClaims.set(claimId, claim);
 
     // Atualizar métricas de abuso do usuário
@@ -13248,10 +13248,10 @@ export class MarketplaceService {
 
     for (const [claimId, claim] of this.voucherClaims.entries()) {
       if (claim.status === 'claimed') {
-        const expiresAt = new Date(claim.expires_at);
+        const expiresAt = new Date(claim.expiresAt);
         if (now > expiresAt) {
           claim.status = 'expired';
-          claim.updated_at = now.toISOString();
+          claim.updatedAt = now.toISOString();
           this.voucherClaims.set(claimId, claim);
 
           // Atualizar métricas de abuso
@@ -13289,13 +13289,13 @@ export class MarketplaceService {
   /**
    * Registrar evento de voucher
    */
-  private recordVoucherEvent(event: Omit<VoucherRedemptionEvent, 'event_id' | 'created_at' | 'immutable'>): void {
+  private recordVoucherEvent(event: Omit<VoucherRedemptionEvent, 'event_id' | 'createdAt' | 'immutable'>): void {
     const eventId = `voucher-event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const voucherEvent: VoucherRedemptionEvent = {
       event_id: eventId,
       ...event,
-      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -13366,7 +13366,7 @@ export class MarketplaceService {
   getUserVoucherClaims(userId: string): VoucherClaim[] {
     return Array.from(this.voucherClaims.values())
       .filter(c => c.claimer_user_id === userId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -13375,7 +13375,7 @@ export class MarketplaceService {
   getOfferVoucherClaims(offerId: string): VoucherClaim[] {
     return Array.from(this.voucherClaims.values())
       .filter(c => c.offer_id === offerId)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   // ============================================================
@@ -13457,7 +13457,7 @@ export class MarketplaceService {
         return regionStores.some(s => s.store_id === e.store_id);
       })
       .filter(e => {
-        const eventDate = new Date(e.created_at);
+        const eventDate = new Date(e.createdAt);
         return eventDate >= periodStart && eventDate <= periodEnd;
       })
       .filter(e => e.event_type === 'resource_overloaded');
@@ -13467,13 +13467,13 @@ export class MarketplaceService {
     // Buscar ServiceRequests na região e categoria
     const serviceRequests = Array.from(this.serviceRequests.values())
       .filter(r => {
-        const requestDate = new Date(r.created_at);
+        const requestDate = new Date(r.createdAt);
         return requestDate >= periodStart && requestDate <= periodEnd;
       });
 
     const totalRequests = serviceRequests.length;
     const expiredRequests = serviceRequests.filter(r => {
-      const expiresAt = r.expires_at ? new Date(r.expires_at) : null;
+      const expiresAt = r.expiresAt ? new Date(r.expiresAt) : null;
       return expiresAt && expiresAt < now;
     }).length;
     const requestExpirationRate = totalRequests > 0 ? expiredRequests / totalRequests : 0;
@@ -13498,21 +13498,21 @@ export class MarketplaceService {
     let confirmationTimeCount = 0;
 
     for (const dispatch of dispatches) {
-      if (dispatch.sent_at && dispatch.responded_at) {
-        const responseTime = (new Date(dispatch.responded_at).getTime() - new Date(dispatch.sent_at).getTime()) / (1000 * 60);
+      if (dispatch.sentAt && dispatch.respondedAt) {
+        const responseTime = (new Date(dispatch.respondedAt).getTime() - new Date(dispatch.sentAt).getTime()) / (1000 * 60);
         totalResponseTime += responseTime;
         responseTimeCount++;
       }
 
       const request = serviceRequests.find(r => r.request_id === dispatch.request_id);
-      if (request && request.completed_at) {
-        const executionTime = (new Date(request.completed_at).getTime() - new Date(request.created_at).getTime()) / (1000 * 60);
+      if (request && request.completedAt) {
+        const executionTime = (new Date(request.completedAt).getTime() - new Date(request.createdAt).getTime()) / (1000 * 60);
         totalExecutionTime += executionTime;
         executionTimeCount++;
       }
 
-      if (dispatch.accepted_at && dispatch.sent_at) {
-        const confirmationTime = (new Date(dispatch.accepted_at).getTime() - new Date(dispatch.sent_at).getTime()) / (1000 * 60);
+      if (dispatch.acceptedAt && dispatch.sentAt) {
+        const confirmationTime = (new Date(dispatch.acceptedAt).getTime() - new Date(dispatch.sentAt).getTime()) / (1000 * 60);
         totalConfirmationTime += confirmationTime;
         confirmationTimeCount++;
       }
@@ -13576,7 +13576,7 @@ export class MarketplaceService {
       status,
       bottleneck_cause: bottleneckCause,
       bottleneck_details: bottleneckDetails,
-      calculated_at: new Date().toISOString(),
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -13763,7 +13763,7 @@ export class MarketplaceService {
       overall_status: overallStatus,
       overall_sla_risk: overallSLARisk,
       version: 'v1.0',
-      generated_at: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -13792,8 +13792,8 @@ export class MarketplaceService {
   listRegionalCapacitySnapshots(filters?: {
     region_id?: string;
     period_type?: 'weekly' | 'monthly';
-    start_date?: string;
-    end_date?: string;
+    starts_at?: string;
+    ends_at?: string;
   }): RegionalCapacitySnapshot[] {
     let snapshots = Array.from(this.regionalCapacitySnapshots.values());
 
@@ -13805,15 +13805,15 @@ export class MarketplaceService {
       snapshots = snapshots.filter(s => s.period_type === filters.period_type);
     }
 
-    if (filters?.start_date) {
-      snapshots = snapshots.filter(s => s.period.start >= filters.start_date!);
+    if (filters?.starts_at) {
+      snapshots = snapshots.filter(s => s.period.start >= filters.starts_at!);
     }
 
-    if (filters?.end_date) {
-      snapshots = snapshots.filter(s => s.period.end <= filters.end_date!);
+    if (filters?.ends_at) {
+      snapshots = snapshots.filter(s => s.period.end <= filters.ends_at!);
     }
 
-    return snapshots.sort((a, b) => b.generated_at.localeCompare(a.generated_at));
+    return snapshots.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
   }
 
   /**
@@ -13846,7 +13846,7 @@ export class MarketplaceService {
       metrics = metrics.filter(m => m.status === filters.status);
     }
 
-    return metrics.sort((a, b) => b.calculated_at.localeCompare(a.calculated_at));
+    return metrics.sort((a, b) => b.calculatedAt.localeCompare(a.calculatedAt));
   }
 
   // ============================================================
@@ -13943,7 +13943,7 @@ export class MarketplaceService {
         source_snapshot_id: snapshotId,
         unlocked_features: unlockedFeatures,
         status: 'active',
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         immutable: true,
       };
 
@@ -13997,8 +13997,8 @@ export class MarketplaceService {
         available_until: this.getAvailabilityDeadline(feature),
       },
       status: 'available',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       immutable: false,
     };
 
@@ -14060,7 +14060,7 @@ export class MarketplaceService {
       signals = signals.filter(s => s.signal_type === filters.signal_type);
     }
 
-    return signals.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return signals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -14080,7 +14080,7 @@ export class MarketplaceService {
           if (now > deadline) {
             // Marcar como expirado
             u.status = 'expired';
-            u.updated_at = new Date().toISOString();
+            u.updatedAt = new Date().toISOString();
             this.expansionUnlocks.set(u.unlock_id, u);
             return false;
           }
@@ -14100,7 +14100,7 @@ export class MarketplaceService {
       unlocks = unlocks.filter(u => u.feature === filters.feature);
     }
 
-    return unlocks.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return unlocks.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
@@ -14117,8 +14117,8 @@ export class MarketplaceService {
     }
 
     unlock.status = 'consumed';
-    unlock.consumed_at = new Date().toISOString();
-    unlock.updated_at = new Date().toISOString();
+    unlock.consumedAt = new Date().toISOString();
+    unlock.updatedAt = new Date().toISOString();
 
     this.expansionUnlocks.set(unlockId, unlock);
 
@@ -14223,35 +14223,35 @@ export class MarketplaceService {
     companyId: string,
     profile: {
       fixed_costs_monthly?: {
-        rent?: { amount: number; currency: string };
-        salaries?: { amount: number; currency: string };
-        pro_labore?: { amount: number; currency: string };
-        systems?: { amount: number; currency: string };
-        other?: { amount: number; currency: string };
+        rent?: { amountCents: number; currency: string };
+        salaries?: { amountCents: number; currency: string };
+        pro_labore?: { amountCents: number; currency: string };
+        systems?: { amountCents: number; currency: string };
+        other?: { amountCents: number; currency: string };
       };
       variable_costs_per_service?: {
-        materials?: { amount: number; currency: string };
-        commission?: { amount: number; currency: string };
-        transportation?: { amount: number; currency: string };
-        other?: { amount: number; currency: string };
+        materials?: { amountCents: number; currency: string };
+        commission?: { amountCents: number; currency: string };
+        transportation?: { amountCents: number; currency: string };
+        other?: { amountCents: number; currency: string };
       };
       costs_per_hour?: {
-        fixed_cost_per_hour?: { amount: number; currency: string };
-        variable_cost_per_hour?: { amount: number; currency: string };
+        fixed_cost_per_hour?: { amountCents: number; currency: string };
+        variable_cost_per_hour?: { amountCents: number; currency: string };
       };
     }
   ): OperationalCostProfile {
     // Calcular totais
-    const fixedTotal = (profile.fixed_costs_monthly?.rent?.amount || 0) +
-      (profile.fixed_costs_monthly?.salaries?.amount || 0) +
-      (profile.fixed_costs_monthly?.pro_labore?.amount || 0) +
-      (profile.fixed_costs_monthly?.systems?.amount || 0) +
-      (profile.fixed_costs_monthly?.other?.amount || 0);
+    const fixedTotal = (profile.fixed_costs_monthly?.rent?.amountCents || 0) +
+      (profile.fixed_costs_monthly?.salaries?.amountCents || 0) +
+      (profile.fixed_costs_monthly?.pro_labore?.amountCents || 0) +
+      (profile.fixed_costs_monthly?.systems?.amountCents || 0) +
+      (profile.fixed_costs_monthly?.other?.amountCents || 0);
 
-    const variableAverage = (profile.variable_costs_per_service?.materials?.amount || 0) +
-      (profile.variable_costs_per_service?.commission?.amount || 0) +
-      (profile.variable_costs_per_service?.transportation?.amount || 0) +
-      (profile.variable_costs_per_service?.other?.amount || 0);
+    const variableAverage = (profile.variable_costs_per_service?.materials?.amountCents || 0) +
+      (profile.variable_costs_per_service?.commission?.amountCents || 0) +
+      (profile.variable_costs_per_service?.transportation?.amountCents || 0) +
+      (profile.variable_costs_per_service?.other?.amountCents || 0);
 
     const costProfile: OperationalCostProfile = {
       store_id: storeId,
@@ -14262,20 +14262,20 @@ export class MarketplaceService {
         pro_labore: profile.fixed_costs_monthly?.pro_labore,
         systems: profile.fixed_costs_monthly?.systems,
         other: profile.fixed_costs_monthly?.other,
-        total: { amount: fixedTotal, currency: 'BRL' },
+        totalCents: { amountCents: fixedTotal, currency: 'BRL' },
       },
       variable_costs_per_service: {
         materials: profile.variable_costs_per_service?.materials,
         commission: profile.variable_costs_per_service?.commission,
         transportation: profile.variable_costs_per_service?.transportation,
         other: profile.variable_costs_per_service?.other,
-        average_per_service: { amount: variableAverage, currency: 'BRL' },
+        average_per_service: { amountCents: variableAverage, currency: 'BRL' },
       },
       costs_per_hour: profile.costs_per_hour ? {
-        fixed_cost_per_hour: profile.costs_per_hour.fixed_cost_per_hour || { amount: 0, currency: 'BRL' },
-        variable_cost_per_hour: profile.costs_per_hour.variable_cost_per_hour || { amount: 0, currency: 'BRL' },
+        fixed_cost_per_hour: profile.costs_per_hour.fixed_cost_per_hour || { amountCents: 0, currency: 'BRL' },
+        variable_cost_per_hour: profile.costs_per_hour.variable_cost_per_hour || { amountCents: 0, currency: 'BRL' },
         total_cost_per_hour: {
-          amount: (profile.costs_per_hour.fixed_cost_per_hour?.amount || 0) + (profile.costs_per_hour.variable_cost_per_hour?.amount || 0),
+          amountCents: (profile.costs_per_hour.fixed_cost_per_hour?.amountCents || 0) + (profile.costs_per_hour.variable_cost_per_hour?.amountCents || 0),
           currency: 'BRL',
         },
       } : undefined,
@@ -14284,7 +14284,7 @@ export class MarketplaceService {
         historical: false,
         last_updated: new Date().toISOString(),
       },
-      calculated_at: new Date().toISOString(),
+      calculatedAt: new Date().toISOString(),
       immutable: false,
     };
 
@@ -14322,7 +14322,7 @@ export class MarketplaceService {
     // Buscar ServiceOrders executados no período
     const serviceOrders = Array.from(this.serviceOrders.values())
       .filter(o => {
-        const orderDate = new Date(o.created_at);
+        const orderDate = new Date(o.createdAt);
         return orderDate >= periodStart && orderDate <= periodEnd && o.status === 'completed';
       })
       .filter(o => {
@@ -14335,7 +14335,7 @@ export class MarketplaceService {
     // Calcular receita total e ticket médio
     let totalRevenue = 0;
     for (const order of serviceOrders) {
-      totalRevenue += order.total.amount;
+      totalRevenue += order.totalCents;
     }
     const averageTicket = serviceOrders.length > 0 ? totalRevenue / serviceOrders.length : 0;
 
@@ -14350,8 +14350,8 @@ export class MarketplaceService {
         .find(r => r.request_id === order.request_id);
 
       if (request) {
-        if (request.completed_at && request.created_at) {
-          const executionTime = (new Date(request.completed_at).getTime() - new Date(request.created_at).getTime()) / (1000 * 60);
+        if (request.completedAt && request.createdAt) {
+          const executionTime = (new Date(request.completedAt).getTime() - new Date(request.createdAt).getTime()) / (1000 * 60);
           totalExecutionTime += executionTime;
           executionTimeCount++;
         }
@@ -14359,8 +14359,8 @@ export class MarketplaceService {
         const dispatch = Array.from(this.serviceDispatches.values())
           .find(d => d.request_id === request.request_id && d.status === 'accepted');
 
-        if (dispatch && dispatch.sent_at && dispatch.responded_at) {
-          const responseTime = (new Date(dispatch.responded_at).getTime() - new Date(dispatch.sent_at).getTime()) / (1000 * 60);
+        if (dispatch && dispatch.sentAt && dispatch.respondedAt) {
+          const responseTime = (new Date(dispatch.respondedAt).getTime() - new Date(dispatch.sentAt).getTime()) / (1000 * 60);
           totalResponseTime += responseTime;
           responseTimeCount++;
         }
@@ -14373,7 +14373,7 @@ export class MarketplaceService {
     // Calcular taxa de cancelamento
     const allRequests = Array.from(this.serviceRequests.values())
       .filter(r => {
-        const requestDate = new Date(r.created_at);
+        const requestDate = new Date(r.createdAt);
         return requestDate >= periodStart && requestDate <= periodEnd;
       })
       .filter(r => {
@@ -14398,8 +14398,8 @@ export class MarketplaceService {
       store_id: storeId,
       company_id: companyId,
       period,
-      average_ticket: { amount: averageTicket, currency: 'BRL' },
-      total_revenue: { amount: totalRevenue, currency: 'BRL' },
+      average_ticket: { amountCents: averageTicket, currency: 'BRL' },
+      total_revenue: { amountCents: totalRevenue, currency: 'BRL' },
       total_services: serviceOrders.length,
       average_execution_time_minutes: avgExecutionTime,
       average_response_time_minutes: avgResponseTime,
@@ -14408,8 +14408,8 @@ export class MarketplaceService {
       total_requests_count: totalRequests,
       services_at_loss: servicesAtLoss,
       services_at_loss_percentage: servicesAtLossPercentage,
-      total_loss_amount: { amount: totalLossAmount, currency: 'BRL' },
-      calculated_at: new Date().toISOString(),
+      total_loss_amount: { amountCents: totalLossAmount, currency: 'BRL' },
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
   }
@@ -14422,9 +14422,9 @@ export class MarketplaceService {
     costProfile: OperationalCostProfile,
     operationMetrics: RealOperationMetrics
   ): BreakEvenAnalysis {
-    const fixedCosts = costProfile.fixed_costs_monthly.total.amount;
-    const variableCostPerService = costProfile.variable_costs_per_service.average_per_service.amount;
-    const averageTicket = operationMetrics.average_ticket.amount;
+    const fixedCosts = costProfile.fixed_costs_monthly.totalCents.amountCents;
+    const variableCostPerService = costProfile.variable_costs_per_service.average_per_service.amountCents;
+    const averageTicket = operationMetrics.average_ticket.amountCents;
 
     // Ponto de equilíbrio: receita = custos fixos + (custo variável * quantidade)
     // Receita = preço médio * quantidade
@@ -14436,18 +14436,18 @@ export class MarketplaceService {
     const breakEvenServices = marginPerService > 0 ? Math.ceil(fixedCosts / marginPerService) : 0;
     const breakEvenRevenue = breakEvenServices * averageTicket;
 
-    const currentRevenue = operationMetrics.total_revenue.amount;
+    const currentRevenue = operationMetrics.total_revenue.amountCents;
     const marginToBreakEven = currentRevenue - breakEvenRevenue;
     const isAboveBreakEven = marginToBreakEven >= 0;
 
     return {
       break_even_monthly_services: breakEvenServices,
-      break_even_monthly_revenue: { amount: breakEvenRevenue, currency: 'BRL' },
+      break_even_monthly_revenue: { amountCents: breakEvenRevenue, currency: 'BRL' },
       current_monthly_services: operationMetrics.total_services,
-      current_monthly_revenue: { amount: currentRevenue, currency: 'BRL' },
+      current_monthly_revenue: { amountCents: currentRevenue, currency: 'BRL' },
       margin_to_break_even: marginToBreakEven,
       is_above_break_even: isAboveBreakEven,
-      calculated_at: new Date().toISOString(),
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
   }
@@ -14475,7 +14475,7 @@ export class MarketplaceService {
     // Buscar ServiceOrders deste serviço no período
     const serviceOrders = Array.from(this.serviceOrders.values())
       .filter(o => {
-        const orderDate = new Date(o.created_at);
+        const orderDate = new Date(o.createdAt);
         return orderDate >= periodStart && orderDate <= periodEnd && o.status === 'completed';
       })
       .filter(o => o.offering_id === serviceOfferingId);
@@ -14487,13 +14487,13 @@ export class MarketplaceService {
     // Calcular preço médio
     let totalRevenue = 0;
     for (const order of serviceOrders) {
-      totalRevenue += order.total.amount;
+      totalRevenue += order.totalCents;
     }
     const averagePrice = totalRevenue / serviceOrders.length;
 
     // Calcular custo médio (variável + proporcional fixo)
-    const variableCost = costProfile.variable_costs_per_service.average_per_service.amount;
-    const fixedCostPerService = costProfile.fixed_costs_monthly.total.amount / Math.max(serviceOrders.length, 1);
+    const variableCost = costProfile.variable_costs_per_service.average_per_service.amountCents;
+    const fixedCostPerService = costProfile.fixed_costs_monthly.totalCents.amountCents / Math.max(serviceOrders.length, 1);
     const averageCost = variableCost + fixedCostPerService;
 
     // Calcular margem
@@ -14506,15 +14506,15 @@ export class MarketplaceService {
     return {
       service_offering_id: serviceOfferingId,
       service_name: offering.name,
-      average_price: { amount: averagePrice, currency: 'BRL' },
-      average_cost: { amount: averageCost, currency: 'BRL' },
-      margin_per_service: { amount: marginPerService, currency: 'BRL' },
+      average_price: { amountCents: averagePrice, currency: 'BRL' },
+      average_cost: { amountCents: averageCost, currency: 'BRL' },
+      margin_per_service: { amountCents: marginPerService, currency: 'BRL' },
       margin_percentage: marginPercentage,
       is_profitable: isProfitable,
       services_executed_count: serviceOrders.length,
-      total_revenue: { amount: totalRevenue, currency: 'BRL' },
-      total_cost: { amount: totalCost, currency: 'BRL' },
-      calculated_at: new Date().toISOString(),
+      total_revenue: { amountCents: totalRevenue, currency: 'BRL' },
+      total_cost: { amountCents: totalCost, currency: 'BRL' },
+      calculatedAt: new Date().toISOString(),
       immutable: true,
     };
   }
@@ -14672,9 +14672,9 @@ export class MarketplaceService {
       break_even_analysis: breakEvenAnalysis,
       service_margins: serviceMargins,
       average_monthly_margin: {
-        total_revenue: { amount: totalRevenue, currency: 'BRL' },
-        total_cost: { amount: totalCost, currency: 'BRL' },
-        margin: { amount: margin, currency: 'BRL' },
+        total_revenue: { amountCents: totalRevenue, currency: 'BRL' },
+        total_cost: { amountCents: totalCost, currency: 'BRL' },
+        margin: { amountCents: margin, currency: 'BRL' },
         margin_percentage: marginPercentage,
       },
       operational_risk: risk,
@@ -14686,7 +14686,7 @@ export class MarketplaceService {
         no_matching_interference: true,
         private_only: true,
       },
-      generated_at: new Date().toISOString(),
+      generatedAt: new Date().toISOString(),
       immutable: true,
     };
 
@@ -14724,21 +14724,21 @@ export class MarketplaceService {
   listPricingAssistanceReports(filters: {
     store_id: string;
     actor_id: string;
-    start_date?: string;
-    end_date?: string;
+    starts_at?: string;
+    ends_at?: string;
   }): PricingAssistanceReport[] {
     let reports = Array.from(this.pricingAssistanceReports.values())
       .filter(r => r.store_id === filters.store_id && r.actor_id === filters.actor_id);
 
-    if (filters.start_date) {
-      reports = reports.filter(r => r.period.start >= filters.start_date!);
+    if (filters.starts_at) {
+      reports = reports.filter(r => r.period.start >= filters.starts_at!);
     }
 
-    if (filters.end_date) {
-      reports = reports.filter(r => r.period.end <= filters.end_date!);
+    if (filters.ends_at) {
+      reports = reports.filter(r => r.period.end <= filters.ends_at!);
     }
 
-    return reports.sort((a, b) => b.generated_at.localeCompare(a.generated_at));
+    return reports.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
   }
 }
 
@@ -14769,4 +14769,8 @@ if (enableMarketplaceSeed) {
     throw err; // Fail fast - não permitir boot com dados corrompidos
   }
 }
+
+
+
+
 

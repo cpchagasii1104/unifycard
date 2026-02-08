@@ -36,11 +36,11 @@ type TransactionRow = {
   to_account: string;
   from_global_user_id: string | null;
   to_global_user_id: string | null;
-  amount: string;
+  amountCents: string;
   event_id: string;
   status: string;
   metadata: any;
-  created_at: Date;
+  createdAt: Date;
 };
 
 class TransactionService {
@@ -56,11 +56,11 @@ class TransactionService {
       toAccount: row.to_account,
       fromGlobalUserId: row.from_global_user_id ?? undefined,
       toGlobalUserId: row.to_global_user_id ?? undefined,
-      amount: 0, // 🔴 VALOR LEGACY INVALIDADO (Gate 3)
+      amountCents: 0, // 🔴 VALOR LEGACY INVALIDADO (Gate 3)
       eventId: row.event_id,
       status: row.status as TransactionStatus,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -92,7 +92,7 @@ class TransactionService {
         text: `
           SELECT transaction_id, tenant_id, from_account, to_account,
                  from_global_user_id, to_global_user_id,
-                 amount, event_id, status, metadata, created_at
+                 amount, event_id, status, metadata, createdAt
           FROM transactions
           WHERE transaction_id = $1
           LIMIT 1
@@ -114,7 +114,7 @@ class TransactionService {
         text: `
           SELECT transaction_id, tenant_id, from_account, to_account,
                  from_global_user_id, to_global_user_id,
-                 amount, event_id, status, metadata, created_at
+                 amount, event_id, status, metadata, createdAt
           FROM transactions
           WHERE event_id = $1
           LIMIT 1
@@ -139,10 +139,10 @@ class TransactionService {
         text: `
           SELECT transaction_id, tenant_id, from_account, to_account,
                  from_global_user_id, to_global_user_id,
-                 amount, event_id, status, metadata, created_at
+                 amount, event_id, status, metadata, createdAt
           FROM transactions
           WHERE from_account = $1 OR to_account = $1
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $2 OFFSET $3
         `,
         values: [accountId, limit, offset],
@@ -167,10 +167,10 @@ class TransactionService {
       text: `
         SELECT transaction_id, tenant_id, from_account, to_account,
                from_global_user_id, to_global_user_id,
-               amount, event_id, status, metadata, created_at
+               amount, event_id, status, metadata, createdAt
         FROM transactions
         WHERE from_global_user_id = $1 OR to_global_user_id = $1
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT $2 OFFSET $3
       `,
       values: [globalUserId, limit, offset],
@@ -181,3 +181,5 @@ class TransactionService {
 }
 
 export const transactionService = new TransactionService();
+
+

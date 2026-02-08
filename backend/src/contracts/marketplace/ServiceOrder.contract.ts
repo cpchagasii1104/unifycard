@@ -15,15 +15,15 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceOrder {
-  order_id: string;
-  booking_id: string;
-  offering_id: string;
+  orderId: string;
+  bookingId: string;
+  offeringId: string;
   price: {
-    amount: number;
+    amountCents: number;
     currency: string;
   };
   channel: 'online';
-  created_at: string;
+  createdAt: string;
 }
 
 

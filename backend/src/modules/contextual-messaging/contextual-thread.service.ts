@@ -94,7 +94,7 @@ class ContextualThreadService {
   async listThreads(
     tenantId: string,
     filters: ContextualThreadFilters = {}
-  ): Promise<{ threads: ContextualThread[]; total: number }> {
+  ): Promise<{ threads: ContextualThread[]; totalCents: number }> {
     return await contextualThreadRepository.findThreads(tenantId, filters);
   }
 
@@ -265,7 +265,7 @@ class ContextualThreadService {
     threadId: string,
     limit: number = 100,
     offset: number = 0
-  ): Promise<{ messages: ContextualMessage[]; total: number }> {
+  ): Promise<{ messages: ContextualMessage[]; totalCents: number }> {
     // Validar que thread existe
     await this.getThreadById(tenantId, threadId);
 
@@ -274,4 +274,5 @@ class ContextualThreadService {
 }
 
 export const contextualThreadService = new ContextualThreadService();
+
 

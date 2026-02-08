@@ -23,23 +23,23 @@ export type VoucherEventType =
  * Evento de voucher (append-only, imutável)
  */
 export interface VoucherRedemptionEvent {
-  event_id: string;
-  offer_id: string;
-  claim_id?: string; // Se for evento relacionado a claim
+  eventId: string;
+  offerId: string;
+  claimId?: string; // Se for evento relacionado a claim
   
-  actor_id: string; // Quem executou: usuário/empresa
+  actorId: string; // Quem executou: usuário/empresa
   type: VoucherEventType;
   
   metadata: {
     // Determinístico, sem dados sensíveis
-    offer_title?: string;
-    claimer_user_id?: string;
-    redemption_code?: string;
+    offerTitle?: string;
+    claimerUserId?: string;
+    redemptionCode?: string;
     reason?: string; // Motivo de cancelamento, expiração, etc.
-    quantity_remaining?: number; // Quantidade restante na oferta
+    quantityRemaining?: number; // Quantidade restante na oferta
   };
   
-  created_at: string;
+  createdAt: string;
   immutable: true; // Eventos são imutáveis
 }
 

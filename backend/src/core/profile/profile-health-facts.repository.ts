@@ -32,8 +32,8 @@ export interface UserHealthFactRow {
   notes: string | null;
   metadata: Record<string, any>;
   health_declaration_id: string | null;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateUserHealthFactInput {
@@ -61,8 +61,8 @@ export class ProfileHealthFactsRepository {
       notes: row.notes,
       metadata: row.metadata || {},
       healthDeclarationId: row.health_declaration_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -74,10 +74,10 @@ export class ProfileHealthFactsRepository {
       `
       SELECT fact_id, tenant_id, actor_id, taxonomy_id, value_text, value_number,
              value_boolean, value_date, notes, metadata, health_declaration_id,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM user_health_facts
       WHERE tenant_id = $1 AND actor_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, actorId]
     );
@@ -97,11 +97,11 @@ export class ProfileHealthFactsRepository {
       `
       SELECT f.fact_id, f.tenant_id, f.actor_id, f.taxonomy_id, f.value_text, f.value_number,
              f.value_boolean, f.value_date, f.notes, f.metadata, f.health_declaration_id,
-             f.created_at, f.updated_at
+             f.createdAt, f.updatedAt
       FROM user_health_facts f
       INNER JOIN health_taxonomies t ON t.taxonomy_id = f.taxonomy_id
       WHERE f.tenant_id = $1 AND f.actor_id = $2 AND t.category = $3
-      ORDER BY f.created_at DESC
+      ORDER BY f.createdAt DESC
       `,
       [tenantId, actorId, category]
     );
@@ -121,7 +121,7 @@ export class ProfileHealthFactsRepository {
       `
       SELECT fact_id, tenant_id, actor_id, taxonomy_id, value_text, value_number,
              value_boolean, value_date, notes, metadata, health_declaration_id,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM user_health_facts
       WHERE tenant_id = $1 AND actor_id = $2 AND taxonomy_id = $3
       LIMIT 1
@@ -177,10 +177,10 @@ export class ProfileHealthFactsRepository {
         notes = EXCLUDED.notes,
         metadata = EXCLUDED.metadata,
         health_declaration_id = EXCLUDED.health_declaration_id,
-        updated_at = NOW()
+        updatedAt = NOW()
       RETURNING fact_id, tenant_id, actor_id, taxonomy_id, value_text, value_number,
                 value_boolean, value_date, notes, metadata, health_declaration_id,
-                created_at, updated_at
+                createdAt, updatedAt
       `,
       [
         tenantId,
@@ -231,4 +231,5 @@ export class ProfileHealthFactsRepository {
 }
 
 export const profileHealthFactsRepository = new ProfileHealthFactsRepository();
+
 

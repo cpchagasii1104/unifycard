@@ -44,8 +44,8 @@ export function requirePermission(
     }
 
     const tenantId = req.tenant.id;
-    const userId = actionContext.actingUserId;
-    const actorId = actionContext.actingActorId;
+    // ActionContext é obrigatório (V2) - usar apenas actorId
+    const actorId = actionContext.actorId;
 
     // Verificar capability requerida pelo mapa canônico
     const requiredCapability = PERMISSION_CAPABILITIES[permissionKey];
@@ -69,7 +69,7 @@ export function requirePermission(
     // Verificar permissão específica (ownership/delegação)
     const authResult = await authorizationService.canActAs(
       tenantId,
-      userId,
+      actorId,
       actorId,
       permissionKey
     );

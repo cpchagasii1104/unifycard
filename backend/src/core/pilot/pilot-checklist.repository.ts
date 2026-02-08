@@ -44,23 +44,23 @@ class PilotChecklistRepository {
       item_label: string;
       checked: boolean;
       checked_by_user_id: string | null;
-      checked_at: Date | null;
-      created_at: Date;
-      updated_at: Date;
+      checkedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
         INSERT INTO pilot_checklist (
           tenant_id, observed_user_id, item_key, item_label,
-          checked, checked_by_user_id, checked_at
+          checked, checked_by_user_id, checkedAt
         )
         VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $5 THEN NOW() ELSE NULL END)
         ON CONFLICT (tenant_id, observed_user_id, item_key)
         DO UPDATE SET
           checked = $5,
           checked_by_user_id = $6,
-          checked_at = CASE WHEN $5 THEN NOW() ELSE NULL END,
-          updated_at = NOW()
+          checkedAt = CASE WHEN $5 THEN NOW() ELSE NULL END,
+          updatedAt = NOW()
         RETURNING *
       `,
       [
@@ -82,9 +82,9 @@ class PilotChecklistRepository {
       itemLabel: row.item_label,
       checked: row.checked,
       checkedByUserId: row.checked_by_user_id || undefined,
-      checkedAt: row.checked_at || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      checkedAt: row.checkedAt || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -103,9 +103,9 @@ class PilotChecklistRepository {
       item_label: string;
       checked: boolean;
       checked_by_user_id: string | null;
-      checked_at: Date | null;
-      created_at: Date;
-      updated_at: Date;
+      checkedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
     }>(
       tenantId,
       `
@@ -126,9 +126,9 @@ class PilotChecklistRepository {
       itemLabel: row.item_label,
       checked: row.checked,
       checkedByUserId: row.checked_by_user_id || undefined,
-      checkedAt: row.checked_at || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      checkedAt: row.checkedAt || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     }));
   }
 
@@ -152,6 +152,7 @@ class PilotChecklistRepository {
 }
 
 export const pilotChecklistRepository = new PilotChecklistRepository();
+
 
 
 

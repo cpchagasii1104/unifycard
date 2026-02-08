@@ -99,8 +99,8 @@ class FundWeeklyReportService {
             AND to_account = $2
             AND metadata->>'module' = 'work'
             AND metadata->>'splitTargetType' = 'REGION'
-            AND created_at >= $3
-            AND created_at <= $4
+            AND createdAt >= $3
+            AND createdAt <= $4
           `,
           [tenantId, region.accountId, weekStart, weekEnd]
         );
@@ -228,6 +228,7 @@ class FundWeeklyReportService {
 }
 
 export const fundWeeklyReportService = new FundWeeklyReportService();
+
 
 
 

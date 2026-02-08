@@ -16,7 +16,7 @@ export class SocialChatModel {
       categories: Array.isArray(row.categories) ? row.categories : [],
       suggestedActions: Array.isArray(row.suggested_actions) ? row.suggested_actions : [],
       metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
-      createdAt: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -43,6 +43,8 @@ export class SocialChatModel {
     return row;
   }
 }
+
+
 
 
 

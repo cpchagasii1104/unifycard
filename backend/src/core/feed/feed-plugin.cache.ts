@@ -60,7 +60,7 @@ class FeedPluginCache {
   /**
    * Gera chave do cache
    * 🔴 BLINDAGEM: Chave inclui tenant_id para garantir isolamento
-   * 🔴 BLINDAGEM: Chave inclui post_id + post_updated_at para invalidar quando post mudar
+   * 🔴 BLINDAGEM: Chave inclui post_id + post_updatedAt para invalidar quando post mudar
    * 
    * @param tenantId ID do tenant
    * @param postId ID do post
@@ -213,4 +213,5 @@ class FeedPluginCache {
  * 🔴 BLINDAGEM: Singleton é apenas para acesso global, não para decisão
  */
 export const feedPluginCache = new FeedPluginCache(60); // TTL padrão: 60 segundos
+
 

@@ -38,8 +38,8 @@ export interface BusinessSegment {
   segmentType: BusinessSegmentType;
   enabledModules: ModuleKey[];
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -61,6 +61,7 @@ export const SUGGESTED_MODULES_BY_SEGMENT: Record<BusinessSegmentType, ModuleKey
   BAR_RESTAURANT: ['pdv', 'events', 'tickets', 'reports'],
   SERVICES: ['service_orders', 'calendar', 'marketplace', 'reports'],
 };
+
 
 
 

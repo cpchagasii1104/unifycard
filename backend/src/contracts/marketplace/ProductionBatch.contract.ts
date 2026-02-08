@@ -23,26 +23,26 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ProductionBatch {
-  batch_id: string;
-  industry_id: string; // ID da indústria que cria o lote
-  product_id: string; // Produto canônico
-  min_quantity: number; // Quantidade mínima para executar o lote
-  max_quantity?: number; // Quantidade máxima (opcional)
-  unit_price: {
-    amount: number;
+  batchId: string;
+  industryId: string; // ID da indústria que cria o lote
+  productId: string; // Produto canônico
+  minQuantity: number; // Quantidade mínima para executar o lote
+  maxQuantity?: number; // Quantidade máxima (opcional)
+  unitPrice: {
+    amountCents: number;
     currency: string;
   };
-  commit_deadline: string; // ISO 8601 - Prazo para compromissos
-  regions_allowed: Array<{
+  commitDeadline: string; // ISO 8601 - Prazo para compromissos
+  regionsAllowed: Array<{
     country: string;
     state: string;
     city: string;
   }>;
   status: 'open' | 'closed' | 'executed' | 'expired';
-  total_committed_quantity: number; // Quantidade total comprometida
-  created_at: string;
-  closed_at?: string; // Quando foi fechado (executado ou expirado)
-  updated_at: string;
+  totalCommittedQuantity: number; // Quantidade total comprometida
+  createdAt: string;
+  closedAt?: string; // Quando foi fechado (executado ou expirado)
+  updatedAt: string;
 }
 
 

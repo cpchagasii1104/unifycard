@@ -17,7 +17,7 @@ export interface InventoryAdjustment {
   referenceId?: string | null;
   createdByUserId: string;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface CreateInventoryAdjustmentInput {
@@ -43,6 +43,7 @@ export interface ListInventoryAdjustmentsOptions {
   limit?: number;
   offset?: number;
 }
+
 
 
 

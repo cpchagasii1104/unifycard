@@ -24,7 +24,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
       const limit = parseInt((req.query as any).limit || '20', 10);
       const feed = await feedService.getContextualFeed(
         req.tenant.id,
-        req.user.id,
+        req.actionContext.actorId,
         limit
       );
       return reply.send({ ok: true, data: feed });
@@ -64,15 +64,23 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Resolver globalUserId
-      const globalUserId = req.user.globalUserId || await resolveGlobalUserId(req.user.id, req.tenant.id);
-      
-      if (!globalUserId) {
-        return reply.status(404).send({ 
-          ok: false, 
-          message: 'Identidade global não encontrada' 
-        });
+      // ActionContext é obrigatório
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+
+      const actorId = req.actionContext.actorId;
+
+      // Resolver globalUserId a partir do actorId (se necessário para o service)
+      // TODO: Refatorar feedService para usar actorId diretamente
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findById(req.tenant.id, actorId);
+      if (!actor || !actor.user_id) {
+        return reply.status(404).send({ ok: false, message: 'Actor não encontrado' });
+      }
+      const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
 
       await feedService.recordContentAction(
         req.tenant.id,
@@ -126,7 +134,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND created_at >= $2
+          AND createdAt >= $2
           AND visibility = 'PUBLIC'
         `,
         [tenantId, oneDayAgo]
@@ -143,7 +151,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND created_at >= $2
+          AND createdAt >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -158,9 +166,9 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('PUBLISHED', 'ONGOING')
-          AND start_time >= NOW()
-          AND start_time <= $2
+          AND status IN ('published', 'ongoing')
+          AND starts_at >= NOW()
+          AND starts_at <= $2
         `,
         [tenantId, sevenDaysFromNow]
       );
@@ -173,7 +181,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND created_at >= $2
+          AND createdAt >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -198,5 +206,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default feedRoutes;
+
+
 
 

@@ -45,7 +45,7 @@ export interface PaginatedResult<T> {
   /**
    * Total de itens (se disponível, pode ser null para cursor-based)
    */
-  total?: number;
+  totalCents: number;
 }
 
 /**
@@ -63,6 +63,7 @@ export function normalizePaginationOptions(options?: PaginationOptions): {
     offset: options?.offset,
   };
 }
+
 
 
 

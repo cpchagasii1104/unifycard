@@ -17,8 +17,8 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     // Converter expectedAt se necessário
@@ -30,7 +30,7 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
     const receivable = await accountsReceivableService.createManualReceivable(
       tenantId,
       body,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -84,14 +84,14 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
     const { id } = req.params;
     const actionContext = (req as any).actionContext;
 
-    if (!actionContext?.actingActorId) {
-      return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+    if (!actionContext?.actorId) {
+      return reply.status(400).send({ error: 'actorId é obrigatório' });
     }
 
     const receivable = await accountsReceivableService.markAsReceived(
       tenantId,
       id,
-      actionContext.actingActorId,
+      actionContext.actorId,
       actionContext.actingUserId
     );
 
@@ -109,14 +109,14 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
       const { id } = req.params;
       const actionContext = (req as any).actionContext;
 
-      if (!actionContext?.actingActorId) {
-        return reply.status(400).send({ error: 'actingActorId é obrigatório' });
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
       }
 
       const receivable = await accountsReceivableService.cancelReceivable(
         tenantId,
         id,
-        actionContext.actingActorId,
+        actionContext.actorId,
         actionContext.actingUserId,
         req.body.cancellationReason
       );

@@ -18,22 +18,22 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface EconomicIdentity {
-  economic_identity_id: string;
-  actor_type: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
-  actor_id: string;
-  trust_level: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
-  verified_assets: {
-    documents_verified: boolean; // CPF/CNPJ verificado
-    bank_account_verified: boolean; // Conta bancária verificada
-    company_verified: boolean; // Empresa verificada (se aplicável)
+  economicIdentityId: string;
+  actorType: 'user' | 'store' | 'hub' | 'industry' | 'service_provider';
+  actorId: string;
+  trustLevel: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
+  verifiedAssets: {
+    documentsVerified: boolean; // CPF/CNPJ verificado
+    bankAccountVerified: boolean; // Conta bancária verificada
+    companyVerified: boolean; // Empresa verificada (se aplicável)
   };
   limits: {
-    max_invoice_amount: number; // Valor máximo para faturamento B2B
-    max_monthly_volume: number; // Volume mensal máximo permitido
+    maxInvoiceAmount: number; // Valor máximo para faturamento B2B
+    maxMonthlyVolume: number; // Volume mensal máximo permitido
   };
   status: 'active' | 'restricted' | 'suspended';
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 

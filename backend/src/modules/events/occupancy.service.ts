@@ -23,8 +23,8 @@ interface OccupancyModelRow {
   no_show_penalty_currency: string;
   auto_cancel_after_minutes: number | null;
   config: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface ReservationRow {
@@ -40,11 +40,11 @@ interface ReservationRow {
   reservation_price_cents: number | null;
   reservation_currency: string;
   transaction_id: string | null;
-  check_in_time: Date | null;
+  checked_in_at: Date | null;
   no_show_time: Date | null;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class OccupancyService {
@@ -82,7 +82,7 @@ export class OccupancyService {
           no_show_penalty_currency = COALESCE($8, 'BRL'),
           auto_cancel_after_minutes = $9,
           config = $10::jsonb,
-          updated_at = now()
+          updatedAt = now()
         WHERE id = $11
         RETURNING *
         `,
@@ -260,7 +260,7 @@ export class OccupancyService {
     }
 
     const stats = await runQueryWithTenant<{
-      total: string;
+      totalCents: string;
       confirmed: string;
       checked_in: string;
       no_shows: string;
@@ -308,8 +308,8 @@ export class OccupancyService {
       no_show_penalty_currency: row.no_show_penalty_currency,
       auto_cancel_after_minutes: row.auto_cancel_after_minutes,
       config: row.config,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -327,16 +327,20 @@ export class OccupancyService {
       reservation_price_cents: row.reservation_price_cents,
       reservation_currency: row.reservation_currency,
       transaction_id: row.transaction_id,
-      check_in_time: row.check_in_time,
+      checked_in_at: row.checked_in_at,
       no_show_time: row.no_show_time,
       metadata: row.metadata || {},
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 }
 
 export const occupancyService = new OccupancyService();
+
+
+
+
 
 
 

@@ -13,12 +13,12 @@ interface PaymentIntentRow {
   id: string;
   tenant_id: string;
   order_id: string;
-  amount: string;
+  amountCents: string;
   currency: string;
   status: string;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class PaymentIntentRepository {
@@ -30,12 +30,12 @@ class PaymentIntentRepository {
       id: row.id,
       tenantId: row.tenant_id,
       orderId: row.order_id,
-      amount: parseFloat(row.amount),
+      amountCents: parseFloat(row.amount),
       currency: row.currency as any,
       status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -54,7 +54,7 @@ class PaymentIntentRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, tenant_id, order_id, amount, currency, status,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -84,7 +84,7 @@ class PaymentIntentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, amount, currency, status,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM payment_intents
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -106,10 +106,10 @@ class PaymentIntentRepository {
       tenantId,
       `
       SELECT id, tenant_id, order_id, amount, currency, status,
-             metadata, created_at, updated_at
+             metadata, createdAt, updatedAt
       FROM payment_intents
       WHERE tenant_id = $1 AND order_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [tenantId, orderId]
     );
@@ -159,7 +159,7 @@ class PaymentIntentRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, order_id, amount, currency, status,
-                metadata, created_at, updated_at
+                metadata, createdAt, updatedAt
       `,
       params
     );
@@ -173,6 +173,9 @@ class PaymentIntentRepository {
 }
 
 export const paymentIntentRepository = new PaymentIntentRepository();
+
+
+
 
 
 

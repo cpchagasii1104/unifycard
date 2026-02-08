@@ -68,10 +68,10 @@ class HumanMvpSkillService {
     // Criar Skill (usar tabela user_skills_categories existente)
     const result = await pool.query<{ id: string }>(
       `
-      INSERT INTO user_skills_categories (global_user_id, category_id, created_at, updated_at)
+      INSERT INTO user_skills_categories (global_user_id, category_id, createdAt, updatedAt)
       VALUES ($1, $2, NOW(), NOW())
       ON CONFLICT (global_user_id, category_id)
-      DO UPDATE SET updated_at = NOW()
+      DO UPDATE SET updatedAt = NOW()
       RETURNING id
       `,
       [globalUserId, input.categoryId]
@@ -97,7 +97,7 @@ class HumanMvpSkillService {
   private async recordSkillCreatedEvent(event: SkillCreatedEvent): Promise<void> {
     await pool.query(
       `
-      INSERT INTO human_mvp_events (event_type, tenant_id, person_id, category_id, context, details, created_at)
+      INSERT INTO human_mvp_events (event_type, tenant_id, person_id, category_id, context, details, createdAt)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
       [
@@ -134,4 +134,5 @@ class HumanMvpSkillService {
 }
 
 export const humanMvpSkillService = new HumanMvpSkillService();
+
 

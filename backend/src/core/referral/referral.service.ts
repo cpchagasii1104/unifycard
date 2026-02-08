@@ -159,6 +159,22 @@ class ReferralService {
       
       if (linkResult?.link_id) {
         linkId = linkResult.link_id;
+      } else {
+        // ON CONFLICT DO NOTHING não retorna linha, buscar link_id existente
+        const existingLink = await runQueryWithTenant<{ link_id: string }>(
+          tenantId,
+          `
+          SELECT link_id
+          FROM user_referral_links
+          WHERE tenant_id = $1 AND referred_user_id = $2
+          LIMIT 1
+          `,
+          [tenantId, newUserId]
+        );
+        
+        if (existingLink?.link_id) {
+          linkId = existingLink.link_id;
+        }
       }
     } catch (err) {
       // Se user_referral_links NÃO EXISTIR, PARAR e REPORTAR
@@ -182,7 +198,7 @@ class ReferralService {
         await runQueryWithTenant(
           tenantId,
           `
-          INSERT INTO referrals (tenant_id, link_id, referrer_user_id, referred_user_id, starts_at, ends_at, percentage_bps, status)
+          INSERT INTO referrals (tenant_id, link_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
           VALUES ($1, $2, $3, $4, NOW(), $5, 500, 'active')
           ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
           `,
@@ -193,7 +209,7 @@ class ReferralService {
         await runQueryWithTenant(
           tenantId,
           `
-          INSERT INTO referrals (tenant_id, referrer_user_id, referred_user_id, starts_at, ends_at, percentage_bps, status)
+          INSERT INTO referrals (tenant_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
           VALUES ($1, $2, $3, NOW(), $4, 500, 'active')
           ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
           `,
@@ -222,4 +238,5 @@ class ReferralService {
 }
 
 export const referralService = new ReferralService();
+
 

@@ -287,7 +287,7 @@ class ServiceBundleService {
       FROM service_bookings
       WHERE tenant_id = $1
         AND metadata->>'bundleId' = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [tenantId, bundleId]
     );
@@ -682,4 +682,5 @@ class ServiceBundleService {
 }
 
 export const serviceBundleService = new ServiceBundleService();
+
 

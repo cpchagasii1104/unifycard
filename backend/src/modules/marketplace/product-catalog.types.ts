@@ -24,8 +24,8 @@ export interface ProductCategory {
   parentId?: string | null;
   isActive: boolean;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -72,8 +72,8 @@ export interface ProductAttribute {
   isRequired: boolean;
   appliesToCategoryId?: string | null;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -124,8 +124,8 @@ export interface Product {
   productType: ProductType;
   isActive: boolean;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -175,8 +175,8 @@ export interface ProductVariant {
   attributes?: Record<string, any> | null;
   isActive: boolean;
   metadata?: Record<string, any> | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -201,4 +201,5 @@ export interface UpdateProductVariantInput {
   isActive?: boolean;
   metadata?: Record<string, any>;
 }
+
 

@@ -6,23 +6,16 @@ import { dashboardService } from './dashboard.service';
 import type { DashboardFilters } from './dashboard.types';
 
 /**
- * Helper para resolver userId e actorId em rotas GET
- * O actionContext só existe em métodos mutáveis, então precisamos de fallback
+ * Helper para resolver actorId do ActionContext
+ * ActionContext é obrigatório em todas as rotas (V2)
  */
-function resolveUserAndActor(req: any): { userId: string; actorId: string | undefined } {
-  // Tentar actionContext primeiro (para métodos mutáveis)
-  const actionContext = req.actionContext;
-  if (actionContext?.actingUserId) {
-    return {
-      userId: actionContext.actingUserId,
-      actorId: actionContext.actingActorId,
-    };
+function resolveActorId(req: any): string {
+  // ActionContext é obrigatório (V2)
+  if (!req.actionContext || !req.actionContext.actorId) {
+    throw new Error('ActionContext obrigatório');
   }
-  // Fallback para req.user (métodos GET)
-  return {
-    userId: req.user?.id || req.user?.userId,
-    actorId: (req.query as any)?.actorId, // Usar actorId da query se fornecido
-  };
+  
+  return req.actionContext.actorId;
 }
 
 const dashboardRoutes = async (fastify: FastifyInstance) => {
@@ -33,8 +26,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/overview', {
     preHandler: [fastify.requirePermission(['dashboard:view'])],
   }, async (req, reply) => {
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const tenantId = req.tenant!.id;
-    const { userId, actorId } = resolveUserAndActor(req);
+    const actorId = req.actionContext.actorId;
     const query = req.query as any;
 
     const filters: DashboardFilters = {};
@@ -52,13 +50,16 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       filters.organizationUnitId = query.organizationUnitId;
     }
     if (query.consolidated === 'true') {
-      // FASE 4: Verificação obrigatória de consolidated
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
       const { authorizationService } = await import('@core/authorization/authorization.service');
-      const actionContext = (req as any).actionContext;
       const auth = await authorizationService.canActAs(
         tenantId,
-        actionContext?.actingUserId || userId,
-        actionContext?.actingActorId || actorId || userId,
+        req.actionContext.actorId,
+        req.actionContext.actorId,
         'view_consolidated_reports'
       );
       if (!auth.allowed) {
@@ -70,7 +71,7 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       filters.consolidated = true;
     }
 
-    const overview = await dashboardService.getOverview(tenantId, userId, actorId, filters);
+    const overview = await dashboardService.getOverview(tenantId, actorId, actorId, filters);
     return reply.status(200).send(overview);
   });
 
@@ -81,8 +82,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/today', {
     preHandler: [fastify.requirePermission(['dashboard:view'])],
   }, async (req, reply) => {
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const tenantId = req.tenant!.id;
-    const { userId, actorId } = resolveUserAndActor(req);
+    const actorId = req.actionContext.actorId;
     const query = req.query as any;
 
     const filters: DashboardFilters = {};
@@ -95,7 +101,7 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       filters.channel = query.channel as 'PDV' | 'MARKETPLACE' | 'ALL';
     }
 
-    const today = await dashboardService.getTodayOverview(tenantId, userId, actorId, filters);
+    const today = await dashboardService.getTodayOverview(tenantId, actorId, actorId, filters);
     return reply.status(200).send(today);
   });
 
@@ -106,8 +112,13 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/month', {
     preHandler: [fastify.requirePermission(['dashboard:view'])],
   }, async (req, reply) => {
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
     const tenantId = req.tenant!.id;
-    const { userId, actorId } = resolveUserAndActor(req);
+    const actorId = req.actionContext.actorId;
     const query = req.query as any;
 
     const filters: DashboardFilters = {};
@@ -120,7 +131,7 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       filters.channel = query.channel as 'PDV' | 'MARKETPLACE' | 'ALL';
     }
 
-    const month = await dashboardService.getMonthOverview(tenantId, userId, actorId, filters);
+    const month = await dashboardService.getMonthOverview(tenantId, actorId, actorId, filters);
     return reply.status(200).send(month);
   });
 

@@ -231,7 +231,7 @@ class PdvService {
     const { paymentIntentService } = await import('../marketplace/payment-intent.service');
     const intent = await paymentIntentService.createPaymentIntent(tenantId, {
       orderId: input.orderId,
-      amount: input.amount,
+      amountCents: input.amount,
       currency: input.currency || 'BRL',
     });
 
@@ -291,7 +291,7 @@ class PdvService {
     interface OrderWithPaymentRow {
       id: string;
       status: string;
-      created_at: Date;
+      createdAt: Date;
       payment_amount: string | null;
       payment_status: string | null;
     }
@@ -302,7 +302,7 @@ class PdvService {
       SELECT 
         o.id,
         o.status,
-        o.created_at,
+        o.createdAt,
         pi.amount as payment_amount,
         pt.status as payment_status
       FROM orders o
@@ -310,7 +310,7 @@ class PdvService {
       LEFT JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
       WHERE o.tenant_id = $1
         AND o.metadata->>'pdv_session_id' = $2
-      ORDER BY o.created_at ASC
+      ORDER BY o.createdAt ASC
       `,
       [tenantId, sessionId]
     );
@@ -319,9 +319,9 @@ class PdvService {
     const orders = orderRows.map((row) => ({
       id: row.id,
       status: row.status,
-      amount: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      amountCents: row.payment_amount ? parseFloat(row.payment_amount) : null,
       paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     }));
 
     const totalOrders = orders.length;
@@ -399,7 +399,7 @@ class PdvService {
     interface OrderWithPaymentRow {
       id: string;
       status: string;
-      created_at: Date;
+      createdAt: Date;
       payment_amount: string | null;
       payment_status: string | null;
     }
@@ -410,7 +410,7 @@ class PdvService {
       SELECT 
         o.id,
         o.status,
-        o.created_at,
+        o.createdAt,
         pi.amount as payment_amount,
         pt.status as payment_status
       FROM orders o
@@ -418,7 +418,7 @@ class PdvService {
       LEFT JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
       WHERE o.tenant_id = $1
         AND o.metadata->>'pdv_session_id' = $2
-      ORDER BY o.created_at ASC
+      ORDER BY o.createdAt ASC
       `,
       [tenantId, sessionId]
     );
@@ -426,9 +426,9 @@ class PdvService {
     const orders = orderRows.map((row) => ({
       id: row.id,
       status: row.status,
-      amount: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      amountCents: row.payment_amount ? parseFloat(row.payment_amount) : null,
       paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
-      createdAt: row.created_at,
+      createdAt: row.createdAt.toISOString(),
     }));
 
     const totalOrders = orders.length;
@@ -455,4 +455,7 @@ class PdvService {
 }
 
 export const pdvService = new PdvService();
+
+
+
 

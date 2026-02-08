@@ -11,7 +11,7 @@ class ReportingRepository {
   /**
    * Criar nova denúncia
    */
-  async createReport(tenantId: string, report: Omit<Report, 'id' | 'created_at' | 'updated_at'>): Promise<Report> {
+  async createReport(tenantId: string, report: Omit<Report, 'id' | 'createdAt' | 'updatedAt'>): Promise<Report> {
     const id = randomUUID();
     const now = new Date();
 
@@ -20,7 +20,7 @@ class ReportingRepository {
       INSERT INTO reports (
         id, reporter_user_id, target_type, target_id, module, tenant_id,
         reason_code, description, status, severity, risk_score,
-        created_at, updated_at
+        createdAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
@@ -74,7 +74,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE tenant_id = $1 AND reporter_user_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3 OFFSET $4
       `,
       [tenantId, reporterUserId, limit, offset]
@@ -96,7 +96,7 @@ class ReportingRepository {
       limit?: number;
       offset?: number;
     }
-  ): Promise<{ reports: Report[]; total: number }> {
+  ): Promise<{ reports: Report[]; totalCents: number }> {
     const { module, status, target_type, severity, limit = 50, offset = 0 } = filters;
 
     const conditions: string[] = ['tenant_id = $1'];
@@ -148,7 +148,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       params
@@ -174,7 +174,7 @@ class ReportingRepository {
     const result = await pool.query<ReportRow>(
       `
       UPDATE reports
-      SET status = $1, updated_at = $2, resolved_at = $3
+      SET status = $1, updatedAt = $2, resolvedAt = $3
       WHERE id = $4 AND tenant_id = $5
       RETURNING *
       `,
@@ -191,14 +191,14 @@ class ReportingRepository {
   /**
    * Criar evento de audit trail
    */
-  async createReportEvent(event: Omit<ReportEvent, 'id' | 'created_at'>): Promise<ReportEvent> {
+  async createReportEvent(event: Omit<ReportEvent, 'id' | 'createdAt'>): Promise<ReportEvent> {
     const id = randomUUID();
     const now = new Date();
 
     const result = await pool.query<ReportEventRow>(
       `
       INSERT INTO report_events (
-        id, report_id, actor_type, actor_id, event_type, metadata, created_at
+        id, report_id, actor_type, actor_id, event_type, metadata, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
@@ -226,7 +226,7 @@ class ReportingRepository {
       SELECT *
       FROM report_events
       WHERE report_id = $1
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
       [reportId]
     );
@@ -258,7 +258,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       params
     );
@@ -269,7 +269,7 @@ class ReportingRepository {
   /**
    * Buscar ou criar risk flag
    */
-  async upsertRiskFlag(flag: Omit<RiskFlag, 'id' | 'created_at'>): Promise<RiskFlag> {
+  async upsertRiskFlag(flag: Omit<RiskFlag, 'id' | 'createdAt'>): Promise<RiskFlag> {
     const now = new Date();
 
     // Tentar buscar existente
@@ -287,7 +287,7 @@ class ReportingRepository {
       const result = await pool.query<RiskFlagRow>(
         `
         UPDATE risk_flags
-        SET risk_level = $1, risk_score = $2, last_evaluated_at = $3
+        SET risk_level = $1, risk_score = $2, last_evaluatedAt = $3
         WHERE id = $4
         RETURNING *
         `,
@@ -303,7 +303,7 @@ class ReportingRepository {
       `
       INSERT INTO risk_flags (
         id, target_type, target_id, module, tenant_id,
-        risk_level, risk_score, last_evaluated_at, created_at
+        risk_level, risk_score, last_evaluatedAt, createdAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
@@ -363,9 +363,9 @@ class ReportingRepository {
       status: row.status as any,
       severity: row.severity as any,
       risk_score: row.risk_score || undefined,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      resolved_at: row.resolved_at || undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      resolvedAt: row.resolvedAt || undefined,
     };
   }
 
@@ -377,7 +377,7 @@ class ReportingRepository {
       actor_id: row.actor_id || undefined,
       event_type: row.event_type as any,
       metadata: row.metadata || undefined,
-      created_at: row.created_at,
+      createdAt: row.createdAt,
     };
   }
 
@@ -390,13 +390,15 @@ class ReportingRepository {
       tenant_id: row.tenant_id,
       risk_level: row.risk_level as any,
       risk_score: row.risk_score,
-      last_evaluated_at: row.last_evaluated_at,
-      created_at: row.created_at,
+      last_evaluatedAt: row.last_evaluatedAt,
+      createdAt: row.createdAt,
     };
   }
 }
 
 export const reportingRepository = new ReportingRepository();
+
+
 
 
 

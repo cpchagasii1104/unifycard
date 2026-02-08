@@ -113,7 +113,7 @@ class SocialWorkPaymentService {
     postId: string,
     tenantId: string,
     customerUserId: string,
-    amount: number
+    amountCents: number
   ): Promise<Transaction> {
     // 1. Resolver job e schedule
     const scheduledJob = await this.resolveScheduledJobFromPost(postId, tenantId, customerUserId);
@@ -173,4 +173,5 @@ class SocialWorkPaymentService {
 }
 
 export const socialWorkPaymentService = new SocialWorkPaymentService();
+
 

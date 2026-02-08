@@ -16,13 +16,13 @@ interface EvidencePackRow {
   context_type: string;
   context_id: string;
   dispute_status: string;
-  opened_at: Date | null;
-  resolved_at: Date | null;
+  openedAt: Date | null;
+  resolvedAt: Date | null;
   retention_until: Date | null;
   timeline: any;
   metadata: any;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class EvidenceRepository {
@@ -33,16 +33,16 @@ class EvidenceRepository {
       contextType: row.context_type as any,
       contextId: row.context_id,
       disputeStatus: row.dispute_status as any,
-      openedAt: row.opened_at,
-      resolvedAt: row.resolved_at,
+      openedAt: row.openedAt,
+      resolvedAt: row.resolvedAt,
       retentionUntil: row.retention_until,
       timeline: Array.isArray(row.timeline) ? row.timeline.map((e: any) => ({
         ...e,
         timestamp: new Date(e.timestamp),
       })) : [],
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
@@ -167,7 +167,7 @@ class EvidenceRepository {
       {
         text: `
           UPDATE evidence_packs
-          SET timeline = $3, updated_at = NOW()
+          SET timeline = $3, updatedAt = NOW()
           WHERE tenant_id = $1 AND pack_id = $2
           RETURNING *
         `,
@@ -194,13 +194,13 @@ class EvidenceRepository {
     let paramIndex = 4;
 
     if (openedAt !== undefined) {
-      updates.push(`opened_at = $${paramIndex}`);
+      updates.push(`openedAt = $${paramIndex}`);
       values.push(openedAt);
       paramIndex++;
     }
 
     if (resolvedAt !== undefined) {
-      updates.push(`resolved_at = $${paramIndex}`);
+      updates.push(`resolvedAt = $${paramIndex}`);
       values.push(resolvedAt);
       paramIndex++;
     }
@@ -210,7 +210,7 @@ class EvidenceRepository {
       {
         text: `
           UPDATE evidence_packs
-          SET ${updates.join(', ')}, updated_at = NOW()
+          SET ${updates.join(', ')}, updatedAt = NOW()
           WHERE tenant_id = $1 AND pack_id = $2
           RETURNING *
         `,
@@ -257,7 +257,7 @@ class EvidenceRepository {
         text: `
           SELECT * FROM evidence_packs
           WHERE ${conditions.join(' AND ')}
-          ORDER BY created_at DESC
+          ORDER BY createdAt DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
@@ -270,4 +270,6 @@ class EvidenceRepository {
 }
 
 export const evidenceRepository = new EvidenceRepository();
+
+
 

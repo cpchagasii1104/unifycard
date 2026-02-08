@@ -22,7 +22,7 @@ export interface Account {
   ownerGlobalUserId?: string | null;
   balance: number;
   currency: Currency;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -39,5 +39,6 @@ export interface CreateAccountInput {
  */
 export interface AccountsSearchResult {
   accounts: Account[];
-  total: number;
+  totalCents: number;
 }
+

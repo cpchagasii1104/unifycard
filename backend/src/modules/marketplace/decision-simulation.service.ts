@@ -180,8 +180,8 @@ class DecisionSimulationService {
 
     // 2. Calcular novo preço com desconto
     let newPrice = currentPrice;
-    if (input.discountPercentage !== undefined) {
-      newPrice = currentPrice * (1 - input.discountPercentage / 100);
+    if (input.discountBps !== undefined) {
+      newPrice = currentPrice * (1 - input.discountBps / 100);
     } else if (input.discountAmount !== undefined) {
       newPrice = currentPrice - input.discountAmount;
     }
@@ -413,14 +413,14 @@ class DecisionSimulationService {
     const query = `
       SELECT
         SUM(oi.quantity) AS total_quantity,
-        COUNT(DISTINCT DATE(o.created_at)) AS days_with_sales
+        COUNT(DISTINCT DATE(o.createdAt)) AS days_with_sales
       FROM order_items oi
       INNER JOIN orders o ON oi.order_id = o.id
       INNER JOIN payment_intents pi ON pi.order_id = o.id
       INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
       WHERE ${conditions.join(' AND ')}
-        AND o.created_at >= $${paramIndex - 1}
-        AND o.created_at <= $${paramIndex}
+        AND o.createdAt >= $${paramIndex - 1}
+        AND o.createdAt <= $${paramIndex}
     `;
 
     const rows = await runQueriesWithTenant<any>(tenantId, query, params);
@@ -636,4 +636,5 @@ class DecisionSimulationService {
 }
 
 export const decisionSimulationService = new DecisionSimulationService();
+
 

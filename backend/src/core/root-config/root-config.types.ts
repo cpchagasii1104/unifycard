@@ -8,8 +8,8 @@ export interface RootConfig {
   timezone: string | null;
   currency: string | null;
   languages: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 
@@ -22,8 +22,8 @@ export interface RootConfigRow {
   timezone: string | null;
   currency: string | null;
   languages: string[];
-  created_at: Date;
-  updated_at: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UpdateRootConfigInput {
@@ -44,4 +44,6 @@ export interface SetRegionInput {
 export interface SetLanguagesInput {
   languages: string[];
 }
+
+
 

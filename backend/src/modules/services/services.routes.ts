@@ -53,8 +53,9 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: z.infer<typeof createServiceSchema> }>(
     '/',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -72,7 +73,7 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const service = await servicesService.createService(
           req.tenant.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             actorId: parsed.data.actorId, // OBRIGATÓRIO
             name: parsed.data.name,
@@ -110,8 +111,9 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
    * Buscar serviço por ID
    */
   fastify.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -142,8 +144,9 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string }; Querystring: { status?: string } }>(
     '/actors/:id/services',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -178,8 +181,9 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.put<{ Params: { id: string }; Body: z.infer<typeof updateServiceSchema> }>(
     '/:id',
     async (req, reply) => {
-      if (!req.user || !req.user.userId) {
-        return reply.status(401).send({ error: 'Authentication required' });
+      // ActionContext é obrigatório (V2)
+      if (!req.actionContext || !req.actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
       if (!req.tenant || !req.tenant.id) {
         return reply.status(400).send({ error: 'Tenant not found' });
@@ -198,7 +202,7 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
         const service = await servicesService.updateService(
           req.tenant.id,
           req.params.id,
-          req.user.userId,
+          req.actionContext.actorId,
           {
             name: parsed.data.name,
             description: parsed.data.description,
@@ -240,16 +244,17 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
       city_id?: string;
       state_id?: string;
       country_id?: string;
-      start_date?: string; // ISO 8601 date string
-      end_date?: string; // ISO 8601 date string
+      starts_at?: string; // ISO 8601 date string
+      ends_at?: string; // ISO 8601 date string
       has_availability?: string; // 'true' | 'false'
       actor_type?: 'user' | 'page' | 'group' | 'channel';
       limit?: string;
       offset?: string;
     };
   }>('/discover', async (req, reply) => {
-    if (!req.user || !req.user.userId) {
-      return reply.status(401).send({ error: 'Authentication required' });
+    // ActionContext é obrigatório (V2)
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
     if (!req.tenant || !req.tenant.id) {
       return reply.status(400).send({ error: 'Tenant not found' });
@@ -271,8 +276,8 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
         cityId: query.city_id,
         stateId: query.state_id,
         countryId: query.country_id,
-        startDate: query.start_date,
-        endDate: query.end_date,
+        startDate: query.starts_at,
+        endDate: query.ends_at,
         hasAvailability,
         actorType: query.actor_type,
         limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -297,4 +302,5 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 export default servicesRoutes;
+
 

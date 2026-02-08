@@ -19,13 +19,13 @@ const VALIDATION_TOKEN_EXPIRES_IN = '15m'; // Token expira em 15 minutos
 export interface ValidationTokenPayload {
   company_id: string;
   token: string;
-  expires_at: string;
+  expiresAt: string;
 }
 
 export interface ValidationRequest {
   company_id: string;
   qr_code_payload: string; // JWT assinado
-  expires_at: string;
+  expiresAt: string;
 }
 
 export interface InPersonValidationInput {
@@ -46,7 +46,7 @@ export interface CompanyValidation {
   validation_method: string;
   validated_by_employee_id: string | null;
   validated_by_partner_id: string | null;
-  validated_at: string;
+  validatedAt: string;
   geo_lat: number | null;
   geo_lng: number | null;
   device_fingerprint: string | null;
@@ -69,10 +69,8 @@ class CompanyValidationService {
     }>(`
       SELECT c.company_id, c.company_status
       FROM companies c
-      JOIN user_identity_links uil
-        ON uil.global_user_id = c.global_user_id
       WHERE c.company_id = $1
-        AND uil.tenant_id = $2
+        AND c.tenant_id = $2
       LIMIT 1
     `, [companyId, tenantId]);
 
@@ -95,7 +93,7 @@ class CompanyValidationService {
     const payload: ValidationTokenPayload = {
       company_id: companyId,
       token,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
 
     // Assinar JWT
@@ -106,7 +104,7 @@ class CompanyValidationService {
     return {
       company_id: companyId,
       qr_code_payload: qrCodePayload,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
   }
 
@@ -127,7 +125,7 @@ class CompanyValidationService {
     }
 
     // 2. Verificar se token não expirou (jwt.verify já valida expiração, mas mantemos validação explícita para clareza)
-    const expiresAt = new Date(payload.expires_at);
+    const expiresAt = new Date(payload.expiresAt);
     if (expiresAt < new Date()) {
       throw new Error('Token de validação expirado');
     }
@@ -177,10 +175,8 @@ class CompanyValidationService {
     }>(`
       SELECT c.company_id, c.company_status
       FROM companies c
-      JOIN user_identity_links uil
-        ON uil.global_user_id = c.global_user_id
       WHERE c.company_id = $1
-        AND uil.tenant_id = $2
+        AND c.tenant_id = $2
       LIMIT 1
     `, [input.company_id, tenantId]);
 
@@ -222,7 +218,7 @@ class CompanyValidationService {
       FROM company_validations
       WHERE validated_by_employee_id = $1
         AND tenant_id = $2
-        AND validated_at >= $3
+        AND validatedAt >= $3
       `,
       [input.employee_id, tenantId, today]
     );
@@ -243,7 +239,7 @@ class CompanyValidationService {
           INSERT INTO company_validations (
             id, tenant_id, company_id, company_status_before, company_status_after,
             validation_method, validated_by_employee_id, validated_by_partner_id,
-            validated_at, geo_lat, geo_lng, device_fingerprint, metadata
+            validatedAt, geo_lat, geo_lng, device_fingerprint, metadata
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
         `,
@@ -268,8 +264,8 @@ class CompanyValidationService {
         text: `
           UPDATE companies
           SET company_status = 'VERIFIED',
-              verified_at = $1,
-              updated_at = NOW()
+              verifiedAt = $1,
+              updatedAt = NOW()
           WHERE company_id = $2
         `,
         values: [validatedAt, input.company_id],
@@ -293,7 +289,7 @@ class CompanyValidationService {
       validation_method: string;
       validated_by_employee_id: string | null;
       validated_by_partner_id: string | null;
-      validated_at: string;
+      validatedAt: string;
       geo_lat: number | null;
       geo_lng: number | null;
       device_fingerprint: string | null;
@@ -303,7 +299,7 @@ class CompanyValidationService {
       `
       SELECT id, company_id, company_status_before, company_status_after,
              validation_method, validated_by_employee_id, validated_by_partner_id,
-             validated_at, geo_lat, geo_lng, device_fingerprint, metadata
+             validatedAt, geo_lat, geo_lng, device_fingerprint, metadata
       FROM company_validations
       WHERE id = $1 AND tenant_id = $2
       LIMIT 1
@@ -324,7 +320,7 @@ class CompanyValidationService {
       validation_method: row.validation_method,
       validated_by_employee_id: row.validated_by_employee_id,
       validated_by_partner_id: row.validated_by_partner_id,
-      validated_at: row.validated_at,
+      validatedAt: row.validatedAt,
       geo_lat: row.geo_lat,
       geo_lng: row.geo_lng,
       device_fingerprint: row.device_fingerprint,
@@ -347,7 +343,7 @@ class CompanyValidationService {
       validation_method: string;
       validated_by_employee_id: string | null;
       validated_by_partner_id: string | null;
-      validated_at: string;
+      validatedAt: string;
       geo_lat: number | null;
       geo_lng: number | null;
       device_fingerprint: string | null;
@@ -357,10 +353,10 @@ class CompanyValidationService {
       `
       SELECT id, company_id, company_status_before, company_status_after,
              validation_method, validated_by_employee_id, validated_by_partner_id,
-             validated_at, geo_lat, geo_lng, device_fingerprint, metadata
+             validatedAt, geo_lat, geo_lng, device_fingerprint, metadata
       FROM company_validations
       WHERE company_id = $1 AND tenant_id = $2
-      ORDER BY validated_at DESC
+      ORDER BY validatedAt DESC
       `,
       [companyId, tenantId]
     );
@@ -373,7 +369,7 @@ class CompanyValidationService {
       validation_method: row.validation_method,
       validated_by_employee_id: row.validated_by_employee_id,
       validated_by_partner_id: row.validated_by_partner_id,
-      validated_at: row.validated_at,
+      validatedAt: row.validatedAt,
       geo_lat: row.geo_lat,
       geo_lng: row.geo_lng,
       device_fingerprint: row.device_fingerprint,
@@ -383,4 +379,5 @@ class CompanyValidationService {
 }
 
 export const companyValidationService = new CompanyValidationService();
+
 

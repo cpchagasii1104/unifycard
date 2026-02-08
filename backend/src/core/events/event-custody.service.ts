@@ -71,8 +71,8 @@ export interface Custody {
   release_conditions: CustodyReleaseConditions;
   purpose: string;
   status: CustodyStatus;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CustodyRow {
@@ -86,8 +86,8 @@ interface CustodyRow {
   release_conditions: any;
   purpose: string;
   status: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 class EventCustodyService {
@@ -143,7 +143,7 @@ class EventCustodyService {
         id, tenant_id, event_id, amount_cents, currency,
         economic_owner_id, economic_owner_type,
         release_conditions, purpose, status,
-        created_at, updated_at
+        createdAt, updatedAt
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING *
@@ -213,7 +213,7 @@ class EventCustodyService {
       tenantId,
       `
       UPDATE event_custody
-      SET status = 'reverted', updated_at = NOW()
+      SET status = 'reverted', updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING *
       `,
@@ -235,7 +235,7 @@ class EventCustodyService {
         event_id: custody.event_id,
         amount_cents: custody.amount_cents,
         reason,
-        reverted_at: new Date().toISOString(),
+        revertedAt: new Date().toISOString(),
       },
     });
 
@@ -280,7 +280,7 @@ class EventCustodyService {
       SELECT *
       FROM event_custody
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
       [eventId, tenantId]
     );
@@ -314,7 +314,7 @@ class EventCustodyService {
       tenantId,
       `
       UPDATE event_custody
-      SET status = 'released', updated_at = NOW()
+      SET status = 'released', updatedAt = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING *
       `,
@@ -336,7 +336,7 @@ class EventCustodyService {
         event_id: custody.event_id,
         amount_cents: custody.amount_cents,
         reason,
-        released_at: new Date().toISOString(),
+        releasedAt: new Date().toISOString(),
       },
     });
 
@@ -406,11 +406,12 @@ class EventCustodyService {
       release_conditions: row.release_conditions as CustodyReleaseConditions,
       purpose: row.purpose,
       status: row.status as CustodyStatus,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }
 
 export const eventCustodyService = new EventCustodyService();
+
 

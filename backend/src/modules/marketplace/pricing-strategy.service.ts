@@ -269,14 +269,14 @@ class PricingStrategyService {
       const query = `
         SELECT
           SUM(oi.quantity) AS total_quantity,
-          COUNT(DISTINCT DATE(o.created_at)) AS days_with_sales
+          COUNT(DISTINCT DATE(o.createdAt)) AS days_with_sales
         FROM order_items oi
         INNER JOIN orders o ON oi.order_id = o.id
         INNER JOIN payment_intents pi ON pi.order_id = o.id
         INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
         WHERE ${conditions.join(' AND ')}
-          AND o.created_at >= $${paramIndex - 1}
-          AND o.created_at <= $${paramIndex}
+          AND o.createdAt >= $${paramIndex - 1}
+          AND o.createdAt <= $${paramIndex}
       `;
 
       const rows = await runQueriesWithTenant<any>(tenantId, query, params);
@@ -552,4 +552,5 @@ class PricingStrategyService {
 }
 
 export const pricingStrategyService = new PricingStrategyService();
+
 

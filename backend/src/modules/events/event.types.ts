@@ -42,8 +42,8 @@ export interface Event {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -74,8 +74,8 @@ export interface EventTicket {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -107,8 +107,8 @@ export interface TicketSale {
   createdByActorId: string;
   createdByUserId: string | null;
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -134,8 +134,8 @@ export interface EventCheckIn {
   checkedOutAt: Date | null;
   checkedOutByActorId: string | null;
   checkedOutByUserId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -150,6 +150,7 @@ export interface EventFilters {
   limit?: number;
   offset?: number;
 }
+
 
 
 

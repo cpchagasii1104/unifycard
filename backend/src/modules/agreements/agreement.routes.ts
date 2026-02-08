@@ -70,7 +70,7 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
 
     const agreements = await agreementService.listAgreements(tenantId, filters);
 
-    return reply.send({ agreements, total: agreements.length });
+    return reply.send({ agreements, totalCents: agreements.length });
   });
 
   /**
@@ -204,6 +204,7 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default agreementRoutes;
+
 
 
 

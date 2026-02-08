@@ -25,14 +25,14 @@ class ServicePaymentRequestRepository {
       payerActorId: row.payer_actor_id,
       receiverActorId: row.receiver_actor_id,
       status: row.status as PaymentRequestStatus,
-      amount: parseFloat(row.amount.toString()),
+      amountCents: parseFloat(row.amount.toString()),
       currency: row.currency,
-      requestedAt: row.requested_at,
+      requestedAt: row.requestedAt,
       metadata: row.metadata || {},
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      cancelledAt: row.cancelled_at,
-      expiredAt: row.expired_at,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      cancelledAt: row.cancelledAt,
+      expiredAt: row.expiredAt,
     };
   }
 
@@ -46,8 +46,8 @@ class ServicePaymentRequestRepository {
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
         payer_actor_id, receiver_actor_id, status, amount, currency,
-        requested_at, metadata, created_at, updated_at,
-        cancelled_at, expired_at
+        requestedAt, metadata, createdAt, updatedAt,
+        cancelledAt, expiredAt
       FROM service_payment_requests
       WHERE payment_request_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -73,8 +73,8 @@ class ServicePaymentRequestRepository {
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
         payer_actor_id, receiver_actor_id, status, amount, currency,
-        requested_at, metadata, created_at, updated_at,
-        cancelled_at, expired_at
+        requestedAt, metadata, createdAt, updatedAt,
+        cancelledAt, expiredAt
       FROM service_payment_requests
       WHERE booking_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -102,8 +102,8 @@ class ServicePaymentRequestRepository {
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
         payer_actor_id, receiver_actor_id, status, amount, currency,
-        requested_at, metadata, created_at, updated_at,
-        cancelled_at, expired_at
+        requestedAt, metadata, createdAt, updatedAt,
+        cancelledAt, expiredAt
       FROM service_payment_requests
       WHERE service_id = $1 AND tenant_id = $2
     `;
@@ -114,7 +114,7 @@ class ServicePaymentRequestRepository {
       params.push(filters.status);
     }
 
-    query += ` ORDER BY requested_at DESC`;
+    query += ` ORDER BY requestedAt DESC`;
 
     const rows = await runQueriesWithTenant<ServicePaymentRequestRow>(tenantId, query, params);
 
@@ -140,8 +140,8 @@ class ServicePaymentRequestRepository {
     if (!input.receiverActorId) {
       throw new Error('receiverActorId é obrigatório para criar payment request');
     }
-    if (!input.amount || input.amount <= 0) {
-      throw new Error('amount deve ser maior que zero');
+    if (!input.amountCents || input.amountCents <= 0) {
+      throw new Error('amountCents deve ser maior que zero');
     }
 
     const row = await runQueryWithTenant<ServicePaymentRequestRow>(
@@ -149,15 +149,15 @@ class ServicePaymentRequestRepository {
       `
       INSERT INTO service_payment_requests (
         tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id,
-        status, amount, currency, requested_at, metadata
+        status, amount, currency, requestedAt, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
         payer_actor_id, receiver_actor_id, status, amount, currency,
-        requested_at, metadata, created_at, updated_at,
-        cancelled_at, expired_at
+        requestedAt, metadata, createdAt, updatedAt,
+        cancelledAt, expiredAt
       `,
       [
         tenantId,
@@ -166,7 +166,7 @@ class ServicePaymentRequestRepository {
         input.payerActorId,
         input.receiverActorId,
         PaymentRequestStatus.PENDING,
-        input.amount,
+        input.amountCents,
         input.currency || 'FIC',
         new Date(),
         JSON.stringify(input.metadata || {}),
@@ -218,8 +218,8 @@ class ServicePaymentRequestRepository {
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
         payer_actor_id, receiver_actor_id, status, amount, currency,
-        requested_at, metadata, created_at, updated_at,
-        cancelled_at, expired_at
+        requestedAt, metadata, createdAt, updatedAt,
+        cancelledAt, expiredAt
       `,
       params
     );
@@ -229,4 +229,6 @@ class ServicePaymentRequestRepository {
 }
 
 export const servicePaymentRequestRepository = new ServicePaymentRequestRepository();
+
+
 

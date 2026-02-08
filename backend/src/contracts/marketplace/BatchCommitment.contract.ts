@@ -21,15 +21,15 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface BatchCommitment {
-  commitment_id: string;
-  batch_id: string; // Referência ao ProductionBatch
-  actor_id: string; // ID do ator (user, store, hub)
-  actor_type: 'user' | 'store' | 'hub';
+  commitmentId: string;
+  batchId: string; // Referência ao ProductionBatch
+  actorId: string; // ID do ator (user, store, hub)
+  actorType: 'user' | 'store' | 'hub';
   quantity: number; // Quantidade comprometida
-  created_at: string;
-  cancelled_at?: string; // Quando foi cancelado (se aplicável)
+  createdAt: string;
+  cancelledAt?: string; // Quando foi cancelado (se aplicável)
   status: 'active' | 'cancelled' | 'converted'; // converted = virou Order
-  order_id?: string; // ID do Order gerado quando convertido
+  orderId?: string; // ID do Order gerado quando convertido
 }
 
 

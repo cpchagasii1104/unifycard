@@ -10,7 +10,7 @@ import { resolveGlobalUserId } from '@core/identity/identity.utils';
 export interface StatementEntry {
   transactionId: string;
   type: 'p2p' | 'donation' | 'split' | 'compensation' | 'other';
-  amount: number;
+  amountCents: number;
   direction: 'in' | 'out';
   balanceAfter: number;
   createdAt: Date;
@@ -31,14 +31,14 @@ export interface StatementEntry {
 
 export interface StatementResult {
   entries: StatementEntry[];
-  total: number;
+  totalCents: number;
   hasMore: boolean;
 }
 
 export interface SplitDetail {
   baseTransaction: {
     transactionId: string;
-    amount: number;
+    amountCents: number;
     type: string;
     createdAt: Date;
     metadata: Record<string, any>;
@@ -48,7 +48,7 @@ export interface SplitDetail {
     targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'platform';
     targetId?: string;
     percentage: number;
-    amount: number;
+    amountCents: number;
     createdAt: Date;
   }>;
   totalPercentage: number;
@@ -58,7 +58,7 @@ export interface SplitDetail {
 export interface RegionalFundEntry {
   transactionId: string;
   type: 'credit' | 'debit';
-  amount: number;
+  amountCents: number;
   origin: string; // 'donation' | 'service' | 'event' | 'other'
   originTransactionId?: string;
   destination?: string; // Para saídas
@@ -123,7 +123,7 @@ class TransparencyService {
       // Sem conta bancária: retornar extrato vazio (não é erro)
       return {
         entries: [],
-        total: 0,
+        totalCents: 0,
         hasMore: false,
       };
     }
@@ -141,7 +141,7 @@ class TransparencyService {
           l.entry_type,
           l.amount,
           l.balance_after,
-          l.created_at,
+          l.createdAt,
           t.metadata as transaction_metadata,
           t.status,
           t.transaction_type,
@@ -155,27 +155,27 @@ class TransparencyService {
       let paramIndex = 3;
 
       if (startDate) {
-        query += ` AND l.created_at >= $${paramIndex}`;
+        query += ` AND l.createdAt >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        query += ` AND l.created_at <= $${paramIndex}`;
+        query += ` AND l.createdAt <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY l.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      query += ` ORDER BY l.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit + 1, offset); // +1 para verificar se tem mais
 
       const result = await client.query<{
         entry_id: string;
         transaction_id: string;
         entry_type: string;
-        amount: string;
+        amountCents: string;
         balance_after: string;
-        created_at: Date;
+        createdAt: Date;
         transaction_metadata: any;
         status: string;
         transaction_type: string;
@@ -235,10 +235,10 @@ class TransparencyService {
         return {
           transactionId: row.transaction_id,
           type,
-          amount: parseFloat(row.amount),
+          amountCents: parseFloat(row.amount),
           direction: (entryType === 'credit' ? 'in' : 'out') as 'in' | 'out',
           balanceAfter: parseFloat(row.balance_after),
-          createdAt: row.created_at,
+          createdAt: row.createdAt,
           context: context || 'other',
           status: status as 'completed' | 'reversed' | 'pending' | 'failed',
           referenceType,
@@ -261,7 +261,7 @@ class TransparencyService {
 
       return {
         entries,
-        total: entries.length,
+        totalCents: entries.length,
         hasMore,
       };
     } finally {
@@ -283,12 +283,12 @@ class TransparencyService {
       // 1. Buscar transação base no Unify Bank
       const baseTx = await client.query<{
         transaction_id: string;
-        amount: string;
+        amountCents: string;
         metadata: any;
-        created_at: Date;
+        createdAt: Date;
       }>(
         `
-        SELECT transaction_id, amount, metadata, created_at
+        SELECT transaction_id, amount, metadata, createdAt
         FROM bank_transactions
         WHERE transaction_id = $1 AND tenant_id = $2
         LIMIT 1
@@ -309,9 +309,9 @@ class TransparencyService {
         return {
           baseTransaction: {
             transactionId: base.transaction_id,
-            amount: parseFloat(base.amount),
+            amountCents: parseFloat(base.amount),
             type: baseMetadata.type || 'other',
-            createdAt: base.created_at,
+            createdAt: base.createdAt,
             metadata: baseMetadata,
           },
           splits: [],
@@ -326,16 +326,16 @@ class TransparencyService {
         split_id: string;
         transaction_id: string;
         target_account_id: string;
-        amount: string;
+        amountCents: string;
         percentage: string | null;
         split_type: string;
-        created_at: Date;
+        createdAt: Date;
       }>(
         `
-        SELECT split_id, transaction_id, target_account_id, amount, percentage, split_type, created_at
+        SELECT split_id, transaction_id, target_account_id, amount, percentage, split_type, createdAt
         FROM bank_splits
         WHERE tenant_id = $1 AND transaction_id = $2
-        ORDER BY created_at ASC
+        ORDER BY createdAt ASC
         `,
         [tenantId, transactionId]
       );
@@ -363,7 +363,7 @@ class TransparencyService {
 
       const splitTxs = splits.rows.map((split) => ({
         transaction_id: split.transaction_id,
-        amount: split.amount,
+        amountCents: split.amount,
         metadata: {
           type: 'split',
           splitType: split.split_type,
@@ -372,7 +372,7 @@ class TransparencyService {
           targetType: accountMap.get(split.target_account_id)?.ownerType,
           percentage: split.percentage ? parseFloat(split.percentage) : null,
         },
-        created_at: split.created_at,
+        createdAt: split.createdAt,
       }));
 
       const splitDetails = splitTxs.map((row) => {
@@ -389,8 +389,8 @@ class TransparencyService {
           targetType,
           targetId: metadata.targetId,
           percentage: metadata.percentage || 0,
-          amount: parseFloat(row.amount),
-          createdAt: row.created_at,
+          amountCents: parseFloat(row.amount),
+          createdAt: row.createdAt,
         };
       });
 
@@ -400,9 +400,9 @@ class TransparencyService {
       return {
         baseTransaction: {
           transactionId: base.transaction_id,
-          amount: parseFloat(base.amount),
+          amountCents: parseFloat(base.amount),
           type: baseMetadata.type || 'other',
-          createdAt: base.created_at,
+          createdAt: base.createdAt,
           metadata: baseMetadata,
         },
         splits: splitDetails,
@@ -451,14 +451,14 @@ class TransparencyService {
       const ledgerEntries = await client.query<{
         transaction_id: string;
         entry_type: string;
-        amount: string;
-        created_at: Date;
+        amountCents: string;
+        createdAt: Date;
       }>(
         `
-        SELECT l.transaction_id, l.entry_type, l.amount, l.created_at
+        SELECT l.transaction_id, l.entry_type, l.amount, l.createdAt
         FROM bank_ledger l
         WHERE l.account_id = $1 AND l.tenant_id = $2
-        ORDER BY l.created_at DESC
+        ORDER BY l.createdAt DESC
         LIMIT $3 OFFSET $4
         `,
         [regionAccountId, tenantId, limit, offset]
@@ -509,12 +509,12 @@ class TransparencyService {
         return {
           transactionId: row.transaction_id,
           type: entryType,
-          amount: parseFloat(row.amount),
+          amountCents: parseFloat(row.amount),
           origin,
           originTransactionId: metadata.originTransactionId,
           destination: metadata.targetId,
           context: metadata.context,
-          createdAt: row.created_at,
+          createdAt: row.createdAt,
           metadata,
         };
       });
@@ -573,7 +573,7 @@ class TransparencyService {
           l.transaction_id,
           l.entry_type,
           l.amount,
-          l.created_at,
+          l.createdAt,
           t.metadata
         FROM bank_ledger l
         INNER JOIN bank_transactions t ON t.transaction_id = l.transaction_id
@@ -584,25 +584,25 @@ class TransparencyService {
       let paramIndex = 3;
 
       if (startDate) {
-        query += ` AND l.created_at >= $${paramIndex}`;
+        query += ` AND l.createdAt >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        query += ` AND l.created_at <= $${paramIndex}`;
+        query += ` AND l.createdAt <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY l.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      query += ` ORDER BY l.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
       const ledgerEntries = await client.query<{
         transaction_id: string;
         entry_type: string;
-        amount: string;
-        created_at: Date;
+        amountCents: string;
+        createdAt: Date;
         metadata: any;
       }>(query, params);
 
@@ -622,12 +622,12 @@ class TransparencyService {
         return {
           transactionId: row.transaction_id,
           type: entryType,
-          amount: parseFloat(row.amount),
+          amountCents: parseFloat(row.amount),
           origin,
           originTransactionId: metadata.originTransactionId,
           destination: metadata.targetId,
           context: metadata.context,
-          createdAt: row.created_at,
+          createdAt: row.createdAt,
           metadata,
         };
       });
@@ -720,6 +720,8 @@ class TransparencyService {
 }
 
 export const transparencyService = new TransparencyService();
+
+
 
 
 

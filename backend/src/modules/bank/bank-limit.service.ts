@@ -142,8 +142,8 @@ class BankLimitService {
 
   /**
    * Solicita mudança de limite
-   * - Se amount < limite atual → status = applied, effective_at = now
-   * - Se amount > limite atual → status = pending, effective_at = now + 24h
+   * - Se amount < limite atual → status = applied, effectiveAt = now
+   * - Se amount > limite atual → status = pending, effectiveAt = now + 24h
    * - Se amount > threshold → exige step-up (se credencial registrada)
    */
   async requestLimitChange(
@@ -227,7 +227,7 @@ class BankLimitService {
       'monthly_out',
     ];
 
-    const limits: Record<BankLimitType, { current: number; pending: { amount: number; effectiveAt: Date } | null }> = {} as any;
+    const limits: Record<BankLimitType, { current: number; pending: { amountCents: number; effectiveAt: Date } | null }> = {} as any;
 
     for (const limitType of limitTypes) {
       const current = await this.getCurrentLimit(tenantId, actorId, limitType);
@@ -241,7 +241,7 @@ class BankLimitService {
         current,
         pending: pending
           ? {
-              amount: pending.requestedAmount,
+              amountCents: pending.requestedAmount,
               effectiveAt: pending.effectiveAt,
             }
           : null,
@@ -255,7 +255,7 @@ class BankLimitService {
   }
 
   /**
-   * Aplica pedidos pendentes quando effective_at <= now
+   * Aplica pedidos pendentes quando effectiveAt <= now
    * Retorna número de pedidos aplicados
    */
   async applyPendingIfDue(
@@ -386,14 +386,14 @@ class BankLimitService {
     try {
       // Para limitType daily_out ou monthly_out, somar todos os débitos do dia
       if (limitType === 'daily_out' || limitType === 'monthly_out') {
-        const result = await client.query<{ total: string }>(
+        const result = await client.query<{ totalCents: string }>(
           `
           SELECT COALESCE(SUM(amount), 0) as total
           FROM bank_ledger
           WHERE account_id = $1
             AND entry_type = 'debit'
-            AND created_at >= $2
-            AND created_at <= $3
+            AND createdAt >= $2
+            AND createdAt <= $3
           `,
           [account.accountId, startOfDay, endOfDay]
         );
@@ -403,15 +403,15 @@ class BankLimitService {
 
       // Para outros tipos, filtrar por contexto no metadata da transação
       // O contexto está em bank_transactions.metadata->>'context'
-      const result = await client.query<{ total: string }>(
+      const result = await client.query<{ totalCents: string }>(
         `
         SELECT COALESCE(SUM(bl.amount), 0) as total
         FROM bank_ledger bl
         INNER JOIN bank_transactions bt ON bl.transaction_id = bt.transaction_id
         WHERE bl.account_id = $1
           AND bl.entry_type = 'debit'
-          AND bl.created_at >= $2
-          AND bl.created_at <= $3
+          AND bl.createdAt >= $2
+          AND bl.createdAt <= $3
           AND COALESCE(bt.metadata->>'context', '') = ANY($4::text[])
         `,
         [account.accountId, startOfDay, endOfDay, compatibleContexts]
@@ -441,7 +441,7 @@ class BankLimitService {
   async requireStepUpForHighValue(
     tenantId: string,
     userId: string,
-    amount: number,
+    amountCents: number,
     stepUpVerified?: boolean
   ): Promise<void> {
     // HOTFIX: Se strict mode não estiver ativo, nunca bloquear
@@ -559,4 +559,6 @@ class BankLimitService {
 }
 
 export const bankLimitService = new BankLimitService();
+
+
 

@@ -226,21 +226,21 @@ const webauthnRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const result = await webauthnService.verifyAssertion(tenantId, input);
 
-      if (!result.verified) {
+      if (!result.isVerified) {
         return reply.status(400).send({
-          verified: false,
+          isVerified: false,
           error: result.error,
           errorCode: result.errorCode,
         });
       }
 
       return reply.status(200).send({
-        verified: true,
+        isVerified: true,
       });
     } catch (error: any) {
       fastify.log.error({ err: error }, 'Error verifying WebAuthn assertion');
       return reply.status(500).send({
-        verified: false,
+        isVerified: false,
         error: 'Failed to verify assertion',
         message: error.message,
       });

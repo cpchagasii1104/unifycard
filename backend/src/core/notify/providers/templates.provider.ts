@@ -20,8 +20,8 @@ function mapTemplateRow(row: NotifyTemplateRow): NotifyTemplate {
     body: row.body,
     metadata: (row.metadata as NotificationPayload) ?? {},
     isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -35,7 +35,7 @@ export class TemplateProvider {
       tenantId,
       `
       SELECT template_id, tenant_id, channel, name, description, subject, body, metadata, is_active,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM notify_templates
       WHERE channel = $1 AND name = $2 AND is_active = TRUE
       LIMIT 1
@@ -59,7 +59,7 @@ export class TemplateProvider {
 
       return text.replace(/\{\{(\w+(\.\w+)*)\}\}/g, (_, path: string) => {
         const segments = path.split('.');
-        let value: any = context.payload;
+        let valueCents: any = context.payload;
 
         for (const segment of segments) {
           if (value && typeof value === 'object' && segment in value) {
@@ -83,3 +83,5 @@ export class TemplateProvider {
     };
   }
 }
+
+

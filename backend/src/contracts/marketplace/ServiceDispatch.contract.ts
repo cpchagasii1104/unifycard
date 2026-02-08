@@ -18,24 +18,24 @@
  * NÃO importa serviços, banco de dados ou lógica de negócio.
  */
 export interface ServiceDispatch {
-  dispatch_id: string;
-  request_id: string;
+  dispatchId: string;
+  requestId: string;
   candidates: Array<{
-    provider_actor_id: string;
-    offering_id: string;
-    eligibility_reason: string; // Texto determinístico explicando elegibilidade
+    providerActorId: string;
+    offeringId: string;
+    eligibilityReason: string; // Texto determinístico explicando elegibilidade
   }>;
-  rules_applied: {
-    trust: boolean; // Trust >= min_trust_level_required
+  rulesApplied: {
+    trust: boolean; // Trust >= minTrustLevelRequired
     availability: boolean; // Availability bate com schedule
     online: boolean; // Provider online
     region: boolean; // Região compatível
   };
   status: 'sent' | 'accepted' | 'declined' | 'expired';
-  accepted_by?: string; // provider_actor_id
-  created_at: string;
-  accepted_at?: string;
-  expired_at?: string;
+  acceptedBy?: string; // providerActorId
+  createdAt: string;
+  acceptedAt?: string;
+  expiredAt?: string;
 }
 
 
