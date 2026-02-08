@@ -107,3 +107,4 @@ const updated = await identityService.updateGlobalIdentity(req.tenant.id, global
 - Nenhuma decisão de perfil ocorre sem tenant
 - Nenhuma referência a `user_identity_links`
 
+

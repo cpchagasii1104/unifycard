@@ -193,3 +193,4 @@ Total de campos ajustados: 42
 
 Todas as incompatibilidades foram corrigidas conforme o relatório de auditoria M1_post_compat_audit.md.
 
+

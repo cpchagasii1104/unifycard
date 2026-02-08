@@ -132,3 +132,4 @@ A verificação foi feita **exclusivamente** por:
 **Nenhum comando de shell foi utilizado**  
 **Resolução feita apenas por leitura e edição direta do arquivo**
 
+
