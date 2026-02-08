@@ -1,0 +1,401 @@
+PowerShell 7.5.4
+PS C:\Users\cpcha> cd C:\unificard
+PS C:\unificard> Get-ChildItem -Recurse -Include *.ts |
+>> Select-String -Pattern "user\.id|actor\.id|owner\.id|account\.id"
+
+backend\src\core\action-context\action-context.middleware.ts:26: * - acting_user_id do auth (req.user.id)
+backend\src\core\action-context\action-context.middleware.ts:43:  if (!req.user || !req.user.id) {
+backend\src\core\action-context\action-context.middleware.ts:52:  const userId = req.user.id;
+backend\src\core\ai\approval\approval.routes.ts:19:    const approval = approvalService.createApproval(req.user.id,
+req.tenant.id, {
+backend\src\core\ai\approval\approval.routes.ts:34:    const pending = approvalService.listPending(req.user.id,
+req.tenant.id);
+backend\src\core\ai\approval\approval.routes.ts:50:    const approval = approvalService.approve(token, req.user.id,
+req.tenant.id);
+backend\src\core\ai\approval\approval.routes.ts:71:    const approval = approvalService.reject(token, req.user.id,
+req.tenant.id);
+backend\src\core\ai\packages\packages.routes.ts:71:      const approval = approvalService.approve(approvalToken,
+req.user.id, req.tenant.id);
+backend\src\core\ai\patch\patch.routes.ts:65:      const approval = approvalService.approve(approvalToken,
+req.user.id, req.tenant.id);
+backend\src\core\ai\patch\patch.routes.ts:80:        req.user.id,
+backend\src\core\ai\strategy\strategy.routes.ts:19:    const userId = req.user.id;
+backend\src\core\ai\tasks\tasks.routes.ts:24:      const task = tasksService.createTask(req.user.id, req.tenant.id, {
+backend\src\core\ai\tasks\tasks.routes.ts:54:      const result = await tasksService.executeStep(taskId, req.user.id,
+req.tenant.id);
+backend\src\core\ai\tasks\tasks.routes.ts:55:      const task = tasksService.getTask(taskId, req.user.id,
+req.tenant.id);
+backend\src\core\ai\tasks\tasks.routes.ts:89:    const task = tasksService.getTask(taskId, req.user.id, req.tenant.id);
+backend\src\core\ai\tasks\tasks.routes.ts:106:    const task = tasksService.cancelTask(taskId, req.user.id,
+req.tenant.id);
+backend\src\core\ai\ai.routes.ts:18:    const userId = req.user.id;
+backend\src\core\auth\auth.plugin.ts:101:    // 🔴 CRÍTICO: Adicionar alias 'id' para compatibilidade com endpoints
+que usam req.user.id
+backend\src\core\auth\auth.plugin.ts:104:      id: userId, // Alias para compatibilidade - muitos endpoints usam
+req.user.id
+backend\src\core\catalog\category-review.routes.ts:63:        adminId: req.user.id || req.user.globalUserId || '',
+backend\src\core\catalog\category-review.routes.ts:103:        adminId: req.user.id || req.user.globalUserId || '',
+backend\src\core\categories\categories.routes.ts:1045:          req.user.id
+backend\src\core\checkout\checkout.routes.ts:30:      const userId = req.user.globalUserId || req.user.id;
+backend\src\core\checkout\checkout.routes.ts:94:      const userId = req.user.globalUserId || req.user.id;
+backend\src\core\dashboard\dashboard.routes.ts:22:      const dashboard = await
+dashboardService.getDashboard(req.tenant.id, req.user.id);
+backend\src\core\economy\accounts\account.routes.ts:49:    const userId = req.user.id;
+backend\src\core\feed\feed.routes.ts:27:        req.user.id,
+backend\src\core\feed\feed.routes.ts:68:      const globalUserId = req.user.globalUserId || await
+resolveGlobalUserId(req.user.id, req.tenant.id);
+backend\src\core\identity\identity.routes.ts:126:              userId: localUser.id,
+backend\src\core\identity\identity.service.ts:782:        userId: localUser.id,
+backend\src\core\matching\matching.routes.ts:25:        req.user.id,
+backend\src\core\matching\matching.routes.ts:64:        req.user.id,
+backend\src\core\opportunity\opportunity.routes.ts:26:        req.user.id,
+backend\src\core\opportunity\opportunity.routes.ts:65:        req.user.id,
+backend\src\core\orchestrator\orchestrator.routes.ts:66:          req.user.globalUserId || req.user.id,
+backend\src\core\orchestrator\orchestrator.routes.ts:81:                userId: req.user.globalUserId || req.user.id,
+backend\src\core\orchestrator\orchestrator.routes.ts:133:          userId: req.user.globalUserId || req.user.id,
+backend\src\core\pilot\institutional-memory.routes.ts:79:      const userId = req.user.id || req.user.userId;
+backend\src\core\pilot\pilot-human-observation.routes.ts:93:        req.user.id || req.user.userId
+backend\src\core\pilot\pilot-human-observation.routes.ts:138:          checkedByUserId: req.user.id || req.user.userId,
+backend\src\core\pilot\pilot-human-observation.routes.ts:220:        req.user.id || req.user.userId
+backend\src\core\pilot\pilot-human-observation.routes.ts:330:        req.user.id || req.user.userId
+backend\src\core\pilot\pilot-invites.routes.ts:32:        invitedByUserId: req.user.id || req.user.userId,
+backend\src\core\profile\impact-overview.routes.ts:30:      const globalUserId = req.user.globalUserId || req.user.id;
+backend\src\core\profile\impact-overview.routes.ts:31:      const userId = req.user.userId || req.user.id;
+backend\src\core\profile\pending-responsibilities.routes.ts:29:      const globalUserId = req.user.globalUserId ||
+req.user.id;
+backend\src\core\profile\pending-responsibilities.routes.ts:30:      const userId = req.user.userId || req.user.id;
+backend\src\core\profile\profile-education-companies.routes.ts:42:    if (!req.user || !req.user.id) {
+backend\src\core\profile\profile-education-companies.routes.ts:51:    const userId = req.user.id;
+backend\src\core\profile\profile-education-companies.routes.ts:103:    if (!req.user || !req.user.id) {
+backend\src\core\profile\profile-education-companies.routes.ts:112:    const userId = req.user.id;
+backend\src\core\profile\profile-education-companies.routes.ts:147:    if (!req.user || !req.user.id) {
+backend\src\core\profile\profile-education-companies.routes.ts:156:      const globalUserId = await
+resolveGlobalUserId(req.user.id, req.tenant.id);
+backend\src\core\profile\profile-education-companies.routes.ts:177:    if (!req.user || !req.user.id) {
+backend\src\core\profile\profile-education-companies.routes.ts:186:      const globalUserId = await
+resolveGlobalUserId(req.user.id, req.tenant.id);
+backend\src\core\profile\profile-health.routes.ts:75:        userId: req.user.id,
+backend\src\core\profile\profile-health.routes.ts:138:          userId: req.user.id,
+backend\src\core\profile\profile-health.routes.ts:203:          userId: req.user.id,
+backend\src\core\profile\profile-health.routes.ts:244:        userId: req.user.id,
+backend\src\core\profile\profile-health.routes.ts:298:          userId: req.user.id,
+backend\src\core\profile\profile-health.routes.ts:354:          userId: req.user.id,
+backend\src\core\profile\profile-inference.routes.ts:25:        req.user.id
+backend\src\core\profile\profile-inference.routes.ts:54:        req.user.id
+backend\src\core\profile\profile-inference.routes.ts:100:        req.user.id,
+backend\src\core\profile\profile-learning.routes.ts:24:        req.user.id
+backend\src\core\profile\profile-learning.routes.ts:60:        req.user.id,
+backend\src\core\profile\profile-physical.routes.ts:24:        req.user.id
+backend\src\core\profile\profile-physical.routes.ts:82:        req.user.id,
+backend\src\core\profile\profile-professional.routes.ts:27:        req.user.id
+backend\src\core\profile\profile-professional.routes.ts:44:        userId: req.user.id,
+backend\src\core\profile\profile-professional.routes.ts:126:        req.user.id,
+backend\src\core\referral\referral.routes.ts:23:      const code = await
+referralService.getOrCreateReferralCode(req.tenant.id, req.user.id);
+backend\src\core\referral\referral.routes.ts:51:        req.user.id,
+backend\src\core\reputation\trust.routes.ts:21:      if (!req.user.id) {
+backend\src\core\reputation\trust.routes.ts:28:        req.user.id
+backend\src\core\reputation\trust.routes.ts:63:      if (!req.user.id) {
+backend\src\core\reputation\trust.routes.ts:70:        req.user.id
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:55:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:127:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:136:    const userId = req.user.id;
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:232:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:287:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:350:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:414:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:471:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-balance-consolidation.routes.ts:548:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-p2p-transfer.routes.ts:24:   * fromUserId vem EXCLUSIVAMENTE do req.user.id (JWT)
+backend\src\core\unifybank\bank-p2p-transfer.routes.ts:42:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\bank-p2p-transfer.routes.ts:51:    const fromUserId = req.user.id;
+backend\src\core\unifybank\donation.routes.ts:51:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\donation.routes.ts:60:    const fromUserId = req.user.id; // fromUserId vem EXCLUSIVAMENTE
+do JWT
+backend\src\core\unifybank\regional-fund-governance.routes.ts:44:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:53:    const userId = req.user.id;
+backend\src\core\unifybank\regional-fund-governance.routes.ts:122:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:170:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:212:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:221:      const userId = req.user.id;
+backend\src\core\unifybank\regional-fund-governance.routes.ts:301:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:310:      const userId = req.user.id;
+backend\src\core\unifybank\regional-fund-governance.routes.ts:361:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:370:      const userId = req.user.id;
+backend\src\core\unifybank\regional-fund-governance.routes.ts:421:      if (!req.user || !req.user.id) {
+backend\src\core\unifybank\regional-fund-governance.routes.ts:430:      const userId = req.user.id;
+backend\src\core\unifybank\test-currency.routes.ts:67:          adminId: req.user.id,
+backend\src\core\unifybank\transparency-admin.routes.ts:41:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\transparency.routes.ts:42:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\transparency.routes.ts:61:    const userId = req.user.id;
+backend\src\core\unifybank\transparency.routes.ts:120:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\transparency.routes.ts:146:    const userId = req.user.id;
+backend\src\core\unifybank\transparency.routes.ts:213:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\transparency.routes.ts:269:    if (!req.user || !req.user.id) {
+backend\src\core\unifybank\transparency.routes.ts:287:    const userId = req.user.id;
+backend\src\core\user-group-allocation\user-group-allocation.routes.ts:23:    if (!req.user || !req.user.id) {
+backend\src\core\user-group-allocation\user-group-allocation.routes.ts:32:    const userId = req.user.id;
+backend\src\core\user-group-allocation\user-group-allocation.routes.ts:61:    if (!req.user || !req.user.id) {
+backend\src\core\user-group-allocation\user-group-allocation.routes.ts:70:    const userId = req.user.id;
+backend\src\modules\assistant\assistant.routes.ts:165:        const userIdForPlan = req.user.id ||
+req.user.globalUserId || '';
+backend\src\modules\groups\groups.routes.ts:146:  // 🔴 CORREÇÃO: RBAC usa userId local (req.user.id), não globalUserId
+backend\src\modules\groups\votes.routes.ts:50:      const userId = req.user.id;
+backend\src\modules\groups\votes.routes.ts:122:      const userId = req.user.id;
+backend\src\modules\groups\votes.routes.ts:179:      const userId = req.user.id;
+backend\src\modules\groups\votes.routes.ts:239:      const userId = req.user.id;
+backend\src\modules\groups\votes.routes.ts:308:      const userId = req.user.id;
+backend\src\modules\pdv\pdv.routes.ts:23:    if (!req.user || !req.user.id) {
+backend\src\modules\presence\presence.routes.ts:159:      actor.id,
+backend\src\modules\profile\commitments.routes.ts:33:      const globalUserId = req.user.globalUserId || req.user.id;
+backend\src\modules\profile\commitments.routes.ts:34:      const userId = req.user.userId || req.user.id;
+backend\src\modules\social\social-2.0.routes.ts:180:      const createdByUserId = actionContext?.actingUserId ||
+req.user.id;
+backend\src\modules\social\social-2.0.routes.ts:198:        req.user.id,
+backend\src\modules\votes\votes.routes.ts:57:        req.user.id,
+backend\src\modules\votes\votes.routes.ts:97:        req.user.id,
+backend\src\modules\votes\votes.routes.ts:241:        req.user.id,
+backend\src\plugins\rbac.plugin.ts:26: * - RBAC exige user válido (req.user.id)
+backend\src\plugins\rbac.plugin.ts:50:    if (!req.user || !req.user.id) {
+backend\src\plugins\rbac.plugin.ts:69:        userId: req.user.id,
+backend\src\plugins\rbac.plugin.ts:77:    if (req.actionContext.actingUserId !== req.user.id) {
+backend\src\plugins\rbac.plugin.ts:83:        userId: req.user.id,
+backend\src\plugins\rbac.plugin.ts:85:        reason: 'Incoerência: actingUserId !== req.user.id',
+backend\src\plugins\rbac.plugin.ts:87:      throw fastify.httpErrors.badRequest('RBAC_INVARIANT_VIOLATION:
+ActionContext actingUserId must match req.user.id');
+backend\src\types\fastify.d.ts:18:      id: string; // Alias para userId - compatibilidade com endpoints que usam
+req.user.id
+backend\src\utils\isTestOverrideUser.ts:15: * if (isTestOverrideUser(user.id)) {
+backend\tests\invariants\rbac-invariants.test.ts:26:      // - requirePermission sem req.user.id → Erro
+RBAC_INVARIANT_VIOLATION
+backend\tests\invariants\rbac-invariants.test.ts:27:      // - requireAnyPermission sem req.user.id → Erro
+RBAC_INVARIANT_VIOLATION
+backend\tests\invariants\rbac-invariants.test.ts:28:      // - requireRole sem req.user.id → Erro
+RBAC_INVARIANT_VIOLATION
+node_modules\stripe\types\V2\Core\Accounts.d.ts:69:          identity?: Account.Identity;
+node_modules\unificard-backend\src\core\action-context\action-context.middleware.ts:26: * - acting_user_id do auth
+(req.user.id)
+node_modules\unificard-backend\src\core\action-context\action-context.middleware.ts:43:  if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\action-context\action-context.middleware.ts:52:  const userId = req.user.id;
+node_modules\unificard-backend\src\core\ai\approval\approval.routes.ts:19:    const approval =
+approvalService.createApproval(req.user.id, req.tenant.id, {
+node_modules\unificard-backend\src\core\ai\approval\approval.routes.ts:34:    const pending =
+approvalService.listPending(req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\approval\approval.routes.ts:50:    const approval =
+approvalService.approve(token, req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\approval\approval.routes.ts:71:    const approval =
+approvalService.reject(token, req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\packages\packages.routes.ts:71:      const approval =
+approvalService.approve(approvalToken, req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\patch\patch.routes.ts:65:      const approval =
+approvalService.approve(approvalToken, req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\patch\patch.routes.ts:80:        req.user.id,
+node_modules\unificard-backend\src\core\ai\strategy\strategy.routes.ts:19:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\ai\tasks\tasks.routes.ts:24:      const task =
+tasksService.createTask(req.user.id, req.tenant.id, {
+node_modules\unificard-backend\src\core\ai\tasks\tasks.routes.ts:54:      const result = await
+tasksService.executeStep(taskId, req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\tasks\tasks.routes.ts:55:      const task = tasksService.getTask(taskId,
+req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\tasks\tasks.routes.ts:89:    const task = tasksService.getTask(taskId,
+req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\tasks\tasks.routes.ts:106:    const task = tasksService.cancelTask(taskId,
+req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\ai\ai.routes.ts:18:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\auth\auth.plugin.ts:101:    // 🔴 CRÍTICO: Adicionar alias 'id' para
+compatibilidade com endpoints que usam req.user.id
+node_modules\unificard-backend\src\core\auth\auth.plugin.ts:104:      id: userId, // Alias para compatibilidade -
+muitos endpoints usam req.user.id
+node_modules\unificard-backend\src\core\catalog\category-review.routes.ts:63:        adminId: req.user.id ||
+req.user.globalUserId || '',
+node_modules\unificard-backend\src\core\catalog\category-review.routes.ts:103:        adminId: req.user.id ||
+req.user.globalUserId || '',
+node_modules\unificard-backend\src\core\categories\categories.routes.ts:1045:          req.user.id
+node_modules\unificard-backend\src\core\checkout\checkout.routes.ts:30:      const userId = req.user.globalUserId ||
+req.user.id;
+node_modules\unificard-backend\src\core\checkout\checkout.routes.ts:94:      const userId = req.user.globalUserId ||
+req.user.id;
+node_modules\unificard-backend\src\core\dashboard\dashboard.routes.ts:22:      const dashboard = await
+dashboardService.getDashboard(req.tenant.id, req.user.id);
+node_modules\unificard-backend\src\core\economy\accounts\account.routes.ts:49:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\feed\feed.routes.ts:27:        req.user.id,
+node_modules\unificard-backend\src\core\feed\feed.routes.ts:68:      const globalUserId = req.user.globalUserId ||
+await resolveGlobalUserId(req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\identity\identity.routes.ts:126:              userId: localUser.id,
+node_modules\unificard-backend\src\core\identity\identity.service.ts:782:        userId: localUser.id,
+node_modules\unificard-backend\src\core\matching\matching.routes.ts:25:        req.user.id,
+node_modules\unificard-backend\src\core\matching\matching.routes.ts:64:        req.user.id,
+node_modules\unificard-backend\src\core\opportunity\opportunity.routes.ts:26:        req.user.id,
+node_modules\unificard-backend\src\core\opportunity\opportunity.routes.ts:65:        req.user.id,
+node_modules\unificard-backend\src\core\orchestrator\orchestrator.routes.ts:66:          req.user.globalUserId ||
+req.user.id,
+node_modules\unificard-backend\src\core\orchestrator\orchestrator.routes.ts:81:                userId:
+req.user.globalUserId || req.user.id,
+node_modules\unificard-backend\src\core\orchestrator\orchestrator.routes.ts:133:          userId:
+req.user.globalUserId || req.user.id,
+node_modules\unificard-backend\src\core\pilot\institutional-memory.routes.ts:79:      const userId = req.user.id ||
+req.user.userId;
+node_modules\unificard-backend\src\core\pilot\pilot-human-observation.routes.ts:93:        req.user.id ||
+req.user.userId
+node_modules\unificard-backend\src\core\pilot\pilot-human-observation.routes.ts:138:          checkedByUserId:
+req.user.id || req.user.userId,
+node_modules\unificard-backend\src\core\pilot\pilot-human-observation.routes.ts:220:        req.user.id ||
+req.user.userId
+node_modules\unificard-backend\src\core\pilot\pilot-human-observation.routes.ts:330:        req.user.id ||
+req.user.userId
+node_modules\unificard-backend\src\core\pilot\pilot-invites.routes.ts:32:        invitedByUserId: req.user.id ||
+req.user.userId,
+node_modules\unificard-backend\src\core\profile\impact-overview.routes.ts:30:      const globalUserId =
+req.user.globalUserId || req.user.id;
+node_modules\unificard-backend\src\core\profile\impact-overview.routes.ts:31:      const userId = req.user.userId ||
+req.user.id;
+node_modules\unificard-backend\src\core\profile\pending-responsibilities.routes.ts:29:      const globalUserId =
+req.user.globalUserId || req.user.id;
+node_modules\unificard-backend\src\core\profile\pending-responsibilities.routes.ts:30:      const userId =
+req.user.userId || req.user.id;
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:42:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:51:    const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:103:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:112:    const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:147:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:156:      const globalUserId =
+await resolveGlobalUserId(req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:177:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\profile\profile-education-companies.routes.ts:186:      const globalUserId =
+await resolveGlobalUserId(req.user.id, req.tenant.id);
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:75:        userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:138:          userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:203:          userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:244:        userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:298:          userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-health.routes.ts:354:          userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-inference.routes.ts:25:        req.user.id
+node_modules\unificard-backend\src\core\profile\profile-inference.routes.ts:54:        req.user.id
+node_modules\unificard-backend\src\core\profile\profile-inference.routes.ts:100:        req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-learning.routes.ts:24:        req.user.id
+node_modules\unificard-backend\src\core\profile\profile-learning.routes.ts:60:        req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-physical.routes.ts:24:        req.user.id
+node_modules\unificard-backend\src\core\profile\profile-physical.routes.ts:82:        req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-professional.routes.ts:27:        req.user.id
+node_modules\unificard-backend\src\core\profile\profile-professional.routes.ts:44:        userId: req.user.id,
+node_modules\unificard-backend\src\core\profile\profile-professional.routes.ts:126:        req.user.id,
+node_modules\unificard-backend\src\core\referral\referral.routes.ts:23:      const code = await
+referralService.getOrCreateReferralCode(req.tenant.id, req.user.id);
+node_modules\unificard-backend\src\core\referral\referral.routes.ts:51:        req.user.id,
+node_modules\unificard-backend\src\core\reputation\trust.routes.ts:21:      if (!req.user.id) {
+node_modules\unificard-backend\src\core\reputation\trust.routes.ts:28:        req.user.id
+node_modules\unificard-backend\src\core\reputation\trust.routes.ts:63:      if (!req.user.id) {
+node_modules\unificard-backend\src\core\reputation\trust.routes.ts:70:        req.user.id
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:55:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:127:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:136:    const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:232:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:287:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:350:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:414:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:471:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-balance-consolidation.routes.ts:548:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-p2p-transfer.routes.ts:24:   * fromUserId vem EXCLUSIVAMENTE do
+req.user.id (JWT)
+node_modules\unificard-backend\src\core\unifybank\bank-p2p-transfer.routes.ts:42:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\bank-p2p-transfer.routes.ts:51:    const fromUserId = req.user.id;
+node_modules\unificard-backend\src\core\unifybank\donation.routes.ts:51:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\donation.routes.ts:60:    const fromUserId = req.user.id; //
+fromUserId vem EXCLUSIVAMENTE do JWT
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:44:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:53:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:122:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:170:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:212:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:221:      const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:301:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:310:      const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:361:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:370:      const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:421:      if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\regional-fund-governance.routes.ts:430:      const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\unifybank\test-currency.routes.ts:67:          adminId: req.user.id,
+node_modules\unificard-backend\src\core\unifybank\transparency-admin.routes.ts:41:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:42:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:61:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:120:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:146:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:213:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:269:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\core\unifybank\transparency.routes.ts:287:    const userId = req.user.id;
+node_modules\unificard-backend\src\core\user-group-allocation\user-group-allocation.routes.ts:23:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\user-group-allocation\user-group-allocation.routes.ts:32:    const userId =
+req.user.id;
+node_modules\unificard-backend\src\core\user-group-allocation\user-group-allocation.routes.ts:61:    if (!req.user ||
+!req.user.id) {
+node_modules\unificard-backend\src\core\user-group-allocation\user-group-allocation.routes.ts:70:    const userId =
+req.user.id;
+node_modules\unificard-backend\src\modules\assistant\assistant.routes.ts:165:        const userIdForPlan = req.user.id
+|| req.user.globalUserId || '';
+node_modules\unificard-backend\src\modules\groups\groups.routes.ts:146:  // 🔴 CORREÇÃO: RBAC usa userId local
+(req.user.id), não globalUserId
+node_modules\unificard-backend\src\modules\groups\votes.routes.ts:50:      const userId = req.user.id;
+node_modules\unificard-backend\src\modules\groups\votes.routes.ts:122:      const userId = req.user.id;
+node_modules\unificard-backend\src\modules\groups\votes.routes.ts:179:      const userId = req.user.id;
+node_modules\unificard-backend\src\modules\groups\votes.routes.ts:239:      const userId = req.user.id;
+node_modules\unificard-backend\src\modules\groups\votes.routes.ts:308:      const userId = req.user.id;
+node_modules\unificard-backend\src\modules\pdv\pdv.routes.ts:23:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\modules\presence\presence.routes.ts:159:      actor.id,
+node_modules\unificard-backend\src\modules\profile\commitments.routes.ts:33:      const globalUserId =
+req.user.globalUserId || req.user.id;
+node_modules\unificard-backend\src\modules\profile\commitments.routes.ts:34:      const userId = req.user.userId ||
+req.user.id;
+node_modules\unificard-backend\src\modules\social\social-2.0.routes.ts:180:      const createdByUserId =
+actionContext?.actingUserId || req.user.id;
+node_modules\unificard-backend\src\modules\social\social-2.0.routes.ts:198:        req.user.id,
+node_modules\unificard-backend\src\modules\votes\votes.routes.ts:57:        req.user.id,
+node_modules\unificard-backend\src\modules\votes\votes.routes.ts:97:        req.user.id,
+node_modules\unificard-backend\src\modules\votes\votes.routes.ts:241:        req.user.id,
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:26: * - RBAC exige user válido (req.user.id)
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:50:    if (!req.user || !req.user.id) {
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:69:        userId: req.user.id,
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:77:    if (req.actionContext.actingUserId !== req.user.id) {
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:83:        userId: req.user.id,
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:85:        reason: 'Incoerência: actingUserId !==
+req.user.id',
+node_modules\unificard-backend\src\plugins\rbac.plugin.ts:87:      throw
+fastify.httpErrors.badRequest('RBAC_INVARIANT_VIOLATION: ActionContext actingUserId must match req.user.id');
+node_modules\unificard-backend\src\types\fastify.d.ts:18:      id: string; // Alias para userId - compatibilidade com
+endpoints que usam req.user.id
+node_modules\unificard-backend\src\utils\isTestOverrideUser.ts:15: * if (isTestOverrideUser(user.id)) {
+node_modules\unificard-backend\tests\invariants\rbac-invariants.test.ts:26:      // - requirePermission sem
+req.user.id → Erro RBAC_INVARIANT_VIOLATION
+node_modules\unificard-backend\tests\invariants\rbac-invariants.test.ts:27:      // - requireAnyPermission sem
+req.user.id → Erro RBAC_INVARIANT_VIOLATION
+node_modules\unificard-backend\tests\invariants\rbac-invariants.test.ts:28:      // - requireRole sem req.user.id →
+Erro RBAC_INVARIANT_VIOLATION
+
+PS C:\unificard>

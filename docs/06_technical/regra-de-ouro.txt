@@ -1,0 +1,11 @@
+Regra de ouro (vale a partir de agora)
+
+Contrato técnico → define o que não pode quebrar
+
+Regra → define comportamento obrigatório
+
+Protocolo → define como implementar
+
+Check → valida se alguém obedeceu
+
+Referência → explica, mas não governa

@@ -1,0 +1,127 @@
+Então por que não fazer agora?
+
+Porque M2 não falha como bug técnico.
+Ele falha como decisão mal preparada.
+
+M2 mexe em:
+
+tipo base do dinheiro
+
+operações matemáticas
+
+contratos internos
+
+testes
+
+eventualmente banco
+
+Se você entra nele cedo demais, acontece isso:
+
+você corrige cálculo A
+
+quebra cálculo B
+
+muda tipo C
+
+descobre dependência D escondida
+
+entra em loop de retrabalho
+
+Isso não é risco teórico — é o padrão em fintechs jovens.
+
+O que vocês ganharam AO PAUSAR agora
+
+Hoje, vocês têm algo raro:
+
+✔ nomenclatura limpa (M1)
+
+✔ semântica explícita (M3)
+
+✔ ambiguidade mapeada
+
+✔ boundaries claros
+
+✔ dívida nomeada
+
+Isso transforma o M2 de:
+
+“vamos trocar o tipo e rezar”
+
+em:
+
+“vamos substituir um eixo com mapa, gate e rollback”.
+
+O momento certo de abrir o M2
+
+Você abre o M2 quando pelo menos um desses sinais aparecer:
+
+🔴 Sinal técnico
+
+bugs de arredondamento reais
+
+divergência entre soma e total
+
+necessidade de split complexo
+
+integrações financeiras mais rígidas
+
+🔴 Sinal de negócio
+
+aumento de volume transacional
+
+dinheiro passando por múltiplos atores
+
+auditoria externa
+
+escala regional / fiscal
+
+🔴 Sinal arquitetural
+
+testes financeiros ficando frágeis
+
+regras monetárias duplicadas
+
+dificuldade de provar correção matemática
+
+Quando qualquer um desses aparece, adiar M2 vira risco maior que executá-lo.
+
+O erro clássico que vocês evitaram
+
+Muitas equipes fazem:
+
+“vamos criar MoneyValueObject logo no início”
+
+Sem:
+
+semântica definida
+
+contrato claro
+
+boundary limpo
+
+Resultado:
+
+VO gigante
+
+exceções internas
+
+casts
+
+“só nesse caso”
+
+código que ninguém confia
+
+Vocês não caíram nessa.
+
+Resumo brutalmente honesto
+
+✔ Sim, M2 é inevitável
+
+❌ Não, ele não é urgente agora
+
+🟢 Agora ele está preparado
+
+🔥 Quando abrir, ele vai ser cirurgia, não trauma
+
+Vocês não estão evitando o M2.
+Vocês estão impedindo que ele vire um monstro.

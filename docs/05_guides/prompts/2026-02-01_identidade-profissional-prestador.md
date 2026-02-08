@@ -1,0 +1,130 @@
+PROMPT 19 — Identidade Profissional do Prestador (Currículo Econômico Verificável)
+
+Objetivo:
+Criar uma identidade profissional econômica para o prestador de serviços baseada
+exclusivamente em fatos reais registrados no sistema.
+Não é ranking, não é feed, não é marketing.
+É um histórico verificável, auditável e determinístico.
+
+Princípio central:
+"O sistema não opina. Ele registra. Quem lê decide."
+
+O que este prompt resolve:
+- Dá confiança objetiva ao usuário sem virar rede social
+- Dá clareza brutal ao prestador sobre sua própria operação
+- Cria base sólida para:
+  - Matching econômico
+  - Contratos B2B
+  - Serviços recorrentes
+  - Escala profissional
+
+Escopo:
+Este prompt NÃO cria novos dados.
+Ele consolida dados que já existem no sistema.
+
+Fontes de dados (já implementadas em outros prompts):
+- ServiceOrder
+- ServiceBooking
+- ServiceDispatch
+- SLAContract
+- ReputationSnapshot
+- ServiceGovernanceMetrics
+- Disputes
+- Avaliações bidirecionais (PROMPT 15)
+- Presence / Online
+- Capacity / Recursos
+- Escrow / Conclusões
+
+Contrato canônico:
+ProfessionalIdentitySnapshot.contract.ts
+
+Campos do ProfessionalIdentitySnapshot:
+- actor_id
+- period_start
+- period_end
+- generated_at
+- immutable_hash
+
+Blocos de informação consolidados:
+
+1. Execução de serviços
+- total_services_executed
+- services_by_category
+- execution_success_rate
+- abandonment_rate
+- average_execution_time
+
+2. SLA operacional
+- average_response_time
+- on_time_execution_rate
+- sla_violations_count
+- sla_violation_rate
+
+3. Orçamento & conversão
+- visits_completed
+- quotes_sent
+- quotes_accepted
+- quote_to_execution_rate
+
+4. Disputas
+- disputes_opened
+- disputes_resolved
+- disputes_lost
+- dispute_rate
+
+5. Avaliações (agregadas)
+- average_rating_overall
+- average_rating_execution
+- average_rating_punctuality
+- average_rating_communication
+- evaluation_count
+⚠️ Nunca expor avaliações individuais publicamente
+
+6. Presença & disponibilidade
+- online_time_ratio
+- acceptance_rate
+- ignored_dispatch_rate
+
+7. Capacidade & consistência
+- overload_events
+- capacity_breach_rate
+- consistency_score (derivado, determinístico)
+
+Regras fundamentais:
+- Snapshot é imutável
+- Gerado por período (mensal por padrão)
+- Não existe "nota final"
+- Não existe comparação direta entre prestadores
+- Nenhum campo editável manualmente
+
+Visibilidade:
+- Prestador: vê tudo sobre si
+- Usuário: vê versão resumida e factual
+- Empresas/B2B: veem versão expandida mediante contrato
+- Admin: apenas leitura/auditoria
+
+O que NÃO pode:
+- Texto livre
+- Comentários
+- Likes
+- Seguidores
+- Ranking público
+- Algoritmo de recomendação subjetivo
+
+Integrações diretas:
+- Matching econômico (ajuste fino, nunca bloqueio direto)
+- Mercado de capacidade B2B
+- Incentivos regionais
+- Governança progressiva
+- Trust Layer (apenas por reincidência, nunca pontual)
+
+Resultado final:
+O prestador passa a ter um "currículo econômico" que:
+- Não mente
+- Não exagera
+- Não pune casos isolados
+- Recompensa consistência real
+
+Frase de fechamento:
+"Quem trabalha bem ao longo do tempo não precisa se vender. O sistema mostra."
+
