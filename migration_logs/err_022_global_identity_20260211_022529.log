@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/022_global_identity.sql:44: NOTA:  gatilho "trg_global_users_updated_at" para rela├º├úo "global_users" n├úo existe, ignorando
+psql:C:/unificard/backend/migrations/022_global_identity.sql:76: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

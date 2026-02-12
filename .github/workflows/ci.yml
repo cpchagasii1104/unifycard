@@ -55,6 +55,12 @@ jobs:
       - name: Check economy imports (guardrail)
         run: node backend/scripts/check-economy-imports.js
 
+      - name: Validate financial vocabulary (anti-regression)
+        run: npm run validate:financial-vocabulary -w unificard-backend
+
+      - name: Validate financial SSOT (architectural test)
+        run: npm run validate:financial-ssot -w unificard-backend
+
       - name: Check Core -> Modules imports (architecture guard)
         run: bash backend/scripts/check-core-imports.sh
         continue-on-error: true  # Baseline: 24 violations known

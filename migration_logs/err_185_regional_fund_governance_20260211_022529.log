@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/185_regional_fund_governance.sql:90: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

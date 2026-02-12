@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/355_products.sql:48: ERRO:  tipo "product_type" n├úo existe
+LINHA 17:     product_type product_type NOT NULL,
+                           ^

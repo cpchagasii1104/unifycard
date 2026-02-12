@@ -1,0 +1,76 @@
+name: SSOT Guard
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  ssot-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --------------------------------------------------
+      # 1) Bloquear criação de ledger paralelo
+      # --------------------------------------------------
+      - name: Block parallel ledgers
+        run: |
+          echo "Checking for forbidden ledger creation..."
+          if grep -R -i -E "CREATE\s+TABLE\s+.*ledger" backend/migrations \
+            | grep -v -E "CREATE\s+TABLE\s+bank_ledger\b"; then
+            echo "❌ Forbidden ledger table detected"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # 2) Bloquear amount/status em bank_transactions
+      # --------------------------------------------------
+      - name: Block forbidden columns in bank_transactions
+        run: |
+          echo "Checking forbidden columns in bank_transactions..."
+          if grep -R -i -E "bank_transactions.*\b(amount|status)\b" backend \
+            --include="*.ts" \
+            --include="*.sql"; then
+            echo "❌ bank_transactions must not carry amount or status"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # 3) Bloquear ledger_entries (estrutura proibida)
+      # --------------------------------------------------
+      - name: Block ledger_entries resurrection
+        run: |
+          echo "Checking forbidden ledger_entries usage..."
+          if grep -R -i "ledger_entries" backend; then
+            echo "❌ ledger_entries is forbidden"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # 4) Enforce append-only bank_ledger (bloquear fora de migrations)
+      # --------------------------------------------------
+      - name: Enforce append-only bank_ledger
+        run: |
+          echo "Checking append-only rule on bank_ledger..."
+          
+          # Verificar em src/**, tests/**, scripts/**
+          # Excluir apenas o arquivo de teste de imutabilidade (testa que UPDATE/DELETE falham)
+          VIOLATIONS=$(grep -r -i -E "(UPDATE\s+bank_ledger|DELETE\s+FROM\s+bank_ledger)" \
+            backend/src \
+            backend/tests \
+            scripts 2>/dev/null | \
+            grep -v "bank-ledger.test.ts" || true)
+          
+          if [ -n "$VIOLATIONS" ]; then
+            echo "SSOT VIOLATION: UPDATE/DELETE em bank_ledger é proibido fora de migrations históricas"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+          
+          echo "✅ No UPDATE/DELETE in bank_ledger outside migrations"
+
+      - name: SSOT Guard passed
+        run: echo "✅ SSOT checks passed"

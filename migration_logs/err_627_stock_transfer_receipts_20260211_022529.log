@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/627_stock_transfer_receipts.sql:84: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

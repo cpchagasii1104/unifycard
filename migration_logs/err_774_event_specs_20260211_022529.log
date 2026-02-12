@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/774_event_specs.sql:57: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

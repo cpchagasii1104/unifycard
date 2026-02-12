@@ -1,0 +1,11 @@
+psql:C:/unificard/backend/migrations/063_cpf_hardening.sql:48: ERRO:  rela├º├úo "user_profiles" n├úo existe
+CONTEXTO:  comando SQL "ALTER TABLE user_profiles
+
+      ADD CONSTRAINT user_profiles_user_id_fkey
+
+      FOREIGN KEY (user_id)
+
+      REFERENCES users(user_id)
+
+      ON DELETE RESTRICT"
+fun├º├úo PL/pgSQL inline_code_block linha 26 em comando SQL

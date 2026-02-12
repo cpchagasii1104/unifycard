@@ -1,10 +1,20 @@
+---
+
+# DOCUMENTO TÉCNICO / HISTÓRICO
+
+⚠️ Este documento NÃO é norma.
+⚠️ Não possui autoridade hierárquica.
+⚠️ Se houver conflito, prevalece exclusivamente:
+docs/01_normative/
+------------------
+
 # PLANO MESTRE DE CORREÇÃO — UNIFICARD
 
-## STATUS: CANÔNICO · VIGENTE · OBRIGATÓRIO
+## STATUS: TÉCNICO · HISTÓRICO · REFERÊNCIA
 
 **Versão:** 1.0  
 **Data:** 2026-02-05  
-**Objetivo:** Estabelecer SSOT irreversível através de correção estrutural sistemática
+**Objetivo:** Estabelecer SSOT através de correção estrutural sistemática
 
 ---
 
@@ -26,7 +36,7 @@
 
 ---
 
-# REGRAS ABSOLUTAS (LEI DE PRECEDÊNCIA)
+# DIRETRIZES OPERACIONAIS (REFERÊNCIA TÉCNICA)
 
 ```
 1. O protocolo SSOT tem precedência absoluta sobre código, produto ou prazo

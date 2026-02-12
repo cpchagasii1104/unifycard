@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/952_update_event_type_constraint.sql:28: ERRO:  rela├º├úo "events" n├úo existe

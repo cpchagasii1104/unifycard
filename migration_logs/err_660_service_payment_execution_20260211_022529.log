@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/660_service_payment_execution.sql:59: ERRO:  rela├º├úo "service_payment_requests" n├úo existe

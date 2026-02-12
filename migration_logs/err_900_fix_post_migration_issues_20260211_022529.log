@@ -1,0 +1,9 @@
+psql:C:/unificard/backend/migrations/900_fix_post_migration_issues.sql:43: NOTA:  Constraint companies_cnpj_format removida
+psql:C:/unificard/backend/migrations/900_fix_post_migration_issues.sql:61: NOTA:  Constraint companies_cnpj_format criada (apenas n├║meros)
+psql:C:/unificard/backend/migrations/900_fix_post_migration_issues.sql:88: ERRO:  rela├º├úo "accounts" n├úo existe
+LINHA 1: SELECT COUNT(*)                      FROM accounts
+                                                   ^
+CONSULTA:  SELECT COUNT(*)                      FROM accounts
+
+  WHERE owner_id IS NULL
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 6 em comando SQL

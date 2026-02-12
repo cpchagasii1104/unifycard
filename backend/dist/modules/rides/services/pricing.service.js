@@ -23,7 +23,7 @@ class PricingService {
         SELECT *
         FROM rides_pricing_config
         WHERE is_active = TRUE
-        ORDER BY updated_at DESC
+        ORDER BY updatedAt DESC
         LIMIT 1;
       `,
         });
@@ -54,7 +54,7 @@ class PricingService {
     async getActiveIncentives(tenantId, lat, lng) {
         const rows = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
-        SELECT value
+        SELECT incentive_value as valueCents
         FROM rides_zone_incentives
         WHERE zone_id = (
           SELECT zone_id
@@ -66,7 +66,7 @@ class PricingService {
       `,
             values: [lng, lat],
         });
-        return rows.reduce((sum, r) => sum + Number(r.value), 0);
+        return rows.reduce((sum, r) => sum + Number(r.valueCents), 0);
     }
     async calculate(input) {
         const { tenantId, distanceKm, durationMinutes, waitTimeSeconds = 0, } = input;
@@ -88,7 +88,7 @@ class PricingService {
         const incentive = 0; // matching/demand podem injetar isso futuramente
         const finalFareBeforeTip = subtotalWithMin + incentive;
         return {
-            total: finalFareBeforeTip,
+            totalCents: finalFareBeforeTip,
             baseFare,
             distanceCost,
             timeCost,

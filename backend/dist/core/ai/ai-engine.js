@@ -199,7 +199,7 @@ class AIEngine {
                                 lastTransactions: transactions.slice(0, 3).map(tx => ({
                                     transactionId: tx.transactionId,
                                     type: tx.toGlobalUserId === globalUserId ? 'credit' : 'debit',
-                                    amount: tx.amount,
+                                    amountCents: tx.amount,
                                 })),
                             };
                             reasoning.push(`Wallet detectada: saldo ${primaryAccount.currency} ${primaryAccount.balance.toFixed(2)}`);

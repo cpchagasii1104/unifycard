@@ -20,7 +20,7 @@ const safetyRoutes = async (fastify) => {
             throw new errors_1.BadRequestError('Missing tenant or user context');
         const contacts = await (0, db_1.runQueriesWithTenant)(tenantId, {
             text: `
-          SELECT contact_id, user_id, name, phone, created_at
+          SELECT contact_id, user_id, name, phone, createdAt
           FROM rides_emergency_contacts
           WHERE tenant_id = $1 AND user_id = $2;
         `,
@@ -87,7 +87,7 @@ const safetyRoutes = async (fastify) => {
         // registrar evento
         await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
-          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurred_at)
+          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
           VALUES ($1, 'sos_triggered', jsonb_build_object(
             'lat', $2,
             'lng', $3,
@@ -184,7 +184,7 @@ const safetyRoutes = async (fastify) => {
                 tenant_id,
                 ride_id,
                 contact_id,
-                shared_at
+                sharedAt
               )
               VALUES ($1, $2, $3, NOW());
             `,
@@ -240,7 +240,7 @@ const safetyRoutes = async (fastify) => {
               reported_by_user_id,
               type,
               description,
-              created_at
+              createdAt
             )
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING *;

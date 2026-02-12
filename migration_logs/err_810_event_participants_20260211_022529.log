@@ -1,0 +1,105 @@
+psql:C:/unificard/backend/migrations/810_event_participants.sql:232: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe
+CONTEXTO:  comando SQL "
+
+    CREATE TABLE IF NOT EXISTS event_participants (
+
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+
+
+      tenant_id UUID NOT NULL
+
+        REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+
+
+
+      event_id UUID NOT NULL
+
+        REFERENCES events(id) ON DELETE CASCADE,
+
+
+
+      -- Actor
+
+      actor_id UUID NOT NULL
+
+        REFERENCES actors(actor_id) ON DELETE CASCADE,
+
+
+
+      actor_type VARCHAR(10) NOT NULL,
+
+
+
+      -- Fun├º├úo (dom├¡nio valida)
+
+      role VARCHAR(50) NOT NULL,
+
+
+
+      -- Responsabilidade (dom├¡nio valida; aqui s├│ integridade b├ísica opcional)
+
+      responsibility_level INTEGER NOT NULL DEFAULT 2
+
+        CHECK (responsibility_level >= 1 AND responsibility_level <= 3),
+
+
+
+      -- Economia (integridade f├¡sica)
+
+      agreed_amount_cents INTEGER NOT NULL DEFAULT 0
+
+        CHECK (agreed_amount_cents >= 0),
+
+
+
+      payment_type VARCHAR(20) NOT NULL DEFAULT 'fixed',
+
+
+
+      -- Check-in / entrega
+
+      expected_headcount INTEGER NOT NULL DEFAULT 1
+
+        CHECK (expected_headcount > 0),
+
+
+
+      check_in_required BOOLEAN NOT NULL DEFAULT true,
+
+
+
+      minimum_check_in_rate NUMERIC(3,2) DEFAULT 0.80
+
+        CHECK (minimum_check_in_rate >= 0 AND minimum_check_in_rate <= 1),
+
+
+
+      -- Status (dom├¡nio valida)
+
+      status VARCHAR(20) NOT NULL DEFAULT 'INVITED',
+
+
+
+      -- Timestamps
+
+      invited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+      confirmed_at TIMESTAMPTZ,
+
+      checked_in_at TIMESTAMPTZ,
+
+
+
+      -- Metadata
+
+      metadata JSONB DEFAULT '{}'::jsonb,
+
+
+
+      CONSTRAINT event_participants_unique UNIQUE (event_id, actor_id)
+
+    );
+
+  "
+fun├º├úo PL/pgSQL inline_code_block linha 17 em EXECUTE

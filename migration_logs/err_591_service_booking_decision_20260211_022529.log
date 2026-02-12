@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/591_service_booking_decision.sql:63: ERRO:  rela├º├úo "service_bookings" n├úo existe

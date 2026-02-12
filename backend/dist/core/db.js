@@ -4,6 +4,14 @@
 // Fachada oficial de acesso ao banco.
 // Usa o pool existente e garante compatibilidade com
 // multi-tenant via app.current_tenant (PostgreSQL RLS).
+//
+// ⚠️ ATENÇÃO — GATE 3 (SSOT):
+// Este módulo é APENAS infraestrutura.
+// É PROIBIDO:
+// - implementar lógica financeira aqui
+// - atualizar saldo diretamente
+// - decidir estado financeiro
+// Qualquer uso financeiro deve passar pelo Bank (ledger).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runSystemQuery = runSystemQuery;
 exports.runQueryWithTenant = runQueryWithTenant;
@@ -15,10 +23,14 @@ const pool_1 = require("@core/database/pool");
  * Executa queries que NÃO dependem de tenant.
  * Envia direto para o banco sem SET LOCAL.
  *
- * Exemplos:
+ * Exemplos permitidos:
  *  - leitura de tenants
  *  - autenticação
  *  - consultas de sistema
+ *
+ * ⚠️ Proibido:
+ *  - decisões financeiras
+ *  - atualização de saldo
  */
 async function runSystemQuery(query) {
     const client = await pool_1.pool.connect();
@@ -34,13 +46,13 @@ async function runSystemQuery(query) {
  * Executa queries protegidas por RLS, definindo o tenant no contexto.
  *
  * IMPORTANTE:
- *  - Só use isso para tabelas multi-tenant
- *  - Nunca chame em tabelas de sistema
+ *  - Só use para tabelas multi-tenant
+ *  - Nunca use para decidir estado financeiro
  */
 async function runQueryWithTenant(tenantId, query) {
     const client = await pool_1.pool.connect();
     try {
-        // PostgreSQL não aceita bind parameters em SET LOCAL, usar set_config com true (local)
+        // PostgreSQL não aceita bind parameters em SET LOCAL
         await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
         const result = await client.query(query.text.trim(), query.values ?? []);
         return result.rows[0];
@@ -55,19 +67,18 @@ async function runQueriesWithTenant(tenantId, query) {
 /**
  * Inicia uma transação isolada COM suporte a multi-tenant.
  *
- * Exemplo de uso:
+ * ⚠️ ATENÇÃO:
+ * Esta função NÃO deve ser usada para:
+ *  - atualizar saldo
+ *  - executar lógica financeira
+ *  - contornar o Bank / ledger
  *
- * const result = await runTenantTransaction(tenantId, async (trx) => {
- *    await trx.query({ text: "UPDATE accounts SET balance = balance - 10 WHERE id=$1", values: [accA] });
- *    await trx.query({ text: "UPDATE accounts SET balance = balance + 10 WHERE id=$1", values: [accB] });
- *    return true;
- * });
+ * Transações financeiras pertencem exclusivamente ao domínio bancário.
  */
 async function runTenantTransaction(tenantId, fn) {
     const client = await pool_1.pool.connect();
     try {
         await client.query('BEGIN');
-        // PostgreSQL não aceita bind parameters em SET LOCAL, usar set_config com true (local)
         await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
         const trx = {
             query: async (q) => {
@@ -89,6 +100,11 @@ async function runTenantTransaction(tenantId, fn) {
 }
 /**
  * Transação de sistema — sem tenant.
+ *
+ * Permitido apenas para:
+ *  - setup
+ *  - manutenção
+ *  - leitura / escrita não financeira
  */
 async function runSystemTransaction(fn) {
     const client = await pool_1.pool.connect();

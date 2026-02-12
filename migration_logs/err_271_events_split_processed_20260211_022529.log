@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/271_events_split_processed.sql:39: ERRO:  rela├º├úo "events" n├úo existe

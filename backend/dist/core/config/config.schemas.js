@@ -10,7 +10,7 @@ exports.configKeySchema = zod_1.z.object({
 exports.setConfigSchema = zod_1.z.object({
     module: zod_1.z.string().min(1).max(50),
     key: zod_1.z.string().min(1).max(100),
-    value: zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean(), zod_1.z.record(zod_1.z.any()), zod_1.z.array(zod_1.z.any())]),
+    valueCents: zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean(), zod_1.z.record(zod_1.z.any()), zod_1.z.array(zod_1.z.any())]),
     isSystem: zod_1.z.boolean().optional(),
 });
 exports.listConfigsQuerySchema = zod_1.z.object({

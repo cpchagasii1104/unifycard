@@ -1,0 +1,147 @@
+/* frontend/src/components/marketplace/CheckoutMultiVendor.css */
+/* Estilos para checkout multi-vendor conforme UX canônica */
+
+.checkout-multi-vendor {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.checkout-multi-vendor.loading,
+.checkout-multi-vendor.error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.loading-message {
+  font-size: 18px;
+  color: #666;
+}
+
+.error-message {
+  text-align: center;
+  padding: 24px;
+}
+
+.error-message h3 {
+  color: #d32f2f;
+  margin-bottom: 12px;
+}
+
+.error-message p {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.error-message button {
+  padding: 8px 16px;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.error-message button:hover {
+  background-color: #1565c0;
+}
+
+.checkout-header {
+  margin-bottom: 24px;
+}
+
+.checkout-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.checkout-status {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.checkout-status.confirmed {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.checkout-vendor-groups {
+  margin-bottom: 24px;
+}
+
+.checkout-invoice-info {
+  margin-top: 32px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.checkout-invoice-info h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.checkout-invoice-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.checkout-invoice-info strong {
+  color: #333;
+}
+
+.invoice-note {
+  font-size: 13px;
+  color: #888;
+  font-style: italic;
+}
+
+.checkout-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-confirm {
+  padding: 12px 24px;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background-color: #1565c0;
+}
+
+.btn-confirm:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.checkout-error {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #ffebee;
+  border-left: 4px solid #d32f2f;
+  border-radius: 4px;
+}
+
+.checkout-error p {
+  margin: 0;
+  color: #d32f2f;
+  font-size: 14px;
+}
+
+

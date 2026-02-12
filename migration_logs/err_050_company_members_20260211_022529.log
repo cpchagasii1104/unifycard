@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/050_company_members.sql:74: ERRO:  coluna "actor_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/770_events_core.sql:23: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/770_events_core.sql:54: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

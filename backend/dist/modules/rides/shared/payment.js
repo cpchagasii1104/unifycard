@@ -64,5 +64,5 @@ async function processRidePayment(input) {
         throw new errors_1.BadRequestError("Ride not found");
     }
     // Delegar para distributionService que usa SplitEngine
-    return await distribution_service_1.distributionService.processRidePayment(tenantId, ride, { total: totalAmount || ride.final_price || 0 });
+    return await distribution_service_1.distributionService.processRidePayment(tenantId, ride, { totalCents: totalAmount || ride.final_price || 0 });
 }

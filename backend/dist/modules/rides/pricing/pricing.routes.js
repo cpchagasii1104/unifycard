@@ -26,10 +26,10 @@ const pricingRoutes = async (fastify) => {
             cancellation_fee,
             night_multiplier,
             weekend_multiplier,
-            updated_at
+            updatedAt
           FROM rides_pricing_config
           WHERE tenant_id = $1 AND is_active = TRUE
-          ORDER BY updated_at DESC
+          ORDER BY updatedAt DESC
           LIMIT 1;
         `,
             values: [tenantId],
@@ -112,7 +112,7 @@ const pricingRoutes = async (fastify) => {
             multiplier,
             active_from,
             active_until,
-            created_at
+            createdAt
           FROM rides_surge_multipliers
           WHERE tenant_id = $1
             AND (active_until IS NULL OR active_until > NOW());

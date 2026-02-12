@@ -18,7 +18,7 @@ class ReferralService {
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT referral_code
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [userId]);
         if (existing && existing.referral_code) {
@@ -32,7 +32,7 @@ class ReferralService {
         while (!code && attempts < maxAttempts) {
             const candidate = crypto_1.default.randomBytes(4).toString('hex').toUpperCase();
             const check = await (0, pool_1.runQueryWithTenant)(tenantId, `
-          SELECT user_id
+          SELECT id
           FROM users
           WHERE tenant_id = $1 AND referral_code = $2
           LIMIT 1
@@ -49,7 +49,7 @@ class ReferralService {
         await (0, pool_1.runQueryWithTenant)(tenantId, `
         UPDATE users
         SET referral_code = $2
-        WHERE user_id = $1
+        WHERE id = $1
       `, [userId, code]);
         return code;
     }
@@ -60,7 +60,7 @@ class ReferralService {
         const result = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT referral_code
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [userId]);
         return result ? (result.referral_code || null) : null;
@@ -74,7 +74,7 @@ class ReferralService {
         const userCheck = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT metadata
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [newUserId]);
         if (userCheck && userCheck.metadata && userCheck.metadata.referred_by) {
@@ -82,12 +82,12 @@ class ReferralService {
         }
         // Buscar usuário que possui o código
         const referrer = await (0, pool_1.runQueryWithTenant)(tenantId, `
-        SELECT user_id
+        SELECT id
         FROM users
         WHERE tenant_id = $1 AND UPPER(referral_code) = UPPER($2)
         LIMIT 1
       `, [tenantId, referralCode]);
-        if (!referrer || !referrer.user_id) {
+        if (!referrer || !referrer.id) {
             throw new Error('Código de indicação inválido');
         }
         // Registrar relação de indicação (será usado para calcular comissões futuras)
@@ -95,43 +95,83 @@ class ReferralService {
         await (0, pool_1.runQueryWithTenant)(tenantId, `
         UPDATE users
         SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('referred_by', $2)
-        WHERE user_id = $1
-      `, [newUserId, referrer.user_id]);
-        // Registrar vínculo na tabela user_referral_links (legacy, para backward compatibility)
+        WHERE id = $1
+      `, [newUserId, referrer.id]);
+        // 🔴 GARANTIA CANÔNICA: Inserção canônica conforme schema
+        // 1) Inserir primeiro em user_referral_links com RETURNING link_id
+        // 2) Inserir em referrals INCLUINDO link_id (NOT NULL)
+        let linkId = null;
         try {
-            await (0, pool_1.runQueryWithTenant)(tenantId, `
+            const linkResult = await (0, pool_1.runQueryWithTenant)(tenantId, `
         INSERT INTO user_referral_links (tenant_id, referrer_user_id, referred_user_id, referral_code_used)
         VALUES ($1, $2, $3, $4)
-        ON CONFLICT (referred_user_id) DO NOTHING
-        `, [tenantId, referrer.user_id, newUserId, referralCode]);
+        ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
+        RETURNING link_id
+        `, [tenantId, referrer.id, newUserId, referralCode]);
+            if (linkResult?.link_id) {
+                linkId = linkResult.link_id;
+            }
+            else {
+                // ON CONFLICT DO NOTHING não retorna linha, buscar link_id existente
+                const existingLink = await (0, pool_1.runQueryWithTenant)(tenantId, `
+          SELECT link_id
+          FROM user_referral_links
+          WHERE tenant_id = $1 AND referred_user_id = $2
+          LIMIT 1
+          `, [tenantId, newUserId]);
+                if (existingLink?.link_id) {
+                    linkId = existingLink.link_id;
+                }
+            }
         }
         catch (err) {
-            // Ignorar erro se tabela não existir (backward compatibility)
+            // Se user_referral_links NÃO EXISTIR, PARAR e REPORTAR
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
+                throw new Error(`Tabela user_referral_links não existe. Execute migration 030_referrals.sql primeiro.`);
+            }
+            // Outros erros podem ser ignorados (ex: constraint violation)
+            devLog_1.devLog.warn('referral.link_error', {
+                error: errorMessage,
+            });
         }
         // Registrar na tabela referrals (nova, com expiração)
+        // 🔴 CRÍTICO: Incluir link_id se disponível (NOT NULL conforme schema)
         try {
             const endsAt = new Date();
             endsAt.setFullYear(endsAt.getFullYear() + 1); // 1 ano a partir de agora
-            await (0, pool_1.runQueryWithTenant)(tenantId, `
-        INSERT INTO referrals (tenant_id, referrer_user_id, referred_user_id, starts_at, ends_at, percentage_bps, status)
-        VALUES ($1, $2, $3, NOW(), $4, 500, 'active')
-        ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
-        `, [tenantId, referrer.user_id, newUserId, endsAt]);
+            if (linkId) {
+                await (0, pool_1.runQueryWithTenant)(tenantId, `
+          INSERT INTO referrals (tenant_id, link_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
+          VALUES ($1, $2, $3, $4, NOW(), $5, 500, 'active')
+          ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
+          `, [tenantId, linkId, referrer.id, newUserId, endsAt]);
+            }
+            else {
+                // Se não tem link_id, tentar inserir sem ele (pode falhar se constraint exigir)
+                await (0, pool_1.runQueryWithTenant)(tenantId, `
+          INSERT INTO referrals (tenant_id, referrer_user_id, referred_user_id, startsAt, endsAt, percentage_bps, status)
+          VALUES ($1, $2, $3, NOW(), $4, 500, 'active')
+          ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
+          `, [tenantId, referrer.id, newUserId, endsAt]);
+            }
             devLog_1.devLog.success('referral.created', {
-                referrerUserId: referrer.user_id,
+                referrerUserId: referrer.id,
                 referredUserId: newUserId,
                 referralCode,
+                linkId,
                 endsAt,
             });
         }
         catch (err) {
             devLog_1.devLog.warn('referral.error', {
                 error: err instanceof Error ? err.message : String(err),
-                referrerUserId: referrer.user_id,
+                referrerUserId: referrer.id,
                 referredUserId: newUserId,
+                linkId,
             });
         }
-        return { referrerUserId: referrer.user_id };
+        return { referrerUserId: referrer.id };
     }
 }
 exports.referralService = new ReferralService();

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/816_live_presence.sql:35: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

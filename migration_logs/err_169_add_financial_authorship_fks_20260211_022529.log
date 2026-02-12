@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/169_add_financial_authorship_fks.sql:26: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

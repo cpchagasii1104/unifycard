@@ -46,7 +46,7 @@ class ReputationService {
             entityGlobalUserId: row.entity_global_user_id ?? undefined,
             globalScore: Number(row.global_score),
             ratingCount: row.rating_count,
-            lastRatingAt: row.last_rating_at ?? undefined,
+            lastRatingAt: row.last_ratingAt ?? undefined,
             qualityScore: row.quality_score ? Number(row.quality_score) : undefined,
             punctualityScore: row.punctuality_score
                 ? Number(row.punctuality_score)
@@ -54,12 +54,12 @@ class ReputationService {
             professionalismScore: row.professionalism_score
                 ? Number(row.professionalism_score)
                 : undefined,
-            updatedAt: row.updated_at,
+            updatedAt: row.updatedAt,
         };
     }
     async getScore(tenantId, entityType, entityId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_rating_at, quality_score, punctuality_score, professionalism_score, updated_at
+      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_ratingAt, quality_score, punctuality_score, professionalism_score, updatedAt
       FROM reputation_scores
       WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3
       `, [tenantId, entityType, entityId]);
@@ -74,10 +74,10 @@ class ReputationService {
         // Buscar todas as reputações deste global_user_id (sem RLS para buscar em múltiplos tenants)
         const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
         const result = await pool.query(`
-      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_rating_at, quality_score, punctuality_score, professionalism_score, updated_at
+      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_ratingAt, quality_score, punctuality_score, professionalism_score, updatedAt
       FROM reputation_scores
       WHERE entity_global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       `, [globalUserId]);
         const rows = result.rows;
         if (!rows || rows.length === 0) {
@@ -93,8 +93,8 @@ class ReputationService {
             const count = row.rating_count;
             totalReviews += count;
             totalScore += score * count;
-            if (row.last_rating_at && (!lastReviewAt || row.last_rating_at > lastReviewAt)) {
-                lastReviewAt = row.last_rating_at;
+            if (row.last_ratingAt && (!lastReviewAt || row.last_ratingAt > lastReviewAt)) {
+                lastReviewAt = row.last_ratingAt;
             }
             // Mapear source_module para scores
             const moduleMap = {
@@ -130,7 +130,7 @@ class ReputationService {
      */
     async applyReview(tenantId, payload) {
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_rating_at, quality_score, punctuality_score, professionalism_score, updated_at
+      SELECT tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_ratingAt, quality_score, punctuality_score, professionalism_score, updatedAt
       FROM reputation_scores
       WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3
       `, [tenantId, payload.entityType, payload.entityId]);
@@ -200,11 +200,11 @@ class ReputationService {
         entity_global_user_id,
         global_score,
         rating_count,
-        last_rating_at,
+        last_ratingAt,
         quality_score,
         punctuality_score,
         professionalism_score,
-        updated_at
+        updatedAt
       )
       VALUES ($1,$2,$3,$4,$5,$6,now(),$7,$8,$9,now())
       ON CONFLICT (tenant_id, entity_type, entity_id)
@@ -212,12 +212,12 @@ class ReputationService {
         entity_global_user_id = COALESCE(EXCLUDED.entity_global_user_id, reputation_scores.entity_global_user_id),
         global_score = EXCLUDED.global_score,
         rating_count = EXCLUDED.rating_count,
-        last_rating_at = EXCLUDED.last_rating_at,
+        last_ratingAt = EXCLUDED.last_ratingAt,
         quality_score = EXCLUDED.quality_score,
         punctuality_score = EXCLUDED.punctuality_score,
         professionalism_score = EXCLUDED.professionalism_score,
-        updated_at = now()
-      RETURNING tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_rating_at, quality_score, punctuality_score, professionalism_score, updated_at
+        updatedAt = now()
+      RETURNING tenant_id, entity_type, entity_id, entity_global_user_id, global_score, rating_count, last_ratingAt, quality_score, punctuality_score, professionalism_score, updatedAt
       `, [
             tenantId,
             payload.entityType,

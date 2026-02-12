@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/565_services_domain.sql:101: ERRO:  coluna "actor_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

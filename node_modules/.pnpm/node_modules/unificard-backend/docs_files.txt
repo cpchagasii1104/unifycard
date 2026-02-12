@@ -1,0 +1,11 @@
+C:\unificard\backend\node_modules\.ignored\@typescript-eslint\eslint-plugin\docs
+C:\unificard\backend\node_modules\.ignored\fastify\docs
+C:\unificard\backend\node_modules\.ignored\pino-pretty\docs
+C:\unificard\backend\node_modules\.ignored_fastify\docs
+C:\unificard\backend\node_modules\.ignored_pino-pretty\docs
+C:\unificard\backend\node_modules\@typescript-eslint\.ignored_eslint-plugin\docs
+C:\unificard\backend\node_modules\@typescript-eslint\eslint-plugin\docs
+C:\unificard\backend\node_modules\fast-content-type-parse\docs
+C:\unificard\backend\node_modules\fastify\docs
+C:\unificard\backend\node_modules\pino\docs
+C:\unificard\backend\node_modules\pino-pretty\docs

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/124_bank_limits_read_model.sql:49: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

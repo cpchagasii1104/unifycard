@@ -11,8 +11,8 @@ class RoleService {
             name: row.name,
             description: row.description,
             isSystemRole: row.is_system_role,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     /**
@@ -79,7 +79,7 @@ class RoleService {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `UPDATE roles 
        SET name = COALESCE($1, name),
            description = COALESCE($2, description),
-           updated_at = now()
+           updatedAt = now()
        WHERE role_id = $3
        RETURNING *`, [name || null, description !== undefined ? description : null, roleId]);
         if (!row) {

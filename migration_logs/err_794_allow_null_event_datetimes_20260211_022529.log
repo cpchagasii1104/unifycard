@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/794_allow_null_event_datetimes.sql:5: ERRO:  rela├º├úo "events" n├úo existe

@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "macro_intention": "celebrate",
+  "subflow": "birthday_party",
+  "title": "Festa de Aniversário",
+  "description": "Questionário declarativo para coleta de informações sobre festa de aniversário. NÃO decide nada. Apenas coleta.",
+  "steps": [
+    {
+      "id": "step_1_context",
+      "title": "Contexto Básico",
+      "order": 1,
+      "questions": [
+        {
+          "id": "event_date",
+          "type": "date_or_window",
+          "label": "Data do evento",
+          "help_text": "Informe a data exata ou uma janela de datas possíveis",
+          "required": true,
+          "validation": {
+            "min_date": "today",
+            "max_date": "+2years"
+          }
+        },
+        {
+          "id": "city_region",
+          "type": "text",
+          "label": "Cidade / Região",
+          "help_text": "Onde será realizado o evento?",
+          "required": true,
+          "validation": {
+            "min_length": 2,
+            "max_length": 100
+          }
+        },
+        {
+          "id": "estimated_attendance",
+          "type": "range",
+          "label": "Número estimado de pessoas",
+          "help_text": "Quantas pessoas você espera?",
+          "required": true,
+          "options": [
+            { "value": "1-20", "label": "1 a 20 pessoas" },
+            { "value": "21-50", "label": "21 a 50 pessoas" },
+            { "value": "51-100", "label": "51 a 100 pessoas" },
+            { "value": "101-200", "label": "101 a 200 pessoas" },
+            { "value": "201+", "label": "Mais de 200 pessoas" }
+          ]
+        },
+        {
+          "id": "has_venue",
+          "type": "yes_no",
+          "label": "Já possui local?",
+          "help_text": "Você já tem um local definido para o evento?",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "step_2_birthday_type",
+      "title": "Tipo de Aniversário",
+      "order": 2,
+      "description": "⚠️ Categoria DESCRITIVA apenas. NÃO usado para decisão de negócio.",
+      "questions": [
+        {
+          "id": "birthday_category",
+          "type": "single_choice",
+          "label": "Tipo de aniversário",
+          "help_text": "Selecione o tipo de aniversário (apenas para descrição)",
+          "required": true,
+          "options": [
+            { "value": "infantil", "label": "Infantil" },
+            { "value": "15_anos", "label": "15 anos" },
+            { "value": "adulto", "label": "Adulto" }
+          ],
+          "metadata": {
+            "descriptive_only": true,
+            "not_used_for_business_logic": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "step_3_subtype_branch",
+      "title": "Detalhes por Tipo",
+      "order": 3,
+      "conditional": {
+        "when": "birthday_category",
+        "branches": {
+          "infantil": {
+            "questions": [
+              {
+                "id": "child_age_range",
+                "type": "single_choice",
+                "label": "Faixa etária da criança",
+                "help_text": "Qual a idade da criança?",
+                "required": true,
+                "options": [
+                  { "value": "0-2", "label": "0 a 2 anos" },
+                  { "value": "3-5", "label": "3 a 5 anos" },
+                  { "value": "6-10", "label": "6 a 10 anos" },
+                  { "value": "11-12", "label": "11 a 12 anos" }
+                ]
+              },
+              {
+                "id": "desired_themes",
+                "type": "multiple_choice",
+                "label": "Temas desejados",
+                "help_text": "Selecione os temas que interessam (lista aberta)",
+                "required": false,
+                "options": [
+                  { "value": "super_heroes", "label": "Super-heróis" },
+                  { "value": "princess", "label": "Princesas" },
+                  { "value": "animals", "label": "Animais" },
+                  { "value": "cars", "label": "Carros" },
+                  { "value": "unicorn", "label": "Unicórnio" },
+                  { "value": "other", "label": "Outro" }
+                ],
+                "allow_custom": true
+              },
+              {
+                "id": "desired_services",
+                "type": "multiple_choice",
+                "label": "Serviços desejados",
+                "help_text": "Quais serviços você gostaria de ter?",
+                "required": false,
+                "options": [
+                  { "value": "animation", "label": "Animação" },
+                  { "value": "decoration", "label": "Decoração" },
+                  { "value": "photography", "label": "Fotografia" },
+                  { "value": "catering", "label": "Buffet" },
+                  { "value": "cake", "label": "Bolo" }
+                ]
+              }
+            ]
+          },
+          "15_anos": {
+            "questions": [
+              {
+                "id": "style_preference",
+                "type": "single_choice",
+                "label": "Estilo desejado",
+                "help_text": "Qual estilo você prefere?",
+                "required": false,
+                "options": [
+                  { "value": "traditional", "label": "Tradicional" },
+                  { "value": "modern", "label": "Moderno" },
+                  { "value": "rustic", "label": "Rústico" },
+                  { "value": "elegant", "label": "Elegante" }
+                ]
+              },
+              {
+                "id": "desired_themes",
+                "type": "multiple_choice",
+                "label": "Temas desejados",
+                "help_text": "Selecione os temas que interessam",
+                "required": false,
+                "options": [
+                  { "value": "pink", "label": "Rosa" },
+                  { "value": "blue", "label": "Azul" },
+                  { "value": "gold", "label": "Dourado" },
+                  { "value": "white", "label": "Branco" },
+                  { "value": "other", "label": "Outro" }
+                ],
+                "allow_custom": true
+              },
+              {
+                "id": "desired_services",
+                "type": "multiple_choice",
+                "label": "Serviços desejados",
+                "help_text": "Quais serviços você gostaria de ter?",
+                "required": false,
+                "options": [
+                  { "value": "dj", "label": "DJ" },
+                  { "value": "decoration", "label": "Decoração" },
+                  { "value": "buffet", "label": "Buffet" },
+                  { "value": "photography", "label": "Fotografia" },
+                  { "value": "videography", "label": "Filmagem" }
+                ]
+              }
+            ]
+          },
+          "adulto": {
+            "questions": [
+              {
+                "id": "event_style",
+                "type": "single_choice",
+                "label": "Estilo do evento",
+                "help_text": "Qual tipo de evento você prefere?",
+                "required": false,
+                "options": [
+                  { "value": "barbecue", "label": "Churrasco" },
+                  { "value": "dinner", "label": "Jantar" },
+                  { "value": "party", "label": "Festa" },
+                  { "value": "cocktail", "label": "Coquetel" }
+                ]
+              },
+              {
+                "id": "desired_services",
+                "type": "multiple_choice",
+                "label": "Serviços desejados",
+                "help_text": "Quais serviços você gostaria de ter?",
+                "required": false,
+                "options": [
+                  { "value": "dj", "label": "DJ" },
+                  { "value": "live_music", "label": "Música ao vivo" },
+                  { "value": "catering", "label": "Buffet" },
+                  { "value": "bar", "label": "Bar" },
+                  { "value": "photography", "label": "Fotografia" }
+                ]
+              },
+              {
+                "id": "food_type",
+                "type": "multiple_choice",
+                "label": "Tipo de alimentação desejada",
+                "help_text": "O que você gostaria de servir?",
+                "required": false,
+                "options": [
+                  { "value": "appetizers", "label": "Petiscos" },
+                  { "value": "buffet", "label": "Buffet completo" },
+                  { "value": "plated", "label": "Prato feito" },
+                  { "value": "finger_food", "label": "Finger food" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "step_4_infrastructure",
+      "title": "Infraestrutura",
+      "order": 4,
+      "conditional": {
+        "when": "has_venue",
+        "branches": {
+          "no": {
+            "questions": [
+              {
+                "id": "venue_type",
+                "type": "multiple_choice",
+                "label": "Tipo de local desejado",
+                "help_text": "Que tipo de local você procura?",
+                "required": false,
+                "options": [
+                  { "value": "salon", "label": "Salão de festas" },
+                  { "value": "farm", "label": "Chácara" },
+                  { "value": "club", "label": "Clube" },
+                  { "value": "restaurant", "label": "Restaurante" },
+                  { "value": "outdoor", "label": "Ao ar livre" }
+                ]
+              },
+              {
+                "id": "distance_radius",
+                "type": "single_choice",
+                "label": "Raio de distância",
+                "help_text": "Até que distância você está disposto a ir?",
+                "required": false,
+                "options": [
+                  { "value": "5km", "label": "Até 5 km" },
+                  { "value": "10km", "label": "Até 10 km" },
+                  { "value": "20km", "label": "Até 20 km" },
+                  { "value": "50km", "label": "Até 50 km" },
+                  { "value": "any", "label": "Qualquer distância" }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "questions": [
+        {
+          "id": "support_services",
+          "type": "multiple_choice",
+          "label": "Serviços de apoio",
+          "help_text": "Quais serviços de apoio você precisa?",
+          "required": false,
+          "options": [
+            { "value": "security", "label": "Segurança" },
+            { "value": "cleaning", "label": "Limpeza" },
+            { "value": "reception", "label": "Recepção" },
+            { "value": "sound_lighting", "label": "Som/Iluminação" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "step_5_economy",
+      "title": "Economia",
+      "order": 5,
+      "description": "⚠️ Informações DECLARATIVAS apenas. NÃO usado para ranking ou decisão automática.",
+      "questions": [
+        {
+          "id": "budget_range",
+          "type": "range",
+          "label": "Faixa de orçamento",
+          "help_text": "Qual sua faixa de orçamento estimada?",
+          "required": false,
+          "options": [
+            { "value": "0-1000", "label": "Até R$ 1.000" },
+            { "value": "1000-3000", "label": "R$ 1.000 a R$ 3.000" },
+            { "value": "3000-5000", "label": "R$ 3.000 a R$ 5.000" },
+            { "value": "5000-10000", "label": "R$ 5.000 a R$ 10.000" },
+            { "value": "10000+", "label": "Acima de R$ 10.000" }
+          ],
+          "metadata": {
+            "declarative_only": true,
+            "not_used_for_ranking": true
+          }
+        },
+        {
+          "id": "priority_declared",
+          "type": "single_choice",
+          "label": "Prioridade declarada",
+          "help_text": "Qual sua prioridade para este evento?",
+          "required": false,
+          "options": [
+            { "value": "economize", "label": "Economizar" },
+            { "value": "balance", "label": "Equilibrar" },
+            { "value": "splurge", "label": "Caprichar" }
+          ],
+          "metadata": {
+            "declarative_only": true,
+            "not_used_for_business_logic": true
+          }
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "no_ranking": true,
+    "no_scoring": true,
+    "no_automatic_decisions": true,
+    "categories_descriptive_only": true,
+    "spec_is_declarative": true
+  }
+}
+
+
+

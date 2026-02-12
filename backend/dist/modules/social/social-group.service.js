@@ -70,7 +70,7 @@ class SocialGroupService {
             postId: row.post_id,
             content: row.content,
             globalUserId: row.global_user_id,
-            createdAt: row.created_at,
+            createdAt: row.createdAt.toISOString(),
             metadata: row.metadata || {},
             isAutoPost: row.metadata?.type === 'system_auto_post',
         }));
@@ -133,8 +133,8 @@ class SocialGroupService {
                 content: item.content,
                 globalUserId: item.global_user_id,
                 groupId: metadata.groupId,
-                amount: metadata.splitAmount,
-                createdAt: item.created_at,
+                amountCents: metadata.splitAmount,
+                createdAt: item.createdAt,
                 metadata,
             };
         });

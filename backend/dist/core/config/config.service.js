@@ -38,7 +38,7 @@ exports.configService = void 0;
 const pool_1 = require("@core/database/pool");
 const event_bus_1 = require("@core/events/event-bus");
 const crypto = __importStar(require("crypto"));
-function inferValueType(value) {
+function inferValueType(valueCents) {
     if (typeof value === 'string')
         return 'string';
     if (typeof value === 'number')
@@ -65,8 +65,8 @@ function mapConfigRow(row) {
         value,
         valueType: row.value_type,
         isSystem: row.is_system,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 function mapFeatureFlagRow(row) {
@@ -75,11 +75,11 @@ function mapFeatureFlagRow(row) {
         tenantId: row.tenant_id,
         flagName: row.flag_name,
         description: row.description,
-        enabled: row.enabled,
+        isEnabled: row.isEnabled,
         rolloutPercentage: row.rollout_percentage,
         userWhitelist: row.user_whitelist ?? [],
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 class ConfigService {
@@ -88,7 +88,7 @@ class ConfigService {
     // =====================
     async getConfig(tenantId, module, key) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+      SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
       FROM tenant_configs
       WHERE module = $1 AND key = $2
       LIMIT 1
@@ -108,7 +108,7 @@ class ConfigService {
         }
         return cfg.value;
     }
-    async setConfig(tenantId, module, key, value, options = {}) {
+    async setConfig(tenantId, module, key, valueCents, options = {}) {
         const valueType = inferValueType(value);
         const isSystem = options.isSystem ?? false;
         const jsonValue = valueType === 'json' ? JSON.stringify(value) : value;
@@ -121,8 +121,8 @@ class ConfigService {
         value = EXCLUDED.value,
         value_type = EXCLUDED.value_type,
         is_system = EXCLUDED.is_system,
-        updated_at = now()
-      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        updatedAt = now()
+      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
       `, [tenantId, module, key, jsonValue, valueType, isSystem]);
         if (!row) {
             throw new Error('Failed to set config');
@@ -157,7 +157,7 @@ class ConfigService {
         let params;
         if (module) {
             query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
         FROM tenant_configs
         WHERE module = $1
         ORDER BY module, key
@@ -167,7 +167,7 @@ class ConfigService {
         }
         else {
             query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
         FROM tenant_configs
         ORDER BY module, key
         LIMIT $1 OFFSET $2
@@ -182,8 +182,8 @@ class ConfigService {
     // =====================
     async getFeatureFlag(tenantId, flagName) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT flag_id, tenant_id, flag_name, description, enabled,
-             rollout_percentage, user_whitelist, created_at, updated_at
+      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+             rollout_percentage, user_whitelist, createdAt, updatedAt
       FROM feature_flags
       WHERE flag_name = $1
       LIMIT 1
@@ -195,7 +195,7 @@ class ConfigService {
     async upsertFeatureFlag(tenantId, flagName, input) {
         const existing = await this.getFeatureFlag(tenantId, flagName);
         const description = input.description ?? existing?.description ?? null;
-        const enabled = input.enabled ?? existing?.enabled ?? false;
+        const enabled = input.isEnabled ?? existing?.isEnabled ?? false;
         const rolloutPercentage = input.rolloutPercentage ?? existing?.rolloutPercentage ?? 100;
         const userWhitelist = input.userWhitelist ?? existing?.userWhitelist ?? [];
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -210,9 +210,9 @@ class ConfigService {
         enabled = EXCLUDED.enabled,
         rollout_percentage = EXCLUDED.rollout_percentage,
         user_whitelist = EXCLUDED.user_whitelist,
-        updated_at = now()
-      RETURNING flag_id, tenant_id, flag_name, description, enabled,
-                rollout_percentage, user_whitelist, created_at, updated_at
+        updatedAt = now()
+      RETURNING flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+                rollout_percentage, user_whitelist, createdAt, updatedAt
       `, [tenantId, flagName, description, enabled, rolloutPercentage, userWhitelist]);
         if (!row) {
             throw new Error('Failed to upsert feature flag');
@@ -243,8 +243,8 @@ class ConfigService {
     }
     async listFeatureFlags(tenantId, limit = 50, offset = 0) {
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT flag_id, tenant_id, flag_name, description, enabled,
-             rollout_percentage, user_whitelist, created_at, updated_at
+      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
+             rollout_percentage, user_whitelist, createdAt, updatedAt
       FROM feature_flags
       ORDER BY flag_name
       LIMIT $1 OFFSET $2
@@ -255,7 +255,7 @@ class ConfigService {
         const flag = await this.getFeatureFlag(tenantId, flagName);
         if (!flag)
             return false;
-        if (!flag.enabled)
+        if (!flag.isEnabled)
             return false;
         if (userId && flag.userWhitelist.includes(userId)) {
             return true;

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/215_event_settlements.sql:82: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

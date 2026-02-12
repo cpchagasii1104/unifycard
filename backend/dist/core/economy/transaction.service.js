@@ -1,17 +1,34 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
+// LEGACY: Temporary wrapper for transaction service
+// Delegates to bankTransactionService from @modules/bank
+// TODO: Migrate callers to use bankTransactionService directly
 Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./transactions/transaction.service"), exports);
+exports.transactionService = void 0;
+const bank_transaction_service_1 = require("@modules/bank/bank-transaction.service");
+class TransactionService {
+    async transfer(tenantId, input) {
+        // LEGACY: Map old interface to new interface
+        // Note: authorship is required but not provided in legacy calls
+        // This is a temporary bridge - proper migration should provide authorship
+        const authorship = {
+            performedByUserId: 'system', // Legacy fallback
+            actingForActorId: null,
+            actingForAccountId: null,
+            authoritySource: 'legacy',
+            permissionSnapshot: null,
+            policySnapshot: null,
+        };
+        return bank_transaction_service_1.bankTransactionService.transfer(tenantId, {
+            eventId: input.eventId,
+            fromAccountId: input.fromAccount,
+            toAccountId: input.toAccount,
+            amountCents: input.amountCents,
+            currency: 'BRL',
+            transactionType: 'transfer',
+            description: `Legacy transfer: ${input.eventId}`,
+            metadata: input.metadata,
+            authorship,
+        });
+    }
+}
+exports.transactionService = new TransactionService();

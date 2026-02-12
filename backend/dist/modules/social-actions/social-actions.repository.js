@@ -9,7 +9,7 @@ class SocialActionsRepository {
      */
     async findById(tenantId, actionId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE action_id = $1
       LIMIT 1
@@ -30,7 +30,7 @@ class SocialActionsRepository {
         parameters
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       `, [
             data.postId,
             data.tenantId,
@@ -52,9 +52,9 @@ class SocialActionsRepository {
       UPDATE social_actions
       SET status = $1,
           execution_result = $2,
-          executed_at = now()
+          executedAt = now()
       WHERE action_id = $3
-      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      RETURNING action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       `, [status, JSON.stringify(executionResult), actionId]);
         return row || null;
     }
@@ -63,10 +63,10 @@ class SocialActionsRepository {
      */
     async findByPost(tenantId, postId) {
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE post_id = $1
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `, [postId]);
         return rows;
     }
@@ -76,7 +76,7 @@ class SocialActionsRepository {
     async findByUser(tenantId, globalUserId, options = {}) {
         const { limit = 50, offset = 0, status } = options;
         let query = `
-      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, created_at, executed_at
+      SELECT action_id, post_id, tenant_id, global_user_id, intent, confidence, parameters, status, execution_result, createdAt, executedAt
       FROM social_actions
       WHERE global_user_id = $1
     `;
@@ -87,7 +87,7 @@ class SocialActionsRepository {
             params.push(status);
             paramIndex++;
         }
-        query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows;

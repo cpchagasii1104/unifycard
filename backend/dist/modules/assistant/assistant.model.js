@@ -10,7 +10,7 @@ class AssistantModel {
             messageId: message.messageId,
             author: message.isFromUser ? 'user' : 'system',
             content: message.content,
-            createdAt: message.createdAt.toISOString(),
+            createdAt: message.createdAt,
             intent: message.intent || undefined,
             parameters: message.parameters || undefined,
         };

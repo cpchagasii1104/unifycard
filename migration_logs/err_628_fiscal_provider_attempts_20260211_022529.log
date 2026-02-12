@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/628_fiscal_provider_attempts.sql:91: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

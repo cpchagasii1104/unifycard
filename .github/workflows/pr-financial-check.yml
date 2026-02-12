@@ -1,0 +1,101 @@
+name: PR Financial Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  check-financial-checklist:
+    name: Verify Financial Checklist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Financial Checklist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const body = pr.body || '';
+            
+            // Verificar se PR toca em código financeiro
+            const financialPaths = [
+              'backend/src/core/bank',
+              'backend/src/modules/bank',
+              'backend/src/core/economy',
+              'backend/src/modules/marketplace',
+              'backend/src/core/events',
+              'backend/migrations',
+            ];
+            
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            
+            const touchesFinancial = files.data.some(file => 
+              financialPaths.some(path => file.filename.includes(path))
+            );
+            
+            // Se toca em código financeiro, verificar checklist
+            if (touchesFinancial) {
+              const checklistItems = [
+                'Este PR NÃO cria saldo fora do Bank',
+                'Este PR NÃO calcula dinheiro fora do Bank',
+                'Este PR NÃO cria ledger fora do Bank',
+                'Este PR NÃO cria transaction fora do Bank',
+                'Este PR NÃO cria split fora do Bank',
+                'Este PR NÃO adiciona vocabulário financeiro fora do Bank',
+                'Este PR respeita o SSOT financeiro definido em docs/01_normative/',
+                'Se toca em dinheiro, passa EXCLUSIVAMENTE pelo Bank',
+              ];
+              
+              const missingItems = checklistItems.filter(item => {
+                // Verificar se item está marcado no PR body
+                const regex = new RegExp(`- \\[x\\].*${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+                return !regex.test(body);
+              });
+              
+              if (missingItems.length > 0) {
+                const comment = `## ❌ Checklist Financeiro Incompleto — BLOQUEANTE
+                
+Este PR toca em código financeiro, mas o checklist financeiro obrigatório não está completo.
+
+**Itens faltando:**
+${missingItems.map(item => `- [ ] ${item}`).join('\n')}
+
+**Ação necessária:**
+1. Marque todos os itens do checklist financeiro no PR
+2. Verifique se todas as verificações automáticas passam
+3. Certifique-se de que o código respeita o SSOT financeiro
+
+**Referências:**
+- [docs/01_normative/01_SSOT.md](../../docs/01_normative/01_SSOT.md)
+- [docs/01_normative/07_NOMENCLATURA_CANONICA.md](../../docs/01_normative/07_NOMENCLATURA_CANONICA.md)
+- [CORE_FINANCIAL_CONTRACT.md](../../CORE_FINANCIAL_CONTRACT.md)
+
+**Este PR não pode ser mergeado até que o checklist esteja completo.**`;
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: comment,
+                });
+                
+                // Falhar o workflow para bloquear merge
+                core.setFailed(`FINANCIAL_CHECKLIST_INCOMPLETE: ${missingItems.length} item(s) faltando no checklist financeiro obrigatório.`);
+              } else {
+                console.log('✅ Checklist financeiro completo');
+              }
+            }
+

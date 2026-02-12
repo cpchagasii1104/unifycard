@@ -12,8 +12,8 @@ class SkillService {
             name: row.name,
             category: row.category,
             description: row.description ?? undefined,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     async createSkill(tenantId, input) {
@@ -40,7 +40,7 @@ class SkillService {
         name = COALESCE($3, name),
         category = COALESCE($4, category),
         description = COALESCE($5, description),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND skill_id = $2
       RETURNING *
       `, [
@@ -115,7 +115,7 @@ class SkillService {
       `, params);
         return {
             skills: rows.map(row => this.toSkill(row)),
-            total: count ? Number(count.total) : 0,
+            totalCents: count ? Number(count.total) : 0,
         };
     }
 }

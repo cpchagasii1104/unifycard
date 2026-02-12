@@ -4,9 +4,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dashboardService = void 0;
 const identity_service_1 = require("../identity/identity.service");
-const fund_visibility_service_1 = require("../economy/fund/fund-visibility.service");
-const account_service_1 = require("../economy/accounts/account.service");
-const transaction_service_1 = require("../economy/transactions/transaction.service");
+// import { fundVisibilityService } from '../economy/fund/fund-visibility.service'; // LEGACY: módulo desabilitado
+const account_service_1 = require("../economy/account.service");
+const transaction_service_1 = require("../economy/transaction.service");
 const reputation_service_1 = require("../reputation/reputation.service");
 class DashboardService {
     /**
@@ -18,15 +18,8 @@ class DashboardService {
         if (!profile) {
             throw new Error('Perfil não encontrado');
         }
-        // Buscar fundo regional (já existe)
-        let fundData = null;
-        try {
-            fundData = await fund_visibility_service_1.fundVisibilityService.getCompleteView(tenantId, 30);
-        }
-        catch (error) {
-            // Silenciosamente ignora erros ao buscar fundo
-            console.warn('[DashboardService] Erro ao buscar fundo regional:', error);
-        }
+        // Buscar fundo regional (LEGACY: módulo desabilitado)
+        const fundData = null; // core/economy/fund desabilitado conforme SSOT_EXCLUSIVE_BANK_RULE.md
         // Buscar wallet (já existe em identity/wallet, mas vamos buscar diretamente)
         let wallet = null;
         if (profile.global.globalUserId) {
@@ -50,7 +43,7 @@ class DashboardService {
                             transactionId: tx.transactionId,
                             type: isCredit ? 'credit' : 'debit',
                             amount,
-                            createdAt: tx.createdAt.toISOString(),
+                            createdAt: tx.createdAt,
                         };
                     });
                     wallet = {

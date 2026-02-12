@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/357_menus.sql:15: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

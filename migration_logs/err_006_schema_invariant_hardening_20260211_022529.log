@@ -1,0 +1,5 @@
+psql:C:/unificard/backend/migrations/006_schema_invariant_hardening.sql:52: ERRO:  coluna "actor_id" n├úo existe
+CONTEXTO:  comando SQL "CREATE INDEX IF NOT EXISTS idx_actors_tenant_actor 
+
+      ON actors(tenant_id, actor_id)"
+fun├º├úo PL/pgSQL inline_code_block linha 5 em comando SQL

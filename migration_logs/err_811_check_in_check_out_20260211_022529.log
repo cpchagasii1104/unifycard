@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/811_check_in_check_out.sql:39: ERRO:  rela├º├úo "event_participants" n├úo existe

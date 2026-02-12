@@ -41,7 +41,7 @@ const social_work_payment_service_1 = require("./social-work-payment.service");
 const rbac_service_1 = require("@core/rbac/rbac.service");
 const zod_1 = require("zod");
 const paymentFromPostSchema = zod_1.z.object({
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
 });
 const socialWorkPaymentRoutes = async (fastify) => {
     /**
@@ -62,7 +62,7 @@ const socialWorkPaymentRoutes = async (fastify) => {
                 type: 'object',
                 required: ['amount'],
                 properties: {
-                    amount: { type: 'number', minimum: 0.01 },
+                    amountCents: { type: 'number', minimum: 0.01 },
                 },
             },
         },
@@ -84,7 +84,7 @@ const socialWorkPaymentRoutes = async (fastify) => {
             globalUserId,
             'social-work.action': 'payment-from-post',
             postId,
-            amount: validated.amount,
+            amountCents: validated.amount,
             source: 'social_post',
         }, 'Creating payment from social post');
         try {
@@ -117,7 +117,7 @@ const socialWorkPaymentRoutes = async (fastify) => {
                 jobId: scheduledJob.jobId,
                 scheduleId: scheduledJob.scheduleId,
                 slotId: scheduledJob.slotId,
-                amount: validated.amount,
+                amountCents: validated.amount,
                 transactionId: transaction.transactionId,
                 providerUserId: jobFull.clientUserId,
                 source: 'social_post',
@@ -210,7 +210,7 @@ const socialWorkPaymentRoutes = async (fastify) => {
                 postId,
                 jobId: job.jobId,
                 payments: [], // TODO: Implementar busca real
-                total: 0,
+                totalCents: 0,
             };
         }
         catch (error) {

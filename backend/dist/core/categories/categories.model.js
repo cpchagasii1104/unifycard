@@ -26,10 +26,10 @@ class CategoryModel {
             requiresReview: row.requires_review ?? false,
             createdByAI: row.created_by_ai ?? false,
             approvedBy: row.approved_by ?? null,
-            approvedAt: row.approved_at ?? null,
+            approvedAt: row.approvedAt ?? null,
             rejectionReason: row.rejection_reason ?? null,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     static fromRows(rows) {
@@ -64,7 +64,7 @@ class CategoryModel {
         if (category.approvedBy !== undefined)
             row.approved_by = category.approvedBy;
         if (category.approvedAt !== undefined)
-            row.approved_at = category.approvedAt;
+            row.approvedAt = category.approvedAt;
         if (category.rejectionReason !== undefined)
             row.rejection_reason = category.rejectionReason;
         return row;

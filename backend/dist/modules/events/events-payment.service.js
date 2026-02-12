@@ -35,7 +35,7 @@ class EventsPaymentService {
             transactionIds: [result.transactionId],
             splits: result.splits.map((split) => ({
                 targetType: 'revenue_share', // Simplificado - detalhes estão no bank
-                amount: split.amount,
+                amountCents: split.amount,
                 transactionId: result.transactionId,
             })),
         };

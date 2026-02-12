@@ -1,0 +1,190 @@
+﻿
+> unificard-backend@1.0.0 lint
+> eslint src/**/*.ts
+
+
+C:\unificard\backend\src\core\economy\distribution\distribution.service.ts
+  232:22  error  '_tenantId' is defined but never used  @typescript-eslint/no-unused-vars
+  241:25  error  '_tenantId' is defined but never used  @typescript-eslint/no-unused-vars
+  241:44  error  '_config' is defined but never used    @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\core\notify\providers\push.provider.ts
+  17:15  error  '_config' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\availability\availability.routes.ts
+   48:7   error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  167:33  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  228:7   error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  301:33  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\cities\cities.routes.ts
+  42:33  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  75:17  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\demand\demand.routes.ts
+   34:17  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+   75:17  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  126:33  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\demand\demand.service.ts
+    4:10  error  'eventBus' is defined but never used   @typescript-eslint/no-unused-vars
+  116:45  error  '_driverId' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\distribution\distribution.routes.ts
+  32:17  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+  50:17  error  '_reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\distribution\distribution.service.ts
+    5:10  error  'BadRequestError' is defined but never used  @typescript-eslint/no-unused-vars
+  221:67  error  'options' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\drivers\drivers.routes.ts
+   12:30  error  'runQueriesWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+   12:52  error  'runTenantTransaction' is defined but never used  @typescript-eslint/no-unused-vars
+   13:42  error  'ConflictError' is defined but never used         @typescript-eslint/no-unused-vars
+   38:33  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+   55:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  115:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\drivers\vehicles\vehicles.routes.ts
+    4:3   error  'FastifyRequest' is defined but never used  @typescript-eslint/no-unused-vars
+    5:3   error  'FastifyReply' is defined but never used    @typescript-eslint/no-unused-vars
+   74:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+   92:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  110:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  128:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\lifecycle\lifecycle.routes.ts
+    8:3   error  'FastifyRequest' is defined but never used        @typescript-eslint/no-unused-vars
+    9:3   error  'FastifyReply' is defined but never used          @typescript-eslint/no-unused-vars
+   12:30  error  'runQueriesWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+  171:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  243:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  294:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  304:13  error  'ride' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  366:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  431:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+  550:17  error  'reply' is defined but never used                 @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\location\location.routes.ts
+   8:3   error  'FastifyRequest' is defined but never used  @typescript-eslint/no-unused-vars
+   9:3   error  'FastifyReply' is defined but never used    @typescript-eslint/no-unused-vars
+  38:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  62:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\location\location.service.ts
+  3:30  error  'runQueriesWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+  8:10  error  'citiesService' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\matching\matching.routes.ts
+    8:3   error  'FastifyRequest' is defined but never used      @typescript-eslint/no-unused-vars
+    9:3   error  'FastifyReply' is defined but never used        @typescript-eslint/no-unused-vars
+   12:10  error  'runQueryWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+   46:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+   97:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  184:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  239:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  294:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\pricing\pricing.routes.ts
+   14:10  error  'pricingService' is defined but never used  @typescript-eslint/no-unused-vars
+   51:33  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  165:33  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  244:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\pricing\pricing.service.ts
+  384:5  error  'tenantId' is defined but never used  @typescript-eslint/no-unused-vars
+  385:5  error  'cityId' is defined but never used    @typescript-eslint/no-unused-vars
+  386:5  error  'data' is defined but never used      @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\promotions\promotions.routes.ts
+    8:3   error  'FastifyRequest' is defined but never used  @typescript-eslint/no-unused-vars
+    9:3   error  'FastifyReply' is defined but never used    @typescript-eslint/no-unused-vars
+   74:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+   97:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  115:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\referrals\referrals.routes.ts
+   8:3   error  'FastifyRequest' is defined but never used  @typescript-eslint/no-unused-vars
+   9:3   error  'FastifyReply' is defined but never used    @typescript-eslint/no-unused-vars
+  29:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  47:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  66:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  84:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\referrals\referrals.service.ts
+  5:27  error  'NotFoundError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\ride-requests\ride-requests.routes.ts
+   8:3   error  'FastifyRequest' is defined but never used  @typescript-eslint/no-unused-vars
+   9:3   error  'FastifyReply' is defined but never used    @typescript-eslint/no-unused-vars
+  62:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+  90:17  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\ride-requests\ride-requests.service.ts
+  7:10  error  'availabilityService' is defined but never used  @typescript-eslint/no-unused-vars
+  8:10  error  'locationService' is defined but never used      @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\rides\rides.service.ts
+    3:30  error  'runQueriesWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+    5:27  error  'ForbiddenError' is defined but never used        @typescript-eslint/no-unused-vars
+  126:11  error  'ride' is assigned a value but never used         @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\safety\safety.routes.ts
+   51:33  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+  116:17  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+  218:17  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\service-types\service-types.routes.ts
+   12:10  error  'runQueryWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+   47:33  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+   64:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  122:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  151:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+  169:17  error  'reply' is defined but never used               @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\service-types\service-types.service.ts
+  104:11  error  'existing' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\services\lifecycle.service.ts
+   12:3   error    'runQueryWithTenant' is defined but never used                                                                                                                      @typescript-eslint/no-unused-vars
+   20:10  error    'reviewService' is defined but never used                                                                                                                           @typescript-eslint/no-unused-vars
+   94:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  147:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  198:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  290:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\unificard\backend\src\modules\rides\services\pricing.service.ts
+  105:7  error  'waitTimeSeconds' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\vehicle-compliance\vehicle-compliance.routes.ts
+  18:3  error  'runQueryWithTenant' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\vehicles\vehicles.routes.ts
+   42:33  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+   77:17  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+  173:17  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\vehicles\vehicles.service.ts
+  6:10  error  'driversService' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\zones\zones.routes.ts
+  21:11  error  'UpdateZoneBody' is defined but never used  @typescript-eslint/no-unused-vars
+  56:33  error  'reply' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\modules\rides\zones\zones.service.ts
+  72:11  error  'existing' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\plugins\rbac.plugin.ts
+  26:40  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+  46:40  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+  66:40  error  'reply' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\unificard\backend\src\server.ts
+  115:3  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\unificard\backend\src\shared\middleware\auth.middleware.ts
+  114:12  error  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+Ô£û 113 problems (108 errors, 5 warnings)
+

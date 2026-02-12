@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/772_events_canonical_contract.sql:73: ERRO:  rela├º├úo "events" n├úo existe
+CONTEXTO:  comando SQL "ALTER TABLE events ADD COLUMN actor_id UUID"
+fun├º├úo PL/pgSQL inline_code_block linha 7 em comando SQL

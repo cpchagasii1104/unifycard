@@ -37,7 +37,7 @@ class CheckoutService {
             // TODO: Integrar com serviço real de UnifyCard quando disponível
             const paymentResult = await this.mockUnifyCardCharge({
                 userId: input.context.globalUserId,
-                amount: input.amount,
+                amountCents: input.amount,
             });
             if (!paymentResult.success) {
                 throw new Error(paymentResult.error || 'Payment failed');
@@ -52,7 +52,7 @@ class CheckoutService {
                 result = await bankIntegration.processEventTicketPayment(tenantId, {
                     eventId: input.context.eventId,
                     buyerUserId: userId,
-                    amount: input.amount,
+                    amountCents: input.amount,
                     currency: 'BRL',
                     idempotencyKey: input.idempotencyKey,
                     metadata: {
@@ -71,7 +71,7 @@ class CheckoutService {
                 result = await bankIntegration.processEventConsumptionPayment(tenantId, {
                     eventId: input.context.eventId,
                     buyerUserId: userId,
-                    amount: input.amount,
+                    amountCents: input.amount,
                     currency: 'BRL',
                     idempotencyKey: input.idempotencyKey,
                     metadata: {
@@ -105,7 +105,7 @@ class CheckoutService {
         //   method: 'POST',
         //   body: JSON.stringify({
         //     userId: params.userId,
-        //     amount: params.amount,
+        //     amountCents: params.amount,
         //   }),
         // });
         // Por enquanto, retorna sucesso (mock)

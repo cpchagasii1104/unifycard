@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/818_event_actions_log.sql:48: ERRO:  rela├º├úo "events" n├úo existe

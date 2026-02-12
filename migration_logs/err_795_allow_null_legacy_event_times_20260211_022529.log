@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/795_allow_null_legacy_event_times.sql:27: ERRO:  rela├º├úo "events" n├úo existe

@@ -61,8 +61,8 @@ class SocialVotesService {
             const metadata = typeof post.intent_metadata === 'string'
                 ? JSON.parse(post.intent_metadata)
                 : post.intent_metadata;
-            if (metadata.closes_at) {
-                const closesAt = new Date(metadata.closes_at);
+            if (metadata.closesAt) {
+                const closesAt = new Date(metadata.closesAt);
                 if (new Date() > closesAt) {
                     return { success: false, message: 'Votação já está fechada' };
                 }
@@ -185,12 +185,12 @@ class SocialVotesService {
                 };
             });
             // Verificar se está fechada
-            const closesAt = metadata.closes_at;
+            const closesAt = metadata.closesAt;
             const isClosed = closesAt ? new Date() > new Date(closesAt) : false;
             return {
                 options,
                 total_votes: totalVotes,
-                closes_at: closesAt,
+                closesAt: closesAt,
                 is_closed: isClosed,
             };
         }

@@ -176,7 +176,7 @@ class CoreService {
           FROM profiles p
           LEFT JOIN user_profiles up ON up.user_id = p.user_id
           WHERE p.tenant_id = $1 AND p.user_id = $2
-          ORDER BY p.updated_at DESC
+          ORDER BY p.updatedAt DESC
           LIMIT 1
           `, [tenantId, userId]);
                 if (personalProfileRow) {
@@ -304,7 +304,7 @@ class CoreService {
           SELECT metadata
           FROM profiles
           WHERE tenant_id = $1 AND user_id = $2
-          ORDER BY updated_at DESC
+          ORDER BY updatedAt DESC
           LIMIT 1
           `, [tenantId, userId]);
                 // 🔴 INSTRUMENTAÇÃO: Log do que foi encontrado no banco
@@ -383,9 +383,9 @@ class CoreService {
             SELECT c.cep, c.address, c.address_number, c.complement, c.neighborhood, c.city, c.state, c.country
             FROM companies c
             INNER JOIN company_users cu ON c.company_id = cu.company_id
-            INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
-            WHERE uil.user_id = $1 AND uil.tenant_id = $2 AND c.status = 'active'
-            ORDER BY c.created_at DESC
+            INNER JOIN users u ON cu.global_user_id = u.global_user_id
+            WHERE u.user_id = $1 AND u.tenant_id = $2 AND c.status = 'active'
+            ORDER BY c.createdAt DESC
             LIMIT 1
             `, [userId, tenantId]);
                     if (companyAddress) {
@@ -427,7 +427,7 @@ class CoreService {
                     contacts.push({
                         contact_id: 'phone',
                         type: 'phone',
-                        value: profile.personal_profile.phone,
+                        valueCents: profile.personal_profile.phone,
                         is_primary: true,
                     });
                 }
@@ -437,7 +437,7 @@ class CoreService {
                     contacts.push({
                         contact_id: 'email',
                         type: 'email',
-                        value: userEmail.email,
+                        valueCents: userEmail.email,
                         is_primary: false,
                     });
                 }
@@ -462,9 +462,9 @@ class CoreService {
           SELECT c.company_id, c.company_name, c.trade_name, c.cnpj, c.is_verified
           FROM companies c
           INNER JOIN company_users cu ON c.company_id = cu.company_id
-          INNER JOIN user_identity_links uil ON cu.global_user_id = uil.global_user_id
-          WHERE uil.user_id = $1 AND uil.tenant_id = $2
-          ORDER BY c.created_at DESC
+          INNER JOIN users u ON cu.global_user_id = u.global_user_id
+          WHERE u.user_id = $1 AND u.tenant_id = $2
+          ORDER BY c.createdAt DESC
           `, [userId, tenantId]);
                 profile.companies = companies.map((row) => ({
                     company_id: row.company_id,
@@ -534,7 +534,15 @@ class CoreService {
             personalDataScore += 5;
         if (completeProfile.personal_profile?.phone)
             personalDataScore += 5;
-        const globalUser = await identity_service_1.identityService.getIdentityProfile(userId, tenantId);
+        // 🔴 CORREÇÃO: Envolver getIdentityProfile em try/catch para tratar quando global_user não existe
+        let globalUser = null;
+        try {
+            globalUser = await identity_service_1.identityService.getIdentityProfile(userId, tenantId);
+        }
+        catch (err) {
+            // global_user não existe - considerar null e continuar cálculo
+            // Não lançar exception - progresso pode ser calculado sem birthdate
+        }
         if (globalUser?.global?.birthdate)
             personalDataScore += 5;
         if (completeProfile.personal_profile?.metadata?.gender)

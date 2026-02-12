@@ -9,7 +9,7 @@ class CareRepository {
      */
     async findSessionById(tenantId, sessionId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
       FROM care_sessions
       WHERE care_session_id = $1
       LIMIT 1
@@ -21,7 +21,7 @@ class CareRepository {
      */
     async findActiveSession(tenantId, globalUserId, targetGlobalUserId, targetCompanyId) {
         let query = `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
       FROM care_sessions
       WHERE global_user_id = $1
     `;
@@ -37,7 +37,7 @@ class CareRepository {
         else {
             query += ` AND target_global_user_id IS NULL AND target_company_id IS NULL`;
         }
-        query += ` ORDER BY updated_at DESC LIMIT 1`;
+        query += ` ORDER BY updatedAt DESC LIMIT 1`;
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, query, params);
         return row || null;
     }
@@ -48,7 +48,7 @@ class CareRepository {
         const row = await (0, pool_1.runQueryWithTenant)(data.tenantId, `
       INSERT INTO care_sessions (tenant_id, global_user_id, target_global_user_id, target_company_id, state, context)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
+      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
       `, [
             data.tenantId,
             data.globalUserId,
@@ -90,9 +90,9 @@ class CareRepository {
         params.push(sessionId);
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE care_sessions
-      SET ${updatesList.join(', ')}, updated_at = now()
+      SET ${updatesList.join(', ')}, updatedAt = now()
       WHERE care_session_id = $${paramIndex}
-      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
+      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
       `, params);
         return row || null;
     }
@@ -102,10 +102,10 @@ class CareRepository {
     async findMessagesBySession(tenantId, sessionId, options = {}) {
         const { limit = 100, offset = 0 } = options;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, created_at
+      SELECT message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, createdAt
       FROM care_messages
       WHERE care_session_id = $1
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       LIMIT $2 OFFSET $3
       `, [sessionId, limit, offset]);
         // Contar total
@@ -116,7 +116,7 @@ class CareRepository {
       `, [sessionId]);
         return {
             rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
     /**
@@ -126,7 +126,7 @@ class CareRepository {
         const row = await (0, pool_1.runQueryWithTenant)(data.tenantId, `
       INSERT INTO care_messages (care_session_id, is_from_user, content, intent, parameters, ai_reasoning)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, created_at
+      RETURNING message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, createdAt
       `, [
             data.careSessionId,
             data.isFromUser,
@@ -146,10 +146,10 @@ class CareRepository {
     async findSessionsByUser(tenantId, globalUserId, options = {}) {
         const { limit = 50, offset = 0 } = options;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
       FROM care_sessions
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT $2 OFFSET $3
       `, [globalUserId, limit, offset]);
         // Contar total
@@ -160,7 +160,7 @@ class CareRepository {
       `, [globalUserId]);
         return {
             rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
 }

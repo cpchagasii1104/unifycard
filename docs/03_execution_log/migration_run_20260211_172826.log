@@ -1,0 +1,54 @@
+START: 02/11/2026 17:28:26
+CREATE TABLE
+psql:C:/unificard/backend/migrations/0000_schema_migrations.sql:24: NOTA:  rela├º├úo "schema_migrations" j├í existe, ignorando
+CREATE INDEX
+psql:C:/unificard/backend/migrations/0000_schema_migrations.sql:27: NOTA:  rela├º├úo "idx_schema_migrations_filename" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/0000_schema_migrations.sql:30: NOTA:  rela├º├úo "idx_schema_migrations_executed_at" j├í existe, ignorando
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+BEGIN
+CREATE EXTENSION
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:13: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+CREATE TABLE
+CREATE TABLE
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:25: NOTA:  rela├º├úo "tenants" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:38: NOTA:  rela├º├úo "actors" j├í existe, ignorando
+ALTER TABLE
+DO
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:69: NOTA:  rela├º├úo "users" j├í existe, ignorando
+CREATE TABLE
+ALTER TABLE
+DO
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:101: NOTA:  rela├º├úo "profiles" j├í existe, ignorando
+CREATE TABLE
+ALTER TABLE
+DO
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:132: NOTA:  rela├º├úo "bank_accounts" j├í existe, ignorando
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:159: NOTA:  rela├º├úo "bank_transactions" j├í existe, ignorando
+ALTER TABLE
+DO
+CREATE TABLE
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:188: NOTA:  rela├º├úo "bank_ledger" j├í existe, ignorando
+ALTER TABLE
+DO
+CREATE TABLE
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:216: NOTA:  rela├º├úo "bank_splits" j├í existe, ignorando
+ALTER TABLE
+DO
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:246: NOTA:  rela├º├úo "event_log" j├í existe, ignorando
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE INDEX
+psql:C:/unificard/backend/migrations/0001_schema_genesis_ssot.sql:264: NOTA:  rela├º├úo "idx_event_log_processing" j├í existe, ignorando
+COMMIT
+BEGIN
+psql:C:/unificard/backend/migrations/0002_unifybank_ssot.sql:27: ERRO:  rela├º├úo "uq_bank_accounts_actor_currency" j├í existe

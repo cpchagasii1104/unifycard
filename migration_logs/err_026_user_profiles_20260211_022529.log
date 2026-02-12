@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/026_user_profiles.sql:10: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

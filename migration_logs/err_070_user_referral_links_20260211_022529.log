@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/070_user_referral_links.sql:38: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

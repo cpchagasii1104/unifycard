@@ -14,7 +14,7 @@ class CitiesService {
     // 🔹 1. Criar uma nova cidade
     // ============================================================================
     async createCity(tenantId, data) {
-        const { name, state, timezone, lat, lng, base_fare, min_price, price_per_km, price_per_min, enabled = true, allows_multi_stop = true, } = data;
+        const { name, state, timezone, lat, lng, base_fare, min_price, price_per_km, price_per_min, isEnabled = true, allows_multi_stop = true, } = data;
         if (!name || !state) {
             throw new errors_1.BadRequestError('Nome e estado são obrigatórios.');
         }
@@ -39,7 +39,7 @@ class CitiesService {
           lat, lng,
           base_fare, min_price, price_per_km, price_per_min,
           enabled, allows_multi_stop,
-          created_at
+          createdAt
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
         RETURNING *
@@ -55,7 +55,7 @@ class CitiesService {
                 min_price,
                 price_per_km,
                 price_per_min,
-                enabled,
+                isEnabled,
                 allows_multi_stop,
             ],
         });
@@ -92,7 +92,7 @@ class CitiesService {
           price_per_min = COALESCE($11, price_per_min),
           enabled = COALESCE($12, enabled),
           allows_multi_stop = COALESCE($13, allows_multi_stop),
-          updated_at = now()
+          updatedAt = now()
         WHERE tenant_id = $1 AND city_id = $2
         RETURNING *
         `,
@@ -108,7 +108,7 @@ class CitiesService {
                 patch.min_price,
                 patch.price_per_km,
                 patch.price_per_min,
-                patch.enabled,
+                patch.isEnabled,
                 patch.allows_multi_stop,
             ],
         });

@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/721_rides_security_analytics.sql:25: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/721_rides_security_analytics.sql:50: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

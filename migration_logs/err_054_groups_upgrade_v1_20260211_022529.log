@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/054_groups_upgrade_v1.sql:33: ERRO:  rela├º├úo "groups" n├úo existe

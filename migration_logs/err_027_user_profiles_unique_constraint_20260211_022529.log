@@ -1,0 +1,15 @@
+psql:C:/unificard/backend/migrations/027_user_profiles_unique_constraint.sql:32: ERRO:  rela├º├úo "user_profiles" n├úo existe
+LINHA 3:     FROM user_profiles
+                  ^
+CONSULTA:  SELECT COUNT(*)                         FROM (
+
+    SELECT user_id, COUNT(*) as cnt
+
+    FROM user_profiles
+
+    GROUP BY user_id
+
+    HAVING COUNT(*) > 1
+
+  ) duplicates
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 6 em comando SQL

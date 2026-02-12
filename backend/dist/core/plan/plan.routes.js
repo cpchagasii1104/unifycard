@@ -18,22 +18,25 @@ const planRoutes = async (fastify) => {
             return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
         }
         try {
-            const userId = req.user.userId;
-            if (!userId) {
-                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório' });
             }
-            const plan = await plan_gate_service_1.planGateService.getUserPlan(req.tenant.id, userId);
+            const actorId = req.actionContext.actorId;
+            const plan = await plan_gate_service_1.planGateService.getUserPlanByActorId(req.tenant.id, actorId);
             // Buscar também is_test para verificar se pode alternar
             const userRow = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
           SELECT u.is_test,
                  (SELECT r.name FROM roles r
                   JOIN user_roles ur ON r.role_id = ur.role_id
-                  WHERE ur.user_id = u.user_id AND ur.tenant_id = u.tenant_id
+                  JOIN actors a ON ur.user_id = a.user_id AND a.actor_id = $1
+                  WHERE ur.tenant_id = $2
                   LIMIT 1) as role
-          FROM users u
-          WHERE u.user_id = $1
+          FROM actors a
+          JOIN users u ON a.user_id = u.user_id
+          WHERE a.actor_id = $1 AND a.tenant_id = $2
           LIMIT 1
-        `, [userId]);
+        `, [actorId, req.tenant.id]);
             const isTest = userRow?.is_test || false;
             const isAdmin = userRow?.role === 'admin';
             return reply.send({
@@ -74,23 +77,29 @@ const planRoutes = async (fastify) => {
                     message: 'Plano inválido. Deve ser: free, pro ou enterprise',
                 });
             }
-            const userId = req.user.userId;
-            if (!userId) {
-                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ ok: false, message: 'ActionContext obrigatório' });
             }
+            const actorId = req.actionContext.actorId;
             // Verificar se usuário pode alternar (teste ou admin)
             const userRow = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
-          SELECT u.is_test,
+          SELECT u.is_test, u.user_id,
                  (SELECT r.name FROM roles r
                   JOIN user_roles ur ON r.role_id = ur.role_id
-                  WHERE ur.user_id = u.user_id AND ur.tenant_id = u.tenant_id
+                  JOIN actors a ON ur.user_id = a.user_id AND a.actor_id = $1
+                  WHERE ur.tenant_id = $2
                   LIMIT 1) as role
-          FROM users u
-          WHERE u.user_id = $1
+          FROM actors a
+          JOIN users u ON a.user_id = u.user_id
+          WHERE a.actor_id = $1 AND a.tenant_id = $2
           LIMIT 1
-        `, [userId]);
-            const isTest = userRow?.is_test || false;
-            const isAdmin = userRow?.role === 'admin';
+        `, [actorId, req.tenant.id]);
+            if (!userRow) {
+                return reply.status(404).send({ ok: false, message: 'Actor não encontrado' });
+            }
+            const isTest = userRow.is_test || false;
+            const isAdmin = userRow.role === 'admin';
             if (!isTest && !isAdmin) {
                 return reply.status(403).send({
                     ok: false,
@@ -100,9 +109,9 @@ const planRoutes = async (fastify) => {
             // Atualizar plano
             await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
           UPDATE users
-          SET plan = $1, updated_at = now()
+          SET plan = $1, updatedAt = now()
           WHERE user_id = $2
-        `, [plan, userId]);
+        `, [plan, userRow.user_id]);
             return reply.send({
                 ok: true,
                 data: {

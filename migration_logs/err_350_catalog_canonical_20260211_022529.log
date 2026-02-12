@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/350_catalog_canonical.sql:22: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/350_catalog_canonical.sql:52: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -1,0 +1,141 @@
+/* frontend/src/components/governance/GroupAllocationCard.css */
+/* CONTINUOUS PRODUCTION: Estilos para Card de Alocação de Grupos - SPRINT 4 */
+
+.group-allocation-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.allocation-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-line {
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.allocation-error {
+  text-align: center;
+  padding: 2rem;
+  color: #c33;
+}
+
+.allocation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.allocation-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1a1a1a;
+}
+
+.allocation-edit-link {
+  padding: 0.25rem 0.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.allocation-edit-link:hover {
+  background: #0056b3;
+}
+
+.allocation-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.allocation-empty-hint {
+  font-size: 0.9rem;
+  color: #999;
+  margin-top: 0.5rem;
+}
+
+.allocation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.allocation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.allocation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.allocation-group-name {
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.allocation-percentage {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.allocation-residual {
+  padding: 0.75rem;
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.allocation-residual-label {
+  font-size: 0.9rem;
+  color: #0056b3;
+  font-weight: 500;
+}
+
+.allocation-residual-value {
+  font-size: 0.95rem;
+  color: #0056b3;
+  font-weight: 600;
+}
+
+
+
+
+
+
+

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/950_policy_engine.sql:21: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

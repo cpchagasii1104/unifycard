@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/190_region_balances_read_model.sql:47: ERRO:  coluna bl.bank_account_id n├úo existe
+LINHA 17:   ON ba.id = bl.bank_account_id
+                       ^

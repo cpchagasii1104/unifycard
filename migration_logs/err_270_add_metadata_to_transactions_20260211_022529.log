@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/270_add_metadata_to_transactions.sql:69: ERRO:  rela├º├úo "transactions" n├úo existe

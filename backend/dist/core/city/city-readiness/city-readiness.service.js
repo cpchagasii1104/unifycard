@@ -272,7 +272,7 @@ class CityReadinessService {
         SELECT COUNT(*)::text AS count
         FROM transactions
         WHERE tenant_id = $1
-          AND created_at >= NOW() - INTERVAL '30 days'
+          AND createdAt >= NOW() - INTERVAL '30 days'
         `,
             values: [tenantId],
         });

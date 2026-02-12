@@ -106,3 +106,7 @@ SELECT user_id FROM users WHERE global_user_id = $1 AND tenant_id = $2 LIMIT 1
 Arquivo não contém mais nenhuma referência a `user_identity_links` (exceto comentário documentando que não é autoridade) e toda decisão de perfil é tenant-scoped.
 
 
+
+
+
+

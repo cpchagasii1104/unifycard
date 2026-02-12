@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/141_payment_methods.sql:95: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

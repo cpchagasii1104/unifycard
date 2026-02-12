@@ -12,7 +12,7 @@ class TenantService {
         return (result.rowCount ?? 0) > 0;
     }
     async getTenantById(tenantId) {
-        const result = await pool_1.pool.query('SELECT tenant_id, name, slug, city_id, created_at, updated_at FROM tenants WHERE tenant_id = $1 LIMIT 1', [tenantId]);
+        const result = await pool_1.pool.query('SELECT tenant_id, name, slug, city_id, createdAt, updatedAt FROM tenants WHERE tenant_id = $1 LIMIT 1', [tenantId]);
         const row = result.rows[0];
         if (!row) {
             return null;
@@ -22,8 +22,8 @@ class TenantService {
             name: row.name,
             slug: row.slug,
             cityId: row.city_id,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     /**
@@ -81,9 +81,9 @@ class TenantService {
         }
         // Atualizar apenas city_id no tenant (país e estado são derivados da cidade)
         const updateResult = await pool_1.pool.query(`UPDATE tenants 
-       SET city_id = $1, updated_at = now()
+       SET city_id = $1, updatedAt = now()
        WHERE tenant_id = $2
-       RETURNING tenant_id, name, slug, city_id, created_at, updated_at`, [finalCityId, tenantId]);
+       RETURNING tenant_id, name, slug, city_id, createdAt, updatedAt`, [finalCityId, tenantId]);
         const updatedRow = updateResult.rows[0];
         if (!updatedRow) {
             throw new Error('Erro ao atualizar tenant');
@@ -93,8 +93,8 @@ class TenantService {
             name: updatedRow.name,
             slug: updatedRow.slug,
             cityId: updatedRow.city_id,
-            createdAt: updatedRow.created_at,
-            updatedAt: updatedRow.updated_at,
+            createdAt: updatedRow.createdAt,
+            updatedAt: updatedRow.updatedAt,
         };
     }
 }

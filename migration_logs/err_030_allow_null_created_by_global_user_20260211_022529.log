@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/030_allow_null_created_by_global_user.sql:28: ERRO:  rela├º├úo "events" n├úo existe

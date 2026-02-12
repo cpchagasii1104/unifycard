@@ -37,8 +37,8 @@ const driversRoutes = async (fastify) => {
             status,
             level,
             active_vehicle_id,
-            created_at,
-            updated_at
+            createdAt,
+            updatedAt
           FROM rides_drivers
           WHERE tenant_id = $1 AND driver_id = $2;
         `,
@@ -82,9 +82,9 @@ const driversRoutes = async (fastify) => {
         const availability = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
           UPDATE rides_driver_availability
-          SET is_available = $3, updated_at = NOW()
+          SET is_available = $3, updatedAt = NOW()
           WHERE tenant_id = $1 AND driver_id = $2
-          RETURNING driver_id, is_available, updated_at;
+          RETURNING driver_id, is_available, updatedAt;
         `,
             values: [tenantId, driverId, isAvailable],
         });

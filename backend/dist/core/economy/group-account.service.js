@@ -5,7 +5,6 @@
 // Busca grupos do usuário e cria/busca contas correspondentes
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.groupAccountService = void 0;
-const account_service_1 = require("./accounts/account.service");
 const groups_repository_1 = require("../../modules/groups/groups.repository");
 class GroupAccountService {
     accountService;
@@ -100,4 +99,4 @@ class GroupAccountService {
         return groupAccountIds;
     }
 }
-exports.groupAccountService = new GroupAccountService(account_service_1.accountService);
+exports.groupAccountService = new GroupAccountService(accountService);

@@ -28,7 +28,7 @@ class ZonesService {
       INSERT INTO rides_zones (
         tenant_id, city_id,
         name, polygon, area_m2,
-        created_at
+        createdAt
       )
       VALUES (
         $1, $2,
@@ -87,7 +87,7 @@ class ZonesService {
           polygon
         ),
         area_m2 = COALESCE($5, area_m2),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND zone_id = $2
       RETURNING *
       `,
@@ -135,7 +135,7 @@ class ZonesService {
     async listZonesByCity(tenantId, cityId) {
         return (0, db_1.runQueriesWithTenant)(tenantId, {
             text: `
-      SELECT zone_id, name, area_m2, created_at
+      SELECT zone_id, name, area_m2, createdAt
       FROM rides_zones
       WHERE tenant_id = $1 AND city_id = $2
       ORDER BY name ASC

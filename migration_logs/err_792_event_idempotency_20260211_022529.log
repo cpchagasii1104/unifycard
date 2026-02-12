@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/792_event_idempotency.sql:45: ERRO:  rela├º├úo "event_tickets" n├úo existe

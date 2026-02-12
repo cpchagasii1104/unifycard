@@ -1,13 +1,20 @@
-Status: NON-NORMATIVE
-Purpose: Explanation only
-Authority: None
+---
+
+# DOCUMENTO TÉCNICO / HISTÓRICO
+
+⚠️ Este documento NÃO é norma.
+⚠️ Não possui autoridade hierárquica.
+⚠️ Se houver conflito, prevalece exclusivamente:
+docs/01_normative/
+------------------
+
 # 📘 CANONICAL_CONTEXT_FOR_AI.md
 
-*(Arquivo canônico de leitura obrigatória para qualquer IA que analise o UnifiCard)*
+*(Referência técnica de leitura recomendada para qualquer IA que analise o UnifiCard)*
 
 ---
 
-## 1. VISÃO GERAL DO UNIFICARD (CANÔNICA)
+## 1. VISÃO GERAL DO UNIFICARD (REFERÊNCIA TÉCNICA)
 
 O UnifiCard é um sistema social-econômico integrado.
 
@@ -46,7 +53,7 @@ IA apenas **ajuda na organização, sugestão e leitura de sinais**.
 
 ---
 
-## 3. PERFIS DO USUÁRIO — DEFINIÇÕES CANÔNICAS
+## 3. PERFIS DO USUÁRIO — DEFINIÇÕES TÉCNICAS
 
 ### 3.1 Perfil PROFISSIONAL
 
@@ -120,9 +127,9 @@ Representa entidades econômicas, não pessoas.
 
 ---
 
-## 4. SISTEMA DE CATEGORIAS (BACKEND — DECISÃO CANÔNICA)
+## 4. SISTEMA DE CATEGORIAS (BACKEND — DECISÃO TÉCNICA)
 
-O sistema canônico de categorias do backend é:
+O sistema técnico de categorias do backend é:
 
 > **`src/core/categories` (plural)**
 
@@ -134,7 +141,7 @@ Motivos:
 - políticas e auditoria
 - integração futura com IA
 
-O sistema `src/core/category` (singular) **não é canônico**.
+O sistema `src/core/category` (singular) **não é o padrão técnico principal**.
 
 ---
 
@@ -180,7 +187,7 @@ Domínios:
 ---
 
 ### Camada 2 — Concept IDs (interno)
-Cada interesse mapeia para um **Concept ID canônico**.
+Cada interesse mapeia para um **Concept ID técnico**.
 
 Exemplos:
 - activity.swimming
@@ -278,14 +285,14 @@ A IA NÃO pode:
 ### 📌 COMO USAR ESTE ARQUIVO
 
 Antes de qualquer IA analisar o UnifiCard:
-1. **Ela deve ler este arquivo integralmente**
-2. Este documento é **autoridade máxima**
-3. Qualquer sugestão que o contradiga deve ser descartada
+1. **Recomenda-se ler este arquivo integralmente**
+2. Este documento é **referência técnica**
+3. Qualquer sugestão que o contradiga deve ser verificada contra docs/01_normative/
 
 ---
 
 ## 🧊 STATUS
 
-Este documento define o **estado canônico atual do sistema**.  
+Este documento define o **estado técnico atual do sistema**.  
 Mudanças só ocorrem por decisão humana explícita.
 

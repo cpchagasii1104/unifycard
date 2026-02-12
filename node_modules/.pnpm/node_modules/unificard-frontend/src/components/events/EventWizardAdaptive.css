@@ -1,0 +1,346 @@
+/* frontend/src/components/events/EventWizardAdaptive.css */
+
+.event-wizard-adaptive {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wizard-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.wizard-header h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.wizard-subtitle {
+  color: #666;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Este CSS é apenas para EventWizardAdaptive, não interfere no EventCreationWizard */
+.adaptive-wizard-container .wizard-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #007bff;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+}
+
+.wizard-content {
+  min-height: 300px;
+  margin-bottom: 2rem;
+}
+
+.wizard-question {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.question-header {
+  margin-bottom: 1.5rem;
+}
+
+.question-header h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.help-bubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #e7f3ff;
+  border-left: 4px solid #007bff;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.help-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.help-bubble p {
+  margin: 0;
+  color: #333;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.question-content {
+  margin-top: 1.5rem;
+}
+
+.yes-no-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.answer-button {
+  padding: 1rem 2rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.answer-button:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+}
+
+.answer-button.selected {
+  border-color: #007bff;
+  background: #007bff;
+  color: #fff;
+}
+
+.multiple-choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.option-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.option-label:hover {
+  border-color: #007bff;
+  background: #e7f3ff;
+}
+
+.option-label input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.option-label span {
+  flex: 1;
+  font-size: 1rem;
+}
+
+.question-content textarea,
+.question-content input[type="date"],
+.question-content input[type="number"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.question-content textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.wizard-summary {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.wizard-summary h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.3rem;
+  color: #333;
+}
+
+.summary-section {
+  margin-bottom: 1.5rem;
+}
+
+.summary-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.summary-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.summary-section li {
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+.bundle-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #007bff;
+  color: #fff;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.services-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.service-preview-card {
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.service-preview-card h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.service-preview-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.services-note {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+.loading-services {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: #fff;
+  margin-left: auto;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .event-wizard-adaptive {
+    padding: 1rem;
+  }
+
+  .yes-no-buttons {
+    flex-direction: column;
+  }
+
+  .answer-button {
+    width: 100%;
+  }
+
+  .wizard-actions {
+    flex-direction: column;
+  }
+
+  .btn-primary {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+

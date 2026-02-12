@@ -139,7 +139,7 @@ class RegionalFundGovernanceService {
       INSERT INTO regional_fund_proposals (
         proposal_id, tenant_id, region_id, title, description,
         proposal_type, target_type, target_id, amount, status,
-        created_by, voting_starts_at, voting_ends_at, metadata
+        created_by, voting_startsAt, voting_endsAt, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
@@ -153,7 +153,7 @@ class RegionalFundGovernanceService {
             input.targetType,
             input.targetId || null,
             input.amount,
-            'DRAFT',
+            'draft',
             globalUserId,
             input.votingStartsAt,
             input.votingEndsAt,
@@ -171,7 +171,7 @@ class RegionalFundGovernanceService {
             await client.query('BEGIN');
             // Verificar que proposta existe e está em DRAFT
             const proposal = await client.query(`
-        SELECT proposal_id, status, voting_starts_at, voting_ends_at
+        SELECT proposal_id, status, voting_startsAt, voting_endsAt
         FROM regional_fund_proposals
         WHERE proposal_id = $1 AND tenant_id = $2
         FOR UPDATE
@@ -179,13 +179,13 @@ class RegionalFundGovernanceService {
             if (proposal.rows.length === 0) {
                 throw new Error('Proposta não encontrada');
             }
-            if (proposal.rows[0].status !== 'DRAFT') {
-                throw new Error(`Proposta não está em DRAFT (status atual: ${proposal.rows[0].status})`);
+            if (proposal.rows[0].status !== 'draft') {
+                throw new Error(`Proposta não está em draft (status atual: ${proposal.rows[0].status})`);
             }
             // Atualizar status para OPEN
             const updated = await client.query(`
         UPDATE regional_fund_proposals
-        SET status = 'OPEN', updated_at = now()
+        SET status = 'open', updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `, [proposalId, tenantId]);
@@ -209,7 +209,7 @@ class RegionalFundGovernanceService {
             await client.query('BEGIN');
             // 1. Verificar que proposta existe e está em OPEN
             const proposal = await client.query(`
-        SELECT region_id, status, voting_starts_at, voting_ends_at
+        SELECT region_id, status, voting_startsAt, voting_endsAt
         FROM regional_fund_proposals
         WHERE proposal_id = $1 AND tenant_id = $2
         FOR UPDATE
@@ -218,15 +218,15 @@ class RegionalFundGovernanceService {
                 throw new Error('Proposta não encontrada');
             }
             const proposalData = proposal.rows[0];
-            if (proposalData.status !== 'OPEN') {
+            if (proposalData.status !== 'open') {
                 throw new Error(`Proposta não está em votação (status: ${proposalData.status})`);
             }
             // 2. Verificar período de votação
             const now = new Date();
-            if (proposalData.voting_starts_at && now < proposalData.voting_starts_at) {
+            if (proposalData.voting_startsAt && now < proposalData.voting_startsAt) {
                 throw new Error('Votação ainda não iniciou');
             }
-            if (proposalData.voting_ends_at && now > proposalData.voting_ends_at) {
+            if (proposalData.voting_endsAt && now > proposalData.voting_endsAt) {
                 throw new Error('Votação já encerrou');
             }
             // 3. Verificar se usuário é elegível
@@ -282,7 +282,7 @@ class RegionalFundGovernanceService {
             // Atualizar status para CLOSED
             const updated = await client.query(`
         UPDATE regional_fund_proposals
-        SET status = 'CLOSED', updated_at = now()
+        SET status = 'CLOSED', updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `, [proposalId, tenantId]);
@@ -310,7 +310,7 @@ class RegionalFundGovernanceService {
      * Executa transferência usando Unify Bank
      * (versão migrada para Unify Bank)
      */
-    async transferWithClient(client, tenantId, fromAccount, toAccount, amount, eventId, metadata) {
+    async transferWithClient(client, tenantId, fromAccount, toAccount, amountCents, eventId, metadata) {
         // Construir autoria do sistema (governance é operação do sistema)
         const { buildSystemAuthorship } = await Promise.resolve().then(() => __importStar(require('@modules/bank/financial-authorship.helper')));
         const authorship = buildSystemAuthorship({
@@ -384,7 +384,7 @@ class RegionalFundGovernanceService {
             if (!quorumMet) {
                 await client.query(`
           UPDATE regional_fund_proposals
-          SET status = 'REJECTED', updated_at = now()
+          SET status = 'REJECTED', updatedAt = now()
           WHERE proposal_id = $1 AND tenant_id = $2
           `, [proposalId, tenantId]);
                 await client.query('COMMIT');
@@ -395,7 +395,7 @@ class RegionalFundGovernanceService {
             if (!approved) {
                 await client.query(`
           UPDATE regional_fund_proposals
-          SET status = 'REJECTED', updated_at = now()
+          SET status = 'REJECTED', updatedAt = now()
           WHERE proposal_id = $1 AND tenant_id = $2
           `, [proposalId, tenantId]);
                 await client.query('COMMIT');
@@ -500,7 +500,7 @@ class RegionalFundGovernanceService {
             // 9. Setar status EXECUTING
             await client.query(`
         UPDATE regional_fund_proposals
-        SET status = 'EXECUTING', executing_at = now(), updated_at = now()
+        SET status = 'EXECUTING', executingAt = now(), updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         `, [proposalId, tenantId]);
             // 10. Gerar eventId determinístico
@@ -519,7 +519,7 @@ class RegionalFundGovernanceService {
             // 12. Atualizar proposta para EXECUTED
             const updated = await client.query(`
         UPDATE regional_fund_proposals
-        SET status = 'EXECUTED', executed_at = now(), execution_transaction_id = $3, updated_at = now()
+        SET status = 'EXECUTED', executedAt = now(), execution_transaction_id = $3, updatedAt = now()
         WHERE proposal_id = $1 AND tenant_id = $2
         RETURNING *
         `, [proposalId, tenantId, transactionId]);
@@ -559,7 +559,7 @@ class RegionalFundGovernanceService {
             params.push(status);
             paramIndex++;
         }
-        query += ` ORDER BY p.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        query += ` ORDER BY p.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
         const proposals = await pool_1.pool.query(query, params);
         // Buscar votos e contagens para cada proposta
@@ -585,7 +585,7 @@ class RegionalFundGovernanceService {
                 votes: {
                     yes: yesVotes,
                     no: noVotes,
-                    total: totalVotes,
+                    totalCents: totalVotes,
                     quorumMet,
                     approved: yesVotes > noVotes,
                 },
@@ -627,7 +627,7 @@ class RegionalFundGovernanceService {
             votes: {
                 yes: yesVotes,
                 no: noVotes,
-                total: totalVotes,
+                totalCents: totalVotes,
                 quorumMet,
                 approved: yesVotes > noVotes,
             },
@@ -647,14 +647,14 @@ class RegionalFundGovernanceService {
             proposalType: row.proposal_type,
             targetType: row.target_type,
             targetId: row.target_id || undefined,
-            amount: parseFloat(row.amount),
+            amountCents: parseFloat(row.amount),
             status: row.status,
             createdBy: row.created_by,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            votingStartsAt: row.voting_starts_at || undefined,
-            votingEndsAt: row.voting_ends_at || undefined,
-            executedAt: row.executed_at || undefined,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            votingStartsAt: row.voting_startsAt || undefined,
+            votingEndsAt: row.voting_endsAt || undefined,
+            executedAt: row.executedAt || undefined,
             metadata: row.metadata || {},
         };
     }
@@ -671,14 +671,14 @@ class RegionalFundGovernanceService {
             proposalType: row.proposal_type,
             targetType: row.target_type,
             targetId: row.target_id || undefined,
-            amount: parseFloat(row.amount),
+            amountCents: parseFloat(row.amount),
             status: row.status,
             createdBy: row.created_by,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            votingStartsAt: row.voting_starts_at || undefined,
-            votingEndsAt: row.voting_ends_at || undefined,
-            executedAt: row.executed_at || undefined,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            votingStartsAt: row.voting_startsAt || undefined,
+            votingEndsAt: row.voting_endsAt || undefined,
+            executedAt: row.executedAt || undefined,
             metadata: row.metadata || {},
         };
     }

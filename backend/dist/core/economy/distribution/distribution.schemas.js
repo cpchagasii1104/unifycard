@@ -11,12 +11,12 @@ exports.feeConfigSchema = zod_1.z.object({
 exports.autoDistributeSchema = zod_1.z.object({
     fromAccount: zod_1.z.string().uuid('Invalid source account ID'),
     toAccount: zod_1.z.string().uuid('Invalid destination account ID'),
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
     groupAccount: zod_1.z.string().uuid('Invalid group account ID').optional(),
     config: exports.feeConfigSchema.optional(),
 });
 exports.simulateSchema = zod_1.z.object({
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
     config: exports.feeConfigSchema.optional(),
 });
 exports.batchCalculateSchema = zod_1.z.object({

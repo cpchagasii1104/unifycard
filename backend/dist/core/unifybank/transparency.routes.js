@@ -147,7 +147,7 @@ const transparencyRoutes = async (fastify) => {
                 success: true,
                 statement: {
                     entries: [],
-                    total: 0,
+                    totalCents: 0,
                     hasMore: false,
                 },
             });
@@ -158,7 +158,7 @@ const transparencyRoutes = async (fastify) => {
                 success: true,
                 statement: {
                     entries: [],
-                    total: 0,
+                    totalCents: 0,
                     hasMore: false,
                 },
             });
@@ -173,7 +173,7 @@ const transparencyRoutes = async (fastify) => {
                 success: true,
                 statement: {
                     entries: [],
-                    total: 0,
+                    totalCents: 0,
                     hasMore: false,
                 },
             });
@@ -207,7 +207,7 @@ const transparencyRoutes = async (fastify) => {
                 success: true,
                 statement: {
                     entries: [],
-                    total: 0,
+                    totalCents: 0,
                     hasMore: false,
                 },
             });

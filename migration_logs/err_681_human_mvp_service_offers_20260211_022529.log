@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/681_human_mvp_service_offers.sql:21: ERRO:  coluna "version" da rela├º├úo "schema_migrations" n├úo existe
+LINHA 1: INSERT INTO schema_migrations (version, name, executed_at)
+                                        ^

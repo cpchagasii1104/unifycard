@@ -50,6 +50,22 @@ const LATENT_MODULE_MIGRATIONS = [
     '005_unifywork.sql',
 ];
 /**
+ * Lista de migrations IGNORADAS permanentemente devido a inconsistências históricas
+ *
+ * REGRA: Essas migrations foram marcadas como executadas pelo baseline automático
+ * mas não foram realmente aplicadas (tabelas dependentes não existem).
+ * Elas são ignoradas para permitir que migrations posteriores sejam executadas.
+ *
+ * MOTIVO: Baseline automático marcou migrations 001-088 como executadas sem
+ * realmente executar o SQL, causando inconsistências quando migrations dependentes
+ * tentam executar.
+ */
+const IGNORED_MIGRATIONS = [
+    // Migration 046 depende de companies, mas companies não existe porque
+    // migration 044 foi marcada como executada pelo baseline sem realmente executar
+    '046_company_status_and_documents.sql',
+];
+/**
  * Obtém o profile de migrations a partir de variável de ambiente
  * Padrão: CORE_ONLY (ignora módulos latentes)
  */
@@ -65,7 +81,11 @@ function getMigrationProfile() {
  * Verifica se uma migration deve ser executada baseado no profile
  */
 function shouldExecuteMigration(filename, profile) {
-    // Profile FULL executa todas as migrations
+    // Migrations ignoradas permanentemente nunca são executadas
+    if (IGNORED_MIGRATIONS.includes(filename)) {
+        return false;
+    }
+    // Profile FULL executa todas as migrations (exceto ignoradas)
     if (profile === 'FULL') {
         return true;
     }
@@ -412,11 +432,22 @@ async function main() {
         const filteredMigrations = allMigrations.filter((m) => shouldExecuteMigration(m.filename, profile));
         const skippedMigrations = allMigrations.filter((m) => !shouldExecuteMigration(m.filename, profile));
         if (skippedMigrations.length > 0) {
-            console.log(`⏭️  MIGRATIONS IGNORADAS (módulos latentes): ${skippedMigrations.length}`);
-            skippedMigrations.forEach((m) => {
-                console.log(`   🚫 ${m.filename}`);
-            });
-            console.log('');
+            const latentMigrations = skippedMigrations.filter(m => LATENT_MODULE_MIGRATIONS.includes(m.filename));
+            const ignoredMigrations = skippedMigrations.filter(m => IGNORED_MIGRATIONS.includes(m.filename));
+            if (latentMigrations.length > 0) {
+                console.log(`⏭️  MIGRATIONS IGNORADAS (módulos latentes): ${latentMigrations.length}`);
+                latentMigrations.forEach((m) => {
+                    console.log(`   🚫 ${m.filename}`);
+                });
+                console.log('');
+            }
+            if (ignoredMigrations.length > 0) {
+                console.log(`⚠️  MIGRATIONS IGNORADAS (inconsistências históricas): ${ignoredMigrations.length}`);
+                ignoredMigrations.forEach((m) => {
+                    console.log(`   ⚠️  ${m.filename} (marcada como executada pelo baseline, mas tabelas dependentes não existem)`);
+                });
+                console.log('');
+            }
         }
         console.log(`📦 MIGRATIONS DISPONÍVEIS: ${filteredMigrations.length} de ${allMigrations.length} total\n`);
         // BASELINE AUTOMÁTICO: Se banco já tem tabelas mas schema_migrations está vazio,

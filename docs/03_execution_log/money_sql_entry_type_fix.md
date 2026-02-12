@@ -108,3 +108,7 @@ Todas as violações de nomenclatura no eixo DINHEIRO foram corrigidas. Nenhuma 
 FIM DO LOG
 
 
+
+
+
+

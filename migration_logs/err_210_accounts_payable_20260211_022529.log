@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/210_accounts_payable.sql:111: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -50,7 +50,7 @@ class SmartMatchingService {
     /**
      * Normaliza um valor para escala 0-1
      */
-    normalize(value, min, max) {
+    normalize(valueCents, min, max) {
         if (max === min)
             return 0.5;
         return Math.max(0, Math.min(1, (value - min) / (max - min)));
@@ -244,49 +244,49 @@ class SmartMatchingService {
                 factors: [
                     {
                         name: 'distance',
-                        value: w.distanceScore,
+                        valueCents: w.distanceScore,
                         weight: 0.35,
                         contribution: w.distanceScore * 0.35,
                         explanation: `Distância: ${w.distance.toFixed(2)} km`,
                     },
                     {
                         name: 'reputation',
-                        value: w.reputationScore,
+                        valueCents: w.reputationScore,
                         weight: 0.25,
                         contribution: w.reputationScore * 0.25,
                         explanation: `Reputação do worker`,
                     },
                     {
                         name: 'performance',
-                        value: w.performanceScore,
+                        valueCents: w.performanceScore,
                         weight: 0.20,
                         contribution: w.performanceScore * 0.20,
                         explanation: `Performance histórica`,
                     },
                     {
                         name: 'experience',
-                        value: w.experienceScore,
+                        valueCents: w.experienceScore,
                         weight: 0.10,
                         contribution: w.experienceScore * 0.10,
                         explanation: `Experiência na categoria`,
                     },
                     {
                         name: 'response',
-                        value: w.responseScore,
+                        valueCents: w.responseScore,
                         weight: 0.05,
                         contribution: w.responseScore * 0.05,
                         explanation: `Tempo de resposta`,
                     },
                     {
                         name: 'specialization',
-                        value: w.specializationScore,
+                        valueCents: w.specializationScore,
                         weight: 0.05,
                         contribution: w.specializationScore * 0.05,
                         explanation: `Especialização`,
                     },
                     {
                         name: 'availability',
-                        value: w.availabilityScore,
+                        valueCents: w.availabilityScore,
                         weight: 0.05,
                         contribution: w.availabilityScore * 0.05,
                         explanation: `Disponibilidade`,

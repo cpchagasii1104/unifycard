@@ -1,0 +1,5 @@
+psql:C:/unificard/backend/migrations/872_seed_marketplace_subcategories.sql:177: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 1: SELECT category_id                     FROM categories WHERE...
+                                                     ^
+CONSULTA:  SELECT category_id                     FROM categories WHERE slug = 'alimentacao-bebidas' AND parent_id IS NULL LIMIT 1
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 15 em comando SQL

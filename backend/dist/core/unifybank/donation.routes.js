@@ -12,7 +12,7 @@ const createDonationSchema = zod_1.z.object({
         errorMap: () => ({ message: 'targetType must be "user", "project", or "group"' }),
     }),
     targetId: zod_1.z.string().uuid('Invalid target ID'),
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
     message: zod_1.z.string().max(500, 'Message too long').optional(),
     eventId: zod_1.z.string().uuid('Invalid event ID').optional(),
 });
@@ -83,7 +83,7 @@ const donationRoutes = async (fastify) => {
                     fromUserId: result.fromUserId,
                     targetType: result.targetType,
                     targetId: result.targetId,
-                    amount: result.amount,
+                    amountCents: result.amount,
                     message: result.message,
                     feedPostId: result.feedPostId,
                     splitGroupId: result.splitGroupId,

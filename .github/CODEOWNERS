@@ -58,6 +58,14 @@
 # Core Profile (Perfil)
 /backend/src/core/profile/ @unificard/core-team
 
+# Core Bank (SSOT Financeiro - Proteção Máxima)
+/backend/src/core/bank/ @unificard/core-team
+/backend/src/modules/bank/ @unificard/core-team
+/backend/scripts/validate-financial-vocabulary.js @unificard/core-team
+/backend/scripts/validate-financial-ssot.js @unificard/core-team
+/backend/docs/FINANCIAL_VOCABULARY_LINT.md @unificard/core-team
+/backend/docs/FINANCIAL_SSOT_TEST.md @unificard/core-team
+
 # ============================================================
 # PLUGINS - Proteção Alta
 # ============================================================

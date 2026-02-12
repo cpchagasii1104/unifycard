@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const ledger_service_1 = require("./ledger.service");
 const ledger_schemas_1 = require("./ledger.schemas");
 const ledgerRoutes = async (fastify) => {
     // GET /economy/ledger/account/:accountId - Buscar entradas por conta
@@ -21,7 +20,7 @@ const ledgerRoutes = async (fastify) => {
             });
         }
         const { limit, offset, startDate, endDate, entryType } = parsedQuery.data;
-        const entries = await ledger_service_1.ledgerService.getLedgerEntries(tenantId, parsedParams.data.accountId, {
+        const entries = await ledgerService.getLedgerEntries(tenantId, parsedParams.data.accountId, {
             limit,
             offset,
             startDate: startDate ? new Date(startDate) : undefined,
@@ -40,7 +39,7 @@ const ledgerRoutes = async (fastify) => {
                 details: parsed.error.errors,
             });
         }
-        const entries = await ledger_service_1.ledgerService.getLedgerEntriesByTransaction(tenantId, parsed.data.transactionId);
+        const entries = await ledgerService.getLedgerEntriesByTransaction(tenantId, parsed.data.transactionId);
         return { entries };
     });
     // GET /economy/ledger/summary/:accountId - Sumário de movimentação
@@ -61,7 +60,7 @@ const ledgerRoutes = async (fastify) => {
             });
         }
         const { startDate, endDate } = parsedQuery.data;
-        const summary = await ledger_service_1.ledgerService.getAccountSummary(tenantId, parsedParams.data.accountId, {
+        const summary = await ledgerService.getAccountSummary(tenantId, parsedParams.data.accountId, {
             startDate: startDate ? new Date(startDate) : undefined,
             endDate: endDate ? new Date(endDate) : undefined,
         });
@@ -78,8 +77,8 @@ const ledgerRoutes = async (fastify) => {
             });
         }
         const accountId = parsed.data.accountId;
-        const isValid = await ledger_service_1.ledgerService.verifyLedgerIntegrity(tenantId, accountId);
-        const summary = await ledger_service_1.ledgerService.getAccountSummary(tenantId, accountId);
+        const isValid = await ledgerService.verifyLedgerIntegrity(tenantId, accountId);
+        const summary = await ledgerService.getAccountSummary(tenantId, accountId);
         return {
             accountId,
             integrityValid: isValid,

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/046_company_status_and_documents.sql:97: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

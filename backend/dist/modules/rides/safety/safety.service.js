@@ -19,7 +19,7 @@ class SafetyService {
         const row = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
         INSERT INTO rides_emergency_contacts (
-          tenant_id, user_id, name, phone, created_at
+          tenant_id, user_id, name, phone, createdAt
         )
         VALUES ($1, $2, $3, $4, now())
         RETURNING *
@@ -40,7 +40,7 @@ class SafetyService {
         SELECT *
         FROM rides_emergency_contacts
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
             values: [tenantId, userId],
         });
@@ -94,7 +94,7 @@ class SafetyService {
             text: `
         INSERT INTO rides_safety_alerts (
           tenant_id, ride_id, triggered_by_user_id,
-          created_at
+          createdAt
         )
         VALUES ($1, $2, $3, now())
         RETURNING alert_id
@@ -139,7 +139,7 @@ class SafetyService {
         INSERT INTO rides_ride_shares (
           tenant_id, ride_id, user_id,
           share_token, share_url,
-          expires_at, created_at
+          expiresAt, createdAt
         )
         VALUES (
           $1, $2, $3,
@@ -188,7 +188,7 @@ class SafetyService {
         INSERT INTO rides_disputes (
           tenant_id, ride_id, opened_by_user_id,
           reason, details, status,
-          created_at
+          createdAt
         )
         VALUES ($1, $2, $3, $4, $5, 'open', now())
         RETURNING *
@@ -218,7 +218,7 @@ class SafetyService {
         SELECT *
         FROM rides_ride_shares
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
             values: [tenantId, rideId],
         });
@@ -232,7 +232,7 @@ class SafetyService {
         SELECT *
         FROM rides_disputes
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
       `,
             values: [tenantId, rideId],
         });

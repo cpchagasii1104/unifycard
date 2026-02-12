@@ -151,7 +151,7 @@ const socialWorkApplyRoutes = async (fastify) => {
                 postId,
                 jobId: job.jobId,
                 applications: result.applications,
-                total: result.total,
+                totalCents: result.total,
             };
         }
         catch (error) {

@@ -1200,6 +1200,20 @@ SUM(debit_cents) = SUM(credit_cents) -- sempre
 'system'            -- Sistema
 'bot'               -- Bot/automação
 ```
+  #### Regra Constitucional de Entidade
+
+Entidade **NÃO É** autoridade soberana.
+
+Toda entidade:
+- deve possuir **ator humano responsável**
+- **não pode** blindar responsabilidade humana
+- **não pode** ser raiz de autoridade econômica ou jurídica
+
+Tipos de entidade (`page`, `group`, `company`, `organization`)  
+existem **exclusivamente como persona operacional**.
+
+Responsabilidade final **sempre** recai sobre um `actor_human`.
+
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
@@ -1226,6 +1240,24 @@ SUM(debit_cents) = SUM(credit_cents) -- sempre
 'buyer'             -- Comprador
 'organizer'         -- Organizador de evento
 ```
+  #### Hierarquia Canônica de Atores
+
+A hierarquia de autoridade é **imutável**:
+
+1. `actor_human` — raiz constitucional (CPF)
+2. `actor_organizational` — empresa, grupo, projeto (CNPJ / persona)
+3. `actor_system` — sistema, job, automação, IA
+
+Regras obrigatórias:
+
+- `actor_human` é **irrenunciável**
+- `actor_organizational` **NUNCA** é soberano
+- `actor_system` **NUNCA** cria, delega ou herda autoridade
+- Toda ação deve ser rastreável até um `actor_human`
+
+Se não houver ator humano rastreável:
+→ a ação é **inválida por definição**
+
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|

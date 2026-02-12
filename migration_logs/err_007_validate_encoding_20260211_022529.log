@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/007_validate_encoding.sql:48: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 7: FROM categories
+              ^

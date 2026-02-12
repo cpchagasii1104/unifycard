@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/695_add_audience_description_to_groups.sql:21: ERRO:  rela├º├úo "groups" n├úo existe

@@ -20,9 +20,9 @@ class OfferService {
                 regionId: row.location_region_id || undefined,
                 cityId: row.location_city_id || undefined,
             },
-            active: row.active,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            isActive: row.active,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
         };
     }
     /**
@@ -32,7 +32,7 @@ class OfferService {
         const { regionId, cityId, activeOnly = true, limit = 50, offset = 0, } = options || {};
         let query = `
       SELECT id, tenant_id, product_id, merchant_id, price, stock, 
-             location_region_id, location_city_id, active, created_at, updated_at
+             location_region_id, location_city_id, active, createdAt, updatedAt
       FROM product_offers
       WHERE tenant_id = $1 AND product_id = $2
     `;
@@ -63,7 +63,7 @@ class OfferService {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, {
             text: `
         SELECT id, tenant_id, product_id, merchant_id, price, stock, 
-               location_region_id, location_city_id, active, created_at, updated_at
+               location_region_id, location_city_id, active, createdAt, updatedAt
         FROM product_offers
         WHERE tenant_id = $1 AND id = $2
         `,

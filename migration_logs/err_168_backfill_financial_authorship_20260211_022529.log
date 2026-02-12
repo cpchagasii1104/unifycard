@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/168_backfill_financial_authorship.sql:98: ERRO:  coluna "from_account_id" n├úo existe
+LINHA 4:   AND from_account_id IS NOT NULL
+               ^

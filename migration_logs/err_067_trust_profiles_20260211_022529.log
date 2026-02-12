@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/067_trust_profiles.sql:98: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

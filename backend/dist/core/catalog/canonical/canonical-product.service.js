@@ -24,8 +24,8 @@ class CanonicalProductService {
             attributes: row.attributes || {},
             categoryId: row.category_id || undefined,
             type: 'INDUSTRIAL',
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     /**
@@ -37,7 +37,7 @@ class CanonicalProductService {
         const searchTerm = `%${query}%`;
         // Construir query de busca
         let sqlQuery = `
-      SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+      SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
       FROM canonical_products
       WHERE tenant_id = $1
         AND (
@@ -108,7 +108,7 @@ class CanonicalProductService {
     async findByGTIN(tenantId, gtin) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, {
             text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND gtin = $2
         LIMIT 1
@@ -123,7 +123,7 @@ class CanonicalProductService {
     async findById(tenantId, productId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, {
             text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND id = $2
         LIMIT 1
@@ -139,7 +139,7 @@ class CanonicalProductService {
         const { limit = 50, offset = 0 } = options || {};
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, {
             text: `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, created_at, updated_at
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
         FROM canonical_products
         WHERE tenant_id = $1 AND category_id = $2
         ORDER BY name ASC

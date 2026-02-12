@@ -88,10 +88,10 @@ class ProfileEducationCompaniesService {
         const result = await pool_1.pool.query(`INSERT INTO user_education (global_user_id, category_id)
        VALUES ($1, $2)
        ON CONFLICT (global_user_id, category_id) DO NOTHING
-       RETURNING id, global_user_id, category_id, created_at, updated_at`, [globalUserId, category.categoryId]);
+       RETURNING id, global_user_id, category_id, createdAt, updatedAt`, [globalUserId, category.categoryId]);
         if (result.rows.length === 0) {
             // Conflito (duplicata) - buscar existente
-            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, created_at, updated_at
+            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, createdAt, updatedAt
          FROM user_education
          WHERE global_user_id = $1 AND category_id = $2
          LIMIT 1`, [globalUserId, category.categoryId]);
@@ -105,8 +105,8 @@ class ProfileEducationCompaniesService {
                 globalUserId: existing.rows[0].global_user_id,
                 categoryId: existing.rows[0].category_id,
                 categoryName: category.name,
-                createdAt: existing.rows[0].created_at,
-                updatedAt: existing.rows[0].updated_at,
+                createdAt: existing.rows[0].createdAt,
+                updatedAt: existing.rows[0].updatedAt,
             };
         }
         return {
@@ -114,8 +114,8 @@ class ProfileEducationCompaniesService {
             globalUserId: result.rows[0].global_user_id,
             categoryId: result.rows[0].category_id,
             categoryName: category.name,
-            createdAt: result.rows[0].created_at,
-            updatedAt: result.rows[0].updated_at,
+            createdAt: result.rows[0].createdAt,
+            updatedAt: result.rows[0].updatedAt,
         };
     }
     /**
@@ -195,10 +195,10 @@ class ProfileEducationCompaniesService {
         const result = await pool_1.pool.query(`INSERT INTO user_companies (global_user_id, category_id)
        VALUES ($1, $2)
        ON CONFLICT (global_user_id, category_id) DO NOTHING
-       RETURNING id, global_user_id, category_id, created_at, updated_at`, [globalUserId, category.categoryId]);
+       RETURNING id, global_user_id, category_id, createdAt, updatedAt`, [globalUserId, category.categoryId]);
         if (result.rows.length === 0) {
             // Conflito (duplicata) - buscar existente
-            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, created_at, updated_at
+            const existing = await pool_1.pool.query(`SELECT id, global_user_id, category_id, createdAt, updatedAt
          FROM user_companies
          WHERE global_user_id = $1 AND category_id = $2
          LIMIT 1`, [globalUserId, category.categoryId]);
@@ -212,8 +212,8 @@ class ProfileEducationCompaniesService {
                 globalUserId: existing.rows[0].global_user_id,
                 categoryId: existing.rows[0].category_id,
                 categoryName: category.name,
-                createdAt: existing.rows[0].created_at,
-                updatedAt: existing.rows[0].updated_at,
+                createdAt: existing.rows[0].createdAt,
+                updatedAt: existing.rows[0].updatedAt,
             };
         }
         return {
@@ -221,44 +221,44 @@ class ProfileEducationCompaniesService {
             globalUserId: result.rows[0].global_user_id,
             categoryId: result.rows[0].category_id,
             categoryName: category.name,
-            createdAt: result.rows[0].created_at,
-            updatedAt: result.rows[0].updated_at,
+            createdAt: result.rows[0].createdAt,
+            updatedAt: result.rows[0].updatedAt,
         };
     }
     /**
      * Lista formações do usuário
      */
     async listEducation(globalUserId) {
-        const result = await pool_1.pool.query(`SELECT ue.id, ue.global_user_id, ue.category_id, c.name as category_name, ue.created_at, ue.updated_at
+        const result = await pool_1.pool.query(`SELECT ue.id, ue.global_user_id, ue.category_id, c.name as category_name, ue.createdAt, ue.updatedAt
        FROM user_education ue
        JOIN categories c ON c.category_id = ue.category_id
        WHERE ue.global_user_id = $1
-       ORDER BY ue.created_at DESC`, [globalUserId]);
+       ORDER BY ue.createdAt DESC`, [globalUserId]);
         return result.rows.map(row => ({
             id: row.id,
             globalUserId: row.global_user_id,
             categoryId: row.category_id,
             categoryName: row.category_name,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         }));
     }
     /**
      * Lista empresas do usuário
      */
     async listCompanies(globalUserId) {
-        const result = await pool_1.pool.query(`SELECT uc.id, uc.global_user_id, uc.category_id, c.name as category_name, uc.created_at, uc.updated_at
+        const result = await pool_1.pool.query(`SELECT uc.id, uc.global_user_id, uc.category_id, c.name as category_name, uc.createdAt, uc.updatedAt
        FROM user_companies uc
        JOIN categories c ON c.category_id = uc.category_id
        WHERE uc.global_user_id = $1
-       ORDER BY uc.created_at DESC`, [globalUserId]);
+       ORDER BY uc.createdAt DESC`, [globalUserId]);
         return result.rows.map(row => ({
             id: row.id,
             globalUserId: row.global_user_id,
             categoryId: row.category_id,
             categoryName: row.category_name,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         }));
     }
 }

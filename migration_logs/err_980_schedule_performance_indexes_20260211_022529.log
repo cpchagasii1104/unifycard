@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/980_schedule_performance_indexes.sql:52: ERRO:  rela├º├úo "schedule_slots" n├úo existe

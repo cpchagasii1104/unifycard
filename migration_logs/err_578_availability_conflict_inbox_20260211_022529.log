@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/578_availability_conflict_inbox.sql:35: ERRO:  tipo "inbox_source_type" n├úo existe
+CONTEXTO:  comando SQL "ALTER TYPE inbox_source_type ADD VALUE 'availability_conflict'"
+fun├º├úo PL/pgSQL inline_code_block linha 10 em comando SQL

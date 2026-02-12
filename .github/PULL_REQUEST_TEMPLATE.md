@@ -68,6 +68,61 @@ Consulte: [`docs/audit/SYSTEM-CANONICAL-INVARIANTS.md`](../../docs/audit/SYSTEM-
 
 ---
 
+## 💰 Checklist Financeiro (SSOT) — OBRIGATÓRIO
+
+⚠️ **BLOQUEANTE:** Este PR **NÃO PODE** ser mergeado se qualquer item abaixo estiver desmarcado.
+
+**Autoridade:**
+- [`docs/01_normative/01_SSOT.md`](../../docs/01_normative/01_SSOT.md)
+- [`docs/01_normative/07_NOMENCLATURA_CANONICA.md`](../../docs/01_normative/07_NOMENCLATURA_CANONICA.md)
+- [`CORE_FINANCIAL_CONTRACT.md`](../../CORE_FINANCIAL_CONTRACT.md)
+
+### Regras SSOT Financeiro
+
+- [ ] **Este PR NÃO cria saldo fora do Bank**
+  - Nenhum cálculo de saldo em módulos fora de `src/core/bank/**`
+  - Nenhuma persistência de saldo em repositories fora do Bank
+
+- [ ] **Este PR NÃO calcula dinheiro fora do Bank**
+  - Nenhum cálculo de valores monetários em módulos fora do Bank
+  - Nenhuma agregação financeira fora do Bank
+
+- [ ] **Este PR NÃO cria ledger fora do Bank**
+  - Nenhum arquivo/classe com nome contendo "ledger" fora de `src/core/bank/**`
+  - Nenhum repository de ledger fora do Bank
+
+- [ ] **Este PR NÃO cria transaction fora do Bank**
+  - Nenhum arquivo/classe com nome contendo "transaction" fora de `src/core/bank/**`
+  - Nenhum repository de transaction fora do Bank
+
+- [ ] **Este PR NÃO cria split fora do Bank**
+  - Nenhum arquivo/classe com nome contendo "split" fora de `src/core/bank/**`
+  - Nenhum cálculo de split fora do Bank
+
+- [ ] **Este PR NÃO adiciona vocabulário financeiro fora do Bank**
+  - Nenhuma variável/propriedade com nomes: `balance`, `available`, `saldo`, `paid`, `settled`, `refunded`, `refund`, `payout`, `receivable`, `payable`, `ledger`, `split`, `transaction`, `amount`, `value_cents`, `total_cents`
+  - Verificação automática: `npm run validate:financial-vocabulary`
+
+- [ ] **Este PR respeita o SSOT financeiro definido em docs/01_normative/**
+  - Todas as operações financeiras passam exclusivamente pelo Bank
+  - Nenhuma estrutura financeira paralela criada
+  - Verificação automática: `npm run validate:financial-ssot`
+
+- [ ] **Se toca em dinheiro, passa EXCLUSIVAMENTE pelo Bank**
+  - Qualquer operação financeira usa `@core/bank/**` ou `@modules/bank/**`
+  - Nenhum código financeiro fora do domínio Bank
+
+### Verificações Automáticas
+
+Este PR será automaticamente verificado por:
+
+- ✅ `validate:financial-vocabulary` — Detecta vocabulário financeiro proibido
+- ✅ `validate:financial-ssot` — Detecta estruturas financeiras paralelas
+
+**Se qualquer verificação falhar, o PR será bloqueado.**
+
+---
+
 ## 🧪 Testes
 
 - [ ] Testes unitários adicionados/atualizados

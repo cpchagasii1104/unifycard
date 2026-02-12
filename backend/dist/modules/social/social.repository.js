@@ -9,7 +9,7 @@ class SocialRepository {
      */
     async findById(tenantId, postId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       FROM posts
       WHERE post_id = $1
       LIMIT 1
@@ -36,7 +36,7 @@ class SocialRepository {
         event_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       `, [
             data.tenantId,
             data.globalUserId,
@@ -66,7 +66,7 @@ class SocialRepository {
     async findFeed(tenantId, options = {}) {
         const { limit = 50, offset = 0, categoryId, intent, userId, groupId, startDate, endDate, } = options;
         let query = `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
       FROM posts
       WHERE tenant_id = $1
     `;
@@ -93,16 +93,16 @@ class SocialRepository {
             paramIndex++;
         }
         if (startDate) {
-            query += ` AND created_at >= $${paramIndex}`;
+            query += ` AND createdAt >= $${paramIndex}`;
             params.push(startDate);
             paramIndex++;
         }
         if (endDate) {
-            query += ` AND created_at <= $${paramIndex}`;
+            query += ` AND createdAt <= $${paramIndex}`;
             params.push(endDate);
             paramIndex++;
         }
-        query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         // Contar total
@@ -130,19 +130,19 @@ class SocialRepository {
             countParamIndex++;
         }
         if (startDate) {
-            countQuery += ` AND created_at >= $${countParamIndex}`;
+            countQuery += ` AND createdAt >= $${countParamIndex}`;
             countParams.push(startDate);
             countParamIndex++;
         }
         if (endDate) {
-            countQuery += ` AND created_at <= $${countParamIndex}`;
+            countQuery += ` AND createdAt <= $${countParamIndex}`;
             countParams.push(endDate);
             countParamIndex++;
         }
         const countRow = await (0, pool_1.runQueryWithTenant)(tenantId, countQuery, countParams);
         return {
             rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
     /**
@@ -151,7 +151,7 @@ class SocialRepository {
     async updateMetadata(tenantId, postId, metadata) {
         await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE posts
-      SET metadata = $1, updated_at = now()
+      SET metadata = $1, updatedAt = now()
       WHERE post_id = $2
       `, [JSON.stringify(metadata), postId]);
     }

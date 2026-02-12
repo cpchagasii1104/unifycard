@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/406_marketplace_segments_reorganization.sql:36: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 1: UPDATE categories
+                ^

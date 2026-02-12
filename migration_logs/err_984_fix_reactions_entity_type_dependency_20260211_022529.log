@@ -1,0 +1,23 @@
+psql:C:/unificard/backend/migrations/984_fix_reactions_entity_type_dependency.sql:224: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe
+CONTEXTO:  comando SQL "CREATE TABLE reaction_counts (
+
+            entity_type VARCHAR(50) NOT NULL,
+
+            entity_id UUID NOT NULL,
+
+            tenant_id UUID NOT NULL
+
+                REFERENCES tenants(tenant_id)
+
+                ON DELETE CASCADE,
+
+            reaction_type VARCHAR(50) NOT NULL,
+
+            count INTEGER NOT NULL DEFAULT 0,
+
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+            PRIMARY KEY (entity_type, entity_id, reaction_type)
+
+        )"
+fun├º├úo PL/pgSQL inline_code_block linha 10 em comando SQL

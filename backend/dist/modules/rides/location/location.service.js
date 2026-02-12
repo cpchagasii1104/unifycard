@@ -25,7 +25,7 @@ class LocationService {
         await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
       INSERT INTO rides_driver_locations (
-        tenant_id, driver_id, location, updated_at
+        tenant_id, driver_id, location, updatedAt
       )
       VALUES (
         $1, $2,
@@ -35,7 +35,7 @@ class LocationService {
       ON CONFLICT (tenant_id, driver_id)
       DO UPDATE SET 
         location = EXCLUDED.location,
-        updated_at = now()
+        updatedAt = now()
       `,
             values: [tenantId, driverId, lat, lng],
         });
@@ -166,7 +166,7 @@ class LocationService {
       SELECT 
         ST_Y(location::geometry) AS lat,
         ST_X(location::geometry) AS lng,
-        updated_at
+        updatedAt
       FROM rides_driver_locations
       WHERE tenant_id = $1 AND driver_id = $2
       `,

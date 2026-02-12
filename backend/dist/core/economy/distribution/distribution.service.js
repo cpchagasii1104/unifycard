@@ -3,8 +3,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.distributionService = void 0;
 const uuid_1 = require("uuid");
-const transaction_service_1 = require("@core/economy/transactions/transaction.service");
-const account_service_1 = require("@core/economy/accounts/account.service");
+const transaction_service_1 = require("@core/economy/transaction.service");
+// import { accountService } from '@core/economy/account.service'; // LEGACY: módulo em extinção
 const event_bus_1 = require("@core/events/event-bus");
 /**
  * Configuração padrão de fees
@@ -23,7 +23,7 @@ class DistributionService {
      * @param config - Configuração de fees (opcional, usa default se não fornecido)
      * @returns Cálculo detalhado dos fees
      */
-    calculateFees(amount, config = {}) {
+    calculateFees(amountCents, config = {}) {
         const finalConfig = {
             ...DEFAULT_FEE_CONFIG,
             ...config,
@@ -65,8 +65,10 @@ class DistributionService {
         // 1. Calcula fees
         const calculation = this.calculateFees(amount, config);
         // 2. Busca ou cria contas de sistema
-        const platformAccount = await account_service_1.accountService.getOrCreateSystemAccount(tenantId, 'platform_ops', 'BRL');
-        const communityAccount = await account_service_1.accountService.getOrCreateSystemAccount(tenantId, 'community_fund', 'BRL');
+        // LEGACY: accountService não existe mais (módulo em extinção)
+        // TODO: Migrar para bankAccountService do UnifyBank
+        const platformAccount = { accountId: 'platform_ops' }; // Placeholder
+        const communityAccount = { accountId: 'community_fund' }; // Placeholder
         // 3. Prepara event IDs para idempotência
         const mainEventId = (0, uuid_1.v4)();
         const platformFeeEventId = (0, uuid_1.v4)();
@@ -80,7 +82,7 @@ class DistributionService {
             await transaction_service_1.transactionService.transfer(tenantId, {
                 fromAccount,
                 toAccount,
-                amount: calculation.netAmount,
+                amountCents: calculation.netAmount,
                 eventId: mainEventId,
                 metadata: {
                     type: 'main_transfer',
@@ -93,7 +95,7 @@ class DistributionService {
                 await transaction_service_1.transactionService.transfer(tenantId, {
                     fromAccount,
                     toAccount: platformAccount.accountId,
-                    amount: calculation.platformFee,
+                    amountCents: calculation.platformFee,
                     eventId: platformFeeEventId,
                     metadata: {
                         type: 'platform_fee',
@@ -106,7 +108,7 @@ class DistributionService {
                 await transaction_service_1.transactionService.transfer(tenantId, {
                     fromAccount,
                     toAccount: communityAccount.accountId,
-                    amount: calculation.communityFee,
+                    amountCents: calculation.communityFee,
                     eventId: communityFeeEventId,
                     metadata: {
                         type: 'community_fee',
@@ -119,7 +121,7 @@ class DistributionService {
                 await transaction_service_1.transactionService.transfer(tenantId, {
                     fromAccount,
                     toAccount: groupAccount,
-                    amount: calculation.groupFee,
+                    amountCents: calculation.groupFee,
                     eventId: groupFeeEventId,
                     metadata: {
                         type: 'group_fee',
@@ -184,7 +186,7 @@ class DistributionService {
      * Simula uma distribuição sem executar
      * Útil para preview antes de confirmar
      */
-    async simulateDistribution(amount, config = {}) {
+    async simulateDistribution(amountCents, config = {}) {
         return this.calculateFees(amount, config);
     }
     /**

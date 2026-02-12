@@ -30,10 +30,10 @@ class GroupsRepository {
             financialPurpose: row.financial_purpose || undefined,
             ownerUserId: row.owner_user_id,
             isActive: row.is_active,
-            profitPercentage: row.profit_percentage ? parseFloat(row.profit_percentage.toString()) : 0,
+            profitBps: row.profit_percentage ? parseFloat(row.profit_percentage.toString()) : 0,
             metadata: row.metadata || {},
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
         };
     }
     toGroupMember(row) {
@@ -41,7 +41,7 @@ class GroupsRepository {
             groupId: row.group_id,
             userId: row.user_id,
             role: row.role,
-            joinedAt: row.joined_at,
+            joinedAt: row.joinedAt,
         };
     }
     async create(tenantId, ownerUserId, input) {
@@ -108,7 +108,7 @@ class GroupsRepository {
       )
       RETURNING group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, created_at, updated_at
+        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       `, [
             tenantId,
             input.name,
@@ -138,7 +138,7 @@ class GroupsRepository {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, created_at, updated_at
+        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE group_id = $1 AND tenant_id = $2
       `, [groupId, tenantId]);
@@ -185,7 +185,7 @@ class GroupsRepository {
         let query = `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, created_at, updated_at
+        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE (${visibilityConditions.join(' OR ')})
     `;
@@ -199,7 +199,7 @@ class GroupsRepository {
             params.push(filters.categoryId);
             paramIndex++;
         }
-        query += ` ORDER BY created_at DESC`;
+        query += ` ORDER BY createdAt DESC`;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows.map((r) => this.toGroup(r));
     }
@@ -281,9 +281,9 @@ class GroupsRepository {
         }
         // 🔴 CORREÇÃO: metadata já foi tratado acima se scope/location/rules_text foram atualizados
         // (removido - lógica unificada acima)
-        if (input.profit_percentage !== undefined) {
+        if (input.profitBps !== undefined) {
             updates.push(`profit_percentage = $${paramIndex++}`);
-            params.push(input.profit_percentage);
+            params.push(input.profitBps);
         }
         if (updates.length === 0) {
             const existing = await this.findById(tenantId, groupId);
@@ -292,7 +292,7 @@ class GroupsRepository {
             }
             return existing;
         }
-        updates.push(`updated_at = now()`);
+        updates.push(`updatedAt = now()`);
         // 🔴 CORREÇÃO: Remover colunas que não existem do RETURNING
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE groups
@@ -300,7 +300,7 @@ class GroupsRepository {
       WHERE tenant_id = $1 AND group_id = $2
       RETURNING group_id, tenant_id, name, slug, description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, created_at, updated_at
+        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       `, params);
         if (!row) {
             throw new Error('Group not found');
@@ -310,7 +310,7 @@ class GroupsRepository {
     async delete(tenantId, groupId) {
         const result = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE groups
-      SET is_active = false, updated_at = now()
+      SET is_active = false, updatedAt = now()
       WHERE tenant_id = $1 AND group_id = $2
       RETURNING group_id
       `, [tenantId, groupId]);
@@ -325,7 +325,7 @@ class GroupsRepository {
       INSERT INTO group_members (tenant_id, group_id, user_id, role)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
-      RETURNING group_id, user_id, role, joined_at
+      RETURNING group_id, user_id, role, joinedAt
       `, [tenantId, groupId, userId, role]);
         if (!row) {
             throw new Error('Failed to add member');
@@ -342,11 +342,11 @@ class GroupsRepository {
     }
     async getMembers(tenantId, groupId) {
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT gm.group_id, gm.user_id, gm.role, gm.joined_at
+      SELECT gm.group_id, gm.user_id, gm.role, gm.joinedAt
       FROM group_members gm
       INNER JOIN groups g ON g.group_id = gm.group_id
       WHERE gm.group_id = $1 AND g.tenant_id = $2
-      ORDER BY gm.joined_at ASC
+      ORDER BY gm.joinedAt ASC
       `, [groupId, tenantId]);
         return rows.map((r) => this.toGroupMember(r));
     }
@@ -370,11 +370,11 @@ class GroupsRepository {
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
       SELECT g.group_id, g.tenant_id, g.name, g.slug, g.description, g.category_id, g.visibility,
         g.avatar_url, g.cover_url, g.financial_purpose,
-        g.owner_user_id, g.is_active, g.profit_percentage, g.metadata, g.created_at, g.updated_at
+        g.owner_user_id, g.is_active, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
       FROM groups g
       INNER JOIN group_members gm ON g.group_id = gm.group_id
       WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.is_active = true
-      ORDER BY gm.joined_at DESC
+      ORDER BY gm.joinedAt DESC
       `, [tenantId, userId]);
         return rows.map((r) => this.toGroup(r));
     }
@@ -412,12 +412,12 @@ class GroupsRepository {
       INSERT INTO group_accounts (tenant_id, group_id, account_id)
       VALUES ($1, $2, $3)
       ON CONFLICT (group_id, account_id) DO NOTHING
-      RETURNING group_id, account_id, created_at
+      RETURNING group_id, account_id, createdAt
       `, [tenantId, groupId, accountId]);
         if (!row) {
             // Já existe, buscar
             const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
-        SELECT group_id, account_id, created_at
+        SELECT group_id, account_id, createdAt
         FROM group_accounts
         WHERE group_id = $1 AND account_id = $2
         `, [groupId, accountId]);
@@ -425,7 +425,7 @@ class GroupsRepository {
                 return {
                     groupId: existing.group_id,
                     accountId: existing.account_id,
-                    createdAt: existing.created_at,
+                    createdAt: existing.createdAt.toISOString(),
                 };
             }
             throw new Error('Failed to link account');
@@ -433,12 +433,12 @@ class GroupsRepository {
         return {
             groupId: row.group_id,
             accountId: row.account_id,
-            createdAt: row.created_at,
+            createdAt: row.createdAt.toISOString(),
         };
     }
     async getGroupAccount(tenantId, groupId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT ga.group_id, ga.account_id, ga.created_at
+      SELECT ga.group_id, ga.account_id, ga.createdAt
       FROM group_accounts ga
       INNER JOIN groups g ON g.group_id = ga.group_id
       WHERE ga.group_id = $1 AND g.tenant_id = $2
@@ -448,7 +448,7 @@ class GroupsRepository {
             ? {
                 groupId: row.group_id,
                 accountId: row.account_id,
-                createdAt: row.created_at,
+                createdAt: row.createdAt.toISOString(),
             }
             : null;
     }
@@ -462,18 +462,18 @@ class GroupsRepository {
             invitedUserId: row.invited_user_id,
             invitedByUserId: row.invited_by_user_id,
             status: row.status,
-            expiresAt: row.expires_at,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            expiresAt: row.expiresAt,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
         };
     }
     async createInvite(tenantId, groupId, invitedUserId, invitedByUserId, expiresAt) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       INSERT INTO group_invites (
-        tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at
+        tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt
       )
       VALUES ($1, $2, $3, $4, 'pending', $5)
-      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
       `, [tenantId, groupId, invitedUserId, invitedByUserId, expiresAt || null]);
         if (!row) {
             throw new Error('Failed to create invite');
@@ -485,18 +485,18 @@ class GroupsRepository {
         const now = new Date();
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE group_invites
-      SET status = 'expired', updated_at = now()
+      SET status = 'expired', updatedAt = now()
       WHERE tenant_id = $1 
         AND invite_id = $2
         AND status = 'pending'
-        AND expires_at IS NOT NULL
-        AND expires_at <= $3
-      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+        AND expiresAt IS NOT NULL
+        AND expiresAt <= $3
+      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
       `, [tenantId, inviteId, now]);
         // Se não foi atualizado, buscar normalmente
         if (!row) {
             const inviteRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
-        SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+        SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
         FROM group_invites
         WHERE tenant_id = $1 AND invite_id = $2
         `, [tenantId, inviteId]);
@@ -504,13 +504,13 @@ class GroupsRepository {
                 return null;
             }
             // Verificar se está expirado mas não foi atualizado ainda
-            if (inviteRow.status === 'pending' && inviteRow.expires_at && inviteRow.expires_at <= now) {
+            if (inviteRow.status === 'pending' && inviteRow.expiresAt && inviteRow.expiresAt <= now) {
                 // Atualizar para expired
                 const updatedRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
           UPDATE group_invites
-          SET status = 'expired', updated_at = now()
+          SET status = 'expired', updatedAt = now()
           WHERE tenant_id = $1 AND invite_id = $2
-          RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+          RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
           `, [tenantId, inviteId]);
                 return updatedRow ? this.toGroupInvite(updatedRow) : null;
             }
@@ -523,16 +523,16 @@ class GroupsRepository {
         const now = new Date();
         await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE group_invites
-      SET status = 'expired', updated_at = now()
+      SET status = 'expired', updatedAt = now()
       WHERE tenant_id = $1
         AND group_id = $2
         AND status = 'pending'
-        AND expires_at IS NOT NULL
-        AND expires_at <= $3
+        AND expiresAt IS NOT NULL
+        AND expiresAt <= $3
       `, [tenantId, groupId, now]);
         // Buscar convites
         let query = `
-      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
       FROM group_invites
       WHERE tenant_id = $1 AND group_id = $2
     `;
@@ -545,7 +545,7 @@ class GroupsRepository {
             // Se não especificou status, excluir expirados por padrão (considerar como inativos)
             query += ` AND status != 'expired'`;
         }
-        query += ` ORDER BY created_at DESC`;
+        query += ` ORDER BY createdAt DESC`;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows.map((r) => this.toGroupInvite(r));
     }
@@ -554,16 +554,16 @@ class GroupsRepository {
         const now = new Date();
         await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE group_invites
-      SET status = 'expired', updated_at = now()
+      SET status = 'expired', updatedAt = now()
       WHERE tenant_id = $1
         AND invited_user_id = $2
         AND status = 'pending'
-        AND expires_at IS NOT NULL
-        AND expires_at <= $3
+        AND expiresAt IS NOT NULL
+        AND expiresAt <= $3
       `, [tenantId, userId, now]);
         // Buscar convites
         let query = `
-      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expires_at, created_at, updated_at
+      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
       FROM group_invites
       WHERE tenant_id = $1 AND invited_user_id = $2
     `;
@@ -576,14 +576,14 @@ class GroupsRepository {
             // Se não especificou status, excluir expirados por padrão (considerar como inativos)
             query += ` AND status != 'expired'`;
         }
-        query += ` ORDER BY created_at DESC`;
+        query += ` ORDER BY createdAt DESC`;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows.map((r) => this.toGroupInvite(r));
     }
     async updateInviteStatus(tenantId, inviteId, status) {
         const result = await (0, pool_1.runQueryWithTenant)(tenantId, `
       UPDATE group_invites
-      SET status = $1, updated_at = now()
+      SET status = $1, updatedAt = now()
       WHERE tenant_id = $2 AND invite_id = $3
       RETURNING invite_id
       `, [status, tenantId, inviteId]);

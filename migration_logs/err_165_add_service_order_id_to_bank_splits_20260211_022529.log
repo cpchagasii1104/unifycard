@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/165_add_service_order_id_to_bank_splits.sql:20: ERRO:  rela├º├úo "service_orders" n├úo existe

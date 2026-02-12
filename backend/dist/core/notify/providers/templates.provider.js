@@ -14,15 +14,15 @@ function mapTemplateRow(row) {
         body: row.body,
         metadata: row.metadata ?? {},
         isActive: row.is_active,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 class TemplateProvider {
     async getTemplate(tenantId, channel, name) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       SELECT template_id, tenant_id, channel, name, description, subject, body, metadata, is_active,
-             created_at, updated_at
+             createdAt, updatedAt
       FROM notify_templates
       WHERE channel = $1 AND name = $2 AND is_active = TRUE
       LIMIT 1
@@ -38,7 +38,7 @@ class TemplateProvider {
                 return text ?? null;
             return text.replace(/\{\{(\w+(\.\w+)*)\}\}/g, (_, path) => {
                 const segments = path.split('.');
-                let value = context.payload;
+                let valueCents = context.payload;
                 for (const segment of segments) {
                     if (value && typeof value === 'object' && segment in value) {
                         value = value[segment];

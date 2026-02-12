@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const transaction_service_1 = require("./transaction.service");
 const transaction_schemas_1 = require("./transaction.schemas");
 const transactionRoutes = async (fastify) => {
     // POST /economy/transactions/transfer - Executar transferência
@@ -14,7 +13,7 @@ const transactionRoutes = async (fastify) => {
             });
         }
         try {
-            const result = await transaction_service_1.transactionService.transfer(tenantId, parsed.data);
+            const result = await transactionService.transfer(tenantId, parsed.data);
             return reply.status(201).send(result);
         }
         catch (error) {
@@ -32,7 +31,7 @@ const transactionRoutes = async (fastify) => {
                 details: parsed.error.errors,
             });
         }
-        const transaction = await transaction_service_1.transactionService.getTransactionById(tenantId, parsed.data.transactionId);
+        const transaction = await transactionService.getTransactionById(tenantId, parsed.data.transactionId);
         if (!transaction) {
             return reply.status(404).send({ error: 'Transaction not found' });
         }
@@ -48,7 +47,7 @@ const transactionRoutes = async (fastify) => {
                 details: parsed.error.errors,
             });
         }
-        const transaction = await transaction_service_1.transactionService.getTransactionByEventId(tenantId, parsed.data.eventId);
+        const transaction = await transactionService.getTransactionByEventId(tenantId, parsed.data.eventId);
         if (!transaction) {
             return reply.status(404).send({ error: 'Transaction not found' });
         }
@@ -71,7 +70,7 @@ const transactionRoutes = async (fastify) => {
                 details: parsedQuery.error.errors,
             });
         }
-        const transactions = await transaction_service_1.transactionService.getTransactionsByAccount(tenantId, parsedParams.data.accountId, parsedQuery.data);
+        const transactions = await transactionService.getTransactionsByAccount(tenantId, parsedParams.data.accountId, parsedQuery.data);
         return { transactions };
     });
 };

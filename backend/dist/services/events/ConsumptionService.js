@@ -112,7 +112,7 @@ class ConsumptionService {
             // Importação dinâmica para evitar dependência circular
             const { checkoutService } = await Promise.resolve().then(() => __importStar(require('../../core/checkout/CheckoutService')));
             const checkoutRequest = {
-                amount: totalAmount,
+                amountCents: totalAmount,
                 currency: 'BRL',
                 paymentMethod: 'UNIFYCARD',
                 context: {

@@ -8,7 +8,7 @@ const bank_p2p_transfer_service_1 = require("./bank-p2p-transfer.service");
 // Schema de validação do payload
 const p2pTransferSchema = zod_1.z.object({
     toUserId: zod_1.z.string().uuid('Invalid destination user ID'),
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
     eventId: zod_1.z.string().uuid('Invalid event ID').optional(),
 });
 const bankP2PTransferRoutes = async (fastify) => {

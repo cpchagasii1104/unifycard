@@ -1,0 +1,11 @@
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:54: NOTA:  === FASE 1: Corrigindo constraints de CNPJ ===
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:54: NOTA:  Constraint companies_cnpj_format removida
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:54: NOTA:  Constraint companies_cnpj_digits_only removida
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:54: NOTA:  Constraint companies_cnpj_format criada (apenas 14 d├¡gitos)
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:54: NOTA:  Ô£à FASE 1 conclu├¡da
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:78: NOTA:  === FASE 2: Verificando coluna status em categories ===
+psql:C:/unificard/backend/migrations/901_consolidation_fix_all_issues.sql:78: ERRO:  rela├º├úo "categories" n├úo existe
+CONTEXTO:  comando SQL "ALTER TABLE categories
+
+    ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'"
+fun├º├úo PL/pgSQL inline_code_block linha 11 em comando SQL

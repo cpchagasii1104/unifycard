@@ -18,7 +18,7 @@ class VehiclesService {
         service_type_id,
         is_verified,
         verified_by_partner_id,
-        verified_at
+        verifiedAt
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,false,null,null
@@ -60,7 +60,7 @@ class VehiclesService {
         const row = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
       UPDATE rides_vehicles
-      SET ${fields.join(', ')}, updated_at = now()
+      SET ${fields.join(', ')}, updatedAt = now()
       WHERE vehicle_id = $${idx}
       RETURNING *
       `,
@@ -77,7 +77,7 @@ class VehiclesService {
       SELECT *
       FROM rides_vehicles
       WHERE driver_id = $1
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
             values: [driverId],
         });
@@ -100,8 +100,8 @@ class VehiclesService {
       SET
         is_verified = true,
         verified_by_partner_id = $2,
-        verified_at = now(),
-        updated_at = now()
+        verifiedAt = now(),
+        updatedAt = now()
       WHERE vehicle_id = $1
       RETURNING *
       `,

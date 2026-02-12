@@ -55,7 +55,7 @@ class PricingService {
             dynamicAdj +
             zoneIncentive;
         const estimate = {
-            total: Number(total.toFixed(2)),
+            totalCents: Number(total.toFixed(2)),
             currency: cfg.currency,
             base_fare: cfg.base_fare,
             distance_cost: distanceCost,
@@ -93,7 +93,7 @@ class PricingService {
             dynamicAdj +
             cfg.time_rate_per_minute * 12;
         const finalPrice = {
-            total: Number(total.toFixed(2)),
+            totalCents: Number(total.toFixed(2)),
             currency: cfg.currency,
             base_fare: cfg.base_fare,
             distance_cost: distanceCost,
@@ -166,7 +166,7 @@ class PricingService {
       SELECT location
       FROM rides_ride_locations
       WHERE tenant_id = $1 AND ride_id = $2
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       `,
             values: [tenantId, rideId],
         });
@@ -237,8 +237,8 @@ class PricingService {
       WHERE tenant_id = $1
         AND city_id = $2
         AND active = true
-        AND starts_at <= now()
-        AND expires_at >= now()
+        AND startsAt <= now()
+        AND expiresAt >= now()
       `,
             values: [tenantId, cityId],
         });
@@ -270,9 +270,9 @@ class PricingService {
       WHERE tenant_id = $1
         AND zone_id = $2
         AND is_active = true
-        AND starts_at <= now()
-        AND expires_at >= now()
-      ORDER BY starts_at DESC
+        AND startsAt <= now()
+        AND expiresAt >= now()
+      ORDER BY startsAt DESC
       LIMIT 1
       `,
             values: [tenantId, zone.zone_id],
@@ -292,7 +292,7 @@ class PricingService {
         const durationMin = 10; // placeholder
         const total = baseFare + (costPerKm * distanceKm) + (costPerMin * durationMin);
         return {
-            total: Number(total.toFixed(2)),
+            totalCents: Number(total.toFixed(2)),
             currency: 'BRL',
             base_fare: baseFare,
             distance_cost: costPerKm * distanceKm,

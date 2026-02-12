@@ -1,0 +1,5 @@
+psql:C:/unificard/backend/migrations/057_groups_rbac_permissions.sql:137: ERRO:  coluna "tenant_id" n├úo existe
+LINHA 1: SELECT tenant_id FROM tenants
+                ^
+CONSULTA:  SELECT tenant_id FROM tenants
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 5 em FOR sobre registros de SELECT

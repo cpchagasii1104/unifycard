@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/618_add_lot_to_inventory_movements.sql:23: ERRO:  rela├º├úo "inventory_movements" n├úo existe

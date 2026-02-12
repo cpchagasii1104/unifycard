@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/217_organizer_plans.sql:41: ERRO:  rela├º├úo "event_organizers" n├úo existe

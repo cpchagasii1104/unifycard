@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/078_company_opportunity_preferences.sql:44: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

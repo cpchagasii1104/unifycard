@@ -1,0 +1,5 @@
+psql:C:/unificard/backend/migrations/773_event_attendees_canonical_contract.sql:59: ERRO:  rela├º├úo "event_attendees" n├úo existe
+CONTEXTO:  comando SQL "ALTER TABLE event_attendees
+
+      ADD COLUMN tenant_id UUID REFERENCES tenants(tenant_id) ON DELETE CASCADE"
+fun├º├úo PL/pgSQL inline_code_block linha 7 em comando SQL

@@ -9,7 +9,7 @@ class SocialChatRepository {
      */
     async findById(tenantId, messageId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       FROM social_chat_messages
       WHERE message_id = $1
       LIMIT 1
@@ -35,7 +35,7 @@ class SocialChatRepository {
         metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       `, [
             data.conversationId,
             data.tenantId,
@@ -60,10 +60,10 @@ class SocialChatRepository {
     async findByConversation(tenantId, conversationId, options = {}) {
         const { limit = 100, offset = 0 } = options;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
       FROM social_chat_messages
       WHERE conversation_id = $1
-      ORDER BY created_at ASC
+      ORDER BY createdAt ASC
       LIMIT $2 OFFSET $3
       `, [conversationId, limit, offset]);
         // Contar total
@@ -74,7 +74,7 @@ class SocialChatRepository {
       `, [conversationId]);
         return {
             rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
 }

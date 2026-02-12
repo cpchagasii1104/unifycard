@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/274_loyalty_rules.sql:65: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

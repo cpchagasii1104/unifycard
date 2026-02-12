@@ -102,7 +102,7 @@ class MemoryService {
                     globalUserId,
                     category: 'schedule',
                     key: 'preferred_time',
-                    value: parameters.time,
+                    valueCents: parameters.time,
                     confidence: 0.8,
                 });
             }
@@ -115,7 +115,7 @@ class MemoryService {
                     globalUserId,
                     category: 'schedule',
                     key: 'preferred_day_of_week',
-                    value: dayOfWeek,
+                    valueCents: dayOfWeek,
                     confidence: 0.7,
                 });
             }
@@ -126,7 +126,7 @@ class MemoryService {
                     globalUserId,
                     category: 'services',
                     key: 'preferred_worker',
-                    value: parameters.workerId,
+                    valueCents: parameters.workerId,
                     confidence: 0.9,
                 });
             }
@@ -139,7 +139,7 @@ class MemoryService {
                     globalUserId,
                     category: 'food',
                     key: 'favorite_restaurant',
-                    value: parameters.restaurantId,
+                    valueCents: parameters.restaurantId,
                     confidence: 0.8,
                 });
             }
@@ -152,7 +152,7 @@ class MemoryService {
                             globalUserId,
                             category: 'food',
                             key: 'favorite_dish',
-                            value: item.name,
+                            valueCents: item.name,
                             confidence: 0.7,
                         });
                     }
@@ -167,7 +167,7 @@ class MemoryService {
                     globalUserId,
                     category: 'transport',
                     key: 'usual_origin',
-                    value: parameters.origin,
+                    valueCents: parameters.origin,
                     confidence: 0.8,
                 });
             }
@@ -178,7 +178,7 @@ class MemoryService {
                     globalUserId,
                     category: 'transport',
                     key: 'usual_destination',
-                    value: parameters.destination,
+                    valueCents: parameters.destination,
                     confidence: 0.8,
                 });
             }
@@ -243,7 +243,7 @@ class MemoryService {
                 result[pref.category] = {};
             }
             result[pref.category][pref.key] = {
-                value: pref.value,
+                valueCents: pref.value,
                 confidence: pref.confidence,
                 usageCount: pref.usageCount,
                 lastUsedAt: pref.lastUsedAt,

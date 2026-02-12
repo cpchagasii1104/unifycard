@@ -1,6 +1,39 @@
 "use strict";
 // src/core/feed/feed.routes.ts
 // Rotas para Feed Contextual
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const feed_service_1 = require("./feed.service");
 const identity_utils_1 = require("../identity/identity.utils");
@@ -19,7 +52,7 @@ const feedRoutes = async (fastify) => {
         }
         try {
             const limit = parseInt(req.query.limit || '20', 10);
-            const feed = await feed_service_1.feedService.getContextualFeed(req.tenant.id, req.user.id, limit);
+            const feed = await feed_service_1.feedService.getContextualFeed(req.tenant.id, req.actionContext.actorId, limit);
             return reply.send({ ok: true, data: feed });
         }
         catch (error) {
@@ -50,14 +83,21 @@ const feedRoutes = async (fastify) => {
                     message: 'contentId e action (like|dislike|save|ignore) são obrigatórios'
                 });
             }
-            // Resolver globalUserId
-            const globalUserId = req.user.globalUserId || await (0, identity_utils_1.resolveGlobalUserId)(req.user.id, req.tenant.id);
-            if (!globalUserId) {
-                return reply.status(404).send({
-                    ok: false,
-                    message: 'Identidade global não encontrada'
-                });
+            // ActionContext é obrigatório
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
             }
+            const actorId = req.actionContext.actorId;
+            // Resolver globalUserId a partir do actorId (se necessário para o service)
+            // TODO: Refatorar feedService para usar actorId diretamente
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository = socialPortsRegistry.getActorRepository();
+            const actor = await actorRepository.findById(req.tenant.id, actorId);
+            if (!actor || !actor.user_id) {
+                return reply.status(404).send({ ok: false, message: 'Actor não encontrado' });
+            }
+            const globalUserId = await (0, identity_utils_1.resolveGlobalUserId)(actor.user_id, req.tenant.id);
             await feed_service_1.feedService.recordContentAction(req.tenant.id, globalUserId, contentId, action);
             return reply.send({ ok: true });
         }
@@ -98,7 +138,7 @@ const feedRoutes = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND created_at >= $2
+          AND createdAt >= $2
           AND visibility = 'PUBLIC'
         `, [tenantId, oneDayAgo]);
             // Grupos: grupos com atividade recente (últimos 7 dias)
@@ -109,7 +149,7 @@ const feedRoutes = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND created_at >= $2
+          AND createdAt >= $2
         `, [tenantId, sevenDaysAgo]);
             // Eventos: eventos próximos (próximos 7 dias)
             const sevenDaysFromNow = new Date();
@@ -118,9 +158,9 @@ const feedRoutes = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('PUBLISHED', 'ONGOING')
-          AND start_time >= NOW()
-          AND start_time <= $2
+          AND status IN ('published', 'ongoing')
+          AND starts_at >= NOW()
+          AND starts_at <= $2
         `, [tenantId, sevenDaysFromNow]);
             // Serviços: ofertas de serviço recentes (últimos 7 dias)
             const servicesCount = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -128,7 +168,7 @@ const feedRoutes = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND created_at >= $2
+          AND createdAt >= $2
         `, [tenantId, sevenDaysAgo]);
             return {
                 feed: feedCount ? Number(feedCount.count) : 0,

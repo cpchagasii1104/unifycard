@@ -29,7 +29,7 @@ const feedRoutes = async (fastify) => {
             // Retornar no formato do contrato
             const response = {
                 items: result.items,
-                total: result.total,
+                totalCents: result.total,
                 posts: result.posts, // Compatibilidade reversa
             };
             return reply.status(200).send(response);

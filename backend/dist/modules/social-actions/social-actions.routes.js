@@ -94,7 +94,7 @@ const socialActionsRoutes = async (fastify) => {
         }
         try {
             const actions = await social_actions_service_1.socialActionsService.getActionsByPost(req.tenant.id, req.params.postId);
-            return { actions, total: actions.length };
+            return { actions, totalCents: actions.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao buscar ações do post');

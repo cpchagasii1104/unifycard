@@ -1,0 +1,13 @@
+psql:C:/unificard/backend/migrations/873_seed_marketplace_branches.sql:100: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 2:     FROM categories 
+                  ^
+CONSULTA:  SELECT category_id, slug, name 
+
+    FROM categories 
+
+    WHERE metadata->>'domain' = 'marketplace' 
+
+      AND metadata->>'taxonomy' = 'department'
+
+      AND parent_id IS NULL
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 8 em FOR sobre registros de SELECT

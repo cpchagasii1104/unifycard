@@ -27,8 +27,9 @@ const organizersRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         if (!req.tenant) {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
@@ -51,7 +52,7 @@ const organizersRoutes = async (fastify) => {
                 // Silenciosamente ignora erros do AI Kernel
                 fastify.log.warn({ err: error }, 'Erro ao analisar organizador com AI Kernel');
             }
-            const organizer = await organizers_service_1.organizersService.createOrganizer(req.tenant.id, validated, req.user.globalUserId);
+            const organizer = await organizers_service_1.organizersService.createOrganizer(req.tenant.id, validated, req.actionContext.actorId);
             return reply.status(201).send({
                 organizer,
                 aiSuggestions,
@@ -89,15 +90,16 @@ const organizersRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         if (!req.tenant) {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
             const validated = organizers_schemas_1.addMemberSchema.parse(req.body);
-            const member = await organizers_service_1.organizersService.addMember(req.tenant.id, req.params.id, validated, req.user.globalUserId);
+            const member = await organizers_service_1.organizersService.addMember(req.tenant.id, req.params.id, validated, req.actionContext.actorId);
             return reply.status(201).send(member);
         }
         catch (error) {
@@ -132,15 +134,16 @@ const organizersRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         if (!req.tenant) {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
             const validated = organizers_schemas_1.linkEventSchema.parse(req.body);
-            await organizers_service_1.organizersService.linkEvent(req.tenant.id, req.params.eventId, validated.organizerId, req.user.globalUserId);
+            await organizers_service_1.organizersService.linkEvent(req.tenant.id, req.params.eventId, validated.organizerId, req.actionContext.actorId);
             return reply.status(200).send({ success: true, message: 'Evento vinculado ao organizador' });
         }
         catch (error) {
@@ -176,7 +179,7 @@ const organizersRoutes = async (fastify) => {
                 limit: req.query.limit,
                 offset: req.query.offset,
             });
-            return { organizers, total: organizers.length };
+            return { organizers, totalCents: organizers.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao listar organizadores');
@@ -244,7 +247,7 @@ const organizersRoutes = async (fastify) => {
             }
             // Buscar plano atual
             const organizerRow = await (0, pool_1.runQueryWithTenant)(req.tenant.id, `
-          SELECT plan, plan_expires_at
+          SELECT plan, plan_expiresAt
           FROM event_organizers
           WHERE id = $1
           `, [req.params.id]);
@@ -253,8 +256,8 @@ const organizersRoutes = async (fastify) => {
             return {
                 plan,
                 planInfo,
-                expiresAt: organizerRow?.plan_expires_at || null,
-                isExpired: organizerRow?.plan_expires_at ? organizerRow.plan_expires_at < new Date() : false,
+                expiresAt: organizerRow?.plan_expiresAt || null,
+                isExpired: organizerRow?.plan_expiresAt ? organizerRow.plan_expiresAt < new Date() : false,
             };
         }
         catch (error) {
@@ -280,7 +283,11 @@ const organizersRoutes = async (fastify) => {
                 return reply.status(404).send({ error: 'Organizador não encontrado' });
             }
             // Verificar se é owner ou admin
-            const hasPermission = await organizers_service_1.organizersService.hasPermission(req.tenant.id, req.params.id, req.user.globalUserId || '', ['owner', 'admin']);
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
+            }
+            const hasPermission = await organizers_service_1.organizersService.hasPermission(req.tenant.id, req.params.id, req.actionContext.actorId, ['owner', 'admin']);
             if (!hasPermission) {
                 return reply.status(403).send({ error: 'Sem permissão para gerenciar assinatura' });
             }
@@ -357,9 +364,17 @@ const organizersRoutes = async (fastify) => {
             if (!organizer) {
                 return reply.status(404).send({ error: 'Organizador não encontrado' });
             }
-            const hasPermission = await organizers_service_1.organizersService.hasPermission(req.tenant.id, req.params.id, req.user.globalUserId || '', ['owner', 'admin']);
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
+            }
+            const hasPermission = await organizers_service_1.organizersService.hasPermission(req.tenant.id, req.params.id, req.actionContext.actorId, ['owner', 'admin']);
             if (!hasPermission) {
                 return reply.status(403).send({ error: 'Sem permissão para gerenciar assinatura' });
+            }
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
             }
             const customer = await stripe_service_1.stripeService.createCustomer({
                 email: req.body.email,
@@ -367,7 +382,7 @@ const organizersRoutes = async (fastify) => {
                 metadata: {
                     organizerId: req.params.id,
                     tenantId: req.tenant.id,
-                    globalUserId: req.user.globalUserId || '',
+                    globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
                 },
             });
             const priceId = stripe_service_1.stripeService.getStripePriceId(req.body.plan);
@@ -510,7 +525,7 @@ async function handleSubscriptionUpdated(fastify, event) {
     if (currentPeriodEnd && typeof currentPeriodEnd === 'number') {
         await (0, pool_1.runQueryWithTenant)(subscription.tenant_id, `
       UPDATE organizer_subscriptions
-      SET current_period_end = $1, updated_at = now()
+      SET current_period_end = $1, updatedAt = now()
       WHERE id = $2
       `, [new Date(currentPeriodEnd * 1000), subscription.id]);
     }

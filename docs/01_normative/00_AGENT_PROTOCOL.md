@@ -23,8 +23,8 @@ Ele estabelece, sem exceções:
 
 Nenhum agente possui autonomia fora do que está literalmente definido aqui.
 
-Qualquer comportamento não previsto neste documento
-→ INVÁLIDO POR DEFINIÇÃO.
+Qualquer comportamento não previsto neste documento  
+→ INVALIDADO POR DEFINIÇÃO.
 
 ---
 
@@ -63,13 +63,21 @@ Regras duras:
 - Nenhuma memória prévia, contexto externo ou conversa substitui essa leitura
 - Norma ausente ou ilegível → ABORTAR OPERAÇÃO
 
+### 2.3 Leitura Normativa Obrigatória
+
+Leitura normativa obrigatória:
+
+* docs/01_normative/CONSTITUICAO_UNIFICARD.md
+* docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md
+* docs/01_normative/SSOT_REGISTRY_UNIFICARD.md
+
 ---
 
 ## 3. LEITURA DO PLANO MESTRE (CONTEXTO OPERACIONAL)
 
 Após concluir integralmente a leitura normativa, o agente DEVE ler:
 
-docs/PLANO_MESTRE_CORRECAO_UNIFICARD.md
+UNIFICARD_PLANO_DEFINITIVO_v7.md
 
 ### 3.1 Natureza do Plano Mestre
 
@@ -82,7 +90,7 @@ O Plano Mestre:
 Ele define exclusivamente:
 - sequência de etapas
 - gates existentes
-- critérios de PASS/FAIL
+- critérios de PASS / FAIL
 - estado esperado do sistema
 
 O agente NÃO PODE reinterpretar, resumir ou “otimizar” o plano.
@@ -194,12 +202,6 @@ Uma execução ou auditoria incremental é VÁLIDA somente se o prompt declarar 
 - O artefato de âncora passa a ser a fonte operacional imediata
 - A leitura completa da normativa NÃO é dispensada, apenas REFERENCIADA
 
-### Forma válida de prompt incremental (exemplo conceitual)
-
-- “MODO: GUARDIÃO”
-- “Escopo: backend/src/core/events”
-- “Reauditoria incremental com base em: docs/04_audit/nomenclatura_core_reaudit.md”
-
 Ausência de âncora explícita  
 → execução inválida
 
@@ -268,7 +270,31 @@ Execução sem registro
 
 ---
 
-## 8. REGRA DE INVALIDAÇÃO
+## 8. LEITURA OBRIGATÓRIA ANTES DE QUALQUER CÓDIGO FINANCEIRO
+
+Antes de criar, editar ou executar QUALQUER código relacionado a:
+
+- transações
+- saldos
+- splits
+- pagamentos
+- ledgers
+- liquidação
+- créditos
+
+o agente DEVE, obrigatoriamente, reler e obedecer:
+
+1. docs/01_normative/SSOT_EXCLUSIVE_BANK_RULE.md
+2. docs/01_normative/SSOT_CONTRACT.md
+3. docs/01_normative/SSOT_REGISTRY_UNIFICARD.md
+4. docs/01_normative/PROHIBITED_STRUCTURES.md
+
+Violação destas regras  
+→ INVALIDAÇÃO AUTOMÁTICA DA EXECUÇÃO
+
+---
+
+## 9. REGRA DE INVALIDAÇÃO
 
 Qualquer violação deste protocolo  
 → INVALIDA A EXECUÇÃO INTEIRA
@@ -280,7 +306,7 @@ Não existem:
 
 ---
 
-## 9. REGRA FINAL (ANTI-REGRESSÃO)
+## 10. REGRA FINAL (ANTI-REGRESSÃO)
 
 O agente NÃO:
 - pensa arquitetura

@@ -1,0 +1,292 @@
+/* frontend/src/pages/UnifiedAgendaPage.css */
+/* Estilos para AGENDA UNIFICADA */
+
+.unified-agenda-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Filtros */
+.filters-section {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.filter-group input {
+  min-width: 200px;
+}
+
+/* Controles de visualização */
+.view-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.view-mode-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-mode-selector button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-mode-selector button:hover {
+  background: #f5f5f5;
+}
+
+.view-mode-selector button.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+.date-navigation {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.date-navigation h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  min-width: 250px;
+  text-align: center;
+}
+
+.date-navigation button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.date-navigation button:hover {
+  background: #f5f5f5;
+}
+
+/* Lista de entradas */
+.entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.entry-card {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.entry-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.entry-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.entry-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge-source,
+.badge-type {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-source {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.badge-type {
+  color: #fff;
+}
+
+/* Cores por tipo */
+.entry-available {
+  border-left: 4px solid #28a745;
+}
+
+.entry-available .badge-type {
+  background: #28a745;
+}
+
+.entry-reserved {
+  border-left: 4px solid #007bff;
+}
+
+.entry-reserved .badge-type {
+  background: #007bff;
+}
+
+.entry-blocked {
+  border-left: 4px solid #dc3545;
+}
+
+.entry-blocked .badge-type {
+  background: #dc3545;
+}
+
+.entry-unavailable {
+  border-left: 4px solid #6c757d;
+}
+
+.entry-unavailable .badge-type {
+  background: #6c757d;
+}
+
+.entry-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.entry-info p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.entry-info strong {
+  color: #495057;
+}
+
+.entry-link {
+  color: #007bff;
+  cursor: pointer;
+}
+
+.entry-link:hover {
+  text-decoration: underline;
+}
+
+/* Estados vazios e erros */
+.empty-state,
+.loading,
+.error {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.error button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.error button:hover {
+  background: #0056b3;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .unified-agenda-page {
+    padding: 1rem;
+  }
+
+  .view-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .date-navigation {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .date-navigation h2 {
+    min-width: auto;
+  }
+
+  .filters-section {
+    flex-direction: column;
+  }
+
+  .filter-group input {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+
+
+

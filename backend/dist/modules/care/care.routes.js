@@ -97,7 +97,7 @@ const careRoutes = async (fastify) => {
         }
         try {
             const sessions = await care_service_1.careService.getSessionsByUser(req.tenant.id, req.params.globalUserId);
-            return { sessions, total: sessions.length };
+            return { sessions, totalCents: sessions.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao buscar sessões do usuário');

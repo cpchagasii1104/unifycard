@@ -19,7 +19,7 @@ function validateEventContext(event, handlerName) {
     }
 }
 function registerRidesNotifyHandlers(eventBus) {
-    const toString = (value) => String(value ?? '');
+    const toString = (valueCents) => String(value ?? '');
     // Quando uma nova solicitação de corrida é criada
     eventBus.subscribe('rides.ride_request.created', async (event) => {
         validateEventContext(event, 'rides.ride_request.created notify handler');

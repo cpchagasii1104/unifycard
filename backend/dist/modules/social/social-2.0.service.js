@@ -59,9 +59,7 @@ class Social2Service {
             // mas será removido em refatoração futura
             user = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT user_id FROM users
-        WHERE user_id IN (
-              SELECT user_id FROM user_identity_links WHERE global_user_id = $1 AND tenant_id = $2
-           )
+        WHERE global_user_id = $1 AND tenant_id = $2
         LIMIT 1
         `, [globalUserId, tenantId]);
             if (user) {
@@ -73,9 +71,7 @@ class Social2Service {
             // Buscar user_id mesmo quando currentActorId já existe, para usar no cálculo de relevância
             user = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT user_id FROM users
-        WHERE user_id IN (
-              SELECT user_id FROM user_identity_links WHERE global_user_id = $1 AND tenant_id = $2
-           )
+        WHERE global_user_id = $1 AND tenant_id = $2
         LIMIT 1
         `, [globalUserId, tenantId]);
         }
@@ -90,8 +86,8 @@ class Social2Service {
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
-        p.created_at,
-        p.updated_at,
+        p.createdAt,
+        p.updatedAt,
         COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
@@ -176,13 +172,13 @@ class Social2Service {
       )`;
         }
         if (cursor) {
-            query += ` AND p.created_at < (SELECT created_at FROM posts WHERE post_id = $${paramIndex})`;
+            query += ` AND p.createdAt < (SELECT createdAt FROM posts WHERE post_id = $${paramIndex})`;
             params.push(cursor);
             paramIndex++;
         }
         // Buscar mais posts para permitir ranking por relevância
         // Ordenação final será feita após cálculo de relevância
-        query += ` ORDER BY p.created_at DESC LIMIT $${paramIndex}`;
+        query += ` ORDER BY p.createdAt DESC LIMIT $${paramIndex}`;
         params.push(Math.min(limit * 3, 100)); // Busca 3x o limite para ter opções de ranking
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         // Buscar perfil CORE do usuário para calcular relevância
@@ -360,13 +356,13 @@ class Social2Service {
                 score: Math.min(100, Math.max(0, weightedScore)), // Garantir que fique entre 0-100
                 breakdown: {
                     contentWeight: {
-                        value: contentWeight,
+                        valueCents: contentWeight,
                         weight: contentWeightPercent,
                         contribution: contentWeight * contentWeightPercent,
                         explanation: `Peso do conteúdo baseado no modo de atuação (${actorType})`,
                     },
                     baseRelevance: {
-                        value: baseRelevanceScore.score,
+                        valueCents: baseRelevanceScore.score,
                         weight: baseRelevancePercent,
                         contribution: baseRelevanceScore.score * baseRelevancePercent,
                         explanation: `Score de relevância base (targeting + perfil)`,
@@ -420,8 +416,8 @@ class Social2Service {
                 intent: row.intent || 'personal',
                 intent_metadata: undefined, // FASE 3.6: intent_metadata não existe na tabela posts ainda
                 targeting: targeting || undefined, // FASE 3.6: targeting não existe na tabela posts ainda
-                created_at: row.created_at,
-                updated_at: row.updated_at,
+                createdAt: row.createdAt.toISOString(),
+                updatedAt: row.updatedAt.toISOString(),
                 actor: row.actor_actor_id
                     ? {
                         actor_id: row.actor_actor_id,
@@ -461,7 +457,7 @@ class Social2Service {
                 vote_results: voteResults ? {
                     options: voteResults.options,
                     total_votes: voteResults.total_votes,
-                    closes_at: voteResults.closes_at,
+                    closesAt: voteResults.closesAt,
                 } : undefined,
                 linked_event: linkedEvent,
             };
@@ -544,7 +540,7 @@ class Social2Service {
         tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
       )
       VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, $7::jsonb, $8::jsonb)
-      RETURNING post_id, created_at, updated_at
+      RETURNING post_id, createdAt, updatedAt
       `, [
             tenantId,
             globalUserId,
@@ -678,8 +674,8 @@ class Social2Service {
             intent: intent || 'personal',
             intent_metadata: intentMetadata,
             targeting,
-            created_at: safePost.created_at,
-            updated_at: safePost.updated_at,
+            createdAt: safePost.createdAt,
+            updatedAt: safePost.updatedAt,
             actor: {
                 actor_id: actor.actor_id,
                 actor_type: actor.actor_type,
@@ -712,7 +708,7 @@ class Social2Service {
                 return {
                     reaction_id: existing.reaction_id,
                     reaction_type: reactionType,
-                    created_at: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
                     is_new: false,
                 };
             }
@@ -722,12 +718,12 @@ class Social2Service {
           UPDATE reactions
           SET reaction_type = $1
           WHERE reaction_id = $2
-          RETURNING reaction_id, created_at
+          RETURNING reaction_id, createdAt
           `, [reactionType, existing.reaction_id]);
                 return {
                     reaction_id: updated.reaction_id,
                     reaction_type: reactionType,
-                    created_at: updated.created_at,
+                    createdAt: updated.createdAt,
                     is_new: false,
                 };
             }
@@ -736,7 +732,7 @@ class Social2Service {
         const newReaction = await (0, pool_1.runQueryWithTenant)(tenantId, `
       INSERT INTO reactions (tenant_id, post_id, global_user_id, reaction_type)
       VALUES ($1, $2, $3, $4)
-      RETURNING reaction_id, created_at
+      RETURNING reaction_id, createdAt
       `, [tenantId, postId, globalUserId, reactionType]);
         if (!newReaction) {
             throw new Error('Erro ao criar reação');
@@ -744,7 +740,7 @@ class Social2Service {
         return {
             reaction_id: newReaction.reaction_id,
             reaction_type: reactionType,
-            created_at: newReaction.created_at,
+            createdAt: newReaction.createdAt,
             is_new: true,
         };
     }
@@ -757,7 +753,7 @@ class Social2Service {
         tenant_id, post_id, global_user_id, content, parent_comment_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING comment_id, created_at
+      RETURNING comment_id, createdAt
       `, [tenantId, postId, globalUserId, content, parentCommentId || null]);
         if (!comment) {
             throw new Error('Erro ao criar comentário');
@@ -765,11 +761,9 @@ class Social2Service {
         // Busca actor do usuário
         const user = await (0, pool_1.runQueryWithTenant)(tenantId, `
       SELECT user_id FROM users
-      WHERE user_id IN (
-        SELECT user_id FROM global_users WHERE global_user_id = $1
-      )
+      WHERE global_user_id = $1 AND tenant_id = $2
       LIMIT 1
-      `, [globalUserId]);
+      `, [globalUserId, tenantId]);
         let actor = null;
         if (user) {
             actor = await actor_repository_1.actorRepository.findOrCreateUserActor(tenantId, user.user_id);
@@ -780,7 +774,7 @@ class Social2Service {
             global_user_id: globalUserId,
             content,
             parent_comment_id: parentCommentId || null,
-            created_at: comment.created_at,
+            createdAt: comment.createdAt,
             actor: actor
                 ? {
                     actor_id: actor.actor_id,
@@ -805,7 +799,7 @@ class Social2Service {
         c.global_user_id,
         c.content,
         c.parent_comment_id,
-        c.created_at,
+        c.createdAt,
         a.actor_id,
         a.display_name,
         a.avatar_url
@@ -818,11 +812,11 @@ class Social2Service {
         let paramIndex = 3;
         if (cursor) {
             // Cursor pagination: buscar comentários criados após o cursor (para ordem ASC)
-            query += ` AND c.created_at > (SELECT created_at FROM comments WHERE comment_id = $${paramIndex} AND tenant_id = $1)`;
+            query += ` AND c.createdAt > (SELECT createdAt FROM comments WHERE comment_id = $${paramIndex} AND tenant_id = $1)`;
             params.push(cursor);
             paramIndex++;
         }
-        query += ` ORDER BY c.created_at ASC LIMIT $${paramIndex}`;
+        query += ` ORDER BY c.createdAt ASC LIMIT $${paramIndex}`;
         params.push(limit + 1); // Buscar um a mais para verificar se há mais
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         const hasMore = rows.length > limit;
@@ -832,7 +826,7 @@ class Social2Service {
             global_user_id: row.global_user_id,
             content: row.content,
             parent_comment_id: row.parent_comment_id,
-            created_at: row.created_at,
+            createdAt: row.createdAt.toISOString(),
             actor: row.actor_id
                 ? {
                     actor_id: row.actor_id,
@@ -866,8 +860,8 @@ class Social2Service {
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
-        p.created_at,
-        p.updated_at,
+        p.createdAt,
+        p.updatedAt,
         COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
@@ -901,7 +895,7 @@ class Social2Service {
       LEFT JOIN post_cta cta ON cta.post_id = p.post_id AND cta.is_active = true
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
       WHERE p.tenant_id = $1 AND p.actor_id = $2
-      ORDER BY p.created_at DESC
+      ORDER BY p.createdAt DESC
       LIMIT $3
       `, [tenantId, actorId, limit]);
         return rows.map((row) => ({
@@ -914,8 +908,8 @@ class Social2Service {
             intent: row.intent || 'personal',
             intent_metadata: row.intent_metadata ? (typeof row.intent_metadata === 'string' ? JSON.parse(row.intent_metadata) : row.intent_metadata) : undefined,
             targeting: row.targeting ? (typeof row.targeting === 'string' ? JSON.parse(row.targeting) : row.targeting) : undefined,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
             actor: row.actor_actor_id
                 ? {
                     actor_id: row.actor_actor_id,

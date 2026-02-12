@@ -86,7 +86,7 @@ class EventService {
               reserved_by_global_user_id = NULL,
               metadata = metadata || $1::jsonb
             WHERE schedule_id = $2
-              AND start_time > $3
+              AND starts_at > $3
           `,
                     values: [
                         JSON.stringify({ cancelled_reason: 'event_cancelled' }),
@@ -100,7 +100,7 @@ class EventService {
             UPDATE schedule_slots
             SET status = 'blocked'
             WHERE schedule_id = $1
-              AND start_time <= $2
+              AND starts_at <= $2
               AND status != 'reserved'
           `,
                     values: [schedule.schedule_id, now],

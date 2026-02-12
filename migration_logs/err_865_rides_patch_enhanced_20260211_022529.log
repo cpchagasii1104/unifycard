@@ -1,0 +1,4 @@
+psql:C:/unificard/backend/migrations/865_rides_patch_enhanced.sql:28: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/865_rides_patch_enhanced.sql:29: NOTA:  extens├úo "pgcrypto" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/865_rides_patch_enhanced.sql:96: NOTA:  gatilho "trg_rides_driver_preferences_updated_at" para rela├º├úo "rides_driver_preferences" n├úo existe, ignorando
+psql:C:/unificard/backend/migrations/865_rides_patch_enhanced.sql:125: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

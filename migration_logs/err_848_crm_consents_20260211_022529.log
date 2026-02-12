@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/848_crm_consents.sql:76: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

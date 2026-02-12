@@ -1,0 +1,65 @@
+START: 02/11/2026 17:21:11
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+BEGIN
+CREATE EXTENSION
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE TABLE
+ALTER TABLE
+DO
+CREATE INDEX
+COMMIT
+BEGIN
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+DROP TRIGGER
+psql:C:/unificard/backend/migrations/0002_unifybank_ssot.sql:52: NOTA:  gatilho "prevent_bank_ledger_update" para rela├º├úo "bank_ledger" n├úo existe, ignorando
+CREATE TRIGGER
+psql:C:/unificard/backend/migrations/0002_unifybank_ssot.sql:58: NOTA:  gatilho "prevent_bank_ledger_delete" para rela├º├úo "bank_ledger" n├úo existe, ignorando
+DROP TRIGGER
+CREATE TRIGGER
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+DO
+COMMIT
+CREATE FUNCTION
+CREATE TABLE
+COMMENT
+DROP TRIGGER
+psql:C:/unificard/backend/migrations/0003_root_config.sql:43: NOTA:  gatilho "trg_root_config_updated_at" para rela├º├úo "root_config" n├úo existe, ignorando
+CREATE TRIGGER
+INSERT 0 1
+psql:C:/unificard/backend/migrations/0004_performance_indexes_hardening.sql:24: ERRO:  rela├º├úo "orders" n├úo existe

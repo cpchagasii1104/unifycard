@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/551_schedule_unique_owners.sql:57: ERRO:  rela├º├úo "schedules" n├úo existe

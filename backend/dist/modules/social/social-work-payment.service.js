@@ -8,8 +8,8 @@ exports.socialWorkPaymentService = void 0;
 const social_work_service_1 = require("./social-work.service");
 // REMOVIDO: schedule.service foi removido (consolidado em Unified Availability)
 // import { scheduleService } from '../schedule/schedule.service';
-const transaction_service_1 = require("@core/economy/transactions/transaction.service");
-const account_service_1 = require("@core/economy/accounts/account.service");
+const transaction_service_1 = require("@core/economy/transaction.service");
+const account_service_1 = require("@core/economy/account.service");
 const pool_1 = require("@core/database/pool");
 class SocialWorkPaymentService {
     /**
@@ -89,7 +89,7 @@ class SocialWorkPaymentService {
      * Cria pagamento a partir de um post
      * Cria transação via economyService
      */
-    async createPaymentFromPost(postId, tenantId, customerUserId, amount) {
+    async createPaymentFromPost(postId, tenantId, customerUserId, amountCents) {
         // 1. Resolver job e schedule
         const scheduledJob = await this.resolveScheduledJobFromPost(postId, tenantId, customerUserId);
         if (!scheduledJob) {

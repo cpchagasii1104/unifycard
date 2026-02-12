@@ -1,9 +1,19 @@
+---
+
+# DOCUMENTO TÉCNICO / HISTÓRICO
+
+⚠️ Este documento NÃO é norma.
+⚠️ Não possui autoridade hierárquica.
+⚠️ Se houver conflito, prevalece exclusivamente:
+docs/01_normative/
+------------------
+
 # README_TREINAMENTO_IA_UNIFICARD.md
 
-Status: CANÔNICO — META-DOCUMENTO INSTITUCIONAL  
-Autoridade: ALTA (define hierarquia, ordem e interpretação)  
+Status: TÉCNICO — DOCUMENTO DE REFERÊNCIA  
+Natureza: Diretriz operacional (define ordem de leitura e interpretação)  
 Audiência: IAs Guardiãs · Arquitetura · Operadores Humanos  
-Escopo: Dataset oficial de treinamento institucional do UnifiCard
+Escopo: Dataset de referência para treinamento do UnifiCard
 
 ---
 
@@ -22,10 +32,10 @@ Ele apenas **organiza e explicita a autoridade existente**.
 
 ---
 
-## PRINCÍPIO ABSOLUTO (INQUEBRÁVEL)
+## PRINCÍPIO OPERACIONAL (DIRETRIZ)
 
-> **Nenhuma ação é válida no UnifiCard se não puder apontar,
-> explicitamente, qual documento canônico a AUTORIZA.**
+> **Recomenda-se que nenhuma ação seja executada no UnifiCard sem apontar,
+> explicitamente, qual documento normativo a autoriza.**
 
 Na dúvida:
 - ❌ RECUSAR
@@ -68,7 +78,7 @@ Ela existe para que **qualquer IA competente entenda o sistema rapidamente**.
 ---
 
 ### 01__CORE_IMUTAVEL__/
-**Leis do sistema (não negociável)**
+**Contratos técnicos do sistema (referência técnica)**
 
 - CORE_IMUTAVEL.md
 - CORE_VS_MODULOS_CONTRACT.md

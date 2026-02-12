@@ -29,7 +29,7 @@ class ServiceTypesService {
         capacity_min, capacity_max,
         is_luxury, is_motorcycle, is_cargo,
         icon_url, image_url,
-        created_at
+        createdAt
       )
       VALUES (
         $1,$2,$3,
@@ -92,7 +92,7 @@ class ServiceTypesService {
         is_cargo = COALESCE($13, is_cargo),
         icon_url = COALESCE($14, icon_url),
         image_url = COALESCE($15, image_url),
-        updated_at = now()
+        updatedAt = now()
       WHERE tenant_id = $1 AND service_type_id = $2
       RETURNING *
       `,

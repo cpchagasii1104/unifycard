@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/684_add_execution_to_event_instances.sql:20: ERRO:  coluna "version" da rela├º├úo "schema_migrations" n├úo existe
+LINHA 1: INSERT INTO schema_migrations (version, name, executed_at)
+                                        ^

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/552_schedule_slots_unique.sql:50: ERRO:  rela├º├úo "schedule_slots" n├úo existe

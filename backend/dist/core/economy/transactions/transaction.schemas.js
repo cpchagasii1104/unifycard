@@ -9,7 +9,7 @@ const zod_1 = require("zod");
 exports.createTransferSchema = zod_1.z.object({
     fromAccount: zod_1.z.string().uuid('Invalid source account ID'),
     toAccount: zod_1.z.string().uuid('Invalid destination account ID'),
-    amount: zod_1.z.number().positive('Amount must be greater than zero'),
+    amountCents: zod_1.z.number().positive('Amount must be greater than zero'),
     eventId: zod_1.z.string().uuid('Invalid event ID').optional(),
     metadata: zod_1.z.record(zod_1.z.any()).optional(),
 });

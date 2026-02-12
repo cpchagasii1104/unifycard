@@ -38,9 +38,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const identity_service_1 = require("./identity.service");
 const reputation_service_1 = require("@core/reputation/reputation.service");
-const account_service_1 = require("@core/economy/accounts/account.service");
-const transaction_service_1 = require("@core/economy/transactions/transaction.service");
-const ledger_service_1 = require("@core/economy/ledger/ledger.service");
 const residence_routes_1 = __importDefault(require("@core/residence/residence.routes"));
 const identity_schemas_1 = require("./identity.schemas");
 const identityRoutes = async (fastify) => {
@@ -56,14 +53,23 @@ const identityRoutes = async (fastify) => {
             return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
         }
         try {
-            const userId = req.user.userId;
-            if (!userId) {
-                return reply.status(400).send({ ok: false, message: 'User ID não encontrado' });
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
             }
+            const actorId = req.actionContext.actorId;
             // 🔴 CORREÇÃO CRÍTICA: Buscar perfil - se não existir, retornar estrutura parcial
             // NUNCA criar global_user em fluxo de GET, mas também NÃO retornar 500
             // Retornar estrutura mínima para permitir primeiro acesso
             // 🔴 CORREÇÃO DEFINITIVA: Se getIdentityProfile falhar, tentar buscar dados do cadastro
+            // Usar actorId do ActionContext (V2)
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository = socialPortsRegistry.getActorRepository();
+            const actor = await actorRepository.findById(req.tenant.id, actorId);
+            if (!actor || !actor.user_id) {
+                return reply.status(404).send({ ok: false, message: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const userId = actor.user_id;
             let profile = null;
             try {
                 profile = await identity_service_1.identityService.getIdentityProfile(userId, req.tenant.id);
@@ -86,7 +92,7 @@ const identityRoutes = async (fastify) => {
                     // Buscar dados locais e tentar buscar global_user diretamente
                     const { runQueryWithTenant } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
                     const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
-                    const localUser = await runQueryWithTenant(req.tenant.id, `SELECT user_id, tenant_id, email, created_at, global_user_id, plan, is_test FROM users WHERE user_id = $1 LIMIT 1`, [userId]);
+                    const localUser = await runQueryWithTenant(req.tenant.id, `SELECT id, tenant_id, email, createdAt, global_user_id FROM users WHERE id = $1 LIMIT 1`, [userId]);
                     if (!localUser) {
                         return reply.status(404).send({
                             ok: false,
@@ -97,7 +103,7 @@ const identityRoutes = async (fastify) => {
                     let globalUserData = null;
                     if (localUser.global_user_id) {
                         try {
-                            const globalUserResult = await pool.query(`SELECT global_user_id, full_name, birthdate, avatar_url, metadata, created_at, updated_at 
+                            const globalUserResult = await pool.query(`SELECT global_user_id, full_name, birthdate, avatar_url, metadata, createdAt, updatedAt 
                  FROM global_users 
                  WHERE global_user_id = $1 
                  LIMIT 1`, [localUser.global_user_id]);
@@ -123,16 +129,14 @@ const identityRoutes = async (fastify) => {
                             birthdate: globalUserData?.birthdate || null,
                             avatarUrl: globalUserData?.avatar_url || null,
                             metadata: globalUserData?.metadata || {},
-                            createdAt: globalUserData?.created_at || localUser.created_at,
-                            updatedAt: globalUserData?.updated_at || localUser.created_at,
+                            createdAt: globalUserData?.createdAt || localUser.createdAt,
+                            updatedAt: globalUserData?.updatedAt || localUser.createdAt,
                         },
                         local: {
-                            userId: localUser.user_id,
+                            userId: localUser.id,
                             tenantId: localUser.tenant_id,
                             email: localUser.email,
-                            createdAt: localUser.created_at,
-                            plan: localUser.plan || 'free',
-                            isTest: localUser.is_test || false,
+                            createdAt: localUser.createdAt,
                         },
                         reputation: undefined,
                         wallet: undefined,
@@ -337,11 +341,20 @@ const identityRoutes = async (fastify) => {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
-            const userId = req.user.userId;
-            if (!userId) {
-                return reply.status(400).send({ error: 'User ID não encontrado' });
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
             }
+            const actorId = req.actionContext.actorId;
             // 🔴 REGRA CRÍTICA: Buscar perfil - se não existir, lançar erro explícito
+            // Usar actorId do ActionContext (V2)
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository = socialPortsRegistry.getActorRepository();
+            const actor = await actorRepository.findById(req.tenant.id, actorId);
+            if (!actor || !actor.user_id) {
+                throw new NotFoundError('Actor não encontrado ou não é do tipo user');
+            }
+            const userId = actor.user_id;
             // NUNCA criar global_user em fluxo de update
             let profile;
             try {
@@ -513,7 +526,7 @@ const identityRoutes = async (fastify) => {
                 globalUserId: profile.global.globalUserId,
                 updatesToApply: Object.keys(updates),
             }, '🔍 DIAGNÓSTICO: Iniciando UPDATE');
-            const updated = await identity_service_1.identityService.updateGlobalIdentity(profile.global.globalUserId, updates);
+            const updated = await identity_service_1.identityService.updateGlobalIdentity(req.tenant.id, profile.global.globalUserId, updates);
             // 🔴 DIAGNÓSTICO: Log após atualizar
             fastify.log.info({
                 updated,
@@ -632,11 +645,12 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         try {
-            const reputation = await reputation_service_1.reputationService.getScoreByGlobalUserId(req.user.globalUserId);
+            const reputation = await reputation_service_1.reputationService.getScoreByGlobalUserId(req.actionContext.actorId);
             if (!reputation) {
                 return reply.status(404).send({ error: 'Reputação não encontrada' });
             }
@@ -655,17 +669,22 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        // 🔴 Sem globalUserId: retornar 200 com payload vazio (não é erro)
-        if (!req.user.globalUserId) {
-            return reply.status(200).send({
-                hasWallet: false,
-                balance: 0,
-                currency: 'BRL',
-            });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         try {
+            // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+            const { socialPortsRegistry } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository = socialPortsRegistry.getActorRepository();
+            const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+            if (!actor || !actor.user_id) {
+                return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const { resolveGlobalUserId } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+            const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
             // Buscar todas as contas do global_user_id
-            const accounts = await account_service_1.accountService.getAccountsByGlobalUserId(req.user.globalUserId);
+            const accounts = await accountService.getAccountsByGlobalUserId(globalUserId);
             // 🔴 Sem conta: retornar 200 com payload vazio (não é erro)
             if (accounts.length === 0) {
                 return reply.status(200).send({
@@ -677,7 +696,7 @@ const identityRoutes = async (fastify) => {
             // Usar conta primária (BRL) ou primeira disponível
             const primaryAccount = accounts.find(acc => acc.currency === 'BRL') || accounts[0];
             // Buscar últimas transações
-            const transactions = await transaction_service_1.transactionService.getTransactionsByGlobalUserId(req.user.globalUserId, { limit: 10 });
+            const transactions = await transactionService.getTransactionsByGlobalUserId(req.actionContext.actorId, { limit: 10 });
             // Calcular totais
             let totalIn = 0;
             let totalOut = 0;
@@ -698,7 +717,7 @@ const identityRoutes = async (fastify) => {
                 };
             });
             return {
-                globalUserId: req.user.globalUserId,
+                globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
                 balance: primaryAccount.balance,
                 currency: primaryAccount.currency,
                 totalIn,
@@ -719,15 +738,25 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         if (!req.tenant) {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
             // Buscar todas as contas do global_user_id
-            const accounts = await account_service_1.accountService.getAccountsByGlobalUserId(req.user.globalUserId);
+            // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+            const { socialPortsRegistry: socialPortsRegistry2 } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository2 = socialPortsRegistry2.getActorRepository();
+            const actor2 = await actorRepository2.findById(req.tenant.id, req.actionContext.actorId);
+            if (!actor2 || !actor2.user_id) {
+                return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const { resolveGlobalUserId: resolveGlobalUserId2 } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+            const globalUserId2 = await resolveGlobalUserId2(actor2.user_id, req.tenant.id);
+            const accounts = await accountService.getAccountsByGlobalUserId(globalUserId2);
             if (accounts.length === 0) {
                 return reply.status(404).send({ error: 'Nenhuma conta encontrada' });
             }
@@ -735,7 +764,7 @@ const identityRoutes = async (fastify) => {
             const allEntries = [];
             for (const account of accounts) {
                 try {
-                    const entries = await ledger_service_1.ledgerService.getLedgerEntries(account.tenantId, account.accountId, { limit: 50 });
+                    const entries = await ledgerService.getLedgerEntries(account.tenantId, account.accountId, { limit: 50 });
                     allEntries.push(...entries.map(entry => ({
                         ...entry,
                         accountCurrency: account.currency,
@@ -749,7 +778,7 @@ const identityRoutes = async (fastify) => {
             // Ordenar por data (mais recente primeiro)
             allEntries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
             return {
-                globalUserId: req.user.globalUserId,
+                globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
                 entries: allEntries.slice(0, 100), // Limitar a 100 entradas
                 totalEntries: allEntries.length,
             };
@@ -767,11 +796,21 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         try {
-            const globalUser = await identity_service_1.identityService.getGlobalIdentity(req.user.globalUserId);
+            // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+            const { socialPortsRegistry: socialPortsRegistry3 } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository3 = socialPortsRegistry3.getActorRepository();
+            const actor3 = await actorRepository3.findById(req.tenant.id, req.actionContext.actorId);
+            if (!actor3 || !actor3.user_id) {
+                return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const { resolveGlobalUserId: resolveGlobalUserId3 } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+            const globalUserId3 = await resolveGlobalUserId3(actor3.user_id, req.tenant.id);
+            const globalUser = await identity_service_1.identityService.getGlobalIdentity(globalUserId3);
             if (!globalUser) {
                 return reply.status(404).send({ error: 'Usuário não encontrado' });
             }
@@ -801,12 +840,22 @@ const identityRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         try {
             // Buscar metadata atual
-            const globalUser = await identity_service_1.identityService.getGlobalIdentity(req.user.globalUserId);
+            // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+            const { socialPortsRegistry: socialPortsRegistry3 } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository3 = socialPortsRegistry3.getActorRepository();
+            const actor3 = await actorRepository3.findById(req.tenant.id, req.actionContext.actorId);
+            if (!actor3 || !actor3.user_id) {
+                return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const { resolveGlobalUserId: resolveGlobalUserId3 } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+            const globalUserId3 = await resolveGlobalUserId3(actor3.user_id, req.tenant.id);
+            const globalUser = await identity_service_1.identityService.getGlobalIdentity(globalUserId3);
             if (!globalUser) {
                 return reply.status(404).send({ error: 'Usuário não encontrado' });
             }
@@ -815,7 +864,16 @@ const identityRoutes = async (fastify) => {
                 ...globalUser.metadata,
                 userType: req.body.userType,
             };
-            const updated = await identity_service_1.identityService.updateGlobalIdentity(req.user.globalUserId, {
+            // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+            const { socialPortsRegistry: socialPortsRegistry4 } = await Promise.resolve().then(() => __importStar(require('@core/social/ports-registry')));
+            const actorRepository4 = socialPortsRegistry4.getActorRepository();
+            const actor4 = await actorRepository4.findById(req.tenant.id, req.actionContext.actorId);
+            if (!actor4 || !actor4.user_id) {
+                return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+            }
+            const { resolveGlobalUserId: resolveGlobalUserId4 } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
+            const globalUserId4 = await resolveGlobalUserId4(actor4.user_id, req.tenant.id);
+            const updated = await identity_service_1.identityService.updateGlobalIdentity(req.tenant.id, globalUserId4, {
                 metadata: updatedMetadata,
             });
             return { userType: updated.metadata?.userType || 'physical' };
@@ -849,10 +907,11 @@ const identityRoutes = async (fastify) => {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
-            const userId = req.user.userId;
-            if (!userId) {
-                return reply.status(400).send({ error: 'User ID não encontrado' });
+            // ActionContext é obrigatório (V2)
+            if (!req.actionContext || !req.actionContext.actorId) {
+                return reply.status(400).send({ error: 'ActionContext obrigatório' });
             }
+            const actorId = req.actionContext.actorId;
             const { profileService } = await Promise.resolve().then(() => __importStar(require('@core/profile/profile.service')));
             // 🔴 FONTE ÚNICA DE VERDADE: Confirmar primeiro acesso
             // Isso seta profile_personal_confirmed = true

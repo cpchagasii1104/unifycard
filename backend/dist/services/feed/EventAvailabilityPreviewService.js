@@ -38,19 +38,19 @@ class EventAvailabilityPreviewService {
         // 3. Buscar próximos 3 slots disponíveis (READ-ONLY)
         const slotRows = await (0, db_1.runQueriesWithTenant)(tenantId, {
             text: `
-        SELECT slot_id, start_time, end_time
+        SELECT slot_id, starts_at, ends_at
         FROM schedule_slots
         WHERE schedule_id = $1
           AND status = 'available'
-          AND start_time >= NOW()
-        ORDER BY start_time ASC
+          AND starts_at >= NOW()
+        ORDER BY starts_at ASC
         LIMIT 3
       `,
             values: [event.schedule_id],
         });
         const nextAvailableSlots = slotRows.map((slot) => ({
-            start: slot.start_time.toISOString(),
-            end: slot.end_time.toISOString(),
+            start: slot.starts_at.toISOString(),
+            end: slot.ends_at.toISOString(),
         }));
         return {
             eventId,

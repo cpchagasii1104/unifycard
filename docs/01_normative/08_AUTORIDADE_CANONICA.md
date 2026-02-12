@@ -1,46 +1,45 @@
-# **08_AUTORIDADE_CANONICA.md**
+# AUTORIDADE CANÔNICA
 
-**Eixo:** AUTORIDADE / PODER / RESPONSABILIDADE
-**Status:** ATIVO (LEI ESTRUTURAL)
-**Tipo:** NORMA CANÔNICA
-**Última atualização:** **2026-02-08**
+Eixo: AUTORIDADE · PODER · RESPONSABILIDADE  
+Status: ATIVO (NORMA ESTRUTURAL)  
+Tipo: NORMA CANÔNICA (SUBORDINADA)  
+Subordinação: `AUTHORITY_LAW.md`  
+Última atualização: 2026-02-08
 
 ---
 
 ## 1. FINALIDADE
 
-Este documento define, de forma **canônica, normativa e irreversível**,
-como **autoridade é criada, delegada, exercida, revogada e auditada** no sistema.
+Este documento define, de forma **canônica, normativa e operacional**,
+como **autoridade é exercida, delegada, revogada e auditada** no sistema.
 
-Ele elimina ambiguidades entre:
-
-* Pessoa (CPF)
-* Empresa (CNPJ)
-* Actor (representação operacional)
+Ele **NÃO cria lei nova**.  
+Ele **IMPLEMENTA e OPERACIONALIZA** a `AUTHORITY_LAW.md`.
 
 Nenhuma execução, permissão, decisão de poder ou escopo
-pode contrariar este documento.
+pode contrariar a **Lei de Autoridade**.
+
+Em caso de conflito:
+> **Prevalece sempre a `AUTHORITY_LAW.md`.**
 
 ---
 
 ## 2. PRINCÍPIO-MÃE
 
-> **Autoridade é sempre delegada.
+> **Autoridade é sempre delegada.  
 > Responsabilidade é sempre rastreável.**
 
 O sistema:
-
-* não confia em pessoas
-* não confia em empresas
-* não confia em sessões
-* não confia em identificadores soltos
+- não confia em pessoas
+- não confia em empresas
+- não confia em sessões
+- não confia em identificadores soltos
 
 O sistema confia **exclusivamente** em:
-
-* vínculos documentados
-* delegações explícitas
-* histórico imutável
-* identidade canônica
+- vínculos documentados
+- delegações explícitas
+- histórico imutável
+- identidade canônica rastreável até CPF
 
 ---
 
@@ -48,20 +47,19 @@ O sistema confia **exclusivamente** em:
 
 ### 3.1 Pessoa Física (CPF)
 
-A Pessoa Física é a **âncora moral, jurídica e histórica** do sistema.
+A Pessoa Física é a **âncora moral, jurídica, econômica e histórica** do sistema.
 
 Características:
-
-* possui CPF
-* possui identidade única
-* pode ser bloqueada, suspensa ou banida globalmente
-* carrega histórico permanente de atuação
+- possui CPF
+- identidade única e permanente
+- pode ser restringida via ATL
+- pode ser colocada em quarentena ou banida
+- carrega histórico vitalício de atuação
 
 A Pessoa Física:
-
-* **NÃO recebe permissões diretamente**
-* **NÃO decide poder**
-* **NUNCA desaparece do histórico**
+- **NÃO recebe permissões diretamente**
+- **NÃO executa ações**
+- **NÃO ocupa escopo operacional**
 
 Toda responsabilização **termina no CPF**.
 
@@ -69,19 +67,17 @@ Toda responsabilização **termina no CPF**.
 
 ### 3.2 Empresa (CNPJ)
 
-A Empresa é a **entidade jurídica**.
+A Empresa é a **persona jurídica organizacional**.
 
 Características:
-
-* possui CNPJ
-* existe apenas após validação documental
-* não executa ações diretamente
+- possui CNPJ válido
+- existe apenas enquanto tiver Âncora Legal ativa
+- não executa ações diretamente
 
 A Empresa:
-
-* **não age**
-* **não clica**
-* **não decide**
+- **não age**
+- **não clica**
+- **não decide**
 
 Toda ação ocorre **em nome da empresa**,
 por meio de um Actor legitimamente delegado.
@@ -90,32 +86,31 @@ por meio de um Actor legitimamente delegado.
 
 ### 3.3 Actor (Representação Operacional)
 
-O Actor é a **única entidade que executa ações** no sistema.
+O Actor é a **ÚNICA entidade que executa ações** no sistema.
 
 Características:
-
-* representa uma Empresa (CNPJ) **ou** diretamente uma Pessoa Física (CPF)
-* possui escopo, intenção e limites claros
-* é temporário por definição
+- representa um CNPJ **ou** diretamente um CPF
+- possui escopo, intenção e limites claros
+- é temporário por definição
 
 Regras absolutas:
-
-* ❌ Actor **NUNCA** existe sem lastro em CPF
-* ❌ Actor **NUNCA** é anônimo
-* ❌ Actor **NUNCA** pertence a uma pessoa
-* ✅ Actor **SEMPRE** pertence à entidade que representa
+- ❌ Actor **NUNCA** existe sem CPF responsável
+- ❌ Actor **NUNCA** é anônimo
+- ❌ Actor **NUNCA** é soberano
+- ❌ Actor **NUNCA** herda autoridade
+- ✅ Actor **SEMPRE** atua por delegação válida
 
 ---
 
 ## 4. REGRA FUNDAMENTAL (ANTI-FRAUDE)
 
-> **Um Actor pode existir sem CNPJ.
+> **Um Actor pode existir sem CNPJ.  
 > Um Actor NUNCA pode existir sem CPF.**
 
 Todo Actor deve possuir:
-
-* pelo menos **UM CPF âncora responsável**
-* histórico completo de criação, delegação e atuação
+- pelo menos **UM CPF âncora responsável**
+- delegação explícita válida
+- histórico completo de criação, uso e revogação
 
 Actor “genérico”, “temporário sem vínculo”
 ou “solto no sistema” é **violação estrutural grave**.
@@ -126,24 +121,23 @@ ou “solto no sistema” é **violação estrutural grave**.
 
 ### 5.1 Definição
 
-Âncoras Legais são Pessoas Físicas (CPF) que possuem
-**poder legítimo, validado e documentado** sobre uma entidade.
+Âncora Legal é a Pessoa Física (CPF) com
+**poder jurídico, econômico e documental** sobre uma entidade.
 
 Exemplos:
-
-* sócios
-* administradores legais
-* representantes definidos em contrato social
+- sócios
+- administradores legais
+- representantes contratuais
 
 ---
 
 ### 5.2 Regras de Âncora
 
-* Toda Empresa válida deve possuir **ao menos UMA âncora ativa**
-* Sem âncora ativa:
-
-  * a empresa entra em estado suspenso
-  * nenhum Actor pode atuar
+- Toda Empresa deve possuir **ao menos UMA âncora ativa**
+- Sem âncora ativa:
+  - a empresa entra em estado suspenso
+  - nenhum Actor pode atuar
+- Âncora removida → revogação automática de Actors
 
 ---
 
@@ -152,62 +146,65 @@ Exemplos:
 ### 6.1 Quem pode criar Actors
 
 Somente:
-
-* Âncoras Legais
-* ou Pessoas explicitamente delegadas por elas
+- Âncoras Legais
+- Delegados explícitos por Âncoras
 
 Regra dura:
-
 > **Ninguém pode delegar mais poder do que possui.**
+
+ATL, quarentena ou bloqueio do CPF
+**impedem criação e delegação automaticamente**.
 
 ---
 
 ### 6.2 Delegação
 
-Delegar poder significa:
+Delegação:
+- é sempre temporária
+- possui escopo, tempo e narrativa
+- **NÃO transfere autoridade**
+- **NÃO isenta responsabilidade**
 
-* permitir que outro CPF **ocupe temporariamente** um Actor
-* sempre com escopo, duração e limites explícitos
-
-Toda delegação registra obrigatoriamente:
-
-* CPF delegador
-* CPF ocupante
-* Actor
-* escopo
-* período
-* origem da autoridade
+Toda delegação registra:
+- CPF delegador
+- CPF ocupante
+- Actor
+- escopo
+- período
+- origem da autoridade
 
 ---
 
 ## 7. VÍNCULO TEMPORÁRIO (OCUPAÇÃO)
 
-A relação correta é:
+Relação correta:
 
-Pessoa (CPF)
-→ ocupa temporariamente
-→ Actor
-→ representa
-→ Empresa (CNPJ **ou** CPF)
+Pessoa (CPF)  
+→ ocupa temporariamente  
+→ Actor  
+→ representa  
+→ Empresa (CNPJ ou CPF)
 
-Quando o vínculo termina:
-
-* o poder termina
-* o acesso termina
-* o histórico permanece
+Fim do vínculo implica:
+- fim do poder
+- fim do acesso
+- preservação integral do histórico
 
 ---
 
-## 8. REVOGAÇÃO AUTOMÁTICA (REGRA DE SEGURANÇA)
+## 8. REVOGAÇÃO AUTOMÁTICA (SEGURANÇA)
 
-O sistema **DEVE** revogar automaticamente Actors quando:
+O sistema **DEVE revogar imediatamente** Actors quando:
+- vínculo CPF ↔ Empresa termina
+- Âncora Legal expira, é removida ou entra em ATL restritivo
+- Empresa é suspensa ou invalidada
+- CPF entra em quarentena (ATL3) ou banimento (ATL4)
+- há ordem judicial ou bloqueio sistêmico
 
-* o vínculo CPF ↔ Empresa é encerrado
-* a Âncora Legal é removida, bloqueada ou expira
-* a Empresa é suspensa, encerrada ou invalidada
-* há ordem judicial ou bloqueio sistêmico
-
-Revogação é **imediata, automática e não negociável**.
+Revogação:
+- é automática
+- não negociável
+- não reversível sem nova delegação válida
 
 ---
 
@@ -215,97 +212,109 @@ Revogação é **imediata, automática e não negociável**.
 
 Regra canônica:
 
-> **Autoridade expira.
+> **Autoridade expira.  
 > Histórico nunca expira.**
 
-O sistema preserva permanentemente:
-
-* quem criou o Actor
-* quem delegou poder
-* quem ocupou
-* o que foi feito
-* quando foi feito
-* em nome de quem foi feito
+O sistema preserva:
+- quem criou o Actor
+- quem delegou
+- quem ocupou
+- o que foi feito
+- quando foi feito
+- em nome de quem foi feito
 
 Não existe:
-
-* “reset de histórico”
-* “troca de usuário para apagar rastro”
-* “saída limpa do sistema”
+- reset de histórico
+- troca de usuário para apagar rastro
+- saída limpa
 
 ---
 
-## 10. DECISÃO CANÔNICA — IDENTIDADE E AUTORIDADE
+## 10. AUTORIDADE, IDENTIDADE E DECISÃO
 
-### 10.1 Fonte Única de Autoridade
+### 10.1 Fonte Canônica
 
-A **única fonte canônica de identidade e autoridade** no sistema é:
+A única base canônica de identidade operacional é:
+- `users.user_id`
+- `users.tenant_id`
+- `users.global_user_id`
 
-* `users.user_id`
-* `users.tenant_id`
-* `users.global_user_id`
+Esses identificadores:
+- **NÃO criam autoridade**
+- **APENAS rastreiam atuação**
 
-Toda decisão de escopo, permissão ou isolamento **DEVE** ser resolvida a partir dessa base.
+Autoridade é sempre resolvida pela Lei + Delegação válida.
 
 ---
 
 ### 10.2 Descontinuação de `user_identity_links`
 
 A tabela `user_identity_links`:
+- ❌ não é fonte de autoridade
+- ❌ não define escopo
+- ❌ não participa de decisões de permissão
+- ❌ não pode ser usada em JOIN decisório
 
-* ❌ **NÃO é fonte de autoridade**
-* ❌ **NÃO pode ser usada para escopo**
-* ❌ **NÃO pode participar de decisões de permissão**
-* ❌ **NÃO pode ser usada em JOINs de produção**
-
-Qualquer uso de `user_identity_links` em código ativo
-é considerado **violação estrutural do sistema**.
+Uso em produção = **violação estrutural grave**.
 
 ---
 
-## 11. PROIBIÇÕES ABSOLUTAS
+## 11. RELAÇÃO COM ACTIONCONTEXT E RBAC
 
-É proibido:
+- **ActionContext** declara:
+  - qual Actor está agindo
+  - em qual contexto
+  - com qual intenção
 
-* Actor sem CPF responsável
-* Actor criado “para depois ver”
-* Delegação implícita ou inferida
-* Poder baseado em `userId` isolado
-* Poder baseado em tabelas auxiliares não canônicas
-* Apagar ou mascarar histórico de atuação
-* Confiar em usuário sem lastro documental
+- **RBAC** decide:
+  - se aquele Actor pode executar aquela ação
 
----
-
-## 12. RELAÇÃO COM ACTIONCONTEXT E RBAC
-
-* **ActionContext** declara:
-
-  * qual Actor está agindo
-  * com qual intenção
-  * em qual escopo
-
-* **RBAC** decide:
-
-  * se aquele Actor pode executar aquela ação
+RBAC:
+- **NUNCA cria autoridade**
+- **APENAS aplica permissões delegadas**
 
 CPF:
-
-* **NUNCA decide permissão**
-* **SEMPRE responde historicamente**
-
----
-
-## 13. CRITÉRIO DE CONFORMIDADE
-
-O sistema é considerado **conforme** somente se:
-
-* não existir Actor sem CPF
-* não existir poder sem delegação explícita
-* toda ação for auditável até uma Pessoa Física
-* toda revogação encerrar poder imediatamente
-* não existir uso de `user_identity_links` em produção
+- **NUNCA decide permissão**
+- **SEMPRE responde historicamente**
 
 ---
 
-**FIM DA NORMA**
+## 12. GUARDA (REFERÊNCIA OPERACIONAL)
+
+Quando existir guarda (conforme `AUTHORITY_LAW.md`):
+- há responsável econômico único
+- há teto e prazo explícitos
+- não existe guarda em cadeia
+- violação gera ATL imediato
+
+Este documento **NÃO define guarda**,
+apenas aplica suas consequências operacionais.
+
+---
+
+## 13. CONFORMIDADE
+
+O sistema só é considerado conforme se:
+- não existir Actor sem CPF
+- não existir poder sem delegação explícita
+- toda ação rastrear até CPF
+- ATL, quarentena e bloqueios forem respeitados
+- não existir uso de estruturas proibidas
+
+---
+
+## 14. PROIBIÇÕES ABSOLUTAS
+
+É proibido:
+- Actor sem CPF responsável
+- Delegação implícita ou inferida
+- Autoridade baseada em role, status ou flag
+- Exceção de autoridade via produto ou tenant
+- Apagar ou mascarar histórico
+- Contornar ATL, quarentena ou guarda
+
+Violação consciente é falha estrutural.
+
+---
+
+FIM DA NORMA DE AUTORIDADE CANÔNICA

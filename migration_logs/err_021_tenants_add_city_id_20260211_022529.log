@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/021_tenants_add_city_id.sql:27: ERRO:  rela├º├úo "cities" n├úo existe

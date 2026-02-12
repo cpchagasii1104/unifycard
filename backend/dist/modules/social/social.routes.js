@@ -88,15 +88,16 @@ const socialRoutes = async (fastify) => {
         if (!req.user) {
             return reply.status(401).send({ error: 'Não autenticado' });
         }
-        if (!req.user.globalUserId) {
-            return reply.status(404).send({ error: 'Identidade global não encontrada' });
+        // ActionContext é obrigatório (V2)
+        if (!req.actionContext || !req.actionContext.actorId) {
+            return reply.status(400).send({ error: 'ActionContext obrigatório' });
         }
         if (!req.tenant) {
             return reply.status(400).send({ error: 'Tenant não encontrado' });
         }
         try {
             const validated = social_schemas_1.createPostSchema.parse(req.body);
-            const post = await social_service_1.socialService.createPost(req.server, req.tenant.id, req.user.globalUserId, validated);
+            const post = await social_service_1.socialService.createPost(req.server, req.tenant.id, req.actionContext.actorId, validated);
             return reply.status(201).send(post);
         }
         catch (error) {
@@ -163,7 +164,7 @@ const socialRoutes = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND created_at >= $2
+          AND createdAt >= $2
           AND visibility = 'PUBLIC'
         `, [tenantId, oneDayAgo]);
             // Grupos: grupos com atividade recente (últimos 7 dias)
@@ -174,7 +175,7 @@ const socialRoutes = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND created_at >= $2
+          AND createdAt >= $2
         `, [tenantId, sevenDaysAgo]);
             // Eventos: eventos próximos (próximos 7 dias)
             const sevenDaysFromNow = new Date();
@@ -183,9 +184,9 @@ const socialRoutes = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('PUBLISHED', 'ONGOING')
-          AND start_time >= NOW()
-          AND start_time <= $2
+          AND status IN ('published', 'ongoing')
+          AND starts_at >= NOW()
+          AND starts_at <= $2
         `, [tenantId, sevenDaysFromNow]);
             // Serviços: ofertas de serviço recentes (últimos 7 dias)
             const servicesCount = await runQueryWithTenant(tenantId, `
@@ -193,7 +194,7 @@ const socialRoutes = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND created_at >= $2
+          AND createdAt >= $2
         `, [tenantId, sevenDaysAgo]);
             return {
                 feed: feedCount ? Number(feedCount.count) : 0,

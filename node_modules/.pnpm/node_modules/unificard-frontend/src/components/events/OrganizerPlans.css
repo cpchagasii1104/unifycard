@@ -1,0 +1,156 @@
+.organizer-plans {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.organizer-plans-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.organizer-plans-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.organizer-plans-title {
+  margin: 0 0 1rem 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.organizer-plans-current {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.organizer-plans-expired {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.organizer-plans-subscription-info {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #059669;
+  font-weight: 500;
+}
+
+.organizer-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.organizer-plan-card {
+  position: relative;
+  padding: 2rem;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.organizer-plan-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+}
+
+.organizer-plan-card-recommended {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+.organizer-plan-card-current {
+  border-color: #059669;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.organizer-plan-badge {
+  position: absolute;
+  top: -12px;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background: #2563eb;
+  color: white;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.organizer-plan-badge-current {
+  background: #059669;
+}
+
+.organizer-plan-header {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.organizer-plan-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.organizer-plan-price {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 0.5rem;
+}
+
+.organizer-plan-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.organizer-plan-benefits {
+  margin-bottom: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.organizer-plan-benefit {
+  padding: 0.75rem 0;
+  font-size: 0.875rem;
+  color: #333;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.organizer-plan-benefit:last-child {
+  border-bottom: none;
+}
+
+.organizer-plan-benefit strong {
+  color: #111;
+  font-weight: 600;
+}
+
+.organizer-plan-benefit-check {
+  color: #059669;
+  font-weight: 500;
+}
+
+.organizer-plan-cta {
+  width: 100%;
+  padding: 1rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.organizer-plan-cta:hover {
+  background: #1d4ed8;
+}
+

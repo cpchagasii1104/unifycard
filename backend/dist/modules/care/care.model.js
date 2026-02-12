@@ -12,8 +12,8 @@ class CareModel {
             lastMessage: row.last_message,
             state: (row.state && typeof row.state === 'object' ? row.state : {}),
             context: (row.context && typeof row.context === 'object' ? row.context : {}),
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     static fromRows(rows) {
@@ -51,7 +51,7 @@ class CareMessageModel {
             intent: row.intent,
             parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : null,
             aiReasoning: row.ai_reasoning && typeof row.ai_reasoning === 'object' ? row.ai_reasoning : null,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
         };
     }
     static fromRows(rows) {

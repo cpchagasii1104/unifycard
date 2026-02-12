@@ -21,12 +21,12 @@ class ReviewService {
             punctualityRating: row.punctuality_rating ?? undefined,
             professionalismRating: row.professionalism_rating ?? undefined,
             context: (row.context ?? undefined),
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     async getById(tenantId, reviewId) {
-        const row = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at FROM reviews WHERE review_id = $1`, [reviewId]);
+        const row = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt FROM reviews WHERE review_id = $1`, [reviewId]);
         return row ? this.toReview(row) : null;
     }
     async createReview(tenantId, authorUserId, sourceModule, input) {
@@ -107,10 +107,10 @@ class ReviewService {
         }
         const whereSQL = where.join(' AND ');
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at
+      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt
       FROM reviews
       WHERE ${whereSQL}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $${i} OFFSET $${i + 1}
       `, [...params, limit, offset]);
         const count = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT COUNT(*) AS total FROM reviews WHERE ${whereSQL}`, params);
@@ -119,7 +119,7 @@ class ReviewService {
         }
         return {
             reviews: rows.map(r => this.toReview(r)),
-            total: Number(count.total),
+            totalCents: Number(count.total),
         };
     }
 }

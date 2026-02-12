@@ -13,7 +13,7 @@ const createProposalSchema = zod_1.z.object({
     proposalType: zod_1.z.enum(['PROJECT_FUNDING', 'REGIONAL_REINVESTMENT', 'COMMUNITY_EXPENSE']),
     targetType: zod_1.z.enum(['project', 'group', 'platform', 'regional_fund']),
     targetId: zod_1.z.string().uuid().optional(),
-    amount: zod_1.z.number().positive(),
+    amountCents: zod_1.z.number().positive(),
     votingStartsAt: zod_1.z.coerce.date(),
     votingEndsAt: zod_1.z.coerce.date(),
 });
@@ -22,7 +22,7 @@ const voteSchema = zod_1.z.object({
 });
 const listProposalsQuerySchema = zod_1.z.object({
     regionId: zod_1.z.string().optional(),
-    status: zod_1.z.enum(['DRAFT', 'OPEN', 'CLOSED', 'EXECUTED', 'REJECTED']).optional(),
+    status: zod_1.z.enum(['draft', 'open', 'closed', 'executed', 'rejected']).optional(),
     limit: zod_1.z.coerce.number().int().min(1).max(100).optional().default(50),
     offset: zod_1.z.coerce.number().int().min(0).optional().default(0),
 });

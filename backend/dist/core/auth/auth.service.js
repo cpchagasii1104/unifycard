@@ -1,4 +1,21 @@
 "use strict";
+/**
+ * ⚠️ LEGADO PRÉ-GATE-0 — CONGELADO
+ *
+ * Este arquivo contém lógica histórica anterior ao fechamento do Gate 0.
+ *
+ * Após o Gate 0:
+ * - users.global_user_id é a ÚNICA fonte de verdade para identidade global.
+ * - user_identity_links NÃO é autoridade.
+ * - resolveGlobalUserId NÃO deve ser usado como referência.
+ *
+ * Este arquivo:
+ * - NÃO deve ser refatorado
+ * - NÃO deve ser usado como modelo
+ * - NÃO deve ser expandido
+ *
+ * Qualquer alteração só é permitida após abertura formal do Gate 1.
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -43,7 +60,6 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = require("crypto");
 const pool_1 = require("@core/database/pool");
-const identity_service_1 = require("@core/identity/identity.service");
 const canonical_logger_1 = require("@core/logging/canonical-logger");
 const cpf_validator_1 = require("@utils/cpf.validator");
 const nameNormalizer_1 = require("@utils/nameNormalizer");
@@ -59,10 +75,10 @@ const jwtSecret = JWT_SECRET;
 class AuthService {
     toAuthUser(row) {
         return {
-            userId: row.user_id,
+            userId: row.id,
             tenantId: row.tenant_id,
             email: row.email,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
         };
     }
     generateTokens(user, tokenVersion, globalUserId) {
@@ -107,9 +123,9 @@ class AuthService {
             // 🔴 GARANTIA CANÔNICA 4: Validar tokenVersion contra banco
             // Esta é a única validação que requer query ao banco
             const userRow = await (0, pool_1.runQueryWithTenant)(decoded.tenantId, `
-          SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, createdAt, token_version
           FROM users
-          WHERE user_id = $1
+          WHERE id = $1
           LIMIT 1
         `, [decoded.sub]);
             if (!userRow) {
@@ -184,7 +200,7 @@ class AuthService {
             const client = await pool.connect();
             try {
                 await client.query(`
-          INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
+          INSERT INTO tenants (id, name, slug, createdAt, updatedAt)
           VALUES ($1, $2, $3, now(), now())
           `, [newTenantId, `Tenant ${emailSlug}`, tenantSlug]);
                 finalTenantId = newTenantId;
@@ -197,8 +213,8 @@ class AuthService {
                 });
             }
             catch (err) {
-                client.release();
-                throw new Error('Falha ao criar tenant automaticamente');
+                console.error('Erro ao criar tenant automaticamente:', err);
+                throw err instanceof Error ? err : new Error('Falha ao criar tenant automaticamente');
             }
             finally {
                 client.release();
@@ -228,7 +244,7 @@ class AuthService {
                     const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
                     const client = await pool.connect();
                     try {
-                        await client.query('DELETE FROM tenants WHERE tenant_id = $1', [finalTenantId]);
+                        await client.query('DELETE FROM tenants WHERE id = $1', [finalTenantId]);
                     }
                     catch (err) {
                         // Ignorar erro ao reverter
@@ -243,7 +259,7 @@ class AuthService {
             }
         }
         const existing = await (0, pool_1.runQueryWithTenant)(finalTenantId, `
-        SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, createdAt, token_version
         FROM users
         WHERE email = $1
         LIMIT 1
@@ -254,108 +270,84 @@ class AuthService {
             throw error;
         }
         const passwordHash = await bcrypt_1.default.hash(password, 10);
+        const newUserId = (0, crypto_1.randomUUID)();
+        // 🔴 GARANTIA CANÔNICA: CPF é obrigatório para criar global_users
+        if (!cpf) {
+            const error = new Error('CPF é obrigatório para cadastro');
+            error.statusCode = 400;
+            throw error;
+        }
+        // 🔒 SEGURANÇA: Validar CPF antes de salvar
+        try {
+            (0, cpf_validator_1.validateCpfOrThrow)(cpf);
+        }
+        catch (validationError) {
+            const error = new Error(validationError instanceof Error ? validationError.message : 'CPF inválido');
+            error.statusCode = 400;
+            throw error;
+        }
+        const normalizedCpf = (0, cpf_validator_1.normalizeCpf)(cpf);
+        const normalizedFullName = fullName ? (0, nameNormalizer_1.normalizeFullName)(fullName) : null;
+        // 🔴 GARANTIA CANÔNICA: Criar/obter global_users ANTES de criar users
+        // UPSERT em global_users usando CPF como chave SSOT
+        const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
+        const globalUserResult = await pool.query(`
+        INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
+        VALUES ($1, $2, NULL, $3, '{}'::jsonb)
+        ON CONFLICT (cpf)
+        DO UPDATE SET cpf = EXCLUDED.cpf
+        RETURNING global_user_id
+      `, [normalizedCpf, normalizedFullName, birthdate ? new Date(birthdate) : null]);
+        if (!globalUserResult.rows[0]) {
+            throw new Error('Failed to create or retrieve global user');
+        }
+        const globalUserId = globalUserResult.rows[0].global_user_id;
+        // 🔴 GARANTIA CANÔNICA: Inserir users com global_user_id NO INSERT
         const inserted = await (0, pool_1.runQueryWithTenant)(finalTenantId, `
-        INSERT INTO users (tenant_id, email, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING user_id, tenant_id, email, password_hash, created_at, token_version
-      `, [finalTenantId, normalizedEmail, passwordHash]);
+        INSERT INTO users (id, tenant_id, global_user_id, email, password_hash)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, tenant_id, email, password_hash, createdAt, token_version
+      `, [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]);
         if (!inserted) {
             throw new Error('Failed to create user');
         }
         const user = this.toAuthUser(inserted);
-        // Salvar CPF na tabela user_profiles (se fornecido)
-        if (cpf) {
-            // 🔒 SEGURANÇA: Validar CPF antes de salvar
-            try {
-                (0, cpf_validator_1.validateCpfOrThrow)(cpf);
-            }
-            catch (validationError) {
-                const error = new Error(validationError instanceof Error ? validationError.message : 'CPF inválido');
-                error.statusCode = 400;
+        // Salvar CPF na tabela profiles
+        try {
+            await pool.query(`
+        INSERT INTO profiles (tenant_id, user_id, cpf)
+        VALUES ($1, $2, $3)
+        `, [finalTenantId, user.userId, normalizedCpf]);
+        }
+        catch (dbError) {
+            // 🔒 SEGURANÇA: Capturar erro de unicidade (CPF duplicado)
+            if (dbError.code === '23505') {
+                // Constraint UNIQUE violada (CPF já existe)
+                const error = new Error('CPF já está em uso por outra conta');
+                error.statusCode = 409;
                 throw error;
             }
-            const normalizedCpf = (0, cpf_validator_1.normalizeCpf)(cpf);
-            const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
-            try {
-                await pool.query(`
-          INSERT INTO user_profiles (user_id, cpf)
-          VALUES ($1, $2)
-          `, [user.userId, normalizedCpf]);
-            }
-            catch (dbError) {
-                // 🔒 SEGURANÇA: Capturar erro de unicidade (CPF duplicado)
-                if (dbError.code === '23505') {
-                    // Constraint UNIQUE violada (CPF já existe)
-                    const error = new Error('CPF já está em uso por outra conta');
-                    error.statusCode = 409;
-                    throw error;
-                }
-                // Re-lançar outros erros
-                throw dbError;
-            }
+            // Re-lançar outros erros
+            throw dbError;
         }
-        // Criar identidade global automaticamente (ANTES de salvar dados do perfil)
-        let globalUserId = undefined;
-        try {
-            const created = await identity_service_1.identityService.createGlobalIdentityForUser(user.userId, finalTenantId);
-            globalUserId = created.globalUserId;
-        }
-        catch (error) {
-            // Log mas não falha o registro
-            console.error('Erro ao criar identidade global:', error);
-            // Tentar resolver se já existir
-            try {
-                const { resolveGlobalUserId } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
-                const resolved = await resolveGlobalUserId(user.userId, finalTenantId);
-                if (resolved) {
-                    globalUserId = resolved;
-                }
-            }
-            catch (err) {
-                // Não crítico
-            }
-        }
+        // 🔴 GARANTIA CANÔNICA: users.global_user_id é a fonte única de verdade
+        // user_identity_links NÃO é mais usado - removido conforme schema canônico
         // 🔴 PARTE 1 - CORREÇÃO BUG: Salvar nome, data de nascimento e sexo no cadastro
         // IMPORTANTE: Fazer isso DEPOIS de criar a identidade global para garantir que globalUserId existe
         if (fullName || birthdate || gender) {
             try {
                 const { profileService } = await Promise.resolve().then(() => __importStar(require('@core/profile/profile.service')));
-                const { identityService } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.service')));
                 // Preparar dados do perfil
                 const profileMetadata = {};
                 if (gender) {
                     profileMetadata.gender = gender;
                 }
                 // Salvar nome e sexo no perfil
-                // 🔴 PADRONIZAÇÃO: Normalizar nome antes de salvar
-                const normalizedFullName = fullName ? (0, nameNormalizer_1.normalizeFullName)(fullName) : undefined;
+                // 🔴 PADRONIZAÇÃO: Usar nome já normalizado
                 await profileService.upsertProfile(finalTenantId, user.userId, {
-                    fullName: normalizedFullName,
+                    fullName: normalizedFullName || undefined,
                     metadata: Object.keys(profileMetadata).length > 0 ? profileMetadata : undefined,
                 });
-                // Salvar data de nascimento na identidade global
-                if (birthdate && globalUserId) {
-                    try {
-                        // 🔴 CRÍTICO: Normalizar birthdate para ISO antes de salvar
-                        const { normalizeBirthdate } = await Promise.resolve().then(() => __importStar(require('@utils/dateNormalizer')));
-                        const normalizedBirthdate = normalizeBirthdate(birthdate);
-                        // Converter string ISO para Date usando UTC
-                        const dateMatch = normalizedBirthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                        if (dateMatch) {
-                            const year = parseInt(dateMatch[1], 10);
-                            const month = parseInt(dateMatch[2], 10) - 1; // JavaScript months are 0-indexed
-                            const day = parseInt(dateMatch[3], 10);
-                            const birthdateDate = new Date(Date.UTC(year, month, day));
-                            await identityService.updateGlobalIdentity(globalUserId, {
-                                birthdate: birthdateDate,
-                            });
-                        }
-                    }
-                    catch (identityError) {
-                        // Log mas não falha o registro
-                        console.warn('Erro ao salvar data de nascimento na identidade global:', identityError);
-                    }
-                }
             }
             catch (profileError) {
                 // Log mas não falha o registro
@@ -448,20 +440,6 @@ class AuthService {
         }
         // CRÍTICO: Incluir token_version do banco no token gerado
         const tokens = this.generateTokens(user, inserted.token_version, globalUserId);
-        // 🔴 GARANTIA CANÔNICA: tenantId SEMPRE presente no JWT (via generateTokens)
-        // generateTokens inclui user.tenantId no payload (linha 55)
-        // Validar que JWT contém tenantId
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.decode(tokens.accessToken);
-        if (!decoded || !decoded.tenantId || decoded.tenantId !== finalTenantId) {
-            console.error('[AuthService] ❌ tenantId ausente ou incorreto no JWT após geração', {
-                userId: user.userId,
-                tenantId: finalTenantId,
-                jwtTenantId: decoded?.tenantId,
-                hasDecoded: !!decoded,
-            });
-            throw new Error('tenantId ausente ou incorreto no JWT após geração');
-        }
         // 🔴 LOG CANÔNICO: Registro completo com todas as garantias validadas
         console.log('[AuthService] ✅ Registro concluído com sucesso:', {
             userId: user.userId,
@@ -469,7 +447,6 @@ class AuthService {
             tenantWasCreated,
             tenantWasProvided: !tenantWasCreated,
             tokenVersion: inserted.token_version,
-            jwtContainsTenantId: decoded.tenantId === finalTenantId,
         });
         // 🔴 PARTE 2 - ONBOARDING: Usuário recém-criado sempre precisa de onboarding
         const requiresOnboarding = true;
@@ -490,7 +467,7 @@ class AuthService {
         try {
             // Buscar usuário apenas por email (tenant_id será obtido do usuário encontrado)
             const result = await client.query(`
-          SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+          SELECT id, tenant_id, email, password_hash, createdAt, token_version
           FROM users
           WHERE email = $1
           LIMIT 1
@@ -500,7 +477,7 @@ class AuthService {
                 // 🔴 LOG CANÔNICO: Login failure - user não encontrado
                 canonical_logger_1.canonicalLogger.warn(null, 'Login failure: User não encontrado', {
                     email: normalizedEmail.substring(0, 3) + '***',
-                    tenantId: tenantId || null,
+                    tenantId: tenantId || undefined,
                 });
                 const error = new Error('Invalid credentials');
                 error.statusCode = 401;
@@ -513,7 +490,7 @@ class AuthService {
                 // 🔴 LOG CANÔNICO: Login failure - senha incorreta
                 canonical_logger_1.canonicalLogger.warn(null, 'Login failure: Senha incorreta', {
                     tenantId: userRow.tenant_id,
-                    userId: userRow.user_id,
+                    userId: userRow.id,
                     email: normalizedEmail.substring(0, 3) + '***',
                 });
                 const error = new Error('Invalid credentials');
@@ -521,15 +498,18 @@ class AuthService {
                 throw error;
             }
             const user = this.toAuthUser(userRow);
-            // Resolver globalUserId via user_identity_links (se disponível)
-            // Não é obrigatório - sistema funciona sem ele
+            // 🔴 GARANTIA CANÔNICA: Resolver globalUserId via users.global_user_id
             // Usar o tenant_id do usuário encontrado, não o passado como parâmetro
             let globalUserId = undefined;
             try {
-                const { resolveGlobalUserId } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
-                const resolved = await resolveGlobalUserId(userRow.user_id, userTenantId);
-                if (resolved) {
-                    globalUserId = resolved;
+                const userWithGlobal = await (0, pool_1.runQueryWithTenant)(userTenantId, `
+            SELECT global_user_id
+            FROM users
+            WHERE id = $1
+            LIMIT 1
+          `, [userRow.id]);
+                if (userWithGlobal?.global_user_id) {
+                    globalUserId = userWithGlobal.global_user_id;
                 }
             }
             catch (err) {
@@ -541,7 +521,7 @@ class AuthService {
             // 🔴 LOG CANÔNICO: Login success
             canonical_logger_1.canonicalLogger.info(null, 'Login success', {
                 tenantId: userRow.tenant_id,
-                userId: userRow.user_id,
+                userId: userRow.id,
                 email: normalizedEmail.substring(0, 3) + '***',
                 tokenVersion: userRow.token_version,
             });
@@ -575,6 +555,12 @@ class AuthService {
                 error.statusCode = 401;
                 throw error;
             }
+            // 🔴 GARANTIA CANÔNICA: tenantId OBRIGATÓRIO no refresh token - fail fast
+            if (!decoded.tenantId || typeof decoded.tenantId !== 'string') {
+                const error = new Error('Invalid refresh token: tenantId missing');
+                error.statusCode = 401;
+                throw error;
+            }
             if (decoded.tenantId !== tenantId) {
                 const error = new Error('Invalid tenant for token');
                 error.statusCode = 401;
@@ -591,9 +577,9 @@ class AuthService {
                 throw error;
             }
             const userRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
-        SELECT user_id, tenant_id, email, password_hash, created_at, token_version
+        SELECT id, tenant_id, email, password_hash, createdAt, token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [decoded.sub]);
             if (!userRow) {
@@ -620,14 +606,18 @@ class AuthService {
                 throw error;
             }
             const user = this.toAuthUser(userRow);
-            // Resolver globalUserId via user_identity_links (se disponível)
+            // 🔴 GARANTIA CANÔNICA: Resolver globalUserId via users.global_user_id
             let globalUserId = decoded.globalUserId;
             if (!globalUserId) {
                 try {
-                    const { resolveGlobalUserId } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.utils')));
-                    const resolved = await resolveGlobalUserId(userRow.user_id, tenantId);
-                    if (resolved) {
-                        globalUserId = resolved;
+                    const userWithGlobal = await (0, pool_1.runQueryWithTenant)(tenantId, `
+              SELECT global_user_id
+              FROM users
+              WHERE id = $1
+              LIMIT 1
+            `, [userRow.id]);
+                    if (userWithGlobal?.global_user_id) {
+                        globalUserId = userWithGlobal.global_user_id;
                     }
                 }
                 catch (err) {
@@ -637,7 +627,7 @@ class AuthService {
             // 🔴 LOG CANÔNICO: Refresh token válido, gerando novos tokens
             canonical_logger_1.canonicalLogger.info(null, 'Refresh token válido, gerando novos tokens', {
                 tenantId,
-                userId: userRow.user_id,
+                userId: userRow.id,
                 tokenVersion: userRow.token_version,
             });
             // CRÍTICO: Incluir token_version do banco no token gerado
@@ -650,6 +640,10 @@ class AuthService {
                     error: err.message,
                     stack: err.stack,
                 });
+            }
+            // Preservar mensagem de erro específica se já existir
+            if (err.message && (err.message.includes('tokenVersion') || err.message.includes('tenantId') || err.message.includes('token type') || err.message.includes('User not found') || err.message.includes('Invalid tenant'))) {
+                throw err;
             }
             const error = new Error('Invalid refresh token');
             error.statusCode = err.statusCode || 401;
@@ -675,24 +669,24 @@ class AuthService {
         const currentRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [userId]);
-        const currentTokenVersion = currentRow?.[0]?.token_version ?? null;
+        const currentTokenVersion = currentRow?.token_version ?? null;
         // Incrementar token_version (invalida todos os tokens existentes)
         await (0, pool_1.runQueryWithTenant)(tenantId, `
         UPDATE users
         SET token_version = token_version + 1
-        WHERE user_id = $1
+        WHERE id = $1
       `, [userId]);
         // Buscar novo token_version após incremento (para log)
         const newRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
         SELECT token_version
         FROM users
-        WHERE user_id = $1
+        WHERE id = $1
         LIMIT 1
       `, [userId]);
-        const newTokenVersion = newRow?.[0]?.token_version ?? null;
+        const newTokenVersion = newRow?.token_version ?? null;
         // 🔴 LOG CANÔNICO: Invalidação concluída
         canonical_logger_1.canonicalLogger.invalidation(null, 'Sessão invalidada com sucesso (logout)', {
             tenantId,

@@ -140,7 +140,7 @@ class DonationService {
       WHERE t.tenant_id = $1
         AND t.from_account_id = $2
         AND t.metadata->>'type' = 'donation'
-        AND t.created_at >= $3
+        AND t.createdAt >= $3
       `, [tenantId, userAccount.accountId, today]);
         const count = parseInt(result.rows[0]?.count || '0', 10);
         if (count >= this.MAX_DONATIONS_PER_DAY) {
@@ -169,7 +169,7 @@ class DonationService {
                     type: 'DONATION',
                     targetType: donation.targetType,
                     targetId: donation.targetId,
-                    amount: donation.amount,
+                    amountCents: donation.amount,
                     message: donation.message,
                     transactionId: donation.transactionId,
                 },

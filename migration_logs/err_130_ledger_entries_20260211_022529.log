@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/130_ledger_entries.sql:20: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/130_ledger_entries.sql:73: ERRO:  rela├º├úo "evidence_packs" n├úo existe

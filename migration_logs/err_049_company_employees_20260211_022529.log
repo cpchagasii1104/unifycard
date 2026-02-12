@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/049_company_employees.sql:45: NOTA:  extens├úo "pgcrypto" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/049_company_employees.sql:86: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

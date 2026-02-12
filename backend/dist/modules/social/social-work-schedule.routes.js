@@ -173,7 +173,7 @@ const socialWorkScheduleRoutes = async (fastify) => {
                 postId,
                 jobId: job.jobId,
                 schedules: slots,
-                total: slots.length,
+                totalCents: slots.length,
             };
         }
         catch (error) {

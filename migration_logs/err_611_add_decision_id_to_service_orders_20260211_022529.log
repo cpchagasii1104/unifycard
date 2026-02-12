@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/611_add_decision_id_to_service_orders.sql:20: ERRO:  rela├º├úo "service_orders" n├úo existe

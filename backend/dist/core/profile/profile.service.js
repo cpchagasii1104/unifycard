@@ -114,10 +114,10 @@ class ProfileService {
             fullName: row.full_name ?? null,
             phone: row.phone ?? null,
             metadata,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            profile_personal_confirmed: profilePersonalConfirmed,
-            can_edit_personal_data: canEditPersonalData,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            profilePersonalConfirmed: profilePersonalConfirmed,
+            canEditPersonalData: canEditPersonalData,
         };
     }
     /**
@@ -132,10 +132,10 @@ class ProfileService {
         SELECT
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${selectConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
         FROM profiles
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY updated_at DESC
+        ORDER BY updatedAt DESC
         LIMIT 1
       `, [tenantId, userId]);
         if (!row)
@@ -169,7 +169,7 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
       `, [tenantId, userId, JSON.stringify(initialMetadata)]);
         if (!row) {
             const existing = await this.getProfile(tenantId, userId);
@@ -246,7 +246,7 @@ class ProfileService {
             // Compat: se não existe coluna, manter o flag em metadata
             if (!hasColumn && existingProfile) {
                 metadataWithoutImmutables.profile_personal_confirmed =
-                    existingProfile.profile_personal_confirmed === true;
+                    existingProfile.profilePersonalConfirmed === true;
             }
         }
         // Merge profundo (PATCH real)
@@ -267,7 +267,7 @@ class ProfileService {
             (input.metadata?.gender !== undefined && !personalDataLocked);
         if (attemptedToSavePersonalData && !personalDataLocked) {
             mergedMetadata.personal_data_locked = true;
-            mergedMetadata.personal_data_locked_at = new Date().toISOString();
+            mergedMetadata.personal_data_lockedAt = new Date().toISOString();
         }
         // 🔧 FIX (onboarding only after first successful save): Setar onboarding_completed automaticamente após primeiro salvamento bem-sucedido
         // Só seta se:
@@ -283,7 +283,7 @@ class ProfileService {
             let hasFullName = false;
             let hasBirthdate = false;
             try {
-                const userLink = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT global_user_id FROM users WHERE user_id = $1 LIMIT 1`, [userId]);
+                const userLink = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`, [userId]);
                 if (userLink?.global_user_id) {
                     const globalUser = await identityService.getGlobalIdentity(userLink.global_user_id);
                     hasFullName = !!(globalUser?.fullName && globalUser.fullName.trim().length > 0);
@@ -305,7 +305,7 @@ class ProfileService {
             // Se todos os dados obrigatórios existem, marcar onboarding como concluído
             if (hasFullName && hasBirthdate && hasGender) {
                 mergedMetadata.onboarding_completed = true;
-                mergedMetadata.onboarding_completed_at = new Date().toISOString();
+                mergedMetadata.onboarding_completedAt = new Date().toISOString();
             }
         }
         // Serializar metadata com segurança
@@ -343,7 +343,7 @@ class ProfileService {
         }
         // metadata: sempre atualiza com o merge (preserva campos existentes)
         updateFields.push(`metadata = $5::JSONB`);
-        updateFields.push(`updated_at = now()`);
+        updateFields.push(`updatedAt = now()`);
         // confirmação: preserva (nunca “volta pra false”)
         if (hasColumn) {
             updateFields.push(`profile_personal_confirmed = COALESCE(profiles.profile_personal_confirmed, false)`);
@@ -360,26 +360,25 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          created_at, updated_at
+          createdAt, updatedAt
       `, [tenantId, userId, insertFullName, insertPhone, serializedMetadata]);
         if (!row) {
             throw new Error('Failed to create or update profile');
         }
-        // LGPD: CPF em user_profiles (imutável)
+        // LGPD: CPF em profiles (imutável)
         if (cpfToSave) {
             try {
                 const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
-                const existing = await pool.query(`SELECT cpf FROM user_profiles WHERE user_id = $1`, [userId]);
+                const existing = await pool.query(`SELECT cpf FROM profiles WHERE user_id = $1 AND tenant_id = $2`, [userId, tenantId]);
                 const existingCpf = existing.rows[0]?.cpf;
                 if (existingCpf && existingCpf !== cpfToSave) {
                     throw new errors_1.ConflictError('CPF não pode ser alterado após o cadastro');
                 }
                 try {
                     await pool.query(`
-            INSERT INTO user_profiles (user_id, cpf)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO NOTHING
-            `, [userId, cpfToSave]);
+            UPDATE profiles SET cpf = $2
+            WHERE tenant_id = $1 AND user_id = $3
+            `, [tenantId, cpfToSave, userId]);
                 }
                 catch (err) {
                     if (err?.code === '23505') {
@@ -405,7 +404,7 @@ class ProfileService {
      */
     async completeOnboarding(tenantId, userId) {
         const { identityService } = await Promise.resolve().then(() => __importStar(require('@core/identity/identity.service')));
-        const userLink = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT global_user_id FROM users WHERE user_id = $1 LIMIT 1`, [userId]);
+        const userLink = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT global_user_id FROM users WHERE id = $1 LIMIT 1`, [userId]);
         if (!userLink?.global_user_id) {
             const error = new Error('Usuário não possui identidade global');
             error.statusCode = 400;
@@ -430,7 +429,7 @@ class ProfileService {
         const updatedMetadata = {
             ...existingMetadata,
             onboarding_completed: true,
-            onboarding_completed_at: new Date().toISOString(),
+            onboarding_completedAt: new Date().toISOString(),
         };
         return this.upsertProfile(tenantId, userId, { metadata: updatedMetadata });
     }
@@ -448,7 +447,7 @@ class ProfileService {
           ON CONFLICT (tenant_id, user_id)
           DO UPDATE SET
             profile_personal_confirmed = true,
-            updated_at = now()
+            updatedAt = now()
           RETURNING profile_id
         `, [tenantId, userId]);
             if (!result)
@@ -464,7 +463,7 @@ class ProfileService {
         ON CONFLICT (tenant_id, user_id)
         DO UPDATE SET
           metadata = $3::JSONB,
-          updated_at = now()
+          updatedAt = now()
         RETURNING profile_id
       `, [tenantId, userId, JSON.stringify(merged)]);
         if (!result)
@@ -489,8 +488,8 @@ class ProfileService {
         const personalDataLocked = profile.metadata?.personal_data_locked === true;
         if (personalDataLocked)
             return false;
-        // Fallback para profile_personal_confirmed (compatibilidade)
-        return !profile.profile_personal_confirmed;
+        // Fallback para profilePersonalConfirmed (compatibilidade)
+        return !profile.profilePersonalConfirmed;
     }
 }
 exports.profileService = new ProfileService();

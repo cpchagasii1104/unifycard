@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/531_audit_marketplace_categories.sql:22: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 13: FROM categories
+               ^

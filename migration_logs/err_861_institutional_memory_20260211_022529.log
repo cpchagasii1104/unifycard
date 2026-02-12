@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/861_institutional_memory.sql:46: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

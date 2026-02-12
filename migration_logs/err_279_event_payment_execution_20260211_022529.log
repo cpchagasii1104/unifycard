@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/279_event_payment_execution.sql:52: ERRO:  rela├º├úo "events" n├úo existe

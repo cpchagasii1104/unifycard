@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/754_chat_reports.sql:50: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

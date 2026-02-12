@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/870_seed_learning_categories.sql:45: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 1: INSERT INTO categories (parent_id, name, slug, description, ...
+                     ^

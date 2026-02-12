@@ -105,7 +105,7 @@ class CatalogPaymentService {
                 .filter((id) => !!id),
             splits: splitResult.splits.map(s => ({
                 targetType: s.rule.targetType,
-                amount: s.amount,
+                amountCents: s.amount,
                 transactionId: s.transactionId,
             })),
         };

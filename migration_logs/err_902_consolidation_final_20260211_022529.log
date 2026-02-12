@@ -1,0 +1,6 @@
+psql:C:/unificard/backend/migrations/902_consolidation_final.sql:66: NOTA:  === VALIDA├ç├âO PR├ëVIA ===
+psql:C:/unificard/backend/migrations/902_consolidation_final.sql:66: ERRO:  rela├º├úo "categories" n├úo existe
+LINHA 1: SELECT COUNT(*)                FROM categories
+                                             ^
+CONSULTA:  SELECT COUNT(*)                FROM categories
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 10 em comando SQL

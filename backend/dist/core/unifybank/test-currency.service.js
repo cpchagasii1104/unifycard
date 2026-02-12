@@ -11,8 +11,8 @@
 // - Rastreabilidade completa (adminId, userId, timestamp, reason)
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testCurrencyService = void 0;
-const account_service_1 = require("../economy/accounts/account.service");
-const transaction_service_1 = require("../economy/transactions/transaction.service");
+const account_service_1 = require("../economy/account.service");
+const transaction_service_1 = require("../economy/transaction.service");
 const pool_1 = require("@core/database/pool");
 const uuid_1 = require("uuid");
 const TEST_CURRENCY = 'TEST';
@@ -77,7 +77,7 @@ class TestCurrencyService {
         const userAccounts = await account_service_1.accountService.getAccountsByOwner(tenantId, userId, 'user');
         const testAccount = userAccounts.find(acc => acc.currency === TEST_CURRENCY);
         if (!testAccount) {
-            return { entries: [], total: 0 };
+            return { entries: [], totalCents: 0 };
         }
         // Buscar entradas no ledger que são créditos (emissões)
         const entriesRows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
@@ -86,7 +86,7 @@ class TestCurrencyService {
         l.transaction_id,
         l.account_id,
         l.amount,
-        l.created_at,
+        l.createdAt,
         t.metadata
       FROM ledger l
       INNER JOIN transactions t ON t.transaction_id = l.transaction_id
@@ -95,7 +95,7 @@ class TestCurrencyService {
         AND l.entry_type = 'credit'
         AND t.metadata->>'type' = 'test_currency_emission'
         AND t.currency = 'TEST'
-      ORDER BY l.created_at DESC
+      ORDER BY l.createdAt DESC
       LIMIT $2 OFFSET $3
       `, [testAccount.accountId, limit, offset]);
         const totalRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -112,15 +112,15 @@ class TestCurrencyService {
             entryId: row.entry_id,
             transactionId: row.transaction_id,
             accountId: row.account_id,
-            amount: parseFloat(row.amount),
+            amountCents: parseFloat(row.amount),
             reason: row.metadata?.reason || 'N/A',
             adminId: row.metadata?.adminId || 'N/A',
             userId: row.metadata?.userId || userId,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
         }));
         return {
             entries,
-            total: parseInt(totalRow?.count || '0', 10),
+            totalCents: parseInt(totalRow?.count || '0', 10),
         };
     }
     /**

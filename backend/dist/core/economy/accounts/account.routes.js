@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const account_service_1 = require("./account.service");
 const account_schemas_1 = require("./account.schemas");
 const zod_1 = require("zod");
 // Schema para query params de listagem
@@ -21,7 +20,7 @@ const accountRoutes = async (fastify) => {
             });
         }
         try {
-            const account = await account_service_1.accountService.createAccount(tenantId, parsed.data);
+            const account = await accountService.createAccount(tenantId, parsed.data);
             return reply.status(201).send(account);
         }
         catch (error) {
@@ -44,7 +43,7 @@ const accountRoutes = async (fastify) => {
         }
         try {
             // Buscar ou criar conta primária do usuário (BRL)
-            const account = await account_service_1.accountService.getOrCreateUserPrimaryAccount(tenantId, userId, 'BRL');
+            const account = await accountService.getOrCreateUserPrimaryAccount(tenantId, userId, 'BRL');
             return {
                 accountId: account.accountId,
                 balance: account.balance,
@@ -81,7 +80,7 @@ const accountRoutes = async (fastify) => {
             });
         }
         const { limit, offset, ownerType } = parsed.data;
-        return account_service_1.accountService.listAccounts(tenantId, { limit, offset, ownerType });
+        return accountService.listAccounts(tenantId, { limit, offset, ownerType });
     });
     // GET /economy/accounts/:accountId - Buscar conta por ID
     fastify.get('/:accountId', async (req, reply) => {
@@ -93,7 +92,7 @@ const accountRoutes = async (fastify) => {
                 details: parsed.error.errors,
             });
         }
-        const account = await account_service_1.accountService.getAccountById(tenantId, parsed.data.accountId);
+        const account = await accountService.getAccountById(tenantId, parsed.data.accountId);
         if (!account) {
             return reply.status(404).send({ error: 'Account not found' });
         }
@@ -109,7 +108,7 @@ const accountRoutes = async (fastify) => {
                 details: parsed.error.errors,
             });
         }
-        const account = await account_service_1.accountService.getAccountById(tenantId, parsed.data.accountId);
+        const account = await accountService.getAccountById(tenantId, parsed.data.accountId);
         if (!account) {
             return reply.status(404).send({ error: 'Account not found' });
         }
@@ -133,7 +132,7 @@ const accountRoutes = async (fastify) => {
         if (!ownerType) {
             return reply.status(400).send({ error: 'ownerType query parameter is required' });
         }
-        const accounts = await account_service_1.accountService.getAccountsByOwner(tenantId, parsedParams.data.ownerId, ownerType);
+        const accounts = await accountService.getAccountsByOwner(tenantId, parsedParams.data.ownerId, ownerType);
         return { accounts };
     });
 };

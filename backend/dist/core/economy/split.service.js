@@ -6,7 +6,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.splitEngineService = void 0;
 const crypto_1 = require("crypto");
-const transaction_service_1 = require("./transactions/transaction.service");
 const pool_1 = require("@core/database/pool");
 const event_bus_1 = require("@core/events/event-bus");
 const split_logger_service_1 = require("../logging/split-logger.service");
@@ -101,7 +100,7 @@ class SplitEngineService {
             totalAmount: context.amount,
             splits: splits.map((s) => ({
                 rule: s.rule,
-                amount: Math.round(s.amount * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER, // Arredondar para 2 casas decimais
+                amountCents: Math.round(s.amount * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER, // Arredondar para 2 casas decimais
             })),
         };
     }
@@ -141,12 +140,12 @@ class SplitEngineService {
                         console.warn({
                             tenantId: context.tenantId,
                             targetType: split.rule.targetType,
-                            amount: split.amount,
+                            amountCents: split.amount,
                             'economy.action': 'split-skipped',
                         }, `Skipping GROUP split: no group accounts provided`);
                         result.splits.push({
                             rule: split.rule,
-                            amount: split.amount,
+                            amountCents: split.amount,
                         });
                         continue;
                     }
@@ -155,10 +154,10 @@ class SplitEngineService {
                     for (let i = 0; i < context.groupAccountIds.length; i++) {
                         const groupAccountId = context.groupAccountIds[i];
                         try {
-                            const transferResult = await transaction_service_1.transactionService.transfer(context.tenantId, {
+                            const transferResult = await transactionService.transfer(context.tenantId, {
                                 fromAccount: context.customerAccountId,
                                 toAccount: groupAccountId,
-                                amount: groupAmountPerAccount,
+                                amountCents: groupAmountPerAccount,
                                 metadata: {
                                     ...context.metadata,
                                     splitTargetType: split.rule.targetType,
@@ -171,7 +170,7 @@ class SplitEngineService {
                             });
                             result.splits.push({
                                 rule: split.rule,
-                                amount: groupAmountPerAccount,
+                                amountCents: groupAmountPerAccount,
                                 transactionId: transferResult.transaction.transactionId,
                             });
                             // Emitir evento group.fund.received (com informações para auto-post)
@@ -186,7 +185,7 @@ class SplitEngineService {
                                         payload: {
                                             groupId: groupAccount.group_id,
                                             accountId: groupAccountId,
-                                            amount: groupAmountPerAccount,
+                                            amountCents: groupAmountPerAccount,
                                             source: context.source,
                                             transactionId: transferResult.transaction.transactionId,
                                             assignmentId: context.metadata?.assignmentId,
@@ -211,14 +210,14 @@ class SplitEngineService {
                                 tenantId: context.tenantId,
                                 targetType: split.rule.targetType,
                                 groupAccountId,
-                                amount: groupAmountPerAccount,
+                                amountCents: groupAmountPerAccount,
                                 err: error,
                                 'economy.action': 'split-error',
                             }, `Error creating GROUP split transaction`);
                             // Adicionar split sem transactionId (erro)
                             result.splits.push({
                                 rule: split.rule,
-                                amount: groupAmountPerAccount,
+                                amountCents: groupAmountPerAccount,
                             });
                         }
                     }
@@ -235,12 +234,12 @@ class SplitEngineService {
                 console.warn({
                     tenantId: context.tenantId,
                     targetType: split.rule.targetType,
-                    amount: split.amount,
+                    amountCents: split.amount,
                     'economy.action': 'split-skipped',
                 }, `Skipping split: no account found for target type ${split.rule.targetType}`);
                 result.splits.push({
                     rule: split.rule,
-                    amount: split.amount,
+                    amountCents: split.amount,
                 });
                 continue;
             }
@@ -259,10 +258,10 @@ class SplitEngineService {
                     // Formatar como UUID (8-4-4-4-12)
                     eventId = `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
                 }
-                const transferResult = await transaction_service_1.transactionService.transfer(context.tenantId, {
+                const transferResult = await transactionService.transfer(context.tenantId, {
                     fromAccount: context.customerAccountId,
                     toAccount: targetAccountId,
-                    amount: split.amount,
+                    amountCents: split.amount,
                     eventId, // 🔴 CRÍTICO: eventId determinístico para idempotência
                     metadata: {
                         ...context.metadata,
@@ -273,14 +272,14 @@ class SplitEngineService {
                 });
                 result.splits.push({
                     rule: split.rule,
-                    amount: split.amount,
+                    amountCents: split.amount,
                     transactionId: transferResult.transaction.transactionId,
                 });
                 // Log estruturado para split executado
                 split_logger_service_1.splitLoggerService.logSplit({
                     timestamp: new Date().toISOString(),
                     module: context.metadata?.module || 'unknown',
-                    amount: split.amount,
+                    amountCents: split.amount,
                     transactionId: transferResult.transaction.transactionId,
                     tenantId: context.tenantId,
                     splitTargetType: split.rule.targetType,
@@ -294,7 +293,7 @@ class SplitEngineService {
                         timestamp: new Date().toISOString(),
                         module: context.metadata?.module || 'work',
                         regionId,
-                        amount: split.amount,
+                        amountCents: split.amount,
                         transactionId: transferResult.transaction.transactionId,
                         tenantId: context.tenantId,
                     });
@@ -305,28 +304,28 @@ class SplitEngineService {
                     tenantId: context.tenantId,
                     targetType: split.rule.targetType,
                     targetAccountId,
-                    amount: split.amount,
+                    amountCents: split.amount,
                     err: error,
                     'economy.action': 'split-error',
                 }, `Error creating split transaction for ${split.rule.targetType}`);
                 // Adicionar split sem transactionId (erro)
                 result.splits.push({
                     rule: split.rule,
-                    amount: split.amount,
+                    amountCents: split.amount,
                 });
             }
         }
         // Log estruturado
         console.log({
             tenantId: context.tenantId,
-            amount: context.amount,
+            amountCents: context.amount,
             currency: context.currency,
             source: context.source,
             splitCount: result.splits.length,
             splits: result.splits.map((s) => ({
                 targetType: s.rule.targetType,
                 percentage: s.rule.percentage,
-                amount: s.amount,
+                amountCents: s.amount,
                 transactionId: s.transactionId || null,
             })),
             'economy.action': 'apply-splits',

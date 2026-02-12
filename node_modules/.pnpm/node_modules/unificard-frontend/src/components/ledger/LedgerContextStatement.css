@@ -1,0 +1,127 @@
+/* frontend/src/components/ledger/LedgerContextStatement.css */
+/* Estilos para o Extrato do Ledger */
+
+.ledger-context-statement {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.ledger-loading,
+.ledger-error,
+.ledger-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.ledger-error {
+  color: #dc2626;
+}
+
+.ledger-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.ledger-header h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.ledger-summary {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.summary-item {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.summary-item strong {
+  color: #111;
+  margin-right: 0.5rem;
+}
+
+.summary-net {
+  font-weight: 600;
+  color: #111;
+  font-size: 1rem;
+}
+
+.ledger-entries {
+  overflow-x: auto;
+}
+
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ledger-table thead {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ledger-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.ledger-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.ledger-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.account-cell {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.amount-cell {
+  font-weight: 600;
+  color: #111;
+  text-align: right;
+}
+
+.ledger-entry-escrow-hold {
+  border-left: 3px solid #3b82f6;
+}
+
+.ledger-entry-escrow-release {
+  border-left: 3px solid #10b981;
+}
+
+.ledger-entry-escrow-refund {
+  border-left: 3px solid #f59e0b;
+}
+
+.ledger-entry-split-created {
+  border-left: 3px solid #8b5cf6;
+}
+
+.ledger-entry-commission-fee {
+  border-left: 3px solid #ef4444;
+}
+
+
+
+

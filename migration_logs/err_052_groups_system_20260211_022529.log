@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/052_groups_system.sql:31: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/052_groups_system.sql:49: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -52,12 +52,12 @@ class ProfilePhysicalService {
         const globalUserId = identity.global.globalUserId;
         // Buscar interesses do usuário (armazenados no metadata do global_user ou em tabela separada)
         const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
-        // 🔴 CORREÇÃO: ORDER BY updated_at DESC para garantir registro mais recente
+        // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
         const userRow = await pool.query(`
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `, [globalUserId]);
         const metadata = userRow.rows[0]?.metadata || {};
@@ -139,13 +139,13 @@ class ProfilePhysicalService {
         const globalUserId = identity.global.globalUserId;
         // Buscar metadata atual
         // 🔴 NOTA: global_users não tem RLS, então não precisa de tenant_id no WHERE
-        // Mas adicionamos ORDER BY updated_at DESC como garantia de registro mais recente
+        // Mas adicionamos ORDER BY updatedAt DESC como garantia de registro mais recente
         const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
         const currentRow = await pool.query(`
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updated_at DESC
+      ORDER BY updatedAt DESC
       LIMIT 1
       `, [globalUserId]);
         const currentMetadata = currentRow.rows[0]?.metadata || {};
@@ -170,7 +170,7 @@ class ProfilePhysicalService {
         // Atualizar no banco
         await pool.query(`
       UPDATE global_users
-      SET metadata = $1, updated_at = now()
+      SET metadata = $1, updatedAt = now()
       WHERE global_user_id = $2
       `, [JSON.stringify(updatedMetadata), globalUserId]);
         // Buscar categorias para montar o retorno completo

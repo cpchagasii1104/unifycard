@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/714_ensure_reactions_user_id.sql:71: ERRO:  rela├º├úo "reactions" n├úo existe

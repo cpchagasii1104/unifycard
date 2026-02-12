@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/694_group_votes.sql:45: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

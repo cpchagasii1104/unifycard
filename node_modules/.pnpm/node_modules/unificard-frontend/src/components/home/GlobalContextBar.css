@@ -1,0 +1,344 @@
+.global-context-bar {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.75rem 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.global-context-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.context-balances {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.context-balance-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #166534;
+}
+
+.context-balance-item.context-balance-link {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.context-balance-item.context-balance-link:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+.context-balance-label {
+  font-weight: 500;
+  color: #15803d;
+}
+
+.context-balance-value {
+  font-weight: 700;
+  color: #14532d;
+}
+
+.context-selector {
+  position: relative;
+}
+
+.context-selector-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 150px;
+}
+
+.context-selector-button:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.context-selector-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.context-selector-icon {
+  font-size: 1rem;
+}
+
+.context-selector-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-selector-arrow {
+  font-size: 0.75rem;
+  color: #6b7280;
+  transition: transform 0.2s;
+}
+
+.context-selector-button:not(:disabled):hover .context-selector-arrow {
+  transform: rotate(180deg);
+}
+
+.context-separator {
+  width: 1px;
+  height: 24px;
+  background: #e5e7eb;
+}
+
+.context-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 998;
+  background: transparent;
+}
+
+.context-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 280px;
+  max-width: 400px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 999;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.context-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.context-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.context-dropdown-item:hover {
+  background: #f9fafb;
+}
+
+.context-dropdown-item.active {
+  background: #eff6ff;
+}
+
+.context-dropdown-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.context-dropdown-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.context-dropdown-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.context-dropdown-type {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.context-dropdown-check {
+  color: #3b82f6;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.context-dropdown-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.context-remove-button {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.context-remove-button:hover {
+  background: #fecaca;
+}
+
+.context-temporary-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.375rem;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.context-dropdown-item.context-add-item {
+  border-top: 2px solid #e5e7eb;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+}
+
+.context-add-item:hover {
+  background: #f0fdf4;
+}
+
+.context-add-address-form {
+  padding: 1rem;
+  border-top: 2px solid #e5e7eb;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.context-address-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.context-address-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.context-add-address-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.context-add-button,
+.context-cancel-button {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.context-add-button {
+  background: #3b82f6;
+  color: white;
+}
+
+.context-add-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.context-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.context-cancel-button {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.context-cancel-button:hover {
+  background: #e5e7eb;
+}
+
+.context-logout {
+  display: flex;
+  align-items: center;
+}
+
+.context-logout-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #991b1b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.context-logout-button:hover {
+  background: #fecaca;
+  border-color: #fca5a5;
+  color: #7f1d1d;
+}
+
+.context-logout-icon {
+  font-size: 1rem;
+}
+
+.context-logout-label {
+  white-space: nowrap;
+}
+

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/023_global_user_residence.sql:55: ERRO:  rela├º├úo "countries" n├úo existe

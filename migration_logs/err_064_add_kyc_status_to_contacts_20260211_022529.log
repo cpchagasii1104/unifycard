@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/064_add_kyc_status_to_contacts.sql:34: ERRO:  rela├º├úo "contacts" n├úo existe

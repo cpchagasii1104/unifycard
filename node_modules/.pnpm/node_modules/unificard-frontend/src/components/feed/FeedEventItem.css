@@ -1,0 +1,83 @@
+/* FeedEventItem.css */
+.feed-event-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+  background-color: #f9f9f9;
+}
+
+.event-badge {
+  display: inline-block;
+  background-color: #ff6b6b;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.event-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 8px 0;
+  color: #333;
+}
+
+.event-description {
+  color: #666;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.event-datetime,
+.event-type,
+.event-status,
+.event-price {
+  margin: 6px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.event-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-view,
+.btn-buy {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-view {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.btn-view:hover:not(:disabled) {
+  background-color: #357abd;
+}
+
+.btn-buy {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-buy:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.btn-view:disabled,
+.btn-buy:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

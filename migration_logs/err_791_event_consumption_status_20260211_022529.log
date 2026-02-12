@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/791_event_consumption_status.sql:38: ERRO:  rela├º├úo "event_consumptions" n├úo existe

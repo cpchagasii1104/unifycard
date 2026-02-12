@@ -48,8 +48,8 @@ class SlotGenerator {
                         break;
                     slotsToInsert.push({
                         schedule_id: scheduleId,
-                        start_time: cursor.toUTC().toISO(),
-                        end_time: next.toUTC().toISO(),
+                        starts_at: cursor.toUTC().toISO(),
+                        ends_at: next.toUTC().toISO(),
                         status: 'available',
                     });
                     cursor = next;
@@ -60,10 +60,10 @@ class SlotGenerator {
                 // Usar jsonb_to_recordset para batch insert conforme prompt
                 await trx.query({
                     text: `
-            INSERT INTO schedule_slots (schedule_id, start_time, end_time, status)
+            INSERT INTO schedule_slots (schedule_id, starts_at, ends_at, status)
             SELECT * FROM jsonb_to_recordset($1::jsonb)
-            AS t(schedule_id UUID, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, status TEXT)
-            ON CONFLICT (schedule_id, start_time, end_time) DO NOTHING
+            AS t(schedule_id UUID, starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, status TEXT)
+            ON CONFLICT (schedule_id, starts_at, ends_at) DO NOTHING
           `,
                     values: [JSON.stringify(slotsToInsert)],
                 });

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/600_service_payment_request.sql:76: ERRO:  rela├º├úo "service_bookings" n├úo existe

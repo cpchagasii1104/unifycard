@@ -93,7 +93,7 @@ class CategoryRepository {
                WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
                ELSE to_jsonb(keywords)
              END as keywords, 
-             country_code, scope, metadata, created_at, updated_at
+             country_code, scope, metadata, createdAt, updatedAt
       FROM categories
       WHERE category_id = $1 AND ${statusCondition}
       LIMIT 1
@@ -121,7 +121,7 @@ class CategoryRepository {
         const statusCondition = await this.getStatusCondition();
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt
       FROM categories
       WHERE slug = $1 AND ${statusCondition}
     `;
@@ -168,7 +168,7 @@ class CategoryRepository {
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path,
                COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
-               country_code, status, created_at, updated_at
+               country_code, status, createdAt, updatedAt
         FROM categories
         WHERE slug = $1
           AND parent_id IS NULL
@@ -181,7 +181,7 @@ class CategoryRepository {
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path,
              COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
-             country_code, status, created_at, updated_at
+             country_code, status, createdAt, updatedAt
       FROM categories
       WHERE slug = $1
         AND parent_id = $2::uuid
@@ -198,7 +198,7 @@ class CategoryRepository {
         const statusCondition = await this.getStatusCondition();
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt
       FROM categories
       WHERE parent_id IS NULL AND ${statusCondition}
     `;
@@ -253,7 +253,7 @@ class CategoryRepository {
         const finalParams = [...params, parentId];
         let query = `
       SELECT category_id, parent_id, name, slug, description, level, path,
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, createdAt, updatedAt
       FROM categories
       WHERE ${whereSql} AND parent_id = $${parentIdParamIndex}
       ORDER BY level ASC, name ASC
@@ -306,7 +306,7 @@ class CategoryRepository {
             const queryClient = client || pool_1.pool;
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
         FROM categories
         WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
           AND parent_id IS NULL
@@ -319,7 +319,7 @@ class CategoryRepository {
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
       FROM categories
       WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
         AND parent_id = $2::uuid
@@ -339,7 +339,7 @@ class CategoryRepository {
             const queryClient = client || pool_1.pool;
             const result = await queryClient.query(`
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
         FROM categories
         WHERE LOWER(TRIM(name)) = $1
           AND parent_id IS NULL
@@ -352,7 +352,7 @@ class CategoryRepository {
         const queryClient = client || pool_1.pool;
         const result = await queryClient.query(`
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
       FROM categories
       WHERE LOWER(TRIM(name)) = $1
         AND parent_id = $2::uuid
@@ -436,7 +436,7 @@ class CategoryRepository {
         const result = await queryClient.query(`
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at,
+        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt,
         -- Calcular relevância para ordenação
         CASE
           -- Match exato no nome (maior prioridade)
@@ -555,7 +555,7 @@ class CategoryRepository {
         const result = await queryClient.query(`
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at,
+        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt,
         -- Calcular relevância para ordenação (prioriza prefixo)
         CASE
           -- Match exato no nome (maior prioridade)
@@ -630,7 +630,7 @@ class CategoryRepository {
           status, requires_review, created_by_ai
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10, $11)
-        RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
+        RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
         `, [data.name, data.slug, data.description, data.parentId, data.level, data.path, data.keywords || [], data.countryCode || null, status, requiresReview, createdByAI]);
             return result.rows[0];
         }
@@ -670,7 +670,7 @@ class CategoryRepository {
         status, requires_review, created_by_ai
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'pending', true, true)
-      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
+      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
       `, [data.name, data.slug, data.description, data.parentId, data.level, data.path, keywordsJson, data.countryCode || null]);
         return result.rows[0];
     }
@@ -722,7 +722,7 @@ class CategoryRepository {
       UPDATE categories
       SET ${updates.join(', ')}
       WHERE category_id = $${paramIndex}
-      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
+      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
       `, values);
         return result.rows[0] || null;
     }
@@ -759,7 +759,7 @@ class CategoryRepository {
                WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
                ELSE to_jsonb(keywords)
              END as keywords, 
-             country_code, scope, metadata, created_at, updated_at
+             country_code, scope, metadata, createdAt, updatedAt
       FROM categories
       WHERE ${whereSql}
       ORDER BY level ASC, name ASC

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/278_event_refund_chargeback.sql:125: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

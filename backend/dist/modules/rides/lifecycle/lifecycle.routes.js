@@ -35,7 +35,7 @@ const lifecycleRoutes = async (fastify) => {
               destination,
               service_type_id,
               status,
-              created_at
+              createdAt
             )
             VALUES (
               $1,
@@ -126,7 +126,7 @@ const lifecycleRoutes = async (fastify) => {
               vehicle_id,
               passenger_user_id,
               status,
-              created_at
+              createdAt
             )
             SELECT
               $1,
@@ -182,7 +182,7 @@ const lifecycleRoutes = async (fastify) => {
         }
         await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
-          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurred_at)
+          INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
           VALUES ($1, 'driver_arriving', jsonb_build_object('eta', $2), NOW());
         `,
             values: [rideId, etaMinutes ?? null],
@@ -229,7 +229,7 @@ const lifecycleRoutes = async (fastify) => {
                 text: `
             UPDATE rides_rides
             SET status = 'started',
-                started_at = NOW()
+                startedAt = NOW()
             WHERE tenant_id = $1 AND ride_id = $2;
           `,
                 values: [tenantId, rideId],
@@ -237,7 +237,7 @@ const lifecycleRoutes = async (fastify) => {
             // registrar evento
             await trx.query({
                 text: `
-            INSERT INTO rides_ride_events (ride_id, event_type, occurred_at)
+            INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
             VALUES ($1, 'ride_started', NOW());
           `,
                 values: [rideId],
@@ -295,7 +295,7 @@ const lifecycleRoutes = async (fastify) => {
             });
             await trx.query({
                 text: `
-            INSERT INTO rides_ride_events (ride_id, event_type, payload, occurred_at)
+            INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
             VALUES ($1, 'stop_added', jsonb_build_object('lat', $2, 'lng', $3), NOW());
           `,
                 values: [rideId, lat, lng],
@@ -339,7 +339,7 @@ const lifecycleRoutes = async (fastify) => {
                 text: `
             UPDATE rides_rides
             SET status = 'completed',
-                completed_at = NOW(),
+                completedAt = NOW(),
                 final_price = $2,
                 total_distance_km = $3,
                 total_duration_minutes = $4,
@@ -361,7 +361,7 @@ const lifecycleRoutes = async (fastify) => {
             // inserir evento
             await trx.query({
                 text: `
-            INSERT INTO rides_ride_events (ride_id, event_type, occurred_at)
+            INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
             VALUES ($1, 'ride_completed', NOW());
           `,
                 values: [rideId],
@@ -397,7 +397,7 @@ const lifecycleRoutes = async (fastify) => {
             channel: 'push',
             userId: ride.passenger_user_id,
             templateName: 'ride_completed',
-            payload: { rideId, amount: ride.final_price },
+            payload: { rideId, amountCents: ride.final_price },
         });
         return { rideId, status: 'completed' };
     });
@@ -437,7 +437,7 @@ const lifecycleRoutes = async (fastify) => {
                 text: `
             UPDATE rides_rides
             SET status = 'cancelled',
-                cancelled_at = NOW(),
+                cancelledAt = NOW(),
                 cancellation_reason = $2,
                 cancelled_by = $3
             WHERE tenant_id = $1 AND ride_id = $4;
@@ -446,7 +446,7 @@ const lifecycleRoutes = async (fastify) => {
             });
             await trx.query({
                 text: `
-            INSERT INTO rides_ride_events (ride_id, event_type, payload, occurred_at)
+            INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
             VALUES ($1, 'ride_cancelled', jsonb_build_object('reason',$2,'by',$3), NOW());
           `,
                 values: [rideId, reason ?? null, cancelledBy],

@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/129_settlement_external.sql:50: ERRO:  coluna "settled_at" n├úo existe
+LINHA 3: WHERE settled_at IS NOT NULL
+               ^

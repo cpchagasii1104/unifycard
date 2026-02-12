@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/621_order_items.sql:45: ERRO:  rela├º├úo "orders" n├úo existe

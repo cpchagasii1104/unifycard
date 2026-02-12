@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/622_order_status_history.sql:42: ERRO:  rela├º├úo "orders" n├úo existe

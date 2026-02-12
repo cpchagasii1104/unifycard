@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/530_backfill_catalog_categories_to_core.sql:41: ERRO:  rela├º├úo "catalog_categories" n├úo existe
+LINHA 8: FROM catalog_categories;
+              ^

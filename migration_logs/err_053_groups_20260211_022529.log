@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/053_groups.sql:25: ERRO:  rela├º├úo "groups" n├úo existe
+CONTEXTO:  comando SQL "ALTER TABLE groups ADD COLUMN parent_group_id UUID"
+fun├º├úo PL/pgSQL inline_code_block linha 7 em comando SQL

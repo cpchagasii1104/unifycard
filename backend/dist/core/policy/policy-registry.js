@@ -24,7 +24,7 @@ class PolicyRegistry {
                 id: 'economy.regional_split_percentage',
                 domain: 'economy',
                 key: 'regional_split_percentage',
-                value: 0.10,
+                valueCents: 0.10,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Percentual do split que vai para o fundo regional',
@@ -37,7 +37,7 @@ class PolicyRegistry {
                 id: 'fund.cashback_enabled',
                 domain: 'fund',
                 key: 'cashback_enabled',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Habilita cashback no fundo regional',
@@ -48,7 +48,7 @@ class PolicyRegistry {
                 id: 'simulation.allowed',
                 domain: 'simulation',
                 key: 'allowed',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Permite execução de simulações',
@@ -60,7 +60,7 @@ class PolicyRegistry {
                 id: 'loyalty.max_points_per_day',
                 domain: 'loyalty',
                 key: 'max_points_per_day',
-                value: 5000,
+                valueCents: 5000,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Limite máximo de pontos que podem ser ganhos por dia',
@@ -72,7 +72,7 @@ class PolicyRegistry {
                 id: 'loyalty.earn_enabled',
                 domain: 'loyalty',
                 key: 'earn_enabled',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Habilita acumulação de pontos de fidelidade',
@@ -83,7 +83,7 @@ class PolicyRegistry {
                 id: 'loyalty.redeem_enabled',
                 domain: 'loyalty',
                 key: 'redeem_enabled',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Habilita resgate de pontos de fidelidade',
@@ -95,7 +95,7 @@ class PolicyRegistry {
                 id: 'presence.promo_enabled',
                 domain: 'presence',
                 key: 'promo_enabled',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Habilita benefícios promocionais por check-in',
@@ -107,7 +107,7 @@ class PolicyRegistry {
                 id: 'live_chat.enabled',
                 domain: 'live_chat',
                 key: 'enabled',
-                value: true,
+                valueCents: true,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Habilita chat ao vivo',
@@ -118,7 +118,7 @@ class PolicyRegistry {
                 id: 'live_chat.ttl_minutes',
                 domain: 'live_chat',
                 key: 'ttl_minutes',
-                value: 20,
+                valueCents: 20,
                 effectiveFrom: now,
                 metadata: {
                     description: 'TTL (tempo de vida) da presença ao vivo em minutos',
@@ -131,7 +131,7 @@ class PolicyRegistry {
                 id: 'live_chat.checkin_recency_hours',
                 domain: 'live_chat',
                 key: 'checkin_recency_hours',
-                value: 12,
+                valueCents: 12,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Horas desde o último check-in para permitir opt-in',
@@ -144,7 +144,7 @@ class PolicyRegistry {
                 id: 'live_chat.msg_per_minute',
                 domain: 'live_chat',
                 key: 'msg_per_minute',
-                value: 20,
+                valueCents: 20,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Limite de mensagens por minuto por usuário',
@@ -157,7 +157,7 @@ class PolicyRegistry {
                 id: 'live_chat.max_message_length',
                 domain: 'live_chat',
                 key: 'max_message_length',
-                value: 280,
+                valueCents: 280,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Tamanho máximo da mensagem em caracteres',
@@ -171,7 +171,7 @@ class PolicyRegistry {
                 id: 'economy.split_worker_percentage',
                 domain: 'economy',
                 key: 'split_worker_percentage',
-                value: 0.70,
+                valueCents: 0.70,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Percentual do split que vai para o worker',
@@ -184,7 +184,7 @@ class PolicyRegistry {
                 id: 'economy.split_tenant_percentage',
                 domain: 'economy',
                 key: 'split_tenant_percentage',
-                value: 0.15,
+                valueCents: 0.15,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Percentual do split que vai para tenant/platform',
@@ -197,7 +197,7 @@ class PolicyRegistry {
                 id: 'economy.split_region_percentage',
                 domain: 'economy',
                 key: 'split_region_percentage',
-                value: 0.10,
+                valueCents: 0.10,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Percentual do split que vai para fundo regional',
@@ -210,7 +210,7 @@ class PolicyRegistry {
                 id: 'economy.split_group_percentage',
                 domain: 'economy',
                 key: 'split_group_percentage',
-                value: 0.05,
+                valueCents: 0.05,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Percentual do split que vai para grupos de usuários',
@@ -224,7 +224,7 @@ class PolicyRegistry {
                 id: 'risk.penalty.score_threshold_warning',
                 domain: 'risk',
                 key: 'score_threshold_warning',
-                value: 40,
+                valueCents: 40,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Score mínimo para ações que requerem warning (CREATE_EVENT, RECEIVE_INVITATION)',
@@ -237,7 +237,7 @@ class PolicyRegistry {
                 id: 'risk.penalty.score_threshold_critical',
                 domain: 'risk',
                 key: 'score_threshold_critical',
-                value: 20,
+                valueCents: 20,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Score mínimo para ações críticas (PURCHASE)',
@@ -250,7 +250,7 @@ class PolicyRegistry {
                 id: 'risk.penalty.score_threshold_blocked',
                 domain: 'risk',
                 key: 'score_threshold_blocked',
-                value: 0,
+                valueCents: 0,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Score mínimo para conta bloqueada',
@@ -263,7 +263,7 @@ class PolicyRegistry {
                 id: 'risk.enforcement.strict_mode',
                 domain: 'risk',
                 key: 'strict_mode',
-                value: false,
+                valueCents: false,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Se true, bloqueia ações automaticamente por score. Se false, apenas alerta (soft-block)',
@@ -275,7 +275,7 @@ class PolicyRegistry {
                 id: 'marketplace.simulation.price_elasticity_default',
                 domain: 'marketplace',
                 key: 'price_elasticity_default',
-                value: -1.5,
+                valueCents: -1.5,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Elasticidade de preço padrão para simulações (aumento de 10% no preço = redução de 15% na demanda)',
@@ -288,7 +288,7 @@ class PolicyRegistry {
                 id: 'marketplace.simulation.default_margin_percentage',
                 domain: 'marketplace',
                 key: 'default_margin_percentage',
-                value: 15,
+                valueCents: 15,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Margem padrão (em %) para simulações quando não há histórico',
@@ -301,7 +301,7 @@ class PolicyRegistry {
                 id: 'marketplace.simulation.confidence_min_data_points_low',
                 domain: 'marketplace',
                 key: 'confidence_min_data_points_low',
-                value: 7,
+                valueCents: 7,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Número mínimo de pontos de dados para confiança LOW',
@@ -313,7 +313,7 @@ class PolicyRegistry {
                 id: 'marketplace.simulation.confidence_min_data_points_medium',
                 domain: 'marketplace',
                 key: 'confidence_min_data_points_medium',
-                value: 30,
+                valueCents: 30,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Número mínimo de pontos de dados para confiança MEDIUM',
@@ -326,7 +326,7 @@ class PolicyRegistry {
                 id: 'category.input_gate.soft_deny_enabled',
                 domain: 'category',
                 key: 'soft_deny_enabled',
-                value: false,
+                valueCents: false,
                 effectiveFrom: now,
                 metadata: {
                     description: 'Se true, requer aprovação manual em vez de bloquear completamente (soft deny)',

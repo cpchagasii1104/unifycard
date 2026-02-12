@@ -1,0 +1,5 @@
+psql:C:/unificard/backend/migrations/120_system_accounts.sql:111: ERRO:  coluna "tenant_id" n├úo existe
+LINHA 1: SELECT tenant_id FROM tenants
+                ^
+CONSULTA:  SELECT tenant_id FROM tenants
+CONTEXTO:  fun├º├úo PL/pgSQL inline_code_block linha 5 em FOR sobre registros de SELECT

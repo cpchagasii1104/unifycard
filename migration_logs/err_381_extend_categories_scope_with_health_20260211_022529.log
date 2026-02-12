@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/381_extend_categories_scope_with_health.sql:9: ERRO:  rela├º├úo "categories" n├úo existe

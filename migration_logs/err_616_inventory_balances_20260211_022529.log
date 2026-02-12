@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/616_inventory_balances.sql:38: ERRO:  rela├º├úo "product_variants" n├úo existe

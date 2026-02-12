@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/575_service_availability.sql:82: ERRO:  rela├º├úo "services" n├úo existe

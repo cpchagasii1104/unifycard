@@ -11,7 +11,7 @@ class VehiclesService {
     // 🔹 1. Criar veículo (status = pending)
     // ============================================================================
     async registerVehicle(tenantId, driverId, data) {
-        const { plate, brand, model, year, color, renavam, crlv_number, crlv_expires_at, capacity, service_type_id, photos = [], features = {}, } = data;
+        const { plate, brand, model, year, color, renavam, crlv_number, crlv_expiresAt, capacity, service_type_id, photos = [], features = {}, } = data;
         if (!plate || !brand || !model || !year) {
             throw new errors_1.BadRequestError("Dados básicos do veículo são obrigatórios.");
         }
@@ -31,11 +31,11 @@ class VehiclesService {
       INSERT INTO rides_vehicles (
         tenant_id, driver_id,
         plate, brand, model, year, color,
-        renavam, crlv_number, crlv_expires_at,
+        renavam, crlv_number, crlv_expiresAt,
         capacity, service_type_id,
         photos, features,
         is_active, is_approved,
-        created_at
+        createdAt
       )
       VALUES (
         $1,$2,
@@ -58,7 +58,7 @@ class VehiclesService {
                 color,
                 renavam,
                 crlv_number,
-                crlv_expires_at,
+                crlv_expiresAt,
                 capacity,
                 service_type_id,
                 JSON.stringify(photos),
@@ -87,8 +87,8 @@ class VehiclesService {
       UPDATE rides_vehicles
       SET is_approved = true,
           approved_by = $3,
-          approved_at = now(),
-          updated_at = now()
+          approvedAt = now(),
+          updatedAt = now()
       WHERE tenant_id = $1 AND vehicle_id = $2
       RETURNING *
       `,
@@ -116,7 +116,7 @@ class VehiclesService {
       UPDATE rides_vehicles
       SET is_approved = false,
           rejected_reason = $3,
-          updated_at = now()
+          updatedAt = now()
       WHERE tenant_id = $1 AND vehicle_id = $2
       RETURNING *
       `,
@@ -152,7 +152,7 @@ class VehiclesService {
         const updated = await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
       UPDATE rides_vehicles
-      SET is_active = true, updated_at = now()
+      SET is_active = true, updatedAt = now()
       WHERE tenant_id = $1 AND driver_id = $2 AND vehicle_id = $3
       RETURNING *
       `,
@@ -189,7 +189,7 @@ class VehiclesService {
       SELECT *
       FROM rides_vehicles
       WHERE tenant_id = $1 AND driver_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
             values: [tenantId, driverId],
         });

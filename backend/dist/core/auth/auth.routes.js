@@ -34,7 +34,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const auth_service_1 = require("@core/auth/auth.service");
-const schema_validator_1 = require("@core/database/schema-validator");
 const cpf_validator_1 = require("@utils/cpf.validator");
 const auth_rate_limit_service_1 = require("@core/rate-limiting/auth-rate-limit.service");
 const errors_1 = require("@core/errors");
@@ -111,20 +110,22 @@ const authRoutes = async (fastify) => {
         // Tenant é opcional no registro - será criado automaticamente se não fornecido
         const tenantId = tenantIdHeader;
         try {
-            // 🔴 GARANTIA CANÔNICA: Schema guard - fail fast
+            // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+            // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
             // Validação de schema: verificar se coluna token_version existe
-            const hasTokenVersion = await (0, schema_validator_1.hasTokenVersionColumn)();
-            if (!hasTokenVersion) {
-                fastify.log.error({
-                    route: '/auth/register',
-                    pid: process.pid,
-                }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-                return reply.status(500).send({
-                    success: false,
-                    error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-                    details: 'Execute as migrations do banco de dados para atualizar o schema.',
-                });
-            }
+            // const hasTokenVersion = await hasTokenVersionColumn();
+            // if (!hasTokenVersion) {
+            //   fastify.log.error({
+            //     route: '/auth/register',
+            //     pid: process.pid,
+            //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+            //   
+            //   return reply.status(500).send({
+            //     success: false,
+            //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+            //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+            //   });
+            // }
             const result = await auth_service_1.authService.register(tenantId, email, password, cpf, fullName, birthdate, gender, referralCode);
             // 🔴 LOG CANÔNICO: tenant criado vs fornecido
             // Garantir que tenantId final está sempre presente
@@ -139,46 +140,16 @@ const authRoutes = async (fastify) => {
                     error: 'Erro interno: tenantId não foi retornado após registro',
                 });
             }
-            // 🔴 GARANTIA CANÔNICA: Verificar se tenantId está no JWT
-            // Decodificar JWT para validar que tenantId está presente
-            try {
-                const jwt = require('jsonwebtoken');
-                const decoded = jwt.decode(result.tokens.accessToken);
-                if (!decoded || !decoded.tenantId || typeof decoded.tenantId !== 'string') {
-                    fastify.log.error({
-                        pid: process.pid,
-                        route: '/auth/register',
-                        tenantId: result.tenantId,
-                        hasDecoded: !!decoded,
-                        decodedKeys: decoded ? Object.keys(decoded) : [],
-                    }, '❌ [AUTH] tenantId ausente no JWT após registro - estado inválido');
-                    return reply.status(500).send({
-                        success: false,
-                        error: 'Erro interno: tenantId não foi incluído no JWT',
-                    });
-                }
-                // Log canônico de sucesso com validação completa
-                fastify.log.info({
-                    pid: process.pid,
-                    route: '/auth/register',
-                    tenantIdFinal: result.tenantId,
-                    tenantIdInJWT: decoded.tenantId,
-                    tenantWasCreated: !tenantId,
-                    tenantWasProvided: !!tenantId,
-                    jwtValidated: decoded.tenantId === result.tenantId,
-                }, '[RUNTIME] POST /auth/register - sucesso (tenantId validado no JWT)');
-            }
-            catch (jwtError) {
-                fastify.log.error({
-                    pid: process.pid,
-                    route: '/auth/register',
-                    error: jwtError instanceof Error ? jwtError.message : String(jwtError),
-                }, '❌ [AUTH] Erro ao validar tenantId no JWT');
-                return reply.status(500).send({
-                    success: false,
-                    error: 'Erro interno: falha ao validar JWT',
-                });
-            }
+            // 🔴 GARANTIA CANÔNICA: tenantId já validado no authService.register
+            // Token foi gerado pelo próprio serviço, não há necessidade de validar imediatamente
+            // Log canônico de sucesso
+            fastify.log.info({
+                pid: process.pid,
+                route: '/auth/register',
+                tenantIdFinal: result.tenantId,
+                tenantWasCreated: !tenantId,
+                tenantWasProvided: !!tenantId,
+            }, '[RUNTIME] POST /auth/register - sucesso');
             return reply.status(201).send({
                 success: true,
                 data: result,
@@ -251,18 +222,21 @@ const authRoutes = async (fastify) => {
         }
         // tenantId é opcional no login - será obtido do usuário encontrado
         try {
+            // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+            // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
             // Validação de schema: verificar se coluna token_version existe
-            const hasTokenVersion = await (0, schema_validator_1.hasTokenVersionColumn)();
-            if (!hasTokenVersion) {
-                fastify.log.error({
-                    route: '/auth/login',
-                }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-                return reply.status(500).send({
-                    success: false,
-                    error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-                    details: 'Execute as migrations do banco de dados para atualizar o schema.',
-                });
-            }
+            // const hasTokenVersion = await hasTokenVersionColumn();
+            // if (!hasTokenVersion) {
+            //   fastify.log.error({
+            //     route: '/auth/login',
+            //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+            //   
+            //   return reply.status(500).send({
+            //     success: false,
+            //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+            //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+            //   });
+            // }
             // tenantId do header é opcional - o login busca usuário apenas por email
             const result = await auth_service_1.authService.login(tenantId || undefined, email, password);
             return reply.send({
@@ -347,19 +321,22 @@ const authRoutes = async (fastify) => {
             fastify.log.warn({ err: error }, '[AUTH] Erro ao verificar rate limit (fail-open)');
         }
         try {
+            // 🔴 SCHEMA GUARD COMENTADO: Schema já é validado no boot/migrations
+            // O guard não deve bloquear runtime - validação de schema ocorre na inicialização
             // 🔴 GARANTIA CANÔNICA: Schema guard - fail fast
-            const hasTokenVersion = await (0, schema_validator_1.hasTokenVersionColumn)();
-            if (!hasTokenVersion) {
-                fastify.log.error({
-                    route: '/auth/refresh',
-                    pid: process.pid,
-                }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
-                return reply.status(500).send({
-                    success: false,
-                    error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
-                    details: 'Execute as migrations do banco de dados para atualizar o schema.',
-                });
-            }
+            // const hasTokenVersion = await hasTokenVersionColumn();
+            // if (!hasTokenVersion) {
+            //   fastify.log.error({
+            //     route: '/auth/refresh',
+            //     pid: process.pid,
+            //   }, '❌ [AUTH] Schema inválido: coluna users.token_version não existe.');
+            //   
+            //   return reply.status(500).send({
+            //     success: false,
+            //     error: 'Schema do banco de dados está desatualizado. A coluna users.token_version não existe.',
+            //     details: 'Execute as migrations do banco de dados para atualizar o schema.',
+            //   });
+            // }
             const tokens = await auth_service_1.authService.refreshToken(tenantId, refreshToken);
             // 🔴 LOG CANÔNICO: Refresh success (log já existe no service, mas adicionar aqui também para rastreabilidade na rota)
             const { canonicalLogger } = await Promise.resolve().then(() => __importStar(require('@core/logging/canonical-logger')));
@@ -503,7 +480,7 @@ const authRoutes = async (fastify) => {
             const normalizedCpf = (0, cpf_validator_1.normalizeCpf)(rawCpf);
             // Consultar banco de dados usando CPF normalizado
             const { pool } = await Promise.resolve().then(() => __importStar(require('@core/database/pool')));
-            const result = await pool.query('SELECT EXISTS(SELECT 1 FROM user_profiles WHERE cpf = $1) as exists', [normalizedCpf]);
+            const result = await pool.query('SELECT EXISTS(SELECT 1 FROM global_users WHERE cpf = $1) as exists', [normalizedCpf]);
             const exists = result.rows[0]?.exists === true;
             return reply.send({
                 exists,

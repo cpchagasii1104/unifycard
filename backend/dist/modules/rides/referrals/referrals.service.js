@@ -55,7 +55,7 @@ class ReferralsService {
         await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
       INSERT INTO rides_referral_links (
-        tenant_id, referred_user_id, referrer_driver_id, created_at
+        tenant_id, referred_user_id, referrer_driver_id, createdAt
       )
       VALUES ($1,$2,$3, now())
       ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
@@ -102,7 +102,7 @@ class ReferralsService {
         await (0, db_1.runQueryWithTenant)(tenantId, {
             text: `
       INSERT INTO rides_referral_earnings (
-        tenant_id, referrer_driver_id, ride_id, amount, created_at
+        tenant_id, referrer_driver_id, ride_id, amount, createdAt
       )
       VALUES ($1,$2,$3,$4, now())
       `,
@@ -132,7 +132,7 @@ class ReferralsService {
       SELECT *
       FROM rides_referral_earnings
       WHERE tenant_id = $1 AND referrer_driver_id = $2
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       `,
             values: [tenantId, driverId],
         });

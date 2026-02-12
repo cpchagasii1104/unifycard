@@ -47,10 +47,10 @@ class EventsService {
             tenantId: row.tenant_id,
             title: row.title,
             description: row.description,
-            startTime: row.start_time,
-            endTime: row.end_time,
-            datetimeStart: row.datetime_start || row.start_time,
-            datetimeEnd: row.datetime_end || row.end_time,
+            startTime: row.starts_at,
+            endTime: row.ends_at,
+            datetimeStart: row.datetime_start || row.starts_at,
+            datetimeEnd: row.datetime_end || row.ends_at,
             locationName: row.location_name || null,
             capacity: row.capacity || null,
             cityId: row.city_id,
@@ -66,8 +66,8 @@ class EventsService {
             currentOccupancy: row.current_occupancy,
             status: (row.status || 'draft'),
             timezone: row.timezone,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     toEventSession(row) {
@@ -75,10 +75,10 @@ class EventsService {
             id: row.id,
             eventId: row.event_id,
             name: row.name,
-            startTime: row.start_time,
-            endTime: row.end_time,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            startTime: row.starts_at,
+            endTime: row.ends_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     toEventLocation(row) {
@@ -87,8 +87,8 @@ class EventsService {
             eventId: row.event_id,
             name: row.name,
             capacity: row.capacity,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     toEventStaff(row) {
@@ -98,7 +98,7 @@ class EventsService {
             globalUserId: row.global_user_id,
             role: row.role,
             assignedByGlobalUserId: row.assigned_by_global_user_id,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
         };
     }
     toEventAttendee(row) {
@@ -106,8 +106,8 @@ class EventsService {
             id: row.id,
             eventId: row.event_id,
             globalUserId: row.global_user_id,
-            checkInTime: row.check_in_time,
-            createdAt: row.created_at,
+            checkInTime: row.checked_in_at,
+            createdAt: row.createdAt,
         };
     }
     /**
@@ -174,15 +174,15 @@ class EventsService {
         tenant_id,
         title,
         description,
-        start_time,
-        end_time,
+        starts_at,
+        ends_at,
         city_id,
         state_id,
         country_id,
         created_by_global_user_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, tenant_id, title, description, start_time, end_time, city_id, state_id, country_id, created_by_global_user_id, created_at, updated_at
+      RETURNING id, tenant_id, title, description, starts_at, ends_at, city_id, state_id, country_id, created_by_global_user_id, createdAt, updatedAt
       `, [
             tenantId,
             input.title,
@@ -199,18 +199,18 @@ class EventsService {
         }
         const event = this.toEvent(row);
         // Se houver group_id, criar relacionamento na tabela group_events
-        // 🔴 FASE 2: group_events.starts_at/ends_at são READ-MODEL ou INPUT declarativo, não verdade temporal
+        // 🔴 FASE 2: group_events.startsAt/endsAt são READ-MODEL ou INPUT declarativo, não verdade temporal
         // A verdade temporal está em Unified Availability (criada via event.service.ts)
         if (input.group_id) {
             try {
                 // Verificar se já existe relacionamento (evitar duplicata)
                 const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `SELECT event_id FROM group_events WHERE event_id = $1 AND tenant_id = $2 LIMIT 1`, [event.id, tenantId]);
                 if (!existing) {
-                    // 🔴 FASE 2: starts_at/ends_at aqui são apenas READ-MODEL para visualização
+                    // 🔴 FASE 2: startsAt/endsAt aqui são apenas READ-MODEL para visualização
                     // Não bloqueiam agenda, não resolvem conflito, não criam booking
                     await (0, pool_1.runQueryWithTenant)(tenantId, `
             INSERT INTO group_events (
-              event_id, group_id, tenant_id, title, description, starts_at, ends_at, created_by
+              event_id, group_id, tenant_id, title, description, startsAt, endsAt, created_by
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `, [
@@ -294,9 +294,9 @@ class EventsService {
             throw new Error('Sessão deve estar dentro do período do evento');
         }
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      INSERT INTO event_sessions (event_id, name, start_time, end_time)
+      INSERT INTO event_sessions (event_id, name, starts_at, ends_at)
       VALUES ($1, $2, $3, $4)
-      RETURNING id, event_id, name, start_time, end_time, created_at, updated_at
+      RETURNING id, event_id, name, starts_at, ends_at, createdAt, updatedAt
       `, [eventId, input.name, input.startTime, input.endTime]);
         if (!row) {
             throw new Error('Falha ao criar sessão');
@@ -319,7 +319,7 @@ class EventsService {
         }
         // Verificar se já está designado
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, createdAt
       FROM event_staff
       WHERE event_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -330,7 +330,7 @@ class EventsService {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       INSERT INTO event_staff (event_id, global_user_id, role, assigned_by_global_user_id)
       VALUES ($1, $2, $3, $4)
-      RETURNING id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      RETURNING id, event_id, global_user_id, role, assigned_by_global_user_id, createdAt
       `, [eventId, input.globalUserId, input.role, assignedByGlobalUserId]);
         if (!row) {
             throw new Error('Falha ao designar staff');
@@ -351,7 +351,7 @@ class EventsService {
         }
         // Verificar se já está inscrito
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, event_id, global_user_id, check_in_time, created_at
+      SELECT id, event_id, global_user_id, checked_in_at, createdAt
       FROM event_attendees
       WHERE event_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -359,33 +359,33 @@ class EventsService {
         if (!existing) {
             // Criar registro de participante
             await (0, pool_1.runQueryWithTenant)(tenantId, `
-        INSERT INTO event_attendees (event_id, global_user_id, check_in_time)
+        INSERT INTO event_attendees (event_id, global_user_id, checked_in_at)
         VALUES ($1, $2, now())
-        RETURNING id, event_id, global_user_id, check_in_time, created_at
+        RETURNING id, event_id, global_user_id, checked_in_at, createdAt
         `, [eventId, globalUserId]);
         }
-        else if (!existing.check_in_time) {
+        else if (!existing.checked_in_at) {
             // Atualizar check-in
             await (0, pool_1.runQueryWithTenant)(tenantId, `
         UPDATE event_attendees
-        SET check_in_time = now()
+        SET checked_in_at = now()
         WHERE event_id = $1 AND global_user_id = $2
-        RETURNING id, event_id, global_user_id, check_in_time, created_at
+        RETURNING id, event_id, global_user_id, checked_in_at, createdAt
         `, [eventId, globalUserId]);
         }
         // Buscar registro atualizado
         const updated = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, event_id, global_user_id, check_in_time, created_at
+      SELECT id, event_id, global_user_id, checked_in_at, createdAt
       FROM event_attendees
       WHERE event_id = $1 AND global_user_id = $2
       LIMIT 1
       `, [eventId, globalUserId]);
-        if (!updated || !updated.check_in_time) {
+        if (!updated || !updated.checked_in_at) {
             throw new Error('Falha ao realizar check-in');
         }
         return {
             checkedIn: true,
-            checkInTime: updated.check_in_time,
+            checkInTime: updated.checked_in_at,
         };
     }
     /**
@@ -394,11 +394,11 @@ class EventsService {
     async getEvent(tenantId, eventId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       SELECT 
-        id, tenant_id, title, description, start_time, end_time, 
+        id, tenant_id, title, description, starts_at, ends_at, 
         city_id, state_id, country_id, created_by_global_user_id, 
         event_type, ticket_price, accepts_consumption, accepts_parking,
         max_capacity, current_occupancy, status, timezone,
-        created_at, updated_at
+        createdAt, updatedAt
       FROM events
       WHERE id = $1
       LIMIT 1
@@ -415,24 +415,24 @@ class EventsService {
         }
         // Buscar sessões
         const sessionsRows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT id, event_id, name, start_time, end_time, created_at, updated_at
+      SELECT id, event_id, name, starts_at, ends_at, createdAt, updatedAt
       FROM event_sessions
       WHERE event_id = $1
-      ORDER BY start_time ASC
+      ORDER BY starts_at ASC
       `, [eventId]);
         // Buscar locais
         const locationsRows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT id, event_id, name, capacity, created_at, updated_at
+      SELECT id, event_id, name, capacity, createdAt, updatedAt
       FROM event_locations
       WHERE event_id = $1
       ORDER BY name ASC
       `, [eventId]);
         // Buscar staff
         const staffRows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, created_at
+      SELECT id, event_id, global_user_id, role, assigned_by_global_user_id, createdAt
       FROM event_staff
       WHERE event_id = $1
-      ORDER BY role ASC, created_at ASC
+      ORDER BY role ASC, createdAt ASC
       `, [eventId]);
         // Contar participantes
         const attendeeCountRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -444,7 +444,7 @@ class EventsService {
         const checkedInCountRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
       SELECT COUNT(*) as count
       FROM event_attendees
-      WHERE event_id = $1 AND check_in_time IS NOT NULL
+      WHERE event_id = $1 AND checked_in_at IS NOT NULL
       `, [eventId]);
         return {
             ...event,
@@ -464,7 +464,7 @@ class EventsService {
         post_id,
         content,
         type,
-        created_at,
+        createdAt,
         global_user_id,
         media,
         metadata
@@ -472,14 +472,14 @@ class EventsService {
       WHERE tenant_id = $1
         AND event_id = $2
         AND visibility = 'PUBLIC'
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3
       `, [tenantId, eventId, limit]);
         return rows.map((row) => ({
             postId: row.post_id,
             content: row.content,
             type: row.type,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
             globalUserId: row.global_user_id,
             media: Array.isArray(row.media) ? row.media : [],
             metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
@@ -494,17 +494,17 @@ class EventsService {
         id,
         event_id,
         global_user_id,
-        check_in_time,
-        created_at
+        checked_in_at,
+        createdAt
       FROM event_attendees
       WHERE event_id = $1
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $2
       `, [eventId, limit]);
         return rows.map((row) => ({
             globalUserId: row.global_user_id,
-            checkInTime: row.check_in_time,
-            joinedAt: row.created_at,
+            checkInTime: row.checked_in_at,
+            joinedAt: row.createdAt,
         }));
     }
     /**
@@ -513,7 +513,7 @@ class EventsService {
     async searchEvents(tenantId, options = {}) {
         const { cityId, stateId, countryId, startDate, endDate, limit = 50, offset = 0, } = options;
         let query = `
-      SELECT id, tenant_id, title, description, start_time, end_time, city_id, state_id, country_id, created_by_global_user_id, created_at, updated_at
+      SELECT id, tenant_id, title, description, starts_at, ends_at, city_id, state_id, country_id, created_by_global_user_id, createdAt, updatedAt
       FROM events
       WHERE 1=1
     `;
@@ -535,16 +535,16 @@ class EventsService {
             paramIndex++;
         }
         if (startDate) {
-            query += ` AND start_time >= $${paramIndex}`;
+            query += ` AND starts_at >= $${paramIndex}`;
             params.push(startDate);
             paramIndex++;
         }
         if (endDate) {
-            query += ` AND end_time <= $${paramIndex}`;
+            query += ` AND ends_at <= $${paramIndex}`;
             params.push(endDate);
             paramIndex++;
         }
-        query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        query += ` ORDER BY starts_at ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows.map((r) => this.toEvent(r));

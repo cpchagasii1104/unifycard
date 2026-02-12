@@ -50,7 +50,7 @@ class TicketService {
                 text: `
           SELECT 
             id, tenant_id, event_type, city_id, ticket_price,
-            max_capacity, current_occupancy, status, start_time, end_time, schedule_id
+            max_capacity, current_occupancy, status, starts_at, ends_at, schedule_id
           FROM events
           WHERE id = $1
           FOR UPDATE
@@ -179,7 +179,7 @@ class TicketService {
             // Importação dinâmica para evitar dependência circular
             const { checkoutService } = await Promise.resolve().then(() => __importStar(require('../../core/checkout/CheckoutService')));
             const checkoutRequest = {
-                amount: event.ticket_price || 0,
+                amountCents: event.ticket_price || 0,
                 currency: 'BRL',
                 paymentMethod: 'UNIFYCARD',
                 context: {
@@ -239,7 +239,7 @@ class TicketService {
             }
             const eventResult = await trx.query({
                 text: `
-          SELECT id, title, start_time, end_time
+          SELECT id, title, starts_at, ends_at
           FROM events
           WHERE id = $1
         `,
@@ -250,10 +250,10 @@ class TicketService {
             }
             const event = eventResult[0];
             const now = new Date();
-            if (now < event.start_time) {
+            if (now < event.starts_at) {
                 throw new Error('Event has not started yet');
             }
-            if (event.end_time && now > event.end_time) {
+            if (event.ends_at && now > event.ends_at) {
                 throw new Error('Event has ended');
             }
             await trx.query({
@@ -271,7 +271,7 @@ class TicketService {
                 event: {
                     id: event.id,
                     title: event.title,
-                    start_time: event.start_time,
+                    starts_at: event.starts_at,
                 },
             };
         });

@@ -5,7 +5,6 @@
 // Busca regionId de tenant, usuário ou job e cria/busca conta correspondente
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.regionAccountService = void 0;
-const account_service_1 = require("./accounts/account.service");
 const tenant_service_1 = require("../tenants/tenant.service");
 const world_service_1 = require("../world/services/world.service");
 class RegionAccountService {
@@ -133,4 +132,4 @@ class RegionAccountService {
         }
     }
 }
-exports.regionAccountService = new RegionAccountService(account_service_1.accountService);
+exports.regionAccountService = new RegionAccountService(accountService);

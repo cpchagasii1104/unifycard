@@ -1,50 +1,171 @@
+---
+
+# DOCUMENTO TÉCNICO / HISTÓRICO
+
+⚠️ Este documento NÃO é norma.
+⚠️ Não possui autoridade hierárquica.
+⚠️ Se houver conflito, prevalece exclusivamente:
+docs/01_normative/
+------------------
+
 # SSOT REGISTRY — UnifiCard
 
-Este documento declara, de forma **explícita, normativa e vinculante**, as **Fontes Únicas de Verdade (SSOT)**
-do sistema UnifiCard, conforme definido pela auditoria técnica e pelo plano de correção.
+Este documento declara, de forma **explícita e técnica**,
+as **Fontes Únicas de Verdade (SSOT)** do sistema UnifiCard.
 
-Nenhum código pode:
-- decidir estado fora das SSOT aqui declaradas
-- persistir verdade concorrente
-- introduzir nova autoridade sem Gate formal
+Ele **referencia**:
+- `AUTHORITY_LAW.md`
+- `08_AUTORIDADE_CANONICA.md`
 
-Código que viola este documento está **automaticamente errado**, mesmo que funcione.
+Diretriz operacional:
+- código deve respeitar as SSOT aqui declaradas
+- evitar persistir verdade concorrente
+- seguir processo formal para nova autoridade
+
+Código que viola este documento deve ser revisado,
+mesmo que funcione.
 
 ---
 
-## PRINCÍPIOS CANÔNICOS
+## PRINCÍPIOS TÉCNICOS
 
 1. **SSOT é declarada, não inferida**
-2. **Saldo é verdade contábil, não campo isolado**
-3. **Ledger é append-only e decide o estado**
-4. **Qualquer saldo fora do ledger é derivado (cache)**
-5. **Split final é bancário, não declarativo**
-6. **Refund e chargeback são eventos bancários, não semânticos**
-7. **Ambiguidade é tratada como violação**
-8. **Leitura que gera decisão é autoridade implícita (proibida)**
+2. **Autoridade nasce da Lei, não da estrutura**
+3. **Saldo é verdade contábil, não campo isolado**
+4. **Ledger é append-only e decide o estado**
+5. **Qualquer saldo fora do ledger é derivado**
+6. **Split final é bancário, não declarativo**
+7. **Refund e chargeback são eventos bancários**
+8. **Ambiguidade é tratada como violação**
+9. **Leitura que gera decisão é autoridade implícita (proibida)**
 
 Regra global:
-- Qualquer leitura usada para decidir estado financeiro
-  é tratada como autoridade implícita e é proibida.
+> Qualquer leitura usada para decidir estado financeiro  
+> ou autoridade é tratada como violação de SSOT.
 
 ---
 
-## SSOT — IDENTIDADE
+## SSOT — AUTORIDADE (CONSTITUCIONAL)
+
+### Autoridade Humana Raiz
+
+| Item | Valor |
+|----|----|
+| **SSOT** | `authority_roots` |
+| **Conceito** | Raiz humana de autoridade (CPF) |
+| **Decide autoridade?** | **Sim** |
+| **Writer único** | Authority Registry |
+| **Leitores** | Todos os domínios |
+
+Regras:
+- Toda autoridade deriva de um CPF
+- Nenhuma entidade é soberana
+- CPF pode estar sujeito a ATL, quarentena ou banimento
+
+**Schema mínimo técnico**
+- `actor_id` (UUID, PK) — ator humano raiz
+- `cpf_hash` (TEXT, UNIQUE) — CPF normalizado (hash)
+- `status` (TEXT) — active | suspended | banned
+- `created_at` (TIMESTAMPTZ)
+
+Nenhum outro campo é permitido.
+
+---
+
+### Authority Trust Level (ATL)
+
+| Item | Valor |
+|----|----|
+| **SSOT** | `authority_trust_levels` |
+| **Conceito** | Classificação constitucional de confiança |
+| **Decide poder?** | **Sim** |
+| **Writer único** | Risk Authority |
+| **Leitores** | Sistema |
+
+Regras:
+- ATL **precede qualquer permissão**
+- ATL não é configurável por produto
+- ATL bloqueia criação, delegação e ações irreversíveis conforme nível
+
+**Schema mínimo técnico**
+- `actor_id` (UUID, PK)
+- `atl_level` (INTEGER)
+- `reason` (TEXT)
+- `effective_at` (TIMESTAMPTZ)
+- `expires_at` (TIMESTAMPTZ, opcional)
+
+---
+
+### Guarda (Responsabilidade Econômica)
+
+| Item | Valor |
+|----|----|
+| **SSOT** | `economic_guardianship` |
+| **Conceito** | Responsável econômico único |
+| **Decide responsabilidade?** | **Sim** |
+| **Writer único** | Authority Registry |
+| **Leitores** | Bank, Auditoria |
+
+Regras:
+- Não existe guarda em cadeia
+- Toda guarda possui teto, prazo e escopo
+- Violação gera incidente e possível ATL
+
+**Schema mínimo técnico**
+- `subject_actor_id` (UUID, PK)
+- `guardian_actor_id` (UUID)
+- `scope` (TEXT)
+- `limit_amount` (NUMERIC)
+- `effective_at` (TIMESTAMPTZ)
+- `expires_at` (TIMESTAMPTZ)
+
+---
+
+### Delegação de Autoridade (Operacional)
+
+| Item | Valor |
+|----|----|
+| **SSOT** | `authority_delegations` |
+| **Conceito** | Delegações explícitas de poder |
+| **Decide permissão?** | **Sim (operacional)** |
+| **Writer único** | Authority Registry |
+| **Leitores** | RBAC, ActionContext |
+
+Regras:
+- Delegação nunca cria autoridade
+- Delegação é temporária
+- Delegação sem CPF é inválida
+- Delegação transitiva é proibida
+
+**Schema mínimo técnico**
+- `delegator_actor_id` (UUID)
+- `delegate_actor_id` (UUID)
+- `scope` (TEXT)
+- `issued_at` (TIMESTAMPTZ)
+- `expires_at` (TIMESTAMPTZ)
+- `revoked_at` (TIMESTAMPTZ, opcional)
+
+Chave primária composta:
+`(delegator_actor_id, delegate_actor_id, scope)`
+
+---
+
+## SSOT — IDENTIDADE OPERACIONAL
 
 ### Identidade Global de Ator
 
 | Item | Valor |
 |----|----|
 | **SSOT** | `actors` |
-| **Conceito** | Identidade canônica de qualquer participante do sistema |
+| **Conceito** | Identidade canônica de execução |
 | **Decide estado final?** | Sim |
 | **Writer único** | Actor Registry |
 | **Leitores** | Todos os módulos |
-| **Proibidos** | `users`, `companies`, `profiles` como verdade final |
 
 Regras:
-- Toda entidade relevante referencia `actor_id`
-- Nenhuma identidade paralela é permitida
+- Todo Actor referencia um CPF
+- Actor não é soberano
+- Actor só existe enquanto a delegação existir
 
 ---
 
@@ -55,15 +176,14 @@ Regras:
 | Item | Valor |
 |----|----|
 | **SSOT** | `bank_accounts` |
-| **Conceito** | Estrutura da conta (existência, owner, status) |
+| **Conceito** | Estrutura da conta |
 | **Decide saldo?** | **Não** |
 | **Writer único** | UnifyBank |
 | **Leitores** | Sistema |
-| **Observação** | `cached_balance` é **derivado**, nunca SSOT |
 
 Regras:
-- Conta **não decide saldo**
-- Campo de saldo só pode existir como cache derivado do ledger
+- Conta não decide saldo
+- `cached_balance` é sempre derivado
 
 ---
 
@@ -74,15 +194,10 @@ Regras:
 | Item | Valor |
 |----|----|
 | **SSOT** | `bank_transactions` |
-| **Conceito** | Movimentos financeiros efetivos |
-| **Decide estado final?** | Não isoladamente |
+| **Conceito** | Movimentos financeiros |
+| **Decide saldo?** | Não isoladamente |
 | **Writer único** | UnifyBank |
-| **Leitores** | Auditoria, relatórios |
-
-Regras:
-- Transação não substitui ledger
-- Não existe saldo implícito por transação
-- Toda transação financeira relevante deve referenciar `bank_transaction_id`
+| **Leitores** | Auditoria |
 
 ---
 
@@ -93,15 +208,14 @@ Regras:
 | Item | Valor |
 |----|----|
 | **SSOT** | `bank_ledger` |
-| **Conceito** | Verdade contábil e saldo final |
+| **Conceito** | Verdade contábil |
 | **Decide estado final?** | **Sim** |
 | **Writer único** | UnifyBank |
-| **Leitores** | Sistema (leitura) |
+| **Leitores** | Sistema |
 
 Regras:
-- Ledger é **append-only**
-- Saldo é **derivado exclusivamente do ledger**
-- Qualquer saldo persistido fora dele é proibido (exceto cache explicitamente marcado)
+- Append-only
+- Saldo deriva exclusivamente do ledger
 
 ---
 
@@ -112,15 +226,10 @@ Regras:
 | Item | Valor |
 |----|----|
 | **SSOT** | `bank_splits` |
-| **Conceito** | Distribuição final de valores |
+| **Conceito** | Distribuição final |
 | **Decide estado final?** | Sim |
 | **Writer único** | UnifyBank |
-| **Leitores** | Auditoria, relatórios |
-
-Regras:
-- Split final ocorre **exclusivamente no banco**
-- Nenhum módulo externo pode decidir “quanto vai para quem”
-- Estruturas declarativas ou de evento não têm autoridade financeira
+| **Leitores** | Auditoria |
 
 ---
 
@@ -131,104 +240,48 @@ Regras:
 | Item | Valor |
 |----|----|
 | **SSOT** | `bank_ledger` + `bank_transactions` |
-| **Conceito** | Reversão financeira efetiva |
-| **Decide estado final?** | **Sim (via ledger)** |
+| **Decide estado final?** | **Sim** |
 | **Writer único** | UnifyBank |
-| **Leitores** | Sistema, auditoria |
-
-Regras:
-- **Não existe refund ou chargeback sem `bank_transaction_id`**
-- Refund/chargeback **não são SSOT em eventos**
-- Eventos apenas solicitam, refletem ou notificam
-- Qualquer refund/chargeback fora do ledger é inválido
 
 ---
 
-## DOMÍNIO NÃO-SSOT — PAYMENT INTENT (PRÉ-FINANCEIRO)
+## DOMÍNIOS NÃO-SSOT (DECLARADOS)
 
-### Intenção de Pagamento
-
-| Item | Valor |
-|----|----|
-| **SSOT** | ❌ NÃO É SSOT |
-| **Estrutura** | `payment_intents` (ou equivalente) |
-| **Conceito** | Intenção pré-financeira |
-| **Decide dinheiro?** | **NÃO** |
-| **Writer** | Services / Marketplace |
-| **Autoridade financeira** | Exclusivamente UnifyBank |
-
-Regras:
-- Payment intent **não movimenta dinheiro**
-- Payment intent **não decide saldo**
-- Nenhum estado “paid/settled” é válido sem Bank
-
----
-
-## DOMÍNIO OPERACIONAL — UNIFYCARD
-
-### Recebimento via Cartão
-
-| Item | Valor |
-|----|----|
-| **SSOT** | ❌ NÃO |
-| **Conceito** | Captura / autorização |
-| **Decide dinheiro?** | **NÃO** |
-| **Autoridade final** | Bank (ledger) |
-
-Regras:
-- UnifyCard **não decide SETTLED**
-- UnifyCard **não decide saldo**
-- Status operacionais não são verdade financeira
-
----
-
-## ESTRUTURAS EXPLICITAMENTE NÃO-SSOT
-
-Estas estruturas **NUNCA** podem decidir estado financeiro:
-
-- `accounts`
-- `ledger` (legacy)
-- `transactions` (legacy)
-- `payment_transactions`
-- `payment_splits`
-- `payment_intent_splits`
-- `event_split_declarative`
-- `region_accounts`
+- `payment_intents`
 - `unifycard_transactions`
+- `event_*`
 - `settlements`
-- `event_refund`
-- `event_chargeback`
+- `payment_splits`
 
 Uso permitido:
-- histórico
-- visualização
-- projeção
-- debug
+- intenção
+- workflow
 - log
+- projeção
 
-Uso proibido:
+Proibido:
 - decisão
-- cálculo de saldo
-- autoridade final
-- criação de verdade financeira
+- autoridade
+- verdade financeira
 
 ---
 
 ## GOVERNANÇA
 
-- Alterações neste registry exigem **obrigatoriamente**:
-  1. Registro no `FALSIFICATION_LOG.md`
-  2. Gate explícito aprovado
-  3. Evidência técnica verificável
+- Alterações exigem:
+  1. `FALSIFICATION_LOG.md`
+  2. Gate aprovado
+  3. Evidência técnica
 
-Mudança silenciosa é **violação grave de SSOT**.
+Mudança silenciosa = **violação grave**.
 
 ---
 
 ## STATUS
 
+- **Gate A:** CONTEÚDO DEFINIDO
 - **Gate 0:** FECHADO
-- **Gate 1:** CONTEÚDO DEFINIDO / NÃO FORMALIZADO
+- **Gate 1:** FECHADO (SSOT DECLARADO + ESTRUTURADO)
 - **Gate 2+:** A EXECUTAR
 
 ---

@@ -1,0 +1,3 @@
+psql:C:/unificard/backend/migrations/751_chat_rooms.sql:43: ERRO:  tipo "presence_context_type" n├úo existe
+LINHA 4:     context_type presence_context_type NOT NULL,
+                          ^

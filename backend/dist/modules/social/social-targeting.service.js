@@ -130,7 +130,7 @@ class SocialTargetingService {
                 return b.relevance_score - a.relevance_score;
             }
             // Por último por data
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         // Separar alta relevância e discovery
         const discoveryCount = Math.max(1, Math.floor(sorted.length * (discoveryPercentage / 100)));

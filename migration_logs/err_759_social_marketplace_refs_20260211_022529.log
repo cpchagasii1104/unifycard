@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/759_social_marketplace_refs.sql:58: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

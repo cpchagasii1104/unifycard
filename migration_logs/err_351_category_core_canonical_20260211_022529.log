@@ -1,0 +1,2 @@
+psql:C:/unificard/backend/migrations/351_category_core_canonical.sql:21: NOTA:  extens├úo "uuid-ossp" j├í existe, ignorando
+psql:C:/unificard/backend/migrations/351_category_core_canonical.sql:126: ERRO:  coluna "user_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -4,7 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.socialGroupRepository = void 0;
 const pool_1 = require("@core/database/pool");
 const groups_repository_1 = require("../groups/groups.repository");
-const account_service_1 = require("@core/economy/accounts/account.service");
+const account_service_1 = require("@core/economy/account.service");
 class SocialGroupRepository {
     /**
      * Busca informações sociais de um grupo
@@ -33,7 +33,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND created_at >= $3
+        AND createdAt >= $3
       `, [tenantId, groupId, thirtyDaysAgo]);
         const recentPosts = recentPostsCount ? Number(recentPostsCount.count) : 0;
         // Calcular indicadores básicos
@@ -57,7 +57,7 @@ class SocialGroupRepository {
     async getGroupFeed(tenantId, groupId, options = {}) {
         const { limit = 50, offset = 0, includeAutoPosts = true } = options;
         let query = `
-      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, created_at, updated_at
+      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, createdAt, updatedAt
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
@@ -67,7 +67,7 @@ class SocialGroupRepository {
         if (!includeAutoPosts) {
             query += ` AND metadata->>'type' != 'system_auto_post'`;
         }
-        query += ` ORDER BY created_at DESC LIMIT $3 OFFSET $4`;
+        query += ` ORDER BY createdAt DESC LIMIT $3 OFFSET $4`;
         params.push(limit, offset);
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         // Contar total
@@ -84,7 +84,7 @@ class SocialGroupRepository {
         const countRow = await (0, pool_1.runQueryWithTenant)(tenantId, countQuery, countParams);
         return {
             rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
     /**
@@ -108,20 +108,20 @@ class SocialGroupRepository {
         }
         // Buscar últimos 20 auto-posts econômicos
         const autoPosts = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT post_id, content, metadata, created_at
+      SELECT post_id, content, metadata, createdAt
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT 20
       `, [tenantId, groupId]);
         const recentAutoPosts = autoPosts.map((p) => ({
             postId: p.post_id,
             content: p.content,
-            amount: p.metadata?.splitAmount || 0,
-            createdAt: p.created_at,
+            amountCents: p.metadata?.splitAmount || 0,
+            createdAt: p.createdAt.toISOString(),
             assignmentId: p.metadata?.assignmentId,
             jobId: p.metadata?.jobId,
         }));
@@ -133,7 +133,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND created_at >= NOW() - INTERVAL '30 days'
+        AND createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY global_user_id
       ORDER BY post_count DESC
       LIMIT 1
@@ -145,7 +145,7 @@ class SocialGroupRepository {
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'activity' IS NOT NULL
-        AND created_at >= NOW() - INTERVAL '30 days'
+        AND createdAt >= NOW() - INTERVAL '30 days'
       GROUP BY metadata->>'activity'
       ORDER BY count DESC
       LIMIT 5
@@ -175,20 +175,20 @@ class SocialGroupRepository {
     async calculateMonthlyGrowth(tenantId, groupId) {
         const growth = await (0, pool_1.runQueriesWithTenant)(tenantId, `
       SELECT 
-        TO_CHAR(created_at, 'YYYY-MM') as month,
+        TO_CHAR(createdAt, 'YYYY-MM') as month,
         SUM((metadata->>'splitAmount')::numeric) as amount
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-        AND created_at >= NOW() - INTERVAL '6 months'
-      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        AND createdAt >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(createdAt, 'YYYY-MM')
       ORDER BY month DESC
       `, [tenantId, groupId]);
         return growth.map((g) => ({
             month: g.month,
-            amount: Number(g.amount || 0),
+            amountCents: Number(g.amount || 0),
         }));
     }
     /**
@@ -200,18 +200,18 @@ class SocialGroupRepository {
         const userGroups = await groups_repository_1.groupsRepository.getUserGroups(tenantId, userId);
         const groupIds = userGroups.map((g) => g.groupId);
         if (groupIds.length === 0) {
-            return { items: [], total: 0 };
+            return { items: [], totalCents: 0 };
         }
         // Buscar posts de grupos + auto-posts econômicos
         const query = `
-      SELECT post_id, global_user_id, content, metadata, created_at
+      SELECT post_id, global_user_id, content, metadata, createdAt
       FROM posts
       WHERE tenant_id = $1
         AND (
           metadata->>'groupId' = ANY($2::text[])
           OR (metadata->>'source' = 'economic_impact' AND metadata->>'groupId' = ANY($2::text[]))
         )
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $3 OFFSET $4
     `;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, [
@@ -233,7 +233,7 @@ class SocialGroupRepository {
         const countRow = await (0, pool_1.runQueryWithTenant)(tenantId, countQuery, [tenantId, groupIds]);
         return {
             items: rows,
-            total: countRow ? Number(countRow.total) : 0,
+            totalCents: countRow ? Number(countRow.total) : 0,
         };
     }
 }

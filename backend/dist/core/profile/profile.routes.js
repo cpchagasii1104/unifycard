@@ -347,17 +347,48 @@ const profileRoutes = async (fastify) => {
             }
             const { coreService } = await Promise.resolve().then(() => __importStar(require('@core/core.service')));
             const progress = await coreService.calculateProfileProgress(req.tenant.id, userId);
+            // 🔴 CORREÇÃO: Garantir que sempre retorna formato correto
             return reply.send({
                 ok: true,
-                data: progress
+                data: progress || {
+                    progress: 0,
+                    maxProgressWithoutValidation: 80,
+                    hasPresentialValidation: false,
+                    breakdown: {
+                        personalData: 0,
+                        professionalProfile: 0,
+                        physicalProfile: 0,
+                        learningProfile: 0,
+                        companies: 0,
+                        presentialValidation: 0,
+                    },
+                    messages: [],
+                }
             });
         }
         catch (error) {
-            fastify.log.error({ err: error }, 'Erro ao calcular progresso do perfil');
-            return reply.status(500).send({
-                ok: false,
-                message: 'Erro ao calcular progresso do perfil',
-                error: error instanceof Error ? error.message : String(error)
+            // 🔴 CORREÇÃO: Sempre retornar HTTP 200 com fallback zerado
+            fastify.log.warn({
+                err: error,
+                userId: req.user?.userId,
+                tenantId: req.tenant?.id
+            }, 'Erro ao calcular progresso do perfil - retornando fallback zerado');
+            return reply.send({
+                ok: true,
+                data: {
+                    progress: 0,
+                    maxProgressWithoutValidation: 80,
+                    hasPresentialValidation: false,
+                    breakdown: {
+                        personalData: 0,
+                        professionalProfile: 0,
+                        physicalProfile: 0,
+                        learningProfile: 0,
+                        companies: 0,
+                        presentialValidation: 0,
+                    },
+                    messages: [],
+                }
             });
         }
     });

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/696_group_invites_expiration.sql:6: ERRO:  rela├º├úo "group_invites" n├úo existe

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/218_organizer_subscriptions.sql:68: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe

@@ -300,7 +300,7 @@ const eventsRoutes = async (fastify) => {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
             const posts = await events_service_1.eventsService.getEventPosts(req.tenant.id, req.params.eventId, limit);
-            return { posts, total: posts.length };
+            return { posts, totalCents: posts.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao buscar posts do evento');
@@ -375,7 +375,7 @@ const eventsRoutes = async (fastify) => {
         try {
             const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
             const participants = await events_service_1.eventsService.getEventParticipants(req.tenant.id, req.params.eventId, limit);
-            return { participants, total: participants.length };
+            return { participants, totalCents: participants.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao buscar participantes do evento');
@@ -535,7 +535,7 @@ const eventsRoutes = async (fastify) => {
                 limit: req.query.limit,
                 offset: req.query.offset,
             });
-            return { events, total: events.length };
+            return { events, totalCents: events.length };
         }
         catch (error) {
             fastify.log.error({ err: error }, 'Erro ao buscar eventos');

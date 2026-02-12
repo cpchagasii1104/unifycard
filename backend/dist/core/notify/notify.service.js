@@ -23,11 +23,11 @@ function mapNotificationRow(row) {
         status: row.status,
         retryCount: row.retry_count,
         maxRetries: row.max_retries,
-        scheduledAt: row.scheduled_at,
-        sentAt: row.sent_at,
+        scheduledAt: row.scheduledAt,
+        sentAt: row.sentAt,
         lastError: row.last_error,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
     };
 }
 class NotifyService {
@@ -56,7 +56,7 @@ class NotifyService {
         status,
         retry_count,
         max_retries,
-        scheduled_at
+        scheduledAt
       )
       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'pending', 0, COALESCE($7, 5), COALESCE($8, now()))
       RETURNING *
@@ -134,7 +134,7 @@ class NotifyService {
             query += ' WHERE status = $1';
             params.push(status);
         }
-        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        query += ` ORDER BY createdAt DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(limit, offset);
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, query, params);
         return rows.map(mapNotificationRow);
@@ -151,8 +151,8 @@ class NotifyService {
         SELECT *
         FROM notify_queue
         WHERE status = 'pending'
-          AND scheduled_at <= now()
-        ORDER BY scheduled_at ASC
+          AND scheduledAt <= now()
+        ORDER BY scheduledAt ASC
         FOR UPDATE SKIP LOCKED
         LIMIT $1
         `, [limit]);
@@ -176,7 +176,7 @@ class NotifyService {
                     await (0, pool_1.runQueryWithTenant)(tenantId, `
             UPDATE notify_queue
             SET status = 'sent',
-                sent_at = now(),
+                sentAt = now(),
                 last_error = NULL
             WHERE notification_id = $1
             `, [notif.notificationId]);
@@ -299,7 +299,7 @@ class NotifyService {
       SET status = 'pending',
           retry_count = 0,
           last_error = NULL,
-          scheduled_at = now()
+          scheduledAt = now()
       WHERE notification_id = $1
       `, [notificationId]);
         return this.getById(tenantId, notificationId);

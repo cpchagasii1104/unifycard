@@ -8,7 +8,7 @@ const test_currency_service_1 = require("./test-currency.service");
 const zod_1 = require("zod");
 const emitTestCurrencySchema = zod_1.z.object({
     userId: zod_1.z.string().uuid('Invalid user ID'),
-    amount: zod_1.z.number().positive('Amount must be positive').max(1000000, 'Maximum amount is 1,000,000'),
+    amountCents: zod_1.z.number().positive('Amount must be positive').max(1000000, 'Maximum amount is 1,000,000'),
     reason: zod_1.z.string().min(1, 'Reason is required').max(500, 'Reason too long'),
 });
 const testCurrencyRoutes = async (fastify) => {
@@ -24,7 +24,7 @@ const testCurrencyRoutes = async (fastify) => {
                 required: ['userId', 'amount', 'reason'],
                 properties: {
                     userId: { type: 'string', format: 'uuid' },
-                    amount: { type: 'number', minimum: 0.01, maximum: 1000000 },
+                    amountCents: { type: 'number', minimum: 0.01, maximum: 1000000 },
                     reason: { type: 'string', minLength: 1, maxLength: 500 },
                 },
             },
@@ -49,7 +49,7 @@ const testCurrencyRoutes = async (fastify) => {
             const result = await test_currency_service_1.testCurrencyService.emitTestCurrency({
                 tenantId: req.tenant.id,
                 userId: parsed.data.userId,
-                amount: parsed.data.amount,
+                amountCents: parsed.data.amount,
                 reason: parsed.data.reason,
                 adminId: req.user.id,
             });

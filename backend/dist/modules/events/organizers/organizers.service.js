@@ -13,8 +13,8 @@ class OrganizersService {
             description: row.description,
             logoUrl: row.logo_url,
             ownerGlobalUserId: row.owner_global_user_id,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
         };
     }
     toEventOrganizerMember(row) {
@@ -23,7 +23,7 @@ class OrganizersService {
             organizerId: row.organizer_id,
             globalUserId: row.global_user_id,
             role: row.role,
-            createdAt: row.created_at,
+            createdAt: row.createdAt,
         };
     }
     /**
@@ -41,7 +41,7 @@ class OrganizersService {
         }
         // Verificar se é membro com role adequada
         const member = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -64,7 +64,7 @@ class OrganizersService {
         owner_global_user_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      RETURNING id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       `, [
             tenantId,
             input.name,
@@ -86,7 +86,7 @@ class OrganizersService {
     async addMemberInternal(tenantId, organizerId, globalUserId, role) {
         // Verificar se já é membro
         const existing = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1 AND global_user_id = $2
       LIMIT 1
@@ -97,14 +97,14 @@ class OrganizersService {
         UPDATE event_organizer_members
         SET role = $1
         WHERE organizer_id = $2 AND global_user_id = $3
-        RETURNING id, organizer_id, global_user_id, role, created_at
+        RETURNING id, organizer_id, global_user_id, role, createdAt
         `, [role, organizerId, globalUserId]);
             return this.toEventOrganizerMember(updated);
         }
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
       INSERT INTO event_organizer_members (organizer_id, global_user_id, role)
       VALUES ($1, $2, $3)
-      RETURNING id, organizer_id, global_user_id, role, created_at
+      RETURNING id, organizer_id, global_user_id, role, createdAt
       `, [organizerId, globalUserId, role]);
         if (!row) {
             throw new Error('Falha ao adicionar membro');
@@ -149,7 +149,7 @@ class OrganizersService {
      */
     async getOrganizer(tenantId, organizerId) {
         const row = await (0, pool_1.runQueryWithTenant)(tenantId, `
-      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       FROM event_organizers
       WHERE id = $1
       LIMIT 1
@@ -166,10 +166,10 @@ class OrganizersService {
         }
         // Buscar membros
         const membersRows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT id, organizer_id, global_user_id, role, created_at
+      SELECT id, organizer_id, global_user_id, role, createdAt
       FROM event_organizer_members
       WHERE organizer_id = $1
-      ORDER BY role ASC, created_at ASC
+      ORDER BY role ASC, createdAt ASC
       `, [organizerId]);
         // Contar eventos
         const eventCountRow = await (0, pool_1.runQueryWithTenant)(tenantId, `
@@ -190,9 +190,9 @@ class OrganizersService {
     async listOrganizers(tenantId, options = {}) {
         const { limit = 50, offset = 0 } = options;
         const rows = await (0, pool_1.runQueriesWithTenant)(tenantId, `
-      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, created_at, updated_at
+      SELECT id, tenant_id, name, description, logo_url, owner_global_user_id, createdAt, updatedAt
       FROM event_organizers
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT $1 OFFSET $2
       `, [limit, offset]);
         return rows.map((r) => this.toEventOrganizer(r));

@@ -1,0 +1,1 @@
+psql:C:/unificard/backend/migrations/034_actor_delegations.sql:54: ERRO:  coluna "tenant_id" referenciada na restri├º├úo de chave estrangeira n├úo existe
