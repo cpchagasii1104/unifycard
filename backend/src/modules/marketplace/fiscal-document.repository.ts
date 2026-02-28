@@ -1,5 +1,19 @@
 // backend/src/modules/marketplace/fiscal-document.repository.ts
 // SPRINT 44: Repository para documentos fiscais
+//
+// ⚠️ EXCEÇÃO ARQUITETURAL - VALOR FISCAL REPRESENTACIONAL:
+//
+// fiscal_documents.total_amount permanece como NUMERIC(20, 2) por design.
+//
+// Justificativa:
+// - Documento fiscal é representação legal externa, não SSOT de saldo
+// - Não entra no ledger (não afeta saldo real)
+// - Não recalcula, apenas espelha a venda (conforme migration 0193)
+// - Pode precisar manter precisão decimal para conformidade fiscal
+//
+// Esta é uma exceção consciente ao padrão _cents BIGINT.
+// Valores monetários transacionáveis (que entram no ledger) devem usar _cents BIGINT.
+// Valores meramente representacionais (fiscal, exportação) podem usar DECIMAL.
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
@@ -36,6 +50,9 @@ interface FiscalDocumentItemRow {
 class FiscalDocumentRepository {
   /**
    * Converte row para FiscalDocument
+   * 
+   * NOTA: parseFloat é intencional aqui (exceção arquitetural documentada)
+   * Fiscal usa DECIMAL por design, não _cents BIGINT
    */
   private toDocument(row: FiscalDocumentRow): FiscalDocument {
     return {
@@ -45,7 +62,7 @@ class FiscalDocumentRepository {
       paymentIntentId: row.payment_intent_id,
       documentType: row.document_type as any,
       status: row.status as any,
-      totalAmount: parseFloat(row.total_amount),
+      totalAmount: parseFloat(row.total_amount), // EXCEÇÃO: Fiscal usa DECIMAL por design
       metadata: row.metadata || null,
       issuedAt: row.issuedAt,
       createdAt: row.createdAt.toISOString(),

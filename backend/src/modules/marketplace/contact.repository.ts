@@ -72,6 +72,9 @@ class ContactRepository {
       ]
     );
 
+    if (!row) {
+      throw new Error('Contact not created');
+    }
     return this.toContact(row);
   }
 
@@ -91,7 +94,9 @@ class ContactRepository {
       return null;
     }
 
-    return this.toContact(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    return this.toContact(row);
   }
 
   async getContactByTaxId(tenantId: string, taxId: string): Promise<Contact | null> {
@@ -110,7 +115,9 @@ class ContactRepository {
       return null;
     }
 
-    return this.toContact(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    return this.toContact(row);
   }
 
   async updateContact(
@@ -173,6 +180,9 @@ class ContactRepository {
       params
     );
 
+    if (!row) {
+      throw new Error('Contact not found after update');
+    }
     return this.toContact(row);
   }
 
@@ -193,6 +203,9 @@ class ContactRepository {
       [tenantId, contactId, userId]
     );
 
+    if (!row) {
+      throw new Error('Contact not found after linkUserToContact');
+    }
     return this.toContact(row);
   }
 
@@ -285,6 +298,9 @@ class ContactRepository {
       [tenantId, contactId, kycStatus]
     );
 
+    if (!row) {
+      throw new Error('Contact not found after updateKycStatus');
+    }
     return this.toContact(row);
   }
 }

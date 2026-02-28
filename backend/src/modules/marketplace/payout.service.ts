@@ -11,6 +11,11 @@ import { getClientWithTenant } from '@core/database/pool';
 import type { PayoutTransaction, ExecutePayoutInput } from './payout.types';
 import type { BankCurrency } from '../bank/bank-account.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const payoutTransactionRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('PayoutTransaction migrated to Bank')),
+});
+
 /**
  * Service para execução de payouts
  * 
@@ -99,7 +104,7 @@ class PayoutService {
           paymentIntentId,
           split.id,
           split.recipientActorId,
-          split.amount, // NÃO recalcular, usar amount do split
+          split.amountCents,
           intent.currency,
           splitIdempotencyKey
         );
@@ -112,14 +117,18 @@ class PayoutService {
             intent.currency as BankCurrency
           );
 
-          // Chamar Bank transfer (plataforma → recipient)
+          const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
+          const authorship = buildSystemAuthorship({
+            actingForAccountId: platformAccount.accountId,
+          });
           const eventId = uuidv4();
           const bankResult = await bankTransactionService.transfer(tenantId, {
             eventId,
             fromAccountId: platformAccount.accountId,
             toAccountId: recipientAccountId,
-            amountCents: split.amount, // NÃO recalcular, usar amount do split
+            amountCents: split.amountCents,
             currency: intent.currency as BankCurrency,
+            transactionType: 'transfer',
             description: `Marketplace payout: Split ${split.id}`,
             metadata: {
               payment_intent_id: paymentIntentId,
@@ -129,6 +138,7 @@ class PayoutService {
               acting_user_id: actingUserId,
               context: 'marketplace_payout',
             },
+            authorship,
           });
 
           // Se sucesso: salvar bank_transaction_id, status = SUCCESS
@@ -185,7 +195,7 @@ class PayoutService {
                 paymentSplitId: split.id,
                 recipientActorId: split.recipientActorId,
                 errorCode,
-                amountCents: split.amount,
+                amountCents: split.amountCents,
                 eventId: uuidv4(),
               },
             });
@@ -286,11 +296,11 @@ class PayoutService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: 'MARKETPLACE_PAYOUT_EXECUTED',
-        severity: data.result === 'SUCCESS' ? 'LOW' : 'MEDIUM',
-        actor_id: data.recipientActorId,
+        severity: data.result === 'SUCCESS' ? 'low' : 'medium',
+        actor_id: data.recipientActorId ?? null,
         actor_type: 'user', // Assumindo user para recipient
-        company_id: null,
-        employee_id: null,
+        company_id: undefined,
+        employee_id: undefined,
         source: 'marketplace_payout',
         context: {
           payment_intent_id: data.paymentIntentId,

@@ -59,10 +59,10 @@ class GroupService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'LOW',
+        severity: 'low',
         actor_id: data.createdByActorId,
         actor_type: 'user',
-        source: 'marketplace',
+        source: 'validation',
         context: {
           group_id: data.groupId,
           created_by_user_id: data.createdByUserId,

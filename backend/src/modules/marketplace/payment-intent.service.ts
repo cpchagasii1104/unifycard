@@ -46,7 +46,7 @@ class PaymentIntentService {
     }
 
     // Validar amount
-    if (input.amount <= 0) {
+    if (input.amountCents <= 0) {
       throw new Error('Amount deve ser maior que zero');
     }
 

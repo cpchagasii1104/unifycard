@@ -32,7 +32,7 @@ export class MockExternalPaymentProvider implements ExternalPaymentProvider {
       return {
         external_payment_id: `ext_pay_${uuidv4()}`,
         status: 'succeeded',
-        amountCents: input.amount,
+        amountCents: input.amountCents,
         currency: input.currency,
         metadata: {
           ...input.metadata,

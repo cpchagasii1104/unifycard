@@ -75,10 +75,10 @@ class CompanyProfileService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.updatedByActorId,
         actor_type: 'user',
-        source: 'marketplace',
+        source: 'validation',
         context: {
           tenant_id: data.tenantId,
           erp_profile: data.erpProfile,

@@ -12,7 +12,7 @@ interface PromotionRow {
   tenant_id: string;
   name: string;
   type: string;
-  valueCents: string;
+  value: string;
   applies_to: string;
   applies_id: string;
   valid_from: Date;

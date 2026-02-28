@@ -216,8 +216,9 @@ const marketplaceCategoriesRoutes = async (fastify: FastifyInstance) => {
     }
 
     // Buscar actor do usuário
-    const { getActiveActor } = await import('@core/actors/actor.helpers');
-    const actor = await getActiveActor(tenantId, userId);
+    const { socialPortsRegistry } = await import('@core/social/ports-registry');
+    const actorRepository = socialPortsRegistry.getActorRepository();
+    const actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
     if (!actor) {
       return reply.status(403).send({ error: 'Actor não encontrado' });
     }

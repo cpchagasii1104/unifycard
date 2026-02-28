@@ -221,7 +221,7 @@ class OrderItemRepository {
       [tenantId, orderId]
     );
 
-    return parseFloat(result?.total || '0');
+    return parseFloat(result?.totalCents || '0');
   }
 }
 

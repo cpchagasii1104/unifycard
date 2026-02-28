@@ -137,10 +137,10 @@ class CommissionService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'LOW',
+        severity: 'low',
         actor_id: data.createdByActorId,
         actor_type: 'user',
-        source: 'marketplace',
+        source: 'validation',
         context: {
           rule_id: data.ruleId,
           created_by_user_id: data.createdByUserId,

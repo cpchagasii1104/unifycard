@@ -7,6 +7,14 @@ import type {
   SettlementFilters,
 } from './settlement.types';
 
+/** Repos migrados para Bank - fail-fast até migração */
+const settlementRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('Settlement migrated to Bank')),
+});
+const regionAccountRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('RegionAccount migrated to Bank')),
+});
+
 /**
  * Service para Settlements
  * 
@@ -155,7 +163,7 @@ class SettlementService {
             sourceType: settledSettlement.sourceType === 'TICKET' ? 'EVENT' : 'PAYMENT',
             sourceId: settledSettlement.sourceId,
             grossAmount: settledSettlement.grossAmountCents,
-            feePercentage,
+            feeBps: Math.round(feePercentage * 100),
             feeAmount: settledSettlement.feeAmountCents,
             settlementId: settledSettlement.id,
             metadata: {
@@ -222,7 +230,7 @@ class SettlementService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.createdByActorId || data.settledByActorId || null,
         actor_type: 'user',
         source: 'settlements',

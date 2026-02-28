@@ -8,6 +8,7 @@ import type {
   CreditRegionAccountInput,
   DebitRegionAccountInput,
 } from './settlement.types';
+import { regionAccountService } from './region-account.service';
 
 const settlementRoutes = async (fastify: FastifyInstance) => {
   // ============================================================

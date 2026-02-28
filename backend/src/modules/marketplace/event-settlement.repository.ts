@@ -84,6 +84,9 @@ class EventSettlementRepository {
       ]
     );
 
+    if (!row) {
+      throw new Error('EventSettlement not created');
+    }
     return this.toEventSettlement(row);
   }
 
@@ -108,7 +111,9 @@ class EventSettlementRepository {
       return null;
     }
 
-    return this.toEventSettlement(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    return this.toEventSettlement(row);
   }
 
   async getSettlementByEvent(
@@ -134,7 +139,9 @@ class EventSettlementRepository {
       return null;
     }
 
-    return this.toEventSettlement(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    return this.toEventSettlement(row);
   }
 
   async markAsSettled(
@@ -162,6 +169,9 @@ class EventSettlementRepository {
       [tenantId, settlementId, settlementCoreId, settledByActorId, settledByUserId]
     );
 
+    if (!row) {
+      throw new Error('EventSettlement not found after markAsSettled');
+    }
     return this.toEventSettlement(row);
   }
 }

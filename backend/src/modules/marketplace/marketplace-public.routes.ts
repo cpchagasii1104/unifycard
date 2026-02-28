@@ -65,50 +65,21 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>('/categories/root', async (req, reply) => {
     try {
-      // Import dinâmico para evitar dependência circular
-      const { categoriesService } = await import('@core/categories/categories.service');
-      const { CategoryRepository } = await import('@core/categories/categories.repository');
-      const { CategoryModel } = await import('@core/categories/categories.model');
-
-      // Buscar todas as categorias ativas usando o repository canônico
-      const categoryRepository = new CategoryRepository();
-      // TRAVA: BLOCKED_BY_SCHEMA - context obrigatório - usar 'professional' como fallback até definir context específico para marketplace
-      // NÃO criar novos usos deste padrão - context deve ser explícito quando schema permitir
-      const allRows = await categoryRepository.findAll(undefined, 'professional' as any);
-      const allCategories = CategoryModel.fromRows(allRows);
-
-      // 🔴 REGRA: Filtrar apenas SEGMENTS (category_type='segment') do domínio especificado
-      // 🔴 REGRA: NUNCA retornar offer_categories aqui
-      const targetDomain = req.query.domain || 'market';
-      
-      // Filtrar categorias do marketplace com validação segura de metadata
-      let marketplaceRootCategories = allCategories.filter((c) => {
-        // Garantir que metadata existe e é objeto
-        if (!c.metadata || typeof c.metadata !== 'object') {
-          return false;
-        }
-        
-        // Validar propriedades obrigatórias
-        const domain = c.metadata.domain;
-        const taxonomy = c.metadata.taxonomy;
-        const marketplaceDomain = c.metadata.marketplace_domain || 'market';
-        const categoryType = c.metadata.category_type;
-        
-        return (
-          domain === 'marketplace' 
-          && taxonomy === 'department' 
-          && !c.parentId
-          && marketplaceDomain === targetDomain
-          && categoryType === 'segment'
-        );
+      if (!(req as { tenant?: { id: string } }).tenant) {
+        return reply.status(401).send({ error: 'Tenant required' });
+      }
+      const { marketplaceCategoriesService } = await import('./marketplace-categories.service');
+      const tenantId = (req as { tenant: { id: string } }).tenant.id;
+      const targetDomain = (req.query as { domain?: string }).domain || 'market';
+      const marketplaceRootCategories = await marketplaceCategoriesService.getRootCategories(tenantId, {
+        marketplaceDomain: targetDomain as 'market' | 'services' | 'events' | 'real_estate' | 'vehicles' | 'jobs',
       });
 
-      // Log para debug
       marketplaceLogger.api(`GET /marketplace/categories/root?domain=${targetDomain} - Found ${marketplaceRootCategories.length} segments`);
 
       // Mapear para o formato esperado pelo frontend
       const categories = marketplaceRootCategories.map((c) => ({
-        id: c.id,
+        id: c.id ?? c.categoryId,
         slug: c.slug,
         name: c.name,
         description: c.description,
@@ -120,7 +91,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
         metadata: c.metadata,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
-        type: c.metadata?.type || 'product',
+        type: c.type ?? c.metadata?.type ?? 'product',
         path: [c.slug],
         level: 0,
       }));
@@ -138,37 +109,34 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   
   // GET /marketplace/stores?scope=city&value=São Paulo
   fastify.get('/stores', async (req, reply) => {
-    const query = req.query as { scope?: string; valueCents: string };
+    const query = req.query as { scope?: string; valueCents?: string };
     const scope = query.scope;
-    const value = query.value;
+    const valueCents = query.valueCents;
     
-    const stores = marketplaceService.getStores(scope, value);
+    const stores = marketplaceService.getStores(scope, valueCents);
     return reply.status(200).send(stores);
   });
 
-  // GET /marketplace/stores/near
+  // GET /marketplace/stores/near (aceita category_id ou categoryId, template_id ou templateId; resposta camelCase)
   fastify.get('/stores/near', async (req, reply) => {
-    const query = req.query as {
-      city?: string;
-      neighborhood?: string;
-      category_id?: string;
-      template_id?: string;
-    };
-    
-    const { city, neighborhood, category_id, template_id } = query;
-    
+    const q = req.query as Record<string, unknown>;
+    const city = (q.city as string | undefined) ?? undefined;
+    const neighborhood = (q.neighborhood as string | undefined) ?? undefined;
+    const categoryId = (q.category_id as string | undefined) ?? (q.categoryId as string | undefined);
+    const templateId = (q.template_id as string | undefined) ?? (q.templateId as string | undefined);
+
     if (!city) {
       return reply.status(400).send({ error: 'city é obrigatório' });
     }
-    
+
     const storesData = marketplaceService.getStoresNear({
       city,
       neighborhood,
-      category_id,
-      template_id,
+      category_id: categoryId,
+      template_id: templateId,
     });
-    
-    return reply.status(200).send(storesData);
+
+    return reply.status(200).send(toCamelCaseKeys(storesData));
   });
 
   // ============================================================
@@ -212,56 +180,60 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   // PRODUTOS ATIVADOS POR LOJA
   // ============================================================
   
-  // GET /marketplace/store/:storeId/products?category_id=xxx
-  fastify.get<{ Params: { storeId: string }; Querystring: { category_id?: string } }>('/store/:storeId/products', async (req, reply) => {
+  // GET /marketplace/store/:storeId/products (aceita category_id ou categoryId; resposta camelCase)
+  fastify.get<{ Params: { storeId: string }; Querystring: { category_id?: string; categoryId?: string } }>('/store/:storeId/products', async (req, reply) => {
     const { storeId } = req.params;
-    const { category_id } = req.query;
-    
-    const storeProducts = marketplaceService.getStoreProducts(storeId, category_id);
-    
+    const q = req.query as Record<string, unknown>;
+    const categoryId = (q.category_id as string | undefined) ?? (q.categoryId as string | undefined);
+    const tenantId = (req as { tenant?: { id: string } }).tenant?.id ?? '';
+
+    const storeProducts = marketplaceService.getStoreProducts(tenantId, storeId, categoryId ?? undefined);
+
     if (!storeProducts) {
       return reply.status(404).send({ error: 'Loja não encontrada' });
     }
-    
-    return reply.status(200).send(storeProducts);
+
+    return reply.status(200).send(toCamelCaseKeys(storeProducts));
   });
 
   // ============================================================
   // PEDIDOS (CARRINHO)
   // ============================================================
   
-  // POST /marketplace/order
+  // POST /marketplace/order (aceita store_id ou storeId; resposta camelCase)
   fastify.post('/order', async (req, reply) => {
-    const body = req.body as { store_id: string };
-    
-    if (!body.store_id) {
-      return reply.status(400).send({ error: 'store_id é obrigatório' });
+    const body = req.body as Record<string, unknown>;
+    const storeId = (body.store_id as string | undefined) ?? (body.storeId as string | undefined);
+
+    if (!storeId) {
+      return reply.status(400).send({ error: 'storeId é obrigatório' });
     }
 
     try {
-      const order = marketplaceService.createOrder(body.store_id);
-      return reply.status(201).send(order);
+      const order = marketplaceService.createOrder(storeId);
+      return reply.status(201).send(toCamelCaseKeys(order));
     } catch (error: any) {
       return reply.status(400).send({ error: error.message || 'Erro ao criar pedido' });
     }
   });
 
-  // POST /marketplace/order/:orderId/items
+  // POST /marketplace/order/:orderId/items (aceita product_id ou productId; resposta camelCase)
   fastify.post<{ Params: { orderId: string } }>('/order/:orderId/items', async (req, reply) => {
     const { orderId } = req.params;
-    const body = req.body as { product_id: string; quantity: number };
-    
-    if (!body.product_id) {
-      return reply.status(400).send({ error: 'product_id é obrigatório' });
+    const body = req.body as Record<string, unknown>;
+    const productId = (body.product_id as string | undefined) ?? (body.productId as string | undefined);
+    const quantity = (body.quantity as number | undefined) ?? undefined;
+
+    if (!productId) {
+      return reply.status(400).send({ error: 'productId é obrigatório' });
     }
-    
-    if (!body.quantity || body.quantity < 1) {
+    if (quantity == null || quantity < 1) {
       return reply.status(400).send({ error: 'quantity deve ser maior que zero' });
     }
 
     try {
-      const order = marketplaceService.addOrderItem(orderId, body.product_id, body.quantity);
-      return reply.status(200).send(order);
+      const order = await marketplaceService.addOrderItem(orderId, productId, quantity);
+      return reply.status(200).send(toCamelCaseKeys(order));
     } catch (error: any) {
       return reply.status(400).send({ error: error.message || 'Erro ao adicionar item' });
     }
@@ -363,41 +335,45 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   // ATTRIBUTION & SHARING
   // ============================================================
   
-  // POST /marketplace/share
+  // POST /marketplace/share (aceita snake_case ou camelCase; resposta camelCase)
   fastify.post('/share', async (req, reply) => {
-    const body = req.body as {
-      content_type: 'product' | 'service' | 'store';
-      content_id: string;
-      attribution_context: {
-        source: {
-          type: 'user' | 'group' | 'page' | 'store';
-          id: string;
-        };
-        intent: 'business' | 'recommendation' | 'entertainment';
-        visibility: {
-          scope: 'public' | 'group' | 'direct' | 'relationship_category';
-          group_id?: string;
-          target_ids?: string[];
-          relationship_category?: 'business' | 'friend' | 'family' | 'entertainment';
-        };
-        commission?: {
-          type: 'percentage' | 'fixed';
-          valueCents: number;
-        };
-      };
-    };
+    const body = req.body as Record<string, unknown>;
+    const contentType = (body.content_type ?? body.contentType) as 'product' | 'service' | 'store' | undefined;
+    const contentId = (body.content_id ?? body.contentId) as string | undefined;
+    const rawContext = body.attribution_context ?? body.attributionContext as Record<string, unknown> | undefined;
 
-    if (!body.content_type || !body.content_id || !body.attribution_context) {
-      return reply.status(400).send({ error: 'content_type, content_id e attribution_context são obrigatórios' });
+    if (!contentType || !contentId || !rawContext) {
+      return reply.status(400).send({ error: 'contentType, contentId e attributionContext são obrigatórios' });
     }
+
+    const src = (rawContext.source ?? (rawContext as Record<string, unknown>).source) as Record<string, unknown> | undefined;
+    const visibility = (rawContext.visibility ?? (rawContext as Record<string, unknown>).visibility) as Record<string, unknown> | undefined;
+    const source = src && typeof src === 'object' && 'type' in src && 'id' in src
+      ? { type: (src.type as 'user' | 'group' | 'page' | 'store') ?? 'store', id: String(src.id) }
+      : { type: 'store' as const, id: '' };
+    const intent = (rawContext.intent === 'business' || rawContext.intent === 'recommendation' || rawContext.intent === 'entertainment')
+      ? rawContext.intent
+      : 'business';
+    type VisScope = 'public' | 'group' | 'direct' | 'relationship_category';
+    const vis: { scope: VisScope; group_id?: string; target_ids?: string[]; relationship_category?: 'business' | 'friend' | 'family' | 'entertainment' } = visibility && typeof visibility === 'object'
+      ? {
+          scope: (visibility.scope === 'public' || visibility.scope === 'group' || visibility.scope === 'direct' || visibility.scope === 'relationship_category') ? visibility.scope as VisScope : 'public',
+          group_id: (visibility.group_id ?? visibility.groupId) as string | undefined,
+          target_ids: (visibility.target_ids ?? visibility.targetIds) as string[] | undefined,
+          relationship_category: (visibility.relationship_category ?? visibility.relationshipCategory) as 'business' | 'friend' | 'family' | 'entertainment' | undefined,
+        }
+      : { scope: 'public' as VisScope };
+    const commission = rawContext.commission && typeof rawContext.commission === 'object' && 'type' in rawContext.commission && 'valueCents' in rawContext.commission
+      ? { type: (rawContext.commission as { type: string }).type as 'percentage' | 'fixed', valueCents: Number((rawContext.commission as { valueCents: unknown }).valueCents) }
+      : undefined;
 
     try {
       const result = marketplaceService.createShare({
-        content_type: body.content_type,
-        content_id: body.content_id,
-        attribution_context: body.attribution_context,
+        content_type: contentType,
+        content_id: contentId,
+        attribution_context: { source, intent, visibility: vis, commission },
       });
-      return reply.status(201).send(result);
+      return reply.status(201).send(toCamelCaseKeys(result));
     } catch (error: any) {
       return reply.status(400).send({ error: error.message || 'Erro ao criar share' });
     }
@@ -450,29 +426,31 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // POST /marketplace/vouchers/offers/:offerId/claim
-  fastify.post<{
-    Params: { offerId: string };
-    Body: {
-      user_id: string;
-      audit?: {
-        ip_hash?: string;
-        device_hash?: string;
-        neighborhood?: string;
-        city?: string;
-      };
-    };
-  }>('/vouchers/offers/:offerId/claim', async (req, reply) => {
+  // POST /marketplace/vouchers/offers/:offerId/claim (aceita user_id ou userId, audit com ip_hash/ipHash etc.; resposta camelCase)
+  fastify.post<{ Params: { offerId: string } }>('/vouchers/offers/:offerId/claim', async (req, reply) => {
     try {
       const { offerId } = req.params;
-      const { user_id, audit } = req.body;
+      const body = req.body as Record<string, unknown>;
+      const userId = (body.user_id as string | undefined) ?? (body.userId as string | undefined);
+      const rawAudit = body.audit as Record<string, unknown> | undefined;
+      const audit = rawAudit
+        ? {
+            ip_hash: (rawAudit.ip_hash ?? rawAudit.ipHash) as string | undefined,
+            device_hash: (rawAudit.device_hash ?? rawAudit.deviceHash) as string | undefined,
+            neighborhood: rawAudit.neighborhood as string | undefined,
+            city: rawAudit.city as string | undefined,
+          }
+        : undefined;
 
-      if (!user_id) {
-        return reply.status(400).send({ error: 'user_id é obrigatório' });
+      if (!userId) {
+        return reply.status(400).send({ error: 'userId é obrigatório' });
       }
-
-      const claim = marketplaceService.claimVoucherOffer(offerId, user_id, audit);
-      return reply.status(201).send(claim);
+      if (!(req as { tenant?: { id: string } }).tenant) {
+        return reply.status(401).send({ error: 'Tenant required' });
+      }
+      const tenantId = (req as { tenant: { id: string } }).tenant.id;
+      const claim = await marketplaceService.claimVoucherOffer(tenantId, offerId, userId, audit);
+      return reply.status(201).send(toCamelCaseKeys(claim));
     } catch (error: any) {
       marketplaceLogger.error('Erro ao resgatar voucher', error);
       return reply.status(400).send({ error: error.message || 'Erro ao resgatar voucher' });

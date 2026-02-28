@@ -7,6 +7,11 @@ import type {
   DebitRegionAccountInput,
 } from './settlement.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const regionAccountRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('RegionAccount migrated to Bank')),
+});
+
 /**
  * Service para Region Accounts
  * 
@@ -124,7 +129,7 @@ class RegionAccountService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.creditedByActorId || data.debitedByActorId || null,
         actor_type: 'user',
         source: 'region_accounts',

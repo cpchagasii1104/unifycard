@@ -12,6 +12,11 @@ import { logger } from '@core/observability/logger';
 import type { PaymentTransaction, ExecutePaymentInput } from './payment-intent.types';
 import type { BankCurrency } from '../bank/bank-account.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const paymentTransactionRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('PaymentTransaction migrated to Bank')),
+});
+
 /**
  * Service para execução de pagamentos
  * 
@@ -96,6 +101,8 @@ class PaymentExecutionService {
       throw new Error(`Seller actor não corresponde ao pedido`);
     }
 
+    const isPix = intent.metadata?.payment_method_snapshot?.type === 'PIX';
+
     // SPRINT 85: Se PIX, criar PixCharge antes de criar transaction
     let pixCharge: any = null;
     if (isPix) {
@@ -117,7 +124,7 @@ class PaymentExecutionService {
         
         pixCharge = await pixService.createPixCharge(tenantId, {
           paymentIntentId,
-          amountCents: Math.round(intent.amount * 100), // em centavos
+          amountCents: intent.amountCents, // já em centavos
           currency: intent.currency,
           expiresInMinutes: 30,
           payerTaxId,
@@ -138,7 +145,7 @@ class PaymentExecutionService {
     const paymentTransaction = await paymentTransactionRepository.createTransaction(
       tenantId,
       paymentIntentId,
-      intent.amount,
+      intent.amountCents,
       intent.currency,
       idempotencyKey
     );
@@ -229,7 +236,7 @@ class PaymentExecutionService {
             paymentIntentId,
             paymentMethodId: intent.metadata?.payment_method_id,
             transactionType,
-            grossAmountCents: Math.round(intent.amount * 100),
+            grossAmountCents: intent.amountCents,
             metadata: {
               order_id: intent.orderId,
               buyer_actor_id: buyerActorId,
@@ -258,14 +265,28 @@ class PaymentExecutionService {
         };
       } else {
         // 4. Chamar Bank service existente (transfer simples, sem split)
-        // Usar 'p2p_transfer' como context (sem fee, sem split)
+        const { buildFinancialAuthorshipFromRequest } = await import('../bank/financial-authorship.helper');
+        const authorship = buildFinancialAuthorshipFromRequest({
+          performedByUserId: actingUserId ?? null,
+          actingForActorId: buyerActorId,
+          actingForAccountId: buyerAccountId,
+          authoritySource: 'ownership',
+          permissionSnapshot: {
+            permissionKey: 'financial.transaction.execute',
+            allowed: true,
+            actorId: buyerActorId,
+            userId: actingUserId ?? '',
+            decidedAt: new Date().toISOString(),
+          },
+        });
         const eventId = uuidv4();
         bankResult = await bankTransactionService.transfer(tenantId, {
           eventId,
           fromAccountId: buyerAccountId,
           toAccountId: sellerAccountId,
-          amountCents: intent.amount, // NÃO recalcular, usar amount do intent
+          amountCents: intent.amountCents,
           currency: intent.currency as BankCurrency,
+          transactionType: 'transfer',
           description: `Marketplace payment: Order ${intent.orderId}`,
           metadata: {
             payment_intent_id: paymentIntentId,
@@ -273,8 +294,9 @@ class PaymentExecutionService {
             buyer_actor_id: buyerActorId,
             seller_actor_id: sellerActorId,
             acting_user_id: actingUserId,
-            context: 'marketplace_payment', // ActionContext para auditoria (no metadata)
+            context: 'marketplace_payment',
           },
+          authorship,
         });
       }
 
@@ -317,7 +339,7 @@ class PaymentExecutionService {
         paymentIntentId,
         transactionId: successTransaction.id,
         bankTransactionId: bankResult.transactionId,
-        amountCents: intent.amount,
+        amountCents: intent.amountCents,
         currency: intent.currency,
       });
 
@@ -357,7 +379,7 @@ class PaymentExecutionService {
           intent.orderId,
           paymentIntentId,
           documentType,
-          intent.amount
+          intent.amountCents
         );
       } catch (fiscalError) {
         // Log mas não bloqueia sucesso do pagamento
@@ -399,7 +421,7 @@ class PaymentExecutionService {
 
         // Calcular comissão
         const commissionCalculation = await commissionService.resolveCommission(tenantId, {
-          amountCents: Math.round(intent.amount * 100),
+          amountCents: intent.amountCents,
           referralCodeId,
           groupId,
           paymentMethodId: intent.metadata?.payment_method_id,
@@ -466,7 +488,7 @@ class PaymentExecutionService {
             actorId: sellerActorId, // Quem deve receber (vendedor)
             sourceType,
             sourceId: intent.orderId,
-            amountCents: Math.round(intent.amount * 100),
+            amountCents: intent.amountCents,
             currency: intent.currency,
             expectedAt,
             paymentMethod, // SPRINT 72: Extraído do intent metadata
@@ -514,7 +536,7 @@ class PaymentExecutionService {
         if (regionId) {
           // SPRINT 82: Calcular taxa usando taxa resolvida (já resolvido via UnifyCardMethodService se UNIFYCARD)
           const feePercentage = isUnifyCard ? resolvedFeePercentage : (intent.metadata?.payment_method_snapshot?.fee_percentage || 0);
-          const grossAmountCents = Math.round(intent.amount * 100);
+          const grossAmountCents = intent.amountCents;
           const feeAmountCents = Math.round(grossAmountCents * (feePercentage / 100));
 
           if (feeAmountCents > 0) {
@@ -575,7 +597,7 @@ class PaymentExecutionService {
 
           const earned = await loyaltyService.earnFromPaymentSuccess(tenantId, {
             contactId: payerContactId,
-            amountCents: intent.amount,
+            amountCents: intent.amountCents,
             channel,
             actorId: order.sellerActorId,
             referenceType: 'payment_transaction',
@@ -619,7 +641,7 @@ class PaymentExecutionService {
         paymentIntentId,
         transactionId: failedTransaction.id,
         errorCode,
-        amountCents: intent.amount,
+        amountCents: intent.amountCents,
         currency: intent.currency,
       }, error);
 
@@ -657,7 +679,7 @@ class PaymentExecutionService {
             orderId: intent.orderId,
             paymentIntentId,
             errorCode,
-            amountCents: intent.amount,
+            amountCents: intent.amountCents,
             eventId: uuidv4(),
           },
         });
@@ -744,11 +766,11 @@ class PaymentExecutionService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: 'MARKETPLACE_PAYMENT_EXECUTED',
-        severity: data.result === 'SUCCESS' ? 'LOW' : 'MEDIUM',
-        actor_id: data.actorId,
+        severity: data.result === 'SUCCESS' ? 'low' : 'medium',
+        actor_id: data.actorId ?? null,
         actor_type: 'user', // Assumindo user para buyer
-        company_id: null,
-        employee_id: null,
+        company_id: undefined,
+        employee_id: undefined,
         source: 'marketplace_payment',
         context: {
           payment_intent_id: data.paymentIntentId,
@@ -848,7 +870,7 @@ class PaymentExecutionService {
 
           await loyaltyService.earnFromPaymentSuccess(tenantId, {
             contactId: payerContactId,
-            amountCents: intent.amount,
+            amountCents: intent.amountCents,
             channel,
             actorId: order.sellerActorId,
             referenceType: 'payment_transaction',
@@ -864,12 +886,11 @@ class PaymentExecutionService {
 
     // 5. Registrar auditoria
     await this.recordAudit(tenantId, {
-      actorId: intent.metadata?.buyerActorId || 'system',
-      actingUserId: null,
+      actorId: intent.metadata?.buyerActorId ?? 'system',
+      actingUserId: intent.metadata?.actingUserId ?? intent.metadata?.buyerActorId ?? 'system',
       paymentIntentId,
       transactionId: successTransaction.id,
       result: 'SUCCESS',
-      pixChargeId,
     });
 
     return successTransaction;

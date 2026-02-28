@@ -1,6 +1,7 @@
 // backend/src/modules/marketplace/contact.service.ts
 // SPRINT 0: CONTACTS / CLIENTES UNIFICADOS
 
+import type { AuditEventInput } from '@core/audit/audit.service';
 import { contactRepository } from './contact.repository';
 import { normalizeCpf, validateCpf } from '../../utils/cpf.validator';
 import {
@@ -116,6 +117,9 @@ class ContactService {
     let normalizedTaxId: string | null = null;
     if (input.taxId) {
       normalizedTaxId = this.normalizeTaxId(input.taxId);
+      if (!normalizedTaxId) {
+        throw new Error('Tax ID inválido');
+      }
       const taxIdValidation = this.validateTaxIdFormat(normalizedTaxId, input.type);
       if (!taxIdValidation.valid) {
         throw new Error(taxIdValidation.error || 'Tax ID inválido');
@@ -280,9 +284,43 @@ class ContactService {
   ): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+
+      const {
+        event_type,
+        eventType,
+        severity,
+        source,
+        actor_id,
+        actorId,
+        actor_type,
+        actorType,
+        company_id,
+        companyId,
+        employee_id,
+        employeeId,
+        ...rest
+      } = data;
+
+      const finalEventType = event_type ?? eventType;
+      if (!finalEventType) {
+        throw new Error('Audit event_type is required');
+      }
+
+      const auditInput: AuditEventInput = {
+        event_type: finalEventType,
+        severity: severity ?? 'low',
+        source: source ?? 'validation',
+        actor_id: actor_id ?? actorId ?? undefined,
+        actor_type: actor_type ?? actorType ?? undefined,
+        company_id: company_id ?? companyId ?? undefined,
+        employee_id: employee_id ?? employeeId ?? undefined,
+        context: {
+          ...rest,
+        },
+      };
+
+      await auditService.record(tenantId, auditInput);
     } catch (error) {
-      // Não bloquear se auditoria falhar
       console.warn('[ContactService] Erro ao registrar auditoria:', error);
     }
   }

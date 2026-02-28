@@ -21,9 +21,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
 
     try {
       const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
-      const actor = await getActiveActor(tenantId, userId);
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
       if (!actor) {
         return reply.status(403).send({ error: 'Actor não encontrado' });
       }
@@ -83,7 +83,8 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
         });
       }
       const tenantId = req.tenant.id;
-      const { actorId, userId } = req.user!;
+      const userId = req.user?.userId ?? req.user?.id ?? '';
+      const actorId = req.user?.id ?? userId;
 
       try {
         const result = await storeOnboardingService.createStoreOnboarding(

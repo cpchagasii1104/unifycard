@@ -1,6 +1,7 @@
 // backend/src/modules/marketplace/event-settlement.service.ts
 // SPRINT 84: EVENT SETTLEMENT + BILHETERIA FINANCEIRA
 
+import type { AuditEventInput } from '@core/audit/audit.service';
 import { eventSettlementRepository } from './event-settlement.repository';
 import type {
   EventSettlement,
@@ -50,7 +51,7 @@ class EventSettlementService {
       tenantId,
       input,
       createdByActorId,
-      createdByUserId || null
+      createdByUserId ?? undefined
     );
 
     // Registrar auditoria
@@ -131,9 +132,43 @@ class EventSettlementService {
   ): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+
+      const {
+        event_type,
+        eventType,
+        severity,
+        source,
+        actor_id,
+        actorId,
+        actor_type,
+        actorType,
+        company_id,
+        companyId,
+        employee_id,
+        employeeId,
+        ...rest
+      } = data;
+
+      const finalEventType = event_type ?? eventType;
+      if (!finalEventType) {
+        throw new Error('Audit event_type is required');
+      }
+
+      const auditInput: AuditEventInput = {
+        event_type: finalEventType,
+        severity: severity ?? 'low',
+        source: source ?? 'validation',
+        actor_id: actor_id ?? actorId ?? undefined,
+        actor_type: actor_type ?? actorType ?? undefined,
+        company_id: company_id ?? companyId ?? undefined,
+        employee_id: employee_id ?? employeeId ?? undefined,
+        context: {
+          ...rest,
+        },
+      };
+
+      await auditService.record(tenantId, auditInput);
     } catch (error) {
-      // Não bloquear se auditoria falhar
       console.warn('[EventSettlementService] Erro ao registrar auditoria:', error);
     }
   }

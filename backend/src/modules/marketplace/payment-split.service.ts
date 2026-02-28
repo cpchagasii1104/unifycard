@@ -5,12 +5,17 @@
 import { paymentIntentService } from './payment-intent.service';
 import type { PaymentSplit, CreatePaymentSplitInput, DefineSplitsInput } from './payment-split.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const paymentSplitRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('PaymentSplit migrated to Bank')),
+});
+
 /**
  * Service para payment splits
  * 
  * ⚠️ REGRAS ARQUITETURAIS:
  * - Split é declarativo (não executa nada)
- * - Soma dos splits = intent.amount (validado)
+ * - Soma dos splits = intent.amountCents (validado)
  * - Só definir split para intent AUTHORIZED
  * - Não executar pagamento
  * - Não chamar Bank
@@ -49,8 +54,8 @@ class PaymentSplitService {
 
     // Validar cada split
     for (const split of input.splits) {
-      if (split.amount <= 0) {
-        throw new Error(`Amount do split deve ser maior que zero`);
+      if (split.amountCents <= 0) {
+        throw new Error(`amountCents do split deve ser maior que zero`);
       }
 
       if (!split.recipientActorId) {
@@ -63,13 +68,13 @@ class PaymentSplitService {
     }
 
     // Calcular soma dos amounts
-    const totalAmount = input.splits.reduce((sum, split) => sum + split.amount, 0);
+    const totalAmount = input.splits.reduce((sum, split) => sum + split.amountCents, 0);
 
-    // Validar soma = intent.amount (com tolerância de 0.01 para arredondamento)
-    const tolerance = 0.01;
-    if (Math.abs(totalAmount - intent.amount) > tolerance) {
+    // Validar soma = intent.amountCents (com tolerância de 1 centavo para arredondamento)
+    const tolerance = 1; // 1 centavo
+    if (Math.abs(totalAmount - intent.amountCents) > tolerance) {
       throw new Error(
-        `Soma dos splits (${totalAmount}) não iguala o valor do intent (${intent.amount}). Diferença: ${Math.abs(totalAmount - intent.amount)}`
+        `Soma dos splits (${totalAmount}) não iguala o valor do intent (${intent.amountCents}). Diferença: ${Math.abs(totalAmount - intent.amountCents)}`
       );
     }
 
@@ -126,14 +131,14 @@ class PaymentSplitService {
       paymentIntentId
     );
 
-    const difference = Math.abs(totalSplits - intent.amount);
-    const tolerance = 0.01;
+    const difference = Math.abs(totalSplits - intent.amountCents);
+    const tolerance = 1; // 1 centavo
     const valid = difference <= tolerance;
 
     return {
       valid,
       totalSplits,
-      intentAmount: intent.amount,
+      intentAmount: intent.amountCents,
       difference,
     };
   }

@@ -13,12 +13,12 @@ interface PaymentIntentRow {
   id: string;
   tenant_id: string;
   order_id: string;
-  amountCents: string;
+  amount_cents: string;
   currency: string;
   status: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PaymentIntentRepository {
@@ -30,12 +30,12 @@ class PaymentIntentRepository {
       id: row.id,
       tenantId: row.tenant_id,
       orderId: row.order_id,
-      amountCents: parseFloat(row.amount),
+      amountCents: parseInt(row.amount_cents, 10),
       currency: row.currency as any,
       status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -50,16 +50,16 @@ class PaymentIntentRepository {
       tenantId,
       `
       INSERT INTO payment_intents (
-        tenant_id, order_id, amount, currency, status, metadata
+        tenant_id, order_id, amount_cents, currency, status, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, tenant_id, order_id, amount, currency, status,
-                metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, order_id, amount_cents, currency, status,
+                metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.orderId,
-        input.amount,
+        input.amountCents,
         input.currency || 'BRL',
         'CREATED',
         JSON.stringify(input.metadata || {}),
@@ -83,8 +83,8 @@ class PaymentIntentRepository {
     const row = await runQueryWithTenant<PaymentIntentRow>(
       tenantId,
       `
-      SELECT id, tenant_id, order_id, amount, currency, status,
-             metadata, createdAt, updatedAt
+      SELECT id, tenant_id, order_id, amount_cents, currency, status,
+             metadata, created_at, updated_at
       FROM payment_intents
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -105,11 +105,11 @@ class PaymentIntentRepository {
     const rows = await runQueriesWithTenant<PaymentIntentRow>(
       tenantId,
       `
-      SELECT id, tenant_id, order_id, amount, currency, status,
-             metadata, createdAt, updatedAt
+      SELECT id, tenant_id, order_id, amount_cents, currency, status,
+             metadata, created_at, updated_at
       FROM payment_intents
       WHERE tenant_id = $1 AND order_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, orderId]
     );
@@ -158,8 +158,8 @@ class PaymentIntentRepository {
       UPDATE payment_intents
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, order_id, amount, currency, status,
-                metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, order_id, amount_cents, currency, status,
+                metadata, created_at, updated_at
       `,
       params
     );

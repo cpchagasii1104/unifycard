@@ -216,27 +216,8 @@ class MarketplaceSearchService {
       return 'unknown';
     }
 
-    try {
-      const { serviceAvailabilityRepository } = await import(
-        '../services/service-availability.repository'
-      );
-      const availabilities = await serviceAvailabilityRepository.findByService(tenantId, serviceId);
-
-      // Verificar se há disponibilidade no período
-      const hasAvailability = availabilities.some((avail) => {
-        const availStart = new Date(avail.startTime);
-        const availEnd = new Date(avail.endTime);
-        return availStart <= dateRange.end && availEnd >= dateRange.start;
-      });
-
-      if (hasAvailability) {
-        return 'available';
-      }
-
-      return 'unavailable';
-    } catch (err) {
-      return 'unknown';
-    }
+    // service-availability.repository removido — retorno conservador
+    return 'unknown';
   }
 
   /**

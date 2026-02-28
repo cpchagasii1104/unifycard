@@ -96,7 +96,7 @@ class SupplierService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.createdByActorId || null,
         actor_type: 'user',
         source: 'automation',

@@ -23,7 +23,7 @@ export interface RegionalFee {
   sourceType: RegionalFeeSourceType;
   sourceId: string;
   grossAmount: number; // em centavos
-  feeBps: number; // ex: 3.50
+  feeBps: number; // ex: 350 = 3.5%
   feeAmount: number; // em centavos
   settlementId: string | null;
   metadata: Record<string, any>;
@@ -38,7 +38,7 @@ export interface CreateRegionalFeeInput {
   sourceType: RegionalFeeSourceType;
   sourceId: string;
   grossAmount: number; // em centavos
-  feeBps: number; // ex: 3.50
+  feeBps: number; // ex: 350 = 3.5%
   feeAmount: number; // em centavos
   settlementId?: string | null;
   metadata?: Record<string, any>;

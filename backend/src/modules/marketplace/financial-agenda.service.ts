@@ -21,137 +21,36 @@ class FinancialAgendaService {
    * Busca contas a pagar futuras
    */
   async getUpcomingPayables(
-    tenantId: string,
-    startDate?: Date,
-    endDate?: Date
+    _tenantId: string,
+    _startDate?: Date,
+    _endDate?: Date
   ): Promise<FinancialAgendaItem[]> {
-    const { accountsPayableRepository } = await import('./accounts-payable.repository');
-    
-    const filters: any = {
-      status: 'PENDING',
-    };
-
-    if (startDate) {
-      filters.dueDateFrom = startDate;
-    }
-
-    if (endDate) {
-      filters.dueDateTo = endDate;
-    }
-
-    const payables = await accountsPayableRepository.listPayables(tenantId, filters);
-
-    return payables.map((payable) => ({
-      id: payable.id,
-      type: 'PAYABLE' as const,
-      date: payable.dueDate,
-      amountCents: payable.amountCents,
-      currency: payable.currency,
-      description: `Conta a pagar - ${payable.referenceType}`,
-      status: payable.status,
-      metadata: {
-        payableId: payable.id,
-        supplierId: payable.supplierId,
-        referenceType: payable.referenceType,
-        referenceId: payable.referenceId,
-      },
-    }));
+    // accounts-payable.repository removido (migrado/SSOT) — projeção read-only retorna vazio
+    return [];
   }
 
   /**
    * Busca contas a receber futuras
    */
   async getUpcomingReceivables(
-    tenantId: string,
-    startDate?: Date,
-    endDate?: Date
+    _tenantId: string,
+    _startDate?: Date,
+    _endDate?: Date
   ): Promise<FinancialAgendaItem[]> {
-    const { accountsReceivableRepository } = await import('./accounts-receivable.repository');
-    
-    const filters: any = {
-      status: 'PENDING',
-    };
-
-    if (startDate) {
-      filters.expectedAtFrom = startDate;
-    }
-
-    if (endDate) {
-      filters.expectedAtTo = endDate;
-    }
-
-    const receivables = await accountsReceivableRepository.listReceivables(tenantId, filters);
-
-    return receivables.map((receivable) => ({
-      id: receivable.id,
-      type: 'RECEIVABLE' as const,
-      date: receivable.expectedAt,
-      amountCents: receivable.amountCents,
-      currency: receivable.currency,
-      description: `Conta a receber - ${receivable.sourceType}`,
-      status: receivable.status,
-      metadata: {
-        receivableId: receivable.id,
-        actorId: receivable.actorId,
-        sourceType: receivable.sourceType,
-        sourceId: receivable.sourceId,
-      },
-    }));
+    // accounts-receivable.repository removido (migrado/SSOT) — projeção read-only retorna vazio
+    return [];
   }
 
   /**
    * Busca settlements futuros
    */
   async getUpcomingSettlements(
-    tenantId: string,
-    startDate?: Date,
-    endDate?: Date
+    _tenantId: string,
+    _startDate?: Date,
+    _endDate?: Date
   ): Promise<FinancialAgendaItem[]> {
-    const { settlementRepository } = await import('./settlement.repository');
-    
-    const filters: any = {
-      status: 'PENDING',
-    };
-
-    const settlements = await settlementRepository.listSettlements(tenantId, filters);
-
-    // Filtrar por data planejada (se houver no metadata)
-    let filtered = settlements;
-    if (startDate || endDate) {
-      filtered = settlements.filter((settlement) => {
-        const plannedAt = settlement.metadata?.plannedAt
-          ? new Date(settlement.metadata.plannedAt)
-          : settlement.createdAt;
-
-        if (startDate && plannedAt < startDate) {
-          return false;
-        }
-
-        if (endDate && plannedAt > endDate) {
-          return false;
-        }
-
-        return true;
-      });
-    }
-
-    return filtered.map((settlement) => ({
-      id: settlement.id,
-      type: 'SETTLEMENT' as const,
-      date: settlement.metadata?.plannedAt
-        ? new Date(settlement.metadata.plannedAt)
-        : settlement.createdAt,
-      amountCents: settlement.feeAmountCents,
-      currency: settlement.currency,
-      description: `Settlement regional - ${settlement.sourceType}`,
-      status: settlement.status,
-      metadata: {
-        settlementId: settlement.id,
-        regionId: settlement.regionId,
-        sourceType: settlement.sourceType,
-        sourceId: settlement.sourceId,
-      },
-    }));
+    // settlement.repository removido (migrado/SSOT) — projeção read-only retorna vazio
+    return [];
   }
 
   /**
@@ -273,9 +172,9 @@ class FinancialAgendaService {
 
     items.forEach((item) => {
       if (item.type === 'RECEIVABLE' || item.type === 'SETTLEMENT') {
-        totalInflow += item.amount;
+        totalInflow += item.amountCents;
       } else {
-        totalOutflow += item.amount;
+        totalOutflow += item.amountCents;
       }
     });
 
@@ -292,9 +191,9 @@ class FinancialAgendaService {
       }
 
       if (item.type === 'RECEIVABLE' || item.type === 'SETTLEMENT') {
-        byDate[dateKey].inflow += item.amount;
+        byDate[dateKey].inflow += item.amountCents;
       } else {
-        byDate[dateKey].outflow += item.amount;
+        byDate[dateKey].outflow += item.amountCents;
       }
 
       byDate[dateKey].net = byDate[dateKey].inflow - byDate[dateKey].outflow;

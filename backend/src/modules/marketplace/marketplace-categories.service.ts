@@ -130,13 +130,7 @@ class MarketplaceCategoriesService {
     // TODO: Implementar filtro de metadata quando disponível
     let marketplaceChildren = children;
 
-    // Filtrar por marketplace_domain se fornecido (default: 'market' para compatibilidade)
-    if (filters.marketplaceDomain) {
-      const domain = filters.marketplaceDomain;
-      marketplaceChildren = marketplaceChildren.filter(
-        (c) => (c.metadata?.marketplace_domain || 'market') === domain
-      );
-    }
+    // Filtrar por marketplace_domain: BLOQUEIO - Category (core) não declara metadata; filtro desativado até core expor.
 
     // Se actorId foi fornecido, filtrar apenas categorias importadas
     if (filters.actorId) {
@@ -144,15 +138,8 @@ class MarketplaceCategoriesService {
       marketplaceChildren = marketplaceChildren.filter((c) => importedCategoryIds.includes(c.categoryId));
     }
 
-    // Ordenar: branches primeiro, depois categories, depois subcategories, depois null
-    marketplaceChildren.sort((a, b) => {
-      const taxonomyOrder = { branch: 0, category: 1, subcategory: 2 };
-      const aOrder = taxonomyOrder[a.metadata?.taxonomy as keyof typeof taxonomyOrder] ?? 3;
-      const bOrder = taxonomyOrder[b.metadata?.taxonomy as keyof typeof taxonomyOrder] ?? 3;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      // Se mesma ordem, ordenar por nome
-      return a.name.localeCompare(b.name);
-    });
+    // Ordenar por nome (ordenar por taxonomy requer metadata em Category - core não expõe ainda)
+    marketplaceChildren.sort((a, b) => a.name.localeCompare(b.name));
 
     // Converter para MarketplaceCategory com path e level corretos
     return Promise.all(marketplaceChildren.map((c) => this.toMarketplaceCategory(c)));
@@ -415,6 +402,7 @@ class MarketplaceCategoriesService {
 
     return {
       ...category,
+      id: category.categoryId,
       type: this.inferCategoryType(category),
       path,
       level: level - 1, // Ajustar para começar em 0
@@ -452,6 +440,7 @@ class MarketplaceCategoriesService {
   private toMarketplaceCategorySync(category: Category): MarketplaceCategory {
     return {
       ...category,
+      id: category.categoryId,
       type: this.inferCategoryType(category),
       path: [category.slug], // Path parcial (apenas slug atual)
       level: 0, // Será calculado corretamente quando necessário

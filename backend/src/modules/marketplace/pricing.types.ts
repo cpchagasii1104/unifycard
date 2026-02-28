@@ -12,7 +12,7 @@ export interface ProductPrice {
   currency: string;
   validFrom: Date;
   validTo: Date | null;
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,13 +22,18 @@ export interface Promotion {
   tenantId: string;
   name: string;
   type: PromotionType;
-  valueCents: number;
+  /**
+   * Valor da promoção conforme SSOT do schema:
+   * - PERCENTAGE: 0..100 (percentual)
+   * - FIXED: valor em moeda (ex.: 5.00 = R$ 5,00)
+   */
+  value: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom: Date;
   validTo: Date | null;
   isActive: boolean;
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,19 +44,19 @@ export interface CreateProductPriceInput {
   currency?: string;
   validFrom?: Date;
   validTo?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreatePromotionInput {
   name: string;
   type: PromotionType;
-  valueCents: number;
+  value: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom?: Date;
   validTo?: Date;
   isActive?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PriceBreakdown {

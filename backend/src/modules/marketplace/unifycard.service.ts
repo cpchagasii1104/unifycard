@@ -9,6 +9,11 @@ import type {
   UnifyCardTransactionFilters,
 } from './unifycard.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const unifyCardRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('UnifyCard migrated to Bank')),
+});
+
 /**
  * Service para UnifyCard Acquiring
  * 
@@ -200,7 +205,7 @@ class UnifyCardService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.createdByActorId || data.capturedByActorId || data.settledByActorId || null,
         actor_type: 'user',
         source: 'unifycard',

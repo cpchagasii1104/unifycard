@@ -120,10 +120,10 @@ class PaymentMethodService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'LOW',
+        severity: 'low',
         actor_id: data.createdByActorId,
         actor_type: 'user',
-        source: 'marketplace',
+        source: 'validation',
         context: {
           method_id: data.methodId,
           actor_id: data.actorId,

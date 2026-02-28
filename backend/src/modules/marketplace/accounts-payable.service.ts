@@ -10,6 +10,11 @@ import type {
   AccountsPayableFilters,
 } from './accounts-payable.types';
 
+/** Repo migrado para Bank - fail-fast até migração */
+const accountsPayableRepository = new Proxy({} as any, {
+  get: () => () => Promise.reject(new Error('AccountsPayable migrated to Bank')),
+});
+
 /**
  * Service para Contas a Pagar
  * 
@@ -342,7 +347,7 @@ class AccountsPayableService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: data.createdByActorId || data.paidByActorId || data.cancelledByActorId || null,
         actor_type: 'user',
         source: 'automation',

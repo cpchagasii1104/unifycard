@@ -53,7 +53,7 @@ class InventoryReservationService {
 
       // 2. Calcular saldo disponível (com lock)
       const balance = await inventoryService.getCurrentBalance(tenantId, input.productVariantId);
-      const totalBalance = balance?.currentQuantity || 0;
+      const totalBalance = balance.quantity;
 
       // 3. Calcular quantidade reservada (ativa) - dentro da transação
       const reservedQuantity = await inventoryReservationRepository.getReservedQuantityByVariant(
@@ -107,7 +107,7 @@ class InventoryReservationService {
   ): Promise<AvailableStock> {
     // 1. Buscar saldo real (derivado de movements)
     const balance = await inventoryService.getCurrentBalance(tenantId, productVariantId);
-    const totalBalance = balance?.currentQuantity || 0;
+    const totalBalance = balance.quantity;
 
     // 2. Buscar quantidade reservada (ativa)
     const reservedQuantity = await inventoryReservationRepository.getReservedQuantityByVariant(

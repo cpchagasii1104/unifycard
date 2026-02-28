@@ -14,6 +14,7 @@ import type {
   PaymentPlan,
   DeliveryOrder,
   ServiceOrder,
+  ServiceOffering,
   Subscription,
   SubscriptionCycle,
   IndustryAccount,
@@ -47,6 +48,7 @@ import type {
   ServiceDispatch,
   ProviderPresence,
   ServicePreReservation,
+  ServiceBooking,
   ServicePaymentHold,
   ServiceCompletionSignal,
   ServiceVisit,
@@ -103,8 +105,13 @@ import type {
 } from '@contracts/marketplace';
 import type { IDispatchStateReader, IProviderOnlineWriter } from './sub-services/dispatch/dispatch.types';
 import { MarketplaceDispatchService } from './sub-services/dispatch/dispatch.service';
+import {
+  MarketplaceDispatchDomainService,
+  type IDispatchOrchestrator,
+} from './sub-services/dispatch/marketplace-dispatch.service';
 import { MarketplaceB2BService } from "./sub-services/b2b/marketplace-b2b.service";
 import { MarketplaceSubscriptionsService } from "./sub-services/subscriptions/subscriptions.service";
+import { MarketplaceVouchersService } from "./sub-services/vouchers/vouchers.service";
 
 /**
  * Perfil de custo operacional legado (actor + period).
@@ -4025,6 +4032,22 @@ export class MarketplaceService {
 
   private readonly b2bService = new MarketplaceB2BService(this);
   private readonly subscriptionsService = new MarketplaceSubscriptionsService(this);
+  private readonly vouchersService = new MarketplaceVouchersService(this);
+
+  /**
+   * Orchestrator: wrapper para sub-service Vouchers (getServiceOffering)
+   * Map interno usa offering_id; contrato ServiceOffering usa offeringId — cast para interface.
+   */
+  getServiceOffering(offeringId: string): ServiceOffering | null {
+    return (this.serviceOfferings.get(offeringId) ?? null) as unknown as ServiceOffering | null;
+  }
+
+  /**
+   * Orchestrator: wrapper para sub-service Vouchers (Economic Identity)
+   */
+  async getEconomicIdentity(tenantId: string, userId: string): Promise<EconomicIdentity | null> {
+    return economicIdentityService.getEconomicIdentity(tenantId, userId);
+  }
 
   /**
    * Criar contrato comercial B2B (rascunho)
@@ -5811,6 +5834,55 @@ export class MarketplaceService {
 
   private readonly dispatchService = new MarketplaceDispatchService(this.dispatchStateAdapter);
 
+  /** Orquestrador explícito para o domínio Dispatch (evita recursão ao delegar ao domain service) */
+  private get dispatchOrchestrator(): IDispatchOrchestrator {
+    const self = this;
+    return {
+      getServiceDispatches: () => self.serviceDispatches.values(),
+      getPreReservations: () => self.servicePreReservations.values(),
+      getServiceBookings: () => self.serviceBookings.values() as unknown as Iterable<ServiceBooking>,
+      updateServiceDispatch(id: string, patch: Partial<ServiceDispatch>): void {
+        const d = self.serviceDispatches.get(id);
+        if (!d) return;
+        self.serviceDispatches.set(id, { ...d, ...patch });
+      },
+      expirePreReservations(): void {
+        const now = new Date();
+        const expiredPreReservations: ServicePreReservation[] = [];
+        for (const preReservation of self.servicePreReservations.values()) {
+          if (preReservation.status === 'active' && new Date(preReservation.expiresAt) < now) {
+            preReservation.status = 'expired';
+            preReservation.expiredAt = now.toISOString();
+            self.servicePreReservations.set(preReservation.preReservationId, preReservation);
+            expiredPreReservations.push(preReservation);
+            try {
+              if (typeof (self as any).generateEconomicEvent === 'function') {
+                (self as any).generateEconomicEvent({
+                  type: 'service_pre_reservation_expired',
+                  region: { country: 'BR', state: 'PR', city: 'Curitiba' },
+                  actorId: preReservation.providerActorId,
+                  actorType: 'service_provider',
+                  referenceId: preReservation.preReservationId,
+                  visibility: { scope: 'restricted' },
+                });
+              }
+            } catch {
+              // ignorar
+            }
+          }
+        }
+        if (expiredPreReservations.length > 0) {
+          marketplaceLogger.init('Pré-reservas expiradas', { count: expiredPreReservations.length });
+        }
+      },
+      recordDispatchResponse(id: string, status: 'accepted' | 'declined'): void {
+        self.dispatchService.recordDispatchResponse(id, status);
+      },
+    };
+  }
+
+  private readonly dispatchDomainService = new MarketplaceDispatchDomainService(this.dispatchOrchestrator);
+
   /**
    * Criar requisição de serviço
    * Com proteções anti-spam
@@ -6566,7 +6638,14 @@ export class MarketplaceService {
    * Buscar dispatch por ID
    */
   getServiceDispatch(dispatchId: string): ServiceDispatch | null {
-    return this.serviceDispatches.get(dispatchId) || null;
+    return this.dispatchDomainService.getServiceDispatch(dispatchId) ?? null;
+  }
+
+  /**
+   * Atualizar dispatch (patch)
+   */
+  updateServiceDispatch(dispatchId: string, patch: Partial<ServiceDispatch>): void {
+    this.dispatchDomainService.updateServiceDispatch(dispatchId, patch);
   }
 
   /**
@@ -6607,7 +6686,7 @@ export class MarketplaceService {
    * Registrar resposta a dispatch (aceito ou recusado)
    */
   recordDispatchResponse(dispatchId: string, status: 'accepted' | 'declined'): void {
-    this.dispatchService.recordDispatchResponse(dispatchId, status);
+    this.dispatchDomainService.recordDispatchResponse(dispatchId, status);
   }
 
   /**
@@ -6684,7 +6763,7 @@ export class MarketplaceService {
     already_accepted: boolean;
     acceptedBy?: string;
   } {
-    return this.dispatchService.getDispatchStatusForProvider(dispatchId, providerActorId);
+    return this.dispatchDomainService.getDispatchStatusForProvider(dispatchId, providerActorId);
   }
 
   // ============================================================
@@ -7102,54 +7181,21 @@ export class MarketplaceService {
    * Expirar pré-reservas automaticamente
    */
   expirePreReservations(): void {
-    const now = new Date();
-    const expiredPreReservations: ServicePreReservation[] = [];
-
-    for (const preReservation of this.servicePreReservations.values()) {
-      if (preReservation.status === 'active' && new Date(preReservation.expiresAt) < now) {
-        preReservation.status = 'expired';
-        preReservation.expiredAt = now.toISOString();
-        this.servicePreReservations.set(preReservation.preReservationId, preReservation);
-        expiredPreReservations.push(preReservation);
-
-        // Registrar evento econômico (restricted)
-        try {
-          if (typeof (this as any).generateEconomicEvent === 'function') {
-            (this as any).generateEconomicEvent({
-              type: 'service_pre_reservation_expired',
-              region: { country: 'BR', state: 'PR', city: 'Curitiba' }, // TODO: obter da request
-              actorId: preReservation.providerActorId,
-              actorType: 'service_provider',
-              reference_id: preReservation.preReservationId,
-              visibility: { scope: 'restricted' },
-            });
-          }
-        } catch (err) {
-          // Ignorar se método não existir
-        }
-      }
-    }
-
-    if (expiredPreReservations.length > 0) {
-      marketplaceLogger.init('Pré-reservas expiradas', {
-        count: expiredPreReservations.length,
-      });
-    }
+    this.dispatchDomainService.expirePreReservations();
   }
 
   /**
    * Buscar pré-reserva por ID
    */
   getPreReservation(preReservationId: string): ServicePreReservation | null {
-    return this.servicePreReservations.get(preReservationId) || null;
+    return this.dispatchDomainService.getPreReservation(preReservationId);
   }
 
   /**
    * Buscar pré-reservas por dispatch
    */
   getPreReservationsByDispatch(dispatchId: string): ServicePreReservation[] {
-    return Array.from(this.servicePreReservations.values())
-      .filter(pr => pr.dispatchId === dispatchId);
+    return this.dispatchDomainService.getPreReservationsByDispatch(dispatchId);
   }
 
   // ============================================================

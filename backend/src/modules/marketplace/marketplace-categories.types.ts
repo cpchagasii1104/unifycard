@@ -11,11 +11,18 @@ export type MarketplaceCategoryType = 'service' | 'product' | 'hybrid';
 
 /**
  * Categoria do Marketplace (wrapper do Category canônico)
+ * Campos opcionais (metadata, icon, color, isActive) alinham ao domínio quando expostos pela API.
  */
 export interface MarketplaceCategory extends Category {
+  /** Alias para categoryId em respostas de API */
+  id?: string;
   type?: MarketplaceCategoryType;
   path: string[]; // Path completo da hierarquia
   level: number;
+  metadata?: Record<string, unknown>;
+  icon?: string;
+  color?: string;
+  isActive?: boolean;
 }
 
 /**

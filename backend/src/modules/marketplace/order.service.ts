@@ -6,6 +6,7 @@
 import { orderRepository } from './order.repository';
 import { orderItemRepository } from './order-item.repository';
 import { orderStatusHistoryRepository } from './order-status-history.repository';
+import { productRepository } from './product.repository';
 import { productVariantRepository } from './product-variant.repository';
 import type {
   Order,
@@ -46,10 +47,10 @@ class OrderService {
    * - CANCELLED nunca volta
    */
   private readonly ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-    DRAFT: ['SUBMITTED', 'CANCELLED'],
-    SUBMITTED: ['CANCELLED', 'EXPIRED'],
-    CANCELLED: [], // Nunca volta
-    EXPIRED: [], // Nunca volta
+    draft: ['submitted', 'cancelled'],
+    submitted: ['cancelled', 'expired'],
+    cancelled: [], // Nunca volta
+    expired: [], // Nunca volta
   };
 
   /**
@@ -170,9 +171,9 @@ class OrderService {
       throw new Error(`Pedido não encontrado: ${orderId}`);
     }
 
-    if (order.status !== 'DRAFT') {
+    if (order.status !== 'draft') {
       throw new Error(
-        `Não é possível adicionar item. Pedido está em status ${order.status}. Apenas DRAFT permite edição.`
+        `Não é possível adicionar item. Pedido está em status ${order.status}. Apenas draft permite edição.`
       );
     }
 
@@ -276,9 +277,9 @@ class OrderService {
       throw new Error(`Pedido não encontrado: ${orderId}`);
     }
 
-    if (order.status !== 'DRAFT') {
+    if (order.status !== 'draft') {
       throw new Error(
-        `Não é possível remover item. Pedido está em status ${order.status}. Apenas DRAFT permite edição.`
+        `Não é possível remover item. Pedido está em status ${order.status}. Apenas draft permite edição.`
       );
     }
 
@@ -351,7 +352,7 @@ class OrderService {
 
     // Mudar status (valida transição e registra histórico)
     return await this.changeOrderStatus(tenantId, orderId, {
-      toStatus: 'SUBMITTED',
+      toStatus: 'submitted',
       changedByUserId,
       reason: reason || 'Pedido enviado',
     });
@@ -383,7 +384,7 @@ class OrderService {
 
     // Mudar status (valida transição e registra histórico)
     return await this.changeOrderStatus(tenantId, orderId, {
-      toStatus: 'CANCELLED',
+      toStatus: 'cancelled',
       changedByUserId,
       reason: reason || 'Pedido cancelado',
     });
@@ -415,7 +416,7 @@ class OrderService {
 
     // Mudar status (valida transição e registra histórico)
     return await this.changeOrderStatus(tenantId, orderId, {
-      toStatus: 'EXPIRED',
+      toStatus: 'expired',
       changedByUserId,
       reason: reason || 'Pedido expirado',
     });

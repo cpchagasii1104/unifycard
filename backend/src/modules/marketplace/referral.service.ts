@@ -74,10 +74,10 @@ class ReferralService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'LOW',
+        severity: 'low',
         actor_id: data.createdByActorId,
         actor_type: 'user',
-        source: 'marketplace',
+        source: 'validation',
         context: {
           referral_code_id: data.referralCodeId,
           code: data.code,

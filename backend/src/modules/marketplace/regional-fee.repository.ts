@@ -31,7 +31,7 @@ class RegionalFeeRepository {
       sourceType: row.source_type as any,
       sourceId: row.source_id,
       grossAmount: Number(row.gross_amount),
-      feePercentage: Number(row.fee_percentage),
+      feeBps: Math.round(Number(row.fee_percentage) * 100),
       feeAmount: Number(row.fee_amount),
       settlementId: row.settlement_id,
       metadata: row.metadata || {},
@@ -61,13 +61,16 @@ class RegionalFeeRepository {
         input.sourceType,
         input.sourceId,
         input.grossAmount,
-        input.feePercentage,
+        input.feeBps / 100,
         input.feeAmount,
         input.settlementId || null,
         JSON.stringify(input.metadata || {}),
       ]
     );
 
+    if (!row) {
+      throw new Error('RegionalFee not created');
+    }
     return this.toRegionalFee(row);
   }
 
@@ -88,7 +91,9 @@ class RegionalFeeRepository {
       return null;
     }
 
-    return this.toRegionalFee(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    return this.toRegionalFee(row);
   }
 
   async listFees(
@@ -215,6 +220,9 @@ class RegionalFeeRepository {
       [tenantId, feeId, settlementId]
     );
 
+    if (!row) {
+      throw new Error('RegionalFee not found after updateSettlementId');
+    }
     return this.toRegionalFee(row);
   }
 }
