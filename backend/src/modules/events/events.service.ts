@@ -22,7 +22,16 @@ import type {
   SearchEventsOptions,
 } from './events.types';
 import type { CreateOccupancyModelInput } from './occupancy.types';
-import type { EventStatus } from '@core/events/event.types';
+
+type EventStatusForModule = 'draft' | 'published' | 'cancelled' | 'finished' | 'completed' | 'archived';
+
+function mapRowStatusToEventStatus(s: string | undefined): EventStatusForModule {
+  const v = s || 'draft';
+  if (v === 'draft' || v === 'published' || v === 'cancelled' || v === 'finished' || v === 'completed' || v === 'archived') return v;
+  if (v === 'active') return 'published';
+  if (v === 'ended' || v === 'declared') return 'finished';
+  return 'draft';
+}
 
 class EventsService {
   private toEvent(row: EventRow & {
@@ -62,7 +71,7 @@ class EventsService {
       acceptsParking: row.accepts_parking,
       maxCapacity: row.max_capacity,
       currentOccupancy: row.current_occupancy,
-      status: (row.status || 'draft') as EventStatus,
+      status: mapRowStatusToEventStatus(row.status),
       timezone: row.timezone,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -678,7 +687,7 @@ class EventsService {
     return rows.map((row) => ({
       globalUserId: row.global_user_id,
       checkInTime: row.checked_in_at,
-      joinedAt: row.createdAt,
+      joinedAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
     }));
   }
 

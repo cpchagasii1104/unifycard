@@ -340,8 +340,8 @@ export class OrganizerBillingService {
       paymentGateway: row.payment_gateway || undefined,
       paymentGatewaySubscriptionId: row.payment_gateway_subscription_id || undefined,
       canceledAt: row.canceledAt,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt as string),
+      updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(row.updatedAt as string),
     };
   }
 }
