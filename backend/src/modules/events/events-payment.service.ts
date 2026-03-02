@@ -41,7 +41,7 @@ class EventsPaymentService {
       eventId,
       attendeeUserId,
       organizerId,
-      amount,
+      amountCents,
       currency = 'BRL',
     } = input;
 
@@ -49,7 +49,7 @@ class EventsPaymentService {
     const result = await bankIntegrationService.processEventTicketPayment(tenantId, {
       eventId,
       buyerUserId: attendeeUserId,
-      amount,
+      amountCents,
       currency: currency as any,
       metadata: {
         organizerId,
@@ -61,8 +61,8 @@ class EventsPaymentService {
     return {
       transactionIds: [result.transactionId],
       splits: result.splits.map((split) => ({
-        targetType: 'revenue_share', // Simplificado - detalhes estão no bank
-        amountCents: split.amount,
+        targetType: 'revenue_share',
+        amountCents: split.amountCents,
         transactionId: result.transactionId,
       })),
     };

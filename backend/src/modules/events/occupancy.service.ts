@@ -260,7 +260,7 @@ export class OccupancyService {
     }
 
     const stats = await runQueryWithTenant<{
-      totalCents: string;
+      total: string;
       confirmed: string;
       checked_in: string;
       no_shows: string;

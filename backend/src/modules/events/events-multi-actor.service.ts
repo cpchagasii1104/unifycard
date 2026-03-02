@@ -366,7 +366,7 @@ class EventsMultiActorService {
       countParams.push(status);
     }
 
-    const countRows = await runQueriesWithTenant<{ totalCents: string }>(
+    const countRows = await runQueriesWithTenant<{ total: string }>(
       tenantId,
       countQuery,
       countParams
@@ -374,7 +374,7 @@ class EventsMultiActorService {
 
     return {
       events: eventRows.map((row) => this.toEvent(row)),
-      totalCents: parseInt(countRows[0]?.total || '0', 10),
+      totalCents: parseInt(countRows[0]?.total ?? '0', 10),
     };
   }
 }
