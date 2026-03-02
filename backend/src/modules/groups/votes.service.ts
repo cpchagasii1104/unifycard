@@ -80,7 +80,11 @@ class VotesService {
         createdAt: Date;
         updatedAt: Date;
       };
-      const vote = toGroupVote(voteRow);
+      const vote = toGroupVote({
+        ...voteRow,
+        createdAt: voteRow.createdAt instanceof Date ? voteRow.createdAt.toISOString() : String(voteRow.createdAt),
+        updatedAt: voteRow.updatedAt instanceof Date ? voteRow.updatedAt.toISOString() : String(voteRow.updatedAt),
+      });
 
       // 2. Criar opções
       const createdOptions = [];
@@ -105,7 +109,10 @@ class VotesService {
             display_order: number;
             createdAt: Date;
           };
-          createdOptions.push(toGroupVoteOption(optionRow));
+          createdOptions.push(toGroupVoteOption({
+            ...optionRow,
+            createdAt: optionRow.createdAt instanceof Date ? optionRow.createdAt.toISOString() : String(optionRow.createdAt),
+          }));
         }
       }
 
@@ -257,11 +264,17 @@ class VotesService {
 
     // Se admin/owner, incluir lista de votantes
     if (isAdminOrOwner) {
-      const voters = await votesRepository.getVotersByOption(tenantId, voteId);
-      return {
+      const votersRaw = await votesRepository.getVotersByOption(tenantId, voteId);
+      const voteWithVoters: VoteWithVoters = {
         ...voteWithOptions,
-        voters,
-      } as VoteWithVoters;
+        voters: votersRaw.map((v) => ({
+          optionId: v.optionId,
+          userId: v.userId,
+          userName: v.userName,
+          createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt),
+        })),
+      };
+      return voteWithVoters;
     }
 
     return voteWithOptions;
