@@ -65,6 +65,20 @@ const updateGroupSchema = z.object({
 });
 
 /**
+ * Guards tipo-safe para objetos que podem ter id/icon/metadata (ex.: Category ou extensões).
+ * Usado em GET /categories para acessar campos sem cast inseguro.
+ */
+function hasId(x: unknown): x is { id: string } {
+  return typeof x === 'object' && x !== null && 'id' in x && typeof (x as { id?: unknown }).id === 'string';
+}
+function hasIcon(x: unknown): x is { icon: string } {
+  return typeof x === 'object' && x !== null && 'icon' in x && typeof (x as { icon?: unknown }).icon === 'string';
+}
+function hasMetadata(x: unknown): x is { metadata: unknown } {
+  return typeof x === 'object' && x !== null && 'metadata' in x;
+}
+
+/**
  * Helper: Verifica se o usuário é owner do grupo OU tem permission RBAC
  * Owner tem permissão implícita para gerenciar seu grupo
  */
@@ -92,6 +106,15 @@ async function requireGroupOwnerOrPermission(
   if (!groupId) {
     throw fastify.httpErrors.badRequest('Group ID is required');
   }
+
+  // Resolver userId a partir do actorId para uso em isUserAdminOrOwner e logs
+  const { socialPortsRegistry } = await import('@core/social/ports-registry');
+  const actorRepository = socialPortsRegistry.getActorRepository();
+  const actor = await actorRepository.findById(tenantId, actorId);
+  if (!actor || !actor.user_id) {
+    throw fastify.httpErrors.badRequest('Actor não encontrado ou não é do tipo user');
+  }
+  const userIdForCheck = actor.user_id;
 
   // 1. Verificar se é owner do grupo OU admin (permissão implícita)
   try {
@@ -132,7 +155,7 @@ async function requireGroupOwnerOrPermission(
          */
         req.log.info({
           tenantId,
-          userId,
+          userId: userIdForCheck,
           groupId,
           permission,
           action: 'group_admin_bypass',
@@ -145,26 +168,17 @@ async function requireGroupOwnerOrPermission(
     // Não bloquear aqui para permitir que a rota retorne 404 apropriado
   }
 
-  // 2. Se não é owner, verificar RBAC
-  // ActionContext é obrigatório (V2)
+  // 2. Se não é owner, verificar RBAC (actor já resolvido acima)
   if (!req.actionContext || !req.actionContext.actorId) {
     throw fastify.httpErrors.badRequest('ActionContext obrigatório');
   }
 
-  // TODO: Atualizar para usar método V2 do RBAC quando disponível
-  // Por enquanto, usando método legado com mapeamento temporário
-  const { socialPortsRegistry } = await import('@core/social/ports-registry');
-  const actorRepository = socialPortsRegistry.getActorRepository();
-  const actor = await actorRepository.findById(tenantId, req.actionContext.actorId);
-  if (!actor || !actor.user_id) {
-    throw fastify.httpErrors.badRequest('Actor não encontrado ou não é do tipo user');
-  }
-  const check = await rbacService.userHasAllPermissions(tenantId, actor.user_id, [permission]);
+  const check = await rbacService.userHasAllPermissions(tenantId, userIdForCheck, [permission]);
   if (!check.hasPermission) {
     req.log.warn({
       tenantId,
-      userId,
-      rbacUserId,
+      userId: userIdForCheck,
+      rbacUserId: userIdForCheck,
       groupId,
       permission,
       action: 'group_access_denied',
@@ -176,8 +190,8 @@ async function requireGroupOwnerOrPermission(
 
   req.log.info({
     tenantId,
-    userId,
-    rbacUserId,
+    userId: userIdForCheck,
+    rbacUserId: userIdForCheck,
     groupId,
     permission,
     action: 'group_rbac_access_granted',
@@ -195,7 +209,10 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:create']),
     },
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
@@ -204,7 +221,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       // Resolver userId a partir do actorId (temporário, até services migrarem para actorId)
       const { socialPortsRegistry } = await import('@core/social/ports-registry');
       const actorRepository = socialPortsRegistry.getActorRepository();
-      const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+      const actor = await actorRepository.findById(tenantId, req.actionContext.actorId);
       if (!actor || !actor.user_id) {
         return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
       }
@@ -216,7 +233,7 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         const { coreService } = await import('@core/core.service');
         const profile = await coreService.getCompleteProfile(tenantId, userId);
         
-        if (profile.identity_status !== 'complete') {
+        if (profile.identity_status !== 'COMPLETE') {
           return reply.status(403).send({
             error: 'Cadastro incompleto',
             message: 'Para criar um grupo, você precisa concluir seu cadastro básico (nome, CPF, data de nascimento e sexo).',
@@ -313,16 +330,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
             rootCategory = currentCategory;
           }
 
-          // Extrair allowed_scopes do metadata da categoria raiz
-          const allowedScopes = rootCategory.metadata?.allowed_scopes as string[] | undefined;
+          // Extrair allowed_scopes do metadata da categoria raiz (acesso tipo-safe)
+          const rootMeta = hasMetadata(rootCategory) ? rootCategory.metadata : undefined;
+          const allowedScopes =
+            typeof rootMeta === 'object' && rootMeta !== null && 'allowed_scopes' in rootMeta && Array.isArray((rootMeta as { allowed_scopes: unknown }).allowed_scopes)
+              ? (rootMeta as { allowed_scopes: string[] }).allowed_scopes
+              : undefined;
 
           return {
-            categoryId: category.id,
+            categoryId: category.categoryId,
             name: category.name,
             slug: category.slug,
-            icon: category.icon || undefined,
-            description: category.description || undefined,
-            allowedScopes: allowedScopes || ['national', 'state', 'city', 'neighborhood'], // Default: todos permitidos
+            icon: hasIcon(category) ? category.icon : undefined,
+            description: category.description ?? undefined,
+            allowedScopes: allowedScopes ?? ['national', 'state', 'city', 'neighborhood'],
           };
         })
       );
