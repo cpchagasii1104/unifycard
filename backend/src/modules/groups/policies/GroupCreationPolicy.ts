@@ -27,8 +27,7 @@ class GroupCreationPolicy {
 
     if (groupsCreated >= this.INITIAL_LIMIT) {
       throw new ForbiddenError(
-        'Você já criou um grupo. No momento, cada usuário pode criar apenas um grupo.',
-        'GROUP_CREATION_LIMIT_REACHED'
+        'Você já criou um grupo. No momento, cada usuário pode criar apenas um grupo.'
       );
     }
   }
