@@ -120,10 +120,10 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const { groupId } = req.params;
       const userId = req.user.id;
-      const status = req.query.status;
+      const tenantId = req.tenant.id;
 
       // Validar: usuário é membro do grupo
-      const members = await groupsRepository.getMembers(req.tenant.id, groupId);
+      const members = await groupsRepository.getMembers(tenantId, groupId);
       const isMember = members.some((m) => m.userId === userId);
 
       if (!isMember) {
@@ -132,13 +132,14 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // Buscar votações
-      const votes = await votesService.getGroupVotes(req.tenant.id, groupId, status);
+      // Buscar votações (status opcional: open | closed)
+      const status = req.query.status;
+      const votes = await votesService.getGroupVotes(tenantId, groupId, status);
 
       // Adicionar contagem de votos para cada votação
       const votesWithCounts = await Promise.all(
         votes.map(async (vote) => {
-          const totalVotes = await votesRepository.getVoteResponseCount(req.tenant.id, vote.voteId);
+          const totalVotes = await votesRepository.getVoteResponseCount(tenantId, vote.voteId);
           return {
             ...vote,
             totalVotes,
