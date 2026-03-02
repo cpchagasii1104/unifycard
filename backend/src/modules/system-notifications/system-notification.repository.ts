@@ -2,7 +2,7 @@
 // Repository para Notificações In-App
 // 🔴 BLINDAGEM: NÃO executa ações automaticamente
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   SystemNotification,
   CreateSystemNotificationInput,
@@ -148,7 +148,7 @@ class SystemNotificationRepository {
     const limit = filters.limit || 50;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant<SystemNotificationRow>(
+    const rows = await runQueriesWithTenant<SystemNotificationRow>(
       tenantId,
       `
       SELECT notification_id, tenant_id, recipient_actor_id, type, context_type, context_id,
@@ -162,8 +162,8 @@ class SystemNotificationRepository {
     );
 
     return {
-      notifications: rows.map((row) => this.toNotification(row)),
-      total,
+      notifications: rows.map((row: SystemNotificationRow) => this.toNotification(row)),
+      totalCents: total,
     };
   }
 
