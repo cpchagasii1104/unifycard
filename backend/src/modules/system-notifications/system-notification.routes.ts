@@ -39,7 +39,9 @@ const systemNotificationRoutes: FastifyPluginAsync = async (fastify) => {
         type: req.query.type as any,
         contextType: req.query.contextType as any,
         contextId: req.query.contextId,
-        unreadOnly: req.query.unreadOnly === 'true' || req.query.unreadOnly === true,
+        unreadOnly:
+          req.query.unreadOnly === true ||
+          (typeof req.query.unreadOnly === 'string' && req.query.unreadOnly === 'true'),
         limit: req.query.limit ? parseInt(req.query.limit.toString(), 10) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset.toString(), 10) : undefined,
       };
