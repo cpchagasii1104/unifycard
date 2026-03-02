@@ -22,7 +22,10 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: fastify.requirePermission(['groups:read']),
     },
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const { groupId } = req.params;
 
       try {
@@ -65,11 +68,11 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
               WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
             ),
             0
-          )::text as total
+          )::text as totalCents
           `,
           [groupId, tenantId]
         );
-        const lifetimeEconomicVolume = lifetimeEconomicVolumeRow ? Number(lifetimeEconomicVolumeRow.total) : 0;
+        const lifetimeEconomicVolume = lifetimeEconomicVolumeRow ? Number(lifetimeEconomicVolumeRow.totalCents) : 0;
 
         return reply.send({
           lifetimeEvents,
