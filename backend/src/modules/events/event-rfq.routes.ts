@@ -20,7 +20,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { eventId: string }; Body: Omit<CreateEventRFQInput, 'eventId'> }>(
     '/events/:eventId/rfqs',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
@@ -58,7 +61,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { eventId: string } }>(
     '/events/:eventId/rfqs',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const { eventId } = req.params;
 
       try {
@@ -80,7 +86,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { eventId: string; rfqId: string } }>(
     '/events/:eventId/rfqs/:rfqId',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const { eventId, rfqId } = req.params;
 
       try {
@@ -105,7 +114,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { eventId: string; rfqId: string } }>(
     '/events/:eventId/rfqs/:rfqId/close',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
@@ -139,7 +151,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { eventId: string; rfqId: string }; Body: Omit<CreateQuoteResponseInput, 'rfqId'> }>(
     '/events/:eventId/rfqs/:rfqId/quotes',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
@@ -177,7 +192,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { eventId: string; rfqId: string } }>(
     '/events/:eventId/rfqs/:rfqId/quotes',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const { eventId, rfqId } = req.params;
 
       try {
@@ -200,7 +218,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { eventId: string; specId: string } }>(
     '/events/:eventId/rfqs/from-spec/:specId',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
@@ -251,7 +272,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { eventId: string; rfqId: string } }>(
     '/events/:eventId/rfqs/:rfqId/compatible-companies',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const { eventId, rfqId } = req.params;
 
       try {
@@ -291,7 +315,10 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/events/:eventId/rfqs/:rfqId/dispatch',
     async (req, reply) => {
-      const tenantId = req.tenant!.id;
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
