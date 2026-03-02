@@ -131,8 +131,7 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
           tenantId,
           eventId,
           rfqId,
-          actionContext.actorId,
-          actionContext.actingUserId
+          actionContext.actorId
         );
         return reply.send({ rfq });
       } catch (error: any) {

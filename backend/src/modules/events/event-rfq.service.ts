@@ -16,12 +16,12 @@ import type {
   CreateEventRFQInput,
   CreateEventRFQResult,
   RFQItem,
-  RFQStatus,
   QuoteResponse,
   CreateQuoteResponseInput,
   EventRFQListResult,
   QuoteListResult,
 } from './event-rfq.types';
+import { RFQStatus } from './event-rfq.types';
 
 /**
  * Service para Event RFQ
@@ -129,8 +129,8 @@ class EventRFQService {
       items: input.items,
       criteria: input.criteria,
       status: RFQStatus.OPEN,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
       closedAt: null,
     };
 
@@ -406,8 +406,8 @@ class EventRFQService {
       notes: input.notes || null,
       validityDays: input.validityDays || null,
       validUntil,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
 
     // 5. Salvar no metadata do RFQ

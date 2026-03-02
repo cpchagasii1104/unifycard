@@ -342,12 +342,17 @@ class EventsService {
     }
 
     // Validar que endTime > startTime
-    if (input.endTime <= input.startTime) {
+    const startTime = input.startTime;
+    const endTime = input.endTime;
+    if (startTime == null || endTime == null) {
+      throw new Error('startTime e endTime são obrigatórios');
+    }
+    if (endTime <= startTime) {
       throw new Error('Data/hora de fim deve ser posterior à data/hora de início');
     }
 
     // Validar que sessão está dentro do período do evento
-    if (input.startTime < event.startTime || input.endTime > event.endTime) {
+    if (startTime < event.startTime || endTime > event.endTime) {
       throw new Error('Sessão deve estar dentro do período do evento');
     }
 
@@ -358,7 +363,7 @@ class EventsService {
       VALUES ($1, $2, $3, $4)
       RETURNING id, event_id, name, starts_at, ends_at, createdAt, updatedAt
       `,
-      [eventId, input.name, input.startTime, input.endTime]
+      [eventId, input.name, startTime, endTime]
     );
 
     if (!row) {
@@ -383,8 +388,13 @@ class EventsService {
       throw new Error('Evento não encontrado');
     }
 
+    const globalUserId = input.globalUserId;
+    if (!globalUserId) {
+      throw new Error('globalUserId é obrigatório');
+    }
+
     // Validar reputação mínima (exemplo: score >= 3.0)
-    const reputation = await reputationService.getScoreByGlobalUserId(input.globalUserId);
+    const reputation = await reputationService.getScoreByGlobalUserId(globalUserId);
     if (!reputation || reputation.scores.global < 3.0) {
       throw new Error('Usuário não possui reputação suficiente para ser designado como staff');
     }
@@ -412,7 +422,7 @@ class EventsService {
       VALUES ($1, $2, $3, $4)
       RETURNING id, event_id, global_user_id, role, assigned_by_global_user_id, createdAt
       `,
-      [eventId, input.globalUserId, input.role, assignedByGlobalUserId]
+      [eventId, globalUserId, input.role, assignedByGlobalUserId]
     );
 
     if (!row) {
@@ -687,7 +697,7 @@ class EventsService {
     return rows.map((row) => ({
       globalUserId: row.global_user_id,
       checkInTime: row.checked_in_at,
-      joinedAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
+      joinedAt: typeof row.createdAt === 'string' ? new Date(row.createdAt) : row.createdAt,
     }));
   }
 

@@ -80,7 +80,12 @@ class EventsMultiActorService {
       [tenantId]
     );
 
-    const cityId = input.cityId || tenant[0]?.city_id || null;
+    const cityId = input.cityId ?? tenant?.city_id ?? null;
+
+    const actorId = input.actorId;
+    if (!actorId) {
+      throw new Error('actorId é obrigatório para criar evento');
+    }
 
     // Criar evento
     const eventRows = await runQueriesWithTenant<EventRow & {
@@ -127,16 +132,20 @@ class EventsMultiActorService {
         input.stateId || null,
         input.countryId || null,
         globalUserId,
-        input.actorId,
+        actorId,
       ]
     );
 
-    const event = this.toEvent(eventRows[0]);
+    const firstRow = eventRows[0];
+    if (!firstRow) {
+      throw new Error('Falha ao criar evento');
+    }
+    const event = this.toEvent(firstRow);
 
     // Adicionar o criador como organizer automaticamente
     await this.addActorToEvent(tenantId, {
       eventId: event.id,
-      actorId: input.actorId,
+      actorId,
       role: 'organizer',
       canPublish: true,
       canEdit: true,
@@ -202,7 +211,10 @@ class EventsMultiActorService {
       ]
     );
 
-    return this.toEventActor(actorRows[0]);
+    if (!actorRows) {
+      throw new Error('Falha ao inserir actor no evento');
+    }
+    return this.toEventActor(actorRows);
   }
 
   /**
@@ -228,7 +240,11 @@ class EventsMultiActorService {
       throw new Error('Participação não encontrada');
     }
 
-    return this.toEventActor(actorRows[0]);
+    const firstRow = actorRows[0];
+    if (!firstRow) {
+      throw new Error('Participação não encontrada');
+    }
+    return this.toEventActor(firstRow);
   }
 
   /**
@@ -242,7 +258,8 @@ class EventsMultiActorService {
       [eventId]
     );
 
-    if (!requirementsRows[0]?.check_event_publish_requirements) {
+    const requirements = Array.isArray(requirementsRows) ? requirementsRows[0] : requirementsRows;
+    if (!requirements?.check_event_publish_requirements) {
       throw new Error(
         'Evento não pode ser publicado: requer pelo menos 1 artist e 1 venue aceitos'
       );

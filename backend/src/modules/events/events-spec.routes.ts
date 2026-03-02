@@ -175,9 +175,9 @@ const eventsSpecRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const specs = await eventSpecService.queryEventSpecs(tenantId, {
-        event_id: request.query.event_id,
-        actor_id: request.query.actor_id,
-        macro_intention: request.query.macro_intention as any,
+        eventId: request.query.event_id ?? (request.query as { eventId?: string }).eventId,
+        actorId: request.query.actor_id ?? (request.query as { actorId?: string }).actorId,
+        macroIntention: request.query.macro_intention as any,
         subflow: request.query.subflow as any,
         limit: request.query.limit || 100,
         offset: request.query.offset || 0,

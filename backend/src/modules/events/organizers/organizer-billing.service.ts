@@ -88,6 +88,10 @@ export class OrganizerBillingService {
       ]
     );
 
+    if (!row) {
+      throw new Error('Falha ao criar assinatura');
+    }
+
     // Atualizar plano do organizador
     await runQueryWithTenant(
       tenantId,
@@ -266,6 +270,10 @@ export class OrganizerBillingService {
       `,
       [now, newPeriodEnd, subscriptionId]
     );
+
+    if (!updated) {
+      throw new Error('Falha ao renovar assinatura');
+    }
 
     // Atualizar plano do organizador
     await runQueryWithTenant(

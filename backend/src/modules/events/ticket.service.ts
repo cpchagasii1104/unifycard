@@ -238,13 +238,14 @@ class TicketService {
         tenantId,
         {
           paymentIntentId: ticketSale.paymentIntentId,
-          actorId: event!.organizerActorId, // Organizador recebe
+          actorId: event!.organizerActorId,
           sourceType: 'EVENT_TICKET',
           sourceId: ticketSaleId,
-          expectedAt: new Date(), // Recebimento imediato
+          amountCents: ticket!.priceCents,
+          expectedAt: new Date(),
         },
         event!.organizerActorId,
-        null
+        undefined
       );
     } catch (receivableError) {
       // Log mas não bloqueia confirmação
@@ -299,6 +300,11 @@ class TicketService {
       const ticket = await eventTicketRepository.getTicketById(tenantId, ticketSale.eventTicketId);
       const event = await eventRepository.getEventById(tenantId, ticket!.eventId);
 
+      const saleMetadata = (ticketSale.metadata || {}) as Record<string, unknown>;
+      const commissionCents = saleMetadata.commission_snapshot && typeof (saleMetadata.commission_snapshot as Record<string, unknown>).total_commission_cents === 'number'
+        ? (saleMetadata.commission_snapshot as { total_commission_cents: number }).total_commission_cents
+        : 0;
+
       // Buscar settlement existente ou criar novo
       let eventSettlement = await eventSettlementService.getSettlementByEvent(tenantId, ticket!.eventId);
 
@@ -309,16 +315,14 @@ class TicketService {
           {
             eventId: ticket!.eventId,
             grossRevenue: ticket!.priceCents,
-            commissionsAmount: saleMetadata.commission_snapshot
-              ? (saleMetadata.commission_snapshot.total_commission_cents || 0)
-              : 0,
+            commissionsAmount: commissionCents,
             regionalFeeAmount: 0, // Será calculado quando settlement for liquidado
             metadata: {
               first_ticket_sale_id: ticketSaleId,
             },
           },
           event!.organizerActorId,
-          null
+          undefined
         );
       } else {
         // Atualizar settlement existente (somar receita bruta e comissões)

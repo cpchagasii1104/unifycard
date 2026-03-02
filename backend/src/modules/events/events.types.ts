@@ -200,7 +200,7 @@ export interface CreateEventInput {
   cityId?: string | null;
   stateId?: string | null;
   countryId?: string | null;
-  group_id?: string | null;
+  group_id?: string;
   actorId?: string; // Actor que está criando o evento
 }
 

@@ -180,13 +180,21 @@ class OrganizersService {
     input: AddOrganizerMemberInput,
     requesterGlobalUserId: string
   ): Promise<EventOrganizerMember> {
+    if (requesterGlobalUserId == null || requesterGlobalUserId === '') {
+      throw new Error('requesterGlobalUserId é obrigatório');
+    }
+    const globalUserId = input.globalUserId;
+    if (globalUserId == null || globalUserId === '') {
+      throw new Error('globalUserId é obrigatório');
+    }
+    const role = input.role ?? 'viewer';
     // Verificar permissão
     const hasPermission = await this.hasPermission(tenantId, organizerId, requesterGlobalUserId, ['owner', 'admin']);
     if (!hasPermission) {
       throw new Error('Apenas owner ou admin podem adicionar membros');
     }
 
-    return this.addMemberInternal(tenantId, organizerId, input.globalUserId, input.role);
+    return this.addMemberInternal(tenantId, organizerId, globalUserId, role);
   }
 
   /**

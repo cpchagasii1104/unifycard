@@ -246,7 +246,7 @@ class EventFeedPlugin implements SocialFeedPlugin {
       // imageUrl e thumbnailUrl podem ser adicionados se o evento tiver imagens
       metadata: visualMetadata,
       createdAt: event.createdAt,
-      updatedAt: event.updatedAt,
+      updatedAt: event.updatedAt ? (typeof event.updatedAt === 'string' ? new Date(event.updatedAt) : event.updatedAt) : undefined,
       // availableActions será preenchido separadamente via getAvailableActions
     };
   }
