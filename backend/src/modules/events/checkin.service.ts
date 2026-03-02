@@ -196,10 +196,10 @@ class CheckInService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.checkedInByActorId || data.checkedOutByActorId || null,
+        severity: 'medium',
+        actor_id: data.checkedInByActorId || data.checkedOutByActorId || undefined,
         actor_type: 'user',
-        source: 'events',
+        source: 'cultural_event_checkin',
         context: {
           event_id: data.eventId,
           ticket_sale_id: data.ticketSaleId,

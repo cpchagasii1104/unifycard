@@ -4,12 +4,18 @@
 import { eventTicketRepository } from './event-ticket.repository';
 import { ticketSaleRepository } from './ticket-sale.repository';
 import { eventRepository } from './event.repository';
+import type { PaymentCurrency } from '../marketplace/payment-intent.types';
 import type {
   EventTicket,
   CreateEventTicketInput,
   TicketSale,
   ReserveTicketInput,
 } from './event.types';
+
+function toPaymentCurrency(value: string): PaymentCurrency {
+  if (value === 'BRL' || value === 'USD' || value === 'EUR' || value === 'TEST') return value;
+  return 'BRL';
+}
 
 /**
  * Service para Bilheteria
@@ -131,7 +137,7 @@ class TicketService {
     const paymentIntent = await paymentIntentService.createPaymentIntent(tenantId, {
       orderId: submittedOrder.id,
       amountCents: ticket.priceCents / 100, // Converter centavos para valor
-      currency: ticket.currency,
+      currency: toPaymentCurrency(ticket.currency),
       paymentMethodId: input.paymentMethodId,
       metadata: {
         ticket_id: ticketId,
@@ -391,10 +397,10 @@ class TicketService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.createdByActorId || data.cancelledByActorId || null,
+        severity: 'medium',
+        actor_id: data.createdByActorId || data.cancelledByActorId || undefined,
         actor_type: 'user',
-        source: 'events',
+        source: 'cultural_event_checkin',
         context: {
           event_id: data.eventId,
           ticket_id: data.ticketId,

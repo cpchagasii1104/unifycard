@@ -138,10 +138,10 @@ class EventService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.createdByActorId || data.publishedByActorId || data.cancelledByActorId || null,
+        severity: 'medium',
+        actor_id: data.createdByActorId || data.publishedByActorId || data.cancelledByActorId || undefined,
         actor_type: 'user',
-        source: 'events',
+        source: 'cultural_event_checkin',
         context: {
           event_id: data.eventId,
           created_by_user_id: data.createdByUserId,
