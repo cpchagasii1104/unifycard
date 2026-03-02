@@ -11,6 +11,53 @@ import type {
 import { toGroupVote, toGroupVoteOption, toGroupVoteResponse } from './votes.types';
 
 class VotesRepository {
+  private normalizeVoteRow(row: {
+    vote_id: string;
+    tenant_id: string;
+    group_id: string;
+    created_by_user_id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    closesAt: Date | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+  }): Parameters<typeof toGroupVote>[0] {
+    return {
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+      updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+    };
+  }
+
+  private normalizeVoteOptionRow(row: {
+    option_id: string;
+    vote_id: string;
+    tenant_id: string;
+    text: string;
+    display_order: number;
+    createdAt: Date | string;
+  }): Parameters<typeof toGroupVoteOption>[0] {
+    return {
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    };
+  }
+
+  private normalizeVoteResponseRow(row: {
+    response_id: string;
+    vote_id: string;
+    option_id: string;
+    tenant_id: string;
+    user_id: string;
+    createdAt: Date | string;
+  }): Parameters<typeof toGroupVoteResponse>[0] {
+    return {
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+    };
+  }
+
   async createVote(
     tenantId: string,
     groupId: string,
@@ -51,7 +98,7 @@ class VotesRepository {
       throw new Error('Falha ao criar votação');
     }
 
-    return toGroupVote(row);
+    return toGroupVote(this.normalizeVoteRow(row));
   }
 
   async createVoteOptions(
@@ -82,7 +129,7 @@ class VotesRepository {
       );
 
       if (row) {
-        createdOptions.push(toGroupVoteOption(row));
+        createdOptions.push(toGroupVoteOption(this.normalizeVoteOptionRow(row)));
       }
     }
 
@@ -112,7 +159,7 @@ class VotesRepository {
       [voteId, tenantId]
     );
 
-    return row ? toGroupVote(row) : null;
+    return row ? toGroupVote(this.normalizeVoteRow(row)) : null;
   }
 
   async getVoteOptions(tenantId: string, voteId: string): Promise<GroupVoteOption[]> {
@@ -134,7 +181,7 @@ class VotesRepository {
       [voteId, tenantId]
     );
 
-    return rows.map(toGroupVoteOption);
+    return rows.map((r) => toGroupVoteOption(this.normalizeVoteOptionRow(r)));
   }
 
   async getVoteCounts(tenantId: string, voteId: string): Promise<Map<string, number>> {
@@ -179,7 +226,7 @@ class VotesRepository {
       [voteId, tenantId, userId]
     );
 
-    return row ? toGroupVoteResponse(row) : null;
+    return row ? toGroupVoteResponse(this.normalizeVoteResponseRow(row)) : null;
   }
 
   async createVoteResponse(
@@ -211,7 +258,7 @@ class VotesRepository {
       throw new Error('Falha ao registrar voto');
     }
 
-    return toGroupVoteResponse(row);
+    return toGroupVoteResponse(this.normalizeVoteResponseRow(row));
   }
 
   async getGroupVotes(
@@ -224,7 +271,7 @@ class VotesRepository {
       FROM group_votes
       WHERE group_id = $1 AND tenant_id = $2
     `;
-    const params: any[] = [groupId, tenantId];
+    const params: (string | number)[] = [groupId, tenantId];
 
     if (status) {
       query += ` AND status = $3`;
@@ -246,7 +293,7 @@ class VotesRepository {
       updatedAt: Date;
     }>(tenantId, query, params);
 
-    return rows.map(toGroupVote);
+    return rows.map((r) => toGroupVote(this.normalizeVoteRow(r)));
   }
 
   async getVotersByOption(tenantId: string, voteId: string): Promise<Array<{
@@ -276,7 +323,7 @@ class VotesRepository {
       optionId: row.option_id,
       userId: row.user_id,
       userName: row.name || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
     }));
   }
 
@@ -307,7 +354,7 @@ class VotesRepository {
       throw new Error('Votação não encontrada');
     }
 
-    return toGroupVote(row);
+    return toGroupVote(this.normalizeVoteRow(row));
   }
 
   async getVoteResponseCount(tenantId: string, voteId: string): Promise<number> {
