@@ -71,6 +71,18 @@ Leitura normativa obrigatória:
 * docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md
 * docs/01_normative/SSOT_REGISTRY_UNIFICARD.md
 
+### 2.4 Arquivos excluídos da leitura obrigatória (inexistentes no repositório)
+
+Os caminhos abaixo **não existem** em `docs/01_normative/` neste repositório.  
+**Não** exigem leitura, **não** geram ABORT por ausência e **não** substituem a leitura da Seção 2.2 / 2.3.
+
+| Caminho | Status |
+|---------|--------|
+| `docs/01_normative/00_SYSTEMIC_AUDIT_ENTRYPOINT.md` | **ausente** — documento não versionado |
+| `docs/01_normative/00_MAPA_DE_CONEXOES.md` | **ausente** — documento não versionado |
+
+Qualquer checklist ou prompt externo que os cite como obrigatórios fica **desatualizado** em relação a este protocolo até os arquivos serem criados e aqui referenciados.
+
 ---
 
 ## 3. LEITURA DO PLANO MESTRE (CONTEXTO OPERACIONAL)

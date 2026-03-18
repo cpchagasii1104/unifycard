@@ -1,0 +1,74 @@
+# FASE 4 — UNIFICARD_PLANO_DEFINITIVO_v7.md (CI Anti-Regressão)
+# Complementa .github/workflows/ssot-check.yml (regras adicionais + integridade Genesis)
+
+name: SSOT Guardian
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/migrations/**'
+      - 'backend/src/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/migrations/**'
+      - 'backend/src/**'
+
+jobs:
+  ssot-guardian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Genesis Integrity (Lei 2)
+        run: |
+          set -e
+          shopt -s nullglob
+          echo "Verificando integridade do Genesis (0001-0005)..."
+          BASE_REF="${GITHUB_BASE_REF:-main}"
+          if git rev-parse "origin/${BASE_REF}" >/dev/null 2>&1; then
+            for f in 0001 0002 0003 0004 0005; do
+              for path in backend/migrations/${f}_*.sql; do
+                [ -f "$path" ] || continue
+                if git diff "origin/${BASE_REF}"...HEAD -- "$path" | grep -q '^[-+]'; then
+                  echo "FAIL: Genesis migration alterada: $path"
+                  echo "VIOLAÇÃO DA LEI 2 (Forward-Only)"
+                  exit 1
+                fi
+              done
+            done
+          else
+            echo "Base origin/${BASE_REF} indisponível — pulando diff Genesis (primeiro push)"
+          fi
+          echo "Genesis íntegro ou verificação não aplicável"
+
+      - name: Check Parallel Ledger (src)
+        run: |
+          if grep -rn "CREATE TABLE.*ledger" backend/src --include="*.ts" 2>/dev/null | grep -v "bank_ledger"; then
+            echo "FAIL: Ledger paralelo em TypeScript"
+            exit 1
+          fi
+          echo "Nenhum ledger paralelo em src"
+
+      - name: Check Parallel Split (src)
+        run: |
+          if grep -rn "CREATE TABLE.*split" backend/src --include="*.ts" 2>/dev/null | grep -v "bank_splits"; then
+            echo "FAIL: Split paralelo em TypeScript"
+            exit 1
+          fi
+          echo "Nenhum split paralelo em src"
+
+      - name: Check Prohibited Structures (src)
+        run: |
+          PROHIBITED='accounts\.balance|ledger_entries|payment_splits|event_split_declarative'
+          if grep -rEn "$PROHIBITED" backend/src --include="*.ts" | grep -v test | grep -v '.spec.' | grep -v '.test.'; then
+            echo "FAIL: Estrutura proibida em src"
+            exit 1
+          fi
+          echo "Nenhuma estrutura proibida (grep)"
+
+      - name: SSOT Guardian passed
+        run: echo "SSOT Guardian passed"
