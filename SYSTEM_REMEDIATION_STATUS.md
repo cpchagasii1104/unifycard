@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 22 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 33 |
+| OPEN | 21 | 32 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 4 |
+| FIXED | 1 | 5 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 8 |
@@ -87,7 +87,7 @@
 | C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
 | C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
-| C45 | OPEN | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | — | Violação pré-existente de §4.8.1. Chamada a findOrCreateUserActor no bloco try do feed. Gate actor-writer-boundaries falha nesta linha. Bloqueia qualquer fix que adicione outra chamada ao mesmo método. |
+| C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
 | C46 | OPEN | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | service.create() passa user_id onde repository espera actor_id. groups.types.ts declara ownerUserId mas toGroup() retorna ownerActorId. Fix bloqueado por C45. |
 
 ### MEDIUM (12)
