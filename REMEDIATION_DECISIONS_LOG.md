@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0003 (2026-04-21) |
+| Última entrada | DECISION-0004 (2026-04-21) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -188,6 +188,34 @@ Registrar permanentemente toda decisão que envolva:
 ---
 
 *(Próxima entrada: DECISION-0004)*
+
+---
+
+### DECISION-0004 — C45+C46: fix canônico para groups.service createGroup
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violação:** C45, C46
+- **Contexto:**
+  groups.service.ts usa dynamic import de actorRepository diretamente (§4.8.1).
+  Fix tentado falhou no gate porque a violação era pré-existente na linha 225.
+  Cursor confirmou contrato do writer canônico.
+- **Fix mapeado para próxima sessão:**
+  1. Remover dynamic import de actorRepository no bloco try do feed (linha 225)
+  2. Antes do groupsRepository.create() (linha 187), adicionar:
+       const ownerActor = await ensureUserActor(tenantId, ownerUserId);
+     (ensureUserActor já importado no topo do service)
+  3. Passar ownerActor.actor_id para create()
+  4. No bloco try do feed: usar ownerActor.actor_id diretamente (já no escopo)
+  5. Corrigir groups.types.ts: ownerUserId → ownerActorId
+  6. Corrigir groups.service.ts: todas referências ownerUserId → ownerActorId
+  7. Corrigir groups.routes.ts: group.ownerUserId → group.ownerActorId
+- **Ordem dos commits:**
+  Commit 1: ensureUserActor antes do create + remover dynamic import (C45)
+  Commit 2: ownerUserId → ownerActorId em types + service + routes (C46)
+- **Responsável:** Clayton
+- **Validação prévia:** Cursor (actor-writer.service.ts contract audit)
+- **Supera:** nenhuma
 
 ---
 
