@@ -66,7 +66,47 @@ Registrar permanentemente toda decisão que envolva:
 
 ## Registros
 
-*(Nenhuma decisão registrada até 2026-04-21.)*
+---
+
+### DECISION-0001 — Falsos negativos do gate v1.1: 42P01 e metadata->> em decisão
+
+- **Data:** 2026-04-21
+- **Tipo:** ajuste_gate
+- **ID da violação:** C14 (42P01), C6 (metadata->>)
+- **Contexto:**
+  Validação manual (ETAPA 5 do gate v1.1) identificou 2 padrões que o gate não detecta:
+  1. Catches de 42P01 quando o código extrai `const code = error.code` antes do `if` —
+     o regex atual só cobre `error?.code === '42P01'` diretamente no bloco catch.
+     9 ocorrências reais não detectadas em unified-availability.routes.ts e outros.
+  2. metadata->> em decisão transacional quando a tabela transacional não aparece
+     no mesmo snippet SQL capturado — critério de tabela transacional muito restrito.
+     9 ocorrências reais não detectadas (city-readiness.service.ts, trust.service.ts, etc.)
+- **Opções consideradas:**
+  1. Expandir regex de 42P01 para cobrir extração de variável (`const code = error.code`)
+  2. Relaxar critério de metadata->> (não exigir tabela transacional no snippet)
+  3. Manter como está e registrar como dívida de gate v2
+- **Escolha:** Opção 3
+- **Justificativa:**
+  Gate v1.1 sub-reporta, não super-reporta. Sub-reportar é aceitável nesta fase —
+  significa que há violações reais que o gate não vê, mas não há ruído falso.
+  Expandir agora quebraria o princípio P2 (correção incremental) e a ETAPA 5
+  seria refeita. Registra como backlog do gate v2 (FASE 8 do PLAN).
+- **Consequências esperadas:**
+  - Curto prazo: 9+ catches de 42P01 e 9+ metadata->> continuam invisíveis ao gate
+  - Médio prazo: gate v2 adiciona Regra 8 (catches) cobrindo esses padrões
+- **Responsável:** Clayton
+- **Validação prévia:** Claude + Visual Code (ETAPA 5 validação manual)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando gate v2 implementar Regra 8)
+- **Referências:**
+  - unified-availability.routes.ts: linhas com `if (code === '42P01')`
+  - trust.service.ts: metadata->>'actor_id' em CASE WHEN
+  - SYSTEM_REMEDIATION_PLAN.md §6 (Loop de Validação do Gate)
+  - SYSTEM_REMEDIATION_PLAN.md FASE 8 (Gates Evolutivos)
+
+---
+
+*(Próxima entrada: DECISION-0002)*
 
 ---
 
