@@ -471,18 +471,6 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         message: 'Erro ao listar bookings',
       }, 'Erro ao listar bookings');
       
-      // 🔧 FIX: Se erro de tabela não existir ou schema, retornar array vazio
-      if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
-        fastify.log.warn({
-          tenantId: req.tenant.id,
-          message: 'Tabela bookings não existe ainda - retornando array vazio',
-        }, 'Tabela bookings não existe');
-        return reply.send({
-          ok: true,
-          data: [],
-        });
-      }
-      
       return reply.status(error.statusCode || 500).send({ 
         error: error.message || 'Erro ao listar bookings',
         ok: false,
