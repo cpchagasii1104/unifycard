@@ -992,24 +992,6 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         message: 'Erro ao detectar conflitos',
       }, 'Erro ao detectar conflitos');
       
-      // 🔧 FIX: Se erro de tabela não existir ou schema, retornar sem conflitos
-      if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
-        fastify.log.warn({
-          tenantId: req.tenant.id,
-          availabilityId: req.params.availabilityId,
-          actorId: req.params.actorId,
-          message: 'Tabela availability não existe ainda - retornando sem conflitos',
-        }, 'Tabela availability não existe');
-        return reply.send({
-          ok: true,
-          data: {
-            hasConflicts: false,
-            conflicts: [],
-            message: 'Nenhum conflito detectado',
-          },
-        });
-      }
-      
       return reply.status(error.statusCode || 500).send({ 
         error: error.message || 'Erro ao detectar conflitos',
         ok: false,
