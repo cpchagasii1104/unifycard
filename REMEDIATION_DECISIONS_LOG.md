@@ -274,4 +274,116 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
+### DECISION-0007 — C1: amputação controlada da tabela ledger fantasma
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violação:** C1
+- **Contexto:**
+  Codigo em 5 arquivos dentro de backend/src referencia uma tabela "ledger"
+  que nao existe no schema Genesis. O SSOT financeiro e bank_ledger, com
+  colunas completamente diferentes (direction vs entry_type, sem metadata,
+  sem JOIN com "transactions"). Nao e "renomear" — sao sistemas paralelos
+  com semantica distinta.
+
+  Mapeamento (confirmado via leitura):
+  - backend/src/core/reputation/trust.service.ts:412 — getFinancialHistory
+    alimenta TrustDashboard.financial (totalReceived, asOrganizer, asProvider,
+    totalPaid, impactGenerated, pendingDebts) e badge DEBITO_PENDENTE
+  - backend/src/modules/groups/groups.routes.ts:1175, 1188 — historico de
+    ledger do grupo, resposta { entries, totalCents }
+  - backend/src/core/unifybank/test-currency.service.ts:156, 173 —
+    getTestCurrencyLedger (admin apenas)
+  - backend/src/modules/work/tests/work.e2e.spec.ts:391 — teste E2E
+
+- **Opcoes consideradas:**
+
+  A. Amputacao com retorno vazio/zeros
+     Manter contrato publico das funcoes. Retornar estruturas vazias/zeros.
+     Remover queries FROM ledger. Marcar com TODO explicito para FASE 6.
+     Pros: nao corrompe dados, gates PASS, dividas explicitas, reversivel.
+     Contras: features afetadas ficam sem valor real ate FASE 6.
+
+  B. Shim sobre bank_ledger com semantica reduzida
+     Criar getFinancialHistoryFromBankLedger mapeando direction=credit→received,
+     direction=debit→paid. Similar para outros arquivos.
+     Pros: algum valor real desde ja.
+     Contras: semantica inventada (impact_city/region/community nao existe
+     em bank_ledger), risco de reputacao calculada em base errada, cria
+     segunda fonte de verdade parcial.
+
+  C. Reescrita completa via bank_ledger + definicao semantica nova
+     Exige decisao de produto: o que e "recebido", "pago", "impacto
+     gerado" para reputacao. Provavelmente precisa de novas colunas em
+     bank_splits ou nova tabela de atribuicao.
+     Pros: solucao correta definitiva.
+     Contras: fora do escopo de remediacao, exige sessao arquitetural FASE 6.
+
+- **Escolha:** Opcao A por arquivo, com TODO para FASE 6
+
+- **Justificativa:**
+  Opcao B viola invariante "Semantica so via CONCEPT" — inventa equivalencia
+  entre entry_type/metadata (modelo fantasma) e direction/purpose
+  (modelo canonico). Reputacao baseada em mapeamento inventado e pior
+  que reputacao zerada.
+  Opcao C e correta mas nao pertence a FASE 4 (bloqueadores criticos) —
+  e decisao arquitetural FASE 6 que exige desenho de produto.
+  Opcao A preserva contratos publicos, mantem gates PASS, documenta
+  divida explicita e e totalmente reversivel quando a semantica real
+  for decidida.
+
+- **Plano de execucao (commits separados):**
+
+  1. trust.service.ts — getFinancialHistory:
+     - Remover query FROM ledger
+     - Retornar estrutura TrustDashboard.financial com todos os campos zero
+     - Manter subquery actor_debts para pendingDebts (essa tabela existe
+       e e canonica — verificar antes de executar)
+     - Adicionar TODO comentario remetendo DECISION-0007 e FASE 6
+
+  2. test-currency.service.ts — getTestCurrencyLedger:
+     - Remover ambas queries FROM ledger
+     - Retornar { entries: [], total: 0 }
+     - TODO DECISION-0007
+
+  3. groups.routes.ts — rota de ledger do grupo:
+     - Remover ambas queries FROM ledger
+     - Retornar { ok: true, data: { entries: [], totalCents: 0 } }
+     - TODO DECISION-0007
+
+  4. work.e2e.spec.ts — teste E2E:
+     - Marcar teste(s) com FROM ledger como .skip
+     - Comentario TODO DECISION-0007
+
+  5. Arquivos fora de backend/src (tests/integration, scripts) — FORA
+     DE ESCOPO DE C1. Tratar em sessao futura de sanitizacao de testes.
+
+- **Consequencias esperadas:**
+
+  - Curto prazo:
+    * TrustDashboard.financial retorna zeros em todos os campos exceto
+      pendingDebts (mantido via actor_debts se tabela existir)
+    * Badge DEBITO_PENDENTE so dispara se actor_debts tiver dados reais
+    * Historico de ledger de grupos retorna lista vazia
+    * getTestCurrencyLedger retorna lista vazia (emit continua funcionando)
+    * Gates PASS
+    * C1 FIXED
+
+  - Medio prazo:
+    * FASE 6 define semantica real de reputacao financeira
+    * Reimplementacao sobre bank_ledger com contrato explicito
+
+- **Responsavel:** Clayton
+- **Validacao previa:** Cursor (mapeamento completo do codigo) + ChatGPT
+  (identificacao de C1-A/C1-B e analise de opcoes)
+- **Supera:** nenhuma
+- **Referencias:**
+  - backend/src/core/reputation/trust.service.ts linhas 40-52, 126, 385-389, 412, 613
+  - backend/src/modules/groups/groups.routes.ts linhas 1175, 1188
+  - backend/src/core/unifybank/test-currency.service.ts linhas 156, 173
+  - backend/src/modules/work/tests/work.e2e.spec.ts linha 391
+  - SYSTEM_REMEDIATION_STATUS.md C1 (violacao original)
+
+---
+
 **FIM DO DOCUMENTO** (continua crescendo por append a cada decisão)
