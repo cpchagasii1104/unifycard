@@ -20,7 +20,7 @@ interface GroupRow {
   cover_url: string | null;
   financial_purpose: string | null;
   owner_actor_id: string;
-  is_active: boolean;
+  status: string;
   profit_percentage: number | null;
   metadata: any;
   createdAt: Date;
@@ -77,7 +77,7 @@ class GroupsRepository {
       rulesText: metadata.rules_text || undefined,
       financialPurpose: row.financial_purpose || undefined,
       ownerActorId: row.owner_actor_id,
-      isActive: row.is_active,
+      isActive: row.status === 'active',
       profitBps: row.profit_percentage ? parseFloat(row.profit_percentage.toString()) : 0,
       metadata: row.metadata || {},
       createdAt: row.createdAt.toISOString(),
@@ -164,7 +164,7 @@ class GroupsRepository {
       )
       RETURNING group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -203,7 +203,7 @@ class GroupsRepository {
       `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE group_id = $1 AND tenant_id = $2
       `,
@@ -259,13 +259,13 @@ class GroupsRepository {
     let query = `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE (${visibilityConditions.join(' OR ')})
     `;
 
     if (filters?.isActive !== undefined) {
-      query += ` AND is_active = $${paramIndex}`;
+      query += ` AND status = $${paramIndex}`;
       params.push(filters.isActive);
       paramIndex++;
     }
@@ -359,7 +359,7 @@ class GroupsRepository {
       params.push(input.financial_purpose || null);
     }
     if (input.isActive !== undefined) {
-      updates.push(`is_active = $${paramIndex++}`);
+      updates.push(`status = $${paramIndex++}`);
       params.push(input.isActive);
     }
     // 🔴 CORREÇÃO: metadata já foi tratado acima se scope/location/rules_text foram atualizados
@@ -388,7 +388,7 @@ class GroupsRepository {
       WHERE tenant_id = $1 AND group_id = $2
       RETURNING group_id, tenant_id, name, slug, description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -405,7 +405,7 @@ class GroupsRepository {
       tenantId,
       `
       UPDATE groups
-      SET is_active = false, updatedAt = now()
+      SET status = 'inactive', updatedAt = now()
       WHERE tenant_id = $1 AND group_id = $2
       RETURNING group_id
       `,
@@ -498,10 +498,10 @@ class GroupsRepository {
       `
       SELECT g.group_id, g.tenant_id, g.name, g.slug, g.description, g.category_id, g.visibility,
         g.avatar_url, g.cover_url, g.financial_purpose,
-        g.owner_actor_id, g.is_active, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
+        g.owner_actor_id, g.status, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
       FROM groups g
       INNER JOIN group_members gm ON g.group_id = gm.group_id
-      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.is_active = true
+      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
       ORDER BY gm.joinedAt DESC
       `,
       [tenantId, userId]
@@ -517,7 +517,7 @@ class GroupsRepository {
       SELECT COUNT(*) as count
       FROM group_members gm
       INNER JOIN groups g ON g.group_id = gm.group_id
-      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.is_active = true
+      WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
       `,
       [tenantId, userId]
     );
