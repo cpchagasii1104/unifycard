@@ -342,3 +342,38 @@ para desbloquear C46 e o fluxo E2E de criação de grupo.
 
 ### Próxima fase
 FASE 4 — bloqueadores críticos: C4, C3, C12, C1
+
+---
+
+## SNAPSHOT FASE 4 — C4 fechado — 2026-04-21
+
+**Commit de referencia:** 340981e7 (status) apos 736b25c2 (C4) apos 009f9eca (core.service)
+**Responsavel:** Clayton
+
+### Gates
+- actor-writer-boundaries: PASS (desbloqueado pelo complemento C45)
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violacoes fechadas
+- C4 FIXED: listRegionalFunds alinhado ao schema Genesis
+- C45 complemento: core.service.ts:118 → ensureUserActor
+
+### Status das violacoes
+- Total: 48 | OPEN: 31 | FIXED: 7 | DECISION_PENDING: 10
+
+### Decisoes registradas desde ultimo snapshot
+- DECISION-0005, DECISION-0006
+
+### Comparacao com snapshot FASE 3
+- Bloqueantes eliminados: +1 (C4)
+- Correcoes estruturais: +1 (complemento C45)
+- Gate actor-writer: FAIL → PASS (historico)
+
+### Analise de convergencia
+FASE 4 iniciada com sucesso. Primeiro bloqueador critico (C4) eliminado.
+Sistema agora tem 4 gates verdes pela primeira vez desde inicio da sessao.
+Bank-balance-by-region alinhado ao schema real — nao mais leitura fantasma.
+Proximo alvo: C1 (tabela ledger fantasma em 6 arquivos) — risco de
+corrupcao financeira estrutural, nao apenas erro runtime.

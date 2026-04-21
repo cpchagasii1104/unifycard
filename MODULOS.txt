@@ -133,6 +133,8 @@ ESTADO: bank/payments (TIER 1)  (PASS — 2026-04-19)
   Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
   DTs registradas:    3 (ver PLANO_BANK_PAYMENTS_REFATOR_ARQUITETURAL.md)
   Nota:               DT-01 ESCROW_BANK_BRIDGE — IMPLEMENTADO em 2026-04-19
+  Correção adicional: C4 FIXED (2026-04-21, 736b25c2): bank-balance-by-region
+                      alinhado ao schema Genesis (currency e metadata nao existem em bank_accounts)
   Plano:              PLANO_BANK_PAYMENTS_REFATOR_ARQUITETURAL.md
 
 ================================================================================
@@ -234,11 +236,13 @@ ESTADO: groups (TIER 3)  (C8 FIXED — 2026-04-21)
   Plano:              SYSTEM_REMEDIATION_STATUS.md (C8, C44, C46, C47)
 
 ================================================================================
-ESTADO: core/profile  (EM REMEDIAÇÃO — 2026-04-21)
+ESTADO: core/profile  (EM REMEDIAÇÃO — C45 complemento FIXED)
 ================================================================================
-  Status:             EM REMEDIAÇÃO — violações descobertas durante FASE 3
-  Gates:              actor-writer FAIL (C45 corrigido em a0e7fe0c)
+  Status:             EM REMEDIAÇÃO — C45 complemento FIXED
+  Gates:              actor-writer OK (C45 groups a0e7fe0c + complemento core 009f9eca)
   Correções:          C45 FIXED: ensureUserActor canônico em groups.service.ts
+                      C45 complemento FIXED (009f9eca): core.service.ts:118 → ensureUserActor
+                      desbloqueia gate actor-writer-boundaries
   DTs pendentes:      C46 (ownerUserId vs actorId em groups.types/service/routes)
                       C47 (actor_has_permission sem implementação real)
                       C48 candidato: getCompleteProfile comportamento intermitente
@@ -248,7 +252,7 @@ ESTADO: core/profile  (EM REMEDIAÇÃO — 2026-04-21)
                       com colunas fantasmas (domain_type, c.cep, user_skills_categories)
                       que falham mas são capturadas por try/catch — não bloqueiam
                       o fluxo principal mas geram ruído nos logs.
-  Próxima ação:       FASE 4 — C4 (listRegionalFunds), C3, C12, C1
+  Próxima ação:       FASE 4 — C3, C12, C1 (C4 fechado 736b25c2)
 
 ================================================================================
 ESTADO: events (TIER 3)  (PASS — 2026-04-20)

@@ -219,4 +219,59 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
+### DECISION-0005 — C4: eliminar realidade paralela no bank-balance-by-region
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violação:** C4
+- **Contexto:**
+  listRegionalFunds em bank-balance-by-region.service.ts lia colunas currency
+  e metadata de bank_accounts que nao existem no schema Genesis. Tipos
+  TypeScript genericos declaravam essas colunas. Runtime falharia ao executar.
+- **Opcoes consideradas:**
+  1. Criar migration adicionando currency TEXT e metadata JSONB a bank_accounts
+  2. Remover currency e metadata do SELECT e tipos, usar hardcoded 'BRL'
+  3. Remover currency e metadata do SELECT e tipos, sem inventar dado
+- **Escolha:** Opcao 3
+- **Justificativa:**
+  Nao inventar dado que o schema nao modela (principio SSOT). currency deve
+  vir de bank_transactions ou do argumento do metodo quando necessario.
+  Opcao 2 violaria o invariante "Semantica so via CONCEPT" ao hardcodar
+  valor sem fonte canonica. Opcao 1 mudaria schema fora do escopo da
+  remediacao (que e alinhar codigo ao schema real, nao o contrario).
+- **Consequencias:**
+  - Curto prazo: 2 queries alinhadas ao schema real, regionId usa owner_id
+  - Medio prazo: se currency for necessario no futuro, vira via bank_transactions
+- **Responsavel:** Clayton
+- **Validacao previa:** Cursor (auditoria schema) + ChatGPT (validacao arquitetural)
+- **Supera:** nenhuma
+- **Referencias:**
+  - backend/src/modules/bank/bank-balance-by-region.service.ts
+  - Commits 009f9eca, 736b25c2, 340981e7
+
+### DECISION-0006 — C45 complemento: ultimo caminho fora do writer canonico
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violacao:** C45 (complemento)
+- **Contexto:**
+  Apos C45 ter sido fechado em groups.service.ts (commit a0e7fe0c), gate
+  actor-writer-boundaries continuava falhando. Diagnostico revelou que
+  core.service.ts:118 ainda usava actorRepository.findOrCreateUserActor
+  diretamente fora do writer canonico.
+- **Escolha:** substituir por ensureUserActor com import canonico
+- **Justificativa:**
+  Mesmo contrato de C45 aplicado uniformemente. findById (linha 116) e
+  leitura pura, pode permanecer; findOrCreateUserActor (linha 118) e
+  escrita e deve passar pelo writer.
+- **Consequencias:**
+  - Gate actor-writer-boundaries: PASS (primeira vez desde inicio da sessao)
+  - Desbloqueia commits futuros
+- **Responsavel:** Clayton
+- **Referencias:**
+  - backend/src/core/core.service.ts linhas 10 e 119
+  - Commit 009f9eca
+
+---
+
 **FIM DO DOCUMENTO** (continua crescendo por append a cada decisão)
