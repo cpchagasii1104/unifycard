@@ -811,19 +811,6 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         message: 'Erro ao listar participantes',
       }, 'Erro ao listar participantes');
       
-      // 🔧 FIX: Se erro de tabela não existir ou schema, retornar array vazio
-      if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
-        fastify.log.warn({
-          tenantId: req.tenant.id,
-          availabilityId: req.params.availabilityId,
-          message: 'Tabela availability_participants não existe ainda - retornando array vazio',
-        }, 'Tabela availability_participants não existe');
-        return reply.send({
-          ok: true,
-          data: [],
-        });
-      }
-      
       return reply.status(error.statusCode || 500).send({ 
         error: error.message || 'Erro ao listar participantes',
         ok: false,
