@@ -1,0 +1,381 @@
+================================================================================
+MODULOS.txt — Inventário + gestão de auditoria (backend/src/modules/)
+Última atualização: 2026-04-21 (groups — C8 FIXED + E2E PASS; core/profile — C45/C47 descobertos)
+================================================================================
+
+REGRA DE OURO (replicável)
+  Assumir que o módulo está inconsistente até haver evidência: FASE S (schema) +
+  writers/readers vs DDL + log. Um módulo por vez — não misturar domínios na mesma
+  fatia de execução.
+  Norma actor-centric (rastreabilidade / responsabilidade): docs/01_normative/ACTOR_TRACEABILITY_CONTRACT.md
+
+--------------------------------------------------------------------------------
+PIPELINE PADRÃO (template events / REFATOR ARQUITETURAL — escalar por módulo)
+--------------------------------------------------------------------------------
+  1. FASE S        — tabelas alvo existem? colunas = código (information_schema)
+  2. Writers       — INSERT/UPDATE canónicos; duplicações; writes fora do domínio
+  3. Readers       — colunas legadas; SELECT *; status/enums alinhados ao 07/DDL
+  4. SSOT          — quem cria verdade? Bank / identity / events — sem paralelos
+  5. Blocos        — BLOCO 1 (escrita/metadata), BLOCO 2 (leituras), T→7 se plano
+  6. Gates         — tsc, build, validate:regression-guards, guard:app-builder
+  7. Log           — docs/03_execution_log/… + STATUS_EXECUCAO.md / PLANO_*.md
+  Lei por módulo:  — planos instanciados a partir de PLANO_BASE_MODULO.md (§0–§14);
+                      divergência → prevalece o template; ver PLANO_<MÓDULO>_REFATOR_ARQUITETURAL.md
+
+--------------------------------------------------------------------------------
+ORDEM SUGERIDA DE ATAQUE (prioridade de risco — ajustar por produto)
+--------------------------------------------------------------------------------
+  TIER 1 — CRÍTICO (dinheiro / liquidação)
+    payments, payout, payouts, bank, bank-settlement, ledger, ledger-snapshots,
+    reconciliation, treasury, treasury-split, escrow, reversal, gateway (pagamentos)
+
+  TIER 2 — ALTO IMPACTO (estado de negócio duplicado)
+    orders, marketplace, my-orders, invoicing, subscriptions, logistics,
+    dispatch, disputes
+
+  TIER 3 — SOCIAL / INTERFACE (schema mais “bagunçado”, risco menor que T1/T2)
+    social, social-actions, social-chat, groups, presence, profile, public-profiles,
+    inbox, contextual-messaging, live-chat
+
+  TIER 4 — RESTO
+    Demais pastas da lista abaixo — auditar após T1–T3 ou quando tocados.
+
+--------------------------------------------------------------------------------
+ORDEM MVP (produto — fluxo real antes de blindar dinheiro)
+--------------------------------------------------------------------------------
+  Critério: não confundir com TIER 1. TIER = risco de blast radius (dinheiro).
+  MVP = sequência para o produto não travar antes do fluxo estar mapeado.
+
+  Sugestão de sequência (ajustar com PLANO_FASE_ATUAL / dono de produto):
+    1. marketplace  — coração do MVP (ofertas, ligação events + services + orders)
+    2. orders         — estado transacional e fronteira marketplace ↔ pagamento
+    3. services       — iFood-like (catálogo operacional, disponibilidade, consumo)
+    4. rides, social  — mobilidade e grafo (podem paralelizar conforme capacidade)
+    5. bank, payments, ledger, treasury, reconciliation — SSOT financeiro por último
+       (quando o fluxo de negócio estiver explícito — evita “travar o MVP” cedo)
+
+  Próximo módulo recomendado para o mesmo pipeline de events: **marketplace**
+
+--------------------------------------------------------------------------------
+MATRIZ DE DEPENDÊNCIA (ordem §3.1 PLANO_BASE — actualizar com STATUS_EXECUCAO_GLOBAL.md)
+--------------------------------------------------------------------------------
+  Módulo / trilho     DEPENDÊNCIA principal                    Notas
+  ------------------  ----------------------------------------  ---------------------------------
+  identity (core)     —                                         Pré-requisito civil/operacional; §6.5; A2 = elegíveis (PLANO_IDENTITY §2.1); até A2=0 o trilho pode estar em **CP-5** (triagem humana — runbook)
+  core (eventos/base) identity consistente + §GLOBAL BLOCK INAT  Quando aplicável ao trilho
+  marketplace         identity + events (trilho MVP)            Bloqueado se §GLOBAL BLOCK ativo
+  orders              marketplace + identity                    Fronteira pedidos / pagamento
+  services            marketplace ou catálogo (produto)       Ajustar ao plano de produto
+  bank, payments      fluxo de negócio explícito + Gate 2     TIER 1 — não paralelizar ao MVP sem PROPOSTA
+  Demais pastas       módulo anterior na prioridade escolhida   Ver TIER 1–4 acima
+
+  Memória viva entre sessões: raiz **STATUS_EXECUCAO_GLOBAL.md**
+
+================================================================================
+ESTADO: marketplace  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  DTs registradas:    7 (ver PLANO_MARKETPLACE_REFATOR_ARQUITETURAL.md)
+  Plano:              PLANO_MARKETPLACE_REFATOR_ARQUITETURAL.md
+
+================================================================================
+ESTADO: orders  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  DTs registradas:    0
+  Plano:              PLANO_ORDERS_REFATOR_ARQUITETURAL.md
+
+================================================================================
+ESTADO: services  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  DTs registradas:    1 (DT-01: 4 tabelas SPRINT 68 futuro)
+  Plano:              PLANO_SERVICES_REFATOR_ARQUITETURAL.md
+
+--------------------------------------------------------------------------------
+CHECKLIST RÁPIDO (por módulo — copiar para o log da sprint)
+--------------------------------------------------------------------------------
+  A. Schema     — migration real? tabela no BD? colunas = código?
+  B. Escrita    — quantos writers? UPDATE indevido? fora do domínio?
+  C. Leitura    — colunas fantasmas? SELECT *? legado?
+  D. SSOT       — cria ou consome verdade? vazamento financeiro fora de bank?
+  E. Norma 07   — enums/nomes alinhados a docs/01_normative/07_*.md?
+
+================================================================================
+ESTADO: events  (domínio saneado no trilho REFATOR ARQUITETURAL — escopo fechado)
+================================================================================
+  Veredito plano:     PASS (PLANO_REFATOR_ARQUITETURAL.md — 2026-04-14)
+  FASE S:             OK no ambiente local verificado (repetir CI/staging/prod)
+  Writers núcleo:     alinhados ao DDL canónico (event.repository, core/events, …)
+  BLOCO 2 readers:    FEITO — resolver checkout, feed, social unread-counts,
+                      events-closure, events-economy, event-feed.handlers
+  RFQ:                já em metadata (event-rfq.service.ts) — sem mudança estrutural
+
+  AINDA FALTA AUDITAR / ALINHAR (backlog residual — não bloqueia o PASS do plano)
+    - event-lifecycle.routes (+ espelho services/events/) — SELECT legado
+    - checkout-ticket.service, checkout-consumption — colunas antigas (checkout HTTP)
+    - event-metrics-dashboard, event-organizer-metrics — queries legadas
+    - commitments.routes, pending-responsibilities (profile) — FROM events legado
+    - services/feed/* (legacy) — alinhar ou isolar
+    - testes/fixtures — event-checkout-hardening, debt-blocking — DDL de teste
+
+  Evidência:           docs/03_execution_log/REFATOR-ARQUITETURAL-20260414.md (Sessões 2–3)
+  Próximo passo (MVP): auditar **marketplace** (ver secção ORDEM MVP). Para blindagem
+                        financeira isolada, usar TIER 1 (payments/ledger) num trilho à parte.
+
+================================================================================
+ESTADO: bank/payments (TIER 1)  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  DTs registradas:    3 (ver PLANO_BANK_PAYMENTS_REFATOR_ARQUITETURAL.md)
+  Nota:               DT-01 ESCROW_BANK_BRIDGE — IMPLEMENTADO em 2026-04-19
+  Plano:              PLANO_BANK_PAYMENTS_REFATOR_ARQUITETURAL.md
+
+================================================================================
+ESTADO: rides  (TIER 3)  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         8 genesis criadas (20260530300000-20260530370000)
+                      14 tabelas: rides_drivers, rides_vehicles, rides_cities,
+                      rides_zones, rides_service_types, rides_ride_requests, rides_rides,
+                      rides_driver_locations, rides_driver_sessions, rides_pricing_config
+                      + social_posts, follows, reactions, comments, impact_ledger,
+                      impact_balances, actor_reputation, post_votes
+  Acoplamento core:   rides_rides.bank_transaction_id → bank_transactions
+                      rides_rides.fund_amount_cents → regional_funds (redistribuição)
+                      rides_drivers.user_id → users (identidade)
+  DTs registradas:    0
+  Plano:              PLANO_RIDES_REFATOR_ARQUITETURAL.md
+
+================================================================================
+ESTADO: social (TIER 3)  (PASS — 2026-04-19)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Nota:               social-ledger BLOQUEADO (DERIVA_FINANCEIRA_BLOQUEADA)
+                      Fonte canônica futura: bank_* (FASE 5.1 já documentada)
+  Acoplamento core:   posts/follows/reactions → actors (identidade)
+                      impact_ledger/actor_reputation → actors (score de participação)
+                      ensureUserActor canônico
+  DTs registradas:    0
+  Plano:              PLANO_SOCIAL_REFATOR_ARQUITETURAL.md
+
+================================================================================
+ESTADO: events (TIER 3)  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 genesis (20260530420000) — 9 tabelas criadas
+  Acoplamento core:   bankIntegrationService.processEventTicketPayment → bank
+                      ensureUserActor → actors (identidade)
+                      ticket_sales.bank_transaction_id → bank_transactions
+  DTs:                SELECT * em occupancy.service.ts (backlog)
+  Plano:              PLANO_EVENTS_REFATOR_ARQUITETURAL.md → docs/99_archive/
+
+================================================================================
+ESTADO: profile / public-profiles  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530440000) — public_profiles criada
+  Tabelas banco:      profiles, user_profiles, public_profiles
+  Core:               core/profile/ — 33 arquivos (perfil real)
+  Módulo:             modules/public-profiles/ — 4 arquivos
+  DTs:                profile_education não existe no banco (backlog futuro)
+  Acoplamento:        public_profiles.actor_id → actors (identidade)
+
+================================================================================
+ESTADO: trust  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530450000) — 3 tabelas criadas
+  Tabelas:            trust_profiles, trust_events, trust_score_snapshots
+  DTs:                SELECT * em trust.repository.ts (backlog)
+  Acoplamento:        trust_profiles.actor_id → actors (identidade)
+                      trust_events.actor_id → actors
+
+================================================================================
+ESTADO: live-chat / inbox  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530460000) — 4 tabelas criadas
+  Tabelas:            chat_blocks, chat_reports, live_presence,
+                      social_inbox_items
+  Acoplamento:        chat_blocks.blocker_contact_id → actors
+                      live_presence.contact_id → actors
+                      social_inbox_items.actor_id → actors
+
+================================================================================
+ESTADO: groups (TIER 3)  (C8 FIXED — 2026-04-21)
+================================================================================
+  Status:             C8 FIXED — FASE 3 E2E PASS
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260421000000_actors_check_actor_id.sql — C26 CHECK constraint)
+                      1 (20260421010000_actor_has_permission_stub.sql — C47 stub)
+  Correções C8:       5 commits (fc97f893→81b93c9d):
+                      [1/5] generate_group_slug SQL inexistente → TypeScript
+                      [2/5] owner_user_id → owner_actor_id
+                      [3/5] is_active → status (schema Gênesis)
+                      [4/5] INSERT/SELECT normalizados, group_id→id, colunas fantasmas→metadata
+                      [5/5] boolean → string no update de status
+  E2E validado:       POST /groups → 201 Created, grupo persistido com owner_actor_id correto
+  DTs pendentes:      C44 (marketplace/group.repository.ts colunas inexistentes)
+                      C46 (ownerUserId vs actorId — DECISION_PENDING)
+                      C47 (actor_has_permission stub — requer portagem FASE 6)
+  Acoplamento core:   groups.owner_actor_id → actors(id)
+                      ensureUserActor canônico antes do create (C45)
+  Plano:              SYSTEM_REMEDIATION_STATUS.md (C8, C44, C46, C47)
+
+================================================================================
+ESTADO: core/profile  (EM REMEDIAÇÃO — 2026-04-21)
+================================================================================
+  Status:             EM REMEDIAÇÃO — violações descobertas durante FASE 3
+  Gates:              actor-writer FAIL (C45 corrigido em a0e7fe0c)
+  Correções:          C45 FIXED: ensureUserActor canônico em groups.service.ts
+  DTs pendentes:      C46 (ownerUserId vs actorId em groups.types/service/routes)
+                      C47 (actor_has_permission sem implementação real)
+                      C48 candidato: getCompleteProfile comportamento intermitente
+                        (identity_status INCOMPLETE com dados corretos — resolvido
+                         por reinício do backend; causa raiz: processo com código antigo)
+  Observações:        getCompleteProfile tem múltiplas queries intermediárias
+                      com colunas fantasmas (domain_type, c.cep, user_skills_categories)
+                      que falham mas são capturadas por try/catch — não bloqueiam
+                      o fluxo principal mas geram ruído nos logs.
+  Próxima ação:       FASE 4 — C4 (listRegionalFunds), C3, C12, C1
+
+================================================================================
+ESTADO: events (TIER 3)  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 genesis (20260530420000) — 9 tabelas criadas
+  Acoplamento core:   bankIntegrationService.processEventTicketPayment → bank
+                      ensureUserActor → actors (identidade)
+                      ticket_sales.bank_transaction_id → bank_transactions
+  DTs:                SELECT * em occupancy.service.ts (backlog)
+  Plano:              PLANO_EVENTS_REFATOR_ARQUITETURAL.md → docs/99_archive/
+
+================================================================================
+ESTADO: profile / public-profiles  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530440000) — public_profiles criada
+  Tabelas banco:      profiles, user_profiles, public_profiles
+  Core:               core/profile/ — 33 arquivos (perfil real)
+  Módulo:             modules/public-profiles/ — 4 arquivos
+  DTs:                profile_education não existe no banco (backlog futuro)
+  Acoplamento:        public_profiles.actor_id → actors (identidade)
+
+================================================================================
+ESTADO: trust  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530450000) — 3 tabelas criadas
+  Tabelas:            trust_profiles, trust_events, trust_score_snapshots
+  DTs:                SELECT * em trust.repository.ts (backlog)
+  Acoplamento:        trust_profiles.actor_id → actors (identidade)
+                      trust_events.actor_id → actors
+
+================================================================================
+ESTADO: live-chat / inbox  (PASS — 2026-04-20)
+================================================================================
+  Status:             PASS — ENCERRADO
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Migrations:         1 (20260530460000) — 4 tabelas criadas
+  Tabelas:            chat_blocks, chat_reports, live_presence,
+                      social_inbox_items
+  Acoplamento:        chat_blocks.blocker_contact_id → actors
+                      live_presence.contact_id → actors
+                      social_inbox_items.actor_id → actors
+
+================================================================================
+LISTA DE PASTAS (modules/) — inventário bruto
+================================================================================
+agreements
+alerts
+assistant
+audit
+authority
+automation
+bank
+bank-settlement
+business-audit
+bypass-detection
+care
+catalog
+circuit-breaker
+concept-resolution
+contextual-messaging
+crm
+cultural
+dashboard
+devtools
+dispatch
+disputes
+economy
+escrow
+events
+evidence
+freezes
+gateway
+governance
+governance-funding
+governance-funding-commitment
+groups
+human-mvp
+identity
+inbox
+invoicing
+ledger
+ledger-snapshots
+live-chat
+logistics
+loyalty
+marketplace
+media
+metrics
+my-orders
+observability
+orders
+organization
+payments
+payout
+payouts
+pdv
+policy-engine
+presence
+profile
+public-profiles
+rate-limit
+reconciliation
+reporting
+reports
+reversal
+rides
+risk
+risk-command-center
+risk-identity
+schedule
+services
+sla
+social
+social-actions
+social-chat
+subscriptions
+system-notifications
+treasury
+treasury-split
+trust
+venue
+votes
+work
+work-instant
