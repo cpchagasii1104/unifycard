@@ -251,7 +251,38 @@ Próxima fase: FASE 2 (C14 incremental — remover catches de schema).
 
 ---
 
-**Próximo snapshot esperado:** após conclusão da FASE 2 (C14 incremental).
+---
+
+## SNAPSHOT intermediário — C14 concluído — 2026-04-21
+
+**Commit de referência:** 8191b6f6
+**Responsável:** Clayton
+
+### Progresso C14
+- 4 catches CRITICAL removidos: unified-availability.routes.ts (lista disponibilidades,
+  lista bookings, lista participantes, verificar conflito)
+- C14[5/6] e C14[6/6]: N/A (event.service.ts refatorado em 51065962)
+- 11 catches restantes: SAFE (infra/retry/observabilidade)
+- event-outbox.processor.ts:44: pendente revisão futura
+
+### Gates (após último commit C14)
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Status das violações
+- Total: 35
+- OPEN: 24 | IN_PROGRESS: 0 | FIXED: 2 | ALLOWLISTED: 0 | DEFERRED: 0 | DECISION_PENDING: 8
+
+### Análise de convergência
+C14 concluído. Sistema não mais retorna 200 OK com dados vazios quando tabela não existe
+em rotas de disponibilidade. Cancelamento de evento não mais silencia erros de schema.
+Catches SAFE mantidos por design (contexto Gênesis — tabelas opcionais em reconstrução).
+
+---
+
+**Próximo snapshot esperado:** após conclusão das demais violações da FASE 2.
 
 ---
 
