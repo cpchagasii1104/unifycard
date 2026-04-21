@@ -31,13 +31,13 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 43 |
+| Total de violações | 30 | 44 |
 | CRITICAL | 10 | 12 |
-| HIGH | 11 | 19 |
+| HIGH | 11 | 20 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 31 |
-| IN_PROGRESS | 0 | 1 |
-| FIXED | 1 | 2 |
+| OPEN | 21 | 32 |
+| IN_PROGRESS | 0 | 0 |
+| FIXED | 1 | 3 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 8 |
@@ -54,7 +54,7 @@
 | C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Clayton | — | — | Exige decisão: nullable inicial ou NOT NULL com backfill? Sem isso, §7 não é satisfazível. |
 | C3 | OPEN | INSERT INTO actors fora do actor-writer | `core/identity/identity.service.ts:67515` + `modules/social/actor.repository.ts:258561, 258733` | Clayton | 2026-05-01 | — | 3 caminhos paralelos de criação de identidade. |
 | C4 | OPEN | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | — | Query usa `currency` e `metadata`, colunas que não existem. Quebra em runtime. |
-| C8 | IN_PROGRESS | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | Ambos escrevem colunas que não existem. Explica `groups=0` no banco. Commit 1/6 concluído: geração de slug movida de SQL inexistente para TypeScript. Commit 2/6 concluído: owner_user_id → owner_actor_id alinhado com schema Gênesis. DECISION-0002 resolvida pela Opção 3 via DECISION-0003: C8[3/6] prossegue usando `status`, dívida sistêmica movida para FASE 7. Commit 5/6 concluído: conversão boolean→string corrigida no update (isActive→'active'/'inactive'). |
+| C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | FIXED em 5 commits (fc97f893→81b93c9d). C8[6/6] (marketplace/group.repository.ts) replanejado como C44 — arquivo de sprint isolado com colunas distintas. |
 | C12 | OPEN | `actorId` retornado como `globalUserId` em 3 rotas | `core/identity/identity.routes.ts:66934, 67016` + `modules/events/organizers/organizers.routes.ts:148951` | Clayton | 2026-05-05 | — | Mentira estrutural em rotas de identidade. TODO explícito. |
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | — | Exige classificação em CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
@@ -63,7 +63,7 @@
 | C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
 
-### HIGH (19)
+### HIGH (20)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -86,6 +86,7 @@
 | C38 | OPEN | §3.4: 5 tabelas com `type` genérico | `canonical_products`, `payment_execution_lock`, `promotions`, `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
+| C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
 
 ### MEDIUM (12)
 
@@ -227,6 +228,18 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Commit:** fb346bb7 (C8[4+5/6])
 - **Status C8:** IN_PROGRESS (Commit 4/6 e 5/6 consolidados; 6/6 pendente)
 - **Próxima ação:** C8[6/6] — finalizar demais pontos de groups (incluindo `modules/marketplace/group.repository.ts`, se aplicável)
+
+---
+
+### 2026-04-21 — C8 FIXED: 5 commits concluídos
+
+- **Ação:** C8 encerrado com 5 commits (C8[1/6] a C8[5/6]).
+  C8[6/6] (marketplace/group.repository.ts) replanejado como C44 —
+  arquivo independente com colunas distintas, código SPRINT 74 isolado.
+- **Commits:** fc97f893, 4572a1bb, dbe4e617, fb346bb7, 81b93c9d
+- **Status C8:** IN_PROGRESS → FIXED
+- **Violação nova:** C44 OPEN (marketplace/group.repository.ts)
+- **Próxima ação:** FASE 3 (seed realista + E2E) ou C26 (ADD CHECK actors.id)
 
 ---
 
