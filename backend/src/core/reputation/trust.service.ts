@@ -116,7 +116,8 @@ class TrustService {
     }
 
     const currentScore = score.current_score;
-    const badge = this.getScoreBadge(currentScore);
+    const badgeRaw = this.getScoreBadge(currentScore);
+    const badge = (badgeRaw === 'BLOCKED' ? 'blocked' : badgeRaw === 'CRITICAL' ? 'critical' : badgeRaw === 'EXCELLENT' ? 'excellent' : badgeRaw === 'GOOD' ? 'good' : 'warning') as TrustDashboard['scoreBadge'];
 
     // Estatísticas
     const stats = await this.getStats(tenantId, actorId, actorType);
@@ -136,7 +137,7 @@ class TrustService {
     return {
       currentScore,
       scoreBadge: badge,
-      scoreMessage: this.getScoreMessage(badge),
+      scoreMessage: this.getScoreMessage(badgeRaw),
       stats,
       financial,
       responsibility,
@@ -164,7 +165,7 @@ class TrustService {
     since.setMonth(since.getMonth() - months);
 
     const history = await runQueriesWithTenant<{
-      createdAt: Date;
+      created_at: Date;
       previous_score: number;
       new_score: number;
       change_amount: number;
@@ -173,17 +174,17 @@ class TrustService {
     }>(
       tenantId,
       `
-      SELECT createdAt, previous_score, new_score, change_amount, reason, event_id
+      SELECT created_at, previous_score, new_score, change_amount, reason, event_id
       FROM actor_score_history
       WHERE tenant_id = $1 AND actor_score_id = $2
-        AND createdAt >= $3
-      ORDER BY createdAt DESC
+        AND created_at >= $3
+      ORDER BY created_at DESC
       `,
       [tenantId, score.id, since]
     );
 
     return (history || []).map((h) => ({
-      date: h.createdAt.toISOString(),
+      date: h.created_at.toISOString(),
       score: h.new_score,
       change: h.change_amount,
       reason: h.reason,
@@ -329,7 +330,7 @@ class TrustService {
       `
       SELECT 
         COUNT(*) as events_created,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as successful,
+        COUNT(CASE WHEN status = 'ended' THEN 1 END) as successful,
         COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled
       FROM events
       WHERE tenant_id = $1 AND actor_id = $2
@@ -386,45 +387,43 @@ class TrustService {
     actorId: string,
     actorType: 'user' | 'page' | 'group'
   ): Promise<TrustDashboard['financial']> {
-    // Agregar do ledger
-    const financial = await runQueryWithTenant<{
-      total_received: number;
-      as_organizer: number;
-      as_provider: number;
-      total_paid: number;
-      impact_community: number;
-      impact_city: number;
-      impact_region: number;
-      pending_debts: number;
-    }>(
+    void actorType; // reservado para FASE 6 (filtro por tipo de devedor, se necessário)
+
+    // TODO DECISION-0007 / FASE 6: semântica real de reputação financeira.
+    // A tabela "ledger" não existe no schema Gênesis (SSOT é bank_ledger
+    // com modelo diferente — sem entry_type, sem metadata). Reimplementação
+    // via bank_ledger exige definição de produto: o que é "recebido",
+    // "pago", "impacto gerado" para efeito de reputação.
+    // Até lá, retornar zeros mantém contrato sem inventar semântica.
+
+    // pendingDebts vem de actor_debts (tabela canônica), não de ledger
+    const debtsResult = await runQueryWithTenant<{ pending_debts: string | number }>(
       tenantId,
       `
-      SELECT 
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_received,
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'organizer' THEN amount_cents ELSE 0 END), 0) as as_organizer,
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'actor_id' = $2 AND metadata->>'role' = 'provider' THEN amount_cents ELSE 0 END), 0) as as_provider,
-        COALESCE(SUM(CASE WHEN entry_type = 'debit' AND metadata->>'actor_id' = $2 THEN amount_cents ELSE 0 END), 0) as total_paid,
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'community' THEN amount_cents ELSE 0 END), 0) as impact_community,
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'city' THEN amount_cents ELSE 0 END), 0) as impact_city,
-        COALESCE(SUM(CASE WHEN entry_type = 'credit' AND metadata->>'target' = 'region' THEN amount_cents ELSE 0 END), 0) as impact_region,
-        COALESCE((SELECT SUM(amount_cents) FROM actor_debts WHERE tenant_id = $1 AND debtor_actor_id = $2 AND status = 'pending'), 0) as pending_debts
-      FROM ledger
+      SELECT COALESCE(SUM(amount_cents), 0) as pending_debts
+      FROM actor_debts
       WHERE tenant_id = $1
+        AND debtor_actor_id = $2
+        AND status = 'pending'
       `,
       [tenantId, actorId]
     );
 
+    const rawPending = debtsResult?.pending_debts;
+    const pendingDebtsCents =
+      typeof rawPending === 'string' ? parseInt(rawPending, 10) : Number(rawPending ?? 0);
+
     return {
-      totalReceived: (financial?.total_received || 0) / 100,
-      asOrganizer: (financial?.as_organizer || 0) / 100,
-      asProvider: (financial?.as_provider || 0) / 100,
-      totalPaid: (financial?.total_paid || 0) / 100,
+      totalReceived: 0,
+      asOrganizer: 0,
+      asProvider: 0,
+      totalPaid: 0,
       impactGenerated: {
-        community: (financial?.impact_community || 0) / 100,
-        city: (financial?.impact_city || 0) / 100,
-        region: (financial?.impact_region || 0) / 100,
+        community: 0,
+        city: 0,
+        region: 0,
       },
-      pendingDebts: (financial?.pending_debts || 0) / 100,
+      pendingDebts: pendingDebtsCents / 100,
     };
   }
 
@@ -514,16 +513,16 @@ class TrustService {
       penalty_type: string;
       reason: string;
       severity: string;
-      endsAt: Date | null;
+      ends_at: Date | null;
     }>(
       tenantId,
       `
-      SELECT id, penalty_type, reason, severity, endsAt
+      SELECT id, penalty_type, reason, severity, ends_at
       FROM actor_penalties
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
         AND status = 'active'
-        AND (endsAt IS NULL OR endsAt > now())
-      ORDER BY createdAt DESC
+        AND (ends_at IS NULL OR ends_at > now())
+      ORDER BY created_at DESC
       `,
       [tenantId, actorId, actorType]
     );
@@ -532,16 +531,16 @@ class TrustService {
       id: string;
       penalty_type: string;
       reason: string;
-      createdAt: Date;
-      resolvedAt: Date | null;
+      created_at: Date;
+      resolved_at: Date | null;
     }>(
       tenantId,
       `
-      SELECT id, penalty_type, reason, createdAt, resolvedAt
+      SELECT id, penalty_type, reason, created_at, resolved_at
       FROM actor_penalties
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
         AND status != 'ACTIVE'
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT 20
       `,
       [tenantId, actorId, actorType]
@@ -553,14 +552,14 @@ class TrustService {
         type: p.penalty_type,
         reason: p.reason,
         severity: p.severity,
-        endsAt: p.endsAt,
+        endsAt: p.ends_at,
       })),
       history: (history || []).map((p) => ({
         id: p.id,
         type: p.penalty_type,
         reason: p.reason,
-        createdAt: p.createdAt,
-        resolvedAt: p.resolvedAt,
+        createdAt: p.created_at,
+        resolvedAt: p.resolved_at,
       })),
     };
   }
