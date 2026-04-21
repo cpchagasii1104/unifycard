@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 20 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 32 |
+| OPEN | 21 | 31 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 3 |
+| FIXED | 1 | 4 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 8 |
@@ -59,7 +59,7 @@
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | — | Exige classificação em CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados (CHECK existe) | `migration 2164-2182` | Clayton | 2026-06-15 | — | CHECK garante igualdade hoje. Renomeação completa é refactor grande. |
-| C26 | OPEN | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | Clayton | 2026-04-25 | — | Mesmo padrão C22 mas sem CHECK. Adicionar CONSTRAINT é cirurgia de 5 min. |
+| C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | Clayton | 2026-04-25 | b481146a | Mesmo padrão C22 mas sem CHECK. Adicionar CONSTRAINT é cirurgia de 5 min. CHECK constraint adicionado via migration 20260421000000. Trigger 0064 já garantia sync em INSERT. |
 | C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
 
@@ -240,6 +240,16 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Status C8:** IN_PROGRESS → FIXED
 - **Violação nova:** C44 OPEN (marketplace/group.repository.ts)
 - **Próxima ação:** FASE 3 (seed realista + E2E) ou C26 (ADD CHECK actors.id)
+
+---
+
+### 2026-04-21 — C26 FIXED: CHECK constraint actors.actor_id = id
+
+- **Ação:** ADD CONSTRAINT chk_actors_actor_id_equals_id CHECK (actor_id = id).
+  Dados validados antes do constraint (divergent=0, null=0).
+  Migration 0064 já garantia sync via trigger — CHECK completa a invariante.
+- **Commit:** b481146a
+- **Status C26:** OPEN → FIXED
 
 ---
 
