@@ -323,7 +323,7 @@ class GroupsRepository {
     }
     if (input.isActive !== undefined) {
       updates.push(`status = $${paramIndex++}`);
-      params.push(input.isActive);
+      params.push(input.isActive ? 'active' : 'inactive');
     }
 
     if (updates.length === 0) {
