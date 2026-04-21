@@ -134,21 +134,19 @@ class GroupsRepository {
       rules_text: input.rules_text || null,
     };
 
-    // 🔴 CORREÇÃO: Gerar slug explicitamente para evitar ambiguidade de tipo
+    // Gerar slug em TypeScript (generate_group_slug não existe no schema Gênesis)
     let finalSlug = input.slug || null;
     if (!finalSlug) {
-      try {
-        const slugResult = await runQueryWithTenant<{ slug: string }>(
-          tenantId,
-          `SELECT generate_group_slug($1::text, $2::uuid) as slug`,
-          [input.name, tenantId]
-        );
-        finalSlug = slugResult?.slug || null;
-      } catch (err) {
-        // Se função falhar, slug será NULL (aceitável)
-        console.warn('Erro ao gerar slug, usando NULL:', err);
-        finalSlug = null;
-      }
+      const baseSlug = input.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-+/g, '-')
+        .substring(0, 60) || 'grupo';
+
+      finalSlug = baseSlug;
     }
 
     const row = await runQueryWithTenant<GroupRow>(
