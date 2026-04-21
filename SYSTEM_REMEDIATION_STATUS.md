@@ -35,8 +35,8 @@
 | CRITICAL | 10 | 10 |
 | HIGH | 11 | 16 |
 | MEDIUM | 9 | 9 |
-| OPEN | 21 | 26 |
-| IN_PROGRESS | 0 | 0 |
+| OPEN | 21 | 25 |
+| IN_PROGRESS | 0 | 1 |
 | FIXED | 1 | 1 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
@@ -143,6 +143,16 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Próxima fase:** FASE 2 — C14 incremental (remover 23 catches de schema)
 - **Nota:** C3, C4, C8, C12, C13 ainda não suprimidos por allowlist
   (files_scope incompleto). Violações reais — serão corrigidas em FASE 4/5.
+
+---
+
+### 2026-04-21 — FASE 2 em andamento: C14[1/6] e C14[2/6] concluídos
+
+- **Ação:** Remoção incremental de catches 42P01 em unified-availability.routes.ts.
+  2 dos 6 catches CRITICAL removidos (lista disponibilidades + lista bookings).
+- **Commits:** 345b6ef3 (C14[1/6]), e729b651 (status), 3b6788e2 (C14[2/6]), 0986c3e4 (status)
+- **Status C14:** OPEN → IN_PROGRESS
+- **Próxima ação:** C14[3/6] — availability_participants
 
 ---
 
