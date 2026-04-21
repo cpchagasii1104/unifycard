@@ -6,25 +6,16 @@ import { worldService } from '@core/world/services/world.service';
 import type { Group, GroupMember, GroupAccount, CreateGroupInput, UpdateGroupInput, GroupVisibility, GroupInvite, GroupInviteStatus } from './groups.types';
 
 interface GroupRow {
-  group_id: string;
+  id: string;
   tenant_id: string;
   name: string;
-  slug: string;
+  slug: string | null;
   description: string | null;
-  audience_description: string | null;
-  category_id: string | null;
-  visibility: string;
-  // 🔴 REMOVIDO: scope, country_id, state_id, city_id, neighborhood, rules_text não existem no schema atual
-  // Esses dados são armazenados em metadata
-  avatar_url: string | null;
-  cover_url: string | null;
-  financial_purpose: string | null;
   owner_actor_id: string;
   status: string;
-  profit_percentage: number | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface GroupMemberRow {
@@ -54,34 +45,33 @@ interface GroupInviteRow {
 
 class GroupsRepository {
   private toGroup(row: GroupRow): Group {
-    // 🔴 CORREÇÃO: Extrair scope e location de metadata se não existirem como colunas
     const metadata = row.metadata || {};
     const location = metadata.location || {};
 
     return {
-      groupId: row.group_id,
+      groupId: row.id,
       tenantId: row.tenant_id,
       name: row.name,
-      slug: row.slug,
+      slug: row.slug || undefined,
       description: row.description || '',
-      audienceDescription: row.audience_description || undefined,
-      categoryId: row.category_id || undefined,
-      visibility: (row.visibility || 'public') as Group['visibility'],
+      audienceDescription: metadata.audience_description || undefined,
+      categoryId: metadata.category_id || undefined,
+      visibility: (metadata.visibility || 'public') as Group['visibility'],
       scope: (metadata.scope || 'national') as Group['scope'],
       countryId: location.country_id || undefined,
       stateId: location.state_id || undefined,
       cityId: location.city_id || undefined,
       neighborhood: location.neighborhood || undefined,
-      avatarUrl: row.avatar_url || undefined,
-      coverUrl: row.cover_url || undefined,
+      avatarUrl: metadata.avatar_url || undefined,
+      coverUrl: metadata.cover_url || undefined,
       rulesText: metadata.rules_text || undefined,
-      financialPurpose: row.financial_purpose || undefined,
+      financialPurpose: metadata.financial_purpose || undefined,
       ownerActorId: row.owner_actor_id,
       isActive: row.status === 'active',
-      profitBps: row.profit_percentage ? parseFloat(row.profit_percentage.toString()) : 0,
+      profitBps: metadata.profit_percentage ? parseFloat(metadata.profit_percentage.toString()) : 0,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -132,6 +122,12 @@ class GroupsRepository {
         neighborhood: input.neighborhood || null,
       },
       rules_text: input.rules_text || null,
+      audience_description: input.audience_description || null,
+      category_id: input.category_id || null,
+      visibility: input.visibility || 'public',
+      avatar_url: input.avatar_url || null,
+      cover_url: input.cover_url || null,
+      financial_purpose: input.financial_purpose || null,
     };
 
     // Gerar slug em TypeScript (generate_group_slug não existe no schema Gênesis)
@@ -153,30 +149,20 @@ class GroupsRepository {
       tenantId,
       `
       INSERT INTO groups (
-        tenant_id, name, slug, description, audience_description, category_id, visibility,
-        avatar_url, cover_url, financial_purpose,
-        owner_actor_id, metadata
+        tenant_id, name, slug, description,
+        owner_actor_id, status, metadata
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, COALESCE($7::group_visibility, 'public'::group_visibility),
-        $8, $9, $10,
-        $11, $12
+        $1, $2, $3, $4,
+        $5, 'active', $6
       )
-      RETURNING group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
-        avatar_url, cover_url, financial_purpose,
-        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, name, slug, description, owner_actor_id, status, metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.name,
         finalSlug,
         input.description || '',
-        input.audience_description || null,
-        input.category_id || null,
-        input.visibility || 'public',
-        input.avatar_url || null,
-        input.cover_url || null,
-        input.financial_purpose || null,
         ownerActorId,
         JSON.stringify(metadata)
       ]
@@ -187,11 +173,11 @@ class GroupsRepository {
     }
 
     // Adicionar owner como membro com role 'owner'
-    await this.addMember(tenantId, row.group_id, ownerActorId, 'owner');
+    await this.addMember(tenantId, row.id, ownerActorId, 'owner');
     
     // 🔴 CORREÇÃO UX: Adicionar owner também como 'admin' para permitir atualizações
     // Isso garante que o criador pode atualizar mídia sem erro de permissão
-    await this.addMember(tenantId, row.group_id, ownerActorId, 'admin');
+    await this.addMember(tenantId, row.id, ownerActorId, 'admin');
 
     return this.toGroup(row);
   }
@@ -201,11 +187,9 @@ class GroupsRepository {
     const row = await runQueryWithTenant<GroupRow>(
       tenantId,
       `
-      SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
-        avatar_url, cover_url, financial_purpose,
-        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, slug, description, owner_actor_id, status, metadata, created_at, updated_at
       FROM groups
-      WHERE group_id = $1 AND tenant_id = $2
+      WHERE id = $1 AND tenant_id = $2
       `,
       [groupId, tenantId]
     );
@@ -257,9 +241,7 @@ class GroupsRepository {
     }
 
     let query = `
-      SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
-        avatar_url, cover_url, financial_purpose,
-        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, slug, description, owner_actor_id, status, metadata, created_at, updated_at
       FROM groups
       WHERE (${visibilityConditions.join(' OR ')})
     `;
@@ -271,12 +253,12 @@ class GroupsRepository {
     }
 
     if (filters?.categoryId) {
-      query += ` AND category_id = $${paramIndex}`;
+      query += ` AND metadata->>'category_id' = $${paramIndex}`;
       params.push(filters.categoryId);
       paramIndex++;
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const rows = await runQueriesWithTenant<GroupRow>(tenantId, query, params);
     return rows.map((r) => this.toGroup(r));
@@ -299,37 +281,25 @@ class GroupsRepository {
       updates.push(`description = $${paramIndex++}`);
       params.push(input.description || null);
     }
-    if (input.audience_description !== undefined) {
-      updates.push(`audience_description = $${paramIndex++}`);
-      params.push(input.audience_description || null);
-    }
-    if (input.category_id !== undefined) {
-      updates.push(`category_id = $${paramIndex++}`);
-      params.push(input.category_id || null);
-    }
-    if (input.visibility !== undefined) {
-      updates.push(`visibility = $${paramIndex++}`);
-      params.push(input.visibility);
-    }
-    // 🔴 CORREÇÃO: scope, country_id, state_id, city_id, neighborhood, rules_text não existem como colunas
-    // Armazenar em metadata
-    const needsMetadataUpdate = input.scope !== undefined || input.country_id !== undefined || 
-        input.state_id !== undefined || input.city_id !== undefined || 
-        input.neighborhood !== undefined || input.rules_text !== undefined;
-    
+    // Campos armazenados em metadata (schema Gênesis não tem essas colunas)
+    const needsMetadataUpdate = input.scope !== undefined || input.country_id !== undefined ||
+        input.state_id !== undefined || input.city_id !== undefined ||
+        input.neighborhood !== undefined || input.rules_text !== undefined ||
+        input.audience_description !== undefined || input.category_id !== undefined ||
+        input.visibility !== undefined || input.avatar_url !== undefined ||
+        input.cover_url !== undefined || input.financial_purpose !== undefined ||
+        input.profitBps !== undefined;
+
     if (needsMetadataUpdate || input.metadata !== undefined) {
-      // Buscar metadata atual para fazer merge
       const current = await this.findById(tenantId, groupId);
       const currentMetadata = current?.metadata || {};
       const updatedMetadata = {
         ...currentMetadata,
         ...(input.metadata || {}),
       };
-      
-      if (input.scope !== undefined) {
-        updatedMetadata.scope = input.scope;
-      }
-      if (input.country_id !== undefined || input.state_id !== undefined || 
+
+      if (input.scope !== undefined) updatedMetadata.scope = input.scope;
+      if (input.country_id !== undefined || input.state_id !== undefined ||
           input.city_id !== undefined || input.neighborhood !== undefined) {
         updatedMetadata.location = {
           ...(currentMetadata.location || {}),
@@ -339,34 +309,21 @@ class GroupsRepository {
           ...(input.neighborhood !== undefined ? { neighborhood: input.neighborhood } : {}),
         };
       }
-      if (input.rules_text !== undefined) {
-        updatedMetadata.rules_text = input.rules_text;
-      }
-      
+      if (input.rules_text !== undefined) updatedMetadata.rules_text = input.rules_text;
+      if (input.audience_description !== undefined) updatedMetadata.audience_description = input.audience_description;
+      if (input.category_id !== undefined) updatedMetadata.category_id = input.category_id;
+      if (input.visibility !== undefined) updatedMetadata.visibility = input.visibility;
+      if (input.avatar_url !== undefined) updatedMetadata.avatar_url = input.avatar_url;
+      if (input.cover_url !== undefined) updatedMetadata.cover_url = input.cover_url;
+      if (input.financial_purpose !== undefined) updatedMetadata.financial_purpose = input.financial_purpose;
+      if (input.profitBps !== undefined) updatedMetadata.profit_percentage = input.profitBps;
+
       updates.push(`metadata = $${paramIndex++}`);
       params.push(JSON.stringify(updatedMetadata));
-    }
-    if (input.avatar_url !== undefined) {
-      updates.push(`avatar_url = $${paramIndex++}`);
-      params.push(input.avatar_url || null);
-    }
-    if (input.cover_url !== undefined) {
-      updates.push(`cover_url = $${paramIndex++}`);
-      params.push(input.cover_url || null);
-    }
-    if (input.financial_purpose !== undefined) {
-      updates.push(`financial_purpose = $${paramIndex++}`);
-      params.push(input.financial_purpose || null);
     }
     if (input.isActive !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       params.push(input.isActive);
-    }
-    // 🔴 CORREÇÃO: metadata já foi tratado acima se scope/location/rules_text foram atualizados
-    // (removido - lógica unificada acima)
-    if (input.profitBps !== undefined) {
-      updates.push(`profit_percentage = $${paramIndex++}`);
-      params.push(input.profitBps);
     }
 
     if (updates.length === 0) {
@@ -377,7 +334,7 @@ class GroupsRepository {
       return existing;
     }
 
-    updates.push(`updatedAt = now()`);
+    updates.push(`updated_at = now()`);
 
     // 🔴 CORREÇÃO: Remover colunas que não existem do RETURNING
     const row = await runQueryWithTenant<GroupRow>(
@@ -385,10 +342,8 @@ class GroupsRepository {
       `
       UPDATE groups
       SET ${updates.join(', ')}
-      WHERE tenant_id = $1 AND group_id = $2
-      RETURNING group_id, tenant_id, name, slug, description, category_id, visibility,
-        avatar_url, cover_url, financial_purpose,
-        owner_actor_id, status, profit_percentage, metadata, createdAt, updatedAt
+      WHERE tenant_id = $1 AND id = $2
+      RETURNING id, tenant_id, name, slug, description, owner_actor_id, status, metadata, created_at, updated_at
       `,
       params
     );
@@ -401,13 +356,13 @@ class GroupsRepository {
   }
 
   async delete(tenantId: string, groupId: string): Promise<boolean> {
-    const result = await runQueryWithTenant<{ group_id: string }>(
+    const result = await runQueryWithTenant<{ id: string }>(
       tenantId,
       `
       UPDATE groups
-      SET status = 'inactive', updatedAt = now()
-      WHERE tenant_id = $1 AND group_id = $2
-      RETURNING group_id
+      SET status = 'inactive', updated_at = now()
+      WHERE tenant_id = $1 AND id = $2
+      RETURNING id
       `,
       [tenantId, groupId]
     );
@@ -459,7 +414,7 @@ class GroupsRepository {
       `
       SELECT gm.group_id, gm.user_id, gm.role, gm.joinedAt
       FROM group_members gm
-      INNER JOIN groups g ON g.group_id = gm.group_id
+      INNER JOIN groups g ON g.id = gm.group_id
       WHERE gm.group_id = $1 AND g.tenant_id = $2
       ORDER BY gm.joinedAt ASC
       `,
@@ -478,7 +433,7 @@ class GroupsRepository {
       `
       SELECT gm.role
       FROM group_members gm
-      INNER JOIN groups g ON g.group_id = gm.group_id
+      INNER JOIN groups g ON g.id = gm.group_id
       WHERE gm.group_id = $1 AND g.tenant_id = $2 AND gm.user_id = $3
       `,
       [groupId, tenantId, userId]
@@ -496,11 +451,9 @@ class GroupsRepository {
     const rows = await runQueriesWithTenant<GroupRow>(
       tenantId,
       `
-      SELECT g.group_id, g.tenant_id, g.name, g.slug, g.description, g.category_id, g.visibility,
-        g.avatar_url, g.cover_url, g.financial_purpose,
-        g.owner_actor_id, g.status, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
+      SELECT g.id, g.tenant_id, g.name, g.slug, g.description, g.owner_actor_id, g.status, g.metadata, g.created_at, g.updated_at
       FROM groups g
-      INNER JOIN group_members gm ON g.group_id = gm.group_id
+      INNER JOIN group_members gm ON g.id = gm.group_id
       WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
       ORDER BY gm.joinedAt DESC
       `,
@@ -516,7 +469,7 @@ class GroupsRepository {
       `
       SELECT COUNT(*) as count
       FROM group_members gm
-      INNER JOIN groups g ON g.group_id = gm.group_id
+      INNER JOIN groups g ON g.id = gm.group_id
       WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
       `,
       [tenantId, userId]
@@ -598,7 +551,7 @@ class GroupsRepository {
       `
       SELECT ga.group_id, ga.account_id, ga.createdAt
       FROM group_accounts ga
-      INNER JOIN groups g ON g.group_id = ga.group_id
+      INNER JOIN groups g ON g.id = ga.group_id
       WHERE ga.group_id = $1 AND g.tenant_id = $2
       LIMIT 1
       `,
@@ -607,7 +560,7 @@ class GroupsRepository {
 
     return row
       ? {
-          groupId: row.group_id,
+            groupId: row.group_id,
           accountId: row.account_id,
           createdAt: row.createdAt.toISOString(),
         }
@@ -621,7 +574,7 @@ class GroupsRepository {
   private toGroupInvite(row: GroupInviteRow): GroupInvite {
     return {
       inviteId: row.invite_id,
-      groupId: row.group_id,
+        groupId: row.group_id,
       invitedUserId: row.invited_user_id,
       invitedByUserId: row.invited_by_user_id,
       status: row.status as GroupInvite['status'],
