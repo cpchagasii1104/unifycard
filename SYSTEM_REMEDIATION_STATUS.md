@@ -203,4 +203,16 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 
 ---
 
+### 2026-04-21 — C8[3/6] concluído: is_active → status alinhado com schema Gênesis
+
+- **Ação:** Remoção de `is_active` em groups.repository.ts (interface, toGroup mapping,
+  RETURNING/SELECT/WHERE clauses, UPDATE SET, valores 'active'/'inactive').
+  Script PS executado, diff validado (12 hunks, todas mudanças in-scope).
+  4 gates passaram: actor-writer ✓, bank-ledger ✓, regression-guards ✓, architectural-patterns ✓.
+- **Commit:** dbe4e617 (C8[3/6])
+- **Status C8:** IN_PROGRESS (Commit 3/6 finalizado, 4/6-6/6 pendentes)
+- **Próxima ação:** C8[4/6] — marketplace/group.repository.ts (mesmo padrão)
+
+---
+
 **FIM DO DOCUMENTO** (continua crescendo por append a cada commit de correção)
