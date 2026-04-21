@@ -493,39 +493,89 @@ const AUTHORIZED_BANK_READ = [
   'backend/src/workers/risk-analysis-worker.ts',
 ];
 
-function classifyViolation(ref, schema) {
+function normalizePath(p) {
+  return String(p || '').replace(/\\/g, '/').toLowerCase();
+}
+
+function isAllowedByPath(filePath, allowedList) {
+  const n = normalizePath(filePath);
+  return allowedList.some(item => n.includes(normalizePath(item)));
+}
+
+function hasDecisionClause(text) {
+  return /\b(WHERE|CASE|HAVING|AND|OR)\b/i.test(text || '');
+}
+
+function detectViolationAndSeverity(ref, schema) {
+  const snippet = String(ref.snippet || '');
+  const pattern = String(ref.pattern || '').toUpperCase();
+  const filePath = ref.file || '';
+
+  // Condition 6: schema catch
   if (ref.type === 'schema_catch') {
-    return 'CORRUPTOR';
+    return { isViolation: true, severity: 'CORRUPTOR' };
   }
 
+  // Condition 7: metadata-> decision on transactional table
   if (ref.type === 'metadata_decision') {
-    const filePath = ref.file.toLowerCase();
-    const isTransactional = Array.from(TRANSACTIONAL_TABLES).some(t => 
-      ref.snippet && ref.snippet.toLowerCase().includes(t)
-    );
-    return isTransactional ? 'CORRUPTOR' : 'DEBT';
+    const isDecision = hasDecisionClause(snippet);
+    const hasTransactionalTable = Array.from(TRANSACTIONAL_TABLES).some(t => snippet.toLowerCase().includes(t));
+    if (isDecision && hasTransactionalTable) {
+      return { isViolation: true, severity: 'CORRUPTOR' };
+    }
+    return { isViolation: false, severity: null };
   }
 
   if (ref.type === 'table') {
-    if (!schema.has(ref.name)) {
-      // Table phantom
-      if (['INSERT', 'UPDATE', 'DELETE'].includes(ref.pattern)) {
-        return 'BLOCKER';
-      }
-      if (ref.pattern === 'FROM' || ref.pattern === 'JOIN') {
-        return 'CORRUPTOR';
-      }
+    const tableName = String(ref.name || '').toLowerCase();
+    const isBankTable = ['bank_ledger', 'bank_transactions', 'bank_accounts', 'bank_splits'].includes(tableName);
+    const isWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(pattern);
+    const isRead = ['FROM', 'JOIN'].includes(pattern);
+
+    // Condition 3: bank_* write outside authorized write modules
+    if (isBankTable && isWrite && !isAllowedByPath(filePath, AUTHORIZED_BANK_WRITE)) {
+      return { isViolation: true, severity: 'BLOCKER' };
     }
+
+    // Condition 4: bank_* read outside authorized read modules
+    if (tableName.startsWith('bank_') && isRead && !isAllowedByPath(filePath, AUTHORIZED_BANK_READ)) {
+      return { isViolation: true, severity: 'CORRUPTOR' };
+    }
+
+    // Condition 5: INSERT INTO actors outside actor writer
+    if (tableName === 'actors' && pattern === 'INSERT' && !isAllowedByPath(filePath, ['modules/identity/actor-writer.service.ts'])) {
+      return { isViolation: true, severity: 'CORRUPTOR' };
+    }
+
+    // Condition 1: ghost table
+    if (!schema.has(tableName)) {
+      if (isWrite) {
+        return { isViolation: true, severity: 'BLOCKER' };
+      }
+      if (isRead) {
+        return { isViolation: true, severity: hasDecisionClause(snippet) ? 'CORRUPTOR' : 'DEBT' };
+      }
+      return { isViolation: true, severity: 'DEBT' };
+    }
+
+    return { isViolation: false, severity: null };
   }
 
   if (ref.type === 'column') {
+    // Condition 2: ghost column (only when left-side token maps directly to a real table)
     if (schema.has(ref.table) && !schema.get(ref.table).has(ref.name)) {
-      // Column phantom
-      return 'DEBT';
+      if (/\bINSERT\s+INTO\b|\bUPDATE\b.*\bSET\b|\bSET\s+[a-z_][a-z0-9_]*\s*=/i.test(snippet)) {
+        return { isViolation: true, severity: 'BLOCKER' };
+      }
+      if (hasDecisionClause(snippet)) {
+        return { isViolation: true, severity: 'CORRUPTOR' };
+      }
+      return { isViolation: true, severity: 'DEBT' };
     }
+    return { isViolation: false, severity: null };
   }
 
-  return 'DEBT';
+  return { isViolation: false, severity: null };
 }
 
 // ============================================================================
@@ -706,14 +756,16 @@ async function main() {
 
   const allowlistedIds = new Set();
   for (const ref of allReferences) {
-    if (ref.type === 'table' && !schema.has(ref.name)) {
-      const severity = classifyViolation(ref, schema);
-      const allowlistId = isAllowlisted(ref, allowlist, ref.file);
-      if (allowlistId) {
-        allowlistedIds.add(allowlistId);
-      } else {
-        violations[severity].push(ref);
-      }
+    const detected = detectViolationAndSeverity(ref, schema);
+    if (!detected.isViolation || !detected.severity) {
+      continue;
+    }
+
+    const allowlistId = isAllowlisted(ref, allowlist, ref.file);
+    if (allowlistId) {
+      allowlistedIds.add(allowlistId);
+    } else {
+      violations[detected.severity].push(ref);
     }
   }
 
