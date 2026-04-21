@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-21 (populado com auditoria inicial) |
+| Última atualização | 2026-04-21 (FASE 0 concluída — commits 848da51e, 04a47b6f, ab407330) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -103,6 +103,15 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Status inicial:** 30 OPEN (nenhum FIXED, exceto C20 que foi corrigido em sessão anterior antes deste documento existir).
 - **Commit:** (a ser preenchido quando este arquivo for commitado)
 - **Observação:** C20 marcado como FIXED retroativamente porque a migration `20260530480000_fix_system_coverage_view.sql` já existe no repositório.
+
+### 2026-04-21 — FASE 0 concluída
+
+- **Ação:** Base normativa estabelecida. 4 arquivos de remediação criados na raiz.
+	00_AGENT_PROTOCOL.md atualizado com §2.5.
+- **Commits:** 848da51e (STATUS), 04a47b6f (AGENT_PROTOCOL), ab407330 (DECISIONS_LOG + SNAPSHOTS)
+- **Próxima fase:** FASE 1 — VISIBILIDADE (gate v1.1 ETAPA 2)
+- **Pausa registrada em:** ETAPA 1 do gate v1.1 concluída (commit 4b84175f).
+	ETAPAs 2, 3, 4, 5 pendentes.
 
 ---
 

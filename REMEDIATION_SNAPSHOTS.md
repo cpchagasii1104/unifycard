@@ -107,7 +107,79 @@ A cada fase completa, snapshot numérico é registrado. Comparação com snapsho
 
 ## Registros
 
-*(Nenhum snapshot registrado até 2026-04-21.)*
+## SNAPSHOT após FASE 0 — 2026-04-21
+
+**Commit de referência:** ab407330  
+**Responsável:** Clayton
+
+### Base normativa estabelecida
+
+Arquivos criados e commitados na raiz C:\unificard\:
+
+| Arquivo | Commit | Status |
+|---|---|---|
+| SYSTEM_REMEDIATION_PLAN.md | sessão 2026-04-21 | ✓ commitado |
+| SYSTEM_REMEDIATION_STATUS.md | 848da51e | ✓ commitado |
+| REMEDIATION_DECISIONS_LOG.md | ab407330 | ✓ commitado |
+| REMEDIATION_SNAPSHOTS.md | ab407330 | ✓ commitado |
+
+docs/01_normative/00_AGENT_PROTOCOL.md atualizado com seção §2.5 (commit 04a47b6f).
+
+### Gates (estado na conclusão da FASE 0)
+
+- schema-coherence v1: FAIL (895 violações — esperado, classificação antiga ainda não corrigida)
+  - BLOCKER: 331
+  - CORRUPTOR: 564
+  - DEBT: 0
+- actor-writer-boundaries: PASS (verde)
+- bank-ledger-boundaries: PASS (verde)
+- regression-guards: PASS (verde)
+- architectural-patterns: PASS (verde)
+
+### Compilação
+- tsc --noEmit: 0 erros (corrigido em sessão anterior)
+
+### Gate interno — extração (após ETAPA 1 do gate v1.1)
+- Arquivos .ts varridos: 1.660
+- Strings SQL candidatas (bruto): 3.170
+- Strings SQL válidas (pós-filtro): 2.422
+- Rejeitadas: 748 (376 em log, 11 em comentário, 361 outras)
+
+### Schema
+- Tabelas no banco: 206
+- Tabelas em migrations (parser v1): 207
+- DIFF banco↔migrations:
+  - Em banco mas não em migrations: _deprecated_product_concept_resolution_queue, _deprecated_tenant_products, schema_migrations, system_coverage
+  - Em migrations mas não em banco: _migration_category_merge, catalog_products, tenant_products, product_concepts, product_concept_resolution_queue
+
+### Allowlist
+- Entradas ativas válidas: 0 (nenhuma criada ainda)
+- Entradas expiradas: 0
+
+### Seed + E2E
+- Seed realista: n/a (não implementado ainda — FASE 3)
+- Ledger consistente: n/a
+
+### Status das violações
+- Total: 30
+- OPEN: 21 | IN_PROGRESS: 0 | FIXED: 1 | ALLOWLISTED: 0 | DEFERRED: 0 | DECISION_PENDING: 8
+
+### Próxima fase
+FASE 1 — VISIBILIDADE
+- Próxima ação: ETAPA 2 do gate v1.1 (parser de schema estendido para DO $$ blocks)
+- Gate v1.1 ETAPA 1 commitado: 4b84175f
+- ETAPAs pendentes: 2, 3, 4, 5 (validação manual)
+
+### Comparação com snapshot anterior
+- Primeiro snapshot — sem comparação disponível.
+
+### Análise de convergência
+FASE 0 concluída com sucesso. Base normativa estabelecida. Nenhuma regressão técnica.
+Sistema ainda em estado de deriva sistêmica (30 violações abertas), conforme esperado.
+Gate v1 rodou e detectou 895 violações brutas (maioria falso-positivo por classificação
+antiga — corrigido nas próximas ETAPAs do gate v1.1).
+
+---
 
 **Próximo snapshot esperado:** após conclusão da FASE 0 (criação dos 4 arquivos normativos + atualização do `00_AGENT_PROTOCOL.md`).
 
