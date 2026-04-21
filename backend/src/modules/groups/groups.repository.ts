@@ -19,7 +19,7 @@ interface GroupRow {
   avatar_url: string | null;
   cover_url: string | null;
   financial_purpose: string | null;
-  owner_user_id: string;
+  owner_actor_id: string;
   is_active: boolean;
   profit_percentage: number | null;
   metadata: any;
@@ -76,7 +76,7 @@ class GroupsRepository {
       coverUrl: row.cover_url || undefined,
       rulesText: metadata.rules_text || undefined,
       financialPurpose: row.financial_purpose || undefined,
-      ownerUserId: row.owner_user_id,
+      ownerActorId: row.owner_actor_id,
       isActive: row.is_active,
       profitBps: row.profit_percentage ? parseFloat(row.profit_percentage.toString()) : 0,
       metadata: row.metadata || {},
@@ -94,7 +94,7 @@ class GroupsRepository {
     };
   }
 
-  async create(tenantId: string, ownerUserId: string, input: CreateGroupInput): Promise<Group> {
+  async create(tenantId: string, ownerActorId: string, input: CreateGroupInput): Promise<Group> {
     // Validar campos obrigatórios baseado no scope
     const scope = input.scope || 'national';
     if (scope !== 'national' && !input.state_id) {
@@ -155,7 +155,7 @@ class GroupsRepository {
       INSERT INTO groups (
         tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, metadata
+        owner_actor_id, metadata
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, COALESCE($7::group_visibility, 'public'::group_visibility),
@@ -164,7 +164,7 @@ class GroupsRepository {
       )
       RETURNING group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       `,
       [
         tenantId,
@@ -177,7 +177,7 @@ class GroupsRepository {
         input.avatar_url || null,
         input.cover_url || null,
         input.financial_purpose || null,
-        ownerUserId,
+        ownerActorId,
         JSON.stringify(metadata)
       ]
     );
@@ -187,11 +187,11 @@ class GroupsRepository {
     }
 
     // Adicionar owner como membro com role 'owner'
-    await this.addMember(tenantId, row.group_id, ownerUserId, 'owner');
+    await this.addMember(tenantId, row.group_id, ownerActorId, 'owner');
     
     // 🔴 CORREÇÃO UX: Adicionar owner também como 'admin' para permitir atualizações
     // Isso garante que o criador pode atualizar mídia sem erro de permissão
-    await this.addMember(tenantId, row.group_id, ownerUserId, 'admin');
+    await this.addMember(tenantId, row.group_id, ownerActorId, 'admin');
 
     return this.toGroup(row);
   }
@@ -203,7 +203,7 @@ class GroupsRepository {
       `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE group_id = $1 AND tenant_id = $2
       `,
@@ -259,7 +259,7 @@ class GroupsRepository {
     let query = `
       SELECT group_id, tenant_id, name, slug, description, audience_description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       FROM groups
       WHERE (${visibilityConditions.join(' OR ')})
     `;
@@ -388,7 +388,7 @@ class GroupsRepository {
       WHERE tenant_id = $1 AND group_id = $2
       RETURNING group_id, tenant_id, name, slug, description, category_id, visibility,
         avatar_url, cover_url, financial_purpose,
-        owner_user_id, is_active, profit_percentage, metadata, createdAt, updatedAt
+        owner_actor_id, is_active, profit_percentage, metadata, createdAt, updatedAt
       `,
       params
     );
@@ -498,7 +498,7 @@ class GroupsRepository {
       `
       SELECT g.group_id, g.tenant_id, g.name, g.slug, g.description, g.category_id, g.visibility,
         g.avatar_url, g.cover_url, g.financial_purpose,
-        g.owner_user_id, g.is_active, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
+        g.owner_actor_id, g.is_active, g.profit_percentage, g.metadata, g.createdAt, g.updatedAt
       FROM groups g
       INNER JOIN group_members gm ON g.group_id = gm.group_id
       WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.is_active = true
@@ -530,7 +530,7 @@ class GroupsRepository {
    * Usado pela GroupCreationPolicy para verificar limite de criação.
    * 
    * @param tenantId ID do tenant
-   * @param userId ID do usuário (owner_user_id)
+   * @param userId ID do usuário (owner_actor_id)
    * @returns Número de grupos criados pelo usuário
    */
   async countGroupsCreatedByUser(tenantId: string, userId: string): Promise<number> {
@@ -539,7 +539,7 @@ class GroupsRepository {
       `
       SELECT COUNT(*) as count
       FROM groups
-      WHERE tenant_id = $1 AND owner_user_id = $2
+      WHERE tenant_id = $1 AND owner_actor_id = $2
       `,
       [tenantId, userId]
     );
