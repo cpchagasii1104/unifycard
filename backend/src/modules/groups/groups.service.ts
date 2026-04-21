@@ -10,6 +10,7 @@ import { runQueryWithTenant } from '@core/database/pool';
 import { BadRequestError } from '@core/errors';
 import { worldService } from '@core/world/services/world.service';
 import type { Group, GroupMember, CreateGroupInput, UpdateGroupInput, GroupWithMembers, GroupInvite, GroupInviteStatus, CreateGroupInviteInput } from './groups.types';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 
 class GroupsService {
   /**
@@ -183,8 +184,11 @@ class GroupsService {
     // 🔴 VALIDAÇÃO: Validar hierarquia de localização se fornecida
     await this.validateLocationHierarchy(input.country_id, input.state_id, input.city_id);
 
+    // Resolver actor canônico antes de criar grupo (§4.8.1)
+    const ownerActor = await ensureUserActor(tenantId, ownerUserId);
+
     // Criar grupo
-    const group = await groupsRepository.create(tenantId, ownerUserId, input);
+    const group = await groupsRepository.create(tenantId, ownerActor.actor_id, input);
 
     // 🔴 INTENÇÃO FINANCEIRA: Criar conta econômica apenas se houver intenção financeira
     // Reutilizar variável hasFinancialIntent já declarada acima
@@ -221,8 +225,8 @@ class GroupsService {
       );
       
       if (userResult && userResult.global_user_id) {
-        const { actorRepository } = await import('@modules/social/actor.repository');
-        const actor = await actorRepository.findOrCreateUserActor(tenantId, ownerUserId);
+        // ownerActor já resolvido antes do create (§4.8.1)
+        const actor = ownerActor; // reutiliza actor resolvido canonicamente
         
         if (actor) {
           const { social2Service } = await import('@modules/social/social-2.0.service');
