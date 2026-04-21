@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 31 |
+| OPEN | 21 | 29 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 7 |
+| FIXED | 1 | 8 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 10 |
@@ -50,7 +50,7 @@
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
-| C1 | OPEN | Tabela `ledger` fantasma (6 arquivos usam `FROM ledger`) | `core/reputation/trust.service.ts` + 5 outros | Clayton | 2026-05-15 | — | Tabela não existe no schema. Reputação e penalidades operam sobre vazio. |
+| C1 | FIXED | Tabela `ledger` fantasma (6 arquivos usam `FROM ledger`) | `core/reputation/trust.service.ts` + 5 outros | Clayton | 2026-05-15 | 2c68cc89, 38c026d5, 468de737, 4bff6f9b | 4 fixes concluidos via DECISION-0007 (amputacao controlada). trust.service.ts: getFinancialHistory retorna zeros, pendingDebts via actor_debts. groups.routes.ts: rota impact-history retorna vazio. test-currency.service.ts: getTestCurrencyLedger retorna vazio, emit intacto. work.e2e.spec.ts: teste marcado .skip. Tests/scripts fora de src nao fazem parte do escopo — tratar em sessao de sanitizacao de testes separada. |
 | C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Clayton | — | — | Exige decisão: nullable inicial ou NOT NULL com backfill? Sem isso, §7 não é satisfazível. |
 | C3 | OPEN | INSERT INTO actors fora do actor-writer | `core/identity/identity.service.ts:67515` + `modules/social/actor.repository.ts:258561, 258733` | Clayton | 2026-05-01 | — | 3 caminhos paralelos de criação de identidade. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | 736b25c2 | currency e metadata removidos. 2 queries e 2 tipos corrigidos. regionId=owner_id. currency nao inventado. |

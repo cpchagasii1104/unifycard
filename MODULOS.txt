@@ -198,6 +198,7 @@ ESTADO: trust  (PASS — 2026-04-20)
   Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
   Migrations:         1 (20260530450000) — 3 tabelas criadas
   Tabelas:            trust_profiles, trust_events, trust_score_snapshots
+  Correcao adicional C1 (2c68cc89): getFinancialHistory sem ledger fantasma.
   DTs:                SELECT * em trust.repository.ts (backlog)
   Acoplamento:        trust_profiles.actor_id → actors (identidade)
                       trust_events.actor_id → actors
@@ -227,6 +228,7 @@ ESTADO: groups (TIER 3)  (C8 FIXED — 2026-04-21)
                       [3/5] is_active → status (schema Gênesis)
                       [4/5] INSERT/SELECT normalizados, group_id→id, colunas fantasmas→metadata
                       [5/5] boolean → string no update de status
+  Correcao adicional C1 (38c026d5): rota impact-history sem ledger fantasma.
   E2E validado:       POST /groups → 201 Created, grupo persistido com owner_actor_id correto
   DTs pendentes:      C44 (marketplace/group.repository.ts colunas inexistentes)
                       C46 (ownerUserId vs actorId — DECISION_PENDING)
@@ -252,7 +254,7 @@ ESTADO: core/profile  (EM REMEDIAÇÃO — C45 complemento FIXED)
                       com colunas fantasmas (domain_type, c.cep, user_skills_categories)
                       que falham mas são capturadas por try/catch — não bloqueiam
                       o fluxo principal mas geram ruído nos logs.
-  Próxima ação:       FASE 4 — C3, C12, C1 (C4 fechado 736b25c2)
+  Próxima ação:       FASE 4 — C3, C12 (C4 fechado 736b25c2; C1 fechado 2c68cc89…4bff6f9b)
 
 ================================================================================
 ESTADO: events (TIER 3)  (PASS — 2026-04-20)
@@ -285,6 +287,7 @@ ESTADO: trust  (PASS — 2026-04-20)
   Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
   Migrations:         1 (20260530450000) — 3 tabelas criadas
   Tabelas:            trust_profiles, trust_events, trust_score_snapshots
+  Correcao adicional C1 (2c68cc89): getFinancialHistory sem ledger fantasma.
   DTs:                SELECT * em trust.repository.ts (backlog)
   Acoplamento:        trust_profiles.actor_id → actors (identidade)
                       trust_events.actor_id → actors

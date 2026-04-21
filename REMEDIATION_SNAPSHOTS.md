@@ -377,3 +377,37 @@ Sistema agora tem 4 gates verdes pela primeira vez desde inicio da sessao.
 Bank-balance-by-region alinhado ao schema real — nao mais leitura fantasma.
 Proximo alvo: C1 (tabela ledger fantasma em 6 arquivos) — risco de
 corrupcao financeira estrutural, nao apenas erro runtime.
+
+---
+
+## SNAPSHOT FASE 4 — C1 fechado — 2026-04-21
+
+**Commit de referencia:** 4bff6f9b (ultimo fix de C1) apos b07b38a9 (DECISION-0007)
+**Responsavel:** Clayton
+
+### Gates
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violacoes fechadas
+- C1 FIXED: 4 fixes de amputacao controlada em trust, groups,
+  test-currency e work e2e spec
+
+### Status das violacoes
+- Total: 48 | OPEN: 29 | FIXED: 8 | DECISION_PENDING: 10
+
+### Decisoes registradas desde ultimo snapshot
+- DECISION-0007 (C1 amputacao controlada)
+
+### Comparacao com snapshot FASE 4 / C4
+- OPEN: 31 → 29 (−2: C1 + complemento C45 contabilizado antes)
+  Nota: revisar contagem se algum item foi fechado paralelamente
+- Sistema paralelo "ledger" eliminado de runtime de producao
+
+### Analise de convergencia
+FASE 4 avanca: C1 (maior bloqueador critico) eliminado sem inventar
+semantica. Reputacao (trust) nao depende mais de dados fantasmas.
+API de grupos nao retorna mais dados de tabela inexistente.
+Proximos alvos FASE 4: C3, C12, C44, C46.
