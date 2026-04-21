@@ -653,13 +653,27 @@ function validateAllowlist(allowlist) {
   return { errors, expired };
 }
 
-function isAllowlisted(ref, allowlist, filePath) {
-  for (const entry of allowlist.entries) {
-    const fileScope = entry.files_scope || [];
-    const inScope = fileScope.some(scope => filePath.toLowerCase().includes(scope.toLowerCase()));
-    if (!inScope) continue;
+function isAllowlisted(ref, allowlistEntries, filePath) {
+  const normalizedPath = filePath
+    ? filePath.replace(/\\/g, '/')
+        .split('backend/src/').pop() || filePath.replace(/\\/g, '/')
+    : '';
 
-    if (entry.type === 'ghost_table' && ref.type === 'table' && entry.pattern.table === ref.name) {
+  // Supports pattern.table (singular) and pattern.tables (array).
+  function tableMatchesPattern(entry, tableName) {
+    if (entry.pattern.table && entry.pattern.table === tableName) return true;
+    if (entry.pattern.tables && Array.isArray(entry.pattern.tables)) {
+      return entry.pattern.tables.includes(tableName);
+    }
+    return false;
+  }
+
+  for (const entry of allowlistEntries) {
+    const fileMatch = !entry.files_scope || !normalizedPath ||
+      entry.files_scope.some(scope => normalizedPath.includes(scope));
+    if (!fileMatch) continue;
+
+    if (entry.type === 'ghost_table' && ref.type === 'table' && tableMatchesPattern(entry, ref.name)) {
       return entry.id;
     }
     if (entry.type === 'ghost_column' && ref.type === 'column' && entry.pattern.column === ref.name && entry.pattern.table === ref.table) {
@@ -810,7 +824,7 @@ async function main() {
       continue;
     }
 
-    const allowlistId = isAllowlisted(ref, allowlist, ref.file);
+    const allowlistId = isAllowlisted(ref, allowlist.entries, ref.file);
     if (allowlistId) {
       allowlistedIds.add(allowlistId);
     } else {
