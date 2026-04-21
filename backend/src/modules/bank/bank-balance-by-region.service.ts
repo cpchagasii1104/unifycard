@@ -80,7 +80,7 @@ class BankBalanceByRegionService {
     const client = await getClientWithTenant(tenantId);
 
     let query = `
-      SELECT account_id, owner_id, currency, metadata
+      SELECT account_id, owner_id
       FROM bank_accounts
       WHERE tenant_id = $1
         AND owner_type = 'system'
@@ -89,16 +89,9 @@ class BankBalanceByRegionService {
 
     const params: any[] = [tenantId];
 
-    if (currency) {
-      query += ` AND currency = $2`;
-      params.push(currency);
-    }
-
     const result = await client.query<{
       account_id: string;
       owner_id: string;
-      currency: string;
-      metadata: any;
     }>(query, params);
 
     client.release();
@@ -140,14 +133,14 @@ class BankBalanceByRegionService {
         [tenantId, row.account_id]
       );
 
-      const regionId = (row.metadata?.regionId as string) || row.owner_id;
-      const regionName = (row.metadata?.regionName as string) || undefined;
+      const regionId = row.owner_id;
+      const regionName = undefined;
 
       funds.push({
         regionId,
         regionName,
         accountId: row.account_id,
-        currency: row.currency,
+        currency: currency ?? 'BRL',
         balance: balance.balance,
         lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
         transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
@@ -179,23 +172,20 @@ class BankBalanceByRegionService {
     const result = await client.query<{
       account_id: string;
       owner_id: string;
-      currency: string;
-      metadata: any;
     }>(
       `
-      SELECT account_id, owner_id, currency, metadata
+      SELECT account_id, owner_id
       FROM bank_accounts
       WHERE tenant_id = $1
         AND owner_type = 'system'
         AND metadata->>'systemAccountType' = 'regional_fund'
-        AND currency = $2
         AND (
-          metadata->>'regionId' = $3
-          OR owner_id = $3
+          metadata->>'regionId' = $2
+          OR owner_id = $2
         )
       LIMIT 1
       `,
-      [tenantId, currency, regionId]
+      [tenantId, regionId]
     );
 
     client.release();
@@ -238,13 +228,13 @@ class BankBalanceByRegionService {
       [tenantId, row.account_id]
     );
 
-    const regionName = (row.metadata?.regionName as string) || undefined;
+    const regionName = undefined;
 
     return {
       regionId,
       regionName,
       accountId: row.account_id,
-      currency: row.currency,
+      currency,
       balance: balance.balance,
       lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
       transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
