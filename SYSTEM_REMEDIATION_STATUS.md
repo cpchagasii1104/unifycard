@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-21 (FASE 1 em andamento — gate v1.1 concluído, 5 novas violações detectadas) |
+| Última atualização | 2026-04-21 (FASE 1 concluída — gate v1.1 operacional, commits 4b84175f→271d7569) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -129,6 +129,20 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Violações novas:** C31, C32, C33, C34, C35 (todas OPEN, severidade HIGH)
 - **Próxima ação:** Criar schema-coherence-allowlist.json para violações conhecidas (C1-C30)
 - **Decisão registrada:** DECISION-0001 (commit 2ad9d801)
+
+---
+
+### 2026-04-21 — FASE 1 concluída: gate v1.1 operacional
+
+- **Ação:** Gate schema-coherence v1.1 implementado (ETAPAs 1-5 concluídas).
+  Allowlist com 10 entradas, 5 ativas. Bloqueantes: 331 → 326.
+  Falsos negativos registrados em DECISION-0001.
+- **Commits:** 4b84175f (E1), d8f3f2be (E2), 3dd6dd66 (E3), cbfbf599 (E4),
+  9f8544ee (allowlist), 2ad9d801 (DECISIONS), f685b6f0 (STATUS C31-C35),
+  271d7569 (fix filePath + allowlist)
+- **Próxima fase:** FASE 2 — C14 incremental (remover 23 catches de schema)
+- **Nota:** C3, C4, C8, C12, C13 ainda não suprimidos por allowlist
+  (files_scope incompleto). Violações reais — serão corrigidas em FASE 4/5.
 
 ---
 

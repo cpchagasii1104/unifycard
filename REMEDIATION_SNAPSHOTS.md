@@ -181,7 +181,77 @@ antiga — corrigido nas próximas ETAPAs do gate v1.1).
 
 ---
 
-**Próximo snapshot esperado:** após conclusão da FASE 0 (criação dos 4 arquivos normativos + atualização do `00_AGENT_PROTOCOL.md`).
+## SNAPSHOT após FASE 1 — 2026-04-21
+
+**Commit de referência:** 271d7569
+**Responsável:** Clayton
+
+### Gates
+- schema-coherence v1.1: FAIL (817 violações — 326 BLOCKER + 491 CORRUPTOR + 88 DEBT)
+  - BLOCKER: 326 (era 331 antes do allowlist)
+  - CORRUPTOR: 491
+  - DEBT: 88
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS
+
+### Compilação
+- tsc --noEmit: 0 erros
+
+### Gate schema-coherence — métricas de extração
+- Arquivos .ts varridos: 1.660
+- Strings SQL candidatas (bruto): 3.170
+- Strings SQL válidas (pós-filtro): 2.422
+- CREATE TABLE padrão A: 208 | padrão B (DO $$): 0
+- Tabelas no banco: 206 | Em migrations: 207
+
+### Schema DIFF banco↔migrations
+- Em banco mas não em migrations: _deprecated_product_concept_resolution_queue, _deprecated_tenant_products, schema_migrations, system_coverage
+- Em migrations mas não em banco: _migration_category_merge, catalog_products, product_concept_resolution_queue, product_concepts, tenant_products
+
+### Allowlist
+- Entradas ativas válidas: 10
+- Entradas aplicadas: 5 (C1, C31, C32-C33, C34, C35)
+- Entradas com tableMatch mas sem fileMatch ainda: C3, C4, C8, C12, C13 (files_scope não cobre todos os paths)
+
+### Seed + E2E
+- Seed realista: n/a (FASE 3)
+- Ledger consistente: n/a
+
+### Status das violações
+- Total: 35
+- OPEN: 26 | IN_PROGRESS: 0 | FIXED: 1 | ALLOWLISTED: 0 | DEFERRED: 0 | DECISION_PENDING: 8
+
+### Writers verificados pelo gate
+- Escritas em bank_* fora de módulos autorizados: 0 ✅
+- Leituras em bank_* fora de módulos autorizados: 10 (C13)
+- INSERT em actors fora do writer canônico: 2 (C3)
+
+### Padrões proibidos detectados pelo gate
+- Catches de schema (42P01): 0 detectados (falso negativo — real é ~9, ver DECISION-0001)
+- metadata->> em decisão transacional: 0 detectados (falso negativo — real é ~9, ver DECISION-0001)
+
+### Comparação com snapshot FASE 0
+- Bloqueantes: 331 → 326 (↓ 5 por allowlist)
+- Corruptores: 501 → 491 (↓ 10)
+- DEBT: 91 → 88 (↓ 3)
+- Allowlist: 0 → 5 entradas ativas
+- Violações totais rastreadas: 30 → 35 (↑ 5 novas: C31-C35)
+
+### Decisões registradas desde FASE 0
+- DECISION-0001 (commit 2ad9d801): falsos negativos gate v1.1
+
+### Análise de convergência
+FASE 1 concluída. Gate v1.1 operacional com allowlist funcionando.
+Allowlist cobre 5 das 10 entradas (C1, C31-C35). C3, C4, C8, C12, C13 ainda
+não suprimidos por files_scope incompleto — manter como monitorados.
+Sistema convergiu levemente (326 vs 331 bloqueantes).
+Próxima fase: FASE 2 (C14 incremental — remover catches de schema).
+
+---
+
+**Próximo snapshot esperado:** após conclusão da FASE 2 (C14 incremental).
 
 ---
 
