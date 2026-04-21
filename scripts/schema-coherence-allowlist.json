@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "description": "Allowlist do gate schema-coherence. Entradas justificadas com owner + deadline + issue_id. Sem esses campos, gate falha. Deadline no passado = gate falha com ALLOWLIST_EXPIRED.",
+  "entries": [
+    {
+      "id": "C1-ledger-deprecated",
+      "type": "ghost_table",
+      "pattern": { "tables": ["ledger"] },
+      "files_scope": ["backend/src/core/reputation/", "backend/src/modules/groups/groups.routes.ts", "backend/src/core/unifybank/test-currency.service.ts", "backend/src/core/reputation/penalty.service.ts", "backend/src/modules/work/tests/work.e2e.spec.ts"],
+      "reason": "C1: tabela 'ledger' fantasma usada em 6 arquivos. Não existe no banco. Pendente refactor para bank_ledger ou impact_ledger. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-05-15",
+      "issue_id": "C1"
+    },
+    {
+      "id": "C3-actors-insert-fora-writer",
+      "type": "prohibited_insert",
+      "pattern": { "table": "actors", "outside_of": "modules/identity/actor-writer.service.ts" },
+      "files_scope": ["backend/src/core/identity/identity.service.ts", "backend/src/modules/social/actor.repository.ts"],
+      "reason": "C3: INSERT INTO actors em 2 arquivos fora do writer canônico. Pendente consolidação. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-05-01",
+      "issue_id": "C3"
+    },
+    {
+      "id": "C4-bank-accounts-colunas-fantasmas",
+      "type": "ghost_column",
+      "pattern": { "table": "bank_accounts", "columns": ["currency", "metadata"] },
+      "files_scope": ["backend/src/modules/bank/bank-balance-by-region.service.ts"],
+      "reason": "C4: listRegionalFunds lê colunas currency e metadata que não existem em bank_accounts. Quebra em runtime. Pendente correção urgente. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-04-30",
+      "issue_id": "C4"
+    },
+    {
+      "id": "C8-groups-schema-fantasma",
+      "type": "ghost_column",
+      "pattern": { "table": "groups", "columns": ["audience_description", "category_id", "visibility", "avatar_url", "cover_url", "financial_purpose", "owner_user_id", "is_active", "profit_percentage", "parent_group_id", "created_by_actor_id", "created_by_user_id"] },
+      "files_scope": ["backend/src/modules/groups/groups.repository.ts", "backend/src/modules/marketplace/group.repository.ts"],
+      "reason": "C8: 2 repositórios escrevem colunas que não existem em groups. Nenhum grupo pode ser criado. Pendente consolidação urgente. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-04-30",
+      "issue_id": "C8"
+    },
+    {
+      "id": "C12-actorId-como-globalUserId",
+      "type": "known_bug",
+      "pattern": { "files": ["backend/src/core/identity/identity.routes.ts", "backend/src/modules/events/organizers/organizers.routes.ts"] },
+      "files_scope": ["backend/src/core/identity/identity.routes.ts", "backend/src/modules/events/organizers/organizers.routes.ts"],
+      "reason": "C12: actorId retornado como globalUserId em 3 rotas. TODO explícito no código. Pendente fix. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-05-05",
+      "issue_id": "C12"
+    },
+    {
+      "id": "C13-bank-reads-fora-modulo",
+      "type": "unauthorized_read",
+      "pattern": { "tables": ["bank_ledger", "bank_transactions", "bank_accounts", "bank_splits"] },
+      "files_scope": ["backend/src/core/observability/", "backend/src/core/sagas/", "backend/src/modules/bank-settlement/", "backend/src/modules/economy/", "backend/src/modules/gateway/", "backend/src/modules/treasury-split/", "backend/src/scripts/", "backend/src/workers/financial-alert-worker.ts", "backend/src/workers/reconciliation-worker.ts", "backend/src/workers/sla-monitor-worker.ts"],
+      "reason": "C13: 10-11 arquivos leem bank_* fora dos módulos autorizados. Exige classificação CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. FASE 5 do PLAN. Auditoria 2026-04-21.",
+      "owner": "Clayton",
+      "deadline": "2026-06-01",
+      "issue_id": "C13"
+    },
+    {
+      "id": "C31-audit-events-fantasma",
+      "type": "ghost_table",
+      "pattern": { "tables": ["audit_events"] },
+      "files_scope": ["backend/src/core/audit/"],
+      "reason": "C31: tabela audit_events usada no código mas inexistente no banco e nas migrations. Detectado por gate v1.1 ETAPA 5. Pendente migration de criação ou remoção do código.",
+      "owner": "Clayton",
+      "deadline": "2026-05-10",
+      "issue_id": "C31"
+    },
+    {
+      "id": "C32-C33-webauthn-fantasma",
+      "type": "ghost_table",
+      "pattern": { "tables": ["webauthn_challenges", "webauthn_credentials"] },
+      "files_scope": ["backend/src/core/auth/"],
+      "reason": "C32-C33: tabelas webauthn_challenges e webauthn_credentials usadas no código mas inexistentes no banco. Detectado por gate v1.1 ETAPA 5. Pendente migration de criação ou remoção do código.",
+      "owner": "Clayton",
+      "deadline": "2026-05-10",
+      "issue_id": "C32"
+    },
+    {
+      "id": "C34-category-ai-logs-fantasma",
+      "type": "ghost_table",
+      "pattern": { "tables": ["category_ai_logs"] },
+      "files_scope": ["backend/src/core/categories/"],
+      "reason": "C34: tabela category_ai_logs usada no código mas inexistente no banco. Detectado por gate v1.1 ETAPA 5. Pendente migration de criação ou remoção do código.",
+      "owner": "Clayton",
+      "deadline": "2026-05-10",
+      "issue_id": "C34"
+    },
+    {
+      "id": "C35-partner-employees-fantasma",
+      "type": "ghost_table",
+      "pattern": { "tables": ["partner_employees"] },
+      "files_scope": ["backend/src/core/audit/"],
+      "reason": "C35: tabela partner_employees usada no código mas inexistente no banco. Detectado por gate v1.1 ETAPA 5. Pendente migration de criação ou remoção do código.",
+      "owner": "Clayton",
+      "deadline": "2026-05-10",
+      "issue_id": "C35"
+    }
+  ]
+}
