@@ -31,22 +31,22 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 35 |
-| CRITICAL | 10 | 10 |
-| HIGH | 11 | 16 |
-| MEDIUM | 9 | 9 |
-| OPEN | 21 | 23 |
-| IN_PROGRESS | 0 | 0 |
+| Total de violações | 30 | 43 |
+| CRITICAL | 10 | 12 |
+| HIGH | 11 | 19 |
+| MEDIUM | 9 | 12 |
+| OPEN | 21 | 31 |
+| IN_PROGRESS | 0 | 1 |
 | FIXED | 1 | 2 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
-| DECISION_PENDING | 8 | 9 |
+| DECISION_PENDING | 8 | 8 |
 
 ---
 
 ## Tabela de Violações
 
-### CRITICAL (10)
+### CRITICAL (12)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -54,14 +54,16 @@
 | C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Clayton | — | — | Exige decisão: nullable inicial ou NOT NULL com backfill? Sem isso, §7 não é satisfazível. |
 | C3 | OPEN | INSERT INTO actors fora do actor-writer | `core/identity/identity.service.ts:67515` + `modules/social/actor.repository.ts:258561, 258733` | Clayton | 2026-05-01 | — | 3 caminhos paralelos de criação de identidade. |
 | C4 | OPEN | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | — | Query usa `currency` e `metadata`, colunas que não existem. Quebra em runtime. |
-| C8 | DECISION_PENDING | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | Ambos escrevem colunas que não existem. Explica `groups=0` no banco. Commit 1/6 concluído: geração de slug movida de SQL inexistente para TypeScript. Commit 2/6 concluído: owner_user_id → owner_actor_id alinhado com schema Gênesis. C8[3/6] bloqueado — aguarda DECISION-0002 (nomenclatura: is_active vs status vs group_status) |
+| C8 | IN_PROGRESS | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | Ambos escrevem colunas que não existem. Explica `groups=0` no banco. Commit 1/6 concluído: geração de slug movida de SQL inexistente para TypeScript. Commit 2/6 concluído: owner_user_id → owner_actor_id alinhado com schema Gênesis. DECISION-0002 resolvida pela Opção 3 via DECISION-0003: C8[3/6] prossegue usando `status`, dívida sistêmica movida para FASE 7. |
 | C12 | OPEN | `actorId` retornado como `globalUserId` em 3 rotas | `core/identity/identity.routes.ts:66934, 67016` + `modules/events/organizers/organizers.routes.ts:148951` | Clayton | 2026-05-05 | — | Mentira estrutural em rotas de identidade. TODO explícito. |
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | — | Exige classificação em CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados (CHECK existe) | `migration 2164-2182` | Clayton | 2026-06-15 | — | CHECK garante igualdade hoje. Renomeação completa é refactor grande. |
 | C26 | OPEN | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | Clayton | 2026-04-25 | — | Mesmo padrão C22 mas sem CHECK. Adicionar CONSTRAINT é cirurgia de 5 min. |
+| C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
+| C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
 
-### HIGH (11)
+### HIGH (19)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -81,8 +83,11 @@
 | C33 | OPEN | Tabela `webauthn_credentials` usada em código mas inexistente no banco | `core/auth/webauthn.repository.ts:69` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
 | C34 | OPEN | Tabela `category_ai_logs` usada em código mas inexistente no banco | `core/categories/categories.repository.ts:1035` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
 | C35 | OPEN | Tabela `partner_employees` usada em código mas inexistente no banco | `core/audit/audit.service.ts:269` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
+| C38 | OPEN | §3.4: 5 tabelas com `type` genérico | `canonical_products`, `payment_execution_lock`, `promotions`, `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
+| C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
+| C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
 
-### MEDIUM (9)
+### MEDIUM (12)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -95,6 +100,9 @@
 | C25 | OPEN | `products.canonical_product_id` sem FK | `products` | Clayton | 2026-05-10 | — | ADD CONSTRAINT FK. Cirurgia simples. |
 | C28 | OPEN | 16 tabelas criadas com `"createdAt"` aspado | várias (11 ainda não consolidadas) | Clayton | 2026-06-15 | — | `users`, `global_users`, `products`, `product_variants`, `profiles`, `tenant_contexts`, 4 tabelas inventory, 2 fulfillment. |
 | C30 | OPEN | Consolidação snake_case feita só em 4 tabelas do marketplace | vários | Clayton | 2026-06-15 | — | Completar para todas as tabelas. |
+| C41 | OPEN | §4.6: 5 timestamps sem sufixo `_at` | `check_in_time`, `start_datetime`, `end_datetime`, `conflict_start_datetime`, `conflict_end_datetime` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
+| C42 | OPEN | §4.9: 16 booleanos sem prefixo canônico | `active` (×3), `resolved`, `enabled`, `availability`, `opted_in`, `false_positive`, `operation_blocked`, `kill_switch`, etc. | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
+| C43 | OPEN | Medição formal de C23/C28: 70 ocorrências de `"createdAt"`/`"updatedAt"` aspados | várias tabelas | Clayton | 2026-06-15 | — | Subset de C23/C28, mede dimensão real. |
 
 ---
 
@@ -177,6 +185,21 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Status C8:** IN_PROGRESS → DECISION_PENDING
 - **Decisão registrada:** DECISION-0002 (PENDENTE)
 - **Próxima ação:** Clayton decide entre opções 1, 2 ou 3 da DECISION-0002.
+
+---
+
+### 2026-04-21 — Auditoria de nomenclatura canônica: C36-C43 registradas
+
+- **Ação:** Auditoria rápida schema Gênesis × 07_NOMENCLATURA_CANONICA.md.
+  Detectado padrão sistêmico de violações §3.4 (67 tabelas com status genérico),
+  §4.7 (12 monetários NUMERIC), §4.9 (16 booleanos sem prefixo),
+  §4.6 (5 timestamps sem _at), §4.3 (70 camelCase aspados).
+- **Violações novas:** C36, C37 (CRITICAL), C38, C39, C40 (HIGH), C41, C42, C43 (MEDIUM)
+- **Gap arquitetural confirmado (C37):** gate schema-coherence não valida
+  nomenclatura canônica, apenas existência — vira gate v2 na FASE 8.
+- **Decisão C8[3/6]:** Opção C (seguir com `status` no código, registrar dívida).
+- **Status C8:** DECISION_PENDING → IN_PROGRESS.
+- **Próxima ação:** C8[3/6] via script PS, usando `status`.
 
 ---
 

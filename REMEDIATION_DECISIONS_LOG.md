@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0002 (2026-04-21, PENDENTE) |
+| Última entrada | DECISION-0003 (2026-04-21) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -137,7 +137,7 @@ Registrar permanentemente toda decisão que envolva:
 - **Responsável:** Clayton
 - **Validação prévia:** Claude (detecção) + ChatGPT (análise de opções)
 - **Supera:** nenhuma
-- **Superada por:** (a preencher quando decisão for tomada)
+- **Superada por:** DECISION-0003
 - **Referências:**
   - docs/01_normative/07_NOMENCLATURA_CANONICA.md §3.4 (status proibido isolado)
   - docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.9 (is_active canônico)
@@ -151,7 +151,43 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
-*(Próxima entrada: DECISION-0003)*
+### DECISION-0003 — Resolução da DECISION-0002: C8[3/6] segue com `status` e dívida sistêmica vai para FASE 7
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violação:** C8 (em andamento) + C36 (criada)
+- **Contexto:**
+  Durante execução de C8[3/6] (is_active → status), detectado que o schema Gênesis
+  de `groups` usa `status TEXT NOT NULL DEFAULT 'active'`, violando §3.4 (proibição
+  de status isolado no banco) e §4.9 (is_active é o boolean canônico).
+  Auditoria subsequente revelou que 67 tabelas têm status genérico — é padrão
+  sistêmico, não acidente isolado.
+- **Opções consideradas:**
+  1. Corrigir schema com migration para is_active BOOLEAN (§4.9)
+  2. Corrigir schema com migration para group_status TEXT (§3.4)
+  3. Seguir com `status` no código, registrar C36 como dívida para FASE 7
+- **Escolha:** Opção 3
+- **Justificativa:**
+  C8 é alinhamento código↔realidade, não refatoração de schema.
+  Corrigir agora criaria migration fora de escopo e misturaria responsabilidades
+  de fases. Violação é sistêmica (67 tabelas), não isolada — merece tratamento
+  unificado em FASE 7, não remendo em uma tabela.
+- **Consequências esperadas:**
+  - Curto prazo: C8[3/6] prossegue com `status`. 8 novas violações registradas.
+  - Médio prazo: FASE 7 consolida nomenclatura (C36, C38, C39, C40, C41, C42).
+  - Longo prazo: Gate v2 (C37) impede novas violações.
+- **Responsável:** Clayton
+- **Validação prévia:** Claude (auditoria) + ChatGPT (análise de opções)
+- **Supera:** DECISION-0002
+- **Superada por:** (a preencher se decisão revertida)
+- **Referências:**
+  - 07_NOMENCLATURA_CANONICA.md §3.4, §4.9
+  - SYSTEM_REMEDIATION_STATUS.md C36 (criada)
+  - backend/src/modules/groups/groups.repository.ts
+
+---
+
+*(Próxima entrada: DECISION-0004)*
 
 ---
 
