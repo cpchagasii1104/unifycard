@@ -318,54 +318,146 @@ async function fetchSchemaFromDb() {
 }
 
 function parseSchemaFromMigrations() {
+  function stripSqlComments(sql) {
+    return sql
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/--[^\n\r]*/g, ' ');
+  }
+
+  function normalizeSqlWhitespace(sql) {
+    return sql.replace(/[\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function findDoBlockRanges(sql) {
+    const ranges = [];
+    const doRegex = /DO\s+\$\$[\s\S]*?\$\$/gi;
+    let match;
+    doRegex.lastIndex = 0;
+    while ((match = doRegex.exec(sql)) !== null) {
+      ranges.push({ start: match.index, end: match.index + match[0].length });
+    }
+    return ranges;
+  }
+
+  function isInsideRange(index, ranges) {
+    return ranges.some(range => index >= range.start && index < range.end);
+  }
+
+  function extractCreateTables(sql, doRanges, stats) {
+    const creates = [];
+    const createRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s*\(/gi;
+    let match;
+    createRegex.lastIndex = 0;
+
+    while ((match = createRegex.exec(sql)) !== null) {
+      const tableName = match[1].toLowerCase();
+      const openParenIndex = createRegex.lastIndex - 1;
+
+      let depth = 1;
+      let i = openParenIndex + 1;
+      while (i < sql.length && depth > 0) {
+        const ch = sql[i];
+        if (ch === '(') depth += 1;
+        if (ch === ')') depth -= 1;
+        i += 1;
+      }
+
+      if (depth !== 0) {
+        continue;
+      }
+
+      const closeParenIndex = i - 1;
+      const body = sql.slice(openParenIndex + 1, closeParenIndex);
+      const insideDo = isInsideRange(match.index, doRanges);
+      if (insideDo) {
+        stats.createPatternB += 1;
+      } else {
+        stats.createPatternA += 1;
+      }
+
+      creates.push({ tableName, body });
+      createRegex.lastIndex = i;
+    }
+
+    return creates;
+  }
+
   const schema = new Map();
+  const stats = {
+    createPatternA: 0,
+    createPatternB: 0,
+    alterAddColumn: 0,
+    alterRenameColumn: 0,
+    alterDropColumn: 0,
+  };
   const migrationFiles = fs.readdirSync(CONFIG.migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
   for (const file of migrationFiles) {
     const content = fs.readFileSync(path.join(CONFIG.migrationsDir, file), 'utf-8');
+    const noComments = stripSqlComments(content);
+    const normalized = normalizeSqlWhitespace(noComments);
+    const doRanges = findDoBlockRanges(normalized);
 
-    // Parse CREATE TABLE
-    const createRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s*\(([^;]+)\)/gis;
-    let match;
-    createRegex.lastIndex = 0;
-    while ((match = createRegex.exec(content)) !== null) {
-      const tableName = match[1].toLowerCase();
-      const columnDefs = match[2];
+    const createStatements = extractCreateTables(normalized, doRanges, stats);
+    for (const createStmt of createStatements) {
       const columns = new Set();
-      const colRegex = /^\s*([a-z_][a-z0-9_]*)\s+/gim;
+      const colRegex = /(?:^|,)\s*([a-z_][a-z0-9_]*)\s+/gi;
       let colMatch;
       colRegex.lastIndex = 0;
-      while ((colMatch = colRegex.exec(columnDefs)) !== null) {
-        columns.add(colMatch[1].toLowerCase());
+      while ((colMatch = colRegex.exec(createStmt.body)) !== null) {
+        const colName = colMatch[1].toLowerCase();
+        if (!['constraint', 'primary', 'foreign', 'unique', 'check', 'exclude'].includes(colName)) {
+          columns.add(colName);
+        }
       }
-      schema.set(tableName, columns);
+      schema.set(createStmt.tableName, columns);
     }
 
     // Parse ALTER TABLE ADD COLUMN
     const alterAddRegex = /ALTER\s+TABLE\s+([a-z_][a-z0-9_]*)\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*)/gi;
+    let match;
     alterAddRegex.lastIndex = 0;
-    while ((match = alterAddRegex.exec(content)) !== null) {
+    while ((match = alterAddRegex.exec(normalized)) !== null) {
       const tableName = match[1].toLowerCase();
       const columnName = match[2].toLowerCase();
+      stats.alterAddColumn += 1;
       if (!schema.has(tableName)) {
         schema.set(tableName, new Set());
       }
       schema.get(tableName).add(columnName);
     }
 
+    // Parse ALTER TABLE RENAME COLUMN
+    const alterRenameRegex = /ALTER\s+TABLE\s+([a-z_][a-z0-9_]*)\s+RENAME\s+COLUMN\s+([a-z_][a-z0-9_]*)\s+TO\s+([a-z_][a-z0-9_]*)/gi;
+    alterRenameRegex.lastIndex = 0;
+    while ((match = alterRenameRegex.exec(normalized)) !== null) {
+      const tableName = match[1].toLowerCase();
+      const oldColumn = match[2].toLowerCase();
+      const newColumn = match[3].toLowerCase();
+      stats.alterRenameColumn += 1;
+      if (!schema.has(tableName)) {
+        schema.set(tableName, new Set());
+      }
+      if (schema.get(tableName).has(oldColumn)) {
+        schema.get(tableName).delete(oldColumn);
+      }
+      schema.get(tableName).add(newColumn);
+    }
+
     // Parse ALTER TABLE DROP COLUMN
     const alterDropRegex = /ALTER\s+TABLE\s+([a-z_][a-z0-9_]*)\s+DROP\s+COLUMN\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_]*)/gi;
     alterDropRegex.lastIndex = 0;
-    while ((match = alterDropRegex.exec(content)) !== null) {
+    while ((match = alterDropRegex.exec(normalized)) !== null) {
       const tableName = match[1].toLowerCase();
       const columnName = match[2].toLowerCase();
+      stats.alterDropColumn += 1;
       if (schema.has(tableName)) {
         schema.get(tableName).delete(columnName);
       }
     }
   }
 
-  return schema;
+  return { schema, stats };
 }
 
 // ============================================================================
@@ -564,7 +656,13 @@ async function main() {
 
   if (CONFIG.mode === 'fallback' || CONFIG.mode === 'both') {
     log('Migrations: parseando...');
-    schemaMigrations = parseSchemaFromMigrations();
+    const parsed = parseSchemaFromMigrations();
+    schemaMigrations = parsed.schema;
+    log(`CREATE TABLE padrão A detectados: ${parsed.stats.createPatternA}`);
+    log(`CREATE TABLE padrão B (DO $$ block) detectados: ${parsed.stats.createPatternB}`);
+    log(`ALTER TABLE ADD COLUMN detectados: ${parsed.stats.alterAddColumn}`);
+    log(`ALTER TABLE RENAME COLUMN detectados: ${parsed.stats.alterRenameColumn}`);
+    log(`ALTER TABLE DROP COLUMN detectados: ${parsed.stats.alterDropColumn}`);
     log(`Migrations: OK (${schemaMigrations.size} tabelas)`);
   }
 
