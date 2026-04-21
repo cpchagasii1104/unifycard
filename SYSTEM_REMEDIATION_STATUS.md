@@ -31,11 +31,11 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 44 |
+| Total de violações | 30 | 46 |
 | CRITICAL | 10 | 12 |
-| HIGH | 11 | 20 |
+| HIGH | 11 | 22 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 31 |
+| OPEN | 21 | 33 |
 | IN_PROGRESS | 0 | 0 |
 | FIXED | 1 | 4 |
 | ALLOWLISTED | 0 | 0 |
@@ -63,7 +63,7 @@
 | C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
 
-### HIGH (20)
+### HIGH (22)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -87,6 +87,8 @@
 | C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
 | C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
+| C45 | OPEN | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | — | Violação pré-existente de §4.8.1. Chamada a findOrCreateUserActor no bloco try do feed. Gate actor-writer-boundaries falha nesta linha. Bloqueia qualquer fix que adicione outra chamada ao mesmo método. |
+| C46 | OPEN | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | service.create() passa user_id onde repository espera actor_id. groups.types.ts declara ownerUserId mas toGroup() retorna ownerActorId. Fix bloqueado por C45. |
 
 ### MEDIUM (12)
 
@@ -250,6 +252,17 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
   Migration 0064 já garantia sync via trigger — CHECK completa a invariante.
 - **Commit:** b481146a
 - **Status C26:** OPEN → FIXED
+
+---
+
+### 2026-04-21 — C45+C46 registrados: violações em groups pós-auditoria Cursor
+
+- **Ação:** Auditoria Cursor + análise revelou 2 violações em groups:
+  C45: findOrCreateUserActor fora do writer canônico (violação §4.8.1 pré-existente).
+  C46: ownerUserId vs actor_id — fluxo quebrado no createGroup.
+  C45 bloqueia C46. Ambos requerem decisão arquitetural em FASE 4.
+- **Violações novas:** C45 OPEN HIGH, C46 OPEN HIGH
+- **Próxima ação:** FASE 4 — resolver C45 via refactor do writer, depois C46.
 
 ---
 

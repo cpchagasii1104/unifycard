@@ -286,4 +286,37 @@ Catches SAFE mantidos por design (contexto Gênesis — tabelas opcionais em rec
 
 ---
 
+## SNAPSHOT intermediário — fim de sessão 2026-04-21
+
+**Commit de referência:** 0863ca1f (C8 FIXED) + b481146a (C26 FIXED)
+**Responsável:** Clayton
+
+### Gates (estado ao encerrar sessão)
+- actor-writer-boundaries: FAIL (C45 pré-existente em groups.service.ts:232)
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violações fechadas nesta sessão
+- C8 FIXED: 5 commits fc97f893→81b93c9d
+- C26 FIXED: b481146a
+
+### Violações novas descobertas nesta sessão
+- C36-C43: auditoria nomenclatura canônica
+- C44: marketplace/group.repository.ts colunas inexistentes
+- C45: groups.service findOrCreateUserActor fora do writer (§4.8.1)
+- C46: groups ownerUserId vs actor_id fluxo quebrado
+
+### Status das violações ao encerrar
+- Total: 46 | OPEN: 33 | FIXED: 4 | DECISION_PENDING: 9
+
+### Análise de convergência
+C8 e C26 fechados. Sistema mais estável no núcleo.
+Gate actor-writer-boundaries falha por violação pré-existente em groups.service.ts
+— não introduzida nesta sessão. C45 e C46 documentados para FASE 4.
+Próxima sessão: resolver C45 (mover findOrCreateUserActor para writer canônico)
+para desbloquear C46 e o fluxo E2E de criação de grupo.
+
+---
+
 **FIM DO DOCUMENTO** (continua crescendo por append a cada fase)
