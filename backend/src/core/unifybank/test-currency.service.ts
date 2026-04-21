@@ -11,7 +11,6 @@
 
 import { accountService } from '../economy/account.service';
 import { transactionService } from '../economy/transaction.service';
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { v4 as uuidv4 } from 'uuid';
 import type { Currency } from '../economy/accounts/account.types';
 
@@ -28,7 +27,7 @@ interface EmitTestCurrencyInput {
 interface EmitTestCurrencyResult {
   transactionId: string;
   accountId: string;
-  newBalance: number;
+  newBalanceCents: number;
   amountCents: number;
   reason: string;
   emittedAt: Date;
@@ -56,14 +55,14 @@ class TestCurrencyService {
    * - Rastreabilidade completa
    */
   async emitTestCurrency(input: EmitTestCurrencyInput): Promise<EmitTestCurrencyResult> {
-    const { tenantId, userId, amount, reason, adminId } = input;
+    const { tenantId, userId, amountCents, reason, adminId } = input;
 
     // Validação: apenas TEST
-    if (amount <= 0) {
+    if (amountCents <= 0) {
       throw new Error('Amount must be greater than 0');
     }
 
-    if (amount > 1000000) {
+    if (amountCents > 1000000) {
       throw new Error('Maximum emission amount is 1,000,000 TEST');
     }
 
@@ -74,19 +73,22 @@ class TestCurrencyService {
       TEST_CURRENCY
     );
 
-    // 2. Buscar ou criar conta "UnifyBank Treasury" (emissor) em TEST
+    // 2. Buscar ou criar conta sistema (reserve) em TEST para emissão
     const treasuryAccount = await accountService.getOrCreateSystemAccount(
       tenantId,
-      'platform_ops',
+      'reserve',
       TEST_CURRENCY
     );
 
     // 3. Transferir de treasury para usuário (emissão)
+    const emissionRef = uuidv4();
     const transferResult = await transactionService.transfer(tenantId, {
       fromAccount: treasuryAccount.accountId,
       toAccount: userAccount.accountId,
-      amount,
-      eventId: uuidv4(),
+      amountCents,
+      eventId: emissionRef,
+      referenceType: 'test_currency_emission',
+      referenceId: emissionRef,
       metadata: {
         type: 'test_currency_emission',
         reason,
@@ -104,10 +106,10 @@ class TestCurrencyService {
     }
 
     return {
-      transactionId: transferResult.transaction.transactionId,
+      transactionId: transferResult.transactionId,
       accountId: userAccount.accountId,
-      newBalance: updatedAccount.balance,
-      amount,
+      newBalanceCents: updatedAccount.balanceCents,
+      amountCents,
       reason,
       emittedAt: new Date(),
     };
@@ -124,7 +126,14 @@ class TestCurrencyService {
     limit: number = 50,
     offset: number = 0
   ): Promise<{ entries: TestCurrencyLedgerEntry[]; totalCents: number }> {
-    // Buscar conta do usuário em TEST
+    void limit;
+    void offset;
+
+    // TODO DECISION-0007 / FASE 6: reimplementar sobre bank_ledger + bank_transactions
+    // com filtros semânticos adequados para TEST currency. Até lá, retorna vazio
+    // (tabelas "ledger" e "transactions" não existem no schema Gênesis).
+
+    // Buscar conta do usuário em TEST (mantém mesmo ramo de “sem conta” que antes)
     const userAccounts = await accountService.getAccountsByOwner(tenantId, userId, 'user');
     const testAccount = userAccounts.find(acc => acc.currency === TEST_CURRENCY);
 
@@ -132,66 +141,9 @@ class TestCurrencyService {
       return { entries: [], totalCents: 0 };
     }
 
-    // Buscar entradas no ledger que são créditos (emissões)
-    const entriesRows = await runQueriesWithTenant<{
-      entry_id: string;
-      transaction_id: string;
-      account_id: string;
-      amountCents: string;
-      createdAt: Date;
-      metadata: any;
-    }>(
-      tenantId,
-      `
-      SELECT 
-        l.entry_id,
-        l.transaction_id,
-        l.account_id,
-        l.amount,
-        l.createdAt,
-        t.metadata
-      FROM ledger l
-      INNER JOIN transactions t ON t.transaction_id = l.transaction_id
-      WHERE 
-        l.account_id = $1
-        AND l.entry_type = 'credit'
-        AND t.metadata->>'type' = 'test_currency_emission'
-        AND t.currency = 'TEST'
-      ORDER BY l.createdAt DESC
-      LIMIT $2 OFFSET $3
-      `,
-      [testAccount.accountId, limit, offset]
-    );
-
-    const totalRow = await runQueryWithTenant<{ count: string }>(
-      tenantId,
-      `
-      SELECT COUNT(*) as count
-      FROM ledger l
-      INNER JOIN transactions t ON t.transaction_id = l.transaction_id
-      WHERE 
-        l.account_id = $1
-        AND l.entry_type = 'credit'
-        AND t.metadata->>'type' = 'test_currency_emission'
-        AND t.currency = 'TEST'
-      `,
-      [testAccount.accountId]
-    );
-
-    const entries: TestCurrencyLedgerEntry[] = (entriesRows || []).map((row) => ({
-      entryId: row.entry_id,
-      transactionId: row.transaction_id,
-      accountId: row.account_id,
-      amountCents: parseFloat(row.amount),
-      reason: row.metadata?.reason || 'N/A',
-      adminId: row.metadata?.adminId || 'N/A',
-      userId: row.metadata?.userId || userId,
-      createdAt: row.createdAt,
-    }));
-
     return {
-      entries,
-      totalCents: parseInt(totalRow?.count || '0', 10),
+      entries: [],
+      totalCents: 0,
     };
   }
 
