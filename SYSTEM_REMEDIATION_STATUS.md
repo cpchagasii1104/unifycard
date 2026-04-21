@@ -215,4 +215,19 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 
 ---
 
+### 2026-04-21 — C8[4+5/6] colapsado: INSERT/SELECT normalizados para schema Gênesis
+
+- **Ação:** Normalização estrutural de `groups.repository.ts` conforme schema real de `groups`
+  (`id, tenant_id, name, description, slug, actor_id, owner_actor_id, status, metadata, created_at, updated_at`).
+  Ajustes: `group_id` → `id` (somente em `groups`), remoção de colunas fantasmas de INSERT/SELECT/RETURNING,
+  absorção de `audience_description/category_id/visibility/avatar_url/cover_url/financial_purpose/profit_percentage`
+  em `metadata`, mapper `toGroup()` atualizado para ler esses campos de `metadata`.
+  Ajustes de update/delete para `updated_at` e WHERE por `id`.
+  C8[4/6] e C8[5/6] colapsados em commit único.
+- **Commit:** fb346bb7 (C8[4+5/6])
+- **Status C8:** IN_PROGRESS (Commit 4/6 e 5/6 consolidados; 6/6 pendente)
+- **Próxima ação:** C8[6/6] — finalizar demais pontos de groups (incluindo `modules/marketplace/group.repository.ts`, se aplicável)
+
+---
+
 **FIM DO DOCUMENTO** (continua crescendo por append a cada commit de correção)
