@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0001 (2026-04-21) |
+| Última entrada | DECISION-0002 (2026-04-21, PENDENTE) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -106,7 +106,52 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
-*(Próxima entrada: DECISION-0002)*
+---
+
+### DECISION-0002 — PENDENTE — C8[3/6]: tratamento de groups.status vs nomenclatura canônica
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural (PENDENTE — aguarda decisão de Clayton)
+- **ID da violação:** C8 (em andamento) + C36 (novo, a ser criado se necessário)
+- **Contexto:**
+  Durante execução de C8[3/6] (is_active → status), foi detectado que o schema Gênesis
+  de `groups` usa a coluna `status TEXT NOT NULL DEFAULT 'active'`, que viola a
+  nomenclatura canônica §3.4 (proibição de `status` isolado em banco) e §4.9
+  (is_active é o boolean canônico para estado ativo/inativo).
+
+  Ou seja: o schema Gênesis já nasce com violação de nomenclatura pré-existente,
+  descoberta apenas agora durante a remediação.
+
+- **Opções consideradas:**
+  1. Manter `is_active` no código e criar migration adicionando `is_active BOOLEAN`
+     à tabela — segue §4.9, corrige schema Gênesis.
+  2. Renomear schema para `group_status TEXT` via migration — segue §3.4
+     ("sempre específico no banco"), renomeia coluna existente.
+  3. Manter `status` no código e schema por ora, registrar violação pendente
+     (nova violação C36) para correção em FASE 7.
+- **Escolha:** PENDENTE — aguarda decisão de Clayton
+- **Consequências esperadas (pendente de escolha):**
+  - Opção 1: exige migration cirúrgica (viola princípio "não criar migration agora")
+  - Opção 2: exige migration de renomeação + update de consumidores
+  - Opção 3: adia dívida de nomenclatura para FASE 7 (consolidação schema)
+- **Responsável:** Clayton
+- **Validação prévia:** Claude (detecção) + ChatGPT (análise de opções)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando decisão for tomada)
+- **Referências:**
+  - docs/01_normative/07_NOMENCLATURA_CANONICA.md §3.4 (status proibido isolado)
+  - docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.9 (is_active canônico)
+  - backend/migrations/20260530180000_groups.sql (schema atual com status TEXT)
+  - backend/src/modules/groups/groups.repository.ts (código usa is_active)
+- **Estado atual da execução C8:**
+  - C8[1/6]: FIXED (commit fc97f893)
+  - C8[2/6]: FIXED (commit 4572a1bb)
+  - C8[3/6]: BLOQUEADO aguardando decisão
+  - C8[4/6], [5/6], [6/6]: não iniciados
+
+---
+
+*(Próxima entrada: DECISION-0003)*
 
 ---
 
