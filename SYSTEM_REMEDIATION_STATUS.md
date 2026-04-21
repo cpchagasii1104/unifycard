@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 10 |
 | HIGH | 11 | 16 |
 | MEDIUM | 9 | 9 |
-| OPEN | 21 | 25 |
-| IN_PROGRESS | 0 | 1 |
-| FIXED | 1 | 1 |
+| OPEN | 21 | 24 |
+| IN_PROGRESS | 0 | 0 |
+| FIXED | 1 | 2 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 8 |
@@ -57,7 +57,7 @@
 | C8 | OPEN | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | Ambos escrevem colunas que não existem. Explica `groups=0` no banco. |
 | C12 | OPEN | `actorId` retornado como `globalUserId` em 3 rotas | `core/identity/identity.routes.ts:66934, 67016` + `modules/events/organizers/organizers.routes.ts:148951` | Clayton | 2026-05-05 | — | Mentira estrutural em rotas de identidade. TODO explícito. |
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | — | Exige classificação em CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. |
-| C14 | IN_PROGRESS | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | — | Executar incrementalmente: 1 catch por commit. Commit 1/6 concluído: unified-availability linha ~234 (lista disponibilidades). Commit 2/6 concluído: unified-availability linha ~507 (lista bookings). Commit 3/6 concluído: unified-availability linha availability_participants. Commit 4/6 concluído: unified-availability verificar conflito. |
+| C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados (CHECK existe) | `migration 2164-2182` | Clayton | 2026-06-15 | — | CHECK garante igualdade hoje. Renomeação completa é refactor grande. |
 | C26 | OPEN | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | Clayton | 2026-04-25 | — | Mesmo padrão C22 mas sem CHECK. Adicionar CONSTRAINT é cirurgia de 5 min. |
 
@@ -153,6 +153,17 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Commits:** 345b6ef3 (C14[1/6]), e729b651 (status), 3b6788e2 (C14[2/6]), 0986c3e4 (status)
 - **Status C14:** OPEN → IN_PROGRESS
 - **Próxima ação:** C14[3/6] — availability_participants
+
+---
+
+### 2026-04-21 — C14 FIXED: 4 catches CRITICAL removidos
+
+- **Ação:** Remoção incremental de 4 catches 42P01 CRITICAL em unified-availability.routes.ts.
+  C14[5/6] e C14[6/6] N/A: event.service.ts refatorado antes desta sessão (commit 51065962).
+  11 catches restantes classificados como SAFE (infra/retry/observabilidade — contexto Gênesis).
+- **Commits:** 345b6ef3 (C14[1/6]), 3b6788e2 (C14[2/6]), d8c69d34 (C14[3/6]), 11b6645a (C14[4/6])
+- **Status C14:** IN_PROGRESS → FIXED
+- **Próxima fase:** continuar FASE 2 ou iniciar FASE 3 (seed realista)
 
 ---
 
