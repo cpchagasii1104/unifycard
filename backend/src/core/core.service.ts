@@ -7,6 +7,7 @@ import { profileProfessionalService } from './profile/profile-professional.servi
 import { profilePhysicalService } from './profile/profile-physical.service';
 import { profileEducationService } from './profile/profile-education.service';
 import { identityService } from './identity/identity.service';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 // Importar actorRepository dinamicamente para evitar dependência circular
 // // actorRepository importado dinamicamente para evitar dependência circular
 
@@ -115,7 +116,7 @@ export class CoreService {
         if (actorId) {
           actor = await actorRepository.findById(tenantId, actorId);
         } else {
-          actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+          actor = await ensureUserActor(tenantId, userId);
         }
         
         if (actor) {
@@ -219,6 +220,7 @@ export class CoreService {
       try {
         // 🔴 CORREÇÃO CRÍTICA: Buscar CPF de user_profiles via JOIN explícito
         // CPF NUNCA vem de profiles.metadata - sempre de user_profiles
+        console.error('PARAM_DEBUG', JSON.stringify({ tenantId, userId }));
         const personalProfileRow = await runQueryWithTenant<{
           full_name: string | null;
           phone: string | null;
@@ -241,6 +243,7 @@ export class CoreService {
           [tenantId, userId]
         );
 
+        console.error('PARAM_DEBUG_RESULT', JSON.stringify(personalProfileRow ?? 'UNDEFINED'));
         if (personalProfileRow) {
           const row = personalProfileRow;
           
@@ -582,7 +585,7 @@ export class CoreService {
       // COMPLETE se todos os dados civis imutáveis estão presentes
       const hasFullName = !!(profile.personal_profile?.fullName && profile.personal_profile.fullName.trim().length > 0);
       const hasCpf = !!(profile.personal_profile?.cpf && profile.personal_profile.cpf.trim().length > 0);
-      
+
       // Buscar birthdate de identity (global_users)
       let hasBirthdate = false;
       try {
@@ -591,16 +594,26 @@ export class CoreService {
       } catch (err) {
         console.warn('Erro ao buscar birthdate para identity_status:', err);
       }
-      
+
       // Buscar gender de metadata
       const gender = profile.personal_profile?.metadata?.gender;
       const hasGender = !!(gender && (gender === 'male' || gender === 'female'));
-      
+
+      // INSTRUMENTAÇÃO: Logar antes de calcular identity_status
+      console.error('[IDENTITY_STATUS_DEBUG]', JSON.stringify({
+        fullName: profile.personal_profile?.fullName,
+        cpf: profile.personal_profile?.cpf,
+        metadataGender: profile.personal_profile?.metadata?.gender,
+        hasFullName,
+        hasCpf,
+        hasGender
+      }));
+
       // Calcular identity_status
       profile.identity_status = (hasFullName && hasCpf && hasBirthdate && hasGender) 
         ? 'COMPLETE' 
         : 'INCOMPLETE';
-      
+
       console.log('[CoreService] 🔍 Identity Status calculado:', {
         tenantId,
         userId,
