@@ -31,11 +31,11 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 46 |
+| Total de violações | 30 | 48 |
 | CRITICAL | 10 | 12 |
-| HIGH | 11 | 22 |
+| HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 32 |
+| OPEN | 21 | 33 |
 | IN_PROGRESS | 0 | 0 |
 | FIXED | 1 | 5 |
 | ALLOWLISTED | 0 | 0 |
@@ -63,7 +63,7 @@
 | C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
 
-### HIGH (22)
+### HIGH (23)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
@@ -89,6 +89,7 @@
 | C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
 | C46 | DECISION_PENDING | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | Rename global ownerUserId→ownerActorId é incorreto. userId alimenta ensureUserActor (precisa ser userId). actorId vem de actor.actor_id. Requer mapeamento linha a linha, não regex cego. ChatGPT identificou: script contaminava SQL (createdAt→created_at), alterava autorização, e quebrava contrato do writer C45. |
+| C47 | OPEN | actor_has_permission SQL não existe no schema Gênesis | backend/migrations/20260421010000_actor_has_permission_stub.sql | Clayton | FASE 6 | 20260421010000 | Função stub criada (retorna TRUE) para desbloquear E2E. Implementação real está no migrations_archive. Requer portagem em FASE 6. |
 
 ### MEDIUM (12)
 

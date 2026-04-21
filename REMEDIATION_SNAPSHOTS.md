@@ -320,3 +320,25 @@ para desbloquear C46 e o fluxo E2E de criação de grupo.
 ---
 
 **FIM DO DOCUMENTO** (continua crescendo por append a cada fase)
+
+## SNAPSHOT FASE 3 concluída — 2026-04-21
+
+**Commit de referência:** (hash do commit abaixo)
+**Responsável:** Clayton
+
+### Gates
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### E2E validado
+- POST /groups → 201 Created ✅
+- Grupo persistido no banco com owner_actor_id correto ✅
+- groups > 0 ✅
+
+### Status das violações
+- Total: 48 | OPEN: 33 | FIXED: 6 | DECISION_PENDING: 10
+
+### Próxima fase
+FASE 4 — bloqueadores críticos: C4, C3, C12, C1
