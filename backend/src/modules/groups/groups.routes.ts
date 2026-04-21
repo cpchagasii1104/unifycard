@@ -1161,39 +1161,14 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.send({ ok: true, data: { entries: [], totalCents: 0 } });
         }
 
-        // Buscar histórico do ledger
-        const { runQueryWithTenant } = await import('@core/database/pool');
-        const entries = await runQueryWithTenant(
-          tenantId,
-          `
-          SELECT 
-            l.entry_id,
-            l.amount,
-            l.entry_type,
-            l.createdAt,
-            t.metadata
-          FROM ledger l
-          JOIN transactions t ON t.transaction_id = l.transaction_id
-          WHERE l.account_id = $1
-            AND l.entry_type = 'credit'
-          ORDER BY l.createdAt DESC
-          LIMIT $2 OFFSET $3
-          `,
-          [groupAccount.accountId, limit, offset]
-        );
-
-        // Contar total
-        const countResult = await runQueryWithTenant<{ count: string }>(
-          tenantId,
-          `SELECT COUNT(*) as count FROM ledger WHERE account_id = $1 AND entry_type = 'credit'`,
-          [groupAccount.accountId]
-        );
-
+        // TODO DECISION-0007 / FASE 6: reimplementar histórico sobre bank_ledger
+        // com semântica canônica. Até lá, retorna vazio (tabela "ledger" não
+        // existe no schema Gênesis).
         return reply.send({
           ok: true,
           data: {
-            entries: entries || [],
-            totalCents: parseInt(countResult?.count || '0', 10),
+            entries: [],
+            totalCents: 0,
           },
         });
       } catch (error) {
