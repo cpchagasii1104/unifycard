@@ -506,6 +506,39 @@ function hasDecisionClause(text) {
   return /\b(WHERE|CASE|HAVING|AND|OR)\b/i.test(text || '');
 }
 
+function isBankWriteOutsideAuthorized(ref) {
+  if (!ref || ref.type !== 'table') return false;
+  const tableName = String(ref.name || '').toLowerCase();
+  const pattern = String(ref.pattern || '').toUpperCase();
+  const filePath = ref.file || '';
+  const isBankTable = ['bank_ledger', 'bank_transactions', 'bank_accounts', 'bank_splits'].includes(tableName);
+  const isWrite = ['INSERT', 'UPDATE', 'DELETE'].includes(pattern);
+  return isBankTable && isWrite && !isAllowedByPath(filePath, AUTHORIZED_BANK_WRITE);
+}
+
+function isBankReadOutsideAuthorized(ref) {
+  if (!ref || ref.type !== 'table') return false;
+  const tableName = String(ref.name || '').toLowerCase();
+  const pattern = String(ref.pattern || '').toUpperCase();
+  const filePath = ref.file || '';
+  const isRead = ['FROM', 'JOIN'].includes(pattern);
+  return tableName.startsWith('bank_') && isRead && !isAllowedByPath(filePath, AUTHORIZED_BANK_READ);
+}
+
+function isActorsInsertOutsideCanonicalWriter(ref) {
+  if (!ref || ref.type !== 'table') return false;
+  const tableName = String(ref.name || '').toLowerCase();
+  const pattern = String(ref.pattern || '').toUpperCase();
+  const filePath = ref.file || '';
+  return tableName === 'actors' && pattern === 'INSERT' && !isAllowedByPath(filePath, ['modules/identity/actor-writer.service.ts']);
+}
+
+function isMetadataDecisionTransactional(ref) {
+  if (!ref || ref.type !== 'metadata_decision') return false;
+  const snippet = String(ref.snippet || '').toLowerCase();
+  return hasDecisionClause(ref.snippet || '') && Array.from(TRANSACTIONAL_TABLES).some(t => snippet.includes(t));
+}
+
 function detectViolationAndSeverity(ref, schema) {
   const snippet = String(ref.snippet || '');
   const pattern = String(ref.pattern || '').toUpperCase();
@@ -722,21 +755,37 @@ async function main() {
     process.exit(1);
   }
 
-  log(`Tabelas no banco/migrations: ${schema.size}`);
+  const dbTables = schemaDb ? new Set(schemaDb.keys()) : new Set();
+  const migTables = schemaMigrations ? new Set(schemaMigrations.keys()) : new Set();
+  const onlyDb = [...dbTables].filter(t => !migTables.has(t)).sort();
+  const onlyMig = [...migTables].filter(t => !dbTables.has(t)).sort();
+  const bothTables = [...dbTables].filter(t => migTables.has(t)).sort();
 
-  if (CONFIG.mode === 'both' && schemaDb && schemaMigrations) {
-    const dbTables = new Set(schemaDb.keys());
-    const migTables = new Set(schemaMigrations.keys());
-    const onlyDb = [...dbTables].filter(t => !migTables.has(t));
-    const onlyMig = [...migTables].filter(t => !dbTables.has(t));
-    if (onlyDb.length > 0 || onlyMig.length > 0) {
-      log(`DIFF banco↔migrations:`);
-      if (onlyDb.length > 0) log(`  - Em banco mas não em migrations: ${onlyDb.slice(0, 5).join(', ')}${onlyDb.length > 5 ? ` (+${onlyDb.length - 5})` : ''}`);
-      if (onlyMig.length > 0) log(`  - Em migrations mas não em banco: ${onlyMig.slice(0, 5).join(', ')}${onlyMig.length > 5 ? ` (+${onlyMig.length - 5})` : ''}`);
-    }
-  }
+  log(`Tabelas no banco: ${dbTables.size}`);
+  log(`Tabelas em migrations: ${migTables.size}`);
+  log(`Tabelas só no banco (não em migrations): ${onlyDb.length > 0 ? onlyDb.join(', ') : '(nenhuma)'}`);
+  log(`Tabelas só em migrations (não no banco): ${onlyMig.length > 0 ? onlyMig.join(', ') : '(nenhuma)'}`);
+  log(`Tabelas em ambos: ${bothTables.length} (intersecção)`);
 
-  // Step 3: Classify violations
+  // Step 3: Transparency sections (ETAPA 4)
+  const bankWriteOutsideFiles = new Set(allReferences.filter(isBankWriteOutsideAuthorized).map(r => r.file));
+  const bankReadOutsideFiles = new Set(allReferences.filter(isBankReadOutsideAuthorized).map(r => r.file));
+  const actorsInsertOutsideFiles = new Set(allReferences.filter(isActorsInsertOutsideCanonicalWriter).map(r => r.file));
+  const schemaCatchOccurrences = allReferences.filter(r => r.type === 'schema_catch').length;
+  const metadataDecisionTransactionalOccurrences = allReferences.filter(isMetadataDecisionTransactional).length;
+
+  log('\nWRITERS VERIFICADOS');
+  log(`- Escritas em bank_* fora de módulos autorizados: ${bankWriteOutsideFiles.size} arquivos`);
+  log(`- Leituras em bank_* fora de módulos autorizados: ${bankReadOutsideFiles.size} arquivos`);
+  log(`- INSERT em actors fora do writer canônico: ${actorsInsertOutsideFiles.size} arquivos`);
+
+  log('\nPADRÕES PROIBIDOS');
+  log(`- Catches de schema (42P01): ${schemaCatchOccurrences} ocorrências`);
+  log(`- metadata->> em decisão transacional: ${metadataDecisionTransactionalOccurrences} ocorrências`);
+
+  // Step 4: Classify violations
+  log('\nNota: violações abaixo são IS_VIOLATION=true conforme matriz do PLAN §4.');
+  log('Operações válidas (IS_VIOLATION=false) não são listadas.');
   log('\nVIOLAÇÕES');
   const violations = { BLOCKER: [], CORRUPTOR: [], DEBT: [] };
   const allowlist = loadAllowlist();
@@ -803,7 +852,7 @@ async function main() {
     log(`\n[DEBT] ${debtCount} violações (não-bloqueantes)`);
   }
 
-  // Step 4: Allowlist summary
+  // Step 5: Allowlist summary
   log('\nALLOWLIST APLICADO');
   if (allowlistedIds.size > 0) {
     log(`✓ ${allowlistedIds.size} entrada(s) de allowlist aplicada(s)`);
@@ -817,14 +866,14 @@ async function main() {
     log('✓ Sem entradas de allowlist ativas');
   }
 
-  // Step 5: Summary
+  // Step 6: Summary
   log('\nRESUMO');
   log(`Violações bloqueantes: ${blockersCount}`);
   log(`Violações corruptoras: ${corruptorsCount}`);
   log(`Violações como débito: ${debtCount}`);
   log(`Allowlist válida: ${allowlist.entries.length} entradas`);
 
-  // Step 6: Result
+  // Step 7: Result
   const totalBlockers = blockersCount + corruptorsCount;
   log('\nRESULTADO');
   if (totalBlockers === 0) {
