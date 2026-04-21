@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-21 (FASE 0 concluída — commits 848da51e, 04a47b6f, ab407330) |
+| Última atualização | 2026-04-21 (FASE 1 em andamento — gate v1.1 concluído, 5 novas violações detectadas) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -31,11 +31,11 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 30 |
+| Total de violações | 30 | 35 |
 | CRITICAL | 10 | 10 |
-| HIGH | 11 | 11 |
+| HIGH | 11 | 16 |
 | MEDIUM | 9 | 9 |
-| OPEN | 21 | 21 |
+| OPEN | 21 | 26 |
 | IN_PROGRESS | 0 | 0 |
 | FIXED | 1 | 1 |
 | ALLOWLISTED | 0 | 0 |
@@ -76,6 +76,11 @@
 | C24 | DECISION_PENDING | 4 tabelas paralelas de produto | `products`, `canonical_products`, `catalog_products`, `tenant_products` | Clayton | — | — | Qual é SSOT? |
 | C27 | DECISION_PENDING | 3 sistemas de autorização coexistindo | `authority.service` + `rbac.service` + hardcoded em `core/companies/` | Clayton | — | — | Qual sobrevive? |
 | C29 | OPEN | 132 comparações status UPPERCASE vs schema lowercase | vários (ex: `order.status === 'PAID'` em `modules/orders/`) | Clayton | 2026-06-15 | — | Código morto confirmado em pelo menos 1 caso. |
+| C31 | OPEN | Tabela `audit_events` usada em código mas inexistente no banco | `core/audit/audit.service.ts:86` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
+| C32 | OPEN | Tabela `webauthn_challenges` usada em código mas inexistente no banco | `core/auth/webauthn.repository.ts:132` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
+| C33 | OPEN | Tabela `webauthn_credentials` usada em código mas inexistente no banco | `core/auth/webauthn.repository.ts:69` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
+| C34 | OPEN | Tabela `category_ai_logs` usada em código mas inexistente no banco | `core/categories/categories.repository.ts:1035` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
+| C35 | OPEN | Tabela `partner_employees` usada em código mas inexistente no banco | `core/audit/audit.service.ts:269` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
 
 ### MEDIUM (9)
 
@@ -112,6 +117,18 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Próxima fase:** FASE 1 — VISIBILIDADE (gate v1.1 ETAPA 2)
 - **Pausa registrada em:** ETAPA 1 do gate v1.1 concluída (commit 4b84175f).
 	ETAPAs 2, 3, 4, 5 pendentes.
+
+---
+
+### 2026-04-21 — Gate v1.1 ETAPA 5: 5 novas violações detectadas
+
+- **Ação:** Validação manual das 10 amostras do gate v1.1 confirmou gate confiável
+  (0 falso-positivos, 2 falsos negativos registrados em DECISION-0001).
+  5 novas tabelas fantasmas descobertas: C31-C35.
+  Commits gate: 4b84175f (E1), d8f3f2be (E2), 3dd6dd66 (E3), cbfbf599 (E4).
+- **Violações novas:** C31, C32, C33, C34, C35 (todas OPEN, severidade HIGH)
+- **Próxima ação:** Criar schema-coherence-allowlist.json para violações conhecidas (C1-C30)
+- **Decisão registrada:** DECISION-0001 (commit 2ad9d801)
 
 ---
 
