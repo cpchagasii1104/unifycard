@@ -40,7 +40,7 @@
 | FIXED | 1 | 5 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
-| DECISION_PENDING | 8 | 8 |
+| DECISION_PENDING | 8 | 10 |
 
 ---
 
@@ -88,7 +88,7 @@
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
 | C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
-| C46 | OPEN | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | service.create() passa user_id onde repository espera actor_id. groups.types.ts declara ownerUserId mas toGroup() retorna ownerActorId. Fix bloqueado por C45. |
+| C46 | DECISION_PENDING | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | Rename global ownerUserId→ownerActorId é incorreto. userId alimenta ensureUserActor (precisa ser userId). actorId vem de actor.actor_id. Requer mapeamento linha a linha, não regex cego. ChatGPT identificou: script contaminava SQL (createdAt→created_at), alterava autorização, e quebrava contrato do writer C45. |
 
 ### MEDIUM (12)
 
@@ -263,6 +263,17 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
   C45 bloqueia C46. Ambos requerem decisão arquitetural em FASE 4.
 - **Violações novas:** C45 OPEN HIGH, C46 OPEN HIGH
 - **Próxima ação:** FASE 4 — resolver C45 via refactor do writer, depois C46.
+
+---
+
+### 2026-04-21 — C46 replanejado como DECISION_PENDING
+
+- **Ação:** Tentativa de rename global ownerUserId→ownerActorId revertida.
+  Diff contaminado: SQL (createdAt), lógica de autorização e contrato do writer.
+  userId e actorId NÃO são intercambiáveis: userId alimenta ensureUserActor,
+  actorId vem de actor.actor_id. Requer análise linha a linha.
+- **Status C46:** OPEN → DECISION_PENDING
+- **Próxima ação:** FASE 3 seed + E2E (C46 não bloqueia seed).
 
 ---
 
