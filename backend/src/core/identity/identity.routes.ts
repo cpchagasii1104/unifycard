@@ -711,9 +711,23 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
     try {
-      const reputation = await reputationService.getScoreByGlobalUserId(req.actionContext.actorId);
-      
+      // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
+      const { socialPortsRegistry } = await import('@core/social/ports-registry');
+      const actorRepository = socialPortsRegistry.getActorRepository();
+      const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+      if (!actor || !actor.user_id) {
+        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
+      }
+      const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
+      const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
+
+      const reputation = await reputationService.getScoreByGlobalUserId(globalUserId);
+
       if (!reputation) {
         return reply.status(404).send({ error: 'Reputação não encontrada' });
       }
