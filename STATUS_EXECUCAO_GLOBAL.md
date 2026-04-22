@@ -8,7 +8,7 @@
 
 **Gate no repo:** `npm run validate:system-state` (coerência deste ficheiro + A1–A4 se `DATABASE_URL` e `pg` existirem). **A2** na BD segue `PLANO_IDENTITY_RECONCILIATION.md` §2.1 (actores humanos **elegíveis**: `is_identity_required = true`). Números concretos (ex.: último A2) devem constar do **log de execução** / evidência SQL colada — não substituem a leitura directa do precheck no ambiente alvo. `npm run validate:system-state:strict` falha com **§GLOBAL BLOCK ATIVO** sem `DATABASE_URL`; com BD, falha também se A1–A4 > 0 **ou** se A1–A4 = 0 mas o STATUS ainda não foi actualizado para **INATIVO** (STATUS desactualizado face à realidade).
 
-**Última actualização:** 2026-04-21 (FASE 4 — C1, C3, C4 FIXED; gates 4/4 PASS)
+**Última actualização:** 2026-04-21 (FASE 4 remediação — C1, C3, C4 FIXED, gates 4/4 PASS)
 
 ---
 
@@ -74,19 +74,6 @@
 
 ---
 
-## Checkpoint de continuidade — 2026-04-21 (FASE 4 remediação sistêmica)
-
-- **Sessão de remediação FASE 4 executada.** Violações C1, C3, C4 fechadas.
-  Complemento de C45 em core.service.ts resolvido (gate actor-writer desbloqueado).
-- **DECISIONs adicionadas:** 0005, 0006, 0007, 0008 (ver REMEDIATION_DECISIONS_LOG.md).
-- **Gates 4/4 PASS** ao final da sessão.
-- **Estado de violações:** Total 48 | OPEN 28 | FIXED 9 | DECISION_PENDING 10.
-- **Próxima ação:** DECISION-0009 (C12 escopo reduzido) + fix identity.routes.ts + C44.
-- **Log detalhado:** docs/03_execution_log/2026-04-21-fase4-c1-c3-c4.md
-- **Auditoria suporte:** docs/04_audit/2026-04-21-auditoria-transversal-c3-c12-c44.md
-
----
-
 ## Checkpoint de continuidade — 2026-04-20 (DT-votes / DT-tsc)
 
 - **DT-votes:** FECHADO como falso positivo. Diagnóstico confirmado: INSERTs de `group_votes` e `group_vote_options` em `modules/groups/votes.service.ts` estão dentro de `runTenantTransaction` com `trx.query` (padrão atômico válido).
@@ -108,6 +95,29 @@
 - **Correção de runtime financeiro:** lookup de conta de débito em `modules/bank/bank-transaction.service.ts` ajustado para consulta direta em `bank_accounts`, eliminando falha `From account ... not found` no E2E financeiro.
 - **Validação financeira E2E:** VERDE (`pnpm --dir C:/unificard/backend run validate:financial-e2e`, `EXIT_CODE=0`).
 - **Estado observado após validação:** saldos de ledger reportados `user1_cents=920000`, `user2_cents=80000`; bloqueio anterior `COVERAGE_EXCEEDED` removido.
+
+---
+
+## Ponto zero documental canônico — 2026-04-21
+
+A partir desta data, `docs/03_execution_log/` é a fonte oficial de logs de
+execução por sessão. Antes desta data, a fonte histórica oficial é o
+git log do repositório, complementado por:
+- SYSTEM_REMEDIATION_STATUS.md (violações rastreadas)
+- REMEDIATION_DECISIONS_LOG.md (DECISION-0001 a DECISION-0004 pré-ponto zero)
+- REMEDIATION_SNAPSHOTS.md (snapshots FASE 0, 1, 2 pré-ponto zero)
+- MODULOS.txt (módulos auditados antes de 2026-04-21)
+
+## Checkpoint de continuidade — 2026-04-21 (FASE 4 remediação)
+
+- **Sessão executada.** Violações fechadas: C4, C45 complemento, C1 (4 fixes),
+  C3 (2 fixes). Metodologia «DECISION antes de código» consolidada.
+- **DECISIONs adicionadas:** 0005, 0006, 0007, 0008, 0009 (ver REMEDIATION_DECISIONS_LOG.md).
+- **Gates 4/4 PASS** ao final.
+- **Violações:** Total 48 | OPEN 28 | FIXED 9 | DECISION_PENDING 10.
+- **Próxima ação:** fix único de C12 em `identity.routes.ts` (DECISION-0009 já registrada).
+- **Log detalhado:** docs/03_execution_log/2026-04-21-fase4-c1-c3-c4.md
+- **Template para próximas sessões:** docs/03_execution_log/_TEMPLATE.md
 
 ---
 

@@ -1,32 +1,44 @@
-# EXECUTION LOG — [Título da sessão] — [Data]
+# EXECUTION LOG — [Título curto] — YYYY-MM-DD
 
 ## Metadados
 - Data: YYYY-MM-DD
 - Responsável: [nome]
 - Modo: [EXECUTOR | GUARDIÃO]
 - Fase do plano: [FASE N]
-- Base normativa: [referências]
+- Sessão anterior: [link ou data]
 
 ## Objetivo da sessão
-[1-2 parágrafos]
+[1-2 parágrafos descrevendo o objetivo declarado no início]
 
 ## Violações fechadas
-[por ID: commits, arquivos, decisão associada, status antes/depois]
+Para cada violação:
+- ID: [Cxx]
+- Commits: [hashes]
+- Decisão associada: [DECISION-NNNN se houver]
+- Arquivos afetados: [paths]
+- Status antes → depois
 
 ## Descobertas relevantes
-[insights não previstos, dívidas identificadas]
+[Insights descobertos durante execução, dívidas identificadas, violações reclassificadas]
 
 ## Gates ao final da sessão
-[status dos 4 gates]
+- actor-writer-boundaries: [PASS | FAIL]
+- bank-ledger-boundaries: [PASS | FAIL]
+- regression-guards: [PASS | FAIL]
+- architectural-patterns --strict: [PASS | FAIL] (critical_new=N)
 
 ## Contagem de violações
-[antes/depois]
+| Estado | Antes | Depois |
+|--------|-------|--------|
+| OPEN | N | M |
+| FIXED | N | M |
+| DECISION_PENDING | N | M |
 
-## Documentos atualizados nesta sessão
-[lista]
+## Documentos atualizados
+[Lista de arquivos .md tocados nesta sessão]
 
 ## Próxima sessão
-[ponto de retomada]
+[Ponto de retomada claro]
 
 ## Status
 [SUCESSO | FALHA | ABORTO]
