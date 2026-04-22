@@ -1,11 +1,14 @@
 // backend/src/modules/bank/bank-account.service.ts
-// SPRINT 1: FUNDAÇÃO DO UNIFY BANK
+// SPRINT 1: FUNDACAO DO UNIFY BANK
 // Service para contas do Unify Bank
 
 import { bankAccountRepository } from './bank-account.repository';
 import { bankLedgerRepository } from './bank-ledger.repository';
+import { asMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
+import type { PoolClient } from 'pg';
 import type {
   BankAccount,
+  BankAccountType,
   CreateBankAccountInput,
   BankAccountSearchOptions,
   BankAccountOwnerType,
@@ -17,25 +20,25 @@ import type { BankAccountBalance } from './bank-ledger.types';
 class BankAccountService {
   /**
    * Busca conta por ID
-   * Saldo retornado é calculado do ledger (fonte da verdade)
+   * Saldo retornado e calculado do ledger (fonte da verdade)
    */
   async getAccountById(
     tenantId: string,
     accountId: string
   ): Promise<BankAccount | null> {
     const account = await bankAccountRepository.getAccountById(tenantId, accountId);
-    
+
     if (!account) {
       return null;
     }
 
     // Calcular saldo real do ledger
     const balance = await bankLedgerRepository.calculateBalance(tenantId, accountId);
-    
+
     // Atualizar cached_balance se diferente
-    if (Math.abs(account.cachedBalance - balance.balance) > 0.01) {
-      await bankAccountRepository.updateCachedBalance(tenantId, accountId, balance.balance);
-      account.cachedBalance = balance.balance;
+    if (account.cachedBalanceCents !== balance.balanceCents) {
+      await bankAccountRepository.updateCachedBalance(tenantId, accountId, balance.balanceCents);
+      account.cachedBalanceCents = balance.balanceCents;
     }
 
     return account;
@@ -63,11 +66,11 @@ class BankAccountService {
 
     // Calcular saldo real do ledger
     const balance = await bankLedgerRepository.calculateBalance(tenantId, account.accountId);
-    
+
     // Atualizar cached_balance se diferente
-    if (Math.abs(account.cachedBalance - balance.balance) > 0.01) {
-      await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balance);
-      account.cachedBalance = balance.balance;
+    if (account.cachedBalanceCents !== balance.balanceCents) {
+      await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balanceCents);
+      account.cachedBalanceCents = balance.balanceCents;
     }
 
     return account;
@@ -93,11 +96,11 @@ class BankAccountService {
     if (existing) {
       // Calcular saldo real do ledger
       const balance = await bankLedgerRepository.calculateBalance(tenantId, existing.accountId);
-      
+
       // Atualizar cached_balance se diferente
-      if (Math.abs(existing.cachedBalance - balance.balance) > 0.01) {
-        await bankAccountRepository.updateCachedBalance(tenantId, existing.accountId, balance.balance);
-        existing.cachedBalance = balance.balance;
+      if (existing.cachedBalanceCents !== balance.balanceCents) {
+        await bankAccountRepository.updateCachedBalance(tenantId, existing.accountId, balance.balanceCents);
+        existing.cachedBalanceCents = balance.balanceCents;
       }
 
       return existing;
@@ -119,10 +122,10 @@ class BankAccountService {
     // Atualizar saldos calculados do ledger para cada conta
     for (const account of accounts) {
       const balance = await bankLedgerRepository.calculateBalance(tenantId, account.accountId);
-      
-      if (Math.abs(account.cachedBalance - balance.balance) > 0.01) {
-        await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balance);
-        account.cachedBalance = balance.balance;
+
+      if (account.cachedBalanceCents !== balance.balanceCents) {
+        await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balanceCents);
+        account.cachedBalanceCents = balance.balanceCents;
       }
     }
 
@@ -131,9 +134,9 @@ class BankAccountService {
 
   /**
    * Calcula saldo da conta a partir do ledger (FONTE DA VERDADE)
-   * 
-   * REGRA ARQUITETURAL: Saldo é SEMPRE calculado do ledger.
-   * Este método retorna o saldo real, não o cache.
+   *
+   * REGRA ARQUITETURAL: Saldo e SEMPRE calculado do ledger.
+   * Este metodo retorna o saldo real, nao o cache.
    */
   async getBalance(
     tenantId: string,
@@ -158,50 +161,281 @@ class BankAccountService {
 
     // Calcular saldo real do ledger
     const balance = await bankLedgerRepository.calculateBalance(tenantId, account.accountId);
-    
+
     // Atualizar cached_balance se diferente
-    if (Math.abs(account.cachedBalance - balance.balance) > 0.01) {
-      await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balance);
-      account.cachedBalance = balance.balance;
+    if (account.cachedBalanceCents !== balance.balanceCents) {
+      await bankAccountRepository.updateCachedBalance(tenantId, account.accountId, balance.balanceCents);
+      account.cachedBalanceCents = balance.balanceCents;
     }
 
     return account;
   }
 
   /**
+   * Garante contas de lifecycle para um owner (usuario ou company).
+   * Idempotente: verifica antes de criar; nao duplica.
+   *
+   * Chamar apos: criacao de usuario (ownerType 'user') ou de company/seller (ownerType 'company').
+   */
+  async ensureLifecycleAccountsForOwner(
+    tenantId: string,
+    ownerId: string,
+    ownerType: 'user' | 'company',
+    currency: BankCurrency = 'BRL'
+  ): Promise<void> {
+    if (ownerType === 'user') {
+      /** Mesmo padrao que company (`owner:tipo`): evita colisao com legado `owner_id = userId` + outro account_type. */
+      const walletOwnerKey = `${ownerId}:user_wallet`;
+      const existing = await bankAccountRepository.getAccountByOwnerAndType(
+        tenantId,
+        walletOwnerKey,
+        'user',
+        'user_wallet',
+        currency
+      );
+      if (!existing) {
+        const legacyWallet = await bankAccountRepository.getAccountByOwnerAndType(
+          tenantId,
+          ownerId,
+          'user',
+          'user_wallet',
+          currency
+        );
+        if (!legacyWallet) {
+          await bankAccountRepository.createAccount(tenantId, {
+            ownerId: walletOwnerKey,
+            ownerType: 'user',
+            accountType: 'user_wallet',
+            currency,
+          });
+        }
+      }
+      return;
+    }
+
+    const sellerTypes: BankAccountType[] = ['seller_pending', 'seller_available', 'seller_payout'];
+    for (const accountType of sellerTypes) {
+      const compositeOwnerId = `${ownerId}:${accountType}`;
+      const existing = await bankAccountRepository.getAccountByOwnerAndType(
+        tenantId,
+        compositeOwnerId,
+        'company',
+        accountType,
+        currency
+      );
+      if (!existing) {
+        await bankAccountRepository.createAccount(tenantId, {
+          ownerId: compositeOwnerId,
+          ownerType: 'company',
+          accountType,
+          currency,
+        });
+      }
+    }
+  }
+
+  /**
+   * Busca conta de lifecycle da plataforma (sistema) por account_type.
+   * Ex.: escrow_payments, clearing, bank_settlement.
+   */
+  async getPlatformLifecycleAccount(
+    tenantId: string,
+    accountType: BankAccountType,
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount | null> {
+    const ownerId = `system:${accountType}:${tenantId}`;
+    return bankAccountRepository.getAccountByOwnerAndType(
+      tenantId,
+      ownerId,
+      'system',
+      accountType,
+      currency
+    );
+  }
+
+  /**
+   * Busca conta de lifecycle por owner e tipo (ex.: seller_available para uma company).
+   * Para company usa owner_id composto: `${ownerId}:${accountType}`.
+   */
+  async getLifecycleAccount(
+    tenantId: string,
+    ownerId: string,
+    ownerType: 'user' | 'company',
+    accountType: BankAccountType,
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount | null> {
+    if (ownerType === 'user') {
+      if (accountType === 'user_wallet') {
+        const composite = await bankAccountRepository.getAccountByOwnerAndType(
+          tenantId,
+          `${ownerId}:user_wallet`,
+          'user',
+          'user_wallet',
+          currency
+        );
+        if (composite) {
+          return composite;
+        }
+        return bankAccountRepository.getAccountByOwnerAndType(
+          tenantId,
+          ownerId,
+          'user',
+          'user_wallet',
+          currency
+        );
+      }
+      return bankAccountRepository.getAccountByOwnerAndType(
+        tenantId,
+        ownerId,
+        'user',
+        accountType,
+        currency
+      );
+    }
+    const compositeOwnerId = `${ownerId}:${accountType}`;
+    return bankAccountRepository.getAccountByOwnerAndType(
+      tenantId,
+      compositeOwnerId,
+      'company',
+      accountType,
+      currency
+    );
+  }
+
+  /**
+   * Conta de sistema por regiao para pool do fundo regional (ledger = SSOT).
+   * owner_id unico por (tenant, pais, estado, cidade); idempotente.
+   */
+  async ensureRegionalFundBankAccountForRegion(
+    tenantId: string,
+    region: { country: string; state: string; city: string },
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount> {
+    const regionKey = `${region.country}-${region.state}-${region.city}`;
+    const ownerId = `system:regional_fund:${tenantId}:${regionKey}`;
+    const existing = await bankAccountRepository.getAccountByOwnerAndType(
+      tenantId,
+      ownerId,
+      'system',
+      'credit',
+      currency
+    );
+    if (existing) {
+      return existing;
+    }
+    return await bankAccountRepository.createAccount(tenantId, {
+      ownerId,
+      ownerType: 'system',
+      accountType: 'credit',
+      currency,
+    });
+  }
+
+  /**
+   * Garante contas de plataforma (uma vez por tenant).
+   * Idempotente: verifica antes de criar; nao duplica.
+   *
+   * Chamar: no bootstrap do tenant ou na primeira operacao financeira do tenant.
+   */
+  async ensurePlatformAccounts(tenantId: string, currency: BankCurrency = 'BRL'): Promise<void> {
+    const platformTypes: BankAccountType[] = [
+      'escrow_payments',
+      'platform_revenue',
+      'platform_fees',
+      'clearing',
+      'bank_settlement',
+      'risk_reserve',
+      'seller_pending',
+      'seller_available',
+      'seller_payout',
+    ];
+    for (const accountType of platformTypes) {
+      const ownerId = `system:${accountType}:${tenantId}`;
+      const existing = await bankAccountRepository.getAccountByOwnerAndType(
+        tenantId,
+        ownerId,
+        'system',
+        accountType,
+        currency
+      );
+      if (!existing) {
+        try {
+          await bankAccountRepository.createAccount(tenantId, {
+            ownerId,
+            ownerType: 'system',
+            accountType,
+            currency,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('uq_bank_accounts_one_system_per_tenant') || msg.includes('duplicar valor da chave')) {
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+  }
+
+  /**
+   * Adquire lock exclusivo em uma conta dentro de uma transacao ativa.
+   *
+   * LEI 4.7: SELECT FOR UPDATE sobre bank_accounts deve estar DENTRO do dominio Bank.
+   * Workers e outros consumidores devem chamar este metodo em vez de fazer
+   * SELECT FOR UPDATE diretamente.
+   *
+   * @param tenantId - Tenant da conta
+   * @param accountId - ID da conta a ser lockada
+   * @param client - PoolClient com transacao ativa (BEGIN ja executado)
+   * @throws Error se conta nao encontrada
+   */
+  async acquireAccountLock(
+    tenantId: string,
+    accountId: string,
+    client: PoolClient
+  ): Promise<void> {
+    const result = await client.query(
+      `SELECT id FROM bank_accounts WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+      [tenantId, accountId]
+    );
+    if (result.rows.length === 0) {
+      throw new Error(`Account ${accountId} not found for lock`);
+    }
+  }
+
+  /**
    * Valida que o saldo calculado do ledger bate com o cached_balance
-   * 
-   * REGRA ARQUITETURAL: Números sempre devem bater.
-   * Este método é usado para validação e testes.
+   *
+   * REGRA ARQUITETURAL: Numeros sempre devem bater.
+   * Este metodo e usado para validacao e testes.
    */
   async validateBalance(
     tenantId: string,
     accountId: string
-  ): Promise<{ isValid: boolean; cachedBalance: number; calculatedBalance: number; difference: number }> {
+  ): Promise<{
+    isValid: boolean;
+    cachedBalanceCents: MoneyCents;
+    calculatedBalanceCents: MoneyCents;
+    differenceCents: MoneyCents;
+  }> {
     const account = await bankAccountRepository.getAccountById(tenantId, accountId);
-    
+
     if (!account) {
       throw new Error(`Account ${accountId} not found`);
     }
 
     const balance = await bankLedgerRepository.calculateBalance(tenantId, accountId);
-    const difference = Math.abs(account.cachedBalance - balance.balance);
+    const differenceCents = asMoneyCents(
+      Math.abs(account.cachedBalanceCents - balance.balanceCents)
+    );
 
     return {
-      isValid: difference < 0.01, // Tolerância de 1 centavo
-      cachedBalance: account.cachedBalance,
-      calculatedBalance: balance.balance,
-      difference,
+      isValid: differenceCents === 0,
+      cachedBalanceCents: account.cachedBalanceCents,
+      calculatedBalanceCents: balance.balanceCents,
+      differenceCents,
     };
   }
 }
 
 export const bankAccountService = new BankAccountService();
-
-
-
-
-
-
-
-
