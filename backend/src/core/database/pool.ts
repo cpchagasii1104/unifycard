@@ -1,9 +1,9 @@
 // backend/src/core/database/pool.ts
 
 import { Pool, PoolClient } from 'pg';
-import dotenv from 'dotenv';
+import { loadBackendEnv } from '../db/load-backend-env';
 
-dotenv.config();
+loadBackendEnv();
 
 /**
  * Extrai informações da DATABASE_URL sem expor senha
@@ -138,7 +138,7 @@ export async function getClientWithTenant(tenantId: string): Promise<PoolClient>
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
     return client;
   } catch (err) {
     client.release();
@@ -173,7 +173,7 @@ export async function runQueryWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
@@ -222,7 +222,7 @@ export async function runQueriesWithTenant<T>(
   const client = await pool.connect();
   try {
     // PostgreSQL não aceita bind parameters em SET, usar set_config
-    await client.query("SELECT set_config('app.current_tenant', $1, false)", [tenantId]);
+    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
 
     const text = typeof query === 'string' ? query : query.text;
     const values = typeof query === 'string' ? (params || []) : (query.values || []);
