@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-14 (C17 FIXED — set_config is_local; commit 62d2d601) |
+| Última atualização | 2026-04-14 (C25 FIXED — FK products.canonical_product_id; commit 8ac9dfc7) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 27 |
+| OPEN | 21 | 26 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 13 |
+| FIXED | 1 | 14 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 9 |
@@ -103,7 +103,7 @@
 | C18 | OPEN | RLS ENABLE sem FORCE em 30 tabelas | várias | Clayton | 2026-06-01 | — | ADD FORCE. Avaliar por ambiente (dev vs prod user). |
 | C19 | OPEN | `reference_id` tipo inconsistente entre envs (UUID vs TEXT) | `bank_transactions` | Clayton | 2026-05-15 | — | Banco novo vs banco antigo divergem. |
 | C23 | OPEN | `"createdAt"` coexistindo com `created_at` em users/global_users/tenant_contexts | vários | Clayton | 2026-06-15 | — | Consolidar gradualmente. Subset de C28. |
-| C25 | OPEN | `products.canonical_product_id` sem FK | `products` | Clayton | 2026-05-10 | — | ADD CONSTRAINT FK. Cirurgia simples. |
+| C25 | FIXED | `products.canonical_product_id` sem FK | `products` | Clayton | 2026-05-10 | 8ac9dfc7 | Migration `20260530500000_products_canonical_product_fk.sql`: `fk_products_canonical_product_id` → `canonical_products(id)` ON DELETE SET NULL. Aplicada em `unificard_dev`; gates 4/4 PASS. |
 | C28 | OPEN | 16 tabelas criadas com `"createdAt"` aspado | várias (11 ainda não consolidadas) | Clayton | 2026-06-15 | — | `users`, `global_users`, `products`, `product_variants`, `profiles`, `tenant_contexts`, 4 tabelas inventory, 2 fulfillment. |
 | C30 | OPEN | Consolidação snake_case feita só em 4 tabelas do marketplace | vários | Clayton | 2026-06-15 | — | Completar para todas as tabelas. |
 | C41 | OPEN | §4.6: 5 timestamps sem sufixo `_at` | `check_in_time`, `start_datetime`, `end_datetime`, `conflict_start_datetime`, `conflict_end_datetime` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
@@ -322,6 +322,15 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Commit:** 62d2d601
 - **Status C17:** OPEN → FIXED
 - **Resumo:** OPEN 28→27, FIXED 12→13
+
+---
+
+### 2026-04-14 — C25 FIXED: FK products.canonical_product_id
+
+- **Ação:** Constraint `fk_products_canonical_product_id` adicionada via migration idempotente; referência `canonical_products(id)` com `ON DELETE SET NULL`.
+- **Commit:** 8ac9dfc7
+- **Status C25:** OPEN → FIXED
+- **Resumo:** OPEN 27→26, FIXED 13→14
 
 ---
 
