@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-21 (C3 FIXED — f1dd6385, 1ca3d8b7; DECISION-0008 f9d4ef38) |
+| Última atualização | 2026-04-14 (C17 FIXED — set_config is_local; commit 62d2d601) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -35,12 +35,12 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 28 |
+| OPEN | 21 | 27 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 11 |
+| FIXED | 1 | 13 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
-| DECISION_PENDING | 8 | 10 |
+| DECISION_PENDING | 8 | 9 |
 
 ---
 
@@ -72,7 +72,7 @@
 | C9 | DECISION_PENDING | RFQ como JSON em `events.metadata.rfqs[]` sem lock | `modules/events/event-rfq.service.ts:142266` | Clayton | — | — | Qual schema de tabela RFQ? Concorrência? |
 | C11 | OPEN | `bookings` com `requestedat` etc (sem underscore) | `migration 13251` | Clayton | 2026-06-01 | — | Colunas órfãs no schema, código não lê. Bomba latente. |
 | C16 | DECISION_PENDING | Saga compensation quebra atomicidade ledger ↔ saga | `core/sagas/handlers/saga-compensation.handler.ts:103758` | Clayton | — | — | Exige mudar contrato de `compensateTransaction`. |
-| C17 | OPEN | `set_config` com `is_local=false` em 11 locais do pool | `core/database/pool.ts` | Clayton | 2026-05-01 | — | Trocar false→true. Risco: vazamento cross-tenant. |
+| C17 | FIXED | `set_config` com `is_local=false` em 11 locais do pool | `core/database/pool.ts` | Clayton | 2026-05-01 | 62d2d601 | 3 ocorrências corrigidas em `pool.ts` (`app.current_tenant`: terceiro argumento `false` → `true`). Documentação histórica citava 11 locais; HEAD actual só expunha estas 3 chamadas. Gates 4/4 PASS pós-fix. |
 | C20 | FIXED | Trigger coverage bloqueia tenant sem fix 480000 | `migration 20260530480000_fix_system_coverage_view.sql` | Clayton | — | — | Já aplicado em sessão anterior. |
 | C21 | DECISION_PENDING | `bank_accounts.owner_id` TEXT com dual representation | `migration 88-100` | Clayton | — | — | Colapsar owner_id/actor_id é refactor grande. |
 | C24 | DECISION_PENDING | 4 tabelas paralelas de produto | `products`, `canonical_products`, `catalog_products`, `tenant_products` | Clayton | — | — | Qual é SSOT? |
@@ -88,7 +88,7 @@
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
 | C44 | FIXED | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | 47624254 | C44 FIXED. Colunas fantasmas (parent_group_id, created_by_actor_id, created_by_user_id) removidas das queries SQL. Repository alinhado ao schema Genesis. API backwards-compatible com group.service.ts. DECISION-0010. |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
-| C46 | DECISION_PENDING | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | Rename global ownerUserId→ownerActorId é incorreto. userId alimenta ensureUserActor (precisa ser userId). actorId vem de actor.actor_id. Requer mapeamento linha a linha, não regex cego. ChatGPT identificou: script contaminava SQL (createdAt→created_at), alterava autorização, e quebrava contrato do writer C45. |
+| C46 | FIXED | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | `modules/groups/groups.service.ts` + `groups.routes.ts` + `groups.types.ts` + `groups.repository.ts` + `policies/group-creation-policy.ts` | Clayton | FASE 4 | 2ed98929 | DECISION-0011: `Group.ownerActorId` alinhado a `owner_actor_id`; `ensureUserActor` antes de `canCreateGroup(actor_id)`; `addMember` com `users.user_id` via `SELECT user_id FROM actors`; owner na rota `actorId === actorId`; evento `group.created` com `ownerActorId`. Gates: actor-writer, bank-ledger, regression-guards, arch-patterns PASS. Pendência: `scripts/test-group-creation-policy.ts` legado (fora do escopo C46). |
 | C47 | OPEN | actor_has_permission SQL não existe no schema Gênesis | backend/migrations/20260421010000_actor_has_permission_stub.sql | Clayton | FASE 6 | 20260421010000 | Função stub criada (retorna TRUE) para desbloquear E2E. Implementação real está no migrations_archive. Requer portagem em FASE 6. |
 | C50 | OPEN | Padrões culturais passam actorId como globalUserId | `modules/events/organizers/organizers.routes.ts` + cultural | Clayton | FASE 6 | — | Reclassificado de C12. Escopo cultural/eventos, não identity. |
 | C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | Clayton | FASE 6 | — | Reclassificado de C12. Escopo onboarding, não identity. |
@@ -303,6 +303,25 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 - **Status C12:** OPEN → FIXED
 - **Violações novas:** C50 OPEN HIGH (cultural), C51 OPEN HIGH (store-onboarding)
 - **Resumo:** OPEN 28→29 (+1 temporário por reclassificação), FIXED 9→10
+
+---
+
+### 2026-04-14 — C46 FIXED: pipeline groups §4.8 (userId → actor)
+
+- **Ação:** Fechamento C46 conforme DECISION-0011. Tipo `Group.ownerActorId`; `toGroup`/`repository`/`service`/`routes`/`GroupCreationPolicy` + port `groups-repository` + executor `group.created` (payload `ownerActorId`, fallback legado). `group_members.user_id` preenchido com FK `users.user_id` resolvido a partir do actor.
+- **Commit de referência (workspace):** 2ed98929
+- **Status C46:** DECISION_PENDING → FIXED
+- **Resumo:** FIXED 11→12, DECISION_PENDING 10→9
+- **Próxima ação (FASE 4 / financeiro):** C13 (leituras `bank_*` fora de `modules/bank/`) ou C2 (`concept_ref` — requer decisão); C47 permanece FASE 6 (stub SQL).
+
+---
+
+### 2026-04-14 — C17 FIXED: set_config is_local=true em pool
+
+- **Ação:** Terceiro argumento de `set_config('app.current_tenant', …)` alterado de `false` para `true` em todas as ocorrências em `backend/src/core/database/pool.ts` (3 chamadas).
+- **Commit:** 62d2d601
+- **Status C17:** OPEN → FIXED
+- **Resumo:** OPEN 28→27, FIXED 12→13
 
 ---
 
