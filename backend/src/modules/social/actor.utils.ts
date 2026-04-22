@@ -2,6 +2,7 @@
 // Utilitário canônico para resolução de Actor ativo em requisições
 
 import { FastifyRequest } from 'fastify';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { actorRepository, type ActorRow } from './actor.repository';
 import { BadRequestError, ForbiddenError } from '@core/errors';
 import { recordActorSwitch } from './actor-audit.service';
@@ -26,7 +27,7 @@ export interface ResolveActorOptions {
  * 1. Header "x-actor-id" (e opcionalmente "x-actor-type")
  * 2. Querystring "actor_id" e "actor_type"
  * 3. Se nada foi enviado:
- *    - Se allowUserFallback = true: usa findOrCreateUserActor (compatibilidade)
+ *    - Se allowUserFallback = true: usa ensureUserActor (writer canónico §4.8)
  *    - Se allowUserFallback = false: retorna erro 400
  * 
  * @param req Requisição Fastify
@@ -70,7 +71,7 @@ export async function resolveActiveActorFromRequest(
   // Prioridade 3: Fallback ou erro
   if (allowUserFallback && userId) {
     // Fallback para compatibilidade (apenas quando explicitamente permitido)
-    return await actorRepository.findOrCreateUserActor(tenantId, userId);
+    return await ensureUserActor(tenantId, userId);
   }
 
   // Erro explícito quando actor não fornecido
