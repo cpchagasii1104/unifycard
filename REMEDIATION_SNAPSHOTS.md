@@ -450,3 +450,44 @@ nao eram 3 INSERTs literais, eram 2 helpers utilitarios centrais.
 C3-B (separacao read/write semantica) documentada como divida para FASE 6.
 Proximos alvos FASE 4: C12 (pode ter sido parcialmente mitigado por C3),
 C44 (marketplace/group.repository), C46 (ownerUserId vs actorId).
+
+## SNAPSHOT FASE 4 — C12 fechado — 2026-04-22
+
+**Commit de referência:** 20c5c2e9 (após af7cae11)
+**Responsável:** Clayton
+
+### Gates
+
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violações fechadas
+
+- C12 FIXED: 3 rotas identity (wallet, ledger, reputation) alinhadas ao globalUserId canônico
+
+### Violações criadas
+
+- C50 OPEN: padrões culturais (organizers.routes.ts)
+- C51 OPEN: store-onboarding
+
+### Status das violações
+
+- Total: 50 | OPEN: 29 | FIXED: 10 | DECISION_PENDING: 10
+
+### Comparação com snapshot C3
+
+- OPEN: 28 → 29 (+1 temporário por reclassificação)
+- FIXED: 9 → 10
+- Borda HTTP identity: 100% coerente (actorId→globalUserId)
+
+### Análise de convergência
+
+FASE 4 avança. C12 (mentira estrutural em identity) eliminado.
+Aumento temporário de OPEN reflete reclassificação honesta:
+C50/C51 são violações mais precisas que C12 genérico.
+Próximos alvos: C44 (marketplace/group), C46 (ownerUserId vs actorId).
+
+---
+

@@ -31,13 +31,13 @@
 
 | Métrica | Valor inicial | Atual |
 |---|---|---|
-| Total de violações | 30 | 48 |
+| Total de violações | 30 | 50 |
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 28 |
+| OPEN | 21 | 29 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 9 |
+| FIXED | 1 | 10 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 10 |
@@ -55,7 +55,7 @@
 | C3 | FIXED | Runtime: criação de actor via helpers fora do writer (`getActiveActor` / `resolveActiveActorFromRequest`) | `core/actors/actor.helpers.ts` + `modules/social/actor.utils.ts` | Clayton | 2026-04-21 | f1dd6385, 1ca3d8b7 | 2 caminhos centrais fechados via DECISION-0008 (substituicao direta por ensureUserActor). actor.helpers.ts: getActiveActor usa writer canonico (consumidores: payout, policy, invoice, reporting). actor.utils.ts: resolveActiveActorFromRequest com allowUserFallback usa writer canonico (consumidores: crm, my-orders, subscription, venue, profile-health). C3-B (separacao read/write) adiada para FASE 6 como divida explicita. Scripts de seed e testes fora do escopo de C3. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | 736b25c2 | currency e metadata removidos. 2 queries e 2 tipos corrigidos. regionId=owner_id. currency nao inventado. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | FIXED em 5 commits (fc97f893→81b93c9d). C8[6/6] (marketplace/group.repository.ts) replanejado como C44 — arquivo de sprint isolado com colunas distintas. |
-| C12 | OPEN | `actorId` retornado como `globalUserId` em 3 rotas | `core/identity/identity.routes.ts:66934, 67016` + `modules/events/organizers/organizers.routes.ts:148951` | Clayton | 2026-05-05 | — | Mentira estrutural em rotas de identidade. TODO explícito. |
+| C12 | FIXED | `actorId` retornado como `globalUserId` em 3 rotas identity | `core/identity/identity.routes.ts` | Clayton | 2026-05-05 | af7cae11, 20c5c2e9 | C12 FIXED em 3 rotas identity (wallet, ledger, reputation). DECISION-0009 + extensao L715. Padroes adjacentes reclassificados C50 (cultural) e C51 (store-onboarding) para FASE 6. |
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | — | Exige classificação em CRÍTICAS/ANALÍTICAS/OPERACIONAIS antes de mover. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados (CHECK existe) | `migration 2164-2182` | Clayton | 2026-06-15 | — | CHECK garante igualdade hoje. Renomeação completa é refactor grande. |
@@ -90,6 +90,8 @@
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
 | C46 | DECISION_PENDING | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | Rename global ownerUserId→ownerActorId é incorreto. userId alimenta ensureUserActor (precisa ser userId). actorId vem de actor.actor_id. Requer mapeamento linha a linha, não regex cego. ChatGPT identificou: script contaminava SQL (createdAt→created_at), alterava autorização, e quebrava contrato do writer C45. |
 | C47 | OPEN | actor_has_permission SQL não existe no schema Gênesis | backend/migrations/20260421010000_actor_has_permission_stub.sql | Clayton | FASE 6 | 20260421010000 | Função stub criada (retorna TRUE) para desbloquear E2E. Implementação real está no migrations_archive. Requer portagem em FASE 6. |
+| C50 | OPEN | Padrões culturais passam actorId como globalUserId | `modules/events/organizers/organizers.routes.ts` + cultural | Clayton | FASE 6 | — | Reclassificado de C12. Escopo cultural/eventos, não identity. |
+| C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | Clayton | FASE 6 | — | Reclassificado de C12. Escopo onboarding, não identity. |
 
 ### MEDIUM (12)
 
@@ -291,3 +293,16 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
 ---
 
 **FIM DO DOCUMENTO** (continua crescendo por append a cada commit de correção)
+
+### 2026-04-22 — C12 FIXED: identity borda HTTP alinhada ao globalUserId canonico
+
+- **Ação:** C12 fechado via DECISION-0009 (3 rotas identity: wallet, ledger, reputation).
+  Extensão L715 aplicada: /reputation agora resolve globalUserId via actor→user→global.
+  Padrões adjacentes (organizers, store-onboarding) reclassificados como C50, C51.
+- **Commits:** af7cae11 (wallet+ledger), 20c5c2e9 (reputation extensão)
+- **Status C12:** OPEN → FIXED
+- **Violações novas:** C50 OPEN HIGH (cultural), C51 OPEN HIGH (store-onboarding)
+- **Resumo:** OPEN 28→29 (+1 temporário por reclassificação), FIXED 9→10
+
+---
+
