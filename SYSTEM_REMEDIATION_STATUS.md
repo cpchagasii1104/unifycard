@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-22 (C57 FIXED — FK confirmada pré-existente) |
+| Última atualização | 2026-04-22 (C47 FIXED — actor_has_permission fail-closed) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -34,9 +34,9 @@
 | CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
 | HIGH | 11 | 22 | **24** (+C52, C53) |
 | MEDIUM | 9 | 12 | **13** (+C57) |
-| OPEN | 21 | 26 | **30** (+5 novas abertas; C52 é DECISION_PENDING; C57 FIXED) |
+| OPEN | 21 | 26 | **29** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47 FIXED) |
 | IN_PROGRESS | 0 | 0 | 0 |
-| FIXED | 1 | 13 | **14** (+C57) |
+| FIXED | 1 | 13 | **15** (+C57, +C47) |
 | REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
 | ALLOWLISTED | 0 | 0 | 0 |
 | DEFERRED | 0 | 0 | 0 |
@@ -62,7 +62,7 @@
 | C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
 | C36 | OPEN | 67 tabelas com `status` genérico | 67 tabelas | |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | gate | |
-| C47 | OPEN | `actor_has_permission` SQL retorna TRUE | stub migration 20260421010000 | Elevado HIGH→CRITICAL em 2026-04-22 (1º nível). |
+| C47 | FIXED | `actor_has_permission` SQL retorna TRUE | migration `20260422000100_actor_has_permission_fail_closed.sql` | Substituído por fail-closed (RETURN FALSE). Único caller (`rbac.service.ts`) já tem fallback `?? false`. |
 | **C54** | **OPEN** | **9 caminhos de produto movem dinheiro sem authority gate** | **9 arquivos listados abaixo** | **NOVA 2º nível.** Evidência: `core/economy/transaction.service.ts`, `modules/escrow/escrow.service.ts`, `modules/gateway/payment-event-resolver.ts`, `modules/marketplace/payout.service.ts`, `modules/marketplace/regional-fund.service.ts`, `modules/marketplace/application/services/capacity-application.service.ts`, `modules/marketplace/application/services/marketplace-orchestration.service.ts`, `modules/marketplace/domain/orders/marketplace-orders.service.ts`, `modules/treasury-split/treasury-split.service.ts`. Chamam `bankTransactionService.transfer` sem `requireFinancialRiskClearance`. Apenas 3 de 15 caminhos respeitam o gate (payment-execution, reversal, bank-p2p-transfer). |
 | **C55** | **OPEN** | **`authority-decision.service.ts` é fail-open em 3 camadas (ATL/KYC/GUARDA)** | **`core/compliance/authority-decision.service.ts`** | **NOVA 2º nível.** Padrão "estado ausente = skip" em ATL (L39476-39541), KYC (L39571-39611), GUARDA. Sistema vazio (estado atual) = todos os skips disparam = autoridade estruturalmente inoperante. Viola AUTHORITY_PRECEDENCE §4.1 frontalmente. |
 | **C56** | **OPEN** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | **NOVA 2º nível.** `SUM((oi.metadata->'priceSnapshot'->>'finalPrice')::numeric)` alimenta `gross_revenue` exposto como métrica de produto. Viola LEI §4.6 (proibido derivar decisão financeira de metadata) e PLANO §8. |
