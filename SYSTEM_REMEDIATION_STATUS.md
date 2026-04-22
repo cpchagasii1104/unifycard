@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 29 |
+| OPEN | 21 | 28 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 10 |
+| FIXED | 1 | 11 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 10 |
@@ -86,7 +86,7 @@
 | C38 | OPEN | §3.4: 5 tabelas com `type` genérico | `canonical_products`, `payment_execution_lock`, `promotions`, `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
 | C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
-| C44 | OPEN | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | — | INSERT/SELECT usam parent_group_id, created_by_actor_id, created_by_user_id — nenhuma existe na tabela groups do schema Gênesis. Código de SPRINT 74, 1 chamador. |
+| C44 | FIXED | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | 47624254 | C44 FIXED. Colunas fantasmas (parent_group_id, created_by_actor_id, created_by_user_id) removidas das queries SQL. Repository alinhado ao schema Genesis. API backwards-compatible com group.service.ts. DECISION-0010. |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
 | C46 | DECISION_PENDING | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | modules/groups/groups.service.ts + groups.routes.ts + groups.types.ts | Clayton | FASE 4 | — | Rename global ownerUserId→ownerActorId é incorreto. userId alimenta ensureUserActor (precisa ser userId). actorId vem de actor.actor_id. Requer mapeamento linha a linha, não regex cego. ChatGPT identificou: script contaminava SQL (createdAt→created_at), alterava autorização, e quebrava contrato do writer C45. |
 | C47 | OPEN | actor_has_permission SQL não existe no schema Gênesis | backend/migrations/20260421010000_actor_has_permission_stub.sql | Clayton | FASE 6 | 20260421010000 | Função stub criada (retorna TRUE) para desbloquear E2E. Implementação real está no migrations_archive. Requer portagem em FASE 6. |

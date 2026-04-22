@@ -491,3 +491,44 @@ Próximos alvos: C44 (marketplace/group), C46 (ownerUserId vs actorId).
 
 ---
 
+
+## SNAPSHOT FASE 4 — C44 fechado — 2026-04-22
+
+**Commit de referência:** 47624254
+**Responsável:** Clayton
+
+### Gates
+
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violações fechadas
+
+- C44 FIXED: marketplace/group.repository.ts alinhado ao schema Genesis
+
+### Violações criadas
+
+- Nenhuma
+
+### Status das violações
+
+- Total: 50 | OPEN: 28 | FIXED: 11 | DECISION_PENDING: 10
+
+### Comparação com snapshot C12
+
+- OPEN: 29 → 28
+- FIXED: 10 → 11
+- Schema drift: eliminado em marketplace/group
+
+### Análise de convergência
+
+FASE 4 avança. C44 (schema drift em marketplace/group.repository) eliminado.
+Repository alinhado ao Genesis sem migration nova. API backwards-compatible
+preserva compatibilidade com group.service.ts. Colunas fantasmas
+(parent_group_id, created_by_actor_id, created_by_user_id) removidas das
+queries SQL, substituídas por actor_id (coluna real do schema).
+
+---
+
