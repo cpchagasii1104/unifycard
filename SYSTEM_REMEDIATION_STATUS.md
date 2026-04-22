@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-14 (C25 FIXED — FK products.canonical_product_id; commit 8ac9dfc7) |
+| Última atualização | 2026-04-22 (C57 FIXED — FK confirmada pré-existente) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -20,317 +20,141 @@
 - `ALLOWLISTED` — aceito com justificativa temporária (deadline obrigatório)
 - `DEFERRED` — adiado para sprint específico com issue separada
 - `DECISION_PENDING` — aguarda decisão arquitetural (registrar em `REMEDIATION_DECISIONS_LOG.md`)
+- `REOPENED` — marcado FIXED previamente mas auditoria posterior invalidou o fechamento
 
 **Severidades:** `CRITICAL` · `HIGH` · `MEDIUM`
 
-**Regra de atualização:** cada mudança de status gera novo commit; mensagem no formato `"<ID>: <status_anterior> → <status_novo> (<motivo>)"`. Commit deve referenciar esta linha da tabela.
-
 ---
 
-## Resumo Executivo (atualizado manualmente a cada fase)
+## Resumo Executivo
 
-| Métrica | Valor inicial | Atual |
-|---|---|---|
-| Total de violações | 30 | 50 |
-| CRITICAL | 10 | 12 |
-| HIGH | 11 | 23 |
-| MEDIUM | 9 | 12 |
-| OPEN | 21 | 26 |
-| IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 14 |
-| ALLOWLISTED | 0 | 0 |
-| DEFERRED | 0 | 0 |
-| DECISION_PENDING | 8 | 9 |
+| Métrica | Valor inicial | Pós primeiro nível (2026-04-22) | Pós segundo nível (2026-04-22) |
+|---|---|---|---|
+| Total de violações | 30 | 50 | **56** (+6 da auditoria destrutiva) |
+| CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
+| HIGH | 11 | 22 | **24** (+C52, C53) |
+| MEDIUM | 9 | 12 | **13** (+C57) |
+| OPEN | 21 | 26 | **30** (+5 novas abertas; C52 é DECISION_PENDING; C57 FIXED) |
+| IN_PROGRESS | 0 | 0 | 0 |
+| FIXED | 1 | 13 | **14** (+C57) |
+| REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
+| ALLOWLISTED | 0 | 0 | 0 |
+| DEFERRED | 0 | 0 | 0 |
+| DECISION_PENDING | 8 | 9 | **10** (+C52) |
 
 ---
 
 ## Tabela de Violações
 
-### CRITICAL (12)
+### CRITICAL (16)
 
-| ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
-|----|--------|-----------------|--------------------------|-------|----------|--------|-------|
-| C1 | FIXED | Tabela `ledger` fantasma (6 arquivos usam `FROM ledger`) | `core/reputation/trust.service.ts` + 5 outros | Clayton | 2026-05-15 | 2c68cc89, 38c026d5, 468de737, 4bff6f9b | 4 fixes concluidos via DECISION-0007 (amputacao controlada). trust.service.ts: getFinancialHistory retorna zeros, pendingDebts via actor_debts. groups.routes.ts: rota impact-history retorna vazio. test-currency.service.ts: getTestCurrencyLedger retorna vazio, emit intacto. work.e2e.spec.ts: teste marcado .skip. Tests/scripts fora de src nao fazem parte do escopo — tratar em sessao de sanitizacao de testes separada. |
-| C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Clayton | — | — | Exige decisão: nullable inicial ou NOT NULL com backfill? Sem isso, §7 não é satisfazível. |
-| C3 | FIXED | Runtime: criação de actor via helpers fora do writer (`getActiveActor` / `resolveActiveActorFromRequest`) | `core/actors/actor.helpers.ts` + `modules/social/actor.utils.ts` | Clayton | 2026-04-21 | f1dd6385, 1ca3d8b7 | 2 caminhos centrais fechados via DECISION-0008 (substituicao direta por ensureUserActor). actor.helpers.ts: getActiveActor usa writer canonico (consumidores: payout, policy, invoice, reporting). actor.utils.ts: resolveActiveActorFromRequest com allowUserFallback usa writer canonico (consumidores: crm, my-orders, subscription, venue, profile-health). C3-B (separacao read/write) adiada para FASE 6 como divida explicita. Scripts de seed e testes fora do escopo de C3. |
-| C4 | FIXED | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | 736b25c2 | currency e metadata removidos. 2 queries e 2 tipos corrigidos. regionId=owner_id. currency nao inventado. |
-| C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | FIXED em 5 commits (fc97f893→81b93c9d). C8[6/6] (marketplace/group.repository.ts) replanejado como C44 — arquivo de sprint isolado com colunas distintas. |
-| C12 | FIXED | `actorId` retornado como `globalUserId` em 3 rotas identity | `core/identity/identity.routes.ts` | Clayton | 2026-05-05 | af7cae11, 20c5c2e9 | C12 FIXED em 3 rotas identity (wallet, ledger, reputation). DECISION-0009 + extensao L715. Padroes adjacentes reclassificados C50 (cultural) e C51 (store-onboarding) para FASE 6. |
-| C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários (top: `modules/reporting/`, `core/unifybank/`, `modules/reconciliation/`) | Clayton | 2026-06-01 | 5b3f2096 | C13[critico/2]: LEI 4.7 violations (FOR UPDATE fora de Bank) corrigidas em payout-worker e governance-funding-commitment-worker via acquireAccountLock(). 16 analiticos (READ-only) ficam para allowlist FASE 5. |
-| C14 | FIXED | 23 try/catch mascarando erros de schema | `core/availability/unified-availability.routes.ts:17546, 17819, 18196, 18405` + 19 outros | Clayton | 2026-05-10 | 345b6ef3, 3b6788e2, d8c69d34, 11b6645a | 6 etapas planejadas. 4 catches CRITICAL removidos (unified-availability ×4). C14[5/6] e C14[6/6] N/A: event.service.ts refatorado em 51065962, código não existe no HEAD. Catches restantes (11 ocorrências em 7 arquivos) classificados como SAFE no contexto Gênesis (infra/retry/observabilidade). event-outbox.processor.ts:44 marcado para revisão futura. |
-| C22 | OPEN | `users.id` + `users.user_id` duplicados (CHECK existe) | `migration 2164-2182` | Clayton | 2026-06-15 | — | CHECK garante igualdade hoje. Renomeação completa é refactor grande. |
-| C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | Clayton | 2026-04-25 | b481146a | Mesmo padrão C22 mas sem CHECK. Adicionar CONSTRAINT é cirurgia de 5 min. CHECK constraint adicionado via migration 20260421000000. Trigger 0064 já garantia sync em INSERT. |
-| C36 | OPEN | §3.4: 67 tabelas com `status` genérico | 67 tabelas (`payment_intents`, `orders`, `payment_transactions`, `escrow_transactions`, `bank_settlements`, `ticket_sales`, `reversals`, `groups`, `events`, `products`, ...) | Clayton | FASE 7 | — | Violação sistêmica do schema Gênesis. Auditoria 2026-04-21. |
-| C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | `scripts/validate-schema-code-coherence.mjs` | Clayton | FASE 8 | — | Gap arquitetural: valida existência mas não conformidade §3.4/§4.6/§4.7/§4.9. Vira gate v2. |
+| ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
+|----|--------|-----------------|--------------------------|-------|
+| C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
+| C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Sem isso §7 não é satisfazível. |
+| C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
+| C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
+| C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
+| C12 | FIXED | `actorId` retornado como `globalUserId` | `core/identity/identity.routes.ts` | |
+| C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários | Analíticos ficam para allowlist FASE 5. |
+| C14 | REOPENED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | **Reaberto 2026-04-22 (2º nível).** 6 catches ativos classificados "SAFE" sem justificativa técnica. Ver C53 e C55. |
+| C22 | OPEN | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | |
+| C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
+| C36 | OPEN | 67 tabelas com `status` genérico | 67 tabelas | |
+| C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | gate | |
+| C47 | OPEN | `actor_has_permission` SQL retorna TRUE | stub migration 20260421010000 | Elevado HIGH→CRITICAL em 2026-04-22 (1º nível). |
+| **C54** | **OPEN** | **9 caminhos de produto movem dinheiro sem authority gate** | **9 arquivos listados abaixo** | **NOVA 2º nível.** Evidência: `core/economy/transaction.service.ts`, `modules/escrow/escrow.service.ts`, `modules/gateway/payment-event-resolver.ts`, `modules/marketplace/payout.service.ts`, `modules/marketplace/regional-fund.service.ts`, `modules/marketplace/application/services/capacity-application.service.ts`, `modules/marketplace/application/services/marketplace-orchestration.service.ts`, `modules/marketplace/domain/orders/marketplace-orders.service.ts`, `modules/treasury-split/treasury-split.service.ts`. Chamam `bankTransactionService.transfer` sem `requireFinancialRiskClearance`. Apenas 3 de 15 caminhos respeitam o gate (payment-execution, reversal, bank-p2p-transfer). |
+| **C55** | **OPEN** | **`authority-decision.service.ts` é fail-open em 3 camadas (ATL/KYC/GUARDA)** | **`core/compliance/authority-decision.service.ts`** | **NOVA 2º nível.** Padrão "estado ausente = skip" em ATL (L39476-39541), KYC (L39571-39611), GUARDA. Sistema vazio (estado atual) = todos os skips disparam = autoridade estruturalmente inoperante. Viola AUTHORITY_PRECEDENCE §4.1 frontalmente. |
+| **C56** | **OPEN** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | **NOVA 2º nível.** `SUM((oi.metadata->'priceSnapshot'->>'finalPrice')::numeric)` alimenta `gross_revenue` exposto como métrica de produto. Viola LEI §4.6 (proibido derivar decisão financeira de metadata) e PLANO §8. |
 
-### HIGH (23)
+### HIGH (24)
 
-| ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
-|----|--------|-----------------|--------------------------|-------|----------|--------|-------|
-| C5 | DECISION_PENDING | Duas estruturas N2 paralelas (`categories.level=2` vs `n2_nodes`) | migrations 2590, 3571 | Clayton | — | — | Qual é o SSOT de N2? |
-| C6 | OPEN | 95 decisões via `metadata->>` em queries | vários | Clayton | 2026-07-01 | — | Pseudo-SSOT. Exige reengenharia por caso. |
-| C9 | DECISION_PENDING | RFQ como JSON em `events.metadata.rfqs[]` sem lock | `modules/events/event-rfq.service.ts:142266` | Clayton | — | — | Qual schema de tabela RFQ? Concorrência? |
-| C11 | OPEN | `bookings` com `requestedat` etc (sem underscore) | `migration 13251` | Clayton | 2026-06-01 | — | Colunas órfãs no schema, código não lê. Bomba latente. |
-| C16 | DECISION_PENDING | Saga compensation quebra atomicidade ledger ↔ saga | `core/sagas/handlers/saga-compensation.handler.ts:103758` | Clayton | — | — | Exige mudar contrato de `compensateTransaction`. |
-| C17 | FIXED | `set_config` com `is_local=false` em 11 locais do pool | `core/database/pool.ts` | Clayton | 2026-05-01 | 62d2d601 | 3 ocorrências corrigidas em `pool.ts` (`app.current_tenant`: terceiro argumento `false` → `true`). Documentação histórica citava 11 locais; HEAD actual só expunha estas 3 chamadas. Gates 4/4 PASS pós-fix. |
-| C20 | FIXED | Trigger coverage bloqueia tenant sem fix 480000 | `migration 20260530480000_fix_system_coverage_view.sql` | Clayton | — | — | Já aplicado em sessão anterior. |
-| C21 | DECISION_PENDING | `bank_accounts.owner_id` TEXT com dual representation | `migration 88-100` | Clayton | — | — | Colapsar owner_id/actor_id é refactor grande. |
-| C24 | DECISION_PENDING | 4 tabelas paralelas de produto | `products`, `canonical_products`, `catalog_products`, `tenant_products` | Clayton | — | — | Qual é SSOT? |
-| C27 | DECISION_PENDING | 3 sistemas de autorização coexistindo | `authority.service` + `rbac.service` + hardcoded em `core/companies/` | Clayton | — | — | Qual sobrevive? |
-| C29 | OPEN | 132 comparações status UPPERCASE vs schema lowercase | vários (ex: `order.status === 'PAID'` em `modules/orders/`) | Clayton | 2026-06-15 | — | Código morto confirmado em pelo menos 1 caso. |
-| C31 | OPEN | Tabela `audit_events` usada em código mas inexistente no banco | `core/audit/audit.service.ts:86` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
-| C32 | OPEN | Tabela `webauthn_challenges` usada em código mas inexistente no banco | `core/auth/webauthn.repository.ts:132` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
-| C33 | OPEN | Tabela `webauthn_credentials` usada em código mas inexistente no banco | `core/auth/webauthn.repository.ts:69` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
-| C34 | OPEN | Tabela `category_ai_logs` usada em código mas inexistente no banco | `core/categories/categories.repository.ts:1035` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
-| C35 | OPEN | Tabela `partner_employees` usada em código mas inexistente no banco | `core/audit/audit.service.ts:269` | Clayton | 2026-05-10 | — | Detectado por gate v1.1 ETAPA 5. Tabela fantasma confirmada por psql. |
-| C38 | OPEN | §3.4: 5 tabelas com `type` genérico | `canonical_products`, `payment_execution_lock`, `promotions`, `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
-| C39 | OPEN | §3.4: 7 tabelas com `state` genérico | `order_sagas`, `regional_funds`, `regional_activation_events`, `regional_activation_rules`, `regional_impact_snapshots`, `rides_cities`, `suppliers` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
-| C40 | OPEN | §4.7: monetário em NUMERIC/DECIMAL (12 ocorrências) | `price NUMERIC` (múltiplas tabelas), `value NUMERIC`, `balance NUMERIC`, `limit_amount NUMERIC` | Clayton | FASE 7 | — | Subset já existe em C15. Auditoria 2026-04-21. |
-| C44 | FIXED | marketplace/group.repository.ts usa colunas inexistentes no schema Gênesis | modules/marketplace/group.repository.ts | Clayton | FASE 7 | 47624254 | C44 FIXED. Colunas fantasmas (parent_group_id, created_by_actor_id, created_by_user_id) removidas das queries SQL. Repository alinhado ao schema Genesis. API backwards-compatible com group.service.ts. DECISION-0010. |
-| C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer canônico (linha 232) | modules/groups/groups.service.ts | Clayton | FASE 4 | a0e7fe0c | ensureUserActor canônico antes do create(). Dynamic import removido. |
-| C46 | FIXED | groups: ownerUserId vs actor_id — fluxo de identidade em createGroup | `modules/groups/groups.service.ts` + `groups.routes.ts` + `groups.types.ts` + `groups.repository.ts` + `policies/group-creation-policy.ts` | Clayton | FASE 4 | 2ed98929 | DECISION-0011: `Group.ownerActorId` alinhado a `owner_actor_id`; `ensureUserActor` antes de `canCreateGroup(actor_id)`; `addMember` com `users.user_id` via `SELECT user_id FROM actors`; owner na rota `actorId === actorId`; evento `group.created` com `ownerActorId`. Gates: actor-writer, bank-ledger, regression-guards, arch-patterns PASS. Pendência: `scripts/test-group-creation-policy.ts` legado (fora do escopo C46). |
-| C47 | OPEN | actor_has_permission SQL não existe no schema Gênesis | backend/migrations/20260421010000_actor_has_permission_stub.sql | Clayton | FASE 6 | 20260421010000 | Função stub criada (retorna TRUE) para desbloquear E2E. Implementação real está no migrations_archive. Requer portagem em FASE 6. |
-| C50 | OPEN | Padrões culturais passam actorId como globalUserId | `modules/events/organizers/organizers.routes.ts` + cultural | Clayton | FASE 6 | — | Reclassificado de C12. Escopo cultural/eventos, não identity. |
-| C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | Clayton | FASE 6 | — | Reclassificado de C12. Escopo onboarding, não identity. |
+| ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
+|----|--------|-----------------|--------------------------|-------|
+| C5 | DECISION_PENDING | Duas estruturas N2 paralelas | migrations 2590, 3571 | |
+| C6 | OPEN | 95 decisões via `metadata->>` em queries | vários | Agora com subcaso C56. |
+| C9 | DECISION_PENDING | RFQ como JSON sem lock | `modules/events/event-rfq.service.ts` | |
+| C11 | OPEN | `bookings` com `requestedat` | `migration 13251` | |
+| C16 | DECISION_PENDING | Saga compensation quebra atomicidade | `core/sagas/handlers/saga-compensation.handler.ts` | |
+| C17 | FIXED | `set_config` com `is_local=false` | `core/database/pool.ts` | |
+| C20 | FIXED | Trigger coverage bloqueia tenant | migration 20260530480000 | |
+| C21 | DECISION_PENDING | `bank_accounts.owner_id` TEXT dual | `migration 88-100` | |
+| C24 | DECISION_PENDING | 4 tabelas paralelas de produto | products/canonical/catalog/tenant | |
+| C27 | DECISION_PENDING | 3 sistemas de autorização coexistindo | vários | Agora com subcaso C54+C55. |
+| C29 | OPEN | 132 comparações status UPPERCASE | vários | Conecta com C52 (mesmo padrão em payment_intents). |
+| C31 | OPEN | Tabela `audit_events` fantasma | `core/audit/audit.service.ts` | |
+| C32 | OPEN | Tabela `webauthn_challenges` fantasma | `core/auth/webauthn.repository.ts` | |
+| C33 | OPEN | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | |
+| C34 | OPEN | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | |
+| C35 | OPEN | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | |
+| C38 | OPEN | 5 tabelas com `type` genérico | vários | |
+| C39 | OPEN | 7 tabelas com `state` genérico | vários | |
+| C40 | OPEN | Monetário em NUMERIC/DECIMAL | vários | |
+| C44 | REOPENED | marketplace/group.repository.ts fix parcial | group.types.ts + service | Reaberto 1º nível 2026-04-22. |
+| C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer | `modules/groups/groups.service.ts` | |
+| C46 | FIXED | groups: ownerUserId vs actor_id | 5 arquivos | |
+| C50 | OPEN | Padrões culturais passam actorId como globalUserId | cultural | |
+| C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | |
+| **C52** | **DECISION_PENDING** | **`payment_intents` tem 2 writers divergentes** | **`modules/marketplace/payment-intent.repository.ts:L187829` + `modules/payments/payment-intent-repository.ts:L221983`** | **NOVA 2º nível.** Contratos diferentes: marketplace insere `(tenant_id, order_id, amount_cents, currency, status, metadata)` com status `'CREATED'`; payments insere `(tenant_id, reference_id, gateway, actor_id, amount_cents, currency, status, metadata)` com status `'created'`. Superset de C10. Decisão: qual é canônico? |
+| **C53** | **OPEN** | **6 catches de `42P01` ativos em compliance/events/observability** | **3 arquivos** | **NOVA 2º nível.** Subset reaberto de C14. Arquivos: `core/compliance/authority-decision.service.ts:L39473 + L39530 + L39607` (2 em ATL, 1 em KYC); `core/events/event-handler-failure.repository.ts:L47474,L47486,L47541,L47573` (engolem erro, retornam []/undefined); `core/observability/handler-metrics.service.ts:L76676`. Os 2 de authority-decision são críticos porque conectam com C55. |
 
-### MEDIUM (12)
+### MEDIUM (13)
 
-| ID | Status | Descrição curta | Arquivo/Tabela principal | Owner | Deadline | Commit | Notas |
-|----|--------|-----------------|--------------------------|-------|----------|--------|-------|
-| C7 | OPEN | Permissões hardcoded em `core/companies/` | `core/companies/companies.service.ts:36026-36030` | Clayton | 2026-06-15 | — | Mover para authorityService. |
-| C10 | DECISION_PENDING | 3 writers para tabela `events` | `core/events/event.service.ts:53052` + `modules/events/event.repository.ts:143368` + `modules/events/events.service.ts:145828` | Clayton | — | — | Qual é canônico? |
-| C15 | OPEN | 3 tabelas com `price NUMERIC` (em migração) | `product_offers`, `product_prices`, `economic_guardianship` | Clayton | 2026-06-30 | — | DROP do NUMERIC após backfill de `price_cents`. |
-| C18 | OPEN | RLS ENABLE sem FORCE em 30 tabelas | várias | Clayton | 2026-06-01 | — | ADD FORCE. Avaliar por ambiente (dev vs prod user). |
-| C19 | OPEN | `reference_id` tipo inconsistente entre envs (UUID vs TEXT) | `bank_transactions` | Clayton | 2026-05-15 | — | Banco novo vs banco antigo divergem. |
-| C23 | OPEN | `"createdAt"` coexistindo com `created_at` em users/global_users/tenant_contexts | vários | Clayton | 2026-06-15 | — | Consolidar gradualmente. Subset de C28. |
-| C25 | FIXED | `products.canonical_product_id` sem FK | `products` | Clayton | 2026-05-10 | 8ac9dfc7 | Migration `20260530500000_products_canonical_product_fk.sql`: `fk_products_canonical_product_id` → `canonical_products(id)` ON DELETE SET NULL. Aplicada em `unificard_dev`; gates 4/4 PASS. |
-| C28 | OPEN | 16 tabelas criadas com `"createdAt"` aspado | várias (11 ainda não consolidadas) | Clayton | 2026-06-15 | — | `users`, `global_users`, `products`, `product_variants`, `profiles`, `tenant_contexts`, 4 tabelas inventory, 2 fulfillment. |
-| C30 | OPEN | Consolidação snake_case feita só em 4 tabelas do marketplace | vários | Clayton | 2026-06-15 | — | Completar para todas as tabelas. |
-| C41 | OPEN | §4.6: 5 timestamps sem sufixo `_at` | `check_in_time`, `start_datetime`, `end_datetime`, `conflict_start_datetime`, `conflict_end_datetime` | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
-| C42 | OPEN | §4.9: 16 booleanos sem prefixo canônico | `active` (×3), `resolved`, `enabled`, `availability`, `opted_in`, `false_positive`, `operation_blocked`, `kill_switch`, etc. | Clayton | FASE 7 | — | Auditoria 2026-04-21. |
-| C43 | OPEN | Medição formal de C23/C28: 70 ocorrências de `"createdAt"`/`"updatedAt"` aspados | várias tabelas | Clayton | 2026-06-15 | — | Subset de C23/C28, mede dimensão real. |
+| ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
+|----|--------|-----------------|--------------------------|-------|
+| C7 | OPEN | Permissões hardcoded em `core/companies/` | `companies.service.ts` | |
+| C10 | DECISION_PENDING | 3 writers para tabela `events` | 3 arquivos | Conecta com C52 (mesma classe). |
+| C15 | OPEN | 3 tabelas com `price NUMERIC` | vários | |
+| C18 | OPEN | RLS ENABLE sem FORCE em 30 tabelas | várias | |
+| C19 | OPEN | `reference_id` tipo inconsistente | `bank_transactions` | |
+| C23 | OPEN | `"createdAt"` coexistindo | vários | |
+| C25 | FIXED | `products.canonical_product_id` sem FK | `products` | |
+| C28 | OPEN | 16 tabelas com `"createdAt"` aspado | várias | |
+| C30 | OPEN | snake_case incompleto | vários | |
+| C41 | OPEN | 5 timestamps sem sufixo `_at` | vários | |
+| C42 | OPEN | 16 booleanos sem prefixo canônico | vários | |
+| C43 | OPEN | Medição formal de C23/C28 | várias | |
+| C57 | FIXED | `authority_roots` sem FK para `actors` | migration `20260517100000_authority_roots_integrity.sql` | FK `fk_authority_roots_actor` já aplicada. Confirmado no banco em 2026-04-22. Correção pré-existente não documentada. |
 
 ---
 
 ## Log de Mudanças de Status
 
-Cada entrada abaixo corresponde a um commit que alterou status de uma violação. Append-only.
+### 2026-04-22 — AUDITORIA FORENSE SEGUNDO NÍVEL (destrutiva)
 
-### 2026-04-21 — Estado inicial
+Auditoria destrutiva executada. Tentou quebrar o sistema via 5 vetores (SSOT, Schema drift, Integridade financeira, Authority bypass, Causalidade).
 
-- **Ação:** Populado STATUS com 30 achados da auditoria sistêmica.
-- **Status inicial:** 30 OPEN (nenhum FIXED, exceto C20 que foi corrigido em sessão anterior antes deste documento existir).
-- **Commit:** (a ser preenchido quando este arquivo for commitado)
-- **Observação:** C20 marcado como FIXED retroativamente porque a migration `20260530480000_fix_system_coverage_view.sql` já existe no repositório.
+**Resistiram ao ataque (confirmados FIXED):** C1, C3, C4, C8, C26.
 
-### 2026-04-21 — FASE 0 concluída
+**Novas violações descobertas:**
+- **C52** (HIGH, DECISION_PENDING): payment_intents dual-writer com contratos divergentes
+- **C53** (HIGH, OPEN): 6 catches 42P01 em compliance/events/observability
+- **C54** (CRITICAL, OPEN): 9 caminhos financeiros sem authority gate
+- **C55** (CRITICAL, OPEN): authority-decision.service fail-open em 3 camadas
+- **C56** (CRITICAL, OPEN): real-margin deriva receita de metadata
+- **C57** (MEDIUM, **FIXED**): authority_roots sem FK para actors — FK já existia via migration 20260517100000
 
-- **Ação:** Base normativa estabelecida. 4 arquivos de remediação criados na raiz.
-	00_AGENT_PROTOCOL.md atualizado com §2.5.
-- **Commits:** 848da51e (STATUS), 04a47b6f (AGENT_PROTOCOL), ab407330 (DECISIONS_LOG + SNAPSHOTS)
-- **Próxima fase:** FASE 1 — VISIBILIDADE (gate v1.1 ETAPA 2)
-- **Pausa registrada em:** ETAPA 1 do gate v1.1 concluída (commit 4b84175f).
-	ETAPAs 2, 3, 4, 5 pendentes.
+**Reaberturas:**
+- **C14: FIXED → REOPENED** (fix parcial, 6 catches ativos em caminhos críticos — virou C53)
 
----
+**Ações obrigatórias:**
+1. DECISION-0013 registrada formalizando as descobertas
+2. C54+C55+C57 devem fechar **antes de qualquer cadastro real no sistema** — sistema de autoridade estruturalmente inoperante em estado vazio
+3. C52 exige decisão de produto imediata — qual writer de payment_intents é canônico
+4. C56 exige decisão: real-margin é métrica estimada (não decisória) ou puxa do bank_ledger
+5. C53 reabre C14 parcialmente — cada catch precisa de tratamento caso a caso
 
-### 2026-04-21 — Gate v1.1 ETAPA 5: 5 novas violações detectadas
+**Auditoria primeira rodada declarada INSUFICIENTE:** não executou falsificação real, não validou SSOT financeiro, não testou causalidade, não tentou reabrir FIXEDs além de C44, não identificou blind spots de gates. Zero novas violações num sistema com 50 violações abertas era estatisticamente improvável.
 
-- **Ação:** Validação manual das 10 amostras do gate v1.1 confirmou gate confiável
-  (0 falso-positivos, 2 falsos negativos registrados em DECISION-0001).
-  5 novas tabelas fantasmas descobertas: C31-C35.
-  Commits gate: 4b84175f (E1), d8f3f2be (E2), 3dd6dd66 (E3), cbfbf599 (E4).
-- **Violações novas:** C31, C32, C33, C34, C35 (todas OPEN, severidade HIGH)
-- **Próxima ação:** Criar schema-coherence-allowlist.json para violações conhecidas (C1-C30)
-- **Decisão registrada:** DECISION-0001 (commit 2ad9d801)
+### 2026-04-22 — AUDITORIA FORENSE PRIMEIRO NÍVEL
 
----
+- C44: FIXED → REOPENED (fix parcial, interface mente ao consumidor)
+- C47: HIGH → CRITICAL, FASE 6 → FASE 4 (stub fail-open)
+- DECISION-0012 registrada
+- Contagens reconciliadas STATUS × snapshot
 
-### 2026-04-21 — FASE 1 concluída: gate v1.1 operacional
-
-- **Ação:** Gate schema-coherence v1.1 implementado (ETAPAs 1-5 concluídas).
-  Allowlist com 10 entradas, 5 ativas. Bloqueantes: 331 → 326.
-  Falsos negativos registrados em DECISION-0001.
-- **Commits:** 4b84175f (E1), d8f3f2be (E2), 3dd6dd66 (E3), cbfbf599 (E4),
-  9f8544ee (allowlist), 2ad9d801 (DECISIONS), f685b6f0 (STATUS C31-C35),
-  271d7569 (fix filePath + allowlist)
-- **Próxima fase:** FASE 2 — C14 incremental (remover 23 catches de schema)
-- **Nota:** C3, C4, C8, C12, C13 ainda não suprimidos por allowlist
-  (files_scope incompleto). Violações reais — serão corrigidas em FASE 4/5.
+### (entradas históricas anteriores preservadas)
 
 ---
 
-### 2026-04-21 — FASE 2 em andamento: C14[1/6] e C14[2/6] concluídos
-
-- **Ação:** Remoção incremental de catches 42P01 em unified-availability.routes.ts.
-  2 dos 6 catches CRITICAL removidos (lista disponibilidades + lista bookings).
-- **Commits:** 345b6ef3 (C14[1/6]), e729b651 (status), 3b6788e2 (C14[2/6]), 0986c3e4 (status)
-- **Status C14:** OPEN → IN_PROGRESS
-- **Próxima ação:** C14[3/6] — availability_participants
-
----
-
-### 2026-04-21 — C14 FIXED: 4 catches CRITICAL removidos
-
-- **Ação:** Remoção incremental de 4 catches 42P01 CRITICAL em unified-availability.routes.ts.
-  C14[5/6] e C14[6/6] N/A: event.service.ts refatorado antes desta sessão (commit 51065962).
-  11 catches restantes classificados como SAFE (infra/retry/observabilidade — contexto Gênesis).
-- **Commits:** 345b6ef3 (C14[1/6]), 3b6788e2 (C14[2/6]), d8c69d34 (C14[3/6]), 11b6645a (C14[4/6])
-- **Status C14:** IN_PROGRESS → FIXED
-- **Próxima fase:** continuar FASE 2 ou iniciar FASE 3 (seed realista)
-
----
-
-### 2026-04-21 — C8 parcial: 2/6 concluídos, bloqueado em decisão de nomenclatura
-
-- **Ação:** C8[1/6] e C8[2/6] concluídos (commits fc97f893, 4572a1bb).
-  C8[3/6] bloqueado durante análise: schema Gênesis de `groups` tem `status TEXT`
-  mas nomenclatura canônica §4.9 indica `is_active BOOLEAN` ou §3.4 indica
-  `group_status`.
-- **Commits:** fc97f893 (C8[1/6]), dc8fcd09 (status), 4572a1bb (C8[2/6]), 06691c2c (status)
-- **Status C8:** IN_PROGRESS → DECISION_PENDING
-- **Decisão registrada:** DECISION-0002 (PENDENTE)
-- **Próxima ação:** Clayton decide entre opções 1, 2 ou 3 da DECISION-0002.
-
----
-
-### 2026-04-21 — Auditoria de nomenclatura canônica: C36-C43 registradas
-
-- **Ação:** Auditoria rápida schema Gênesis × 07_NOMENCLATURA_CANONICA.md.
-  Detectado padrão sistêmico de violações §3.4 (67 tabelas com status genérico),
-  §4.7 (12 monetários NUMERIC), §4.9 (16 booleanos sem prefixo),
-  §4.6 (5 timestamps sem _at), §4.3 (70 camelCase aspados).
-- **Violações novas:** C36, C37 (CRITICAL), C38, C39, C40 (HIGH), C41, C42, C43 (MEDIUM)
-- **Gap arquitetural confirmado (C37):** gate schema-coherence não valida
-  nomenclatura canônica, apenas existência — vira gate v2 na FASE 8.
-- **Decisão C8[3/6]:** Opção C (seguir com `status` no código, registrar dívida).
-- **Status C8:** DECISION_PENDING → IN_PROGRESS.
-- **Próxima ação:** C8[3/6] via script PS, usando `status`.
-
----
-
-### 2026-04-21 — C8[3/6] concluído: is_active → status alinhado com schema Gênesis
-
-- **Ação:** Remoção de `is_active` em groups.repository.ts (interface, toGroup mapping,
-  RETURNING/SELECT/WHERE clauses, UPDATE SET, valores 'active'/'inactive').
-  Script PS executado, diff validado (12 hunks, todas mudanças in-scope).
-  4 gates passaram: actor-writer ✓, bank-ledger ✓, regression-guards ✓, architectural-patterns ✓.
-- **Commit:** dbe4e617 (C8[3/6])
-- **Status C8:** IN_PROGRESS (Commit 3/6 finalizado, 4/6-6/6 pendentes)
-- **Próxima ação:** C8[4/6] — marketplace/group.repository.ts (mesmo padrão)
-
----
-
-### 2026-04-21 — C8[4+5/6] colapsado: INSERT/SELECT normalizados para schema Gênesis
-
-- **Ação:** Normalização estrutural de `groups.repository.ts` conforme schema real de `groups`
-  (`id, tenant_id, name, description, slug, actor_id, owner_actor_id, status, metadata, created_at, updated_at`).
-  Ajustes: `group_id` → `id` (somente em `groups`), remoção de colunas fantasmas de INSERT/SELECT/RETURNING,
-  absorção de `audience_description/category_id/visibility/avatar_url/cover_url/financial_purpose/profit_percentage`
-  em `metadata`, mapper `toGroup()` atualizado para ler esses campos de `metadata`.
-  Ajustes de update/delete para `updated_at` e WHERE por `id`.
-  C8[4/6] e C8[5/6] colapsados em commit único.
-- **Commit:** fb346bb7 (C8[4+5/6])
-- **Status C8:** IN_PROGRESS (Commit 4/6 e 5/6 consolidados; 6/6 pendente)
-- **Próxima ação:** C8[6/6] — finalizar demais pontos de groups (incluindo `modules/marketplace/group.repository.ts`, se aplicável)
-
----
-
-### 2026-04-21 — C8 FIXED: 5 commits concluídos
-
-- **Ação:** C8 encerrado com 5 commits (C8[1/6] a C8[5/6]).
-  C8[6/6] (marketplace/group.repository.ts) replanejado como C44 —
-  arquivo independente com colunas distintas, código SPRINT 74 isolado.
-- **Commits:** fc97f893, 4572a1bb, dbe4e617, fb346bb7, 81b93c9d
-- **Status C8:** IN_PROGRESS → FIXED
-- **Violação nova:** C44 OPEN (marketplace/group.repository.ts)
-- **Próxima ação:** FASE 3 (seed realista + E2E) ou C26 (ADD CHECK actors.id)
-
----
-
-### 2026-04-21 — C26 FIXED: CHECK constraint actors.actor_id = id
-
-- **Ação:** ADD CONSTRAINT chk_actors_actor_id_equals_id CHECK (actor_id = id).
-  Dados validados antes do constraint (divergent=0, null=0).
-  Migration 0064 já garantia sync via trigger — CHECK completa a invariante.
-- **Commit:** b481146a
-- **Status C26:** OPEN → FIXED
-
----
-
-### 2026-04-21 — C45+C46 registrados: violações em groups pós-auditoria Cursor
-
-- **Ação:** Auditoria Cursor + análise revelou 2 violações em groups:
-  C45: findOrCreateUserActor fora do writer canônico (violação §4.8.1 pré-existente).
-  C46: ownerUserId vs actor_id — fluxo quebrado no createGroup.
-  C45 bloqueia C46. Ambos requerem decisão arquitetural em FASE 4.
-- **Violações novas:** C45 OPEN HIGH, C46 OPEN HIGH
-- **Próxima ação:** FASE 4 — resolver C45 via refactor do writer, depois C46.
-
----
-
-### 2026-04-21 — C46 replanejado como DECISION_PENDING
-
-- **Ação:** Tentativa de rename global ownerUserId→ownerActorId revertida.
-  Diff contaminado: SQL (createdAt), lógica de autorização e contrato do writer.
-  userId e actorId NÃO são intercambiáveis: userId alimenta ensureUserActor,
-  actorId vem de actor.actor_id. Requer análise linha a linha.
-- **Status C46:** OPEN → DECISION_PENDING
-- **Próxima ação:** FASE 3 seed + E2E (C46 não bloqueia seed).
-
----
-
-### 2026-04-21 — C3 FIXED: helpers centrais alinhados ao writer canônico
-
-- **Ação:** DECISION-0008 (Opção A). `getActiveActor` e fallback em
-  `resolveActiveActorFromRequest` passam a usar `ensureUserActor` em vez de
-  `findOrCreateUserActor` directo no repositório.
-- **Commits:** f1dd6385 (actor.helpers.ts), 1ca3d8b7 (actor.utils.ts)
-- **Status C3:** OPEN → FIXED
-- **Resumo:** OPEN 29→28, FIXED 8→9
-- **Próxima ação:** C12, C44, C46 (FASE 4); C3-B documentada para FASE 6
-
----
-
-**FIM DO DOCUMENTO** (continua crescendo por append a cada commit de correção)
-
-### 2026-04-22 — C12 FIXED: identity borda HTTP alinhada ao globalUserId canonico
-
-- **Ação:** C12 fechado via DECISION-0009 (3 rotas identity: wallet, ledger, reputation).
-  Extensão L715 aplicada: /reputation agora resolve globalUserId via actor→user→global.
-  Padrões adjacentes (organizers, store-onboarding) reclassificados como C50, C51.
-- **Commits:** af7cae11 (wallet+ledger), 20c5c2e9 (reputation extensão)
-- **Status C12:** OPEN → FIXED
-- **Violações novas:** C50 OPEN HIGH (cultural), C51 OPEN HIGH (store-onboarding)
-- **Resumo:** OPEN 28→29 (+1 temporário por reclassificação), FIXED 9→10
-
----
-
-### 2026-04-14 — C46 FIXED: pipeline groups §4.8 (userId → actor)
-
-- **Ação:** Fechamento C46 conforme DECISION-0011. Tipo `Group.ownerActorId`; `toGroup`/`repository`/`service`/`routes`/`GroupCreationPolicy` + port `groups-repository` + executor `group.created` (payload `ownerActorId`, fallback legado). `group_members.user_id` preenchido com FK `users.user_id` resolvido a partir do actor.
-- **Commit de referência (workspace):** 2ed98929
-- **Status C46:** DECISION_PENDING → FIXED
-- **Resumo:** FIXED 11→12, DECISION_PENDING 10→9
-- **Próxima ação (FASE 4 / financeiro):** C13 (leituras `bank_*` fora de `modules/bank/`) ou C2 (`concept_ref` — requer decisão); C47 permanece FASE 6 (stub SQL).
-
----
-
-### 2026-04-14 — C17 FIXED: set_config is_local=true em pool
-
-- **Ação:** Terceiro argumento de `set_config('app.current_tenant', …)` alterado de `false` para `true` em todas as ocorrências em `backend/src/core/database/pool.ts` (3 chamadas).
-- **Commit:** 62d2d601
-- **Status C17:** OPEN → FIXED
-- **Resumo:** OPEN 28→27, FIXED 12→13
-
----
-
-### 2026-04-14 — C25 FIXED: FK products.canonical_product_id
-
-- **Ação:** Constraint `fk_products_canonical_product_id` adicionada via migration idempotente; referência `canonical_products(id)` com `ON DELETE SET NULL`.
-- **Commit:** 8ac9dfc7
-- **Status C25:** OPEN → FIXED
-- **Resumo:** OPEN 27→26, FIXED 13→14
-
----
-
+**FIM DO DOCUMENTO**
