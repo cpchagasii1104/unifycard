@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0004 (2026-04-21) |
+| Última entrada | DECISION-0008 (2026-04-21) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -184,10 +184,6 @@ Registrar permanentemente toda decisão que envolva:
   - 07_NOMENCLATURA_CANONICA.md §3.4, §4.9
   - SYSTEM_REMEDIATION_STATUS.md C36 (criada)
   - backend/src/modules/groups/groups.repository.ts
-
----
-
-*(Próxima entrada: DECISION-0004)*
 
 ---
 
@@ -383,6 +379,100 @@ Registrar permanentemente toda decisão que envolva:
   - backend/src/core/unifybank/test-currency.service.ts linhas 156, 173
   - backend/src/modules/work/tests/work.e2e.spec.ts linha 391
   - SYSTEM_REMEDIATION_STATUS.md C1 (violacao original)
+
+---
+
+### DECISION-0008 — C3: substituição direta por ensureUserActor nos helpers centrais
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural
+- **ID da violação:** C3
+- **Contexto:**
+  Auditoria transversal (Cursor Ask, 2026-04-21) revelou que C3 tem dois caminhos
+  ativos de criação de actor fora do writer canónico:
+
+  1. `backend/src/core/actors/actor.helpers.ts` — `getActiveActor` usa import
+     dinâmico de `@modules/social/actor.repository` e chama `findOrCreateUserActor`
+     diretamente. Consumidores em produto: `payout.routes`, `policy.routes`,
+     `invoice.routes`, `reporting.routes`.
+
+  2. `backend/src/modules/social/actor.utils.ts` — `resolveActiveActorFromRequest`
+     com `allowUserFallback=true` e `userId` chama `findOrCreateUserActor`.
+     Consumidores: `crm.routes`, `my-orders.routes`, `subscription.routes`,
+     `venue.routes`, `profile-health.routes`.
+
+  C45 e complemento (commits a0e7fe0c, 009f9eca) corrigiram outros pontos mas
+  não estes. O STATUS dizia «3 caminhos»; o mapa real mostra 2 caminhos
+  utilitários centrais impactando 9 rotas consumidoras.
+
+  Observação arquitetural: estes helpers são usados em rotas de leitura
+  (payout list, my-orders, reporting). Criar actor apenas para ler algo é
+  conceptualmente estranho, mas é o comportamento actual do sistema.
+
+- **Opções consideradas:**
+
+  A. Substituição directa: `findOrCreateUserActor` → `ensureUserActor`  
+     Prós: preserva comportamento exacto, fecha C3 rápido, 2 ficheiros, zero
+     superfície nova de bug, não trava FASE 4.  
+     Contras: mantém semântica de criação em rota de leitura (dívida conceptual
+     adiada).
+
+  B. Separação read/write: criar `resolveActorReadOnly` (sem create) para rotas
+     de leitura, manter `ensureUserActor` para escrita.  
+     Prós: arquitecturalmente correcto, elimina dívida conceptual.  
+     Contras: altera 9+ rotas, introduz API nova, superfície maior de regressão,
+     trava FASE 4 em trabalho que pertence a FASE 6.
+
+  C. Não fechar C3 ainda, esperar FASE 6.  
+     Prós: evita qualquer risco.  
+     Contras: mantém violação activa que contraria §4.8.1 da LEI.
+
+- **Escolha:** Opção A (substituição directa) + dívida explícita para C3-B
+
+- **Justificativa:**
+  Opção A fecha a violação formal (`findOrCreate` fora do writer) preservando
+  comportamento actual. A dívida conceptual (criar em rota de leitura) existe
+  hoje; mover para o writer canónico não introduz nada novo, apenas move
+  responsabilidade. Opção B é correcta mas prematura — FASE 4 trata bloqueadores
+  críticos, não refactor arquitectural de 9 rotas. Insight adicional: estabilizar
+  `getActiveActor` e `resolveActiveActorFromRequest` como únicos pontos de
+  criação de actor via HTTP reduz superfície de C12 (confusão actor/global/user)
+  automaticamente, pois as rotas passarão a receber actor canónico garantidamente.
+
+- **Plano de execução:**
+  - Commit 1: `actor.helpers.ts` — `getActiveActor` usa `ensureUserActor`
+  - Commit 2: `actor.utils.ts` — `resolveActiveActorFromRequest` usa `ensureUserActor`
+  - Commit 3: status C3 FIXED + documentação
+
+- **Consequências esperadas:**
+
+  - Curto prazo:
+    * 2 helpers centrais alinhados ao writer canónico
+    * 9 rotas consumidoras não alteradas (transparente)
+    * Gate actor-writer-boundaries continua PASS
+    * C3 FIXED
+
+  - Médio prazo:
+    * C12 parcialmente mitigado (actorId garantidamente canónico na borda HTTP)
+    * Base estável para FASE 6 decidir C3-B (separação read/write)
+
+- **Dívida registrada (C3-B):**
+  FASE 6 deve decidir: criar `resolveActorReadOnly` para rotas de leitura pura,
+  ou aceitar criação transparente via `ensureUserActor` como contrato. Esta
+  decisão exige análise de produto: rotas que listam payout de um actor que
+  ainda não existe devem criar actor implícito ou retornar 404?
+
+- **Responsável:** Clayton
+- **Validação prévia:** Cursor (auditoria transversal de C3 + C12 + C44) +
+  ChatGPT (análise arquitectural da opção A vs B)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando aplicável)
+- **Referências:**
+  - `backend/src/core/actors/actor.helpers.ts` (`getActiveActor`)
+  - `backend/src/modules/social/actor.utils.ts` (`resolveActiveActorFromRequest`)
+  - `backend/src/modules/identity/actor-writer.service.ts` (writer canónico)
+  - `LEI_DE_COERENCIA_SISTEMICA` §4.8.1
+  - DECISION-0004 (C45 mapeamento original de C3)
 
 ---
 
