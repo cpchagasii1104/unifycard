@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0008 (2026-04-21) |
+| Última entrada | DECISION-0009 (2026-04-21) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -473,6 +473,133 @@ Registrar permanentemente toda decisão que envolva:
   - `backend/src/modules/identity/actor-writer.service.ts` (writer canónico)
   - `LEI_DE_COERENCIA_SISTEMICA` §4.8.1
   - DECISION-0004 (C45 mapeamento original de C3)
+
+---
+
+### DECISION-0009 — C12: escopo reduzido a identity.routes + reclassificação
+
+- **Data:** 2026-04-21
+- **Tipo:** arquitetural (reclassificação de violação)
+- **ID da violação:** C12 (escopo original) → C12 (escopo reduzido) + C50 + C51 (novas)
+
+- **Contexto:**
+  O STATUS original descrevia C12 como «3 rotas retornam actorId como globalUserId».
+  A auditoria transversal (Cursor, 2026-04-21) revelou uma realidade mais nuancada:
+
+  1. `backend/src/core/identity/identity.routes.ts` (wallet L797–804 + ledger L879–883):
+     o campo `globalUserId` recebe `req.actionContext.actorId`, mas a variável correcta
+     (`globalUserId` para wallet, `globalUserId2` para ledger) está resolvida por
+     query ao banco via `resolveGlobalUserId(actor.user_id, tenantId)` e **não** está
+     a ser usada. Fix trivial: atribuir a variável correcta.
+     Adicional: `getTransactionsByGlobalUserId(actorId)` em wallet também recebe
+     argumento errado (stub retorna `[]` hoje, mas o contrato está violado).
+
+  2. `backend/src/modules/cultural/cultural.routes.ts` (L494–515): usa `globalUserId`
+     como `actor_id` para check-in. Não há função canónica `resolveActorIdFromGlobalUserId`
+     no codebase. `ensureUserActor` resolve a partir de `user_id` **local**, não de
+     `globalUserId`. O bloco tem TODO explícito «Suportar ator ativo (PF/PJ/PAC)
+     quando implementado» — é dívida de produto conhecida, não bug de atribuição.
+
+  3. `backend/src/modules/marketplace/store-onboarding.routes.ts` (L173–186):
+     `StoreOnboardingInput.actorId` tipado como «ID da empresa/loja» (actor page).
+     Quando ausente, o fallback usa JWT user id. Corrigir via `ensureUserActor`
+     resolveria actor **USER**, não actor **PAGE** — quebra a semântica do serviço que usa
+     `actorId` em `importCategories`, `merchantId`, `storeId`. O fix exige decisão de
+     produto: como criar loja sem `companyId` previamente criada?
+
+  4. `backend/src/core/reporting/reporting.routes.ts`: persiste `actor_id` em
+     `report_events`, mas `report_events.actor_id` historicamente recebe
+     `reporter_user_id` (ver `reporting.service.ts` L55–67 em `createReport`).
+     É convenção do módulo, não response HTTP exposto. Fora do escopo de C12.
+
+- **Opções consideradas:**
+
+  A. Corrigir tudo o que foi listado como «C12» no STATUS original  
+     Prós: fecha um item completo.  
+     Contras: mistura bug de atribuição com dívida de produto. Cultural e
+     store-onboarding exigem decisões de produto que a FASE 4 não deve tomar.
+     Pode introduzir breaking changes funcionais (check-in de terceiro) ou
+     semânticos (loja = user, não page).
+
+  B. Corrigir apenas `identity.routes` + tentar cultural com `ensureUserActor`  
+     Prós: fecha dois dos três.  
+     Contras: breaking change em cultural (perde check-in de terceiro).
+     Store-onboarding continua não resolvido.
+
+  C. Deixar C12 OPEN até a FASE 6 resolver tudo junto  
+     Prós: abordagem unificada.  
+     Contras: limbo. `identity.routes` tem fix trivial disponível **hoje**.
+     Manter OPEN por semanas sem progresso prejudica a rastreabilidade.
+
+  D. Reclassificação: C12 = `identity.routes` apenas (escopo reduzido).
+     Criar **C50** (cultural) e **C51** (store-onboarding) como novas violações
+     com escopo preciso. Reporting permanece como observação documentada.
+
+- **Escolha:** Opção D
+
+- **Justificativa:**
+  Honestidade arquitectural: o que foi listado como «C12 genérico» não era
+  homogéneo. Dois itens são bug de atribuição (identity) e dois são dívida de
+  produto (cultural, store-onboarding). Separar torna cada violação
+  accionável e específica.
+  Já existe precedente: C1 foi reclassificado via DECISION-0007 (amputação
+  controlada por caminho), C3 via DECISION-0008 (dois helpers centrais, não
+  três INSERTs). Reclassificação honesta é padrão saudável desta remediação.
+
+- **Plano de execução:**
+
+  1. **Fix único:** `identity.routes.ts`
+     - Wallet (L797–804): `globalUserId:` usar o valor já resolvido (L754–755).
+     - Ledger (L879–883): `globalUserId:` usar **`globalUserId2`** já resolvido (L838–839).
+     - Wallet (L773–776): `getTransactionsByGlobalUserId(<globalUserId resolvido>, …)`.
+     **Atenção:** em wallet a variável correcta é `globalUserId`; em ledger é `globalUserId2`.
+     Não copiar o nome da variável entre rotas.
+
+  2. Registar **C50** em `SYSTEM_REMEDIATION_STATUS.md`:  
+     Severidade: MEDIUM. Descrição: cultural check-in usa `globalUserId` como `actor_id`;
+     falta função canónica global→actor; TODO no código remete a «ator ativo PF/PJ/PAC»;
+     requer decisão de produto na FASE 6. Ficheiro: `cultural.routes.ts`. Status: OPEN.
+     Deadline: FASE 6.
+
+  3. Registar **C51** em `SYSTEM_REMEDIATION_STATUS.md`:  
+     Severidade: MEDIUM. Descrição: store-onboarding usa JWT user id como fallback de `actorId`;
+     contrato espera actor PAGE (loja/empresa), mas fallback implícito seria USER;
+     requer decisão de produto: como criar loja sem `companyId` prévia? FASE 6.
+     Ficheiro: `store-onboarding.routes.ts`. Status: OPEN. Deadline: FASE 6.
+
+  4. **Observação** (não nova violação): `reporting.report_events.actor_id` recebe
+     `reporter_user_id` por convenção histórica do módulo. Padronização eventual
+     pertence à FASE 6/7 se houver RFC de «`actor_id` = `actors.id` uniforme em todas as tabelas».
+
+- **Consequências esperadas:**
+
+  - Curto prazo:
+    * `GET /identity/wallet` e `GET /identity/ledger` devolvem `globalUserId` canónico.
+    * Contrato interno `getTransactionsByGlobalUserId` alinhado (stub hoje,
+      correcto para quando for implementado).
+    * C12 FIXED; C50 + C51 OPEN.
+    * Contagem: OPEN 28 → 27 (−C12) + 2 (C50+C51) = **29 OPEN** final.
+    * FIXED: 9 → 10.
+    * Nota de contagem: o aumento temporário de OPEN reflecte uma realidade mais
+      fina, não regressão. Violações mais específicas são accionáveis.
+
+  - Médio prazo:
+    * FASE 6 trata C50 (resolução global→actor canónica) e C51 (fluxo de criação
+      de loja sem company prévia) com decisões de produto.
+
+- **Responsável:** Clayton
+- **Validação prévia:** Cursor (auditoria transversal C12 + confirmação técnica
+  de quatro contratos) + Claude (análise de escopo) + ChatGPT (confirmação da opção D)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando aplicável)
+- **Referências:**
+  - `backend/src/core/identity/identity.routes.ts` (L754–755, L797–804, L773–776, L838–839, L879–883)
+  - `backend/src/core/identity/identity.utils.ts` (`resolveGlobalUserId` L30–56)
+  - `backend/src/modules/cultural/cultural.routes.ts` (L494–515)
+  - `backend/src/modules/marketplace/store-onboarding.routes.ts` (L173–186)
+  - `backend/src/modules/marketplace/store-onboarding.types.ts` (L14–17, L33–35)
+  - DECISION-0007 (precedente de reclassificação — C1)
+  - DECISION-0008 (precedente de reclassificação — C3)
 
 ---
 
