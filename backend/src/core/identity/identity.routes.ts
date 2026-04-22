@@ -4,6 +4,9 @@ import { identityService } from './identity.service';
 import { reputationService } from '@core/reputation/reputation.service';
 import { residenceService } from '@core/residence/residence.service';
 import residenceRoutes from '@core/residence/residence.routes';
+import { NotFoundError } from '@core/errors';
+import { accountService } from '@core/economy/account.service';
+import { transactionService } from '@core/economy/transaction.service';
 import { updateGlobalIdentitySchema } from './identity.schemas';
 import type { IdentityProfile } from './identity.types';
 
@@ -70,11 +73,11 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
             id: string;
             tenant_id: string;
             email: string;
-            createdAt: Date;
+            created_at: Date;
             global_user_id: string | null;
           }>(
             req.tenant.id,
-            `SELECT id, tenant_id, email, createdAt, global_user_id FROM users WHERE id = $1 LIMIT 1`,
+            `SELECT id, tenant_id, email, created_at, global_user_id FROM users WHERE id = $1 LIMIT 1`,
             [userId]
           );
           
@@ -95,12 +98,13 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
                 birthdate: Date | null;
                 avatar_url: string | null;
                 metadata: any;
-                createdAt: Date;
-                updatedAt: Date;
+                gu_created_at: Date;
+                gu_updated_at: Date;
               }>(
-                `SELECT global_user_id, full_name, birthdate, avatar_url, metadata, createdAt, updatedAt 
-                 FROM global_users 
-                 WHERE global_user_id = $1 
+                `SELECT global_user_id, full_name, birthdate, avatar_url, metadata,
+                        created_at AS gu_created_at, updated_at AS gu_updated_at
+                 FROM global_users
+                 WHERE global_user_id = $1
                  LIMIT 1`,
                 [localUser.global_user_id]
               );
@@ -127,14 +131,14 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
               birthdate: globalUserData?.birthdate || null,
               avatarUrl: globalUserData?.avatar_url || null,
               metadata: globalUserData?.metadata || {},
-              createdAt: globalUserData?.createdAt || localUser.createdAt,
-              updatedAt: globalUserData?.updatedAt || localUser.createdAt,
+              createdAt: globalUserData?.gu_created_at != null ? (typeof globalUserData.gu_created_at === 'string' ? globalUserData.gu_created_at : (globalUserData.gu_created_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
+              updatedAt: globalUserData?.gu_updated_at != null ? (typeof globalUserData.gu_updated_at === 'string' ? globalUserData.gu_updated_at : (globalUserData.gu_updated_at as Date).toISOString()) : (typeof localUser.created_at === 'string' ? localUser.created_at : (localUser.created_at as Date).toISOString()),
             },
             local: {
               userId: localUser.id,
               tenantId: localUser.tenant_id,
               email: localUser.email,
-              createdAt: localUser.createdAt,
+              createdAt: localUser.created_at instanceof Date ? localUser.created_at.toISOString() : String(localUser.created_at),
             },
             reputation: undefined,
             wallet: undefined,
@@ -193,8 +197,8 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       // false → modal aparece, campos editáveis (primeiro acesso)
       // true → modal não aparece, campos bloqueados (já confirmado)
       // Se não tem profile, assume false (primeiro acesso - modal aparece)
-      const profilePersonalConfirmed = userProfile ? userProfile.profile_personal_confirmed : false;
-      const canEditPersonalData = userProfile ? userProfile.can_edit_personal_data : true;
+      const profilePersonalConfirmed = userProfile ? userProfile.profilePersonalConfirmed : false;
+      const canEditPersonalData = userProfile ? userProfile.canEditPersonalData : true;
       
       // 🔴 CORREÇÃO: Garantir que profile.metadata inclui gender se existir no profile
       // O gender pode estar no profile.metadata (salvo no cadastro)
@@ -216,8 +220,8 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           metadata: profileMetadata, // Incluir metadata com gender
           createdAt: userProfile.createdAt,
           updatedAt: userProfile.updatedAt,
-          profile_personal_confirmed: userProfile.profile_personal_confirmed,
-          can_edit_personal_data: userProfile.can_edit_personal_data,
+          profile_personal_confirmed: userProfile.profilePersonalConfirmed,
+          can_edit_personal_data: userProfile.canEditPersonalData,
         } : null,
         // 🔴 FONTE ÚNICA DE VERDADE: profile_personal_confirmed controla modal e cadeado
         profile_personal_confirmed: profilePersonalConfirmed,
@@ -598,8 +602,8 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
           avatarUrl: updated.avatarUrl,
           birthdate: serializedBirthdate, // String YYYY-MM-DD
           metadata: updated.metadata || {},
-          createdAt: updated.createdAt instanceof Date ? updated.createdAt.toISOString() : updated.createdAt,
-          updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+          createdAt: (updated.createdAt as unknown) instanceof Date ? (updated.createdAt as unknown as Date).toISOString() : String(updated.createdAt),
+          updatedAt: (updated.updatedAt as unknown) instanceof Date ? (updated.updatedAt as unknown as Date).toISOString() : String(updated.updatedAt),
         };
 
         // 🔴 DIAGNÓSTICO: Log resposta final
@@ -735,6 +739,10 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
     }
 
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
     try {
       // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
       const { socialPortsRegistry } = await import('@core/social/ports-registry');
@@ -753,7 +761,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       if (accounts.length === 0) {
         return reply.status(200).send({
           hasWallet: false,
-          balance: 0,
+          balanceCents: 0,
           currency: 'BRL',
         });
       }
@@ -763,7 +771,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Buscar últimas transações
       const transactions = await transactionService.getTransactionsByGlobalUserId(
-        req.actionContext.actorId,
+        globalUserId,
         { limit: 10 }
       );
 
@@ -771,26 +779,24 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       let totalIn = 0;
       let totalOut = 0;
       const lastTransactions = transactions.slice(0, 10).map(tx => {
-        const isCredit = tx.toGlobalUserId === req.user?.globalUserId;
-        const amount = tx.amount;
-        
+        const isCredit = primaryAccount && tx.toAccountId === primaryAccount.accountId;
+        const amountCents = tx.amountCents;
         if (isCredit) {
-          totalIn += amount;
+          totalIn += amountCents;
         } else {
-          totalOut += amount;
+          totalOut += amountCents;
         }
-
         return {
           transactionId: tx.transactionId,
           type: isCredit ? 'credit' as const : 'debit' as const,
-          amount,
+          amountCents,
           createdAt: tx.createdAt,
         };
       });
 
       return {
-        globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
-        balance: primaryAccount.balance,
+        globalUserId,
+        balanceCents: primaryAccount.balanceCents,
         currency: primaryAccount.currency,
         totalIn,
         totalOut,
@@ -837,21 +843,32 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ error: 'Nenhuma conta encontrada' });
       }
 
-      // Buscar ledger entries de todas as contas
-      const allEntries: any[] = [];
+      // Buscar entradas bank_ledger por conta (SSOT)
+      const { bankLedgerRepository } = await import('@modules/bank/bank-ledger.repository');
+      const allEntries: Array<{
+        entryId: string;
+        amountCents: number;
+        entryType: string;
+        createdAt: Date;
+        accountCurrency: string;
+        accountTenantId: string;
+      }> = [];
       for (const account of accounts) {
         try {
-          const entries = await ledgerService.getLedgerEntries(
-            account.tenantId,
-            account.accountId,
-            { limit: 50 }
-          );
-          allEntries.push(...entries.map(entry => ({
-            ...entry,
-            accountCurrency: account.currency,
-            accountTenantId: account.tenantId,
-          })));
-        } catch (error) {
+          const raw = await bankLedgerRepository.getEntriesByAccount(account.tenantId, account.accountId, {
+            limit: 50,
+          });
+          for (const e of raw) {
+            allEntries.push({
+              entryId: e.entryId,
+              amountCents: e.amountCents,
+              entryType: e.entryType,
+              createdAt: new Date(e.createdAt),
+              accountCurrency: account.currency,
+              accountTenantId: account.tenantId,
+            });
+          }
+        } catch {
           // Ignora erros ao buscar ledger de contas de outros tenants
         }
       }
@@ -860,7 +877,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       allEntries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       return {
-        globalUserId: req.actionContext.actorId, // TODO: Resolver globalUserId a partir do actorId se necessário
+        globalUserId: globalUserId2,
         entries: allEntries.slice(0, 100), // Limitar a 100 entradas
         totalEntries: allEntries.length,
       };
@@ -882,6 +899,10 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     // ActionContext é obrigatório (V2)
     if (!req.actionContext || !req.actionContext.actorId) {
       return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
     try {
@@ -936,6 +957,10 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      }
+
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'Tenant não encontrado' });
       }
 
       try {
@@ -1013,6 +1038,7 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const actorId = req.actionContext.actorId;
+      const userId = req.user.id;
 
       const { profileService } = await import('@core/profile/profile.service');
       
