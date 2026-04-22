@@ -254,7 +254,22 @@ ESTADO: core/profile  (EM REMEDIAÇÃO — C45 complemento FIXED)
                       com colunas fantasmas (domain_type, c.cep, user_skills_categories)
                       que falham mas são capturadas por try/catch — não bloqueiam
                       o fluxo principal mas geram ruído nos logs.
-  Próxima ação:       FASE 4 — C3, C12 (C4 fechado 736b25c2; C1 fechado 2c68cc89…4bff6f9b)
+  Próxima ação:       FASE 4 — C12, C44 (C3 FIXED f1dd6385+1ca3d8b7; C4 736b25c2; C1 2c68cc89…4bff6f9b)
+
+================================================================================
+ESTADO: core/actors + modules/social (helpers de actor)  (C3 FIXED — 2026-04-21)
+================================================================================
+  Status:             C3 FIXED — borda HTTP 100% via writer canonico
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK
+  Correcoes C3:       actor.helpers.ts (f1dd6385): getActiveActor →
+                      ensureUserActor. Consumidores: payout, policy,
+                      invoice, reporting routes.
+                      actor.utils.ts (1ca3d8b7): resolveActiveActorFromRequest
+                      com allowUserFallback → ensureUserActor. Consumidores:
+                      crm, my-orders, subscription, venue, profile-health.
+  Dividas FASE 6:     C3-B (separacao resolveActorReadOnly vs ensureUserActor
+                      para distinguir semantica read/write em rotas de leitura)
+  Commits:            f1dd6385, 1ca3d8b7 (+ DECISION-0008 f9d4ef38)
 
 ================================================================================
 ESTADO: events (TIER 3)  (PASS — 2026-04-20)

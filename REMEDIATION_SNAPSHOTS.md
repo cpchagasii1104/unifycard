@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Último snapshot | (nenhum) |
+| Último snapshot | FASE 4 — C3 fechado — 2026-04-21 (1ca3d8b7) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0, Seção 9 (Validação de Estado Global) |
 
 ---
@@ -411,3 +411,42 @@ FASE 4 avanca: C1 (maior bloqueador critico) eliminado sem inventar
 semantica. Reputacao (trust) nao depende mais de dados fantasmas.
 API de grupos nao retorna mais dados de tabela inexistente.
 Proximos alvos FASE 4: C3, C12, C44, C46.
+
+---
+
+## SNAPSHOT FASE 4 — C3 fechado — 2026-04-21
+
+**Commit de referencia:** 1ca3d8b7 (ultimo fix de C3) apos f9d4ef38 (DECISION-0008)
+**Responsavel:** Clayton
+
+### Gates
+- actor-writer-boundaries: PASS
+- bank-ledger-boundaries: PASS
+- regression-guards: PASS
+- architectural-patterns: PASS (critical_new=0)
+
+### Violacoes fechadas
+- C3 FIXED: 2 caminhos centrais de criacao de actor fora do writer
+  canonico substituidos por ensureUserActor
+
+### Status das violacoes
+- Total: 48 | OPEN: 28 | FIXED: 9 | DECISION_PENDING: 10
+
+### Decisoes registradas desde ultimo snapshot
+- DECISION-0008 (C3 substituicao direta)
+
+### Comparacao com snapshot C1
+- OPEN: 29 → 28
+- FIXED: 8 → 9
+- Borda HTTP: criacao de actor 100% via writer canonico
+- C12 parcialmente mitigado automaticamente (actorId na borda HTTP
+  agora e garantidamente canonico)
+
+### Analise de convergencia
+FASE 4 avanca. C3 (criacao de actor fora do writer) eliminado em todos
+os caminhos runtime de produto. 9 rotas consumidoras alinhadas
+transparentemente. Mapa real descoberto pela auditoria do Cursor:
+nao eram 3 INSERTs literais, eram 2 helpers utilitarios centrais.
+C3-B (separacao read/write semantica) documentada como divida para FASE 6.
+Proximos alvos FASE 4: C12 (pode ter sido parcialmente mitigado por C3),
+C44 (marketplace/group.repository), C46 (ownerUserId vs actorId).

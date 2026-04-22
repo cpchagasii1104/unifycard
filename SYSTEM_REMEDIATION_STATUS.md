@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-21 (FASE 1 concluída — gate v1.1 operacional, commits 4b84175f→271d7569) |
+| Última atualização | 2026-04-21 (C3 FIXED — f1dd6385, 1ca3d8b7; DECISION-0008 f9d4ef38) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -35,9 +35,9 @@
 | CRITICAL | 10 | 12 |
 | HIGH | 11 | 23 |
 | MEDIUM | 9 | 12 |
-| OPEN | 21 | 29 |
+| OPEN | 21 | 28 |
 | IN_PROGRESS | 0 | 0 |
-| FIXED | 1 | 8 |
+| FIXED | 1 | 9 |
 | ALLOWLISTED | 0 | 0 |
 | DEFERRED | 0 | 0 |
 | DECISION_PENDING | 8 | 10 |
@@ -52,7 +52,7 @@
 |----|--------|-----------------|--------------------------|-------|----------|--------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma (6 arquivos usam `FROM ledger`) | `core/reputation/trust.service.ts` + 5 outros | Clayton | 2026-05-15 | 2c68cc89, 38c026d5, 468de737, 4bff6f9b | 4 fixes concluidos via DECISION-0007 (amputacao controlada). trust.service.ts: getFinancialHistory retorna zeros, pendingDebts via actor_debts. groups.routes.ts: rota impact-history retorna vazio. test-currency.service.ts: getTestCurrencyLedger retorna vazio, emit intacto. work.e2e.spec.ts: teste marcado .skip. Tests/scripts fora de src nao fazem parte do escopo — tratar em sessao de sanitizacao de testes separada. |
 | C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Clayton | — | — | Exige decisão: nullable inicial ou NOT NULL com backfill? Sem isso, §7 não é satisfazível. |
-| C3 | OPEN | INSERT INTO actors fora do actor-writer | `core/identity/identity.service.ts:67515` + `modules/social/actor.repository.ts:258561, 258733` | Clayton | 2026-05-01 | — | 3 caminhos paralelos de criação de identidade. |
+| C3 | FIXED | Runtime: criação de actor via helpers fora do writer (`getActiveActor` / `resolveActiveActorFromRequest`) | `core/actors/actor.helpers.ts` + `modules/social/actor.utils.ts` | Clayton | 2026-04-21 | f1dd6385, 1ca3d8b7 | 2 caminhos centrais fechados via DECISION-0008 (substituicao direta por ensureUserActor). actor.helpers.ts: getActiveActor usa writer canonico (consumidores: payout, policy, invoice, reporting). actor.utils.ts: resolveActiveActorFromRequest com allowUserFallback usa writer canonico (consumidores: crm, my-orders, subscription, venue, profile-health). C3-B (separacao read/write) adiada para FASE 6 como divida explicita. Scripts de seed e testes fora do escopo de C3. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes em `bank_accounts` | `modules/bank/bank-balance-by-region.service.ts:119395` | Clayton | 2026-04-30 | 736b25c2 | currency e metadata removidos. 2 queries e 2 tipos corrigidos. regionId=owner_id. currency nao inventado. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | `modules/groups/groups.repository.ts:152580` + `modules/marketplace/group.repository.ts:173125` | Clayton | 2026-04-30 | — | FIXED em 5 commits (fc97f893→81b93c9d). C8[6/6] (marketplace/group.repository.ts) replanejado como C44 — arquivo de sprint isolado com colunas distintas. |
 | C12 | OPEN | `actorId` retornado como `globalUserId` em 3 rotas | `core/identity/identity.routes.ts:66934, 67016` + `modules/events/organizers/organizers.routes.ts:148951` | Clayton | 2026-05-05 | — | Mentira estrutural em rotas de identidade. TODO explícito. |
@@ -275,6 +275,18 @@ Cada entrada abaixo corresponde a um commit que alterou status de uma violação
   actorId vem de actor.actor_id. Requer análise linha a linha.
 - **Status C46:** OPEN → DECISION_PENDING
 - **Próxima ação:** FASE 3 seed + E2E (C46 não bloqueia seed).
+
+---
+
+### 2026-04-21 — C3 FIXED: helpers centrais alinhados ao writer canônico
+
+- **Ação:** DECISION-0008 (Opção A). `getActiveActor` e fallback em
+  `resolveActiveActorFromRequest` passam a usar `ensureUserActor` em vez de
+  `findOrCreateUserActor` directo no repositório.
+- **Commits:** f1dd6385 (actor.helpers.ts), 1ca3d8b7 (actor.utils.ts)
+- **Status C3:** OPEN → FIXED
+- **Resumo:** OPEN 29→28, FIXED 8→9
+- **Próxima ação:** C12, C44, C46 (FASE 4); C3-B documentada para FASE 6
 
 ---
 
