@@ -118,6 +118,15 @@ class PayoutService {
           );
 
           const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
+
+          // C54: Gate financeiro obrigatório antes de payout (AUTHORITY_PRECEDENCE §4.1)
+          const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
+          await requireFinancialRiskClearance(tenantId, {
+            actorId: split.recipientActorId,
+            action: 'financial_payout',
+            amountCents: split.amountCents,
+          });
+
           const authorship = buildSystemAuthorship({
             actingForAccountId: platformAccount.accountId,
           });
@@ -138,7 +147,10 @@ class PayoutService {
               acting_user_id: actingUserId,
               context: 'marketplace_payout',
             },
+            referenceType: 'marketplace_payout',
+            referenceId: `${paymentIntentId}:${split.id}`,
             authorship,
+            treasurySource: 'treasury:settlement',
           });
 
           // Se sucesso: salvar bank_transaction_id, status = SUCCESS
