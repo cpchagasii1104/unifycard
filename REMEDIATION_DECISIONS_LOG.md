@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0009 (2026-04-21) |
+| Última entrada | DECISION-0010 (2026-04-22) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -604,3 +604,74 @@ Registrar permanentemente toda decisão que envolva:
 ---
 
 **FIM DO DOCUMENTO** (continua crescendo por append a cada decisão)
+
+### DECISION-0010 — C44: alinhar marketplace/group.repository ao schema Genesis
+
+- **Data:** 2026-04-22
+- **Tipo:** arquitetural (schema drift)
+- **ID da violação:** C44
+
+- **Contexto:**
+  backend/src/modules/marketplace/group.repository.ts usa 3 colunas que nao
+  existem no schema Genesis da tabela groups:
+  - parent_group_id
+  - created_by_actor_id
+  - created_by_user_id
+
+  Schema Genesis real de groups: id, tenant_id, name, description, slug,
+  actor_id, owner_actor_id, status, metadata, created_at, updated_at.
+
+  O repository faz INSERT, SELECT e WHERE sobre essas colunas inexistentes —
+  qualquer chamada falha em runtime.
+
+- **Opcoes consideradas:**
+
+  A. Alinhar codigo ao Genesis (remover colunas fantasmas, usar actor_id).
+     Pros: zero drift, zero migration, consistente com §4.8 LEI
+     (ensureUserActor), estabiliza o repository.
+     Contras: perde funcionalidade de groups aninhados (parent_group_id)
+     que ainda nao existia na pratica.
+
+  B. Estender schema com migration nova (adicionar as 3 colunas).
+     Pros: preserva ambicao de groups aninhados.
+     Contras: introduz produto (hierarquia) sem RFC, duplica identidade
+     (user + actor), abre superficie de inconsistencia, FASE 4 nao deve
+     tomar decisao de produto.
+
+- **Escolha:** Opcao A
+
+- **Justificativa:**
+  FASE 4 e estabilizacao, nao extensao de produto. Colunas fantasmas nunca
+  funcionaram em runtime — nao ha funcionalidade real para preservar.
+  Alinhamento ao Genesis elimina drift sem decisao de produto pendente.
+  Groups aninhados, se algum dia forem necessarios, devem entrar via RFC
+  em FASE 6+, nao por inercia de codigo legado.
+
+- **Plano de execucao:**
+  1. Remover parent_group_id de todas as queries (INSERT, SELECT, WHERE)
+  2. Remover created_by_user_id de todas as queries
+  3. Substituir created_by_actor_id por actor_id (coluna real do Genesis)
+  4. Gates 4/4 PASS + tsc sem erros novos
+  5. Commit unico do repository
+  6. Documentacao (STATUS FIXED + snapshot + execution log)
+
+- **Consequencias esperadas:**
+  - Repository marketplace/group alinhado ao Genesis
+  - Zero migration nova
+  - Contagem: OPEN 29 → 28, FIXED 10 → 11
+  - Funcionalidade de groups aninhados adiada para FASE 6+ se necessaria
+
+- **Divida registrada:**
+  Se produto decidir implementar groups aninhados no futuro, requer RFC
+  proprio e migration forward-only.
+
+- **Responsavel:** Clayton
+- **Validacao previa:** Claude + ChatGPT (analise de trade-offs Opcao A vs B)
+- **Supera:** nenhuma
+- **Referencias:**
+  - backend/src/modules/marketplace/group.repository.ts (arquivo afetado)
+  - backend/migrations/20260530180000_groups.sql (schema Genesis)
+  - LEI §4.8.1 (ensureUserActor)
+
+---
+
