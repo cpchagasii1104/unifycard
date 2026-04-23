@@ -34,6 +34,9 @@ Commits já aplicados (não alterar):
 - 2fd1a5ac — C44: bloquear parentGroupId e createdByUserId em group.service
 - 760cc768 — docs: passo5 + quadrinho + RFC C52 pós-sessão 2026-04-23
 - 85976e65 — C53: strict/permissive em catches 42P01 event-handler e metrics
+- 5c93766b — C56 Passo 1: migration bank_transactions.order_id
+- 17ac88ac — C56 Passo 2: propagar orderId nos callsites de receita marketplace
+- 02266c4b — C56 Passo 3: real-margin.service.ts usa bank_ledger (SSOT)
 
 Arquivos tocados no C54 (sessão anterior):
 
@@ -44,6 +47,13 @@ TIER A — gate adicionado diretamente no service:
 
 TIER B — gate adicionado a montante na rota:
 - backend/src/modules/marketplace/application/services/capacity-application.service.ts
+- backend/src/modules/marketplace/application/services/marketplace-orchestration.service.ts
+
+C56 Passo 2 — orderId propagado nos callsites de receita:
+- backend/src/modules/bank/bank-transaction.types.ts (orderId?: string adicionado)
+- backend/src/modules/bank/bank-transaction.service.ts (orderId nos INSERTs)
+- backend/src/modules/marketplace/payment-execution.service.ts (escrow, settlement, dispute_release)
+- backend/src/modules/marketplace/payout.service.ts
 - backend/src/modules/marketplace/application/services/marketplace-orchestration.service.ts
 
 TIER C — @system-context documentado (sem gate, motor interno):
@@ -433,8 +443,9 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
 - C52: RFC C52 — path alvo `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` (aguarda 3 perguntas ao BD + aprovação; criar o ficheiro na aprovação)
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
-- C56: PENDENTE
+- C56: EM EXECUÇÃO — Passos 1-3 concluídos (migration + propagação + reescrita real-margin). Passos 4-6 pendentes (callers + declarar FIXED)
 - 4 gates novos da auditoria forense: PENDENTE
+- C56 Passos 4-6: PENDENTE (remover metadata de callers + declarar FIXED)
 
 ---
 
