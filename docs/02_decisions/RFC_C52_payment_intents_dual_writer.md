@@ -5,7 +5,7 @@
 **Data do RFC:** 2026-04-23  
 **Escopo:** decisão arquitetural antes de execução de código ou migrações destrutivas.
 
-**Status:** AGUARDA EXECUÇÃO — diagnóstico completo, E2E obrigatório antes de qualquer código
+**Status:** PRONTO PARA EXECUÇÃO — seed E2E criada (036_seed_e2e_c52_payment_intents.sql)
 
 **Diagnóstico atualizado (2026-04-23):**
 - Writer A (marketplace/payment-intent.repository.ts) está morto por constraint:
@@ -33,7 +33,7 @@ Classificação: todos DERIVABLE. Nenhum BLOCKED.
 Todos têm actorId e referenceId disponíveis. gateway é constante por contexto.
 
 **Pré-requisito restante:**
-- Seed E2E para validar os 6 fluxos após a migração
+- ~~Seed E2E para validar os 6 fluxos após a migração~~ CONCLUIDO (commit 5ead5090)
 
 **Escopo real do C52 (revisado):**
 Não é remoção de código morto. É reparação de 6 fluxos financeiros quebrados
