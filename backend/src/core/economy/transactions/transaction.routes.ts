@@ -1,7 +1,7 @@
 // src/core/economy/transactions/transaction.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { transactionService } from '../transaction.service';
 import {
-  createTransferSchema,
   transactionIdSchema,
   eventIdSchema,
   accountIdSchema,
@@ -9,27 +9,6 @@ import {
 } from './transaction.schemas';
 
 const transactionRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST /economy/transactions/transfer - Executar transferência
-  fastify.post('/transfer', async (req, reply) => {
-    const tenantId = req.tenant!.id;
-
-    const parsed = createTransferSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        error: 'Invalid request body',
-        details: parsed.error.errors,
-      });
-    }
-
-    try {
-      const result = await transactionService.transfer(tenantId, parsed.data);
-      return reply.status(201).send(result);
-    } catch (error) {
-      const err = error as Error & { statusCode?: number };
-      return reply.status(err.statusCode ?? 500).send({ error: err.message });
-    }
-  });
-
   // GET /economy/transactions/:transactionId - Buscar por ID
   fastify.get<{ Params: { transactionId: string } }>('/:transactionId', async (req, reply) => {
     const tenantId = req.tenant!.id;
