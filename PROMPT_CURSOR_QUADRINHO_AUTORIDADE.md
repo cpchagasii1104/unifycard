@@ -988,7 +988,7 @@ C52: RFC em `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` — DECIS
 C53: FIXED (commit 85976e65)  
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates novos da auditoria forense: PENDENTE
-marketplace-orders.service.ts (C54 original): PENDENTE — confirmar se ainda tem transfer sem gate
+marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
 
 Commits finais da fase:
 

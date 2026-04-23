@@ -444,7 +444,8 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C52: RFC C52 — path alvo `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` (aguarda 3 perguntas ao BD + aprovação; criar o ficheiro na aprovação)
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
-- 4 gates novos da auditoria forense: PENDENTE
+- marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero fluxos financeiros ativos. C54 fechado sem asterisco.
+- 4 gates novos da auditoria forense: PENDENTE — a enumerar como CXX em próxima sessão
 
 ---
 

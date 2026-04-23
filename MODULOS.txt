@@ -1,6 +1,6 @@
 ================================================================================
 MODULOS.txt — Inventário + gestão de auditoria (backend/src/modules/)
-Última atualização: 2026-04-21 (groups — C8 FIXED + E2E PASS; core/profile — C45/C47 descobertos)
+Última atualização: 2026-04-23 (FASE 4 concluída — C44/C47/C53/C54/C55/C56/C57 FIXED)
 ================================================================================
 
 REGRA DE OURO (replicável)
@@ -54,7 +54,8 @@ ORDEM MVP (produto — fluxo real antes de blindar dinheiro)
     5. bank, payments, ledger, treasury, reconciliation — SSOT financeiro por último
        (quando o fluxo de negócio estiver explícito — evita “travar o MVP” cedo)
 
-  Próximo módulo recomendado para o mesmo pipeline de events: **marketplace**
+  Próximo módulo recomendado para o mesmo pipeline de events: **marketplace** (PASS — 2026-04-19)
+  marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
 
 --------------------------------------------------------------------------------
 MATRIZ DE DEPENDÊNCIA (ordem §3.1 PLANO_BASE — actualizar com STATUS_EXECUCAO_GLOBAL.md)
@@ -230,9 +231,9 @@ ESTADO: groups (TIER 3)  (C8 FIXED — 2026-04-21)
                       [5/5] boolean → string no update de status
   Correcao adicional C1 (38c026d5): rota impact-history sem ledger fantasma.
   E2E validado:       POST /groups → 201 Created, grupo persistido com owner_actor_id correto
-  DTs pendentes:      C44 (marketplace/group.repository.ts colunas inexistentes)
-                      C46 (ownerUserId vs actorId — DECISION_PENDING)
-                      C47 (actor_has_permission stub — requer portagem FASE 6)
+  DTs pendentes:      C46 (ownerUserId vs actorId — DECISION_PENDING)
+  Correções FASE 4:   C44 FIXED (2fd1a5ac): group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente
+                      C47 FIXED (c153f27a): actor_has_permission → fail-closed (FASE 4)
   Acoplamento core:   groups.owner_actor_id → actors(id)
                       ensureUserActor canônico antes do create (C45)
   Plano:              SYSTEM_REMEDIATION_STATUS.md (C8, C44, C46, C47)
@@ -246,10 +247,10 @@ ESTADO: core/profile  (EM REMEDIAÇÃO — C45 complemento FIXED)
                       C45 complemento FIXED (009f9eca): core.service.ts:118 → ensureUserActor
                       desbloqueia gate actor-writer-boundaries
   DTs pendentes:      C46 (ownerUserId vs actorId em groups.types/service/routes)
-                      C47 (actor_has_permission sem implementação real)
                       C48 candidato: getCompleteProfile comportamento intermitente
                         (identity_status INCOMPLETE com dados corretos — resolvido
                          por reinício do backend; causa raiz: processo com código antigo)
+  Correções FASE 4:   C47 FIXED (c153f27a): actor_has_permission → fail-closed
   Observações:        getCompleteProfile tem múltiplas queries intermediárias
                       com colunas fantasmas (domain_type, c.cep, user_skills_categories)
                       que falham mas são capturadas por try/catch — não bloqueiam
@@ -318,6 +319,34 @@ ESTADO: live-chat / inbox  (PASS — 2026-04-20)
   Acoplamento:        chat_blocks.blocker_contact_id → actors
                       live_presence.contact_id → actors
                       social_inbox_items.actor_id → actors
+
+================================================================================
+ESTADO: FASE 4 — Quadrinho de Autoridade + SSOT Financeiro  (FIXED — 2026-04-23)
+================================================================================
+  Status:             FIXED — sessão 2026-04-23
+  Gates:              actor-writer OK, bank-ledger OK, regression-guards OK, architectural OK
+
+  Violações fechadas:
+    C47 FIXED (c153f27a) — actor_has_permission fail-closed (was always TRUE)
+    C54 FIXED (múltiplos) — requireFinancialRiskClearance em 9 caminhos de produto
+    C55 FIXED (7770f061) — authority-decision.service strict/permissive guarded
+    C57 FIXED (0272141c) — FK authority_roots.actor_id → actors(id)
+    C44 FIXED (2fd1a5ac) — group.service.ts parentGroupId/createdByUserId bloqueados
+    C53 FIXED (85976e65) — strict/permissive em catches 42P01 event-handler e metrics
+    C56 FIXED (5c93766b,17ac88ac,02266c4b) — real-margin.service.ts usa bank_ledger como SSOT
+
+  RFCs gerados:
+    C52 DECISION_PENDING — docs/02_decisions/RFC_C52_payment_intents_dual_writer.md
+    C56 FIXED — docs/02_decisions/RFC_C56_real_margin_viola_ssot.md
+
+  Pendentes:
+    marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
+    4 gates novos da auditoria forense — a enumerar
+    C52 — execução aguarda E2E com seed
+
+  Commits principais:
+    0272141c, c153f27a, 7770f061, 0e4e68c0, 6ac66653, 90b44784, b72e35d2
+    2fd1a5ac, 85976e65, 5c93766b, 17ac88ac, 02266c4b
 
 ================================================================================
 LISTA DE PASTAS (modules/) — inventário bruto
