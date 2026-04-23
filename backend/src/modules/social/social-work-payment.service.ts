@@ -9,6 +9,8 @@ import { socialWorkService } from './social-work.service';
 import { transactionService } from '@core/economy/transaction.service';
 import { accountService } from '@core/economy/account.service';
 import { runQueryWithTenant } from '@core/database/pool';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { requireFinancialRiskClearance } from '@modules/risk-identity/risk-financial-gate';
 import type { Job } from '../work/work.types';
 import type { ScheduleSlot } from '../schedule/schedule.types';
 import type { Transaction } from '@core/economy/transactions/transaction.types';
@@ -21,16 +23,15 @@ class SocialWorkPaymentService {
     tenantId: string,
     userId: string
   ): Promise<string | null> {
-    const result = await runQueryWithTenant<{ global_user_id: string }>(
-      tenantId,
-      `
+    const result = await runQueryWithTenant<{ global_user_id: string }>(tenantId, {
+      text: `
       SELECT global_user_id
       FROM users
       WHERE tenant_id = $1 AND user_id = $2
       LIMIT 1
       `,
-      [tenantId, userId]
-    );
+      values: [tenantId, userId],
+    });
 
     return result?.global_user_id || null;
   }
@@ -152,11 +153,24 @@ class SocialWorkPaymentService {
       currency: 'BRL',
     });
 
+    // AUTORIDADE: ensureUserActor → gate → transfer (INV-ID + INV-FIN)
+    const customerActor = await ensureUserActor(tenantId, customerUserId);
+    if (!customerActor?.id) {
+      throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
+    }
+    await requireFinancialRiskClearance(tenantId, {
+      actorId: customerActor.id,
+      action: 'financial_transfer',
+      amountCents,
+    });
+
     // 5. Criar transação
     const transferResult = await transactionService.transfer(tenantId, {
       fromAccount: customerAccount.accountId,
       toAccount: providerAccount.accountId,
-      amount,
+      amountCents,
+      referenceType: 'social_post_payment',
+      referenceId: postId,
       metadata: {
         postId,
         jobId: scheduledJob.jobId,
@@ -168,7 +182,21 @@ class SocialWorkPaymentService {
       },
     });
 
-    return transferResult.transaction;
+    const bankTx = await transactionService.getTransactionById(tenantId, transferResult.transactionId);
+    if (!bankTx) {
+      throw new Error('Transaction created but could not be retrieved');
+    }
+    return {
+      transactionId: bankTx.transactionId,
+      tenantId: bankTx.tenantId,
+      fromAccount: bankTx.fromAccountId ?? '',
+      toAccount: bankTx.toAccountId ?? '',
+      amountCents: bankTx.amountCents,
+      eventId: bankTx.eventId,
+      status: bankTx.status === 'completed' ? 'completed' : (bankTx.status === 'pending' ? 'pending' : 'failed'),
+      metadata: bankTx.metadata ?? {},
+      createdAt: bankTx.createdAt,
+    };
   }
 }
 

@@ -10,6 +10,7 @@ import {
 
 const distributionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /economy/distribution/auto - Distribuição automática com fees
+  // @system-context — rota interna de tesouraria. Acesso restrito a workers e admin.
   fastify.post('/auto', async (req, reply) => {
     const tenantId = req.tenant!.id;
 
@@ -22,7 +23,13 @@ const distributionRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const result = await distributionService.autoDistribute(tenantId, parsed.data);
+      const result = await distributionService.autoDistribute(tenantId, {
+        fromAccount: parsed.data.fromAccount,
+        toAccount: parsed.data.toAccount,
+        amountCents: parsed.data.amountCents,
+        groupAccount: parsed.data.groupAccount,
+        config: parsed.data.config,
+      });
       return reply.status(201).send(result);
     } catch (error) {
       const err = error as Error & { statusCode?: number };
@@ -41,7 +48,7 @@ const distributionRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const calculation = await distributionService.simulateDistribution(
-      parsed.data.amount,
+      parsed.data.amountCents,
       parsed.data.config
     );
     return calculation;

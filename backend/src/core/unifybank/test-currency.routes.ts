@@ -6,6 +6,8 @@
 import { FastifyPluginAsync } from 'fastify';
 import { testCurrencyService } from './test-currency.service';
 import { z } from 'zod';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { requireFinancialRiskClearance } from '@modules/risk-identity/risk-financial-gate';
 
 const emitTestCurrencySchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
@@ -59,10 +61,21 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        // AUTORIDADE: ensureUserActor → gate → transfer (INV-ID + INV-FIN)
+        const adminActor = await ensureUserActor(req.tenant.id, req.user.id);
+        if (!adminActor?.id) {
+          return reply.status(400).send({ ok: false, message: 'ACTOR_ID_NOT_RESOLVED' });
+        }
+        await requireFinancialRiskClearance(req.tenant.id, {
+          actorId: adminActor.id,
+          action: 'financial_transfer',
+          amountCents: parsed.data.amountCents,
+        });
+
         const result = await testCurrencyService.emitTestCurrency({
           tenantId: req.tenant.id,
           userId: parsed.data.userId,
-          amountCents: parsed.data.amount,
+          amountCents: parsed.data.amountCents,
           reason: parsed.data.reason,
           adminId: req.user.id,
         });
