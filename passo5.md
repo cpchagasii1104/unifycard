@@ -443,9 +443,8 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
 - C52: RFC C52 — path alvo `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` (aguarda 3 perguntas ao BD + aprovação; criar o ficheiro na aprovação)
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
-- C56: EM EXECUÇÃO — Passos 1-3 concluídos (migration + propagação + reescrita real-margin). Passos 4-6 pendentes (callers + declarar FIXED)
+- C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
 - 4 gates novos da auditoria forense: PENDENTE
-- C56 Passos 4-6: PENDENTE (remover metadata de callers + declarar FIXED)
 
 ---
 

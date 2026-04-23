@@ -986,7 +986,7 @@ Quadrinho de autoridade (C47, C54, C55, C57): FECHADO
 C44: FECHADO (sessão 2026-04-23)  
 C52: RFC em `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` — DECISION_PENDING (criar ficheiro na aprovação)  
 C53: FIXED (commit 85976e65)  
-C56: RFC APPROVED — docs/02_decisions/RFC_C56_real_margin_viola_ssot.md (decisão A2: order_id em bank_transactions — aguarda sessão dedicada de execução)  
+C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates novos da auditoria forense: PENDENTE
 marketplace-orders.service.ts (C54 original): PENDENTE — confirmar se ainda tem transfer sem gate
 

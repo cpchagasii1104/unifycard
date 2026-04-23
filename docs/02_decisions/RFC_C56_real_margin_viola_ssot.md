@@ -1,6 +1,7 @@
 # RFC — C56: `real-margin.service.ts` deriva receita via metadata (VIOLA_SSOT)
 
-**Status:** APPROVED — AGUARDA EXECUÇÃO  
+**Status:** FIXED — Passos 1-3 executados. Purpose a confirmar no E2E.
+**Commits:** 5c93766b (migration), 17ac88ac (propagação), 02266c4b (real-margin)
 **Prioridade:** CRITICAL — VIOLA_SSOT  
 **Branch:** rescue-structural  
 **Data:** 2026-04-23  
