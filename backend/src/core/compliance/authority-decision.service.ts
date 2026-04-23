@@ -22,28 +22,7 @@ import type {
   AuthorityFinancialEvaluation,
   AuthorityLayerTrace,
 } from './authority-decision.types';
-
-/**
- * Modo de resolução de autoridade. Controla comportamento quando dados ATL/KYC/GUARDA estão ausentes.
- * - 'strict': ausência de dados = BLOQUEIO (fail-closed). Produção e primeiros usuários reais.
- * - 'permissive': ausência de dados = SKIP com log. EXCLUSIVAMENTE desenvolvimento em sistema vazio.
- * Ref: AUTHORITY_PRECEDENCE.md §2, §4.1. Remediação: C55 (DECISION-0013).
- */
-export type AuthorityResolutionMode = 'strict' | 'permissive';
-
-function getAuthorityMode(): AuthorityResolutionMode {
-  const raw = process.env.AUTHORITY_MODE?.toLowerCase();
-  if (raw === 'permissive') {
-    if (process.env.NODE_ENV !== 'development') {
-      throw new Error(
-        `[authority-decision] CRITICAL: AUTHORITY_MODE=permissive proibido fora de NODE_ENV=development. ` +
-        `Ambiente atual: NODE_ENV=${process.env.NODE_ENV ?? '<undefined>'}. Abortando.`
-      );
-    }
-    return 'permissive';
-  }
-  return 'strict';
-}
+import { getAuthorityMode } from './authority-mode';
 
 export interface FinancialSensitiveActionInput {
   actorId: string;
