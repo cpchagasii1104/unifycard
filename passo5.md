@@ -445,7 +445,12 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
 - marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero fluxos financeiros ativos. C54 fechado sem asterisco.
-- 4 gates novos da auditoria forense: PENDENTE — a enumerar como CXX em próxima sessão
+- 4 gates forenses enumerados e resolvidos:
+    C58 (callgraph transfer sem gate): FIXED — foi C54 nesta sessão
+    C59 (FKs SSOT ausentes): FIXED — foi C57 (authority_roots→actors)
+    C60 (múltiplos writers por tabela): PENDENTE — mapeado como C52 (payment_intents dual-writer, RFC gerado)
+    C61 (::numeric sobre metadata monetária): FIXED — foi C56 (real-margin reescrito)
+    C61-B (metadata monetária em observabilidade social): DOCUMENTADO — social-group.repository.ts linha ~249, comentário adicionado, não decisório, FASE 5
 
 ---
 

@@ -24,7 +24,7 @@ class SocialGroupRepository {
     if (groupAccount) {
       const account = await accountService.getAccountById(tenantId, groupAccount.accountId);
       if (account) {
-        totalReceived = account.balance;
+        totalReceived = account.balanceCents;
       }
     }
 
@@ -39,7 +39,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND createdAt >= $3
+        AND created_at >= $3
       `,
       [tenantId, groupId, thirtyDaysAgo]
     );
@@ -74,7 +74,7 @@ class SocialGroupRepository {
     const { limit = 50, offset = 0, includeAutoPosts = true } = options;
 
     let query = `
-      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, createdAt, updatedAt
+      SELECT post_id, tenant_id, global_user_id, content, media, intent, confidence, categories, suggested_actions, metadata, created_at, updated_at
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
@@ -87,14 +87,14 @@ class SocialGroupRepository {
       query += ` AND metadata->>'type' != 'system_auto_post'`;
     }
 
-    query += ` ORDER BY createdAt DESC LIMIT $3 OFFSET $4`;
+    query += ` ORDER BY created_at DESC LIMIT $3 OFFSET $4`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant(tenantId, query, params);
 
     // Contar total
     let countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*)::text as "totalCents"
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
@@ -113,7 +113,7 @@ class SocialGroupRepository {
 
     return {
       rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 
@@ -135,7 +135,7 @@ class SocialGroupRepository {
     if (groupAccount) {
       const account = await accountService.getAccountById(tenantId, groupAccount.accountId);
       if (account) {
-        totalReceived = account.balance;
+        totalReceived = account.balanceCents;
       }
     }
 
@@ -144,17 +144,17 @@ class SocialGroupRepository {
       post_id: string;
       content: string;
       metadata: any;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
-      SELECT post_id, content, metadata, createdAt
+      SELECT post_id, content, metadata, created_at
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT 20
       `,
       [tenantId, groupId]
@@ -164,7 +164,7 @@ class SocialGroupRepository {
       postId: p.post_id,
       content: p.content,
       amountCents: p.metadata?.splitAmount || 0,
-      createdAt: p.createdAt.toISOString(),
+      createdAt: p.created_at.toISOString(),
       assignmentId: p.metadata?.assignmentId,
       jobId: p.metadata?.jobId,
     }));
@@ -183,7 +183,7 @@ class SocialGroupRepository {
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
-        AND createdAt >= NOW() - INTERVAL '30 days'
+        AND created_at >= NOW() - INTERVAL '30 days'
       GROUP BY global_user_id
       ORDER BY post_count DESC
       LIMIT 1
@@ -203,7 +203,7 @@ class SocialGroupRepository {
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'activity' IS NOT NULL
-        AND createdAt >= NOW() - INTERVAL '30 days'
+        AND created_at >= NOW() - INTERVAL '30 days'
       GROUP BY metadata->>'activity'
       ORDER BY count DESC
       LIMIT 5
@@ -243,17 +243,20 @@ class SocialGroupRepository {
       amountCents: string;
     }>(
       tenantId,
+      // C61-B: valor derivado de metadata (observabilidade social apenas)
+      // NÃO usar para decisão financeira — fonte canônica é bank_ledger
+      // Ref: REMEDIATION_DECISIONS_LOG_APPEND.md §C61-B
       `
       SELECT 
-        TO_CHAR(createdAt, 'YYYY-MM') as month,
-        SUM((metadata->>'splitAmount')::numeric) as amount
+        TO_CHAR(created_at, 'YYYY-MM') as month,
+        SUM((metadata->>'splitAmount')::numeric)::text as "amountCents"
       FROM posts
       WHERE tenant_id = $1
         AND metadata->>'groupId' = $2
         AND metadata->>'type' = 'system_auto_post'
         AND metadata->>'source' = 'economic_impact'
-        AND createdAt >= NOW() - INTERVAL '6 months'
-      GROUP BY TO_CHAR(createdAt, 'YYYY-MM')
+        AND created_at >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
       ORDER BY month DESC
       `,
       [tenantId, groupId]
@@ -261,7 +264,7 @@ class SocialGroupRepository {
 
     return growth.map((g) => ({
       month: g.month,
-      amountCents: Number(g.amount || 0),
+      amountCents: Number(g.amountCents || 0),
     }));
   }
 
@@ -285,14 +288,14 @@ class SocialGroupRepository {
 
     // Buscar posts de grupos + auto-posts econômicos
     const query = `
-      SELECT post_id, global_user_id, content, metadata, createdAt
+      SELECT post_id, global_user_id, content, metadata, created_at
       FROM posts
       WHERE tenant_id = $1
         AND (
           metadata->>'groupId' = ANY($2::text[])
           OR (metadata->>'source' = 'economic_impact' AND metadata->>'groupId' = ANY($2::text[]))
         )
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $3 OFFSET $4
     `;
 
@@ -305,7 +308,7 @@ class SocialGroupRepository {
 
     // Contar total
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*)::text as "totalCents"
       FROM posts
       WHERE tenant_id = $1
         AND (
@@ -322,7 +325,7 @@ class SocialGroupRepository {
 
     return {
       items: rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 }

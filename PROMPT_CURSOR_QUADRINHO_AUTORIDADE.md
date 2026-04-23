@@ -987,7 +987,10 @@ C44: FECHADO (sessão 2026-04-23)
 C52: RFC em `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` — DECISION_PENDING (criar ficheiro na aprovação)  
 C53: FIXED (commit 85976e65)  
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
-4 gates novos da auditoria forense: PENDENTE
+4 gates forenses enumerados (C58-C61):
+    C58: FIXED (=C54), C59: FIXED (=C57), C61: FIXED (=C56)
+    C60: PENDENTE (=C52 dual-writer, RFC em docs/02_decisions/)
+    C61-B: DOCUMENTADO (social-group.repository.ts — observabilidade, não decisório)
 marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
 
 Commits finais da fase:
