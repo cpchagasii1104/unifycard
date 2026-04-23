@@ -18,14 +18,80 @@
 - Consequência: fluxos de payment-link, subscription, PDV, venue, ticket
   falham silenciosamente ao criar payment intent — sem rastreabilidade financeira
 
-**Pré-requisitos obrigatórios antes de qualquer execução:**
-1. Seed E2E mínima cobrindo pelo menos: payment-link, order, subscription, PDV flow
-2. Mapping dos 6 callers: actorId, referenceId, gateway disponíveis no escopo?
-3. Confirmar comportamento atual: createIntent falha → erro capturado → fluxo continua?
+**Mapeamento dos 6 callers (concluído — sessão 2026-04-23):**
+
+| Caller | actorId | referenceId | gateway |
+|--------|---------|-------------|---------|
+| payment-link.routes.ts | link.createdByActorId | submittedOrder.id | 'payment_link' |
+| governance-financial-action-worker.ts | payload.actor_id | payload.order_id | 'governance' |
+| subscription.service.ts | paymentLink.createdByActorId | submittedOrder.id | 'subscription' |
+| pdv.service.ts | input.buyerActorId | input.orderId | 'pdv' |
+| venue.routes.ts | order.buyerActorId | order.id | 'venue' |
+| ticket.service.ts | input.buyerActorId | submittedOrder.id | 'ticket' |
+
+Classificação: todos DERIVABLE. Nenhum BLOCKED.
+Todos têm actorId e referenceId disponíveis. gateway é constante por contexto.
+
+**Pré-requisito restante:**
+- Seed E2E para validar os 6 fluxos após a migração
 
 **Escopo real do C52 (revisado):**
-Não é remoção de código morto. É reparação de 6 fluxos financeiros quebrados.
-Exige: unificar writers + garantir que os 6 callers passem actorId/referenceId/gateway.
+Não é remoção de código morto. É reparação de 6 fluxos financeiros quebrados
++ correção de contrato de dados conforme 07_NOMENCLATURA_CANONICA.md.
+
+---
+
+**Correções de nomenclatura obrigatórias (07_NOMENCLATURA_CANONICA.md):**
+
+**1. Renomear campo `status` → `payment_status`**
+Motivo: §4.1 proíbe `status` isolado em domínio financeiro.
+Ação: migration ALTER TABLE payment_intents RENAME COLUMN status TO payment_status.
+
+**2. Padronizar valores de payment_status para lowercase_snake_case (§4.11)**
+
+Mapeamento obrigatório:
+
+| Valor atual | Valor canônico |
+|-------------|----------------|
+| 'CREATED' | 'pending' |
+| 'PENDING' | 'pending' |
+| 'AUTHORIZED' | 'authorized' |
+| 'CAPTURED' | 'captured' |
+| 'SETTLED' | 'settled' |
+| 'FAILED' | 'failed' |
+| 'CANCELLED' | 'cancelled' |
+| 'REVERSED' | 'reversed' |
+| 'completed' | 'settled' |
+| 'processing' | 'processing' |
+
+Ação: UPDATE payment_intents SET payment_status = LOWER(payment_status) + mapeamentos acima.
+Ação: DROP CONSTRAINT payment_intents_status_check + ADD CONSTRAINT com valores canônicos lowercase apenas.
+
+**3. Separar semântica de `gateway` e adicionar campo `source`**
+Motivo: `gateway` representa provedor de pagamento externo; origem do fluxo é `source` (§4.11, linha 1590).
+
+| Campo | Semântica | Exemplos de valores |
+|-------|-----------|---------------------|
+| `gateway` | Provedor de pagamento | 'pix', 'stripe', 'internal' |
+| `source` | Origem do fluxo de negócio | 'pdv', 'ticket', 'subscription', 'payment_link', 'venue', 'governance' |
+
+Ação: ADD COLUMN source VARCHAR(50) em payment_intents.
+Ação: atualizar os 6 callers para passar source além de gateway.
+
+---
+
+**Ordem de execução obrigatória (não inverter):**
+
+1. Migration: renomear status → payment_status
+2. Migration: normalizar valores para lowercase
+3. Migration: atualizar CHECK constraint (só lowercase canônico)
+4. Migration: adicionar coluna source
+5. Unificar writers (Writer A → Writer B)
+6. Atualizar os 6 callers com actorId + referenceId + gateway + source
+7. Remover Writer A e payment-intent.service.ts do marketplace
+8. Validar via E2E
+
+Pré-requisito mantido: Seed E2E antes de qualquer execução.
 
 > **Nota de proveniência:** o texto canónico gerado pelo autor estava referenciado em `/mnt/user-data/outputs/RFC_C52_payment_intents_dual_writer.md` — indisponível para cópia directa neste ambiente. Este ficheiro consolida a análise técnica feita no repositório; substituir integralmente por export oficial se necessário.
 
