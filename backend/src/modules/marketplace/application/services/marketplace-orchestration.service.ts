@@ -346,6 +346,7 @@ export class MarketplaceOrchestrationService {
       });
 
       try {
+        // C56: order_id do grant — rastreabilidade de incentivo regional (pode ser null)
         await bankTransactionService.transfer(tenantId, {
           eventId,
           fromAccountId: fromAcc.accountId,
@@ -362,6 +363,7 @@ export class MarketplaceOrchestrationService {
           },
           referenceType: 'regional_fund_incentive',
           referenceId,
+          orderId: grant.reference.orderId ?? undefined,
           authorship: buildSystemAuthorship({ actingForAccountId: fromAcc.accountId }),
           treasurySource: 'treasury:settlement',
         });

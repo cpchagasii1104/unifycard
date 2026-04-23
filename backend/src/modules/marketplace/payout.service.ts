@@ -131,6 +131,7 @@ class PayoutService {
             actingForAccountId: platformAccount.accountId,
           });
           const eventId = uuidv4();
+          // C56: order_id do intent — rastreabilidade de receita marketplace
           const bankResult = await bankTransactionService.transfer(tenantId, {
             eventId,
             fromAccountId: platformAccount.accountId,
@@ -149,6 +150,7 @@ class PayoutService {
             },
             referenceType: 'marketplace_payout',
             referenceId: `${paymentIntentId}:${split.id}`,
+            orderId: intent.orderId ?? undefined,
             authorship,
             treasurySource: 'treasury:settlement',
           });
