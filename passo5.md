@@ -37,6 +37,10 @@ Commits já aplicados (não alterar):
 - 5c93766b — C56 Passo 1: migration bank_transactions.order_id
 - 17ac88ac — C56 Passo 2: propagar orderId nos callsites de receita marketplace
 - 02266c4b — C56 Passo 3: real-margin.service.ts usa bank_ledger (SSOT)
+- 563b27a6 — docs: C52 diagnóstico completo — 6 callers quebrados identificados
+- 9ac85e71 — docs: C58-C61 enumerados + C61-B documentado em social-group
+- 5c7627af — docs: marketplace-orders LIMPO + docs atualizados pós-auditoria C54
+- 0e6a67fd — docs: C52 RFC atualizado — nomenclatura canônica + ordem de execução
 
 Arquivos tocados no C54 (sessão anterior):
 
@@ -441,11 +445,12 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C55: FIXED
 - C57: FIXED
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
-- C52: AGUARDA EXECUÇÃO — diagnóstico completo em sessão 2026-04-23.
-    Writer A morto por constraint NOT NULL (reference_id, gateway, actor_id).
-    6 callers ativos quebrados silenciosamente: payment-link, governance-worker,
-    subscription, pdv, venue, ticket.
-    Pré-requisito: seed E2E + mapping dos 6 callers antes de qualquer código.
+- C52: AGUARDA EXECUÇÃO — mapeamento e nomenclatura completos (sessão 2026-04-23).
+    Writer A morto por constraint NOT NULL. Writer B é o único funcional.
+    6 callers mapeados — todos DERIVABLE (actorId + referenceId + gateway disponíveis).
+    Nomenclatura canônica incorporada ao RFC: status→payment_status, valores lowercase,
+    gateway (provedor) separado de source (origem do fluxo).
+    Pré-requisito restante: seed E2E para validar os 6 fluxos após migração.
     RFC: docs/02_decisions/RFC_C52_payment_intents_dual_writer.md
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
