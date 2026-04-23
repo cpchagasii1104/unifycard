@@ -66,98 +66,95 @@ class RealMarginService {
     params.push(periodStart, periodEnd);
     paramIndex += 2;
 
-    // Query para consolidar receita, descontos, fees e payouts
+    // C56: receita baseada em bank_ledger (SSOT)
+    // Semântica: accrual accounting (order.created_at)
+    // NÃO usar metadata financeira, payment_transactions nem splits como fonte
+    // Ref: RFC_C56_real_margin_viola_ssot.md — Decisão A2
     const query = `
-      WITH order_revenue AS (
+      WITH ledger_revenue AS (
+        -- Crédito em escrow_payments = dinheiro do comprador chegou
+        -- Canônico: account_type + direction (sem filtro por reference_type)
+        SELECT
+          bt.order_id,
+          SUM(bl.amount_cents) AS gross_revenue_cents
+        FROM bank_transactions bt
+        INNER JOIN bank_ledger bl ON bl.transaction_id = bt.id
+        INNER JOIN bank_accounts ba ON ba.id = bl.account_id
+        WHERE bt.tenant_id = $1
+          AND bt.order_id IS NOT NULL
+          AND ba.account_type = 'escrow_payments'
+          AND bl.direction = 'credit'
+          AND bl.amount_cents > 0
+        GROUP BY bt.order_id
+      ),
+      ledger_fees AS (
+        -- Fees: crédito em platform_fees por order_id
+        SELECT
+          bt.order_id,
+          SUM(bl.amount_cents) AS platform_fees_cents
+        FROM bank_transactions bt
+        INNER JOIN bank_ledger bl ON bl.transaction_id = bt.id
+        INNER JOIN bank_accounts ba ON ba.id = bl.account_id
+        WHERE bt.tenant_id = $1
+          AND bt.order_id IS NOT NULL
+          AND ba.account_type = 'platform_fees'
+          AND bl.direction = 'credit'
+          AND bl.amount_cents > 0
+        GROUP BY bt.order_id
+      ),
+      ledger_payouts AS (
+        -- Payouts: crédito em seller_pending por order_id
+        SELECT
+          bt.order_id,
+          SUM(bl.amount_cents) AS payouts_cents
+        FROM bank_transactions bt
+        INNER JOIN bank_ledger bl ON bl.transaction_id = bt.id
+        INNER JOIN bank_accounts ba ON ba.id = bl.account_id
+        WHERE bt.tenant_id = $1
+          AND bt.order_id IS NOT NULL
+          AND ba.account_type = 'seller_pending'
+          AND bl.direction = 'credit'
+          AND bl.amount_cents > 0
+        GROUP BY bt.order_id
+      ),
+      order_revenue AS (
+        -- Join com order_items APÓS agregação por order_id
+        -- MAX() evita duplicação quando pedido tem múltiplos itens
         SELECT
           oi.product_variant_id,
           o.buyer_actor_id AS actor_id,
           COALESCE(o.metadata->>'source', 'MARKETPLACE') AS channel,
-          SUM(
-            COALESCE(
-              (oi.metadata->'priceSnapshot'->>'finalPrice')::numeric,
-              (oi.metadata->>'price')::numeric,
-              0
-            ) * oi.quantity
-          ) AS gross_revenue,
-          SUM(
-            COALESCE(
-              (oi.metadata->'priceSnapshot'->>'discountAmount')::numeric,
-              0
-            )
-          ) AS discounts,
+          MAX(lr.gross_revenue_cents) AS gross_revenue_cents,
+          MAX(COALESCE(lf.platform_fees_cents, 0)) AS platform_fees_cents,
+          MAX(COALESCE(lp.payouts_cents, 0)) AS payouts_cents,
           COUNT(DISTINCT o.id) AS order_count,
-          COUNT(DISTINCT pt.id) AS transaction_count
+          COUNT(DISTINCT o.id) AS transaction_count
         FROM order_items oi
         INNER JOIN orders o ON oi.order_id = o.id
-        INNER JOIN payment_intents pi ON pi.order_id = o.id
-        INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
-        WHERE ${conditions.join(' AND ')}
-          AND pt.status = 'SUCCESS'
-          AND o.createdAt >= $${paramIndex - 1}
-          AND o.createdAt <= $${paramIndex}
-        GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
-      ),
-      platform_fees AS (
-        SELECT
-          oi.product_variant_id,
-          o.buyer_actor_id AS actor_id,
-          COALESCE(o.metadata->>'source', 'MARKETPLACE') AS channel,
-          SUM(ps.amount) AS platform_fees
-        FROM payment_intent_splits ps
-        INNER JOIN payment_intents pi ON ps.payment_intent_id = pi.id
-        INNER JOIN orders o ON pi.order_id = o.id
-        INNER JOIN order_items oi ON oi.order_id = o.id
-        INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
-        WHERE ps.tenant_id = $1
-          AND ps.role = 'PLATFORM'
-          AND pt.status = 'SUCCESS'
-          AND o.createdAt >= $${paramIndex - 1}
-          AND o.createdAt <= $${paramIndex}
-          ${options.productVariantId ? `AND oi.product_variant_id = $${paramIndex - 2}` : ''}
-          ${options.actorId ? `AND o.buyer_actor_id = $${paramIndex - 1}` : ''}
-        GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
-      ),
-      seller_payouts AS (
-        SELECT
-          oi.product_variant_id,
-          o.buyer_actor_id AS actor_id,
-          COALESCE(o.metadata->>'source', 'MARKETPLACE') AS channel,
-          SUM(ps.amount) AS payouts
-        FROM payment_intent_splits ps
-        INNER JOIN payment_intents pi ON ps.payment_intent_id = pi.id
-        INNER JOIN orders o ON pi.order_id = o.id
-        INNER JOIN order_items oi ON oi.order_id = o.id
-        INNER JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
-        WHERE ps.tenant_id = $1
-          AND ps.role = 'SELLER'
-          AND pt.status = 'SUCCESS'
-          AND o.createdAt >= $${paramIndex - 1}
-          AND o.createdAt <= $${paramIndex}
-          ${options.productVariantId ? `AND oi.product_variant_id = $${paramIndex - 2}` : ''}
-          ${options.actorId ? `AND o.buyer_actor_id = $${paramIndex - 1}` : ''}
+        INNER JOIN ledger_revenue lr ON lr.order_id = o.id
+        LEFT JOIN ledger_fees lf ON lf.order_id = o.id
+        LEFT JOIN ledger_payouts lp ON lp.order_id = o.id
+        WHERE o.tenant_id = $1
+          AND o.created_at >= $${paramIndex - 1}
+          AND o.created_at <= $${paramIndex}
+          ${options.productVariantId ? `AND oi.product_variant_id = $2` : ''}
+          ${options.actorId ? `AND o.buyer_actor_id = $${options.productVariantId ? 3 : 2}` : ''}
+          ${options.channel ? `AND o.metadata->>'source' = $${options.productVariantId && options.actorId ? 4 : options.productVariantId || options.actorId ? 3 : 2}` : ''}
         GROUP BY oi.product_variant_id, o.buyer_actor_id, o.metadata->>'source'
       )
       SELECT
         orv.product_variant_id,
         orv.actor_id,
         orv.channel,
-        COALESCE(orv.gross_revenue, 0) AS gross_revenue,
-        COALESCE(orv.discounts, 0) AS discounts,
-        COALESCE(pf.platform_fees, 0) AS platform_fees,
-        COALESCE(sp.payouts, 0) AS payouts,
+        orv.gross_revenue_cents::numeric / 100 AS gross_revenue,
+        -- discounts = 0: desconto embutido no valor final creditado no ledger
+        0::numeric AS discounts,
+        orv.platform_fees_cents::numeric / 100 AS platform_fees,
+        orv.payouts_cents::numeric / 100 AS payouts,
         orv.order_count,
         orv.transaction_count
       FROM order_revenue orv
-      LEFT JOIN platform_fees pf ON 
-        orv.product_variant_id = pf.product_variant_id AND
-        orv.actor_id = pf.actor_id AND
-        orv.channel = pf.channel
-      LEFT JOIN seller_payouts sp ON
-        orv.product_variant_id = sp.product_variant_id AND
-        orv.actor_id = sp.actor_id AND
-        orv.channel = sp.channel
-      ORDER BY orv.gross_revenue DESC
+      ORDER BY orv.gross_revenue_cents DESC
       LIMIT ${options.limit || 100}
       OFFSET ${options.offset || 0}
     `;
