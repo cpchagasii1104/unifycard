@@ -11,28 +11,23 @@ class GroupService {
     createdByActorId: string,
     createdByUserId?: string
   ): Promise<Group> {
-    // Validar parent se fornecido
-    if (input.parentGroupId) {
-      const parent = await groupRepository.getGroupById(tenantId, input.parentGroupId);
-      if (!parent) {
-        throw new Error(`Grupo pai não encontrado: ${input.parentGroupId}`);
-      }
+    if (input.parentGroupId !== undefined) {
+      throw new Error('parentGroupId não é suportado — hierarquia de grupos não implementada');
+    }
+    if (createdByUserId !== undefined) {
+      throw new Error('createdByUserId não é suportado — usar actorId via contexto');
     }
 
     const group = await groupRepository.createGroup(tenantId, {
       name: input.name,
-      parentGroupId: input.parentGroupId || null,
       createdByActorId,
-      createdByUserId: createdByUserId || null,
       metadata: input.metadata || {},
     });
 
-    // Registrar auditoria
     await this.recordAudit(tenantId, {
       eventType: 'GROUP_CREATED',
       groupId: group.id,
       createdByActorId,
-      createdByUserId,
     });
 
     return group;
@@ -52,7 +47,6 @@ class GroupService {
       eventType: string;
       groupId: string;
       createdByActorId: string;
-      createdByUserId?: string | null;
     }
   ): Promise<void> {
     try {
@@ -65,7 +59,6 @@ class GroupService {
         source: 'validation',
         context: {
           group_id: data.groupId,
-          created_by_user_id: data.createdByUserId,
         },
       });
     } catch (error) {
@@ -75,9 +68,3 @@ class GroupService {
 }
 
 export const groupService = new GroupService();
-
-
-
-
-
-
