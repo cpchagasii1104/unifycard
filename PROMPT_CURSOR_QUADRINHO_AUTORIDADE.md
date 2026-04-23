@@ -969,7 +969,7 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 - Desvios encontrados (se houver) + como foram tratados ou reportados
 - Total de linhas alteradas na sessão (soma geral)
 
-**Não declarar FASE 4 concluída.** Ainda faltam C52, C53, C56, e 4 novos gates. **C44** fechado em 2026-04-23 (`2fd1a5ac`). O quadrinho de autoridade fechando é pré-requisito, não fechamento da fase.
+**Não declarar FASE 4 concluída.** Ainda faltam C52, C56, e 4 novos gates. **C44** fechado em 2026-04-23 (`2fd1a5ac`). O quadrinho de autoridade fechando é pré-requisito, não fechamento da fase.
 
 ---
 
@@ -985,7 +985,7 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 Quadrinho de autoridade (C47, C54, C55, C57): FECHADO  
 C44: FECHADO (sessão 2026-04-23)  
 C52: RFC em `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` — DECISION_PENDING (criar ficheiro na aprovação)  
-C53: PENDENTE  
+C53: FIXED (commit 85976e65)  
 C56: PENDENTE  
 4 gates novos da auditoria forense: PENDENTE  
 
@@ -996,6 +996,8 @@ Commits finais da fase:
 - 90b44784 — C54 gates assignment.complete + work-instant.complete  
 - b72e35d2 — C54 remover POST /auto distribution.routes  
 - 2fd1a5ac — C44 group.service bloquear campos fantasmas  
+- 760cc768 — docs: passo5 + quadrinho + RFC C52
+- 85976e65 — C53 strict/permissive catches 42P01
 
 ---
 

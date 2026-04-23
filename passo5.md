@@ -32,6 +32,8 @@ Commits já aplicados (não alterar):
 - 90b44784 — C54: gate em assignment.complete e work-instant.complete
 - b72e35d2 — C54: remover POST /auto de distribution.routes (rota sem actor)
 - 2fd1a5ac — C44: bloquear parentGroupId e createdByUserId em group.service
+- 760cc768 — docs: passo5 + quadrinho + RFC C52 pós-sessão 2026-04-23
+- 85976e65 — C53: strict/permissive em catches 42P01 event-handler e metrics
 
 Arquivos tocados no C54 (sessão anterior):
 
@@ -418,7 +420,7 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 ## REGRAS DE ENCERRAMENTO
 
 1. Não declarar quadrinho fechado. Clayton valida o relatório.
-2. Não declarar FASE 4 concluída. Ainda faltam C52, C53, C56 e 4 gates novos.
+2. Não declarar FASE 4 concluída. Ainda faltam C52, C56 e 4 gates novos.
 3. Se qualquer sweep retornar PARADA: sessão encerra naquele ponto, estado reportado.
 4. Não tentar resolver problemas novos encontrados nos sweeps.
 
@@ -430,7 +432,7 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C57: FIXED
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
 - C52: RFC C52 — path alvo `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` (aguarda 3 perguntas ao BD + aprovação; criar o ficheiro na aprovação)
-- C53: PENDENTE
+- C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: PENDENTE
 - 4 gates novos da auditoria forense: PENDENTE
 
