@@ -5,6 +5,28 @@
 **Data do RFC:** 2026-04-23  
 **Escopo:** decisão arquitetural antes de execução de código ou migrações destrutivas.
 
+**Status:** AGUARDA EXECUÇÃO — diagnóstico completo, E2E obrigatório antes de qualquer código
+
+**Diagnóstico atualizado (2026-04-23):**
+- Writer A (marketplace/payment-intent.repository.ts) está morto por constraint:
+  INSERT sem reference_id, gateway, actor_id (NOT NULL sem default) — falha em runtime
+- Writer B (payments/payment-intent-repository.ts) é o único writer funcional
+- 6 callers ativos do Writer A identificados (todos quebrados silenciosamente):
+  payment-link.routes.ts, governance-financial-action-worker.ts,
+  subscription.service.ts, pdv.service.ts, venue.routes.ts, ticket.service.ts
+- CRM usa apenas listIntentsByOrder (leitura) — não cria, não quebra
+- Consequência: fluxos de payment-link, subscription, PDV, venue, ticket
+  falham silenciosamente ao criar payment intent — sem rastreabilidade financeira
+
+**Pré-requisitos obrigatórios antes de qualquer execução:**
+1. Seed E2E mínima cobrindo pelo menos: payment-link, order, subscription, PDV flow
+2. Mapping dos 6 callers: actorId, referenceId, gateway disponíveis no escopo?
+3. Confirmar comportamento atual: createIntent falha → erro capturado → fluxo continua?
+
+**Escopo real do C52 (revisado):**
+Não é remoção de código morto. É reparação de 6 fluxos financeiros quebrados.
+Exige: unificar writers + garantir que os 6 callers passem actorId/referenceId/gateway.
+
 > **Nota de proveniência:** o texto canónico gerado pelo autor estava referenciado em `/mnt/user-data/outputs/RFC_C52_payment_intents_dual_writer.md` — indisponível para cópia directa neste ambiente. Este ficheiro consolida a análise técnica feita no repositório; substituir integralmente por export oficial se necessário.
 
 ---

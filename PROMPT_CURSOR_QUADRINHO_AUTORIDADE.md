@@ -984,7 +984,10 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 
 Quadrinho de autoridade (C47, C54, C55, C57): FECHADO  
 C44: FECHADO (sessão 2026-04-23)  
-C52: RFC em `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` — DECISION_PENDING (criar ficheiro na aprovação)  
+C52: AGUARDA EXECUÇÃO — Writer A morto por constraint, 6 callers quebrados identificados  
+(payment-link, governance-worker, subscription, pdv, venue, ticket).  
+Pré-requisito: seed E2E + mapping actorId/referenceId/gateway nos 6 callers.  
+RFC: docs/02_decisions/RFC_C52_payment_intents_dual_writer.md  
 C53: FIXED (commit 85976e65)  
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates forenses enumerados (C58-C61):

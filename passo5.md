@@ -441,7 +441,12 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C55: FIXED
 - C57: FIXED
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
-- C52: RFC C52 — path alvo `docs/02_decisions/RFC_C52_payment_intents_dual_writer.md` (aguarda 3 perguntas ao BD + aprovação; criar o ficheiro na aprovação)
+- C52: AGUARDA EXECUÇÃO — diagnóstico completo em sessão 2026-04-23.
+    Writer A morto por constraint NOT NULL (reference_id, gateway, actor_id).
+    6 callers ativos quebrados silenciosamente: payment-link, governance-worker,
+    subscription, pdv, venue, ticket.
+    Pré-requisito: seed E2E + mapping dos 6 callers antes de qualquer código.
+    RFC: docs/02_decisions/RFC_C52_payment_intents_dual_writer.md
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
 - marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero fluxos financeiros ativos. C54 fechado sem asterisco.
