@@ -10,6 +10,8 @@ import { workerService } from '../work/workers/worker.service';
 import { assignmentService } from '../work/assignments/assignment.service';
 import { rbacService } from '@core/rbac/rbac.service';
 import { InstantJobStatus } from './instant.types';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { requireFinancialRiskClearance } from '@modules/risk-identity/risk-financial-gate';
 
 interface StatusParams {
   requestId: string;
@@ -335,13 +337,26 @@ const statusRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
+        // AUTORIDADE: gate financeiro antes de markAsCompleted (INV-FIN)
+        // actorId = customer (quem paga), não o chamador HTTP da rota
+        // LIMITAÇÃO documentada: amountCents calculado no domínio (split.service), não disponível aqui
+        const customerActor = await ensureUserActor(tenantId, request.customerUserId);
+        if (!customerActor?.id) {
+          throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
+        }
+        await requireFinancialRiskClearance(tenantId, {
+          actorId: customerActor.id,
+          action: 'financial_transfer',
+          // amountCents ausente: valor real calculado pelo split.service downstream
+        });
+
         // Chamar serviço padrão de conclusão de assignment do Work
         // Isso dispara automaticamente:
         // - Pagamento via Economy Engine (com SplitEngine)
         // - Review universal via core/reviews
         // - Atualização de reputação via core/reputation
         // - Eventos para Orchestrator/Memory/AI
-        // 
+        //
         // O SplitEngine será usado automaticamente pelo assignmentService.markAsCompleted()
         // e identificará source='work_instant' via metadata
         const completedAssignment = await assignmentService.markAsCompleted(

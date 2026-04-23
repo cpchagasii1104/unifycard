@@ -1,6 +1,9 @@
 // src/modules/work/assignments/assignment.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { assignmentService } from './assignment.service';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { requireFinancialRiskClearance } from '@modules/risk-identity/risk-financial-gate';
 import {
   createAssignmentSchema,
   updateAssignmentSchema,
@@ -63,7 +66,7 @@ const assignmentRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof assignmentIdParamsSchema>;
   }>('/:assignmentId', {
     preHandler: fastify.requirePermission(['work:assignment:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = assignmentIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -72,7 +75,7 @@ const assignmentRoutes: FastifyPluginAsync = async (fastify) => {
     const assignment = await assignmentService.getById(tenantId, assignmentId);
 
     if (!assignment) {
-      return reply.notFound('Assignment not found');
+      throw new NotFoundError('Assignment not found');
     }
 
     return assignment;
@@ -123,6 +126,18 @@ const assignmentRoutes: FastifyPluginAsync = async (fastify) => {
     const tenantId = req.tenant!.id;
     const reviewerUserId = req.user!.id;
     const { assignmentId } = params;
+
+    // AUTORIDADE: gate financeiro antes de markAsCompleted (INV-FIN)
+    // LIMITAÇÃO documentada: amountCents calculado no domínio (split.service), não disponível aqui
+    const reviewerActor = await ensureUserActor(tenantId, reviewerUserId);
+    if (!reviewerActor?.id) {
+      throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
+    }
+    await requireFinancialRiskClearance(tenantId, {
+      actorId: reviewerActor.id,
+      action: 'financial_transfer',
+      // amountCents ausente: valor real calculado pelo split.service downstream
+    });
 
     const result = await assignmentService.markAsCompleted(
       tenantId,
