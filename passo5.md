@@ -451,7 +451,7 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
 - C52: FIXED COMPLETO — E2E PASS (6/6 fluxos). Commits: 69fff82d, 72e63bbe, bd7587d6, 76e4781a, 277c7778, 93fb48db, 224b8132, 9fb52199, 2fc5729c
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
-- C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
+- C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). E2E PASS confirmado.
 - marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero fluxos financeiros ativos. C54 fechado sem asterisco.
 - 4 gates forenses enumerados e resolvidos:
     C58 (callgraph transfer sem gate): FIXED — foi C54 nesta sessão
