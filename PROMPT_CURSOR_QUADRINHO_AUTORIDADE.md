@@ -969,7 +969,7 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 - Desvios encontrados (se houver) + como foram tratados ou reportados
 - Total de linhas alteradas na sessão (soma geral)
 
-**Não declarar FASE 4 concluída.** Ainda faltam C52, C56, e 4 novos gates. **C44** fechado em 2026-04-23 (`2fd1a5ac`). O quadrinho de autoridade fechando é pré-requisito, não fechamento da fase.
+**FASE 4 CONCLUÍDA.** C52, C53, C54, C55, C56, C57, C44, C58-C61 todos FIXED. E2E runtime no primeiro onboarding com usuários reais.
 
 ---
 
@@ -989,7 +989,7 @@ C53: FIXED (commit 85976e65)
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates forenses enumerados (C58-C61):
     C58: FIXED (=C54), C59: FIXED (=C57), C61: FIXED (=C56)
-    C60: PENDENTE (=C52 dual-writer, RFC em docs/02_decisions/)
+    C60: FIXED (=C52 — unificação completa em 224b8132)
     C61-B: DOCUMENTADO (social-group.repository.ts — observabilidade, não decisório)
 marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
 
