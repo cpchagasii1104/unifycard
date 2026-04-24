@@ -2,6 +2,7 @@
 // SPRINT 92: MENU + COMANDA (TAB) + QR ORDERING
 
 import type { FastifyInstance } from 'fastify';
+import type { TabFilters } from './tab.types';
 import { venueMenuService } from './venue-menu.service';
 import { tabService } from './tab.service';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
@@ -138,8 +139,8 @@ const venueAdminRoutes = async (fastify: FastifyInstance) => {
     const tab = await tabService.openTab(
       tenantId,
       { actorId, tableLabel, metadata },
-      contactId,
-      req.user?.id || null
+      contactId ?? undefined,
+      req.user?.id ?? undefined
     );
 
     return reply.status(201).send(tab);
@@ -160,11 +161,11 @@ const venueAdminRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const query = req.query;
 
-    const filters: any = {};
-    if (query.actorId) filters.actorId = query.actorId;
+    const filters: TabFilters = {};
+    if (query.actorId) filters.actorId = String(query.actorId);
     if (query.status) filters.status = query.status;
-    if (query.limit) filters.limit = parseInt(query.limit as string, 10);
-    if (query.offset) filters.offset = parseInt(query.offset as string, 10);
+    if (query.limit !== undefined) filters.limit = Number(query.limit);
+    if (query.offset !== undefined) filters.offset = Number(query.offset);
 
     const tabs = await tabService.listTabs(tenantId, filters);
 
@@ -269,12 +270,12 @@ const venuePublicRoutes = async (fastify: FastifyInstance) => {
             {
               type: contact.taxId && contact.taxId.length === 14 ? 'COMPANY' : 'PERSON',
               name: contact.name,
-              email: contact.email || null,
-              phone: contact.phone || null,
-              taxId: contact.taxId || null,
+              email: contact.email ?? undefined,
+              phone: contact.phone ?? undefined,
+              taxId: contact.taxId ?? undefined,
             },
-            profile.actorId, // Usar actor do estabelecimento como criador
-            null
+            profile.actorId,
+            undefined
           );
           contactId = newContact.id;
         }
@@ -459,20 +460,33 @@ const venuePublicRoutes = async (fastify: FastifyInstance) => {
       return reply.status(404).send({ error: 'Order não encontrado' });
     }
 
-    if (order.status !== 'SUBMITTED') {
+    if (order.status !== 'submitted') {
       return reply.status(400).send({ error: `Order não está em SUBMITTED (status: ${order.status})` });
     }
 
+    // Obter amountCents: reutilizar de intent existente do pedido ou calcular (obrigatório para CreatePaymentIntentInput)
+    const existingIntents = await paymentIntentService.listPaymentIntentsByOrder(tenantId, order.id);
+    const amountCents = existingIntents[0]?.amountCents ?? 0;
+    if (amountCents <= 0) {
+      return reply.status(400).send({ error: 'Pedido sem valor definido; adicione itens ao pedido antes de pagar' });
+    }
+
     // Criar PaymentIntent
-    const intent = await paymentIntentService.createPaymentIntent(tenantId, {
-      orderId: order.id,
-      paymentMethodId,
+    const { createPaymentIntent } = await import('@modules/payments/payment-intent-repository');
+    const intent = await createPaymentIntent(tenantId, {
+      referenceId: order.id,
+      gateway: 'internal',
+      actorId: order.buyerActorId,
+      amountCents,
+      currency: 'BRL',
+      source: 'venue',
       metadata: {
-        source: 'VENUE_QR',
         tab_id: tab.id,
         qr_token: qrToken,
-        contact_id: tab.openedByContactId,
-        payerContactId: tab.openedByContactId,
+        contact_id: tab.openedByContactId ?? undefined,
+        payerContactId: tab.openedByContactId ?? undefined,
+        order_id: order.id,
+        payment_method_id: paymentMethodId ?? undefined,
       },
     });
 
@@ -504,10 +518,8 @@ const venuePublicRoutes = async (fastify: FastifyInstance) => {
       paymentIntentId: authorizedIntent.id,
       transactionId: transaction.id,
       status: transaction.status,
-      paymentMethod: transaction.paymentMethod,
-      // Se PIX, retornar QR code no metadata
-      pixQrCode: transaction.metadata?.pixQrCode || null,
-      // SPRINT 93: Pontos ganhos
+      paymentMethod: paymentMethod ?? (transaction.metadata && typeof transaction.metadata === 'object' && 'paymentMethod' in transaction.metadata ? (transaction.metadata as { paymentMethod?: string }).paymentMethod : undefined),
+      pixQrCode: transaction.metadata?.pixQrCode ?? null,
       earnedPoints,
     });
   });

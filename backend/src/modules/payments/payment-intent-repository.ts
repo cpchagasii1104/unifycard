@@ -38,6 +38,7 @@ interface PaymentIntentRow {
   currency: string;
   status: string;
   metadata: Record<string, unknown>;
+  source?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -50,6 +51,7 @@ export interface CreatePaymentIntentInput {
   currency: string;
   status?: PaymentIntentStatus;
   metadata?: Record<string, unknown>;
+  source?: string; // OPCIONAL — origem do fluxo de negócio
 }
 
 function toIntent(row: PaymentIntentRow): PaymentIntent {
@@ -77,9 +79,9 @@ export async function createPaymentIntent(
   const row = await runQueryWithTenant<PaymentIntentRow>(
     tenantId,
     `INSERT INTO payment_intents (
-       tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-     RETURNING id, tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata, created_at, updated_at`,
+       tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata, source
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+     RETURNING id, tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata, source, created_at, updated_at`,
     [
       tenantId,
       input.referenceId,
@@ -89,6 +91,7 @@ export async function createPaymentIntent(
       input.currency,
       status,
       JSON.stringify(input.metadata ?? {}),
+      input.source ?? null,
     ]
   );
   if (!row) throw new Error('createPaymentIntent: insert failed');

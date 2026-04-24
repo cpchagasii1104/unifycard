@@ -4,6 +4,7 @@
 
 import { pdvSessionRepository } from './pdv.repository';
 import { orderService } from '../marketplace/order.service';
+import type { PaymentCurrency } from '../marketplace/payment-intent.types';
 import type {
   CreatePdvSessionInput,
   ClosePdvSessionInput,
@@ -13,6 +14,14 @@ import type {
   PayOrderFromPdvInput,
   PdvSessionSummary,
 } from './pdv.types';
+import { integerCentsFromDbWire } from '@modules/bank/integer-cents-from-db';
+
+function toPaymentCurrency(value: string): PaymentCurrency {
+  if (value === 'BRL' || value === 'USD' || value === 'EUR' || value === 'TEST') {
+    return value;
+  }
+  return 'BRL';
+}
 
 /**
  * Service para PDV
@@ -217,25 +226,33 @@ class PdvService {
       throw new Error(`Pedido não encontrado: ${input.orderId}`);
     }
 
-    // 3. Submeter pedido se estiver em DRAFT
+    // 3. Submeter pedido se estiver em draft
     let finalOrder = order;
-    if (order.status === 'DRAFT') {
+    if (order.status === 'draft') {
       finalOrder = await orderService.submitOrder(tenantId, input.orderId);
     }
 
-    if (finalOrder.status !== 'SUBMITTED') {
+    if (finalOrder.status !== 'submitted') {
       throw new Error(`Pedido deve estar SUBMITTED para pagamento. Status atual: ${finalOrder.status}`);
     }
 
     // 4. Criar PaymentIntent
-    const { paymentIntentService } = await import('../marketplace/payment-intent.service');
-    const intent = await paymentIntentService.createPaymentIntent(tenantId, {
-      orderId: input.orderId,
-      amountCents: input.amount,
-      currency: input.currency || 'BRL',
+    const { createPaymentIntent } = await import('@modules/payments/payment-intent-repository');
+    const intent = await createPaymentIntent(tenantId, {
+      referenceId: input.orderId,
+      gateway: 'internal',
+      actorId: input.buyerActorId,
+      amountCents: input.amountCents,
+      currency: input.currency ? toPaymentCurrency(input.currency) : 'BRL',
+      source: 'pdv',
+      metadata: {
+        order_id: input.orderId,
+        pdv_session_id: session.id,
+      },
     });
 
     // 5. Autorizar PaymentIntent
+    const { paymentIntentService } = await import('../marketplace/payment-intent.service');
     const authorizedIntent = await paymentIntentService.authorizePaymentIntent(tenantId, intent.id);
 
     // 6. Executar pagamento
@@ -291,7 +308,7 @@ class PdvService {
     interface OrderWithPaymentRow {
       id: string;
       status: string;
-      createdAt: Date;
+      created_at: Date;
       payment_amount: string | null;
       payment_status: string | null;
     }
@@ -302,7 +319,7 @@ class PdvService {
       SELECT 
         o.id,
         o.status,
-        o.createdAt,
+        o.created_at,
         pi.amount as payment_amount,
         pt.status as payment_status
       FROM orders o
@@ -310,7 +327,7 @@ class PdvService {
       LEFT JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
       WHERE o.tenant_id = $1
         AND o.metadata->>'pdv_session_id' = $2
-      ORDER BY o.createdAt ASC
+      ORDER BY o.created_at ASC
       `,
       [tenantId, sessionId]
     );
@@ -319,18 +336,18 @@ class PdvService {
     const orders = orderRows.map((row) => ({
       id: row.id,
       status: row.status,
-      amountCents: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      amountCents: row.payment_amount ? integerCentsFromDbWire(row.payment_amount, 'pdv.payment_amount') : null,
       paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     }));
 
     const totalOrders = orders.length;
     const totalPaid = orders
       .filter((o) => o.paymentStatus === 'SUCCESS')
-      .reduce((sum, o) => sum + (o.amount || 0), 0);
+      .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
     const totalFailed = orders
       .filter((o) => o.paymentStatus === 'FAILED')
-      .reduce((sum, o) => sum + (o.amount || 0), 0);
+      .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
 
     // 4. Fechar sessão e salvar resumo no metadata
     const summary = {
@@ -399,7 +416,7 @@ class PdvService {
     interface OrderWithPaymentRow {
       id: string;
       status: string;
-      createdAt: Date;
+      created_at: Date;
       payment_amount: string | null;
       payment_status: string | null;
     }
@@ -410,7 +427,7 @@ class PdvService {
       SELECT 
         o.id,
         o.status,
-        o.createdAt,
+        o.created_at,
         pi.amount as payment_amount,
         pt.status as payment_status
       FROM orders o
@@ -418,7 +435,7 @@ class PdvService {
       LEFT JOIN payment_transactions pt ON pt.payment_intent_id = pi.id
       WHERE o.tenant_id = $1
         AND o.metadata->>'pdv_session_id' = $2
-      ORDER BY o.createdAt ASC
+      ORDER BY o.created_at ASC
       `,
       [tenantId, sessionId]
     );
@@ -426,18 +443,18 @@ class PdvService {
     const orders = orderRows.map((row) => ({
       id: row.id,
       status: row.status,
-      amountCents: row.payment_amount ? parseFloat(row.payment_amount) : null,
+      amountCents: row.payment_amount ? integerCentsFromDbWire(row.payment_amount, 'pdv.payment_amount') : null,
       paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     }));
 
     const totalOrders = orders.length;
     const totalPaid = orders
       .filter((o) => o.paymentStatus === 'SUCCESS')
-      .reduce((sum, o) => sum + (o.amount || 0), 0);
+      .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
     const totalFailed = orders
       .filter((o) => o.paymentStatus === 'FAILED')
-      .reduce((sum, o) => sum + (o.amount || 0), 0);
+      .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
 
     return {
       session,

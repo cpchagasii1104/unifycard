@@ -134,17 +134,25 @@ class TicketService {
     const submittedOrder = await orderService.submitOrder(tenantId, tempOrder.id);
     
     // Criar PaymentIntent
-    const paymentIntent = await paymentIntentService.createPaymentIntent(tenantId, {
-      orderId: submittedOrder.id,
-      amountCents: ticket.priceCents / 100, // Converter centavos para valor
+    const { createPaymentIntent } = await import('@modules/payments/payment-intent-repository');
+    // BUG-TICKET-001: ticket.priceCents / 100 provavelmente incorreto.
+    // amountCents espera centavos — verificar se priceCents já é em centavos.
+    // Corrigir em sessão dedicada após C52.
+    const paymentIntent = await createPaymentIntent(tenantId, {
+      referenceId: submittedOrder.id,
+      gateway: 'internal',
+      actorId: input.buyerActorId,
+      amountCents: ticket.priceCents / 100,
       currency: toPaymentCurrency(ticket.currency),
-      paymentMethodId: input.paymentMethodId,
+      source: 'ticket',
       metadata: {
         ticket_id: ticketId,
         event_id: ticket.eventId,
         buyer_actor_id: input.buyerActorId,
         referral_code: input.referralCode,
         is_ticket: true,
+        order_id: submittedOrder.id,
+        payment_method_id: input.paymentMethodId,
         ...input.metadata,
       },
     });

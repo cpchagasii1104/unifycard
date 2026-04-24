@@ -1,47 +1,35 @@
 // backend/src/modules/payments/payment-link.routes.ts
 // SPRINT 86: PAYMENT LINKS
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { paymentLinkService } from './payment-link.service';
 import { paymentLinkRepository } from './payment-link.repository';
-import { contactService } from '../marketplace/contact.service';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
-/**
- * Rotas públicas para payment links (sem auth)
- */
 const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * GET /pay/:slug
-   * Retorna dados do link (read-only, público)
-   */
   fastify.get<{ Params: { slug: string } }>('/pay/:slug', async (req, reply) => {
-    // SPRINT 86: Resolver tenant via slug (futuro: pode ter tenant no slug ou metadata)
-    // Por enquanto, assumir que slug é único globalmente ou buscar via metadata
-    // Por simplicidade, vamos buscar em todos os tenants (futuro: otimizar)
-    
-    // Por enquanto, retornar erro se não houver tenant no query param
     const tenantId = (req.query as any)?.tenantId;
     if (!tenantId) {
-      return reply.status(400).send({ error: 'tenantId é obrigatório' });
+      throw new BadRequestError('tenantId is required', ErrorCode.MISSING_TENANT);
     }
 
     const link = await paymentLinkService.getBySlug(tenantId, req.params.slug);
 
     if (!link) {
-      return reply.status(404).send({ error: 'Link não encontrado' });
+      throw new NotFoundError('Link not found');
     }
 
-    // Validar link
     const validation = await paymentLinkService.validateLink(link);
     if (!validation.valid) {
-      return reply.status(400).send({ error: validation.error });
+      throw new BadRequestError(validation.error || 'Invalid link', ErrorCode.VALIDATION_ERROR);
     }
 
     return reply.send({
       id: link.id,
       title: link.title,
       description: link.description,
-      amountCents: link.amount,
+      amountCents: link.amountCents,
       currency: link.currency,
       expiresAt: link.expiresAt?.toISOString() || null,
       maxUses: link.maxUses,
@@ -50,12 +38,6 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
     });
   });
 
-  /**
-   * POST /pay/:slug/intent
-   * Cria PaymentIntent a partir do link
-   * 
-   * SPRINT 86: Rota pública, sem auth
-   */
   fastify.post<{
     Params: { slug: string };
     Body: {
@@ -73,22 +55,19 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
     const { tenantId, contact, paymentMethodId } = req.body;
 
     if (!tenantId) {
-      return reply.status(400).send({ error: 'tenantId é obrigatório' });
+      throw new BadRequestError('tenantId is required', ErrorCode.MISSING_TENANT);
     }
 
-    // 1. Buscar link
     const link = await paymentLinkService.getBySlug(tenantId, slug);
     if (!link) {
-      return reply.status(404).send({ error: 'Link não encontrado' });
+      throw new NotFoundError('Link not found');
     }
 
-    // 2. Validar link
     const validation = await paymentLinkService.validateLink(link);
     if (!validation.valid) {
-      return reply.status(400).send({ error: validation.error });
+      throw new BadRequestError(validation.error || 'Invalid link', ErrorCode.VALIDATION_ERROR);
     }
 
-    // 3. Criar ou buscar contact se fornecido
     let contactId: string | undefined;
     if (contact) {
       try {
@@ -105,26 +84,24 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
             {
               type: contact.taxId && contact.taxId.length === 14 ? 'COMPANY' : 'PERSON',
               name: contact.name,
-              email: contact.email || null,
-              phone: contact.phone || null,
-              taxId: contact.taxId || null,
+              email: contact.email || undefined,
+              phone: contact.phone || undefined,
+              taxId: contact.taxId || undefined,
             },
             link.createdByActorId,
-            null // createdByUserId não disponível em link público
+            undefined
           );
           contactId = newContact.id;
         }
       } catch (contactError) {
-        // Log mas não bloqueia criação de intent
         console.warn('[PaymentLink] Erro ao criar contact:', contactError);
       }
     }
 
-    // 4. Criar order temporário (PaymentIntent requer orderId)
     const { orderService } = await import('../marketplace/order.service');
     const tempOrder = await orderService.createOrder(tenantId, {
-      buyerActorId: link.createdByActorId, // Usar actor do criador como buyer temporário
-      sellerActorId: link.createdByActorId, // Mesmo actor (payment link é recebimento direto)
+      buyerActorId: link.createdByActorId,
+      sellerActorId: link.createdByActorId,
       metadata: {
         is_payment_link: true,
         payment_link_id: link.id,
@@ -133,51 +110,41 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
       },
     });
 
-    // Submeter order (necessário para criar PaymentIntent)
     const submittedOrder = await orderService.submitOrder(tenantId, tempOrder.id);
 
-    // 5. Criar PaymentIntent
-    const { paymentIntentService } = await import('../marketplace/payment-intent.service');
-    const intent = await paymentIntentService.createPaymentIntent(tenantId, {
-      orderId: submittedOrder.id,
-      amountCents: link.amount,
-      currency: link.currency as any,
-      paymentMethodId,
+    const { createPaymentIntent } = await import('./payment-intent-repository');
+    const intent = await createPaymentIntent(tenantId, {
+      referenceId: submittedOrder.id,
+      gateway: 'internal',
+      actorId: link.createdByActorId,
+      amountCents: link.amountCents,
+      currency: link.currency,
+      source: 'payment_link',
       metadata: {
         payment_link_id: link.id,
         payment_link_slug: slug,
-        source: 'PAYMENT_LINK',
         contact_id: contactId,
-        payerContactId: contactId, // SPRINT 0: Para AccountsReceivable
+        payerContactId: contactId,
+        order_id: submittedOrder.id,
+        payment_method_id: paymentMethodId,
       },
     });
 
-    // 6. Autorizar PaymentIntent
+    const { paymentIntentService } = await import('../marketplace/payment-intent.service');
     const authorizedIntent = await paymentIntentService.authorizePaymentIntent(tenantId, intent.id);
 
-    // 7. Registrar pagamento via link (append-only)
-    await paymentLinkRepository.createPayment(
-      tenantId,
-      link.id,
-      authorizedIntent.id,
-      contactId
-    );
+    await paymentLinkRepository.createPayment(tenantId, link.id, authorizedIntent.id, contactId);
 
-    // 8. Retornar métodos disponíveis
-    const availableMethods = ['PIX', 'UNIFYCARD']; // Por enquanto, sempre disponíveis
+    const availableMethods = ['PIX', 'UNIFYCARD'];
 
     return reply.send({
       paymentIntentId: authorizedIntent.id,
       availableMethods,
-      amountCents: link.amount,
+      amountCents: link.amountCents,
       currency: link.currency,
     });
   });
 
-  /**
-   * GET /pay/:slug/status
-   * Consulta status do pagamento
-   */
   fastify.get<{
     Params: { slug: string };
     Querystring: { tenantId: string; paymentIntentId?: string };
@@ -186,26 +153,23 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
     const { tenantId, paymentIntentId } = req.query;
 
     if (!tenantId) {
-      return reply.status(400).send({ error: 'tenantId é obrigatório' });
+      throw new BadRequestError('tenantId is required', ErrorCode.MISSING_TENANT);
     }
 
-    // Buscar link
     const link = await paymentLinkService.getBySlug(tenantId, slug);
     if (!link) {
-      return reply.status(404).send({ error: 'Link não encontrado' });
+      throw new NotFoundError('Link not found');
     }
 
-    // Se paymentIntentId fornecido, buscar status do pagamento
     if (paymentIntentId) {
       const { paymentIntentService } = await import('../marketplace/payment-intent.service');
       const intent = await paymentIntentService.getIntentById(tenantId, paymentIntentId);
 
       if (!intent) {
-        return reply.status(404).send({ error: 'PaymentIntent não encontrado' });
+        throw new NotFoundError('PaymentIntent not found');
       }
 
-      // Buscar transaction se existir
-      const { paymentTransactionRepository } = await import('../marketplace/payment-transaction.repository');
+      const { paymentTransactionRepository } = await import('./payment-transaction.repository');
       const transactions = await paymentTransactionRepository.listTransactionsByIntent(
         tenantId,
         paymentIntentId
@@ -217,31 +181,30 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
         paymentIntent: {
           id: intent.id,
           status: intent.status,
-          amountCents: intent.amount,
+          amountCents: intent.amountCents,
           currency: intent.currency,
         },
         transaction: latestTransaction
           ? {
               id: latestTransaction.id,
               status: latestTransaction.status,
-              amountCents: latestTransaction.amount,
+              amountCents: latestTransaction.amountCents ?? 0,
             }
           : null,
         link: {
           id: link.id,
           title: link.title,
-          amountCents: link.amount,
+          amountCents: link.amountCents,
           usesCount: link.usesCount,
         },
       });
     }
 
-    // Sem paymentIntentId, retornar apenas dados do link
     return reply.send({
       link: {
         id: link.id,
         title: link.title,
-        amountCents: link.amount,
+        amountCents: link.amountCents,
         usesCount: link.usesCount,
         status: link.status,
       },
@@ -250,5 +213,3 @@ const publicPaymentLinkRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default publicPaymentLinkRoutes;
-
-

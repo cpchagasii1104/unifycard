@@ -70,7 +70,7 @@ class SubscriptionService {
       subscriptionId: subscription.id,
       contactId: input.contactId,
       paymentLinkId: input.paymentLinkId,
-      amountCents: input.amount,
+      amountCents: input.amountCents,
       interval: input.interval,
       createdByActorId,
       createdByUserId,
@@ -252,13 +252,13 @@ class SubscriptionService {
           subscription_id: subscription.id,
           payment_link_id: subscription.paymentLinkId,
           contact_id: subscription.contactId,
-          amountCents: subscription.amount,
+          amountCents: subscription.amountCents,
           currency: subscription.currency,
           source: 'SUBSCRIPTION',
         },
       },
       subscription.createdByActorId,
-      subscription.createdByUserId
+      subscription.createdByUserId ?? undefined
     );
   }
 
@@ -314,16 +314,20 @@ class SubscriptionService {
     const submittedOrder = await orderService.submitOrder(tenantId, tempOrder.id);
 
     // Criar PaymentIntent
-    const intent = await paymentIntentService.createPaymentIntent(tenantId, {
-      orderId: submittedOrder.id,
-      amountCents: subscription.amount, // Override do amount do subscription
-      currency: subscription.currency as any,
+    const { createPaymentIntent } = await import('@modules/payments/payment-intent-repository');
+    const intent = await createPaymentIntent(tenantId, {
+      referenceId: submittedOrder.id,
+      gateway: 'internal',
+      actorId: paymentLink.createdByActorId,
+      amountCents: subscription.amountCents,
+      currency: subscription.currency,
+      source: 'subscription',
       metadata: {
         payment_link_id: paymentLink.id,
-        source: 'SUBSCRIPTION',
         subscription_id: subscriptionId,
         contact_id: subscription.contactId,
         payerContactId: subscription.contactId,
+        order_id: submittedOrder.id,
       },
     });
 
@@ -434,14 +438,13 @@ class SubscriptionService {
 
     // Criar alerta se pausou
     if (paused) {
-      const { automationService } = await import('../automation/automation.service');
-      await automationService.createAlert(tenantId, {
-        type: 'SUBSCRIPTION_PAYMENT_FAILED',
-        severity: 'WARNING',
-        title: `Assinatura pausada após ${subscription.maxFailures} falhas`,
-        message: `Assinatura ${subscriptionId} foi pausada após atingir limite de falhas`,
-        referenceType: 'subscription',
-        referenceId: subscriptionId,
+      const { alertService } = await import('../automation/alert.service');
+      await alertService.createAlert(tenantId, {
+        type: 'PAYMENT_FAILED',
+        severity: 'high',
+        message: `Assinatura ${subscriptionId} foi pausada após ${subscription.maxFailures} falhas`,
+        entityType: 'subscription',
+        entityId: subscriptionId,
         metadata: {
           subscription_id: subscriptionId,
           failure_count: subscription.failureCount + 1,
@@ -494,7 +497,12 @@ class SubscriptionService {
   private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: (data.eventType as string) ?? 'SUBSCRIPTION_EVENT',
+        severity: 'medium',
+        source: 'automation',
+        context: data,
+      });
     } catch (error) {
       // Não bloquear se auditoria falhar
       console.warn('[SubscriptionService] Erro ao registrar auditoria:', error);
