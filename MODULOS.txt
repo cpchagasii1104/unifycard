@@ -1,6 +1,6 @@
 ================================================================================
 MODULOS.txt — Inventário + gestão de auditoria (backend/src/modules/)
-Última atualização: 2026-04-23 (FASE 4 concluída — C44/C47/C53/C54/C55/C56/C57 FIXED)
+Última atualização: 2026-04-24 (FASE 4 ENCERRADA — C44/C47/C52/C53/C54/C55/C56/C57 FIXED; E2E PASS 6/6)
 ================================================================================
 
 REGRA DE OURO (replicável)
@@ -336,13 +336,13 @@ ESTADO: FASE 4 — Quadrinho de Autoridade + SSOT Financeiro  (FIXED — 2026-04
     C56 FIXED (5c93766b,17ac88ac,02266c4b) — real-margin.service.ts usa bank_ledger como SSOT
 
   RFCs gerados:
-    C52 DECISION_PENDING — docs/02_decisions/RFC_C52_payment_intents_dual_writer.md
+    C52 FIXED (69fff82d→9fb52199) — payment_intents unificado, 6 callers migrados, CRM migrado, BUG-TICKET-001 corrigido, E2E PASS 6/6 fluxos
     C56 FIXED — docs/02_decisions/RFC_C56_real_margin_viola_ssot.md
 
   Pendentes:
     marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero chamadas ativas a transfer/capture/reverse. C54 fechado sem asterisco.
     4 gates novos da auditoria forense — a enumerar
-    C52 — execução aguarda E2E com seed
+    FASE 4 encerrada 2026-04-24 (commit 872aba6b archive). Artefatos em docs/99_archive/2026-04-24_FASE4_*.md
 
   Commits principais:
     0272141c, c153f27a, 7770f061, 0e4e68c0, 6ac66653, 90b44784, b72e35d2
