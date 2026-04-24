@@ -5,7 +5,8 @@
 **Data do RFC:** 2026-04-23  
 **Escopo:** decisão arquitetural antes de execução de código ou migrações destrutivas.
 
-**Status:** PRONTO PARA EXECUÇÃO — seed E2E criada (036_seed_e2e_c52_payment_intents.sql)
+**Status:** EM EXECUÇÃO — Passos 1-2 concluídos. Passo 3 pendente.
+**Commits executados:** 5ead5090 (seed), 39653c24 (RFC seed), 69fff82d (schema), 72e63bbe (queries)
 
 **Diagnóstico atualizado (2026-04-23):**
 - Writer A (marketplace/payment-intent.repository.ts) está morto por constraint:
