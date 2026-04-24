@@ -1,3 +1,7 @@
+// @deprecated — C52 Passo 4: Writer A desativado. Usar @modules/payments/payment-intent-repository.ts
+// createIntent falha em runtime por constraint NOT NULL (reference_id, gateway, actor_id).
+// Arquivo mantido para referência histórica até E2E validado e cleanup final.
+
 // backend/src/modules/marketplace/payment-intent.repository.ts
 // SPRINT 39.1: MARKETPLACE EXECUÇÃO - Payment Intent
 // Repository para intenções de pagamento

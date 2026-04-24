@@ -1,9 +1,14 @@
+// @deprecated parcial — C52 Passo 4: createPaymentIntent desativado (Writer A removido).
+// Métodos de leitura/autorização mantidos enquanto callers não migrados para Writer B.
+// Remover completamente após E2E validado.
+
 // backend/src/modules/marketplace/payment-intent.service.ts
 // SPRINT 39.1: MARKETPLACE EXECUÇÃO - Payment Intent
 // Service para intenções de pagamento
 
 import { paymentIntentRepository } from './payment-intent.repository';
 import { orderRepository } from './order.repository';
+import { checkCircuitBreaker } from '@modules/circuit-breaker/financial-circuit-breaker-guard';
 import type {
   PaymentIntent,
   CreatePaymentIntentInput,
@@ -32,6 +37,7 @@ class PaymentIntentService {
     tenantId: string,
     input: CreatePaymentIntentInput
   ): Promise<PaymentIntent> {
+    await checkCircuitBreaker(tenantId, 'payments');
     // Verificar se pedido existe e está em SUBMITTED
     const order = await orderRepository.getOrderById(tenantId, input.orderId);
 
@@ -39,7 +45,7 @@ class PaymentIntentService {
       throw new Error(`Pedido não encontrado: ${input.orderId}`);
     }
 
-    if (order.status !== 'SUBMITTED') {
+    if (order.status !== 'submitted') {
       throw new Error(
         `Payment intent só pode ser criado para pedidos SUBMITTED. Status atual: ${order.status}`
       );
