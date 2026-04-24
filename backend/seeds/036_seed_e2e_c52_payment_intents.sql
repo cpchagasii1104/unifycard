@@ -255,13 +255,13 @@ BEGIN
   -- Cria payment_intents com diferentes valores de status
   -- para validar a migracao de normalizacao
 
-  -- payment_link: status CREATED (maiusculo - Writer A)
+  -- payment_link: status CREATED (maiusculo - Writer A) -> normalizado para pending
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
-    v_tenant_id, v_buyer_actor_id, 10000, 'CREATED', 'payment',
+    v_tenant_id, v_buyer_actor_id, 10000, 'pending', 'payment',
     v_order_payment_link::text, 'pix', 'BRL', v_order_payment_link,
     '{"e2e_source": "payment_link", "test": "c52", "status_case": "uppercase"}'::jsonb
   WHERE NOT EXISTS (
@@ -269,13 +269,13 @@ BEGIN
     WHERE metadata @> '{"e2e_source": "payment_link"}'::jsonb
   );
 
-  -- governance: status PENDING (maiusculo)
+  -- governance: status PENDING (maiusculo) -> normalizado para pending
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
-    v_tenant_id, v_buyer_actor_id, 20000, 'PENDING', 'payment',
+    v_tenant_id, v_buyer_actor_id, 20000, 'pending', 'payment',
     v_order_governance::text, 'internal', 'BRL', v_order_governance,
     '{"e2e_source": "governance", "test": "c52", "status_case": "uppercase"}'::jsonb
   WHERE NOT EXISTS (
@@ -285,7 +285,7 @@ BEGIN
 
   -- subscription: status pending (minusculo - Writer B)
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
@@ -297,13 +297,13 @@ BEGIN
     WHERE metadata @> '{"e2e_source": "subscription"}'::jsonb
   );
 
-  -- pdv: status CAPTURED (maiusculo)
+  -- pdv: status CAPTURED (maiusculo) -> normalizado para captured
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
-    v_tenant_id, v_buyer_actor_id, 5000, 'CAPTURED', 'payment',
+    v_tenant_id, v_buyer_actor_id, 5000, 'captured', 'payment',
     v_order_pdv::text, 'pix', 'BRL', v_order_pdv,
     '{"e2e_source": "pdv", "test": "c52", "status_case": "uppercase"}'::jsonb
   WHERE NOT EXISTS (
@@ -311,13 +311,13 @@ BEGIN
     WHERE metadata @> '{"e2e_source": "pdv"}'::jsonb
   );
 
-  -- venue: status completed (minusculo)
+  -- venue: status completed (minusculo) -> normalizado para settled
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
-    v_tenant_id, v_buyer_actor_id, 30000, 'completed', 'payment',
+    v_tenant_id, v_buyer_actor_id, 30000, 'settled', 'payment',
     v_order_venue::text, 'pix', 'BRL', v_order_venue,
     '{"e2e_source": "venue", "test": "c52", "status_case": "lowercase"}'::jsonb
   WHERE NOT EXISTS (
@@ -325,13 +325,13 @@ BEGIN
     WHERE metadata @> '{"e2e_source": "venue"}'::jsonb
   );
 
-  -- ticket: status SETTLED (maiusculo)
+  -- ticket: status SETTLED (maiusculo) -> normalizado para settled
   INSERT INTO payment_intents (
-    tenant_id, actor_id, amount_cents, status, intent_type,
+    tenant_id, actor_id, amount_cents, payment_status, intent_type,
     reference_id, gateway, currency, order_id, metadata
   )
   SELECT
-    v_tenant_id, v_buyer_actor_id, 8000, 'SETTLED', 'payment',
+    v_tenant_id, v_buyer_actor_id, 8000, 'settled', 'payment',
     v_order_ticket::text, 'pix', 'BRL', v_order_ticket,
     '{"e2e_source": "ticket", "test": "c52", "status_case": "uppercase"}'::jsonb
   WHERE NOT EXISTS (
