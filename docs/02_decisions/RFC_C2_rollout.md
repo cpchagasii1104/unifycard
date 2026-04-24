@@ -1,6 +1,6 @@
 # RFC C2 Rollout — Estratégia de Introdução de bank_transactions.concept_id
 
-**Status:** PROPOSTO · aguarda decisão de Clayton · 2026-04-24
+**Status:** DECIDIDO · Opção B · 2026-04-24
 **Dependência:** RFC_C2_bank_transactions_concept_link.md (DECIDIDO: `concept_id`)
 
 ## 1. Contexto
@@ -183,4 +183,6 @@ Só então se escreve:
 
 ## 8. Decisão
 
-_(Aguardando escolha de Clayton)_
+**DECISÃO: Opção B (NULL-first → seed → writers → call sites → NOT NULL)** — 2026-04-24 — Única opção que respeita P2 (atomicidade por passo), admite rollback granular, e explora a vantagem do sistema vazio (Passo 6 sem backfill histórico).
+
+**Observação factual adicional (não muda a decisão):** Os ~63 concepts atualmente seeded cobrem apenas os domínios `servicos` e `item-comercial`. Nenhum
