@@ -5,8 +5,8 @@
 **Data do RFC:** 2026-04-23  
 **Escopo:** decisão arquitetural antes de execução de código ou migrações destrutivas.
 
-**Status:** EM EXECUÇÃO — Passos 1-2 concluídos. Passo 3 pendente.
-**Commits executados:** 5ead5090 (seed), 39653c24 (RFC seed), 69fff82d (schema), 72e63bbe (queries)
+**Status:** EM EXECUÇÃO — Passos 1-3 concluídos. Passo 4 pendente (remover Writer A).
+**Commits:** 5ead5090, 39653c24, 69fff82d, 72e63bbe, bd7587d6
 
 **Diagnóstico atualizado (2026-04-23):**
 - Writer A (marketplace/payment-intent.repository.ts) está morto por constraint:

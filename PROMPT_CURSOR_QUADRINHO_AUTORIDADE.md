@@ -984,10 +984,7 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 
 Quadrinho de autoridade (C47, C54, C55, C57): FECHADO  
 C44: FECHADO (sessão 2026-04-23)  
-C52: EM EXECUÇÃO — Passo 1 (schema migrations) e Passo 2 (queries) concluídos.  
-Passo 3 pendente: atualizar 6 callers para Writer B.  
-Commits: 69fff82d (schema), 72e63bbe (queries).  
-RFC: docs/02_decisions/RFC_C52_payment_intents_dual_writer.md  
+C52: EM EXECUÇÃO — Passos 1-3 concluídos. Passo 4 pendente (remover Writer A). Commit bd7587d6.  
 C53: FIXED (commit 85976e65)  
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates forenses enumerados (C58-C61):
