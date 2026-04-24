@@ -135,14 +135,11 @@ class TicketService {
     
     // Criar PaymentIntent
     const { createPaymentIntent } = await import('@modules/payments/payment-intent-repository');
-    // BUG-TICKET-001: ticket.priceCents / 100 provavelmente incorreto.
-    // amountCents espera centavos — verificar se priceCents já é em centavos.
-    // Corrigir em sessão dedicada após C52.
     const paymentIntent = await createPaymentIntent(tenantId, {
       referenceId: submittedOrder.id,
       gateway: 'internal',
       actorId: input.buyerActorId,
-      amountCents: ticket.priceCents / 100,
+      amountCents: ticket.priceCents,
       currency: toPaymentCurrency(ticket.currency),
       source: 'ticket',
       metadata: {

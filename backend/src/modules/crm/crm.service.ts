@@ -229,15 +229,15 @@ class CrmService {
         id: string;
         status: string;
         total_amount: number;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
-        SELECT o.id, o.status, o.createdAt
+        SELECT o.id, o.status, o.created_at
         FROM orders o
         WHERE o.tenant_id = $1
           AND o.metadata->>'contact_id' = $2
-        ORDER BY o.createdAt DESC
+        ORDER BY o.created_at DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -247,10 +247,10 @@ class CrmService {
         // Buscar payment intent para obter valor
         let orderAmount = 0;
         try {
-          const { paymentIntentRepository } = await import('../marketplace/payment-intent.repository');
-          const intents = await paymentIntentRepository.listIntentsByOrder(tenantId, order.id);
+          const { listPaymentIntentsByOrder } = await import('@modules/payments/payment-intent-repository');
+          const intents = await listPaymentIntentsByOrder(tenantId, order.id);
           if (intents.length > 0) {
-            orderAmount = intents[0].amount;
+            orderAmount = intents[0].amountCents / 100;
           }
         } catch (error) {
           // Ignorar erro
@@ -259,7 +259,7 @@ class CrmService {
         events.push({
           id: `order-${order.id}`,
           type: 'ORDER_CREATED',
-          occurredAt: order.createdAt,
+          occurredAt: order.created_at,
           title: `Pedido criado`,
           description: `Pedido #${order.id.substring(0, 8)}${orderAmount > 0 ? ` - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orderAmount)}` : ''}`,
           metadata: {
@@ -276,18 +276,18 @@ class CrmService {
         if (order.status === 'PAID' || order.status === 'FULFILLED') {
           // Buscar payment transaction via payment intent
           try {
-            const { paymentIntentRepository } = await import('../marketplace/payment-intent.repository');
-            const intents = await paymentIntentRepository.listIntentsByOrder(tenantId, order.id);
+            const { listPaymentIntentsByOrder } = await import('@modules/payments/payment-intent-repository');
+            const { paymentExecutionService } = await import('../marketplace/payment-execution.service');
+            const intents = await listPaymentIntentsByOrder(tenantId, order.id);
             if (intents.length > 0) {
-              const { paymentTransactionRepository } = await import('../marketplace/payment-transaction.repository');
-              const transactions = await paymentTransactionRepository.listTransactionsByIntent(tenantId, intents[0].id);
-              const successTransaction = transactions.find((t) => t.status === 'SUCCESS');
+              const transactions = await paymentExecutionService.getTransactionsByIntent(tenantId, intents[0].id);
+              const successTransaction = transactions.find((t: import('../marketplace/payment-intent.types').PaymentTransaction) => t.status === 'SUCCESS');
               
               if (successTransaction) {
                 events.push({
                   id: `order-paid-${order.id}`,
                   type: 'ORDER_PAID',
-                  occurredAt: successTransaction.updatedAt,
+                  occurredAt: new Date(successTransaction.updatedAt),
                   title: `Pedido pago`,
                   description: `Pagamento confirmado${orderAmount > 0 ? ` - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orderAmount)}` : ''}`,
                   metadata: {
@@ -317,15 +317,15 @@ class CrmService {
       const ticketSaleRows = await runQueriesWithTenant<{
         id: string;
         status: string;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
-        SELECT ts.id, ts.status, ts.createdAt
+        SELECT ts.id, ts.status, ts.created_at
         FROM ticket_sales ts
         WHERE ts.tenant_id = $1
           AND ts.metadata->>'contact_id' = $2
-        ORDER BY ts.createdAt DESC
+        ORDER BY ts.created_at DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -335,7 +335,7 @@ class CrmService {
         events.push({
           id: `ticket-${sale.id}`,
           type: 'TICKET_PURCHASED',
-          occurredAt: sale.createdAt,
+          occurredAt: sale.created_at,
           title: `Ingresso comprado`,
           description: `Ingresso para evento`,
           metadata: {
@@ -360,15 +360,15 @@ class CrmService {
         payment_link_id: string;
         payment_intent_id: string;
         status: string;
-        updatedAt: Date;
+        updated_at: Date;
       }>(
         tenantId,
         `
-        SELECT plp.id, plp.payment_link_id, plp.payment_intent_id, plp.status, plp.updatedAt
+        SELECT plp.id, plp.payment_link_id, plp.payment_intent_id, plp.status, plp.updated_at
         FROM payment_link_payments plp
         WHERE plp.tenant_id = $1
           AND plp.contact_id = $2
-        ORDER BY plp.updatedAt DESC
+        ORDER BY plp.updated_at DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -379,7 +379,7 @@ class CrmService {
           events.push({
             id: `payment-link-${payment.id}`,
             type: 'PAYMENT_LINK_USED',
-            occurredAt: payment.updatedAt,
+            occurredAt: payment.updated_at,
             title: `Link de pagamento usado`,
             description: `Pagamento via link confirmado`,
             metadata: {
@@ -404,16 +404,16 @@ class CrmService {
         id: string;
         amount_cents: number;
         status: string;
-        expectedAt: Date;
-        createdAt: Date;
+        expected_at: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
-        SELECT ar.id, ar.amount_cents, ar.status, ar.expectedAt, ar.createdAt
+        SELECT ar.id, ar.amount_cents, ar.status, ar.expected_at, ar.created_at
         FROM accounts_receivable ar
         WHERE ar.tenant_id = $1
           AND ar.metadata->>'contact_id' = $2
-        ORDER BY ar.createdAt DESC
+        ORDER BY ar.created_at DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -423,9 +423,9 @@ class CrmService {
         events.push({
           id: `receivable-${receivable.id}`,
           type: 'RECEIVABLE_CREATED',
-          occurredAt: receivable.createdAt,
+          occurredAt: receivable.created_at,
           title: `Conta a receber criada`,
-          description: `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receivable.amount_cents / 100)} - Vencimento: ${new Date(receivable.expectedAt).toLocaleDateString('pt-BR')}`,
+          description: `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receivable.amount_cents / 100)} - Vencimento: ${new Date(receivable.expected_at).toLocaleDateString('pt-BR')}`,
           metadata: {
             receivable_id: receivable.id,
             amount_cents: receivable.amount_cents,
@@ -449,16 +449,16 @@ class CrmService {
         document_type: string;
         status: string;
         total_amount: number;
-        createdAt: Date;
-        updatedAt: Date;
+        created_at: Date;
+        updated_at: Date;
       }>(
         tenantId,
         `
-        SELECT fd.id, fd.document_type, fd.status, fd.total_amount, fd.createdAt, fd.updatedAt
+        SELECT fd.id, fd.document_type, fd.status, fd.total_amount, fd.created_at, fd.updated_at
         FROM fiscal_documents fd
         WHERE fd.tenant_id = $1
           AND fd.metadata->>'contact_id' = $2
-        ORDER BY fd.createdAt DESC
+        ORDER BY fd.created_at DESC
         LIMIT 50
         `,
         [tenantId, contactId]
@@ -469,7 +469,7 @@ class CrmService {
           events.push({
             id: `fiscal-draft-${doc.id}`,
             type: 'FISCAL_DRAFT',
-            occurredAt: doc.createdAt,
+            occurredAt: doc.created_at,
             title: `Documento fiscal (rascunho)`,
             description: `${doc.document_type} - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(doc.total_amount)}`,
             metadata: {
@@ -485,7 +485,7 @@ class CrmService {
           events.push({
             id: `fiscal-issued-${doc.id}`,
             type: 'FISCAL_ISSUED',
-            occurredAt: doc.updatedAt,
+            occurredAt: doc.updated_at,
             title: `Documento fiscal emitido`,
             description: `${doc.document_type} - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(doc.total_amount)}`,
             metadata: {
@@ -509,7 +509,7 @@ class CrmService {
       events.push({
         id: `note-${note.id}`,
         type: 'NOTE_ADDED',
-        occurredAt: note.createdAt,
+        occurredAt: new Date(note.createdAt),
         title: `Nota adicionada`,
         description: note.note.substring(0, 100) + (note.note.length > 100 ? '...' : ''),
         metadata: {
@@ -531,7 +531,7 @@ class CrmService {
         events.push({
           id: `tag-${contactTag.id}`,
           type: 'TAG_ASSIGNED',
-          occurredAt: contactTag.createdAt,
+          occurredAt: new Date(contactTag.createdAt),
           title: `Tag atribuída: ${tag.name}`,
           description: null,
           metadata: {
@@ -553,7 +553,7 @@ class CrmService {
         events.push({
           id: `consent-${consent.id}`,
           type: 'CONSENT_CHANGED',
-          occurredAt: consent.updatedAt,
+          occurredAt: new Date(consent.updatedAt),
           title: `Consentimento concedido: ${consent.channel}`,
           description: null,
           metadata: {
@@ -596,11 +596,26 @@ class CrmService {
    */
   private async recordAudit(
     tenantId: string,
-    data: Record<string, any>
+    data: { eventType: string; [key: string]: unknown }
   ): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      const eventType = typeof data.eventType === 'string' ? data.eventType : 'CRM_EVENT';
+      const context: Record<string, unknown> = { ...data };
+      const input: import('@core/audit/audit.service').AuditEventInput = {
+        event_type: eventType,
+        severity: 'low',
+        source: 'impact',
+        context,
+      };
+      const actorId =
+        typeof data.authorActorId === 'string' ? data.authorActorId
+        : typeof data.assignedByActorId === 'string' ? data.assignedByActorId
+        : typeof data.removedByActorId === 'string' ? data.removedByActorId
+        : typeof data.updatedByActorId === 'string' ? data.updatedByActorId
+        : undefined;
+      if (actorId) input.actor_id = actorId;
+      await auditService.record(tenantId, input);
     } catch (error) {
       // Não bloquear se auditoria falhar
       console.warn('[CrmService] Erro ao registrar auditoria:', error);

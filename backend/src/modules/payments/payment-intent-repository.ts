@@ -2,7 +2,7 @@
 // Não altera bank_transactions nem bank_ledger.
 
 import type { PoolClient } from 'pg';
-import { runQueryWithTenant, pool } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, pool } from '@core/database/pool';
 import { checkRateLimit } from '@modules/rate-limit/financial-rate-limit-guard';
 
 /** Status lógico do Payment Intent */
@@ -219,4 +219,24 @@ export async function claimSettledPaymentIntents(
     ['settled', limit]
   );
   return result.rows.map(toIntent);
+}
+
+/**
+ * Lista PaymentIntents por order_id. Usado pelo CRM e outros fluxos de consulta.
+ */
+export async function listPaymentIntentsByOrder(
+  tenantId: string,
+  orderId: string
+): Promise<PaymentIntent[]> {
+  const rows = await runQueriesWithTenant<PaymentIntentRow>(
+    tenantId,
+    `SELECT id, tenant_id, reference_id, gateway, actor_id, amount_cents, currency,
+            payment_status, metadata, source, intent_type, created_at, updated_at
+     FROM payment_intents
+     WHERE tenant_id = $1
+       AND order_id = $2
+     ORDER BY created_at DESC`,
+    [tenantId, orderId]
+  );
+  return rows.map(toIntent);
 }
