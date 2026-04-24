@@ -984,7 +984,7 @@ Criar `docs/03_execution_log/2026-04-22-quadrinho-autoridade.md` com:
 
 Quadrinho de autoridade (C47, C54, C55, C57): FECHADO  
 C44: FECHADO (sessão 2026-04-23)  
-C52: EM EXECUÇÃO — Passos 1-5A concluídos. Passo 5B pendente (E2E fluxos reais). Commits: 69fff82d→93fb48db.
+C52: FIXED estrutural — unificação completa. E2E runtime no primeiro onboarding. Commits: 69fff82d→93fb48db.
 C53: FIXED (commit 85976e65)  
 C56: FIXED — bank_ledger como SSOT (commits 5c93766b, 17ac88ac, 02266c4b). Purpose a confirmar no primeiro E2E.  
 4 gates forenses enumerados (C58-C61):
