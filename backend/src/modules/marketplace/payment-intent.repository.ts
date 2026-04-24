@@ -13,6 +13,7 @@ interface PaymentIntentRow {
   id: string;
   tenant_id: string;
   order_id: string;
+  trace_id: string;
   amount_cents: string;
   currency: string;
   status: string;
@@ -30,9 +31,10 @@ class PaymentIntentRepository {
       id: row.id,
       tenantId: row.tenant_id,
       orderId: row.order_id,
+      traceId: row.trace_id ?? '',
       amountCents: parseInt(row.amount_cents, 10),
       currency: row.currency as any,
-      status: row.status as any,
+      status: (row as any).payment_status ?? row.status as any,
       metadata: row.metadata || null,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
@@ -50,10 +52,10 @@ class PaymentIntentRepository {
       tenantId,
       `
       INSERT INTO payment_intents (
-        tenant_id, order_id, amount_cents, currency, status, metadata
+        tenant_id, order_id, amount_cents, currency, payment_status, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, tenant_id, order_id, amount_cents, currency, status,
+      RETURNING id, tenant_id, order_id, amount_cents, currency, payment_status,
                 metadata, created_at, updated_at
       `,
       [
@@ -83,7 +85,7 @@ class PaymentIntentRepository {
     const row = await runQueryWithTenant<PaymentIntentRow>(
       tenantId,
       `
-      SELECT id, tenant_id, order_id, amount_cents, currency, status,
+      SELECT id, tenant_id, order_id, amount_cents, currency, payment_status,
              metadata, created_at, updated_at
       FROM payment_intents
       WHERE tenant_id = $1 AND id = $2
@@ -105,7 +107,7 @@ class PaymentIntentRepository {
     const rows = await runQueriesWithTenant<PaymentIntentRow>(
       tenantId,
       `
-      SELECT id, tenant_id, order_id, amount_cents, currency, status,
+      SELECT id, tenant_id, order_id, amount_cents, currency, payment_status,
              metadata, created_at, updated_at
       FROM payment_intents
       WHERE tenant_id = $1 AND order_id = $2
@@ -130,7 +132,7 @@ class PaymentIntentRepository {
     let paramIndex = 3;
 
     if (input.status !== undefined) {
-      updates.push(`status = $${paramIndex}`);
+      updates.push(`payment_status = $${paramIndex}`);
       params.push(input.status);
       paramIndex++;
     }
@@ -158,7 +160,7 @@ class PaymentIntentRepository {
       UPDATE payment_intents
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, order_id, amount_cents, currency, status,
+      RETURNING id, tenant_id, order_id, amount_cents, currency, payment_status,
                 metadata, created_at, updated_at
       `,
       params
