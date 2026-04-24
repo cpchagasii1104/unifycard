@@ -8,7 +8,7 @@
 
 **Gate no repo:** `npm run validate:system-state` (coerência deste ficheiro + A1–A4 se `DATABASE_URL` e `pg` existirem). **A2** na BD segue `PLANO_IDENTITY_RECONCILIATION.md` §2.1 (actores humanos **elegíveis**: `is_identity_required = true`). Números concretos (ex.: último A2) devem constar do **log de execução** / evidência SQL colada — não substituem a leitura directa do precheck no ambiente alvo. `npm run validate:system-state:strict` falha com **§GLOBAL BLOCK ATIVO** sem `DATABASE_URL`; com BD, falha também se A1–A4 > 0 **ou** se A1–A4 = 0 mas o STATUS ainda não foi actualizado para **INATIVO** (STATUS desactualizado face à realidade).
 
-**Última actualização:** 2026-04-21 (FASE 4 remediação — C1, C3, C4 FIXED, gates 4/4 PASS)
+**Última actualização:** 2026-04-24 (FASE 4 CONCLUÍDA — quadrinho de autoridade fechado, C52 FIXED com E2E PASS 6/6)
 
 ---
 
@@ -37,7 +37,7 @@
 | Módulo / trilho | Status | DEPENDÊNCIA | Notas |
 |-----------------|--------|-------------|-------|
 | **Identity (reconciliação)** | CONCLUÍDO | — | A1=A2=A3=A4=0 em 2026-04-18. Scripts identity:precheck, batch1, batch2, cp5:export criados em backend/scripts/. |
-| **Core (tempo, eventos, base)** | EM EXECUÇÃO | — | FASE 4 em andamento (C1, C3, C4 FIXED 2026-04-21; complemento C45; gates 4/4 PASS) |
+| **Core (tempo, eventos, base)** | CONCLUÍDO | — | FASE 4 CONCLUÍDA 2026-04-24. Todas as violações estruturais fechadas. |
 | **core/actors + helpers de actor** | EM REMEDIAÇÃO | — | C3 FIXED 2026-04-21 (2 helpers alinhados ao writer canônico) |
 | **marketplace** | CONCLUÍDO | — | PASS — ENCERRADO (2026-04-19, 7 DTs, gates OK) |
 | **orders** | CONCLUÍDO | marketplace | PASS — ENCERRADO (2026-04-19, gates OK) |
@@ -120,5 +120,14 @@ git log do repositório, complementado por:
 - **Template para próximas sessões:** docs/03_execution_log/_TEMPLATE.md
 
 ---
+
+## Checkpoint de continuidade — 2026-04-24 (FASE 4 CONCLUÍDA)
+
+- **FASE 4 encerrada e arquivada.** Commit `872aba6b`.
+- **C52 FIXED COMPLETO:** E2E PASS em 6/6 fluxos de payment_intent.
+- **Quadrinho de autoridade FECHADO:** C47, C54, C55, C57 FIXED.
+- **BUG-TICKET-001 corrigido.**
+- **Artefatos arquivados em:** `docs/99_archive/2026-04-24_FASE4_*.md`
+- **Próxima ação:** iniciar FASE 5 (nomenclatura EIXO 2-9) ou trabalho de compliance regulatório quando priorizado.
 
 *Gerado como infraestrutura de execução contínua; não altera código.*

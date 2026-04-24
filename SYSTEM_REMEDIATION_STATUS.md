@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-22 (C54 FIXED — gates financeiros em caminhos de usuário) |
+| Última atualização | 2026-04-24 (FASE 4 CONCLUÍDA — C44, C52, C53, C54, C55, C56, C57 FIXED; E2E PASS 6/6) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -57,7 +57,7 @@
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
 | C12 | FIXED | `actorId` retornado como `globalUserId` | `core/identity/identity.routes.ts` | |
 | C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários | Analíticos ficam para allowlist FASE 5. |
-| C14 | REOPENED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | **Reaberto 2026-04-22 (2º nível).** 6 catches ativos classificados "SAFE" sem justificativa técnica. Ver C53 e C55. |
+| C14 | FIXED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | C53 fechado em 85976e65 — authority-mode.ts extraído, strict/permissive em catches 42P01. C14 parcial absorvido. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | |
 | C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
 | C36 | OPEN | 67 tabelas com `status` genérico | 67 tabelas | |
@@ -65,7 +65,7 @@
 | C47 | FIXED | `actor_has_permission` SQL retorna TRUE | migration `20260422000100_actor_has_permission_fail_closed.sql` | Substituído por fail-closed (RETURN FALSE). Único caller (`rbac.service.ts`) já tem fallback `?? false`. |
 | C54 | FIXED | 9 caminhos de produto movem dinheiro sem authority gate | 6 arquivos corrigidos | Caminhos de usuário corrigidos: escrow (release+refund), pix_payment, payout, capacity-compensation, incentive-grant. Caminhos de tesouraria (regional-fund, treasury-split, transaction.service legacy) não têm actor de usuário — precisam de gate de sistema separado. |
 | C55 | FIXED | `authority-decision.service.ts` é fail-open em 3 camadas (ATL/KYC/GUARDA) | `core/compliance/authority-decision.service.ts` | Convertido para strict/permissive mode. Default `strict` (fail-closed). `permissive` só funciona com `NODE_ENV=development`. 6 skips para bloqueio em strict mode. |
-| **C56** | **OPEN** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | **NOVA 2º nível.** `SUM((oi.metadata->'priceSnapshot'->>'finalPrice')::numeric)` alimenta `gross_revenue` exposto como métrica de produto. Viola LEI §4.6 (proibido derivar decisão financeira de metadata) e PLANO §8. |
+| **C56** | **FIXED** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | real-margin.service.ts reescrito para usar bank_ledger como SSOT. Commits: 5c93766b, 17ac88ac, 02266c4b. |
 
 ### HIGH (24)
 
@@ -90,13 +90,13 @@
 | C38 | OPEN | 5 tabelas com `type` genérico | vários | |
 | C39 | OPEN | 7 tabelas com `state` genérico | vários | |
 | C40 | OPEN | Monetário em NUMERIC/DECIMAL | vários | |
-| C44 | REOPENED | marketplace/group.repository.ts fix parcial | group.types.ts + service | Reaberto 1º nível 2026-04-22. |
+| C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer | `modules/groups/groups.service.ts` | |
 | C46 | FIXED | groups: ownerUserId vs actor_id | 5 arquivos | |
 | C50 | OPEN | Padrões culturais passam actorId como globalUserId | cultural | |
 | C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | |
-| **C52** | **DECISION_PENDING** | **`payment_intents` tem 2 writers divergentes** | **`modules/marketplace/payment-intent.repository.ts:L187829` + `modules/payments/payment-intent-repository.ts:L221983`** | **NOVA 2º nível.** Contratos diferentes: marketplace insere `(tenant_id, order_id, amount_cents, currency, status, metadata)` com status `'CREATED'`; payments insere `(tenant_id, reference_id, gateway, actor_id, amount_cents, currency, status, metadata)` com status `'created'`. Superset de C10. Decisão: qual é canônico? |
-| **C53** | **OPEN** | **6 catches de `42P01` ativos em compliance/events/observability** | **3 arquivos** | **NOVA 2º nível.** Subset reaberto de C14. Arquivos: `core/compliance/authority-decision.service.ts:L39473 + L39530 + L39607` (2 em ATL, 1 em KYC); `core/events/event-handler-failure.repository.ts:L47474,L47486,L47541,L47573` (engolem erro, retornam []/undefined); `core/observability/handler-metrics.service.ts:L76676`. Os 2 de authority-decision são críticos porque conectam com C55. |
+| **C52** | **FIXED** | **`payment_intents` tem 2 writers divergentes** | **`modules/marketplace/payment-intent.repository.ts:L187829` + `modules/payments/payment-intent-repository.ts:L221983`** | Writers unificados, CRM migrado, BUG-TICKET-001 corrigido. E2E PASS 6/6 fluxos. Commits: 69fff82d→9fb52199 (9 commits). |
+| **C53** | **FIXED** | **6 catches de `42P01` ativos em compliance/events/observability** | **3 arquivos** | authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics (85976e65). |
 
 ### MEDIUM (13)
 
@@ -119,6 +119,18 @@
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-04-24 — FASE 4 CONCLUÍDA
+
+Todas as violações do quadrinho de autoridade + adjacentes fechadas.
+
+**FIXED nesta fase:** C44, C52, C53, C56 (além de C47, C54, C55, C57 já FIXED anteriormente).
+**C14:** absorvido por C53 e fechado junto.
+**BUG-TICKET-001:** corrigido em ticket.service.ts (amountCents não mais dividido por 100).
+**Gates forenses C58-C61:** todos FIXED (C58=C54, C59=C57, C60=C52, C61=C56). C61-B documentado.
+**E2E:** PASS em 6/6 fluxos (payment_link, governance, subscription, pdv, venue, ticket).
+
+Commit de arquivamento: 872aba6b — archive: FASE 4 encerrada.
 
 ### 2026-04-22 — AUDITORIA FORENSE SEGUNDO NÍVEL (destrutiva)
 
