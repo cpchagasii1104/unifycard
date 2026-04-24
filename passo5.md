@@ -438,7 +438,7 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 ## REGRAS DE ENCERRAMENTO
 
 1. Não declarar quadrinho fechado. Clayton valida o relatório.
-2. Não declarar FASE 4 concluída. Ainda faltam C52, C56 e 4 gates novos.
+2. FASE 4 CONCLUÍDA — C52, C53, C54, C55, C56, C57, C44, C58-C61 todos FIXED. E2E PASS 6/6 fluxos.
 3. Se qualquer sweep retornar PARADA: sessão encerra naquele ponto, estado reportado.
 4. Não tentar resolver problemas novos encontrados nos sweeps.
 
@@ -449,14 +449,14 @@ git commit -m "docs(authority): relatório PASSO 5 — validação global quadri
 - C55: FIXED
 - C57: FIXED
 - C44: FIXED (group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente)
-- C52: FIXED COMPLETO — E2E PASS (6/6 fluxos). Commits: 69fff82d, 72e63bbe, bd7587d6, 76e4781a, 277c7778, 93fb48db, 224b8132, 9fb52199
+- C52: FIXED COMPLETO — E2E PASS (6/6 fluxos). Commits: 69fff82d, 72e63bbe, bd7587d6, 76e4781a, 277c7778, 93fb48db, 224b8132, 9fb52199, 2fc5729c
 - C53: FIXED (authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics — commit 85976e65)
 - C56: FIXED — bank_ledger como SSOT de receita (commits 5c93766b, 17ac88ac, 02266c4b). Callers não requerem alteração. Purpose a confirmar no primeiro E2E com dados reais.
 - marketplace-orders.service.ts: AUDITADO LIMPO 2026-04-23 — zero fluxos financeiros ativos. C54 fechado sem asterisco.
 - 4 gates forenses enumerados e resolvidos:
     C58 (callgraph transfer sem gate): FIXED — foi C54 nesta sessão
     C59 (FKs SSOT ausentes): FIXED — foi C57 (authority_roots→actors)
-    C60 (múltiplos writers por tabela): PENDENTE — mapeado como C52 (payment_intents dual-writer, RFC gerado)
+    C60 (múltiplos writers por tabela): FIXED — resolvido como C52 (payment_intents unificado, E2E PASS)
     C61 (::numeric sobre metadata monetária): FIXED — foi C56 (real-margin reescrito)
     C61-B (metadata monetária em observabilidade social): DOCUMENTADO — social-group.repository.ts linha ~249, comentário adicionado, não decisório, FASE 5
 
