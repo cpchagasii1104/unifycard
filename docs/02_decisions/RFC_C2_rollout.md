@@ -185,4 +185,4 @@ Só então se escreve:
 
 **DECISÃO: Opção B (NULL-first → seed → writers → call sites → NOT NULL)** — 2026-04-24 — Única opção que respeita P2 (atomicidade por passo), admite rollback granular, e explora a vantagem do sistema vazio (Passo 6 sem backfill histórico).
 
-**Observação factual adicional (não muda a decisão):** Os ~63 concepts atualmente seeded cobrem apenas os domínios `servicos` e `item-comercial`. Nenhum
+**Observação factual adicional (não muda a decisão):** Os ~63 concepts atualmente seeded cobrem apenas os domínios `servicos` e `item-comercial`. Nenhum concept de operação financeira (payout, escrow, split, p2p, treasury, etc.) está cadastrado. O RFC de seed de concepts financeiros (próximo passo) terá trabalho real de taxonomia, não só de organização.
