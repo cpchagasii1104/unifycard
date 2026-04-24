@@ -1,8 +1,10 @@
 # CATEGORY_TREE_CONSTITUTION
 
+> **AVISO (2026):** Documento **arquivado**. SSOT estrutural da árvore: `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md`. A regra 3 abaixo foi **corrigida** para alinhar ao core (`CategoryModel.normalizePath`); não usar este ficheiro como fonte primária.
+
 ## 1. Propósito
 
-Este documento define **a constituição canônica da árvore de categorias** do sistema Unificard.
+Este documento descreve **princípios históricos** da árvore de categorias do Unificard (referência apenas).
 
 Ele existe para **impedir a criação de árvores paralelas**, **eliminar regras silenciosas**, e **garantir previsibilidade** para:
 - backend
@@ -47,7 +49,7 @@ A árvore é definida **exclusivamente** pelos seguintes campos:
 
 1. `parent_id` define hierarquia
 2. `level` é derivado de `parent_id`
-3. `path` representa o caminho completo desde a raiz
+3. `path` (persistência canónica): apenas slugs dos **ancestrais** (da raiz até ao pai), **sem** o slug do próprio nó. Após normalização no core, **`path.length === level`** (ex.: `level 0` → `[]`, `level 1` → `[raiz]`, `level 2` → `[raiz, pai]`). Exibição “completa” na UI: composição a partir de `path` + nó atual ou `fullPathLabel` — ver `CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` §1.1.
 4. **Nenhuma outra coluna pode redefinir hierarquia**
 
 ❌ Proibido usar para definir estrutura:
