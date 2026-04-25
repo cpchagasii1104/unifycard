@@ -165,6 +165,7 @@ export async function executeSplit(params: ExecuteSplitParams): Promise<void> {
         referenceId: `${settlementId}_system_reserve`,
         treasurySource: 'treasury:distribution',
         authorship,
+        concept_id: 'treasury-system-reserve-distribution',
       });
       await createProcessedDistribution(tenantId, {
         treasuryAccountId: dest.id,
