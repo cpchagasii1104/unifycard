@@ -80,14 +80,20 @@ ADD COLUMN concept_id UUID REFERENCES concepts(concept_id);
 Garantir que existem concepts para todos os domínios financeiros usados pelos call sites.
 (Já parcialmente cumprido pelas migrations existentes.)
 
-**Passo 3 — Atualizar writers**
-Modificar `bank-transaction.service.ts` e `bank-ledger.service.ts`:
-- Adicionar `concept_id` como campo obrigatório no DTO de entrada
-- Incluir `concept_id` nos INSERTs
+**Passo 3 — Introduzir concept_id nos writers (3 sub-passos atômicos)**
+
+*Passo 3-A:* Adicionar `concept_id: string | undefined` ao DTO (`CreateBankTransactionInput` em `bank-transaction.types.ts`) + runtime `throw CONCEPT_ID_REQUIRED` se `undefined` chegar ao INSERT em qualquer writer.
+Done: build compila (campo opcional no tipo); ausência falha visivelmente com stack trace rastreável; zero NULL silencioso no ledger. P2 respeitado (commit autônomo e revertível).
+
+*Passo 3-B:* Atualizar os ~23 arquivos call sites, um a um (ou em lotes por domínio), passando `concept_id` resolvido conforme mapeamento do RFC de seed.
+Done por arquivo: build verde + runtime guard nunca disparado naquele call site.
+Done global: `grep -r "concept_id: undefined"` no codebase retorna vazio.
+
+*Passo 3-C:* Tornar `concept_id: string` (remover `| undefined` do DTO). Manter o runtime `throw` como **defensive invariant permanente** — cobre chamadas dinâmicas, dados externos e qualquer bypass fora do sistema de tipos.
+Done: TS impede omissão em compile-time; runtime guard permanece ativo como segunda camada. Só executável após 3-B done global.
 
 **Passo 4 — Atualizar call sites**
-Um por um (ou em lotes pequenos), atualizar os ~23 arquivos para passar `concept_id` real.
-Cada lote é um commit atômico.
+(Incorporado ao Passo 3-B acima.)
 
 **Passo 5 — Validação E2E**
 Gate CI: verificar que 100% dos INSERTs em bank_transactions têm concept_id NOT NULL.
@@ -180,9 +186,14 @@ Só então se escreve:
 - Nome do parâmetro TypeScript nos writers (pode ser `conceptId` ou `concept_id`)
 - Política de imutabilidade pós-emissão fiscal (COMPLIANCE §B)
 - Coexistência com `purpose` (enum `transfer_purpose`) — pode ser deprecado depois
+- Remoção do runtime guard (manter como defensive invariant permanente — TS não cobre chamadas dinâmicas)
 
 ## 8. Decisão
 
 **DECISÃO: Opção B (NULL-first → seed → writers → call sites → NOT NULL)** — 2026-04-24 — Única opção que respeita P2 (atomicidade por passo), admite rollback granular, e explora a vantagem do sistema vazio (Passo 6 sem backfill histórico).
 
 **Observação factual adicional (não muda a decisão):** Os ~63 concepts atualmente seeded cobrem apenas os domínios `servicos` e `item-comercial`. Nenhum concept de operação financeira (payout, escrow, split, p2p, treasury, etc.) está cadastrado. O RFC de seed de concepts financeiros (próximo passo) terá trabalho real de taxonomia, não só de organização.
+
+## 9. Refinamento — 2026-04-24
+
+O Passo 3 original ("tornar concept_id obrigatório no DTO antes de atualizar call sites") foi refinado em 3 sub-passos (3-A, 3-B, 3-C) para preservar atomicidade commit-a-commit. O Passo 4 original foi incorporado ao Passo 3-B. A sequência de passos do rollout não muda — apenas a execução interna do Passo 3 foi detalhada.
