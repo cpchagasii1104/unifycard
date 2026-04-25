@@ -138,6 +138,7 @@ export async function executeSplit(params: ExecuteSplitParams): Promise<void> {
         referenceId: `${settlementId}_community_fund`,
         treasurySource: 'treasury:distribution',
         authorship,
+        concept_id: 'treasury-community-fund-distribution',
       });
       await createProcessedDistribution(tenantId, {
         treasuryAccountId: dest.id,
