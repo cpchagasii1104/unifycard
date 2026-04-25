@@ -163,6 +163,7 @@ class EscrowService {
         description: `Release milestone ${input.milestone} escrow ${escrowId}`,
         transactionType: 'transfer',
         authorship: buildSystemAuthorship({ actingForAccountId: escrowBankAccount.accountId }),
+        concept_id: 'escrow-release-to-recipient',
       });
 
       bankTransactionId = bankTx.transactionId;
