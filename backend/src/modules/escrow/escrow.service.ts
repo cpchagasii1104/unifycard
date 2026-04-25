@@ -252,6 +252,7 @@ class EscrowService {
         description: input.reason,
         transactionType: 'transfer',
         authorship: buildSystemAuthorship({ actingForAccountId: escrowBankAccount.accountId }),
+        concept_id: 'escrow-refund-to-payer',
       });
 
       bankTransactionId = bankTx.transactionId;
