@@ -91,6 +91,11 @@ export interface CreateBankTransactionInput {
    */
   treasurySource?: TreasuryOperationSource;
   /**
+   * C2: FK para concepts(concept_id) — SSOT semântico da operação financeira.
+   * Opcional no tipo em 3-A (runtime throw no writer); obrigatório em 3-C.
+   */
+  concept_id?: string;
+  /**
    * Contexto de autoria (OBRIGATÓRIO - REGRA INQUEBRÁVEL)
    * Hard fail no código se não fornecido
    */

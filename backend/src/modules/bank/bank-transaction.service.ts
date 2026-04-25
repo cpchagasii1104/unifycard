@@ -214,6 +214,7 @@ class BankTransactionService {
       referenceType,
       referenceId,
       orderId,
+      concept_id,
       authorship,
     } = input;
 
@@ -228,6 +229,11 @@ class BankTransactionService {
 
     if (amountCents <= 0) {
       throw new Error('Amount must be greater than zero');
+    }
+
+    // C2: concept_id obrigatório (runtime guard)
+    if (concept_id === undefined) {
+      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
     try {
@@ -512,24 +518,24 @@ class BankTransactionService {
           transactionResult = await client.query<BankTransactionRow>(
             `
         INSERT INTO bank_transactions (
-          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, counterpart_account_id, order_id
+          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, counterpart_account_id, order_id, concept_id
         )
-        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8, $9, $10)
         RETURNING id, tenant_id, actor_id, account_id, amount_cents, purpose, reference_type, reference_id, internal_completed_at, created_at
         `,
-            [tenantId, actorId, fromAccountId, amountCents, justification, refType, refId, toAccountId, orderId ?? null]
+            [tenantId, actorId, fromAccountId, amountCents, justification, refType, refId, toAccountId, orderId ?? null, concept_id]
           );
         } catch (inner: unknown) {
           if (!isCounterpartColumnMissing(inner)) throw inner;
           transactionResult = await client.query<BankTransactionRow>(
             `
         INSERT INTO bank_transactions (
-          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, order_id
+          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, order_id, concept_id
         )
-        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8, $9)
         RETURNING id, tenant_id, actor_id, account_id, amount_cents, purpose, reference_type, reference_id, internal_completed_at, created_at
         `,
-            [tenantId, actorId, fromAccountId, amountCents, justification, refType, refId, orderId ?? null]
+            [tenantId, actorId, fromAccountId, amountCents, justification, refType, refId, orderId ?? null, concept_id]
           );
         }
         row = transactionResult.rows[0];
@@ -901,6 +907,7 @@ class BankTransactionService {
       transactionType: BankTransactionType;
       description?: string;
       metadata?: Record<string, any>;
+      concept_id?: string;
       authorship: FinancialAuthorshipContext; // Agora obrigatório
     }
   ): Promise<{
@@ -917,6 +924,7 @@ class BankTransactionService {
       transactionType,
       description,
       metadata,
+      concept_id,
       authorship,
     } = input;
 
@@ -924,6 +932,11 @@ class BankTransactionService {
     const refId = String(eventId).trim();
     if (!refT || !refId) {
       throw new Error('BANK_REFERENCE_REQUIRED');
+    }
+
+    // C2: concept_id obrigatório (runtime guard)
+    if (concept_id === undefined) {
+      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
     const client = await getClientWithTenant(tenantId);
@@ -1027,12 +1040,12 @@ class BankTransactionService {
       const transactionResult = await client.query<BankTransactionRow>(
         `
         INSERT INTO bank_transactions (
-          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id
+          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id
         )
-        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7)
+        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8)
         RETURNING id, tenant_id, actor_id, account_id, amount_cents, purpose, reference_type, reference_id, internal_completed_at, created_at
         `,
-        [tenantId, actorId, accountIdForRow, amountCents, justificationSimple, refT, refId]
+        [tenantId, actorId, accountIdForRow, amountCents, justificationSimple, refT, refId, concept_id]
       );
 
       const txId = transactionResult.rows[0].id;
@@ -1175,6 +1188,7 @@ class BankTransactionService {
       fromUserId?: string;
       description?: string;
       metadata?: Record<string, any>;
+      concept_id?: string;
       authorship: FinancialAuthorshipContext; // Agora obrigatório
     }
   ): Promise<{
@@ -1192,8 +1206,14 @@ class BankTransactionService {
       fromUserId,
       description,
       metadata,
+      concept_id,
       authorship,
     } = input;
+
+    // C2: concept_id obrigatório (runtime guard)
+    if (concept_id === undefined) {
+      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
+    }
 
     const client = await getClientWithTenant(tenantId);
 
@@ -1276,12 +1296,12 @@ class BankTransactionService {
       const transactionResult = await client.query<BankTransactionRow>(
         `
         INSERT INTO bank_transactions (
-          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id
+          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id
         )
-        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7)
+        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8)
         RETURNING id, tenant_id, actor_id, account_id, amount_cents, purpose, reference_type, reference_id, internal_completed_at, created_at
         `,
-        [tenantId, actorId, fromAccountId, amountCents, justificationSplit, splitRefType, splitRefId]
+        [tenantId, actorId, fromAccountId, amountCents, justificationSplit, splitRefType, splitRefId, concept_id]
       );
 
       const txId = transactionResult.rows[0].id;
@@ -1409,6 +1429,7 @@ class BankTransactionService {
       }>;
       description: string;
       metadata?: Record<string, any>;
+      concept_id?: string;
       authorship: FinancialAuthorshipContext;
     }
   ): Promise<{
@@ -1426,6 +1447,7 @@ class BankTransactionService {
       splitLines,
       description,
       metadata = {},
+      concept_id,
       authorship,
     } = input;
 
@@ -1437,6 +1459,11 @@ class BankTransactionService {
       throw new Error(
         `Split sum ${sumSplits} must equal transaction amountCents ${amountCents}`
       );
+    }
+
+    // C2: concept_id obrigatório (runtime guard)
+    if (concept_id === undefined) {
+      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
     const client = await getClientWithTenant(tenantId);
@@ -1490,9 +1517,9 @@ class BankTransactionService {
       const transactionResult = await client.query<BankTransactionRow>(
         `
         INSERT INTO bank_transactions (
-          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id
+          tenant_id, actor_id, account_id, amount_cents, purpose, justification, reference_type, reference_id, concept_id
         )
-        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7)
+        VALUES ($1, $2, $3, $4, 'execution', $5, $6, $7, $8)
         RETURNING id, tenant_id, actor_id, account_id, amount_cents, purpose, reference_type, reference_id, internal_completed_at, created_at
         `,
         [
@@ -1503,6 +1530,7 @@ class BankTransactionService {
           justification,
           referenceType,
           referenceId,
+          concept_id,
         ]
       );
 
