@@ -232,7 +232,7 @@ class BankTransactionService {
     }
 
     // C2: concept_id obrigatório (runtime guard)
-    if (concept_id === undefined) {
+    if (input.concept_id === undefined) {
       throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
@@ -935,7 +935,7 @@ class BankTransactionService {
     }
 
     // C2: concept_id obrigatório (runtime guard)
-    if (concept_id === undefined) {
+    if (input.concept_id === undefined) {
       throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
@@ -1211,7 +1211,7 @@ class BankTransactionService {
     } = input;
 
     // C2: concept_id obrigatório (runtime guard)
-    if (concept_id === undefined) {
+    if (input.concept_id === undefined) {
       throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
@@ -1462,7 +1462,7 @@ class BankTransactionService {
     }
 
     // C2: concept_id obrigatório (runtime guard)
-    if (concept_id === undefined) {
+    if (input.concept_id === undefined) {
       throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
     }
 
