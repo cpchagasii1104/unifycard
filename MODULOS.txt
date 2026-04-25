@@ -10,6 +10,166 @@ REGRA DE OURO (replicável)
   Norma actor-centric (rastreabilidade / responsabilidade): docs/01_normative/ACTOR_TRACEABILITY_CONTRACT.md
 
 --------------------------------------------------------------------------------
+DECISÕES TRANSVERSAIS — SSOT DE ACOPLAMENTO SISTÊMICO
+--------------------------------------------------------------------------------
+Invariantes que atravessam múltiplos módulos. Nenhum módulo pode violar
+estas regras. Se um módulo passar nos gates locais mas violar uma destas
+regras, o módulo está errado — não a regra.
+
+Em conflito com implementações locais: prevalece esta seção.
+Alterações aqui exigem RFC formal em docs/02_decisions/.
+
+Referências normativas:
+  docs/01_normative/LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+  docs/01_normative/07_NOMENCLATURA_CANONICA.md
+  docs/01_normative/SSOT_REGISTRY_UNIFICARD.md
+  governanca_de_sistema_e_prevencao_de_regressao.md (raiz)
+
+--------------------------------------------------------------------------------
+T1 — IDENTIDADE CANÔNICA (actors)
+--------------------------------------------------------------------------------
+  Writer canônico:    ensureUserActor(tenantId, userId) em
+                      @modules/identity/actor-writer.service
+  Status:             FIXED (FASE 4)
+  FK em fluxos novos: actor_id → actors(id)
+  Legado convivente:  user_id → users (ainda presente em rides; auditar caso a
+                      caso antes de mudar)
+  Proibido:           - actorRepository.findOrCreate fora do writer service
+                      - múltiplas fontes de identidade operacional
+                      - decisões financeiras a partir de users sem ensureUserActor
+  Gate CI:            validate:actor-writer-boundaries
+  Violações fechadas: C3, C8, C44, C45 (ver módulos individuais)
+
+--------------------------------------------------------------------------------
+T2 — CONCEPT_ID EM BANK_TRANSACTIONS (EM EXECUÇÃO)
+--------------------------------------------------------------------------------
+  Campo:              bank_transactions.concept_id UUID
+  FK:                 → concepts(concept_id) ON DELETE RESTRICT
+  RFC base:           docs/02_decisions/RFC_C2_rollout.md (Opção B — NULL-first)
+  RFCs auxiliares:    docs/02_decisions/RFC_C2_bank_transactions_concept_link.md
+                      docs/02_decisions/RFC_C2_seed_concepts_financeiros.md
+                      (24 concepts em 7 domínios financeiros)
+  Regra:              todo INSERT em bank_transactions deve declarar concept_id;
+                      sem concept_id válido, a operação financeira carece de
+                      significado (LEI §4.10.6).
+  Proibido:           - inferir concept_id por contexto implícito
+                      - default automático / fallback de concept_id
+                      - omitir concept_id em qualquer call site de produção
+                      - usar placeholder (ex: "SCRIPT E2E") como concept
+  Resolução do concept_id em runtime — categorias permitidas:
+                      - LITERAL (hardcoded no call site, ex: "literal 'escrow-hold'")
+                      - BRANCH_CONDITIONAL (if/switch dentro do método —
+                        a condição exata deve ser citada, ex:
+                        "if (referenceType === 'event_ticket')")
+                      - PARAM (vem de parâmetro da função — citar nome,
+                        ex: "input.referenceType")
+                      - METADATA (vem de campo de contexto/evento — citar
+                        caminho, ex: "event.metadata.kind")
+                      - PROPAGATED (wrapper que apenas repassa do caller —
+                        ex: "input.concept_id (propagated from caller)")
+  Estado de execução:
+    Passo 1 (ADD COLUMN NULL + FK + índice):       e1cd8032 ✅
+    Passo 2 (Seed 24 concepts + 7 domains):        096ff94b ✅
+    Passo 3-A (DTO + runtime guards + INSERTs):    175a73c5 ✅
+    Passo 3-A hardening (input.concept_id):        4c8adb1a ✅
+    RFC rollout refinado (sub-passos 3-A/3-B/3-C): abddab6d ✅
+    Passo 3-B (34 paths em produção propagam):     🔴 EM EXECUÇÃO
+    Passo 3-C (tipo obrigatório no DTO):           🔴
+    Passo 5 (Gate CI zero NULLs):                  🔴
+    Passo 6 (ALTER COLUMN SET NOT NULL):           🔴 fecha T2
+  Branch:             rescue-structural
+  Fora do escopo 3-B: 3 scripts E2E (rodam só em dev/CI; documentados como
+                      dívida pós-C2 — ajustar antes do Passo 6)
+
+--------------------------------------------------------------------------------
+T3 — SSOT FINANCEIRO
+--------------------------------------------------------------------------------
+  SSOT único:         bank_ledger + bank_transactions (modules/bank/, core/unifybank/)
+  Acesso externo:     apenas via bankTransactionService ou bankIntegrationService
+  Proibido:           - INSERT/UPDATE direto em bank_* fora de modules/bank/
+                      - saldos primários persistidos fora do bank
+                      - ledgers paralelos (social-ledger BLOQUEADO em FASE 5.1)
+  Gate CI:            validate:bank-ledger-boundaries
+  Norma:              SSOT_REGISTRY_UNIFICARD.md §5.2-5.5
+
+--------------------------------------------------------------------------------
+T4 — NOMENCLATURA DE FK
+--------------------------------------------------------------------------------
+  Padrão (fluxos novos):
+                      actor_id            → actors(id)
+                      bank_account_id     → bank_accounts(id)
+                      bank_transaction_id → bank_transactions(id)
+                      concept_id          → concepts(concept_id)
+  Legado convivente:  user_id em módulos antigos (rides, alguns scripts) —
+                      não migrar sem RFC dedicado; auditar caso a caso
+  Proibido:           - account_id genérico fora do domínio bank
+                      - introduzir user_id em fluxos financeiros novos
+                      - FK sem nome explícito (sempre <entidade>_id, nunca id_x)
+  Norma:              07_NOMENCLATURA_CANONICA.md §4.4
+
+--------------------------------------------------------------------------------
+T5 — VALORES MONETÁRIOS
+--------------------------------------------------------------------------------
+  Tipo SQL:           amount_cents BIGINT (sufixo _cents obrigatório)
+  Tipo TS:            number (cents inteiros)
+  Taxas/percentuais:  basis points (sufixo _bps); NUMERIC apenas para
+                      score_impact, percentage (não monetário)
+  Proibido:           - NUMERIC para dinheiro
+                      - DECIMAL/FLOAT para valores transacionais
+                      - valor fracionário fora de cents
+  Norma:              07_NOMENCLATURA_CANONICA.md
+
+--------------------------------------------------------------------------------
+T6 — TIMESTAMP
+--------------------------------------------------------------------------------
+  Tipo SQL:           TIMESTAMPTZ obrigatório
+  Proibido:           TIMESTAMP WITHOUT TIME ZONE (mesmo via DEFAULT NOW())
+  Aplicável a:        created_at, updated_at, completed_at, expires_at, e
+                      qualquer coluna temporal de auditoria/transação
+
+--------------------------------------------------------------------------------
+T7 — AUTORIDADE EM AÇÕES FINANCEIRAS
+--------------------------------------------------------------------------------
+  Pré-requisito:      actor_id válido + validação de autoridade
+  Comportamento:      fail-closed (nunca fail-open)
+  Proibido:           - bypass de authority layer
+                      - actor_has_permission retornando TRUE silencioso
+                      - branch que pula validação em caminho de erro
+  Gate CI:            architectural-patterns --strict
+  Violações fechadas: C47, C53, C54, C55, C57
+
+--------------------------------------------------------------------------------
+T8 — PROIBIÇÕES ESTRUTURAIS PERMANENTES
+--------------------------------------------------------------------------------
+  - Múltiplos SSOTs para o mesmo domínio
+  - Duplicação de identidade operacional
+  - Duplicação de ledger
+  - Inferência semântica sem concept_id (T2)
+  - SELECT * em produção (sempre colunas explícitas)
+  - devLog (banido)
+  - Reconstrução de arquivos a partir de dist/
+
+--------------------------------------------------------------------------------
+COMO USAR ESTA SEÇÃO
+--------------------------------------------------------------------------------
+  Ao auditar/criar módulo:
+    1. Ler esta seção COMPLETA antes de tocar em código
+    2. Verificar conformidade contra T1-T8
+    3. Documentar violação encontrada com identificador (ex: C26)
+    4. Só dar PASS no módulo após T1-T8 satisfeitos
+  Ao revisar mapeamento topológico (3-B style):
+    1. Cada call site deve declarar como o concept_id é resolvido
+       (LITERAL / BRANCH_CONDITIONAL / PARAM / METADATA / PROPAGATED)
+    2. Nenhum call site de produção pode ter origem indefinida
+    3. Branches condicionais devem citar a condição literal (não basta
+       dizer "branch condicional" — precisa ser "if (X === 'Y')")
+    4. Scripts não-produtivos (dev/CI) devem ser marcados FORA DO ESCOPO
+  Ao adicionar nova decisão transversal:
+    1. RFC em docs/02_decisions/
+    2. Após DECIDIDO, adicionar entrada T9 (próximo) com referência ao RFC
+    3. Atualizar gates CI se aplicável
+
+--------------------------------------------------------------------------------
 PIPELINE PADRÃO (template events / REFATOR ARQUITETURAL — escalar por módulo)
 --------------------------------------------------------------------------------
   1. FASE S        — tabelas alvo existem? colunas = código (information_schema)
