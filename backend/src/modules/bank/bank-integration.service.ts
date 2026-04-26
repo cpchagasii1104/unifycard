@@ -377,6 +377,7 @@ class BankIntegrationService {
         type: 'service_booking',
       },
       authorship,
+      concept_id: 'service-booking-payment',
     });
 
     return {
