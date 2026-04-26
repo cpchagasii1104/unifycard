@@ -188,6 +188,7 @@ export async function compensateTransaction(
     referenceId: originalTransactionId,
     description: `Ledger compensation (inverse of ${originalTransactionId}): ${reason}`.slice(0, 2_000),
     authorship,
+    concept_id: 'ledger-compensation',
   });
 
   const compensationTransactionId = transferResult.transactionId;
