@@ -366,6 +366,7 @@ export class MarketplaceOrchestrationService {
           orderId: grant.reference.orderId ?? undefined,
           authorship: buildSystemAuthorship({ actingForAccountId: fromAcc.accountId }),
           treasurySource: 'treasury:settlement',
+          concept_id: 'regional-fund-incentive-grant',
         });
         grant.status = 'consumed';
         (grant as { consumedAt?: string }).consumedAt = new Date().toISOString();
