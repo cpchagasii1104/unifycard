@@ -154,6 +154,7 @@ class RegionalFundService {
       referenceId,
       authorship: buildSystemAuthorship({ actingForAccountId: reserve.accountId }),
       treasurySource: 'treasury:governance',
+      concept_id: 'regional-fund-topup',
     });
   }
 }
