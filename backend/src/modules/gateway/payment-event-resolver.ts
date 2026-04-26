@@ -247,6 +247,7 @@ export async function resolvePaymentEvent(event: PaymentEvent): Promise<void> {
       metadata: event.metadata ?? undefined,
       referenceType: refType,
       referenceId: refId,
+      concept_id: 'pix-payment-received',
       authorship,
     });
     enqueueReconciliation({
