@@ -113,6 +113,7 @@ class EventPaymentExecutionService {
           description: `Liberação custódia evento ${event_id}, autorização ${authorization_id}`,
           metadata: { event_id, authorization_id, sandbox_mode },
           authorship,
+          concept_id: 'escrow-release-to-recipient',
         });
         return { transactionId: tx.transaction.transactionId };
       }

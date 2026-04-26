@@ -856,6 +856,8 @@ class BankTransactionService {
        * Hard fail no código se não fornecido
        */
       authorship: FinancialAuthorshipContext;
+      /** C2: FK para concepts(concept_id) — SSOT semântico da operação financeira. */
+      concept_id?: string;
     }
   ): Promise<{
     transaction: BankTransaction;
