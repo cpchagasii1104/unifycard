@@ -284,6 +284,7 @@ class BankIntegrationService {
         type: 'event_consumption',
       },
       authorship,
+      concept_id: 'event-ticket-payment',
     });
 
     return {
