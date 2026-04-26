@@ -170,6 +170,7 @@ export async function releaseSettledPaymentIntent(
     referenceType: 'seller_release',
     referenceId: intent.referenceId,
     treasurySource: 'treasury:settlement',
+    concept_id: 'seller-funds-release',
     authorship,
   }, client);
   await updatePaymentIntentMetadata(tenantId, intent.id, {
