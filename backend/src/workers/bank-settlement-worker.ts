@@ -86,6 +86,7 @@ export async function executeSettlementEffects(settlement: BankSettlement): Prom
         referenceId: settlement.id,
         treasurySource: 'treasury:settlement',
         authorship,
+        concept_id: 'bank-external-settlement',
       });
       return { transactionId: tr.transactionId };
     }
