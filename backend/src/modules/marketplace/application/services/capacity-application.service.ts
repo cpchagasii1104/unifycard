@@ -356,6 +356,7 @@ export class CapacityApplicationService {
       referenceId: compensation.compensationId,
       authorship: buildSystemAuthorship({ actingForAccountId: platformRevenue.accountId }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'resource-compensation-payout',
     });
 
     marketplaceLogger.init('Compensação registrada no Bank', {
