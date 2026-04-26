@@ -574,6 +574,7 @@ class BankIntegrationService {
         type: 'group_contribution',
       },
       authorship,
+      concept_id: 'group-contribution-payment',
     });
 
     return {
