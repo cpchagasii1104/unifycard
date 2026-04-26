@@ -276,6 +276,7 @@ export async function executeReversal(
           referenceId: reversalId,
           authorship: buildSystemAuthorship({ actingForAccountId: fromAccountId }),
           treasurySource,
+          concept_id: 'transaction-reversal',
         },
         client
       );
