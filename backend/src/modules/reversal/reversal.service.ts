@@ -217,6 +217,7 @@ export async function executeReversal(
             referenceType: 'financial_reversal_leg',
             referenceId: legReferenceId(reversalId, leg.split_id),
             authorship: buildSystemAuthorship({ actingForAccountId: fromAccountId }),
+            concept_id: 'transaction-reversal-leg',
             treasurySource,
           },
           client
