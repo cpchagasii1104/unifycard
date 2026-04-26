@@ -72,6 +72,7 @@ class EventEconomyService {
         description: `Checkout evento ${eventId}, ${quantity} ingresso(s)`,
         metadata: { eventId, attendeeActorId, quantity },
         authorship,
+        concept_id: 'event-ticket-payment',
       }
     );
 
