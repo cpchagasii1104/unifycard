@@ -86,6 +86,7 @@ async function runGovernanceFundingCommitmentCycle(): Promise<void> {
           referenceId: c.id,
           treasurySource: 'treasury:governance',
           authorship,
+          concept_id: 'escrow-hold',
         }, client);
 
         await client.query('COMMIT');
