@@ -63,6 +63,7 @@ async function processPayout(payout: PayoutRequest): Promise<void> {
       referenceId: payout.id,
       treasurySource: 'treasury:settlement',
       authorship,
+      concept_id: 'seller-payout',
     }, client);
 
     await client.query('COMMIT');
