@@ -3,11 +3,16 @@
 // Serviço de integração entre módulos e Unify Bank
 
 import { v4 as uuidv4 } from 'uuid';
+import { runQueryWithTenant } from '@core/database/pool';
+import { asMoneyCents, toPositiveMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
+import { parsePositiveMoneyToCents } from './bank-http-money';
 import { bankAccountService } from './bank-account.service';
 import { bankTransactionService } from './bank-transaction.service';
+import { requestAndExecuteReversalSync } from '../reversal/reversal.service';
 import { buildFinancialAuthorshipFromRequest } from './financial-authorship.helper';
 import type { BankTransactionContext } from './bank-split.types';
 import type { BankCurrency } from './bank-account.types';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 
 /**
  * Resolve ou cria conta de usuário no Unify Bank
@@ -119,7 +124,8 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    const { eventId, buyerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
+    const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
+    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 
     // SPRINT 36.2: Validar limite diário (enforcement)
     try {
@@ -128,7 +134,7 @@ class BankIntegrationService {
         tenantId,
         buyerUserId,
         'payment_out',
-        amount,
+        amountCents,
         buyerUserId
       );
     } catch (limitError: any) {
@@ -150,15 +156,21 @@ class BankIntegrationService {
     }
 
     // Resolver actor do comprador para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const buyerActor = await actorRepository.findOrCreateUserActor(tenantId, buyerUserId);
+    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
 
     // Construir autoria (ownership: comprador é dono da conta)
     const authorship = buildFinancialAuthorshipFromRequest({
       performedByUserId: buyerUserId,
       actingForActorId: buyerActor.actor_id,
       actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership', // Comprador é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: buyerActor.actor_id,
+        userId: buyerUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
     // Criar transação com split (event_ticket context)
@@ -166,7 +178,7 @@ class BankIntegrationService {
     const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
       eventId: eventIdForTransaction,
       fromAccountId: buyerAccountId,
-      amount,
+      amountCents,
       currency,
       context: 'event_ticket',
       revenueShareAccountId: organizerAccountId,
@@ -179,13 +191,14 @@ class BankIntegrationService {
         type: 'event_ticket',
       },
       authorship,
+      concept_id: 'event-ticket-payment',
     });
 
     return {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amountCents: split.amount,
+        amountCents: split.amountCents,
       })),
     };
   }
@@ -205,7 +218,8 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    const { eventId, buyerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
+    const { eventId, buyerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
+    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 
     // SPRINT 36.2: Validar limite diário (enforcement)
     try {
@@ -214,7 +228,7 @@ class BankIntegrationService {
         tenantId,
         buyerUserId,
         'payment_out',
-        amount,
+        amountCents,
         buyerUserId
       );
     } catch (limitError: any) {
@@ -236,15 +250,21 @@ class BankIntegrationService {
     }
 
     // Resolver actor do comprador para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const buyerActor = await actorRepository.findOrCreateUserActor(tenantId, buyerUserId);
+    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
 
     // Construir autoria (ownership: comprador é dono da conta)
     const authorship = buildFinancialAuthorshipFromRequest({
       performedByUserId: buyerUserId,
       actingForActorId: buyerActor.actor_id,
       actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership', // Comprador é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: buyerActor.actor_id,
+        userId: buyerUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
     // Criar transação com split (event_ticket context - mesmo split de ingresso)
@@ -252,7 +272,7 @@ class BankIntegrationService {
     const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
       eventId: eventIdForTransaction,
       fromAccountId: buyerAccountId,
-      amount,
+      amountCents,
       currency,
       context: 'event_ticket',
       revenueShareAccountId: organizerAccountId,
@@ -270,7 +290,7 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amountCents: split.amount,
+        amountCents: split.amountCents,
       })),
     };
   }
@@ -292,7 +312,8 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    const { bookingId, serviceId, buyerUserId, providerUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
+    const { bookingId, serviceId, buyerUserId, providerUserId, currency = 'BRL', idempotencyKey, metadata } = input;
+    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 
     // SPRINT 36.2: Validar limite diário (enforcement)
     try {
@@ -301,7 +322,7 @@ class BankIntegrationService {
         tenantId,
         buyerUserId,
         'payment_out',
-        amount,
+        amountCents,
         buyerUserId
       );
     } catch (limitError: any) {
@@ -318,15 +339,21 @@ class BankIntegrationService {
     const providerAccountId = await resolveUserAccount(tenantId, providerUserId, currency);
 
     // Resolver actor do comprador para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const buyerActor = await actorRepository.findOrCreateUserActor(tenantId, buyerUserId);
+    const buyerActor = await ensureUserActor(tenantId, buyerUserId);
 
     // Construir autoria (ownership: comprador é dono da conta)
     const authorship = buildFinancialAuthorshipFromRequest({
       performedByUserId: buyerUserId,
       actingForActorId: buyerActor.actor_id,
       actingForAccountId: buyerAccountId,
-      authoritySource: 'ownership', // Comprador é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: buyerActor.actor_id,
+        userId: buyerUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
     // Criar transação com split (service_booking context)
@@ -334,7 +361,7 @@ class BankIntegrationService {
     const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
       eventId: eventIdForTransaction,
       fromAccountId: buyerAccountId,
-      amount,
+      amountCents,
       currency,
       context: 'service_booking',
       revenueShareAccountId: providerAccountId,
@@ -355,9 +382,136 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amountCents: split.amount,
+        amountCents: split.amountCents,
       })),
     };
+  }
+
+  /**
+   * Conta bank para actor (user / page+company / group).
+   */
+  private async resolveBankAccountForServiceActor(
+    tenantId: string,
+    actorId: string,
+    currency: BankCurrency = 'BRL'
+  ): Promise<string> {
+    const { actorRepository } = await import('@modules/social/actor.repository');
+    const actor = await actorRepository.findById(tenantId, actorId);
+    if (!actor) {
+      throw new Error(`Actor not found: ${actorId}`);
+    }
+    if (actor.actor_type === 'user' && actor.user_id) {
+      return resolveUserAccount(tenantId, actor.user_id, currency);
+    }
+    if (actor.actor_type === 'page' && actor.company_id) {
+      return resolveCompanyAccount(tenantId, actor.company_id, currency);
+    }
+    if (actor.actor_type === 'group' && actor.group_id) {
+      return resolveGroupAccount(tenantId, actor.group_id, currency);
+    }
+    throw new Error(
+      `Cannot resolve bank account for actor ${actorId} type ${actor.actor_type}`
+    );
+  }
+
+  /**
+   * Execução de pagamento de serviço: uma bank_transaction + bank_splits explícitos por execução.
+   */
+  async processServicePaymentExecutionCanonical(
+    tenantId: string,
+    input: {
+      paymentRequestId: string;
+      executionId: string;
+      payerUserId: string;
+      payerActorId: string;
+      amountCents: number;
+      currency?: BankCurrency;
+      splitRecipients: Array<{
+        receiverActorId: string;
+        amountCents: number;
+        percentage?: number | null;
+      }>;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<{ transactionId: string }> {
+    const {
+      paymentRequestId,
+      executionId,
+      payerUserId,
+      payerActorId,
+      currency = 'BRL',
+      splitRecipients,
+      metadata = {},
+    } = input;
+    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
+
+    try {
+      const { bankLimitService } = await import('./bank-limit.service');
+      await bankLimitService.validateLimit(
+        tenantId,
+        payerUserId,
+        'payment_out',
+        amountCents,
+        payerUserId
+      );
+    } catch (limitError: unknown) {
+      const err = limitError as { statusCode?: number };
+      if (err.statusCode === 403) {
+        throw limitError;
+      }
+      console.warn('[BankLimit] validateLimit (service execution):', limitError);
+    }
+
+    const fromAccountId = await resolveUserAccount(tenantId, payerUserId, currency);
+    const splitLines: Array<{
+      targetAccountId: string;
+      amountCents: number;
+      percentage?: number | null;
+      receiverActorId: string;
+    }> = [];
+    for (const r of splitRecipients) {
+      const targetAccountId = await this.resolveBankAccountForServiceActor(
+        tenantId,
+        r.receiverActorId,
+        currency
+      );
+      splitLines.push({
+        targetAccountId,
+        amountCents: parsePositiveMoneyToCents(r.amountCents, 'splitRecipients[].amountCents'),
+        percentage: r.percentage,
+        receiverActorId: r.receiverActorId,
+      });
+    }
+
+    const buyerActor = await ensureUserActor(tenantId, payerUserId);
+    const authorship = buildFinancialAuthorshipFromRequest({
+      performedByUserId: payerUserId,
+      actingForActorId: buyerActor.actor_id,
+      actingForAccountId: fromAccountId,
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: buyerActor.actor_id,
+        userId: payerUserId,
+        decidedAt: new Date().toISOString(),
+      },
+    });
+
+    const result = await bankTransactionService.createTransactionWithExplicitSplitLines(tenantId, {
+      referenceType: 'service_execution',
+      referenceId: paymentRequestId,
+      fromAccountId,
+      payerActorId,
+      amountCents,
+      currency,
+      splitLines,
+      description: `Service payment request ${paymentRequestId}`,
+      metadata: { ...metadata, executionId, paymentRequestId },
+      authorship,
+    });
+
+    return { transactionId: result.transaction.transactionId };
   }
 
   /**
@@ -375,22 +529,29 @@ class BankIntegrationService {
       metadata?: Record<string, any>;
     }
   ): Promise<{ transactionId: string }> {
-    const { groupId, contributorUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
+    const { groupId, contributorUserId, currency = 'BRL', idempotencyKey, metadata } = input;
+    const amountCents = parsePositiveMoneyToCents(input.amountCents, 'amountCents');
 
     // Resolver contas
     const contributorAccountId = await resolveUserAccount(tenantId, contributorUserId, currency);
     const groupAccountId = await resolveGroupAccount(tenantId, groupId, currency);
 
     // Resolver actor do contribuidor para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const contributorActor = await actorRepository.findOrCreateUserActor(tenantId, contributorUserId);
+    const contributorActor = await ensureUserActor(tenantId, contributorUserId);
 
     // Construir autoria (ownership: contribuidor é dono da conta)
     const authorship = buildFinancialAuthorshipFromRequest({
       performedByUserId: contributorUserId,
       actingForActorId: contributorActor.actor_id,
       actingForAccountId: contributorAccountId,
-      authoritySource: 'ownership', // Contribuidor é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: contributorActor.actor_id,
+        userId: contributorUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
     // Criar transação com split (group_contribution context)
@@ -398,7 +559,7 @@ class BankIntegrationService {
     const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
       eventId: eventIdForTransaction,
       fromAccountId: contributorAccountId,
-      amount,
+      amountCents,
       currency,
       context: 'group_contribution',
       revenueShareAccountId: groupAccountId,
@@ -419,76 +580,101 @@ class BankIntegrationService {
   }
 
   /**
-   * Reverte transação (para cancelamentos)
+   * Reversão formal (Prompt 51.1): motor de reversal + PaymentIntent de pipeline.
    */
   async reverseTransaction(
     tenantId: string,
     transactionId: string,
-    eventId?: string
-  ): Promise<{ reversalTransactionId: string }> {
-    const result = await bankTransactionService.reverseTransaction(tenantId, transactionId, eventId);
+    eventId?: string,
+    actorId?: string
+  ): Promise<{ reversalTransactionId: string; reversalTransactionIds?: string[] }> {
+    const row = await runQueryWithTenant<{ amount_cents: string }>(
+      tenantId,
+      `SELECT amount_cents::text FROM bank_transactions WHERE tenant_id = $1 AND id = $2`,
+      [tenantId, transactionId]
+    );
+    if (!row) throw new Error(`Transaction ${transactionId} not found`);
+    const amountCents = toPositiveMoneyCents(parseInt(String(row.amount_cents), 10));
+    let act = actorId;
+    if (!act) {
+      const a = await runQueryWithTenant<{ id: string }>(
+        tenantId,
+        `SELECT id FROM actors WHERE tenant_id = $1 ORDER BY created_at ASC LIMIT 1`,
+        [tenantId]
+      );
+      act = a?.id;
+    }
+    if (!act) throw new Error('NO_ACTOR_FOR_REVERSAL');
+    const result = await requestAndExecuteReversalSync(tenantId, {
+      originalTransactionId: transactionId,
+      actorId: act,
+      reason: `bridge_reverseTransaction:${eventId ?? uuidv4()}`,
+      amountCents,
+    });
     return {
-      reversalTransactionId: result.reversalTransaction.transactionId,
+      reversalTransactionId: result.reversalTransactionId,
+      reversalTransactionIds: result.reversalTransactionIds,
     };
   }
 
   /**
    * Obtém saldo de uma conta (calculado do ledger)
+   * @returns Centavos inteiros (§4.7).
    */
-  async getAccountBalance(
-    tenantId: string,
-    accountId: string
-  ): Promise<number> {
+  async getAccountBalance(tenantId: string, accountId: string): Promise<MoneyCents> {
     const balance = await bankAccountService.getBalance(tenantId, accountId);
-    return balance.balance;
+    return asMoneyCents(balance.balanceCents);
   }
 
   /**
    * Obtém saldo de um usuário
+   * @returns Centavos inteiros (§4.7).
    */
   async getUserBalance(
     tenantId: string,
     userId: string,
     currency: BankCurrency = 'BRL'
-  ): Promise<number> {
+  ): Promise<MoneyCents> {
     const account = await bankAccountService.getAccountByOwner(tenantId, userId, 'user', currency);
     if (!account) {
-      return 0;
+      return asMoneyCents(0);
     }
     const balance = await bankAccountService.getBalance(tenantId, account.accountId);
-    return balance.balance;
+    return asMoneyCents(balance.balanceCents);
   }
 
   /**
    * Obtém saldo de um grupo
+   * @returns Centavos inteiros (§4.7).
    */
   async getGroupBalance(
     tenantId: string,
     groupId: string,
     currency: BankCurrency = 'BRL'
-  ): Promise<number> {
+  ): Promise<MoneyCents> {
     const account = await bankAccountService.getAccountByOwner(tenantId, groupId, 'company', currency);
     if (!account) {
-      return 0;
+      return asMoneyCents(0);
     }
     const balance = await bankAccountService.getBalance(tenantId, account.accountId);
-    return balance.balance;
+    return asMoneyCents(balance.balanceCents);
   }
 
   /**
    * Obtém saldo do organizador de evento
+   * @returns Centavos inteiros (§4.7).
    */
   async getEventOrganizerBalance(
     tenantId: string,
     eventId: string,
     currency: BankCurrency = 'BRL'
-  ): Promise<number> {
+  ): Promise<MoneyCents> {
     const accountId = await resolveEventOrganizerAccount(tenantId, eventId, currency);
     if (!accountId) {
-      return 0;
+      return asMoneyCents(0);
     }
     const balance = await bankAccountService.getBalance(tenantId, accountId);
-    return balance.balance;
+    return asMoneyCents(balance.balanceCents);
   }
 
   /**
@@ -504,44 +690,179 @@ class BankIntegrationService {
       amountCents: number;
       currency?: BankCurrency;
       idempotencyKey?: string;
+      groupId?: string;
+      referrerUserId?: string;
+      region?: { country: string; state: string; city: string };
       metadata?: Record<string, any>;
     }
-  ): Promise<{ transactionId: string; splits: Array<{ accountId: string; amountCents: number }> }> {
-    const { rideId, passengerUserId, driverUserId, amount, currency = 'BRL', idempotencyKey, metadata } = input;
+  ): Promise<{
+    transactionId: string;
+    splits: Array<{ accountId: string; amountCents: number; splitType: string }>;
+  }> {
+    const {
+      rideId,
+      passengerUserId,
+      driverUserId,
+      currency = 'BRL',
+      idempotencyKey,
+      metadata,
+      groupId,
+      referrerUserId,
+      region,
+    } = input;
+    const amountCents = toPositiveMoneyCents(input.amountCents);
 
-    // Resolver contas
+    try {
+      const { bankLimitService } = await import('./bank-limit.service');
+      await bankLimitService.validateLimit(
+        tenantId,
+        passengerUserId,
+        'payment_out',
+        amountCents,
+        passengerUserId
+      );
+    } catch (limitError: any) {
+      if (limitError.statusCode === 403) {
+        throw limitError;
+      }
+      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
+    }
+
     const passengerAccountId = await resolveUserAccount(tenantId, passengerUserId, currency);
     const driverAccountId = await resolveUserAccount(tenantId, driverUserId, currency);
+    const feeAccount = await bankAccountService.getSystemAccount(tenantId, 'fee', currency);
+    if (!feeAccount) {
+      throw new Error('Fee account not found');
+    }
 
-    // Resolver actor do passageiro para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const passengerActor = await actorRepository.findOrCreateUserActor(tenantId, passengerUserId);
+    let regionalFundAccountId: string | null = null;
+    if (region) {
+      const regionalFundAccount = await bankAccountService.ensureRegionalFundBankAccountForRegion(
+        tenantId,
+        region,
+        currency
+      );
+      regionalFundAccountId = regionalFundAccount.accountId;
+    }
 
-    // Construir autoria (ownership: passageiro é dono da conta)
+    let groupAccountId: string | null = null;
+    if (groupId) {
+      groupAccountId = await resolveGroupAccount(tenantId, groupId, currency);
+    }
+
+    let referrerAccountId: string | null = null;
+    if (referrerUserId) {
+      referrerAccountId = await resolveUserAccount(tenantId, referrerUserId, currency);
+    }
+
+    const feeCents = Math.round(amountCents * 0.03);
+    const regionalCents = regionalFundAccountId ? Math.round(amountCents * 0.1) : 0;
+    const groupCents = groupAccountId ? Math.round(amountCents * 0.1) : 0;
+    const referralCents = referrerAccountId ? Math.round(amountCents * 0.07) : 0;
+    const driverBaseCents = Math.round(amountCents * 0.7);
+    const remainderCents =
+      amountCents - driverBaseCents - feeCents - regionalCents - groupCents - referralCents;
+    const driverTotalCents = driverBaseCents + remainderCents;
+
+    const passengerActor = await ensureUserActor(tenantId, passengerUserId);
+    const driverActor = await ensureUserActor(tenantId, driverUserId);
+    const referrerActor = referrerUserId
+      ? await ensureUserActor(tenantId, referrerUserId)
+      : null;
+
     const authorship = buildFinancialAuthorshipFromRequest({
       performedByUserId: passengerUserId,
       actingForActorId: passengerActor.actor_id,
       actingForAccountId: passengerAccountId,
-      authoritySource: 'ownership', // Passageiro é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: passengerActor.actor_id,
+        userId: passengerUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
-    // Criar transação com split (ride_payment context)
-    const eventIdForTransaction = idempotencyKey || uuidv4();
-    const result = await bankTransactionService.createTransactionWithSplit(tenantId, {
-      eventId: eventIdForTransaction,
+    const splitLines: Array<{
+      targetAccountId: string;
+      amountCents: number;
+      percentage?: number | null;
+      receiverActorId: string;
+      splitType?: 'revenue_share' | 'fee' | 'regional_fund' | 'referral';
+    }> = [
+      {
+        targetAccountId: driverAccountId,
+        amountCents: driverTotalCents,
+        percentage: driverTotalCents / amountCents,
+        receiverActorId: driverActor.actor_id,
+        splitType: 'revenue_share',
+      },
+      {
+        targetAccountId: feeAccount.accountId,
+        amountCents: feeCents,
+        percentage: feeCents / amountCents,
+        receiverActorId: feeAccount.accountId,
+        splitType: 'fee',
+      },
+    ];
+
+    if (regionalFundAccountId && regionalCents > 0) {
+      splitLines.push({
+        targetAccountId: regionalFundAccountId,
+        amountCents: regionalCents,
+        percentage: regionalCents / amountCents,
+        receiverActorId: regionalFundAccountId,
+        splitType: 'regional_fund',
+      });
+    }
+
+    if (groupAccountId && groupCents > 0) {
+      splitLines.push({
+        targetAccountId: groupAccountId,
+        amountCents: groupCents,
+        percentage: groupCents / amountCents,
+        receiverActorId: groupAccountId,
+        splitType: 'revenue_share',
+      });
+    }
+
+    if (referrerAccountId && referralCents > 0) {
+      splitLines.push({
+        targetAccountId: referrerAccountId,
+        amountCents: referralCents,
+        percentage: referralCents / amountCents,
+        receiverActorId: referrerActor?.actor_id ?? referrerAccountId,
+        splitType: 'referral',
+      });
+    }
+
+    const result = await bankTransactionService.createTransactionWithExplicitSplitLines(tenantId, {
+      referenceType: 'ride_payment',
+      referenceId: rideId,
       fromAccountId: passengerAccountId,
-      amount,
+      payerActorId: passengerActor.actor_id,
+      amountCents,
       currency,
-      context: 'ride_payment',
-      revenueShareAccountId: driverAccountId,
-      fromUserId: passengerUserId, // Para calcular referral e group allocation
-      description: `Ride payment: ${rideId}`,
+      splitLines,
+      description: `Corrida ${rideId}`,
       metadata: {
-        ...metadata,
         rideId,
         passengerUserId,
         driverUserId,
         type: 'ride_payment',
+        idempotencyKey: idempotencyKey ?? `ride-${rideId}`,
+        split: {
+          driver_cents: driverTotalCents,
+          fee_cents: feeCents,
+          regional_fund_cents: regionalCents,
+          group_cents: groupCents,
+          referral_cents: referralCents,
+        },
+        region,
+        groupId,
+        referrerUserId,
+        ...metadata,
       },
       authorship,
     });
@@ -550,7 +871,8 @@ class BankIntegrationService {
       transactionId: result.transaction.transactionId,
       splits: result.splits.map((split) => ({
         accountId: split.targetAccountId,
-        amountCents: split.amount,
+        amountCents: split.amountCents,
+        splitType: split.splitType,
       })),
     };
   }
