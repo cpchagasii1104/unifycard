@@ -751,3 +751,62 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
+### DECISION-C2-010: 6 concepts commerce aprovados por Clayton
+
+- **Data:** 2026-04-27
+- **Tipo:** arquitetural
+- **ID da violação:** C2
+- **Contexto:**
+  DECISION-C2-009 levantou 9 call sites bloqueadores para 3-C. Desses, 6 são caminhos de produto em payment-execution.service.ts que requerem concepts novos. 2 são simulador dev (já existem concepts system-reserve-credit e escrow-hold na seed atual). 1 é wrapper (PROPAGATED).
+
+  Clayton aprovou 6 concepts para os caminhos de produto em 2026-04-27.
+
+- **Concepts aprovados (6):**
+  | slug | domain_key | Uso |
+  |------|------------|-----|
+  | marketplace-escrow-payment | financeiro-payment | executePayment L434 |
+  | marketplace-settlement-escrow-to-clearing | financeiro-escrow | settlePaymentToSeller L951 |
+  | marketplace-settlement-clearing-to-seller | financeiro-payout | settlePaymentToSeller L967 |
+  | marketplace-funds-release | financeiro-payout | releaseSellerFunds L1046 |
+  | seller-payout-request | financeiro-payout | requestSellerPayout L1144 |
+  | seller-payout-bank-settlement | financeiro-gateway | confirmBankPayout L1212 |
+
+- **Observação financial-simulator.controller.ts:**
+  Linhas 113 e 127 usam concepts já existentes na seed (system-reserve-credit, escrow-hold).
+  Não requerem novos concepts.
+
+- **Observação transaction.service.ts:**
+  Wrapper legado (L36). concept_id vem do caller (PROPAGATED). Não requer concept próprio.
+
+- **Escolha:** Criar migration seed com os 6 concepts + atualizar os 9 call sites.
+
+- **Justificativa:**
+  Concepts seguem o padrão da seed existente (slug kebab-case, domain_key existente).
+  Domínios financeiro-* já existem na tabela domains.
+  Após seed + propagação, 3-C pode prosseguir (remover | undefined do DTO).
+
+- **Plano de execução:**
+  1. Verificar domínios existentes (financeiro-payment, financeiro-escrow, financeiro-payout, financeiro-gateway)
+  2. Criar migration seed com os 6 concepts
+  3. Atualizar payment-execution.service.ts (6 paths)
+  4. Atualizar financial-simulator.controller.ts (2 paths com concepts existentes)
+  5. Verificar transaction.service.ts (PROPAGATED)
+  6. Passo 3-C: remover | undefined
+  7. Passo 5: Gate CI
+  8. Passo 6: ALTER NOT NULL
+
+- **Consequências esperadas:**
+  - Curto prazo: 9 call sites com concept_id, 3-C desbloqueado
+  - Médio prazo: C2 FIXED, concept_id NOT NULL em bank_transactions
+
+- **Responsável:** Clayton
+- **Validação prévia:** Claude Opus 4.5
+- **Supera:** nenhuma
+- **Referências:**
+  - DECISION-C2-009 (levantamento técnico)
+  - backend/src/modules/marketplace/payment-execution.service.ts
+  - backend/src/modules/devtools/financial-simulator.controller.ts
+  - backend/src/core/economy/transaction.service.ts
+
+---
+
