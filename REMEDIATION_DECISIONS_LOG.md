@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0010 (2026-04-22) |
+| Última entrada | DECISION-C2-008 (2026-04-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -672,6 +672,60 @@ Registrar permanentemente toda decisão que envolva:
   - backend/src/modules/marketplace/group.repository.ts (arquivo afetado)
   - backend/migrations/20260530180000_groups.sql (schema Genesis)
   - LEI §4.8.1 (ensureUserActor)
+
+---
+
+## FASE 5 — Decisões C2 (2026-04-24 a 2026-04-25)
+
+### DECISION-C2-001: Estratégia de rollout concept_id
+- **Data:** 2026-04-24
+- **Decisão:** Opção B (NULL-first) — ADD COLUMN NULL → seed → writers → call sites → NOT NULL
+- **Justificativa:** evita quebrar call sites existentes antes de propagação completa
+- **RFC:** docs/02_decisions/RFC_C2_rollout.md
+
+### DECISION-C2-002: Nome da coluna concept_id (não concept_ref)
+- **Data:** 2026-04-24
+- **Decisão:** `concept_id` conforme 07_NOMENCLATURA §4.4 (FK = <entidade>_id)
+- **RFC:** docs/02_decisions/RFC_C2_bank_transactions_concept_link.md
+
+### DECISION-C2-003: 24 concepts financeiros aprovados
+- **Data:** 2026-04-24
+- **Decisão:** 24 slugs em 7 domínios (payment, escrow, payout, treasury, reversal, fund, gateway)
+- **Regras:** concept = intenção econômica atômica; mesma mutação = mesmo concept
+- **RFC:** docs/02_decisions/RFC_C2_seed_concepts_financeiros.md
+
+### DECISION-C2-004: payment-execution.service.ts em PENDÊNCIA RFC
+- **Data:** 2026-04-25
+- **Decisão:** 6 paths do payment-execution.service.ts fora do escopo 3-B
+- **Justificativa:** concepts necessários (marketplace-payment-escrow, etc.) não existem nos 24 aprovados
+- **Ação:** RFC dedicado antes de incluir no 3-B
+
+### DECISION-C2-005: Gate architectural — regra formal por commit
+- **Data:** 2026-04-25
+- **Decisão:** gate architectural passa se interseção entre arquivos modificados e arquivos com violações for vazia
+- **Justificativa:** violações pré-existentes em outros módulos não devem bloquear C2 rollout
+
+### DECISION-C2-006: distribution.service.ts excluído do 3-B
+- **Data:** 2026-04-25
+- **Decisão:** distribution.service.ts chama transaction.service.ts (wrapper), não o writer diretamente
+- **Justificativa:** wrapper já cobre esses paths via PROPAGATED
+
+### DECISION-C2-007: commit 50fdd78f aceito com mudanças extras
+- **Data:** 2026-04-26
+- **Decisão:** Commit do path#20 incluiu refatorações pré-existentes em bank-integration.service.ts além do concept_id. Aceito porque:
+  (a) 4 gates PASS
+  (b) mudanças são correções canônicas T1/T5 (ensureUserActor, amountCents, requestAndExecuteReversalSync)
+  (c) commits #21-23 estão limpos (1 insertion cada confirmado via git show --stat)
+- **Justificativa:** Arquivo tinha alterações não commitadas no working tree antes da sessão. Mudanças são alinhamentos canônicos válidos (actor-writer §4.8.1, tipagem monetária §4.7).
+
+### DECISION-C2-008: Passo 3-C bloqueado por RFC
+- **Data:** 2026-04-26
+- **Decisão:** concept_id não pode ser tornado obrigatório (3-C) até que os seguintes call sites tenham concepts aprovados via RFC:
+  - payment-execution.service.ts: linhas 434, 951, 967, 1046, 1144, 1212 (6 paths)
+  - transaction.service.ts: linha 36 (1 path wrapper)
+  - financial-simulator.controller.ts: linhas 113, 127 (dev/observability — pode ser excluído)
+- **Ação:** RFC dedicado para novos concepts antes da próxima sessão de 3-C.
+- **Justificativa:** Tornar concept_id obrigatório no DTO sem concepts para esses call sites causaria erro de compilação TypeScript.
 
 ---
 

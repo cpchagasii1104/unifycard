@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-24 (FASE 4 CONCLUÍDA — C44, C52, C53, C54, C55, C56, C57 FIXED; E2E PASS 6/6) |
+| Última atualização | 2026-04-26 (FASE 5 C2 — Passo 3-B COMPLETO 23/23; BLOQUEADOR 3-C identificado) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -51,7 +51,7 @@
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
 |----|--------|-----------------|--------------------------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
-| C2 | DECISION_PENDING | `bank_transactions` sem `concept_ref` | migration pendente | Sem isso §7 não é satisfazível. |
+| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ | Todos paths aprovados concluídos. BLOQUEADOR 3-C: 7 call sites pendentes RFC (payment-execution 6 + transaction.service 1). |
 | C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
@@ -119,6 +119,58 @@
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-04-26 — FASE 5 C2 ROLLOUT — Passo 3-B CONCLUÍDO
+
+**C2:** Passo 3-B (23 paths aprovados): CONCLUÍDO — 23/23 ✅
+
+  path#7  090cbc95 pix-payment-received
+  path#8  fbb56aed seller-funds-release
+  path#9  d13d6610 transaction-reversal-leg
+  path#10 1df22efb transaction-reversal
+  path#11 ebe6c18b seller-payout
+  path#12 4a4865bd bank-external-settlement
+  path#13 097f60ac ledger-compensation
+  path#14 3eb467b7 regional-fund-topup
+  path#15 affbea0f escrow-hold
+  path#16 9cdd330d escrow-release-to-recipient
+  path#17 7e311d37 event-ticket-payment
+  path#18 e0de9e90 resource-compensation-payout
+  path#19 59fc823d regional-fund-incentive-grant
+  path#20 50fdd78f event-ticket-payment (bank-integration)
+  path#21 be0f8519 event-ticket-payment (bank-integration)
+  path#22 ac661dc2 service-booking-payment
+  path#23 8fa1f827 group-contribution-payment
+
+BLOQUEADOR 3-C: 7 call sites sem concept_id (RFC necessário)
+  payment-execution.service.ts: linhas 434, 951, 967, 1046, 1144, 1212
+  transaction.service.ts: linha 36
+
+NOTA commit 50fdd78f: incluiu refatorações pré-existentes em
+bank-integration.service.ts (ensureUserActor, amountCents,
+requestAndExecuteReversalSync). Aceito: gates OK, mudanças canônicas.
+Ver DECISION-C2-007.
+
+### 2026-04-25 — FASE 5 C2 ROLLOUT (início)
+
+**C2:** Status alterado de DECISION_PENDING para IN_PROGRESS.
+
+Passo 3-B (23 paths aprovados): paths#1-6 concluídos
+  Módulo escrow:         2/2 paths ✅
+    path#1 releasePayment → escrow-release-to-recipient: dcd23f84
+    path#2 refundFunds → escrow-refund-to-payer:         b6f2f6fe
+  Módulo treasury-split: 4/4 paths ✅
+    path#3 regional_fund → treasury-regional-fund-distribution:   79d44b93
+    path#4 community_fund → treasury-community-fund-distribution: 54ae0903
+    path#5 system_reserve → treasury-system-reserve-distribution: 56568c30
+    path#6 governance_pool → treasury-governance-pool-distribution: 868e2ebc
+
+**Deep Dive GUARDIÃO:** Investigação sistêmica executada. Gaps identificados:
+- G1: Gates actor-writer-boundaries e bank-ledger-boundaries fora do CI (ALTO)
+- G2: E2E transversal ausente — fluxo evento→settlement não testado (MÉDIO)
+- G3: isActorEffectivelyBlocked parcial — mitigado por trigger DB (BAIXO)
+
+Positivos confirmados: RLS+FORCE em bank_*, trigger trg_check_atl, outbox 74 ocorrências, reconciliação 36 arquivos.
 
 ### 2026-04-24 — FASE 4 CONCLUÍDA
 
