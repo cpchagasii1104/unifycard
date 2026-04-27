@@ -51,12 +51,12 @@
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
 |----|--------|-----------------|--------------------------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
-| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ | Todos paths aprovados concluídos. BLOQUEADOR 3-C: 7 call sites pendentes RFC (payment-execution 6 + transaction.service 1). |
+| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | Passo 3-B CONCLUÍDO 23/23 paths. Passo 3-C BLOQUEADO — RFC pendente (DECISION-C2-009). 9 call sites sem concept: payment-execution.service.ts (6), transaction.service.ts (1), financial-simulator.controller.ts (2). |
 | C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
 | C12 | FIXED | `actorId` retornado como `globalUserId` | `core/identity/identity.routes.ts` | |
-| C13 | OPEN | 37 arquivos leem `bank_*` fora de `modules/bank/` | vários | Analíticos ficam para allowlist FASE 5. |
+| C13 | OPEN | 84 arquivos leem `bank_*` fora de `modules/bank/` | vários | 84 arquivos (expandido de 37 em 2026-04-26). bank-settlement-repository.ts faz INSERT/UPDATE fora do Bank. saga-compensation.handler.ts faz SELECT em bank_transactions. Analíticos ficam para allowlist FASE 5. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | C53 fechado em 85976e65 — authority-mode.ts extraído, strict/permissive em catches 42P01. C14 parcial absorvido. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | |
 | C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
