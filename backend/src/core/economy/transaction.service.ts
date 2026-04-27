@@ -25,6 +25,8 @@ class TransactionService {
       /** Obrigatório: id de domínio ou chave de idempotência. */
       referenceId: string;
       metadata?: Record<string, any>;
+      /** C2: concept_id OBRIGATÓRIO — PROPAGATED from caller (DECISION-C2-010). */
+      concept_id: string;
     }
   ) {
     const eventId = input.eventId ?? uuidv4();
@@ -45,6 +47,7 @@ class TransactionService {
       referenceType: input.referenceType,
       referenceId: input.referenceId,
       authorship,
+      concept_id: input.concept_id,
     });
   }
 
