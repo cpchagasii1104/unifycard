@@ -431,6 +431,7 @@ class PaymentExecutionService {
         });
         const eventId = uuidv4();
         // C56: order_id OBRIGATÓRIO — transação de receita marketplace (escrow payment)
+        // C2: concept_id obrigatório (DECISION-C2-010)
         bankResult = await bankTransactionService.transfer(tenantId, {
           eventId,
           fromAccountId: userWalletAccountId,
@@ -453,6 +454,7 @@ class PaymentExecutionService {
           referenceId: paymentIntentId,
           orderId: intent.orderId,
           authorship,
+          concept_id: 'marketplace-escrow-payment',
         });
         const tid = bankResult?.transactionId;
         if (typeof tid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(tid)) {
@@ -948,6 +950,7 @@ class PaymentExecutionService {
     const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
     const descOrder = options?.orderId ? ` (Order ${options.orderId})` : '';
     // C56: order_id de receita marketplace (settlement)
+    // C2: concept_id obrigatório (DECISION-C2-010)
     const r1 = await bankTransactionService.transfer(tenantId, {
       eventId: uuidv4(),
       fromAccountId: escrowAccount.accountId,
@@ -962,8 +965,10 @@ class PaymentExecutionService {
       orderId: options?.orderId,
       authorship: buildSystemAuthorship({ actingForAccountId: escrowAccount.accountId }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'marketplace-settlement-escrow-to-clearing',
     });
     // C56: order_id de receita marketplace (settlement)
+    // C2: concept_id obrigatório (DECISION-C2-010)
     const r2 = await bankTransactionService.transfer(tenantId, {
       eventId: uuidv4(),
       fromAccountId: clearingAccount.accountId,
@@ -978,6 +983,7 @@ class PaymentExecutionService {
       orderId: options?.orderId,
       authorship: buildSystemAuthorship({ actingForAccountId: clearingAccount.accountId }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'marketplace-settlement-clearing-to-seller',
     });
     return {
       clearingTransactionId: r1.transactionId,
@@ -1043,6 +1049,7 @@ class PaymentExecutionService {
     const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
     const descOrder = options?.orderId ? ` (Order ${options.orderId})` : '';
     // C56: order_id de receita marketplace (dispute_release)
+    // C2: concept_id obrigatório (DECISION-C2-010)
     const result = await bankTransactionService.transfer(tenantId, {
       eventId: uuidv4(),
       fromAccountId: sellerPendingAccount.accountId,
@@ -1059,6 +1066,7 @@ class PaymentExecutionService {
         actingForAccountId: sellerPendingAccount.accountId,
       }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'marketplace-funds-release',
     });
     const sellerActorId =
       options?.sellerActorId ??
@@ -1141,6 +1149,7 @@ class PaymentExecutionService {
       seller_company_id: sellerCompanyId,
     };
     const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
+    // C2: concept_id obrigatório (DECISION-C2-010)
     const result = await bankTransactionService.transfer(tenantId, {
       eventId: uuidv4(),
       fromAccountId: sellerAvailableAccount.accountId,
@@ -1156,6 +1165,7 @@ class PaymentExecutionService {
         actingForAccountId: sellerAvailableAccount.accountId,
       }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'seller-payout-request',
     });
     return { transactionId: result.transactionId };
   }
@@ -1209,6 +1219,7 @@ class PaymentExecutionService {
       seller_company_id: sellerCompanyId,
     };
     const { buildSystemAuthorship } = await import('../bank/financial-authorship.helper');
+    // C2: concept_id obrigatório (DECISION-C2-010)
     const result = await bankTransactionService.transfer(tenantId, {
       eventId: uuidv4(),
       fromAccountId: sellerPayoutAccount.accountId,
@@ -1224,6 +1235,7 @@ class PaymentExecutionService {
         actingForAccountId: sellerPayoutAccount.accountId,
       }),
       treasurySource: 'treasury:settlement',
+      concept_id: 'seller-payout-bank-settlement',
     });
     return { transactionId: result.transactionId };
   }
