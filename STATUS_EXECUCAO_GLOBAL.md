@@ -192,3 +192,14 @@ requerem concepts não incluídos nos 24 aprovados. RFC pendente antes de tornar
 - trg_check_atl no banco cobre 100% INSERTs — ATL está protegido (positivo)
 - Reconciliação financeira completa com 36 arquivos e worker dedicado (positivo)
 - Padrão outbox garante eventos como consequência — enforcement sólido (positivo)
+
+---
+
+## Checkpoint 2026-04-26 — FASE 5 C2 Passo 3-B CONCLUÍDO
+
+- Passo 3-B: 23/23 paths CONCLUÍDO (commit 8fa1f827)
+- Passo 3-C: BLOQUEADO — RFC pendente (DECISION-C2-009)
+- RFC mapeado: 8 concepts novos (estouaprendendo.md seção 22)
+- C13 expandido: 84 arquivos (não 37) acessam bank_* fora do Bank
+- 3 fail-opens críticos descobertos em bank-integration.service.ts (L145, L239, L334)
+- Levantamento completo em estouaprendendo.md seções 22-23
