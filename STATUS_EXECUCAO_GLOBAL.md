@@ -8,7 +8,7 @@
 
 **Gate no repo:** `npm run validate:system-state` (coerência deste ficheiro + A1–A4 se `DATABASE_URL` e `pg` existirem). **A2** na BD segue `PLANO_IDENTITY_RECONCILIATION.md` §2.1 (actores humanos **elegíveis**: `is_identity_required = true`). Números concretos (ex.: último A2) devem constar do **log de execução** / evidência SQL colada — não substituem a leitura directa do precheck no ambiente alvo. `npm run validate:system-state:strict` falha com **§GLOBAL BLOCK ATIVO** sem `DATABASE_URL`; com BD, falha também se A1–A4 > 0 **ou** se A1–A4 = 0 mas o STATUS ainda não foi actualizado para **INATIVO** (STATUS desactualizado face à realidade).
 
-**Última actualização:** 2026-04-24 (FASE 4 CONCLUÍDA — quadrinho de autoridade fechado, C52 FIXED com E2E PASS 6/6)
+**Última actualização:** 2026-04-26 (FASE 5 C2 — Passo 3-B COMPLETO 23/23 paths)
 
 ---
 
@@ -131,3 +131,64 @@ git log do repositório, complementado por:
 - **Próxima ação:** iniciar FASE 5 (nomenclatura EIXO 2-9) ou trabalho de compliance regulatório quando priorizado.
 
 *Gerado como infraestrutura de execução contínua; não altera código.*
+
+---
+
+## FASE 5 — Violação C2 (EM EXECUÇÃO — iniciada 2026-04-24)
+
+**Objetivo:** propagar concept_id em todos os call sites de bank_transactions.
+
+**Branch:** rescue-structural
+
+**RFCs base:**
+- RFC_C2_bank_transactions_concept_link.md (f323308a)
+- RFC_C2_rollout.md (706b61af + 330b1677 + abddab6d) — Opção B NULL-first
+- RFC_C2_seed_concepts_financeiros.md (12af0a3a) — 24 concepts aprovados
+
+**Commits executados:**
+- e1cd8032 — Passo 1: ADD COLUMN concept_id UUID NULL + FK + índice
+- 096ff94b — Passo 2: Seed 24 concepts financeiros + 7 domains
+- 175a73c5 — Passo 3-A: DTO + runtime guards + INSERTs
+- 4c8adb1a — Passo 3-A hardening: guards via input.concept_id
+- abddab6d — RFC rollout refinado (sub-passos 3-A/3-B/3-C)
+- dcd23f84 — 3-B path#1: escrow releasePayment → escrow-release-to-recipient
+- b6f2f6fe — 3-B path#2: escrow refundFunds → escrow-refund-to-payer
+- 79d44b93 — 3-B path#3: treasury-split regional_fund
+- 54ae0903 — 3-B path#4: treasury-split community_fund
+- 56568c30 — 3-B path#5: treasury-split system_reserve
+- 868e2ebc — 3-B path#6: treasury-split governance_pool
+- 090cbc95 — 3-B path#7: payment-event-resolver PIX → pix-payment-received
+- fbb56aed — 3-B path#8: payment-event-resolver seller → seller-funds-release
+- d13d6610 — 3-B path#9: reversal COM split → transaction-reversal-leg
+- 1df22efb — 3-B path#10: reversal SEM split → transaction-reversal
+- ebe6c18b — 3-B path#11: payout-worker → seller-payout
+- 4a4865bd — 3-B path#12: bank-settlement-worker → bank-external-settlement
+- 097f60ac — 3-B path#13: ledger-compensation → ledger-compensation
+- 3eb467b7 — 3-B path#14: regional-fund → regional-fund-topup
+- affbea0f — 3-B path#15: governance-funding-commitment-worker → escrow-hold
+- 9cdd330d — 3-B path#16: event-payment-execution → escrow-release-to-recipient
+- 7e311d37 — 3-B path#17: event-economy → event-ticket-payment
+- e0de9e90 — 3-B path#18: capacity-application → resource-compensation-payout
+- 59fc823d — 3-B path#19: marketplace-orchestration → regional-fund-incentive-grant
+- 50fdd78f — 3-B path#20: bank-integration processEventTicketPayment → event-ticket-payment
+- be0f8519 — 3-B path#21: bank-integration processEventConsumptionPayment → event-ticket-payment
+- ac661dc2 — 3-B path#22: bank-integration processServiceBookingPayment → service-booking-payment
+- 8fa1f827 — 3-B path#23: bank-integration processGroupContribution → group-contribution-payment
+
+**Estado atual:** Passo 3-B CONCLUÍDO — 23/23 paths com concept_id.
+
+**Bloqueador 3-C:** payment-execution.service.ts (6 call sites) + transaction.service.ts (1 call site)
+requerem concepts não incluídos nos 24 aprovados. RFC pendente antes de tornar concept_id obrigatório.
+
+**Pendentes:**
+- RFC: concepts para payment-execution.service.ts + transaction.service.ts
+- Passo 3-C (tipo obrigatório no DTO) — BLOQUEADO por RFC
+- Passo 5 (Gate CI zero NULLs)
+- Passo 6 (ALTER COLUMN SET NOT NULL — fecha C2)
+
+**Descobertas Deep Dive 2026-04-25:**
+- Gates actor-writer-boundaries e bank-ledger-boundaries ausentes do CI (G1)
+- E2E transversal ausente — fluxo evento→RFQ→settlement não testado (G2)
+- trg_check_atl no banco cobre 100% INSERTs — ATL está protegido (positivo)
+- Reconciliação financeira completa com 36 arquivos e worker dedicado (positivo)
+- Padrão outbox garante eventos como consequência — enforcement sólido (positivo)
