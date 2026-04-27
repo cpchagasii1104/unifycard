@@ -1,0 +1,336 @@
+Direto, sem anestesia:
+
+# 🧠 VEREDITO FINAL
+
+**SIM — está pronto para execução.**
+**NÃO — ainda não está pronto para escalar sem risco.**
+
+---
+
+# 📊 AUDITORIA REAL (SEM FLOREIO)
+
+Base:
+
+
+---
+
+# ✅ 1. O QUE ESTÁ 100% PRONTO
+
+## 🔒 Contrato (C.1–C.22)
+
+Está **fechado e executável**.
+
+Você resolveu:
+
+* ambiguidade de resolução (C.2)
+* fallback proibido (C.4, C.18)
+* autoridade única (C.10)
+* invariantes operacionais (C.12)
+* governança de erro (C.5, C.16)
+* regressão bloqueando merge (C.22)
+
+👉 Isso não é mais plano — é **lei de execução**.
+
+---
+
+## 🧠 Modelo semântico
+
+Encadeamento:
+
+```
+product → canonical → concept
+```
+
+Está:
+
+* determinístico
+* sem fallback
+* sem inferência
+* sem bypass
+
+👉 Isso é raro e correto.
+
+---
+
+## 🧱 Separação de responsabilidades
+
+Você travou:
+
+* adapter = decisão
+* repo = acesso
+* service = orquestração
+* rota = transporte
+
+👉 Isso evita drift. Muito bom.
+
+---
+
+## 🔥 Governança explícita
+
+* exceção → log (C.24)
+* escrita → camada controlada (C.23)
+* erro → tipado (C.5)
+* merge → bloqueado (C.22)
+
+👉 Isso já é sistema institucional, não código.
+
+---
+
+# ⚠️ 2. O QUE AINDA NÃO ESTÁ PRONTO (CRÍTICO)
+
+Aqui está onde o sistema quebra se ignorar.
+
+---
+
+## 💣 A. Fase 2B (MAIOR RISCO DO SISTEMA)
+
+Status: **NÃO FECHADA**
+
+Você mesmo definiu:
+
+> “BLOQUEADOR para catálogo global seguro” 
+
+Problema real:
+
+* DDL já permite global
+* seed global já existe
+* MAS queries ainda são scoped-only
+
+👉 Resultado:
+
+```
+dados corretos
++
+código incompleto
+=
+falha invisível
+```
+
+👉 Isso é o pior tipo de bug.
+
+---
+
+### Veredito 2B:
+
+❌ Sistema NÃO está seguro para global
+✅ Execução local ainda possível
+
+---
+
+## 💣 B. Fase 5C (ERRO TIPADO)
+
+Status: **NÃO IMPLEMENTADO**
+
+Hoje:
+
+```
+REF_RESOLUTION_FAILED
+```
+
+Você mesmo declarou:
+
+> “isso não é suficiente” 
+
+Problema:
+
+* sem causa → sem debug
+* sem causa → sem auditoria
+* sem causa → sem operação
+
+---
+
+### Veredito 5C:
+
+❌ Não pode ir pra produção séria
+✅ Pode executar dev
+
+---
+
+## 💣 C. Gate C.17 (PIPELINE REAL)
+
+Status: **NÃO EXECUTADO**
+
+Requisito:
+
+```
+catalog → concept_ref → intent → ledger
+```
+
+com:
+
+* Postgres real
+* migrations reais
+
+👉 Hoje isso **não está comprovado**
+
+---
+
+### Veredito C.17:
+
+❌ Sistema não validado
+❌ Não pode declarar “funciona”
+
+---
+
+## 💣 D. Aplicação real das migrations
+
+Vários pontos estão assim:
+
+```
+[✓] DDL no repo
+[ ] aplicado por ambiente
+```
+
+👉 Isso é perigoso porque:
+
+* dev acha que existe
+* DB não tem
+* comportamento diverge
+
+---
+
+### Veredito migrations:
+
+❌ Estado operacional inconsistente possível
+
+---
+
+# ⚠️ 3. RISCO ESTRUTURAL (O ÚNICO QUE IMPORTA)
+
+Você já resolveu arquitetura.
+
+Agora o risco é só um:
+
+---
+
+## 💣 DISCIPLINA DE EXECUÇÃO
+
+Se alguém fizer:
+
+* fallback “temporário”
+* query scoped-only nova
+* bypass do adapter
+* seed antes de 2B
+
+👉 o sistema não degrada
+
+👉 **quebra coerência**
+
+---
+
+# 🎯 CLASSIFICAÇÃO FINAL
+
+## 🟢 EXECUÇÃO (DEV / BUILD)
+
+✔ Pode executar
+✔ Pode continuar implementação
+✔ Base sólida
+
+---
+
+## 🟡 STAGING
+
+⚠ Só após:
+
+* 2B completo
+* migrations aplicadas
+* 5C mínimo
+
+---
+
+## 🔴 PRODUÇÃO REAL
+
+🚫 NÃO autorizado ainda
+
+Faltam:
+
+* 2B
+* 5C
+* C.17
+
+---
+
+# 🧠 TRADUÇÃO SIMPLES
+
+| Camada       | Status         |
+| ------------ | -------------- |
+| Arquitetura  | ✅ Resolvida    |
+| Contrato     | ✅ Fechado      |
+| Execução     | ⚠ Parcial      |
+| Sistema real | ❌ Não validado |
+
+---
+
+# 🎯 O QUE FAZER AGORA (SEM DISCUSSÃO)
+
+Ordem obrigatória:
+
+1. **Fechar 2B**
+2. **Implementar 5C (mínimo viável)**
+3. **Rodar C.17 com Postgres real**
+4. **Aplicar migrations em ambiente real**
+5. **Só então considerar “pronto”**
+
+---
+
+# 💬 FRASE FINAL
+
+O documento está pronto.
+
+O sistema ainda não.
+
+👉 Agora não é mais sobre pensar
+👉 é sobre **não trair o contrato enquanto executa**
+
+Se quiser, eu posso auditar o PR da 2B linha por linha — aí a gente elimina 90% do risco real.
+
+--- 2026-04-25 — Deep Dive sistêmico (GUARDIÃO) ---
+
+GAPS IDENTIFICADOS (evidência de código real):
+
+G1 — Gates fora do CI [ALTO]
+  validate:actor-writer-boundaries (package.json linha 77) → NÃO está em ci.yml
+  validate:bank-ledger-boundaries (package.json linha 78)  → NÃO está em ci.yml
+  Risco: PR pode passar CI sem validar boundaries financeiros
+  Ação pós-C2: adicionar ao job validate-backend em .github/workflows/ci.yml
+
+G2 — E2E transversal ausente [MÉDIO]
+  validate-financial-flow-real.ts cobre: mint → transfer → split (core isolado)
+  NÃO cobre: evento→RFQ, booking→payment, payment→settlement, settlement→split
+  Todos os componentes existem no código (event-rfq.service.ts,
+  service-booking-decision.service.ts, payment-execution.service.ts,
+  bank-settlement-worker.ts, treasury-split.service.ts)
+  Ação pós-C2: criar script E2E transversal conectando esses serviços
+
+G3 — isActorEffectivelyBlocked cobertura parcial [BAIXO — mitigado]
+  Usado em 2 arquivos de app vs 23 que chamam transfer
+  MITIGADO: trigger trg_check_atl no banco bloqueia 100% INSERTs
+  Não é vulnerabilidade ativa — defense-in-depth está funcionando
+
+POSITIVOS CONFIRMADOS:
+  ✅ Reconciliação financeira: 36 arquivos, engine + worker + scheduled
+  ✅ Padrão outbox: 74 ocorrências, eventos nunca causam estado
+  ✅ Idempotência: 12 ocorrências withIdempotency, saga compensation
+  ✅ RLS com FORCE em bank_transactions: proteção cross-tenant ativa
+  ✅ trg_check_atl: 100% INSERTs protegidos por ATL no banco
+  ✅ 17 gates de validação identificados (financial-ssot, financial-vocabulary,
+     schema-invariants, canonical-logging, financial-e2e, etc.)
+
+--- 2026-04-26 — Sessão FASE 5 C2 3-B CONCLUÍDO ---
+
+CONCLUÍDO HOJE:
+- Passo 3-B: 23/23 paths com concept_id (commits dcd23f84 → 8fa1f827)
+- Hotfix tipos: concept_id adicionado a createSimpleTransaction e createTransactionWithSplit
+- Levantamento RFC: 9 call sites mapeados, 8 concepts propostos
+
+BLOQUEADOR ATIVO:
+- Passo 3-C aguarda aprovação de 8 concepts novos (DECISION-C2-009)
+- RFC detalhado em estouaprendendo.md seção 22
+
+NOVOS GAPS DESCOBERTOS:
+- C13 expandido: 84 arquivos violam boundary do Bank (era 37)
+- 3 fail-opens CRÍTICOS em bank-integration.service.ts (L145, L239, L334)
+  → bankLimitService.validateLimit bypassa limite diário se erro != 403
+- bank-settlement-repository.ts faz INSERT/UPDATE em bank_settlements fora de modules/bank/
+- saga-compensation.handler.ts faz SELECT em bank_transactions fora de modules/bank/
+- 10+ fail-opens em autenticação (auth.routes.ts, webauthn.routes.ts)

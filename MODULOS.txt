@@ -1,6 +1,6 @@
 ================================================================================
 MODULOS.txt — Inventário + gestão de auditoria (backend/src/modules/)
-Última atualização: 2026-04-24 (FASE 4 ENCERRADA — C44/C47/C52/C53/C54/C55/C56/C57 FIXED; E2E PASS 6/6)
+Última atualização: 2026-04-26 (FASE 5 EM EXECUÇÃO — C2 3-B CONCLUÍDO 23/23 paths; 3-C BLOQUEADO aguardando RFC)
 ================================================================================
 
 REGRA DE OURO (replicável)
@@ -73,9 +73,37 @@ T2 — CONCEPT_ID EM BANK_TRANSACTIONS (EM EXECUÇÃO)
     Passo 3-A (DTO + runtime guards + INSERTs):    175a73c5 ✅
     Passo 3-A hardening (input.concept_id):        4c8adb1a ✅
     RFC rollout refinado (sub-passos 3-A/3-B/3-C): abddab6d ✅
-    Passo 3-B (34 paths em produção propagam):     🔴 EM EXECUÇÃO
-    Passo 3-C (tipo obrigatório no DTO):           🔴
-    Passo 5 (Gate CI zero NULLs):                  🔴
+    Passo 3-B (23 paths aprovados — CONCLUÍDO):    ✅ 23/23
+      path#1  escrow releasePayment:               dcd23f84 ✅ escrow-release-to-recipient
+      path#2  escrow refundFunds:                  b6f2f6fe ✅ escrow-refund-to-payer
+      path#3  treasury-split regional_fund:        79d44b93 ✅ regional-fund-contribution
+      path#4  treasury-split community_fund:       54ae0903 ✅ community-fund-contribution
+      path#5  treasury-split system_reserve:       56568c30 ✅ system-reserve-allocation
+      path#6  treasury-split governance_pool:      868e2ebc ✅ governance-pool-allocation
+      path#7  payment-event-resolver PIX:          090cbc95 ✅ pix-payment-received
+      path#8  payment-event-resolver seller:       fbb56aed ✅ seller-funds-release
+      path#9  reversal COM split:                  d13d6610 ✅ transaction-reversal-leg
+      path#10 reversal SEM split:                  1df22efb ✅ transaction-reversal
+      path#11 payout-worker:                       ebe6c18b ✅ seller-payout
+      path#12 bank-settlement-worker:              4a4865bd ✅ bank-external-settlement
+      path#13 ledger-compensation:                 097f60ac ✅ ledger-compensation
+      path#14 regional-fund:                       3eb467b7 ✅ regional-fund-topup
+      path#15 governance-funding-commitment:       affbea0f ✅ escrow-hold
+      path#16 event-payment-execution:             9cdd330d ✅ escrow-release-to-recipient
+      path#17 event-economy:                       7e311d37 ✅ event-ticket-payment
+      path#18 capacity-application:                e0de9e90 ✅ resource-compensation-payout
+      path#19 marketplace-orchestration:           59fc823d ✅ regional-fund-incentive-grant
+      path#20 bank-integration eventTicket:        50fdd78f ✅ event-ticket-payment
+      path#21 bank-integration eventConsumption:   be0f8519 ✅ event-ticket-payment
+      path#22 bank-integration serviceBooking:     ac661dc2 ✅ service-booking-payment
+      path#23 bank-integration groupContribution:  8fa1f827 ✅ group-contribution-payment
+    Passo 3-C (tipo obrigatório no DTO):           🔴 BLOQUEADO — RFC pendente
+      Bloqueador: 9 call sites sem concept nos 24 aprovados
+      - payment-execution.service.ts: 6 sites (L434,951,967,1046,1144,1212)
+      - transaction.service.ts: 1 site (L36 — wrapper dinâmico)
+      - financial-simulator.controller.ts: 2 sites (L113,127 — devtools)
+      RFC mapeado: estouaprendendo.md seção 22 (8 concepts novos)
+    Passo 5 (Gate CI zero NULLs):                  🔴 aguarda 3-C
     Passo 6 (ALTER COLUMN SET NOT NULL):           🔴 fecha T2
   Branch:             rescue-structural
   Fora do escopo 3-B: 3 scripts E2E (rodam só em dev/CI; documentados como
@@ -148,6 +176,24 @@ T8 — PROIBIÇÕES ESTRUTURAIS PERMANENTES
   - SELECT * em produção (sempre colunas explícitas)
   - devLog (banido)
   - Reconstrução de arquivos a partir de dist/
+
+--------------------------------------------------------------------------------
+GAPS SISTÊMICOS IDENTIFICADOS (Deep Dive 2026-04-25)
+--------------------------------------------------------------------------------
+  G1 — Gates fora do CI (ALTO):
+       validate:actor-writer-boundaries e validate:bank-ledger-boundaries
+       existem no package.json mas NÃO estão no .github/workflows/ci.yml
+       Ação: adicionar ao CI workflow pós-C2
+
+  G2 — E2E transversal ausente (MÉDIO):
+       validate-financial-flow-real.ts cobre core financeiro isolado.
+       Fluxo evento→RFQ→booking→payment→settlement existe no código
+       mas não tem E2E integrado.
+       Ação: criar script E2E transversal pós-C2
+
+  G3 — isActorEffectivelyBlocked cobertura parcial (BAIXO — mitigado por DB):
+       Usado em 2 arquivos de aplicação. Mitigado pelo trigger trg_check_atl
+       que bloqueia 100% dos INSERTs. Não é vulnerabilidade ativa.
 
 --------------------------------------------------------------------------------
 COMO USAR ESTA SEÇÃO

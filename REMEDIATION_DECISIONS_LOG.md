@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-C2-008 (2026-04-26) |
+| Última entrada | DECISION-C2-009 (2026-04-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -726,6 +726,28 @@ Registrar permanentemente toda decisão que envolva:
   - financial-simulator.controller.ts: linhas 113, 127 (dev/observability — pode ser excluído)
 - **Ação:** RFC dedicado para novos concepts antes da próxima sessão de 3-C.
 - **Justificativa:** Tornar concept_id obrigatório no DTO sem concepts para esses call sites causaria erro de compilação TypeScript.
+
+### DECISION-C2-009: Levantamento completo para RFC — 8 concepts propostos
+- **Data:** 2026-04-26
+- **Decisão:** Levantamento técnico completo dos 9 call sites bloqueadores documentado em estouaprendendo.md seções 22-23.
+- **Call sites mapeados (9 total):**
+  | # | Arquivo | Linha | Função | referenceType | concept_id proposto |
+  |---|---------|-------|--------|---------------|---------------------|
+  | 1 | payment-execution.service.ts | 434 | executePayment | (sem) | marketplace-escrow-payment |
+  | 2 | payment-execution.service.ts | 951 | settlePaymentToSeller | settlement | marketplace-settlement-escrow-to-clearing |
+  | 3 | payment-execution.service.ts | 967 | settlePaymentToSeller | seller_settlement | marketplace-settlement-clearing-to-seller |
+  | 4 | payment-execution.service.ts | 1046 | releaseSellerFunds | dispute_release | marketplace-funds-release |
+  | 5 | payment-execution.service.ts | 1144 | requestSellerPayout | payout_request | seller-payout-request |
+  | 6 | payment-execution.service.ts | 1212 | confirmBankPayout | bank_payout | seller-payout-bank-settlement |
+  | 7 | transaction.service.ts | 36 | transfer | (dinâmico) | N/A — callers definem |
+  | 8 | financial-simulator.controller.ts | 113 | POST /simulate-payment | simulation_deposit | test-simulation-deposit |
+  | 9 | financial-simulator.controller.ts | 127 | POST /simulate-payment | simulation_payment | test-simulation-payment |
+- **Concepts propostos para RFC:**
+  - Domínio commerce (6): marketplace-escrow-payment, marketplace-settlement-escrow-to-clearing, marketplace-settlement-clearing-to-seller, marketplace-funds-release, seller-payout-request, seller-payout-bank-settlement
+  - Domínio devtools (2): test-simulation-deposit, test-simulation-payment
+- **Observação transaction.service.ts:** wrapper legado; concept_id vem do caller (PROPAGATED). Não requer concept próprio.
+- **Referência:** estouaprendendo.md seção 22 (detalhamento completo com contexto de código)
+- **Próxima ação:** Criar RFC formal com os 8 concepts propostos.
 
 ---
 
