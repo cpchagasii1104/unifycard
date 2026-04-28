@@ -180,6 +180,7 @@ class SocialWorkPaymentService {
         customerUserId,
         providerUserId: job.clientUserId,
       },
+      concept_id: 'service-booking-payment',
     });
 
     const bankTx = await transactionService.getTransactionById(tenantId, transferResult.transactionId);
