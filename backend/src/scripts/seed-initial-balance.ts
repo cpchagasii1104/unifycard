@@ -39,11 +39,18 @@ export async function creditInitialBalance(
   // Usar eventId determinístico para idempotência
   const eventId = `initial-balance-${userId}-${tenantId}`;
   
+  const { buildSystemAuthorship } = await import('../modules/bank/financial-authorship.helper');
+  const authorship = buildSystemAuthorship({
+    actingForAccountId: userAccount.accountId,
+    actingForActorId: 'system',
+  });
+
   const result = await bankTransactionService.createSimpleTransaction(tenantId, {
     eventId,
+    referenceType: 'initial_balance',
     fromAccountId: reserveAccount.accountId,
     toAccountId: userAccount.accountId,
-    amount,
+    amountCents,
     currency: 'BRL',
     transactionType: 'deposit',
     description: `Crédito inicial para novo usuário`,
@@ -53,9 +60,11 @@ export async function creditInitialBalance(
       source: 'system',
       reason: 'new_user_welcome',
     },
+    concept_id: 'system-reserve-credit',
+    authorship,
   });
 
-  return result.transactionId;
+  return result.transaction.transactionId;
 }
 
 // Script standalone (para execução manual)
