@@ -152,6 +152,7 @@ class PayoutService {
             referenceId: `${paymentIntentId}:${split.id}`,
             orderId: intent.orderId ?? undefined,
             authorship,
+            concept_id: 'seller-payout-bank-settlement',
             treasurySource: 'treasury:settlement',
           });
 
