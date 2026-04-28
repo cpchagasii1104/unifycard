@@ -510,6 +510,7 @@ class BankIntegrationService {
       splitLines,
       description: `Service payment request ${paymentRequestId}`,
       metadata: { ...metadata, executionId, paymentRequestId },
+      concept_id: 'ride-payment',
       authorship,
     });
 
@@ -867,6 +868,7 @@ class BankIntegrationService {
         referrerUserId,
         ...metadata,
       },
+      concept_id: 'ride-payment',
       authorship,
     });
 
