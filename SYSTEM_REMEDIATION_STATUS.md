@@ -1,3 +1,15 @@
+### 2026-04-27 — FASE 5 C2 — 9 call sites commitados
+
+**C2:** DECISION-C2-010 registrada (ba684181). 6 concepts commerce aprovados e seedados (b2b94526). 9 call sites preenchidos com concept_id:
+  payment-execution.service.ts (6 sites): 8c1521d9
+  transaction.service.ts (wrapper, concept_id opcional): 48c2d6e1
+  financial-simulator.controller.ts (2 sites): 764739bf
+
+Bloqueador 3-C atual: 4 callers do wrapper sem concept_id
+  core/economy/distribution/distribution.service.ts
+  core/economy/split.service.ts
+  modules/social/social-work-payment.service.ts
+  core/unifybank/test-currency.service.ts
 # SYSTEM REMEDIATION STATUS
 
 **Documento vivo. Atualizado a cada commit que fecha ou altera status de violação.**
@@ -6,7 +18,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-26 (FASE 5 C2 — Passo 3-B COMPLETO 23/23; BLOQUEADOR 3-C identificado) |
+| Última atualização | 2026-04-27 (FASE 5 C2 — 9 call sites commitados; 4 callers wrapper pendentes) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -52,6 +64,7 @@
 |----|--------|-----------------|--------------------------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
 | C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | Passo 3-B CONCLUÍDO 23/23 paths. Passo 3-C BLOQUEADO — RFC pendente (DECISION-C2-009). 9 call sites sem concept: payment-execution.service.ts (6), transaction.service.ts (1), financial-simulator.controller.ts (2). |
+| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | DECISION-C2-010 registrada (6 concepts commerce aprovados). 9 call sites commitados: payment-execution.service.ts (8c1521d9), transaction.service.ts (48c2d6e1 — concept_id opcional), financial-simulator.controller.ts (764739bf). Seed 6 concepts commerce: b2b94526. Bloqueador 3-C: 4 callers do wrapper sem concept_id — distribution.service.ts, split.service.ts, social-work-payment.service.ts, test-currency.service.ts. |
 | C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |

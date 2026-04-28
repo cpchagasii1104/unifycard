@@ -8,7 +8,7 @@
 
 **Gate no repo:** `npm run validate:system-state` (coerência deste ficheiro + A1–A4 se `DATABASE_URL` e `pg` existirem). **A2** na BD segue `PLANO_IDENTITY_RECONCILIATION.md` §2.1 (actores humanos **elegíveis**: `is_identity_required = true`). Números concretos (ex.: último A2) devem constar do **log de execução** / evidência SQL colada — não substituem a leitura directa do precheck no ambiente alvo. `npm run validate:system-state:strict` falha com **§GLOBAL BLOCK ATIVO** sem `DATABASE_URL`; com BD, falha também se A1–A4 > 0 **ou** se A1–A4 = 0 mas o STATUS ainda não foi actualizado para **INATIVO** (STATUS desactualizado face à realidade).
 
-**Última actualização:** 2026-04-26 (FASE 5 C2 — Passo 3-B COMPLETO 23/23 paths)
+**Última actualização:** 2026-04-27 (FASE 5 C2 — 9 call sites commitados; 4 callers wrapper pendentes)
 
 ---
 
@@ -67,6 +67,27 @@
 ---
 
 ## Próxima acção (humano ou agente)
+
+1. **Validação end-to-end dos fluxos ponta-a-ponta**
+2. **Q3+Q4** — orquestração evento+serviço (pós-lançamento)
+3. **Nomenclatura EIXO 2-9** (PLANO_CORRECAO_NOMENCLATURA.md)
+
+
+## Checkpoint 2026-04-27 — FASE 5 C2 — 9 call sites commitados
+
+- DECISION-C2-010: 6 concepts commerce aprovados (ba684181)
+- Seed 6 concepts commerce aplicada (b2b94526)
+- 9 call sites preenchidos com concept_id:
+    payment-execution.service.ts (6 sites): 8c1521d9
+    transaction.service.ts (wrapper, opcional): 48c2d6e1
+    financial-simulator.controller.ts (2 sites): 764739bf
+- estouaprendendo.md secao 22.5 corrigido (concepts financial-simulator)
+- Bloqueador 3-C: 4 callers do wrapper pendentes:
+    core/economy/distribution/distribution.service.ts
+    core/economy/split.service.ts
+    modules/social/social-work-payment.service.ts
+    core/unifybank/test-currency.service.ts
+- Proxima acao: resolver 4 callers um por vez (um commit por arquivo)
 
 1. **Validação end-to-end dos fluxos ponta-a-ponta**
 2. **Q3+Q4** — orquestração evento+serviço (pós-lançamento)
@@ -177,8 +198,8 @@ git log do repositório, complementado por:
 
 **Estado atual:** Passo 3-B CONCLUÍDO — 23/23 paths com concept_id.
 
-**Bloqueador 3-C:** payment-execution.service.ts (6 call sites) + transaction.service.ts (1 call site)
-requerem concepts não incluídos nos 24 aprovados. RFC pendente antes de tornar concept_id obrigatório.
+
+DECISION-C2-010: 6 concepts commerce aprovados e seedados (b2b94526). 9 call sites commitados: payment-execution.service.ts (8c1521d9), transaction.service.ts (48c2d6e1 — concept_id opcional), financial-simulator.controller.ts (764739bf). Bloqueador 3-C atual: 4 callers do wrapper sem concept_id — distribution.service.ts, split.service.ts, social-work-payment.service.ts, test-currency.service.ts.
 
 **Pendentes:**
 - RFC: concepts para payment-execution.service.ts + transaction.service.ts
