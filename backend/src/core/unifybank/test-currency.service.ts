@@ -97,6 +97,7 @@ class TestCurrencyService {
         currency: TEST_CURRENCY,
         source: 'unifybank_test_currency',
       },
+      concept_id: 'system-reserve-credit', // TODO: RFC — substituir por test-currency-emission (devtools)
     });
 
     // 4. Buscar saldo atualizado
