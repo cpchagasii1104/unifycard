@@ -62,7 +62,7 @@ export interface CreateTransactionFromIntentInput {
   b2bOrderId: string;
   buyerBankAccountId: string;
   supplierBankAccountId: string;
-  concept_id?: string;
+  concept_id: string;
   authorship: FinancialAuthorshipContext;
 }
 
