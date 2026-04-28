@@ -857,7 +857,7 @@ class BankTransactionService {
        */
       authorship: FinancialAuthorshipContext;
       /** C2: FK para concepts(concept_id) — SSOT semântico da operação financeira. */
-      concept_id?: string;
+      concept_id: string;
     }
   ): Promise<{
     transaction: BankTransaction;
@@ -909,7 +909,7 @@ class BankTransactionService {
       transactionType: BankTransactionType;
       description?: string;
       metadata?: Record<string, any>;
-      concept_id?: string;
+      concept_id: string;
       authorship: FinancialAuthorshipContext; // Agora obrigatório
     }
   ): Promise<{
@@ -1144,7 +1144,7 @@ class BankTransactionService {
        */
       authorship: FinancialAuthorshipContext;
       /** C2: FK para concepts(concept_id) — SSOT semântico. */
-      concept_id?: string;
+      concept_id: string;
     }
   ): Promise<{
     transaction: BankTransaction;
@@ -1192,7 +1192,7 @@ class BankTransactionService {
       fromUserId?: string;
       description?: string;
       metadata?: Record<string, any>;
-      concept_id?: string;
+      concept_id: string;
       authorship: FinancialAuthorshipContext; // Agora obrigatório
     }
   ): Promise<{
@@ -1433,7 +1433,7 @@ class BankTransactionService {
       }>;
       description: string;
       metadata?: Record<string, any>;
-      concept_id?: string;
+      concept_id: string;
       authorship: FinancialAuthorshipContext;
     }
   ): Promise<{
