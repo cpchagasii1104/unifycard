@@ -104,6 +104,7 @@ class DistributionService {
           originalAmount: amount,
           feesApplied: calculation.totalFees,
         },
+        concept_id: 'treasury-governance-pool-distribution',
       });
 
       // 5. Transfere platform fee
@@ -117,6 +118,7 @@ class DistributionService {
             type: 'platform_fee',
             relatedEventId: mainEventId,
           },
+          concept_id: 'treasury-system-reserve-distribution',
         });
       }
 
@@ -131,6 +133,7 @@ class DistributionService {
             type: 'community_fee',
             relatedEventId: mainEventId,
           },
+          concept_id: 'treasury-community-fund-distribution',
         });
       }
 
@@ -145,6 +148,7 @@ class DistributionService {
             type: 'group_fee',
             relatedEventId: mainEventId,
           },
+          concept_id: 'treasury-regional-fund-distribution',
         });
       }
 
