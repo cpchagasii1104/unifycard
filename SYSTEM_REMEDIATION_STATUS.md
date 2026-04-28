@@ -5,7 +5,7 @@
   transaction.service.ts (wrapper, concept_id opcional): 48c2d6e1
   financial-simulator.controller.ts (2 sites): 764739bf
 
-Bloqueador 3-C atual: 4 callers do wrapper sem concept_id
+Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais recente)
   core/economy/distribution/distribution.service.ts
   core/economy/split.service.ts
   modules/social/social-work-payment.service.ts
@@ -18,7 +18,7 @@ Bloqueador 3-C atual: 4 callers do wrapper sem concept_id
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última atualização | 2026-04-27 (FASE 5 C2 — 9 call sites commitados; 4 callers wrapper pendentes) |
+| Última atualização | 2026-04-27 (FASE 5 C2 — 4 callers wrapper concluídos; bloqueador 3-C operacional resolvido) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 ---
@@ -63,8 +63,7 @@ Bloqueador 3-C atual: 4 callers do wrapper sem concept_id
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
 |----|--------|-----------------|--------------------------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
-| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | Passo 3-B CONCLUÍDO 23/23 paths. Passo 3-C BLOQUEADO — RFC pendente (DECISION-C2-009). 9 call sites sem concept: payment-execution.service.ts (6), transaction.service.ts (1), financial-simulator.controller.ts (2). |
-| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | DECISION-C2-010 registrada (6 concepts commerce aprovados). 9 call sites commitados: payment-execution.service.ts (8c1521d9), transaction.service.ts (48c2d6e1 — concept_id opcional), financial-simulator.controller.ts (764739bf). Seed 6 concepts commerce: b2b94526. Bloqueador 3-C: 4 callers do wrapper sem concept_id — distribution.service.ts, split.service.ts, social-work-payment.service.ts, test-currency.service.ts. |
+| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | DECISION-C2-010 registrada. 9 call sites commitados. 4 callers concluídos: distribution.service.ts (2f9ead22), split.service.ts (d22255d6), social-work-payment.service.ts (79949eee), test-currency.service.ts (dc7aebdd — system-reserve-credit temporário, RFC pendente). Pendências: concept_id obrigatório + 0 NULLs + ALTER COLUMN SET NOT NULL. |
 | C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
@@ -230,8 +229,25 @@ Auditoria destrutiva executada. Tentou quebrar o sistema via 5 vetores (SSOT, Sc
 - DECISION-0012 registrada
 - Contagens reconciliadas STATUS × snapshot
 
+### 2026-04-27 — FASE 5 C2 — 4 callers wrapper concluídos
+
+**C2:** 4 callers do wrapper transaction.service.ts preenchidos com concept_id:
+- distribution.service.ts: 2f9ead22 (4 treasury concepts)
+- split.service.ts: d22255d6 (group-contribution-payment — L221; L345 fora do escopo)
+- social-work-payment.service.ts: 79949eee (service-booking-payment)
+- test-currency.service.ts: dc7aebdd (system-reserve-credit temporário — RFC pendente)
+
+Revert aplicado: 4490ee75 (reformatação não autorizada em split.service — cdc681f4)
+Bloqueador 3-C operacional resolvido.
+
+Pendências para fechamento de C2:
+- Tornar concept_id obrigatório em bank-transaction.types.ts
+- Garantir 0 NULLs no banco
+- Migration ALTER COLUMN SET NOT NULL
+
 ### (entradas históricas anteriores preservadas)
 
 ---
 
 **FIM DO DOCUMENTO**
+
