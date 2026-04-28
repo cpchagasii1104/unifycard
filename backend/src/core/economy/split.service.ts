@@ -216,6 +216,7 @@ class SplitEngineService {
                   groupIndex: i,
                   totalGroups: context.groupAccountIds.length,
                 },
+                concept_id: 'group-contribution-payment',
               });
 
               result.splits.push({
