@@ -142,8 +142,13 @@ class BankIntegrationService {
       if (limitError.statusCode === 403) {
         throw limitError;
       }
-      // Se não for erro de limite, logar mas não bloquear (fail-open)
-      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
+      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
+      // Sem validação de limite, não existe operação financeira.
+      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
+      svcError.statusCode = 503;
+      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
+      svcError.originalError = limitError?.message || String(limitError);
+      throw svcError;
     }
 
     // Resolver conta do comprador
@@ -236,8 +241,13 @@ class BankIntegrationService {
       if (limitError.statusCode === 403) {
         throw limitError;
       }
-      // Se não for erro de limite, logar mas não bloquear (fail-open)
-      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
+      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
+      // Sem validação de limite, não existe operação financeira.
+      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
+      svcError.statusCode = 503;
+      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
+      svcError.originalError = limitError?.message || String(limitError);
+      throw svcError;
     }
 
     // Resolver conta do comprador
@@ -331,8 +341,13 @@ class BankIntegrationService {
       if (limitError.statusCode === 403) {
         throw limitError;
       }
-      // Se não for erro de limite, logar mas não bloquear (fail-open)
-      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
+      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
+      // Sem validação de limite, não existe operação financeira.
+      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
+      svcError.statusCode = 503;
+      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
+      svcError.originalError = limitError?.message || String(limitError);
+      throw svcError;
     }
 
     // Resolver contas
@@ -457,11 +472,17 @@ class BankIntegrationService {
         payerUserId
       );
     } catch (limitError: unknown) {
-      const err = limitError as { statusCode?: number };
+      const err = limitError as { statusCode?: number; message?: string };
       if (err.statusCode === 403) {
         throw limitError;
       }
-      console.warn('[BankLimit] validateLimit (service execution):', limitError);
+      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
+      // Sem validação de limite, não existe operação financeira.
+      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
+      svcError.statusCode = 503;
+      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
+      svcError.originalError = err?.message || String(limitError);
+      throw svcError;
     }
 
     const fromAccountId = await resolveUserAccount(tenantId, payerUserId, currency);
@@ -500,6 +521,18 @@ class BankIntegrationService {
       },
     });
 
+    // Resolver UUID do concept via SSOT semantico.
+    // 'ride-payment' e o slug canonico no dominio 'financeiro-payment'.
+    // runQueryWithTenant retorna o primeiro row diretamente (ver pool.ts:190).
+    const conceptRow = await runQueryWithTenant<{ concept_id: string }>(
+      tenantId,
+      `SELECT concept_id FROM concepts WHERE domain = $1 AND slug = $2 LIMIT 1`,
+      ['financeiro-payment', 'ride-payment']
+    );
+    if (!conceptRow) {
+      throw new Error('CONCEPT_NOT_FOUND: ride-payment em financeiro-payment nao encontrado');
+    }
+
     const result = await bankTransactionService.createTransactionWithExplicitSplitLines(tenantId, {
       referenceType: 'service_execution',
       referenceId: paymentRequestId,
@@ -510,7 +543,7 @@ class BankIntegrationService {
       splitLines,
       description: `Service payment request ${paymentRequestId}`,
       metadata: { ...metadata, executionId, paymentRequestId },
-      concept_id: 'ride-payment',
+      concept_id: conceptRow.concept_id,
       authorship,
     });
 
@@ -729,7 +762,13 @@ class BankIntegrationService {
       if (limitError.statusCode === 403) {
         throw limitError;
       }
-      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
+      // Erro técnico no serviço de limites — fail-closed (não assumir permissão)
+      // Sem validação de limite, não existe operação financeira.
+      const svcError = new Error('[BankLimit] Serviço de limites indisponível — operação bloqueada por segurança') as any;
+      svcError.statusCode = 503;
+      svcError.errorCode = 'LIMIT_SERVICE_UNAVAILABLE';
+      svcError.originalError = limitError?.message || String(limitError);
+      throw svcError;
     }
 
     const passengerAccountId = await resolveUserAccount(tenantId, passengerUserId, currency);
