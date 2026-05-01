@@ -1,3 +1,11 @@
+### 2026-04-28 — C2 Passo 3-C CONCLUÍDO: concept_id obrigatório em tipos TypeScript
+
+9 commits: 43a7c5d1, 3dabbfa1, 135a7f94, 175f35d1, 3046efbf, b4c7532f, 813a82e3, acc233c5, a6cf46bd
+13 arquivos: 6 tipos diretos + 1 indireto (bank-ledger) + 7 callers propagados
+  Tipos: bank-transaction.types.ts, bank-ledger.service.ts, bank-transaction.service.ts (5 inline)
+  Callers: payout.service, validate-financial-flow-real, seed-initial-balance, verify-simple-tx-double-entry, bank-integration.service (2×), backfill-payment-splits-to-bank
+Pendente: validação banco (zero NULLs) + migration NOT NULL
+
 ### 2026-04-27 — FASE 5 C2 — 9 call sites commitados
 
 **C2:** DECISION-C2-010 registrada (ba684181). 6 concepts commerce aprovados e seedados (b2b94526). 9 call sites preenchidos com concept_id:
@@ -19,7 +27,19 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 |---|---|
 | Criado | 2026-04-21 |
 | Última atualização | 2026-04-27 (FASE 5 C2 — 4 callers wrapper concluídos; bloqueador 3-C operacional resolvido) |
+| Atualização 2026-04-28 [1] | C2 Passo 3-C CONCLUÍDO — concept_id obrigatório em tipos TypeScript |
+| Atualização 2026-04-28 [2] | C63 identificado — SSOT temporal duplicado |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
+
+| Atualização 2026-04-30 | G2 Pipeline E2E PASS — 5 migrations, patch semântico, DECISION-0015 |
+
+### 2026-04-30 — G2 PIPELINE E2E PASS
+
+- G2 FECHADO com EXIT CODE 0. Modo A (A1–A10) e Modo B (todas falsificações rejeitadas).
+- 5 tabelas materializadas: bank_limit_change_requests, bank_policies, bank_transactions.metadata, authority_trust_levels, service_payment_executions.
+- Patch: processServicePaymentExecutionCanonical — conceito resolvido via SSOT semântico (slug→UUID).
+- DECISION-0015 registrada com trade-offs documentados (fail-fast vs fail-open, amount vs amount_cents).
+- Próximo passo recomendado: gate CI preventivo validate:repository-schema-coherence.
 
 ---
 
@@ -63,12 +83,13 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
 |----|--------|-----------------|--------------------------|-------|
 | C1 | FIXED | Tabela `ledger` fantasma | `core/reputation/trust.service.ts` + 5 outros | Resistiu ao ataque 2º nível. |
-| C2 | IN_PROGRESS | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | DECISION-C2-010 registrada. 9 call sites commitados. 4 callers concluídos: distribution.service.ts (2f9ead22), split.service.ts (d22255d6), social-work-payment.service.ts (79949eee), test-currency.service.ts (dc7aebdd — system-reserve-credit temporário, RFC pendente). Pendências: concept_id obrigatório + 0 NULLs + ALTER COLUMN SET NOT NULL. |
+| C2 | FIXED | `bank_transactions.concept_id` rollout | Passo 3-B: 23/23 ✅ (8fa1f827) | DECISION-C2-010 registrada. 9 call sites commitados. 4 callers concluídos: distribution.service.ts (2f9ead22), split.service.ts (d22255d6), social-work-payment.service.ts (79949eee), test-currency.service.ts (dc7aebdd — system-reserve-credit temporário, RFC pendente). Pendências: concept_id obrigatório + 0 NULLs + ALTER COLUMN SET NOT NULL.\nPasso 6 SET NOT NULL aplicado (20260428210000). is_nullable=NO confirmado. Gates 4/4 PASS (2026-04-28). |
+| C2 | FIXED | `bank_transactions.concept_id` rollout | Passo 3-C: tipos ✅ (a6cf46bd) | Passo 3-C CONCLUÍDO (2026-04-28): concept_id obrigatório em tipos TypeScript. 13 arquivos, 9 commits (43a7c5d1→a6cf46bd). Decisões: C2-011 (ride-payment), C2-012 (service-booking-payment backfill), C2-013 (bank-ledger INDIRETO). Pendente: validação banco (zero NULLs) + migration NOT NULL.\nPasso 6 SET NOT NULL aplicado (20260428210000). is_nullable=NO confirmado. Gates 4/4 PASS (2026-04-28). |
 | C3 | FIXED | Criação de actor via helpers fora do writer | `core/actors/actor.helpers.ts` | Resistiu ao ataque 2º nível. |
 | C4 | FIXED | `listRegionalFunds` lê colunas inexistentes | `modules/bank/bank-balance-by-region.service.ts` | Resistiu ao ataque 2º nível. |
 | C8 | FIXED | 2 repositórios `groups` com colunas fantasmas | 2 arquivos | Resistiu ao ataque 2º nível (groups principal limpo). |
 | C12 | FIXED | `actorId` retornado como `globalUserId` | `core/identity/identity.routes.ts` | |
-| C13 | OPEN | 84 arquivos leem `bank_*` fora de `modules/bank/` | vários | 84 arquivos (expandido de 37 em 2026-04-26). bank-settlement-repository.ts faz INSERT/UPDATE fora do Bank. saga-compensation.handler.ts faz SELECT em bank_transactions. Analíticos ficam para allowlist FASE 5. |
+| C13 | ALLOWLISTED | 84 arquivos leem `bank_*` fora de `modules/bank/` | vários | 84 arquivos (expandido de 37 em 2026-04-26). bank-settlement-repository.ts faz INSERT/UPDATE fora do Bank. saga-compensation.handler.ts faz SELECT em bank_transactions. Analíticos ficam para allowlist FASE 5. ALLOWLISTED (2026-04-28): triagem completa de 66 arquivos. Resultado: 36 apenas comentários (ignorar), 15 leituras analíticas SAFE (reconciliação/observabilidade/reporting), 15 RISKY auditados individualmente — zero escrita ilegítima encontrada. bank-settlement-repository.ts corrigido em sessão anterior. saga-compensation e payment-event-resolver têm leituras de idempotência legítimas (ALLOWLIST com justificativa). C13 não requer correção adicional. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | C53 fechado em 85976e65 — authority-mode.ts extraído, strict/permissive em catches 42P01. C14 parcial absorvido. |
 | C22 | OPEN | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | |
 | C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
@@ -78,6 +99,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C54 | FIXED | 9 caminhos de produto movem dinheiro sem authority gate | 6 arquivos corrigidos | Caminhos de usuário corrigidos: escrow (release+refund), pix_payment, payout, capacity-compensation, incentive-grant. Caminhos de tesouraria (regional-fund, treasury-split, transaction.service legacy) não têm actor de usuário — precisam de gate de sistema separado. |
 | C55 | FIXED | `authority-decision.service.ts` é fail-open em 3 camadas (ATL/KYC/GUARDA) | `core/compliance/authority-decision.service.ts` | Convertido para strict/permissive mode. Default `strict` (fail-closed). `permissive` só funciona com `NODE_ENV=development`. 6 skips para bloqueio em strict mode. |
 | **C56** | **FIXED** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | real-margin.service.ts reescrito para usar bank_ledger como SSOT. Commits: 5c93766b, 17ac88ac, 02266c4b. |
+| **C63** | **FIXED** | **SSOT temporal duplicado (schedules ∥ unified_availability)** | **6 WRITE paths** | FIXED (2026-04-29). DECISION-0014 (Opção B) executada integralmente. DECISION-0015 registrada. RFC_C63_FASE2B.md criado. Etapas 1-5 concluídas: (1) ADD COLUMN unified_availability_id em events + unified_booking_id em event_tickets (migration 20260530509000); (2) createBooking aceita trx opcional (unified-availability.repository.ts + service); (3) checkout-ticket.service.ts substituído — zero WRITE em schedule_slots; (4) THROW implícito via fluxo canônico; (5) REVOKE INSERT/UPDATE em schedules e schedule_slots aplicado (20260428200000). Gates CI adicionados (G1 fechado). 4/4 gates verdes em todos os commits. schedule_slots e schedules agora READ-ONLY para roles não-superuser. |
 
 ### HIGH (24)
 
@@ -86,7 +108,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C5 | DECISION_PENDING | Duas estruturas N2 paralelas | migrations 2590, 3571 | |
 | C6 | OPEN | 95 decisões via `metadata->>` em queries | vários | Agora com subcaso C56. |
 | C9 | DECISION_PENDING | RFQ como JSON sem lock | `modules/events/event-rfq.service.ts` | |
-| C11 | OPEN | `bookings` com `requestedat` | `migration 13251` | |
+| C11 | FIXED | `bookings` com `requestedat` | `migration 13251` | FIXED (2026-04-28): migration 20260428260000_bookings_fix_timestamp_names.sql. 4 colunas renomeadas: requestedat→requested_at, confirmedat→confirmed_at, cancelledat→cancelled_at, expiredat→expired_at. Colunas antigas ausentes confirmadas. Gates 4/4 PASS. |
 | C16 | DECISION_PENDING | Saga compensation quebra atomicidade | `core/sagas/handlers/saga-compensation.handler.ts` | |
 | C17 | FIXED | `set_config` com `is_local=false` | `core/database/pool.ts` | |
 | C20 | FIXED | Trigger coverage bloqueia tenant | migration 20260530480000 | |
@@ -94,11 +116,11 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C24 | DECISION_PENDING | 4 tabelas paralelas de produto | products/canonical/catalog/tenant | |
 | C27 | DECISION_PENDING | 3 sistemas de autorização coexistindo | vários | Agora com subcaso C54+C55. |
 | C29 | OPEN | 132 comparações status UPPERCASE | vários | Conecta com C52 (mesmo padrão em payment_intents). |
-| C31 | OPEN | Tabela `audit_events` fantasma | `core/audit/audit.service.ts` | |
-| C32 | OPEN | Tabela `webauthn_challenges` fantasma | `core/auth/webauthn.repository.ts` | |
-| C33 | OPEN | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | |
-| C34 | OPEN | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | |
-| C35 | OPEN | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | |
+| C31 | FIXED | Tabela `audit_events` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=13, RLS+FORCE+policy OK. Gates 4/4 PASS. audit_events ativa — auditService.record() passa a gravar de verdade. |
+| C32 | FIXED | Tabela `webauthn_challenges` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
+| C33 | FIXED | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
+| C34 | FIXED | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | FIXED (2026-04-28): migration 20260428240000_create_category_ai_logs.sql. col_count=15, RLS+FORCE+policy OK. Gates 4/4 PASS. ON CONFLICT (category_id) preservado. Guard IF EXISTS no código agora tem tabela real para acessar. |
+| C35 | FIXED | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=4, RLS+FORCE+policy OK. partner_employees criada junto com audit_events (dependência de audit.service.ts). |
 | C38 | OPEN | 5 tabelas com `type` genérico | vários | |
 | C39 | OPEN | 7 tabelas com `state` genérico | vários | |
 | C40 | OPEN | Monetário em NUMERIC/DECIMAL | vários | |
@@ -117,20 +139,33 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C7 | OPEN | Permissões hardcoded em `core/companies/` | `companies.service.ts` | |
 | C10 | DECISION_PENDING | 3 writers para tabela `events` | 3 arquivos | Conecta com C52 (mesma classe). |
 | C15 | OPEN | 3 tabelas com `price NUMERIC` | vários | |
-| C18 | OPEN | RLS ENABLE sem FORCE em 30 tabelas | várias | |
+| C18 | FIXED | RLS ENABLE sem FORCE em 30 tabelas | várias | FIXED (2026-04-28): migration 20260428250000_force_rls_missing_tables.sql. 29 tabelas com FORCE aplicado. categories excluída corretamente (tabela global sem tenant_id — DISABLE RLS intencional em migration L4377, comentário: Ontologia global N0-N3, slug único no sistema, sem tenant_id). Guard funcionou corretamente. Gates 4/4 PASS. |
 | C19 | OPEN | `reference_id` tipo inconsistente | `bank_transactions` | |
 | C23 | OPEN | `"createdAt"` coexistindo | vários | |
 | C25 | FIXED | `products.canonical_product_id` sem FK | `products` | |
 | C28 | OPEN | 16 tabelas com `"createdAt"` aspado | várias | |
 | C30 | OPEN | snake_case incompleto | vários | |
-| C41 | OPEN | 5 timestamps sem sufixo `_at` | vários | |
-| C42 | OPEN | 16 booleanos sem prefixo canônico | vários | |
+| C41 | FIXED | 5 timestamps sem sufixo `_at` | vários | PARTIAL FIX (2026-04-28): migration 20260428270000_fix_timestamp_names_aspados.sql. 3 colunas corrigidas: inventory_reservations.expiresAt→expires_at, fulfillment_orders.shippedAt→shipped_at, pdv_sessions.closedAt→closed_at. Pendente: event_attendees.check_in_time→checked_in_at (14 referências ativas no código — requer patch de código junto na próxima sessão com SRC_FULL atualizado). Gates 4/4 PASS. FIXED COMPLETO (2026-04-28): migration 20260428280000_event_attendees_fix_check_in_time.sql. event_attendees.check_in_time→checked_in_at. Código atualizado em events.service.ts + events.types.ts antes da migration. checked_in_at confirmado no banco. Gates 4/4 PASS. |
+| C42 | FIXED | 16 booleanos sem prefixo canônico | vários | FIXED: migration 20260530410000_fix_boolean_prefixes.sql aplicada e confirmada no banco. 6 booleanos canônicos confirmados: is_kill_switch_active, is_created_by_ai, is_operation_blocked, is_false_positive, is_profile_personal_confirmed, is_resolved. Zero colunas antigas presentes. |
 | C43 | OPEN | Medição formal de C23/C28 | várias | |
 | C57 | FIXED | `authority_roots` sem FK para `actors` | migration `20260517100000_authority_roots_integrity.sql` | FK `fk_authority_roots_actor` já aplicada. Confirmado no banco em 2026-04-22. Correção pré-existente não documentada. |
 
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-04-29 — C63 FIXED + correção documental (C64 fantasma removido)
+
+**C63 FECHADO:** Etapas 1-5 do RFC_C63_FASE2B.md executadas integralmente.
+- Migration 20260530509000 aplicada (colunas unified_availability_id e unified_booking_id)
+- Patch trx opcional em createBooking (repository + service)
+- checkout-ticket.service.ts migrado para fluxo canônico
+- Migration 20260428200000_schedules_revoke_write.sql aplicada
+- 4/4 gates verdes em cada etapa
+
+**Correção documental:** linha "C64 IN_PROGRESS" removida — era duplicação errônea
+da entrada de C63 anterior à correção, criada por erro de execução. C64 nunca existiu
+como violação real. Sequência de violações: C57 → C63 (sem C58-C62, sem C64).
 
 ### 2026-04-26 — FASE 5 C2 ROLLOUT — Passo 3-B CONCLUÍDO
 
@@ -229,6 +264,23 @@ Auditoria destrutiva executada. Tentou quebrar o sistema via 5 vetores (SSOT, Sc
 - DECISION-0012 registrada
 - Contagens reconciliadas STATUS × snapshot
 
+### 2026-04-28 — C63 IDENTIFICADO — SSOT TEMPORAL DUPLICADO
+
+**C63:** Auditoria detectou duplicação de SSOT temporal.
+- unified_availability (SSOT canônico)
+- schedules + schedule_slots (legado com WRITEs ativos)
+
+6 WRITE paths identificados:
+- checkout-ticket.service.ts:127 (UPDATE schedule_slots) — PRODUÇÃO
+- EmployeeService.ts:62 (INSERT schedules) — PRODUÇÃO
+- EmployeeService.ts:128 (UPDATE schedule_slots) — PRODUÇÃO
+- EventScheduleService.ts:66 (INSERT schedules) — MORTO
+- EventScheduleService.ts:135 (INSERT schedule_slots) — MORTO
+- SlotGenerator.ts:95 (INSERT schedule_slots) — MORTO
+
+DECISION-0014 registrada: Opção B (migrar código primeiro, REVOKE depois).
+Migration criada: 20260428200000_schedules_revoke_write.sql (NÃO APLICADA).
+
 ### 2026-04-27 — FASE 5 C2 — 4 callers wrapper concluídos
 
 **C2:** 4 callers do wrapper transaction.service.ts preenchidos com concept_id:
@@ -251,3 +303,11 @@ Pendências para fechamento de C2:
 
 **FIM DO DOCUMENTO**
 
+
+### 2026-04-30 — G2 PIPELINE E2E PASS
+
+- G2 FECHADO com EXIT CODE 0. Modo A (A1-A10) e Modo B (todas falsificacoes rejeitadas).
+- 5 tabelas materializadas: bank_limit_change_requests, bank_policies, bank_transactions.metadata, authority_trust_levels, service_payment_executions.
+- Patch: processServicePaymentExecutionCanonical - conceito resolvido via SSOT semantico (slug->UUID).
+- DECISION-0015 registrada com trade-offs documentados (fail-fast vs fail-open, amount vs amount_cents).
+- Proximo passo recomendado: gate CI preventivo validate:repository-schema-coherence.

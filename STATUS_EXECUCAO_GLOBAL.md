@@ -1,3 +1,27 @@
+
+## Checkpoint 2026-04-30 — G2 PIPELINE E2E TRANSVERSAL PASS
+
+- **G2 FECHADO:** Pipeline E2E transversal validado com PASS completo.
+- **Modo A causal:** A1–A10 todos verdes (RFQ → Quote → Accept → PaymentRequest → Execution → Ledger → Outbox).
+- **Modo B falsificações:** Todas rejeitadas pelo runtime (B1, B2, B3, B5).
+- **5 gaps de schema materializados via migrations:**
+  - 20260530510000: bank_limit_change_requests
+  - 20260530511000: bank_policies
+  - 20260530512000: bank_transactions.metadata (coluna JSONB)
+  - 20260530513000: authority_trust_levels
+  - 20260530514000: service_payment_executions
+- **Patch cirúrgico:** bank-integration.service.ts:524-546 — slug 'ride-payment' → UUID via SSOT semântico.
+- **Seeds G2:** authority_roots + identities (kyc_status='approved', kyc_level='complete') adicionados ao script de validação.
+- **DECISION-0015 registrada:** REMEDIATION_DECISIONS_LOG.md.
+- **Dívida técnica explícita:** 2ª ocorrência slug hardcoded (processRidePayment:910), amount vs amount_cents em service_payment_executions, tabelas auxiliares fail-open (system_notifications, business_audit_logs, authority_delegations).
+- **Recomendação pendente:** gate CI validate:repository-schema-coherence (compara *.repository.ts com schema real do banco).
+
+## Próximas ações (atualizado 2026-04-30)
+
+1. Implementar gate `validate:repository-schema-coherence` (causa raiz G2 — DECISION-0015)
+2. Corrigir 2ª ocorrência slug hardcoded em processRidePayment (bank-integration.service.ts:910)
+3. Reconciliar violações OPEN no SYSTEM_REMEDIATION_STATUS.md (C36, C37, C29)
+4. Nomenclatura EIXO 2-9 (PLANO_CORRECAO_NOMENCLATURA.md)
 # STATUS_EXECUCAO_GLOBAL.md
 
 **GLOBAL BLOCK STATUS:** INATIVO — ver tabela «Estado global» abaixo (actualizar sempre que A1–A4 ou política de bloqueio mudarem). Referência rápida: **2026-04-14** (revisão documental anti-regressão).
@@ -9,6 +33,8 @@
 **Gate no repo:** `npm run validate:system-state` (coerência deste ficheiro + A1–A4 se `DATABASE_URL` e `pg` existirem). **A2** na BD segue `PLANO_IDENTITY_RECONCILIATION.md` §2.1 (actores humanos **elegíveis**: `is_identity_required = true`). Números concretos (ex.: último A2) devem constar do **log de execução** / evidência SQL colada — não substituem a leitura directa do precheck no ambiente alvo. `npm run validate:system-state:strict` falha com **§GLOBAL BLOCK ATIVO** sem `DATABASE_URL`; com BD, falha também se A1–A4 > 0 **ou** se A1–A4 = 0 mas o STATUS ainda não foi actualizado para **INATIVO** (STATUS desactualizado face à realidade).
 
 **Última actualização:** 2026-04-27 (FASE 5 C2 — 9 call sites commitados; 4 callers wrapper pendentes)
+
+**Atualização 2026-04-28:** C63 identificado — SSOT temporal duplicado (DECISION-0014)
 
 ---
 
@@ -72,6 +98,17 @@
 2. **Q3+Q4** — orquestração evento+serviço (pós-lançamento)
 3. **Nomenclatura EIXO 2-9** (PLANO_CORRECAO_NOMENCLATURA.md)
 
+
+## Checkpoint 2026-04-28 — C63 SSOT Temporal
+
+- **C63 identificado:** duplicação SSOT temporal (schedules ∥ unified_availability)
+- **DECISION-0014 registrada:** Opção B (migrar código → REVOKE)
+- **6 WRITE paths mapeados:**
+  - 3 em produção (checkout, contratação, demissão)
+  - 3 em código morto (EventScheduleService, SlotGenerator)
+- **Migration criada:** 20260428200000_schedules_revoke_write.sql (NÃO APLICADA)
+- **Status:** IN_PROGRESS (migração em andamento)
+- **Próxima ação:** FASE 1 — bloquear código morto com ScheduleLegacyBlocker
 
 ## Checkpoint 2026-04-27 — FASE 5 C2 — 9 call sites commitados
 
@@ -224,3 +261,252 @@ DECISION-C2-010: 6 concepts commerce aprovados e seedados (b2b94526). 9 call sit
 - C13 expandido: 84 arquivos (não 37) acessam bank_* fora do Bank
 - 3 fail-opens críticos descobertos em bank-integration.service.ts (L145, L239, L334)
 - Levantamento completo em estouaprendendo.md seções 22-23
+
+## Checkpoint 2026-04-28 — C2 FECHADO
+
+- **C2 FIXED:** migration `20260428210000_bank_transactions_concept_id_not_null.sql` aplicada.
+- `bank_transactions.concept_id`: `is_nullable = NO` confirmado no banco.
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+- Total migrations: 271.
+- **C2 encerrado após:** Passo 1 → Passo 2 → Passo 3-A → Passo 3-B → Passo 3-C → Passo 6.
+
+Próxima ação: C63 FASE 2A — bloquear código morto (EmployeeService.ts e employee.routes.ts).
+
+## Checkpoint 2026-04-28 — C63 FASE 2A CONCLUÍDA
+
+- **C63 FASE 2A:** EmployeeService.ts e employee.routes.ts bloqueados com EmployeeLegacyError.
+- Zero callers confirmados via grep completo no disco (employeeRoutes, EmployeeService, hireEmployee, terminateEmployee — todos zero resultados externos).
+- WRITEs eliminados: hireEmployee (INSERT schedules L62) + terminateEmployee (UPDATE schedule_slots L128).
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+- C63 permanece IN_PROGRESS. Pendente: FASE 2B (migrar checkout-ticket.service.ts:127 — rota de produção ativa POST /api/checkout/event-ticket).
+- FASE 2B exige RFC + análise arquitetural antes de qualquer patch (comportamento ativo, risco real).
+
+## Checkpoint 2026-04-28 — C63 FASE 2B BLOCKED
+
+- **C63 FASE 2B:** BLOCKED por incompatibilidade estrutural — DECISION-0015 registrada.
+- 3 bloqueadores confirmados: transação (createBooking sem suporte a trx externo),
+  schema (falta unified_booking_id em event_tickets), modelo (falta unified_availability_id em events).
+- checkout-ticket.service.ts:127 (UPDATE schedule_slots) permanece ativo temporariamente
+  com justificativa documentada em DECISION-0015.
+- Próxima ação: RFC dedicado C63-FASE2B em docs/02_decisions/ (trilha separada da remediação).
+
+## Estado final C63 — 2026-04-28
+
+| WRITE path | Status |
+|---|---|
+| EventScheduleService.ensureEventSchedule | BLOQUEADO FASE 1 |
+| EventScheduleService.generateEventSlots | BLOQUEADO FASE 1 |
+| SlotGenerator.generateCompanySlots | BLOQUEADO FASE 1 |
+| EmployeeService.hireEmployee | BLOQUEADO FASE 2A |
+| EmployeeService.terminateEmployee | BLOQUEADO FASE 2A |
+| checkout-ticket.service.ts:127 | BLOCKED — aguarda RFC (DECISION-0015) |
+
+---
+
+## Checkpoint 2026-04-29 — Entregas B e C concluídas (G1 fechado + RFC C63-FASE2B formal)
+
+- **G1 FECHADO:** gates `validate:actor-writer-boundaries` e `validate:bank-ledger-boundaries`
+  adicionados ao job `validate-backend` em `.github/workflows/ci.yml`.
+  A partir de agora, qualquer PR que viole §4.8.1 (Identity) ou §4.6 (Bank boundary) é bloqueado automaticamente.
+  Gates validados localmente: 4/4 PASS, critical_new=0, sem regressão.
+
+- **RFC C63-FASE2B criado:** `docs/02_decisions/RFC_C63_FASE2B.md`
+  3 bloqueadores estruturais documentados formalmente.
+  Sequência de execução definida (Etapas 1-5).
+  C63 permanece IN_PROGRESS com trilho formal.
+
+- **DECISION-0015 registrada:** justificativa para manter WRITE em schedule_slots durante transição.
+  Não legitima violação — reconhece estado transitório documentado.
+
+- **Próxima ação:** Entrega D.1 — migration ADD COLUMN unified_availability_id em events
+  e unified_booking_id em event_tickets (pré-condicional: verificar banco antes).
+
+---
+
+## Checkpoint 2026-04-29 — C63 FIXED (Entregas D.1–D.4 concluídas)
+
+- **D.1 FIXED:** migration 20260530509000_add_unified_availability_columns.sql aplicada.
+  Colunas unified_availability_id (events) e unified_booking_id (event_tickets) criadas no banco.
+  4/4 gates verdes.
+
+- **D.2 FIXED:** createBooking em unified-availability.repository.ts e unified-availability.service.ts
+  extendidos com parâmetro trx opcional. tsc limpo. 4/4 gates verdes.
+
+- **D.3 FIXED:** checkout-ticket.service.ts — bloco SELECT+UPDATE em schedule_slots removido.
+  Substituído por fluxo canônico via unifiedAvailabilityService.createBooking(trx).
+  tsc limpo. 4/4 gates verdes.
+
+- **D.4 FIXED:** migration 20260428200000_schedules_revoke_write.sql aplicada.
+  REVOKE INSERT, UPDATE em schedules e schedule_slots executado.
+  PUBLIC sem privilégios de escrita confirmado. 4/4 gates verdes.
+
+- **C63 STATUS: FIXED.** SSOT temporal único: unified_availability. schedules e schedule_slots
+  são agora READ-ONLY para roles não-superuser. Sistema se protege por design.
+
+- **Próxima ação:** C13 (bank boundary triagem) ou E2E transversal (G2).
+
+---
+
+## Checkpoint 2026-04-28 — WebAuthn Runtime Fix (C32, C33)
+
+- **C32 FIXED:** tabela webauthn_credentials criada (9 colunas, RLS+FORCE, policy tenant_isolation).
+- **C33 FIXED:** tabela webauthn_challenges criada (6 colunas, RLS+FORCE, policy tenant_isolation).
+- Migration: 20260428220000_create_webauthn_tables.sql
+- Erro 42P01 eliminado. Rotas /auth/webauthn/* deixam de retornar 500.
+- Fallback WEBAUTHN_NOT_REGISTERED funcional. Step-up financeiro não explode por schema.
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+- Próxima ação: audit_events (C31) — mesmo padrão, tabela inexistente em serviço ativo.
+
+## Checkpoint 2026-04-28 — Audit Runtime Fix (C31, C35)
+
+- **C31 FIXED:** tabela audit_events criada (13 colunas: id, tenant_id, event_type, severity, actor_id, actor_type, company_id, employee_id, source, context, created_at, resolved_at, resolution_note).
+- **C35 FIXED:** tabela partner_employees criada (4 colunas: id, tenant_id, partner_id, created_at).
+- Migration: 20260428230000_create_audit_events.sql
+- auditService.record() passa a gravar de verdade — antes falhava com 42P01.
+- RLS+FORCE+policies de isolamento por tenant em ambas as tabelas.
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+- Próxima ação: category_ai_logs (C34) — mesmo padrão, uso com guard IF EXISTS.
+
+## Checkpoint 2026-04-28 — category_ai_logs Runtime Fix (C34)
+
+- **C34 FIXED:** tabela category_ai_logs criada (15 colunas).
+- Migration: 20260428240000_create_category_ai_logs.sql
+- Schema derivado do INSERT real: category_id, tenant_id, actor_id, global_user_id, input_type, original_text, sanitized_text, text_hash, audio_hash, audio_url, context, ai_suggestion, ai_confidence + id + created_at.
+- ON CONFLICT (category_id) preservado via UNIQUE constraint.
+- RLS+FORCE+policy tenant_isolation (tenant_id NULL-permitido para logs globais de IA).
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+
+## Estado final — Tabelas Fantasma (2026-04-28)
+
+Todas as 5 tabelas fantasma eliminadas nesta sessão:
+
+| Violação | Tabela | Migration |
+|---|---|---|
+| C31 | audit_events | 20260428230000 |
+| C32 | webauthn_credentials | 20260428220000 |
+| C33 | webauthn_challenges | 20260428220000 |
+| C34 | category_ai_logs | 20260428240000 |
+| C35 | partner_employees | 20260428230000 |
+
+Próxima ação: fail-opens financeiros (bank-integration.service.ts L145, L239, L334) ou C13 (84 arquivos bank_* fora do bank).
+
+## Checkpoint 2026-04-28 — Fail-opens Financeiros FIXED
+
+- **5 fail-opens convertidos para fail-closed** em bank-integration.service.ts.
+- Padrão anterior: erro técnico em bankLimitService → warn + continua transação (PERIGOSO).
+- Padrão novo: erro técnico em bankLimitService → throw 503 LIMIT_SERVICE_UNAVAILABLE.
+- Regra preservada: erro 403 (limite excedido) ainda re-throw corretamente.
+- Métodos corrigidos:
+  1. processEventTicketPayment (~L145)
+  2. processEventConsumptionPayment (~L239)
+  3. processServiceBookingPayment (~L334)
+  4. processServicePaymentExecutionCanonical (~L452, tipagem unknown)
+  5. processRidePayment (~L732)
+- tsc: zero erros. Gates 4/4 PASS em cada commit. critical_new=0.
+- Princípio aplicado: "Sem validação de limite, não existe operação financeira."
+
+## Checkpoint 2026-04-28 — C18 FIXED (FORCE RLS em 29 tabelas)
+
+- **C18 FIXED:** FORCE ROW LEVEL SECURITY aplicado em 29 tabelas de negócio.
+- Migration: 20260428250000_force_rls_missing_tables.sql
+- categories excluída corretamente: tabela global de ontologia (N0-N3) sem tenant_id.
+  DISABLE RLS intencional em migration L4377 — sem tenant_id, RLS não se aplica.
+- Guard pg_class.relforcerowsecurity=false funcionou corretamente — não aplicou FORCE onde RLS não está habilitado.
+- Gates 4/4 PASS: actor-writer OK, bank-ledger OK, regression-guards OK, architectural strict OK (critical_new=0).
+- Impacto: isolamento cross-tenant agora obrigatório no banco para 29 tabelas de negócio.
+- Próxima ação: C11 (bookings.requestedat), C41 (timestamps sem _at), ou C13 (triagem bank_* boundaries).
+
+## Checkpoint 2026-04-28 — C11 FIXED (bookings timestamps)
+
+- **C11 FIXED:** 4 timestamps renomeados em bookings para padrão _at (§07 Nomenclatura).
+- Migration: 20260428260000_bookings_fix_timestamp_names.sql
+- Colunas: requestedat→requested_at, confirmedat→confirmed_at, cancelledat→cancelled_at, expiredat→expired_at.
+- Colunas antigas ausentes confirmadas no banco. Gates 4/4 PASS. Total migrations: 276.
+- Próxima ação: C41 (5 timestamps sem _at em outras tabelas) ou encerrar sessão.
+
+## Checkpoint 2026-04-28 — C41 PARTIAL FIX (timestamps aspados)
+
+- **C41 PARCIAL:** 3 timestamps aspados renomeados para padrão _at (§07 Nomenclatura).
+- Migration: 20260428270000_fix_timestamp_names_aspados.sql
+- Colunas: inventory_reservations.expiresAt→expires_at, fulfillment_orders.shippedAt→shipped_at, pdv_sessions.closedAt→closed_at.
+- Colunas antigas ausentes confirmadas. Gates 4/4 PASS. Total migrations: 277.
+- Pendente C41: event_attendees.check_in_time→checked_in_at (14 referências SQL ativas — migration + patch de código juntos na próxima sessão).
+
+## Checkpoint 2026-04-28 — C41 FIXED COMPLETO (timestamps padronizados)
+
+- **C41 FIXED:** event_attendees.check_in_time→checked_in_at. Código+banco sincronizados.
+- Migration: 20260428280000_event_attendees_fix_check_in_time.sql
+- Arquivos atualizados: events.service.ts (queries SQL + mappers) + events.types.ts (EventAttendeeRow).
+- Ordem correta: código primeiro → tsc limpo → migration → validação banco → gates.
+- checked_in_at confirmado no banco, check_in_time ausente. Gates 4/4 PASS. Total migrations: 278.
+- C41 100% encerrado: todos os 5 timestamps padronizados (3 aspados + bookings 4 colunas + check_in_time).
+
+## Checkpoint 2026-04-28 — C42 FIXED (booleanos prefixo canônico)
+
+- **C42 FIXED:** migration 20260530410000_fix_boolean_prefixes.sql confirmada no banco.
+- 6 colunas booleanas canônicas presentes, zero antigas. Padrão is_ aplicado em todas.
+- Próxima ação: C29 (132 comparações status UPPERCASE) ou C13 (triagem bank_* boundaries).
+
+## Checkpoint 2026-04-28 — Análise C22 + Regra Operacional Anti-Regressão
+
+**C22 reclassificado (users.id + users.user_id):**
+- Não é duplicidade problemática — é compatibilidade intencional documentada.
+- CHECK (id = user_id) + trigger users_sync_id_user_id garantem sempre iguais.
+- Comentário no código: "Permite INSERT só com id OU só com user_id (auth vs seeds)".
+- Risco real seria id ≠ user_id — banco impede por constraint. Mecanismo de proteção ativo.
+- Reclassificação: DECISION_PENDING → ALLOWLISTED (dívida controlada, sem ação necessária).
+
+**Agravante C43 descoberto:**
+- Tabela users tem 4 colunas de timestamp simultaneamente:
+  "createdAt", "updatedAt" (aspados), created_at, updated_at (canônicos).
+- Tabela de identidade central com timestamps duplicados confirma que C43 exige RFC antes de qualquer toque.
+
+**REGRA OPERACIONAL ANTI-REGRESSÃO (vigente a partir de agora):**
+Nenhum novo campo, tabela ou enum pode seguir padrão não canônico:
+- status novos → lowercase obrigatório (ex: 'pending', não 'PENDING')
+- colunas novas → snake_case sem aspas (ex: created_at, não "createdAt")
+- booleanos novos → prefixo is_/has_/can_ obrigatório
+- timestamps novos → sufixo _at obrigatório
+- Proibido replicar padrão legado em código novo
+Esta regra vige independentemente de RFC. Qualquer PR que viole → rejeitado.
+
+**Pendências RFC formal:**
+- RFC-C29: normalização de status (uppercase→lowercase, dual-write)
+- RFC-C43: migração timestamps aspados→snake_case (dual-read/write, 16 tabelas)
+- RFC-C13: triagem e mapa dos 84 arquivos bank_* (sessão dedicada)
+
+## Checkpoint 2026-04-28 — Gate CI Nomenclatura Canônica §07
+
+- **3 regras adicionadas** ao validate-architectural-patterns.mjs (experimental + WARNING).
+- NO_CAMELCASE_COLUMN_DDL: detecta "createdAt" TIMESTAMP em DDL novo.
+- NO_BOOLEAN_WITHOUT_PREFIX: detecta BOOLEAN sem is_/has_/can_ em migrations novas.
+- NO_NEW_STATUS_UPPERCASE: detecta status === 'UPPERCASE' em código novo.
+- Baseline gravado: 6323 chaves únicas (7202 ocorrências de legado congeladas).
+- Estado após baseline: critical_new=0, warning_new=0, info_new=0 — exit 0.
+- A partir de agora: qualquer código novo que viole §07 aparece como warning_new no CI.
+- Legado existente não bloqueia — apenas código novo é barrado.
+- Regra operacional vigente: nenhum novo campo, tabela ou enum pode seguir padrão não canônico.
+
+## Checkpoint 2026-04-30 — G2 PIPELINE E2E TRANSVERSAL PASS
+
+- **G2 FECHADO:** Pipeline E2E transversal validado com PASS completo.
+- **Modo A causal:** A1-A10 todos verdes (RFQ -> Quote -> Accept -> PaymentRequest -> Execution -> Ledger -> Outbox).
+- **Modo B falsificacoes:** Todas rejeitadas pelo runtime (B1, B2, B3, B5).
+- **5 gaps de schema materializados via migrations:**
+  - 20260530510000: bank_limit_change_requests
+  - 20260530511000: bank_policies
+  - 20260530512000: bank_transactions.metadata (coluna JSONB)
+  - 20260530513000: authority_trust_levels
+  - 20260530514000: service_payment_executions
+- **Patch cirurgico:** bank-integration.service.ts:524-546 - slug 'ride-payment' -> UUID via SSOT semantico.
+- **Seeds G2:** authority_roots + identities (kyc_status='approved', kyc_level='complete') adicionados ao script de validacao.
+- **DECISION-0015 registrada:** REMEDIATION_DECISIONS_LOG.md.
+- **Divida tecnica explicita:** 2a ocorrencia slug hardcoded (processRidePayment:910), amount vs amount_cents em service_payment_executions, tabelas auxiliares fail-open (system_notifications, business_audit_logs, authority_delegations).
+- **Recomendacao pendente:** gate CI validate:repository-schema-coherence (compara *.repository.ts com schema real do banco).
+
+## Proximas acoes (atualizado 2026-04-30)
+
+1. Implementar gate validate:repository-schema-coherence (causa raiz G2 - DECISION-0015)
+2. Corrigir 2a ocorrencia slug hardcoded em processRidePayment (bank-integration.service.ts:910)
+3. Reconciliar violacoes OPEN no SYSTEM_REMEDIATION_STATUS.md (C36, C37, C29)
+4. Nomenclatura EIXO 2-9 (PLANO_CORRECAO_NOMENCLATURA.md)
