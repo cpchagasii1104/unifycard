@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0015 (2026-04-30) |
+| Última entrada | DECISION-0016 (2026-04-30) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -445,4 +445,73 @@ Registrar permanentemente toda decisão que envolva:
 - **Referências:**
   - Migrations: 20260530510000 a 20260530514000
   - Patch: backend/src/modules/bank/bank-integration.service.ts:524-546
+
   - Script G2: backend/src/scripts/validate-pipeline-e2e-transversal.ts
+
+### DECISION-0016 — Auditoria sistêmica repo ↔ DB validada (pós G2)
+
+- **Data:** 2026-04-30
+- **Tipo:** outro
+- **ID da violação:** nenhuma
+
+- **Contexto:**
+  Após fechamento do G2 (DECISION-0015), foi executada auditoria completa
+  de integridade sistêmica para validar coerência entre:
+
+  - Estado do repositório (migrations versionadas)
+  - Estado do banco de dados (schema_migrations + tabelas reais)
+  - Referências indiretas (.bak, logs, arquivos históricos)
+
+  Objetivo: garantir que o PASS do G2 não foi obtido em estado inconsistente.
+
+- **Validações executadas:**
+
+  1. git status completo (incluindo untracked)
+  2. Contagem e listagem de migrations no repo (284 arquivos)
+  3. Comparação com schema_migrations no banco
+  4. Diff repo ↔ DB (bidirecional)
+  5. Busca por referências a arquivos `.bak`
+  6. Verificação de migration_logs
+  7. Listagem de tabelas reais no banco (information_schema)
+
+- **Resultado:**
+
+  - Nenhuma migration presente no repo está ausente no banco
+  - Nenhuma migration aplicada no banco está ausente no repo
+  - Ordem e sequência de migrations consistente até ID 284
+  - Tabela `service_payment_executions` presente e funcional
+  - Nenhum `.bak` impactando runtime (apenas documentação/arquivo morto)
+  - Nenhum migration_log ativo ou necessário para auditoria
+  - Schema real do banco consistente com código executado no G2
+
+- **Escolha:** Registrar estado como BASELINE INTEGRO
+
+- **Justificativa:**
+  G2 PASS sozinho não garante integridade sistêmica.  
+  A auditoria cruzada repo ↔ DB elimina risco de:
+
+  - drift de migrations
+  - dependência de schema implícito
+  - inconsistência silenciosa entre ambientes
+
+  Este registro estabelece ponto de verdade auditável.
+
+- **Consequências esperadas:**
+
+  - Curto prazo:
+    - Confiança real no estado atual do sistema
+    - Base segura para commits e deploy
+
+  - Médio prazo:
+    - Qualquer divergência futura será detectável por comparação com este baseline
+
+- **Responsável:** Clayton
+- **Validação prévia:** ChatGPT (auditoria sistêmica)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando aplicável)
+
+- **Referências:**
+  - Comando PowerShell de auditoria sistêmica (git + psql)
+  - Tabela schema_migrations (ID 284)
+  - Lista de tabelas via information_schema
+  - DECISION-0015 (G2 Pipeline E2E PASS)
