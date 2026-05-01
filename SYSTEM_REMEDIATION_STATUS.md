@@ -1,3 +1,9 @@
+### 2026-05-01 — DECISION-0017 Ciclo 2 fechado por deleção de untracked
+
+Arquivo `backend/scripts/validate-repository-schema-coherence.mjs` removido do working tree. Verificado via `git ls-files` e `git log --all`: arquivo nunca foi rastreado pelo Git em nenhuma branch ou reflog. Portanto não houve commit `gate: descartar script paralelo conforme DECISION-0017` — não havia nada versionado a remover formalmente. Ciclo 2 cumprido pelo efeito físico (disco limpo) sem commit dedicado.
+
+DECISION-0017 (4f9b9b7e) permanece como única referência no histórico Git sobre a existência transitória do script.
+
 ### 2026-04-28 — C2 Passo 3-C CONCLUÍDO: concept_id obrigatório em tipos TypeScript
 
 9 commits: 43a7c5d1, 3dabbfa1, 135a7f94, 175f35d1, 3046efbf, b4c7532f, 813a82e3, acc233c5, a6cf46bd
