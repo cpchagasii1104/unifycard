@@ -1,3 +1,9 @@
+### 2026-05-01 — DECISION-0017 Ciclo 3 fechado: --repo-strict adicionado ao gate amplo
+
+Modo `--repo-strict` implementado em `scripts/validate-schema-code-coherence.mjs` (commit 5c793a61). Aplica heurísticas mais rígidas (apenas `queryContextRegex`, sem `templateStartRegex`) e restringe escopo a arquivos `.repository.ts` quando ativado. Allowlist e detector de severidade reaproveitados sem mudança. 12 linhas adicionadas, 0 removidas.
+
+Pendências para próxima sessão: Loop §6 do PLAN (validar 10 amostras manualmente) antes de integrar ao package.json e ao CI workflow.
+
 ### 2026-05-01 — DECISION-0017 Ciclo 2 fechado por deleção de untracked
 
 Arquivo `backend/scripts/validate-repository-schema-coherence.mjs` removido do working tree. Verificado via `git ls-files` e `git log --all`: arquivo nunca foi rastreado pelo Git em nenhuma branch ou reflog. Portanto não houve commit `gate: descartar script paralelo conforme DECISION-0017` — não havia nada versionado a remover formalmente. Ciclo 2 cumprido pelo efeito físico (disco limpo) sem commit dedicado.
