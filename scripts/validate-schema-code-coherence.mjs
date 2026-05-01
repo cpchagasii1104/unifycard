@@ -23,12 +23,16 @@ const CONFIG = {
   allowlistPath: path.resolve(__dirname, './schema-coherence-allowlist.json'),
   mode: 'both',
   dbTimeout: 5000,
+  repoStrict: false,
 };
 
 // Parse CLI args
 process.argv.slice(2).forEach(arg => {
   if (arg.startsWith('--mode=')) {
     CONFIG.mode = arg.split('=')[1];
+  }
+  if (arg === '--repo-strict') {
+    CONFIG.repoStrict = true;
   }
 });
 
@@ -73,6 +77,9 @@ function getAllTsFiles() {
         }
         walk(path.join(dir, entry.name));
       } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts') && !entry.name.endsWith('.test.ts')) {
+        if (CONFIG.repoStrict && !entry.name.endsWith('.repository.ts')) {
+          continue;
+        }
         files.push(path.join(dir, entry.name));
       }
     }
@@ -153,6 +160,10 @@ function extractSqlStrings(filePath, content) {
 
     const criterionA = queryContextRegex.test(prev200);
     const criterionB = firstChar === '`' && templateStartRegex.test(value.trim());
+    if (CONFIG.repoStrict && !criterionA) {
+      stats.rejected.other += 1;
+      continue;
+    }
     if (!criterionA && !criterionB) {
       stats.rejected.other += 1;
       continue;
@@ -692,6 +703,7 @@ async function main() {
   log('\n=== SCHEMA-CODE COHERENCE GATE ===\n');
   log(`Timestamp: ${startTime.toISOString()}`);
   log(`Mode: ${CONFIG.mode.toUpperCase()}`);
+  log(`Repo strict: ${CONFIG.repoStrict ? 'ON' : 'OFF'}`);
 
   // Step 1: Scan files
   log('\nVARREDURA');
