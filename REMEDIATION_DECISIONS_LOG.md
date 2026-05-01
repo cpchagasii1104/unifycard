@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0016 (2026-04-30) |
+| Última entrada | DECISION-0017 (2026-04-30) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -515,3 +515,145 @@ Registrar permanentemente toda decisão que envolva:
   - Tabela schema_migrations (ID 284)
   - Lista de tabelas via information_schema
   - DECISION-0015 (G2 Pipeline E2E PASS)
+
+---
+
+### DECISION-0017 — Consolidação do gate de coerência repo↔schema
+
+- **Data:** 2026-04-30
+- **Tipo:** arquitetural
+- **ID da violação (se aplicável):** consequência operacional de DECISION-0015 (G2 PASS)
+- **Contexto:**
+  DECISION-0015 recomendou implementar gate `validate:repository-schema-coherence`
+  para detectar drift entre `*.repository.ts` e schema real. Durante a execução
+  da Fase 1, foi descoberto que já existe gate `validate:schema-coherence` em
+  `scripts/validate-schema-code-coherence.mjs` (alinhado à FASE 1.1 do
+  SYSTEM_REMEDIATION_PLAN), com escopo mais amplo (todo `backend/src/**/*.ts`,
+  não apenas repositories), filtros de literal SQL mais maduros
+  (`queryContextRegex`, rejeição de logger/metadata/camelCase), allowlist
+  estabelecida em `scripts/schema-coherence-allowlist.json` e detector de
+  severidade (BLOCKER/CORRUPTOR/DEBT).
+
+  O Codex, durante a execução de Fase 1, criou um script novo de 503 linhas
+  em `backend/scripts/validate-repository-schema-coherence.mjs` antes de essa
+  sobreposição ser reconhecida. Esse script tem heurísticas de extração mais
+  fracas (apenas keyword SQL, sem `queryContextRegex`), introduziu
+  infraestrutura de baseline não autorizada pelo prompt original (flag
+  `--write-baseline` e função `buildBaseline` serializando JSON), e
+  implementou heurística `extractSingleTableUnqualifiedColumns` que extrai
+  colunas de SELECT e WHERE — explicitamente vetada pelo prompt P1 por alta
+  taxa esperada de falsos positivos.
+
+  Auditoria comparativa revelou: ambos os gates consultam a mesma fonte de
+  verdade da mesma forma. O gate amplo já invoca `information_schema.columns`
+  via `fetchSchemaFromDb` (linhas 297–302). O gate novo invoca a mesma query
+  via `fetchSchema` (linhas 366–371). A diferença operacional alegada
+  (validação "design-time" vs "runtime") não se sustenta na implementação:
+  os dois caminhos chegam ao mesmo SELECT contra `information_schema.public`
+  em runtime real do banco.
+
+- **Opções consideradas:**
+
+  1. **Manter os dois gates separados (estreito + amplo).** Prós: foco
+     específico em repositories. Contras: dois trilhos verificando a mesma
+     fonte de verdade com heurísticas diferentes, manutenção dupla, fronteira
+     conceitual ("design-time vs runtime") não materializada no código,
+     viola Lei §1 ("o sistema é único; nenhuma camada pode criar uma
+     realidade paralela").
+
+  2. **Descartar o script novo. Adicionar ao gate amplo existente um modo
+     `--repo-strict`** que aplica heurísticas mais rígidas e escopo restrito
+     a `*.repository.ts` quando ativado. Prós: SSOT único de coerência
+     repo↔schema, reaproveita allowlist e detector de severidade já
+     estabelecidos, alinha com FASE 1.1 do PLAN, elimina código não
+     autorizado. Contras: parte do trabalho do Codex é descartada (atenuado:
+     parte aproveitável do script — alias-tracking e extração de
+     INSERT/UPDATE — pode servir como referência de evolução futura do gate
+     amplo, sem ser importada literalmente).
+
+  3. **Manter o script novo, descartar o amplo.** Inviável: gate amplo
+     cobre regras que o script novo não cobre (bank-write fora do Bank,
+     INSERT em actors fora do writer canônico, metadata em decisão), e
+     descartá-lo causaria perda de cobertura ativa.
+
+- **Escolha:** Opção 2 — consolidar no gate amplo existente.
+
+- **Justificativa:**
+  Lei §1 (princípio fundamental) proíbe trilho paralelo. DECISION-0015
+  pediu o efeito (detectar drift entre `*.repository.ts` e schema), não
+  uma implementação específica (script novo paralelo). Gate amplo já está
+  estabelecido na arquitetura prevista pela FASE 1.1 e atende ao efeito
+  desejado.
+
+  O gate amplo já consulta `information_schema` em runtime (linhas 297–302
+  de `scripts/validate-schema-code-coherence.mjs`), eliminando a
+  necessidade de um segundo gate para validação "operacional". Portanto, a
+  distinção entre validação estrutural e operacional não se sustenta na
+  implementação atual — é uma fronteira conceitual sem materialização no
+  código.
+
+  Reimplementação paralela com heurísticas mais fracas e infraestrutura
+  de baseline não autorizada seria regressão, não progresso.
+
+- **Fronteira normativa estabelecida por esta decisão:**
+
+  Existe **um** gate de coerência código↔schema no projeto:
+  `scripts/validate-schema-code-coherence.mjs`.
+
+  - Escopo: `backend/src/**/*.ts` × schema (banco via `information_schema`
+    e/ou parse de migrations).
+  - Allowlist única: `scripts/schema-coherence-allowlist.json`.
+  - Quando invocado com `--repo-strict` (a ser implementado em ciclo
+    posterior), aplica heurísticas mais rígidas e restringe escopo a
+    arquivos terminados em `.repository.ts`.
+
+  Não existe, e não pode existir, gate paralelo de coerência
+  código↔schema. Qualquer novo arquivo com função sobreposta é violação
+  desta decisão.
+
+- **Consequências esperadas:**
+
+  - Curto prazo (Ciclo 2 desta sequência):
+    - Remover `backend/scripts/validate-repository-schema-coherence.mjs`.
+    - Com a remoção, sai junto todo código não autorizado introduzido pelo
+      Codex no escopo de Fase 1, incluindo:
+      - flag `--write-baseline` (não autorizada por P1);
+      - função `buildBaseline` e escrita de baseline em
+        `repository-schema-coherence-baseline.json` (não autorizadas por P1);
+      - heurística `extractSingleTableUnqualifiedColumns` (extração de
+        colunas em SELECT/WHERE, vetada explicitamente por P1).
+
+  - Curto prazo (Ciclo 3 desta sequência):
+    - Adicionar modo `--repo-strict` ao gate amplo, com escopo restrito a
+      `*.repository.ts`, exigindo `queryContextRegex` (não apenas keyword
+      SQL), e mantendo a regra P1 de não extrair colunas de SELECT/WHERE.
+    - Allowlist permanece única (`scripts/schema-coherence-allowlist.json`).
+
+  - Médio prazo:
+    - Loop de Validação do Gate (§6 do PLAN) executado contra modo
+      `--repo-strict` do gate amplo.
+    - Baseline numérico gravado conforme §7 do PLAN, em decisão
+      arquitetural separada (futura DECISION-NNNN), sob processo
+      controlado — não dentro do script.
+
+  - Longo prazo:
+    - Nenhuma proliferação de gates de coerência código↔schema.
+    - Manutenção centralizada em `scripts/validate-schema-code-coherence.mjs`.
+    - Infraestrutura de baseline criada apenas com decisão registrada
+      previamente.
+
+- **Responsável:** Clayton
+- **Validação prévia:** Claude Opus 4.7 (auditoria do código dos dois
+  gates) + ChatGPT (auditor independente)
+- **Supera:** nenhuma
+- **Superada por:** (a preencher quando aplicável)
+
+- **Referências:**
+  - `REMEDIATION_DECISIONS_LOG.md` DECISION-0015 (recomendação original do gate)
+  - `scripts/validate-schema-code-coherence.mjs` (gate amplo, alvo da consolidação)
+  - `backend/scripts/validate-repository-schema-coherence.mjs` (script a ser descartado em Ciclo 2)
+  - `SYSTEM_REMEDIATION_PLAN.md` FASE 1.1 (gate `validate-schema-code-coherence` previsto)
+  - `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` §1 (princípio fundamental — sistema único)
+  - `SYSTEM_REMEDIATION_PLAN.md` P2, P6, P7, P9 (princípios não-violáveis aplicados)
+
+---
