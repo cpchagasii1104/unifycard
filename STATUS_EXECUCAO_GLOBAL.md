@@ -1,4 +1,22 @@
 
+## Checkpoint 2026-05-01 — DECISION-0017 fechada (3 ciclos)
+
+- DECISION-0017 registrada no LOG (commit 4f9b9b7e).
+- Script paralelo `backend/scripts/validate-repository-schema-coherence.mjs` descartado; nota institucional registrada (commit 95d88cd1).
+- Modo `--repo-strict` adicionado ao gate amplo `scripts/validate-schema-code-coherence.mjs` (commit 5c793a61, 12 linhas adicionadas).
+- Nota de fechamento do Ciclo 3 registrada no STATUS (commit 6b5127a4).
+- Recomendação de DECISION-0015 (gate `validate:repository-schema-coherence`) cumprida via consolidação no gate amplo, não via script novo, conforme Lei §1 (sistema único, sem realidade paralela).
+
+## Próximas ações (atualizado 2026-05-01)
+
+1. Loop §6 do PLAN contra `validate:schema-coherence --repo-strict` (validar 10 amostras manualmente).
+2. DECISION-0018 registrando resultado do Loop §6 e formato de baseline.
+3. Integração `validate:schema-coherence:repo-strict` ao `backend/package.json` (após Loop §6).
+4. Integração ao CI workflow (após `package.json`).
+5. Corrigir 2ª ocorrência slug hardcoded em `processRidePayment` (`bank-integration.service.ts:910`) — dívida de DECISION-0015.
+6. Reconciliar violações OPEN no SYSTEM_REMEDIATION_STATUS.md (C36, C37, C29).
+7. Nomenclatura EIXO 2-9 (PLANO_CORRECAO_NOMENCLATURA.md).
+
 ## Checkpoint 2026-04-30 — G2 PIPELINE E2E TRANSVERSAL PASS
 
 - **G2 FECHADO:** Pipeline E2E transversal validado com PASS completo.
