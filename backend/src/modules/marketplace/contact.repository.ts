@@ -22,8 +22,8 @@ interface ContactRow {
   user_id: string | null;
   kyc_status: string; // SPRINT 84
   metadata: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class ContactRepository {
@@ -40,8 +40,8 @@ class ContactRepository {
       userId: row.user_id,
       kycStatus: (row.kyc_status || 'UNVERIFIED') as any, // SPRINT 84
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -57,7 +57,7 @@ class ContactRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'UNVERIFIED', $9::jsonb)
       RETURNING id, tenant_id, type, name, tax_id, email, phone, address,
-                user_id, kyc_status, metadata, createdAt, updatedAt
+                user_id, kyc_status, metadata, created_at, updated_at
       `,
       [
         tenantId,
@@ -83,7 +83,7 @@ class ContactRepository {
       tenantId,
       `
       SELECT id, tenant_id, type, name, tax_id, email, phone, address,
-             user_id, kyc_status, metadata, createdAt, updatedAt
+             user_id, kyc_status, metadata, created_at, updated_at
       FROM contacts
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -104,7 +104,7 @@ class ContactRepository {
       tenantId,
       `
       SELECT id, tenant_id, type, name, tax_id, email, phone, address,
-             user_id, kyc_status, metadata, createdAt, updatedAt
+             user_id, kyc_status, metadata, created_at, updated_at
       FROM contacts
       WHERE tenant_id = $1 AND tax_id = $2
       `,
@@ -172,10 +172,10 @@ class ContactRepository {
       tenantId,
       `
       UPDATE contacts
-      SET ${updates.join(', ')}, updatedAt = NOW()
+      SET ${updates.join(', ')}, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, type, name, tax_id, email, phone, address,
-                user_id, metadata, createdAt, updatedAt
+                user_id, metadata, created_at, updated_at
       `,
       params
     );
@@ -195,10 +195,10 @@ class ContactRepository {
       tenantId,
       `
       UPDATE contacts
-      SET user_id = $3, updatedAt = NOW()
+      SET user_id = $3, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, type, name, tax_id, email, phone, address,
-                user_id, kyc_status, metadata, createdAt, updatedAt
+                user_id, kyc_status, metadata, created_at, updated_at
       `,
       [tenantId, contactId, userId]
     );
@@ -266,10 +266,10 @@ class ContactRepository {
       tenantId,
       `
       SELECT id, tenant_id, type, name, tax_id, email, phone, address,
-             user_id, kyc_status, metadata, createdAt, updatedAt
+             user_id, kyc_status, metadata, created_at, updated_at
       FROM contacts
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -290,10 +290,10 @@ class ContactRepository {
       tenantId,
       `
       UPDATE contacts
-      SET kyc_status = $3, updatedAt = NOW()
+      SET kyc_status = $3, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, type, name, tax_id, email, phone, address,
-                user_id, kyc_status, metadata, createdAt, updatedAt
+                user_id, kyc_status, metadata, created_at, updated_at
       `,
       [tenantId, contactId, kycStatus]
     );

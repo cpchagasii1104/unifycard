@@ -5,6 +5,8 @@
 import type { FastifyInstance } from 'fastify';
 import { marketplaceSearchService } from './marketplace-search.service';
 import type { MarketplaceSearchFilters } from './marketplace-search.types';
+import { AppError, BadRequestError, NotFoundError, UnauthorizedError, ForbiddenError, InternalServerError, ConflictError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const marketplaceSearchRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -31,11 +33,12 @@ const marketplaceSearchRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/marketplace/search', async (req, reply) => {
-    const tenantId = req.tenant.id;
+    const tenant = req.tenant!;
+    const tenantId = tenant.id;
 
     // Validar categoryPath obrigatório
     if (!req.query.categoryPath) {
-      return reply.status(400).send({ error: 'categoryPath é obrigatório' });
+      throw new BadRequestError('categoryPath é obrigatório', ErrorCode.VALIDATION_ERROR);
     }
 
     const categoryPath = req.query.categoryPath.split('/').filter((p) => p);
@@ -84,12 +87,10 @@ const marketplaceSearchRoutes = async (fastify: FastifyInstance) => {
     try {
       const response = await marketplaceSearchService.search(tenantId, filters);
       return reply.send(response);
-    } catch (err: any) {
+    } catch (err: unknown) {
       req.log.error({ err }, 'Erro ao buscar no marketplace');
-      return reply.status(500).send({
-        error: 'Erro ao buscar no marketplace',
-        message: err.message,
-      });
+      if (err instanceof AppError) throw err;
+      throw new InternalServerError('Erro ao buscar no marketplace');
     }
   });
 };

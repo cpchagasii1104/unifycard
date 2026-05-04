@@ -9,6 +9,7 @@
 // Exportações do módulo Marketplace
 
 export { marketplaceService, MarketplaceService } from './marketplace.service';
+import './marketplace-seed'; // side-effect: seed quando ENABLE_MARKETPLACE_SEED=true
 export { productCatalogService } from './product-catalog.service';
 // TODO: ADAPTER -> categories (core) - productCategoryRepository será removido após migração para categories core
 export { productCategoryRepository } from './product-category.repository';
@@ -62,7 +63,6 @@ export type {
   StockTransfer,
   StockTransferItem,
   StockTransferStatus,
-  StockTransferItemStatus,
   CreateStockTransferInput,
   AddStockTransferItemInput,
   ShipStockTransferInput,

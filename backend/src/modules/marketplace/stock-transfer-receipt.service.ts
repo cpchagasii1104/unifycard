@@ -26,7 +26,7 @@ class StockTransferReceiptService {
   /**
    * Inicia conferência de recebimento
    * 
-   * SPRINT 56: Cria receipt e muda transferência para RECEIVING
+   * Cria receipt e muda transferência para PENDING (conferência).
    */
   async startReceipt(
     tenantId: string,
@@ -49,8 +49,7 @@ class StockTransferReceiptService {
       stockTransferId
     );
 
-    if (existing && existing.status !== 'REJECTED') {
-      // Já existe receipt não rejeitado, retornar existente
+    if (existing && (existing.status === 'IN_PROGRESS' || existing.status === 'COMPLETED')) {
       return existing;
     }
 
@@ -61,8 +60,8 @@ class StockTransferReceiptService {
       input
     );
 
-    // 4. Atualizar status da transferência para RECEIVING
-    await stockTransferRepository.updateTransferStatus(tenantId, stockTransferId, 'RECEIVING');
+    // 4. Conferência em curso — PENDING no enum stock_transfer_status
+    await stockTransferRepository.updateTransferStatus(tenantId, stockTransferId, 'PENDING');
 
     return receipt;
   }
@@ -160,24 +159,23 @@ class StockTransferReceiptService {
     const { productRepository } = await import('./product.repository');
     const { productVariantRepository } = await import('./product-variant.repository');
 
-    // 5. Determinar status final (COMPLETE, PARTIAL ou REJECTED)
-    let finalStatus: StockTransferReceipt['status'] = 'COMPLETE';
-    let hasDiscrepancy = false;
+    // 5. Determinar resultado da conferência (lógica interna → mapear para receipt_status)
+    type InternalReceiptOutcome = 'COMPLETE' | 'PARTIAL' | 'REJECTED';
+    let finalOutcome: InternalReceiptOutcome = 'COMPLETE';
 
     for (const receiptItem of receiptItems) {
       if (receiptItem.receivedQuantity !== receiptItem.expectedQuantity) {
-        hasDiscrepancy = true;
         if (receiptItem.receivedQuantity === 0) {
           // Se algum item foi totalmente rejeitado, status pode ser PARTIAL ou REJECTED
           // Por enquanto, marcamos como PARTIAL se pelo menos um item foi recebido
           const hasAnyReceived = receiptItems.some((item) => item.receivedQuantity > 0);
           if (!hasAnyReceived) {
-            finalStatus = 'REJECTED';
+            finalOutcome = 'REJECTED';
           } else {
-            finalStatus = 'PARTIAL';
+            finalOutcome = 'PARTIAL';
           }
         } else {
-          finalStatus = 'PARTIAL';
+          finalOutcome = 'PARTIAL';
         }
       }
     }
@@ -213,6 +211,7 @@ class StockTransferReceiptService {
 
         // SPRINT 56: Gerar movement apenas com received_quantity
         await inventoryService.addMovement(tenantId, {
+          actorId: transfer.toActorId,
           productVariantId: transferItem.productVariantId,
           movementType: 'IN',
           quantity: receiptItem.receivedQuantity, // Apenas quantidade recebida
@@ -236,27 +235,22 @@ class StockTransferReceiptService {
           },
         });
 
-        // Atualizar status do item da transferência para RECEIVED
-        await stockTransferRepository.updateTransferItemStatus(
-          tenantId,
-          transferItem.id,
-          'RECEIVED'
-        );
       }
     }
+
+    const receiptDbStatus: StockTransferReceipt['status'] =
+      finalOutcome === 'REJECTED' ? 'CANCELLED' : 'COMPLETED';
 
     // 7. Atualizar status do receipt
     const finalizedReceipt = await stockTransferReceiptRepository.updateReceiptStatus(
       tenantId,
       receiptId,
-      finalStatus,
+      receiptDbStatus,
       input.notes
     );
 
-    // 8. Atualizar status da transferência
-    // Se REJECTED, mantém RECEIVING (não muda para RECEIVED)
-    // Se COMPLETE ou PARTIAL, muda para RECEIVED
-    if (finalStatus === 'COMPLETE' || finalStatus === 'PARTIAL') {
+    // 8. Transferência RECEIVED só quando houve recebimento aceite (não cancelado)
+    if (finalOutcome === 'COMPLETE' || finalOutcome === 'PARTIAL') {
       await stockTransferRepository.updateTransferStatus(
         tenantId,
         transfer.id,

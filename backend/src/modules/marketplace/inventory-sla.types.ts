@@ -33,18 +33,18 @@ export interface TransferSla {
   stockTransferId: string;
   fromActorId: string;
   toActorId: string;
-  status: 'DRAFT' | 'SHIPPED' | 'RECEIVING' | 'RECEIVED' | 'CANCELLED';
+  status: 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
   
   // Tempos (em dias)
   daysInDraft: number | null; // Tempo em DRAFT
-  daysShippedToReceiving: number | null; // Tempo entre SHIPPED → RECEIVING
-  daysReceivingToReceived: number | null; // Tempo entre RECEIVING → RECEIVED
+  daysShippedToReceiving: number | null; // SHIPPED → início da conferência (receipt)
+  daysReceivingToReceived: number | null; // Início conferência → RECEIVED
   totalDays: number | null; // Tempo total (SHIPPED → RECEIVED)
   
   // Datas
   createdAt: string;
   shippedAt: Date | null;
-  receivingStartedAt: Date | null; // Quando status mudou para RECEIVING
+  receivingStartedAt: Date | null; // Primeiro receipt (created_at)
   receivedAt: Date | null;
   
   // Flags de atraso (configuráveis)
@@ -58,10 +58,10 @@ export interface TransferSla {
 export interface GetTransferSlaOptions {
   fromActorId?: string;
   toActorId?: string;
-  status?: 'DRAFT' | 'SHIPPED' | 'RECEIVING' | 'RECEIVED' | 'CANCELLED';
+  status?: 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
   onlyOverdue?: boolean; // Apenas transferências atrasadas
-  maxDaysShippedToReceiving?: number; // SLA máximo para SHIPPED → RECEIVING
-  maxDaysReceivingToReceived?: number; // SLA máximo para RECEIVING → RECEIVED
+  maxDaysShippedToReceiving?: number; // SLA SHIPPED → início conferência
+  maxDaysReceivingToReceived?: number; // SLA conferência → RECEIVED
   limit?: number;
   offset?: number;
 }
@@ -70,8 +70,8 @@ export interface GetTransferSlaOptions {
  * Configuração de SLA (valores padrão)
  */
 export interface SlaConfig {
-  maxDaysShippedToReceiving?: number; // SLA padrão: SHIPPED → RECEIVING (ex: 3 dias)
-  maxDaysReceivingToReceived?: number; // SLA padrão: RECEIVING → RECEIVED (ex: 1 dia)
+  maxDaysShippedToReceiving?: number; // SLA padrão: SHIPPED → conferência (ex: 3 dias)
+  maxDaysReceivingToReceived?: number; // SLA padrão: conferência → RECEIVED (ex: 1 dia)
 }
 
 

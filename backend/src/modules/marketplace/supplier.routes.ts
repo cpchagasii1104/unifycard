@@ -7,6 +7,8 @@ import type {
   CreateSupplierInput,
   SupplierFilters,
 } from './supplier.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const supplierRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -18,7 +20,7 @@ const supplierRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const supplier = await supplierService.createSupplier(
@@ -59,7 +61,7 @@ const supplierRoutes = async (fastify: FastifyInstance) => {
 
     const supplier = await supplierService.getSupplierById(tenantId, id);
     if (!supplier) {
-      return reply.status(404).send({ error: 'Fornecedor não encontrado' });
+      throw new NotFoundError('Fornecedor não encontrado');
     }
 
     return supplier;
@@ -67,9 +69,3 @@ const supplierRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default supplierRoutes;
-
-
-
-
-
-

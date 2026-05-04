@@ -258,19 +258,19 @@ class AccountsReceivableService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.receivedByActorId || data.cancelledByActorId || null,
+        actor_id: (data.createdByActorId || data.receivedByActorId || data.cancelledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'automation',
         context: {
           receivable_id: data.receivableId,
           payment_intent_id: data.paymentIntentId,
           status: data.status,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           received_by_actor_id: data.receivedByActorId,
-          received_by_user_id: data.receivedByUserId,
+          received_by_user_id: data.receivedByUserId ?? undefined,
           cancelled_by_actor_id: data.cancelledByActorId,
-          cancelled_by_user_id: data.cancelledByUserId,
-          cancellation_reason: data.cancellationReason,
+          cancelled_by_user_id: data.cancelledByUserId ?? undefined,
+          cancellation_reason: data.cancellationReason ?? undefined,
         },
       });
     } catch (error) {

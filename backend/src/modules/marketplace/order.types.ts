@@ -55,6 +55,17 @@ export interface ListOrdersOptions {
 }
 
 /**
+ * Snapshot monetário no momento da linha (PROD-6 — padrão B, sem reler oferta).
+ * Passado só pelo OrderService ao persistir; não expor em APIs públicas como input do cliente.
+ */
+export interface OrderLinePriceSnapshot {
+  priceCents: number;
+  currency: string;
+  offerId: string | null;
+  saleUnit: string;
+}
+
+/**
  * Item de pedido
  */
 export interface OrderItem {
@@ -63,6 +74,13 @@ export interface OrderItem {
   productVariantId: string;
   quantity: number;
   unit: string;
+  /** Unidade de venda gravada na linha (espelho de product_variants.sale_unit no checkout). */
+  saleUnit: string;
+  /** Preço unitário efetivo em centavos (após promoções) no momento da criação; null = legado pré-PROD-6. */
+  priceCents: number | null;
+  currency: string | null;
+  /** Oferta correlacionada no momento da linha; null se não existir listagem ativa. */
+  offerId: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
 }

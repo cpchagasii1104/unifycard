@@ -36,7 +36,7 @@ class MarketplaceSearchService {
     }
 
     // 2. Buscar todas as categorias descendentes (incluindo a atual)
-    const allCategoryIds = await this.getCategoryTreeIds(tenantId, rootCategory.id);
+    const allCategoryIds = await this.getCategoryTreeIds(tenantId, (rootCategory.id ?? '') as string);
 
     // 3. Buscar serviços nessas categorias
     const { servicesRepository } = await import('../services/services.repository');

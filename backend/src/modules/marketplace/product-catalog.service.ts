@@ -326,9 +326,20 @@ class ProductCatalogService {
    */
   async getProductById(
     tenantId: string,
-    productId: string
+    productId: string,
+    options?: { includeNonReady?: boolean }
   ): Promise<Product | null> {
-    return await productRepository.getProductById(tenantId, productId);
+    return await productRepository.getProductById(tenantId, productId, options);
+  }
+
+  /**
+   * Busca produto do tenant pelo vínculo ao catálogo canónico (`canonical_product_id`).
+   */
+  async getProductByCanonicalId(
+    tenantId: string,
+    canonicalId: string
+  ): Promise<Product | null> {
+    return await productRepository.getProductByCanonicalId(tenantId, canonicalId);
   }
 
   /**
@@ -385,14 +396,18 @@ class ProductCatalogService {
     input: CreateProductVariantInput
   ): Promise<ProductVariant> {
     // Verificar se produto existe
-    const product = await productRepository.getProductById(
-      tenantId,
-      input.productId
-    );
+    const product = await productRepository.getProductById(tenantId, input.productId, {
+      includeNonReady: true,
+    });
 
     if (!product) {
       throw new Error(`Produto não encontrado: ${input.productId}`);
     }
+
+    const { assertMarketplaceProductCanonicalOperationalReady } = await import(
+      '@core/catalog/canonical/canonical-product-commerce-guard'
+    );
+    await assertMarketplaceProductCanonicalOperationalReady(tenantId, product);
 
     // Verificar se SKU já existe
     const existingSku = await productVariantRepository.getVariantBySku(
@@ -427,7 +442,9 @@ class ProductCatalogService {
     includeInactive: boolean = false
   ): Promise<ProductVariant[]> {
     // Verificar se produto existe
-    const product = await productRepository.getProductById(tenantId, productId);
+    const product = await productRepository.getProductById(tenantId, productId, {
+      includeNonReady: true,
+    });
 
     if (!product) {
       throw new Error(`Produto não encontrado: ${productId}`);
@@ -447,7 +464,20 @@ class ProductCatalogService {
     tenantId: string,
     variantId: string
   ): Promise<ProductVariant | null> {
-    return await productVariantRepository.getVariantById(tenantId, variantId);
+    const v = await productVariantRepository.getVariantById(tenantId, variantId);
+    if (!v) {
+      return null;
+    }
+    const product = await productRepository.getProductById(tenantId, v.productId, {
+      includeNonReady: true,
+    });
+    if (product) {
+      const { assertMarketplaceProductCanonicalOperationalReady } = await import(
+        '@core/catalog/canonical/canonical-product-commerce-guard'
+      );
+      await assertMarketplaceProductCanonicalOperationalReady(tenantId, product);
+    }
+    return v;
   }
 
   /**
@@ -457,7 +487,20 @@ class ProductCatalogService {
     tenantId: string,
     sku: string
   ): Promise<ProductVariant | null> {
-    return await productVariantRepository.getVariantBySku(tenantId, sku);
+    const v = await productVariantRepository.getVariantBySku(tenantId, sku);
+    if (!v) {
+      return null;
+    }
+    const product = await productRepository.getProductById(tenantId, v.productId, {
+      includeNonReady: true,
+    });
+    if (product) {
+      const { assertMarketplaceProductCanonicalOperationalReady } = await import(
+        '@core/catalog/canonical/canonical-product-commerce-guard'
+      );
+      await assertMarketplaceProductCanonicalOperationalReady(tenantId, product);
+    }
+    return v;
   }
 
   /**
@@ -492,10 +535,9 @@ class ProductCatalogService {
 
     // Validações básicas baseadas em product_type do produto
     if (input.plu !== undefined && input.plu !== existing.plu) {
-      const product = await productRepository.getProductById(
-        tenantId,
-        existing.productId
-      );
+      const product = await productRepository.getProductById(tenantId, existing.productId, {
+        includeNonReady: true,
+      });
 
       if (!product) {
         throw new Error(`Produto não encontrado: ${existing.productId}`);

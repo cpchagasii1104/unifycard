@@ -20,8 +20,8 @@ interface ProductAttributeRow {
   is_required: boolean;
   applies_to_category_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class ProductAttributeRepository {
@@ -39,8 +39,8 @@ class ProductAttributeRepository {
       isRequired: row.is_required,
       appliesToCategoryId: row.applies_to_category_id,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -60,7 +60,7 @@ class ProductAttributeRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id, tenant_id, name, slug, data_type, unit, is_required,
-                applies_to_category_id, metadata, createdAt, updatedAt
+                applies_to_category_id, metadata, created_at, updated_at
       `,
       [
         tenantId,
@@ -92,7 +92,7 @@ class ProductAttributeRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, slug, data_type, unit, is_required,
-             applies_to_category_id, metadata, createdAt, updatedAt
+             applies_to_category_id, metadata, created_at, updated_at
       FROM product_attributes
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -114,7 +114,7 @@ class ProductAttributeRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, slug, data_type, unit, is_required,
-             applies_to_category_id, metadata, createdAt, updatedAt
+             applies_to_category_id, metadata, created_at, updated_at
       FROM product_attributes
       WHERE tenant_id = $1 AND slug = $2
       LIMIT 1
@@ -164,7 +164,7 @@ class ProductAttributeRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, slug, data_type, unit, is_required,
-             applies_to_category_id, metadata, createdAt, updatedAt
+             applies_to_category_id, metadata, created_at, updated_at
       FROM product_attributes
       ${whereClause}
       ORDER BY name ASC
@@ -247,7 +247,7 @@ class ProductAttributeRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, name, slug, data_type, unit, is_required,
-                applies_to_category_id, metadata, createdAt, updatedAt
+                applies_to_category_id, metadata, created_at, updated_at
       `,
       params
     );
@@ -271,7 +271,7 @@ class ProductAttributeRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, slug, data_type, unit, is_required,
-             applies_to_category_id, metadata, createdAt, updatedAt
+             applies_to_category_id, metadata, created_at, updated_at
       FROM product_attributes
       WHERE tenant_id = $1
         AND (applies_to_category_id IS NULL OR applies_to_category_id = $2)

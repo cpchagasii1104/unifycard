@@ -4,6 +4,8 @@
 import type { FastifyInstance } from 'fastify';
 import { businessSegmentService } from './business-segment.service';
 import type { SetBusinessSegmentInput } from './business-segment.types';
+import { AppError, BadRequestError, NotFoundError, UnauthorizedError, ForbiddenError, InternalServerError, ConflictError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const businessSegmentRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -15,7 +17,7 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const segment = await businessSegmentService.setSegment(
@@ -37,7 +39,7 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
     const segment = await businessSegmentService.getSegment(tenantId);
 
     if (!segment) {
-      return reply.status(404).send({ error: 'Business segment não encontrado' });
+      throw new NotFoundError('Business segment não encontrado');
     }
 
     return reply.send(segment);
@@ -52,7 +54,7 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const segment = await businessSegmentService.updateSegment(
@@ -66,7 +68,6 @@ const businessSegmentRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default businessSegmentRoutes;
-
 
 
 

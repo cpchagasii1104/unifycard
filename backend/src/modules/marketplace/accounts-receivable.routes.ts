@@ -7,6 +7,8 @@ import type {
   CreateManualReceivableInput,
   AccountsReceivableFilters,
 } from './accounts-receivable.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -18,10 +20,9 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
-    // Converter expectedAt se necessário
     const body = req.body as any;
     if (body.expectedAt) {
       body.expectedAt = new Date(body.expectedAt);
@@ -69,7 +70,7 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
 
     const receivable = await accountsReceivableService.getReceivableById(tenantId, id);
     if (!receivable) {
-      return reply.status(404).send({ error: 'Conta não encontrada' });
+      throw new NotFoundError('Conta não encontrada');
     }
 
     return receivable;
@@ -85,7 +86,7 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const receivable = await accountsReceivableService.markAsReceived(
@@ -110,7 +111,7 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
       const receivable = await accountsReceivableService.cancelReceivable(
@@ -127,9 +128,3 @@ const accountsReceivableRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default accountsReceivableRoutes;
-
-
-
-
-
-

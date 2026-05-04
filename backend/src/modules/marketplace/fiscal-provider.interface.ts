@@ -8,6 +8,8 @@ import type {
   FiscalStatus,
 } from './fiscal-provider.types';
 
+export type { FiscalDocumentData, FiscalIssueResult, FiscalCancelResult, FiscalStatus };
+
 /**
  * Interface canônica para providers fiscais externos
  * 

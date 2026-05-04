@@ -9,6 +9,8 @@ import type {
   SettleTransactionInput,
   UnifyCardTransactionFilters,
 } from './unifycard.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const unifyCardRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -20,10 +22,9 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
-    // Actor que receberá (seller)
     const actorId = actionContext.actorId;
 
     const transaction = await unifyCardService.authorize(
@@ -46,7 +47,7 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const transaction = await unifyCardService.capture(
@@ -68,7 +69,7 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const transaction = await unifyCardService.settle(
@@ -111,7 +112,7 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
 
     const transaction = await unifyCardService.getTransactionById(tenantId, id);
     if (!transaction) {
-      return reply.status(404).send({ error: 'Transação não encontrada' });
+      throw new NotFoundError('Transação não encontrada');
     }
 
     return transaction;
@@ -119,9 +120,3 @@ const unifyCardRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default unifyCardRoutes;
-
-
-
-
-
-

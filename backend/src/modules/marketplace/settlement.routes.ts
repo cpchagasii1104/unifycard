@@ -9,6 +9,8 @@ import type {
   DebitRegionAccountInput,
 } from './settlement.types';
 import { regionAccountService } from './region-account.service';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const settlementRoutes = async (fastify: FastifyInstance) => {
   // ============================================================
@@ -62,7 +64,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const settlement = await settlementService.getSettlementById(tenantId, req.params.id);
 
     if (!settlement) {
-      return reply.status(404).send({ error: 'Settlement não encontrado' });
+      throw new NotFoundError('Settlement não encontrado');
     }
 
     return reply.send(settlement);
@@ -77,7 +79,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const settlement = await settlementService.settle(
@@ -126,7 +128,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const account = await regionAccountService.credit(
@@ -152,7 +154,7 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const account = await regionAccountService.debit(
@@ -168,9 +170,3 @@ const settlementRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default settlementRoutes;
-
-
-
-
-
-

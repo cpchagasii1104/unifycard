@@ -2,12 +2,95 @@
 // Rotas para Store Onboarding
 // 🔴 BLINDAGEM: Loja apenas seleciona recortes, não cria categorias
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyError } from 'fastify';
 import { z } from 'zod';
 import { storeOnboardingService } from './store-onboarding.service';
+import { listVisibleProducts } from './product-visibility.service';
+import type { StoreOnboardingInput } from './store-onboarding.types';
 import type { BusinessAction } from '@core/authorization/business-permissions.types';
+import { businessAuthorizationService } from '@core/authorization/business-authorization.service';
+import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, InternalServerError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
+import type { ActorRow } from '@modules/social/actor.repository';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import type { StoreOnboardingLogContext } from '@core/observability/marketplace-store-onboarding.observability';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** PK `actors.id` do utilizador autenticado (FK em `actor_category_imports.imported_by_actor_id`). */
+    marketplaceStoreOnboardingImporterActorId?: string;
+  }
+}
 
 const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
+  fastify.addHook('preHandler', async (req, reply) => {
+    const requestId = String((req as { requestId?: string }).requestId ?? 'unknown');
+    reply.header('x-request-id', requestId);
+  });
+
+  fastify.setErrorHandler((error: FastifyError, req, reply) => {
+    const requestId = String((req as { requestId?: string }).requestId ?? 'unknown');
+    reply.header('x-request-id', requestId);
+
+    const tenantId = (req as { tenant?: { id?: string } }).tenant?.id ?? null;
+    const body =
+      req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+        ? (req.body as { actorId?: string })
+        : {};
+    const actorId =
+      (typeof body.actorId === 'string' ? body.actorId : null) ??
+      (req as { actionContext?: { actorId?: string } }).actionContext?.actorId ??
+      null;
+    const importerActorId =
+      (req as { marketplaceStoreOnboardingImporterActorId?: string }).marketplaceStoreOnboardingImporterActorId ??
+      null;
+
+    const errStructured: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+    };
+    if (error instanceof AppError) {
+      errStructured.code = error.code;
+      errStructured.statusCode = error.statusCode;
+    } else if (typeof error.statusCode === 'number') {
+      errStructured.statusCode = error.statusCode;
+    }
+
+    req.log.error(
+      {
+        event: 'store_onboarding_error',
+        requestId,
+        tenantId,
+        actorId,
+        importerActorId,
+        err: errStructured,
+        path: req.url,
+        method: req.method,
+      },
+      'store_onboarding_error'
+    );
+
+    if (reply.sent) {
+      return;
+    }
+
+    const statusCode =
+      typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
+    const isProduction = process.env.NODE_ENV === 'production';
+    const message =
+      error instanceof AppError
+        ? error.getSafeMessage()
+        : statusCode >= 500 && isProduction
+          ? 'Internal server error'
+          : error.message;
+
+    return reply.status(statusCode).send({
+      error: message,
+      requestId,
+      ...(error instanceof AppError ? { code: error.code } : {}),
+    });
+  });
+
   /**
    * Middleware: Verificar permissão para acessar Store Onboarding
    */
@@ -16,16 +99,13 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+      throw new UnauthorizedError('Não autenticado');
     }
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
-      const { socialPortsRegistry } = await import('@core/social/ports-registry');
-      const actorRepository = socialPortsRegistry.getActorRepository();
-      const actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+      const actor = await ensureUserActor(tenantId, userId);
       if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
+        throw new ForbiddenError('Actor não encontrado');
       }
 
       await businessAuthorizationService.requirePermission(
@@ -35,8 +115,11 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
         action,
         'store_onboarding'
       );
+
+      const actorRow = actor as ActorRow & { id: string };
+      req.marketplaceStoreOnboardingImporterActorId = actorRow.id;
     } catch (permError: any) {
-      return reply.status(403).send({ error: 'Sem permissão para acessar Store Onboarding' });
+      throw new ForbiddenError('Sem permissão para acessar Store Onboarding');
     }
   };
 
@@ -47,8 +130,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{
     Body: {
       actorId: string;
-      departmentCategoryId: string;
-      selectedCategoryIds: string[];
+      /** Opcional: herdado de `company_types.default_*_slugs` quando omitido (StoreOnboardingInput). */
+      departmentCategoryId?: string;
+      selectedCategoryIds?: string[];
       hasOwnProducts: boolean;
       defaultCostPrice?: number;
       defaultSalePrice?: number;
@@ -58,16 +142,17 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
   }>(
     '/marketplace/store-onboarding',
     {
+      // §5.1 PLANO_FASE_ATUAL: autoridade de criação/reuso de canonical no onboarding — ver
+      // docs/01_normative/ADR_CANONICAL_CREATE_AUTHORITY.md
       preHandler: async (req, reply) => {
         await requireStorePermission(req, reply, 'MARKETPLACE_STORE_CREATE');
       },
     },
     async (req, reply) => {
-      // Validação manual com Zod
       const bodySchema = z.object({
         actorId: z.string().uuid(),
-        departmentCategoryId: z.string().uuid(),
-        selectedCategoryIds: z.array(z.string().uuid()),
+        departmentCategoryId: z.string().uuid().optional(),
+        selectedCategoryIds: z.array(z.string().uuid()).optional(),
         hasOwnProducts: z.boolean(),
         defaultCostPrice: z.number().optional(),
         defaultSalePrice: z.number().optional(),
@@ -77,30 +162,70 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
 
       const validationResult = bodySchema.safeParse(req.body);
       if (!validationResult.success) {
-        return reply.status(400).send({
-          error: 'Dados inválidos',
-          details: validationResult.error.errors,
+        throw new AppError(400, 'Dados inválidos', ErrorCode.VALIDATION_ERROR, {
+          zodErrors: validationResult.error.errors,
         });
+      }
+      if (!req.tenant?.id) {
+        throw new BadRequestError('Tenant é obrigatório', ErrorCode.VALIDATION_ERROR);
       }
       const tenantId = req.tenant.id;
       const userId = req.user?.userId ?? req.user?.id ?? '';
-      const actorId = req.user?.id ?? userId;
+      const fallbackUserPk = req.user?.id ?? userId;
+      const importerActorId = req.marketplaceStoreOnboardingImporterActorId;
+      if (!importerActorId) {
+        throw new InternalServerError(
+          'Invariant: marketplaceStoreOnboardingImporterActorId ausente após autorização'
+        );
+      }
 
       try {
+        const data = validationResult.data;
+        const input: StoreOnboardingInput = {
+          actorId: data.actorId ?? fallbackUserPk,
+          hasOwnProducts: data.hasOwnProducts,
+          defaultCostPrice: data.defaultCostPrice,
+          defaultSalePrice: data.defaultSalePrice,
+          defaultStock: data.defaultStock,
+          metadata: data.metadata,
+        };
+        if (data.departmentCategoryId !== undefined) {
+          input.departmentCategoryId = data.departmentCategoryId;
+        }
+        if (data.selectedCategoryIds !== undefined) {
+          input.selectedCategoryIds = data.selectedCategoryIds;
+        }
+
+        const requestId = String((req as { requestId?: string }).requestId ?? 'unknown');
+        const storeActorId = input.actorId;
+        const logContext: StoreOnboardingLogContext = {
+          logger: req.log.child({
+            requestId,
+            tenantId,
+            actorId: storeActorId,
+            importerActorId,
+          }),
+          requestId,
+          tenantId,
+          actorId: storeActorId,
+          importerActorId,
+        };
+
         const result = await storeOnboardingService.createStoreOnboarding(
           tenantId,
-          validationResult.data,
-          actorId,
-          userId
+          input,
+          importerActorId,
+          userId,
+          logContext
         );
 
         return reply.send({ result });
-      } catch (err: any) {
-        req.log.error({ err }, 'Erro ao criar onboarding de loja');
-        return reply.status(400).send({
-          error: 'Erro ao criar onboarding de loja',
-          message: err.message,
-        });
+      } catch (err: unknown) {
+        if (err instanceof AppError) throw err;
+        throw new BadRequestError(
+          err instanceof Error ? err.message : 'Erro ao criar onboarding de loja',
+          ErrorCode.BAD_REQUEST
+        );
       }
     }
   );
@@ -113,7 +238,7 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
     Querystring: {
       categoryIds: string; // Comma-separated
     };
-  }>(
+  }>  (
     '/marketplace/store-onboarding/available-products',
     {
       preHandler: async (req, reply) => {
@@ -121,6 +246,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
       },
     },
     async (req, reply) => {
+      if (!req.tenant?.id) {
+        throw new BadRequestError('Tenant é obrigatório', ErrorCode.VALIDATION_ERROR);
+      }
       const tenantId = req.tenant.id;
       const categoryIds = typeof req.query.categoryIds === 'string'
         ? req.query.categoryIds.split(',').filter(Boolean)
@@ -133,12 +261,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
         );
 
         return reply.send({ products });
-      } catch (err: any) {
-        req.log.error({ err }, 'Erro ao listar produtos disponíveis');
-        return reply.status(500).send({
-          error: 'Erro ao listar produtos disponíveis',
-          message: err.message,
-        });
+      } catch (err: unknown) {
+        if (err instanceof AppError) throw err;
+        throw new InternalServerError('Erro ao listar produtos disponíveis');
       }
     }
   );
@@ -159,6 +284,9 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
       },
     },
     async (req, reply) => {
+      if (!req.tenant?.id) {
+        throw new BadRequestError('Tenant é obrigatório', ErrorCode.VALIDATION_ERROR);
+      }
       const tenantId = req.tenant.id;
       const categoryIds = typeof req.query.categoryIds === 'string'
         ? req.query.categoryIds.split(',').filter(Boolean)
@@ -168,15 +296,28 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
         const stats = await storeOnboardingService.getCategoryProductStats(tenantId, categoryIds);
 
         return reply.send({ stats });
-      } catch (err: any) {
-        req.log.error({ err }, 'Erro ao buscar estatísticas de categorias');
-        return reply.status(500).send({
-          error: 'Erro ao buscar estatísticas de categorias',
-          message: err.message,
-        });
+      } catch (err: unknown) {
+        if (err instanceof AppError) throw err;
+        throw new InternalServerError('Erro ao buscar estatísticas de categorias');
       }
     }
   );
+
+  // GET /marketplace/products/visible
+  fastify.get<{
+    Querystring: { categoryId?: string; limit?: string; offset?: string };
+  }>('/marketplace/products/visible', async (req, reply) => {
+    const tenantId = req.tenant!.id;
+    const { categoryId, limit, offset } = req.query;
+
+    const products = await listVisibleProducts(tenantId, {
+      categoryIds: categoryId ? [categoryId] : undefined,
+      limit:  limit  ? parseInt(limit,  10) : 50,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+
+    return reply.send({ products });
+  });
 };
 
 export default storeOnboardingRoutes;

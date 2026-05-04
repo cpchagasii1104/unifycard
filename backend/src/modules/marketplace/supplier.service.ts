@@ -97,12 +97,12 @@ class SupplierService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || null,
+        actor_id: data.createdByActorId ?? undefined,
         actor_type: 'user',
         source: 'automation',
         context: {
           supplier_id: data.supplierId,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
         },
       });
     } catch (error) {

@@ -13,8 +13,8 @@ interface CompanyProfileRow {
   updated_by_actor_id: string | null;
   updated_by_user_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class CompanyProfileRepository {
@@ -28,8 +28,8 @@ class CompanyProfileRepository {
       updatedByActorId: row.updated_by_actor_id,
       updatedByUserId: row.updated_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -40,7 +40,7 @@ class CompanyProfileRepository {
       SELECT tenant_id, erp_profile, tax_regime,
              created_by_actor_id, created_by_user_id,
              updated_by_actor_id, updated_by_user_id,
-             metadata, createdAt, updatedAt
+             metadata, created_at, updated_at
       FROM company_profiles
       WHERE tenant_id = $1
       `,
@@ -77,12 +77,12 @@ class CompanyProfileRepository {
             updated_by_actor_id = $4,
             updated_by_user_id = $5,
             metadata = $6::jsonb,
-            updatedAt = NOW()
+            updated_at = NOW()
         WHERE tenant_id = $1
         RETURNING tenant_id, erp_profile, tax_regime,
                   created_by_actor_id, created_by_user_id,
                   updated_by_actor_id, updated_by_user_id,
-                  metadata, createdAt, updatedAt
+                  metadata, created_at, updated_at
         `,
         [
           tenantId,
@@ -104,7 +104,7 @@ class CompanyProfileRepository {
         RETURNING tenant_id, erp_profile, tax_regime,
                   created_by_actor_id, created_by_user_id,
                   updated_by_actor_id, updated_by_user_id,
-                  metadata, createdAt, updatedAt
+                  metadata, created_at, updated_at
         `,
         [
           tenantId,

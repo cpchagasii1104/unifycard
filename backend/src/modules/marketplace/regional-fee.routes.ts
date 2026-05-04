@@ -58,4 +58,3 @@ const regionalFeeRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default regionalFeeRoutes;
-

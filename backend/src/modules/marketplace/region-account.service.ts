@@ -130,7 +130,7 @@ class RegionAccountService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.creditedByActorId || data.debitedByActorId || null,
+        actor_id: (data.creditedByActorId || data.debitedByActorId) ?? undefined,
         actor_type: 'user',
         source: 'region_accounts',
         context: {
@@ -138,9 +138,9 @@ class RegionAccountService {
           amount_cents: data.amountCents,
           currency: data.currency,
           credited_by_actor_id: data.creditedByActorId,
-          credited_by_user_id: data.creditedByUserId,
+          credited_by_user_id: data.creditedByUserId ?? undefined,
           debited_by_actor_id: data.debitedByActorId,
-          debited_by_user_id: data.debitedByUserId,
+          debited_by_user_id: data.debitedByUserId ?? undefined,
           metadata: data.metadata,
         },
       });

@@ -4,6 +4,8 @@
 import type { FastifyInstance } from 'fastify';
 import { unifyCardMethodService } from './unifycard-method.service';
 import type { CreateUnifyCardMethodInput } from './unifycard-method.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -15,7 +17,7 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const method = await unifyCardMethodService.createMethod(
@@ -49,7 +51,7 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
     const method = await unifyCardMethodService.getMethodByType(tenantId, req.params.type);
 
     if (!method) {
-      return reply.status(404).send({ error: 'Método não encontrado' });
+      throw new NotFoundError('Método não encontrado');
     }
 
     return reply.send(method);
@@ -57,9 +59,3 @@ const unifyCardMethodRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default unifyCardMethodRoutes;
-
-
-
-
-
-

@@ -21,8 +21,15 @@ function logError(category: LogCategory, message: string, error: any): void {
   });
 }
 
+function logWarn(message: string, data?: any): void {
+  const prefix = `[MARKETPLACE][WARN]`;
+  if (data) console.warn(`${prefix} ${message}`, data);
+  else console.warn(`${prefix} ${message}`);
+}
+
 export const marketplaceLogger = {
   init: (message: string, data?: any) => log('INIT', message, data),
+  warn: (message: string, data?: any) => logWarn(message, data),
   api: (message: string, data?: any) => log('API', message, data),
   payment: (message: string, data?: any) => log('PAYMENT', message, data),
   order: (message: string, data?: any) => log('ORDER', message, data),

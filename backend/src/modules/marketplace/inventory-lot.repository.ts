@@ -16,7 +16,7 @@ interface InventoryLotRow {
   manufacture_date: Date | null;
   expiration_date: Date | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class InventoryLotRepository {
@@ -32,7 +32,7 @@ class InventoryLotRepository {
       manufactureDate: row.manufacture_date,
       expirationDate: row.expiration_date,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -52,7 +52,7 @@ class InventoryLotRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, tenant_id, product_variant_id, lot_code, manufacture_date,
-                expiration_date, metadata, createdAt
+                expiration_date, metadata, created_at
       `,
       [
         tenantId,
@@ -82,7 +82,7 @@ class InventoryLotRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
-             expiration_date, metadata, createdAt
+             expiration_date, metadata, created_at
       FROM inventory_lots
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -105,7 +105,7 @@ class InventoryLotRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
-             expiration_date, metadata, createdAt
+             expiration_date, metadata, created_at
       FROM inventory_lots
       WHERE tenant_id = $1
         AND product_variant_id = $2
@@ -129,7 +129,7 @@ class InventoryLotRepository {
       tenantId,
       `
       SELECT id, tenant_id, product_variant_id, lot_code, manufacture_date,
-             expiration_date, metadata, createdAt
+             expiration_date, metadata, created_at
       FROM inventory_lots
       WHERE tenant_id = $1 AND product_variant_id = $2
       ORDER BY lot_code ASC

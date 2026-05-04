@@ -37,11 +37,13 @@ async function resolveConceptUuid(slug: string, domain: string): Promise<string>
 type CheckResult = { ok: true; detail?: any } | { ok: false; reason: string; detail?: any };
 
 function assertOk(label: string, r: CheckResult): void {
-  if (r.ok) { console.log(`  \u2705 ${label}`); return; }
-  console.error(`  \u274c FALHOU: ${label}`);
-  console.error(`     Motivo: ${r.reason}`);
-  if (r.detail !== undefined) console.error(JSON.stringify(r.detail, null, 2));
-  process.exit(1);
+  if (r.ok === false) {
+    console.error(`  \u274c FALHOU: ${label}`);
+    console.error(`     Motivo: ${r.reason}`);
+    if (r.detail !== undefined) console.error(JSON.stringify(r.detail, null, 2));
+    process.exit(1);
+  }
+  console.log(`  \u2705 ${label}`);
 }
 
 async function expectFail(label: string, fn: () => Promise<unknown>): Promise<void> {

@@ -206,7 +206,7 @@ class UnifyCardService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.capturedByActorId || data.settledByActorId || null,
+        actor_id: (data.createdByActorId || data.capturedByActorId || data.settledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'unifycard',
         context: {
@@ -214,7 +214,7 @@ class UnifyCardService {
           payment_intent_id: data.paymentIntentId,
           regional_account_id: data.regionalAccountId,
           status: data.status,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           captured_by_actor_id: data.capturedByActorId,
           captured_by_user_id: data.capturedByUserId,
           settled_by_actor_id: data.settledByActorId,
