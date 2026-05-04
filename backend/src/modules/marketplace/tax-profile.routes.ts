@@ -4,6 +4,8 @@
 import type { FastifyInstance } from 'fastify';
 import { taxProfileService } from './tax-profile.service';
 import type { SetTaxProfileInput } from './tax-profile.types';
+import { AppError, BadRequestError, NotFoundError, UnauthorizedError, ForbiddenError, InternalServerError, ConflictError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const taxProfileRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -15,7 +17,7 @@ const taxProfileRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const taxProfile = await taxProfileService.setTaxProfile(
@@ -37,7 +39,7 @@ const taxProfileRoutes = async (fastify: FastifyInstance) => {
     const taxProfile = await taxProfileService.getTaxProfile(tenantId);
 
     if (!taxProfile) {
-      return reply.status(404).send({ error: 'Tax profile não encontrado' });
+      throw new NotFoundError('Tax profile não encontrado');
     }
 
     return reply.send(taxProfile);
@@ -52,7 +54,7 @@ const taxProfileRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const taxProfile = await taxProfileService.updateTaxProfile(
@@ -66,7 +68,6 @@ const taxProfileRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default taxProfileRoutes;
-
 
 
 

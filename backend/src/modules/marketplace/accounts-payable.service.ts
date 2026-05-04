@@ -348,7 +348,7 @@ class AccountsPayableService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.paidByActorId || data.cancelledByActorId || null,
+        actor_id: (data.createdByActorId || data.paidByActorId || data.cancelledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'automation',
         context: {
@@ -357,12 +357,12 @@ class AccountsPayableService {
           scheduled_action_id: data.scheduledActionId,
           status: data.status,
           scheduled_for: data.scheduledFor,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           paid_by_actor_id: data.paidByActorId,
-          paid_by_user_id: data.paidByUserId,
+          paid_by_user_id: data.paidByUserId ?? undefined,
           cancelled_by_actor_id: data.cancelledByActorId,
-          cancelled_by_user_id: data.cancelledByUserId,
-          cancellation_reason: data.cancellationReason,
+          cancelled_by_user_id: data.cancelledByUserId ?? undefined,
+          cancellation_reason: data.cancellationReason ?? undefined,
         },
       });
     } catch (error) {

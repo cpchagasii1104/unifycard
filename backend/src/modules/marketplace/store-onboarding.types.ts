@@ -2,17 +2,28 @@
 // Store Onboarding - Tipos
 // 🔴 BLINDAGEM: Loja apenas seleciona recortes da taxonomia, não cria categorias
 
-/**
- * Input para criar onboarding de loja
- */
+/** Linhas opcionais a garantir no catálogo canónico (dedupe via pipeline de criação). */
+export interface StoreOnboardingSeedCanonicalLine {
+  name: string;
+  brand?: string;
+  gtin?: string;
+  /** Deve pertencer ao recorte do onboarding (department + selected). */
+  categoryId: string;
+}
+
+/** Input para criar onboarding de loja */
 export interface StoreOnboardingInput {
   actorId: string; // ID da empresa/loja
-  departmentCategoryId: string; // Categoria raiz (nível 0)
-  selectedCategoryIds: string[]; // Subcategorias selecionadas (nível 1)
+  /** Se omitido e o tenant tiver `company_type_id` com slugs padrão, deriva do tipo de empresa. */
+  departmentCategoryId?: string;
+  /** Se omitido junto com department, pode ser preenchido pela herança do tipo de empresa. */
+  selectedCategoryIds?: string[];
   hasOwnProducts: boolean; // Se a loja possui fabricação própria
   defaultCostPrice?: number; // Preço de custo padrão (opcional)
   defaultSalePrice?: number; // Preço de venda padrão (opcional)
   defaultStock?: number; // Estoque inicial padrão (opcional)
+  /** Opcional: materializa canónicos em falta antes do loop PRODUCT → OFFER (GTIN + nome/marca/categoria). */
+  seedCanonicalLines?: StoreOnboardingSeedCanonicalLine[];
   metadata?: Record<string, any>;
 }
 
@@ -32,9 +43,10 @@ export interface StoreOnboardingResult {
 
 /**
  * Produto do catálogo disponível para importação
+ * `canonicalProductId` = id em `canonical_products` (não confundir com `products.id` do tenant).
  */
 export interface AvailableCatalogProduct {
-  productId: string;
+  canonicalProductId: string;
   gtin: string;
   name: string;
   brand?: string;

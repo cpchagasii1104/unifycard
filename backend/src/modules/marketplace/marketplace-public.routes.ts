@@ -5,6 +5,24 @@
 import { FastifyPluginAsync } from 'fastify';
 import { marketplaceService } from './marketplace.service';
 import { marketplaceLogger } from './marketplace.logger';
+import {
+  getMarketplaceLegacyMemoryOrderRoutesEnvRaw,
+  isMarketplaceLegacyMemoryOrderRoutesEnabled,
+  replyLegacyMemoryOrderRoutesGone,
+} from './marketplace-legacy-memory-order-flag';
+import { AppError, BadRequestError, NotFoundError, UnauthorizedError, InternalServerError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
+
+function toCamelCaseKeys<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map((item) => toCamelCaseKeys(item)) as unknown as T;
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [
+      k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
+      toCamelCaseKeys(v),
+    ])
+  ) as T;
+}
 
 const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   marketplaceLogger.init('Rotas públicas do Marketplace registradas');
@@ -17,7 +35,12 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/health', async (req, reply) => {
     marketplaceLogger.api('GET /marketplace/health');
     const health = marketplaceService.getHealth();
-    return reply.status(200).send(health);
+    return reply.status(200).send({
+      ...health,
+      marketplaceLegacyMemoryOrderRoutesEnabled: isMarketplaceLegacyMemoryOrderRoutesEnabled(),
+      marketplaceLegacyMemoryOrderRoutesEnvRaw:
+        getMarketplaceLegacyMemoryOrderRoutesEnvRaw() ?? null,
+    });
   });
 
   // ============================================================
@@ -36,7 +59,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   
   // GET /marketplace/templates
   fastify.get('/templates', async (req, reply) => {
-    const templates = marketplaceService.getTemplates();
+    const templates = marketplaceService.catalog.getTemplates();
     return reply.status(200).send(templates);
   });
 
@@ -47,7 +70,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /marketplace/categories (versão canônica estática para navegação/descoberta)
   // NOTA: A rota dinâmica do catálogo está em marketplace.routes.ts (escopo protegido)
   fastify.get('/categories', async (req, reply) => {
-    const categories = marketplaceService.getCategories();
+    const categories = marketplaceService.catalog.getCategories();
     return reply.status(200).send(categories);
   });
 
@@ -66,7 +89,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   }>('/categories/root', async (req, reply) => {
     try {
       if (!(req as { tenant?: { id: string } }).tenant) {
-        return reply.status(401).send({ error: 'Tenant required' });
+        throw new UnauthorizedError('Tenant required');
       }
       const { marketplaceCategoriesService } = await import('./marketplace-categories.service');
       const tenantId = (req as { tenant: { id: string } }).tenant.id;
@@ -97,9 +120,10 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
       }));
 
       return reply.status(200).send({ categories });
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao buscar categorias root do marketplace', error);
-      return reply.status(500).send({ error: 'Erro ao buscar categorias', details: error.message });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao buscar categorias root do marketplace', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new InternalServerError('Erro ao buscar categorias');
     }
   });
 
@@ -113,7 +137,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     const scope = query.scope;
     const valueCents = query.valueCents;
     
-    const stores = marketplaceService.getStores(scope, valueCents);
+    const stores = marketplaceService.catalog.getStores(scope, valueCents);
     return reply.status(200).send(stores);
   });
 
@@ -126,10 +150,10 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     const templateId = (q.template_id as string | undefined) ?? (q.templateId as string | undefined);
 
     if (!city) {
-      return reply.status(400).send({ error: 'city é obrigatório' });
+      throw new BadRequestError('city é obrigatório', ErrorCode.VALIDATION_ERROR);
     }
 
-    const storesData = marketplaceService.getStoresNear({
+    const storesData = marketplaceService.discovery.getStoresNear({
       city,
       neighborhood,
       category_id: categoryId,
@@ -145,7 +169,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   
   // GET /marketplace/regions
   fastify.get('/regions', async (req, reply) => {
-    const regions = marketplaceService.getRegions();
+    const regions = marketplaceService.catalog.getRegions();
     return reply.status(200).send(regions);
   });
 
@@ -157,10 +181,10 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { storeId: string } }>('/store/:storeId/catalog', async (req, reply) => {
     const { storeId } = req.params;
     
-    const catalog = marketplaceService.getStoreCatalog(storeId);
+    const catalog = marketplaceService.catalog.getStoreCatalog(storeId);
     
     if (!catalog) {
-      return reply.status(404).send({ error: 'Loja não encontrada' });
+      throw new NotFoundError('Loja não encontrada');
     }
     
     return reply.status(200).send(catalog);
@@ -172,7 +196,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   
   // GET /marketplace/products/canonical
   fastify.get('/products/canonical', async (req, reply) => {
-    const products = marketplaceService.getCanonicalProducts();
+    const products = marketplaceService.catalog.getCanonicalProducts();
     return reply.status(200).send(products);
   });
 
@@ -190,194 +214,221 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     const storeProducts = marketplaceService.getStoreProducts(tenantId, storeId, categoryId ?? undefined);
 
     if (!storeProducts) {
-      return reply.status(404).send({ error: 'Loja não encontrada' });
+      throw new NotFoundError('Loja não encontrada');
     }
 
     return reply.status(200).send(toCamelCaseKeys(storeProducts));
   });
 
   // ============================================================
-  // PEDIDOS (CARRINHO)
+  // PEDIDOS / CHECKOUT / SHARE (facade em memória — só se MARKETPLACE_LEGACY_MEMORY_ORDER_ROUTES)
   // ============================================================
-  
-  // POST /marketplace/order (aceita store_id ou storeId; resposta camelCase)
-  fastify.post('/order', async (req, reply) => {
-    const body = req.body as Record<string, unknown>;
-    const storeId = (body.store_id as string | undefined) ?? (body.storeId as string | undefined);
+  if (!isMarketplaceLegacyMemoryOrderRoutesEnabled()) {
+    marketplaceLogger.warn(
+      'Rotas públicas /order, /checkout, /payment-plan, /share (memória) desativadas — 410. MARKETPLACE_LEGACY_MEMORY_ORDER_ROUTES=true para reativar.'
+    );
+    fastify.post('/order', replyLegacyMemoryOrderRoutesGone);
+    fastify.post('/order/:orderId/items', replyLegacyMemoryOrderRoutesGone);
+    fastify.get('/order/:orderId', replyLegacyMemoryOrderRoutesGone);
+    fastify.post('/checkout/from-order/:orderId', replyLegacyMemoryOrderRoutesGone);
+    fastify.get('/checkout/:checkoutId', replyLegacyMemoryOrderRoutesGone);
+    fastify.post('/checkout/:checkoutId/confirm', replyLegacyMemoryOrderRoutesGone);
+    fastify.post('/payment-plan/from-checkout/:checkoutId', replyLegacyMemoryOrderRoutesGone);
+    fastify.get('/payment-plan/:paymentPlanId', replyLegacyMemoryOrderRoutesGone);
+    fastify.post('/share', replyLegacyMemoryOrderRoutesGone);
+  } else {
+    // POST /marketplace/order (aceita store_id ou storeId; resposta camelCase)
+    fastify.post('/order', async (req, reply) => {
+      const body = req.body as Record<string, unknown>;
+      const storeId = (body.store_id as string | undefined) ?? (body.storeId as string | undefined);
 
-    if (!storeId) {
-      return reply.status(400).send({ error: 'storeId é obrigatório' });
+      if (!storeId) {
+        throw new BadRequestError('storeId é obrigatório', ErrorCode.VALIDATION_ERROR);
+      }
+
+      try {
+        const order = marketplaceService.orders.createOrder(storeId);
+        return reply.status(201).send(toCamelCaseKeys(order));
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao criar pedido',
+        ErrorCode.BAD_REQUEST
+      );
     }
+    });
 
-    try {
-      const order = marketplaceService.createOrder(storeId);
-      return reply.status(201).send(toCamelCaseKeys(order));
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao criar pedido' });
+    // POST /marketplace/order/:orderId/items (aceita product_id ou productId; resposta camelCase)
+    fastify.post<{ Params: { orderId: string } }>('/order/:orderId/items', async (req, reply) => {
+      const { orderId } = req.params;
+      const body = req.body as Record<string, unknown>;
+      const productId = (body.product_id as string | undefined) ?? (body.productId as string | undefined);
+      const quantity = (body.quantity as number | undefined) ?? undefined;
+
+      if (!productId) {
+        throw new BadRequestError('productId é obrigatório', ErrorCode.VALIDATION_ERROR);
+      }
+      if (quantity == null || quantity < 1) {
+        throw new BadRequestError('quantity deve ser maior que zero', ErrorCode.VALIDATION_ERROR);
+      }
+
+      try {
+        const order = await marketplaceService.orders.addOrderItem(orderId, productId, quantity);
+        return reply.status(200).send(toCamelCaseKeys(order));
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao adicionar item',
+        ErrorCode.BAD_REQUEST
+      );
     }
-  });
+    });
 
-  // POST /marketplace/order/:orderId/items (aceita product_id ou productId; resposta camelCase)
-  fastify.post<{ Params: { orderId: string } }>('/order/:orderId/items', async (req, reply) => {
-    const { orderId } = req.params;
-    const body = req.body as Record<string, unknown>;
-    const productId = (body.product_id as string | undefined) ?? (body.productId as string | undefined);
-    const quantity = (body.quantity as number | undefined) ?? undefined;
+    // GET /marketplace/order/:orderId
+    fastify.get<{ Params: { orderId: string } }>('/order/:orderId', async (req, reply) => {
+      const { orderId } = req.params;
 
-    if (!productId) {
-      return reply.status(400).send({ error: 'productId é obrigatório' });
+      const order = marketplaceService.orders.getOrder(orderId);
+
+      if (!order) {
+        throw new NotFoundError('Pedido não encontrado');
+      }
+
+      return reply.status(200).send(order);
+    });
+
+    // POST /marketplace/checkout/from-order/:orderId
+    fastify.post<{ Params: { orderId: string } }>('/checkout/from-order/:orderId', async (req, reply) => {
+      const { orderId } = req.params;
+
+      try {
+        const checkout = marketplaceService.checkout.createCheckoutFromOrder(orderId);
+        return reply.status(201).send(checkout);
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao criar checkout',
+        ErrorCode.BAD_REQUEST
+      );
     }
-    if (quantity == null || quantity < 1) {
-      return reply.status(400).send({ error: 'quantity deve ser maior que zero' });
-    }
+    });
 
-    try {
-      const order = await marketplaceService.addOrderItem(orderId, productId, quantity);
-      return reply.status(200).send(toCamelCaseKeys(order));
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao adicionar item' });
-    }
-  });
+    // GET /marketplace/checkout/:checkoutId
+    fastify.get<{ Params: { checkoutId: string } }>('/checkout/:checkoutId', async (req, reply) => {
+      const { checkoutId } = req.params;
 
-  // GET /marketplace/order/:orderId
-  fastify.get<{ Params: { orderId: string } }>('/order/:orderId', async (req, reply) => {
-    const { orderId } = req.params;
-    
-    const order = marketplaceService.getOrder(orderId);
-    
-    if (!order) {
-      return reply.status(404).send({ error: 'Pedido não encontrado' });
-    }
-    
-    return reply.status(200).send(order);
-  });
+      const checkout = marketplaceService.checkout.getCheckout(checkoutId);
 
-  // ============================================================
-  // CHECKOUT INTENT
-  // ============================================================
-  
-  // POST /marketplace/checkout/from-order/:orderId
-  fastify.post<{ Params: { orderId: string } }>('/checkout/from-order/:orderId', async (req, reply) => {
-    const { orderId } = req.params;
-    
-    try {
-      const checkout = marketplaceService.createCheckoutFromOrder(orderId);
-      return reply.status(201).send(checkout);
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao criar checkout' });
-    }
-  });
+      if (!checkout) {
+        throw new NotFoundError('Checkout não encontrado');
+      }
 
-  // GET /marketplace/checkout/:checkoutId
-  fastify.get<{ Params: { checkoutId: string } }>('/checkout/:checkoutId', async (req, reply) => {
-    const { checkoutId } = req.params;
-    
-    const checkout = marketplaceService.getCheckout(checkoutId);
-    
-    if (!checkout) {
-      return reply.status(404).send({ error: 'Checkout não encontrado' });
-    }
-    
-    return reply.status(200).send(checkout);
-  });
-
-  // POST /marketplace/checkout/:checkoutId/confirm
-  fastify.post<{ Params: { checkoutId: string } }>('/checkout/:checkoutId/confirm', async (req, reply) => {
-    const { checkoutId } = req.params;
-    
-    try {
-      const checkout = marketplaceService.confirmCheckout(checkoutId);
       return reply.status(200).send(checkout);
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao confirmar checkout' });
+    });
+
+    // POST /marketplace/checkout/:checkoutId/confirm
+    fastify.post<{ Params: { checkoutId: string } }>('/checkout/:checkoutId/confirm', async (req, reply) => {
+      const { checkoutId } = req.params;
+
+      try {
+        const checkout = marketplaceService.checkout.confirmCheckout(checkoutId);
+        return reply.status(200).send(checkout);
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao confirmar checkout',
+        ErrorCode.BAD_REQUEST
+      );
     }
-  });
+    });
 
-  // ============================================================
-  // PAYMENT ORCHESTRATOR (PAYMENT PLAN)
-  // ============================================================
-  
-  // POST /marketplace/payment-plan/from-checkout/:checkoutId
-  fastify.post<{ Params: { checkoutId: string } }>('/payment-plan/from-checkout/:checkoutId', async (req, reply) => {
-    const { checkoutId } = req.params;
-    const body = req.body as { method: 'balance' | 'card' | 'invoice' };
-    
-    if (!body.method) {
-      return reply.status(400).send({ error: 'method é obrigatório' });
+    // POST /marketplace/payment-plan/from-checkout/:checkoutId
+    fastify.post<{ Params: { checkoutId: string } }>('/payment-plan/from-checkout/:checkoutId', async (req, reply) => {
+      const { checkoutId } = req.params;
+      const body = req.body as { method: 'balance' | 'card' | 'invoice' };
+
+      if (!body.method) {
+        throw new BadRequestError('method é obrigatório', ErrorCode.VALIDATION_ERROR);
+      }
+
+      if (!['balance', 'card', 'invoice'].includes(body.method)) {
+        throw new BadRequestError('method deve ser balance, card ou invoice', ErrorCode.VALIDATION_ERROR);
+      }
+
+      try {
+        const paymentPlan = marketplaceService.checkout.createPaymentPlan(checkoutId, body.method);
+        return reply.status(201).send(paymentPlan);
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao criar payment plan',
+        ErrorCode.BAD_REQUEST
+      );
     }
+    });
 
-    if (!['balance', 'card', 'invoice'].includes(body.method)) {
-      return reply.status(400).send({ error: 'method deve ser balance, card ou invoice' });
+    // GET /marketplace/payment-plan/:paymentPlanId
+    fastify.get<{ Params: { paymentPlanId: string } }>('/payment-plan/:paymentPlanId', async (req, reply) => {
+      const { paymentPlanId } = req.params;
+
+      const paymentPlan = marketplaceService.checkout.getPaymentPlan(paymentPlanId);
+
+      if (!paymentPlan) {
+        throw new NotFoundError('Payment plan não encontrado');
+      }
+
+      return reply.status(200).send(paymentPlan);
+    });
+
+    // POST /marketplace/share (aceita snake_case ou camelCase; resposta camelCase)
+    fastify.post('/share', async (req, reply) => {
+      const body = req.body as Record<string, unknown>;
+      const contentType = (body.content_type ?? body.contentType) as 'product' | 'service' | 'store' | undefined;
+      const contentId = (body.content_id ?? body.contentId) as string | undefined;
+      const rawContext = body.attribution_context ?? body.attributionContext as Record<string, unknown> | undefined;
+
+      if (!contentType || !contentId || !rawContext) {
+        throw new BadRequestError('contentType, contentId e attributionContext são obrigatórios', ErrorCode.VALIDATION_ERROR);
+      }
+
+      const ctx = rawContext as Record<string, unknown>;
+      const src = (ctx.source ?? (ctx as Record<string, unknown>).source) as Record<string, unknown> | undefined;
+      const visibility = (ctx.visibility ?? (ctx as Record<string, unknown>).visibility) as Record<string, unknown> | undefined;
+      const source = src && typeof src === 'object' && 'type' in src && 'id' in src
+        ? { type: (src.type as 'user' | 'group' | 'page' | 'store') ?? 'store', id: String(src.id) }
+        : { type: 'store' as const, id: '' };
+      const intent = (ctx.intent === 'business' || ctx.intent === 'recommendation' || ctx.intent === 'entertainment')
+        ? ctx.intent
+        : 'business';
+      type VisScope = 'public' | 'group' | 'direct' | 'relationship_category';
+      const vis: { scope: VisScope; group_id?: string; target_ids?: string[]; relationship_category?: 'business' | 'friend' | 'family' | 'entertainment' } = visibility && typeof visibility === 'object'
+        ? {
+            scope: (visibility.scope === 'public' || visibility.scope === 'group' || visibility.scope === 'direct' || visibility.scope === 'relationship_category') ? visibility.scope as VisScope : 'public',
+            group_id: (visibility.group_id ?? visibility.groupId) as string | undefined,
+            target_ids: (visibility.target_ids ?? visibility.targetIds) as string[] | undefined,
+            relationship_category: (visibility.relationship_category ?? visibility.relationshipCategory) as 'business' | 'friend' | 'family' | 'entertainment' | undefined,
+          }
+        : { scope: 'public' as VisScope };
+      const commission = ctx.commission && typeof ctx.commission === 'object' && 'type' in ctx.commission && 'valueCents' in ctx.commission
+        ? { type: (ctx.commission as { type: string }).type as 'percentage' | 'fixed', valueCents: Number((ctx.commission as { valueCents: unknown }).valueCents) }
+        : undefined;
+
+      try {
+        const result = marketplaceService.orders.createShare({
+          content_type: contentType,
+          content_id: contentId,
+          attribution_context: { source, intent, visibility: vis, commission },
+        });
+        return reply.status(201).send(toCamelCaseKeys(result));
+      } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao criar share',
+        ErrorCode.BAD_REQUEST
+      );
     }
-
-    try {
-      const paymentPlan = marketplaceService.createPaymentPlan(checkoutId, body.method);
-      return reply.status(201).send(paymentPlan);
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao criar payment plan' });
-    }
-  });
-
-  // GET /marketplace/payment-plan/:paymentPlanId
-  fastify.get<{ Params: { paymentPlanId: string } }>('/payment-plan/:paymentPlanId', async (req, reply) => {
-    const { paymentPlanId } = req.params;
-    
-    const paymentPlan = marketplaceService.getPaymentPlan(paymentPlanId);
-    
-    if (!paymentPlan) {
-      return reply.status(404).send({ error: 'Payment plan não encontrado' });
-    }
-    
-    return reply.status(200).send(paymentPlan);
-  });
-
-  // ============================================================
-  // ATTRIBUTION & SHARING
-  // ============================================================
-  
-  // POST /marketplace/share (aceita snake_case ou camelCase; resposta camelCase)
-  fastify.post('/share', async (req, reply) => {
-    const body = req.body as Record<string, unknown>;
-    const contentType = (body.content_type ?? body.contentType) as 'product' | 'service' | 'store' | undefined;
-    const contentId = (body.content_id ?? body.contentId) as string | undefined;
-    const rawContext = body.attribution_context ?? body.attributionContext as Record<string, unknown> | undefined;
-
-    if (!contentType || !contentId || !rawContext) {
-      return reply.status(400).send({ error: 'contentType, contentId e attributionContext são obrigatórios' });
-    }
-
-    const src = (rawContext.source ?? (rawContext as Record<string, unknown>).source) as Record<string, unknown> | undefined;
-    const visibility = (rawContext.visibility ?? (rawContext as Record<string, unknown>).visibility) as Record<string, unknown> | undefined;
-    const source = src && typeof src === 'object' && 'type' in src && 'id' in src
-      ? { type: (src.type as 'user' | 'group' | 'page' | 'store') ?? 'store', id: String(src.id) }
-      : { type: 'store' as const, id: '' };
-    const intent = (rawContext.intent === 'business' || rawContext.intent === 'recommendation' || rawContext.intent === 'entertainment')
-      ? rawContext.intent
-      : 'business';
-    type VisScope = 'public' | 'group' | 'direct' | 'relationship_category';
-    const vis: { scope: VisScope; group_id?: string; target_ids?: string[]; relationship_category?: 'business' | 'friend' | 'family' | 'entertainment' } = visibility && typeof visibility === 'object'
-      ? {
-          scope: (visibility.scope === 'public' || visibility.scope === 'group' || visibility.scope === 'direct' || visibility.scope === 'relationship_category') ? visibility.scope as VisScope : 'public',
-          group_id: (visibility.group_id ?? visibility.groupId) as string | undefined,
-          target_ids: (visibility.target_ids ?? visibility.targetIds) as string[] | undefined,
-          relationship_category: (visibility.relationship_category ?? visibility.relationshipCategory) as 'business' | 'friend' | 'family' | 'entertainment' | undefined,
-        }
-      : { scope: 'public' as VisScope };
-    const commission = rawContext.commission && typeof rawContext.commission === 'object' && 'type' in rawContext.commission && 'valueCents' in rawContext.commission
-      ? { type: (rawContext.commission as { type: string }).type as 'percentage' | 'fixed', valueCents: Number((rawContext.commission as { valueCents: unknown }).valueCents) }
-      : undefined;
-
-    try {
-      const result = marketplaceService.createShare({
-        content_type: contentType,
-        content_id: contentId,
-        attribution_context: { source, intent, visibility: vis, commission },
-      });
-      return reply.status(201).send(toCamelCaseKeys(result));
-    } catch (error: any) {
-      return reply.status(400).send({ error: error.message || 'Erro ao criar share' });
-    }
-  });
+    });
+  }
 
   // ============================================================
   // VOUCHERS LOCAIS & OFERTAS RELÂMPAGO (PROMPT 25)
@@ -394,7 +445,7 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     try {
-      const offers = marketplaceService.listVoucherOffers({
+      const offers = marketplaceService.vouchers.listVoucherOffers({
         city: query.city,
         neighborhood: query.neighborhood,
         scope: query.scope,
@@ -403,9 +454,13 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return reply.status(200).send({ offers });
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao listar ofertas de voucher', error);
-      return reply.status(400).send({ error: error.message || 'Erro ao listar ofertas' });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao listar ofertas de voucher', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao listar ofertas',
+        ErrorCode.BAD_REQUEST
+      );
     }
   });
 
@@ -415,14 +470,18 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   }>('/vouchers/offers/:offerId', async (req, reply) => {
     try {
       const { offerId } = req.params;
-      const offer = marketplaceService.getVoucherOffer(offerId);
+      const offer = marketplaceService.vouchers.getVoucherOffer(offerId);
       if (!offer) {
-        return reply.status(404).send({ error: 'Oferta não encontrada' });
+        throw new NotFoundError('Oferta não encontrada');
       }
       return reply.status(200).send(offer);
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao buscar oferta de voucher', error);
-      return reply.status(400).send({ error: error.message || 'Erro ao buscar oferta' });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao buscar oferta de voucher', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao buscar oferta',
+        ErrorCode.BAD_REQUEST
+      );
     }
   });
 
@@ -443,17 +502,21 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
         : undefined;
 
       if (!userId) {
-        return reply.status(400).send({ error: 'userId é obrigatório' });
+        throw new BadRequestError('userId é obrigatório', ErrorCode.VALIDATION_ERROR);
       }
       if (!(req as { tenant?: { id: string } }).tenant) {
-        return reply.status(401).send({ error: 'Tenant required' });
+        throw new UnauthorizedError('Tenant required');
       }
       const tenantId = (req as { tenant: { id: string } }).tenant.id;
-      const claim = await marketplaceService.claimVoucherOffer(tenantId, offerId, userId, audit);
+      const claim = await marketplaceService.vouchers.claimVoucherOffer(tenantId, offerId, userId, audit);
       return reply.status(201).send(toCamelCaseKeys(claim));
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao resgatar voucher', error);
-      return reply.status(400).send({ error: error.message || 'Erro ao resgatar voucher' });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao resgatar voucher', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao resgatar voucher',
+        ErrorCode.BAD_REQUEST
+      );
     }
   });
 
@@ -463,25 +526,33 @@ const marketplacePublicRoutes: FastifyPluginAsync = async (fastify) => {
   }>('/vouchers/claims/:claimId', async (req, reply) => {
     try {
       const { claimId } = req.params;
-      const claim = marketplaceService.getVoucherClaim(claimId);
+      const claim = marketplaceService.vouchers.getVoucherClaim(claimId);
       if (!claim) {
-        return reply.status(404).send({ error: 'Claim não encontrado' });
+        throw new NotFoundError('Claim não encontrado');
       }
       return reply.status(200).send(claim);
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao buscar claim de voucher', error);
-      return reply.status(400).send({ error: error.message || 'Erro ao buscar claim' });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao buscar claim de voucher', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao buscar claim',
+        ErrorCode.BAD_REQUEST
+      );
     }
   });
 
   // POST /marketplace/vouchers/claims/expire-check
   fastify.post('/vouchers/claims/expire-check', async (req, reply) => {
     try {
-      const result = marketplaceService.expireVoucherClaims();
+      const result = marketplaceService.vouchers.expireVoucherClaims();
       return reply.status(200).send(result);
-    } catch (error: any) {
-      marketplaceLogger.error('Erro ao expirar claims', error);
-      return reply.status(400).send({ error: error.message || 'Erro ao expirar claims' });
+    } catch (error: unknown) {
+      marketplaceLogger.error('Erro ao expirar claims', error as Error);
+      if (error instanceof AppError) throw error;
+      throw new BadRequestError(
+        error instanceof Error ? error.message : 'Erro ao expirar claims',
+        ErrorCode.BAD_REQUEST
+      );
     }
   });
 };

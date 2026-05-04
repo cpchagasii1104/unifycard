@@ -1,8 +1,13 @@
 // backend/src/modules/marketplace/stock-transfer.service.ts
 // SPRINT 55: TRANSFERÊNCIA DE ESTOQUE ENTRE FILIAIS
 
+import { getClientWithTenant } from '@core/database/pool';
 import { stockTransferRepository } from './stock-transfer.repository';
+import { inventoryMovementRepository } from './inventory-movement.repository';
+import { assertInventoryUnitActorEligible } from './inventory-unit-actor';
 import { inventoryService } from './inventory.service';
+import { stockTransferReceiptService } from './stock-transfer-receipt.service';
+import { marketplaceLogger } from './marketplace.logger';
 import type {
   StockTransfer,
   StockTransferItem,
@@ -71,130 +76,159 @@ class StockTransferService {
   async shipTransfer(
     tenantId: string,
     transferId: string,
-    input: ShipStockTransferInput = {}
+    _input: ShipStockTransferInput = {}
   ): Promise<StockTransfer> {
-    // 1. Buscar transferência
-    const transfer = await stockTransferRepository.getTransferById(tenantId, transferId);
-    if (!transfer) {
-      throw new Error(`Transferência não encontrada: ${transferId}`);
-    }
-
-    if (transfer.status !== 'DRAFT') {
-      throw new Error(`Transferência não está em DRAFT. Status atual: ${transfer.status}`);
-    }
-
-    // 2. Buscar itens
-    const items = await stockTransferRepository.listTransferItems(tenantId, transferId);
-    if (items.length === 0) {
-      throw new Error('Transferência não tem itens');
-    }
-
-    // 3. Gerar inventory_movements OUT para cada item (no from_actor)
-    // SPRINT 55: Buscar unit do produto para o movement
     const { productRepository } = await import('./product.repository');
     const { productVariantRepository } = await import('./product-variant.repository');
-    
-    for (const item of items) {
-      // Buscar variante e produto para obter unit
-      const variant = await productVariantRepository.getVariantById(tenantId, item.productVariantId);
-      if (!variant) {
-        throw new Error(`Variante não encontrada: ${item.productVariantId}`);
-      }
 
-      const product = await productRepository.getProductById(tenantId, variant.productId);
-      if (!product) {
-        throw new Error(`Produto não encontrado: ${variant.productId}`);
-      }
+    const client = await getClientWithTenant(tenantId);
 
-      // Unit vem do produto (ou metadata da variante)
-      const unit = product.metadata?.unit || variant.metadata?.unit || 'un';
+    try {
+      await client.query('BEGIN');
 
-      await inventoryService.addMovement(tenantId, {
-        productVariantId: item.productVariantId,
-        movementType: 'OUT',
-        quantity: item.quantity,
-        unit,
-        reason: 'STOCK_TRANSFER_SHIPPED',
-        referenceType: 'stock_transfer',
-        referenceId: transferId,
-        inventoryLotId: item.inventoryLotId || null,
-        metadata: {
-          stock_transfer_id: transferId,
-          stock_transfer_item_id: item.id,
-          from_actor_id: transfer.fromActorId,
-          to_actor_id: transfer.toActorId,
-          inventory_lot_id: item.inventoryLotId || null,
-        },
-      });
-
-      // Atualizar status do item para SHIPPED
-      await stockTransferRepository.updateTransferItemStatus(
-        tenantId,
-        item.id,
-        'SHIPPED'
+      const transfer = await stockTransferRepository.getTransferByIdForUpdateWithClient(
+        client,
+        transferId
       );
+      if (!transfer) {
+        throw new Error(`Transferência não encontrada: ${transferId}`);
+      }
+
+      // Idempotente: mesmo pedido repetido após sucesso (alinhado a shipFulfillment).
+      if (transfer.status === 'SHIPPED') {
+        await client.query('COMMIT');
+        return transfer;
+      }
+
+      if (transfer.status !== 'DRAFT') {
+        throw new Error(
+          `Transferência não está em DRAFT. Status atual: ${transfer.status}`
+        );
+      }
+
+      const items = await stockTransferRepository.listTransferItemsWithClient(
+        client,
+        transferId
+      );
+      if (items.length === 0) {
+        throw new Error('Transferência não tem itens');
+      }
+
+      await assertInventoryUnitActorEligible(tenantId, transfer.fromActorId);
+
+      for (const item of items) {
+        const variant = await productVariantRepository.getVariantById(
+          tenantId,
+          item.productVariantId
+        );
+        if (!variant) {
+          throw new Error(`Variante não encontrada: ${item.productVariantId}`);
+        }
+
+        const product = await productRepository.getProductById(tenantId, variant.productId);
+        if (!product) {
+          throw new Error(`Produto não encontrado: ${variant.productId}`);
+        }
+
+        const unit = product.metadata?.unit || variant.metadata?.unit || 'un';
+
+        await inventoryMovementRepository.createMovementWithClient(client, {
+          actorId: transfer.fromActorId,
+          productVariantId: item.productVariantId,
+          movementType: 'OUT',
+          quantity: item.quantity,
+          unit,
+          reason: 'STOCK_TRANSFER_SHIPPED',
+          referenceType: 'stock_transfer',
+          referenceId: transferId,
+          inventoryLotId: item.inventoryLotId || null,
+          metadata: {
+            stock_transfer_id: transferId,
+            stock_transfer_item_id: item.id,
+            from_actor_id: transfer.fromActorId,
+            to_actor_id: transfer.toActorId,
+            inventory_lot_id: item.inventoryLotId || null,
+          },
+        });
+      }
+
+      const shippedTransfer = await stockTransferRepository.updateTransferStatusWithClient(
+        client,
+        transferId,
+        'SHIPPED',
+        new Date()
+      );
+
+      await client.query('COMMIT');
+
+      const variantIds = [...new Set(items.map((i) => i.productVariantId))];
+      for (const vid of variantIds) {
+        try {
+          await inventoryService.recalculateBalance(tenantId, vid);
+        } catch (recalcErr) {
+          console.warn(`[StockTransferService] recalculateBalance ${vid}:`, recalcErr);
+        }
+      }
+
+      return shippedTransfer;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-
-    // 4. Atualizar status da transferência para SHIPPED
-    const shippedTransfer = await stockTransferRepository.updateTransferStatus(
-      tenantId,
-      transferId,
-      'SHIPPED',
-      new Date()
-    );
-
-    return shippedTransfer;
   }
 
   /**
-   * Recebe transferência (RECEIVE)
-   * 
-   * SPRINT 56: Agora exige conferência (receipt)
-   * 
-   * ⚠️ DEPRECATED: Use stockTransferReceiptService.startReceipt() e finalizeReceipt()
-   * Mantido para compatibilidade, mas agora apenas inicia a conferência
+   * @deprecated Delega para {@link stockTransferReceiptService.startReceipt} (fluxo canónico).
+   * Passo seguinte: receiveItem / finalizeReceipt no receipt service.
+   *
+   * Exige `receivedByUserId` (ou `metadata.receivedByUserId`) para criar o receipt.
    */
   async receiveTransfer(
     tenantId: string,
     transferId: string,
     input: ReceiveStockTransferInput = {}
   ): Promise<StockTransfer> {
-    // SPRINT 56: Agora recebimento exige conferência
-    // Este método apenas inicia a conferência (muda para RECEIVING)
-    // O recebimento real só acontece após finalizar a conferência
-
-    // 1. Buscar transferência
-    const transfer = await stockTransferRepository.getTransferById(tenantId, transferId);
-    if (!transfer) {
-      throw new Error(`Transferência não encontrada: ${transferId}`);
+    // Prioridade explícita: campo dedicado > metadata (evita ambiguidade silenciosa).
+    const fromMetadata =
+      typeof input.metadata?.receivedByUserId === 'string' ? input.metadata.receivedByUserId : undefined;
+    if (
+      input.receivedByUserId &&
+      fromMetadata &&
+      input.receivedByUserId !== fromMetadata
+    ) {
+      marketplaceLogger.warn('receiveTransfer: receivedByUserId duplicado e divergente — usa-se o campo dedicado', {
+        transferId,
+        used: 'receivedByUserId',
+        ignoredMetadata: fromMetadata,
+      });
     }
+    const receivedByUserId = input.receivedByUserId ?? fromMetadata;
 
-    if (transfer.status !== 'SHIPPED') {
-      throw new Error(`Transferência não está em SHIPPED. Status atual: ${transfer.status}`);
-    }
-
-    // 2. Buscar itens
-    const items = await stockTransferRepository.listTransferItems(tenantId, transferId);
-    if (items.length === 0) {
-      throw new Error('Transferência não tem itens');
-    }
-
-    // 3. Validar que todos os itens estão SHIPPED
-    const notShipped = items.filter((item) => item.status !== 'SHIPPED');
-    if (notShipped.length > 0) {
+    if (!receivedByUserId) {
       throw new Error(
-        `Não é possível receber transferência: ${notShipped.length} item(ns) ainda não foram enviados (SHIPPED)`
+        'receiveTransfer: informe receivedByUserId (ou metadata.receivedByUserId). Fluxo canónico: stockTransferReceiptService.startReceipt → finalizeReceipt.'
       );
     }
 
-    // SPRINT 56: Mudar status para RECEIVING (conferência deve ser iniciada via receipt service)
-    const receivingTransfer = await stockTransferRepository.updateTransferStatus(
-      tenantId,
+    marketplaceLogger.warn('deprecated_api: use stockTransferReceiptService.startReceipt', {
+      method: 'stockTransferService.receiveTransfer',
+      replacement: 'stockTransferReceiptService.startReceipt',
       transferId,
-      'RECEIVING'
-    );
+    });
 
-    return receivingTransfer;
+    await stockTransferReceiptService.startReceipt(tenantId, transferId, {
+      receivedByUserId,
+      notes: input.notes,
+      metadata: input.metadata,
+    });
+
+    const updated = await stockTransferRepository.getTransferById(tenantId, transferId);
+    if (!updated) {
+      throw new Error(`Transferência não encontrada após iniciar conferência: ${transferId}`);
+    }
+    return updated;
   }
 
   /**
@@ -214,16 +248,15 @@ class StockTransferService {
 
     if (transfer.status === 'SHIPPED' || transfer.status === 'RECEIVED') {
       throw new Error(
-        `Não é possível cancelar transferência com status ${transfer.status}. Apenas DRAFT pode ser cancelado.`
+        `Não é possível cancelar transferência com status ${transfer.status}.`
       );
     }
 
     if (transfer.status === 'CANCELLED') {
-      // Já está cancelado, retornar
       return transfer;
     }
 
-    // 2. Atualizar status para CANCELLED
+    // DRAFT ou PENDING (conferência não finalizada)
     const cancelledTransfer = await stockTransferRepository.updateTransferStatus(
       tenantId,
       transferId,

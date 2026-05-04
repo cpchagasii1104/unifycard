@@ -2,6 +2,7 @@
 // SPRINT 38.2: MARKETPLACE EXECUÇÃO - Order Lifecycle
 // Repository para histórico de status de pedidos
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type { OrderStatusHistory } from './order.types';
 
@@ -12,7 +13,7 @@ interface OrderStatusHistoryRow {
   to_status: string;
   changed_by_user_id: string | null;
   reason: string | null;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class OrderStatusHistoryRepository {
@@ -27,7 +28,7 @@ class OrderStatusHistoryRepository {
       toStatus: row.to_status as any,
       changedByUserId: row.changed_by_user_id,
       reason: row.reason,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -50,7 +51,7 @@ class OrderStatusHistoryRepository {
       )
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, order_id, from_status, to_status, changed_by_user_id,
-                reason, createdAt
+                reason, created_at
       `,
       [orderId, fromStatus, toStatus, changedByUserId || null, reason || null]
     );
@@ -59,6 +60,35 @@ class OrderStatusHistoryRepository {
       throw new Error('Erro ao registrar histórico de status');
     }
 
+    return this.toHistory(row);
+  }
+
+  /**
+   * Registra mudança de status no mesmo PoolClient (transação aberta).
+   */
+  async recordStatusChangeWithClient(
+    client: PoolClient,
+    orderId: string,
+    fromStatus: string | null,
+    toStatus: string,
+    changedByUserId?: string | null,
+    reason?: string | null
+  ): Promise<OrderStatusHistory> {
+    const result = await client.query<OrderStatusHistoryRow>(
+      `
+      INSERT INTO order_status_history (
+        order_id, from_status, to_status, changed_by_user_id, reason
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, order_id, from_status, to_status, changed_by_user_id,
+                reason, created_at
+      `,
+      [orderId, fromStatus, toStatus, changedByUserId || null, reason || null]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Erro ao registrar histórico de status');
+    }
     return this.toHistory(row);
   }
 
@@ -73,11 +103,11 @@ class OrderStatusHistoryRepository {
       tenantId,
       `
       SELECT osh.id, osh.order_id, osh.from_status, osh.to_status,
-             osh.changed_by_user_id, osh.reason, osh.createdAt
+             osh.changed_by_user_id, osh.reason, osh.created_at
       FROM order_status_history osh
       INNER JOIN orders o ON osh.order_id = o.id
       WHERE o.tenant_id = $1 AND osh.order_id = $2
-      ORDER BY osh.createdAt ASC
+      ORDER BY osh.created_at ASC
       `,
       [tenantId, orderId]
     );
@@ -96,11 +126,11 @@ class OrderStatusHistoryRepository {
       tenantId,
       `
       SELECT osh.id, osh.order_id, osh.from_status, osh.to_status,
-             osh.changed_by_user_id, osh.reason, osh.createdAt
+             osh.changed_by_user_id, osh.reason, osh.created_at
       FROM order_status_history osh
       INNER JOIN orders o ON osh.order_id = o.id
       WHERE o.tenant_id = $1 AND osh.order_id = $2
-      ORDER BY osh.createdAt DESC
+      ORDER BY osh.created_at DESC
       LIMIT 1
       `,
       [tenantId, orderId]

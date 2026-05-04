@@ -67,4 +67,3 @@ const financialAgendaRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default financialAgendaRoutes;
-

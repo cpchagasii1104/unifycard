@@ -96,6 +96,9 @@ class FiscalDocumentService {
         orderItem.unit,
         {
           order_item_id: orderItem.id,
+          price_cents_unit: orderItem.priceCents ?? undefined,
+          currency_snapshot: orderItem.currency ?? undefined,
+          sale_unit: orderItem.saleUnit,
           // Futuro: CFOP, NCM, CST serão adicionados aqui
         }
       );
@@ -180,27 +183,25 @@ class FiscalDocumentService {
     }
 
     // SPRINT 84: Validar KYC básico antes de emitir
-    try {
-      const { validateFiscalKyc } = await import('./fiscal-kyc.service');
-      const kycValidation = await validateFiscalKyc(tenantId, {
-        documentId: document.id,
-      });
+    // AUTORIDADE: fail-closed — qualquer erro bloqueia emissão.
+    // Ref: docs/ssot/AUTHORITY_PRECEDENCE.md §4.2 — KYC define capacidade jurídica.
+    const { validateFiscalKyc } = await import('./fiscal-kyc.service');
+    const kycValidation = await validateFiscalKyc(tenantId, {
+      documentId: document.id,
+    });
 
-      if (!kycValidation.canIssue) {
-        const error = new Error('FISCAL_KYC_INCOMPLETE');
-        (error as any).code = 'FISCAL_KYC_INCOMPLETE';
-        (error as any).missingFields = kycValidation.missingFields;
-        (error as any).warnings = kycValidation.warnings;
-        throw error;
-      }
-    } catch (kycError: any) {
-      // Se erro for FISCAL_KYC_INCOMPLETE, propagar
-      if (kycError.code === 'FISCAL_KYC_INCOMPLETE') {
-        throw kycError;
-      }
-      // Outros erros não bloqueiam (log apenas)
-      console.warn(`[FiscalDocument] Erro ao validar KYC para documento ${documentId}:`, kycError);
+    if (!kycValidation.canIssue) {
+      const error = new Error('FISCAL_KYC_INCOMPLETE') as Error & {
+        code: string;
+        missingFields?: string[];
+        warnings?: string[];
+      };
+      error.code = 'FISCAL_KYC_INCOMPLETE';
+      error.missingFields = kycValidation.missingFields;
+      error.warnings = kycValidation.warnings;
+      throw error;
     }
+    // Sem try/catch: infra down → bloqueio (500). Nunca emissão silenciosa.
 
     // SPRINT 44: Apenas muda status para ISSUED
     const updatedDocument = await fiscalDocumentRepository.updateDocumentStatus(

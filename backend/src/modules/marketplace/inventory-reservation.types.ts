@@ -33,6 +33,21 @@ export interface AvailableStock {
   availableQuantity: number; // Disponível = totalBalance - reservedQuantity
 }
 
+export class InsufficientStockError extends Error {
+  readonly code = 'INSUFFICIENT_STOCK' as const;
+
+  constructor(
+    readonly productVariantId: string,
+    readonly available: number,
+    readonly requested: number
+  ) {
+    super(
+      `Estoque insuficiente. Variante ${productVariantId}: disponível ${available}, solicitado ${requested}`
+    );
+    this.name = 'InsufficientStockError';
+  }
+}
+
 
 
 

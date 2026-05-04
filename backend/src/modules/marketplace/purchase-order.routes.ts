@@ -9,6 +9,8 @@ import type {
   ReceivePurchaseOrderInput,
   PurchaseOrderFilters,
 } from './purchase-order.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -20,7 +22,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const order = await purchaseOrderService.createPO(
@@ -63,7 +65,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
 
     const order = await purchaseOrderService.getPOById(tenantId, id);
     if (!order) {
-      return reply.status(404).send({ error: 'Ordem não encontrada' });
+      throw new NotFoundError('Ordem não encontrada');
     }
 
     return order;
@@ -93,7 +95,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
       const item = await purchaseOrderService.addItem(
@@ -118,7 +120,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const order = await purchaseOrderService.submitPO(
@@ -144,7 +146,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actingUserId) {
-        return reply.status(400).send({ error: 'actingUserId é obrigatório' });
+        throw new BadRequestError('actingUserId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
       const result = await purchaseOrderService.receivePO(
@@ -170,7 +172,7 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
       const order = await purchaseOrderService.cancelPO(
@@ -187,9 +189,3 @@ const purchaseOrderRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default purchaseOrderRoutes;
-
-
-
-
-
-

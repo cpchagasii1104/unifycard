@@ -1,8 +1,7 @@
 // backend/src/modules/marketplace/stock-transfer.types.ts
-// SPRINT 55: Tipos para transferência de estoque entre filiais
+// Alinhado a stock_transfer_status (migration 0129).
 
-export type StockTransferStatus = 'DRAFT' | 'SHIPPED' | 'RECEIVING' | 'RECEIVED' | 'CANCELLED'; // SPRINT 56: Adicionado RECEIVING
-export type StockTransferItemStatus = 'PENDING' | 'SHIPPED' | 'RECEIVED';
+export type StockTransferStatus = 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
 
 export interface StockTransfer {
   id: string;
@@ -18,6 +17,7 @@ export interface StockTransfer {
   updatedAt: string;
 }
 
+/** Linha em stock_transfer_items — sem coluna status no BD. */
 export interface StockTransferItem {
   id: string;
   tenantId: string;
@@ -25,7 +25,6 @@ export interface StockTransferItem {
   productVariantId: string;
   quantity: number;
   inventoryLotId?: string | null;
-  status: StockTransferItemStatus;
   metadata?: Record<string, any> | null;
   createdAt: string;
 }
@@ -48,8 +47,10 @@ export interface ShipStockTransferInput {
   metadata?: Record<string, any>;
 }
 
+/** @deprecated Preferir stockTransferReceiptService.startReceipt — exige receivedByUserId para criar receipt. */
 export interface ReceiveStockTransferInput {
+  /** Obrigatório para delegar a startReceipt (conferência). Pode vir em metadata.receivedByUserId. */
+  receivedByUserId?: string;
+  notes?: string;
   metadata?: Record<string, any>;
 }
-
-

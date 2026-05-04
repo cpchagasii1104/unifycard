@@ -3,6 +3,8 @@
 
 import type { FastifyInstance } from 'fastify';
 import { eventSettlementService } from './event-settlement.service';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const eventSettlementRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -18,7 +20,7 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
     const settlement = await eventSettlementService.getSettlementByEvent(tenantId, eventId);
 
     if (!settlement) {
-      return reply.status(404).send({ error: 'Settlement não encontrado' });
+      throw new NotFoundError('Settlement não encontrado');
     }
 
     return reply.send({ settlement });
@@ -40,17 +42,15 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
     const actorId = actionContext?.actorId;
 
     if (!actorId) {
-      return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      throw new BadRequestError('ActionContext.actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
-    // Buscar settlement
     const settlement = await eventSettlementService.getSettlementByEvent(tenantId, eventId);
 
     if (!settlement) {
-      return reply.status(404).send({ error: 'Settlement não encontrado' });
+      throw new NotFoundError('Settlement não encontrado');
     }
 
-    // Liquidar
     const settledSettlement = await eventSettlementService.settleEvent(
       tenantId,
       settlement.id,
@@ -66,4 +66,3 @@ const eventSettlementRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default eventSettlementRoutes;
-

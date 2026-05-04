@@ -9,6 +9,8 @@ import type {
   SchedulePaymentInput,
   AccountsPayableFilters,
 } from './accounts-payable.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const accountsPayableRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -22,10 +24,9 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
-      // Converter dueDate se necessário
       const body = req.body as any;
       if (body.dueDate) {
         body.dueDate = new Date(body.dueDate);
@@ -51,10 +52,9 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
-    // Converter dueDate se necessário
     const body = req.body as any;
     if (body.dueDate) {
       body.dueDate = new Date(body.dueDate);
@@ -102,7 +102,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
 
     const payable = await accountsPayableService.getPayableById(tenantId, id);
     if (!payable) {
-      return reply.status(404).send({ error: 'Conta não encontrada' });
+      throw new NotFoundError('Conta não encontrada');
     }
 
     return payable;
@@ -120,10 +120,9 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
-      // Converter scheduledFor se necessário
       const body = req.body as any;
       if (body.scheduledFor) {
         body.scheduledFor = new Date(body.scheduledFor);
@@ -151,7 +150,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const payable = await accountsPayableService.markAsPaid(
@@ -176,7 +175,7 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
       const actionContext = (req as any).actionContext;
 
       if (!actionContext?.actorId) {
-        return reply.status(400).send({ error: 'actorId é obrigatório' });
+        throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
       }
 
       const payable = await accountsPayableService.cancelPayable(
@@ -193,9 +192,3 @@ const accountsPayableRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default accountsPayableRoutes;
-
-
-
-
-
-

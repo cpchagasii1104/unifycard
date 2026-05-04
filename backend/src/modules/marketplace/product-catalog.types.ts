@@ -6,7 +6,7 @@
  * Tipo de produto
  * Define COMO o produto se comporta no estoque, não como é vendido
  */
-export type ProductType = 'UNIT' | 'WEIGHT' | 'LOT';
+export type ProductType = 'UNIT' | 'WEIGHT' | 'LOT' | 'industrial';
 
 /**
  * Tipo de dado de um atributo
@@ -121,6 +121,8 @@ export interface Product {
   name: string;
   description?: string | null;
   categoryId?: string | null;
+  /** Opcional: UUID do registo em `canonical_products` (`products.canonical_product_id`). */
+  canonicalProductId?: string | null;
   productType: ProductType;
   isActive: boolean;
   metadata?: Record<string, any> | null;
@@ -135,6 +137,8 @@ export interface CreateProductInput {
   name: string;
   description?: string | null;
   categoryId?: string | null;
+  /** Opcional: persiste em `products.canonical_product_id`. */
+  canonicalProductId?: string | null;
   productType: ProductType;
   isActive?: boolean;
   metadata?: Record<string, any>;
@@ -160,6 +164,8 @@ export interface ListProductsOptions {
   productType?: ProductType;
   isActive?: boolean;
   includeInactive?: boolean;
+  /** Backoffice: incluir produtos com canónico INDUSTRIAL ainda não READY */
+  includeNonReady?: boolean;
 }
 
 /**

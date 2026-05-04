@@ -2,6 +2,7 @@
 // SPRINT 38.1: MARKETPLACE EXECUÇÃO - Order Core
 // Repository para itens de pedido
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   OrderItem,
@@ -16,7 +17,11 @@ interface OrderItemRow {
   quantity: string;
   unit: string;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
+  price_cents?: string | number | null;
+  currency?: string | null;
+  sale_unit?: string | null;
+  offer_id?: string | null;
 }
 
 class OrderItemRepository {
@@ -24,14 +29,36 @@ class OrderItemRepository {
    * Converte row para OrderItem
    */
   private toItem(row: OrderItemRow): OrderItem {
+    const meta =
+      row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const snap = meta.priceSnapshot as
+      | { finalPrice?: number; currency?: string }
+      | undefined;
+
+    let priceCents: number | null = null;
+    if (row.price_cents != null && row.price_cents !== '') {
+      priceCents = Math.round(Number(row.price_cents));
+    } else if (snap && typeof snap.finalPrice === 'number') {
+      // PriceBreakdown.finalPrice está em unidade de moeda (ex.: reais), não centavos
+      priceCents = Math.round(snap.finalPrice * 100);
+    }
+
+    const currency = row.currency ?? snap?.currency ?? null;
+    const saleUnit = row.sale_unit ?? row.unit ?? 'un';
+    const offerId = row.offer_id ?? null;
+
     return {
       id: row.id,
       orderId: row.order_id,
       productVariantId: row.product_variant_id,
-      quantity: parseFloat(row.quantity),
+      quantity: parseFloat(String(row.quantity)),
       unit: row.unit,
+      saleUnit,
+      priceCents,
+      currency,
+      offerId,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -47,12 +74,13 @@ class OrderItemRepository {
       tenantId,
       `
       INSERT INTO order_items (
-        order_id, product_variant_id, quantity, unit, metadata
+        tenant_id, order_id, product_variant_id, quantity, unit, metadata
       )
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, order_id, product_variant_id, quantity, unit, metadata, createdAt
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, order_id, product_variant_id, quantity, unit, metadata, created_at
       `,
       [
+        tenantId,
         orderId,
         input.productVariantId,
         input.quantity,
@@ -69,6 +97,39 @@ class OrderItemRepository {
   }
 
   /**
+   * Cria item no mesmo PoolClient (transação aberta pelo caller). Requer app.current_tenant no client.
+   */
+  async createItemWithClient(
+    client: PoolClient,
+    tenantId: string,
+    orderId: string,
+    input: AddOrderItemInput
+  ): Promise<OrderItem> {
+    const result = await client.query<OrderItemRow>(
+      `
+      INSERT INTO order_items (
+        tenant_id, order_id, product_variant_id, quantity, unit, metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, order_id, product_variant_id, quantity, unit, metadata, created_at
+      `,
+      [
+        tenantId,
+        orderId,
+        input.productVariantId,
+        input.quantity,
+        input.unit || 'un',
+        JSON.stringify(input.metadata || {}),
+      ]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Erro ao criar item');
+    }
+    return this.toItem(row);
+  }
+
+  /**
    * Busca item por ID
    */
   async getItemById(
@@ -79,7 +140,7 @@ class OrderItemRepository {
       tenantId,
       `
       SELECT oi.id, oi.order_id, oi.product_variant_id, oi.quantity, oi.unit,
-             oi.metadata, oi.createdAt
+             oi.metadata, oi.created_at
       FROM order_items oi
       INNER JOIN orders o ON oi.order_id = o.id
       WHERE o.tenant_id = $1 AND oi.id = $2
@@ -102,11 +163,12 @@ class OrderItemRepository {
       tenantId,
       `
       SELECT oi.id, oi.order_id, oi.product_variant_id, oi.quantity, oi.unit,
-             oi.metadata, oi.createdAt
+             oi.metadata, oi.created_at,
+             oi.price_cents, oi.currency, oi.sale_unit, oi.offer_id
       FROM order_items oi
       INNER JOIN orders o ON oi.order_id = o.id
       WHERE o.tenant_id = $1 AND oi.order_id = $2
-      ORDER BY oi.createdAt ASC
+      ORDER BY oi.created_at ASC
       `,
       [tenantId, orderId]
     );
@@ -166,7 +228,8 @@ class OrderItemRepository {
         AND o.tenant_id = $1
       RETURNING order_items.id, order_items.order_id, order_items.product_variant_id,
                 order_items.quantity, order_items.unit, order_items.metadata,
-                order_items.createdAt
+                order_items.created_at,
+                order_items.price_cents, order_items.currency, order_items.sale_unit, order_items.offer_id
       `,
       params
     );
@@ -210,7 +273,7 @@ class OrderItemRepository {
     tenantId: string,
     orderId: string
   ): Promise<number> {
-    const result = await runQueryWithTenant<{ totalCents: string }>(
+    const result = await runQueryWithTenant<{ total: string }>(
       tenantId,
       `
       SELECT COALESCE(SUM(oi.quantity), 0)::text as total
@@ -221,7 +284,23 @@ class OrderItemRepository {
       [tenantId, orderId]
     );
 
-    return parseFloat(result?.totalCents || '0');
+    return parseFloat(result?.total || '0');
+  }
+
+  async calculateTotalQuantityWithClient(
+    client: PoolClient,
+    orderId: string
+  ): Promise<number> {
+    const result = await client.query<{ total: string }>(
+      `
+      SELECT COALESCE(SUM(oi.quantity), 0)::text as total
+      FROM order_items oi
+      INNER JOIN orders o ON oi.order_id = o.id
+      WHERE o.tenant_id = current_setting('app.current_tenant', true)::uuid AND oi.order_id = $1
+      `,
+      [orderId]
+    );
+    return parseFloat(result.rows[0]?.total || '0');
   }
 }
 

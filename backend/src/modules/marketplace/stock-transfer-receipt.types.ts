@@ -1,7 +1,7 @@
 // backend/src/modules/marketplace/stock-transfer-receipt.types.ts
-// SPRINT 56: Tipos para conferência de recebimento de transferências
+// receipt_status: IN_PROGRESS | COMPLETED | CANCELLED (migration 0130)
 
-export type StockTransferReceiptStatus = 'IN_PROGRESS' | 'PARTIAL' | 'COMPLETE' | 'REJECTED';
+export type StockTransferReceiptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface StockTransferReceipt {
   id: string;
@@ -45,11 +45,3 @@ export interface FinalizeReceiptInput {
   notes?: string;
   metadata?: Record<string, any>;
 }
-
-
-
-
-
-
-
-

@@ -3,6 +3,7 @@
 // Service para movimentações e saldos de estoque
 
 import { inventoryMovementRepository } from './inventory-movement.repository';
+import { assertInventoryUnitActorEligible } from './inventory-unit-actor';
 import { inventoryBalanceRepository } from './inventory-balance.repository';
 import { inventoryLotRepository } from './inventory-lot.repository';
 import { productVariantRepository } from './product-variant.repository';
@@ -38,6 +39,11 @@ class InventoryService {
     input: CreateInventoryMovementInput,
     createdByUserId?: string
   ): Promise<InventoryMovement> {
+    if (!input.actorId?.trim()) {
+      throw new Error('actorId (unidade de estoque) é obrigatório');
+    }
+    await assertInventoryUnitActorEligible(tenantId, input.actorId);
+
     // Verificar se variante existe
     const variant = await productVariantRepository.getVariantById(
       tenantId,

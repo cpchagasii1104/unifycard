@@ -130,6 +130,131 @@ class OrderService {
   }
 
   /**
+   * Cria pedido DRAFT + itens + reservas numa única transação (intent execute / batch).
+   * Não altera {@link addItem} nem fluxos PDV/REST por item.
+   */
+  async createOrderWithItemsAndReservations(
+    tenantId: string,
+    createInput: CreateOrderInput,
+    lines: AddOrderItemInput[],
+    source: 'MARKETPLACE' | 'PDV' = 'MARKETPLACE',
+    createdByUserId?: string
+  ): Promise<{ order: Order; items: OrderItem[] }> {
+    if (!lines.length) {
+      throw new Error('Pedido sem itens');
+    }
+
+    const { productVariantRepository } = await import('./product-variant.repository');
+    const { productRepository } = await import('./product.repository');
+    const { pricingService } = await import('./pricing.service');
+
+    type Prepared = { input: AddOrderItemInput };
+    const prepared: Prepared[] = [];
+
+    for (const line of lines) {
+      const variant = await productVariantRepository.getVariantById(
+        tenantId,
+        line.productVariantId
+      );
+      if (!variant) {
+        throw new Error(`Variante não encontrada: ${line.productVariantId}`);
+      }
+
+      const product = await productRepository.getProductById(tenantId, variant.productId);
+      if (!product) {
+        throw new Error(`Produto não encontrado: ${variant.productId}`);
+      }
+      const priceBreakdown = await pricingService.getCurrentPrice(tenantId, {
+        variantId: line.productVariantId,
+        productId: product.id,
+        categoryId: product.categoryId || undefined,
+        quantity: line.quantity,
+      });
+      const priceSnapshot: Record<string, unknown> = {
+        basePrice: priceBreakdown.basePrice,
+        discountAmount: priceBreakdown.discountAmount,
+        finalPrice: priceBreakdown.finalPrice,
+        currency: priceBreakdown.currency,
+        promotions: priceBreakdown.promotions,
+        resolvedAt: new Date().toISOString(),
+      };
+
+      prepared.push({
+        input: {
+          ...line,
+          metadata: {
+            ...line.metadata,
+            priceSnapshot,
+          },
+        },
+      });
+    }
+
+    const sorted = [...prepared].sort((a, b) =>
+      a.input.productVariantId.localeCompare(b.input.productVariantId)
+    );
+
+    const { getClientWithTenant } = await import('@core/database/pool');
+    const { inventoryReservationService } = await import('./inventory-reservation.service');
+    const client = await getClientWithTenant(tenantId);
+
+    try {
+      await client.query('BEGIN');
+
+      const order = await orderRepository.createOrderWithClient(client, tenantId, createInput);
+
+      await orderStatusHistoryRepository.recordStatusChangeWithClient(
+        client,
+        order.id,
+        null,
+        order.status,
+        createdByUserId ?? null,
+        'Pedido criado'
+      );
+
+      const orderLocked = await orderRepository.getOrderByIdForUpdateWithClient(client, order.id);
+      if (!orderLocked || orderLocked.status !== 'draft') {
+        throw new Error('Pedido inválido após criação');
+      }
+
+      const items: OrderItem[] = [];
+      for (const { input } of sorted) {
+        await inventoryReservationService.reserveStockWithinTransaction(client, tenantId, {
+          productVariantId: input.productVariantId,
+          quantity: input.quantity,
+          orderId: order.id,
+          source: source as any,
+        });
+        const item = await orderItemRepository.createItemWithClient(client, tenantId, order.id, input);
+        items.push(item);
+      }
+
+      const totalQuantity = await orderItemRepository.calculateTotalQuantityWithClient(
+        client,
+        order.id
+      );
+      await orderRepository.updateTotalQuantityWithClient(client, order.id, totalQuantity);
+
+      await client.query('COMMIT');
+
+      const finalOrder = await orderRepository.getOrderById(tenantId, order.id);
+      if (!finalOrder) {
+        throw new Error('Pedido não encontrado após commit');
+      }
+
+      const { orderSagaService } = await import('@core/sagas/order-saga.service');
+      await orderSagaService.startSaga(tenantId, finalOrder.id);
+
+      return { order: finalOrder, items };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Busca pedido por ID
    */
   async getOrderById(
@@ -187,76 +312,73 @@ class OrderService {
       throw new Error(`Variante não encontrada: ${input.productVariantId}`);
     }
 
-    // SPRINT 43: Reservar estoque antes de adicionar item
+    // SPRINT 48: Resolver preço antes da transação (menor tempo de lock em `orders`)
+    const { pricingService } = await import('./pricing.service');
+    const product = await productRepository.getProductById(tenantId, variant.productId);
+    if (!product) {
+      throw new Error(`Produto não encontrado: ${variant.productId}`);
+    }
+    const priceBreakdown = await pricingService.getCurrentPrice(tenantId, {
+      variantId: input.productVariantId,
+      productId: product.id,
+      categoryId: product.categoryId || undefined,
+      quantity: input.quantity,
+    });
+    const priceSnapshot = {
+      basePrice: priceBreakdown.basePrice,
+      discountAmount: priceBreakdown.discountAmount,
+      finalPrice: priceBreakdown.finalPrice,
+      currency: priceBreakdown.currency,
+      promotions: priceBreakdown.promotions,
+      resolvedAt: new Date().toISOString(),
+    };
+
+    const itemInput = {
+      ...input,
+      metadata: {
+        ...input.metadata,
+        priceSnapshot,
+      },
+    };
+
+    // Reserva + linha de pedido + total_quantity na mesma transação (evita reserva órfã)
+    const { getClientWithTenant } = await import('@core/database/pool');
     const { inventoryReservationService } = await import('./inventory-reservation.service');
+    const client = await getClientWithTenant(tenantId);
+
     try {
-      await inventoryReservationService.reserveStock(tenantId, {
+      await client.query('BEGIN');
+
+      const orderLocked = await orderRepository.getOrderByIdForUpdateWithClient(client, orderId);
+      if (!orderLocked) {
+        throw new Error(`Pedido não encontrado: ${orderId}`);
+      }
+      if (orderLocked.status !== 'draft') {
+        throw new Error(
+          `Não é possível adicionar item. Pedido está em status ${orderLocked.status}. Apenas draft permite edição.`
+        );
+      }
+
+      await inventoryReservationService.reserveStockWithinTransaction(client, tenantId, {
         productVariantId: input.productVariantId,
         quantity: input.quantity,
         orderId,
         source: source as any,
       });
-    } catch (reservationError: any) {
-      // Se erro de estoque insuficiente, propagar erro claro
-      if (reservationError.message.includes('insuficiente') || reservationError.message.includes('insufficient')) {
-        throw reservationError;
-      }
-      // Outros erros também propagam
-      throw reservationError;
+
+      const item = await orderItemRepository.createItemWithClient(client, tenantId, orderId, itemInput);
+
+      const totalQuantity = await orderItemRepository.calculateTotalQuantityWithClient(client, orderId);
+      await orderRepository.updateTotalQuantityWithClient(client, orderId, totalQuantity);
+
+      await client.query('COMMIT');
+      return item;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
     }
-
-    // Validação leve de unidade (opcional, não bloqueia)
-    // Por enquanto, apenas aceita qualquer unidade
-
-    // SPRINT 48: Resolver preço ANTES de criar item (snapshot)
-    let priceSnapshot: any = null;
-    try {
-      const { pricingService } = await import('./pricing.service');
-      const product = await productRepository.getProductById(tenantId, variant.productId);
-      if (product) {
-        const priceBreakdown = await pricingService.getCurrentPrice(tenantId, {
-          variantId: input.productVariantId,
-          productId: product.id,
-          categoryId: product.categoryId || undefined,
-          quantity: input.quantity,
-        });
-        priceSnapshot = {
-          basePrice: priceBreakdown.basePrice,
-          discountAmount: priceBreakdown.discountAmount,
-          finalPrice: priceBreakdown.finalPrice,
-          currency: priceBreakdown.currency,
-          promotions: priceBreakdown.promotions,
-          resolvedAt: new Date().toISOString(),
-        };
-      }
-    } catch (priceError) {
-      // Log mas não bloqueia criação do item
-      console.warn(`[OrderService] Erro ao resolver preço para variante ${input.productVariantId}:`, priceError);
-    }
-
-    // Criar item com snapshot de preço no metadata
-    const itemInput = {
-      ...input,
-      metadata: {
-        ...input.metadata,
-        priceSnapshot, // SPRINT 48: Snapshot do preço resolvido
-      },
-    };
-
-    const item = await orderItemRepository.createItem(
-      tenantId,
-      orderId,
-      itemInput
-    );
-
-    // Atualizar total_quantity do pedido
-    const totalQuantity = await orderItemRepository.calculateTotalQuantity(
-      tenantId,
-      orderId
-    );
-    await orderRepository.updateTotalQuantity(tenantId, orderId, totalQuantity);
-
-    return item;
   }
 
   /**
@@ -373,6 +495,7 @@ class OrderService {
     changedByUserId?: string,
     reason?: string
   ): Promise<Order> {
+    const orderBefore = await orderRepository.getOrderById(tenantId, orderId);
     // SPRINT 43: Liberar reservas antes de cancelar
     const { inventoryReservationService } = await import('./inventory-reservation.service');
     try {
@@ -383,11 +506,18 @@ class OrderService {
     }
 
     // Mudar status (valida transição e registra histórico)
-    return await this.changeOrderStatus(tenantId, orderId, {
+    const cancelled = await this.changeOrderStatus(tenantId, orderId, {
       toStatus: 'cancelled',
       changedByUserId,
       reason: reason || 'Pedido cancelado',
     });
+    if (orderBefore?.buyerActorId) {
+      const { recordActorRiskEventAsync } = await import('@modules/risk-identity/risk-hooks');
+      recordActorRiskEventAsync(tenantId, orderBefore.buyerActorId, 'cancellation_requested', orderId, {
+        reason: (reason || 'cancelled').slice(0, 500),
+      });
+    }
+    return cancelled;
   }
 
   /**

@@ -1,5 +1,5 @@
 // backend/src/modules/marketplace/stock-transfer-receipt.repository.ts
-// SPRINT 56: Repository para conferência de recebimento
+// Colunas snake_case (migration 0130)
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
@@ -14,11 +14,11 @@ interface StockTransferReceiptRow {
   tenant_id: string;
   stock_transfer_id: string;
   received_by_user_id: string;
-  receivedAt: Date;
+  received_at: Date;
   status: string;
   notes: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 interface StockTransferReceiptItemRow {
@@ -30,30 +30,32 @@ interface StockTransferReceiptItemRow {
   received_quantity: string;
   inventory_lot_id: string | null;
   discrepancy_reason: string | null;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class StockTransferReceiptRepository {
-  /**
-   * Converte row para StockTransferReceipt
-   */
+  private receiptSelect = `
+      id, tenant_id, stock_transfer_id, received_by_user_id, received_at,
+      status, notes, metadata, created_at`;
+
+  private receiptItemSelect = `
+      id, tenant_id, receipt_id, stock_transfer_item_id, expected_quantity,
+      received_quantity, inventory_lot_id, discrepancy_reason, created_at`;
+
   private toReceipt(row: StockTransferReceiptRow): StockTransferReceipt {
     return {
       id: row.id,
       tenantId: row.tenant_id,
       stockTransferId: row.stock_transfer_id,
       receivedByUserId: row.received_by_user_id,
-      receivedAt: row.receivedAt,
-      status: row.status as any,
+      receivedAt: row.received_at,
+      status: row.status as StockTransferReceipt['status'],
       notes: row.notes,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
-  /**
-   * Converte row para StockTransferReceiptItem
-   */
   private toReceiptItem(row: StockTransferReceiptItemRow): StockTransferReceiptItem {
     return {
       id: row.id,
@@ -64,13 +66,10 @@ class StockTransferReceiptRepository {
       receivedQuantity: parseFloat(row.received_quantity),
       inventoryLotId: row.inventory_lot_id,
       discrepancyReason: row.discrepancy_reason,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
-  /**
-   * Cria receipt (inicia conferência)
-   */
   async createReceipt(
     tenantId: string,
     stockTransferId: string,
@@ -80,11 +79,10 @@ class StockTransferReceiptRepository {
       tenantId,
       `
       INSERT INTO stock_transfer_receipts (
-        tenant_id, stock_transfer_id, received_by_user_id, receivedAt, status, notes, metadata
+        tenant_id, stock_transfer_id, received_by_user_id, status, notes, metadata
       )
-      VALUES ($1, $2, $3, NOW(), 'IN_PROGRESS', $4, $5)
-      RETURNING id, tenant_id, stock_transfer_id, received_by_user_id, receivedAt,
-                status, notes, metadata, createdAt
+      VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5::jsonb)
+      RETURNING ${this.receiptSelect}
       `,
       [
         tenantId,
@@ -102,18 +100,11 @@ class StockTransferReceiptRepository {
     return this.toReceipt(row);
   }
 
-  /**
-   * Busca receipt por ID
-   */
-  async getReceiptById(
-    tenantId: string,
-    receiptId: string
-  ): Promise<StockTransferReceipt | null> {
+  async getReceiptById(tenantId: string, receiptId: string): Promise<StockTransferReceipt | null> {
     const row = await runQueryWithTenant<StockTransferReceiptRow>(
       tenantId,
       `
-      SELECT id, tenant_id, stock_transfer_id, received_by_user_id, receivedAt,
-             status, notes, metadata, createdAt
+      SELECT ${this.receiptSelect}
       FROM stock_transfer_receipts
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -124,9 +115,6 @@ class StockTransferReceiptRepository {
     return row ? this.toReceipt(row) : null;
   }
 
-  /**
-   * Busca receipt por transferência
-   */
   async getReceiptByTransferId(
     tenantId: string,
     stockTransferId: string
@@ -134,11 +122,10 @@ class StockTransferReceiptRepository {
     const row = await runQueryWithTenant<StockTransferReceiptRow>(
       tenantId,
       `
-      SELECT id, tenant_id, stock_transfer_id, received_by_user_id, receivedAt,
-             status, notes, metadata, createdAt
+      SELECT ${this.receiptSelect}
       FROM stock_transfer_receipts
       WHERE tenant_id = $1 AND stock_transfer_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT 1
       `,
       [tenantId, stockTransferId]
@@ -147,9 +134,6 @@ class StockTransferReceiptRepository {
     return row ? this.toReceipt(row) : null;
   }
 
-  /**
-   * Atualiza status do receipt
-   */
   async updateReceiptStatus(
     tenantId: string,
     receiptId: string,
@@ -174,8 +158,7 @@ class StockTransferReceiptRepository {
       UPDATE stock_transfer_receipts
       SET ${updates.join(', ')}
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
-      RETURNING id, tenant_id, stock_transfer_id, received_by_user_id, receivedAt,
-                status, notes, metadata, createdAt
+      RETURNING ${this.receiptSelect}
       `,
       params
     );
@@ -187,9 +170,6 @@ class StockTransferReceiptRepository {
     return this.toReceipt(row);
   }
 
-  /**
-   * Cria item de receipt (conferência de item)
-   */
   async createReceiptItem(
     tenantId: string,
     receiptId: string,
@@ -205,8 +185,7 @@ class StockTransferReceiptRepository {
         received_quantity, inventory_lot_id, discrepancy_reason
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, tenant_id, receipt_id, stock_transfer_item_id, expected_quantity,
-                received_quantity, inventory_lot_id, discrepancy_reason, createdAt
+      RETURNING ${this.receiptItemSelect}
       `,
       [
         tenantId,
@@ -226,21 +205,14 @@ class StockTransferReceiptRepository {
     return this.toReceiptItem(row);
   }
 
-  /**
-   * Lista itens de receipt
-   */
-  async listReceiptItems(
-    tenantId: string,
-    receiptId: string
-  ): Promise<StockTransferReceiptItem[]> {
+  async listReceiptItems(tenantId: string, receiptId: string): Promise<StockTransferReceiptItem[]> {
     const rows = await runQueriesWithTenant<StockTransferReceiptItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, receipt_id, stock_transfer_item_id, expected_quantity,
-             received_quantity, inventory_lot_id, discrepancy_reason, createdAt
+      SELECT ${this.receiptItemSelect}
       FROM stock_transfer_receipt_items
       WHERE tenant_id = $1 AND receipt_id = $2
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [tenantId, receiptId]
     );
@@ -248,9 +220,6 @@ class StockTransferReceiptRepository {
     return rows.map((row) => this.toReceiptItem(row));
   }
 
-  /**
-   * Busca item de receipt por transfer item
-   */
   async getReceiptItemByTransferItemId(
     tenantId: string,
     receiptId: string,
@@ -259,8 +228,7 @@ class StockTransferReceiptRepository {
     const row = await runQueryWithTenant<StockTransferReceiptItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, receipt_id, stock_transfer_item_id, expected_quantity,
-             received_quantity, inventory_lot_id, discrepancy_reason, createdAt
+      SELECT ${this.receiptItemSelect}
       FROM stock_transfer_receipt_items
       WHERE tenant_id = $1 AND receipt_id = $2 AND stock_transfer_item_id = $3
       LIMIT 1
@@ -273,12 +241,3 @@ class StockTransferReceiptRepository {
 }
 
 export const stockTransferReceiptRepository = new StockTransferReceiptRepository();
-
-
-
-
-
-
-
-
-

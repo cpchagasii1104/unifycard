@@ -1,10 +1,12 @@
 // backend/src/modules/marketplace/promotion.repository.ts
-// SPRINT 48: Repository para promoções
+// SPRINT 48 — §4.7 discount_fixed_cents, §4.8 discount_rate_bps, §4.11 lowercase
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   Promotion,
   CreatePromotionInput,
+  PromotionAppliesTo,
+  PromotionType,
 } from './pricing.types';
 
 interface PromotionRow {
@@ -12,62 +14,88 @@ interface PromotionRow {
   tenant_id: string;
   name: string;
   type: string;
-  value: string;
+  discount_fixed_cents: string | number;
+  discount_rate_bps: string | number;
   applies_to: string;
   applies_id: string;
   valid_from: Date;
   valid_to: Date | null;
   is_active: boolean;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function normType(t: string): PromotionType {
+  const x = String(t).toLowerCase().trim();
+  if (x === 'percentage' || x === 'fixed') return x;
+  return x as PromotionType;
+}
+
+function normApplies(a: string): PromotionAppliesTo {
+  const x = String(a).toLowerCase().trim();
+  if (x === 'variant' || x === 'category' || x === 'product') return x;
+  const u = x.toUpperCase();
+  if (u === 'VARIANT') return 'variant';
+  if (u === 'CATEGORY') return 'category';
+  if (u === 'PRODUCT') return 'product';
+  return x as PromotionAppliesTo;
+}
+
+function rowBigint(v: string | number): number {
+  return typeof v === 'number' ? v : parseInt(String(v), 10);
+}
+
+function rowInt(v: string | number): number {
+  return typeof v === 'number' ? v : parseInt(String(v), 10);
 }
 
 class PromotionRepository {
-  /**
-   * Converte row para Promotion
-   */
   private toPromotion(row: PromotionRow): Promotion {
     return {
       id: row.id,
       tenantId: row.tenant_id,
       name: row.name,
-      type: row.type as any,
-      valueCents: parseFloat(row.value),
-      appliesTo: row.applies_to as any,
+      type: normType(row.type),
+      discountFixedCents: rowBigint(row.discount_fixed_cents),
+      discountRateBps: rowInt(row.discount_rate_bps),
+      appliesTo: normApplies(row.applies_to),
       appliesId: row.applies_id,
       validFrom: row.valid_from,
       validTo: row.valid_to,
       isActive: row.is_active,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
-  /**
-   * Cria promoção
-   */
   async createPromotion(
     tenantId: string,
     input: CreatePromotionInput
   ): Promise<Promotion> {
+    const discountFixedCents = input.discountFixedCents ?? 0;
+    const discountRateBps = input.discountRateBps ?? 0;
+
     const row = await runQueryWithTenant<PromotionRow>(
       tenantId,
       `
       INSERT INTO promotions (
-        tenant_id, name, type, value, applies_to, applies_id,
+        tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+        applies_to, applies_id,
         valid_from, valid_to, is_active, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, tenant_id, name, type, value, applies_to, applies_id,
-                valid_from, valid_to, is_active, metadata, createdAt, updatedAt
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+                applies_to, applies_id,
+                valid_from, valid_to, is_active, metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.name,
         input.type,
-        input.value,
+        discountFixedCents,
+        discountRateBps,
         input.appliesTo,
         input.appliesId,
         input.validFrom || new Date(),
@@ -84,9 +112,6 @@ class PromotionRepository {
     return this.toPromotion(row);
   }
 
-  /**
-   * Busca promoções aplicáveis a uma variante
-   */
   async getApplicablePromotions(
     tenantId: string,
     variantId: string,
@@ -94,26 +119,22 @@ class PromotionRepository {
     categoryId: string | null,
     date: Date = new Date()
   ): Promise<Promotion[]> {
-    // Buscar promoções que se aplicam à variante, produto ou categoria
     const conditions: string[] = [];
     const params: any[] = [tenantId, date];
     let paramIndex = 3;
 
-    // Promoção aplicada diretamente à variante
-    conditions.push(`(applies_to = 'VARIANT' AND applies_id = $${paramIndex})`);
+    conditions.push(`(applies_to = 'variant' AND applies_id = $${paramIndex})`);
     params.push(variantId);
     paramIndex++;
 
-    // Promoção aplicada ao produto
     if (productId) {
-      conditions.push(`(applies_to = 'PRODUCT' AND applies_id = $${paramIndex})`);
+      conditions.push(`(applies_to = 'product' AND applies_id = $${paramIndex})`);
       params.push(productId);
       paramIndex++;
     }
 
-    // Promoção aplicada à categoria
     if (categoryId) {
-      conditions.push(`(applies_to = 'CATEGORY' AND applies_id = $${paramIndex})`);
+      conditions.push(`(applies_to = 'category' AND applies_id = $${paramIndex})`);
       params.push(categoryId);
       paramIndex++;
     }
@@ -123,8 +144,9 @@ class PromotionRepository {
     const rows = await runQueriesWithTenant<PromotionRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, type, value, applies_to, applies_id,
-             valid_from, valid_to, is_active, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+             applies_to, applies_id,
+             valid_from, valid_to, is_active, metadata, created_at, updated_at
       FROM promotions
       WHERE tenant_id = $1
         AND is_active = true
@@ -139,16 +161,14 @@ class PromotionRepository {
     return rows.map((row) => this.toPromotion(row));
   }
 
-  /**
-   * Lista promoções
-   */
   async listPromotions(
     tenantId: string,
     isActive?: boolean
   ): Promise<Promotion[]> {
     let query = `
-      SELECT id, tenant_id, name, type, value, applies_to, applies_id,
-             valid_from, valid_to, is_active, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+             applies_to, applies_id,
+             valid_from, valid_to, is_active, metadata, created_at, updated_at
       FROM promotions
       WHERE tenant_id = $1
     `;
@@ -159,7 +179,7 @@ class PromotionRepository {
       params.push(isActive);
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const rows = await runQueriesWithTenant<PromotionRow>(
       tenantId,
@@ -172,13 +192,3 @@ class PromotionRepository {
 }
 
 export const promotionRepository = new PromotionRepository();
-
-
-
-
-
-
-
-
-
-

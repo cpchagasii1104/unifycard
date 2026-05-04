@@ -19,8 +19,8 @@ interface ProductCategoryRow {
   parent_id: string | null;
   is_active: boolean;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class ProductCategoryRepository {

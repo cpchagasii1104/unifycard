@@ -14,8 +14,8 @@ interface TaxProfileRow {
   is_icms_contributor: boolean;
   is_service_provider: boolean;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class TaxProfileRepository {
@@ -30,8 +30,8 @@ class TaxProfileRepository {
       isIcmsContributor: row.is_icms_contributor,
       isServiceProvider: row.is_service_provider,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -41,7 +41,7 @@ class TaxProfileRepository {
       `
       SELECT id, tenant_id, company_profile_tenant_id, tax_regime,
         state, city, is_icms_contributor, is_service_provider,
-        metadata, createdAt, updatedAt
+        metadata, created_at, updated_at
       FROM tax_profiles
       WHERE tenant_id = $1
       `,
@@ -75,11 +75,11 @@ class TaxProfileRepository {
             is_icms_contributor = $6,
             is_service_provider = $7,
             metadata = $8,
-            updatedAt = NOW()
+            updated_at = NOW()
         WHERE tenant_id = $1
         RETURNING id, tenant_id, company_profile_tenant_id, tax_regime,
           state, city, is_icms_contributor, is_service_provider,
-          metadata, createdAt, updatedAt
+          metadata, created_at, updated_at
         `,
         [
           tenantId,
@@ -110,7 +110,7 @@ class TaxProfileRepository {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, tenant_id, company_profile_tenant_id, tax_regime,
           state, city, is_icms_contributor, is_service_provider,
-          metadata, createdAt, updatedAt
+          metadata, created_at, updated_at
         `,
         [
           tenantId,

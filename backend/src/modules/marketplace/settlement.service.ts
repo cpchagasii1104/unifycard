@@ -231,7 +231,7 @@ class SettlementService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.settledByActorId || null,
+        actor_id: (data.createdByActorId || data.settledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'settlements',
         context: {
@@ -242,9 +242,9 @@ class SettlementService {
           fee_amount_cents: data.feeAmountCents,
           failure_reason: data.failureReason,
           created_by_actor_id: data.createdByActorId,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           settled_by_actor_id: data.settledByActorId,
-          settled_by_user_id: data.settledByUserId,
+          settled_by_user_id: data.settledByUserId ?? undefined,
         },
       });
     } catch (error) {

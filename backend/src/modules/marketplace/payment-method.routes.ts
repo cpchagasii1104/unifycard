@@ -7,6 +7,8 @@ import type {
   CreatePaymentMethodInput,
   PaymentMethodFilters,
 } from './payment-method.types';
+import { BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const paymentMethodRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -18,7 +20,7 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const method = await paymentMethodService.createMethod(
@@ -61,7 +63,7 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
 
     const method = await paymentMethodService.getMethodById(tenantId, id);
     if (!method) {
-      return reply.status(404).send({ error: 'Método não encontrado' });
+      throw new NotFoundError('Método não encontrado');
     }
 
     return method;
@@ -76,12 +78,12 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
     const { actorId } = req.query;
 
     if (!actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const method = await paymentMethodService.getDefaultMethod(tenantId, actorId);
     if (!method) {
-      return reply.status(404).send({ error: 'Método default não encontrado' });
+      throw new NotFoundError('Método default não encontrado');
     }
 
     return method;
@@ -89,9 +91,3 @@ const paymentMethodRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default paymentMethodRoutes;
-
-
-
-
-
-

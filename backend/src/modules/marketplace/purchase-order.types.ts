@@ -4,7 +4,15 @@
 /**
  * Status da ordem de compra
  */
-export type PurchaseOrderStatus = 'draft' | 'submitted' | 'received' | 'completed' | 'cancelled';
+/** Alinhado a purchase_order_status (migration 0131). */
+export type PurchaseOrderStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'CONFIRMED'
+  | 'PARTIALLY_RECEIVED'
+  | 'RECEIVED'
+  | 'CANCELLED'
+  | 'COMPLETED';
 
 /**
  * Ordem de Compra

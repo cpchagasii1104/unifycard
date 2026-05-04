@@ -21,6 +21,8 @@ export interface PaymentIntent {
   id: string;
   tenantId: string;
   orderId: string;
+  /** Correlação única do fluxo (intent → transaction → pix → bank). Imutável após criação. */
+  traceId: string;
   amountCents: number;
   currency: PaymentCurrency;
   status: PaymentIntentStatus;
@@ -61,11 +63,15 @@ export interface PaymentTransaction {
   id: string;
   tenantId: string;
   paymentIntentId: string;
+  /** Cópia do trace_id do intent (consultas e logs sem join). */
+  traceId: string;
   bankTransactionId?: string | null;
   amountCents: number;
   currency: PaymentCurrency;
   status: PaymentTransactionStatus;
   errorCode?: string | null;
+  /** Método de pagamento usado (ex: PIX, UNIFYCARD) */
+  paymentMethod?: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;

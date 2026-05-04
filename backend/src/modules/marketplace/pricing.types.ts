@@ -1,14 +1,16 @@
 // backend/src/modules/marketplace/pricing.types.ts
 // SPRINT 48: PRICING, PROMOÇÕES E COMISSÕES (DECLARATIVO)
+// §4.7 centavos (_cents + BIGINT no BD); §4.8 percentuais (_bps); §4.11 enums lowercase; §5.2 camelCase no domínio.
 
-export type PromotionType = 'PERCENTAGE' | 'FIXED';
-export type PromotionAppliesTo = 'VARIANT' | 'CATEGORY' | 'PRODUCT';
+export type PromotionType = 'percentage' | 'fixed';
+export type PromotionAppliesTo = 'variant' | 'category' | 'product';
 
 export interface ProductPrice {
   id: string;
   tenantId: string;
   productVariantId: string;
-  price: number;
+  /** Preço base em centavos (§4.7). */
+  priceCents: number;
   currency: string;
   validFrom: Date;
   validTo: Date | null;
@@ -23,11 +25,15 @@ export interface Promotion {
   name: string;
   type: PromotionType;
   /**
-   * Valor da promoção conforme SSOT do schema:
-   * - PERCENTAGE: 0..100 (percentual)
-   * - FIXED: valor em moeda (ex.: 5.00 = R$ 5,00)
+   * Desconto fixo em centavos (§4.7). Sempre 0 quando `type === 'percentage'`.
+   * Cálculo de desconto apenas em `PricingService` (não somar com `discountRateBps`).
    */
-  value: number;
+  discountFixedCents: number;
+  /**
+   * Taxa em basis points (§4.8). 100 = 1%, 1000 = 10%. Sempre 0 quando `type === 'fixed'`.
+   * Desconto percentual: floor(remainingCents * discountRateBps / 10000).
+   */
+  discountRateBps: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom: Date;
@@ -40,7 +46,7 @@ export interface Promotion {
 
 export interface CreateProductPriceInput {
   productVariantId: string;
-  price: number;
+  priceCents: number;
   currency?: string;
   validFrom?: Date;
   validTo?: Date;
@@ -50,7 +56,10 @@ export interface CreateProductPriceInput {
 export interface CreatePromotionInput {
   name: string;
   type: PromotionType;
-  value: number;
+  /** §4.7 — com `type: 'fixed'`. Omitir ou 0 com `percentage`. */
+  discountFixedCents?: number;
+  /** §4.8 — com `type: 'percentage'`. Omitir ou 0 com `fixed`. */
+  discountRateBps?: number;
   appliesTo: PromotionAppliesTo;
   appliesId: string;
   validFrom?: Date;
@@ -60,6 +69,7 @@ export interface CreatePromotionInput {
 }
 
 export interface PriceBreakdown {
+  /** Valores em unidade de moeda (ex.: reais) para snapshot em pedido / API. */
   basePrice: number;
   discountAmount: number;
   finalPrice: number;
@@ -80,12 +90,3 @@ export interface PricingContext {
   userId?: string;
   date?: Date;
 }
-
-
-
-
-
-
-
-
-

@@ -2,6 +2,7 @@
 // SPRINT 38.1: MARKETPLACE EXECUÇÃO - Order Core
 // Repository para pedidos
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   Order,
@@ -18,8 +19,8 @@ interface OrderRow {
   status: string;
   total_quantity: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class OrderRepository {
@@ -35,8 +36,8 @@ class OrderRepository {
       status: row.status as any,
       totalQuantity: parseFloat(row.total_quantity),
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -51,18 +52,19 @@ class OrderRepository {
       tenantId,
       `
       INSERT INTO orders (
-        tenant_id, buyer_actor_id, seller_actor_id, status, total_quantity, metadata
+        tenant_id, buyer_actor_id, seller_actor_id, status, total_quantity, total_cents, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, tenant_id, buyer_actor_id, seller_actor_id, status,
-                total_quantity, metadata, createdAt, updatedAt
+                total_quantity, metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.buyerActorId,
         input.sellerActorId,
-        input.status || 'DRAFT',
+        input.status || 'draft',
         0, // total_quantity inicia em 0
+        1, // total_cents: placeholder mínimo (CHECK > 0) até pricing/total monetário
         JSON.stringify(input.metadata || {}),
       ]
     );
@@ -71,6 +73,40 @@ class OrderRepository {
       throw new Error('Erro ao criar pedido');
     }
 
+    return this.toOrder(row);
+  }
+
+  /**
+   * Cria pedido no mesmo PoolClient (transação aberta). Requer app.current_tenant no client.
+   */
+  async createOrderWithClient(
+    client: PoolClient,
+    tenantId: string,
+    input: CreateOrderInput
+  ): Promise<Order> {
+    const result = await client.query<OrderRow>(
+      `
+      INSERT INTO orders (
+        tenant_id, buyer_actor_id, seller_actor_id, status, total_quantity, total_cents, metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, tenant_id, buyer_actor_id, seller_actor_id, status,
+                total_quantity, metadata, created_at, updated_at
+      `,
+      [
+        tenantId,
+        input.buyerActorId,
+        input.sellerActorId,
+        input.status || 'draft',
+        0,
+        1,
+        JSON.stringify(input.metadata || {}),
+      ]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Erro ao criar pedido');
+    }
     return this.toOrder(row);
   }
 
@@ -85,7 +121,7 @@ class OrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, buyer_actor_id, seller_actor_id, status,
-             total_quantity, metadata, createdAt, updatedAt
+             total_quantity, metadata, created_at, updated_at
       FROM orders
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -93,6 +129,28 @@ class OrderRepository {
       [tenantId, orderId]
     );
 
+    return row ? this.toOrder(row) : null;
+  }
+
+  /**
+   * Pedido com bloqueio de linha (transação aberta). Requer app.current_tenant no client.
+   */
+  async getOrderByIdForUpdateWithClient(
+    client: PoolClient,
+    orderId: string
+  ): Promise<Order | null> {
+    const result = await client.query<OrderRow>(
+      `
+      SELECT id, tenant_id, buyer_actor_id, seller_actor_id, status,
+             total_quantity, metadata, created_at, updated_at
+      FROM orders
+      WHERE tenant_id = current_setting('app.current_tenant', true)::uuid AND id = $1
+      FOR UPDATE
+      LIMIT 1
+      `,
+      [orderId]
+    );
+    const row = result.rows[0];
     return row ? this.toOrder(row) : null;
   }
 
@@ -130,7 +188,7 @@ class OrderRepository {
     if (options.cursor) {
       try {
         const cursorDate = new Date(decodeURIComponent(options.cursor));
-        conditions.push(`createdAt < $${paramIndex}`);
+        conditions.push(`created_at < $${paramIndex}`);
         params.push(cursorDate);
         paramIndex++;
       } catch (e) {
@@ -149,10 +207,10 @@ class OrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, buyer_actor_id, seller_actor_id, status,
-             total_quantity, metadata, createdAt, updatedAt
+             total_quantity, metadata, created_at, updated_at
       FROM orders
       ${whereClause}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       ${limitClause}
       ${offsetClause}
       `,
@@ -204,7 +262,7 @@ class OrderRepository {
       SET ${setClause}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, buyer_actor_id, seller_actor_id, status,
-                total_quantity, metadata, createdAt, updatedAt
+                total_quantity, metadata, created_at, updated_at
       `,
       params
     );
@@ -232,6 +290,21 @@ class OrderRepository {
       WHERE tenant_id = $2 AND id = $3
       `,
       [totalQuantity, tenantId, orderId]
+    );
+  }
+
+  async updateTotalQuantityWithClient(
+    client: PoolClient,
+    orderId: string,
+    totalQuantity: number
+  ): Promise<void> {
+    await client.query(
+      `
+      UPDATE orders
+      SET total_quantity = $1
+      WHERE tenant_id = current_setting('app.current_tenant', true)::uuid AND id = $2
+      `,
+      [totalQuantity, orderId]
     );
   }
 }

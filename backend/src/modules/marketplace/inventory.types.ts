@@ -14,6 +14,8 @@ export type InventoryMovementType = 'IN' | 'OUT' | 'ADJUSTMENT';
 export interface InventoryMovement {
   id: string;
   tenantId: string;
+  /** Unidade operacional (actor elegível). */
+  actorId: string;
   productVariantId: string;
   movementType: InventoryMovementType;
   quantity: number;
@@ -31,6 +33,8 @@ export interface InventoryMovement {
  * Input para criar movimentação
  */
 export interface CreateInventoryMovementInput {
+  /** Obrigatório: local de stock (actor elegível no tenant). */
+  actorId: string;
   productVariantId: string;
   movementType: InventoryMovementType;
   quantity: number;
@@ -48,6 +52,7 @@ export interface CreateInventoryMovementInput {
  */
 export interface ListInventoryMovementsOptions {
   movementType?: InventoryMovementType;
+  actorId?: string;
   referenceType?: string;
   referenceId?: string;
   startDate?: Date;

@@ -8,6 +8,8 @@ import type {
   UpdateContactInput,
   ContactFilters,
 } from './contact.types';
+import { AppError, BadRequestError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const contactRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -19,7 +21,7 @@ const contactRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const contact = await contactService.createContact(
@@ -45,7 +47,7 @@ const contactRoutes = async (fastify: FastifyInstance) => {
     const actionContext = (req as any).actionContext;
 
     if (!actionContext?.actorId) {
-      return reply.status(400).send({ error: 'actorId é obrigatório' });
+      throw new BadRequestError('actorId é obrigatório', ErrorCode.MISSING_ACTOR);
     }
 
     const contact = await contactService.updateContact(
@@ -119,7 +121,7 @@ const contactRoutes = async (fastify: FastifyInstance) => {
     const contact = await contactService.getContactById(tenantId, contactId);
 
     if (!contact) {
-      return reply.status(404).send({ error: 'Contato não encontrado' });
+      throw new NotFoundError('Contato não encontrado');
     }
 
     return reply.send({ contact });
@@ -162,11 +164,12 @@ const contactRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const contactId = req.params.id;
 
-    const result = await contactService.validateKyc(tenantId, contactId);
-
-    return reply.send(result);
+    const contact = await contactService.getContactById(tenantId, contactId);
+    if (!contact) {
+      throw new NotFoundError('Contato não encontrado');
+    }
+    return reply.send({ kycStatus: contact.kycStatus });
   });
 };
 
 export default contactRoutes;
-

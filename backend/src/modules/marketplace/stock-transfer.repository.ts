@@ -1,6 +1,7 @@
 // backend/src/modules/marketplace/stock-transfer.repository.ts
-// SPRINT 55: Repository para transferências de estoque
+// Transferências — colunas snake_case (migration 0129). Itens sem coluna status.
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   StockTransfer,
@@ -16,11 +17,11 @@ interface StockTransferRow {
   to_actor_id: string;
   status: string;
   requested_by_user_id: string | null;
-  shippedAt: Date | null;
-  receivedAt: Date | null;
+  shipped_at: Date | null;
+  received_at: Date | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface StockTransferItemRow {
@@ -30,34 +31,27 @@ interface StockTransferItemRow {
   product_variant_id: string;
   quantity: string;
   inventory_lot_id: string | null;
-  status: string;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class StockTransferRepository {
-  /**
-   * Converte row para StockTransfer
-   */
   private toStockTransfer(row: StockTransferRow): StockTransfer {
     return {
       id: row.id,
       tenantId: row.tenant_id,
       fromActorId: row.from_actor_id,
       toActorId: row.to_actor_id,
-      status: row.status as any,
+      status: row.status as StockTransfer['status'],
       requestedByUserId: row.requested_by_user_id,
-      shippedAt: row.shippedAt,
-      receivedAt: row.receivedAt,
+      shippedAt: row.shipped_at,
+      receivedAt: row.received_at,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
-  /**
-   * Converte row para StockTransferItem
-   */
   private toStockTransferItem(row: StockTransferItemRow): StockTransferItem {
     return {
       id: row.id,
@@ -66,20 +60,20 @@ class StockTransferRepository {
       productVariantId: row.product_variant_id,
       quantity: parseFloat(row.quantity),
       inventoryLotId: row.inventory_lot_id,
-      status: row.status as any,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
-  /**
-   * Cria transferência
-   */
-  async createTransfer(
-    tenantId: string,
-    input: CreateStockTransferInput
-  ): Promise<StockTransfer> {
-    // Validar que origem e destino são diferentes
+  private stSelect = `
+      id, tenant_id, from_actor_id, to_actor_id, status,
+      requested_by_user_id, shipped_at, received_at, metadata, created_at, updated_at`;
+
+  private stItemSelect = `
+      id, tenant_id, stock_transfer_id, product_variant_id, quantity,
+      inventory_lot_id, metadata, created_at`;
+
+  async createTransfer(tenantId: string, input: CreateStockTransferInput): Promise<StockTransfer> {
     if (input.fromActorId === input.toActorId) {
       throw new Error('Origem e destino devem ser diferentes');
     }
@@ -90,9 +84,8 @@ class StockTransferRepository {
       INSERT INTO stock_transfers (
         tenant_id, from_actor_id, to_actor_id, status, requested_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, 'DRAFT', $4, $5)
-      RETURNING id, tenant_id, from_actor_id, to_actor_id, status,
-                requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
+      VALUES ($1, $2, $3, 'DRAFT', $4, $5::jsonb)
+      RETURNING ${this.stSelect}
       `,
       [
         tenantId,
@@ -110,18 +103,11 @@ class StockTransferRepository {
     return this.toStockTransfer(row);
   }
 
-  /**
-   * Busca transferência por ID
-   */
-  async getTransferById(
-    tenantId: string,
-    transferId: string
-  ): Promise<StockTransfer | null> {
+  async getTransferById(tenantId: string, transferId: string): Promise<StockTransfer | null> {
     const row = await runQueryWithTenant<StockTransferRow>(
       tenantId,
       `
-      SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
+      SELECT ${this.stSelect}
       FROM stock_transfers
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -133,8 +119,26 @@ class StockTransferRepository {
   }
 
   /**
-   * Lista transferências por origem
+   * Lock de linha dentro de transação (evita dois shipTransfer concorrentes em DRAFT).
+   * Requer app.current_tenant no client (ex.: getClientWithTenant).
    */
+  async getTransferByIdForUpdateWithClient(
+    client: PoolClient,
+    transferId: string
+  ): Promise<StockTransfer | null> {
+    const result = await client.query<StockTransferRow>(
+      `
+      SELECT ${this.stSelect}
+      FROM stock_transfers
+      WHERE tenant_id = current_setting('app.current_tenant', true)::uuid AND id = $1
+      FOR UPDATE
+      `,
+      [transferId]
+    );
+    const row = result.rows[0];
+    return row ? this.toStockTransfer(row) : null;
+  }
+
   async listTransfersByFromActor(
     tenantId: string,
     fromActorId: string,
@@ -143,11 +147,10 @@ class StockTransferRepository {
     const rows = await runQueriesWithTenant<StockTransferRow>(
       tenantId,
       `
-      SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
+      SELECT ${this.stSelect}
       FROM stock_transfers
       WHERE tenant_id = $1 AND from_actor_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $3
       `,
       [tenantId, fromActorId, limit]
@@ -156,9 +159,6 @@ class StockTransferRepository {
     return rows.map((row) => this.toStockTransfer(row));
   }
 
-  /**
-   * Lista transferências por destino
-   */
   async listTransfersByToActor(
     tenantId: string,
     toActorId: string,
@@ -167,11 +167,10 @@ class StockTransferRepository {
     const rows = await runQueriesWithTenant<StockTransferRow>(
       tenantId,
       `
-      SELECT id, tenant_id, from_actor_id, to_actor_id, status,
-             requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
+      SELECT ${this.stSelect}
       FROM stock_transfers
       WHERE tenant_id = $1 AND to_actor_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $3
       `,
       [tenantId, toActorId, limit]
@@ -180,9 +179,6 @@ class StockTransferRepository {
     return rows.map((row) => this.toStockTransfer(row));
   }
 
-  /**
-   * Atualiza status da transferência
-   */
   async updateTransferStatus(
     tenantId: string,
     transferId: string,
@@ -195,13 +191,13 @@ class StockTransferRepository {
     let paramIndex = 2;
 
     if (shippedAt) {
-      updates.push(`shippedAt = $${paramIndex}`);
+      updates.push(`shipped_at = $${paramIndex}`);
       params.push(shippedAt);
       paramIndex++;
     }
 
     if (receivedAt) {
-      updates.push(`receivedAt = $${paramIndex}`);
+      updates.push(`received_at = $${paramIndex}`);
       params.push(receivedAt);
       paramIndex++;
     }
@@ -212,10 +208,9 @@ class StockTransferRepository {
       tenantId,
       `
       UPDATE stock_transfers
-      SET ${updates.join(', ')}, updatedAt = NOW()
+      SET ${updates.join(', ')}, updated_at = NOW()
       WHERE tenant_id = $${paramIndex} AND id = $${paramIndex + 1}
-      RETURNING id, tenant_id, from_actor_id, to_actor_id, status,
-                requested_by_user_id, shippedAt, receivedAt, metadata, createdAt, updatedAt
+      RETURNING ${this.stSelect}
       `,
       params
     );
@@ -227,9 +222,49 @@ class StockTransferRepository {
     return this.toStockTransfer(row);
   }
 
-  /**
-   * Cria item de transferência
-   */
+  async updateTransferStatusWithClient(
+    client: PoolClient,
+    transferId: string,
+    status: StockTransfer['status'],
+    shippedAt?: Date,
+    receivedAt?: Date
+  ): Promise<StockTransfer> {
+    const updates: string[] = [`status = $1`];
+    const params: any[] = [status];
+    let paramIndex = 2;
+
+    if (shippedAt) {
+      updates.push(`shipped_at = $${paramIndex}`);
+      params.push(shippedAt);
+      paramIndex++;
+    }
+
+    if (receivedAt) {
+      updates.push(`received_at = $${paramIndex}`);
+      params.push(receivedAt);
+      paramIndex++;
+    }
+
+    params.push(transferId);
+
+    const result = await client.query<StockTransferRow>(
+      `
+      UPDATE stock_transfers
+      SET ${updates.join(', ')}, updated_at = NOW()
+      WHERE tenant_id = current_setting('app.current_tenant', true)::uuid AND id = $${paramIndex}
+      RETURNING ${this.stSelect}
+      `,
+      params
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error(`Transferência não encontrada: ${transferId}`);
+    }
+
+    return this.toStockTransfer(row);
+  }
+
   async createTransferItem(
     tenantId: string,
     transferId: string,
@@ -239,11 +274,10 @@ class StockTransferRepository {
       tenantId,
       `
       INSERT INTO stock_transfer_items (
-        tenant_id, stock_transfer_id, product_variant_id, quantity, inventory_lot_id, status
+        tenant_id, stock_transfer_id, product_variant_id, quantity, inventory_lot_id, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, 'PENDING')
-      RETURNING id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, createdAt
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+      RETURNING ${this.stItemSelect}
       `,
       [
         tenantId,
@@ -251,6 +285,7 @@ class StockTransferRepository {
         input.productVariantId,
         input.quantity,
         input.inventoryLotId || null,
+        JSON.stringify(input.metadata || {}),
       ]
     );
 
@@ -261,21 +296,14 @@ class StockTransferRepository {
     return this.toStockTransferItem(row);
   }
 
-  /**
-   * Lista itens de transferência
-   */
-  async listTransferItems(
-    tenantId: string,
-    transferId: string
-  ): Promise<StockTransferItem[]> {
+  async listTransferItems(tenantId: string, transferId: string): Promise<StockTransferItem[]> {
     const rows = await runQueriesWithTenant<StockTransferItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, createdAt
+      SELECT ${this.stItemSelect}
       FROM stock_transfer_items
       WHERE tenant_id = $1 AND stock_transfer_id = $2
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [tenantId, transferId]
     );
@@ -283,18 +311,28 @@ class StockTransferRepository {
     return rows.map((row) => this.toStockTransferItem(row));
   }
 
-  /**
-   * Busca item por ID
-   */
-  async getTransferItemById(
-    tenantId: string,
-    itemId: string
-  ): Promise<StockTransferItem | null> {
+  async listTransferItemsWithClient(
+    client: PoolClient,
+    transferId: string
+  ): Promise<StockTransferItem[]> {
+    const result = await client.query<StockTransferItemRow>(
+      `
+      SELECT ${this.stItemSelect}
+      FROM stock_transfer_items
+      WHERE tenant_id = current_setting('app.current_tenant', true)::uuid
+        AND stock_transfer_id = $1
+      ORDER BY created_at ASC
+      `,
+      [transferId]
+    );
+    return result.rows.map((row) => this.toStockTransferItem(row));
+  }
+
+  async getTransferItemById(tenantId: string, itemId: string): Promise<StockTransferItem | null> {
     const row = await runQueryWithTenant<StockTransferItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-             inventory_lot_id, status, metadata, createdAt
+      SELECT ${this.stItemSelect}
       FROM stock_transfer_items
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -304,42 +342,6 @@ class StockTransferRepository {
 
     return row ? this.toStockTransferItem(row) : null;
   }
-
-  /**
-   * Atualiza status do item
-   */
-  async updateTransferItemStatus(
-    tenantId: string,
-    itemId: string,
-    status: StockTransferItem['status']
-  ): Promise<StockTransferItem> {
-    const row = await runQueryWithTenant<StockTransferItemRow>(
-      tenantId,
-      `
-      UPDATE stock_transfer_items
-      SET status = $1
-      WHERE tenant_id = $2 AND id = $3
-      RETURNING id, tenant_id, stock_transfer_id, product_variant_id, quantity,
-                inventory_lot_id, status, metadata, createdAt
-      `,
-      [status, tenantId, itemId]
-    );
-
-    if (!row) {
-      throw new Error(`Item de transferência não encontrado: ${itemId}`);
-    }
-
-    return this.toStockTransferItem(row);
-  }
 }
 
 export const stockTransferRepository = new StockTransferRepository();
-
-
-
-
-
-
-
-
-

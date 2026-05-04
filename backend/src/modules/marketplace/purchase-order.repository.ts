@@ -1,5 +1,5 @@
 // backend/src/modules/marketplace/purchase-order.repository.ts
-// SPRINT 69: Repository para purchase_orders e purchase_order_items
+// SPRINT 69: purchase_orders + purchase_order_items (colunas snake_case — migrations 0131)
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
@@ -16,8 +16,8 @@ interface PurchaseOrderRow {
   status: string;
   order_date: Date;
   expected_delivery_date: Date | null;
-  receivedAt: Date | null;
-  completedAt: Date | null;
+  received_at: Date | null;
+  completed_at: Date | null;
   delivery_address: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
@@ -26,14 +26,14 @@ interface PurchaseOrderRow {
   internal_notes: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  submittedAt: Date | null;
+  submitted_at: Date | null;
   submitted_by_actor_id: string | null;
-  cancelledAt: Date | null;
+  cancelled_at: Date | null;
   cancelled_by_actor_id: string | null;
   cancellation_reason: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface PurchaseOrderItemRow {
@@ -44,32 +44,29 @@ interface PurchaseOrderItemRow {
   quantity_ordered: string;
   quantity_received: string;
   unit: string;
-  unit_price_cents: number | null;
+  unit_price_cents: string | null;
   currency: string;
-  total_price_cents: number | null;
+  total_price_cents: string | null;
   notes: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PurchaseOrderRepository {
-  /**
-   * Converte row para PurchaseOrder
-   */
   private toPurchaseOrder(row: PurchaseOrderRow): PurchaseOrder {
     return {
       id: row.id,
       tenantId: row.tenant_id,
       supplierId: row.supplier_id,
       orderNumber: row.order_number,
-      status: row.status as any,
+      status: row.status as PurchaseOrder['status'],
       orderDate: row.order_date,
       expectedDeliveryDate: row.expected_delivery_date,
-      receivedAt: row.receivedAt,
-      completedAt: row.completedAt,
+      receivedAt: row.received_at,
+      completedAt: row.completed_at,
       deliveryAddress: row.delivery_address,
       deliveryCity: row.delivery_city,
       deliveryState: row.delivery_state,
@@ -78,20 +75,17 @@ class PurchaseOrderRepository {
       internalNotes: row.internal_notes,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      submittedAt: row.submittedAt,
+      submittedAt: row.submitted_at,
       submittedByActorId: row.submitted_by_actor_id,
-      cancelledAt: row.cancelledAt,
+      cancelledAt: row.cancelled_at,
       cancelledByActorId: row.cancelled_by_actor_id,
       cancellationReason: row.cancellation_reason,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
-  /**
-   * Converte row para PurchaseOrderItem
-   */
   private toPurchaseOrderItem(row: PurchaseOrderItemRow): PurchaseOrderItem {
     return {
       id: row.id,
@@ -101,21 +95,35 @@ class PurchaseOrderRepository {
       quantityOrdered: parseFloat(row.quantity_ordered),
       quantityReceived: parseFloat(row.quantity_received),
       unit: row.unit,
-      unitPriceCents: row.unit_price_cents,
+      unitPriceCents: row.unit_price_cents != null ? Number(row.unit_price_cents) : null,
       currency: row.currency,
-      totalPriceCents: row.total_price_cents,
+      totalPriceCents: row.total_price_cents != null ? Number(row.total_price_cents) : null,
       notes: row.notes,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
-  /**
-   * Cria ordem de compra
-   */
+  private poSelectList = `
+      id, tenant_id, supplier_id, order_number, status,
+      order_date, expected_delivery_date, received_at, completed_at,
+      delivery_address, delivery_city, delivery_state, delivery_zip_code,
+      notes, internal_notes,
+      created_by_actor_id, created_by_user_id,
+      submitted_at, submitted_by_actor_id,
+      cancelled_at, cancelled_by_actor_id, cancellation_reason,
+      metadata, created_at, updated_at`;
+
+  private poItemSelectList = `
+      id, tenant_id, purchase_order_id, product_variant_id,
+      quantity_ordered, quantity_received, unit,
+      unit_price_cents, currency, total_price_cents, notes,
+      created_by_actor_id, created_by_user_id, metadata,
+      created_at, updated_at`;
+
   async createPurchaseOrder(
     tenantId: string,
     input: {
@@ -144,21 +152,13 @@ class PurchaseOrderRepository {
         notes, internal_notes,
         created_by_actor_id, created_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
-      RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, receivedAt, completedAt,
-                delivery_address, delivery_city, delivery_state, delivery_zip_code,
-                notes, internal_notes,
-                created_by_actor_id, created_by_user_id,
-                submittedAt, submitted_by_actor_id,
-                cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                metadata, createdAt, updatedAt
+      VALUES ($1, $2, $3, 'DRAFT', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
+      RETURNING ${this.poSelectList}
       `,
       [
         tenantId,
         input.supplierId,
         input.orderNumber,
-        'draft',
         input.orderDate,
         input.expectedDeliveryDate,
         input.deliveryAddress,
@@ -180,21 +180,11 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrder(row);
   }
 
-  /**
-   * Busca ordem por ID
-   */
   async getPurchaseOrderById(tenantId: string, orderId: string): Promise<PurchaseOrder | null> {
     const rows = await runQueriesWithTenant<PurchaseOrderRow>(
       tenantId,
       `
-      SELECT id, tenant_id, supplier_id, order_number, status,
-             order_date, expected_delivery_date, receivedAt, completedAt,
-             delivery_address, delivery_city, delivery_state, delivery_zip_code,
-             notes, internal_notes,
-             created_by_actor_id, created_by_user_id,
-             submittedAt, submitted_by_actor_id,
-             cancelledAt, cancelled_by_actor_id, cancellation_reason,
-             metadata, createdAt, updatedAt
+      SELECT ${this.poSelectList}
       FROM purchase_orders
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -208,9 +198,6 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrder(rows[0]);
   }
 
-  /**
-   * Lista ordens com filtros
-   */
   async listPurchaseOrders(tenantId: string, filters: PurchaseOrderFilters = {}): Promise<PurchaseOrder[]> {
     const conditions: string[] = ['tenant_id = $1'];
     const params: any[] = [tenantId];
@@ -248,14 +235,7 @@ class PurchaseOrderRepository {
     const rows = await runQueriesWithTenant<PurchaseOrderRow>(
       tenantId,
       `
-      SELECT id, tenant_id, supplier_id, order_number, status,
-             order_date, expected_delivery_date, receivedAt, completedAt,
-             delivery_address, delivery_city, delivery_state, delivery_zip_code,
-             notes, internal_notes,
-             created_by_actor_id, created_by_user_id,
-             submittedAt, submitted_by_actor_id,
-             cancelledAt, cancelled_by_actor_id, cancellation_reason,
-             metadata, createdAt, updatedAt
+      SELECT ${this.poSelectList}
       FROM purchase_orders
       WHERE ${conditions.join(' AND ')}
       ORDER BY order_date DESC
@@ -267,9 +247,6 @@ class PurchaseOrderRepository {
     return rows.map((row) => this.toPurchaseOrder(row));
   }
 
-  /**
-   * Adiciona item à ordem
-   */
   async addItem(
     tenantId: string,
     orderId: string,
@@ -296,18 +273,14 @@ class PurchaseOrderRepository {
         created_by_actor_id, created_by_user_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
-      RETURNING id, tenant_id, purchase_order_id, product_variant_id,
-                quantity_ordered, quantity_received, unit,
-                unit_price_cents, currency, total_price_cents, notes,
-                created_by_actor_id, created_by_user_id, metadata,
-                createdAt, updatedAt
+      RETURNING ${this.poItemSelectList}
       `,
       [
         tenantId,
         orderId,
         input.productVariantId,
         input.quantityOrdered,
-        0, // quantity_received inicia em 0
+        0,
         input.unit,
         input.unitPriceCents,
         input.currency,
@@ -326,21 +299,14 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrderItem(row);
   }
 
-  /**
-   * Busca itens de uma ordem
-   */
   async getItemsByOrderId(tenantId: string, orderId: string): Promise<PurchaseOrderItem[]> {
     const rows = await runQueriesWithTenant<PurchaseOrderItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, purchase_order_id, product_variant_id,
-             quantity_ordered, quantity_received, unit,
-             unit_price_cents, currency, total_price_cents, notes,
-             created_by_actor_id, created_by_user_id, metadata,
-             createdAt, updatedAt
+      SELECT ${this.poItemSelectList}
       FROM purchase_order_items
       WHERE tenant_id = $1 AND purchase_order_id = $2
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [tenantId, orderId]
     );
@@ -348,18 +314,11 @@ class PurchaseOrderRepository {
     return rows.map((row) => this.toPurchaseOrderItem(row));
   }
 
-  /**
-   * Busca item por ID
-   */
   async getItemById(tenantId: string, itemId: string): Promise<PurchaseOrderItem | null> {
     const rows = await runQueriesWithTenant<PurchaseOrderItemRow>(
       tenantId,
       `
-      SELECT id, tenant_id, purchase_order_id, product_variant_id,
-             quantity_ordered, quantity_received, unit,
-             unit_price_cents, currency, total_price_cents, notes,
-             created_by_actor_id, created_by_user_id, metadata,
-             createdAt, updatedAt
+      SELECT ${this.poItemSelectList}
       FROM purchase_order_items
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -373,9 +332,6 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrderItem(rows[0]);
   }
 
-  /**
-   * Atualiza quantidade recebida de um item
-   */
   async updateItemQuantityReceived(
     tenantId: string,
     itemId: string,
@@ -385,13 +341,9 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_order_items
-      SET quantity_received = $3, updatedAt = NOW()
+      SET quantity_received = $3, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, purchase_order_id, product_variant_id,
-                quantity_ordered, quantity_received, unit,
-                unit_price_cents, currency, total_price_cents, notes,
-                created_by_actor_id, created_by_user_id, metadata,
-                createdAt, updatedAt
+      RETURNING ${this.poItemSelectList}
       `,
       [tenantId, itemId, quantityReceived]
     );
@@ -403,9 +355,6 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrderItem(row);
   }
 
-  /**
-   * Atualiza status para SUBMITTED
-   */
   async submitOrder(
     tenantId: string,
     orderId: string,
@@ -416,18 +365,11 @@ class PurchaseOrderRepository {
       `
       UPDATE purchase_orders
       SET status = 'SUBMITTED',
-          submittedAt = NOW(),
+          submitted_at = NOW(),
           submitted_by_actor_id = $3,
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
-      RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, receivedAt, completedAt,
-                delivery_address, delivery_city, delivery_state, delivery_zip_code,
-                notes, internal_notes,
-                created_by_actor_id, created_by_user_id,
-                submittedAt, submitted_by_actor_id,
-                cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                metadata, createdAt, updatedAt
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status = 'DRAFT'
+      RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId, submittedByActorId]
     );
@@ -439,26 +381,17 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrder(row);
   }
 
-  /**
-   * Atualiza status para RECEIVED
-   */
   async markAsReceived(tenantId: string, orderId: string): Promise<PurchaseOrder> {
     const row = await runQueryWithTenant<PurchaseOrderRow>(
       tenantId,
       `
       UPDATE purchase_orders
       SET status = 'RECEIVED',
-          receivedAt = COALESCE(receivedAt, NOW()),
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('SUBMITTED', 'RECEIVED')
-      RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, receivedAt, completedAt,
-                delivery_address, delivery_city, delivery_state, delivery_zip_code,
-                notes, internal_notes,
-                created_by_actor_id, created_by_user_id,
-                submittedAt, submitted_by_actor_id,
-                cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                metadata, createdAt, updatedAt
+          received_at = COALESCE(received_at, NOW()),
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2
+        AND status IN ('SUBMITTED', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED')
+      RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId]
     );
@@ -470,26 +403,16 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrder(row);
   }
 
-  /**
-   * Atualiza status para COMPLETED
-   */
   async markAsCompleted(tenantId: string, orderId: string): Promise<PurchaseOrder> {
     const row = await runQueryWithTenant<PurchaseOrderRow>(
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'completed',
-          completedAt = NOW(),
-          updatedAt = NOW()
+      SET status = 'COMPLETED',
+          completed_at = NOW(),
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'RECEIVED'
-      RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, receivedAt, completedAt,
-                delivery_address, delivery_city, delivery_state, delivery_zip_code,
-                notes, internal_notes,
-                created_by_actor_id, created_by_user_id,
-                submittedAt, submitted_by_actor_id,
-                cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                metadata, createdAt, updatedAt
+      RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId]
     );
@@ -501,9 +424,6 @@ class PurchaseOrderRepository {
     return this.toPurchaseOrder(row);
   }
 
-  /**
-   * Atualiza status para CANCELLED
-   */
   async cancelOrder(
     tenantId: string,
     orderId: string,
@@ -514,20 +434,14 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'cancelled',
-          cancelledAt = NOW(),
+      SET status = 'CANCELLED',
+          cancelled_at = NOW(),
           cancelled_by_actor_id = $3,
           cancellation_reason = $4,
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('draft', 'submitted')
-      RETURNING id, tenant_id, supplier_id, order_number, status,
-                order_date, expected_delivery_date, receivedAt, completedAt,
-                delivery_address, delivery_city, delivery_state, delivery_zip_code,
-                notes, internal_notes,
-                created_by_actor_id, created_by_user_id,
-                submittedAt, submitted_by_actor_id,
-                cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                metadata, createdAt, updatedAt
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2
+        AND status IN ('DRAFT', 'SUBMITTED', 'CONFIRMED')
+      RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId, cancelledByActorId, cancellationReason]
     );
@@ -541,11 +455,3 @@ class PurchaseOrderRepository {
 }
 
 export const purchaseOrderRepository = new PurchaseOrderRepository();
-
-
-
-
-
-
-
-

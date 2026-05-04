@@ -87,6 +87,7 @@ class InventoryAdjustmentService {
     const unit = product.metadata?.unit || variant.metadata?.unit || 'un';
 
     await inventoryService.addMovement(tenantId, {
+      actorId: input.actorId,
       productVariantId: input.productVariantId,
       movementType: 'ADJUSTMENT',
       quantity: input.quantity, // Signed: negativo para LOSS/DAMAGE, positivo para SURPLUS

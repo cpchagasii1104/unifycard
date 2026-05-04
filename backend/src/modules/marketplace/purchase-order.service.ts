@@ -173,7 +173,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (!['SUBMITTED', 'RECEIVED'].includes(order.status)) {
+    if (!['SUBMITTED', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(order.status)) {
       throw new Error(`Ordem não pode ser recebida (status: ${order.status})`);
     }
 
@@ -207,6 +207,7 @@ class PurchaseOrderService {
       // SPRINT 69: Criar inventory_movement IN
       if (receiveItem.quantityReceived > 0) {
         const movement = await inventoryService.addMovement(tenantId, {
+          actorId: order.createdByActorId,
           productVariantId: item.productVariantId,
           movementType: 'IN',
           quantity: receiveItem.quantityReceived,
@@ -326,7 +327,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (!['DRAFT', 'SUBMITTED'].includes(order.status)) {
+    if (!['DRAFT', 'SUBMITTED', 'CONFIRMED'].includes(order.status)) {
       throw new Error(`Ordem não pode ser cancelada (status: ${order.status})`);
     }
 
@@ -402,21 +403,21 @@ class PurchaseOrderService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.submittedByActorId || data.cancelledByActorId || null,
+        actor_id: (data.createdByActorId || data.submittedByActorId || data.cancelledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'automation',
         context: {
           order_id: data.orderId,
           status: data.status,
           item_id: data.itemId,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           submitted_by_actor_id: data.submittedByActorId,
-          submitted_by_user_id: data.submittedByUserId,
-          received_by_user_id: data.receivedByUserId,
+          submitted_by_user_id: data.submittedByUserId ?? undefined,
+          received_by_user_id: data.receivedByUserId ?? undefined,
           items_received: data.itemsReceived,
           cancelled_by_actor_id: data.cancelledByActorId,
-          cancelled_by_user_id: data.cancelledByUserId,
-          cancellation_reason: data.cancellationReason,
+          cancelled_by_user_id: data.cancelledByUserId ?? undefined,
+          cancellation_reason: data.cancellationReason ?? undefined,
         },
       });
     } catch (error) {
