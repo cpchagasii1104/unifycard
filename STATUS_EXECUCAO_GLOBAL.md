@@ -1,3 +1,94 @@
+## 2026-05-05 — Gate validate-core-purity baseline oficial
+
+GATE_ATUAL (static only):    58 sinais / 32 arquivos
+GATE_ESTENDIDO (static+dyn): 69 sinais / 38 arquivos
+Diferença dinâmicos:         11 sinais / 9 arquivos
+
+Commits: 65a0f754 (latente registry) | d8998997 (gate fase 1) | a38f636e | 56342d84
+
+Débitos confirmados:
+- src/scripts/ incluído no tsconfig.build.json (fora do escopo de produção)
+- 4 strings modules/ em core/ai/ são texto, não imports (excluídas do gate)
+- Caminho documental corrigido no script
+
+#### IMPORTANTE!!! Tivemos uma janela de tempo por cauda de BACKUP e abaixo está a lacuna que precisamos refazer:
+
+Hipótese #019 em execução: usar critério de soberania/SSOT definido em `HIPOTESES_DAS_36_HORAS_2026-05_v3.md` antes de classificar core/modules.
+
+## Artefatos Abertos
+
+1. `HIPOTESES_DAS_36_HORAS_2026-05_v3.md`
+   - Status: EM EXECUÇÃO
+   - Regra ativa: usar critério de soberania/SSOT (ver seção #019)
+   - Próxima ação: classificar amostra de 5 arquivos
+   - Estado de bloqueio: nenhum
+
+## Regra Operacional Ativa
+
+- Auditoria NÃO é por pasta (`core/` vs `modules/`)
+- Auditoria é por soberania: Norma → SSOT → Builder → Imports → Execução
+- `app.builder` = prova de vida, NÃO de autoridade
+
+Analisando os dois documentos que você enviou, a diferença principal é de **estado temporal e conteúdo incremental**:
+
+## `STATUS_EXECUCAO_GLOBAL.md` (primeiro arquivo)
+
+É o **documento base original** com checkpoints até **2026-05-01** (incluindo DECISION-0017 fechada, Loop §6 abortado, etc.). Contém a estrutura canônica do status global com:
+- Estado global (§GLOBAL BLOCK INATIVO)
+- Matriz por módulo (macro)
+- Ciclo econômico UnifyCard
+- Checkpoints detalhados de FASE 4, FASE 5 C2, C63, C18, C11, C41, C42, etc.
+- Próximas ações até Nomenclatura EIXO 2-9
+
+## `03_05_STATUS_EXECUCAO_GLOBAL.md` (segundo arquivo)
+
+É uma **versão estendida/continuação** do primeiro, com atualizações até **2026-05-03** (2 dias depois). Adiciona:
+
+### Novos itens críticos (maio 2026)
+| Novidade | Descrição |
+|----------|-----------|
+| **C65 — Drift monetário** | NOVO BLOCKER: P2P/donation com contrato quebrado entre schema Zod (`amountCents`) e destructuring (`amount`) |
+| **DT-tsc-reaberto** | Typecheck backend voltou a falhar (1489 erros TS) — reabre DT-tsc que estava declarado fechado em 2026-04-20 |
+| **Gates propostos G-6/G-7** | Novos gates: validação schema-vs-service e validação monetária canônica |
+| **Princípio operacional DECISION-0020** | "Antes do primeiro usuário, toda concessão a legado é suspeita" |
+
+### Checkpoints adicionais de maio
+- **2026-05-02 (noite)** — Higiene da allowlist concluída (C8, C3, C4 resolvidos; DT-C3/DT-C4 registrados)
+- **2026-05-02** — Gate schema-coherence hardening (commit `14f77c3a`, 5 arquivos alterados)
+- **2026-05-01 (noite)** — Loop §6 re-executado com plano v1.2 → parcial-PASS por allowlist ainda expirada (Cenário E)
+- **2026-05-01 (tarde)** — Loop §6 abortado por allowlist expirada (Cenário E, documentado no plano)
+
+### Conteúdo migrado de `STATUS_EXECUCAO.md`
+O segundo arquivo também **absorveu** o conteúdo do antigo `STATUS_EXECUCAO.md` (índice raiz), que antes existia como documento separado. Isso inclui:
+- Status de REFATOR ARQUITETURAL (FASE S–7, BLOCO 2)
+- Status MARKETPLACE, ORDERS, SERVICES, BANK/PAYMENTS
+- LOTE 1 Identity + staging
+- Domínio eventos (`PLANO_PARA_CURSOR.md`)
+- Domínio financeiro (mapa de autoridade)
+- Classificação sistémica (`EXECUTION_CONTEXT_LOCK.md`)
+- Registro de tasks EXEC-* (protocolo v2.8.4)
+
+---
+
+## Resumo da diferença
+
+| Aspecto | `STATUS_EXECUCAO_GLOBAL.md` | `03_05_STATUS_EXECUCAO_GLOBAL.md` |
+|--------|---------------------------|-----------------------------------|
+| **Data limite** | 2026-05-01 | 2026-05-03 |
+| **C65 (drift monetário)** | ❌ Não existe | ✅ NOVO BLOCKER |
+| **DT-tsc** | Fechado (2026-04-20) | **Reaberto** (1489 erros) |
+| **DECISION-0020** | ❌ Não existe | ✅ Princípio operacional novo |
+| **Gates G-6/G-7** | ❌ Não existe | ✅ Propostos |
+| **Loop §6** | Abortado (v1.0) | Re-executado (v1.2), parcial-PASS |
+| **Allowlist** | Expirada (C3/C4/C8) | **Higiene concluída** (C8 removido, C3/C4 resolvidos) |
+| **STATUS_EXECUCAO.md** | Documento separado | **Conteúdo absorvido** (unificação de fonte) |
+| **Tamanho** | ~380 linhas | ~650 linhas |
+
+O segundo documento representa a **evolução operacional** do primeiro: novos bloqueiros descobertos, reabertura de débitos técnicos, consolidação de documentos e avanço na governança (DECISION-0017 fechada, higiene de allowlist, hardening de gates).
+
+### FIM DA OBSERVAÇÂO QUE DEVE SER ANOTADA QUANDO FOR ESTABILIZADA!!!! ISTO ESTÁ PENDENTE!!!!
+
+
 
 ## 2026-05-04 — Código latente identificado (Hipótese #019)
 
