@@ -8,12 +8,9 @@ Subordinação:
 - `08_AUTORIDADE_CANONICA.md`
 - `AUTHORITY_PRECEDENCE.md`
 
----
-
-## 1. FINALIDADE
-
-Este documento define o **PROCESSO FORMAL DE RECUPERAÇÃO DE AUTORIDADE**
-para atores humanos submetidos a restrições de **Authority Trust Level (ATL)**.
+Dependências diretas:
+- `GATES.md` (define quando recovery é acionado)
+- `FALSIFICATION_LOG.md` (toda recovery gera entrada obrigatória)
 
 Seu objetivo é:
 - garantir previsibilidade regulatória
@@ -202,3 +199,20 @@ Qualquer tentativa de contorno:
 ---
 
 FIM DO AUTHORITY RECOVERY
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- 08_AUTORIDADE_CANONICA.md
+- AUTHORITY_LAW.md
+- AUTHORITY_PRECEDENCE.md
+- FALSIFICATION_LOG.md
+- GATES.md
+
+### Referenciado por
+- 00_INDEX.md
+- AUTHORITY_PRECEDENCE.md
+- GATES.md
+<!-- AUTO-GENERATED-END -->

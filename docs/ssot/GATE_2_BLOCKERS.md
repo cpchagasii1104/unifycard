@@ -8,6 +8,13 @@ A partir deste ponto, o sistema entra em **modo de contenção**:
 - Nenhuma autoridade implícita pode ser introduzida
 - Qualquer exceção implica **FALHA de Gate**
 
+Dependências:
+- `GATES.md` (define Gate 2 e seus critérios gerais)
+- `GATE_2_CHECKS.md` (checklist de verificação ativa)
+- `AUTHORITY_PRECEDENCE.md` (regra de precedência aplicada)
+- `FALSIFICATION_LOG.md` (qualquer violação detectada deve ser registrada)
+- `WRITE_SURFACE_BASELINE.md` (baseline de referência para detecção de regressão)
+
 Este arquivo é **normativo e vinculante**.
 
 ---
@@ -132,7 +139,7 @@ Durante o Gate 2:
 
 Este Gate é sustentado por:
 
-- `SSOT_REGISTRY.md` — autoridades únicas
+- `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md` — autoridades únicas
 - `PROHIBITED_STRUCTURES.md` — o que nunca pode decidir
 - `WRITE_SURFACE_BASELINE.md` — evidência antes/depois
 - `FALSIFICATION_LOG.md` — registro de tentativas
@@ -178,3 +185,22 @@ Não é descuido.
 ---
 
 FIM DO GATE 2 — BLOCKERS DE SSOT
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_PRECEDENCE.md
+- FALSIFICATION_LOG.md
+- GATES.md
+- GATE_2_CHECKS.md
+- PROHIBITED_STRUCTURES.md
+- WRITE_SURFACE_BASELINE.md
+
+### Referenciado por
+- 00_INDEX.md
+- GATES.md
+- GATE_2_CHECKS.md
+- WRITE_SURFACE_BASELINE.md
+<!-- AUTO-GENERATED-END -->

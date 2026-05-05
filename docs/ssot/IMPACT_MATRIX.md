@@ -4,8 +4,11 @@ Data: 27 de Janeiro de 2026
 Método: Evidência por grep (não suposição)  
 Base: ~1.320 arquivos TypeScript analisados  
 
----
-
+Dependências:
+- `GATE_3_EXECUTION.md` (usa esta matriz para priorização)
+- `GATE_3_REVIEW.md` (valida resultado contra esta matriz)
+- `WRITE_SURFACE_BASELINE.md` (complementar: baseline de superfícies)
+- `GATES.md` (contexto do Gate 3)
 ## RESUMO EXECUTIVO
 
 O sistema apresenta **múltiplas autoridades concorrentes de estado financeiro**, violando o princípio de Single Source of Truth (SSOT).
@@ -213,3 +216,21 @@ escrow / ledger legacy
 ---
 
 FIM DA MATRIZ DE IMPACTO FORENSE
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- GATES.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- WRITE_SURFACE_BASELINE.md
+
+### Referenciado por
+- 00_INDEX.md
+- GATES.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- WRITE_SURFACE_BASELINE.md
+<!-- AUTO-GENERATED-END -->

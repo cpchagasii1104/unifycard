@@ -3,6 +3,17 @@
 Este documento define os **Gates formais de execução** do plano de correção SSOT
 e da **Autoridade Constitucional** do sistema.
 
+Dependências normativas:
+- `AUTHORITY_PRECEDENCE.md` (ordem de precedência usada no Gate A)
+- `AUTHORITY_RECOVERY.md` (acionado em caso de falha de Gate)
+- `FALSIFICATION_LOG.md` (registro obrigatório de anomalias e bypasses)
+- `GATE_2_BLOCKERS.md` (critérios de bloqueio do Gate 2)
+- `GATE_2_CHECKS.md` (checklist do Gate 2)
+- `GATE_3_EXECUTION.md` (plano de execução do Gate 3)
+- `GATE_3_REVIEW.md` (evidência de fechamento do Gate 3)
+- `WRITE_SURFACE_BASELINE.md` (baseline usado em Gate 0 e Gate 3)
+- `IMPACT_MATRIX.md` (priorização usada em Gate 3)
+
 Cada Gate é **BINÁRIO**: PASSA ou FALHA.  
 Não existe “quase”, “parcial”, “depois a gente vê” ou “exceção operacional”.
 
@@ -83,7 +94,19 @@ A Lei define explicitamente:
 - Dependência de decisão futura
 - Tentativa de empurrar definição para código
 
-**Status:** ⏳ **A EXECUTAR (BLOQUEANTE)**
+**Status:** ✅ **FECHADO — Gate A executado em 2026-04-17**
+
+Evidência:
+- `AUTHORITY_LAW.md` v1.0 — 17 artigos + Artigo 18 (instrumentos anexos)
+- `AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md` — presente e completo
+- `AUTHORITY_ANNEX_EVASION.md` — presente e completo
+- `AUTHORITY_ANNEX_TEST_OF_BREAK.md` — 26 cenários verificados
+- `npm run docs:gateA:check` — 8/8 critérios PASS
+- `FALSIFICATION_LOG.md` FL-005 — anomalia registrada, Gate 3 em revalidação
+
+Próximo passo obrigatório: revalidar Gate 3 e atualizar status para `FECHADO · VALIDADO PÓS GATE A`.
+
+> ~~Próximo passo obrigatório: revalidar Gate 3 e atualizar status para `FECHADO · VALIDADO PÓS GATE A`.~~ **Concluído em 2026-04-17.**
 
 ---
 
@@ -116,7 +139,7 @@ Declarar explicitamente **quem decide o quê** no sistema,
 **subordinado à Lei de Autoridade**.
 
 ### Critérios de PASS
-- `SSOT_REGISTRY.md` alinhado à `AUTHORITY_LAW.md`
+- `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md` alinhado à `AUTHORITY_LAW.md`
 - Autoridades únicas declaradas por domínio
 - Campos obrigatórios presentes:
   - ResponsibleActor
@@ -183,7 +206,11 @@ Eliminar **todos os writers proibidos** identificados.
 - Writer residual
 - Uso “temporário” não documentado
 
-**Status:** ✅ **FECHADO (PASSOU TECNICAMENTE)**
+**Status:** ✅ **FECHADO · VALIDADO PÓS GATE A (2026-04-17)**
+
+Escopo técnico: escritas financeiras fora do Bank eliminadas (ver `GATE_3_REVIEW.md`).
+Anômalia FL-005 resolvida: Gate A fechado antes da revalidação — Gate 3 agora normativo.
+Ver: `FALSIFICATION_LOG.md` FL-005 (resolvido), `npm run docs:gate3:check`.
 
 ---
 
@@ -246,3 +273,37 @@ Remover **legado morto** e validar o SSOT final.
 ---
 
 FIM DO GATES — SSOT UNIFICARD
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_ANNEX_EVASION.md
+- AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md
+- AUTHORITY_ANNEX_TEST_OF_BREAK.md
+- AUTHORITY_LAW.md
+- AUTHORITY_PRECEDENCE.md
+- AUTHORITY_RECOVERY.md
+- FALSIFICATION_LOG.md
+- GATE_2_BLOCKERS.md
+- GATE_2_CHECKS.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- IMPACT_MATRIX.md
+- PROHIBITED_STRUCTURES.md
+- WRITE_SURFACE_BASELINE.md
+
+### Referenciado por
+- 00_INDEX.md
+- 07_NOMENCLATURA_CANONICA.md
+- AUTHORITY_PRECEDENCE.md
+- AUTHORITY_RECOVERY.md
+- FALSIFICATION_LOG.md
+- GATE_2_BLOCKERS.md
+- GATE_2_CHECKS.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- IMPACT_MATRIX.md
+- WRITE_SURFACE_BASELINE.md
+<!-- AUTO-GENERATED-END -->

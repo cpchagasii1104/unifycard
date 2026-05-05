@@ -8,6 +8,13 @@ Ele é usado para:
 - provar **remoção de escritas proibidas** (Gate 3 em diante)
 - impedir **regressão silenciosa de SSOT**
 
+Dependências:
+- `GATES.md` (Gates 0, 2 e 3 dependem deste baseline)
+- `GATE_2_BLOCKERS.md` (usa este baseline para detectar regressão)
+- `GATE_3_EXECUTION.md` (usa este baseline para medir remoção)
+- `GATE_3_REVIEW.md` (compara contra este baseline para fechar Gate 3)
+- `IMPACT_MATRIX.md` (complementar: escopo forense)
+
 Regra de ouro:
 > Se uma escrita não está registrada aqui, ela **não é permitida**.
 
@@ -183,3 +190,23 @@ Este resultado **não invalida o Gate 0**, mas indica que:
 
 
 FIM DO WRITE SURFACE BASELINE
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- GATES.md
+- GATE_2_BLOCKERS.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- IMPACT_MATRIX.md
+
+### Referenciado por
+- 00_INDEX.md
+- GATES.md
+- GATE_2_BLOCKERS.md
+- GATE_3_EXECUTION.md
+- GATE_3_REVIEW.md
+- IMPACT_MATRIX.md
+<!-- AUTO-GENERATED-END -->

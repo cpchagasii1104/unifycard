@@ -7,11 +7,10 @@ Subordinação:
 - `AUTHORITY_LAW.md`
 - `08_AUTORIDADE_CANONICA.md`
 
----
-
-## 1. FINALIDADE
-
-Este documento define a **ORDEM CANÔNICA DE PRECEDÊNCIA**
+Dependências diretas:
+- `GATES.md` (aplica esta precedência nos critérios de Gate A)
+- `AUTHORITY_RECOVERY.md` (usa esta ordem para recuperação)
+- `FALSIFICATION_LOG.md` (registra violações desta precedência)
 entre travas de autoridade, segurança e operação no sistema UnifiCard.
 
 Seu objetivo é:
@@ -164,3 +163,21 @@ Este documento prevalece sobre:
 ---
 
 FIM DO AUTHORITY PRECEDENCE
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- 08_AUTORIDADE_CANONICA.md
+- AUTHORITY_LAW.md
+- AUTHORITY_RECOVERY.md
+- FALSIFICATION_LOG.md
+- GATES.md
+
+### Referenciado por
+- 00_INDEX.md
+- AUTHORITY_RECOVERY.md
+- GATES.md
+- GATE_2_BLOCKERS.md
+<!-- AUTO-GENERATED-END -->

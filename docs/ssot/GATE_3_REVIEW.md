@@ -7,6 +7,19 @@ Objetivo:
 
 Gate 3 só é considerado **FECHADO** quando esta condição é verdadeira.
 
+✅ **Status: FECHADO · VALIDADO PÓS GATE A (2026-04-17)**
+
+Gate A fechou em 2026-04-17 (8/8 critérios `npm run docs:gateA:check`).
+Anomalia FL-005 resolvida: Gate 3 passa a ter validade normativa plena.
+Ver: `FALSIFICATION_LOG.md` FL-005 (resolvido).
+
+Dependências:
+- `GATES.md` (Gate 3 — definição e critérios)
+- `GATE_3_EXECUTION.md` (plano executado)
+- `IMPACT_MATRIX.md` (escopo de arquivos verificados)
+- `WRITE_SURFACE_BASELINE.md` (baseline de referência)
+- `FALSIFICATION_LOG.md` (FL-005: anomalia de sequenciamento Gate A/Gate 3)
+
 ---
 
 ## ESCOPO DO REVIEW
@@ -105,3 +118,23 @@ Assinatura técnica:
 - Revisão manual de código
 - Evidência registrada em `docs/ssot`
 - Nenhuma exceção ativa
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- FALSIFICATION_LOG.md
+- GATES.md
+- GATE_3_EXECUTION.md
+- IMPACT_MATRIX.md
+- WRITE_SURFACE_BASELINE.md
+
+### Referenciado por
+- 00_INDEX.md
+- FALSIFICATION_LOG.md
+- GATES.md
+- GATE_3_EXECUTION.md
+- IMPACT_MATRIX.md
+- WRITE_SURFACE_BASELINE.md
+<!-- AUTO-GENERATED-END -->
