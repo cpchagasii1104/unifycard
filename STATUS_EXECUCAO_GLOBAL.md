@@ -16,6 +16,34 @@ SQL validado: bank_ledger.direction, bank_accounts.actor_id
 AI: stub vazio mantido (proteção arquitetural)
 Decisão: Dashboard vê produto. AI vê contexto. Identity vê identidade. Bank mantém a verdade financeira.
 
+## 2026-05-05 — Validação final da sessão
+
+Gates CI finais (4/4 PASS):
+- validate:actor-writer-boundaries → PASS
+- validate:bank-ledger-boundaries → PASS
+- validate:regression-guards → PASS
+- validate-architectural-patterns --strict → PASS (0 novas violações, exit 0)
+
+Commits da sessão 2026-05-05:
+- 65a0f754 — código latente classificado, registry criado
+- d8998997 — gate validate-core-purity fase 1
+- a38f636e — caminho documental corrigido no gate
+- 56342d84 — gate estendido para imports dinâmicos (69)
+- 1e925deb — baseline oficial registrado no STATUS
+- bdb12e6c — rotas /event e /account retornam 501
+- 7c6448f2 — sub-hipótese #019.FR registrada
+- c3cf0117 — decisões de implementação do ReadPort registradas
+- 5a4d5dba — BankTransactionReadPort implementado (7 passos)
+- 451e8784 — STATUS atualizado com entrega #019.FR
+- 182d85c5 — sub-hipótese marcada como EXECUTADO
+
+Próximas ações (atualizado 2026-05-05):
+1. Classificar os 68 sinais restantes de modules_import — começar por core/economy/
+2. Decidir destino das rotas 501: /economy/transactions/event e /account (produto vivo ou legado?)
+3. Resolver 4 callers do wrapper sem concept_id: distribution.service.ts, split.service.ts, social-work-payment.service.ts, test-currency.service.ts
+4. Gate fase 2 — warning CI quando modules_import aumentar
+5. Domínios duplicados: core/events ↔ modules/events, core/reporting vs modules/reports
+
 ## 2026-05-05 — Gate validate-core-purity baseline oficial
 
 GATE_ATUAL (static only):    58 sinais / 32 arquivos
