@@ -1,3 +1,21 @@
+## 2026-05-05 — BankTransactionReadPort implementado (#019.FR)
+
+Commit: 5a4d5dba
+Gate: modules_import=68 (era 69)
+
+Entregues:
+- core/bank/ports/bank-transaction-read.port.ts (novo)
+- modules/bank/bank-transaction-read.repository.ts (estendido)
+- modules/bank/adapters/bank-transaction-read.adapter.ts (novo)
+- core/bank/ports-registry.ts (estendido)
+- app.builder.ts (injeção adicionada)
+- core/identity/identity.routes.ts (inversão L861 removida)
+- core/dashboard/dashboard.service.ts (migrado para ReadPort)
+
+SQL validado: bank_ledger.direction, bank_accounts.actor_id
+AI: stub vazio mantido (proteção arquitetural)
+Decisão: Dashboard vê produto. AI vê contexto. Identity vê identidade. Bank mantém a verdade financeira.
+
 ## 2026-05-05 — Gate validate-core-purity baseline oficial
 
 GATE_ATUAL (static only):    58 sinais / 32 arquivos
