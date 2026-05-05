@@ -23,49 +23,51 @@ class DashboardService {
     // Buscar fundo regional (LEGACY: módulo desabilitado)
     const fundData = null; // core/economy/fund desabilitado conforme SSOT_EXCLUSIVE_BANK_RULE.md
 
-    // Buscar wallet (já existe em identity/wallet, mas vamos buscar diretamente)
+    // Buscar wallet via BankTransactionReadPort
     let wallet = null;
-    if (profile.global.globalUserId) {
-      try {
-        const accounts = await accountService.getAccountsByGlobalUserId(profile.global.globalUserId);
-        if (accounts.length > 0) {
-          const primaryAccount = accounts.find(acc => acc.currency === 'BRL') || accounts[0];
-          const transactions = await transactionService.getTransactionsByGlobalUserId(
-            profile.global.globalUserId,
-            { limit: 5 }
-          );
+    try {
+      const { socialPortsRegistry: socialPortsRegistry2 } = await import('@core/social/ports-registry');
+      const actorRepository2 = socialPortsRegistry2.getActorRepository();
+      const actor = await actorRepository2.findByUserId(tenantId, userId);
 
+      if (actor) {
+        const { bankPortsRegistry } = await import('@core/bank/ports-registry');
+        const readPort = bankPortsRegistry.getBankTransactionRead();
+
+        const [summary, recentTxs] = await Promise.all([
+          readPort.getWalletSummaryByActorId(tenantId, actor.actor_id),
+          readPort.listRecentTransactionsByActorId(tenantId, actor.actor_id, { limit: 5 }),
+        ]);
+
+        if (summary) {
           let totalIn = 0;
           let totalOut = 0;
-          const lastTransactions = transactions.slice(0, 5).map(tx => {
-            const isCredit = tx.toGlobalUserId === profile.global.globalUserId;
-            const amount = tx.amount;
-            
-            if (isCredit) {
-              totalIn += amount;
+          const lastTransactions = recentTxs.map(tx => {
+            if (tx.direction === 'credit') {
+              totalIn += tx.amountCents;
             } else {
-              totalOut += amount;
+              totalOut += tx.amountCents;
             }
-
             return {
-              transactionId: tx.transactionId,
-              type: isCredit ? 'credit' as const : 'debit' as const,
-              amount,
+              entryId: tx.entryId,
+              direction: tx.direction,
+              amountCents: tx.amountCents,
               createdAt: tx.createdAt,
             };
           });
 
           wallet = {
-            balance: primaryAccount.balance,
-            currency: primaryAccount.currency,
+            balanceCents: summary.balanceCents,
+            currency: summary.currency,
+            accountsCount: summary.accountsCount,
             totalIn,
             totalOut,
             lastTransactions,
           };
         }
-      } catch (error) {
-        console.warn('[DashboardService] Erro ao buscar wallet:', error);
       }
+    } catch (error) {
+      console.warn('[DashboardService] Erro ao buscar wallet:', error);
     }
 
     // Buscar reputação (já existe em identity/reputation)

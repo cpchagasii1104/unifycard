@@ -11,6 +11,7 @@
 import type {
   BankAccountPort,
   BankTransactionPort,
+  BankTransactionReadPort,
   BankIntegrationPort,
   BankLimitPort,
 } from './ports';
@@ -18,6 +19,7 @@ import type {
 class BankPortsRegistry {
   private bankAccount?: BankAccountPort;
   private bankTransaction?: BankTransactionPort;
+  private bankTransactionRead?: BankTransactionReadPort;
   private bankIntegration?: BankIntegrationPort;
   private bankLimit?: BankLimitPort;
 
@@ -49,6 +51,21 @@ class BankPortsRegistry {
       );
     }
     return this.bankTransaction;
+  }
+
+  // Bank Transaction Read
+  setBankTransactionRead(adapter: BankTransactionReadPort) {
+    this.bankTransactionRead = adapter;
+  }
+
+  getBankTransactionRead(): BankTransactionReadPort {
+    if (!this.bankTransactionRead) {
+      throw new Error(
+        'BankTransactionRead não foi injetado. ' +
+        'Configurar em bootstrap antes de usar.'
+      );
+    }
+    return this.bankTransactionRead;
   }
 
   // Bank Integration

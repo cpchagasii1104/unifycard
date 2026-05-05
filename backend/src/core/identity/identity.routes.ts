@@ -841,59 +841,33 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // Buscar todas as contas do global_user_id
-      // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
-      const { socialPortsRegistry: socialPortsRegistry2 } = await import('@core/social/ports-registry');
-      const actorRepository2 = socialPortsRegistry2.getActorRepository();
-      const actor2 = await actorRepository2.findById(req.tenant.id, req.actionContext.actorId);
-      if (!actor2 || !actor2.user_id) {
-        return reply.status(404).send({ error: 'Actor não encontrado ou não é do tipo user' });
-      }
-      const { resolveGlobalUserId: resolveGlobalUserId2 } = await import('@core/identity/identity.utils');
-      const globalUserId2 = await resolveGlobalUserId2(actor2.user_id, req.tenant.id);
-      const accounts = await accountService.getAccountsByGlobalUserId(globalUserId2);
-      
-      if (accounts.length === 0) {
+      const actorId = req.actionContext.actorId;
+
+      const { bankPortsRegistry: bankPortsRegistry2 } = await import('@core/bank/ports-registry');
+      const readPort = bankPortsRegistry2.getBankTransactionRead();
+
+      const [summary, recentTxs] = await Promise.all([
+        readPort.getWalletSummaryByActorId(req.tenant.id, actorId),
+        readPort.listRecentTransactionsByActorId(req.tenant.id, actorId, { limit: 100 }),
+      ]);
+
+      if (!summary) {
         return reply.status(404).send({ error: 'Nenhuma conta encontrada' });
       }
 
-      // Buscar entradas bank_ledger por conta (SSOT)
-      const { bankLedgerRepository } = await import('@modules/bank/bank-ledger.repository');
-      const allEntries: Array<{
-        entryId: string;
-        amountCents: number;
-        entryType: string;
-        createdAt: Date;
-        accountCurrency: string;
-        accountTenantId: string;
-      }> = [];
-      for (const account of accounts) {
-        try {
-          const raw = await bankLedgerRepository.getEntriesByAccount(account.tenantId, account.accountId, {
-            limit: 50,
-          });
-          for (const e of raw) {
-            allEntries.push({
-              entryId: e.entryId,
-              amountCents: e.amountCents,
-              entryType: e.entryType,
-              createdAt: new Date(e.createdAt),
-              accountCurrency: account.currency,
-              accountTenantId: account.tenantId,
-            });
-          }
-        } catch {
-          // Ignora erros ao buscar ledger de contas de outros tenants
-        }
-      }
-
-      // Ordenar por data (mais recente primeiro)
-      allEntries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
       return {
-        globalUserId: globalUserId2,
-        entries: allEntries.slice(0, 100), // Limitar a 100 entradas
-        totalEntries: allEntries.length,
+        actorId,
+        balanceCents: summary.balanceCents,
+        currency: summary.currency,
+        accountsCount: summary.accountsCount,
+        entries: recentTxs.map(tx => ({
+          entryId: tx.entryId,
+          accountId: tx.accountId,
+          amountCents: tx.amountCents,
+          direction: tx.direction,
+          createdAt: tx.createdAt,
+        })),
+        totalEntries: recentTxs.length,
       };
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao buscar ledger');

@@ -7,6 +7,7 @@
 
 export * from './bank-account.adapter';
 export * from './bank-transaction.adapter';
+export * from './bank-transaction-read.adapter';
 export * from './bank-integration.adapter';
 export * from './bank-limit.adapter';
 
