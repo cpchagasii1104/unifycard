@@ -518,6 +518,8 @@ Registrar permanentemente toda decisão que envolva:
 
 ---
 
+### 2026-05-05 — Nota operacional: critério de auditoria core/modules alterado de estrutura de pasta para soberania/SSOT; referência operacional em `HIPOTESES_DAS_36_HORAS_2026-05_v3.md` (#019).
+
 ### DECISION-0017 — Consolidação do gate de coerência repo↔schema
 
 - **Data:** 2026-04-30

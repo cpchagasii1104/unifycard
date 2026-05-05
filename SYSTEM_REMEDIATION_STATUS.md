@@ -53,6 +53,10 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 - DECISION-0015 registrada com trade-offs documentados (fail-fast vs fail-open, amount vs amount_cents).
 - Próximo passo recomendado: gate CI preventivo validate:repository-schema-coherence.
 
+### 2026-05-05 — Hipótese #019 em execução
+
+- Hipótese #019 (core/modules): Status EM EXECUÇÃO; critério de classificação por soberania/SSOT (não por pasta); referência: `HIPOTESES_DAS_36_HORAS_2026-05_v3.md`.
+
 ---
 
 ## Convenções
