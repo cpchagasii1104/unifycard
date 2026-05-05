@@ -16,7 +16,7 @@
  *   node scripts/validate-core-purity.mjs
  *
  * Referencia normativa:
- *   - docs/decisions/HIPOTESES_DAS_36_HORAS_2026-05_v3.md (#019)
+ *   - HIPOTESES_DAS_36_HORAS_2026-05_v3.md (#019)
  *   - docs/01_normative/LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md (Lei de Soberania)
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
