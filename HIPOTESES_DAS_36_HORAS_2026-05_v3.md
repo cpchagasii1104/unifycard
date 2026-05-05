@@ -1516,6 +1516,25 @@ Classificar amostra de 5 arquivos, checkpoint, depois gate CI fase 1 (modo log)
 **Bloqueado por:** decisão de produto + decisão arquitetural sobre ReadPort
 **Próxima ação:** sessão de decisão com Clayton antes de qualquer implementação
 
+**Decisões registradas (2026-05-05):**
+- Dashboard: userId → actorId via actorRepository antes de chamar ReadPort
+- AI: manter stub vazio — proteção arquitetural, não bug
+- Identity /wallet: remover import direto de bank-ledger.repository, substituir por ReadPort via actorId
+
+**Port correto definido:**
+- parâmetro: actorId (não globalUserId)
+- coluna: bank_accounts.actor_id (indexada)
+- ledger: bank_ledger.direction ('credit'|'debit')
+
+**Ordem de execução aprovada:**
+1. Criar BankTransactionReadPort
+2. Implementar em bank-transaction-read.repository.ts
+3. Criar adapter em modules/bank/adapters/
+4. Registrar no bankPortsRegistry
+5. Migrar identity.routes.ts:861 (prioridade — remove inversão confirmada)
+6. Migrar dashboard.service.ts
+7. AI — não migrar
+
 ---
 
 **FIM DO DOCUMENTO**
