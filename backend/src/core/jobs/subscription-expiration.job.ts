@@ -1,6 +1,19 @@
-// src/core/jobs/subscription-expiration.job.ts
-// Job para processar expirações de assinaturas
-// Deve ser executado diariamente via cron
+/**
+ * STATUS: CÓDIGO LATENTE — classificado em 2026-05-04 (Hipótese #019)
+ *
+ * Funcional mas não integrado: processa expiração de assinaturas
+ * (organizerBillingService.processExpirations) sem scheduler que o invoque.
+ *
+ * Categoria da fase de reconstrução do sistema. Não é erro nem código morto —
+ * é funcionalidade válida aguardando reintegração.
+ *
+ * Débito conhecido: core → modules (inversão de dependência).
+ * Resolução depende da arquitetura de jobs.
+ *
+ * PROIBIÇÕES: não mover, não deletar, não integrar sem decisão formal.
+ *
+ * Detalhes: docs/decisions/CODIGO_LATENTE_REGISTRY.md#subscription-expirationjob
+ */
 
 import { organizerBillingService } from '../../modules/events/organizers/organizer-billing.service';
 import { pool } from '@core/database/pool';
@@ -10,11 +23,10 @@ import { pool } from '@core/database/pool';
  */
 export async function processSubscriptionExpirations(): Promise<void> {
   // Buscar todos os tenants ativos (usando pool direto, sem tenant context)
-  const result = await pool.query<{ tenant_id: string }>(
+  const result = await pool.query<{ id: string }>(
     `
-    SELECT tenant_id
+    SELECT id
     FROM tenants
-    WHERE is_active = true
     `
   );
 
@@ -22,10 +34,10 @@ export async function processSubscriptionExpirations(): Promise<void> {
 
   for (const tenant of result.rows) {
     try {
-      const expired = await organizerBillingService.processExpirations(tenant.tenant_id);
+      const expired = await organizerBillingService.processExpirations(tenant.id);
       totalExpired += expired;
     } catch (error) {
-      console.error(`Erro ao processar expirações para tenant ${tenant.tenant_id}:`, error);
+      console.error(`Erro ao processar expirações para tenant ${tenant.id}:`, error);
     }
   }
 

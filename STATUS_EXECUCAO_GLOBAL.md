@@ -1,4 +1,11 @@
 
+## 2026-05-04 — Código latente identificado (Hipótese #019)
+
+- Identificada categoria "código latente" durante diagnóstico #019.
+- Primeiro caso classificado: `subscription-expiration.job.ts`.
+- Registry criado em `docs/decisions/CODIGO_LATENTE_REGISTRY.md`.
+- Metodologia: classificar antes de mover, preservar intenção arquitetural.
+
 ## Checkpoint 2026-05-01 — DECISION-0017 fechada (3 ciclos)
 
 - DECISION-0017 registrada no LOG (commit 4f9b9b7e).
