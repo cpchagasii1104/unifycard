@@ -1513,8 +1513,9 @@ Classificar amostra de 5 arquivos, checkpoint, depois gate CI fase 1 (modo log)
 4. Identity acessa transações ou apenas saldo?
 5. BankTransactionPort único ou Write + Read separados?
 
-**Bloqueado por:** decisão de produto + decisão arquitetural sobre ReadPort
-**Próxima ação:** sessão de decisão com Clayton antes de qualquer implementação
+**Status: EXECUTADO — 2026-05-05**
+**Commit: 5a4d5dba**
+**Gate: modules_import caiu de 69 para 68**
 
 **Decisões registradas (2026-05-05):**
 - Dashboard: userId → actorId via actorRepository antes de chamar ReadPort
