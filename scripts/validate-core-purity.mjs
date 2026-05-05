@@ -83,7 +83,7 @@ const RULES = [
     type: 'MODULES_IMPORT',
     description: 'Import de modules/ em arquivo core/ (inversao de dependencia)',
     // Detecta: from '../modules/', from '../../modules/', from '@/modules/', etc.
-    pattern: /from\s+['"][^'"]*modules\//,
+    pattern: /from\s+['"][^'"]*modules\/|import\s*\(\s*['"][^'"]*modules\//,
   },
   {
     type: 'FASTIFY_HTTP',
