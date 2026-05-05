@@ -14,7 +14,8 @@ artifacts/
 # Arquivos compactados / snapshots
 *.zip
 *_snapshot.zip
-⌊吠浥潰慲祲戠捡畫獰⨊戮歡਍
+# Temporary backups
+*.bak
 
 # Session-regenerated full dumps
 SRC_FULL.txt
