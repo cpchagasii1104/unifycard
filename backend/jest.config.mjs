@@ -12,6 +12,8 @@ export default {
     '^@plugins/(.*)$': '<rootDir>/src/plugins/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    '^@contracts/(.*)$': '<rootDir>/src/contracts/$1',
+    '^@commands/(.*)$': '<rootDir>/src/commands/$1',
   },
   roots: ['<rootDir>/tests', '<rootDir>/src'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
@@ -28,6 +30,8 @@ export default {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
+        rootDir: '.',
+        noEmit: true,
       },
     }],
   },
