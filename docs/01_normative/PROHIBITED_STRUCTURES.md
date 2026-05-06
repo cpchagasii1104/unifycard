@@ -8,7 +8,7 @@ Qualquer uso fora do permitido aqui é considerado **violação grave de SSOT**
 e **violação constitucional de autoridade**.
 
 Este documento:
-- complementa o `SSOT_REGISTRY.md`
+- complementa o `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`
 - é subordinado à `AUTHORITY_LAW.md`
 - é **normativo, vinculante e não interpretável**
 
@@ -138,6 +138,56 @@ responsabilidade ou poder de ação:
 
 ## PADRÕES DE CÓDIGO PROIBIDOS
 
+### PADRÃO PROIBIDO: FAIL-OPEN EM GATE DE AUTORIDADE
+
+Um **gate de autoridade** é qualquer ponto de execução que verifica ATL, KYC,
+Guardianship ou `authority_roots`, chama `requireFinancialRiskClearance` ou equivalente,
+e ocorre **antes** de uma operação financeira irreversível.
+
+**Regra:** todo gate de autoridade opera em modo fail-closed. Ausência de actor,
+erro de negócio ou falha de infraestrutura — todos bloqueiam. Nenhum permite continuação.
+
+**Padrão PROIBIDO:**
+
+```typescript
+// ❌ fail-open por filtro de erro
+try {
+  await requireFinancialRiskClearance(...);
+} catch (err) {
+  if (err.statusCode === 403) throw err;
+  console.warn('falhou:', err.message); // operação prossegue
+}
+
+// ❌ bypass silencioso por actor ausente
+if (fromActorId) {
+  await requireFinancialRiskClearance(...);
+}
+// se fromActorId for null: gate não é chamado
+```
+
+**Padrão OBRIGATÓRIO:**
+
+```typescript
+// ✅ fail-closed: sem try/catch, sem bypass por null
+const actorId = await resolveActorId(...);
+if (!actorId) throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
+await requireFinancialRiskClearance(...);
+```
+
+**Tabela de classificação:**
+
+| Posição do catch | Tipo de erro | Ação correta |
+|---|---|---|
+| Antes de operação irreversível | Qualquer | `throw` |
+| Actor não resolvido | null/undefined | `throw` com 400 |
+| Em loop de batch, antes de item | Bloqueio explícito de autoridade | `continue` com `console.error` |
+| Em loop de batch, antes de item | Erro de infraestrutura | `throw` |
+| Depois de operação já commitada | Side-effect | `warn` + continuar |
+
+Referências: `docs/ssot/AUTHORITY_PRECEDENCE.md §2`, `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md`, `docs/ssot/GATE_2_BLOCKERS.md §PRINCÍPIO ABSOLUTO`
+
+
+
 Os seguintes padrões são **explicitamente proibidos**:
 
 - Atualizar saldo fora do `bank_ledger`
@@ -208,3 +258,22 @@ Exceção sem prazo = **violação estrutural**.
 ---
 
 FIM DO PROHIBITED STRUCTURES — SSOT UNIFICARD
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_LAW.md
+- FALSIFICATION_LOG.md
+- LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+
+### Referenciado por
+- 00_AGENT_PROTOCOL.md
+- 00_INDEX.md
+- 00_SUMARIO.md
+- BANK_SEMANTICS.md
+- GATES.md
+- GATE_2_BLOCKERS.md
+- GATE_2_CHECKS.md
+<!-- AUTO-GENERATED-END -->

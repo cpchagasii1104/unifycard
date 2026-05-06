@@ -1,3 +1,70 @@
+---
+⚠️ DEPRECATED — versão anterior do plano de migração temporal
+
+Este conteúdo foi substituído pela versão atual alinhada com:
+- C63 (violação SSOT temporal)
+- DECISION-0014
+- CORE_TEMPORAL_CONTRACT.md
+
+A versão abaixo NÃO deve ser usada como referência operacional.
+---
+
+---
+
+# VERSÃO ATUAL — PLANO DE MIGRAÇÃO TEMPORAL (2026-04-28)
+
+## Objetivo
+
+Definir plano de eliminação de WRITE paths em estruturas legadas (schedules/schedule_slots).
+
+---
+
+## 1. Contexto
+
+- Violação formal C63 identificada (SSOT temporal duplicado)
+- SSOT canônico: unified_availability
+- Estruturas legadas: schedules, schedule_slots
+
+---
+
+## 2. Lista de WRITE paths
+
+### PRODUÇÃO (ativos)
+
+1. `checkout-ticket.service.ts:127` — UPDATE schedule_slots (checkout de eventos)
+2. `EmployeeService.ts:62` — INSERT schedules (contratação de funcionários)
+3. `EmployeeService.ts:128` — UPDATE schedule_slots (demissão de funcionários)
+
+### CÓDIGO MORTO
+
+4. `EventScheduleService.ts:66` — INSERT schedules (unwired)
+5. `EventScheduleService.ts:135` — INSERT schedule_slots (unwired)
+6. `SlotGenerator.ts:95` — INSERT schedule_slots (unwired)
+
+---
+
+## 3. Estratégia de Migração
+
+- Fase 1: bloquear código morto com ScheduleLegacyError
+- Fase 2: migrar 3 fluxos produção para unified_availability
+- Fase 3: validar zero WRITE paths ativos antes de aplicar REVOKE
+- Fase 4: aplicar REVOKE após validação completa
+
+---
+
+## 4. Status
+
+- IN_PROGRESS
+
+---
+
+## 5. Referências
+
+- CORE_TEMPORAL_CONTRACT.md
+- SSOT_REGISTRY_UNIFICARD.md
+- DECISION-0014
+
+---
 Status: SUBORDINATED
 Domain: UNKNOWN
 Governing Contract: CORE_IMUTAVEL.md
@@ -68,5 +135,13 @@ A migração completa das estruturas legadas será planejada em fases futuras, a
 
 **Última atualização:** Gerado como parte do hardening institucional do Core Temporal.
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
 
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

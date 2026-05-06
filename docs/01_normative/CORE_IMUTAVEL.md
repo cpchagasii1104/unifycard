@@ -26,6 +26,10 @@ e não substituíveis** que sustentam todo o sistema.
 Todo o restante do sistema **SE CONECTA** ao CORE.  
 Nada o replica. Nada o substitui. Nada opera em paralelo.
 
+### Remissão — trilho de operação para IAs
+
+Para **ordem de leitura obrigatória**, **validação antes de alteração estrutural** e **proibição de duplicar ou paralelizar o CORE** no trabalho automatizado, ver `docs/01_normative/00_AGENT_PROTOCOL.md` (secções 2.3.1 a 2.3.7). Este documento define **o que** é imutável; o protocolo define **como** agentes devem respeitá-lo sem criar estrutura paralela.
+
 ---
 
 ## ELEMENTOS DO CORE IMUTÁVEL
@@ -237,3 +241,105 @@ Se não houver resposta clara, direta e verificável:
 > **No UnifiCard, o tempo não é interpretado,  
 > não é duplicado e não é negociado.  
 > Ele é centralizado, referenciado e respeitado.**
+
+---
+
+## BLOCO DE CONSISTÊNCIA SEMÂNTICA (CORE)
+
+### SEPARAÇÃO DE CAMADAS
+
+- **CONCEPT**: SSOT semântico do sistema.
+- **CATEGORY (`categories`)**: árvore operacional de navegação (TREE).
+- **N1_NODES (`n1_nodes`)**: navegação global governada.
+- **PROFILE**: read model de consumo (não-SSOT).
+
+### REGRA DE IDENTIDADE SEMÂNTICA
+
+- Identidade semântica não pode ser duplicada fora de CONCEPT.
+- `slug`, `category_id`, nome e labels são artefatos técnicos/de navegação, não identidade.
+- Conexões entre módulos que exigem significado de domínio devem ancorar em CONCEPT.
+
+### USO DE CATEGORIES
+
+- Há uma única árvore operacional em `categories`.
+- Os módulos podem recortar por `scope` e contexto, sem criar árvores paralelas.
+- `categories` não substitui CONCEPT e não define semântica.
+
+### PERFIL PROFISSIONAL — ESTADO ATUAL
+
+- Consome `categories` com `scope = 'professional'`.
+- Skills válidas no estado atual: `level <= 2`.
+- `concept_id` obrigatório para categorias usadas no fluxo.
+- Regime de validação estrita: sem fallback silencioso e sem retorno parcial.
+
+### ANTI-PATTERNS (PROIBIDO)
+
+- Criar nova árvore para perfil.
+- Tratar `n1_nodes` como árvore operacional.
+- Usar `slug` como identidade semântica.
+- Duplicar significado sem passar por CONCEPT.
+- Criar SSOT paralelo.
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- CORE_VS_MODULOS_CONTRACT.md
+- MATRIZ_FONTES_DE_VERDADE.md
+
+### Referenciado por
+- 00_AGENT_PROTOCOL.md
+- 00_INDEX.md
+- 00_SUMARIO.md
+- AGENDA_UNIVERSAL_CONTRACT.md
+- CAPACIDADES_ACTOR_CONTRATO.md
+- CONGELAMENTO_BASE_UNIFICARD.md
+- CONTRACTS.md
+- CONTRATO_FEED_MATCHING_UNIFICARD.md
+- CONTRATO_GRUPOS_V1.md
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md
+- CORE_CATEGORY_CONTRACT.md
+- CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md
+- CORE_FINANCIAL_CONTRACT.md
+- CORE_IDENTITY_AND_ACTORS_CONTRACT.md
+- CORE_IMUTAVEL.md
+- CORE_OBSERVABILITY_CONTRACT.md
+- CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+- CORE_SPLIT_PAGAMENTO_CANONICO.md
+- CORE_TEMPORAL_CONTRACT.md
+- CORE_TEMPORAL_HARDENING_CONTRACT.md
+- CORE_VS_MODULOS_CONTRACT.md
+- DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+- DOCUMENTO_INSTITUCIONAL_CANONICO.md
+- EFFECTS_ACTOR_CONTRATO.md
+- EMPRESA_NASCIMENTO_CANONICO.md
+- Eventos_Canonicos_de_Formacao_UnifiCard.md
+- FASE_6_1_CONTRATO_UX_ECONOMICA.md
+- GAPS_PROCESSADO_CANONICO.md
+- GLOSSARIO_CANONICO.md
+- GOVERNANCA_CANONICA.md
+- GOVERNANCA_CANONICA_v1.md
+- GOVERNANCA_E_VISAO_CANONICA_UNIFICARD.md
+- GOVERNANCA_INICIAL.md
+- GO_LIVE_PRODUCAO_UNIFICARD.md
+- HARDENING_CYCLE_CLOSURE.md
+- IDENTITY_CORE_CONTRACT.md
+- INTENTS_ACTOR_CONTRATO.md
+- LEGADO_TEMPORAL_MIGRATION_PLAN.md
+- LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+- MAPA_CANONICO_PERMISSIONS_v1.md
+- MATRIZ_FONTES_DE_VERDADE.md
+- Marketplace_Atributos_Canonicos.md
+- PF_PRESTADOR_CANONICO.md
+- POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md
+- PROCESSAMENTO_GAPS_CANONICO.md
+- PROCESSO_OFICIAL_EVOLUCAO_UNIFICARD.md
+- READ_MODELS_CONTRATO.md
+- SERVICE_CANONICO.md
+- USER_PROFILE_CONTRACT.md
+- contrato_canonico_de_limites_tecnicos_irreversiveis_unifi_card.md
+- groups-create-contract.md
+- operational_commitment_minimum_contract.md
+<!-- AUTO-GENERATED-END -->
