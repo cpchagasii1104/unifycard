@@ -165,3 +165,15 @@ CI deve falhar se:
 **Violação deste contrato não é bug funcional.**
 **É falha arquitetural estrutural.**
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- IDENTITY_CORE_CONTRACT.md
+<!-- AUTO-GENERATED-END -->

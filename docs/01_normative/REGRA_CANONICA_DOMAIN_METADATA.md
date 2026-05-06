@@ -122,5 +122,13 @@ Este documento estabelece as regras canônicas para uso de `domain` como metadat
 **Data de criação:** 2026-01-22
 **Status:** NORMATIVO • CANÔNICO • VINCULANTE
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
 
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

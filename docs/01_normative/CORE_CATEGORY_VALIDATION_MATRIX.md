@@ -187,3 +187,15 @@ impede exceções individuais ou “hotfix”
 Sem esta matriz, não existe correção legítima.
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_CATEGORY_CONTRACT.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

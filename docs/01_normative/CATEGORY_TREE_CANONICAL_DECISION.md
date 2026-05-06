@@ -11,12 +11,12 @@
 **Estrutura:** `categories` (tabela core)  
 **Localização:** `backend/src/core/categories/`  
 **Migração:** `backend/migrations/043_category_core_canonical.sql`  
-**Documentação:** `docs/category_tree_constitution.md`
+**Documentação:** `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` (SSOT). `docs/99_archive/to_review/category_tree_constitution.md` — arquivado, não primário.
 
 **Justificativa:**
 - Única estrutura com documentação canônica explícita
 - Suporta todos os contextos necessários (professional, interest, learning, health, education, cause, group, company, event, campaign)
-- Estrutura hierárquica completa (parent_id, level, path)
+- Estrutura hierárquica completa (parent_id, level, path) — **`path`** = ancestrais apenas; `path.length === level`; ver CLOSURE §1.1
 - SSOT já definido e documentado
 - Suporta múltiplos scopes sem criar árvores paralelas
 
@@ -175,5 +175,15 @@
 **Módulos com legado:** Marketplace (parcial)  
 **Módulos com domínio especial:** Saúde (temporário)
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CATEGORY_TREE_MAPPING.md
 
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

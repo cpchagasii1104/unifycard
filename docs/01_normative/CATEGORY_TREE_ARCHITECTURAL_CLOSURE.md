@@ -17,8 +17,12 @@
 
 **Estrutura:**
 - Hierarquia: `parent_id` → `categories.category_id`
-- Níveis: `level` (derivado, não fonte)
-- Caminho: `path` (array de strings)
+- Níveis: `level` (derivado, não fonte; raiz em `level = 0`)
+- Caminho: `path` (array de strings). **Persistência canónica:** apenas slugs dos **ancestrais** (da raiz até ao pai), **sem** o slug do próprio nó. **Contrato de leitura (core):** `CategoryModel.normalizePath` em `backend/src/core/categories/categories.model.ts`. Para qualquer nó, após normalização, **`path.length === level`** (com `level` começando em 0 na raiz):
+  - `level 0` → `path = []`
+  - `level 1` → `path = [raiz]`
+  - `level 2` → `path = [raiz, pai]`
+  - (em geral: comprimento = número de ancestrais = `level`). **UI:** caminho “completo” para exibição compõe-se a partir de `path` + nó atual (ex.: `fullPathLabel`). **Persistência ≠ apresentação.**
 - Escopo: `scope` (global, professional, interest, learning, health, education, cause, group, company, event, campaign)
 - Localização: `country_code` (opcional)
 - Status: `status` (active, inactive, pending_review)
@@ -87,7 +91,7 @@
 **INVARIANTE 1:** `slug` é imutável após criação.  
 **INVARIANTE 2:** `parent_id` define hierarquia. Não pode referenciar si mesmo.  
 **INVARIANTE 3:** `level` é derivado de `parent_id`. Não é fonte de verdade.  
-**INVARIANTE 4:** `path` é derivado de `parent_id`. Não é fonte de verdade.  
+**INVARIANTE 4:** `path` é derivado de `parent_id`. Não é fonte de verdade. **Integridade:** qualquer divergência entre `path` e `level` por um lado e a hierarquia implícita por `parent_id` por outro **invalida a árvore** (dados inconsistentes). Semântica persistida alinhada ao core: apenas ancestrais; validação canónica em `CategoryModel.normalizePath`.  
 **INVARIANTE 5:** `slug` é único por `country_code` (ou NULL).  
 **INVARIANTE 6:** Categoria não depende de módulo.  
 **INVARIANTE 7:** Categoria não é criada por contexto. Contexto é filtro, não criador.
@@ -109,7 +113,10 @@
 
 **INVARIANTE 15:** Criação de categoria deve usar `categories` (core) exclusivamente.  
 **INVARIANTE 16:** Atualização de categoria não pode alterar `slug`.  
-**INVARIANTE 17:** Atualização de `parent_id` recalcula `level` e `path` automaticamente.
+**INVARIANTE 17:** Atualização de `parent_id` recalcula `level` e `path` automaticamente.  
+**INVARIANTE 18:** Criação de categorias **N2** profissionais **a partir de `public.concepts`** usa o **Category Write Pipeline**: função `core_invariant.create_category_from_concept`, documentada em `docs/03_execution_log/CATEGORY_WRITE_PIPELINE_IMPLEMENTATION.md`. Novo código não deve contornar esse caminho para esse recorte; com trigger de proteção ativo, escrita direta na tabela sem o pipeline deve falhar. (Fluxos históricos via serviço core convergem para este pipeline.)
+
+**Nota operacional (N1 profissional):** ramos **N1** adicionais sob o N0 `profissoes` (ex.: `beleza-estetica`, migration **0099**) alinham a árvore de navegação à taxonomia editorial; cada ocupação **N2** continua a exigir **concept** em `public.concepts` antes do seed pelo pipeline — a taxonomia MD não substitui o SSOT de concepts.
 
 ---
 
@@ -190,7 +197,7 @@
 
 **IMUTÁVEL 6:** `categories` (core) como SSOT.  
 **IMUTÁVEL 7:** `context` como filtro, não criador.  
-**IMUTÁVEL 8:** `level` e `path` como derivados, não fonte de verdade.  
+**IMUTÁVEL 8:** `level` e `path` como derivados, não fonte de verdade; devem refletir a cadeia de `parent_id`. Divergência entre `path`/`level` e `parent_id` invalida a árvore para consumo canónico.  
 **IMUTÁVEL 9:** Invariante: "Se duas coisas significam a mesma atividade, elas apontam para o mesmo `category_id`".
 
 ### 5.3 Contratos
@@ -300,15 +307,15 @@ CREATE TABLE meu_modulo_items (
 2. Especificar `context` obrigatoriamente.
 3. Retornar apenas categorias `status='active'`.
 4. Retornar apenas categorias leaf (sem filhos).
-5. Retornar `path` completo para exibição.
+5. Para exibição hierárquica, usar `fullPathLabel` e/ou composição a partir de `path` (ancestrais) + nó atual — **não** assumir que `path` na resposta inclui o slug da folha se o contrato de persistência for só ancestrais.
 
 **Formato de Resposta:**
 - `id`: `category_id`
 - `name`: nome da categoria
 - `slug`: slug da categoria
 - `level`: nível hierárquico
-- `path`: array de strings (caminho completo)
-- `fullPathLabel`: string formatada (ex: "Tecnologia > Programação > JavaScript")
+- `path`: estrutura hierárquica canónica (ancestrais; alinhada a `CategoryModel.normalizePath` / coluna persistida)
+- `fullPathLabel`: representação textual para UI (derivada; não é campo persistido como SSOT da hierarquia)
 
 ### 7.3 IA / Sugestões
 
@@ -458,5 +465,19 @@ CREATE TABLE meu_modulo_items (
 **Status:** Normativo — Imutável  
 **Versão:** 1.0
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+- CATEGORY_TREE_CANONICAL_DECISION.md
+- CATEGORY_TREE_MIGRATION_PLAN.md
+- CATEGORY_TREE_SCHEMA.md
 
+### Referenciado por
+- 00_INDEX.md
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+- CATEGORY_TREE_MAPPING.md
+- CATEGORY_TREE_MIGRATION_PLAN.md
+<!-- AUTO-GENERATED-END -->

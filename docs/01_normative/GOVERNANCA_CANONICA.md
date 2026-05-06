@@ -126,3 +126,14 @@ Ele **governa como esses contratos evoluem**.
 
 FIM DO DOCUMENTO  
 **UNIFICARD — GOVERNANÇA CANÔNICA (v1)**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

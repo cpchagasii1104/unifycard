@@ -423,4 +423,13 @@ if (!intentValidation.valid) {
 
 **Status Final**: ✅ **CONTRATO TÉCNICO DE INTENTS IMPLEMENTADO E VALIDADO**
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

@@ -154,4 +154,14 @@ Se o Feed começa a decidir, o UnifiCard falhou.
 
 Qualquer violação invalida a implementação.
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

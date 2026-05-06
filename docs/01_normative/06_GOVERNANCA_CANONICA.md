@@ -173,3 +173,16 @@ Sem isso:
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- 08_AUTORIDADE_CANONICA.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- 99_GLOSSARIO_CANONICO.md
+<!-- AUTO-GENERATED-END -->

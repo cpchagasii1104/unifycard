@@ -166,3 +166,13 @@ Este documento é **referência canônica** para:
 
 Qualquer divergência é **violação constitucional**, não otimização.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

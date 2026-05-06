@@ -44,7 +44,7 @@ Confirmar existência dos seguintes arquivos:
 - `docs/01_normative/AUTHORITY_LAW.md`
 - `docs/01_normative/SSOT_EXCLUSIVE_BANK_RULE.md`
 - `docs/01_normative/SSOT_CONTRACT.md`
-- `docs/01_normative/SSOT_REGISTRY.md`
+- `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`
 - `docs/01_normative/PROHIBITED_STRUCTURES.md`
 - `docs/01_normative/SSOT_PREFLIGHT.md`
 
@@ -115,3 +115,15 @@ ESTADO DE EXECUÇÃO:
 - BLOCO 1: NÃO EXECUTADO
 - BLOCO 2: NÃO EXECUTADO
 - ...
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

@@ -198,3 +198,17 @@ No UnifiCard:
 
 > **Categoria organiza.  
 > Categoria NÃO governa.**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CATEGORY_SCOPES_SEMANTICS.md
+- CORE_CATEGORY_VALIDATION_MATRIX.md
+<!-- AUTO-GENERATED-END -->

@@ -140,4 +140,13 @@ RETURNING group_id, tenant_id, name, slug, description, category_id, visibility,
 
 Essas validações devem ser feitas ANTES do INSERT e os dados armazenados em `metadata`.
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

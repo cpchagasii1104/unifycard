@@ -54,5 +54,14 @@ Reversão do MVP:
 **Autoridade:** NÍVEL 1 (CORE / LEI DO SISTEMA)  
 **Data de criação:** 2026-01-22
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
 
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

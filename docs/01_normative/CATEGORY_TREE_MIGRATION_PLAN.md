@@ -3,7 +3,7 @@
 **Data:** 2024  
 **Status:** Planejamento — NÃO EXECUTAR  
 **Objetivo:** Consolidar estruturas legadas em `categories` (core)  
-**Fonte Normativa:** `CATEGORY_TREE_SCHEMA.md`
+**Fonte Normativa:** `CATEGORY_TREE_SCHEMA.md` (⚠️ legado; ver aviso no próprio ficheiro). **Contrato de `path`:** `CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` §1.1.
 
 ---
 
@@ -62,7 +62,7 @@ CREATE TABLE catalog_categories (
 | `is_active` | `status` | `true` → `'active'`, `false` → `'inactive'` |
 | `metadata` | `metadata` | Direto (adicionar `marketplace_domain`, `category_type`) |
 | - | `level` | Calculado automaticamente |
-| - | `path` | Calculado automaticamente |
+| - | `path` | Calculado a partir de `parent_id`; apenas **ancestrais** (slugs); `path.length === level`. Ver `CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` §1.1 |
 | - | `scope` | `'professional'` (padrão marketplace) |
 | - | `keywords` | Array vazio ou derivado de `name` |
 
@@ -577,3 +577,15 @@ FROM health_taxonomies;
 **Última atualização:** 2024  
 **Status:** Planejamento — NÃO EXECUTAR
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+- CATEGORY_TREE_SCHEMA.md
+
+### Referenciado por
+- 00_INDEX.md
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

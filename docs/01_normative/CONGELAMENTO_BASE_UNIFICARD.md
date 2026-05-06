@@ -86,3 +86,13 @@ Mas não:
 Base congelada.
 Sistema vivo.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

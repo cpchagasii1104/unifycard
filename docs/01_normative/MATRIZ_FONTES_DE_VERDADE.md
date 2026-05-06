@@ -63,3 +63,16 @@ Evitar duplicação estrutural (“dois lugares mandando no mesmo assunto”).
 4) Está autorizado por contrato?
 Se qualquer resposta for “não sei”, bloquear.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- CATEGORY_SCOPES_SEMANTICS.md
+- CORE_IMUTAVEL.md
+- CORE_SPLIT_PAGAMENTO_CANONICO.md
+<!-- AUTO-GENERATED-END -->

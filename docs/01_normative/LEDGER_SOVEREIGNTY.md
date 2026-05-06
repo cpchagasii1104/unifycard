@@ -36,3 +36,15 @@ O único ledger financeiro soberano do sistema UnifiCard é:
 
 Esta regra deriva de evidência direta do schema real do Postgres.
 Nenhum código pode contradizê-la.
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

@@ -187,3 +187,17 @@ Correções devem ocorrer **no modelo**, nunca por contorno técnico.
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- 08_AUTORIDADE_CANONICA.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- 07_NOMENCLATURA_CANONICA.md
+- 99_GLOSSARIO_CANONICO.md
+<!-- AUTO-GENERATED-END -->

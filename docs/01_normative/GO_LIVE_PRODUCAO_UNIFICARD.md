@@ -89,3 +89,14 @@ Produção é responsabilidade.
 Este documento é o último portão
 antes do dinheiro real.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+<!-- AUTO-GENERATED-END -->

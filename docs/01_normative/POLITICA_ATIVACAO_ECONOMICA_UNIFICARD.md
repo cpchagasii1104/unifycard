@@ -113,3 +113,14 @@ Esta política existe para garantir que:
 Sem este documento,
 produção é risco institucional.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md
+<!-- AUTO-GENERATED-END -->

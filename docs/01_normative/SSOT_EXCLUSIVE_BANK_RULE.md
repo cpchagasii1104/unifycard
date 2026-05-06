@@ -132,3 +132,17 @@ Nenhum código, feature, refatoração ou otimização pode se sobrepor a ela.
 
 **SSOT não é convenção.  
 SSOT é lei.**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_AGENT_PROTOCOL.md
+- 00_INDEX.md
+- 00_SUMARIO.md
+- BANK_SEMANTICS.md
+<!-- AUTO-GENERATED-END -->

@@ -201,3 +201,14 @@ Este documento é **canônico e vinculante** para:
 
 Qualquer desvio é **violação constitucional**, mesmo que “funcione”.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- PF_PRESTADOR_CANONICO.md
+<!-- AUTO-GENERATED-END -->

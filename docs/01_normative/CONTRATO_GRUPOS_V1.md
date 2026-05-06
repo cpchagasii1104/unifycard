@@ -618,3 +618,14 @@ function calculateGroupSplit(
 *Este documento é a ÚNICA fonte de verdade para o módulo de Grupos.*
 *Qualquer alteração requer nova versão do contrato.*
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

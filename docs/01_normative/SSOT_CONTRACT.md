@@ -86,3 +86,16 @@ Este documento é citado e exigido por:
 - `PLANO_EXECUCAO_UNIFICARD_FINAL.md`
 
 Violação desta referência invalida qualquer execução.
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_AGENT_PROTOCOL.md
+- 00_INDEX.md
+- BANK_SEMANTICS.md
+<!-- AUTO-GENERATED-END -->

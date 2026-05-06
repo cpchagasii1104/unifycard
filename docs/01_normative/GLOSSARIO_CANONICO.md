@@ -42,3 +42,14 @@ Sugestão: o sistema mostra opções; humano escolhe.
 Automação: sistema decide/age sem clique explícito. Em geral é proibido fora de contrato.
 Ver: DECISION_SAFETY_AND_CONTAINMENT_CONTRACT.md.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- OBSERVABILIDADE_CONSTITUCIONAL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

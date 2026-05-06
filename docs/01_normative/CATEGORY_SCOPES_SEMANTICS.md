@@ -219,3 +219,18 @@ No UnifiCard, categoria é descrição, não decisão.
 Se categoria muda comportamento, há violação institucional.
 
 FIM DO DOCUMENTO CATEGORY_SCOPES_SEMANTICS.md
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_CATEGORY_CONTRACT.md
+- MATRIZ_FONTES_DE_VERDADE.md
+- OBSERVABILIDADE_CONSTITUCIONAL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- HARDENING_CYCLE_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

@@ -186,3 +186,15 @@ No UnifiCard:
 
 Contrato é linguagem comum.
 Linguagem comum não se duplica.
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

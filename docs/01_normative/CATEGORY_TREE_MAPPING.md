@@ -18,10 +18,10 @@
 | `backend/src/core/categories/categories.routes.ts` | API Routes | Core | Em uso | categories.service |
 | `backend/src/core/categories/categories.types.ts` | Tipos | Core | Em uso | @unificard/contracts |
 | `backend/migrations/043_category_core_canonical.sql` | Migração | Core | Em uso | - |
-| `docs/category_tree_constitution.md` | Documentação | Core | Em uso | - |
+| `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` | Documentação | Core | Em uso | SSOT estrutural; `docs/99_archive/to_review/category_tree_constitution.md` apenas histórico |
 
 **Tabela:** `categories`  
-**Estrutura:** Hierárquica (parent_id, level, path)  
+**Estrutura:** Hierárquica (parent_id, level, path). **`path`** = apenas ancestrais; `path.length === level` (raiz `level = 0`). Ver `CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` §1.1.  
 **Contextos suportados:** professional, interest, learning, health, education, cause, group, company, event, campaign
 
 ---
@@ -225,7 +225,8 @@
 
 | Arquivo | Tipo | Status |
 |---------|------|--------|
-| `docs/category_tree_constitution.md` | Documentação | Em uso |
+| `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` | Documentação | SSOT estrutural (em uso) |
+| `docs/99_archive/to_review/category_tree_constitution.md` | Documentação | Arquivado (histórico) |
 | `docs/architecture/diagrams/CATEGORY-TREE-CANONICAL.md` | Diagrama | Em uso |
 | `docs/01_normative/CORE_CATEGORY_VALIDATION_MATRIX.md` | Validação | Em uso |
 | `docs/architecture/integration/CATEGORY-TREE-MODULE-MAP.md` | Integração | Em uso |
@@ -294,10 +295,10 @@
 **Arquivos:**
 - `backend/src/core/categories/categories.*`
 - `backend/migrations/043_category_core_canonical.sql`
-- `docs/category_tree_constitution.md`
+- `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md`
 
 **Características:**
-- ✅ Estrutura hierárquica completa (parent_id, level, path)
+- ✅ Estrutura hierárquica completa (parent_id, level, path) — `path` = ancestrais apenas; contrato em `CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` §1.1
 - ✅ Suporta múltiplos contextos
 - ✅ Suporta múltiplos scopes
 - ✅ Documentação canônica existente
@@ -350,5 +351,14 @@
 **Árvore canônica atual:** `categories` (core)  
 **Árvores paralelas:** `catalog_categories`, `health_taxonomies`
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
 
+### Referenciado por
+- 00_INDEX.md
+- CATEGORY_TREE_CANONICAL_DECISION.md
+<!-- AUTO-GENERATED-END -->

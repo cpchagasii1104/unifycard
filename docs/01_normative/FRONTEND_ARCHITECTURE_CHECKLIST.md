@@ -187,5 +187,13 @@ Um PR é REJEITADO se:
 **Este checklist é obrigatório para todos os componentes React do projeto.**  
 **Violações resultam em rejeição de PR.**
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
 
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

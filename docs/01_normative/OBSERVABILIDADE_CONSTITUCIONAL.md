@@ -26,3 +26,16 @@ Nenhum sinal observado pode:
 
 Observabilidade termina sempre em **exposição neutra**.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_OBSERVABILITY_CONTRACT.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CATEGORY_SCOPES_SEMANTICS.md
+- GLOSSARIO_CANONICO.md
+<!-- AUTO-GENERATED-END -->

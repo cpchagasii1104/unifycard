@@ -371,4 +371,13 @@ export enum ActorCapability {
 
 **Status Final**: ✅ **CONTRATO TÉCNICO DE CAPACIDADES IMPLEMENTADO E VALIDADO**
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

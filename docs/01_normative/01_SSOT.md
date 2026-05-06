@@ -80,6 +80,8 @@ O SSOT governa, no mínimo:
 
 Se um desses conceitos existir no sistema, **deve estar ancorado em um SSOT explícito**.
 
+**Documentação escrita — dinheiro e ledger:** a norma sobre SSOT financeiro, uso de centavos (`*_cents`) e o que é snapshot comercial vs. autoridade contábil está **apenas** em `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md` (bloco **DOCUMENTAÇÃO ÚNICA** no registo) e `docs/01_normative/INVARIANTES_OPERACIONAIS_LEDGER.md`. Outros documentos **remetem** a estes; não duplicam nem reinterpretam.
+
 ---
 
 ## 6. LEITURA VS DECISÃO
@@ -154,3 +156,14 @@ Nesse caso, o sistema deve ser corrigido, **nunca reinterpretado**.
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

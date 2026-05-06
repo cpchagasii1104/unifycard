@@ -92,3 +92,15 @@ SIM.
 Qualquer passo além disso
 é decisão de negócio.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- GO_LIVE_PRODUCAO_UNIFICARD.md
+- POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

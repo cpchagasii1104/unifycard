@@ -50,3 +50,13 @@ Este documento descreve os atributos **já suportados** pelo marketplace via mod
 - PLU é opcional e restrito a WEIGHT quando aplicável.
 - Nenhuma regra automática por validade.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

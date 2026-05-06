@@ -194,3 +194,16 @@ No UnifiCard:
 > **Identidade diz quem é.  
 > Ator diz quem age.  
 > Confundir os dois quebra o sistema.**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- IDENTITY_CORE_CONTRACT.md
+<!-- AUTO-GENERATED-END -->

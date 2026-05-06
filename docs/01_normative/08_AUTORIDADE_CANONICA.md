@@ -318,3 +318,20 @@ Violação consciente é falha estrutural.
 ---
 
 FIM DA NORMA DE AUTORIDADE CANÔNICA
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_LAW.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- 02_ACTORS_SSOT.md
+- 03_IDENTITY_CANONICA.md
+- 06_GOVERNANCA_CANONICA.md
+- AUTHORITY_PRECEDENCE.md
+- AUTHORITY_RECOVERY.md
+<!-- AUTO-GENERATED-END -->

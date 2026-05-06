@@ -134,3 +134,16 @@ O sistema deve ser corrigido **na ontologia**, nunca contornado.
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- 99_GLOSSARIO_CANONICO.md
+<!-- AUTO-GENERATED-END -->

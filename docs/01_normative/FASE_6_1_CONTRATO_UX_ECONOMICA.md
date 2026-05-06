@@ -134,3 +134,13 @@ Este contrato protege:
 UX que mente quebra o sistema.
 UX honesta sustenta o UnifiCard.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

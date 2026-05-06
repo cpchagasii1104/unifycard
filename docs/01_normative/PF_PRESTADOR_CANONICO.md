@@ -171,3 +171,14 @@ Este documento é **canônico e vinculante** para:
 
 Qualquer desvio é **violação constitucional**, não decisão de produto.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- SERVICE_CANONICO.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

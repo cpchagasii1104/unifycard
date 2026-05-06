@@ -194,3 +194,17 @@ No UnifiCard:
 
 > **Observabilidade explica o passado.  
 > Decisão governa o futuro.**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- HANDLER_EXECUTION_AND_RELIABILITY.md
+- OBSERVABILIDADE_CONSTITUCIONAL.md
+<!-- AUTO-GENERATED-END -->

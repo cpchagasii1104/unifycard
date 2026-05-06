@@ -176,3 +176,13 @@ Governing Contract: CORE_IMUTAVEL.md
 
 Este contrato define um sistema que **não consegue** se tornar o que não foi projetado para ser, mesmo sob pressão externa.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

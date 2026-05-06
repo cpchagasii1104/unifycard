@@ -1,3 +1,5 @@
+> ⚠️ **LEGADO — NÃO REFLETE O SCHEMA ATUAL.** Modelo antigo (ex.: `id` BIGINT, sem coluna `path`, campos como `sector`). Estrutura e contratos vigentes: migrações core (ex. `043_category_core_canonical.sql` e posteriores) e **`docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md`** (SSOT, incluindo semântica de `path`).
+
 SCHEMA DEFINITIVO — ÁRVORE CANÔNICA DO SISTEMA
 FONTE ÚNICA DE VERDADE (SSOT)
 
@@ -142,3 +144,16 @@ ELAS APONTAM PARA O MESMO category_id
 ================================================
 ESTE DOCUMENTO É FINAL.
 ================================================
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+- CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md
+- CATEGORY_TREE_MIGRATION_PLAN.md
+<!-- AUTO-GENERATED-END -->

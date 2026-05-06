@@ -144,3 +144,13 @@ Esta fase **termina aqui**.
 
 Economia, punição, reputação ou pagamento **só podem existir em fases futuras**, sobre fatos já registrados.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

@@ -383,4 +383,13 @@ Este documento deve ser revisado:
 
 **Status**: ✅ Documento fundacional aprovado
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

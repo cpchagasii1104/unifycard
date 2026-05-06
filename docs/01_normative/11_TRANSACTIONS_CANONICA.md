@@ -256,3 +256,14 @@ Se não for possível responder assim,
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

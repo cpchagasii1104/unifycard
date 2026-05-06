@@ -233,3 +233,16 @@ Se não for possível responder assim,
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_INDEX.md
+- EVENT_OUTBOX_E_ENTREGA_CANONICO.md
+- HANDLER_EXECUTION_AND_RELIABILITY.md
+<!-- AUTO-GENERATED-END -->

@@ -370,4 +370,17 @@ INBOX [NOVO] - InboxPage
 **Baseado em:** Regras Canônicas de `/treinamento`  
 **Status:** ✅ PROCESSADO E CORRIGIDO CONFORME REGRAS CANÔNICAS
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AGENDA_UNIVERSAL_CONTRACT.md
+- CORE_IMUTAVEL.md
+- CORE_VS_MODULOS_CONTRACT.md
+- IDENTITY_CORE_CONTRACT.md
+- MAPA_CANONICO_PERMISSIONS_v1.md
+
+### Referenciado por
+- 00_INDEX.md
+<!-- AUTO-GENERATED-END -->

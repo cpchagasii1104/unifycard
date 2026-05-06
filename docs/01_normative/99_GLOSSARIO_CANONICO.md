@@ -130,3 +130,18 @@ Se um termo gerar dúvida:
 ---
 
 FIM DO DOCUMENTO
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- 02_ACTORS_SSOT.md
+- 03_IDENTITY_CANONICA.md
+- 04_CATEGORIES_SSOT.md
+- 06_GOVERNANCA_CANONICA.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->
