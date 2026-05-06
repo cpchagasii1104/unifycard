@@ -5,6 +5,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
 import { getClientWithTenant, runQueryWithTenant, pool } from '@core/database/pool';
+import { resolveConceptId } from '@core/economy/concept-resolver';
 import { enqueueReconciliation } from '@core/events/payment-events-queue';
 import { bankAccountRepository } from './bank-account.repository';
 import { bankLedgerRepository } from './bank-ledger.repository';
@@ -203,7 +204,7 @@ class BankTransactionService {
     input: CreateBankTransactionInput,
     existingClient?: PoolClient
   ): Promise<BankTransferResult> {
-    const {
+    let {
       eventId = uuidv4(),
       fromAccountId,
       toAccountId,
@@ -231,10 +232,8 @@ class BankTransactionService {
       throw new Error('Amount must be greater than zero');
     }
 
-    // C2: concept_id obrigatório (runtime guard)
-    if (input.concept_id === undefined) {
-      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
-    }
+    // C66: aceita slug ou UUID (fail-closed em concept-resolver)
+    concept_id = await resolveConceptId(input.concept_id);
 
     try {
       validateAmountCents(amountCents);
@@ -863,7 +862,7 @@ class BankTransactionService {
     transaction: BankTransaction;
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
-    const {
+    let {
       eventId,
       referenceType,
       fromAccountId,
@@ -916,7 +915,7 @@ class BankTransactionService {
     transaction: BankTransaction;
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
-    const {
+    let {
       eventId,
       referenceType,
       fromAccountId,
@@ -936,10 +935,8 @@ class BankTransactionService {
       throw new Error('BANK_REFERENCE_REQUIRED');
     }
 
-    // C2: concept_id obrigatório (runtime guard)
-    if (input.concept_id === undefined) {
-      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
-    }
+    // C66: aceita slug ou UUID (fail-closed em concept-resolver)
+    concept_id = await resolveConceptId(input.concept_id);
 
     const client = await getClientWithTenant(tenantId);
 
@@ -1151,7 +1148,7 @@ class BankTransactionService {
     splits: BankSplit[];
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
-    const {
+    let {
       eventId,
       fromAccountId,
       amountCents,
@@ -1200,7 +1197,7 @@ class BankTransactionService {
     splits: BankSplit[];
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
-    const {
+    let {
       eventId,
       fromAccountId,
       amountCents,
@@ -1214,10 +1211,8 @@ class BankTransactionService {
       authorship,
     } = input;
 
-    // C2: concept_id obrigatório (runtime guard)
-    if (input.concept_id === undefined) {
-      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
-    }
+    // C66: aceita slug ou UUID (fail-closed em concept-resolver)
+    concept_id = await resolveConceptId(input.concept_id);
 
     const client = await getClientWithTenant(tenantId);
 
@@ -1441,7 +1436,7 @@ class BankTransactionService {
     splits: BankSplit[];
     ledgerEntries: Array<{ entryId: string; accountId: string; entryType: 'credit' | 'debit' }>;
   }> {
-    const {
+    let {
       referenceType,
       referenceId,
       fromAccountId,
@@ -1465,10 +1460,8 @@ class BankTransactionService {
       );
     }
 
-    // C2: concept_id obrigatório (runtime guard)
-    if (input.concept_id === undefined) {
-      throw new Error('CONCEPT_ID_REQUIRED: concept_id obrigatório em bank_transactions');
-    }
+    // C66: aceita slug ou UUID (fail-closed em concept-resolver)
+    concept_id = await resolveConceptId(input.concept_id);
 
     const client = await getClientWithTenant(tenantId);
     try {
@@ -1782,7 +1775,6 @@ class BankTransactionService {
 }
 
 export const bankTransactionService = new BankTransactionService();
-
 
 
 
