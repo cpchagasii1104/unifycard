@@ -5,7 +5,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
 import { getClientWithTenant, runQueryWithTenant, pool } from '@core/database/pool';
-import { resolveConceptId } from '@core/economy/concept-resolver';
+import { resolveFinancialConceptId as resolveConceptId } from '@modules/concept-resolution/concept-financial-resolver.service';
 import { enqueueReconciliation } from '@core/events/payment-events-queue';
 import { bankAccountRepository } from './bank-account.repository';
 import { bankLedgerRepository } from './bank-ledger.repository';
