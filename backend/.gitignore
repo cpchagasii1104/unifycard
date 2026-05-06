@@ -9,6 +9,9 @@
 node_modules/
 package-lock.json
 
+# Guard / tooling cache (mtime index)
+.cache/
+
 # Build
 dist/
 build/
@@ -47,9 +50,15 @@ tmp/
 temp/
 *.tmp
 
+# CP-5 identity exports (PII / operação local)
+artifacts/identity-cp5-a2-export*.csv
 
 
 
 
 
 
+
+
+# Temporary backups
+*.bak
