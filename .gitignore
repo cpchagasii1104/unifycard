@@ -22,3 +22,13 @@ SRC_FULL.txt
 MIGRATIONS_FULL.txt
 01_NORMATIVE_FULL.txt
 SSOT_FULL.txt
+
+# Generated/scratch artifacts in docs (sessao 2026-05-05)
+docs/_scratch/
+docs/.metrics/
+docs/CONSOLIDADO_NORMATIVO_COMPLETO.txt
+docs/graph.json
+
+# Execution log technical residue
+docs/03_execution_log/tmp_gate_*.txt
+docs/03_execution_log/tsc_*.txt
