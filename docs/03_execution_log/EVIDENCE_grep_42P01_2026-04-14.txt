@@ -1,0 +1,19 @@
+C:\unificard\backend\src\core\availability\unified-availability.routes.ts:234:if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
+C:\unificard\backend\src\core\availability\unified-availability.routes.ts:507:if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
+C:\unificard\backend\src\core\availability\unified-availability.routes.ts:884:if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
+C:\unificard\backend\src\core\availability\unified-availability.routes.ts:1093:if (error?.code === '42P01' || error?.message?.includes('does not exist') || error?.message?.includes('relation') || error?.message?.includes('schema')) {
+C:\unificard\backend\src\core\compliance\authority-decision-audit.repository.ts:43:if (code === '42P01') {
+C:\unificard\backend\src\core\compliance\authority-decision.service.ts:33:return typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '42P01';
+C:\unificard\backend\src\core\compliance\authority-decision.service.ts:220:// isMissingRelation (42P01): tabela economic_guardianship ausente no schema.
+C:\unificard\backend\src\core\events\event-bus.ts:135:if (code === '42P01') {
+C:\unificard\backend\src\core\events\event-handler-failure.repository.ts:114:if (code === '42P01') {
+C:\unificard\backend\src\core\events\event-handler-failure.repository.ts:126:if (code === '42P01') return;
+C:\unificard\backend\src\core\events\event-handler-failure.repository.ts:181:if (code === '42P01') return [];
+C:\unificard\backend\src\core\events\event-handler-failure.repository.ts:213:if (code === '42P01') return undefined;
+C:\unificard\backend\src\core\events\event-outbox.processor.ts:44:if (code === '42P01') {
+C:\unificard\backend\src\core\events\event.service.ts:932:if (code !== '42P01') throw err;
+C:\unificard\backend\src\core\events\event.service.ts:946:if (code !== '42P01') throw err;
+C:\unificard\backend\src\core\events\event.service.ts:956:if (code !== '42P01') throw err;
+C:\unificard\backend\src\core\events\event.service.ts:976:if (code !== '42P01') throw err;
+C:\unificard\backend\src\core\events\outbox-metrics.service.ts:69:(e as { code?: string }).code === '42P01'
+C:\unificard\backend\src\core\observability\handler-metrics.service.ts:284:if (code === '42P01') {

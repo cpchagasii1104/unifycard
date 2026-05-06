@@ -1,0 +1,12 @@
+132:const validStatuses: EventStatus[] = ['draft', 'published', 'cancelled', 'completed', 'archived'];
+341:if (event.status === 'cancelled' || event.status === 'completed' || event.status === 'archived') {
+839:* Cancela um evento (muda status para cancelled)
+884:if (event.status === 'cancelled') {
+888:assertTransitionAllowed(event.status, 'cancelled');
+894:cancelled_at: now.toISOString(),
+903:SET status = 'cancelled',
+918:SET status = 'cancelled',
+923:cancellation_reason: reason ?? 'event_cancelled',
+924:cancelled_at: now.toISOString(),
+942:[now, JSON.stringify({ auto_exited_reason: 'event_cancelled' }), eventId, tenantId]
+967:[JSON.stringify({ cancelled_reason: 'event_cancelled' }), sched.schedule_id, now]

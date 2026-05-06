@@ -1,0 +1,21 @@
+Comando executado (sessão de auditoria 2026-04-14):
+  cd c:\unificard\backend
+  pnpm exec tsc --noEmit
+
+Exit code: 0
+
+Stdout: (vazio — compilador sem diagnósticos)
+
+Stderr: (vazio)
+
+Nota: saída capturada com PowerShell redirecionamento (*> ficheiro); confirmação adicional: exit code 0 na mesma sessão.
+
+---
+
+Revalidação após alteração observabilidade ROLLBACK em cancelEvent (2026-04-14, mesma sessão):
+  cd c:\unificard\backend
+  pnpm exec tsc --noEmit
+
+Exit code: 0
+Stdout: (vazio)
+Stderr: (vazio)

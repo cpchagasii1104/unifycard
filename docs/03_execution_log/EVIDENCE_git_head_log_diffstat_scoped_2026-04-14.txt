@@ -1,0 +1,1279 @@
+05fee6f35a0e0d052f1df70591509520096b7d5e
+---
+05fee6f3 [REBASE-04] CI Anti-Regressão; protocolo 2.4 arquivos ausentes
+6cc20d7b system-notifications: fix unreadOnly comparison (TS2367)
+710385c7 system-notifications: fix rows typing and totalCents (TS18048/2339/7006/2353)
+f71a7485 events: fix input/output shapes and guards (TS2345, TS2304, TS2322)
+a0cb5c16 events: add tenant guards
+affe0e6e events: fix date string conversions
+2c0b438c events: align cents fields (amountCents/totalCents)
+f3b67d34 events: align audit severity/source literals
+72ded48c groups: align GroupCreationPolicy error code
+e87c330e groups: fix userId scope + status comparison in groups.routes
+---DIFF-STAT-SCOPED---
+warning: in the working copy of 'backend/src/contracts/marketplace/BusinessTemplate.contract.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/contracts/marketplace/CheckoutIntent.contract.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/contracts/marketplace/Order.contract.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/contracts/marketplace/ServiceOrder.contract.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/contracts/marketplace/ServiceRequest.contract.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/contracts/marketplace/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/actor-delegation/actor-delegation.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/actor-registry/actor-registry.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/ai/ai-context.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/ai/ai-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/alerts/alert.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/assistant-context/assistant-context.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/audit/audit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/auth.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/auth.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/webauthn.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/webauthn.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/webauthn.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/auth/webauthn.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/authorization/authorization.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/authorization/business-authorization.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/authorization/permission-keys.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/authorization/require-permission.guard.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/authorization/shadow-authorization.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/availability/unified-availability.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/availability/unified-availability.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/availability/unified-availability.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/availability/unified-availability.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/bank/ports/bank-account.port.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/bank/ports/bank-transaction.port.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/calendar/unified-calendar.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/canonical/canonical-product.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/canonical/canonical-product.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/canonical/canonical-product.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/category-review.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/dynamic-pricing/dynamic-pricing.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/offer-index/offer-index.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/catalog/offer-index/offer-index.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/__tests__/ssot.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/categories.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/categories.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/categories.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/categories.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/categories.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/hobby-rate-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/ssot-admin.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/categories/ssot-observability.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/checkout/checkout.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/city/city-readiness/city-readiness.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/companies.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/companies.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/companies.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-canonical.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-canonical.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-members.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-members.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-members.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/companies/company-validation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/config/config.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/config/config.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/config/config.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/core.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/dashboard/daily-metrics.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/dashboard/dashboard.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/dashboard/dashboard.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/db/migrate.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/db/seed.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/account.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/accounts/account.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/accounts/account.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/distribution/distribution.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/distribution/distribution.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/group-account.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/ledger/ledger.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/region-account.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/split.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/transaction.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/transactions/transaction.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/transactions/transaction.schemas.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/economy/transactions/transaction.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/errors.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/errors/error-codes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/__tests__/event-economy.service.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/__tests__/event.service.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-bus.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-custody.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-economic-phase.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-metrics.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-payment-prepared.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-rate-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event-rsvp.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event.aggregate.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/event.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/idempotency-tracker.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/operational-commitments.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/register-handlers.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/events/specs/event-spec.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/feed/feed-plugin.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/feed/feed.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/identity/identity.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/identity/identity.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/identity/identity.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/insight/insight-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/instrumentation/metrics.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/jobs/subscription-expiration.job.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/kyc/kyc.validators.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/location/location-enrichment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/location/location.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/logging/canonical-logger.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/logging/split-logger.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/matching/matching.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/memory/memory.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/memory/memory.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/memory/memory.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/memory/memory.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/handlers/rides-notify.handlers.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/handlers/work-notify.handlers.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/notify.processor.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/notify.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/notify.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/notify.worker.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/notify/providers/templates.provider.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/opportunity/opportunity.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/orchestrator/adapters/rides.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/orchestrator/adapters/work.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/orchestrator/canonical-orchestrator.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/orchestrator/executors/groups-activity.executors.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/orchestrator/executors/groups.executors.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/institutional-memory.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/institutional-memory.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-checklist.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-events.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-events.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-friction.job.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-human-observation.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-hypotheses.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-invites.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-invites.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/pilot/pilot-notes.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/plan/plan.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/policy-resolution/policy-resolution-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/policy/policy-registry.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/impact-overview.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/pending-responsibilities.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-education-companies.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-education.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-health-facts.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-health.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-health.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-health.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-inference.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-inference.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-learning.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-learning.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-learning.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-physical.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-physical.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-professional.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile-professional.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/profile/profile.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/publication/publication-engine.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/rate-limiting/auth-rate-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/rate-limiting/business-rate-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/rbac/rbac.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/rbac/role.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/read-models/read-model.projector.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/referral/referral-helper.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/referral/referral.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/ai/RiskScoringEngine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/models/Report.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/models/ReportEvent.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/models/RiskFlag.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/reporting.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/reporting.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reporting/reporting.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reputation/penalty.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reputation/reputation.events.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reputation/reputation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reputation/reputation.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reputation/trust.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/residence/residence.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/residence/residence.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reviews/review.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reviews/review.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/reviews/review.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/root-config/root-config.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/root-config/root-config.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/root-config/root-config.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/simulation/event-log.source.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/simulation/event-translator.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/simulation/simulation-engine.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/social/ports/actor-effect.port.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/social/ports/actor-repository.port.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/social/ports/social-repository.port.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/tenants/__tests__/tenant-context-permissions.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/tenants/system-tenant.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/tenants/tenant.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/tenants/tenant.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/bank-balance-consolidation.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/bank-p2p-transfer.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/bank-p2p-transfer.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/donation.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/donation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/regional-fund-governance-rate-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/regional-fund-governance.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/regional-fund-governance.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/test-currency.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/test-currency.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/transparency.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/transparency.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/unifybank/unifybank.module.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/user-group-allocation/user-group-allocation.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/user-group-allocation/user-group-allocation.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/models/city.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/models/state.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/repositories/city.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/repositories/country.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/repositories/state.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/routes/world.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/core/world/world.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/jobs/event-scheduler.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/jobs/post-event-split.job.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/agreements/agreement.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/agreements/agreement.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/agreements/agreement.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/alert.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/alert.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/automation.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/automation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/scheduled-action.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/automation/scheduled-action.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/adapters/bank-account.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/adapters/bank-integration.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/adapters/bank-limit.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/adapters/bank-transaction.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-account.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-account.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-account.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-balance-by-cpf.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-balance-by-region.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-balance-consolidation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-balance-consolidation.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-integration.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-ledger.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-ledger.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-limit.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-limit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-limit.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-policy.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-reconciliation-history.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-split-engine.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-split.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-split.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-transaction.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/bank-transaction.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bank/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/business-audit/business-audit.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/business-audit/business-audit.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bypass-detection/bypass-detection.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/bypass-detection/bypass-detection.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/care/care.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/care/care.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/care/care.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/care/care.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/catalog/catalog.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/catalog/catalog.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/catalog/catalog.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/catalog/offer.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/contextual-messaging/contextual-thread.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/contextual-messaging/contextual-thread.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/crm/crm.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/crm/crm.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/crm/crm.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/cultural/cultural-event.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/cultural/cultural-profile.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/cultural/cultural.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/dashboard/dashboard.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/dispatch/opportunity-dispatch.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/dispatch/opportunity-dispatch.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/dispatch/opportunity-dispatch.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/dispatch/opportunity-dispatch.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/economy/economic-overview.projector.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/escrow/escrow.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/escrow/escrow.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/checkin.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event-checkin.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event-metrics-dashboard.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event-rfq.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event-rfq.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event-ticket.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/event.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events-multi-actor.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events-payment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events-spec.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events-sprint76.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events-state-history.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/events.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/occupancy.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/organizers/organizer-billing.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/organizers/organizer-plans.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/organizers/organizers.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/organizers/organizers.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/organizers/organizers.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/events/ticket-sale.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/evidence/evidence.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/evidence/evidence.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/evidence/evidence.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/groups-closure.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/groups-state-history.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/groups.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/groups.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/groups.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/votes.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/votes.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/groups/votes.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-activity-execution.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-event-instance.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-matching.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-opportunity.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-service-offer.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp-skill.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/human-mvp/human-mvp.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/inbox/social-inbox.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/inbox/social-inbox.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/inbox/social-inbox.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/invoicing/invoice.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/invoicing/invoice.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/invoicing/invoice.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/ledger/ledger.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/ledger/ledger.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/chat-block.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/chat-message.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/chat-report.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/chat-room.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/chat.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/live-chat.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/live-presence.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/live-chat/live-presence.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/loyalty/loyalty-rule.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/loyalty/loyalty-voucher.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/loyalty/loyalty.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/loyalty/loyalty.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/loyalty/loyalty.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/accounts-payable.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/accounts-payable.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/accounts-receivable.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/accounts-receivable.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/business-segment.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/business-segment.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/commission.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/company-profile.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/contact.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/contact.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/decision-simulation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/event-settlement.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/event-settlement.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fiscal-document.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fiscal-document.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fiscal-provider-attempt.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fiscal-provider.interface.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fulfillment.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/fulfillment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/group.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-adjustment.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-adjustment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-lot.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-movement.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-reservation.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-reservation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-reservation.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-sla.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory-sla.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/inventory.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace-categories.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace-categories.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace-public.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace-search.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace-search.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace.logger.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/marketplace.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/order-item.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/order-status-history.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/order.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/order.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/order.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payment-execution.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payment-intent.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payment-intent.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payment-method.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payment-method.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/payout.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/pricing-strategy.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/pricing.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/pricing.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-attribute.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-catalog.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-catalog.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-category.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-price.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product-variant.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/product.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/promotion.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/purchase-order.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/purchase-order.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/purchase-order.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/purchase-order.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/real-margin.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/region-account.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/regional-fee.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/settlement.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/settlement.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer-receipt.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer-receipt.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer-receipt.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/stock-transfer.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/store-onboarding.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/store-onboarding.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/store-onboarding.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/supplier.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/supplier.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/supplier.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/tax-profile.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/tax-profile.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/unifycard-method.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/unifycard-method.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/unifycard.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/marketplace/unifycard.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/my-orders/my-orders.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/my-orders/my-orders.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/consolidation-helper.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-invite.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-invite.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-member.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-member.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-role.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization-unit.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/organization/organization.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/payment-link.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/payment-link.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/payment-link.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/pix-provider.mock.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/pix-webhook.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/pix.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/pix.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payments/pix.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payout/payout.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payout/payout.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/payout/payout.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/pdv/pdv.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/pdv/pdv.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/pdv/pdv.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/policy-engine/policy.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/policy-engine/policy.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/checkin-token.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/checkin.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/checkin.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/presence.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/presence.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/presence.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/promo-benefit.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/presence/promo-benefit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/profile/commitments.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/public-profiles/public-profile.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/public-profiles/public-profile.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reporting/reporting.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reporting/reporting.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reports/financial-report.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reports/inventory-report.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reports/reports.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reports/sales-report.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/reports/sales-report.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/availability/availability.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/availability/availability.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/cities/cities.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/demand/demand.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/distribution/distribution.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/drivers/availability/availability.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/drivers/drivers.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/drivers/drivers.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/drivers/drivers.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/drivers/vehicles/vehicles.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/lifecycle/lifecycle.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/location/location.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/pricing/pricing.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/pricing/pricing.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/promotions/promotions.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/referrals/referrals.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/ride-requests/ride-requests.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/rides/rides.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/safety/safety.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/safety/safety.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/service-types/service-types.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/service-types/service-types.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/services/lifecycle.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/services/pricing.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/vehicle-compliance/vehicle-compliance.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/vehicles/vehicles.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/vehicles/vehicles.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/rides/zones/zones.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/risk-command-center/risk-dashboard.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/risk-command-center/risk-dashboard.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-booking-decision.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-booking-decision.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-booking-decision.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-bundle.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-feed.plugin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-order.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-order.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-execution.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-execution.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-execution.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-request.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-request.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-request.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/service-payment-request.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/services.module.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/services.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/services.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/services/services.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-actions/social-actions.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-actions/social-actions.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-actions/social-actions.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-chat/social-chat.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-chat/social-chat.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-chat/social-chat.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social-chat/social-chat.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/actor-audit.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/actor-effects.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/actor-intents.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/actor.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/adapters/actor-repository.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/adapters/social-repository.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/adapters/social-service.adapter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/event-feed.handlers.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/impact.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/reputation.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-2.0.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-2.0.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-group-insights.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-group.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-group.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-ledger.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-marketplace-ref.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-marketplace-ref.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-targeting.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-votes.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-work-apply.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-work-payment.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-work-payment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-work-schedule.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social-work.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social.model.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/social/social.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/subscriptions/subscription.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/subscriptions/subscription.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/subscriptions/subscription.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/system-notifications/system-notification.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/trust/trust.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/trust/trust.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/trust/trust.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/venue/tab.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/venue/tab.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/venue/venue-menu.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/venue/venue-menu.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/venue/venue.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/votes/votes.repository.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/votes/votes.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/votes/votes.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work-instant/instant.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work-instant/smart-matching.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work-instant/worker-status.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/applications/application.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/applications/application.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/assignments/assignment.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/assignments/assignment.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/jobs/job.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/jobs/job.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/skills/skill.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/skills/skill.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/tests/work.e2e.spec.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/work.events.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/work.types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/workers/worker.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/modules/work/workers/worker.service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/plugins/action-context.plugin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/plugins/error-handler.plugin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/plugins/rbac.plugin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/plugins/request-id.plugin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/create-dev-user.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/fix-groups-without-accounts.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/print-demo-city-nova.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-dev-companies-services.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-dev-complete.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-dev-tenant.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-dev-user.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-health-taxonomies.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-initial-balance.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/seed-tenant-context-permissions.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/validate-core-only.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/scripts/verify-dev-user.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/server-TESTE.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/server.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/services/events/TicketService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/services/events/event-lifecycle.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/services/feed/feed.routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/services/schedule/SlotGenerator.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/utils/isTestOverrideUser.ts', LF will be replaced by CRLF the next time Git touches it
+ backend/src/TESTE_ENTRYPOINT.ts                    |    41 -
+ backend/src/config/testOverrideUsers.ts            |    57 -
+ .../marketplace/BusinessTemplate.contract.ts       |     7 +-
+ .../marketplace/CheckoutIntent.contract.ts         |     4 +
+ .../marketplace/DeliveryOrder.contract.ts          |     5 +
+ .../src/contracts/marketplace/Order.contract.ts    |     2 +
+ .../marketplace/ProductTemplate.contract.ts        |    37 +-
+ .../contracts/marketplace/ServiceOrder.contract.ts |     4 +
+ .../marketplace/ServiceRequest.contract.ts         |     6 +-
+ backend/src/contracts/marketplace/index.ts         |    34 +
+ .../actor-delegation.repository.ts                 |    42 +-
+ .../core/actor-registry/actor-registry.service.ts  |    50 +-
+ backend/src/core/ai/ai-context.ts                  |     2 +-
+ backend/src/core/ai/ai-engine.ts                   |    14 +-
+ backend/src/core/alerts/alert.service.ts           |     5 +-
+ .../assistant-context/assistant-context.service.ts |     6 +-
+ backend/src/core/audit/audit.service.ts            |    99 +-
+ backend/src/core/auth/auth.routes.ts               |     7 +-
+ backend/src/core/auth/auth.service.ts              |    50 +-
+ backend/src/core/auth/webauthn.repository.ts       |    34 +-
+ backend/src/core/auth/webauthn.routes.ts           |    22 +-
+ backend/src/core/auth/webauthn.service.ts          |     7 +
+ backend/src/core/auth/webauthn.types.ts            |     2 +-
+ .../core/authorization/authorization.service.ts    |    10 +-
+ .../business-authorization.service.ts              |     1 +
+ backend/src/core/authorization/permission-keys.ts  |    14 +-
+ .../core/authorization/require-permission.guard.ts |    23 +-
+ .../authorization/shadow-authorization.service.ts  |    24 +-
+ .../unified-availability.repository.ts             |    28 +-
+ .../availability/unified-availability.routes.ts    |   112 +-
+ .../availability/unified-availability.service.ts   |   156 +-
+ .../availability/unified-availability.types.ts     |    13 +-
+ backend/src/core/bank/ports/bank-account.port.ts   |     8 +-
+ .../src/core/bank/ports/bank-transaction.port.ts   |     4 +
+ .../src/core/calendar/unified-calendar.service.ts  |    16 +-
+ .../catalog/canonical/canonical-product.module.ts  |     1 +
+ .../catalog/canonical/canonical-product.routes.ts  |    27 +-
+ .../catalog/canonical/canonical-product.service.ts |   159 +-
+ .../catalog/canonical/canonical-product.types.ts   |    13 +-
+ .../src/core/catalog/catalog-payment.service.ts    |   175 -
+ .../src/core/catalog/category-review.service.ts    |     9 +-
+ .../dynamic-pricing/dynamic-pricing.service.ts     |    21 +-
+ .../catalog/offer-index/offer-index.service.ts     |    98 +-
+ .../core/catalog/offer-index/offer-index.types.ts  |     3 +-
+ .../product-demand/product-demand.service.ts       |     2 +-
+ backend/src/core/categories/__tests__/ssot.test.ts |     2 +-
+ backend/src/core/categories/categories.model.ts    |    33 +-
+ .../src/core/categories/categories.repository.ts   |    93 +-
+ backend/src/core/categories/categories.routes.ts   |    53 +-
+ backend/src/core/categories/categories.service.ts  |    83 +-
+ backend/src/core/categories/categories.types.ts    |    15 +-
+ .../core/categories/hobby-rate-limit.service.ts    |     2 +-
+ backend/src/core/categories/ssot-admin.routes.ts   |     4 +-
+ .../core/categories/ssot-observability.service.ts  |   157 +-
+ .../src/core/checkout/EventOrganizerResolver.ts    |   102 -
+ backend/src/core/checkout/checkout.routes.ts       |    96 +-
+ .../city/city-readiness/city-readiness.service.ts  |     2 +-
+ backend/src/core/companies/companies.routes.ts     |     3 +-
+ backend/src/core/companies/companies.service.ts    |   384 +-
+ backend/src/core/companies/companies.types.ts      |     4 +
+ .../src/core/companies/company-canonical.routes.ts |    14 +-
+ .../core/companies/company-canonical.service.ts    |    58 +-
+ .../core/companies/company-members.repository.ts   |     8 +-
+ .../src/core/companies/company-members.routes.ts   |    45 +-
+ .../src/core/companies/company-members.types.ts    |     4 +-
+ .../core/companies/company-validation.service.ts   |    10 +-
+ backend/src/core/config/config.routes.ts           |     2 +-
+ backend/src/core/config/config.service.ts          |   183 +-
+ backend/src/core/config/config.types.ts            |    13 +-
+ backend/src/core/config/feature-flags.service.ts   |     8 +
+ backend/src/core/config/staging.config.ts          |     5 +
+ backend/src/core/core.service.ts                   |   361 +-
+ .../src/core/dashboard/daily-metrics.service.ts    |     8 +-
+ backend/src/core/dashboard/dashboard.service.ts    |    14 +-
+ backend/src/core/dashboard/dashboard.types.ts      |     6 +-
+ backend/src/core/db.ts                             |    25 +-
+ backend/src/core/db/migrate.ts                     |   127 +-
+ backend/src/core/db/seed.ts                        |    31 +-
+ backend/src/core/economy/account.service.ts        |    59 +-
+ .../src/core/economy/accounts/account.routes.ts    |    26 +-
+ backend/src/core/economy/accounts/account.types.ts |     2 +-
+ .../economy/distribution/distribution.routes.ts    |    10 +-
+ .../economy/distribution/distribution.service.ts   |   160 +-
+ backend/src/core/economy/fund/fund-admin.routes.ts |   104 -
+ .../src/core/economy/fund/fund-dashboard.routes.ts |    57 -
+ .../src/core/economy/fund/fund-weekly-scheduler.ts |   137 -
+ backend/src/core/economy/fund/fund.module.ts       |    10 -
+ backend/src/core/economy/fund/fund.routes.ts       |     3 -
+ backend/src/core/economy/fund/fund.types.ts        |   110 -
+ backend/src/core/economy/group-account.service.ts  |     1 +
+ backend/src/core/economy/ledger/ledger.routes.ts   |   130 +-
+ backend/src/core/economy/region-account.service.ts |     1 +
+ backend/src/core/economy/split.service.ts          |   201 +-
+ backend/src/core/economy/transaction.service.ts    |    65 +-
+ .../economy/transactions/transaction.routes.ts     |    11 +-
+ .../economy/transactions/transaction.schemas.ts    |     2 +
+ .../core/economy/transactions/transaction.types.ts |     4 +-
+ backend/src/core/errors.ts                         |     9 +-
+ backend/src/core/errors/error-codes.ts             |     3 +
+ .../events/__tests__/event-economy.service.test.ts |    97 +-
+ .../core/events/__tests__/event.service.test.ts    |    93 +-
+ backend/src/core/events/event-bus.ts               |   167 +-
+ backend/src/core/events/event-custody.service.ts   |   308 +-
+ .../core/events/event-economic-phase.service.ts    |    48 +-
+ backend/src/core/events/event-metrics.service.ts   |     8 +-
+ .../core/events/event-payment-prepared.service.ts  |   160 +-
+ .../src/core/events/event-rate-limit.service.ts    |     6 +-
+ backend/src/core/events/event-rsvp.service.ts      |    10 +-
+ backend/src/core/events/event.aggregate.ts         |     7 +-
+ backend/src/core/events/event.routes.ts            |   747 +-
+ backend/src/core/events/event.service.ts           |   183 +-
+ backend/src/core/events/idempotency-tracker.ts     |    78 +-
+ .../core/events/operational-commitments.service.ts |    60 +-
+ backend/src/core/events/register-handlers.ts       |    24 +-
+ .../src/core/events/specs/event-spec.service.ts    |    46 +-
+ backend/src/core/feed/feed-plugin.routes.ts        |    32 +-
+ backend/src/core/feed/feed-plugin.service.ts       |    10 +-
+ backend/src/core/feed/feed.routes.ts               |    13 +-
+ backend/src/core/identity/identity.routes.ts       |   102 +-
+ backend/src/core/identity/identity.service.ts      |   296 +-
+ backend/src/core/identity/identity.types.ts        |     6 +-
+ backend/src/core/insight/insight-engine.ts         |    10 +-
+ backend/src/core/instrumentation/metrics.routes.ts |     7 +-
+ .../src/core/jobs/subscription-expiration.job.ts   |     9 +-
+ backend/src/core/kyc/kyc.validators.ts             |     8 +-
+ .../core/location/location-enrichment.service.ts   |     2 +-
+ backend/src/core/location/location.repository.ts   |     2 +-
+ backend/src/core/logging/canonical-logger.ts       |    41 +-
+ backend/src/core/logging/split-logger.service.ts   |    10 +-
+ backend/src/core/matching/matching.routes.ts       |     7 +
+ backend/src/core/memory/memory.model.ts            |    32 +-
+ backend/src/core/memory/memory.repository.ts       |    62 +-
+ backend/src/core/memory/memory.service.ts          |    26 +-
+ backend/src/core/memory/memory.types.ts            |    26 +-
+ .../core/notify/handlers/rides-notify.handlers.ts  |     9 +-
+ .../core/notify/handlers/work-notify.handlers.ts   |     4 +
+ backend/src/core/notify/notify.processor.ts        |     7 +-
+ backend/src/core/notify/notify.service.ts          |    20 +-
+ backend/src/core/notify/notify.types.ts            |    12 +-
+ backend/src/core/notify/notify.worker.ts           |     6 +-
+ .../core/notify/providers/templates.provider.ts    |    14 +-
+ backend/src/core/opportunity/opportunity.routes.ts |     7 +
+ .../core/orchestrator/adapters/rides.adapter.ts    |     4 +-
+ .../src/core/orchestrator/adapters/work.adapter.ts |     4 +-
+ .../orchestrator/canonical-orchestrator.service.ts |     2 +-
+ .../executors/groups-activity.executors.ts         |     7 +-
+ .../orchestrator/executors/groups.executors.ts     |     2 +-
+ .../core/orchestrator/orchestrator.executors.ts    |    19 +-
+ .../core/pilot/institutional-memory.repository.ts  |   127 +-
+ .../src/core/pilot/institutional-memory.routes.ts  |     8 +-
+ .../src/core/pilot/pilot-checklist.repository.ts   |    64 +-
+ backend/src/core/pilot/pilot-events.repository.ts  |    46 +-
+ backend/src/core/pilot/pilot-events.routes.ts      |     6 +-
+ backend/src/core/pilot/pilot-friction.job.ts       |     8 +-
+ .../core/pilot/pilot-human-observation.routes.ts   |    20 +-
+ .../src/core/pilot/pilot-hypotheses.repository.ts  |    28 +-
+ backend/src/core/pilot/pilot-invites.repository.ts |    72 +-
+ backend/src/core/pilot/pilot-invites.routes.ts     |     6 +-
+ backend/src/core/pilot/pilot-notes.repository.ts   |    30 +-
+ backend/src/core/plan/plan.routes.ts               |     2 +-
+ .../policy-resolution/policy-resolution-engine.ts  |     8 +-
+ backend/src/core/policy/policy-registry.ts         |     2 +-
+ backend/src/core/profile/impact-overview.routes.ts |     6 +-
+ .../profile/pending-responsibilities.routes.ts     |    28 +-
+ .../profile/profile-education-companies.service.ts |    64 +-
+ .../src/core/profile/profile-education.service.ts  |    80 +-
+ .../profile/profile-health-facts.repository.ts     |    22 +-
+ .../src/core/profile/profile-health.repository.ts  |    12 +-
+ backend/src/core/profile/profile-health.routes.ts  |    43 +-
+ backend/src/core/profile/profile-health.types.ts   |     4 +-
+ .../src/core/profile/profile-inference.routes.ts   |     7 +
+ .../src/core/profile/profile-inference.service.ts  |   699 +-
+ .../src/core/profile/profile-learning.routes.ts    |    19 +-
+ .../src/core/profile/profile-learning.service.ts   |   104 +-
+ backend/src/core/profile/profile-learning.types.ts |     2 +
+ .../src/core/profile/profile-physical.routes.ts    |    19 +-
+ .../src/core/profile/profile-physical.service.ts   |   187 +-
+ .../core/profile/profile-professional.routes.ts    |    46 +-
+ .../core/profile/profile-professional.service.ts   |   178 +-
+ backend/src/core/profile/profile.service.ts        |    24 +-
+ .../core/publication/publication-engine.service.ts |    14 +-
+ .../core/rate-limiting/auth-rate-limit.service.ts  |    11 +-
+ .../rate-limiting/business-rate-limit.service.ts   |     2 +-
+ backend/src/core/rbac/rbac.service.ts              |    26 +-
+ backend/src/core/rbac/role.service.ts              |    10 +-
+ .../src/core/read-models/read-model.projector.ts   |    11 +-
+ .../src/core/referral/referral-helper.service.ts   |    14 +-
+ backend/src/core/reporting/ai/RiskScoringEngine.ts |   136 +-
+ backend/src/core/reporting/models/Report.ts        |     6 +-
+ backend/src/core/reporting/models/ReportEvent.ts   |     2 +-
+ backend/src/core/reporting/models/RiskFlag.ts      |     4 +-
+ backend/src/core/reporting/reporting.repository.ts |    32 +-
+ backend/src/core/reporting/reporting.routes.ts     |     2 +-
+ backend/src/core/reporting/reporting.service.ts    |     6 +-
+ backend/src/core/reputation/penalty.service.ts     |    38 +-
+ backend/src/core/reputation/reputation.events.ts   |    10 +-
+ backend/src/core/reputation/reputation.service.ts  |    26 +-
+ backend/src/core/reputation/reputation.types.ts    |     4 +-
+ backend/src/core/reputation/trust.service.ts       |    37 +-
+ backend/src/core/residence/residence.service.ts    |    10 +-
+ backend/src/core/residence/residence.types.ts      |     4 +-
+ backend/src/core/reviews/review.routes.ts          |     5 +-
+ backend/src/core/reviews/review.service.ts         |    67 +-
+ backend/src/core/reviews/review.types.ts           |     4 +-
+ backend/src/core/root-config/root-config.model.ts  |     4 +-
+ .../src/core/root-config/root-config.repository.ts |     8 +-
+ backend/src/core/root-config/root-config.types.ts  |     4 +-
+ backend/src/core/simulation/event-log.source.ts    |    16 +-
+ backend/src/core/simulation/event-translator.ts    |     2 +-
+ backend/src/core/simulation/simulation-engine.ts   |     6 +-
+ backend/src/core/social/ports/actor-effect.port.ts |     6 +
+ .../src/core/social/ports/actor-repository.port.ts |    12 +-
+ .../core/social/ports/social-repository.port.ts    |     4 +-
+ .../__tests__/tenant-context-permissions.test.ts   |    34 +-
+ backend/src/core/tenants/system-tenant.ts          |    33 +-
+ backend/src/core/tenants/tenant.service.ts         |   156 +-
+ backend/src/core/tenants/tenant.types.ts           |     7 +
+ .../unifybank/bank-balance-consolidation.routes.ts |    17 +-
+ .../src/core/unifybank/bank-p2p-transfer.routes.ts |     8 +-
+ .../core/unifybank/bank-p2p-transfer.service.ts    |    79 +-
+ backend/src/core/unifybank/donation.routes.ts      |     6 +-
+ backend/src/core/unifybank/donation.service.ts     |    38 +-
+ .../regional-fund-governance-rate-limit.service.ts |     4 +-
+ .../unifybank/regional-fund-governance.routes.ts   |    10 +-
+ .../unifybank/regional-fund-governance.service.ts  |   127 +-
+ backend/src/core/unifybank/test-currency.routes.ts |     2 +-
+ .../src/core/unifybank/test-currency.service.ts    |    39 +-
+ backend/src/core/unifybank/transparency.routes.ts  |    67 +-
+ backend/src/core/unifybank/transparency.service.ts |   122 +-
+ backend/src/core/unifybank/unifybank.module.ts     |    12 +
+ .../user-group-allocation.repository.ts            |    81 +-
+ .../user-group-allocation.routes.ts                |     6 +-
+ backend/src/core/world/models/city.model.ts        |     4 +-
+ backend/src/core/world/models/state.model.ts       |     4 +-
+ .../src/core/world/repositories/city.repository.ts |    12 +-
+ .../core/world/repositories/country.repository.ts  |    45 +-
+ .../core/world/repositories/state.repository.ts    |     8 +-
+ backend/src/core/world/routes/world.routes.ts      |    21 +-
+ backend/src/core/world/world.types.ts              |     8 +-
+ backend/src/jobs/event-scheduler.ts                |     7 +-
+ backend/src/jobs/post-event-split.job.ts           |    12 +-
+ .../src/modules/agreements/agreement.repository.ts |   247 +-
+ backend/src/modules/agreements/agreement.routes.ts |    27 +
+ .../src/modules/agreements/agreement.service.ts    |    14 +-
+ backend/src/modules/automation/alert.repository.ts |    37 +-
+ backend/src/modules/automation/alert.service.ts    |     3 +-
+ .../src/modules/automation/automation.routes.ts    |     2 +-
+ .../src/modules/automation/automation.service.ts   |    50 +-
+ .../automation/scheduled-action.repository.ts      |    48 +-
+ .../modules/automation/scheduled-action.service.ts |     6 +-
+ .../modules/bank/adapters/bank-account.adapter.ts  |     2 +-
+ .../bank/adapters/bank-integration.adapter.ts      |    24 +-
+ .../modules/bank/adapters/bank-limit.adapter.ts    |    15 +-
+ .../bank/adapters/bank-transaction.adapter.ts      |    34 +-
+ .../src/modules/bank/bank-account.repository.ts    |   293 +-
+ backend/src/modules/bank/bank-account.service.ts   |   202 +-
+ backend/src/modules/bank/bank-account.types.ts     |    33 +-
+ .../modules/bank/bank-balance-by-cpf.service.ts    |    14 +-
+ .../modules/bank/bank-balance-by-region.service.ts |   117 +-
+ .../bank/bank-balance-consolidation.service.ts     |   106 +-
+ .../bank/bank-balance-consolidation.types.ts       |    39 +-
+ .../src/modules/bank/bank-integration.service.ts   |   279 +-
+ backend/src/modules/bank/bank-ledger.repository.ts |   339 +-
+ backend/src/modules/bank/bank-ledger.types.ts      |    23 +-
+ backend/src/modules/bank/bank-limit.repository.ts  |    66 +-
+ backend/src/modules/bank/bank-limit.service.ts     |   160 +-
+ backend/src/modules/bank/bank-limit.types.ts       |    28 +-
+ backend/src/modules/bank/bank-policy.service.ts    |     7 +-
+ .../bank/bank-reconciliation-history.repository.ts |    44 +-
+ .../src/modules/bank/bank-split-engine.service.ts  |   154 +-
+ backend/src/modules/bank/bank-split.repository.ts  |   438 +-
+ backend/src/modules/bank/bank-split.types.ts       |    14 +-
+ .../src/modules/bank/bank-transaction.service.ts   |  1335 +-
+ backend/src/modules/bank/bank-transaction.types.ts |    35 +-
+ backend/src/modules/bank/index.ts                  |    26 +-
+ .../business-audit/business-audit.repository.ts    |    28 +-
+ .../modules/business-audit/business-audit.types.ts |     1 +
+ .../bypass-detection/bypass-detection.service.ts   |     2 +-
+ .../bypass-detection/bypass-detection.types.ts     |     4 +-
+ backend/src/modules/care/care.model.ts             |     6 +-
+ backend/src/modules/care/care.repository.ts        |    30 +-
+ backend/src/modules/care/care.service.ts           |    18 +-
+ backend/src/modules/care/care.types.ts             |     6 +-
+ backend/src/modules/catalog/catalog.routes.ts      |    13 +-
+ backend/src/modules/catalog/catalog.service.ts     |   112 +-
+ backend/src/modules/catalog/catalog.types.ts       |    12 +-
+ backend/src/modules/catalog/offer.service.ts       |    36 +-
+ .../contextual-thread.repository.ts                |    56 +-
+ .../contextual-thread.service.ts                   |     8 +-
+ backend/src/modules/crm/crm.repository.ts          |    69 +-
+ backend/src/modules/crm/crm.routes.ts              |    17 +-
+ backend/src/modules/crm/crm.service.ts             |    83 +-
+ .../src/modules/cultural/cultural-event.service.ts |   138 +-
+ .../modules/cultural/cultural-profile.service.ts   |    38 +-
+ backend/src/modules/cultural/cultural.routes.ts    |     8 +-
+ backend/src/modules/dashboard/dashboard.routes.ts  |    20 +-
+ .../dispatch/opportunity-dispatch.repository.ts    |    18 +-
+ .../dispatch/opportunity-dispatch.routes.ts        |    27 +-
+ .../dispatch/opportunity-dispatch.service.ts       |   137 +-
+ .../modules/dispatch/opportunity-dispatch.types.ts |    10 +-
+ .../modules/economy/economic-overview.projector.ts |   315 +-
+ backend/src/modules/escrow/escrow.repository.ts    |   180 +-
+ backend/src/modules/escrow/escrow.routes.ts        |    31 +
+ .../src/modules/events/event-checkin.repository.ts |    47 +-
+ .../events/event-metrics-dashboard.service.ts      |     8 +-
+ backend/src/modules/events/event-rfq.service.ts    |    30 +-
+ .../src/modules/events/event-ticket.repository.ts  |    18 +-
+ backend/src/modules/events/event.repository.ts     |   131 +-
+ backend/src/modules/events/event.service.ts        |   162 -
+ .../modules/events/events-multi-actor.service.ts   |    68 +-
+ .../src/modules/events/events-sprint76.routes.ts   |    68 +-
+ .../modules/events/events-state-history.routes.ts  |     8 +-
+ backend/src/modules/events/events.routes.ts        |     1 -
+ backend/src/modules/events/events.service.ts       |   117 +-
+ backend/src/modules/events/events.types.ts         |    30 +-
+ backend/src/modules/events/occupancy.service.ts    |    18 +-
+ .../events/organizers/organizer-billing.service.ts |    54 +-
+ .../events/organizers/organizer-plans.service.ts   |    10 +-
+ .../modules/events/organizers/organizers.routes.ts |    10 +-
+ .../events/organizers/organizers.service.ts        |    26 +-
+ .../modules/events/organizers/organizers.types.ts  |     6 +-
+ .../src/modules/events/ticket-sale.repository.ts   |    58 +-
+ .../src/modules/evidence/evidence.repository.ts    |   193 +-
+ backend/src/modules/evidence/evidence.routes.ts    |    21 +
+ backend/src/modules/evidence/evidence.types.ts     |     4 +-
+ .../src/modules/groups/groups-closure.routes.ts    |    32 +-
+ .../modules/groups/groups-state-history.routes.ts  |     8 +-
+ backend/src/modules/groups/groups.repository.ts    |   104 +-
+ backend/src/modules/groups/groups.routes.ts        |    15 +-
+ backend/src/modules/groups/groups.service.ts       |   113 +-
+ .../modules/groups/policies/GroupCreationPolicy.ts |    69 +-
+ backend/src/modules/groups/votes.repository.ts     |   101 +-
+ backend/src/modules/groups/votes.service.ts        |   115 +-
+ backend/src/modules/groups/votes.types.ts          |     7 +
+ .../human-mvp-activity-execution.service.ts        |    14 +-
+ .../human-mvp/human-mvp-event-instance.service.ts  |     6 +-
+ .../human-mvp/human-mvp-matching.service.ts        |     4 +-
+ .../human-mvp/human-mvp-opportunity.service.ts     |     6 +-
+ .../human-mvp/human-mvp-service-offer.service.ts   |    13 +-
+ .../modules/human-mvp/human-mvp-skill.service.ts   |    25 +-
+ backend/src/modules/human-mvp/human-mvp.routes.ts  |    45 +-
+ .../src/modules/inbox/social-inbox.repository.ts   |    24 +-
+ backend/src/modules/inbox/social-inbox.routes.ts   |    36 +-
+ backend/src/modules/inbox/social-inbox.types.ts    |     8 +-
+ .../src/modules/invoicing/invoice.repository.ts    |   182 +-
+ backend/src/modules/invoicing/invoice.routes.ts    |    18 +
+ backend/src/modules/invoicing/invoice.service.ts   |    22 +-
+ backend/src/modules/ledger/ledger.routes.ts        |   152 +-
+ backend/src/modules/ledger/ledger.types.ts         |     2 +-
+ .../src/modules/live-chat/chat-block.repository.ts |     8 +-
+ .../modules/live-chat/chat-message.repository.ts   |    16 +-
+ .../modules/live-chat/chat-report.repository.ts    |    10 +-
+ .../src/modules/live-chat/chat-room.repository.ts  |    10 +-
+ backend/src/modules/live-chat/chat.service.ts      |    11 +-
+ backend/src/modules/live-chat/live-chat.routes.ts  |     4 +-
+ .../modules/live-chat/live-presence.repository.ts  |    46 +-
+ .../src/modules/live-chat/live-presence.service.ts |    16 +-
+ .../src/modules/loyalty/loyalty-rule.repository.ts |    20 +-
+ .../modules/loyalty/loyalty-voucher.repository.ts  |    32 +-
+ backend/src/modules/loyalty/loyalty.repository.ts  |    30 +-
+ backend/src/modules/loyalty/loyalty.routes.ts      |    18 +-
+ backend/src/modules/loyalty/loyalty.service.ts     |    25 +-
+ .../modules/marketplace/accounts-payable.routes.ts |    23 +-
+ .../marketplace/accounts-payable.service.ts        |    10 +-
+ .../marketplace/accounts-receivable.routes.ts      |    17 +-
+ .../marketplace/accounts-receivable.service.ts     |    10 +-
+ .../marketplace/business-segment.repository.ts     |    16 +-
+ .../modules/marketplace/business-segment.routes.ts |     8 +-
+ .../modules/marketplace/commission.repository.ts   |     8 +-
+ .../marketplace/company-profile.repository.ts      |    16 +-
+ .../src/modules/marketplace/contact.repository.ts  |    30 +-
+ backend/src/modules/marketplace/contact.routes.ts  |    16 +-
+ .../marketplace/decision-simulation.service.ts     |     6 +-
+ .../marketplace/event-settlement.repository.ts     |    32 +-
+ .../modules/marketplace/event-settlement.routes.ts |    11 +-
+ .../marketplace/fiscal-document.repository.ts      |    40 +-
+ .../modules/marketplace/fiscal-document.service.ts |    39 +-
+ .../fiscal-provider-attempt.repository.ts          |    14 +-
+ .../marketplace/fiscal-provider.interface.ts       |     2 +
+ .../modules/marketplace/fulfillment.repository.ts  |   122 +-
+ .../src/modules/marketplace/fulfillment.service.ts |   195 +-
+ .../src/modules/marketplace/group.repository.ts    |    10 +-
+ backend/src/modules/marketplace/index.ts           |     2 +-
+ .../marketplace/inventory-adjustment.repository.ts |    16 +-
+ .../marketplace/inventory-adjustment.service.ts    |     1 +
+ .../marketplace/inventory-lot.repository.ts        |    12 +-
+ .../marketplace/inventory-movement.repository.ts   |   127 +-
+ .../inventory-reservation.repository.ts            |    68 +-
+ .../marketplace/inventory-reservation.service.ts   |   248 +-
+ .../marketplace/inventory-reservation.types.ts     |    15 +
+ .../modules/marketplace/inventory-sla.service.ts   |    59 +-
+ .../src/modules/marketplace/inventory-sla.types.ts |    18 +-
+ .../src/modules/marketplace/inventory.service.ts   |     6 +
+ backend/src/modules/marketplace/inventory.types.ts |     5 +
+ .../marketplace/marketplace-categories.routes.ts   |    47 +-
+ .../marketplace/marketplace-categories.service.ts  |     8 +-
+ .../marketplace/marketplace-public.routes.ts       |   463 +-
+ .../marketplace/marketplace-search.routes.ts       |    15 +-
+ .../marketplace/marketplace-search.service.ts      |     2 +-
+ .../src/modules/marketplace/marketplace.logger.ts  |     7 +
+ .../src/modules/marketplace/marketplace.routes.ts  |  5627 +-------
+ .../src/modules/marketplace/marketplace.service.ts | 13801 +------------------
+ .../modules/marketplace/order-item.repository.ts   |   103 +-
+ .../marketplace/order-status-history.repository.ts |    44 +-
+ .../src/modules/marketplace/order.repository.ts    |    99 +-
+ backend/src/modules/marketplace/order.service.ts   |   250 +-
+ backend/src/modules/marketplace/order.types.ts     |    18 +
+ .../marketplace/payment-execution.service.ts       |   483 +-
+ .../modules/marketplace/payment-intent.service.ts  |     4 +-
+ .../modules/marketplace/payment-intent.types.ts    |     2 +
+ .../marketplace/payment-method.repository.ts       |    14 +-
+ .../modules/marketplace/payment-method.routes.ts   |    16 +-
+ backend/src/modules/marketplace/payout.service.ts  |     3 +
+ .../marketplace/pricing-strategy.service.ts        |     6 +-
+ backend/src/modules/marketplace/pricing.service.ts |   125 +-
+ backend/src/modules/marketplace/pricing.types.ts   |    37 +-
+ .../marketplace/product-attribute.repository.ts    |    20 +-
+ .../modules/marketplace/product-catalog.service.ts |    68 +-
+ .../modules/marketplace/product-catalog.types.ts   |     8 +-
+ .../marketplace/product-category.repository.ts     |     4 +-
+ .../marketplace/product-price.repository.ts        |    53 +-
+ .../marketplace/product-variant.repository.ts      |    18 +-
+ .../src/modules/marketplace/product.repository.ts  |   204 +-
+ .../modules/marketplace/promotion.repository.ts    |   106 +-
+ .../marketplace/purchase-order.repository.ts       |   232 +-
+ .../modules/marketplace/purchase-order.routes.ts   |    20 +-
+ .../modules/marketplace/purchase-order.service.ts  |    17 +-
+ .../modules/marketplace/purchase-order.types.ts    |    10 +-
+ .../src/modules/marketplace/real-margin.service.ts |    12 +-
+ .../modules/marketplace/region-account.service.ts  |     6 +-
+ .../modules/marketplace/regional-fee.repository.ts |    26 +-
+ .../src/modules/marketplace/settlement.routes.ts   |    16 +-
+ .../src/modules/marketplace/settlement.service.ts  |     6 +-
+ .../stock-transfer-receipt.repository.ts           |    99 +-
+ .../marketplace/stock-transfer-receipt.service.ts  |    40 +-
+ .../marketplace/stock-transfer-receipt.types.ts    |    12 +-
+ .../marketplace/stock-transfer.repository.ts       |   240 +-
+ .../modules/marketplace/stock-transfer.service.ts  |   229 +-
+ .../modules/marketplace/stock-transfer.types.ts    |    13 +-
+ .../modules/marketplace/store-onboarding.routes.ts |   214 +-
+ .../marketplace/store-onboarding.service.ts        |   555 +-
+ .../modules/marketplace/store-onboarding.types.ts  |    24 +-
+ .../subscriptions/subscriptions.service.ts         |   377 -
+ .../src/modules/marketplace/supplier.repository.ts |    14 +-
+ backend/src/modules/marketplace/supplier.routes.ts |    12 +-
+ .../src/modules/marketplace/supplier.service.ts    |     4 +-
+ .../modules/marketplace/tax-profile.repository.ts  |    16 +-
+ .../src/modules/marketplace/tax-profile.routes.ts  |     8 +-
+ .../marketplace/unifycard-method.repository.ts     |    10 +-
+ .../modules/marketplace/unifycard-method.routes.ts |    12 +-
+ .../src/modules/marketplace/unifycard.routes.ts    |    17 +-
+ .../src/modules/marketplace/unifycard.service.ts   |     4 +-
+ backend/src/modules/my-orders/my-orders.routes.ts  |    16 +-
+ backend/src/modules/my-orders/my-orders.service.ts |    91 +-
+ .../modules/organization/consolidation-helper.ts   |    10 +-
+ .../organization/organization-invite.repository.ts |    34 +-
+ .../organization/organization-invite.service.ts    |    18 +-
+ .../organization/organization-member.repository.ts |    28 +-
+ .../organization/organization-member.service.ts    |     4 +-
+ .../organization/organization-role.repository.ts   |    10 +-
+ .../organization/organization-unit.repository.ts   |    34 +-
+ .../src/modules/organization/organization.types.ts |    40 +
+ .../modules/payments/payment-link.repository.ts    |    86 +-
+ .../src/modules/payments/payment-link.routes.ts    |    99 +-
+ .../src/modules/payments/payment-link.service.ts   |    12 +-
+ backend/src/modules/payments/pix-provider.mock.ts  |     8 +-
+ .../src/modules/payments/pix-webhook.repository.ts |    47 +-
+ backend/src/modules/payments/pix.repository.ts     |    69 +-
+ backend/src/modules/payments/pix.routes.ts         |    48 +-
+ backend/src/modules/payments/pix.service.ts        |    10 +-
+ backend/src/modules/payout/payout.repository.ts    |   134 +-
+ backend/src/modules/payout/payout.routes.ts        |    80 +-
+ backend/src/modules/payout/payout.service.ts       |   110 +-
+ backend/src/modules/pdv/pdv.repository.ts          |    42 +-
+ backend/src/modules/pdv/pdv.routes.ts              |    31 +-
+ backend/src/modules/pdv/pdv.service.ts             |    47 +-
+ .../src/modules/policy-engine/policy.repository.ts |   126 +-
+ backend/src/modules/policy-engine/policy.routes.ts |    40 +-
+ .../modules/presence/checkin-token.repository.ts   |    12 +-
+ backend/src/modules/presence/checkin.repository.ts |    16 +-
+ backend/src/modules/presence/checkin.service.ts    |     7 +-
+ .../src/modules/presence/presence.repository.ts    |    68 +-
+ backend/src/modules/presence/presence.routes.ts    |    14 +-
+ backend/src/modules/presence/presence.service.ts   |     7 +-
+ .../modules/presence/promo-benefit.repository.ts   |    20 +-
+ .../src/modules/presence/promo-benefit.service.ts  |     7 +-
+ backend/src/modules/profile/commitments.routes.ts  |    12 +-
+ .../public-profiles/public-profile.repository.ts   |    28 +-
+ .../public-profiles/public-profile.service.ts      |     4 +-
+ backend/src/modules/reporting/reporting.routes.ts  |    24 +
+ backend/src/modules/reporting/reporting.service.ts |   140 +-
+ .../modules/reports/financial-report.service.ts    |    42 +-
+ .../modules/reports/inventory-report.service.ts    |    21 +-
+ backend/src/modules/reports/reports.routes.ts      |    17 +-
+ .../src/modules/reports/sales-report.service.ts    |    28 +-
+ backend/src/modules/reports/sales-report.types.ts  |     1 +
+ .../modules/rides/analytics/analytics.routes.ts    |    20 +-
+ .../rides/availability/availability.routes.ts      |    14 +-
+ .../rides/availability/availability.service.ts     |   189 +-
+ backend/src/modules/rides/cities/cities.service.ts |   115 +-
+ backend/src/modules/rides/demand/demand.routes.ts  |     6 +-
+ backend/src/modules/rides/demand/demand.service.ts |    24 +-
+ .../rides/distribution/distribution.controller.ts  |    19 +
+ .../rides/distribution/distribution.routes.ts      |    17 +
+ .../rides/distribution/distribution.service.ts     |   114 +-
+ .../drivers/availability/availability.service.ts   |    39 +-
+ .../src/modules/rides/drivers/drivers.routes.ts    |    42 +-
+ .../src/modules/rides/drivers/drivers.service.ts   |   157 +-
+ backend/src/modules/rides/drivers/drivers.types.ts |     1 +
+ .../rides/drivers/vehicles/vehicles.service.ts     |    46 +-
+ .../modules/rides/lifecycle/lifecycle.routes.ts    |   324 +-
+ .../src/modules/rides/location/location.service.ts |   113 +-
+ .../src/modules/rides/matching/matching.routes.ts  |     7 +
+ .../src/modules/rides/pricing/pricing.routes.ts    |     6 +-
+ .../src/modules/rides/pricing/pricing.service.ts   |    41 +-
+ .../modules/rides/promotions/promotions.service.ts |    86 +-
+ .../modules/rides/referrals/referrals.service.ts   |    43 +-
+ .../rides/ride-requests/ride-requests.routes.ts    |     8 +
+ .../rides/ride-requests/ride-requests.service.ts   |   281 +-
+ backend/src/modules/rides/rides.types.ts           |     2 +-
+ backend/src/modules/rides/rides/rides.service.ts   |   240 +-
+ backend/src/modules/rides/safety/safety.routes.ts  |   121 +-
+ backend/src/modules/rides/safety/safety.service.ts |   157 +-
+ .../rides/service-types/service-types.routes.ts    |     6 +-
+ .../rides/service-types/service-types.service.ts   |   107 +-
+ .../modules/rides/services/lifecycle.service.ts    |   216 +-
+ .../src/modules/rides/services/pricing.service.ts  |     2 +-
+ backend/src/modules/rides/shared/payment.ts        |    58 -
+ .../vehicle-compliance.routes.ts                   |   174 +-
+ .../src/modules/rides/vehicles/vehicles.routes.ts  |     8 +-
+ .../src/modules/rides/vehicles/vehicles.service.ts |   266 +-
+ backend/src/modules/rides/zones/zones.service.ts   |   142 +-
+ .../risk-command-center/risk-dashboard.routes.ts   |    17 +-
+ .../risk-command-center/risk-dashboard.service.ts  |   114 +-
+ .../service-booking-decision.repository.ts         |    20 +-
+ .../services/service-booking-decision.service.ts   |   115 +-
+ .../services/service-booking-decision.types.ts     |     6 +-
+ .../src/modules/services/service-bundle.service.ts |    55 +-
+ .../src/modules/services/service-feed.plugin.ts    |     3 +-
+ .../modules/services/service-order.repository.ts   |    82 +-
+ .../src/modules/services/service-order.service.ts  |   206 +-
+ .../service-payment-execution.repository.ts        |   149 +-
+ .../services/service-payment-execution.service.ts  |   281 +-
+ .../services/service-payment-execution.types.ts    |     8 +-
+ .../services/service-payment-request.repository.ts |    50 +-
+ .../services/service-payment-request.routes.ts     |     2 +-
+ .../services/service-payment-request.service.ts    |   182 +-
+ .../services/service-payment-request.types.ts      |    10 +-
+ backend/src/modules/services/services.module.ts    |     3 +
+ .../src/modules/services/services.repository.ts    |    32 +-
+ backend/src/modules/services/services.service.ts   |     5 +-
+ backend/src/modules/services/services.types.ts     |     6 +-
+ .../modules/social-actions/social-actions.model.ts |    10 +-
+ .../social-actions/social-actions.repository.ts    |    16 +-
+ .../modules/social-actions/social-actions.types.ts |     4 +-
+ .../src/modules/social-chat/social-chat.model.ts   |     6 +-
+ .../modules/social-chat/social-chat.repository.ts  |    30 +-
+ .../src/modules/social-chat/social-chat.service.ts |     4 +-
+ .../src/modules/social-chat/social-chat.types.ts   |     2 +-
+ backend/src/modules/social/actor-audit.service.ts  |    52 +-
+ .../src/modules/social/actor-effects.service.ts    |    51 +-
+ .../src/modules/social/actor-intents.service.ts    |    15 +-
+ backend/src/modules/social/actor.repository.ts     |    50 +-
+ .../social/adapters/actor-repository.adapter.ts    |    12 +-
+ .../social/adapters/social-repository.adapter.ts   |     4 +-
+ .../social/adapters/social-service.adapter.ts      |    16 +-
+ backend/src/modules/social/event-feed.handlers.ts  |   198 +-
+ backend/src/modules/social/impact.service.ts       |    24 +-
+ backend/src/modules/social/reputation.service.ts   |    32 +-
+ backend/src/modules/social/social-2.0.routes.ts    |   137 +-
+ backend/src/modules/social/social-2.0.service.ts   |   152 +-
+ .../modules/social/social-group-insights.routes.ts |     8 +-
+ .../src/modules/social/social-group.repository.ts  |    44 +-
+ backend/src/modules/social/social-group.service.ts |    20 +-
+ .../src/modules/social/social-ledger.service.ts    |   261 +-
+ .../social/social-marketplace-ref.repository.ts    |    19 +-
+ .../social/social-marketplace-ref.routes.ts        |     2 +-
+ .../src/modules/social/social-targeting.service.ts |     3 +-
+ backend/src/modules/social/social-votes.service.ts |    19 +-
+ .../src/modules/social/social-work-apply.routes.ts |     2 +-
+ .../modules/social/social-work-payment.routes.ts   |    13 +-
+ .../modules/social/social-work-payment.service.ts  |    29 +-
+ .../modules/social/social-work-schedule.service.ts |     9 +-
+ backend/src/modules/social/social-work.routes.ts   |     3 +-
+ backend/src/modules/social/social.model.ts         |     8 +-
+ backend/src/modules/social/social.repository.ts    |    62 +-
+ backend/src/modules/social/social.routes.ts        |     6 +-
+ backend/src/modules/social/social.service.ts       |     6 +-
+ backend/src/modules/social/social.types.ts         |     4 +-
+ .../subscriptions/subscription.repository.ts       |    68 +-
+ .../modules/subscriptions/subscription.routes.ts   |     8 +-
+ .../modules/subscriptions/subscription.service.ts  |    30 +-
+ .../system-notification.repository.ts              |    30 +-
+ backend/src/modules/trust/trust.repository.ts      |   100 +-
+ backend/src/modules/trust/trust.routes.ts          |    18 +
+ backend/src/modules/trust/trust.types.ts           |     2 +-
+ backend/src/modules/venue/tab.repository.ts        |    56 +-
+ backend/src/modules/venue/tab.service.ts           |    25 +-
+ backend/src/modules/venue/venue-menu.repository.ts |    24 +-
+ backend/src/modules/venue/venue-menu.service.ts    |    13 +-
+ backend/src/modules/venue/venue.routes.ts          |    45 +-
+ backend/src/modules/votes/votes.repository.ts      |   225 +-
+ backend/src/modules/votes/votes.routes.ts          |    12 +-
+ backend/src/modules/votes/votes.service.ts         |    13 +-
+ .../src/modules/work-instant/instant.service.ts    |    15 +-
+ .../modules/work-instant/smart-matching.service.ts |     2 +-
+ .../modules/work-instant/worker-status.service.ts  |     4 +
+ .../work/applications/application.routes.ts        |     5 +-
+ .../work/applications/application.service.ts       |    43 +-
+ .../modules/work/assignments/assignment.routes.ts  |     5 +-
+ .../modules/work/assignments/assignment.service.ts |    68 +-
+ backend/src/modules/work/jobs/job.routes.ts        |     5 +-
+ backend/src/modules/work/jobs/job.service.ts       |    49 +-
+ backend/src/modules/work/skills/skill.routes.ts    |     5 +-
+ backend/src/modules/work/skills/skill.service.ts   |    53 +-
+ backend/src/modules/work/tests/work.e2e.spec.ts    |     6 +-
+ backend/src/modules/work/work.events.ts            |    50 +-
+ backend/src/modules/work/work.types.ts             |    21 +-
+ backend/src/modules/work/workers/worker.routes.ts  |     9 +-
+ backend/src/modules/work/workers/worker.service.ts |    69 +-
+ backend/src/plugins/action-context.plugin.ts       |     7 +
+ backend/src/plugins/error-handler.plugin.ts        |   106 +-
+ backend/src/plugins/rbac.plugin.ts                 |     4 +
+ backend/src/plugins/request-id.plugin.ts           |     4 +-
+ backend/src/scripts/create-dev-user.ts             |    35 +-
+ backend/src/scripts/print-demo-city-nova.ts        |    16 +-
+ backend/src/scripts/seed-dev-companies-services.ts |    50 +-
+ backend/src/scripts/seed-dev-complete.ts           |    77 +-
+ backend/src/scripts/seed-dev-tenant.ts             |    40 +-
+ backend/src/scripts/seed-dev-user.ts               |     4 +-
+ backend/src/scripts/seed-health-taxonomies.ts      |     6 +-
+ backend/src/scripts/seed-initial-balance.ts        |    12 +-
+ .../src/scripts/seed-tenant-context-permissions.ts |    16 +-
+ backend/src/scripts/validate-core-only.ts          |     2 +-
+ backend/src/scripts/verify-dev-user.ts             |     2 +-
+ backend/src/server-TESTE.ts                        |    17 +-
+ backend/src/server.ts                              |     7 +-
+ backend/src/services/events/ConsumptionService.ts  |   201 +-
+ backend/src/services/events/EventService.ts        |   153 -
+ backend/src/services/events/TicketService.ts       |   368 +-
+ .../src/services/events/event-lifecycle.routes.ts  |   149 +-
+ .../events/tests/event_checkout_hardening.test.ts  |   631 -
+ backend/src/services/feed/feed.routes.ts           |     2 +-
+ .../services/schedule/CompanyScheduleService.ts    |   164 -
+ backend/src/services/schedule/SlotGenerator.ts     |     6 +-
+ backend/src/utils/devLog.ts                        |    55 +-
+ backend/src/utils/isTestOverrideUser.ts            |     2 +-
+ 647 files changed, 20152 insertions(+), 34792 deletions(-)

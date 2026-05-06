@@ -1,0 +1,41 @@
+ domain | count 
+--------+-------
+(0 linha)
+
+             slug              | canonicals 
+-------------------------------+------------
+ cat-e2e-0619d925-b            |          0
+ cat-e2e-0ceb3b51-9            |          0
+ cat-e2e-10ab5435-b            |          0
+ cat-e2e-3da76c7b-3            |          0
+ cat-e2e-412ae154-b            |          0
+ cat-e2e-61b02351-7            |          0
+ cat-e2e-780e9e6a-3            |          0
+ cat-e2e-8854937c-c            |          0
+ cat-e2e-90979811-7            |          0
+ cat-e2e-a9480127-7            |          0
+ cat-e2e-af9e519c-d            |          0
+ cat-e2e-b925940a-7            |          0
+ cat-e2e-c9379aba-3            |          0
+ cat-e2e-cc457b15-2            |          0
+ cat-e2e-d24020a2-1            |          0
+ cat-e2e-dffa332e-7            |          0
+ cat-e2e-e154a3fe-a            |          0
+ marketplace-alimentacao       |          0
+ marketplace-barbearia         |          0
+ marketplace-cabelo            |          0
+ marketplace-estetica-spa      |          0
+ marketplace-saude-beleza      |          0
+ marketplace-servicos-pessoais |          0
+(23 linhas)
+
+ not_ready_globals 
+-------------------
+                 0
+(1 linha)
+
+ ready_global_canonicals 
+-------------------------
+                      29
+(1 linha)
+

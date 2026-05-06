@@ -1,0 +1,23 @@
+ domain | count 
+--------+-------
+(0 linha)
+
+     domain     | count 
+----------------+-------
+ item-comercial |    52
+(1 linha)
+
+ slug | canonicals 
+------+------------
+(0 linha)
+
+ not_ready_globals 
+-------------------
+                 0
+(1 linha)
+
+ ready_global_canonicals 
+-------------------------
+                      52
+(1 linha)
+
