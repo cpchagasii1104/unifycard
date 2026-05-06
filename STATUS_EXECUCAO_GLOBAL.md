@@ -1289,3 +1289,67 @@ Confirmado durante a sessão: `package.json` raiz declara `workspaces: [backend,
 - DT-configs-b4-modificados-auditoria: aberta, aguardando sessão dedicada
 - Build: VERDE
 - Working tree: `backend/package.json`, `backend/tsconfig.build.json`, `backend/tsconfig.json`, `backend/BOOT.ts`, `backend/jest.config.mjs` permanecem dirty (escopo da DT sucessora)
+
+## 2026-05-06 — DT-configs-b4-modificados-auditoria: RESOLVIDA
+
+**Branch:** `rescue-structural`
+**HEAD pré-sessão:** `26c1ddbb`
+**Modo:** GUARDIÃO read-only de auditoria + 5 commits cirúrgicos atômicos
+
+### Escopo
+
+Auditoria diff-por-arquivo dos 5 configs B4 modificados em `backend/`:
+- `tsconfig.json`
+- `tsconfig.build.json`
+- `jest.config.mjs`
+- `backend/package.json`
+- `BOOT.ts`
+
+### Classificação
+
+Todos os 5 deltas classificados como **legítimos**. Nenhum drift acidental, nenhuma compensação operacional, nenhum candidato a reversão.
+
+| Arquivo | Delta | Classificação |
+|---|---|---|
+| `tsconfig.json` | +1 (alias `@commands/*`) | Legítimo: 89 imports `@commands/`+`@contracts/` em `src/` dependem |
+| `tsconfig.build.json` | +1 (`module: ES2022`) | Legítimo: pacote é `type: module` |
+| `jest.config.mjs` | +4 (mappers + tsx config) | Legítimo: coerente com aliases novos |
+| `backend/package.json` | +78/-2 | Legítimo: ~50 scripts, deps `bullmq` (1 import), `@unificard/contracts` (35 imports), `pino` (1 import), `@jest/globals`, `@types/luxon` |
+| `BOOT.ts` | +263/-586 | Legítimo: refator "PLANO FASE T" — extrai `buildApp()` para `src/app.builder.ts` (existe, 32964 bytes) + adiciona inicialização de 13 workers (todos existem em `src/workers/`) |
+
+### Itens órfãos identificados (não-bloqueantes, mantidos)
+
+- `dependency-cruiser` (devDep) + 5 scripts `arch:*` em `package.json`: config `.dependency-cruiser.cjs` ausente. Tooling planejado/incompleto.
+- `yaml` (devDep): zero imports em backend. Dep órfã de baixo risco.
+
+Decisão: manter no commit (escopo: auditoria, não cleanup). Item futuro para `DT-dead-tooling-cleanup` se desejado.
+
+### Commits aplicados (atomicidade)
+
+| Hash | Arquivo |
+|---|---|
+| `715630c1` | `tsconfig.json` |
+| `952c6b1d` | `tsconfig.build.json` |
+| `2e64adda` | `jest.config.mjs` |
+| `85705e1c` | `backend/package.json` |
+| `b63ff2f9` | `BOOT.ts` |
+
+### Validação pós-commit
+
+- Build: VERDE
+- Aliases literais em `dist/`: 0 (CRITÉRIO MANTIDO)
+- 4 gates: 4/4 PASS
+- CORE_PURITY: `68/319/891` (inalterado)
+
+### Estado pós-sessão
+
+- HEAD: avançado em 5 commits desde `26c1ddbb`
+- Working tree: 5 configs B4 todos commitados (zero dirty no escopo da DT)
+- Hipótese "modificação fantasma": **refutada empiricamente**. Os 5 diffs eram trabalho integrado pendente de commit, não drift sem origem.
+
+### DTs status
+
+- DT-build-alias: FECHADA
+- DT-tsc-alias-broken-install: FECHADA
+- DT-configs-b4-modificados-auditoria: **FECHADA**
+- Próximas: C66 (PLANO_MESTRE), DT-packages-artifacts-tracked, DT-nomenclatura-canonica-v3-revisao
