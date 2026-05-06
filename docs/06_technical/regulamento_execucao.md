@@ -396,6 +396,9 @@ Garantir que:
 ```
 
 ### ✅ Checklist Bloco 3
+
+> **Desambiguação:** no plano **Produto / canónico** (`EXECUTAR/ORIENTACAO_PRODUTO_EXECUTAR.md`), *Bloco 3* é o marco de **estabilização SQL do catálogo** (PASS documentado em `docs/03_execution_log/`). Aqui, *Bloco 3* = **eventos + checkout** deste regulamento — trilho distinto.
+
 - [ ] Modal/página de checkout existe
 - [ ] Mostra preview da distribuição antes de pagar
 - [ ] Pagamento passa pelo Split Engine

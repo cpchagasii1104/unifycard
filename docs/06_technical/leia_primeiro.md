@@ -47,7 +47,7 @@ O Unificard está **completo e funcional** com:
 4. **`docs/QUICK_START.md`** — Quick start
 
 ### Para Desenvolvimento
-1. **`docs/architecture/CONTRACTS.md`** — Arquitetura de contratos
+1. **`docs/01_normative/CONTRACTS.md`** — Arquitetura de contratos
 2. **`CONTRIBUTING.md`** — Guia de contribuição
 3. **`backend/diagnostico.ps1`** — Script de diagnóstico
 

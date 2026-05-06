@@ -148,7 +148,7 @@ Criar pasta: `docs/02_technical/ssot/`
 
 ### Arquivos obrigatórios (6):
 
-#### 1.2.1 `SSOT_REGISTRY.md`
+#### 1.2.1 `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`
 
 **Propósito:** Registrar autoridade única por conceito.
 

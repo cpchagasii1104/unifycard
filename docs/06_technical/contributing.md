@@ -48,7 +48,7 @@ export type CategoryContext = 'professional' | 'interest';
 import { CategoryContext } from '@unificard/contracts';
 ```
 
-Veja [docs/architecture/CONTRACTS.md](./docs/architecture/CONTRACTS.md) para detalhes.
+Veja [docs/01_normative/CONTRACTS.md](../01_normative/CONTRACTS.md) para detalhes.
 
 ---
 
@@ -99,7 +99,7 @@ refactor(frontend): migrate to CheckoutResult from contracts
 
 ---
 
-**Dúvidas?** Veja [docs/architecture/CONTRACTS.md](./docs/architecture/CONTRACTS.md)
+**Dúvidas?** Veja [docs/01_normative/CONTRACTS.md](../01_normative/CONTRACTS.md)
 
 
 
