@@ -32,3 +32,4 @@ docs/graph.json
 # Execution log technical residue
 docs/03_execution_log/tmp_gate_*.txt
 docs/03_execution_log/tsc_*.txt
+docs/AUDITORIA_NORMATIVA_GERAL.txt
