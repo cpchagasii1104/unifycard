@@ -1173,3 +1173,64 @@ A sessão revelou padrão de excesso de cerimônia no auditor (Claude): decisõe
 - DTs sucessoras abertas: `DT-tsc-alias-broken-install` (Alta) e `DT-configs-b4-modificados-auditoria` (já registrada).
 - Backlog append-only autorizado incorporado (D9=α, commit cf84f661).
 - Nenhuma escrita em código nesta sessão (cirurgia 2.A produziu arquivo coincidente com HEAD; nenhum delta commitável).
+
+## 2026-05-06 — Sessão DT-tsc-alias-broken-install: diagnóstico concluído, remediação adiada
+
+**Branch:** `rescue-structural`
+**HEAD pré-sessão:** `896a8f47`
+**Modo:** EXECUTOR pontual read-only + 1 experimento não-destrutivo
+**Escopo final:** diagnóstico apenas; remediação adiada para sessão dedicada
+
+### Causa raiz refinada (vs hipótese inicial)
+
+Hipótese inicial (registrada no fechamento da DT-build-alias): instalação `tsc-alias`/`get-tsconfig` quebrada no store pnpm. **Confirmada e refinada.**
+
+Achados:
+
+1. **As 7 dependências de `tsc-alias` estão marcadas como `.ignored_*`** em `node_modules/.pnpm/tsc-alias@1.8.16/node_modules/`: `chokidar`, `commander`, `get-tsconfig`, `globby`, `mylas`, `normalize-path`, `plimit-lit`. Não é problema de uma dependência ausente; é o pacote inteiro com seu hoisting quebrado.
+
+2. **`pnpm install --frozen-lockfile`** sobre o lockfile dirty atual reportou "Already up to date" — não reconcilia. O estado `.ignored_*` persiste.
+
+3. **`pnpm install --frozen-lockfile`** sobre o lockfile commitado em HEAD (após `git stash` do dirty + `git checkout HEAD --`) **falhou** com `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`: o lockfile commitado não é compatível com a `pnpm.overrides.jest-util: 29.7.0` presente no `package.json`.
+
+4. **Implicação:** o lockfile dirty (4731 deltas) **não é a causa** do estado `.ignored_*`. Ele é a **tentativa anterior** (não-commitada) de reconciliar o `package.json` com a override de `jest-util`. O estado `.ignored_*` é anterior e tem outra causa, ainda não identificada.
+
+### Estado da `pnpm.overrides`
+
+`package.json` (arquivo congelado por regra B4) contém:
+
+```
+"pnpm": {
+  "overrides": {
+    "jest-util": "29.7.0"
+  }
+}
+```
+
+Esta override **não** está refletida no lockfile commitado em HEAD `c0ac7a89`. Não há decisão formal documentada sobre quando/por que foi adicionada. Compatível com o padrão dos outros 5 configs B4: modificação não-rastreada em arquivo congelado.
+
+### Caminhos de remediação avaliados (não executados)
+
+- **R1.α** — Restaurar lockfile dirty e adiar: **escolhido**. Lei §1 já esticada (~14h de sessão acumulada com DT-build-alias).
+- **R1.β** — Remover `pnpm.overrides.jest-util` temporariamente: rejeitado (toca arquivo B4).
+- **R1.γ** — `pnpm install --no-frozen-lockfile`: adiado para sessão dedicada (reescreve lockfile).
+
+### Estado pós-sessão
+
+- HEAD: `896a8f47` (inalterado)
+- `pnpm-lock.yaml`: dirty (deltas restaurados via stash pop, idênticos ao estado pré-sessão)
+- `node_modules/.pnpm/tsc-alias@1.8.16/node_modules/`: 7 dependências `.ignored_*` (estado anômalo persiste)
+- Build: vermelho (estado herdado da DT-build-alias)
+- Cirurgia 2.A em `backend/package.json`: preservada (D7=γ continua adiado)
+
+### DT sucessora
+
+`DT-tsc-alias-broken-install` permanece aberta. Próxima sessão:
+
+1. Investigar por que pnpm marca as 7 dependências como `.ignored_*` mesmo com `tsc-alias` em `devDependencies` legítimo.
+2. Decidir entre `pnpm install --no-frozen-lockfile` (reescrever lockfile) ou abordagem cirúrgica (remover/reinstalar `tsc-alias` apenas).
+3. Considerar `pnpm.overrides.jest-util` no escopo: a override é causa raiz ou efeito colateral?
+
+### Achado adicional para `DT-configs-b4-modificados-auditoria`
+
+`pnpm.overrides` no `package.json` é decisão arquitetural não documentada. Quando essa DT rodar, este item entra na lista.
