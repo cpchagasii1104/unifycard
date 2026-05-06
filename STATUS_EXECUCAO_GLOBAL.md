@@ -1353,3 +1353,76 @@ Decisão: manter no commit (escopo: auditoria, não cleanup). Item futuro para `
 - DT-tsc-alias-broken-install: FECHADA
 - DT-configs-b4-modificados-auditoria: **FECHADA**
 - Próximas: C66 (PLANO_MESTRE), DT-packages-artifacts-tracked, DT-nomenclatura-canonica-v3-revisao
+
+## 2026-05-06 — C66 Sessão 2: concept_id slug→UUID — RESOLVIDA
+
+**Branch:** `rescue-structural`
+**HEAD pré-sessão:** `26c1ddbb` (após DT-tsc-alias-broken-install)
+**HEAD pós-sessão:** `f2c95026`
+**Modo:** GUARDIÃO read-only (mapeamento) → EXECUTOR (7 commits cirúrgicos) → GUARDIÃO (governança)
+**Decisões formais:** DECISION-0018 (Caminho C+B híbrido), DECISION-0019 (Opção B realocação CORE_PURITY)
+
+### Escopo
+
+Sessão 2 do PLANO_MESTRE: garantir que `concept_id` seja UUID em todo o fluxo financeiro, com:
+1. Migration de seed para `'split-payment'` (único slug usado em código mas faltante no `concepts`)
+2. Resolução slug→UUID dentro de `bankTransactionService` (Caminho C, atende 30+ call sites de uma vez)
+3. Helper realocado para `modules/concept-resolution/` (Opção B, preserva CORE_PURITY)
+4. Gate CI `validate:concept-id-uuid-shape` impedindo expansão geográfica/quantitativa de slugs literais (allowlist de 29 slugs / 47 ocorrências congelada)
+
+### Diagnóstico inicial
+
+- 30+ call sites passando slugs literais (`'split-payment'`, `'event-ticket-payment'`, etc.) onde schema exige UUID
+- `bank_transactions.concept_id` tem FK NOT NULL para `concepts(concept_id)` (migration `20260428210000`)
+- 28 dos 29 slugs já seedados (em `20260530507000_seed_concepts_financeiros.sql` + `20260530508000_seed_concepts_commerce.sql`)
+- 1 faltando: `'split-payment'` (usado em `split.service.ts:351`)
+- Wrapper `transaction.service.ts` só intercepta 3 dos 30+ callers — Caminho A do plano original era insuficiente
+
+### Decisão D1 (DECISION-0018): Caminho C+B híbrido
+
+C agora (Bank resolve fail-closed); B na Frente 3 (callers migram individualmente para UUID direto sessão por sessão). Atende todos os 30+ call sites com 1 mudança no `bankTransactionService` (4 funções: linhas 234, 940, 1218, 1469).
+
+### Drift detectado e remediado (DECISION-0019)
+
+Helper inicialmente criado em `core/economy/concept-resolver.ts` (commit `cff078e9`). `validate-core-purity.mjs` detectou `total=1278→1279`, `sql_direct=891→892`. Causa: `pool.query()` direto em `core/`. Decisão tomada: Opção B (mover para `modules/concept-resolution/`), reaproveitando `resolveConceptSlug` existente.
+
+Cache passou a armazenar `{conceptId, domain}` em vez de só `conceptId` (ajuste de Clayton durante revisão), evitando "cache semanticamente cego" se slug duplicar entre domínios futuramente.
+
+### Achado institucional secundário
+
+Durante a sessão, `git status` revelou que `backend/src/modules/concept-resolution/` (5 arquivos pré-existentes) e `PLANO_MESTRE_REMEDIACAO_CORE_MODULES.md` estavam **untracked**, apesar de serem referenciados por código tracked e por outros normativos. Foram trazidos para o índice como parte desta sessão. Padrão a investigar em DT própria (`DT-canonical-docs-untracked`).
+
+### Commits aplicados (cronologia atômica)
+
+| # | Hash | Conteúdo |
+|---|---|---|
+| 1 | `88f04b56` | feat(seed): adiciona concept 'split-payment' em financeiro-payment |
+| 2 | `cff078e9` | feat(economy): helper concept-resolver em `core/` (descartado por drift) |
+| 3 | `59bde5a1` | feat(bank): bankTransactionService resolve concept_id (slug ou UUID, fail-closed) |
+| 4 | `96576c42` | chore(concept-resolution): commita módulo pré-existente untracked + helper financeiro |
+| 5 | `eb7c7157` | refactor(bank): move resolveConceptId para `modules/concept-resolution` (Opção B) |
+| 6 | `ad58268a` | feat(gate): adiciona `validate:concept-id-uuid-shape` (allowlist 29 slugs / 47 ocorrências) |
+| 7 | `c9a54d93` | decisions: DECISION-0018 + DECISION-0019 |
+| 8 | `f2c95026` | docs(plano-mestre): Sessão 2 FECHADA + checkpoint + Frente 3 desbloqueada |
+
+### Validação pós-sessão
+
+- Build: VERDE
+- Aliases literais em `dist/`: 0
+- 5 gates: 5/5 PASS (`actor-writer`, `bank-ledger`, `regression-guards`, `concept-id-uuid-shape`, `architectural-patterns:strict`)
+- CORE_PURITY: `1278/68/319/891` (idêntico ao baseline pré-sessão — drift = 0)
+
+### Estado pós-sessão
+
+- Frente 1 (wrappers) + Frente 3 (callers) **agora desbloqueadas** no PLANO_MESTRE
+- `bank-transaction.service.ts` aceita slug ou UUID em `concept_id` (fail-closed em ambíguo/inexistente)
+- Gate impede novos slugs literais sem atualização explícita de allowlist
+- Próxima sessão recomendada: Sessão 3 — `distribution.service.ts` (4 transferências, primeira migração da Frente 3)
+
+### DTs status
+
+- DT-build-alias: FECHADA (sessões anteriores)
+- DT-tsc-alias-broken-install: FECHADA (sessões anteriores)
+- DT-configs-b4-modificados-auditoria: FECHADA (sessões anteriores)
+- C66 / Sessão 2 PLANO_MESTRE: **FECHADA**
+- Próximas: Sessão 3 (Frente 3), DT-canonical-docs-untracked (sugerida hoje), DT-packages-artifacts-tracked, DT-stashes-revisao

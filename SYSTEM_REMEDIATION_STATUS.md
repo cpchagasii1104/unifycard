@@ -327,3 +327,14 @@ Pendências para fechamento de C2:
 - Patch: processServicePaymentExecutionCanonical - conceito resolvido via SSOT semantico (slug->UUID).
 - DECISION-0015 registrada com trade-offs documentados (fail-fast vs fail-open, amount vs amount_cents).
 - Proximo passo recomendado: gate CI preventivo validate:repository-schema-coherence.
+
+
+### 2026-05-06 — C66 RESOLVIDO via DECISION-0018 + DECISION-0019
+
+- Sessão 2 do PLANO_MESTRE fechada. `concept_id` agora aceita UUID ou slug em `bankTransactionService`, com fail-closed via `resolveFinancialConceptId` em `modules/concept-resolution/`.
+- Migration `20260530515000_seed_concept_split_payment.sql` seedou o único slug faltante (`'split-payment'` em `financeiro-payment`).
+- Drift CORE_PURITY detectado e remediado por realocação de `core/economy/concept-resolver.ts` → `modules/concept-resolution/concept-financial-resolver.service.ts` (DECISION-0019). Baseline `1278/68/319/891` mantido.
+- Gate CI novo: `validate:concept-id-uuid-shape` (allowlist 29 slugs / 47 ocorrências). Impede expansão geográfica e quantitativa de slugs literais. Frente 3 (Sessões 3-7) migrará callers para UUID direto, reduzindo allowlist progressivamente.
+- 8 commits cirúrgicos: `88f04b56`, `cff078e9`, `59bde5a1`, `96576c42`, `eb7c7157`, `ad58268a`, `c9a54d93`, `f2c95026`.
+- Achado lateral: `modules/concept-resolution/` e `PLANO_MESTRE_REMEDIACAO_CORE_MODULES.md` estavam untracked apesar de referenciados por código/normativos. Trazidos para o índice nesta sessão. DT-canonical-docs-untracked sugerida.
+- Próximo passo recomendado: Sessão 3 — migração de `distribution.service.ts` (Frente 3).
