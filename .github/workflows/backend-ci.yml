@@ -1,0 +1,135 @@
+# Backend CI: typecheck + arquitetura + invariantes financeiras (Postgres + RUN_FINANCIAL_*).
+# Job financial-chaos: migrate + seed + test:financial-db-structural:ci + test:financial-integrity:ci
+# com DATABASE_URL e flags — os Jest executam de verdade (não skipped).
+# Bloqueia PR se tsc, dependency-cruiser ou invariantes falharem.
+name: Backend CI
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - 'backend/**'
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  typecheck-and-arch:
+    name: TypeScript + Dependency-Cruiser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regression guards (SQL + migrations + financial/identity INSERT rules)
+        run: pnpm run validate:regression-guards
+
+      - name: Actor-writer boundary (PLANO_ACTOR_WRITER_ENFORCEMENT §4.8.1)
+        run: pnpm run validate:actor-writer-boundaries
+
+      - name: Bank-ledger INSERT boundary (PLANO_BANK_LEDGER_WRITER_ENFORCEMENT Sessão 3)
+        run: pnpm run validate:bank-ledger-boundaries
+
+      - name: TypeScript (no emit)
+        run: pnpm run typecheck
+        # ou: npx tsc --noEmit
+
+      - name: Build + guard artefacto app.builder (ESM emit)
+        run: pnpm run validate:build-and-builder-guard
+
+      - name: Arquitetura Marketplace
+        run: pnpm run arch:marketplace:validate
+
+      - name: Arquitetura Core
+        run: pnpm run arch:core:validate
+
+  financial-chaos:
+    name: Financial Chaos Suite
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: unificard_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: pnpm run migrate
+        # Banco do serviço Postgres começa vazio; migrate aplica todas as migrations do zero.
+        # Se o pipeline falhar aqui, verifique ordem/estado das migrations (forward-only).
+
+      - name: Verify public schema column names (no camelCase)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: pnpm run verify:public-snake-columns
+
+      - name: Seed database (baseline limpo)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: pnpm run seed
+
+      - name: Financial DB structural invariants (fail-fast)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+          RUN_FINANCIAL_DB_STRUCTURAL: '1'
+        run: pnpm run test:financial-db-structural:ci
+
+      - name: Financial integrity invariants (fail-fast)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+          RUN_FINANCIAL_INTEGRITY: '1'
+        run: pnpm run test:financial-integrity:ci
+
+      - name: Financial Chaos Suite
+        run: pnpm run test:financial-chaos -- --runInBand --forceExit
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev

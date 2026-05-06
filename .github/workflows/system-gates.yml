@@ -1,0 +1,107 @@
+# Pipeline único de gates estruturais + verificação de tipos (sem lógica de domínio em CI).
+# Ordem: C.22 (canonical) → guard financeiro → lint SQL → typecheck (FAIL FAST entre steps).
+name: System Gates
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'docs/**'
+      - 'scripts/docs-gate*.mjs'
+      - 'scripts/docs-consistency-check.mjs'
+      - 'scripts/docs-naming-global-check.mjs'
+      - 'scripts/script-row-mapping-check.mjs'
+      - 'scripts/docs-warn-classifier.mjs'
+      - 'package.json'
+      - '.github/workflows/system-gates.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'backend/**'
+      - 'docs/**'
+      - 'scripts/docs-gate*.mjs'
+      - 'scripts/docs-consistency-check.mjs'
+      - 'scripts/docs-naming-global-check.mjs'
+      - 'scripts/script-row-mapping-check.mjs'
+      - 'scripts/docs-warn-classifier.mjs'
+      - 'package.json'
+      - '.github/workflows/system-gates.yml'
+
+jobs:
+  docs-gates:
+    name: Normative Gates (A + 3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: WARN Classification Report
+        run: npm run docs:warn:report
+
+      - name: Docs Naming Global Check
+        run: npm run docs:naming:check
+
+      - name: Docs consistency (naming + registry)
+        run: node scripts/docs-consistency-check.mjs
+
+      - name: Gate A (AUTHORITY_LAW)
+        run: node scripts/docs-gateA-check.mjs
+
+      - name: Gate 3 (SSOT Write Surface)
+        run: node scripts/docs-gate3-check.mjs
+
+  naming-consistency:
+    name: Naming Consistency (Global)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: WARN Classification Report
+        run: npm run docs:warn:report
+
+      - name: Docs Naming Global Check
+        run: npm run docs:naming:check
+
+  gates:
+    name: Structural + regression gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install (monorepo)
+        run: pnpm install --frozen-lockfile
+
+      - name: Canonical Gate (C.22)
+        run: pnpm --filter unificard-backend run check:canonical-gates
+
+      - name: Financial regression guard
+        run: pnpm --filter unificard-backend run guard:financial-regression
+
+      - name: SQL regression lint
+        run: pnpm --filter unificard-backend run lint:sql-regression
+      - name: Actor-writer boundaries (G1)
+        run: pnpm --filter unificard-backend run validate:actor-writer-boundaries
+      - name: Bank-ledger boundaries (G1)
+        run: pnpm --filter unificard-backend run validate:bank-ledger-boundaries
+      - name: Script Row Mapping Guard
+        run: npm run validate:scripts:row-mapping
+
+      - name: TypeScript (no emit)
+        run: pnpm --filter unificard-backend run typecheck

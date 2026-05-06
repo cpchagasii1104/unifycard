@@ -1,0 +1,40 @@
+# ------------------------------------------------------------------
+# Payments Ledger Boundaries Audit — autoridade financeira / ledger
+#
+# Norma: docs/01_normative/07_NOMENCLATURA_CANONICA.md §17.6.1
+# Gate: docs/04_audit/PAYMENTS_LEDGER_BOUNDARIES_AUDIT_GATE.md
+#
+# Modo SOFT: não falha o job; apenas reporta violações em relação à allowlist provisória.
+# Evolução futura: remover PAYMENTS_LEDGER_BOUNDARIES_AUDIT_SOFT ou definir HARD.
+# ------------------------------------------------------------------
+name: Payments Ledger Boundaries Audit
+
+on:
+  pull_request:
+    paths:
+      - 'backend/src/modules/**'
+      - 'backend/scripts/**'
+      - '.github/workflows/payments-ledger-boundaries-audit.yml'
+
+jobs:
+  audit:
+    name: Ledger boundaries (non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Run audit script (SOFT — exit 0)
+        env:
+          PAYMENTS_LEDGER_BOUNDARIES_AUDIT_SOFT: '1'
+        run: |
+          chmod +x backend/scripts/audit-payments-ledger-boundaries.sh
+          backend/scripts/audit-payments-ledger-boundaries.sh
+
+      - name: Gate reference
+        if: always()
+        run: |
+          echo "Gate / allowlist provisória: docs/04_audit/PAYMENTS_LEDGER_BOUNDARIES_AUDIT_GATE.md"

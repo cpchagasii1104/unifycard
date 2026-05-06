@@ -1,0 +1,62 @@
+# ------------------------------------------------------------------
+# Marketplace Order Boundaries Audit — Evolution Strategy
+#
+# Nomenclatura / registo: docs/01_normative/07_NOMENCLATURA_CANONICA.md §17.6
+# Norma / gate: docs/04_audit/MARKETPLACE_ORDER_BOUNDARIES_AUDIT_GATE.md
+#
+# Fase atual:
+# - paths restritos a marketplace/** e pdv/**
+# - script em modo SOFT (não bloqueante)
+#
+# Fase 2 (baseline limpa):
+# - remover MARKETPLACE_BOUNDARIES_AUDIT_SOFT
+# - CI passa a ser bloqueante
+#
+# Fase 3 (cobertura ampliada):
+# - adicionar paths, por exemplo:
+#   - backend/src/modules/**/order.service.ts
+#   - backend/src/modules/**/order.routes.ts
+#
+# Fase 4 (enforcement completo):
+# - opcional: backend/src/modules/**/order* (aumenta muito as execuções)
+# - opcional: diff-aware filtering no script
+#
+# Princípio: aumentar cobertura só quando o ruído estiver controlado.
+# ------------------------------------------------------------------
+name: Marketplace Order Boundaries Audit
+
+on:
+  pull_request:
+    paths:
+      - 'backend/src/modules/marketplace/**'
+      - 'backend/src/modules/pdv/**'
+      - 'backend/scripts/audit-marketplace-order-boundaries.sh'
+      - '.github/workflows/marketplace-order-boundaries-audit.yml'
+
+jobs:
+  audit:
+    name: Ripgrep patterns (non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Run audit script (soft — não falha o PR)
+        env:
+          MARKETPLACE_BOUNDARIES_AUDIT_SOFT: '1'
+        run: |
+          chmod +x backend/scripts/audit-marketplace-order-boundaries.sh
+          backend/scripts/audit-marketplace-order-boundaries.sh
+
+      - name: Lembrete (evolução — ver comentários no topo deste ficheiro)
+        if: always()
+        run: |
+          echo "Baseline ainda suja: job em SOFT. Ver roadmap no YAML e docs/04_audit/MARKETPLACE_ORDER_BOUNDARIES_AUDIT_GATE.md"
+
+      - name: Gate reference
+        if: always()
+        run: |
+          echo "Gate / critérios / checklist: docs/04_audit/MARKETPLACE_ORDER_BOUNDARIES_AUDIT_GATE.md"

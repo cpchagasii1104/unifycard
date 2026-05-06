@@ -1,0 +1,35 @@
+# ⚠️ EXECUÇÃO DE PLANOS DESABILITADA (documentação)
+# Planos são documentos históricos e estratégicos. Não devem ser executados automaticamente.
+# Toda decisão deve seguir: docs/01_normative/SSOT_REGISTRY_UNIFICARD.md · docs/01_normative/CONTRACTS.md · STATUS_EXECUCAO_GLOBAL.md (raiz).
+# Gate opcional: ordem + evidência EXEC-* (STATUS_EXECUCAO.md) + health BD se DATABASE_URL existir.
+# Referência histórica (não como ordem de execução): EXECUTAR/stand_by_UNIFICARD_PLANO_DEFINITIVO_v2.md — EXECUTION ENTRYPOINT / TASK VALIDATION HOOK.
+name: Execution guard
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  execution-guard:
+    name: EXEC registry + health (opcional)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate EXEC task order (STATUS_EXECUCAO.md)
+        run: node scripts/validate-execution-order.mjs
+
+      - name: Validate DONE evidence
+        run: node scripts/validate-done-evidence.mjs
+
+      - name: Global health check (skip sem DATABASE_URL)
+        run: node scripts/run-global-health-check.mjs
+        env:
+          DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+          EXEC_HEALTH_STRICT: ${{ vars.EXEC_HEALTH_STRICT }}
