@@ -1234,3 +1234,58 @@ Esta override **não** está refletida no lockfile commitado em HEAD `c0ac7a89`.
 ### Achado adicional para `DT-configs-b4-modificados-auditoria`
 
 `pnpm.overrides` no `package.json` é decisão arquitetural não documentada. Quando essa DT rodar, este item entra na lista.
+
+## 2026-05-06 — DT-tsc-alias-broken-install: RESOLVIDA
+
+**Branch:** `rescue-structural`
+**HEAD pré-sessão:** `58c2d415`
+**HEAD pós-sessão:** depois deste commit
+
+### Causa raiz confirmada
+
+`.modules.yaml` registrava as 7 dependências de `tsc-alias` como `private` (não-hoisted), e dentro de `node_modules/.pnpm/tsc-alias@1.8.16/node_modules/` estavam todas como `.ignored_*`. Resultado: `tsc-alias` não conseguia resolver `get-tsconfig` em nenhum nível da árvore.
+
+Origem provável: instalação parcial anterior interrompida que deixou o store em estado degradado. `pnpm install --frozen-lockfile` não reconcilia esse estado (reporta "Already up to date").
+
+### Remediação aplicada
+
+`pnpm install --no-frozen-lockfile` na raiz reconciliou o store. Lockfile foi reescrito (+3227/-64) com:
+
+- `tsc-alias@1.8.16/node_modules/get-tsconfig` agora presente (não mais `.ignored_*`)
+- `@mermaid-js/mermaid-cli` 11.12.0 → 11.14.0
+- 70 pacotes baixados, 71 atualizações de resolução
+
+Commit do lockfile: `fffeec79`.
+
+### Validação
+
+- `pnpm --dir backend run build`: sucesso
+- Aliases literais em `dist/`: 109 → **0** (critério S3 atingido)
+- 4 gates: 4/4 PASS
+- CORE_PURITY: `68/319/891` (inalterado)
+
+### Estado da cirurgia 2.A (D7=γ resolvida)
+
+A cirurgia 2.A da DT-build-alias (linha `tsc-alias` em `scripts.build` de `backend/package.json`) permanece. Como agora o `tsc-alias` funciona, a cirurgia é validamente útil. Não é mais necessária reverter.
+
+`backend/package.json` continua dirty nas outras 78+/-2 linhas, que ficam para `DT-configs-b4-modificados-auditoria`.
+
+### Hipótese "compensação consciente" (DT-build-alias)
+
+Confirmada parcialmente: alguém removeu `tsc-alias` da linha de `build` em 30/04 porque ele estava quebrado (estado `.ignored_*` no store). Era compensação operacional, não modificação fantasma. A causa raiz era o store pnpm degradado, não o script.
+
+### Warning não-bloqueante
+
+`pnpm install` reportou: `Ignored build scripts: puppeteer@24.43.0. Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.` Decisão postergada.
+
+### Anomalia adicional do `pnpm-workspace.yaml`
+
+Confirmado durante a sessão: `package.json` raiz declara `workspaces: [backend, frontend, packages/*]` (formato npm) e `pnpm-workspace.yaml` declara o mesmo formato pnpm. Coexistência funciona, mas é fonte de confusão. Item para `DT-configs-b4-modificados-auditoria`.
+
+### Status final
+
+- DT-tsc-alias-broken-install: **FECHADA**
+- DT-build-alias: confirmada como remediada por consequência (build verde)
+- DT-configs-b4-modificados-auditoria: aberta, aguardando sessão dedicada
+- Build: VERDE
+- Working tree: `backend/package.json`, `backend/tsconfig.build.json`, `backend/tsconfig.json`, `backend/BOOT.ts`, `backend/jest.config.mjs` permanecem dirty (escopo da DT sucessora)
