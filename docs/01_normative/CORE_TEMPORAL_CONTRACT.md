@@ -58,15 +58,22 @@ Regra absoluta:
 
 > **Existe UMA e somente UMA fonte canônica de verdade temporal no UnifiCard.**
 
-Essa fonte é definida no contrato subordinado:
+A fonte canônica é:
 
-- `AGENDA_UNIVERSAL_CONTRACT.md`
+- `unified_availability` (estado temporal — SSOT)
+- `unified_bookings` (eventos derivados)
+
+AGENDA_UNIVERSAL_CONTRACT.md NÃO define autoridade de verdade. Atua apenas como contrato de implementação.
 
 Qualquer outro artefato temporal é, por definição:
 - derivado
 - projetado
 - informativo
 - não-decisório
+
+Esta definição está alinhada com:
+- SSOT_REGISTRY_UNIFICARD.md (autoridade por domínio)
+- DECISION-0014 (consolidação do SSOT temporal)
 
 ---
 
@@ -160,3 +167,54 @@ No UnifiCard:
 
 > **Tempo é governado.  
 > Governança não se negocia.**
+
+---
+
+## 10) Enforcement Técnico
+
+O domínio temporal possui enforcement técnico obrigatório:
+
+- Migration REVOKE bloqueará qualquer operação de escrita (INSERT, UPDATE ou DELETE) em:
+  - schedules
+  - schedule_slots
+
+- Qualquer operação de escrita (INSERT, UPDATE ou DELETE) em schedules ou schedule_slots resultará em erro de banco
+
+- Serviços fora do domínio unified_availability não possuem permissão de escrita
+
+Leitura de tabelas legadas não pode ser utilizada para tomada de decisão temporal.
+
+Violação deste contrato não depende de validação lógica:
+→ é bloqueada fisicamente pelo banco
+
+---
+
+## 11) Autoridade de Escrita
+
+Apenas serviços do domínio unified_availability podem:
+
+- criar disponibilidade
+- bloquear tempo
+- resolver conflitos
+- persistir estado temporal
+
+Todos os outros módulos:
+- operam em modo declarativo
+- não possuem permissão de escrita
+
+---
+
+## 12) Classificação de Violação
+
+Violação temporal é classificada como:
+
+- CRITICAL (C63)
+- impacto: inconsistência sistêmica de agenda
+- ação: bloqueio imediato + migração obrigatória
+
+Nenhuma violação temporal pode ser ignorada ou postergada.
+
+### Referências adicionais
+
+- SSOT_REGISTRY_UNIFICARD.md
+- DECISION-0014

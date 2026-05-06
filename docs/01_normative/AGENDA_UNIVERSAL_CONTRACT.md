@@ -153,3 +153,19 @@ No UnifiCard:
 
 > **Tempo é Core.  
 > Core não tem “jeitinho”.**
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- CORE_TEMPORAL_CONTRACT.md
+- CORE_TEMPORAL_HARDENING_CONTRACT.md
+- GAPS_PROCESSADO_CANONICO.md
+- HARDENING_CYCLE_CLOSURE.md
+- PROCESSAMENTO_GAPS_CANONICO.md
+<!-- AUTO-GENERATED-END -->

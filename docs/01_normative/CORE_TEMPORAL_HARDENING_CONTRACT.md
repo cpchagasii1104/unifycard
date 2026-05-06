@@ -251,5 +251,15 @@ Sem isso, a resposta é sempre a mesma:
 
 **BLOQUEADO.**
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AGENDA_UNIVERSAL_CONTRACT.md
+- CORE_IMUTAVEL.md
 
+### Referenciado por
+- 00_INDEX.md
+- HARDENING_CYCLE_CLOSURE.md
+<!-- AUTO-GENERATED-END -->
