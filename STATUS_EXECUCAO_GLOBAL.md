@@ -1059,3 +1059,61 @@ Diagnóstico subsequente (mesma sessão, registrado em bloco separado abaixo) re
 ### Estado do canônico
 
 O bloco de 2026-05-05 permanece intacto (append-only); fica preservado como registro do diagnóstico inicial. Esta retificação é a fonte autoritativa sobre a causalidade real.
+
+## 2026-05-06 — Sessão DT-build-alias: encerrada por reformulação de causa raiz (D6=β)
+
+**Branch:** `rescue-structural`
+**HEAD pré-sessão:** `c0ac7a89`
+**Modo:** GUARDIÃO + EXECUTOR pontual sob autorização explícita
+**Escopo final:** encerramento por invalidação da premissa (D6=β)
+
+### Trajetória da sessão
+
+A sessão foi aberta para tratar DT-build-alias conforme registrada no bloco de 2026-05-05: restaurar `tsc-alias -p tsconfig.build.json` no script `build` do `backend/package.json`, atribuída ao commit `70579227 [REBASE-03]`.
+
+A investigação revelou três achados sequenciais que reformularam a sessão:
+
+1. **Retificação de causalidade** (registrada em bloco separado): a remoção do `tsc-alias` não estava em commit nenhum. Estava no working tree atual, com `LastWriteTime 30/04/2026 23:17:22`.
+
+2. **Cirurgia 2.A (executada, sem commit)**: linha do `build` foi reescrita para o valor de HEAD. Como o resultado coincide exatamente com HEAD, o diff contra HEAD na linha desapareceu — não há delta commitável a partir desta cirurgia.
+
+3. **Validação 2.B falhou em B1 e B2 (bloqueantes)**: `pnpm build` retornou exit code 1; 109 imports literais `@core/`/`@modules/` em `dist/` (esperado: 0).
+
+4. **Diagnóstico D1 isolou a causa raiz**: `tsc-alias@1.8.16` falha em `require('get-tsconfig')` — `MODULE_NOT_FOUND`. O pacote `tsc-alias` está fisicamente presente em `node_modules/.pnpm/tsc-alias@1.8.16/...`, mas a dependência transitiva `get-tsconfig` não está acessível.
+
+### Causa raiz registrada (evidência D1)
+
+A formulação original da DT-build-alias está invalidada. A nova formulação correta:
+
+> Instalação `tsc-alias` no store pnpm está inconsistente — dependência transitiva `get-tsconfig` ausente. Build falha independentemente da presença de `tsc-alias` no script `build`.
+
+A remoção da linha do `build` em 30/04/2026 passa a ser leitura provável (não-provada) de **compensação consciente**: removendo a invocação de `tsc-alias`, o build retorna verde — ao custo de produzir `dist/` com aliases literais não resolvidos.
+
+**Importante (separação correlação ≠ causalidade):** a hipótese de "compensação consciente" é a leitura mais consistente com a evidência disponível, mas não está provada.
+
+### Status do build "verde" pré-2.A
+
+Antes da cirurgia 2.A, `pnpm build` retornava exit 0 porque o script `build` chamava apenas `tsc -p tsconfig.build.json` (sem `tsc-alias`). Esse "verde" era falso positivo operacional: o TypeScript compilava com sucesso, mas o `dist/` resultante continha imports literais `@core/`/`@modules/` que `node` não consegue resolver em runtime.
+
+A cirurgia 2.A reintroduziu o `tsc-alias` no script, expondo a quebra real. O build vermelho atual é sintoma honesto, não regressão. Não há decisão nesta sessão sobre reverter 2.A (D7=γ).
+
+### DTs sucessoras formalmente abertas
+
+1. **DT-tsc-alias-broken-install** (NOVA, prioridade Alta): investigar e remediar a instalação `tsc-alias`/`get-tsconfig` no store pnpm; decidir destino da cirurgia 2.A.
+
+2. **DT-configs-b4-modificados-auditoria** (já registrada): auditoria diff-por-arquivo dos 5 configs B4 em `backend/`. Recomendação: rodar após DT-tsc-alias-broken-install fechar.
+
+### Estado pós-sessão
+
+- HEAD: `ca6cee70` (3 commits documentais nesta sessão: cf84f661, ca6cee70, e este)
+- Working tree: `backend/package.json` modificado (linha `build` agora coincidente com HEAD; outras 78+/-2 linhas dirty pré-existentes preservadas)
+- Working tree: `backend/tsconfig.build.json` e `backend/tsconfig.json` modificados, sem investigação adicional
+- `dist/`: incoerente (mosaico de compilações entre 03/20 e 05/06), com 109 aliases literais residuais
+- Build: vermelho (sintoma da DT sucessora)
+
+### Decisões institucionais
+
+- **D6=β**: encerrar DT-build-alias por reformulação de causa raiz
+- **D7=γ**: não decidir sobre reverter cirurgia 2.A nesta sessão
+- **D8=γ**: não fazer mais diagnóstico nesta sessão; abrir DT sucessora dedicada
+- **D9=α**: backlog operacional autorizado (incorporado em cf84f661)
