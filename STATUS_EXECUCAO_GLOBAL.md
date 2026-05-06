@@ -1,3 +1,119 @@
+## 2026-05-05 — Triagem completa do working tree (rescue-structural)
+
+**Snapshot inicial:** `8e9a4c93 docs(#019.FR)` — working tree com 1549 itens sujos
+**Snapshot final:** `5bdeb746 ci(workflows)` — working tree com 1124 itens (425 limpos)
+**Branch:** `rescue-structural`
+**Modo:** GUARDIÃO + EXECUTOR pontual sob autorização explícita por commit
+**Duração:** ~6 horas, sessão única
+**Cobertura:** ~27% do working tree limpo (425 de 1549 itens)
+**Commits da sessão:** 25 commits (ver tabela abaixo) + operações auxiliares (1 restore + 1 delete físico)
+
+### Commits da sessão
+
+| # | Hash | Conteúdo |
+|---|---|---|
+| 0 | `b29fc6a3` | docs(#019): nota operacional precedente |
+| 1 | `db3eda65` | docs(normative): remove 13 arquivos obsoletos (.bak + timestamped + placeholder vazio) |
+| 2 | `4e697077` | docs(ssot): consolida governanca em docs/01_normative/ + atualiza gates |
+| 3 | `5b410c17` | fix(gitignore): converte UTF-16 LE -> UTF-8 + dumps de sessao |
+| 4 | `4f066536` | fix(gitignore): restaura regra *.bak corrompida na conversao de encoding |
+| 5 | `85dda33f` | chore(gitignore): exclui artefatos gerados em docs/ e residuos de execution_log |
+| 6 | `341aea9d` | docs(audit): consolida auditorias em docs/04_audit/ (11 arquivos) |
+| 7 | `5d3d3096` | docs(archive): preserva 6 documentos historicos em docs/99_archive/ |
+| 8 | `8b663cc5` | docs(refs): corrige referencias canonicas em guias tecnicos e plano-mestre (9) |
+| 9 | `a54a0ee0` | chore(gitignore): exclui docs/AUDITORIA_NORMATIVA_GERAL.txt (dump gerado) |
+| 10 | `f27c368c` | docs(institucional): adiciona documentacao institucional pendente (18) |
+| 11 | `0029d7a0` | feat(gates): adiciona 7 validators + execution-guard utilities (9) |
+| 12 | `c7f2e908` | feat(docs-scripts): adiciona 8 validators de documentacao |
+| 13 | `63cb0b3e` | feat(marketplace-analysis): adiciona 13 scripts de analise estatica |
+| 14 | `46567e37` | feat(scripts): adiciona 3 utilitarios de analise |
+| 15 | `644da100` | feat(contracts): adiciona vocabulario canonico compartilhado (2) |
+| — | (restore) | backend/.cursor/rules/00_NORMATIVE_MANDATORY.md restaurado de HEAD |
+| 16 | `b41de8d1` | docs(backend): atualiza README operacional do backend |
+| 17 | `6e42407e` | chore(backend-gitignore): adiciona regras locais de ignore |
+| — | (delete) | backend/tmp-fase3-actionctx.json removido fisicamente (lixo de teste) |
+| 18 | `31b5e63d` | docs(logs): consolida logs de execucao acumulados (154) |
+| 19 | `116fa226` | docs(normative): consolida governanca semantica e temporal (5) |
+| 20 | `bda6e19f` | docs(normative): consolida governanca temporal (3) |
+| 21 | `8963a321` | docs(normative): consolida governanca authority/protocol/core (15) |
+| 22 | `86bd8680` | docs(normative): consolida restante da onda de governanca (72) |
+| 23 | `cf36fb6e` | docs(normative): adiciona 22 novos normativos da onda de governanca |
+| 24 | `c55d7c04` | docs(decisions): adiciona 22 RFCs e decisoes da onda de governanca |
+| 25 | `5bdeb746` | ci(workflows): adiciona 6 workflows de gates e auditorias |
+
+### Onda de governança normativa consolidada (117 arquivos em 6 commits)
+
+Marco institucional: trabalho documental de meses de governança que estava pendurado foi formalmente registrado como baseline canônico vigente. **Esta consolidação não constitui revisão ou aprovação formal de cada documento individualmente — registra como vigente o que já era praticado operacionalmente.** Revisões redacionais/aprovações específicas seguem como sessões dedicadas (ver DTs).
+
+- **5 normativos centrais** (`116fa226`): SSOT_REGISTRY_UNIFICARD, LEIS_OPERACIONAIS_UNIFICARD, CORE_IMUTAVEL, LEGADO_TEMPORAL_MIGRATION_PLAN, PROHIBITED_STRUCTURES
+- **3 temporais** (`bda6e19f`): CORE_TEMPORAL_CONTRACT, CORE_TEMPORAL_HARDENING_CONTRACT, AGENDA_UNIVERSAL_CONTRACT
+- **15 authority/protocol/core** (`8963a321`): 00_AGENT_PROTOCOL, AUTHORITY_LAW + anexos, CONSTITUICAO, IDENTITY_CORE, MAPA_CANONICO_PERMISSIONS, série CORE_*_CANONICO
+- **72 normativos finais** (`86bd8680`): category, SSOT base, contratos, governança, observabilidade, frontend, regras canônicas, com referências cruzadas auto-geradas
+- **22 normativos novos** (`cf36fb6e`): índices estruturais (00_AGENT, 00_INDEX, 00_SUMARIO), continuação da série numerada (18, 19, 20), novas leis (LEI_DE_COERENCIA, BANK_DOMAIN_RULES, IDENTITY_SSOT_PRECEDENCE, VOCABULARIO_CANONICO)
+- **22 decisões e RFCs** (`c55d7c04`): registros de decisão + 4 RFCs em estado RASCUNHO declarado
+
+### Achados técnicos resolvidos durante a sessão
+
+- **`.gitignore` raiz quebrado há 3 meses (UTF-16 LE):** desde commit `70579227 [REBASE-03]` (2026-02-11) até `5b410c17` desta sessão. Nenhuma regra do `.gitignore` raiz estava sendo aplicada por 3 meses. Outras regras só funcionavam por `backend/.gitignore` e `frontend/.gitignore`.
+- **Mojibake na conversão UTF-16 → UTF-8:** corrigido em `4f066536` com restauração da regra `*.bak`.
+
+### Débitos técnicos abertos (pendentes de sessão dedicada)
+
+| ID | Descrição | Severidade | Origem |
+|---|---|---|---|
+| **DT-build-alias** | `tsc-alias` removido do build em `70579227 [REBASE-03]`; `dist/` emite 1464 imports não resolvidos; `pnpm build` PASS mas `pnpm start` quebraria | Alta | Pré-existente, identificado em A.1 |
+| **DT-packages-artifacts-tracked** | 157 arquivos rastreados indevidamente em `packages/contracts/{dist,node_modules,tsconfig.tsbuildinfo}` desde commit `2a849424`. Requer `git rm --cached` + `.gitignore` + auditoria de consumers | Alta | A.5.7 |
+| **DT-nomenclatura-canonica-v3-revisao** | Documento canônico `docs/01_normative/07_NOMENCLATURA_CANONICA.md` contém trecho propositivo ("Sugiro adicionar Parte VI..."), violando separação entre norma vigente e proposta. Diff modificado v2.0→v3.3.6 (+4884/-1120). Requer revisão redacional dedicada para separar material vigente de propositivo antes de aceitar como canônico | Crítica | A.5.5.c.1 |
+| **DT-migrations-resetadas-decisao** | `backend/migrations-resetadas/` (10 arquivos) untracked. Decidir entre archive em `docs/99_archive/`, manter como referência, ou deletar | Média | A.5.8 |
+| **DT-seed-035-tenant-id-rename** | `backend/seeds/035_seed_demo_city_nova_beauty.sql` modificado troca `tenant_id` por `id` em `tenants`. Validar contra schema vivo antes de commit | Alta | A.5.8 |
+| **DT-stashes-revisao** | 4 stashes preservados sem inspeção profunda (`local-before-rescue`, frontend/docs, backend/dist+marketplace, migrations+plano) | Baixa | A.6.1 |
+| **DT-archive-ps1-quarentena** | 10 scripts `.ps1` em `docs/99_archive/` (`restore-*`, `tmp-*`, `fix-*`, `debug-*`) mantidos untracked; decidir caso a caso | Baixa | A.5.3.c |
+| **DT-baseline-architectural-patterns-congelado** | `scripts/architectural-patterns-baseline.json` modificado, congelado por afetar gate ativo. Sessão dedicada de validação de gates necessária | Média | A.5.6.1 |
+
+### Estado dos clusters do working tree
+
+**Fechados nesta sessão:**
+- `docs/01_normative/` (deletados, modificados, novos) — exceto `07_NOMENCLATURA`
+- `docs/02_decisions/` (untracked)
+- `docs/ssot/` (modificados + 2 deletados consolidados)
+- `docs/03_execution_log/` (lote único de logs institucionais)
+- `docs/04_audit/`, `docs/99_archive/` 6 docs históricos
+- `docs/architecture/`, `docs/diagrams/`, `docs/runbooks/`, outros institucionais
+- `scripts/` (32 scripts em 4 commits temáticos)
+- `packages/contracts/src/` (vocabulário canônico)
+- `backend/.gitignore`, `backend/README.md`
+- `.github/workflows/` (6 workflows de gates)
+
+**Bloqueados intencionalmente (regra B4 e correlatas):**
+- `backend/src/*` (~545 arquivos modificados — código de produção)
+- `frontend/src/*` (44 arquivos modificados)
+- `backend/{BOOT.ts, package.json, tsconfigs, jest.config}` — configs build/test
+- `packages/contracts/{dist,node_modules,tsconfig.tsbuildinfo}` (DT-packages-artifacts-tracked)
+
+### Validação contínua
+
+- 4 gates rodaram após cada um dos 25 commits — todos PASS
+- `CORE_PURITY_SUMMARY` permaneceu inalterado: `total=1278 modules_import=68 fastify_http=319 sql_direct=891`
+- Nenhuma regressão arquitetural detectada nos 25 commits (4 gates PASS)
+
+### Princípios operacionais validados
+
+- **Atomicidade:** uma alteração → build → 4 gates → commit → próxima
+- **Sanity checks no script de execução:** abortar antes de stagear se contagem/escopo divergir
+- **Modo cirúrgico em anomalias:** qualquer surpresa parou fast track e voltou a validação detalhada
+- **DT formal sobre commit cego:** quando dúvida institucional, abrir débito documentado em vez de commitar
+- **Versionamento de RFCs em rascunho declarado:** prática padrão da indústria, distingue proposta de norma vigente
+
+### Próximos passos sugeridos (sessões futuras)
+
+1. **Sessão 2 do PLANO_MESTRE_remediacao_core_modules:** C66 (concept_id slug→UUID) com working tree limpo
+2. **Sessão DT-nomenclatura-canonica-v3-revisao:** revisão redacional do arquivo 07
+3. **Sessão DT-build-alias:** restaurar `tsc-alias` no build
+4. **Sessão DT-packages-artifacts-tracked:** `git rm --cached` + `.gitignore` + auditoria de consumers
+5. **Sessão DT-stashes-revisao:** decidir destino dos 4 stashes preservados
+
+---
+
 ## 2026-05-05 — BankTransactionReadPort implementado (#019.FR)
 
 Commit: 5a4d5dba
