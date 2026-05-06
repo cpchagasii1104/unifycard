@@ -1,0 +1,79 @@
+%% PROD-7 — semântica SSOT + drift + rebuild + suíte §7
+%% Canónico: Drift-2 usa Σ movements como on_hand; rebuild não toca reservations.
+
+flowchart TB
+  subgraph NUCLEO["🧩 Núcleo — PROD-7"]
+    INV["Inventory semantics<br/>consistência · auditabilidade · concorrência segura"]
+  end
+
+  subgraph SSOT["1 — SSOT"]
+    MOV["inventory_movements<br/>append-only · imutável · verdade absoluta"]
+    BAL["inventory_balances<br/>read model · reconstruível · nunca autoridade"]
+    MOV -->|"deriva (rebuild)"| BAL
+  end
+
+  subgraph OPS["2 — Operações"]
+    R["Reserve<br/>↓ available · on_hand fixo · reservation append-only"]
+    REL["Release<br/>↑ available · reserved_active → 0"]
+    CC["Concurrency<br/>1 unidade · 2 reservas → 1 OK · 1 InsufficientStockError"]
+  end
+
+  subgraph DRIFT["3 — Drift"]
+    D1["Drift-1<br/>balances vs Σ movements"]
+    D2["Drift-2<br/>reserved ACTIVE ≤ on_hand<br/>(on_hand = Σ movements)"]
+  end
+
+  subgraph REBUILD["4 — Rebuild"]
+    RB["Recalcula balances a partir de movements<br/>não altera reservations"]
+  end
+
+  subgraph INVTEST["5 — Invariantes / testes"]
+    TR["Triggers: no DELETE reservations<br/>no DELETE movements"]
+    TT["Teardown: desliga triggers só em teste"]
+  end
+
+  subgraph CONC["6 — Concorrência (teste)"]
+    VAR["Variante dedicada SKU-…-conc<br/>stock = 1 · corrida real"]
+  end
+
+  subgraph ARCH["7 — Integração"]
+    P["Product — descreve"]
+    O["Offer — preço"]
+    I["Inventory — disponibilidade"]
+    L["Ledger — dinheiro"]
+  end
+
+  subgraph GOV["8 — Governança"]
+    G["Sem writes fora do SSOT<br/>sem decisão de negócio em derivado"]
+  end
+
+  subgraph SUITE["9 — Suíte §7"]
+    S["5 cenários · 5/5 verde"]
+  end
+
+  INV --> SSOT
+  INV --> OPS
+  OPS --> DRIFT
+
+  MOV --> D1
+  BAL --> D1
+
+  MOV -->|"fonte do on_hand"| D2
+  R --> D2
+
+  RB -->|"corrige"| D1
+  RB -.->|"não toca"| D2
+
+  INV --> REBUILD
+  INV --> CONC
+  CC --- VAR
+
+  INV --> ARCH
+  INV --> GOV
+  INV --> SUITE
+
+  BUG["⚠ Drift-2 ≠ 0<br/>BUG = reserva / saga / release (não é rebuild)"]
+  D2 -.-> BUG
+
+  RISK["⚠ Risco residual<br/>reserva vs venda · order/saga · consistência entre módulos"]
+  INV -.-> RISK

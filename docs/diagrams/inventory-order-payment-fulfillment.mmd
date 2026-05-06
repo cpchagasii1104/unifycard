@@ -1,0 +1,62 @@
+%% Integração: Order × Inventory (reserva) × Pagamento × Fulfillment × Ledger (dinheiro)
+%% Alinhado a backend: order.service (TX reserva+itens), payment-execution (release falha),
+%% fulfillment.service (TX OUT + consume). Saga completa / timeout = INFRA-4 (libertação idempotente).
+
+flowchart TB
+  subgraph ORDER["Pedido"]
+    OD["draft"]
+    OTX["TX única: criar pedido + por linha:<br/>reserveStockWithinTransaction → order_item<br/>COMMIT"]
+    OPAY["aguarda pagamento / confirmação"]
+    OCAN["cancelado → releaseReservation"]
+  end
+
+  subgraph INV["Inventário (PROD-7)"]
+    RES["reservations ACTIVE<br/>(append-only)"]
+    REL["release → RELEASED"]
+    CON["consume → CONSUMED"]
+    MOV["inventory_movements OUT<br/>(append-only · SSOT físico)"]
+  end
+
+  subgraph PAY["Pagamento (domínio à parte)"]
+    PF["falha / rejeição"]
+    PS["captura / sucesso"]
+    PT["timeout saga — INFRA-4<br/>compensação → release idempotente"]
+  end
+
+  subgraph FULFILL["Fulfillment"]
+    FTX["TX envio: por item<br/>createMovement OUT<br/>depois consumeReservationsByOrderWithClient<br/>COMMIT"]
+    FBAL["recalculateBalance (read model)"]
+  end
+
+  subgraph LEDGER["Ledger — dinheiro"]
+    BK["Bank / splits / ledger<br/>não é inventory_movements"]
+  end
+
+  OD --> OTX
+  OTX --> RES
+  OTX --> OPAY
+
+  OPAY --> PF
+  PF --> REL
+
+  OPAY --> PT
+  PT -.-> REL
+
+  OPAY --> PS
+  PS --> BK
+  PS --> FTX
+
+  FTX --> MOV
+  FTX --> CON
+  FTX --> FBAL
+
+  OCAN --> REL
+  REL --> RES
+
+  BUG2["⚠ Drift-2 / overbooking<br/>ordem errada entre módulos · saga sem release<br/>pagamento OK sem fulfill coerente"]
+  ORDER -.-> BUG2
+  PAY -.-> BUG2
+  FULFILL -.-> BUG2
+
+  NOTE["Regra: disponibilidade = f(movements) − reserved ACTIVE<br/>Dinheiro = f(Bank); stock físico = f(movements).<br/>Nunca decidir stock só por balances."]
+  INV --- NOTE
