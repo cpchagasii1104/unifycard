@@ -76,6 +76,7 @@
     "validate:regression-guards": "tsx scripts/guard-financial-regression.ts && tsx scripts/sql-regression-lint.ts && node scripts/check-migration-numbering.js",
     "validate:actor-writer-boundaries": "node scripts/audit-actor-writer-boundaries.mjs",
     "validate:bank-ledger-boundaries": "node scripts/audit-bank-ledger-boundaries.mjs",
+    "validate:concept-id-uuid-shape": "node ../scripts/validate-concept-id-uuid-shape.mjs",
     "reconcile:escrow-bank-drift": "node scripts/reconcile-escrow-bank-drift.mjs",
     "guard:app-builder": "node scripts/guard-app-builder-artifact.mjs",
     "validate:build-and-builder-guard": "pnpm run build && pnpm run guard:app-builder",

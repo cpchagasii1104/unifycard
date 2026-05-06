@@ -1,0 +1,191 @@
+{
+  "bank-external-settlement": {
+    "count": 1,
+    "files": {
+      "backend/src/workers/bank-settlement-worker.ts": 1
+    }
+  },
+  "escrow-hold": {
+    "count": 2,
+    "files": {
+      "backend/src/modules/observability/financial-simulator.controller.ts": 1,
+      "backend/src/workers/governance-funding-commitment-worker.ts": 1
+    }
+  },
+  "escrow-refund-to-payer": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/escrow/escrow.service.ts": 1
+    }
+  },
+  "escrow-release-to-recipient": {
+    "count": 2,
+    "files": {
+      "backend/src/core/events/event-payment-execution.service.ts": 1,
+      "backend/src/modules/escrow/escrow.service.ts": 1
+    }
+  },
+  "event-ticket-payment": {
+    "count": 3,
+    "files": {
+      "backend/src/core/events/event-economy.service.ts": 1,
+      "backend/src/modules/bank/bank-integration.service.ts": 2
+    }
+  },
+  "group-contribution-payment": {
+    "count": 2,
+    "files": {
+      "backend/src/core/economy/split.service.ts": 1,
+      "backend/src/modules/bank/bank-integration.service.ts": 1
+    }
+  },
+  "ledger-compensation": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/bank/ledger-compensation.service.ts": 1
+    }
+  },
+  "marketplace-escrow-payment": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1
+    }
+  },
+  "marketplace-funds-release": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1
+    }
+  },
+  "marketplace-settlement-clearing-to-seller": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1
+    }
+  },
+  "marketplace-settlement-escrow-to-clearing": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1
+    }
+  },
+  "pix-payment-received": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/gateway/payment-event-resolver.ts": 1
+    }
+  },
+  "regional-fund-incentive-grant": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/application/services/marketplace-orchestration.service.ts": 1
+    }
+  },
+  "regional-fund-topup": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/regional-fund.service.ts": 1
+    }
+  },
+  "resource-compensation-payout": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/application/services/capacity-application.service.ts": 1
+    }
+  },
+  "ride-payment": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/bank/bank-integration.service.ts": 1
+    }
+  },
+  "seller-funds-release": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/gateway/payment-event-resolver.ts": 1
+    }
+  },
+  "seller-payout": {
+    "count": 1,
+    "files": {
+      "backend/src/workers/payout-worker.ts": 1
+    }
+  },
+  "seller-payout-bank-settlement": {
+    "count": 2,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1,
+      "backend/src/modules/marketplace/payout.service.ts": 1
+    }
+  },
+  "seller-payout-request": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/marketplace/payment-execution.service.ts": 1
+    }
+  },
+  "service-booking-payment": {
+    "count": 3,
+    "files": {
+      "backend/src/modules/bank/bank-integration.service.ts": 1,
+      "backend/src/modules/social/social-work-payment.service.ts": 1,
+      "backend/src/scripts/backfill-payment-splits-to-bank.ts": 1
+    }
+  },
+  "split-payment": {
+    "count": 1,
+    "files": {
+      "backend/src/core/economy/split.service.ts": 1
+    }
+  },
+  "system-reserve-credit": {
+    "count": 7,
+    "files": {
+      "backend/src/core/unifybank/test-currency.service.ts": 1,
+      "backend/src/modules/observability/financial-simulator.controller.ts": 1,
+      "backend/src/scripts/seed-initial-balance.ts": 1,
+      "backend/src/scripts/validate-financial-flow-real.ts": 3,
+      "backend/src/scripts/verify-simple-tx-double-entry.ts": 1
+    }
+  },
+  "transaction-reversal": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/reversal/reversal.service.ts": 1
+    }
+  },
+  "transaction-reversal-leg": {
+    "count": 1,
+    "files": {
+      "backend/src/modules/reversal/reversal.service.ts": 1
+    }
+  },
+  "treasury-community-fund-distribution": {
+    "count": 2,
+    "files": {
+      "backend/src/core/economy/distribution/distribution.service.ts": 1,
+      "backend/src/modules/treasury-split/treasury-split.service.ts": 1
+    }
+  },
+  "treasury-governance-pool-distribution": {
+    "count": 2,
+    "files": {
+      "backend/src/core/economy/distribution/distribution.service.ts": 1,
+      "backend/src/modules/treasury-split/treasury-split.service.ts": 1
+    }
+  },
+  "treasury-regional-fund-distribution": {
+    "count": 2,
+    "files": {
+      "backend/src/core/economy/distribution/distribution.service.ts": 1,
+      "backend/src/modules/treasury-split/treasury-split.service.ts": 1
+    }
+  },
+  "treasury-system-reserve-distribution": {
+    "count": 2,
+    "files": {
+      "backend/src/core/economy/distribution/distribution.service.ts": 1,
+      "backend/src/modules/treasury-split/treasury-split.service.ts": 1
+    }
+  }
+}
