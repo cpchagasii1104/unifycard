@@ -52,3 +52,18 @@ export type {
   DeliveryOrder,
   ServiceOrder,
 } from './marketplace';
+
+// Reference vocabulary (validação semântica — ver SSOT_REGISTRY_UNIFICARD §5.16)
+export {
+  GENDER_VALUES,
+  type Gender,
+  isGender,
+  LANGUAGE_VALUES,
+  type LanguageCode,
+  COUNTRY_VALUES,
+  type CountryCode,
+  CURRENCY_VALUES,
+  type CurrencyCode,
+  TIMEZONE_VALUES,
+  type TimezoneId,
+} from './vocabulary';
