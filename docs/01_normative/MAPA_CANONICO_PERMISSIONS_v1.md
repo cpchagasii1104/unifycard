@@ -830,6 +830,13 @@ const bankRoutes: FastifyPluginAsync = async (fastify) => {
 
 ### MARKETPLACE (Marketplace)
 
+### canonical_products:create
+- **Capability requerida:** `null` (marketplace_manage_catalog já cobre via onboarding)
+- **Descrição:** Permite criar ou reutilizar canonical_products INDUSTRIAL via API direta.
+- **Quem pode ter:** tenant com MARKETPLACE_STORE_CREATE ou papel industrial explícito.
+- **Status:** declarada para uso futuro; rota direta ainda não exposta publicamente.
+- **Nota §5.1:** distinção explícita indústria vs distribuidor autorizado permanece decisão de produto; até lá o gate de entrada para canónicos no marketplace é `MARKETPLACE_STORE_CREATE` no onboarding — ver `docs/01_normative/ADR_CANONICAL_CREATE_AUTHORITY.md`.
+
 #### `marketplace_manage_catalog`
 ```yaml
 domain: marketplace
@@ -1093,3 +1100,21 @@ Distribuição:
 
 **Este documento é a fonte única de verdade para permissions no UnifyCard. Toda adição, remoção ou modificação de permission DEVE atualizar este documento primeiro.** 🔒
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- ADR_CANONICAL_CREATE_AUTHORITY.md
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md
+- CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+- GAPS_PROCESSADO_CANONICO.md
+- HARDENING_CYCLE_CLOSURE.md
+- IDENTITY_CORE_CONTRACT.md
+- LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+- PROCESSAMENTO_GAPS_CANONICO.md
+<!-- AUTO-GENERATED-END -->

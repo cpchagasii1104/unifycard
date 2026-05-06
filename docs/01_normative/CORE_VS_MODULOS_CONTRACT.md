@@ -218,3 +218,19 @@ Se algo:
 
 Provavelmente está tentando violar o CORE.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md
+- CORE_IMUTAVEL.md
+- GAPS_PROCESSADO_CANONICO.md
+- IDENTITY_CORE_CONTRACT.md
+- PROCESSAMENTO_GAPS_CANONICO.md
+<!-- AUTO-GENERATED-END -->

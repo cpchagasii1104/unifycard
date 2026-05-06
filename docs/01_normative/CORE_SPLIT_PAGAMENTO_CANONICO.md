@@ -925,3 +925,21 @@ Antes de aprovar qualquer proposta:
 
 **Fim do Documento Canônico**
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- IDENTITY_CORE_CONTRACT.md
+- MATRIZ_FONTES_DE_VERDADE.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md
+- CORE_ESTORNOS_FINANCEIROS_CANONICO.md
+- CORE_FINANCIAL_CONTRACT.md
+- CORE_PERMISSOES_FINANCEIRAS_CANONICO.md
+- HARDENING_CYCLE_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

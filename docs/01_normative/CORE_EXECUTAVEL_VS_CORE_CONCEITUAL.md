@@ -107,3 +107,15 @@ Este documento complementa e reforça:
 Em caso de dúvida:
 CORE EXECUTÁVEL TEM PRECEDÊNCIA TOTAL.
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_IMUTAVEL.md
+- CORE_VS_MODULOS_CONTRACT.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+<!-- AUTO-GENERATED-END -->

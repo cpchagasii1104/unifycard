@@ -147,6 +147,12 @@ O core não recebe features. O core recebe apenas:
 
 ---
 
+## DISPOSIÇÃO GERAL — INSTRUMENTAÇÃO PARA AGENTES (SEM NOVA NORMA DE PRODUTO)
+
+A operação de agentes automatizados sobre este repositório **não cria exceção** aos artigos I–XII. Para **ordem obrigatória de leitura da normativa**, **gate antes de qualquer alteração estrutural** e **proibições operacionais explícitas para IAs**, remete-se a `docs/01_normative/00_AGENT_PROTOCOL.md` (secções 2.3.1 a 2.3.7). Em caso de conflito interpretativo entre esse protocolo e este documento, **prevalecem** os artigos constitucionais acima.
+
+---
+
 ## DISPOSIÇÃO CONSTITUCIONAL FINAL
 
 > Se este documento parecer excessivamente restritivo, ele está correto.
@@ -154,3 +160,20 @@ O core não recebe features. O core recebe apenas:
 
 ---
 
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+_nenhuma referência explícita_
+
+### Referenciado por
+- 00_AGENT_PROTOCOL.md
+- 00_INDEX.md
+- 00_SUMARIO.md
+- EVENT_OUTBOX_E_ENTREGA_CANONICO.md
+- HANDLER_EXECUTION_AND_RELIABILITY.md
+- INVARIANTES_OPERACIONAIS_LEDGER.md
+- LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+- VOCABULARIO_CANONICO_UNIFICARD.md
+<!-- AUTO-GENERATED-END -->

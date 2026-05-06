@@ -275,4 +275,42 @@ Autoridade nasce exclusivamente da **Lei de Autoridade**.
 
 ---
 
+## ARTIGO 18 — INSTRUMENTOS ANEXOS
+
+Esta Lei é complementada pelos seguintes instrumentos constitucionais,
+que têm a mesma força normativa e cobertura obrigatória:
+
+- `AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md` — catálogo de ações irreversíveis
+- `AUTHORITY_ANNEX_EVASION.md` — definição e vedação de evasão
+- `AUTHORITY_ANNEX_TEST_OF_BREAK.md` — 26 cenários de falsificação explicitamente bloqueados por artigo constitucional
+
+Nenhum cenário do `AUTHORITY_ANNEX_TEST_OF_BREAK.md` possui workaround legítimo.
+Qualquer cenário não bloqueado por artigo constitucional é **falha da Lei**, não exceção.
+
+---
+
 FIM DA LEI DE AUTORIDADE
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_ANNEX_EVASION.md
+- AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md
+- AUTHORITY_ANNEX_TEST_OF_BREAK.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- 08_AUTORIDADE_CANONICA.md
+- AUTHORITY_ANNEX_EVASION.md
+- AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md
+- AUTHORITY_ANNEX_TEST_OF_BREAK.md
+- AUTHORITY_PRECEDENCE.md
+- AUTHORITY_RECOVERY.md
+- FALSIFICATION_LOG.md
+- GATES.md
+- HANDLER_EXECUTION_AND_RELIABILITY.md
+- PROHIBITED_STRUCTURES.md
+<!-- AUTO-GENERATED-END -->

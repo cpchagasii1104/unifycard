@@ -566,5 +566,18 @@ Sem isso, a resposta é sempre a mesma:
 **Última atualização:** 2024  
 **Versão:** 1.0
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md
+- CORE_FINANCIAL_CONTRACT.md
+- CORE_SPLIT_PAGAMENTO_CANONICO.md
 
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CORE_FINANCIAL_CONTRACT.md
+- HARDENING_CYCLE_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

@@ -1306,4 +1306,21 @@ Antes de aprovar qualquer proposta:
 
 **Fim do Documento Canônico**
 
+---
 
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- CORE_FINANCIAL_CONTRACT.md
+- CORE_IMUTAVEL.md
+- CORE_SPLIT_PAGAMENTO_CANONICO.md
+- IDENTITY_CORE_CONTRACT.md
+- MAPA_CANONICO_PERMISSIONS_v1.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md
+- CORE_FINANCIAL_CONTRACT.md
+- HARDENING_CYCLE_CLOSURE.md
+<!-- AUTO-GENERATED-END -->

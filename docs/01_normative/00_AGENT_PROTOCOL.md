@@ -554,6 +554,58 @@ Ausência de âncora explícita
 
 ---
 
+## 4.3 GESTÃO DE ARTEFATOS ABERTOS
+
+Antes de criar novo relatório, hipótese, plano, auditoria, decisão, registry
+ou arquivo de transição, o agente deve verificar em `STATUS_EXECUCAO_GLOBAL.md`
+se já existe artefato aberto para o mesmo assunto.
+
+Todo artefato aberto deve ter exatamente um dos estados:
+
+- ABERTO
+- EM EXECUÇÃO
+- BLOQUEADO
+- CONCLUÍDO
+- ARQUIVADO
+- SUPERADO
+
+É proibido criar novo artefato para o mesmo tema sem:
+
+1. Referenciar explicitamente o artefato anterior
+2. Declarar por que ele não serve
+3. Definir o destino do artefato anterior:
+   - continuar
+   - substituir
+   - encerrar
+   - arquivar
+
+Ao concluir um artefato:
+
+- se virou memória útil, deve ser referenciado por um documento de entrada ou movido para local histórico apropriado;
+- se foi transitório, deve ser marcado como CONCLUÍDO ou ARQUIVADO;
+- se foi superado, deve apontar qual documento o substitui;
+- se não tem valor institucional, só pode ser removido com autorização explícita do operador humano.
+
+Nenhuma sessão deve terminar aumentando a quantidade de artefatos abertos sem
+justificar em `STATUS_EXECUCAO_GLOBAL.md`.
+
+### 4.3.1 CHECAGEM INICIAL DE ARTEFATOS ABERTOS
+
+Ao iniciar qualquer sessão, o agente deve:
+
+1. Ler `STATUS_EXECUCAO_GLOBAL.md`
+2. Identificar artefatos em estado:
+   - EM EXECUÇÃO
+   - BLOQUEADO
+3. Priorizar continuidade antes de iniciar nova frente de trabalho
+
+É proibido iniciar nova frente de trabalho sem avaliar as já abertas.
+
+Se uma nova frente for inevitável, o agente deve registrar em
+`STATUS_EXECUCAO_GLOBAL.md` por que ela tem prioridade sobre os artefatos já abertos.
+
+---
+
 ## 5. AUTORIDADE E PRECEDÊNCIA
 
 1. docs/01_normative/ é a ÚNICA fonte de verdade decisória

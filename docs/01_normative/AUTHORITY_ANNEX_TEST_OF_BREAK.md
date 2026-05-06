@@ -192,3 +192,19 @@ Este anexo prevalece sobre:
 ---
 
 FIM DO ANEXO — TEST OF BREAK
+
+---
+
+## 🔗 Referencias
+<!-- AUTO-GENERATED-START -->
+### Referencia
+- AUTHORITY_ANNEX_EVASION.md
+- AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md
+- AUTHORITY_LAW.md
+
+### Referenciado por
+- 00_INDEX.md
+- 00_SUMARIO.md
+- AUTHORITY_LAW.md
+- GATES.md
+<!-- AUTO-GENERATED-END -->
