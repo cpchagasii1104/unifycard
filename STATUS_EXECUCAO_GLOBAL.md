@@ -1359,7 +1359,7 @@ Decisão: manter no commit (escopo: auditoria, não cleanup). Item futuro para `
 **Branch:** `rescue-structural`
 **HEAD pré-sessão:** `26c1ddbb` (após DT-tsc-alias-broken-install)
 **HEAD pós-sessão:** `f2c95026`
-**Modo:** GUARDIÃO read-only (mapeamento) → EXECUTOR (7 commits cirúrgicos) → GUARDIÃO (governança)
+**Modo:** GUARDIÃO read-only (mapeamento) → EXECUTOR (8 commits cirúrgicos) → GUARDIÃO (governança)
 **Decisões formais:** DECISION-0018 (Caminho C+B híbrido), DECISION-0019 (Opção B realocação CORE_PURITY)
 
 ### Escopo
