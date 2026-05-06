@@ -1117,3 +1117,59 @@ A cirurgia 2.A reintroduziu o `tsc-alias` no script, expondo a quebra real. O bu
 - **D7=γ**: não decidir sobre reverter cirurgia 2.A nesta sessão
 - **D8=γ**: não fazer mais diagnóstico nesta sessão; abrir DT sucessora dedicada
 - **D9=α**: backlog operacional autorizado (incorporado em cf84f661)
+
+## 2026-05-06 — Nota de governança: regra B4 e modificações em arquivos congelados
+
+**Origem:** descoberta colateral durante DT-build-alias.
+
+### Achado primário
+
+Cinco arquivos congelados por regra B4 estão modificados no working tree sem decisão formal documentada:
+
+- `backend/BOOT.ts`
+- `backend/jest.config.mjs`
+- `backend/package.json`
+- `backend/tsconfig.build.json`
+- `backend/tsconfig.json`
+
+A sessão de triagem 2026-05-05 listou os arquivos como "bloqueados intencionalmente" mas não auditou o conteúdo do diff — apenas registrou que estavam modificados. Logo, a presença das modificações não foi violação detectada pela triagem; foi conformidade aparente com regra B4 ("não commitar"), apesar do conteúdo das modificações nunca ter sido revisado.
+
+### Achado secundário (caráter da modificação)
+
+A modificação em `backend/package.json` tem caráter específico: remoção dirigida de uma única linha (`tsc-alias` em `scripts.build`), em arquivo congelado, contra HEAD. Não foi corrupção genérica nem replace acidental. Foi alteração cirúrgica.
+
+Quando combinada com a modificação posterior em `tsconfig.build.json` (04/08) e `tsconfig.json` (04/20), o padrão sugere alterações incrementais ao longo de ~22 dias, possivelmente em resposta a problemas operacionais sucessivos. Diagnóstico D1 da mesma sessão revelou um problema operacional plausível: `tsc-alias` quebrado por dependência transitiva ausente (`get-tsconfig`).
+
+**Caveat:** a leitura "alterações como compensação operacional" é hipótese consistente com evidência, não causalidade provada. A identidade de quem editou cada arquivo permanece desconhecida.
+
+### Implicações para governança
+
+1. **Regra B4 precisa de gate de conteúdo, não só de presença.** "Bloqueado para commit" não é equivalente a "intocado". Diff silencioso em arquivo B4 não é detectado pela regra atual.
+
+2. **Auditorias de working tree em sessões futuras devem inspecionar diff dos arquivos B4 modificados**, mesmo quando bloqueados para commit. Sugestão: adicionar ao checklist de entrada §9 do boot protocol algo como `git diff -- backend/BOOT.ts backend/jest.config.mjs backend/package.json backend/tsconfig.build.json backend/tsconfig.json` sem ação automática, apenas para visibilidade ao orchestrator.
+
+3. **Distinção entre "modificação fantasma" e "compensação não documentada"** é importante para framing futuro. Sem evidência de identidade/intenção, nenhuma das duas leituras pode ser tomada como fato. Ambas devem ser tratadas como hipóteses até evidência adicional.
+
+4. **Executores (Codex/Cursor/Copilot) devem ter escopo de escrita explicitamente declarado antes de cada operação**; modificações espontâneas em arquivos B4 violam a metodologia.
+
+### Observações operacionais (ambiente Codex)
+
+Durante a sessão, anomalias operacionais recorrentes foram documentadas:
+
+1. `pnpm` ausente do PATH em sessões Codex desta máquina
+2. `Permission denied` em `.config/git/ignore` e em `.git/index.lock` (impede commits via Codex)
+3. Pager `less` ativo em comandos `git` por padrão
+
+Nenhuma afeta o estado do repositório, mas todas duplicam trabalho do orchestrator. Implicação prática: nesta sessão, todos os 4 commits documentais foram feitos via PowerShell externo, não Codex. Decisão futura sobre `DT-codex-env` fica em aberto.
+
+### Aprendizado metodológico (Claude web)
+
+A sessão revelou padrão de excesso de cerimônia no auditor (Claude): decisões artificiais α/β/γ multiplicadas, salvaguardas redundantes, recapitulações repetidas, transformação de cada anomalia ambiental em evento institucional. Para uma DT cuja remediação técnica final foi de 1 linha + 4 commits documentais, a sessão consumiu horas de mensagens. Calibração para sessões futuras: blocos PowerShell diretos, decisões pequenas tomadas pelo auditor sem consulta, validação em 3 linhas, não em parágrafos.
+
+### Ação tomada nesta sessão
+
+- Retificação documental D3=α aplicada (commit ca6cee70).
+- DT-build-alias encerrada por reformulação de causa raiz (D6=β, commit 714affa2).
+- DTs sucessoras abertas: `DT-tsc-alias-broken-install` (Alta) e `DT-configs-b4-modificados-auditoria` (já registrada).
+- Backlog append-only autorizado incorporado (D9=α, commit cf84f661).
+- Nenhuma escrita em código nesta sessão (cirurgia 2.A produziu arquivo coincidente com HEAD; nenhum delta commitável).
