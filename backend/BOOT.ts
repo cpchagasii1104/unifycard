@@ -1,10 +1,14 @@
 // BOOT.ts - ÚNICO ENTRYPOINT DO BACKEND
-import 'dotenv/config';
+import { loadBackendEnv } from './src/core/db/load-backend-env';
+import { assertSensitivePermissionsHaveCapabilityMapping } from './src/core/authorization/permission-keys';
+import { validateEnv } from './src/core/config/env-validation';
+
+loadBackendEnv();
+assertSensitivePermissionsHaveCapabilityMapping();
 
 // ─────────────────────────────────────────────────────────────
 // VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE (ANTES DE QUALQUER COISA)
 // ─────────────────────────────────────────────────────────────
-import { validateEnv } from './src/core/config/env-validation';
 try {
   validateEnv();
   console.log('✅ [BOOT] Validação de variáveis de ambiente: OK');
@@ -26,593 +30,12 @@ console.log(
 console.log('🔵 [BOOT] BOOT.ts carregado (ÚNICO ENTRYPOINT)');
 
 // ─────────────────────────────────────────────────────────────
-// IMPORTS LEVES (NENHUM DOMÍNIO / DB / EVENTOS AQUI)
+// BUILD APP — implementação em src/app.builder.ts (PLANO FASE T)
 // ─────────────────────────────────────────────────────────────
-import Fastify, { FastifyInstance } from 'fastify';
-import sensible from '@fastify/sensible';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
-import staticFiles from '@fastify/static';
-import * as path from 'path';
 import * as net from 'net';
 
-// Plugins
-import { tenantPlugin } from './src/plugins/tenant.plugin';
-import authPlugin from './src/core/auth/auth.plugin';
-import { errorHandlerPlugin } from './src/plugins/error-handler.plugin';
-import { rbacPlugin } from './src/plugins/rbac.plugin';
-import { actionContextPlugin } from './src/plugins/action-context.plugin';
-import { requestIdPlugin } from './src/plugins/request-id.plugin';
-
-// Módulos públicos
-import { authModule } from './src/core/auth/auth.module';
-import { healthModule } from './src/core/health/health.module';
-
-// ─────────────────────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────────────────────
-// PORT é obrigatório (validado em validateEnv)
-const PORT = Number(process.env.PORT);
-if (!process.env.PORT || isNaN(PORT) || PORT < 1 || PORT > 65535) {
-  console.error('❌ [BOOT] ERRO FATAL: PORT deve ser definido e ser um número válido entre 1 e 65535');
-  console.error(`   PORT recebido: ${process.env.PORT}`);
-  process.exit(1);
-}
-const HOST = process.env.HOST || '0.0.0.0';
-
-// ─────────────────────────────────────────────────────────────
-// BUILD APP (APENAS HTTP + ROTAS)
-// ─────────────────────────────────────────────────────────────
-export async function buildApp(): Promise<FastifyInstance> {
-  console.log('[BOOT] Iniciando buildApp()...');
-  
-  // ─────────────────────────────────────────────────────────────
-  // VALIDAÇÃO DE PERMISSÕES CANÔNICAS (FASE 1: ANTES DE TUDO)
-  // ─────────────────────────────────────────────────────────────
-  try {
-    const { validateCanonicalPermissions } = await import('./src/core/authorization/validate-permissions');
-    validateCanonicalPermissions();
-  } catch (err) {
-    console.error('[BOOT] ❌ ERRO FATAL: Validação de permissões canônicas falhou');
-    console.error(err);
-    process.exit(1); // Fail fast
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // INJEÇÃO DE DEPENDÊNCIAS (FASE 2.1: @modules/social)
-  // ─────────────────────────────────────────────────────────────
-  try {
-    const { socialPortsRegistry } = await import('./src/core/social/ports-registry');
-    const {
-      actorRepositoryAdapter,
-      actorUtilsAdapter,
-      socialRepositoryAdapter,
-      socialServiceAdapter,
-      eventFeedHandlersAdapter,
-    } = await import('./src/modules/social/adapters');
-
-    // Injetar adapters no registry do core
-    socialPortsRegistry.setActorRepository(actorRepositoryAdapter);
-    socialPortsRegistry.setActorUtils(actorUtilsAdapter);
-    socialPortsRegistry.setSocialRepository(socialRepositoryAdapter);
-    socialPortsRegistry.setSocialService(socialServiceAdapter);
-    socialPortsRegistry.setEventFeedHandlers(eventFeedHandlersAdapter);
-
-    console.log('[BOOT] ✅ Dependências de @modules/social injetadas no core');
-  } catch (err) {
-    console.error('[BOOT] ❌ ERRO ao injetar dependências de @modules/social:', err);
-    throw err;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // INJEÇÃO DE DEPENDÊNCIAS (FASE 3: @modules/bank)
-  // ─────────────────────────────────────────────────────────────
-  try {
-    const { bankPortsRegistry } = await import('./src/core/bank/ports-registry');
-    const {
-      bankAccountAdapter,
-      bankTransactionAdapter,
-      bankIntegrationAdapter,
-      bankLimitAdapter,
-    } = await import('./src/modules/bank/adapters');
-
-    // Injetar adapters no registry do core
-    bankPortsRegistry.setBankAccount(bankAccountAdapter);
-    bankPortsRegistry.setBankTransaction(bankTransactionAdapter);
-    bankPortsRegistry.setBankIntegration(bankIntegrationAdapter);
-    bankPortsRegistry.setBankLimit(bankLimitAdapter);
-
-    console.log('[BOOT] ✅ Dependências de @modules/bank injetadas no core');
-  } catch (err) {
-    console.error('[BOOT] ❌ ERRO ao injetar dependências de @modules/bank:', err);
-    throw err;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // INJEÇÃO DE DEPENDÊNCIAS (FASE 4: @modules/groups)
-  // ─────────────────────────────────────────────────────────────
-  try {
-    const { groupsPortsRegistry } = await import('./src/core/groups/ports-registry');
-    const { groupsRepositoryAdapter } = await import('./src/modules/groups/adapters');
-
-    // Injetar adapters no registry do core
-    groupsPortsRegistry.setGroupsRepository(groupsRepositoryAdapter);
-
-    console.log('[BOOT] ✅ Dependências de @modules/groups injetadas no core');
-  } catch (err) {
-    console.error('[BOOT] ❌ ERRO ao injetar dependências de @modules/groups:', err);
-    throw err;
-  }
-
-  const app = Fastify({
-    logger: {
-      level: process.env.LOG_LEVEL || 'info',
-      transport:
-        process.env.NODE_ENV !== 'production'
-          ? { target: 'pino-pretty', options: { colorize: true } }
-          : undefined,
-    },
-  });
-
-  // Plugins globais
-  await app.register(sensible);
-  await app.register(errorHandlerPlugin);
-  
-  // CORS: Permitir frontend local em desenvolvimento
-  const corsOrigin = process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? false : true);
-  await app.register(cors, {
-    origin: corsOrigin,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  });
-  console.log(`[BOOT] CORS configurado: origin=${corsOrigin === true ? 'true (todos)' : corsOrigin}`);
-  
-  await app.register(helmet);
-  
-  // Rate limit: mais permissivo em desenvolvimento
-  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
-  await app.register(rateLimit as any, {
-    max: isDevelopment ? 5000 : 100, // 5000 requests/min em DEV, 100 em produção
-    timeWindow: '1 minute',
-    // Em desenvolvimento, permitir mais requisições para facilitar debug
-    skipOnError: isDevelopment, // Não bloquear se houver erro no rate limit em DEV
-    // Desabilitar rate limit para rotas de bootstrap em DEV
-    skip: (req: any) => {
-      if (isDevelopment) {
-        const path = req.url;
-        // Rotas de bootstrap que podem ser chamadas múltiplas vezes
-        const bootstrapRoutes = [
-          '/dashboard',
-          '/identity/wallet',
-          '/plan',
-          '/referral/code',
-          '/social/actors/available',
-          '/core/profile',
-        ];
-        return bootstrapRoutes.some(route => path.startsWith(route));
-      }
-      return false;
-    },
-  });
-
-  // Rotas públicas
-  await app.register(authModule, { prefix: '/auth' });
-  console.log('[BOOT] Rotas de autenticação registradas: /auth/login, /auth/register');
-  
-  await app.register(healthModule, { prefix: '/health' });
-  console.log('[BOOT] Health check registrado: /health');
-
-  // SPRINT 85: Webhook PIX (rota pública)
-  try {
-    const { pixWebhookRoutes } = await import('./src/modules/payments/pix.routes');
-    await app.register(pixWebhookRoutes, { prefix: '/webhooks' });
-    console.log('[BOOT] Webhook PIX registrado: /webhooks/pix/:provider');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Erro ao registrar webhook PIX (não bloqueante):', err);
-  }
-
-  // SPRINT 86: Payment Links (rotas públicas)
-  try {
-    const publicPaymentLinkRoutes = await import('./src/modules/payments/payment-link.routes');
-    await app.register(publicPaymentLinkRoutes.default);
-    // SPRINT 92: Venue Public Routes
-    const { venuePublicRoutes } = await import('./src/modules/venue/venue.routes');
-    await app.register(venuePublicRoutes);
-    console.log('[BOOT] Payment Links públicos registrados: /pay/:slug');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Erro ao registrar payment links públicos (não bloqueante):', err);
-  }
-
-  // Servir arquivos estáticos de uploads
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  await app.register(staticFiles, {
-    root: uploadsDir,
-    prefix: '/uploads/',
-  });
-  console.log('[BOOT] Arquivos estáticos de uploads registrados: /uploads/');
-
-  // Marketplace Public Routes (read-only, estático, sem tenant)
-  // ORDEM: Após RBAC Guards, antes de rotas protegidas
-  try {
-    const marketplacePublicRoutes = await import('./src/modules/marketplace/marketplace-public.routes');
-    await app.register(marketplacePublicRoutes.default, { prefix: '/marketplace' });
-    console.log('[BOOT] ✅ Marketplace rotas públicas registradas: /marketplace (health, home, templates, categories, stores, regions)');
-  } catch (err) {
-    console.error('[BOOT] ❌ ERRO FATAL: Falha ao registrar Marketplace rotas públicas');
-    console.error(err);
-    throw err; // Fail fast - Marketplace é crítico
-  }
-
-  // Location Core (read-only, público)
-  try {
-    const locationRoutes = await import('./src/core/location/location.routes');
-    await app.register(locationRoutes.default, { prefix: '/locations' });
-    console.log('[BOOT] Location Core registrado: /locations');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Erro ao registrar Location Core (não bloqueante):', err);
-  }
-
-  // Reporting Core (denúncias)
-  try {
-    const reportingRoutes = await import('./src/core/reporting/reporting.routes');
-    await app.register(reportingRoutes.default, { prefix: '/reports' });
-
-    // 🔴 Company Canonical Birth - Nascimento Canônico
-    const { default: companyCanonicalRoutes } = await import('./src/core/companies/company-canonical.routes');
-    await app.register(companyCanonicalRoutes, { prefix: '/api' });
-    console.log('[BOOT] Reporting Core registrado: /reports');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Erro ao registrar Reporting Core (não bloqueante):', err);
-  }
-
-  // Módulo obsoleto src/core/category foi removido - usar src/core/categories (canônico)
-  // try {
-  //   const categoryRoutes = await import('./src/core/category/category.routes');
-  //   await app.register(categoryRoutes.default, { prefix: '/categories' });
-  //   console.log('[BOOT] Category Core registrado: /categories');
-  // } catch (err) {
-  //   console.warn('[BOOT] Aviso: Erro ao registrar Category Core (não bloqueante):', err);
-  // }
-
-  // Location (import dinâmico - legado, se existir)
-  try {
-    const locationModule = await import('./src/services/location/location.module');
-    await app.register(locationModule.default, { prefix: '/api' });
-    console.log('[BOOT] Módulo de localização legado registrado');
-  } catch (err) {
-    // Ignorar se não existir
-  }
-
-  // Escopo protegido
-  console.log('[BOOT] Registrando escopo protegido e módulos...');
-  await app.register(async (protectedScope) => {
-    await protectedScope.register(authPlugin);
-    await protectedScope.register(tenantPlugin);
-    await protectedScope.register(actionContextPlugin);
-    await protectedScope.register(rbacPlugin);
-    console.log('[BOOT] Plugins de auth, tenant, action-context e rbac registrados');
-
-    // ── IMPORTS DINÂMICOS (DOMÍNIO) ──
-    // Imports individuais para evitar problemas de ordem no Promise.all
-    const availabilityImport = await import('./src/core/availability/availability.module');
-    const calendarImport = await import('./src/core/calendar/unified-calendar.module');
-    
-    const [
-      { economyModule },
-      { rbacModule },
-      { configModule },
-      { notifyModule },
-      { reviewModule },
-      { reputationModule },
-      { coreModule },
-      { dashboardModule },
-      // { fundModule }, // LEGACY: core/economy/fund desabilitado conforme SSOT_EXCLUSIVE_BANK_RULE.md
-      { fundModule },
-      { categoriesModule },
-      { profileModule },
-      { companiesModule },
-      { publicationEngineModule },
-      { referralModule },
-      { planModule },
-      { assistantModule },
-      { socialActionsModule },
-      { workModule },
-      { ridesModule },
-      { socialModule },
-      { mediaModule },
-      { culturalModule },
-      { votesModule },
-      // Feed e Eventos (reintroduzidos)
-      { feedContextualModule },
-      { feedLegacyModule },
-      eventLifecycleRoutes,
-      // Módulos faltantes (reintroduzidos)
-      { identityModule },
-      { matchingModule },
-      { opportunityModule },
-      { unifybankModule },
-      { categoryReviewModule },
-      { checkoutModule },
-      { eventsModule },
-      { eventModule },
-      { aiModule },
-      // Trust Dashboard (FASE 10)
-      trustModule,
-      // Grupos
-      { groupsModule },
-      // Serviços
-      { servicesModule },
-      // Dashboard Econômico (READ-ONLY)
-      { economyOverviewModule },
-      // Dispatch de Oportunidades
-      { dispatchModule },
-      // Inbox Social
-      { inboxModule },
-    ] = await Promise.all([
-      import('./src/core/economy/economy.module'),
-      import('./src/core/rbac/rbac.module'),
-      import('./src/core/config/config.module'),
-      import('./src/core/notify/notify.module'),
-      import('./src/core/reviews/review.module'),
-      import('./src/core/reputation/reputation.module'),
-      import('./src/core/core.module'),
-      import('./src/core/dashboard/dashboard.module'),
-      // import('./src/core/economy/fund/fund.module'), // LEGACY: desabilitado
-      Promise.resolve({ fundModule: async () => {} }),
-      import('./src/core/categories/categories.module'),
-      import('./src/core/profile/profile.module'),
-      import('./src/core/companies/companies.module'),
-      import('./src/core/publication/publication-engine.module'),
-      import('./src/core/referral/referral.module'),
-      import('./src/core/plan/plan.module'),
-      import('./src/modules/assistant/assistant.module'),
-      import('./src/modules/social-actions/social-actions.module'),
-      import('./src/modules/work/work.module'),
-      import('./src/modules/rides/rides.module'),
-      import('./src/modules/social/social.module'),
-      import('./src/modules/media/media.module'),
-      import('./src/modules/cultural/cultural.module'),
-      import('./src/modules/votes/votes.module'),
-      // Feed contextual (core)
-      import('./src/core/feed/feed.module'),
-      // Feed legado (services)
-      import('./src/services/feed/feed.module'),
-      // Event lifecycle (services)
-      import('./src/services/events/event-lifecycle.routes'),
-      // Módulos faltantes (reintroduzidos)
-      import('./src/core/identity/identity.module'),
-      import('./src/core/matching/matching.module'),
-      import('./src/core/opportunity/opportunity.module'),
-      import('./src/core/unifybank/unifybank.module'),
-      import('./src/core/catalog/category-review.module'),
-      import('./src/core/checkout/checkout.module'),
-      import('./src/modules/events/events.module'),
-      import('./src/core/events/event.module'),
-      import('./src/core/ai/ai.module'),
-      // Trust Dashboard (FASE 10)
-      import('./src/core/reputation/trust.routes'),
-      // Grupos
-      import('./src/modules/groups/groups.module'),
-      // Serviços
-      import('./src/modules/services/services.module'),
-      // Dashboard Econômico (READ-ONLY)
-      import('./src/modules/economy/economy.module'),
-      // Dispatch de Oportunidades
-      import('./src/modules/dispatch/dispatch.module'),
-      // Inbox Social
-      import('./src/modules/inbox/inbox.module'),
-    ]);
-    
-    // Extrair módulos dos imports individuais
-    const availabilityModule = availabilityImport.availabilityModule;
-    const unifiedCalendarModule = calendarImport.unifiedCalendarModule;
-
-    await protectedScope.register(economyModule, { prefix: '/economy' });
-    await protectedScope.register(rbacModule, { prefix: '/rbac' });
-    await protectedScope.register(configModule, { prefix: '/config' });
-    await protectedScope.register(notifyModule, { prefix: '/notify' });
-    await protectedScope.register(reviewModule, { prefix: '/reviews' });
-    await protectedScope.register(reputationModule, { prefix: '/reputation' });
-    await protectedScope.register(coreModule, { prefix: '/core' });
-    await protectedScope.register(dashboardModule, { prefix: '/dashboard' });
-    await protectedScope.register(fundModule, { prefix: '/fund' });
-    await protectedScope.register(categoriesModule, { prefix: '/categories' });
-    await protectedScope.register(profileModule, { prefix: '/profile' });
-    await protectedScope.register(companiesModule, { prefix: '/companies' });
-    await protectedScope.register(publicationEngineModule);
-    await protectedScope.register(referralModule, { prefix: '/referral' });
-    await protectedScope.register(planModule, { prefix: '/plan' });
-    await protectedScope.register(assistantModule, { prefix: '/assistant' });
-    await protectedScope.register(socialActionsModule, { prefix: '/social-actions' });
-    await protectedScope.register(workModule, { prefix: '/work' });
-    await protectedScope.register(ridesModule, { prefix: '/rides' });
-    await protectedScope.register(socialModule, { prefix: '/social' });
-    
-    // Rotas de relacionamentos sociais e grupos leves
-    const { socialRelationshipsRoutes } = await import('./src/modules/social/social-relationships.routes');
-    const { socialGroupsLightRoutes } = await import('./src/modules/social/social-groups-light.routes');
-    await protectedScope.register(socialRelationshipsRoutes, { prefix: '/social' });
-    await protectedScope.register(socialGroupsLightRoutes, { prefix: '/social/groups-light' });
-    await protectedScope.register(mediaModule, { prefix: '/media' });
-    await protectedScope.register(culturalModule, { prefix: '/cultural' });
-    await protectedScope.register(votesModule, { prefix: '/api' });
-    await protectedScope.register(aiModule, { prefix: '/ai' });
-    
-    // Feed e Eventos (reintroduzidos)
-    await protectedScope.register(feedContextualModule, { prefix: '/feed' });
-    await protectedScope.register(feedLegacyModule, { prefix: '/api/feed' });
-    // 🔴 NOTA: eventLifecycleRoutes e eventsModule ambos usam /api/events
-    // eventLifecycleRoutes: rotas de lifecycle (publish, schedule, tickets)
-    // eventsModule: rotas principais de CRUD de eventos
-    // Ambos podem coexistir se rotas não conflitarem
-    await protectedScope.register(eventLifecycleRoutes.default, { prefix: '/api/events' });
-    
-    // Módulos faltantes (reintroduzidos)
-    await protectedScope.register(identityModule, { prefix: '/identity' });
-    await protectedScope.register(matchingModule, { prefix: '/matching' });
-    await protectedScope.register(opportunityModule, { prefix: '/opportunities' });
-    await protectedScope.register(unifybankModule, { prefix: '/bank' });
-    await protectedScope.register(unifybankModule, { prefix: '/admin' });
-    await protectedScope.register(categoryReviewModule, { prefix: '/admin' });
-    
-    // Rotas admin SSOT (observabilidade)
-    const { default: ssotAdminRoutes } = await import('./src/core/categories/ssot-admin.routes');
-    await protectedScope.register(ssotAdminRoutes, { prefix: '/admin/ssot' });
-    await protectedScope.register(checkoutModule, { prefix: '/api/checkout' });
-    // 🔴 NOTA: eventsModule registrado em /api/events (pode conflitar com eventLifecycleRoutes)
-    // Verificar se há rotas duplicadas e consolidar se necessário
-    await protectedScope.register(eventsModule, { prefix: '/api/events' });
-    await protectedScope.register(eventModule, { prefix: '/api/events' });
-    // Trust Dashboard (FASE 10)
-    await protectedScope.register(trustModule.default, { prefix: '/api/trust' });
-    // Grupos
-    await protectedScope.register(groupsModule, { prefix: '/groups' });
-    // Serviços
-    await protectedScope.register(servicesModule, { prefix: '/services' });
-    // Human MVP
-    const { default: humanMvpRoutes } = await import('./src/modules/human-mvp/human-mvp.routes');
-    await protectedScope.register(humanMvpRoutes, { prefix: '/human-mvp' });
-    protectedScope.log.info('[BOOT] Human MVP Routes registrado: /human-mvp');
-    
-    // Mensageria Contextual
-    const contextualMessagingModule = await import('./src/modules/contextual-messaging/contextual-messaging.module');
-    await protectedScope.register(contextualMessagingModule.default);
-
-    // Negociação Assistida e Registro de Acordos
-    const agreementsModule = await import('./src/modules/agreements/agreements.module');
-    await protectedScope.register(agreementsModule.default);
-
-    // Evidências & Resolução de Disputas
-    const evidenceModule = await import('./src/modules/evidence/evidence.module');
-    await protectedScope.register(evidenceModule.default);
-
-    // Pagamentos com Escrow e Marcos de Execução
-    const escrowModule = await import('./src/modules/escrow/escrow.module');
-    await protectedScope.register(escrowModule.default);
-
-    // Trust & Integrity Engine
-    // trustModule já foi importado e registrado anteriormente na linha 455 com prefixo '/api/trust'
-
-    // Ledger Contábil Canônico
-    const ledgerModule = await import('./src/modules/ledger/ledger.module');
-    await protectedScope.register(ledgerModule.default);
-
-    // Payout Engine
-    const payoutModule = await import('./src/modules/payout/payout.module');
-    await protectedScope.register(payoutModule.default);
-
-    // Invoice Engine
-    const invoiceModule = await import('./src/modules/invoicing/invoice.module');
-    await protectedScope.register(invoiceModule.default);
-
-    // Reporting Institucional
-    const reportingModule = await import('./src/modules/reporting/reporting.module');
-    await protectedScope.register(reportingModule.default);
-
-    // Risk & Trust Command Center
-    const riskCommandCenterModule = await import('./src/modules/risk-command-center/risk-command-center.module');
-    await protectedScope.register(riskCommandCenterModule.default);
-
-    // Policy & Enforcement Engine
-    const policyEngineModule = await import('./src/modules/policy-engine/policy-engine.module');
-    await protectedScope.register(policyEngineModule.default);
-
-    // My Orders & Purchases Hub
-    const myOrdersModule = await import('./src/modules/my-orders/my-orders.module');
-    await protectedScope.register(myOrdersModule.default);
-    console.log('[BOOT] Contextual Messaging module registered');
-    
-    // Notificações In-App
-    const systemNotificationsModule = await import('./src/modules/system-notifications/system-notifications.module');
-    await protectedScope.register(systemNotificationsModule.default);
-    console.log('[BOOT] System Notifications module registered');
-    
-    // Auditoria de Negócio
-    const businessAuditModule = await import('./src/modules/business-audit/business-audit.module');
-    await protectedScope.register(businessAuditModule.default);
-    console.log('[BOOT] Business Audit module registered');
-    
-    // Autorização de Negócio
-    const businessAuthorizationModule = await import('./src/core/authorization/business-authorization.module');
-    await protectedScope.register(businessAuthorizationModule.default);
-    console.log('[BOOT] Business Authorization module registered');
-    // Dashboard Econômico (READ-ONLY)
-    await protectedScope.register(economyOverviewModule, { prefix: '/economy' });
-    // Dispatch de Oportunidades
-    await protectedScope.register(dispatchModule, { prefix: '/dispatch' });
-    // Inbox Social
-    await protectedScope.register(inboxModule, { prefix: '/inbox' });
-    // Unified Availability Core
-    await protectedScope.register(availabilityModule, { prefix: '/availability' });
-    // Unified Calendar
-    await protectedScope.register(unifiedCalendarModule);
-    // Compatibility Engine
-    const compatibilityModule = await import('./src/core/compatibility/compatibility.module');
-    await protectedScope.register(compatibilityModule.default);
-    console.log('[BOOT] Compatibility module registered');
-    // SPRINT 13: Piloto Controlado & Observação Silenciosa
-    const pilotEventsModule = await import('./src/core/pilot/pilot-events.routes');
-    await protectedScope.register(pilotEventsModule.default, { prefix: '/admin/pilot' });
-    // SPRINT 14: Piloto Humano Controlado - Convites
-    const pilotInvitesModule = await import('./src/core/pilot/pilot-invites.routes');
-    await protectedScope.register(pilotInvitesModule.default, { prefix: '/admin/pilot' });
-    // SPRINT 15: Piloto Vivo - Observação Humana
-    const pilotHumanObservationModule = await import('./src/core/pilot/pilot-human-observation.routes');
-    await protectedScope.register(pilotHumanObservationModule.default, { prefix: '/admin/pilot' });
-    // SPRINT 26: Memória Institucional Declarativa
-    const institutionalMemoryModule = await import('./src/core/pilot/institutional-memory.routes');
-    await protectedScope.register(institutionalMemoryModule.default, { prefix: '/admin/pilot' });
-    // SPRINT 41.1: Marketplace Operável
-    // ORDEM: Após RBAC Guards (linha 277), após rotas públicas (linha 224)
-    try {
-      const marketplaceModule = await import('./src/modules/marketplace/marketplace.routes');
-      await protectedScope.register(marketplaceModule.default, { prefix: '/marketplace' });
-      
-      // Marketplace Categories (canônico, consome CORE)
-      const marketplaceCategoriesRoutes = await import('./src/modules/marketplace/marketplace-categories.routes');
-      await protectedScope.register(marketplaceCategoriesRoutes.default);
-      
-      // Marketplace Search (ranking determinístico)
-      const marketplaceSearchRoutes = await import('./src/modules/marketplace/marketplace-search.routes');
-      await protectedScope.register(marketplaceSearchRoutes.default);
-      
-      // Marketplace Store Onboarding
-      const storeOnboardingRoutes = await import('./src/modules/marketplace/store-onboarding.routes');
-      await protectedScope.register(storeOnboardingRoutes.default);
-      console.log('[BOOT] ✅ Marketplace rotas protegidas registradas: /marketplace (orders, payments, delivery, pdv)');
-    } catch (err) {
-      console.error('[BOOT] ❌ ERRO FATAL: Falha ao registrar Marketplace rotas protegidas');
-      console.error(err);
-      throw err; // Fail fast - Marketplace é crítico
-    }
-    // SPRINT 42.1: PDV Core
-    const pdvModule = await import('./src/modules/pdv/pdv.routes');
-    await protectedScope.register(pdvModule.default, { prefix: '/pdv' });
-    console.log('[BOOT] PDV module registered: /pdv');
-    // SPRINT 46: Relatórios Operacionais
-    const reportsModule = await import('./src/modules/reports/reports.routes');
-    await protectedScope.register(reportsModule.default, { prefix: '/reports' });
-    console.log('[BOOT] Reports module registered: /reports');
-    // SPRINT 50: Automações Operacionais
-    const automationModule = await import('./src/modules/automation/automation.routes');
-    await protectedScope.register(automationModule.default, { prefix: '/automation' });
-    console.log('[BOOT] Automation module registered: /automation');
-    // SPRINT 51: Multi-empresa, Filiais e Consolidação
-    const organizationModule = await import('./src/modules/organization/organization.routes');
-    await protectedScope.register(organizationModule.default, { prefix: '/organization' });
-    console.log('[BOOT] Organization module registered: /organization');
-    // SPRINT 79: Páginas Públicas
-    const publicProfileModule = await import('./src/modules/public-profiles/public-profile.routes');
-    await protectedScope.register(publicProfileModule.default);
-    console.log('[BOOT] Public Profiles module registered: /public-profiles');
-    
-    console.log('[BOOT] Todos os módulos protegidos registrados');
-  });
-  
-  console.log('[BOOT] buildApp() concluído com sucesso');
-  return app;
-}
+import { buildApp } from './src/app.builder';
+export { buildApp };
 
 // ─────────────────────────────────────────────────────────────
 // FUNÇÃO AUXILIAR: Verificar se porta está em uso
@@ -637,6 +60,12 @@ async function checkPortInUse(port: number, host: string): Promise<boolean> {
     server.listen(port, host);
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// CONFIGURAÇÃO DE PORTA E HOST
+// ─────────────────────────────────────────────────────────────
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
 
 // ─────────────────────────────────────────────────────────────
 // START SERVER (BOOTSTRAP LINEAR E SEGURO)
@@ -745,6 +174,254 @@ export async function startServer(): Promise<void> {
   console.log(`[BOOT] AUTH: http://localhost:${PORT}/auth/login`);
   console.log(`[BOOT] Servidor escutando na porta ${PORT}`);
   console.log('='.repeat(60));
+
+  // Financial Operations Monitor — verificações a cada 30s (somente leitura)
+  try {
+    const { pool } = await import('./src/core/database/pool');
+    const { runFinancialOperationsCheck, CHECK_INTERVAL_MS } = await import('./src/core/observability/financial-operations-monitor');
+    setInterval(() => {
+      runFinancialOperationsCheck(pool).catch((err) => {
+        console.warn('[BOOT] Financial Operations Check error:', err);
+      });
+    }, CHECK_INTERVAL_MS);
+    console.log(`[BOOT] Financial Operations Monitor: check a cada ${CHECK_INTERVAL_MS / 1000}s`);
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Financial Operations Monitor não iniciado (não bloqueante):', err);
+  }
+
+  // Payment Worker — consome fila payment-events (Redis/BullMQ); opcional se REDIS_ENABLED=false
+  try {
+    const { startPaymentWorker } = await import('./src/workers/payment-worker');
+    if (startPaymentWorker()) {
+      console.log('[BOOT] Payment Worker iniciado (fila payment-events)');
+    }
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Payment Worker não iniciado:', err);
+  }
+
+  // Settlement Worker — processa PaymentIntents escrowed → settled (a cada 10s)
+  try {
+    const { startSettlementWorker } = await import('./src/workers/settlement-worker');
+    startSettlementWorker();
+    console.log('[BOOT] Settlement Worker iniciado (escrowed → seller_pending a cada 10s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Settlement Worker não iniciado:', err);
+  }
+
+  // Release Worker — processa PaymentIntents settled → completed (seller_pending → seller_available, a cada 10s)
+  try {
+    const { startReleaseWorker } = await import('./src/workers/release-worker');
+    startReleaseWorker();
+    console.log('[BOOT] Release Worker iniciado (settled → seller_available a cada 10s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Release Worker não iniciado:', err);
+  }
+
+  // Idempotency keys cleanup — remove registros > 24h (função cleanup_idempotency_keys, a cada 1h)
+  try {
+    const { startIdempotencyCleanupWorker } = await import(
+      './src/workers/idempotency-cleanup-worker'
+    );
+    startIdempotencyCleanupWorker();
+    console.log('[BOOT] Idempotency Cleanup Worker iniciado (intent.execute keys > 24h)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Idempotency Cleanup Worker não iniciado:', err);
+  }
+
+  // Event outbox — publica eventos apenas após commit (retry seguro; idempotência event_id)
+  try {
+    const { startEventOutboxWorker } = await import('./src/workers/event-outbox-worker');
+    startEventOutboxWorker();
+    console.log('[BOOT] Event Outbox Worker iniciado (fila event_outbox → event_log)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Event Outbox Worker não iniciado:', err);
+  }
+
+  try {
+    const { startHandlerFailureWorker } = await import('./src/workers/handler-failure-worker');
+    startHandlerFailureWorker();
+    console.log('[BOOT] Handler Failure Worker iniciado (event_handler_failures → retry por handler_key)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Handler Failure Worker não iniciado:', err);
+  }
+
+  try {
+    const { startSagaTimeoutWorker } = await import('./src/workers/saga-timeout.worker');
+    startSagaTimeoutWorker();
+    console.log('[BOOT] Saga Timeout Worker iniciado (order_sagas timeout → cancelled + outbox)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Saga Timeout Worker não iniciado:', err);
+  }
+
+  // INFRA-3 — reconciliação SSOT vs derivados (só leitura; `RECONCILIATION_INTERVAL_MS`, default 60s)
+  try {
+    const { startReconciliationScheduledWorker } = await import(
+      './src/workers/reconciliation-scheduled.worker'
+    );
+    startReconciliationScheduledWorker();
+    console.log(
+      '[BOOT] Reconciliation Scheduled Worker iniciado (INFRA-3 runFullReconciliation + métricas drift)'
+    );
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Reconciliation Scheduled Worker (INFRA-3) não iniciado:', err);
+  }
+
+  // Payout Worker — processa payout_requests (requested → seller_available → seller_payout, a cada 10s)
+  try {
+    const { startPayoutWorker } = await import('./src/workers/payout-worker');
+    startPayoutWorker();
+    console.log('[BOOT] Payout Worker iniciado (requested payouts a cada 10s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Payout Worker não iniciado:', err);
+  }
+
+  // Reversal Worker — Prompt 51: reversals pending → transfer espelhado (a cada 30s)
+  try {
+    const { startReversalWorker } = await import('./src/workers/reversal-worker');
+    startReversalWorker();
+    console.log('[BOOT] Reversal Worker iniciado (reversals a cada 30s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Reversal Worker não iniciado:', err);
+  }
+
+  // Bank Settlement Worker — processa bank_settlements (pending → seller_payout → bank_settlement, a cada 10s)
+  try {
+    const { startBankSettlementWorker } = await import('./src/workers/bank-settlement-worker');
+    startBankSettlementWorker();
+    console.log('[BOOT] Bank Settlement Worker iniciado (pending settlements a cada 10s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Bank Settlement Worker não iniciado:', err);
+  }
+
+  // Reconciliation Integrity Worker — verificação contínua (apenas SELECT, a cada 30s)
+  try {
+    const { startReconciliationWorker } = await import('./src/workers/reconciliation-worker');
+    startReconciliationWorker();
+    console.log('[BOOT] Reconciliation Worker iniciado (integrity checks a cada 30s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Reconciliation Worker não iniciado:', err);
+  }
+
+  // Reconciliation Engine (Prompt 52) — diagnóstico ledger/transactions/contas, a cada 5min (configurável)
+  try {
+    const { startReconciliationEngineWorker } = await import(
+      './src/workers/reconciliation-engine-worker'
+    );
+    startReconciliationEngineWorker();
+    console.log('[BOOT] Reconciliation Engine Worker iniciado (Prompt 52)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Reconciliation Engine Worker não iniciado:', err);
+  }
+
+  // Risk Identity Reconcile (53.1) — reavalia score a partir de eventos (15min default)
+  try {
+    const { startRiskIdentityReconcileWorker } = await import(
+      './src/workers/risk-identity-reconcile.worker'
+    );
+    startRiskIdentityReconcileWorker();
+    console.log('[BOOT] Risk Identity Reconcile Worker (53.1)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Risk Identity Reconcile Worker não iniciado:', err);
+  }
+
+  // Financial Alert Worker — detecção de anomalias (LARGE_PAYOUT, SETTLEMENT_FAILED, PAYOUT_FAILED, a cada 60s)
+  try {
+    const { startFinancialAlertWorker } = await import('./src/workers/financial-alert-worker');
+    startFinancialAlertWorker();
+    console.log('[BOOT] Financial Alert Worker iniciado (anomaly alerts a cada 60s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Financial Alert Worker não iniciado:', err);
+  }
+
+  // Financial Metrics Worker — agregação de métricas (total_volume, total_payouts, total_settlements, total_transactions, a cada 5min)
+  try {
+    const { startFinancialMetricsWorker } = await import('./src/workers/financial-metrics-worker');
+    startFinancialMetricsWorker();
+    console.log('[BOOT] Financial Metrics Worker iniciado (aggregation a cada 5min)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Financial Metrics Worker não iniciado:', err);
+  }
+
+  // Risk Analysis Worker — detecção de risco (MANY_PAYOUTS, LARGE_TRANSACTION, MANY_PAYMENT_ATTEMPTS, a cada 60s)
+  try {
+    const { startRiskAnalysisWorker } = await import('./src/workers/risk-analysis-worker');
+    startRiskAnalysisWorker();
+    console.log('[BOOT] Risk Analysis Worker iniciado (risk detection a cada 60s)');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Risk Analysis Worker não iniciado:', err);
+  }
+
+  // Financial SLA Monitor — atrasos operacionais (settlement_delay, payout_delay, bank_settlement_delay, a cada 60s)
+  try {
+    const { startSlaMonitorWorker } = await import('./src/workers/sla-monitor-worker');
+    startSlaMonitorWorker();
+    console.log('[BOOT] Financial SLA Monitor iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Financial SLA Monitor não iniciado:', err);
+  }
+
+  // Ledger Snapshot Worker — snapshots periódicos de saldo por conta (a cada 10 min)
+  try {
+    const { startLedgerSnapshotWorker } = await import('./src/workers/ledger-snapshot-worker');
+    startLedgerSnapshotWorker();
+    console.log('[BOOT] Ledger Snapshot Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Ledger Snapshot Worker não iniciado:', err);
+  }
+
+  // Governance Execution Worker — executa propostas aprovadas (a cada 60s)
+  try {
+    const { startGovernanceExecutionWorker } = await import('./src/workers/governance-execution-worker');
+    startGovernanceExecutionWorker();
+    console.log('[BOOT] Governance Execution Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Governance Execution Worker não iniciado:', err);
+  }
+
+  // Governance Financial Action Worker — processa ações financeiras via PaymentIntent (a cada 60s)
+  try {
+    const { startGovernanceFinancialActionWorker } = await import('./src/workers/governance-financial-action-worker');
+    startGovernanceFinancialActionWorker();
+    console.log('[BOOT] Governance Financial Action Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Governance Financial Action Worker não iniciado:', err);
+  }
+
+  // Treasury Distribution Worker — cria governance_financial_actions a partir de treasury_distributions (a cada 60s)
+  try {
+    const { startTreasuryDistributionWorker } = await import('./src/workers/treasury-distribution-worker');
+    startTreasuryDistributionWorker();
+    console.log('[BOOT] Treasury Distribution Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Treasury Distribution Worker não iniciado:', err);
+  }
+
+  // Treasury Split Engine — split automático (sent settlements → regional_fund, community_fund, etc.)
+  try {
+    const { startTreasurySplitWorker } = await import('./src/workers/treasury-split-worker');
+    startTreasurySplitWorker();
+    console.log('[BOOT] Treasury Split Engine iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Treasury Split Engine não iniciado:', err);
+  }
+
+  // Governance Funding Worker — propostas aprovadas (community_project_funding) → PaymentIntent
+  try {
+    const { startGovernanceFundingWorker } = await import('./src/workers/governance-funding-worker');
+    startGovernanceFundingWorker();
+    console.log('[BOOT] Governance Funding Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Governance Funding Worker não iniciado:', err);
+  }
+
+  // Governance Funding Commitment Worker — commitment (intenção) → valida saldo → treasury→escrow → PaymentIntent
+  try {
+    const { startGovernanceFundingCommitmentWorker } = await import('./src/workers/governance-funding-commitment-worker');
+    startGovernanceFundingCommitmentWorker();
+    console.log('[BOOT] Governance Funding Commitment Worker iniciado');
+  } catch (err) {
+    console.warn('[BOOT] Aviso: Governance Funding Commitment Worker não iniciado:', err);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
