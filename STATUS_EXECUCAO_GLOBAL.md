@@ -1026,3 +1026,36 @@ Trilho **separado** do catálogo §17; foco em **SSOT de saldo e movimentos** (`
 | **EXEC-PLANO-V21** | **STANDBY** | **2026-04-11** · `UNIFICARD_PLANO_MESTRE_v2_1` · `CORE_TECNICO` **DONE** · E2E pendente (GRANT, B5, workers) · `docs/03_execution_log/2026-04-11_plano_v21_passo4b_governanca.md` · DRY_RUN + script real PASS · `tsc` PASS · `psql` RLS OK · 4b idempotência + PASS estado (FK) |
 
 **Nota INFRA-4.1 / INFRA-4.2 / EXEC-INFRA-4-SAGA:** **4.1** **v2.8.15**; **4.2** **v2.8.16**; **wiring + invariantes + integração caos** **[EXEC-INFRA-4-SAGA]** **DONE v2.8.17–2.8.19** — ver plano **Revisões 2.8.15–2.8.19** (harness não substitui `executePayment` até repositório `payment_transactions` real).
+
+
+## 2026-05-06 — Retificação de causalidade da DT-build-alias (D3=α)
+
+**Sessão:** DT-build-alias (rescue-structural, HEAD pré-sessão `c0ac7a89`)
+**Tipo:** retificação documental
+
+### O que o canônico afirmava
+
+O bloco de 2026-05-05 atribuiu a remoção do `tsc-alias` do script `build` ao commit `70579227 [REBASE-03]` (2026-02-11), o mesmo commit que corrompeu o `.gitignore` raiz para UTF-16 LE.
+
+### O que a evidência mostrou
+
+Verificação direta em `git show` durante a sessão DT-build-alias:
+
+- `git show 70579227^:backend/package.json` → `tsc-alias` PRESENTE
+- `git show 70579227:backend/package.json` → `tsc-alias` PRESENTE
+- HEAD `c0ac7a89` → `tsc-alias` PRESENTE
+- Working tree em 06/05/2026 → `tsc-alias` AUSENTE
+
+A remoção não está em commit nenhum. Está como modificação não-commitada no working tree, com `LastWriteTime 30/04/2026 23:17:22`, sem rastro em `git log`.
+
+### Causalidade correta
+
+O commit `70579227 [REBASE-03]` permanece responsável apenas pela corrupção do `.gitignore` raiz (já remediada em `5b410c17`). A remoção do `tsc-alias` é evento separado, contemporâneo, em arquivo congelado por regra B4.
+
+### Reformulação posterior
+
+Diagnóstico subsequente (mesma sessão, registrado em bloco separado abaixo) revelou que a remoção da linha foi sintoma de problema mais profundo: instalação `tsc-alias`/`get-tsconfig` quebrada no store pnpm. A DT-build-alias foi encerrada por D6=β e DT sucessora `DT-tsc-alias-broken-install` foi aberta.
+
+### Estado do canônico
+
+O bloco de 2026-05-05 permanece intacto (append-only); fica preservado como registro do diagnóstico inicial. Esta retificação é a fonte autoritativa sobre a causalidade real.
