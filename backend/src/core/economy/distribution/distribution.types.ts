@@ -26,27 +26,3 @@ export interface FeeCalculation {
   netAmount: number;
 }
 
-/**
- * Resultado da distribuição de fees
- */
-export interface DistributionResult {
-  transactionId: string;
-  calculation: FeeCalculation;
-  distributions: {
-    platformAccount: string;
-    communityAccount: string;
-    groupAccount?: string;
-  };
-  eventIds: string[];
-}
-
-/**
- * Input para distribuição automática
- */
-export interface AutoDistributeInput {
-  fromAccount?: string;
-  toAccount?: string;
-  amountCents: number;
-  groupAccount?: string; // Opcional: se houver grupo envolvido
-  config?: Partial<FeeConfig>; // Permite override de config
-}

@@ -7,13 +7,6 @@ export const feeConfigSchema = z.object({
   groupFeePercent: z.number().min(0).max(100).optional(),
 });
 
-export const autoDistributeSchema = z.object({
-  fromAccount: z.string().uuid('Invalid source account ID'),
-  toAccount: z.string().uuid('Invalid destination account ID'),
-  amountCents: z.number().positive('Amount must be greater than zero'),
-  groupAccount: z.string().uuid('Invalid group account ID').optional(),
-  config: feeConfigSchema.optional(),
-});
 
 export const simulateSchema = z.object({
   amountCents: z.number().positive('Amount must be greater than zero'),
@@ -25,6 +18,5 @@ export const batchCalculateSchema = z.object({
   config: feeConfigSchema.optional(),
 });
 
-export type AutoDistributeInput = z.infer<typeof autoDistributeSchema>;
 export type FeeConfigInput = z.infer<typeof feeConfigSchema>;
 
