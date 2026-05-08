@@ -1426,3 +1426,135 @@ Durante a sessão, `git status` revelou que `backend/src/modules/concept-resolut
 - DT-configs-b4-modificados-auditoria: FECHADA (sessões anteriores)
 - C66 / Sessão 2 PLANO_MESTRE: **FECHADA**
 - Próximas: Sessão 3 (Frente 3), DT-canonical-docs-untracked (sugerida hoje), DT-packages-artifacts-tracked, DT-stashes-revisao
+
+---
+
+## 2026-05-07 — Sessão 3 PLANO_MESTRE: tentativa ABORTADA (registro institucional retroativo)
+
+**Branch:** `rescue-structural`
+**HEAD pós-sessão:** `4510e13a`
+**Frente:** F1 — Remediação Estrutural Core/Módulos (PLANO_MESTRE)
+
+### Escopo declarado
+
+Sessão 3 do PLANO_MESTRE: migrar primeiro caller de `bankTransactionService` para passar UUID direto em `concept_id` (Frente 3, Caminho B). Caller alvo proposto pelo plano: `distribution.service.ts`.
+
+### O que aconteceu
+
+Refactor parcial `amount → amountCents` foi iniciado em `distribution.service.ts:30-72` mas não completado. `pnpm build` (`tsc --noEmit`) reporta 6 erros TS `Cannot find name 'amount'` — corpo de função usa `amount`, assinatura usa `amountCents`. Estado intermediário foi guardado em stash `C65-distribution-amount-rename-pendente-custodia`.
+
+Antes da migração de caller, foi removida função morta `autoDistribute` (zero callers identificados). Commit cirúrgico `4510e13a` aplicado ao branch.
+
+### Commits aplicados nesta tentativa
+
+| # | Hash | Conteúdo |
+|---|---|---|
+| 1 | `0294a1f3` | docs(status): fecha C66 sessão 2 |
+| 2 | `1314ffb0` | docs(status): errata C66 |
+| 3 | `ae530045` | chore(gitignore): adiciona `_orphans/` |
+| 4 | `4510e13a` | refactor(economy/distribution): remove `autoDistribute` (código morto) |
+
+### Estado pós-sessão
+
+- Sessão 3 NÃO concluída (caller principal não migrado). Função morta `autoDistribute` removida com sucesso.
+- Build `tsc` quebrado (6 erros pré-existentes em `distribution.service.ts:30-72`).
+- `tsx watch` (usado em `pnpm dev`) é tolerante a erros TS — backend roda mesmo com build quebrado.
+- Stash C65 preservado em `stash@{0}`. Próxima sessão F1 deve resolver o stash antes de retomar Sessão 3 ou avançar para Sessão 4.
+
+### DTs status
+
+- C65 / Stash de refactor `amount→amountCents`: PENDENTE (preservada em quarentena no stash@{0}, 6 erros TS bloqueando build mas não runtime)
+- Sessão 3 PLANO_MESTRE: ABORTADA — pré-requisito = resolver C65
+
+---
+
+## 2026-05-08 — Frente F2 (Runtime Smoke Test) ABERTA · Sessão 1 FECHADA
+
+**Branch:** `rescue-structural`
+**Commit aplicado nesta sessão:** `8a47369c`
+**HEAD pós-sessão:** `8a47369c`
+
+### Declaração da frente F2
+
+Frente paralela à F1 (PLANO_MESTRE_REMEDIACAO_CORE_MODULES), aberta nesta sessão. Escopo: corrigir erros que aparecem em runtime ao subir o backend e exercitar fluxo básico de usuário (login + perfil + endereços + empresas).
+
+Origem: auditoria de log do backend rodando em 2026-05-08 mapeou 8 categorias de erro distintas; 6 passam no §-1.5 do `opus.md` (filtro de prioridade: bloqueia rodar OU degrada diagnóstico OU toca causalidade financeira).
+
+F1 e F2 avançam independentemente; cada sessão pertence a uma frente só (Lei §1). Ambas continuam abertas até produto rodando (F2) + estrutura remediada (F1).
+
+### Sessão 1 — A1+A2+A3 (drift camelCase em `core.service.ts`)
+
+**Causa raiz:** migrations 0125-0127 renomearam timestamps de camelCase quoted (`"createdAt"`, `"updatedAt"`) para snake_case (`created_at`, `updated_at`) em `profiles`, `companies`, `users`, `global_users`. `core.service.ts` continuava emitindo SQL com camelCase.
+
+**Erros do log resolvidos:**
+- A1: `coluna p.updatedat não existe` em `getCompleteProfile`
+- A2: `coluna "updatedat" não existe` em query de metadata de endereços
+- A3: `coluna c.createdat não existe` em query de empresas
+
+### Edição aplicada
+
+| Linha | Query | Antes | Depois |
+|---|---|---|---|
+| 240 | `getCompleteProfile` (profiles JOIN user_profiles) | `ORDER BY p.updatedAt DESC` | `ORDER BY p.updated_at DESC` |
+| 389 | metadata para endereços | `ORDER BY updatedAt DESC` | `ORDER BY updated_at DESC` |
+| 480 | companies (1ª ocorrência) | `ORDER BY c.createdAt DESC` | `ORDER BY c.created_at DESC` |
+| 569 | companies (2ª ocorrência) | `ORDER BY c.createdAt DESC` | `ORDER BY c.created_at DESC` |
+
+Arquivo: `backend/src/core/core.service.ts`. EOL preservado (LF puro, 798 linhas, 0 CRLF). 4 insertions / 4 deletions, 1 file changed.
+
+### Auditoria epistêmica desta sessão (registro institucional)
+
+- Claude Code inicialmente tentou rodar comandos em ambiente WSL (`/mnt/c/unificard`); ambiente real é Git Bash/MSYS (`/c/unificard`). Cancelado e corrigido após verificação `pwd`/`uname -a`.
+- Claude Code propôs `git stash` para auditar regressão; cancelado por contradizer `opus.md §4` (`core.autocrlf=true` converte LF→CRLF silenciosamente). Substituído por isolamento via `cp` + `.bak` + `md5sum`.
+- Backup `.bak` criado pré-edit, MD5 `6a772afa...` em ambos arquivos. Edição preservada byte-perfect, MD5 `ef5fa17d...` em ambos arquivos. `.bak` removido após validação completa.
+
+### Validação
+
+| Critério | Resultado |
+|---|---|
+| `validate:actor-writer-boundaries` | PASS (`GATE OK [actor-writer §4.8.1]`) |
+| `validate:bank-ledger-boundaries` | PASS (`GATE OK [bank-ledger §4.6]`) |
+| `validate:regression-guards` | PASS |
+| `validate-architectural-patterns.mjs --strict` | PASS (`critical_new=0 warning_new=0 info_new=0`) |
+| CORE_PURITY drift | `0` (`1278/68/319/891` baseline preservado) |
+| Typecheck `core.service.ts` | zero erros novos |
+| Runtime smoke test | `PARAM_DEBUG_RESULT` confirmou `getCompleteProfile` retornando dados reais (`Dev User Seed`) sem erro de coluna após hot reload |
+
+Erro pré-existente em `dashboard.service.ts:62` (TS2322 `DashboardWallet`) confirmado com evidência material via teste pré-edit isolado pelo `.bak`. Documentado em `code.md` linhas 182, 202, 283, 453. Sem relação semântica com a edição desta sessão.
+
+### Backlog F2 (não tocado nesta sessão)
+
+| ID | Erro | Local | Observação |
+|---|---|---|---|
+| A4 | drift `updatedAt`+`expiresAt` + coluna `invited_user_id` inexistente em UPDATE | `groups` (UPDATE `group_invites`) | mesmo padrão de A1-A3 + coluna ausente |
+| A5 | `coluna c.cep não existe` em query de endereços | `core.service.ts:472` | descoberta nova nesta sessão |
+| B1 | `relação user_skills_categories não existe` | profile profissional | exige decisão: criar tabela ou remover código |
+| B2 | `coluna domain_type não existe` em `categories` | profile físico | drift schema vs código |
+| B3 | `coluna visibility não existe` em `posts` | unread-counts | similar |
+| B4 | `coluna pi.status não existe` (alias ambíguo) | ReconciliationWorker | |
+| B5 | `coluna "status" não existe` (ambíguo) | SlaMonitorWorker | |
+| B6 | `relação auth_rate_limit_logs não existe` | auth | não-bloqueante |
+| C1 | ReleaseWorker em loop infinito (intent `3327ef51-e1ce-456f-a993-c018c6f60102`, `Cannot transfer to same account`) | `release-worker.ts` + `payment-event-resolver.ts:161` | toca causalidade financeira (§-1.5 #3) |
+| D1, D2, E | pool encoding race / Redis loop / encoding terminal | infra/cosmético | não-bloqueante |
+
+### Estado pós-sessão
+
+- F1 (PLANO_MESTRE) **inalterada** nesta sessão. HEAD pré-sessão `4510e13a`. Stash `C65` preservado em `stash@{0}`.
+- F2 aberta. Sessão 1 fechada com sucesso. 9+ itens no backlog (A4, A5, B1-B6, C1, D1, D2, E).
+- HEAD pós-sessão: `8a47369c`.
+- Backend rodando, login funcional, `/profile` / `/core/profile` agora retornam dados completos.
+
+### DTs status
+
+- A1, A2, A3 (drift `updatedAt`/`createdAt` em `core.service.ts`): **FECHADAS**
+- A4, A5, B1-B6, C1, D1, D2, E: backlog F2
+- C65 (stash de refactor `amount→amountCents`): PENDENTE (inalterada nesta sessão, ver entrada 2026-05-07)
+- DT-eol-autocrlf-windows: NOVA — `core.autocrlf=true` ativo no projeto, gera warning `LF will be replaced by CRLF the next time Git touches it`. Considerar `core.autocrlf=false` ou `.gitattributes` em sessão futura. Não bloqueante.
+- DT-debug-code-em-service: NOVA — `console.error('PARAM_DEBUG', ...)` em `core.service.ts:218` é debug code aparentemente esquecido. Saída em log de produção/dev. Backlog.
+
+### Próxima sessão — opções (Clayton decide)
+
+- **F2-A5:** mesmo arquivo `core.service.ts`, contexto quente (linha 472, query de endereços com `c.cep`). ROI alto.
+- **F2-A4:** `group_invites` UPDATE, mesmo padrão de drift de A1-A3 + investigação de schema (qual o nome real da coluna `invited_user_id`).
+- **F1-stash-C65:** resolver os 6 erros TS pendentes em `distribution.service.ts` para destravar PLANO_MESTRE.
+- **F1-Sessão-4 do PLANO_MESTRE:** depende de C65 estar resolvido.
