@@ -237,7 +237,7 @@ export class CoreService {
           FROM profiles p
           LEFT JOIN user_profiles up ON up.user_id = p.user_id
           WHERE p.tenant_id = $1 AND p.user_id = $2
-          ORDER BY p.updatedAt DESC
+          ORDER BY p.updated_at DESC
           LIMIT 1
           `,
           [tenantId, userId]
@@ -386,7 +386,7 @@ export class CoreService {
           SELECT metadata
           FROM profiles
           WHERE tenant_id = $1 AND user_id = $2
-          ORDER BY updatedAt DESC
+          ORDER BY updated_at DESC
           LIMIT 1
           `,
           [tenantId, userId]
@@ -477,7 +477,7 @@ export class CoreService {
             INNER JOIN company_users cu ON c.company_id = cu.company_id
             INNER JOIN users u ON cu.global_user_id = u.global_user_id
             WHERE u.user_id = $1 AND u.tenant_id = $2 AND c.status = 'active'
-            ORDER BY c.createdAt DESC
+            ORDER BY c.created_at DESC
             LIMIT 1
             `,
             [userId, tenantId]
@@ -566,7 +566,7 @@ export class CoreService {
           INNER JOIN company_users cu ON c.company_id = cu.company_id
           INNER JOIN users u ON cu.global_user_id = u.global_user_id
           WHERE u.user_id = $1 AND u.tenant_id = $2
-          ORDER BY c.createdAt DESC
+          ORDER BY c.created_at DESC
           `,
           [userId, tenantId]
         );
