@@ -1558,3 +1558,134 @@ Erro pré-existente em `dashboard.service.ts:62` (TS2322 `DashboardWallet`) conf
 - **F2-A4:** `group_invites` UPDATE, mesmo padrão de drift de A1-A3 + investigação de schema (qual o nome real da coluna `invited_user_id`).
 - **F1-stash-C65:** resolver os 6 erros TS pendentes em `distribution.service.ts` para destravar PLANO_MESTRE.
 - **F1-Sessão-4 do PLANO_MESTRE:** depende de C65 estar resolvido.
+
+---
+
+## 2026-05-08 — Frente F3 (Domain Foundations: Location Core) ABERTA · Sessões S1, S2, S3 FECHADAS
+
+**Branch:** `rescue-structural`
+**Commits aplicados nesta sessão:** (a inserir após commit final desta atualização de status)
+**Frente origem:** F2-A5 (auditoria de runtime smoke test) escalada para F3 após descobrir que escopo era arquitetural fundacional, não cirúrgico.
+
+### Declaração da frente F3
+
+Frente arquitetural fundacional, paralela a F1 (PLANO_MESTRE) e F2 (Runtime Smoke Test). Escopo: materializar Location Core como infraestrutura territorial soberana.
+
+**Por que F3 nasceu:** Sessão F2-S2 começou tentando corrigir erro de runtime `coluna c.cep não existe` em `core.service.ts:472`. Aplicação de §4-B do `opus.md` (auditoria de feature ponta-a-ponta antes de delete/quarentena) revelou que feature de endereço de empresa estava 80% implementada (frontend + service + INSERT), só faltava schema. Investigação mais profunda (Codex + ChatGPT) descobriu que **plano canônico de Location Core já existiu** em `migrations_archive/0360-0363`, foi recuado durante reconstrução pós-genesis, e **código atual ainda assume**, gerando workarounds proliferando em múltiplos módulos.
+
+Diagnóstico: domínio fundacional parcialmente enterrado por refatoração. Trabalho de F3 é **reconciliar arquitetura com runtime**, não inventar do zero.
+
+### Sessão F3-S1 — Auditoria geográfica do estado atual
+
+**Output:** mapeamento completo de fragmentação geográfica no sistema atual.
+
+**Achados principais (via Codex):**
+- Banco vivo: `countries`, `states`, `cities`, `neighborhoods`, `addresses`, `root_config`, `global_user_residence` **ausentes**.
+- HTTP real: `GET /locations/countries` retorna 500 (`relação "countries" não existe`); `GET /api/location/cep/01001000` funciona (BrasilAPI/ViaCEP, retorno textual).
+- Código que assume Location Core: `address.types.ts`, `location.repository.ts`, `location-enrichment.service.ts`, `location.validators.ts`, `residence.service.ts`, `root-config.repository.ts`, `city-readiness.service.ts`, `region-account.service.ts`.
+- Código que contorna ausência: `0090_tenants_city_id.sql` (sem FK por design, "minimal installations"), `services` com IDs sem FK, `product_offers` idem, `rides_cities` próprio, `regional_funds` em TEXT.
+- Comentário em `categories.service.ts:454` pede explicitamente para NÃO criar SSOT paralelo de geografia.
+
+**Achados principais (via ChatGPT):**
+- Ontologia territorial implícita já emergente: `cityId → stateId → regionId`, `CityReadiness` interface, `worldService.getCityFullPath()`.
+- TODO arquitetural explícito: "Usar stateId como regionId (por enquanto)" — confissão de débito ontológico não resolvido.
+- Sistema já trata território como entidade econômica (regional_funds, region_accounts), não decorativa.
+
+**Evidências:** `docs/F3-evidencias/F3-S1-codex-auditoria-geografica.md`, `F3-S1-chatgpt-ontologia.md`.
+
+### Sessão F3-S2 — Arqueologia arquitetural
+
+**Output:** plano antigo identificado, viabilidade de resgate avaliada.
+
+**Migrations arquivadas relevantes (em `migrations_archive/`):**
+- `0360_world_geography.sql` — countries, states, cities (header: "referência única de países, estados e cidades")
+- `0361_location_core_neighborhoods.sql` — neighborhoods completando hierarquia
+- `0362_location_core_normalization.sql` — `name_display`, `name_normalized`, função de normalização, triggers
+- `0363_location_core_addresses.sql` — addresses genérica para users, companies, groups, events, votings, schools
+- `0021_tenants_add_city_id.sql` (versão antiga com FK real para `cities`)
+- `0023_global_user_residence.sql` (residência digital global)
+- `0003_root_config.sql` (root_config arquivado, mas só com `id`/`*_at`; código atual espera mais colunas)
+
+**Documentação técnica encontrada:**
+- `docs/03_technical/CORRECAO_LOCATION_CORE_ACTIVE.md` — confirma que migration 115 (`countries.active`) nunca executou
+- `docs/03_technical/CORRECAO_LOCATION_CORE_NAME_DISPLAY.md` — confirma que migration 116 (`name_display`) nunca executou; código foi simplificado para schema mínimo
+
+**Conclusão F3-S2:** plano canônico existiu, tem peças maduras reaproveitáveis (seeds em `seed-countries-basic.ts`, `seed-location-brazil-pr-curitiba.ts`; código de `location.repository`, `location-enrichment`, validators, frontend `LocationSelector`). Schema base é reaproveitável **com revisão para escala planetária** — original era BR-centric. Evidências: `docs/F3-evidencias/F3-S2-codex-arqueologia-arquitetural.md`, `F3-S2-chatgpt-reconciliacao.md`.
+
+### Sessão F3-S3 — Decisão arquitetural fundacional
+
+**Output:** DECISION-0020 aprovada (ver `REMEDIATION_DECISIONS_LOG.md`).
+
+**6 dimensões fundacionais decididas:**
+
+| # | Dimensão | Decisão |
+|---|---|---|
+| 1 | Granularidade canônica | `addresses` com `lat/lng` opcional + `is_geocoded` |
+| 2 | Escala internacional | Brasil-first incremental, arquitetura expansível |
+| 3 | Hierarquia administrativa | `country → state → city → neighborhood` (4 níveis fixos) |
+| 4 | Região econômica vs administrativa | SEPARADAS (`administrative_divisions` vs `economic_regions`) |
+| 5 | Tenant | HQ única + `tenant_operational_regions` N:N |
+| 6 | Rollout | Materialização + adapters + migração progressiva |
+
+**Schema canônico:** 6+ tabelas (`countries`, `states`, `cities`, `neighborhoods`, `addresses`, `address_assignments`, `economic_regions`, `economic_region_members`, `tenant_operational_regions`). Detalhe completo em DECISION-0020.
+
+**Princípios de design fixos:**
+1. CEP é UX, não fonte de verdade
+2. Território por IDs, não strings livres
+3. `external_code` (não `ibge_code`) — não congelar Brasil na ontologia
+4. `name_normalized = lower(unaccent(name))` como helper único institucional
+5. `address_assignments.valid_to` = event sourcing leve de endereço
+6. CHECK constraints como defesa estrutural
+
+**Validação cruzada:** sessão usou Codex (arqueologia + ontologia) e ChatGPT (validação de schema) como auditores externos. Convergência total nas 6 dimensões. Evidência em `docs/F3-evidencias/F3-S3-chatgpt-validacao-schema.md`.
+
+### Estado pós-sessão (F3 fim de S3)
+
+- F1 (PLANO_MESTRE) inalterada. HEAD pré-sessão `8e28a951` (commit do status anterior).
+- F2 inalterada. F2-A5 segue PAUSADA (escalada para F3).
+- F3 aberta. S1, S2, S3 fechadas. DECISION-0020 aprovada.
+- HEAD pós-sessão: (commit final desta atualização de status).
+- Próxima sessão: **F3-S4** (execução técnica — primeira migration `countries`).
+
+### Backlog F3 (sessões futuras)
+
+| Sessão | Escopo | Status |
+|---|---|---|
+| F3-S4 | Migrations base — `countries`, `states`, `cities`, `neighborhoods` | aberta |
+| F3-S5 | Seed mínimo Brasil — 27 estados + capitais + IBGE codes | aguarda S4 |
+| F3-S6 | Migration `addresses` + `address_assignments` + helper de normalização | aguarda S5 |
+| F3-S7 | Migration `economic_regions` + `economic_region_members` | aguarda S6 |
+| F3-S8 | Integração `companies` (resolve A5 finalmente) | aguarda S6 |
+| F3-S9 | Integração `profiles.metadata.address` → `address_assignments` | aguarda S6 |
+| F3-S10..N | Integração progressiva: services, rides_cities, regional_funds, product_offers, events, cultural, tenants | aguarda S7 |
+| F3-Sfinal | Gate CI `validate:no-string-territorial` | aguarda módulos migrados |
+
+### DTs status
+
+- **A1, A2, A3** (Frente F2): FECHADAS
+- **A5** (Frente F2): PAUSADA — escalada para F3, fecha quando F3-S8 entregar
+- **A4, B1-B6, C1, D1, D2, E** (Frente F2): backlog
+- **C65** (Frente F1): PENDENTE (inalterada nesta sessão)
+- **DT-eol-autocrlf-windows**: backlog
+- **DT-debug-code-em-service**: backlog
+- **DT-companies-address-schema-gap**: superseded por DECISION-0020 (resolução em F3-S8)
+- **NOVA — DT-location-core-rescue-progressive**: rastreador da execução das sessões F3-S4 a F3-Sfinal
+
+### Anti-padrões institucionais formalmente proibidos após DECISION-0020
+
+1. Adicionar coluna `city`, `state`, `country`, `cep`, `address_*` como `TEXT` em tabela que não seja `addresses`
+2. Criar tabela paralela de geografia
+3. Usar `metadata JSONB` para armazenar geografia (exceto temporariamente, com TODO migração)
+4. Hardcodar mapeamento `state → region` em código
+5. Tratar CEP como fonte de verdade
+
+### Próxima sessão — F3-S4
+
+Escopo declarado: **criar migration base do Location Core (countries, states, cities, neighborhoods)**. Aplicar no banco. Validar `\d countries`, `\d states`, etc. retornando schemas corretos. Não tocar código TypeScript (vem em F3-S6+).
+
+Pré-requisitos para F3-S4 começar:
+- DECISION-0020 commitada
+- Esta atualização de STATUS commitada
+- Evidências de F3-S1, S2, S3 salvas em `docs/F3-evidencias/`
+- opus.md atualizado com nota sobre F3 aberta
+

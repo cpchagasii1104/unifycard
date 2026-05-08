@@ -735,3 +735,192 @@ Registrar permanentemente toda decisão que envolva:
   - `validate-core-purity` SUMMARY após realocação: idêntico ao antes (drift=0)
 
 ---
+---
+
+## DECISION-0020 — Location Core: território como infraestrutura soberana
+
+**Data:** 2026-05-08
+**Frente:** F3 — Domain Foundations: Location Core Materialization
+**Sessão de origem:** F3-S3 (decisão arquitetural)
+**Status:** APROVADA por Clayton
+
+### Contexto
+
+Sessão F2-S2 (2026-05-08) iniciou tentando corrigir erro de runtime `coluna c.cep não existe` em `core.service.ts:472` (item A5 da Frente Runtime Smoke Test). Auditoria de feature ponta-a-ponta (§4-B do `opus.md`) revelou que a query era apenas a ponta de iceberg. Auditorias paralelas via Codex e ChatGPT revelaram:
+
+1. **Plano canônico de Location Core já existiu** materializado em migrations arquivadas (`migrations_archive/0360_world_geography.sql` a `0363_location_core_addresses.sql`)
+2. **Plano foi recuado** em algum momento da reconstrução pós-genesis; tabelas `countries`, `states`, `cities`, `neighborhoods`, `addresses`, `root_config`, `global_user_residence` não existem no banco vivo
+3. **Código ainda assume Location Core**: `address.types.ts` declara contrato único de endereço, `location.repository.ts` consulta tabelas inexistentes, `region-account.service.ts` usa `tenant.cityId → stateId → regionId` com TODO arquitetural explícito
+4. **Workarounds proliferam**: `regional_funds` em `TEXT`, `rides_cities` paralelo, `services` com IDs sem FK, `profiles.metadata.address` JSONB livre, comentário em `categories.service.ts:454` pedindo para NÃO criar SSOT paralelo
+
+Diagnóstico institucional: domínio fundacional parcialmente enterrado por refatoração. Trabalho é **reconciliar arquitetura com runtime**, não inventar do zero.
+
+### Decisão
+
+Materializar Location Core como **infraestrutura territorial soberana** — mesmo nível de Identity, Authority, Ledger. Não mais "infra opcional" condicional a "minimal installations".
+
+### As 6 dimensões fundacionais
+
+#### 1. Granularidade canônica
+**`addresses` é entidade primária com `lat/lng` OPCIONAL + flag `is_geocoded`.**
+
+Razões: geocoding obrigatório acopla onboarding a API de terceiros; CEP rural falha; eventos temporários quebram. Modelo correto: address existe primeiro, geo enrichment acontece depois (background ou sob demanda).
+
+Campos: `lat`, `lng`, `is_geocoded`, `geocoded_at`, `geocode_provider`.
+
+#### 2. Escala internacional real
+**Multi-país INCREMENTAL, não simultâneo. Brasil-first, arquitetura expansível.**
+
+Schema suporta qualquer país desde dia 1 (`country_id` em todos os níveis). Seed inicial: apenas Brasil. Argentina/México/Portugal entram via novo seed, sem reescrever schema. Evita overengineering internacional sem criar gambiarra local.
+
+#### 3. Hierarquia administrativa
+**`country → state → city → neighborhood`** (4 níveis fixos).
+
+Não usar hierarquia genérica auto-referenciada (sobre-engenharia para BR-only inicial). Os 4 níveis cobrem >95% dos países do mundo (com renomeações cosméticas: "estado" vira "província", "land", "região", etc.).
+
+#### 4. Região econômica vs administrativa
+**SEPARADAS — `administrative_divisions` (canônico) vs `economic_regions` (operacional).**
+
+Estado político ≠ região econômica ≠ delivery zone ≠ território cultural. Tabela `economic_regions` com `region_type` (`FUND`, `RIDE_ZONE`, `DELIVERY_AREA`, `FISCAL`, `CULTURAL`, `CUSTOM`) e membros N:N com `cities` ou `states`. Resolve o `TODO: stateId como regionId` do código atual de forma definitiva.
+
+#### 5. Tenant — sede + multi-localização
+**HQ única + regiões operacionais N:N.**
+
+`tenants.headquarters_address_id` para sede jurídica/fiscal. `tenant_operational_regions` (N:N com `economic_regions`) para expansão operacional. Compliance usa HQ; bank/operação usa regiões; fiscal usa sede.
+
+#### 6. Estratégia de rollout
+**Materialização + adapters + migração progressiva. Não big-bang. Não dualidade eterna.**
+
+Fases:
+1. Materializar `countries`, `states`, `cities`, `neighborhoods`, `addresses`
+2. Criar adapters: `resolveAddress()`, `resolveCity()`, `resolveRegion()`
+3. Novos módulos: PROIBIDO string livre em geografia (gate CI)
+4. Módulos antigos: migração gradual (uma sessão por módulo)
+5. Remoção do legado quando módulos migrados
+
+### Schema canônico aprovado
+
+```sql
+-- ─── Camada administrativa (universal, normalizada) ───
+
+countries(country_id UUID PK, iso_alpha2 UNIQUE, iso_alpha3, name,
+          name_localized JSONB, phone_code, currency_code,
+          timezone_default, is_active BOOL, *_at TIMESTAMPTZ)
+
+states(state_id UUID PK, country_id FK, iso_3166_2, external_code,
+       name, name_normalized, abbreviation, is_active, *_at,
+       UNIQUE(country_id, name_normalized))
+
+cities(city_id UUID PK, state_id FK, external_code, name, name_normalized,
+       lat NUMERIC(10,7), lng NUMERIC(10,7), is_active, *_at,
+       UNIQUE(state_id, name_normalized))
+
+neighborhoods(neighborhood_id UUID PK, city_id FK, name, name_normalized,
+              is_active, *_at, UNIQUE(city_id, name_normalized))
+
+-- ─── Camada de endereço (entidade própria, reutilizável) ───
+
+addresses(address_id UUID PK, country_id FK, state_id FK?, city_id FK?,
+          neighborhood_id FK?, postal_code, street, number, complement,
+          reference, lat NUMERIC(10,7), lng NUMERIC(10,7),
+          is_geocoded BOOL, geocoded_at, geocode_provider,
+          source TEXT CHECK (source IN ('UX_INPUT', 'CEP_RESOLVED',
+            'GEOCODED', 'MANUAL_OVERRIDE', 'IMPORT_LEGACY', 'EXTERNAL_API')),
+          *_at)
+
+-- ─── Camada de atribuição (qual entidade "mora" em qual endereço) ───
+
+address_assignments(assignment_id UUID PK,
+  owner_type TEXT CHECK (owner_type IN ('company', 'profile', 'event',
+    'ride', 'group', 'tenant_hq', 'service_provider')),
+  owner_id UUID, address_id FK,
+  role TEXT CHECK (role IN ('BILLING', 'DELIVERY', 'RESIDENCE', 'HQ',
+    'OPERATIONAL', 'PICKUP', 'DROPOFF')),
+  is_primary BOOL, valid_from TIMESTAMPTZ, valid_to TIMESTAMPTZ?, *_at)
+
+-- Apenas 1 primary por (owner, role) vigente
+UNIQUE INDEX (owner_type, owner_id, role) WHERE is_primary AND valid_to IS NULL
+
+-- ─── Camada econômica/operacional (regiões customizadas) ───
+
+economic_regions(region_id UUID PK, tenant_id UUID? (NULL=global),
+  region_type TEXT CHECK (region_type IN ('FUND', 'RIDE_ZONE',
+    'DELIVERY_AREA', 'FISCAL', 'CULTURAL', 'CUSTOM')),
+  name, description, is_active, *_at)
+
+economic_region_members(member_id UUID PK, region_id FK,
+  member_type TEXT CHECK (member_type IN ('state', 'city', 'neighborhood')),
+  member_state_id FK?, member_city_id FK?, member_neighborhood_id FK?,
+  CHECK (apenas o campo correto preenchido por member_type),
+  *_at)
+
+-- ─── Integração com tenant ───
+
+ALTER TABLE tenants ADD COLUMN headquarters_address_id UUID REFERENCES addresses
+
+tenant_operational_regions(id UUID PK, tenant_id FK, region_id FK,
+  is_active, *_at, UNIQUE(tenant_id, region_id))
+```
+
+### Princípios de design fixos
+
+1. **CEP é UX, não fonte de verdade.** Fluxo: digita CEP → resolve → preenche IDs → persiste IDs. Texto exibido é derivado dos IDs.
+2. **Território por IDs, não por strings livres.** Strings livres em geografia (`city TEXT`, `state TEXT`) são proibidas em código novo após F3-S6.
+3. **`external_code` (não `ibge_code`).** Evita congelar Brasil na ontologia. Mesmo campo serve para IBGE (BR), códigos NUTS (UE), FIPS (US), etc.
+4. **`name_normalized = lower(unaccent(name))`.** Helper único institucional. "São Paulo", "Sao Paulo", "são paulo" não podem gerar 3 cidades.
+5. **`address_assignments.valid_to` = event sourcing leve de endereço.** Histórico territorial, auditoria, compliance, reconstrução temporal — sem precisar virar sistema temporal completo.
+6. **Defesa estrutural via CHECK constraints.** `economic_region_members.CHECK` impede linha semanticamente inválida (state + city simultâneo). Padrão a ser replicado em outras junções polimórficas.
+
+### Capacidades emergentes do schema
+
+Decorrências automáticas, não objetivos primários:
+
+- **Histórico de endereço**: usuário muda de casa → nova `address_assignment` com `valid_to` na anterior. Auditoria temporal grátis.
+- **Endereço compartilhado**: empresa A e B no mesmo endereço → 1 `addresses` + 2 `address_assignments`. Sem duplicação.
+- **Múltiplos endereços por entidade**: empresa pode ter HQ + filial + endereço fiscal — 3 `address_assignments` com roles diferentes.
+- **Compliance LGPD**: `address_assignments` por `valid_to` permite "esquecimento" cirúrgico (anonimizar `addresses` antigas sem perder histórico de assignment).
+- **Agregação cruzada**: fundo regional "Sul" cruza PR/SC/RS via `economic_region_members`. Query simples, sem hardcode.
+- **Reconciliação fiscal**: `tenants.headquarters_address_id` resolve sede para NFe; `tenant_operational_regions` resolve onde tenant opera.
+
+### Decisões diferidas (não bloqueiam DECISION-0020)
+
+Documentadas para resolução técnica em sessões posteriores. Cada uma é decisão local, não fundacional:
+
+1. **PostGIS ou NUMERIC simples?** Schema usa `NUMERIC(10,7)` (precisão ~1cm). PostGIS dá funções espaciais (`ST_Distance`, `ST_Within`, polígonos). Decidir quando precisar de geofencing real (rides, delivery).
+2. **Polígonos de cidade/região?** Hoje só centróide (`cities.lat/lng`). Polígono fica para uso preciso futuro.
+3. **Multi-idioma de nomes?** `countries.name_localized JSONB` resolve países. Cidades/estados provavelmente não precisam (Curitiba é Curitiba em inglês).
+4. **Trigger de `updated_at`?** Padrão do projeto. Aplicar consistentemente em todas as tabelas.
+5. **RLS por `tenant_id`?** `addresses` é global (mesmo endereço pode servir múltiplos tenants). `address_assignments` separa por owner. Confirmar essa decisão em F3-S4.
+6. **Helper de normalização — onde mora?** `lower(unaccent(name))` precisa virar função PostgreSQL única, ou service backend único, ou ambos com sincronia? Decidir em F3-S5 (seed).
+
+### Frentes de trabalho que decorrem
+
+| Frente | Escopo | Sessões |
+|---|---|---|
+| **F3-S4** | Migrations base — `countries`, `states`, `cities`, `neighborhoods` | 1 |
+| **F3-S5** | Seed mínimo Brasil — 27 estados + capitais + códigos IBGE | 1 |
+| **F3-S6** | Migration `addresses` + `address_assignments` + helper de normalização | 1 |
+| **F3-S7** | Migration `economic_regions` + `economic_region_members` | 1 |
+| **F3-S8** | Integração `companies` (resolve A5 finalmente) | 1 |
+| **F3-S9** | Integração `profiles.metadata.address` → `address_assignments` | 1 |
+| **F3-S10..N** | Integração progressiva: `services`, `rides_cities`, `regional_funds`, `product_offers`, `events`, `cultural`, `tenants` | múltiplas |
+| **F3-Sfinal** | Gate CI `validate:no-string-territorial` impedindo regressão | 1 |
+
+### Anti-padrões formalmente proibidos após DECISION-0020
+
+1. Adicionar coluna `city`, `state`, `country`, `cep`, `address_*` em qualquer tabela como `TEXT` (exceto `addresses` em campos livres permitidos)
+2. Criar tabela paralela de geografia (ex: `rides_cities` próprio sem referenciar `cities`)
+3. Usar `metadata JSONB` para armazenar geografia (exceto temporariamente, com TODO de migração)
+4. Hardcodar mapeamento `state → region` em código (deve passar por `economic_region_members`)
+5. Tratar CEP como fonte de verdade (CEP é UX, sempre resolve para IDs)
+
+### Referências cruzadas
+
+- **Lei §4-B** (`opus.md`, adicionada nesta sessão): regressão de genesis vs código morto. Esta DECISION é caso canônico de aplicação da lei.
+- **Lei de Coerência §Princípio fundamental**: "Nenhuma camada pode criar realidade paralela". Schema dual `administrative` vs `economic` é a aplicação dessa lei em geografia.
+- **`code.md` §1**: Endereço entra na ordem CORE_IMUTAVEL? **Não diretamente** — Identity, Authority, Ledger continuam sendo a tríade fundacional. Mas Location Core agora é **infraestrutura territorial soberana**, dependência transversal de todos os módulos de negócio (UnifyBank, marketplace, rides, events, etc.).
+- **Evidências:** `docs/F3-evidencias/F3-S1-codex-auditoria-geografica.md`, `F3-S1-chatgpt-ontologia.md`, `F3-S2-codex-arqueologia-arquitetural.md`, `F3-S2-chatgpt-reconciliacao.md`, `F3-S3-chatgpt-validacao-schema.md`.
+
+### Aprovação
+
+Aprovada por Clayton em 2026-05-08. Sessão F3-S3 fechada. Próxima sessão: F3-S4 (execução técnica).
