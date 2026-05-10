@@ -32,6 +32,7 @@ import type {
 } from '@core/auth/auth.types';
 import { validateCpfOrThrow, normalizeCpf, sanitizeCpfForLog } from '@utils/cpf.validator';
 import { normalizeFullName } from '@utils/nameNormalizer';
+import { normalizeBirthdate } from '@utils/dateNormalizer';
 
 dotenv.config();
 
@@ -46,23 +47,24 @@ if (!JWT_SECRET) {
 // Type assertion após validação
 const jwtSecret: string = JWT_SECRET;
 
-// Tipagem do usuário do banco
+// Tipagem do usuário do banco (colunas físicas em snake_case — ver migrations)
 interface UserRow {
   id: string;
   tenant_id: string;
   email: string;
   password_hash: string;
-  createdAt: Date;
+  created_at: Date;
   token_version: number;
 }
 
 class AuthService {
   private toAuthUser(row: UserRow): AuthUser {
+    const created = row.created_at;
     return {
       userId: row.id,
       tenantId: row.tenant_id,
       email: row.email,
-      createdAt: row.createdAt,
+      createdAt: created instanceof Date ? created.toISOString() : String(created),
     };
   }
 
@@ -127,7 +129,7 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         decoded.tenantId,
         `
-          SELECT id, tenant_id, email, password_hash, createdAt, token_version
+          SELECT id, tenant_id, email, password_hash, created_at, token_version
           FROM users
           WHERE id = $1
           LIMIT 1
@@ -202,7 +204,7 @@ class AuthService {
     cpf?: string,
     fullName?: string,
     birthdate?: string,
-    gender?: 'male' | 'female' | 'other',
+    gender?: 'male' | 'female' | 'other' | 'non_binary' | 'prefer_not_to_say',
     referralCode?: string
   ): Promise<LoginResult & { tenantId: string }> {
     const normalizedEmail = email.trim().toLowerCase();
@@ -213,26 +215,19 @@ class AuthService {
     let tenantWasCreated = false;
     
     if (!finalTenantId) {
-      const { pool } = await import('@core/database/pool');
-      
-      // Gerar slug baseado no email (primeira parte antes do @)
       const emailSlug = normalizedEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
       const tenantSlug = `user-${emailSlug}-${Date.now()}`;
       const newTenantId = randomUUID();
-      
-      const client = await pool.connect();
+      const { tenantService } = await import('@core/tenants/tenant.service');
       try {
-        await client.query(
-          `
-          INSERT INTO tenants (id, name, slug, createdAt, updatedAt)
-          VALUES ($1, $2, $3, now(), now())
-          `,
-          [newTenantId, `Tenant ${emailSlug}`, tenantSlug]
-        );
-        finalTenantId = newTenantId;
+        const created = await tenantService.createTenant({
+          id: newTenantId,
+          name: `Tenant ${emailSlug}`,
+          slug: tenantSlug,
+        });
+        finalTenantId = created.tenantId;
         tenantWasCreated = true;
-        
-        // 🔴 LOG CANÔNICO: tenant criado automaticamente
+
         canonicalLogger.info(null, 'Tenant criado automaticamente', {
           tenantId: finalTenantId,
           email: normalizedEmail.substring(0, 3) + '***',
@@ -241,8 +236,6 @@ class AuthService {
       } catch (err) {
         console.error('Erro ao criar tenant automaticamente:', err);
         throw err instanceof Error ? err : new Error('Falha ao criar tenant automaticamente');
-      } finally {
-        client.release();
       }
     } else {
       // 🔴 LOG CANÔNICO: tenant fornecido
@@ -287,7 +280,7 @@ class AuthService {
     const existing = await runQueryWithTenant<UserRow>(
       finalTenantId,
       `
-        SELECT id, tenant_id, email, password_hash, createdAt, token_version
+        SELECT id, tenant_id, email, password_hash, created_at, token_version
         FROM users
         WHERE email = $1
         LIMIT 1
@@ -323,6 +316,7 @@ class AuthService {
 
     const normalizedCpf = normalizeCpf(cpf);
     const normalizedFullName = fullName ? normalizeFullName(fullName) : null;
+    const normalizedBirthdate = birthdate ? normalizeBirthdate(birthdate) : null;
     
     // 🔴 GARANTIA CANÔNICA: Criar/obter global_users ANTES de criar users
     // UPSERT em global_users usando CPF como chave SSOT
@@ -330,12 +324,12 @@ class AuthService {
     const globalUserResult = await pool.query<{ global_user_id: string }>(
       `
         INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
-        VALUES ($1, $2, NULL, $3, '{}'::jsonb)
+        VALUES ($1, $2, NULL, $3::DATE, '{}'::jsonb)
         ON CONFLICT (cpf)
         DO UPDATE SET cpf = EXCLUDED.cpf
         RETURNING global_user_id
       `,
-      [normalizedCpf, normalizedFullName, birthdate ? new Date(birthdate) : null]
+      [normalizedCpf, normalizedFullName, normalizedBirthdate]
     );
 
     if (!globalUserResult.rows[0]) {
@@ -348,9 +342,9 @@ class AuthService {
     const inserted = await runQueryWithTenant<UserRow>(
       finalTenantId,
       `
-        INSERT INTO users (id, tenant_id, global_user_id, email, password_hash)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, tenant_id, email, password_hash, createdAt, token_version
+        INSERT INTO users (id, tenant_id, global_user_id, email, password_hash, plan)
+        VALUES ($1, $2, $3, $4, $5, 'free')
+        RETURNING id, tenant_id, email, password_hash, created_at, token_version
       `,
       [newUserId, finalTenantId, globalUserId, normalizedEmail, passwordHash]
     );
@@ -510,6 +504,17 @@ class AuthService {
       tokenVersion: inserted.token_version,
     });
 
+    // 🔴 GARANTIA CANÔNICA: Criar actor operacional para o usuário registrado
+    // Idempotente — seguro chamar mesmo em retry. NÃO chamar dentro de transação.
+    // §4.8 LEI_COERENCIA_SISTEMICA_UNIFICARD
+    try {
+      const { ensureUserActor } = await import('@modules/identity/actor-writer.service');
+      await ensureUserActor(finalTenantId, user.userId);
+    } catch (actorError) {
+      // Log mas não falha o registro — actor será criado no próximo uso
+      console.warn('[register] ensureUserActor falhou — será retentado no próximo acesso:', actorError);
+    }
+
     // 🔴 PARTE 2 - ONBOARDING: Usuário recém-criado sempre precisa de onboarding
     const requiresOnboarding = true;
 
@@ -538,10 +543,10 @@ class AuthService {
       // Buscar usuário apenas por email (tenant_id será obtido do usuário encontrado)
       const result = await client.query<UserRow>(
         `
-          SELECT id, tenant_id, email, password_hash, createdAt, token_version
-          FROM users
-          WHERE email = $1
-          LIMIT 1
+        SELECT id, tenant_id, email, password_hash, created_at, token_version
+        FROM users
+        WHERE email = $1
+        LIMIT 1
         `,
         [normalizedEmail]
       );
@@ -562,7 +567,8 @@ class AuthService {
       // Usar o tenant_id do usuário encontrado
       const userTenantId = userRow.tenant_id;
 
-      const passwordMatch = await bcrypt.compare(password, userRow.password_hash);
+      const passwordHash = userRow.password_hash;
+      const passwordMatch = await bcrypt.compare(password, passwordHash);
 
       if (!passwordMatch) {
         // 🔴 LOG CANÔNICO: Login failure - senha incorreta
@@ -674,7 +680,7 @@ class AuthService {
       const userRow = await runQueryWithTenant<UserRow>(
         tenantId,
       `
-        SELECT id, tenant_id, email, password_hash, createdAt, token_version
+        SELECT id, tenant_id, email, password_hash, created_at, token_version
         FROM users
         WHERE id = $1
         LIMIT 1
@@ -825,4 +831,3 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-
