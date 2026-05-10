@@ -52,7 +52,7 @@ class GroupsRepository {
       groupId: row.id,
       tenantId: row.tenant_id,
       name: row.name,
-      slug: row.slug || undefined,
+      slug: row.slug ?? '',
       description: row.description || '',
       audienceDescription: metadata.audience_description || undefined,
       categoryId: metadata.category_id || undefined,
@@ -133,7 +133,7 @@ class GroupsRepository {
     // Gerar slug em TypeScript (generate_group_slug não existe no schema Gênesis)
     let finalSlug = input.slug || null;
     if (!finalSlug) {
-      const baseSlug = input.name
+      const baseSlug = (input.name ?? 'grupo')
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -172,12 +172,22 @@ class GroupsRepository {
       throw new Error('Failed to create group');
     }
 
+    // Resolver user_id do actor para inserção em group_members (FK → users.user_id)
+    const actorRow = await runQueryWithTenant<{ user_id: string | null }>(
+      tenantId,
+      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [ownerActorId, tenantId]
+    );
+    if (!actorRow || !actorRow.user_id) {
+      throw new Error(`Actor ${ownerActorId} não possui user_id associado`);
+    }
+    const ownerUserIdForMembership = actorRow.user_id;
+
     // Adicionar owner como membro com role 'owner'
-    await this.addMember(tenantId, row.id, ownerActorId, 'owner');
-    
-    // 🔴 CORREÇÃO UX: Adicionar owner também como 'admin' para permitir atualizações
-    // Isso garante que o criador pode atualizar mídia sem erro de permissão
-    await this.addMember(tenantId, row.id, ownerActorId, 'admin');
+    await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'owner');
+
+    // Adicionar owner também como 'admin' para permitir atualizações
+    await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'admin');
 
     return this.toGroup(row);
   }
@@ -382,7 +392,7 @@ class GroupsRepository {
       INSERT INTO group_members (tenant_id, group_id, user_id, role)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
-      RETURNING group_id, user_id, role, joinedAt
+      RETURNING group_id, user_id, role, created_at AS "joinedAt"
       `,
       [tenantId, groupId, userId, role]
     );
@@ -412,11 +422,11 @@ class GroupsRepository {
     const rows = await runQueriesWithTenant<GroupMemberRow>(
       tenantId,
       `
-      SELECT gm.group_id, gm.user_id, gm.role, gm.joinedAt
+      SELECT gm.group_id, gm.user_id, gm.role, gm.created_at AS "joinedAt"
       FROM group_members gm
       INNER JOIN groups g ON g.id = gm.group_id
       WHERE gm.group_id = $1 AND g.tenant_id = $2
-      ORDER BY gm.joinedAt ASC
+      ORDER BY gm.created_at ASC
       `,
       [groupId, tenantId]
     );
@@ -455,7 +465,7 @@ class GroupsRepository {
       FROM groups g
       INNER JOIN group_members gm ON g.id = gm.group_id
       WHERE g.tenant_id = $1 AND gm.user_id = $2 AND g.status = 'active'
-      ORDER BY gm.joinedAt DESC
+      ORDER BY gm.created_at DESC
       `,
       [tenantId, userId]
     );
@@ -483,10 +493,10 @@ class GroupsRepository {
    * Usado pela GroupCreationPolicy para verificar limite de criação.
    * 
    * @param tenantId ID do tenant
-   * @param userId ID do usuário (owner_actor_id)
-   * @returns Número de grupos criados pelo usuário
+   * @param actorId ID do actor (owner_actor_id / actors.id)
+   * @returns Número de grupos criados pelo utilizador (âncora actor)
    */
-  async countGroupsCreatedByUser(tenantId: string, userId: string): Promise<number> {
+  async countGroupsCreatedByUser(tenantId: string, actorId: string): Promise<number> {
     const row = await runQueryWithTenant<{ count: string }>(
       tenantId,
       `
@@ -494,7 +504,7 @@ class GroupsRepository {
       FROM groups
       WHERE tenant_id = $1 AND owner_actor_id = $2
       `,
-      [tenantId, userId]
+      [tenantId, actorId]
     );
 
     return row ? Number(row.count) : 0;
@@ -595,10 +605,16 @@ class GroupsRepository {
       tenantId,
       `
       INSERT INTO group_invites (
-        tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt
+        tenant_id, group_id, invited_actor_id, invited_by_actor_id, status, expires_at
       )
       VALUES ($1, $2, $3, $4, 'pending', $5)
-      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+      RETURNING id AS invite_id, tenant_id, group_id,
+        invited_actor_id AS invited_user_id,
+        invited_by_actor_id AS invited_by_user_id,
+        status,
+        expires_at AS "expiresAt",
+        created_at AS "createdAt",
+        COALESCE(responded_at, created_at) AS "updatedAt"
       `,
       [tenantId, groupId, invitedUserId, invitedByUserId, expiresAt || null]
     );
@@ -617,13 +633,19 @@ class GroupsRepository {
       tenantId,
       `
       UPDATE group_invites
-      SET status = 'expired', updatedAt = now()
+      SET status = 'expired', responded_at = now()
       WHERE tenant_id = $1 
-        AND invite_id = $2
+        AND id = $2
         AND status = 'pending'
-        AND expiresAt IS NOT NULL
-        AND expiresAt <= $3
-      RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+        AND expires_at IS NOT NULL
+        AND expires_at <= $3
+      RETURNING id AS invite_id, tenant_id, group_id,
+        invited_actor_id AS invited_user_id,
+        invited_by_actor_id AS invited_by_user_id,
+        status,
+        expires_at AS "expiresAt",
+        created_at AS "createdAt",
+        COALESCE(responded_at, created_at) AS "updatedAt"
       `,
       [tenantId, inviteId, now]
     );
@@ -633,9 +655,15 @@ class GroupsRepository {
       const inviteRow = await runQueryWithTenant<GroupInviteRow>(
         tenantId,
         `
-        SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+        SELECT id AS invite_id, tenant_id, group_id,
+          invited_actor_id AS invited_user_id,
+          invited_by_actor_id AS invited_by_user_id,
+          status,
+          expires_at AS "expiresAt",
+          created_at AS "createdAt",
+          COALESCE(responded_at, created_at) AS "updatedAt"
         FROM group_invites
-        WHERE tenant_id = $1 AND invite_id = $2
+        WHERE tenant_id = $1 AND id = $2
         `,
         [tenantId, inviteId]
       );
@@ -651,9 +679,15 @@ class GroupsRepository {
           tenantId,
           `
           UPDATE group_invites
-          SET status = 'expired', updatedAt = now()
-          WHERE tenant_id = $1 AND invite_id = $2
-          RETURNING invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+          SET status = 'expired', responded_at = now()
+          WHERE tenant_id = $1 AND id = $2
+          RETURNING id AS invite_id, tenant_id, group_id,
+            invited_actor_id AS invited_user_id,
+            invited_by_actor_id AS invited_by_user_id,
+            status,
+            expires_at AS "expiresAt",
+            created_at AS "createdAt",
+            COALESCE(responded_at, created_at) AS "updatedAt"
           `,
           [tenantId, inviteId]
         );
@@ -677,19 +711,25 @@ class GroupsRepository {
       tenantId,
       `
       UPDATE group_invites
-      SET status = 'expired', updatedAt = now()
+      SET status = 'expired', responded_at = now()
       WHERE tenant_id = $1
         AND group_id = $2
         AND status = 'pending'
-        AND expiresAt IS NOT NULL
-        AND expiresAt <= $3
+        AND expires_at IS NOT NULL
+        AND expires_at <= $3
       `,
       [tenantId, groupId, now]
     );
 
     // Buscar convites
     let query = `
-      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+      SELECT id AS invite_id, tenant_id, group_id,
+        invited_actor_id AS invited_user_id,
+        invited_by_actor_id AS invited_by_user_id,
+        status,
+        expires_at AS "expiresAt",
+        created_at AS "createdAt",
+        COALESCE(responded_at, created_at) AS "updatedAt"
       FROM group_invites
       WHERE tenant_id = $1 AND group_id = $2
     `;
@@ -703,7 +743,7 @@ class GroupsRepository {
       query += ` AND status != 'expired'`;
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const rows = await runQueriesWithTenant<GroupInviteRow>(tenantId, query, params);
     return rows.map((r) => this.toGroupInvite(r));
@@ -720,21 +760,27 @@ class GroupsRepository {
       tenantId,
       `
       UPDATE group_invites
-      SET status = 'expired', updatedAt = now()
+      SET status = 'expired', responded_at = now()
       WHERE tenant_id = $1
-        AND invited_user_id = $2
+        AND invited_actor_id = $2
         AND status = 'pending'
-        AND expiresAt IS NOT NULL
-        AND expiresAt <= $3
+        AND expires_at IS NOT NULL
+        AND expires_at <= $3
       `,
       [tenantId, userId, now]
     );
 
     // Buscar convites
     let query = `
-      SELECT invite_id, tenant_id, group_id, invited_user_id, invited_by_user_id, status, expiresAt, createdAt, updatedAt
+      SELECT id AS invite_id, tenant_id, group_id,
+        invited_actor_id AS invited_user_id,
+        invited_by_actor_id AS invited_by_user_id,
+        status,
+        expires_at AS "expiresAt",
+        created_at AS "createdAt",
+        COALESCE(responded_at, created_at) AS "updatedAt"
       FROM group_invites
-      WHERE tenant_id = $1 AND invited_user_id = $2
+      WHERE tenant_id = $1 AND invited_actor_id = $2
     `;
     const params: any[] = [tenantId, userId];
 
@@ -746,7 +792,7 @@ class GroupsRepository {
       query += ` AND status != 'expired'`;
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const rows = await runQueriesWithTenant<GroupInviteRow>(tenantId, query, params);
     return rows.map((r) => this.toGroupInvite(r));
@@ -761,9 +807,9 @@ class GroupsRepository {
       tenantId,
       `
       UPDATE group_invites
-      SET status = $1, updatedAt = now()
-      WHERE tenant_id = $2 AND invite_id = $3
-      RETURNING invite_id
+      SET status = $1, responded_at = now()
+      WHERE tenant_id = $2 AND id = $3
+      RETURNING id AS invite_id
       `,
       [status, tenantId, inviteId]
     );
@@ -773,6 +819,4 @@ class GroupsRepository {
 }
 
 export const groupsRepository = new GroupsRepository();
-
-
 

@@ -141,15 +141,52 @@ class GroupsService {
       );
     }
   }
+
+  /**
+   * Verifica se algum identificador civil (user row / global / legado) resolve
+   * para o mesmo actor que é dono do grupo (§4.8).
+   */
+  private async requesterMatchesOwnerActor(
+    tenantId: string,
+    ownerActorId: string,
+    primaryUserId: string,
+    userContext?: { globalUserId?: string; id?: string }
+  ): Promise<boolean> {
+    const candidates = [primaryUserId, userContext?.globalUserId, userContext?.id].filter(
+      (x): x is string => typeof x === 'string' && x.length > 0
+    );
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      try {
+        const actor = await ensureUserActor(tenantId, candidate);
+        if (actor.actor_id === ownerActorId) return true;
+      } catch {
+        continue;
+      }
+    }
+    return false;
+  }
+
+  private async memberUserIdIsGroupOwnerActor(
+    tenantId: string,
+    ownerActorId: string,
+    memberUserId: string
+  ): Promise<boolean> {
+    try {
+      const actor = await ensureUserActor(tenantId, memberUserId);
+      return actor.actor_id === ownerActorId;
+    } catch {
+      return false;
+    }
+  }
+
   async createGroup(
     tenantId: string,
     ownerUserId: string,
     input: CreateGroupInput
   ): Promise<Group> {
-    // 🔴 POLICY: Verificar limite de criação de grupos (conforme GROUP_CREATION_POLICY.md)
-    // Aplicada ANTES de qualquer criação para evitar rollback desnecessário
-    await groupCreationPolicy.canCreateGroup(tenantId, ownerUserId);
-
     // 🔴 VALIDAÇÃO: Finalidade dos recursos é obrigatória se tem intenção financeira
     const hasFinancialIntent = input.metadata?.hasFinancialIntent === true;
     if (hasFinancialIntent && (!input.financial_purpose || input.financial_purpose.trim().length < 20)) {
@@ -184,10 +221,10 @@ class GroupsService {
     // 🔴 VALIDAÇÃO: Validar hierarquia de localização se fornecida
     await this.validateLocationHierarchy(input.country_id, input.state_id, input.city_id);
 
-    // Resolver actor canônico antes de criar grupo (§4.8.1)
+    // Resolver actor canônico (§4.8.1); policy conta grupos por owner_actor_id
     const ownerActor = await ensureUserActor(tenantId, ownerUserId);
+    await groupCreationPolicy.canCreateGroup(tenantId, ownerActor.actor_id);
 
-    // Criar grupo
     const group = await groupsRepository.create(tenantId, ownerActor.actor_id, input);
 
     // 🔴 INTENÇÃO FINANCEIRA: Criar conta econômica apenas se houver intenção financeira
@@ -272,7 +309,7 @@ class GroupsService {
       payload: {
         groupId: group.groupId,
         name: group.name,
-        ownerUserId: group.ownerUserId,
+        ownerActorId: group.ownerActorId,
       },
     });
 
@@ -300,12 +337,13 @@ class GroupsService {
       throw new Error('Group not found');
     }
 
-    // 🔴 CORREÇÃO UX: Permitir que owner OU admin atualize o grupo
-    // Comparar com ambos userId e globalUserId para garantir compatibilidade
-    // O ownerUserId pode ser armazenado como userId local ou globalUserId dependendo do contexto
-    const isOwner = group.ownerUserId === userId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    // 🔴 CORREÇÃO UX: Permitir que owner OU admin atualize o grupo (§4.8: owner = actor_id)
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      userId,
+      userContext
+    );
     
     if (!isOwner) {
       // Verificar se é admin (também considerar globalUserId se disponível)
@@ -377,7 +415,7 @@ class GroupsService {
       throw new Error('Group not found');
     }
 
-    if (group.ownerUserId !== userId) {
+    if (!(await this.requesterMatchesOwnerActor(tenantId, group.ownerActorId, userId))) {
       throw new Error('Only the owner can delete the group');
     }
 
@@ -443,7 +481,7 @@ class GroupsService {
       throw new Error('Group not found');
     }
 
-    if (group.ownerUserId === userId) {
+    if (await this.requesterMatchesOwnerActor(tenantId, group.ownerActorId, userId)) {
       throw new Error('Owner cannot leave without transferring ownership');
     }
 
@@ -507,9 +545,12 @@ class GroupsService {
     }
 
     // Verificar se requester é owner ou admin
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
@@ -526,7 +567,7 @@ class GroupsService {
     }
 
     // 🔴 PROTEÇÃO: Owner não pode ter role alterada
-    if (group.ownerUserId === memberUserId) {
+    if (await this.memberUserIdIsGroupOwnerActor(tenantId, group.ownerActorId, memberUserId)) {
       throw new Error('Cannot change role of the group owner');
     }
 
@@ -558,9 +599,12 @@ class GroupsService {
     }
 
     // Verificar se requester é owner ou admin
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
@@ -570,7 +614,7 @@ class GroupsService {
     }
 
     // 🔴 PROTEÇÃO: Owner não pode ser removido
-    if (group.ownerUserId === memberUserId) {
+    if (await this.memberUserIdIsGroupOwnerActor(tenantId, group.ownerActorId, memberUserId)) {
       throw new Error('Cannot remove the group owner');
     }
 
@@ -600,9 +644,12 @@ class GroupsService {
     }
 
     // Verificar se requester é owner ou admin
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
@@ -649,9 +696,12 @@ class GroupsService {
     }
 
     // Verificar se requester é owner ou admin
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, groupId, requesterUserId);
@@ -707,9 +757,19 @@ class GroupsService {
       throw new Error('Group is not active');
     }
 
+    const invitedActorUserRow = await runQueryWithTenant<{ user_id: string | null }>(
+      tenantId,
+      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [invite.invitedUserId, tenantId]
+    );
+    if (!invitedActorUserRow || !invitedActorUserRow.user_id) {
+      throw new Error(`Actor ${invite.invitedUserId} não possui user_id associado para aceitar convite`);
+    }
+    const invitedUserIdForMembership = invitedActorUserRow.user_id;
+
     // 🔴 VALIDAÇÃO: Não aceitar se já é membro
     const members = await groupsRepository.getMembers(tenantId, invite.groupId);
-    const isAlreadyMember = members.some(m => m.userId === invite.invitedUserId);
+    const isAlreadyMember = members.some(m => m.userId === invitedUserIdForMembership);
     if (isAlreadyMember) {
       // Marcar convite como aceito mesmo assim (já é membro)
       await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
@@ -720,7 +780,7 @@ class GroupsService {
     await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
 
     // Adicionar como membro
-    const member = await groupsRepository.addMember(tenantId, invite.groupId, invite.invitedUserId, 'member');
+    const member = await groupsRepository.addMember(tenantId, invite.groupId, invitedUserIdForMembership, 'member');
 
     // Emitir evento
     await eventBus.publish({
@@ -728,7 +788,7 @@ class GroupsService {
       type: 'group.member.joined',
       payload: {
         groupId: invite.groupId,
-        userId: invite.invitedUserId,
+        userId: invitedUserIdForMembership,
         role: member.role,
         viaInvite: true,
       },
@@ -888,9 +948,12 @@ class GroupsService {
     }
 
     // 🔴 VALIDAÇÃO: Apenas admin/owner podem aprovar
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, invite.groupId, requesterUserId);
@@ -912,9 +975,19 @@ class GroupsService {
       throw new Error('Join request has expired');
     }
 
+    const invitedActorUserRow = await runQueryWithTenant<{ user_id: string | null }>(
+      tenantId,
+      `SELECT user_id FROM actors WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [invite.invitedUserId, tenantId]
+    );
+    if (!invitedActorUserRow || !invitedActorUserRow.user_id) {
+      throw new Error(`Actor ${invite.invitedUserId} não possui user_id associado para aprovar request de entrada`);
+    }
+    const invitedUserIdForMembership = invitedActorUserRow.user_id;
+
     // 🔴 VALIDAÇÃO: Não aprovar se já é membro
     const members = await groupsRepository.getMembers(tenantId, invite.groupId);
-    const isAlreadyMember = members.some(m => m.userId === invite.invitedUserId);
+    const isAlreadyMember = members.some(m => m.userId === invitedUserIdForMembership);
     if (isAlreadyMember) {
       // Marcar request como aceito mesmo assim (já é membro)
       await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
@@ -925,7 +998,7 @@ class GroupsService {
     await groupsRepository.updateInviteStatus(tenantId, inviteId, 'accepted');
 
     // Adicionar como membro
-    const member = await groupsRepository.addMember(tenantId, invite.groupId, invite.invitedUserId, 'member');
+    const member = await groupsRepository.addMember(tenantId, invite.groupId, invitedUserIdForMembership, 'member');
 
     // Emitir evento
     await eventBus.publish({
@@ -933,7 +1006,7 @@ class GroupsService {
       type: 'group.member.joined',
       payload: {
         groupId: invite.groupId,
-        userId: invite.invitedUserId,
+        userId: invitedUserIdForMembership,
         role: member.role,
         viaRequest: true,
       },
@@ -970,9 +1043,12 @@ class GroupsService {
     }
 
     // 🔴 VALIDAÇÃO: Apenas admin/owner podem rejeitar
-    const isOwner = group.ownerUserId === requesterUserId ||
-                    (userContext?.globalUserId && group.ownerUserId === userContext.globalUserId) ||
-                    (userContext?.id && group.ownerUserId === userContext.id);
+    const isOwner = await this.requesterMatchesOwnerActor(
+      tenantId,
+      group.ownerActorId,
+      requesterUserId,
+      userContext
+    );
     
     if (!isOwner) {
       const isAdmin = await groupsRepository.isUserAdminOrOwner(tenantId, invite.groupId, requesterUserId);
@@ -997,7 +1073,6 @@ class GroupsService {
 }
 
 export const groupsService = new GroupsService();
-
 
 
 
