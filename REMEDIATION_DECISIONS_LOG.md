@@ -924,3 +924,393 @@ Documentadas para resolução técnica em sessões posteriores. Cada uma é deci
 ### Aprovação
 
 Aprovada por Clayton em 2026-05-08. Sessão F3-S3 fechada. Próxima sessão: F3-S4 (execução técnica).
+
+---
+
+## DECISION-0021: Tenant-awareness em addresses (Opção A refinada)
+
+**Data:** 2026-05-08
+**Frente:** F3 — Domain Foundations: Location Core Materialization
+**Status:** ACEITA
+**Pré-requisito de:** F3-S6b (migration corretiva), F3-S8+ (consumidores)
+
+### Contexto
+
+Migration F3-S6 (`20260530518000`, commit `d0821d56`) materializou `addresses` e `address_assignments` sem definir como esses catálogos se comportam frente ao multi-tenancy do sistema. A questão emergiu durante o planejamento de F3-S8 (integração `companies`): se Empresa A (Tenant 1) e Empresa B (Tenant 2) operam no mesmo prédio físico, como o sistema deve representar isso?
+
+3 opções foram avaliadas:
+- **Opção A:** Endereços globalmente compartilhados (sem `tenant_id`)
+- **Opção B:** Soft-tenant via `source_tenant_id` (auditável, mas global)
+- **Opção C:** Duplicação completa por tenant (`tenant_id NOT NULL` + RLS)
+
+### Decisão
+
+**Opção A refinada — global compartilhado com auditoria via `created_by_tenant_id`.**
+
+### Semântica
+
+- `addresses` é **catálogo geográfico global**, não entidade multi-tenant isolada
+- 1 endereço físico = 1 row (Av Paulista 1000 é única, não duplicada por tenant)
+- N empresas de N tenants podem referenciar o mesmo `address_id`
+- Tenant isolation opera em `companies` (via RLS), não em `addresses`
+- `address_assignments` segue o mesmo princípio (sem RLS direto; owner é quem tem RLS)
+
+### Schema
+
+| Tabela | RLS | Filtro tenant em queries | Coluna de tenant |
+|---|---|---|---|
+| `addresses` | ❌ | ❌ | `created_by_tenant_id UUID NULL` (soft-audit) |
+| `address_assignments` | ❌ | ❌ | nenhuma (owner_id já carrega contexto) |
+| `companies` | ✅ (preexistente) | ✅ | `tenant_id NOT NULL` (preexistente) |
+
+### Justificativa
+
+1. **Endereço é fato geográfico objetivo**, não segredo comercial
+2. **Duplicação cria drift**: 50 grafias diferentes de "Av Paulista 1000" geram catálogo poluído e queries não-determinísticas
+3. **Tenant isolation real está em `companies`**: RLS lá já garante que Tenant A não vê empresas de Tenant B
+4. **`created_by_tenant_id` resolve LGPD** sem overhead de runtime: pergunta "quem inseriu este dado?" tem resposta auditável
+5. **Simplicidade de leitura**: zero `WHERE tenant_id = ?` em queries de endereço, zero JOINs adicionais
+
+### Trade-offs aceitos
+
+- Tenant A pode ler endereço criado por Tenant B (intencional — fato geográfico)
+- Tenant A pode descobrir que Tenant B tem empresa no mesmo prédio (via inferência indireta — risco baixo, fato público)
+- `created_by_tenant_id` não impede que Tenant A "reuse" endereço criado por outro tenant (intencional — design pretende reuso)
+
+### Implementação
+
+- **F3-S6b:** Migration corretiva `20260530518500_add_addresses_created_by_tenant_id.sql`
+  - `ALTER TABLE addresses ADD COLUMN created_by_tenant_id UUID;`
+  - Index parcial para auditoria: `idx_addresses_created_by_tenant WHERE created_by_tenant_id IS NOT NULL`
+  - SEM RLS, SEM constraint NOT NULL (preserva histórico onde tenant origem é desconhecido)
+- **LocationRepository (F3-S9):**
+  - `createAddress(data, tenantId)` preenche `created_by_tenant_id`
+  - Queries de leitura ignoram a coluna (sem `WHERE`, sem `JOIN`)
+- **Defesa anti-regressão (futuro):**
+  - Gate CI deve verificar que código nunca filtra `addresses` por `created_by_tenant_id` em queries de runtime
+  - Auditoria/relatórios podem usar a coluna livremente
+
+### Relação com decisões anteriores
+
+- Reforça **DECISION-0020** (Location Core como infraestrutura territorial soberana): território é fato objetivo, não recurso multi-tenant
+- Compatível com **Lei §SSOT Financeiro**: `addresses` não é dinheiro, padrão de isolamento é diferente do bank ledger
+- Coerente com **opus.md §-3**: simplicidade > paranoia preventiva sem ameaça real
+
+### Implicações para frentes futuras
+
+- F3-S7 (`economic_regions`) seguirá padrão similar: catálogo global, sem `tenant_id`
+- F3-S9 a F3-S13 (camada de código): nenhum filtro de tenant em leituras de endereço
+- DT futura: revisar se `created_by_tenant_id` deve virar `created_by_actor_id` para granularidade maior (não-bloqueante)
+
+
+## DECISION-0023: Materialização de schema quando código pressupõe colunas inexistentes
+
+**Data:** 2026-05-09
+**Frente:** F2 — Runtime Smoke Test
+**Status:** ACEITA
+**Escopo:** `GET /companies` e função `getCompanyUserById` em `companies.service.ts`
+
+### Contexto
+
+Smoke runtime revelou erro em `GET /companies`:
+
+`coluna cu.company_user_id não existe`
+
+A investigação inicial sugeriu o mesmo padrão de DECISION-0022 (alias de compatibilidade). Auditoria do schema vivo, porém, descobriu drift mais profundo do que rename:
+
+**Schema vivo de `company_users` (10 colunas pré-sessão):**
+`id`, `tenant_id`, `company_id`, `global_user_id`, `role`, `can_manage_company`, `is_active`, `is_primary`, `created_at`
+
+**Código TS pressupunha 7 colunas adicionais (não existentes):**
+- `role_description` (TEXT nullable)
+- `can_manage_financial`, `can_manage_employees`, `can_view_reports`, `can_manage_services` (BOOLEAN obrigatório no tipo TS)
+- `metadata` (JSONB)
+- `updated_at` (auditoria temporal)
+
+Evidência de pressuposição material:
+- INSERT em `companies.service.ts:565` tentava gravar nas 6 colunas de RBAC + `metadata`
+- SELECTs em múltiplos blocos liam `cu.role_description`, `cu.can_*`, `cu.metadata`
+- Tipo TS `CompanyUserRow` declarava 4 dos 5 `can_*` como `boolean` obrigatório
+- `soft-block.service.ts` consumia as colunas RBAC como permissões institucionais
+- Migration `0060_rbac_roles.sql` (ativa) já estabelecia tabelas RBAC complementares
+
+A função `update_updated_at_column` necessária para auditoria temporal já existia no banco (criada em F3-S4, migration `20260530516000`).
+
+### Diferenciação em relação a DECISION-0022
+
+| Eixo | DECISION-0022 (groups/invites) | DECISION-0023 (companies) |
+|---|---|---|
+| Schema vivo | institucionalmente correto (actor-based soberano) | incompleto em relação ao domínio |
+| Código TS | legacy user-based + camelCase | pressupõe schema mais rico que o atual |
+| Direção do drift | código atrasado | schema atrasado |
+| Fix correto | alias preservando contrato externo | migração corretiva materializando intenção |
+| Por que alias não serve | aplicável | mentiria sobre capacidade ausente (ex: `created_at AS updated_at` falsifica auditoria temporal após qualquer UPDATE) |
+
+### Decisão
+
+Aplicar **migração corretiva** ADD COLUMN para todas as 7 colunas faltantes, mais alias pontual `id AS company_user_id` (este sim é rename e cabe a DECISION-0022). Ativar trigger `trg_company_users_updated_at` para auditoria temporal real.
+
+### Implementação aceita
+
+**Migração 1** — `20260530520000_add_company_users_updated_at.sql`:
+
+```sql
+BEGIN;
+ALTER TABLE company_users
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+DROP TRIGGER IF EXISTS trg_company_users_updated_at ON company_users;
+CREATE TRIGGER trg_company_users_updated_at
+  BEFORE UPDATE ON company_users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+COMMIT;
+```
+
+**Migração 2** — `20260530520500_add_company_users_rbac_columns.sql`:
+
+```sql
+BEGIN;
+ALTER TABLE company_users
+  ADD COLUMN IF NOT EXISTS role_description TEXT,
+  ADD COLUMN IF NOT EXISTS can_manage_financial BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS can_manage_employees BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS can_view_reports BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS can_manage_services BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+COMMIT;
+```
+
+**Código** (`companies.service.ts`):
+
+- Linha 571: `RETURNING id AS company_user_id, created_at, updated_at` (alias rename)
+- Linhas 990, 1114: `cu.id AS company_user_id` (alias rename em SELECTs)
+- Linhas 1002, 1126: `cu.updated_at as cu_updated_at` (substitui `NULL::timestamptz` que era a mentira anterior)
+- Linhas 1372–1388: `SELECT cu.*` expandido para 16 colunas explícitas (alinha com regra "sem SELECT * em produção")
+- Linha 1391: `WHERE cu.id = $1::uuid`
+- Linha 1536: `WHERE ... AND id != $3::uuid` (UPDATE bulk demote primary)
+- Linha 1566: `AND cu.id = ${paramIdx}::uuid`
+
+### Justificativa
+
+1. **Não usar alias para colunas inexistentes**: `created_at AS updated_at` mentiria após qualquer UPDATE, falsificando auditoria temporal. `cu.* sem coluna` retorna `undefined` no JS, não `NULL`, podendo quebrar tipos boolean obrigatórios em runtime.
+2. **Não limpar código** (remover referências às 7 colunas): há evidência material de que o domínio é intencional (INSERT + SELECT + tipos + soft-block + RBAC + frontend). Tratar como dead code descartaria capacidade arquitetural já modelada.
+3. **Schema deve refletir soberania do domínio**: alinha com DECISION-0021 ("schema soberano permanece autoridade") e Lei de Coerência §Princípio fundamental ("nenhuma camada pode criar realidade paralela"). Aqui a realidade paralela era schema vivo fingindo que o domínio não existia.
+4. **Defaults conservadores**: `BOOLEAN NOT NULL DEFAULT false` para permissões — nenhum usuário ganha permissão por acidente. `metadata JSONB DEFAULT '{}'` — código já assumia objeto.
+5. **Trigger reaproveitado**: função `update_updated_at_column` já existia (F3-S4), evita duplicação institucional.
+
+### Anti-padrões formalmente proibidos após DECISION-0023
+
+1. **Alias mentindo sobre capacidade ausente** — ex: `created_at AS updated_at` quando `updated_at` não existe. Alias é preservação de contrato sobre dado real, não fabricação de dado falso.
+2. **Aliasar com `cu.*` na expectativa de "coluna inexistente vira NULL"** — incorreto: coluna inexistente não aparece no resultado, e o consumidor recebe `undefined` no JS, podendo quebrar tipos obrigatórios em runtime.
+3. **Materializar schema sem evidência material de intenção** — antes de migrar, exigir prova multi-camada (INSERT + SELECT + tipos + consumidores externos). Migration sem evidência cria capacidade artificial.
+4. **Reordenar regras existentes**: as proibições da DECISION-0020 e DECISION-0021 permanecem em vigor.
+
+### Validação
+
+- `pnpm --dir C:/unificard/backend run build`: PASS
+- Migrations aplicadas (2 arquivos, transação única, idempotentes)
+- Schema final `company_users`: 16 colunas confirmadas via `\d`
+- Backend reiniciado, `/health` 200
+- `GET /companies` com token válido: 200 `{"companies":[]}` (banco vazio, mas endpoint funcional)
+- Trigger `trg_company_users_updated_at`: criado e ativo (validação cruzada será no primeiro UPDATE real, banco vazio nesta sessão)
+
+### Dívidas técnicas abertas
+
+- **DT-companies-tenant-aware-not-implemented**: `company_users` agora tem `metadata JSONB`, mas modelo de empresa multi-tenant ainda não foi reconciliado com DECISION-0021 (tenant-awareness em `addresses`). Resolve em F3-S10a (companies.service writer canônico).
+- **DT-companies-rbac-domain-implementation**: as 5 colunas RBAC granular agora existem no schema, mas a aplicação efetiva (rotas que checam permissão por capability, UI de gestão de permissões) é trabalho de domínio futuro, não bloqueante.
+
+---
+
+
+## DECISION-0022: A4 group_invites — alias de compatibilidade sobre schema actor-based
+
+**Data:** 2026-05-09
+**Frente:** F2 — Runtime Smoke Test
+**Status:** ACEITA
+**Escopo:** `GET /groups/invites/mine?status=pending`
+
+### Contexto
+
+Smoke runtime revelou erro em `GET /groups/invites/mine`:
+
+`coluna invited_user_id não existe`
+
+Auditoria do schema vivo mostrou que `group_invites` não é user-based. A tabela é actor-based e usa snake_case:
+
+- `id`
+- `invited_actor_id`
+- `invited_by_actor_id`
+- `expires_at`
+- `created_at`
+- `responded_at`
+
+O código em `groups.repository.ts` ainda esperava contrato legado:
+
+- `invite_id`
+- `invited_user_id`
+- `invited_by_user_id`
+- `expiresAt`
+- `createdAt`
+- `updatedAt`
+
+### Decisão
+
+Aplicar **alias de compatibilidade no repository**, sem alterar shape da API nem tipos externos nesta sessão.
+
+O schema vivo permanece autoridade. O contrato TS/API legado é preservado temporariamente por alias SQL.
+
+### Implementação aceita
+
+Em `groups.repository.ts`, mapear:
+
+- `id AS invite_id`
+- `invited_actor_id AS invited_user_id`
+- `invited_by_actor_id AS invited_by_user_id`
+- `expires_at AS "expiresAt"`
+- `created_at AS "createdAt"`
+- `COALESCE(responded_at, created_at) AS "updatedAt"`
+- `responded_at = now()` em updates de status
+- `ORDER BY created_at`
+
+### Justificativa
+
+1. Não criar coluna `invited_user_id`, pois isso introduziria realidade paralela contra o schema actor-based.
+2. Não refatorar `groups.service.ts`, `groups.routes.ts` e `groups.types.ts` nesta sessão, pois o objetivo era fechar smoke runtime, não redesenhar o módulo.
+3. Preservar compatibilidade da API enquanto o backend volta a responder 200.
+4. Registrar DT explícita para refactor semântico posterior.
+
+### Validação
+
+- `pnpm --dir C:/unificard/backend run build`: PASS
+- Backend reiniciado
+- `GET /groups/invites/mine?status=pending`: `200`
+- Resposta validada: `{"invites":[]}`
+
+### Dívida técnica aberta
+
+**DT-groups-actor-rename**: remover contrato legacy user-based no módulo groups e alinhar nomes internos a actor-based:
+
+- `invitedUserId` → `invitedActorId`
+- `invitedByUserId` → `invitedByActorId`
+- `invited_user_id` → `invited_actor_id`
+- `invited_by_user_id` → `invited_by_actor_id`
+
+Inclui revisar services/routes/types e evitar aliases permanentes como contrato semântico.
+
+---
+
+---
+
+## DECISION-0024: bank_ledger como SSOT financeiro único; cache em bank_accounts deprecado
+
+**Data:** 2026-05-10
+**Frente:** Bank Genesis Wave (Conjunto 1, Caminho β)
+**Status:** ACEITA
+**Escopo:** Domínio financeiro completo (UnifyBank). Provider `bank-account.repository.ts`,
+consumidores diretos e adapters.
+
+### Contexto
+
+Auditoria de `stash@{0}` (`bank-account-genesis-alignment-pendente-custodia`) revelou
+que o refactor do provider, planejado em 2026-04-22 (commit `5b3f2096`) e nunca
+commitado, embute três decisões arquiteturais latentes não-formalizadas:
+
+1. **`cachedBalanceCents` retorna 0 hardcoded** no mapper do provider novo. Coluna
+   `cached_balance` é tratada como deprecada de fato.
+2. **`metadata` retorna `null` hardcoded.** Coluna `metadata` em `bank_accounts` é
+   tratada como deprecada de fato.
+3. **`updateCachedBalance` é NO-OP intencional** (corpo vazio, comentário explicando
+   que schema Genesis não possui mais `cached_balance`).
+
+A assinatura de `getSystemAccount` permanece, mas o comportamento interno muda:
+estreita o lookup (sem fallback genérico, sem filtro `currency`), e amplia o
+vocabulário de `accountName` aceito (adiciona `'platform_ops'`).
+
+A combinação dessas três decisões equivale, na prática, a adotar `bank_ledger` como
+SSOT financeiro único. Saldo passa a ser sempre derivado do ledger; cache em
+`bank_accounts` deixa de ser verdade operacional.
+
+Aplicar `stash@{0}` sem nomear isso seria commit que mente sobre escopo: apresenta
+como "refactor de provider" o que é, materialmente, decisão arquitetural sobre
+soberania financeira.
+
+### Decisão
+
+`bank_ledger` é o SSOT financeiro único do UnifyBank.
+
+Consequências formalizadas:
+
+1. **Saldo é sempre derivado do ledger.** Qualquer leitura de saldo
+   (`getBalanceCents`, `consolidateBalance`, etc.) deve agregar `bank_ledger` por
+   `account_id`. Não há cache autoritativo.
+
+2. **`bank_accounts.cached_balance` é deprecada.** Coluna mantida no schema por
+   compatibilidade até migration de remoção em frente futura. Retornos do provider
+   ignoram a coluna e devolvem `cachedBalanceCents = 0` por design.
+
+3. **`bank_accounts.metadata` é deprecada como fonte de domínio.** Dados que
+   anteriormente moravam ali (ex: `regionId`) devem migrar para tabelas/colunas
+   próprias ou lookup explícito. Provider devolve `metadata = null`.
+
+4. **`updateCachedBalance(...)` é NO-OP nomeado.** A função existe para preservar
+   contrato de tipos durante a transição, mas não persiste nada. Consumidores devem
+   migrar gradualmente para remover a chamada. Após migração completa, a função pode
+   ser removida.
+
+5. **Provider Genesis (stash@{0}) só é aplicável após migração de consumidores
+   críticos** (β.1, β.2, β.3). Aplicar antes produz dados regionais silenciosamente
+   incorretos em `bank-balance-consolidation.service.ts:260`.
+
+### Anti-padrões formalmente proibidos após DECISION-0024
+
+1. **Reintroduzir `cached_balance` como verdade operacional.** Qualquer código que
+   leia `cached_balance` esperando saldo real é regressão.
+2. **Tratar `bank_accounts.metadata` como source-of-truth de domínio.** Lookup de
+   regionalidade, classificação de conta, etc., devem usar tabelas próprias.
+3. **Manter chamadas a `updateCachedBalance` em código novo.** Em código novo, NO-OP
+   é ruído. A função existe apenas para compatibilidade durante migração.
+4. **Aplicar refactor amplo de provider sem decisão arquitetural prévia.** Esta
+   decisão fica como precedente: provider que muda semântica de método com assinatura
+   estável exige DECISION nomeada antes de aplicação.
+
+### Sequência de execução vinculada (Caminho β)
+
+- **β.0:** Esta entrada (DECISION-0024).
+- **β.1:** Migrar `bank-balance-consolidation.service.ts` (eliminar dependência de
+  `metadata?.regionId` linha 260; corrigir SQL direto linhas 60-61).
+- **β.2:** Resolver 8 chamadas de `updateCachedBalance` em `bank-transaction.service.ts`
+  (decisão por chamada: remover ou anotar NO-OP legado explicitamente).
+- **β.3:** Auditar 20 call-sites de `getSystemAccount` para mudanças de semântica
+  silenciosa pós-Genesis.
+- **β.4:** Aplicar `stash@{0}` em branch descartável; medir `tsc --noEmit` + 4 gates.
+- **β.5:** Se β.4 limpo: aplicar no `rescue-structural`.
+
+### DTs vinculadas
+
+- **DT-bank-balance-consolidation-genesis-drift** (já registrada, parte 5 opus.md):
+  permanece aberta, fechamento em β.1.
+- **DT-bank-cached-balance-deprecation-migration**: nova. Trabalho de remoção da
+  coluna `cached_balance` após β concluído. Não bloqueante.
+- **DT-bank-metadata-domain-migration**: nova. Identificar todos os consumidores que
+  leem `bank_accounts.metadata` e migrar para fontes próprias. Bloqueante para β.1
+  (parcialmente — só `regionId` é crítico).
+- **DT-bank-updateCachedBalance-callsite-cleanup**: nova. Remoção das 8 chamadas
+  após β.2 estabilizado. Não bloqueante para aplicação do stash.
+
+### Validação de aceitação
+
+- Esta entrada commitada em isolado.
+- Mensagem de commit: `decisions: DECISION-0024 bank_ledger como SSOT financeiro único`
+- 4 gates rodados pós-commit, todos PASS, baseline mantido.
+
+### Referências
+
+- `stash@{0}: bank-account-genesis-alignment-pendente-custodia`
+- Commit consumidores Genesis: `5b3f2096` (2026-04-22)
+- Auditoria material: sessão Opus 2026-05-10 (esta sessão)
+- Auditorias cross-AI: Codex (corpos de método) + Claude Code (call-sites)
+- §4-E (opus.md, formalizado parte 5 2026-05-09)
+- §4-E.2 (em maturação, sub-cláusula sobre circuito mínimo)
+
+---
+
