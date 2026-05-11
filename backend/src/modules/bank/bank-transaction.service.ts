@@ -651,8 +651,7 @@ class BankTransactionService {
         authorship,
       }, client);
 
-      await bankAccountRepository.updateCachedBalance(tenantId, fromAccountId, fromBalanceAfter, client);
-      await bankAccountRepository.updateCachedBalance(tenantId, toAccountId, toBalanceAfter, client);
+      // DECISION-0024: cache update hook é NO-OP Genesis; chamadas removidas.
 
       await client.query(
         `UPDATE bank_transactions SET internal_completed_at = NOW() WHERE id = $1`,
@@ -1071,7 +1070,6 @@ class BankTransactionService {
       );
 
       ledgerEntries.push({ entryId: fromEntry.entryId, accountId: effectiveFrom, entryType: 'debit' });
-      await bankAccountRepository.updateCachedBalance(tenantId, effectiveFrom, fromBalanceAfter, client);
 
       const toBalance = await bankLedgerRepository.calculateBalance(tenantId, effectiveTo, client);
       const toBalanceAfter = asMoneyCents(toBalance.balanceCents + amountCents);
@@ -1093,7 +1091,6 @@ class BankTransactionService {
       );
 
       ledgerEntries.push({ entryId: toEntry.entryId, accountId: effectiveTo, entryType: 'credit' });
-      await bankAccountRepository.updateCachedBalance(tenantId, effectiveTo, toBalanceAfter, client);
 
       await client.query(
         `UPDATE bank_transactions SET internal_completed_at = NOW() WHERE id = $1`,
@@ -1334,7 +1331,6 @@ class BankTransactionService {
       }, client);
 
       ledgerEntries.push({ entryId: fromEntry.entryId, accountId: fromAccountId, entryType: 'debit' });
-      await bankAccountRepository.updateCachedBalance(tenantId, fromAccountId, fromBalanceAfter, client);
 
       for (const splitCalc of splitCalculation.splits) {
         const targetBalance = await bankLedgerRepository.calculateBalance(
@@ -1357,7 +1353,6 @@ class BankTransactionService {
         }, client);
 
         ledgerEntries.push({ entryId: creditEntry.entryId, accountId: splitCalc.targetAccountId, entryType: 'credit' });
-        await bankAccountRepository.updateCachedBalance(tenantId, splitCalc.targetAccountId, targetBalanceAfter, client);
 
         const split = await bankSplitRepository.createSplit(tenantId, {
           transactionId: txId,
@@ -1572,12 +1567,6 @@ class BankTransactionService {
         accountId: fromAccountId,
         entryType: 'debit',
       });
-      await bankAccountRepository.updateCachedBalance(
-        tenantId,
-        fromAccountId,
-        fromBalanceAfter,
-        client
-      );
 
       for (const line of splitLines) {
         const splitType: BankSplitType = line.splitType ?? 'revenue_share';
@@ -1610,12 +1599,6 @@ class BankTransactionService {
           accountId: line.targetAccountId,
           entryType: 'credit',
         });
-        await bankAccountRepository.updateCachedBalance(
-          tenantId,
-          line.targetAccountId,
-          targetBalanceAfter,
-          client
-        );
 
         const split = await bankSplitRepository.createSplit(
           tenantId,
@@ -1775,7 +1758,6 @@ class BankTransactionService {
 }
 
 export const bankTransactionService = new BankTransactionService();
-
 
 
 
