@@ -1314,3 +1314,125 @@ Consequências formalizadas:
 
 ---
 
+---
+
+## DECISION-0025: UnifyBank Genesis opera mono-currency (BRL) no provider financeiro
+
+**Data:** 2026-05-10
+**Frente:** Bank Genesis Wave (Conjunto 1, Caminho β) — pacote com DECISION-0024
+**Status:** ACEITA
+**Escopo:** Domínio financeiro completo (UnifyBank). Provider `bank-account.repository.ts`,
+método `getSystemAccount`, queries Genesis-aligned, type `BankCurrency`.
+
+### Contexto
+
+Auditoria do `stash@{0}` (bank-account-genesis-alignment-pendente-custodia) revelou,
+além das três decisões formalizadas em DECISION-0024 (ledger-only SSOT, cache deprecado,
+updateCachedBalance NO-OP), uma quarta decisão arquitetural latente:
+
+**D4 — Mono-currency operacional.** O provider Genesis no stash:
+
+1. Renomeia parâmetro `currency: BankCurrency = 'BRL'` para `_currency: BankCurrency = 'BRL'`
+   em `getSystemAccount`, marcando-o como ignorado.
+2. Remove o filtro `AND currency = $3` da query SQL de busca de conta system.
+3. Remove a coluna `currency` do `BankAccountRow` interno do repository.
+4. Retorna `currency: 'BRL'` hardcoded no mapper `toBankAccount`.
+5. Inclui comentário interno: "Genesis não tem coluna currency; ignora filtro currency."
+
+O schema Genesis vivo (migration `0003_bank_core.sql` e subsequentes) confirma:
+`bank_accounts` **não possui coluna `currency`**. A coluna foi removida estruturalmente
+do schema, não apenas ignorada no provider.
+
+Esta decisão é **separável** de DECISION-0024 (ledger-only SSOT):
+- É possível ter ledger-only multi-currency (cada lançamento no ledger anota currency).
+- É possível ter mono-currency com cache (provider antigo).
+- Genesis escolheu as duas simultaneamente, mas não são logicamente acopladas.
+
+Aplicar o `stash@{0}` sem nomear D4 produz o mesmo anti-padrão que DECISION-0024
+proibiu: decisão arquitetural escondida em refactor de provider.
+
+### Decisão
+
+UnifyBank opera mono-currency (BRL) na linhagem Genesis.
+
+Consequências formalizadas:
+
+1. **`bank_accounts` Genesis não tem coluna `currency`.** O esquema é mono-currency
+   por construção. Currency, se necessário em camadas superiores, deve ser representada
+   em outro lugar (ledger, transação, ou camada FX dedicada).
+
+2. **`getSystemAccount(accountName, _currency)` aceita parâmetro `currency` apenas
+   para compatibilidade de assinatura.** O parâmetro é ignorado no provider Genesis.
+   Consumidores que confiam em filtro por currency em `bank_accounts` estão errados
+   por construção pós-Genesis.
+
+3. **`BankCurrency` type permanece** (`'BRL' | 'USD' | 'EUR' | 'TEST'` em
+   `bank-account.types.ts`) por compatibilidade de tipos com camadas superiores e
+   testes legados. Apenas `'BRL'` é operacional na linhagem Genesis.
+
+4. **Código novo não deve depender de multi-currency via `bank_accounts`.** Qualquer
+   feature que requeira multi-currency em produção exige DECISION futura e modelo
+   explícito (provavelmente camada FX/ledger, não `bank_accounts.currency`).
+
+5. **DECISION-0025 forma com DECISION-0024 o pacote arquitetural Bank Genesis.**
+   As duas decisões são separáveis logicamente mas chegaram juntas via mesmo stash.
+   Reversão de uma não obriga reversão da outra, mas qualquer reversão de stash
+   deve avaliar ambas.
+
+### Anti-padrões formalmente proibidos após DECISION-0025
+
+1. **Criar contas com `currency != 'BRL'` em produção.** O schema Genesis não tem
+   onde armazenar isso; seria silenciosamente descartado ou rejeitado em camadas
+   superiores.
+
+2. **Assumir que filtro por `currency` funciona em queries sobre `bank_accounts`.**
+   A coluna não existe. Queries que tentam filtrar quebram em runtime ou retornam
+   silenciosamente o universo completo.
+
+3. **Reintroduzir coluna `currency` em `bank_accounts` sem DECISION-0025 revisada.**
+   Migration que readiciona a coluna em `bank_accounts` é regressão arquitetural,
+   não correção.
+
+4. **Adicionar parâmetro `currency` a métodos novos de `bank-account.repository.ts`.**
+   Métodos novos devem assumir mono-currency. Multi-currency vive em outra camada,
+   ou exige DECISION nova.
+
+### Sequência de execução vinculada
+
+DECISION-0025 entra como pré-condição compartilhada com DECISION-0024 para a
+sequência β:
+
+- **β.0:** DECISION-0024 (já commitada em `8993d1e3`).
+- **β.0.8:** Esta entrada (DECISION-0025).
+- **β.1.a–d:** Fixes de consumidores críticos, cada um cita DECISION-0024 e/ou
+  DECISION-0025 conforme aplicável. Especificamente, β.1.a (consolidation SQL
+  Genesis) cita DECISION-0024 (remoção de `cached_balance`, `metadata`) **e**
+  DECISION-0025 (remoção de `currency`).
+- **β.4:** Aplicação do stash já considera ambas as decisões formalizadas.
+
+### DTs vinculadas
+
+- **DT-bank-currency-type-cleanup**: nova. `BankCurrency` type permanece operacional
+  apenas como `'BRL'`. Limpeza futura pode reduzir o type ou marcar variantes não-BRL
+  como `deprecated` em JSDoc.
+- **DT-bank-fx-layer-design** (futuro): se multi-currency for necessária, design da
+  camada FX/conversão. Não bloqueante, não escopo atual.
+
+### Validação de aceitação
+
+- Esta entrada commitada em isolado.
+- Mensagem de commit: `decisions: DECISION-0025 mono-currency BRL na linhagem Genesis`
+- 4 gates rodados pós-commit, todos PASS, baseline mantido.
+
+### Referências
+
+- DECISION-0024 (`8993d1e3`) — pacote arquitetural Bank Genesis (parte 1: ledger-only SSOT)
+- `stash@{0}: bank-account-genesis-alignment-pendente-custodia`
+- Schema vivo: `bank_accounts.owner_id text NOT NULL, owner_type text NOT NULL` (confirmado β.0.6b)
+- Auditoria material: sessão Opus 2026-05-10 (β.0.6b confirmou D4 + D5)
+- Cross-AI: Codex (corpos de método + WHERE clause) + Claude Code (impacto em type BankCurrency)
+- §-2 (documentação não implica runtime)
+- §4-E (debugging que vira arqueologia, em maturação)
+
+---
+
