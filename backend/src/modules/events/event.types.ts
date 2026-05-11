@@ -13,8 +13,9 @@ export type EventTicketType = 'GENERAL' | 'VIP' | 'BACKSTAGE';
 
 /**
  * Status da venda de ingresso
+ * Alinhado com schema (C64 fix): pending/completed/refunded/failed
  */
-export type TicketSaleStatus = 'RESERVED' | 'PAID' | 'CANCELLED';
+export type TicketSaleStatus = 'pending' | 'completed' | 'refunded' | 'failed';
 
 /**
  * Evento
@@ -56,6 +57,10 @@ export interface CreateEventInput {
   locationActorId?: string;
   startAt: Date | string;
   endAt: Date | string;
+  /** Taxonomia (≠ `visibility`). Default no repositório: `general`. */
+  eventType?: string;
+  /** IANA; default `UTC`. */
+  timezone?: string;
   metadata?: Record<string, any>;
 }
 

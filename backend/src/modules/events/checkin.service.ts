@@ -18,8 +18,8 @@ import type { EventCheckIn, TicketSale } from './event.types';
 class CheckInService {
   /**
    * Realiza check-in
-   * 
-   * SPRINT 76: Valida que ticket está PAID e evento está no horário
+   *
+   * SPRINT 76: Valida que ticket está completed e evento está no horário
    */
   async checkIn(
     tenantId: string,
@@ -27,14 +27,14 @@ class CheckInService {
     checkedInByActorId: string,
     checkedInByUserId?: string
   ): Promise<EventCheckIn> {
-    // Validar que venda existe e está PAID
+    // Validar que venda existe e está completed (C64 fix: alinhado com schema)
     const ticketSale = await ticketSaleRepository.getSaleById(tenantId, ticketSaleId);
     if (!ticketSale) {
       throw new Error(`Venda de ingresso não encontrada: ${ticketSaleId}`);
     }
 
-    if (ticketSale.status !== 'PAID') {
-      throw new Error(`Ingresso deve estar PAID para check-in. Status atual: ${ticketSale.status}`);
+    if (ticketSale.status !== 'completed') {
+      throw new Error(`Ingresso deve estar completed para check-in. Status atual: ${ticketSale.status}`);
     }
 
     // Validar que não há check-in anterior
@@ -135,9 +135,9 @@ class CheckInService {
       return { valid: false, reason: 'Venda de ingresso não encontrada' };
     }
 
-    // Validar status
-    if (ticketSale.status !== 'PAID') {
-      return { valid: false, reason: `Ingresso deve estar PAID. Status atual: ${ticketSale.status}`, ticketSale };
+    // Validar status (C64 fix: alinhado com schema)
+    if (ticketSale.status !== 'completed') {
+      return { valid: false, reason: `Ingresso deve estar completed. Status atual: ${ticketSale.status}`, ticketSale };
     }
 
     // Validar que não há check-in anterior

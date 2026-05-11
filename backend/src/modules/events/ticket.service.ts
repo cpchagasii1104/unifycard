@@ -207,8 +207,9 @@ class TicketService {
       throw new Error(`Venda de ingresso não encontrada: ${ticketSaleId}`);
     }
 
-    if (ticketSale.status !== 'RESERVED') {
-      throw new Error(`Venda deve estar RESERVED para confirmar pagamento. Status atual: ${ticketSale.status}`);
+    // C64 fix: alinhado com schema (pending = reservado aguardando pagamento)
+    if (ticketSale.status !== 'pending') {
+      throw new Error(`Venda deve estar pending para confirmar pagamento. Status atual: ${ticketSale.status}`);
     }
 
     // Validar que PaymentIntent está SUCCESS
@@ -364,8 +365,9 @@ class TicketService {
       throw new Error(`Venda de ingresso não encontrada: ${ticketSaleId}`);
     }
 
-    if (ticketSale.status !== 'RESERVED') {
-      throw new Error(`Venda deve estar RESERVED para cancelar. Status atual: ${ticketSale.status}`);
+    // C64 fix: alinhado com schema
+    if (ticketSale.status !== 'pending') {
+      throw new Error(`Venda deve estar pending para cancelar. Status atual: ${ticketSale.status}`);
     }
 
     const cancelledSale = await ticketSaleRepository.cancelSale(
