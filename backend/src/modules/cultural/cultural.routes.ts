@@ -6,6 +6,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { culturalProfileService } from './cultural-profile.service';
 import { culturalEventService, type CreateCulturalEventInput } from './cultural-event.service';
+import { ensureUserActor } from '@modules/identity';
 
 const createProfileSchema = z.object({
   owner_actor_id: z.string().uuid(),
@@ -72,7 +73,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'CULTURAL_PROFILE_CREATED',
-          severity: 'LOW',
+          severity: 'low',
           actor_id: validated.owner_actor_id,
           actor_type: validated.owner_actor_type,
           source: 'social',
@@ -201,7 +202,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_CREATED',
-          severity: 'LOW',
+          severity: 'low',
           source: 'social',
           context: {
             event_id: event.id,
@@ -248,7 +249,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_PUBLISHED',
-          severity: 'LOW',
+          severity: 'low',
           source: 'social',
           context: {
             event_id: event.id,
@@ -299,7 +300,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_LOCATION_CONFIRMED',
-          severity: 'LOW',
+          severity: 'low',
           source: 'social',
           context: {
             event_id: event.id,
@@ -492,10 +493,9 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // Determinar actor_id e actor_type
-      // Por enquanto, usar globalUserId como actor_id e 'user' como tipo
-      // TODO: Suportar ator ativo (PF/PJ/PAC) quando implementado
-      const actorId = req.body.target_actor_id || req.user.globalUserId;
+      // Resolve actor_id real via identity service (C50 fix)
+      const actor = await ensureUserActor(req.tenant.id, req.user.id);
+      const actorId = req.body.target_actor_id || actor.actor_id;
       const actorType = req.body.target_actor_type || 'user';
 
       const result = await culturalEventService.checkIn(
@@ -506,7 +506,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
           actor_type: actorType,
           method: req.body.method,
           qr_code: req.body.qr_code,
-          checked_in_by_actor_id: req.body.method === 'MANUAL' ? req.user.globalUserId : undefined,
+          checked_in_by_actor_id: req.body.method === 'MANUAL' ? actor.actor_id : undefined,
           checked_in_by_actor_type: req.body.method === 'MANUAL' ? 'user' : undefined,
           geo: req.body.geo,
           device_fingerprint: req.body.device_fingerprint,

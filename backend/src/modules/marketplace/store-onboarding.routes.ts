@@ -170,8 +170,6 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
         throw new BadRequestError('Tenant é obrigatório', ErrorCode.VALIDATION_ERROR);
       }
       const tenantId = req.tenant.id;
-      const userId = req.user?.userId ?? req.user?.id ?? '';
-      const fallbackUserPk = req.user?.id ?? userId;
       const importerActorId = req.marketplaceStoreOnboardingImporterActorId;
       if (!importerActorId) {
         throw new InternalServerError(
@@ -182,7 +180,8 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
       try {
         const data = validationResult.data;
         const input: StoreOnboardingInput = {
-          actorId: data.actorId ?? fallbackUserPk,
+          // C51 fix: usar importerActorId (actor_id real) como fallback, não userId
+          actorId: data.actorId ?? importerActorId,
           hasOwnProducts: data.hasOwnProducts,
           defaultCostPrice: data.defaultCostPrice,
           defaultSalePrice: data.defaultSalePrice,
@@ -215,7 +214,7 @@ const storeOnboardingRoutes = async (fastify: FastifyInstance) => {
           tenantId,
           input,
           importerActorId,
-          userId,
+          req.user?.id, // userId para auditoria (opcional)
           logContext
         );
 
