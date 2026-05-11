@@ -49,17 +49,16 @@ class DashboardService {
               totalOut += tx.amountCents;
             }
             return {
-              entryId: tx.entryId,
-              direction: tx.direction,
+              transactionId: tx.entryId,
+              type: tx.direction,
               amountCents: tx.amountCents,
-              createdAt: tx.createdAt,
+              createdAt: tx.createdAt.toISOString(),
             };
           });
 
           wallet = {
             balanceCents: summary.balanceCents,
             currency: summary.currency,
-            accountsCount: summary.accountsCount,
             totalIn,
             totalOut,
             lastTransactions,
@@ -94,4 +93,3 @@ class DashboardService {
 }
 
 export const dashboardService = new DashboardService();
-

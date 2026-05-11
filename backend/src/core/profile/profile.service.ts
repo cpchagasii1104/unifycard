@@ -47,33 +47,43 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
   return result as T;
 }
 
+function isPlaceholderCpf(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const clean = normalizeCpf(value);
+  return clean.length !== 11 || /^0{11}$/.test(clean) || clean.startsWith('syn');
+}
+
 class ProfileService {
   /**
    * Cache por processo: se a coluna existe no schema atual.
    * (Se rodar migration, reinicie o serviço para recarregar.)
    */
-  private hasProfilePersonalConfirmedColumnCache: boolean | null = null;
+  private profilePersonalConfirmedColumnCache: string | false | null = null;
 
-  private async hasProfilePersonalConfirmedColumn(tenantId: string): Promise<boolean> {
-    if (this.hasProfilePersonalConfirmedColumnCache !== null) {
-      return this.hasProfilePersonalConfirmedColumnCache;
+  private async getProfilePersonalConfirmedColumn(tenantId: string): Promise<string | null> {
+    if (this.profilePersonalConfirmedColumnCache !== null) {
+      return this.profilePersonalConfirmedColumnCache || null;
     }
 
-    const row = await runQueryWithTenant<{ exists: boolean }>(
+    const row = await runQueryWithTenant<{ column_name: string }>(
       tenantId,
       `
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'profiles'
-          AND column_name = 'profile_personal_confirmed'
-      ) AS exists
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'profiles'
+        AND column_name IN ('is_profile_personal_confirmed', 'profile_personal_confirmed')
+      ORDER BY CASE column_name
+        WHEN 'is_profile_personal_confirmed' THEN 1
+        WHEN 'profile_personal_confirmed' THEN 2
+        ELSE 3
+      END
+      LIMIT 1
       `
     );
 
-    this.hasProfilePersonalConfirmedColumnCache = row?.exists === true;
-    return this.hasProfilePersonalConfirmedColumnCache;
+    this.profilePersonalConfirmedColumnCache = row?.column_name || false;
+    return this.profilePersonalConfirmedColumnCache || null;
   }
 
   private getConfirmedFromRow(row: AnyRow): boolean {
@@ -98,8 +108,14 @@ class ProfileService {
       fullName: row.full_name ?? null,
       phone: row.phone ?? null,
       metadata,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : String(row.created_at),
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : String(row.updated_at),
       profilePersonalConfirmed: profilePersonalConfirmed,
       canEditPersonalData: canEditPersonalData,
     };
@@ -109,10 +125,10 @@ class ProfileService {
    * Busca perfil de um usuário
    */
   async getProfile(tenantId: string, userId: string): Promise<Profile | null> {
-    const hasColumn = await this.hasProfilePersonalConfirmedColumn(tenantId);
+    const confirmedColumn = await this.getProfilePersonalConfirmedColumn(tenantId);
 
-    const selectConfirmed = hasColumn
-      ? `profile_personal_confirmed`
+    const selectConfirmed = confirmedColumn
+      ? `${confirmedColumn} AS profile_personal_confirmed`
       : `NULL::boolean AS profile_personal_confirmed`;
 
     const row = await runQueryWithTenant<AnyRow>(
@@ -121,10 +137,10 @@ class ProfileService {
         SELECT
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${selectConfirmed},
-          createdAt, updatedAt
+          created_at, updated_at
         FROM profiles
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY updatedAt DESC
+        ORDER BY updated_at DESC
         LIMIT 1
       `,
       [tenantId, userId]
@@ -139,24 +155,24 @@ class ProfileService {
    * NUNCA sobrescreve dados existentes
    */
   async createProfileIfNotExists(tenantId: string, userId: string): Promise<Profile> {
-    const hasColumn = await this.hasProfilePersonalConfirmedColumn(tenantId);
+    const confirmedColumn = await this.getProfilePersonalConfirmedColumn(tenantId);
 
     const initialMetadata: Record<string, any> = {};
     // Fallback: se não existe coluna, persistimos a flag em metadata para manter o comportamento.
-    if (!hasColumn) {
+    if (!confirmedColumn) {
       initialMetadata.profile_personal_confirmed = false;
     }
 
-    const insertCols = hasColumn
-      ? `(tenant_id, user_id, full_name, phone, metadata, profile_personal_confirmed)`
+    const insertCols = confirmedColumn
+      ? `(tenant_id, user_id, full_name, phone, metadata, ${confirmedColumn})`
       : `(tenant_id, user_id, full_name, phone, metadata)`;
 
-    const insertValues = hasColumn
+    const insertValues = confirmedColumn
       ? `VALUES ($1, $2, NULL, NULL, $3::JSONB, false)`
       : `VALUES ($1, $2, NULL, NULL, $3::JSONB)`;
 
-    const returningConfirmed = hasColumn
-      ? `profile_personal_confirmed`
+    const returningConfirmed = confirmedColumn
+      ? `${confirmedColumn} AS profile_personal_confirmed`
       : `NULL::boolean AS profile_personal_confirmed`;
 
     const row = await runQueryWithTenant<AnyRow>(
@@ -168,7 +184,7 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          createdAt, updatedAt
+          created_at, updated_at
       `,
       [tenantId, userId, JSON.stringify(initialMetadata)]
     );
@@ -187,7 +203,7 @@ class ProfileService {
    * ⚠️ Só deve ser chamado por endpoints explícitos de UPDATE.
    */
   async upsertProfile(tenantId: string, userId: string, input: UpdateProfileInput): Promise<Profile> {
-    const hasColumn = await this.hasProfilePersonalConfirmedColumn(tenantId);
+    const confirmedColumn = await this.getProfilePersonalConfirmedColumn(tenantId);
 
     // Buscar existente (para merge + regras de imutabilidade)
     const existingProfile = await this.getProfile(tenantId, userId);
@@ -253,7 +269,7 @@ class ProfileService {
       }
 
       // Compat: se não existe coluna, manter o flag em metadata
-      if (!hasColumn && existingProfile) {
+      if (!confirmedColumn && existingProfile) {
         (metadataWithoutImmutables as any).profile_personal_confirmed =
           existingProfile.profilePersonalConfirmed === true;
       }
@@ -339,11 +355,11 @@ class ProfileService {
     }
 
     // UPSERT (comportamento: não “reabre” cadeado; preserva confirmação)
-    const insertCols = hasColumn
-      ? `(tenant_id, user_id, full_name, phone, metadata, profile_personal_confirmed)`
+    const insertCols = confirmedColumn
+      ? `(tenant_id, user_id, full_name, phone, metadata, ${confirmedColumn})`
       : `(tenant_id, user_id, full_name, phone, metadata)`;
 
-    const insertValues = hasColumn
+    const insertValues = confirmedColumn
       ? `VALUES ($1, $2, $3, $4, $5::JSONB, false)`
       : `VALUES ($1, $2, $3, $4, $5::JSONB)`;
 
@@ -371,15 +387,15 @@ class ProfileService {
 
     // metadata: sempre atualiza com o merge (preserva campos existentes)
     updateFields.push(`metadata = $5::JSONB`);
-    updateFields.push(`updatedAt = now()`);
+    updateFields.push(`updated_at = now()`);
 
     // confirmação: preserva (nunca “volta pra false”)
-    if (hasColumn) {
-      updateFields.push(`profile_personal_confirmed = COALESCE(profiles.profile_personal_confirmed, false)`);
+    if (confirmedColumn) {
+      updateFields.push(`${confirmedColumn} = COALESCE(profiles.${confirmedColumn}, false)`);
     }
 
-    const returningConfirmed = hasColumn
-      ? `profile_personal_confirmed`
+    const returningConfirmed = confirmedColumn
+      ? `${confirmedColumn} AS profile_personal_confirmed`
       : `NULL::boolean AS profile_personal_confirmed`;
 
     const row = await runQueryWithTenant<AnyRow>(
@@ -393,7 +409,7 @@ class ProfileService {
         RETURNING
           profile_id, tenant_id, user_id, full_name, phone, metadata,
           ${returningConfirmed},
-          createdAt, updatedAt
+          created_at, updated_at
       `,
       [tenantId, userId, insertFullName, insertPhone, serializedMetadata]
     );
@@ -402,29 +418,65 @@ class ProfileService {
       throw new Error('Failed to create or update profile');
     }
 
-    // LGPD: CPF em profiles (imutável)
+    // LGPD: CPF imutável. Fonte operacional do CORE: user_profiles.cpf.
+    // profiles.cpf pode conter placeholder legado (ex.: 000.000.000-00) e não deve bloquear primeiro salvamento real.
     if (cpfToSave) {
       try {
         const { pool } = await import('@core/database/pool');
 
-        const existing = await pool.query<{ cpf: string }>(
-          `SELECT cpf FROM profiles WHERE user_id = $1 AND tenant_id = $2`,
+        const existing = await pool.query<{ profile_cpf: string | null; user_profile_cpf: string | null }>(
+          `
+          SELECT
+            p.cpf AS profile_cpf,
+            up.cpf AS user_profile_cpf
+          FROM profiles p
+          LEFT JOIN user_profiles up ON up.user_id = p.user_id
+          WHERE p.user_id = $1 AND p.tenant_id = $2
+          LIMIT 1
+          `,
           [userId, tenantId]
         );
 
-        const existingCpf = existing.rows[0]?.cpf;
+        const existingUserProfileCpf = existing.rows[0]?.user_profile_cpf ?? null;
+        const existingProfileCpf = existing.rows[0]?.profile_cpf ?? null;
+        const canonicalExistingCpf = existingUserProfileCpf && !isPlaceholderCpf(existingUserProfileCpf)
+          ? normalizeCpf(existingUserProfileCpf)
+          : existingProfileCpf && !isPlaceholderCpf(existingProfileCpf)
+            ? normalizeCpf(existingProfileCpf)
+            : null;
 
-        if (existingCpf && existingCpf !== cpfToSave) {
+        if (canonicalExistingCpf && canonicalExistingCpf !== cpfToSave) {
           throw new ConflictError('CPF não pode ser alterado após o cadastro');
         }
 
         try {
           await pool.query(
             `
-            UPDATE profiles SET cpf = $2
-            WHERE tenant_id = $1 AND user_id = $3
+            WITH upsert_user_profile AS (
+              INSERT INTO user_profiles (user_id, cpf)
+              VALUES ($2, $3)
+              ON CONFLICT (user_id)
+              DO UPDATE SET
+                cpf = CASE
+                  WHEN user_profiles.cpf IS NULL OR regexp_replace(user_profiles.cpf, '[^0-9]', '', 'g') = ''
+                  THEN EXCLUDED.cpf
+                  ELSE user_profiles.cpf
+                END,
+                updated_at = now()
+              RETURNING user_id
+            )
+            UPDATE profiles
+            SET cpf = $3
+            WHERE tenant_id = $1
+              AND user_id = $2
+              AND (
+                cpf IS NULL
+                OR regexp_replace(cpf, '[^0-9]', '', 'g') = ''
+                OR regexp_replace(cpf, '[^0-9]', '', 'g') = '00000000000'
+                OR regexp_replace(cpf, '[^0-9]', '', 'g') = $3
+              )
             `,
-            [tenantId, cpfToSave, userId]
+            [tenantId, userId, cpfToSave]
           );
         } catch (err: any) {
           if (err?.code === '23505') {
@@ -494,22 +546,22 @@ class ProfileService {
 
   /**
    * Confirma primeiro acesso (fecha o cadeado).
-   * ✅ Se a coluna existir: seta profiles.profile_personal_confirmed = true
+   * ✅ Se a coluna existir: seta a flag booleana canônica = true
    * ✅ Se não existir: grava metadata.profile_personal_confirmed = true (fallback)
    */
   async confirmFirstAccess(tenantId: string, userId: string): Promise<void> {
-    const hasColumn = await this.hasProfilePersonalConfirmedColumn(tenantId);
+    const confirmedColumn = await this.getProfilePersonalConfirmedColumn(tenantId);
 
-    if (hasColumn) {
+    if (confirmedColumn) {
       const result = await runQueryWithTenant<AnyRow>(
         tenantId,
         `
-          INSERT INTO profiles (tenant_id, user_id, full_name, phone, metadata, profile_personal_confirmed)
+          INSERT INTO profiles (tenant_id, user_id, full_name, phone, metadata, ${confirmedColumn})
           VALUES ($1, $2, NULL, NULL, '{}'::JSONB, true)
           ON CONFLICT (tenant_id, user_id)
           DO UPDATE SET
-            profile_personal_confirmed = true,
-            updatedAt = now()
+            ${confirmedColumn} = true,
+            updated_at = now()
           RETURNING profile_id
         `,
         [tenantId, userId]
@@ -531,7 +583,7 @@ class ProfileService {
         ON CONFLICT (tenant_id, user_id)
         DO UPDATE SET
           metadata = $3::JSONB,
-          updatedAt = now()
+          updated_at = now()
         RETURNING profile_id
       `,
       [tenantId, userId, JSON.stringify(merged)]
@@ -564,4 +616,3 @@ class ProfileService {
 }
 
 export const profileService = new ProfileService();
-
