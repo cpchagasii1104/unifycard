@@ -49,6 +49,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | Atualização 2026-05-11 [3] | C64 FIXED — ticket_sales SCHEMA DRIFT alinhado com schema (pending/completed/refunded/failed) |
 | Atualização 2026-05-11 [4] | C15 FIXED — tenant_products.price NUMERIC removida via migration 20260530530000 |
 | Atualização 2026-05-11 [5] | C19 FIXED — bank_transactions.reference_id UUID→TEXT via DECISION-0029 (commit fd3f1018) |
+| Atualização 2026-05-11 [6] | C40 FIXED — system_coverage.*_cents VIEW NUMERIC→BIGINT via DECISION-0030 (commit 2337f577) |
 
 ### 2026-04-30 — G2 PIPELINE E2E PASS
 
@@ -87,9 +88,9 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
 | HIGH | 11 | 22 | **25** (+C52, C53, C64) |
 | MEDIUM | 9 | 12 | **13** (+C57) |
-| OPEN | 21 | 26 | **22** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19 FIXED; C22+C29 ALLOWLISTED) |
+| OPEN | 21 | 26 | **21** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19+C40 FIXED; C22+C29 ALLOWLISTED) |
 | IN_PROGRESS | 0 | 0 | 0 |
-| FIXED | 1 | 13 | **22** (+C57, +C47, +C55, +C54, +C64, +C50, +C51, +C15, +C19) |
+| FIXED | 1 | 13 | **23** (+C57, +C47, +C55, +C54, +C64, +C50, +C51, +C15, +C19, +C40) |
 | REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
 | ALLOWLISTED | 0 | 0 | **2** (C22 DECISION-0026, C29 DECISION-0027, 2026-05-11) |
 | DEFERRED | 0 | 0 | 0 |
@@ -144,7 +145,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C35 | FIXED | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=4, RLS+FORCE+policy OK. partner_employees criada junto com audit_events (dependência de audit.service.ts). |
 | C38 | OPEN | 5 tabelas com `type` genérico | vários | |
 | C39 | OPEN | 7 tabelas com `state` genérico | vários | |
-| C40 | OPEN | Monetário em NUMERIC/DECIMAL | vários | |
+| C40 | FIXED | Monetário em NUMERIC/DECIMAL | `system_coverage` (VIEW) | FIXED (2026-05-11, 2337f577): VIEW system_coverage retornava NUMERIC em *_cents por COALESCE sem cast explícito. DROP + CREATE com ::bigint. Auditoria: coverage_audit_log já BIGINT; callers apenas leitura. Migration 20260530532000. DECISION-0030. TSC 0. Gates 4/4 PASS. |
 | C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer | `modules/groups/groups.service.ts` | |
 | C46 | FIXED | groups: ownerUserId vs actor_id | 5 arquivos | |
