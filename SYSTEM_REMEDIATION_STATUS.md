@@ -88,7 +88,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
 | HIGH | 11 | 22 | **25** (+C52, C53, C64) |
 | MEDIUM | 9 | 12 | **13** (+C57) |
-| OPEN | 21 | 26 | **21** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19+C40 FIXED; C22+C29 ALLOWLISTED) |
+| OPEN | 21 | 26 | **24** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19+C40 FIXED; C22+C29 ALLOWLISTED; +3 frentes smoke 2026-05-12) |
 | IN_PROGRESS | 0 | 0 | 0 |
 | FIXED | 1 | 13 | **23** (+C57, +C47, +C55, +C54, +C64, +C50, +C51, +C15, +C19, +C40) |
 | REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
@@ -376,3 +376,90 @@ Pendências para fechamento de C2:
 - 8 commits cirúrgicos: `88f04b56`, `cff078e9`, `59bde5a1`, `96576c42`, `eb7c7157`, `ad58268a`, `c9a54d93`, `f2c95026`.
 - Achado lateral: `modules/concept-resolution/` e `PLANO_MESTRE_REMEDIACAO_CORE_MODULES.md` estavam untracked apesar de referenciados por código/normativos. Trazidos para o índice nesta sessão. DT-canonical-docs-untracked sugerida.
 - Próximo passo recomendado: Sessão 3 — migração de `distribution.service.ts` (Frente 3).
+---
+
+## Frentes registradas pelo Smoke E2E 2026-05-12
+
+_Origem: executei_5.md · Smoke PASS §-3 90% · HEAD 464fc45e_
+
+---
+
+### DT-CONTRACT-DRIFT-IMPLICIT-PROTOCOL
+
+| Campo | Valor |
+|---|---|
+| **Status** | OPEN |
+| **Severidade** | HIGH (DX/SDK) |
+| **§-1.5** | P1=não · P2=sim (observability/contrato) · P3=não |
+| **Origem** | Smoke E2E 2026-05-12 (executei_5.md) |
+
+**Sintomas descobertos iterativamente durante smoke:**
+- `POST /auth/register`: campo `cpf` obrigatório — ausente no contrato público
+- `POST /companies`: header `x-action-context` obrigatório — invisível no contrato
+- `POST /companies`: field `companyName` (não `name`) — naming não documentado
+- `POST /companies`: `scope` deve incluir `tenantId` prefixado — regra implícita
+- `POST /companies`: campo `role` obrigatório — não documentado
+
+**Impacto:** discovery iterativo via 5+ tentativas com Zod 400 por endpoint. Mata DX, automação, SDK future-proof, agentes autônomos.
+
+**Frente futura:** alinhar OpenAPI/contracts com comportamento real; gerar SDK tipado; transformar `x-action-context` obrigatório em contrato explícito documentado.
+
+**Bloqueio:** não bloqueia §-3 nem runtime. Bloqueia automação sem fonte de verdade de contrato.
+
+**Dependências:** nenhuma.
+
+---
+
+### MIGRATION-DRIFT-RECONCILIATION
+
+| Campo | Valor |
+|---|---|
+| **Status** | OPEN |
+| **Severidade** | MEDIUM (observabilidade institucional) |
+| **§-1.5** | P1=não · P2=sim (memória institucional) · P3=não |
+| **Origem** | Smoke E2E 2026-05-12 — passo sanity migrations |
+
+**Sintoma:** `schema_migrations` (DB) = 286, `migrations/*.sql` (disco) = 296, delta = 10.
+
+**Causa conhecida:** migrations aplicadas via `psql` direto sem registro retroativo em `schema_migrations` (padrão histórico). Causa é conhecida HOJE pelos atores ativos.
+
+**Risco:** vira opaco em 3 sessões / próximo onboarding. Ferramental de auditoria (smoke sanity, CI checks) passa a reportar falso-positivo permanente sem documentação formal da isenção.
+
+**Frente futura:** auditar quais 10 migrations divergem; registrar SHA-256 retroativo OU documentar isenção formal por arquivo; convergir contagem entre disco, DB e CI.
+
+**Bloqueio:** não bloqueia §-3 nem runtime.
+
+**Dependências:** nenhuma.
+
+---
+
+### Q3-E2E-ECONOMICO-MINIMO
+
+| Campo | Valor |
+|---|---|
+| **Status** | OPEN |
+| **Severidade** | HIGH (§-3 incompleto) |
+| **§-1.5** | P1=não · P2=sim · **P3=SIM** (financeira) |
+| **Origem** | Smoke E2E 2026-05-12 — passo transação bank (SKIP) |
+
+**Sintoma:** smoke financeiro SKIP — mint sistêmico (`liquidity_issuance`) sem rota user-facing. `POST /bank/p2p-transfer` e `POST /bank/transactions/simple` requerem conta pré-fundada.
+
+**Estado atual:** §-3 cumprido em 90%.
+- Build/banco/frontend/auth/company/profile: verdes ✓
+- `pg_typeof(amount_cents) = bigint` confirmado em entradas existentes ✓
+- Transação real em `bank_ledger` **não exercitada** ponta-a-ponta após Bank Genesis Wave
+
+**Validações já confirmadas:** `pg_typeof(amount_cents) = bigint` (C40 validado em runtime); bank-balance-consolidation Genesis-aligned (β.1, commit `d5f5cff7`).
+
+**Frente futura — próximo checkpoint arquitetural:**
+1. Criar `bank_account` via `POST /economy/accounts` ou seed
+2. Mint sistêmico — auditar se existe rota admin ou seed script
+3. Transferência real via `POST /bank/p2p-transfer` (100 centavos)
+4. Validar double-entry em `bank_ledger` (debit + credit pareados)
+5. Validar balance via `bank-balance-consolidation.service`
+6. Validar evento publicado (`event_outbox` ou bus)
+
+**Bloqueio:** não bloqueia rodar/testar manual. Bloqueia "§-3 fechado 100%".
+
+**Dependências:** auditar rotas/seeds existentes antes de prompt de execução. Sessão dedicada estimada 1–2h.
+

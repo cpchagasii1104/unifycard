@@ -2188,3 +2188,36 @@ Per filtro §-1.5 (3 perguntas):
   - handler-metrics.service.ts: 1 catch (strict: error + null)
   - authority-decision.service.ts: 3 catches (strict: block)
 - **Catches fora do escopo:** 15 catches em metricas/observability ou documentados como DTs
+
+## 2026-05-12 — Smoke E2E PASS · §-3 90% · Encerramento de sessão
+
+**Branch:** rescue-structural | **HEAD:** `464fc45e`
+
+### Smoke E2E (executei_5.md)
+
+| Passo | Status | Detalhe |
+|---|---|---|
+| `pnpm build` | PASS | 0 erros TS |
+| Backend `/health` | PASS | :3000 · banco ok · marketplace/social/bank ok |
+| Migrations count | NOTA | DB=286 · disco=296 · delta=10 (causa conhecida) |
+| `POST /auth/register` | PASS | userId=36799ab8 · tenantId=786921d3 |
+| `POST /companies` | PASS | companyId=cf2cb3cd · primary_address_id UUID real ✓ |
+| `GET /core/profile` | PASS | empresa + address_id UUID ✓ · canônico §8 2026-05-09 |
+| `POST /auth/login` | PASS | novo token emitido |
+| Transação bank | SKIP | mint sistêmico sem rota user-facing (Q3-E2E aberta) |
+| `bank_ledger pg_typeof` | PASS | bigint · double-entry íntegra ✓ |
+| Frontend | PASS | :5173 · HTTP 200 · 0 erros críticos |
+
+### 3 frentes registradas como OPEN em SYSTEM_REMEDIATION_STATUS.md
+
+| Frente | §-1.5 | Prioridade | Descrição |
+|---|---|---|---|
+| DT-CONTRACT-DRIFT-IMPLICIT-PROTOCOL | P2 | P1 futura | `cpf`/`x-action-context`/`scope` obrigatórios sem contrato público — 5+ tentativas por endpoint |
+| MIGRATION-DRIFT-RECONCILIATION | P2 | P2 | DB=286 vs disco=296 — memória institucional se perde em 3 sessões |
+| Q3-E2E-ECONOMICO-MINIMO | **P3** | P1 próxima | §-3 90% — transação real no bank_ledger não exercitada pós-Bank Genesis Wave |
+
+### Processos UP ao encerramento
+
+- Backend: porta 3000 (tsx BOOT.ts, PID 48347)
+- Frontend: porta 5173 (pnpm dev, PID 48801)
+
