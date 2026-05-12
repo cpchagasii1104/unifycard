@@ -146,7 +146,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C34 | FIXED | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | FIXED (2026-04-28): migration 20260428240000_create_category_ai_logs.sql. col_count=15, RLS+FORCE+policy OK. Gates 4/4 PASS. ON CONFLICT (category_id) preservado. Guard IF EXISTS no código agora tem tabela real para acessar. |
 | C35 | FIXED | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=4, RLS+FORCE+policy OK. partner_employees criada junto com audit_events (dependência de audit.service.ts). |
 | C38 | OPEN | 5 tabelas com `type` genérico | vários | |
-| C39 | OPEN | 7 tabelas com `state` genérico | vários | |
+| C39 | NOT-A-BUG | ~~7 tabelas com `state` genérico~~ — 6 confirmadas no banco vivo, **todas usam `state` no sentido de endereço geográfico (UF)**, não state machine | 6 tabelas (regional_*, rides_cities, suppliers) | RECLASSIFICADO 2026-05-12 (executei_9.md). §4.20 do `07_NOMENCLATURA_CANONICA` reconhece `state` (VARCHAR(100)) como nome canônico para "Estado/Província" em endereço — distinto de `state` proibido por §3.4 (state machine). Auditoria original mapeou pelo nome literal sem distinguir uso semântico. Zero violação de norma. Sem migration, sem edits TS. Log: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md` |
 | C40 | FIXED | Monetário em NUMERIC/DECIMAL | `system_coverage` (VIEW) | FIXED (2026-05-11, 2337f577): VIEW system_coverage retornava NUMERIC em *_cents por COALESCE sem cast explícito. DROP + CREATE com ::bigint. Auditoria: coverage_audit_log já BIGINT; callers apenas leitura. Migration 20260530532000. DECISION-0030. TSC 0. Gates 4/4 PASS. |
 | C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer | `modules/groups/groups.service.ts` | |
@@ -178,6 +178,23 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-05-12 — C39 RECLASSIFICADO NOT-A-BUG (state como endereço, não state machine)
+
+**C39 NOT-A-BUG:** Investigação material refutou a classificação original.
+
+- Auditoria original (abr/2026) listou 7 tabelas com coluna `state` por nome literal, sem distinguir uso semântico.
+- Varredura material (2026-05-12, executei_9.md) confirmou 6 tabelas com coluna `state` no banco vivo (delta de 1 vs auditoria — provavelmente tabela removida pós-auditoria; não vale expandir investigação).
+- **Todas as 6 usam `state` no sentido de endereço geográfico (UF brasileira)**, não state machine:
+  - `regional_activation_events` / `regional_activation_rules` / `regional_funds` / `regional_impact_snapshots` — todas com `country, state, city` adjacentes (UNIQUE composta em `regional_funds`)
+  - `rides_cities` — INSERT `name, state, timezone, lat, lng`
+  - `suppliers` — INSERT `address, city, state, zip_code, country`
+- §4.20 do `07_NOMENCLATURA_CANONICA` reconhece explicitamente `state` (VARCHAR(100)) como nome canônico para "Estado/Província". §3.4 proíbe `state` no sentido distinto de *state machine* — não aplicável aqui.
+- Reclassificação não criou DECISION arquitetural inédita; é aplicação direta de norma vigente que decide o caso.
+- C38 permanece OPEN — investigação distinguiu 4 sub-casos mecânicos (renomear coluna; CHECK ou valor já lowercase) + 1 caso arquitetural (`canonical_products.type = 'INDUSTRIAL'`, 35 registros UPPERCASE; pede DECISION-0033 — aguardando decisão).
+- Log institucional: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md`
+- Artefato local (gitignored): `executei_9.md` (relatório material completo)
+- Sem migration. Sem edits TS. Sem DECISION nova. Apenas reclassificação documentada.
 
 ### 2026-05-11 — C19 FIXED (bank_transactions.reference_id UUID→TEXT)
 
