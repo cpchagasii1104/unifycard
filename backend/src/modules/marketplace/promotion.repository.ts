@@ -13,7 +13,7 @@ interface PromotionRow {
   id: string;
   tenant_id: string;
   name: string;
-  type: string;
+  promotion_type: string;
   discount_fixed_cents: string | number;
   discount_rate_bps: string | number;
   applies_to: string;
@@ -56,7 +56,7 @@ class PromotionRepository {
       id: row.id,
       tenantId: row.tenant_id,
       name: row.name,
-      type: normType(row.type),
+      type: normType(row.promotion_type),
       discountFixedCents: rowBigint(row.discount_fixed_cents),
       discountRateBps: rowInt(row.discount_rate_bps),
       appliesTo: normApplies(row.applies_to),
@@ -81,12 +81,12 @@ class PromotionRepository {
       tenantId,
       `
       INSERT INTO promotions (
-        tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+        tenant_id, name, promotion_type, discount_fixed_cents, discount_rate_bps,
         applies_to, applies_id,
         valid_from, valid_to, is_active, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+      RETURNING id, tenant_id, name, promotion_type, discount_fixed_cents, discount_rate_bps,
                 applies_to, applies_id,
                 valid_from, valid_to, is_active, metadata, created_at, updated_at
       `,
@@ -144,7 +144,7 @@ class PromotionRepository {
     const rows = await runQueriesWithTenant<PromotionRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+      SELECT id, tenant_id, name, promotion_type, discount_fixed_cents, discount_rate_bps,
              applies_to, applies_id,
              valid_from, valid_to, is_active, metadata, created_at, updated_at
       FROM promotions
@@ -166,7 +166,7 @@ class PromotionRepository {
     isActive?: boolean
   ): Promise<Promotion[]> {
     let query = `
-      SELECT id, tenant_id, name, type, discount_fixed_cents, discount_rate_bps,
+      SELECT id, tenant_id, name, promotion_type, discount_fixed_cents, discount_rate_bps,
              applies_to, applies_id,
              valid_from, valid_to, is_active, metadata, created_at, updated_at
       FROM promotions

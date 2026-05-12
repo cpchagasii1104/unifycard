@@ -145,7 +145,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C33 | FIXED | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
 | C34 | FIXED | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | FIXED (2026-04-28): migration 20260428240000_create_category_ai_logs.sql. col_count=15, RLS+FORCE+policy OK. Gates 4/4 PASS. ON CONFLICT (category_id) preservado. Guard IF EXISTS no código agora tem tabela real para acessar. |
 | C35 | FIXED | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=4, RLS+FORCE+policy OK. partner_employees criada junto com audit_events (dependência de audit.service.ts). |
-| C38 | OPEN-PARCIAL | 5 tabelas com `type` genérico — investigação 2026-05-12 distinguiu **1 caso ratificado por DECISION-0033** (`canonical_products.type` = discriminator estrutural ontológico, exceção formal restrita) + **4 casos mecânicos pendentes** (renomear coluna `<entity>_type`, lowercase já conforme em CHECK ou valor em uso) | 5 tabelas (canonical_products, payment_execution_lock, promotions, reconciliation_discrepancies, reconciliation_ledger_discrepancies) | PARCIAL 2026-05-12 (executei_9.md). Subcaso `canonical_products` resolvido por DECISION-0033 sem ação técnica (categoria semântica distinta de status operacional; ratificada como discriminator de classe ontológica análoga a entity_type/actor_type/event_type, com 3 Restrições explícitas para evitar buraco negro). Demais 4 tabelas seguem caminho mecânico em sub-frente separada (ALTER RENAME COLUMN + ~6 arquivos TS). Log: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md` |
+| C38 | FIXED | 5 tabelas com `type` genérico — investigação 2026-05-12 distinguiu **1 caso ratificado por DECISION-0033** (`canonical_products.type` = discriminator estrutural ontológico, exceção formal restrita) + **4 casos mecânicos** (RENAME COLUMN para `<entity>_type` aplicado em migration `20260530537000`) | 5 tabelas (canonical_products, payment_execution_lock, promotions, reconciliation_discrepancies, reconciliation_ledger_discrepancies) | FIXED 2026-05-12 (executei_9.md). Subcaso `canonical_products` resolvido por DECISION-0033 sem ação técnica. 4 tabelas mecânicas convergidas via Sub-frente 2: `payment_execution_lock.type` → `lock_type`; `promotions.type` → `promotion_type`; `reconciliation_discrepancies.type` → `discrepancy_type`; `reconciliation_ledger_discrepancies.type` → `discrepancy_type`. CHECKs preservados automaticamente pelo PostgreSQL após RENAME (referências internas atualizadas para novos nomes — confirmado materialmente via `pg_get_constraintdef`). 5 arquivos TS coordenados (gateway/payment-event-resolver, marketplace/promotion.repository, reconciliation/{discrepancy.repository,engine.service,repository}). TSC backend = 0 erros. Migration: `20260530537000_c38_rename_type_columns_canonical.sql`. Log: `docs/03_execution_log/2026-05-12_c38_rename_type_columns_canonical.md` |
 | C39 | NOT-A-BUG | ~~7 tabelas com `state` genérico~~ — 6 confirmadas no banco vivo, **todas usam `state` no sentido de endereço geográfico (UF)**, não state machine | 6 tabelas (regional_*, rides_cities, suppliers) | RECLASSIFICADO 2026-05-12 (executei_9.md). §4.20 do `07_NOMENCLATURA_CANONICA` reconhece `state` (VARCHAR(100)) como nome canônico para "Estado/Província" em endereço — distinto de `state` proibido por §3.4 (state machine). Auditoria original mapeou pelo nome literal sem distinguir uso semântico. Zero violação de norma. Sem migration, sem edits TS. Log: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md` |
 | C40 | FIXED | Monetário em NUMERIC/DECIMAL | `system_coverage` (VIEW) | FIXED (2026-05-11, 2337f577): VIEW system_coverage retornava NUMERIC em *_cents por COALESCE sem cast explícito. DROP + CREATE com ::bigint. Auditoria: coverage_audit_log já BIGINT; callers apenas leitura. Migration 20260530532000. DECISION-0030. TSC 0. Gates 4/4 PASS. |
 | C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
@@ -178,6 +178,23 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-05-12 — C38 FIXED: 4 tabelas mecânicas convergidas (Sub-frente 2)
+
+**C38 OPEN-PARCIAL → FIXED:** 4 tabelas mecânicas (payment_execution_lock, promotions, reconciliation_discrepancies, reconciliation_ledger_discrepancies) renomearam coluna `type` → `<entity>_type` conforme §3.4 da Nomenclatura.
+
+- Migration: `20260530537000_c38_rename_type_columns_canonical.sql` (RENAME COLUMN único; CHECKs preservados automaticamente pelo PostgreSQL — referências internas atualizadas, confirmado via `pg_get_constraintdef`).
+- 5 arquivos TS coordenados:
+  - `modules/gateway/payment-event-resolver.ts:88` — INSERT em payment_execution_lock
+  - `modules/marketplace/promotion.repository.ts` — interface `PromotionRow`, INSERT, 2 SELECTs (4 ocorrências)
+  - `modules/reconciliation/reconciliation-discrepancy.repository.ts` — interface `Row`, mapper, INSERT, 2 SELECTs (5 ocorrências)
+  - `modules/reconciliation/reconciliation-engine.service.ts:168` — INSERT em ledger_discrepancies
+  - `modules/reconciliation/reconciliation.repository.ts` — INSERT + 2 SELECTs (3 ocorrências)
+- TSC backend: 0 erros
+- Tipo TS `PromotionType` e `ReconciliationDiscrepancyType` permanecem (são tipos de domínio, não nomes de coluna — apenas o mapping `row.X → toEntity` migrou para nome novo)
+- Subcaso `canonical_products.type` permanece ratificado por DECISION-0033 (discriminator estrutural ontológico)
+- Pendência normativa de DECISION-0033 (atualizar §3.2 + SSOT_REGISTRY adicionando `canonical_product_type` como exceção estabelecida) continua para humano/RFC
+- Log institucional: `docs/03_execution_log/2026-05-12_c38_rename_type_columns_canonical.md`
 
 ### 2026-05-12 — C38 PARCIAL: canonical_products.type ratificado por DECISION-0033 (discriminator estrutural)
 

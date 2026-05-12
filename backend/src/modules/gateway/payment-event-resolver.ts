@@ -85,7 +85,7 @@ async function assertSettlementExecutionAllowed(
   // Trava física de execução: primeira execução grava lock; repetição falha por unique.
   try {
     await queryable.query(
-      `INSERT INTO payment_execution_lock (reference_id, type)
+      `INSERT INTO payment_execution_lock (reference_id, lock_type)
        VALUES ($1::uuid, $2)`,
       [intent.id, 'settlement']
     );
