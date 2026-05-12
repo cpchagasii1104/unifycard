@@ -995,9 +995,9 @@ class BankTransactionService {
       await this.lockAccounts(client, tenantId, [effectiveFrom, effectiveTo]);
 
       const debitAccRowResult = await client.query<{
-        id: string; owner_type: string; owner_id: string; account_type: string;
+        id: string; owner_type: string; owner_id: string; account_type: string; actor_id: string | null;
       }>(
-        `SELECT id, owner_type, owner_id, account_type
+        `SELECT id, owner_type, owner_id, account_type, actor_id
          FROM bank_accounts
          WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
         [tenantId, effectiveFrom]
@@ -1011,6 +1011,7 @@ class BankTransactionService {
         ownerType: debitAccRowResult.rows[0].owner_type,
         ownerId: debitAccRowResult.rows[0].owner_id,
         accountType: debitAccRowResult.rows[0].account_type,
+        actorId: debitAccRowResult.rows[0].actor_id,
         currency: 'BRL' as const,
         tenantId,
         cachedBalanceCents: 0 as any,

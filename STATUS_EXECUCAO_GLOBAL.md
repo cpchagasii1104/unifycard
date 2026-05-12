@@ -1,3 +1,42 @@
+## 2026-05-12 — Q3-E2E v2 — Smoke Econômico Fundacional APROVADO
+
+**Branch:** `rescue-structural`
+**Script:** `backend/scripts/q3-e2e-v2.ts`
+**Resultado:** 11/11 PASS ✅
+
+### Prova executada
+
+| Passo | Gate | Resultado |
+|---|---|---|
+| P1 | Register User A via HTTP | ✅ PASS |
+| P2 | Register User B (mesmo tenant) | ✅ PASS |
+| P3 | GET /economy/accounts/me — accountIds | ✅ PASS |
+| P3.5 | Resolver actorId real (actors.user_id lookup) | ✅ PASS |
+| P4 | Bootstrap system:reserve (liquidity_issuance → reserve) | ✅ PASS |
+| P5 | system_coverage.execution_capacity_cents > 0, tipos bigint | ✅ PASS |
+| P6 | Creditar User A (system:reserve → user, R$1.000) | ✅ PASS |
+| P7 | Saldo A pré-P2P = 100.000 cents | ✅ PASS |
+| P8 | P2P A → B via bankTransactionService (R$100) | ✅ PASS |
+| P9 | Saldo A = R$900, saldo B = R$100 | ✅ PASS |
+| P10 | Double-entry net = 0 nas 3 transações | ✅ PASS |
+| P11 | pg_typeof(amount_cents) = bigint | ✅ PASS |
+
+### Bugs corrigidos durante execução
+
+| Arquivo | Correção |
+|---|---|
+| `bank-transaction.service.ts:997-1020` | SELECT actor_id omitido no debit account query → RISK_DEBIT_ACTOR_UNRESOLVED para toda conta não-system. Adicionado `actor_id` ao SELECT e ao debitAccRow. |
+| `scripts/q3-e2e-v2.ts` | actorId para bank_transactions.actor_id deve ser `actors.id` (auto-gerado), não userId. findOrCreateUserActor cria actor com id≠userId. |
+
+### PROVA: dinheiro entra → move → ledger íntegro → tipos bigint
+
+Tenant: `86735b55-b75c-46fb-bc50-66c569d43c1c`
+mint_tx: `f75ef6cc-7161-430c-ba5b-c3fe311c2d41`
+seed_tx: `8a4ddd25-3e19-4dc2-948a-db2e4e988cef`
+p2p_tx: `d3445305-e8fb-43bd-972b-8e3ea9afeb27`
+
+---
+
 ## 2026-05-11 — Sessão de remediação estrutural (rescue-structural) — CONSOLIDADO
 
 **Branch:** `rescue-structural`
