@@ -1722,3 +1722,88 @@ pode ser feito em tempo livre como cleanup cosmético.
 
 ---
 
+### DECISION-0031 — Coverage emerge de fluxo econômico fundacional, não de provisionamento artificial
+
+- **Data:** 2026-05-12
+- **Tipo:** arquitetural
+- **ID da violação (se aplicável):** DT-COVERAGE-BOOTSTRAP-REQUIRED (encerrada por esta decisão)
+- **Contexto:**
+  Q3-E2E econômico (passo 5) falhou com `COVERAGE_EXCEEDED: 100.00 cobertura` ao tentar
+  creditar a primeira conta de usuário num tenant novo.
+
+  O trigger `check_coverage_before_credit` verifica `execution_capacity_cents` da VIEW
+  `system_coverage`. Pós-C40, a VIEW exclui contas `system:liquidity_issuance:%` do cálculo
+  de capacidade. Tenant novo: `execution_capacity_cents = 0` → trigger bloqueia qualquer
+  crédito a usuários.
+
+  Cinco opções foram avaliadas:
+  - A: Rota admin `POST /economy/system-accounts` — provisiona conta de cobertura manualmente
+  - B: `ensureLiquidityIssuanceAccountId` auto-provisiona também uma reserve com capacidade
+  - C: Seed de tenant (criação) provisiona conta system reserve
+  - D: Trigger excepciona estado inicial vazio (capacity=0, credits=0)
+  - Z: Q3-E2E smoke v1 não é caminho fundacional — rever o smoke, não o sistema
+
+  Auditoria normativa conduzida contra 5 leis em vigor:
+  1. Lei de Soberania do Ledger
+  2. Lei de Invariantes Sistêmicos
+  3. Lei de Política de Ativação
+  4. SSOT Registry
+  5. Código real (trigger + VIEW pós-C40)
+
+  Auditoria multi-agente (Claude Code diagnóstico técnico; ChatGPT reformulação ontológica;
+  Opus auditoria normativa; Clayton decisão soberana).
+
+- **Opções consideradas:**
+  1. Opção A (rota admin) — cria contorno artificial para contornar ausência de atividade real.
+     Viola Lei de Política de Ativação: coverage não nasce de intervenção administrativa,
+     nasce de fluxo econômico validado.
+  2. Opção B (ensureLiquidityIssuanceAccount também provisiona reserve) — cria
+     acoplamento falso entre issuance e reserve. Semanticamente incorreto: issuance é
+     contraparte contábil de criação monetária; reserve é acumulação de margem real.
+     São entidades ontológicas distintas.
+  3. Opção C (seed de tenant provisiona reserve) — mesma violação que A: provisionamento
+     artificial antes de qualquer atividade econômica. Reserve com saldo sem origem
+     transacional real é contabilidade falsa.
+  4. Opção D (trigger excepciona capacity=0+credits=0) — altera lógica de cobertura
+     para acomodar smoke de testes. A lógica está correta; o smoke é que está errado.
+     Mudar invariante de produção para passar teste é anti-padrão grave.
+  5. Opção Z (rever o smoke) — ESCOLHIDA. O sistema está correto. O smoke v1 não é
+     um caminho de ativação econômica real.
+
+- **Escolha:** Opção Z — DECISION-0031 encerra DT-COVERAGE-BOOTSTRAP-REQUIRED sem implementação.
+  O sistema não precisa mudar. O smoke precisa seguir o caminho fundacional.
+
+- **Justificativa:**
+  Coverage é propriedade emergente de atividade econômica validada institucionalmente,
+  não recurso provisionado artificialmente.
+
+  A sequência fundacional canônica:
+  1. Tenant criado → `ensurePlatformAccounts` (liquidity_issuance + fee_collection + atl_reserve)
+  2. Primeiro evento real com arrecadação coletiva: `event_ticket` → split engine
+     → parcela de `reserve` (17% hardcoded) deposita na conta system reserve
+  3. `execution_capacity_cents > 0` emerge naturalmente da atividade real
+  4. A partir desse ponto: P2P habilitado, Q3-E2E possível
+
+  Provisionar artificialmente (opções A/B/C) ou excecionar o trigger (D) violam o
+  princípio de que reservas têm de ter origem econômica real. Um sistema financeiro
+  que cria "capacidade" sem contrapartida real não é financeiro — é simulação.
+
+  O trigger `check_coverage_before_credit` está correto. A VIEW `system_coverage` pós-C40
+  está correta. O Q3-E2E v1 tentou um atalho que não existe por design.
+
+- **Consequências esperadas:**
+  - Curto prazo: Q3-E2E v1 DEPRECADO. Novo smoke (v2) seguirá caminho fundacional:
+    `event_ticket` (com split engine reserve 17%) → reserve fundada → P2P possível.
+    Smoke v2 será mais custoso (mais passos) mas provará o sistema real.
+  - Médio prazo: qualquer frente futura que tente "bootstrap artificial de cobertura"
+    deve referenciar esta decisão antes de propor implementação.
+
+- **Responsável:** Clayton (decisão soberana) — multi-agente: Claude Code (diagnóstico),
+  ChatGPT (reformulação ontológica), Opus (auditoria normativa)
+- **Validação prévia:** Opus 4.7 auditoria contra 5 leis; ChatGPT reformulação "coverage
+  como entidade soberana, não proxy técnico"
+- **Supera:** DT-COVERAGE-BOOTSTRAP-REQUIRED (encerrada — sem implementação necessária)
+- **Superada por:** (preencher quando superada)
+
+---
+

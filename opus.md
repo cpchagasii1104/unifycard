@@ -1094,3 +1094,67 @@ executei.md zerado (nova sessao)
 - Arquivos numerados sao historico local para referencia, nao versionados
 - Permite Clayton auditar trabalho em andamento sem commitar rascunhos
 - Informacao que importa ja foi para arquivos institucionais
+
+---
+
+## §8. Q3-E2E v1 → DECISION-0031 → Smoke v2 (2026-05-12)
+
+### O que aconteceu
+
+Q3-E2E econômico passo 5 falhou: `COVERAGE_EXCEEDED: 100.00 cobertura`.
+
+O trigger `check_coverage_before_credit` bloqueia qualquer crédito a usuários quando
+`execution_capacity_cents = 0`. Num tenant novo (sem atividade econômica real), a VIEW
+`system_coverage` pós-C40 exclui `system:liquidity_issuance:%` do cálculo — o que é
+correto por design. Resultado: `execution_capacity = 0` → coverage = 100% → BLOCKED.
+
+Cinco opções foram avaliadas (A: rota admin, B: ensureLiquidityIssuance também provisiona
+reserve, C: seed de tenant, D: trigger excepciona estado inicial, Z: rever o smoke).
+
+### O que aprendemos
+
+**Quando smoke E2E financeiro falha, a hipótese-padrão NÃO é "falta implementação".**
+
+A hipótese correta é: "o smoke está tentando um caminho que o sistema deliberadamente
+não oferece". Antes de propor implementação:
+1. Ler as leis (LEDGER_SOVEREIGNTY → INVARIANTES → POLITICA_ATIVACAO → SSOT_REGISTRY)
+2. Ler o código real (trigger + VIEW + split engine)
+3. Consultar múltiplos agentes com perspectivas distintas
+4. Só então decidir se o sistema precisa mudar
+
+### Auditoria multi-agente
+
+- **Claude Code:** diagnóstico técnico preciso (trigger, VIEW, capacity=0, 4 opções)
+- **ChatGPT:** reformulação ontológica ("coverage é entidade soberana, não proxy técnico")
+- **Opus:** auditoria normativa contra 5 leis → todas as 5 opções falharam
+- **Clayton:** decisão soberana — DECISION-0031
+
+Nenhum agente isolado chegaria a DECISION-0031. O multi-AI foi metodologia, não atalho.
+
+### DECISION-0031 — síntese
+
+"Coverage é propriedade emergente de atividade econômica validada institucionalmente,
+não recurso provisionado artificialmente."
+
+Sequência fundacional canônica:
+1. Tenant criado → `ensurePlatformAccounts`
+2. Primeiro `event_ticket` com split engine → 17% → system reserve
+3. `execution_capacity_cents > 0` emerge da atividade real
+4. P2P e Q3-E2E possíveis
+
+### DT-COVERAGE-BOOTSTRAP-REQUIRED
+
+ENCERRADA via DECISION-0031 — sem implementação. O sistema está correto.
+
+### Q3-E2E v2
+
+Novo smoke segue caminho fundacional via `event_ticket`. `Q3_E2E_V2_PLAN.md` criado
+(gitignored). Sessão dedicada futura — não executar sem plano aprovado.
+
+### C40 colateralmente validado
+
+Mesmo que o mint tenha falhado, a query `system_coverage` confirmou em runtime:
+- `pg_typeof(execution_capacity_cents) = bigint` ✓
+- `pg_typeof(total_credits_cents) = bigint` ✓
+
+C40 parcialmente validado como efeito colateral do smoke v1.

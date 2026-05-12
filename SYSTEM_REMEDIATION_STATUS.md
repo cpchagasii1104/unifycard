@@ -88,7 +88,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
 | HIGH | 11 | 22 | **25** (+C52, C53, C64) |
 | MEDIUM | 9 | 12 | **13** (+C57) |
-| OPEN | 21 | 26 | **24** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19+C40 FIXED; C22+C29 ALLOWLISTED; +3 frentes smoke 2026-05-12) |
+| OPEN | 21 | 26 | **23** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19+C40 FIXED; C22+C29 ALLOWLISTED; +3 frentes smoke 2026-05-12; Q3-E2E-ECONOMICO-MINIMO RESOLVED-VIA-DECISION-0031 2026-05-12) |
 | IN_PROGRESS | 0 | 0 | 0 |
 | FIXED | 1 | 13 | **23** (+C57, +C47, +C55, +C54, +C64, +C50, +C51, +C15, +C19, +C40) |
 | REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
@@ -437,29 +437,28 @@ _Origem: executei_5.md · Smoke PASS §-3 90% · HEAD 464fc45e_
 
 | Campo | Valor |
 |---|---|
-| **Status** | OPEN |
+| **Status** | RESOLVED-VIA-DECISION-0031 |
 | **Severidade** | HIGH (§-3 incompleto) |
 | **§-1.5** | P1=não · P2=sim · **P3=SIM** (financeira) |
 | **Origem** | Smoke E2E 2026-05-12 — passo transação bank (SKIP) |
+| **Resolução** | DECISION-0031, 2026-05-12 |
 
-**Sintoma:** smoke financeiro SKIP — mint sistêmico (`liquidity_issuance`) sem rota user-facing. `POST /bank/p2p-transfer` e `POST /bank/transactions/simple` requerem conta pré-fundada.
+**Sintoma original:** smoke financeiro SKIP — mint sistêmico (`liquidity_issuance`) sem rota user-facing. `POST /bank/p2p-transfer` e `POST /bank/transactions/simple` requerem conta pré-fundada.
 
-**Estado atual:** §-3 cumprido em 90%.
-- Build/banco/frontend/auth/company/profile: verdes ✓
-- `pg_typeof(amount_cents) = bigint` confirmado em entradas existentes ✓
-- Transação real em `bank_ledger` **não exercitada** ponta-a-ponta após Bank Genesis Wave
+**Resolução:** Smoke v1 DEPRECADO. O sistema está correto — o trigger `check_coverage_before_credit` e a VIEW `system_coverage` (pós-C40) funcionam conforme design. Coverage emerge de atividade econômica real, não de provisionamento artificial. Ver DECISION-0031.
 
-**Validações já confirmadas:** `pg_typeof(amount_cents) = bigint` (C40 validado em runtime); bank-balance-consolidation Genesis-aligned (β.1, commit `d5f5cff7`).
+**Smoke v2 — caminho fundacional via service_booking/event_ticket:**
+1. Tenant criado → `ensurePlatformAccounts` provisiona contas system (liquidity_issuance, fee_collection, atl_reserve)
+2. Primeiro evento real com arrecadação coletiva: `event_ticket` → split engine → parcela de `reserve` (17%) deposita na conta system reserve
+3. `execution_capacity_cents > 0` emerge naturalmente
+4. P2P habilitado → Q3-E2E possível
 
-**Frente futura — próximo checkpoint arquitetural:**
-1. Criar `bank_account` via `POST /economy/accounts` ou seed
-2. Mint sistêmico — auditar se existe rota admin ou seed script
-3. Transferência real via `POST /bank/p2p-transfer` (100 centavos)
-4. Validar double-entry em `bank_ledger` (debit + credit pareados)
-5. Validar balance via `bank-balance-consolidation.service`
-6. Validar evento publicado (`event_outbox` ou bus)
+**Validações confirmadas (Q3-E2E v1, executei_6.md):**
+- `pg_typeof(execution_capacity_cents) = bigint` ✓ (C40 colateralmente validado em runtime)
+- `pg_typeof(total_credits_cents) = bigint` ✓
+- Build=0 erros, backend UP, register A+B (mesmo tenant via x-tenant-id), contas A+B criadas
 
-**Bloqueio:** não bloqueia rodar/testar manual. Bloqueia "§-3 fechado 100%".
+**Bloqueio:** §-3 financeiro permanece aberto via Q3-E2E v2 (sessão dedicada futura).
 
-**Dependências:** auditar rotas/seeds existentes antes de prompt de execução. Sessão dedicada estimada 1–2h.
+**Ver:** `Q3_E2E_V2_PLAN.md` (gitignored) para plano do smoke v2.
 
