@@ -1722,6 +1722,100 @@ pode ser feito em tempo livre como cleanup cosmético.
 
 ---
 
+### DECISION-0030 — C40 VIEW system_coverage NUMERIC→BIGINT via DROP+CREATE
+
+- **Data:** 2026-05-11 (decisão tomada) · **Reconstruída documentalmente:** 2026-05-13
+- **Tipo:** schema/runtime — fix monetário em camada intermediária
+- **ID da violação:** C40
+- **Contexto:**
+  C40 identificou que `system_coverage.execution_capacity_cents` e
+  `system_coverage.total_credits_cents` retornavam NUMERIC em runtime, apesar
+  do schema base (`bank_ledger.amount_cents`) ser BIGINT. A causa era
+  COALESCE sem cast explícito dentro da VIEW, que fazia widening silencioso
+  para NUMERIC.
+
+  Padrão do achado: **camada intermediária (VIEW) reintroduzindo NUMERIC em
+  campo `*_cents`, contradizendo o tipo do schema base.** Risco:
+  reconciliação contábil futura quebraria sem aviso (mesmos valores, tipos
+  divergentes). C40 foi descoberta durante remediação pós-Bank Genesis Wave
+  e antes do smoke Q3-E2E v1.
+
+- **Opções consideradas:**
+  1. **Opção A — ALTER VIEW (CREATE OR REPLACE VIEW)**
+     - Prós: cirurgia mínima, mesma sintaxe de outras correções
+     - Contras: **falhou em runtime** — PostgreSQL não permite mudar tipo
+       de coluna existente via CREATE OR REPLACE VIEW
+  2. **Opção B — DROP VIEW + CREATE VIEW com cast explícito**
+     - Prós: contorna restrição do PG, garante BIGINT em runtime
+     - Contras: zero downtime concern (VIEW sem dependências externas),
+       único caminho viável após Opção A falhar
+  3. **Opção C — Manter NUMERIC, ajustar callers para cast em leitura**
+     - Prós: zero migration
+     - Contras: rejeitada — viola §Nomenclatura (*_cents = BIGINT) e propaga
+       inconsistência para qualquer caller futuro
+
+- **Escolha:** Opção B (DROP+CREATE VIEW com `::bigint` explícito em ambos os campos)
+
+- **Justificativa:**
+  - **§Nomenclatura preservada:** `*_cents` em BIGINT em runtime, não só no schema base
+  - **Padrão de cast aplicado:** `COALESCE(SUM(amount_cents), 0)::bigint`
+  - **Auditoria de callers prévia:** `coverage_audit_log` já BIGINT; demais
+    callers apenas leitura — zero impacto code-side
+  - **Migration aplicada com guard:** `20260530532000_system_coverage_cents_to_bigint.sql`
+    com IF EXISTS na tabela e nas colunas
+  - **Lição operacional registrada:** "tipos monetários em camadas
+    intermediárias merecem validação em runtime (`pg_typeof`), não inferência
+    do schema base"
+
+- **Consequências esperadas:**
+  - Imediata: VIEW retorna BIGINT em runtime, validado por
+    `pg_typeof(execution_capacity_cents) = bigint`
+  - Coverage check (`check_coverage_before_credit`) usa tipos coerentes em
+    todos os pontos
+  - C40 validado retroativamente pela DECISION-0031 (sessão Q3-E2E v1):
+    capacity=0 era estado institucional correto, não erro de tipo
+  - Médio prazo: VIEWs futuras envolvendo `*_cents` exigem cast explícito
+    como invariante de revisão
+
+- **Materialização:**
+  - Migration: `20260530532000_system_coverage_cents_to_bigint.sql`
+  - Commit fix: `2337f577 fix(bank): C40 system_coverage.*_cents NUMERIC→BIGINT`
+  - Commit status: `464fc45e docs(status): C40 FIXED — system_coverage NUMERIC→BIGINT (DECISION-0030)`
+  - schema_migrations: registrada com checksum
+    `a2327d2ac066b4994af30e7684fef81e8ec6a6126992a40dc3eaea7ed9bd6226`
+  - Validação runtime: `pg_typeof(execution_capacity_cents) = bigint`
+    confirmado em Q3-E2E v1 (executei_6.md)
+
+- **Responsável:** Clayton
+- **Validação prévia:** Claude Code (execução), Opus 4.7 (revisão), ChatGPT (cross-check)
+- **Supera:** nenhuma
+- **Superada por:** (preencher quando superada)
+
+#### Nota de reconstrução documental
+
+Esta entrada foi materializada retroativamente em 2026-05-13 durante
+verificação de sincronia institucional (HEAD 1c01fe29). A decisão de fato
+ocorreu em 2026-05-11 e foi referenciada em:
+- Commit `464fc45e` (mensagem)
+- `SYSTEM_REMEDIATION_STATUS.md` (entrada C40)
+- Migration `20260530532000` (comentário interno)
+- `executei_4.md` (relatório operacional local)
+
+Mas o registro institucional no log canônico não foi materializado na
+ocasião. Reconstrução aplicada via cruzamento de auditoria material
+(Codex + Opus 4.7 + ChatGPT, sessão 2026-05-13). A reconstrução preserva
+conteúdo material e adiciona transparência sobre o gap original — não
+revisão histórica silenciosa.
+
+#### Referências
+
+- C40 em `SYSTEM_REMEDIATION_STATUS.md`
+- Migration `backend/migrations/20260530532000_system_coverage_cents_to_bigint.sql`
+- code.md §21 (princípio "preferir parar > fingir solvência implícita")
+- DECISION-0031 (validação retroativa via Q3-E2E v1)
+
+---
+
 ### DECISION-0031 — Coverage emerge de fluxo econômico fundacional, não de provisionamento artificial
 
 - **Data:** 2026-05-12

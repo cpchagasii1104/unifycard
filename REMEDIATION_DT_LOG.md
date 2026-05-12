@@ -226,7 +226,8 @@ Status values:
 
 ## DT-COVERAGE-BOOTSTRAP-REQUIRED
 
-- **Status:** OPEN
+> **Nota:** DT aberta em 2026-05-12 durante Q3-E2E v1 SKIP. Encerrada em 2026-05-13 por DECISION-0031 (caminho fundacional substitui bootstrap artificial).
+
 - **Origem:** Q3-E2E econômico, 2026-05-12 — mint bloqueado por trigger check_coverage_before_credit
 - **Vinculada a:** DECISION-0030 (C40: system_coverage VIEW *_cents BIGINT)
 - **Contexto:**
