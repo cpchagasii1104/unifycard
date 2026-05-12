@@ -3441,3 +3441,78 @@ Ao implementar qualquer feature que envolva categorias, produtos ou navegação:
 - Pergunta 3: "O módulo que estou tocando está lendo do core ou criando verdade paralela?"
 
 Se a resposta à pergunta 3 for "criando verdade paralela" → parar. Resolver no core antes.
+
+---
+
+## §25 — Norma assintótica como princípio operacional (2026-05-12)
+
+**Status:** memória epistêmica · heurística de leitura · NÃO normativa coercitiva
+**Origem:** cristalizado durante sessão DECISION-0032 / DECISION-0033 / C39 NOT-A-BUG
+
+### A frase
+
+> A norma canônica é **destino, não negociável.** DTs, allowlist e exceções existem para preservar runtime durante convergência, **não para cristalizar drift.** Toda exceção carrega prazo ou critério de convergência. Decisões intermediárias "para funcionar hoje" não podem extinguir a única fonte de verdade. O sistema converge para `07_NOMENCLATURA_CANONICA`, mesmo que aos poucos.
+
+### Por que está aqui (e não em norma)
+
+A norma já é categórica em texto vigente:
+- `07_NOMENCLATURA_CANONICA` §2 — "Não existem exceções locais, implícitas ou temporárias"
+- `07_NOMENCLATURA_CANONICA` §3 — "Um conceito → um nome → uma forma"
+
+A frase deste §25 **não acrescenta lei** — ela articula **como operar dentro da lei sem cristalizar drift**. Funciona como:
+- heurística de leitura do sistema
+- princípio de convergência
+- orientação de interpretação
+- filtro anti-dogmatismo estrutural
+
+Não é norma coercitiva ainda. Hoje é epistemologia operacional emergente que precisa sobreviver mais tempo no runtime antes de subir para `docs/01_normative/`. Se virar lei descoberta empiricamente, sobe. Por agora, vive aqui.
+
+### O que o princípio resolve na prática
+
+| Tensão real do sistema | O que o princípio oferece |
+|---|---|
+| Coexistência v1/v2 (contratos, writers, módulos) | Coexistir não é ratificar — é etapa de convergência |
+| Canonical barrel emergindo gradualmente | Drift dormente é estado intermediário, não destino |
+| Migrations graduais | Reverter CHECK que cristalizou drift (ex: `payment_transactions` em `20260530536000`) preserva opcionalidade até decisão arquitetural firme |
+| Allowlists temporárias | Estado de "DEBT com deadline" — não normalização informal de exceção (DECISION-0026/0027 já aplicam — bom precedente) |
+| Convergência sem ruptura | Runtime é árbitro tático; norma é assíntota estratégica |
+| Runtime divergente vs norma vigente | Norma vence — código converge para norma, não o inverso (§3 do `00_AGENT_PROTOCOL` + `feedback_norma_ja_decide`) |
+
+### Como aplicar (filtro de leitura)
+
+Ao encontrar drift entre código/banco e norma:
+
+1. **Conviver com violação ≠ ratificar.** Preservar runtime durante convergência é legítimo. Cristalizar drift como lei sem evidência arquitetural fortíssima é jeitinho institucional.
+2. **DTs novas precisam carregar critério de convergência** — pode ser não-temporal ("após sessão dedicada", "junto com DECISION-NNNN", "quando refactor X acontecer"). DT sem critério → fossilização silenciosa.
+3. **ALLOWLISTED não é status final** — é estado intermediário com janela de revisão. Ver DECISION-0026 (C22, deadline 2027-05-11) e DECISION-0027 (C29, mesma deadline) como bom precedente.
+4. **DECISIONs que ratificam drift pragmático pré-launch devem citar quando serão revisitadas** — herança histórica sem essa cláusula (ex: DECISION-0028) vale auditar em sessão dedicada futura.
+5. **Exceção formal restrita** (DECISION-0033 — discriminator estrutural ontológico) é diferente de exceção pragmática (DT temporária). A primeira tem fundamento ontológico documentado e restrições anti-buraco-negro; a segunda preserva runtime esperando convergência.
+
+### O que NÃO autoriza
+
+- Aplicar UPPERCASE/exceção por analogia genérica sem prova material
+- Tratar este §25 como sustentação para protelar convergência indefinidamente
+- Substituir a categoricidade da norma (§2/§3 da Nomenclatura) por gradualismo permanente
+- Promover este §25 a `docs/01_normative/` antes de o padrão sobreviver mais tempo no runtime e maturar como lei descoberta empiricamente
+
+### Frase-síntese
+
+> "O sistema converge para unicidade sem exigir pureza instantânea — mas converge."
+
+### Aplicações materiais observadas (precedentes)
+
+- Commit `7c37f519` — revert de CHECK em `payment_transactions` preservou opcionalidade até DECISION-0032
+- DECISION-0032 — fixou destino canônico (lowercase) sem implementação imediata
+- DECISION-0033 — exceção formal restrita com 3 Restrições anti-buraco-negro; não relaxamento da norma
+- C39 NOT-A-BUG (commit `dbef2569`) — norma `§4.20` já decidia; nenhuma DECISION inédita precisou ser criada
+- DECISION-0026 / DECISION-0027 — ALLOWLISTED com deadline 2027-05-11 (bom precedente de janela de revisão)
+
+### Quando este §25 vira norma
+
+Quando o padrão sobreviver:
+- 3+ sessões de remediação aplicando-o consistentemente
+- 2+ DECISIONs futuras invocando-o como critério
+- Audit cross-IA (Opus/ChatGPT) ratificando como lei descoberta
+- Clayton decidir formalmente que virou direito vigente
+
+Aí sobe para `docs/01_normative/` (provavelmente como adendo ao §2 da Nomenclatura ou seção própria em CORE_IMUTAVEL). Por agora, vive aqui.
