@@ -1,8 +1,108 @@
 # CODE.MD - Memória de Sessão Epistêmica
 
-**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito; atualizado 2026-05-13 — §22 reconciliação institucional, §-4 visão fundacional, §23 como pensar antes de codar)
+**Data**: 2026-05-07 (atualizado 2026-05-12 — §20/§21; atualizado 2026-05-13 — §22 reconciliação, §-5 AGENT PROTOCOL obrigatório, §-4 visão fundacional, §23 como pensar antes de codar, §24 camadas N0/N1/N2/CATEGORIES/CONCEPT)
 **Branch**: rescue-structural
 **Protocolo**: Auditoria forense com evidência material
+
+---
+
+## §-5. AGENT PROTOCOL — LER ANTES DE QUALQUER EXECUÇÃO (2026-05-13)
+
+**Fonte:** `docs/01_normative/00_AGENT_PROTOCOL.md` — CANÔNICO · VIGENTE · NÃO INTERPRETÁVEL
+
+### Bootstrap obrigatório — 3 documentos antes de qualquer ação
+
+```
+1. docs/01_normative/CONSTITUICAO_UNIFICARD.md
+2. docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md
+3. docs/01_normative/CORE_IMUTAVEL.md
+```
+
+Sem concluir essa leitura aplicável ao escopo → **PROIBIDO** executar alteração.
+
+### Prova de rastreabilidade (§2.2.2) — obrigatória antes de cada ação
+
+Declarar explicitamente:
+1. Quais documentos de `docs/01_normative/` foram lidos para esta execução
+2. Por que esse conjunto é **suficiente** para o domínio declarado
+3. Qual **SSOT** governa o pilar afetado
+4. Qual **pilar** está sendo afetado (identidade, semântica, financeiro, temporal)
+
+Se não conseguir preencher os 4 itens com precisão → **ABORTAR** → solicitar decisão humana.
+
+### Mapeamento domínio → documentos mínimos (§2.2.3)
+
+| Domínio | Documentos mínimos |
+|---|---|
+| **ONTOLOGIA** | `18_DOMAIN_ONTOLOGY_UNIFICARD.md`, `SSOT_REGISTRY_UNIFICARD.md` |
+| **NAVEGAÇÃO** | `19_N1_…`, `20_N2_…`, `21_PLANO_DE_EXPANSÃO_GOVERNADA_DO_N2.md` |
+| **FINANCEIRO** | `LEIS_OPERACIONAIS_UNIFICARD.md` (Lei 5), `SSOT_REGISTRY_UNIFICARD.md` |
+| **ESTOQUE/LEDGER** | `INVARIANTES_OPERACIONAIS_LEDGER.md`, `SSOT_REGISTRY_UNIFICARD.md` |
+| **CONTEXTO** | `18_DOMAIN_ONTOLOGY_UNIFICARD.md`, `SSOT_REGISTRY_UNIFICARD.md` |
+
+### Gate obrigatório antes de qualquer alteração (§2.3.2)
+
+| Verificação | Obrigação |
+|---|---|
+| Pilar afetado | Identificar (identidade, semântica, financeiro, temporal) |
+| Autoridade legítima | Quem tem autoridade sobre esta verdade? |
+| SSOT | Qual SSOT governa este pilar? |
+| Estrutura existente | Já existe tabela/contrato? Não duplicar |
+| Risco de duplicação de verdade | Proibir segunda fonte primária |
+| Precedência causal | **Mutation → Estado → Dinheiro → Evento** — proibido inverter |
+| Fronteira financeira | Código FORA de `backend/src/modules/bank/` acessando `bank_ledger`, `bank_transactions`, `bank_accounts` → **ABORTAR** |
+
+### Proibições estruturais (§2.3.3)
+
+- Criar tabela nova sem contrato/RFC normativo explícito
+- Criar SSOT paralelo (ledger, CONCEPT, agenda, identidade)
+- Acessar `bank_ledger` / `bank_transactions` / `bank_accounts` fora do módulo bank
+- Definir `FOR UPDATE` fora do domínio bank
+- Criar árvore de categorias paralela por módulo
+- Usar `category_id` como identidade semântica (é navegação, não SSOT)
+- Usar `slug` como identidade semântica
+- Inferir significado fora do pipeline CONCEPT
+
+### Modos de operação — declarar antes de cada execução
+
+- **GUARDIÃO:** auditar, detectar, reportar. Proibido alterar.
+- **EXECUTOR:** executar tarefas autorizadas, corrigir violações, registrar progresso. Proibido interpretar normas ou decidir arquitetura.
+
+Modo não declarado → execução inválida.
+
+### Logs de execução
+
+Toda execução deve gerar artefato em `docs/03_execution_log/`.
+Execução sem registro → não existiu.
+
+### Código financeiro — leitura adicional obrigatória (§8)
+
+Antes de qualquer código de transação, saldo, split, pagamento, ledger, liquidação ou crédito:
+```
+1. docs/01_normative/SSOT_EXCLUSIVE_BANK_RULE.md
+2. docs/01_normative/SSOT_CONTRACT.md
+3. docs/01_normative/SSOT_REGISTRY_UNIFICARD.md
+4. docs/01_normative/PROHIBITED_STRUCTURES.md
+```
+
+### Precedência entre documentos (§2.2.7)
+
+```
+1. CONSTITUICAO_UNIFICARD.md          ← vence sempre
+2. LEIS_OPERACIONAIS_UNIFICARD.md
+3. SSOT_REGISTRY_UNIFICARD.md
+4. 18_DOMAIN_ONTOLOGY_UNIFICARD.md
+5. Demais documentos (07_NOMENCLATURA, CORE_IMUTAVEL, navegação, etc.)
+```
+
+### Registro honesto — execuções passadas
+
+As execuções C19, C40, C15, C64, C50/C51 (abril-maio 2026) foram tecnicamente inválidas
+por este protocolo: bootstrap não cumprido, prova de rastreabilidade não declarada, gate
+não aplicado, logs não criados em `docs/03_execution_log/`.
+
+Os resultados técnicos são corretos. O processo foi descumprido.
+A partir de 2026-05-13 este protocolo é obrigatório em toda execução.
 
 ---
 
@@ -3303,3 +3403,41 @@ Em sistemas altamente conectados, o maior perigo não é o bug visível. É corr
 As leis, invariantes, SSOT Registry e log de decisões existem para que um desenvolvedor seis meses depois não precise redescobrir por que algo foi feito assim. A decisão está registrada, tem razão documentada. Não reabre.
 
 **Se a fundação quebrar, o sistema implode pela própria complexidade — exatamente como a internet fragmentada que o UnifiCard existe para substituir.**
+
+---
+
+## §24 — Camadas N0/N1/N2/CATEGORIES/CONCEPT — Separação obrigatória (2026-05-13)
+
+**Fonte:** `docs/01_normative/00_AGENT_PROTOCOL.md` §4 + `docs/01_normative/07_NOMENCLATURA_CANONICA.md`
+
+### As cinco camadas e suas tabelas canônicas
+
+| Camada | Tabela | O que é | SSOT de quê |
+|--------|--------|---------|-------------|
+| **N0** | `domains` | Macro domínios (ex: "Alimentação", "Mobilidade") | Domínio econômico |
+| **N1** | `n1_nodes` | Navegação global — contexto de produto/serviço | Contexto de oferta |
+| **N2** | `n2_nodes` | Navegação contextual — subcategoria dentro de N1 | Posição na hierarquia |
+| **CATEGORIES** | `categories` | Árvore operacional única — um só registro por tipo | Identidade operacional |
+| **CONCEPT** | (tabela semântica) | Identidade semântica SSOT — "o que uma coisa é" | Semântica |
+
+### Proibições derivadas desta separação
+
+1. **NUNCA criar árvore paralela de categorias por módulo.** Se marketplace precisa de categorias, usa a mesma tabela `categories` — não cria `marketplace_categories`.
+2. **`category_id` é navegação, não SSOT semântico.** A identidade semântica de uma entidade pertence à camada CONCEPT — não à categoria de navegação.
+3. **PROFILE é read model, não define verdade semântica.** Um perfil de usuário ou produto é projeção — a verdade está na tabela de origem.
+4. **Módulos não podem ter verdades paralelas sobre navegação.** A ontologia N0/N1/N2 é compartilhada, não duplicada.
+
+### Por que isso importa na prática
+
+**Caso real:** marketplace cria sua própria hierarquia de categorias "para simplificar". Resultado: produto Coca-Cola 1L tem category_id diferente em marketplace vs ERP vs delivery. Três verdades sobre a mesma entidade. Busca quebra, estoque diverge, relatórios financeiros não fecham.
+
+**Correto:** produto existe uma vez na camada CONCEPT. Cada módulo navega até ele via N0→N1→N2→CATEGORIES — nunca recria a estrutura.
+
+### Como aplicar
+
+Ao implementar qualquer feature que envolva categorias, produtos ou navegação:
+- Pergunta 1: "Essa entidade já existe em qual camada?"
+- Pergunta 2: "Estou adicionando disponibilidade comercial ou criando entidade nova?"
+- Pergunta 3: "O módulo que estou tocando está lendo do core ou criando verdade paralela?"
+
+Se a resposta à pergunta 3 for "criando verdade paralela" → parar. Resolver no core antes.
