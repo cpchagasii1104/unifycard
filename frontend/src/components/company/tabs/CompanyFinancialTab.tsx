@@ -42,7 +42,7 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
       ]);
 
       const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? balanceResult.value.balance
+        ? (balanceResult.value.balance ?? null)
         : null;
       const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
 
@@ -150,7 +150,7 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
                   </div>
                   <div className={`entry-amount ${entry.direction}`}>
                     {entry.direction === 'in' ? '+' : '-'}
-                    {formatCurrency(Math.abs(entry.amount))}
+                    {formatCurrency(Math.abs(entry.amount ?? 0))}
                   </div>
                 </div>
                 {entry.referenceId && (

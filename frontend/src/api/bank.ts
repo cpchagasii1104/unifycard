@@ -1,11 +1,27 @@
 // frontend/src/api/bank.ts
 // API para Wallet e Statement do Unify Bank
+//
+// Conformidade §4.7 (07_NOMENCLATURA_CANONICA): monetário sempre em centavos
+// com sufixo `_cents`. Backend retorna `balanceCents` canônico; `balance` é
+// campo legado mantido por compatibilidade (cópia literal de `balanceCents`
+// no backend — ver bank-http.routes.ts:165-171). Frontend consome `balanceCents`.
 
 import { apiFetch } from './client';
 
 export interface BankBalance {
   success: boolean;
-  balance: number;
+  /**
+   * Saldo em centavos (canônico §4.7). Backend `/bank/balance` retorna sempre.
+   * Marcado opcional apenas para tolerar caminho local de fallback (401).
+   */
+  balanceCents?: number;
+  /**
+   * @deprecated Cópia legada de `balanceCents` (backend retorna ambos por
+   * compat — ver bank-http.routes.ts:165-171). Consumers ainda usam
+   * (CompanyFinancialTab, CompanyOverviewTab, HomeContextual). Migrar para
+   * `balanceCents` via `centsToReais` antes de exibir, depois remover.
+   */
+  balance?: number;
   currency: string;
   hasAccount: boolean;
 }
@@ -13,9 +29,21 @@ export interface BankBalance {
 export interface BankStatementEntry {
   transactionId: string;
   type: 'p2p' | 'donation' | 'split' | 'compensation' | 'governance' | 'other';
-  amount: number;
+  /** Valor em centavos (canônico §4.7). Backend retorna sempre. */
+  amountCents: number;
+  /**
+   * @deprecated Campo legado preservado APENAS para não quebrar build de
+   * consumers ainda não migrados (CompanyFinancialTab, CompanyOverviewTab,
+   * HomeContextual, activity-aggregation.service). Backend NÃO envia este
+   * campo — em runtime será `undefined`. Migrar consumers para `amountCents`
+   * via `centsToReais` antes de exibir, depois remover daqui.
+   */
+  amount?: number;
   direction: 'in' | 'out';
-  balanceAfter: number;
+  /** Saldo após a entrada, em centavos (canônico §4.7). Backend retorna sempre. */
+  balanceAfterCents: number;
+  /** @deprecated mesma motivação que `amount`. */
+  balanceAfter?: number;
   createdAt: string;
   context?: string; // event_ticket, service_booking, ride_payment, donation, p2p_transfer, etc.
   status?: 'completed' | 'reversed' | 'pending' | 'failed';
@@ -48,6 +76,7 @@ export async function getBankBalance(): Promise<BankBalance> {
     if (response.status === 401) {
       return {
         success: true,
+        balanceCents: 0,
         balance: 0,
         currency: 'BRL',
         hasAccount: false,

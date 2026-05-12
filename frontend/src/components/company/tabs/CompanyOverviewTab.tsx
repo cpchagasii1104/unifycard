@@ -50,7 +50,7 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
 
       // Processar resultados
       const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? balanceResult.value.balance
+        ? (balanceResult.value.balance ?? null)
         : null;
       const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
       const members = membersResult.status === 'fulfilled' ? membersResult.value : [];

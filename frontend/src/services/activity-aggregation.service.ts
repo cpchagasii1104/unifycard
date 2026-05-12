@@ -147,7 +147,7 @@ export async function aggregateActivities(
  */
 function buildTransactionDescription(entry: BankStatementEntry, isReversed: boolean): string {
   const contextLabel = getContextLabel(entry.context);
-  const amount = Math.abs(entry.amount);
+  const amount = Math.abs(entry.amount ?? 0);
   
   if (isReversed) {
     return `Transação revertida: ${contextLabel} de ${formatCurrency(amount)}`;

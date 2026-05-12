@@ -67,7 +67,7 @@ export default function HomeContextual() {
       ]);
 
       // Processar resultados
-      const balance = balanceResult.status === 'fulfilled' && balanceResult.value ? balanceResult.value.balance : null;
+      const balance = balanceResult.status === 'fulfilled' && balanceResult.value ? (balanceResult.value.balance ?? null) : null;
       const lastEntry = statementResult.status === 'fulfilled' && statementResult.value.entries.length > 0
         ? statementResult.value.entries[0]
         : null;
@@ -82,7 +82,7 @@ export default function HomeContextual() {
       setData({
         balance,
         lastTransaction: lastEntry ? {
-          amount: lastEntry.amount,
+          amount: lastEntry.amount ?? 0,
           direction: lastEntry.direction,
           context: lastEntry.context,
           createdAt: lastEntry.createdAt,
