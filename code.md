@@ -1,6 +1,6 @@
 # CODE.MD - Memória de Sessão Epistêmica
 
-**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296)
+**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito)
 **Branch**: rescue-structural
 **Protocolo**: Auditoria forense com evidência material
 
