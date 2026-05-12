@@ -1901,3 +1901,196 @@ revisão histórica silenciosa.
 
 ---
 
+### DECISION-0032 — Payment status canônico = lowercase; gateways convertem casing na fronteira via mapper
+
+- **Data:** 2026-05-12
+- **Tipo:** arquitetural (semântica linguística + boundary)
+- **ID da violação (se aplicável):** DT-PAYMENT-CASING-DRIFT (encerrada por esta decisão)
+- **Contexto:**
+  Investigação read-only conduzida em 2026-05-12 (relatório material `executei_8.md`,
+  gitignored, 384 linhas) mapeou drift de casing em colunas semânticas do domínio
+  `payment_*` em 4 níveis de cobertura: norma, persistência, runtime e semântica
+  compilada (tipos TS / Zod / contratos).
+
+  Achados materiais consolidados:
+
+  1. **Drift dormente** em `payment_transactions.status` — schema permissivo (CHECK
+     revertido em `20260530536000`); código TS grava UPPERCASE (`'PENDING'/'SUCCESS'/'FAILED'`).
+  2. **Drift de runtime garantido** em `marketplace/payment-intent.repository.ts:70`
+     (insere `'CREATED'` que não está na enum do CHECK ativo `payment_intents_payment_status_check`)
+     e em `escrow/escrow.repository.ts:213` (insere `'PENDING'` em `payment_milestones`
+     cujo CHECK exige lowercase). Código nunca exercitado em produção (tabelas vazias);
+     bombas-relógio funcionais.
+  3. **15 tipos TS UPPERCASE** cristalizados como contrato compartilhado (Tabela 2
+     ampliada em `executei_8.md`): `PaymentIntentStatus`, `PaymentTransactionStatus`,
+     `PayoutTransactionStatus`, `EventSettlementStatus`, `SettlementStatus`,
+     `UnifyCardTransactionStatus`, `AccountsReceivableStatus`, `PaymentLinkStatus`,
+     `PaymentLinkPaymentStatus`, `PixChargeStatus` (escopo `pix_*`), entre outros.
+     Re-export central via `marketplace/index.ts`; consumo em `bank-settlement-worker.ts`
+     propaga drift para caminho assíncrono.
+  4. **Boundary leak Stripe** em `external-payment-provider.types.ts:4`: tipo
+     `ExternalPaymentStatus = 'pending' | 'succeeded' | 'failed' | 'canceled'` expõe
+     terminologia de provider (`succeeded`/`canceled` em vez de `captured`/`cancelled`
+     canônicos) ao domínio interno sem mapper de tradução.
+  5. **Drift cross-layer cristalizado** entre backend e frontend para mesmo conceito
+     (`escrow/escrow.types.ts` lower vs `frontend/src/api/escrow.ts:10` UPPER).
+  6. **Contrato canônico congelado existe e é lowercase**: `backend/src/contracts/marketplace/Payment*.contract.ts`
+     (6 contratos com header `// Status: CONGELADO`) + `packages/contracts/src/marketplace.ts`
+     são 100% lowercase. Tipos UPPERCASE no mesmo domínio convivem lado a lado com a
+     referência canônica correta.
+  7. **Zero mapper formal de gateway** (PASSO 4) e **zero transformador inline `.toUpperCase()/
+     .toLowerCase()` aplicado a status** (PASSO 2.4.f — única ocorrência em `money.types.ts:23`
+     normaliza ISO 4217 currency code, uso legítimo). Drift por **omissão pura de
+     pipeline de normalização**, não por bug de transformação.
+
+  Auditoria normativa contra normas vigentes:
+  - `07_NOMENCLATURA_CANONICA` §4.11 (Status Lifecycle = lowercase)
+  - `07_NOMENCLATURA_CANONICA` §6 (UPPER_CASE permitido apenas em priority/severity/result/
+    attendance/checkin/dispute — payment NÃO está na lista)
+  - `07_NOMENCLATURA_CANONICA` §19.8 (Idioma — zero tolerância: payment status canônico = lowercase)
+  - `LEI_DE_COERÊNCIA_SISTÊMICA` §4.6 (fronteira financeira — núcleo soberano)
+  - `LEI_DE_COERÊNCIA_SISTÊMICA` §8 (linguagem única)
+  - DECISION-0028 (precedente: ratificou UPPERCASE como design consciente em 3 tabelas
+    delimitadas — chat_reports, live_presence, event_reservations; `payment_*` NÃO
+    foi coberto)
+
+- **Opções consideradas:**
+
+  1. **Opção A (ratificar UPPERCASE em `payment_*` como exceção formal análoga a DECISION-0028)** —
+     refutada. Investigação não produziu evidência arquitetural fortíssima. Não há
+     mapper que justifique convivência intencional, não há gateway externo crítico
+     que exija UPPERCASE indefinível em camada de tradução, não há referência canônica
+     UPPERCASE adjacente. Pelo contrário: contratos canônicos congelados no mesmo
+     domínio (`PaymentInfrastructureConfig.contract.ts`, `PaymentPlan.contract.ts`,
+     `PaymentTerminal.contract.ts`, `ServicePaymentHold.contract.ts`, `CheckoutIntent.contract.ts`,
+     `B2BContractExecution.contract.ts`) já decidiram lowercase materialmente.
+     Ratificar UPPERCASE seria criar exceção sem necessidade estrutural — exatamente
+     o anti-padrão de fragmentação institucional que C36 ensinou a evitar (cristalizar
+     drift como lei só porque banco aceitou) e que esta decisão protege contra repetição.
+     "Sem evidência forte, exceção vira jeitinho institucional."
+
+  2. **Opção B (manter status quo OPEN)** — refutada. DT permanecer aberta
+     indefinidamente cria pseudo-exceção informal: ausência de decisão vira posição
+     arquitetural por inércia. A norma já é inequívoca; o risco agora não é técnico,
+     é institucional.
+
+  3. **Opção C (normalizar para lowercase canônico + mapper de fronteira)** — ESCOLHIDA.
+
+- **Escolha:** Opção C. DECISION-0032 fixa três eixos canônicos:
+
+  **Eixo 1 — Casing canônico:** todo `payment_*.status`, `payment_*.payment_status`,
+  `payment_*.intent_type` e demais colunas semânticas em domínio payment seguem
+  **lowercase**. Tipos TS (union, enum, Zod, interface) que cristalizam UPPERCASE são
+  violação e devem convergir.
+
+  **Eixo 2 — Vocabulário canônico:** valores aceitos em `payment_intents.payment_status`
+  são exclusivamente os 11 já fixados pelo CHECK ativo `payment_intents_payment_status_check`
+  (`pending`, `authorized`, `captured`, `escrowed`, `settled`, `failed`, `cancelled`,
+  `reversed`, `partially_refunded`, `disputed`, `expired`). Valores aceitos em
+  `payment_milestones.status` são os 5 fixados pelo CHECK `payment_milestones_status_check`
+  (`pending`, `authorized`, `released`, `refunded`, `failed`). Valores `'created'`,
+  `'payment_received'`, `'completed'` (Writer B `payments/payment-intent-repository.ts:9`)
+  ficam **fora** — Writer B deve convergir para os valores canônicos.
+
+  **Eixo 3 — Boundary mapper obrigatório:** integrações com gateways externos
+  (Stripe, MercadoPago, PIX provider, etc.) **convertem casing e vocabulário na
+  fronteira** via mapper dedicado em `backend/src/modules/gateway/`. Domínio interno
+  nunca recebe payload bruto de provider. Princípio: heterogeneidade absorvida na
+  borda; core fala linguagem soberana única. Type `ExternalPaymentStatus` (boundary
+  leak Stripe) deve ser confinado a camada de gateway e **nunca** exposto a serviços
+  de domínio sem passar por mapper.
+
+- **Justificativa:**
+  Semântica linguística canônica é decidida na nomenclatura, não no código. Quando
+  norma material existe (§4.11/§6/§19.8) e contratos canônicos congelados adjacentes
+  já implementam o padrão (lowercase em `Payment*.contract.ts`), código que diverge
+  é violação de conformidade — não decisão arquitetural alternativa.
+
+  O sistema é uma lógica estruturada; um padrão é o padrão único. Ratificar UPPERCASE
+  como exceção sem necessidade estrutural seria começar fragmentação institucional:
+  "primeiro uma exceção temporária, depois outra, depois o sistema inteiro vira
+  coleção de exceções concorrentes". C36 demonstrou o custo do anti-padrão inverso
+  (cristalizar drift via enforcement sem decisão); DECISION-0032 protege contra a
+  versão dual (cristalizar drift via ausência de decisão).
+
+  A separação fronteira ↔ núcleo é arquitetura limpa de integração: gateway externo
+  pode falar qualquer dialeto (`APPROVED`, `succeeded`, `paid`, `SETTLED`); domínio
+  interno fala linguagem soberana única. Sem mapper formal, cada provider injeta
+  dialeto no core e o sistema deixa de ter ontologia própria — vira colagem de
+  integrações ("ERP de Schrödinger": cada tabela acredita numa religião diferente).
+
+  Como a investigação confirmou ausência total de mapper formal e ausência de
+  transformadores inline, o risco de quebrar comportamento dependente em normalização
+  é baixo: não há comportamento dependente — apenas literais hardcoded isolados.
+
+- **Consequências esperadas:**
+
+  - **Curto prazo:**
+    - DT-PAYMENT-CASING-DRIFT é encerrada por esta decisão (status: OPEN → CLOSED).
+    - Esta decisão **não autoriza implementação direta**. Estabelece destino canônico.
+    - Próxima sessão: plano faseado de execução (sequência de migrations + edits TS +
+      testes) em sessão dedicada antes de qualquer rodada — referência: caminho C
+      proposto em `executei_8.md`.
+
+  - **Médio prazo (escopo da implementação derivada):**
+    - **Fase 1:** convergir Writer A → Writer B em `payment_intents`. Remover ou marcar
+      `marketplace/payment-intent.repository.ts` e `marketplace/payment-intent.types.ts`
+      (UPPERCASE). Migrar callers (`payment-execution.service.ts`, `payment-intent.service.ts`,
+      `payment-split.service.ts`, `crm.service.ts`, `ticket.service.ts`) para usar
+      Writer B com tipos lowercase. Resolve drift `'CREATED'` simultaneamente.
+    - **Fase 2:** normalizar `payment_transactions` e `payment_milestones`. Editar
+      `payments/payment-transaction.repository.ts` (untracked — endereçar) e
+      `escrow/escrow.repository.ts` para usar lowercase nos INSERTs/UPDATEs. Editar
+      tipos TS associados. Reaplicar CHECK lowercase em `payment_transactions.status`
+      (revertido em `20260530536000`) — agora ratificado por DECISION-0032.
+    - **Fase 3:** introduzir mapper formal em `modules/gateway/` que normaliza casing
+      e vocabulário de providers externos. Confinar `ExternalPaymentStatus` à camada
+      de gateway.
+    - **Fase 4:** alinhar frontend (`frontend/src/api/escrow.ts`, `frontend/src/api/pdv.ts`,
+      `frontend/src/pages/PaymentLinkPage.tsx` e adjacentes) ao casing lowercase do
+      backend.
+    - **Decisão paralela** sobre `payment_links`/`payment_link_payments` (tabelas
+      inexistentes referenciadas por código TS): fora do escopo desta DECISION;
+      criar DT separada.
+
+  - **Longo prazo:**
+    - Adicionar regra em `validate-financial-ssot.js` (já existe per `07_NOMENCLATURA`
+      §19.13) que bloqueie literais UPPERCASE em INSERT/UPDATE em `payment_*` em PRs
+      futuros.
+    - Qualquer frente futura que tente introduzir UPPERCASE em `payment_*` deve
+      referenciar esta decisão antes de propor implementação. Drift acidental futuro
+      vira violação rastreável, não inércia institucional.
+
+  - **Não autoriza:**
+    - Implementação direta nesta sessão.
+    - Edição de schema `payment_*` sem plano faseado autorizado.
+    - Alteração de qualquer outro domínio (`order_*`, `actor_debts`, `pix_*`, etc.) —
+      ficam para DTs/DECISIONs separadas.
+
+- **Responsável:** Clayton (decisão soberana) — multi-agente: Claude Code (investigação
+  material `executei_8.md` + redação), Clayton (refinamento normativo + decisão).
+  Submetido para auditoria externa Opus 4.7 / ChatGPT antes de implementação (caminho C).
+- **Validação prévia:** investigação read-only `executei_8.md` (384 linhas, cobertura
+  norma + persistência + runtime + semântica compilada + transformadores); contraste
+  material com domínio irmão `bank_*` (100% lowercase confirmado em 5 CHECKs ativos);
+  cross-validação com contratos canônicos congelados (6 arquivos `Payment*.contract.ts`
+  + `packages/contracts/src/marketplace.ts`).
+- **Supera:** DT-PAYMENT-CASING-DRIFT (encerrada — destino canônico fixado, implementação
+  pendente).
+- **Superada por:** (preencher quando superada)
+
+#### Referências
+
+- `executei_8.md` (gitignored — relatório material da investigação read-only)
+- `C:/unificard/REMEDIATION_DT_LOG.md` § DT-PAYMENT-CASING-DRIFT
+- Commit `7c37f519` — fix: reverte CHECK em payment_transactions (DT-PAYMENT-CASING-DRIFT)
+- Commit `7afd75ef` — C36 (cristalização original revertida)
+- `docs/01_normative/07_NOMENCLATURA_CANONICA.md` §4.11 / §6 / §19.8
+- `docs/01_normative/LEI_DE_COERÊNCIA_SISTÊMICA_UNIFICARD.md` §4.6 / §8
+- DECISION-0028 (precedente — ratificação delimitada, escopo distinto)
+- code.md §-4 / §23 / §24 (princípios fundacionais aplicados)
+- Memória institucional: `feedback_boundary_domain_canonical`, `feedback_norma_ja_decide`,
+  `project_hierarquia_epistemologica`
+
+---
+

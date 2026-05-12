@@ -378,9 +378,9 @@ Status values:
 
 ## DT-PAYMENT-CASING-DRIFT
 
-- **Status:** OPEN
+- **Status:** CLOSED (2026-05-12 — encerrada por DECISION-0032)
 - **Origem:** C36 reconciliação (2026-05-12) — CHECK revertido por falta de DECISION
-- **Vinculada a:** C36, DECISION-0028
+- **Vinculada a:** C36, DECISION-0028, DECISION-0032
 - **Contexto:**
   `payment_transactions.status` usa UPPERCASE no código TypeScript:
   - `INSERT ... VALUES (..., 'PENDING', ...)` — payment-transaction.repository.ts
@@ -404,8 +404,21 @@ Status values:
 - **Mitigação atual:**
   CHECK revertido em 20260530536000. Coluna aceita qualquer string até decisão.
 
-- **Resolução prevista:**
-  DECISION dedicada: (a) ratificar UPPERCASE em `payment_*` como distinção
-  semântica gateway vs ledger, ou (b) normalizar para lowercase alinhado com
-  `bank_*`. Investigar se casing foi design consciente ou regressão acidental.
+- **Resolução:**
+  Investigação read-only conduzida em 2026-05-12 (relatório material `executei_8.md`
+  — gitignored, 384 linhas, cobertura: norma + persistência + runtime + semântica
+  compilada + transformadores) refutou a hipótese de "design consciente UPPERCASE":
+  contratos canônicos congelados adjacentes (`backend/src/contracts/marketplace/Payment*.contract.ts`)
+  já decidiram lowercase materialmente; ausência total de mapper formal e ausência
+  de transformadores inline confirmou drift por omissão pura de pipeline.
+
+  **DECISION-0032** (2026-05-12) fixou:
+  - Eixo 1 — casing canônico lowercase em `payment_*`
+  - Eixo 2 — vocabulário canônico restrito aos valores dos CHECKs ativos
+  - Eixo 3 — boundary mapper obrigatório para gateways externos (heterogeneidade
+    absorvida na borda; core fala linguagem soberana única)
+
+  DECISION-0032 NÃO autoriza implementação direta. Estabelece destino canônico;
+  plano faseado de execução (migrations + edits TS + testes) será sessão dedicada.
+
   Prioridade: P2.
