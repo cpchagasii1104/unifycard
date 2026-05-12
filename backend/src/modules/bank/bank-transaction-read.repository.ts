@@ -38,7 +38,7 @@ class BankTransactionReadRepository {
       tenantId,
       `
       SELECT id::text FROM bank_transactions
-      WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3::uuid
+      WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3
       LIMIT 1
       `,
       [tenantId, referenceType, referenceId]

@@ -1463,7 +1463,7 @@ class BankTransactionService {
       await client.query('BEGIN');
 
       const dup = await client.query<{ id: string }>(
-        `SELECT id FROM bank_transactions WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3::uuid LIMIT 1`,
+        `SELECT id FROM bank_transactions WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3 LIMIT 1`,
         [tenantId, referenceType, referenceId]
       );
       if (dup.rows.length > 0) {
