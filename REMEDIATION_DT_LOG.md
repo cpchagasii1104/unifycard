@@ -373,3 +373,39 @@ Status values:
 - **Resolução prevista:**
   Investigar cada tabela em sessão dedicada antes de adicionar CHECK.
   Prioridade: MÉDIA (company_validations, unifycard_transactions), BAIXA (categories).
+
+---
+
+## DT-PAYMENT-CASING-DRIFT
+
+- **Status:** OPEN
+- **Origem:** C36 reconciliação (2026-05-12) — CHECK revertido por falta de DECISION
+- **Vinculada a:** C36, DECISION-0028
+- **Contexto:**
+  `payment_transactions.status` usa UPPERCASE no código TypeScript:
+  - `INSERT ... VALUES (..., 'PENDING', ...)` — payment-transaction.repository.ts
+  - `SET status = 'SUCCESS'` e `SET status = 'FAILED'` — mesmos arquivos
+  - `WHERE status = 'PENDING'` — comparações internas
+
+  `payment_intents` também tem drift de casing inconsistente:
+  - `intent.status === 'completed'` (lowercase)
+  - `intent.status === 'FAILED'` (UPPERCASE)
+
+  O domínio `bank_*` usa lowercase consistente (bank_settlements, payout_requests,
+  financial_freezes, etc.). O subdomínio `payment_*` tem casing misto sem DECISION.
+  DECISION-0028 ratificou UPPERCASE intencional em 3 tabelas (chat_reports,
+  live_presence, event_reservations). `payment_*` não está coberto.
+
+- **Risco:**
+  CHECK em UPPERCASE cristalizaria decisão arquitetural não tomada. Queries
+  case-sensitive podem retornar resultados divergentes entre handlers.
+  Normalização futura requereria: migrar dados + alterar CHECKs + alterar código.
+
+- **Mitigação atual:**
+  CHECK revertido em 20260530536000. Coluna aceita qualquer string até decisão.
+
+- **Resolução prevista:**
+  DECISION dedicada: (a) ratificar UPPERCASE em `payment_*` como distinção
+  semântica gateway vs ledger, ou (b) normalizar para lowercase alinhado com
+  `bank_*`. Investigar se casing foi design consciente ou regressão acidental.
+  Prioridade: P2.
