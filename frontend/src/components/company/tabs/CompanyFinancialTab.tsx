@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from '../../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement, type BankStatementEntry } from '../../../api/bank';
 import { isAuthenticated, getTenantId } from '../../../config/auth';
+import { centsToReais } from '../../../utils/money';
 import type { Company } from '../../../api/companies';
 import TransactionSplitDetail from '../../governance/TransactionSplitDetail';
 import './CompanyTabs.css';
@@ -17,7 +18,8 @@ interface CompanyFinancialTabProps {
 export default function CompanyFinancialTab({ company, companyId }: CompanyFinancialTabProps) {
   const { sessionReady, activeActor } = useSession();
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
-  const [balance, setBalance] = useState<number | null>(null);
+  /** Saldo em centavos (canônico §4.7). Convertido para reais apenas na exibição. */
+  const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [entries, setEntries] = useState<BankStatementEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +43,13 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
         getBankStatement({ limit: 10 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
       ]);
 
+      // Preferir `balanceCents` canônico (§4.7); cair para `balance` legado se backend antigo.
       const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? (balanceResult.value.balance ?? null)
+        ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
         : null;
       const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
 
-      setBalance(balanceValue);
+      setBalanceCents(balanceValue);
       setEntries(statement?.entries || []);
     } catch (err: any) {
       console.error('Erro ao carregar dados financeiros:', err);
@@ -56,11 +59,12 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
     }
   };
 
-  const formatCurrency = (value: number) => {
+  /** Formata valor em CENTAVOS (§4.7) para string monetária BRL. */
+  const formatCentsAsBRL = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(centsToReais(cents));
   };
 
   const formatDate = (dateString: string) => {
@@ -112,11 +116,11 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
     <div className="company-tab-content">
       <div className="financial-header">
         <h3>Financeiro</h3>
-        {balance !== null && (
+        {balanceCents !== null && (
           <div className="financial-balance">
             <span className="financial-balance-label">Saldo Atual:</span>
-            <span className={`financial-balance-value ${balance >= 0 ? 'positive' : 'negative'}`}>
-              {formatCurrency(balance)}
+            <span className={`financial-balance-value ${balanceCents >= 0 ? 'positive' : 'negative'}`}>
+              {formatCentsAsBRL(balanceCents)}
             </span>
           </div>
         )}
@@ -150,7 +154,7 @@ export default function CompanyFinancialTab({ company, companyId }: CompanyFinan
                   </div>
                   <div className={`entry-amount ${entry.direction}`}>
                     {entry.direction === 'in' ? '+' : '-'}
-                    {formatCurrency(Math.abs(entry.amount ?? 0))}
+                    {formatCentsAsBRL(Math.abs(entry.amountCents))}
                   </div>
                 </div>
                 {entry.referenceId && (

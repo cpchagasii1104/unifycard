@@ -128,7 +128,9 @@ async function detectOnboardCompanyWorkflow(
 
     // Passo 3: Entender economia (opcional)
     const balance = await getBankBalance().catch(() => null);
-    const hasBalance = balance !== null && (balance as any).balance !== 0;
+    // Saldo em centavos (canônico §4.7); fallback para `balance` legado.
+    const balanceCents = balance ? (balance.balanceCents ?? balance.balance ?? 0) : 0;
+    const hasBalance = balance !== null && balanceCents !== 0;
 
     steps.push({
       id: 'understand_economy',

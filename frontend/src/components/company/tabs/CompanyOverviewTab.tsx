@@ -6,6 +6,7 @@ import { useSession } from '../../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../../api/bank';
 import { listCompanyMembers } from '../../../api/companyMembers';
 import { isAuthenticated, getTenantId } from '../../../config/auth';
+import { centsToReais } from '../../../utils/money';
 import type { Company } from '../../../api/companies';
 import PendingActionsCenter from '../../pending-actions/PendingActionsCenter';
 import HealthSummaryCard from '../../health/HealthSummaryCard';
@@ -21,7 +22,8 @@ interface CompanyOverviewTabProps {
 
 export default function CompanyOverviewTab({ company, companyId }: CompanyOverviewTabProps) {
   const { sessionReady, activeActor } = useSession();
-  const [balance, setBalance] = useState<number | null>(null);
+  /** Saldo em centavos (canônico §4.7). */
+  const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [membersCount, setMembersCount] = useState<number>(0);
   const [lastActivities, setLastActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +50,14 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
         listCompanyMembers(companyId).catch(() => []),
       ]);
 
-      // Processar resultados
+      // Preferir `balanceCents` canônico (§4.7); cair para `balance` legado.
       const balanceValue = balanceResult.status === 'fulfilled' && balanceResult.value
-        ? (balanceResult.value.balance ?? null)
+        ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
         : null;
       const statement = statementResult.status === 'fulfilled' ? statementResult.value : null;
       const members = membersResult.status === 'fulfilled' ? membersResult.value : [];
 
-      setBalance(balanceValue);
+      setBalanceCents(balanceValue);
       setMembersCount(members.length);
       setLastActivities(statement?.entries || []);
     } catch (err: any) {
@@ -66,11 +68,12 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
     }
   };
 
-  const formatCurrency = (value: number) => {
+  /** Formata valor em CENTAVOS (§4.7) para string monetária BRL. */
+  const formatCentsAsBRL = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(centsToReais(cents));
   };
 
   const formatDate = (dateString: string) => {
@@ -166,12 +169,12 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
         </div>
 
         {/* Saldo */}
-        {balance !== null && (
+        {balanceCents !== null && (
           <div className="overview-card">
             <h3>Saldo Atual</h3>
             <div className="overview-balance">
-              <div className={`overview-balance-value ${balance >= 0 ? 'positive' : 'negative'}`}>
-                {formatCurrency(balance)}
+              <div className={`overview-balance-value ${balanceCents >= 0 ? 'positive' : 'negative'}`}>
+                {formatCentsAsBRL(balanceCents)}
               </div>
             </div>
           </div>
@@ -198,7 +201,7 @@ export default function CompanyOverviewTab({ company, companyId }: CompanyOvervi
                   </div>
                   <div className={`activity-amount ${activity.direction === 'in' ? 'in' : 'out'}`}>
                     {activity.direction === 'in' ? '+' : '-'}
-                    {formatCurrency(Math.abs(activity.amount))}
+                    {formatCentsAsBRL(Math.abs(activity.amountCents))}
                   </div>
                 </div>
               ))}

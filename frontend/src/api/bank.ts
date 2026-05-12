@@ -2,25 +2,19 @@
 // API para Wallet e Statement do Unify Bank
 //
 // Conformidade §4.7 (07_NOMENCLATURA_CANONICA): monetário sempre em centavos
-// com sufixo `_cents`. Backend retorna `balanceCents` canônico; `balance` é
-// campo legado mantido por compatibilidade (cópia literal de `balanceCents`
-// no backend — ver bank-http.routes.ts:165-171). Frontend consome `balanceCents`.
+// com sufixo `_cents`. Backend retorna `balanceCents` canônico; o campo
+// `balance` legado é mantido como opcional apenas para tolerância a
+// instâncias antigas do backend (em runtime atual sempre vem `balanceCents`).
+// Todos os consumers internos foram migrados para `balanceCents`/`amountCents`
+// via `centsToReais` (ver `frontend/src/utils/money.ts`).
 
 import { apiFetch } from './client';
 
 export interface BankBalance {
   success: boolean;
-  /**
-   * Saldo em centavos (canônico §4.7). Backend `/bank/balance` retorna sempre.
-   * Marcado opcional apenas para tolerar caminho local de fallback (401).
-   */
+  /** Saldo em centavos (canônico §4.7). Backend `/bank/balance` retorna sempre. */
   balanceCents?: number;
-  /**
-   * @deprecated Cópia legada de `balanceCents` (backend retorna ambos por
-   * compat — ver bank-http.routes.ts:165-171). Consumers ainda usam
-   * (CompanyFinancialTab, CompanyOverviewTab, HomeContextual). Migrar para
-   * `balanceCents` via `centsToReais` antes de exibir, depois remover.
-   */
+  /** @deprecated tolerância para instâncias antigas do backend. Não usar em código novo. */
   balance?: number;
   currency: string;
   hasAccount: boolean;
@@ -31,19 +25,9 @@ export interface BankStatementEntry {
   type: 'p2p' | 'donation' | 'split' | 'compensation' | 'governance' | 'other';
   /** Valor em centavos (canônico §4.7). Backend retorna sempre. */
   amountCents: number;
-  /**
-   * @deprecated Campo legado preservado APENAS para não quebrar build de
-   * consumers ainda não migrados (CompanyFinancialTab, CompanyOverviewTab,
-   * HomeContextual, activity-aggregation.service). Backend NÃO envia este
-   * campo — em runtime será `undefined`. Migrar consumers para `amountCents`
-   * via `centsToReais` antes de exibir, depois remover daqui.
-   */
-  amount?: number;
   direction: 'in' | 'out';
   /** Saldo após a entrada, em centavos (canônico §4.7). Backend retorna sempre. */
   balanceAfterCents: number;
-  /** @deprecated mesma motivação que `amount`. */
-  balanceAfter?: number;
   createdAt: string;
   context?: string; // event_ticket, service_booking, ride_payment, donation, p2p_transfer, etc.
   status?: 'completed' | 'reversed' | 'pending' | 'failed';

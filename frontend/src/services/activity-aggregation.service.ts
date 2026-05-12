@@ -4,6 +4,7 @@
 
 import { getBankStatement, type BankStatementEntry } from '../api/bank';
 import { listCompanyMembers, type CompanyMember } from '../api/companyMembers';
+import { centsToReais } from '../utils/money';
 import type { AvailableActor } from '../api/social';
 
 /**
@@ -87,7 +88,7 @@ export async function aggregateActivities(
             createdAt: entry.createdAt,
             metadata: {
               transactionId: entry.transactionId,
-              amount: entry.amount,
+              amountCents: entry.amountCents,
               direction: entry.direction,
               context: entry.context,
               status: entry.status,
@@ -147,14 +148,15 @@ export async function aggregateActivities(
  */
 function buildTransactionDescription(entry: BankStatementEntry, isReversed: boolean): string {
   const contextLabel = getContextLabel(entry.context);
-  const amount = Math.abs(entry.amount ?? 0);
-  
+  // Valor em centavos (canônico §4.7) — converter para reais apenas na formatação.
+  const amountCents = Math.abs(entry.amountCents);
+
   if (isReversed) {
-    return `Transação revertida: ${contextLabel} de ${formatCurrency(amount)}`;
+    return `Transação revertida: ${contextLabel} de ${formatCentsAsBRL(amountCents)}`;
   }
-  
+
   const direction = entry.direction === 'in' ? 'recebeu' : 'pagou';
-  return `${contextLabel}: ${direction} ${formatCurrency(amount)}`;
+  return `${contextLabel}: ${direction} ${formatCentsAsBRL(amountCents)}`;
 }
 
 /**
@@ -202,13 +204,14 @@ function getRoleLabel(role: string): string {
 }
 
 /**
- * Formatação de moeda
+ * Formatação de moeda — valor em CENTAVOS (canônico §4.7).
+ * Converte para reais via `centsToReais` antes de aplicar Intl.NumberFormat.
  */
-function formatCurrency(value: number): string {
+function formatCentsAsBRL(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value);
+  }).format(centsToReais(cents));
 }
 
 

@@ -9,6 +9,7 @@ import { getBankBalance, getBankStatement } from '../../api/bank';
 import { listCompanies } from '../../api/companies';
 import { getMyGroups } from '../../api/groups';
 import { isAuthenticated, getTenantId } from '../../config/auth';
+import { centsToReais } from '../../utils/money';
 import MoneyDistribution from '../governance/MoneyDistribution';
 import GroupAllocationCard from '../governance/GroupAllocationCard';
 import RegionalFundCard from '../governance/RegionalFundCard';
@@ -22,9 +23,11 @@ import GuardedButton from '../operational/GuardedButton';
 import './HomeContextual.css';
 
 interface HomeContextualData {
-  balance: number | null;
+  /** Saldo em centavos (canônico §4.7). */
+  balanceCents: number | null;
   lastTransaction: {
-    amount: number;
+    /** Valor em centavos (canônico §4.7). */
+    amountCents: number;
     direction: 'in' | 'out';
     context?: string;
     createdAt: string;
@@ -39,7 +42,7 @@ export default function HomeContextual() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
   const [data, setData] = useState<HomeContextualData>({
-    balance: null,
+    balanceCents: null,
     lastTransaction: null,
     companiesCount: 0,
     groupsCount: 0,
@@ -66,8 +69,10 @@ export default function HomeContextual() {
         getMyGroups().catch(() => ({ groups: [] })),
       ]);
 
-      // Processar resultados
-      const balance = balanceResult.status === 'fulfilled' && balanceResult.value ? (balanceResult.value.balance ?? null) : null;
+      // Processar resultados — preferir `balanceCents` canônico (§4.7); cair para `balance` legado.
+      const balanceCents = balanceResult.status === 'fulfilled' && balanceResult.value
+        ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
+        : null;
       const lastEntry = statementResult.status === 'fulfilled' && statementResult.value.entries.length > 0
         ? statementResult.value.entries[0]
         : null;
@@ -75,14 +80,14 @@ export default function HomeContextual() {
       const groups = groupsResult.status === 'fulfilled' ? groupsResult.value.groups || [] : [];
 
       // Detectar se deve mostrar conteúdo de confiança (novo usuário ou sem atividade)
-      const hasNoActivity = !lastEntry && balance === null;
+      const hasNoActivity = !lastEntry && balanceCents === null;
       const hasNoCompanies = activeActor.actor_type === 'user' && companies.length === 0;
       setShowTrustContent(hasNoActivity || hasNoCompanies);
 
       setData({
-        balance,
+        balanceCents,
         lastTransaction: lastEntry ? {
-          amount: lastEntry.amount ?? 0,
+          amountCents: lastEntry.amountCents,
           direction: lastEntry.direction,
           context: lastEntry.context,
           createdAt: lastEntry.createdAt,
@@ -132,11 +137,12 @@ export default function HomeContextual() {
     };
   }, [sessionReady, activeActor, loadContextualData]);
 
-  const formatCurrency = (value: number) => {
+  /** Formata valor em CENTAVOS (§4.7) para string monetária BRL. */
+  const formatCentsAsBRL = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(centsToReais(cents));
   };
 
   const formatDate = (dateString: string) => {
@@ -220,11 +226,11 @@ export default function HomeContextual() {
           </div>
 
           {/* Saldo (se aplicável) */}
-          {data.balance !== null && (
+          {data.balanceCents !== null && (
             <div className="situation-balance">
               <span className="situation-label">Saldo:</span>
-              <span className={`situation-value ${data.balance >= 0 ? 'positive' : 'negative'}`}>
-                {formatCurrency(data.balance)}
+              <span className={`situation-value ${data.balanceCents >= 0 ? 'positive' : 'negative'}`}>
+                {formatCentsAsBRL(data.balanceCents)}
               </span>
             </div>
           )}
@@ -340,14 +346,14 @@ export default function HomeContextual() {
         )}
 
         {/* Card UnifyBank - Só mostra se actor puder hold assets */}
-        {activeActor && (activeActor.actor_type === 'user' || activeActor.actor_type === 'page') && data.balance !== null && (
+        {activeActor && (activeActor.actor_type === 'user' || activeActor.actor_type === 'page') && data.balanceCents !== null && (
           <div className="home-card">
             <div className="home-card-header">
               <h3>UnifyBank</h3>
             </div>
             <div className="home-card-content">
               <div className="home-card-data">
-                <div className="home-card-balance">{formatCurrency(data.balance)}</div>
+                <div className="home-card-balance">{formatCentsAsBRL(data.balanceCents)}</div>
                 {data.lastTransaction && (
                   <div className="home-card-last-transaction">
                     Última: {getContextLabel(data.lastTransaction.context)}

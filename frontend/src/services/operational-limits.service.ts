@@ -241,7 +241,9 @@ async function checkTransferMoney(context: OperationalContext): Promise<Operatio
       };
     }
 
-    if ((balance as any).balance <= 0) {
+    // Saldo em centavos (canônico §4.7); fallback para `balance` legado.
+    const balanceCents = balance.balanceCents ?? balance.balance ?? 0;
+    if (balanceCents <= 0) {
       return {
         canPerform: false,
         reason: 'Saldo insuficiente para realizar transferência',
