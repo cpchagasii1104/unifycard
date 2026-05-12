@@ -1,8 +1,86 @@
 # CODE.MD - Memória de Sessão Epistêmica
 
-**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito; atualizado 2026-05-13 — §22 reconciliação institucional, DECISION-0030 gap, protocolo sincronia)
+**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito; atualizado 2026-05-13 — §22 reconciliação institucional, §-4 visão fundacional, §23 como pensar antes de codar)
 **Branch**: rescue-structural
 **Protocolo**: Auditoria forense com evidência material
+
+---
+
+## §-4. O QUE É O UNIFICARD — LER PRIMEIRO (2026-05-13)
+
+### Não é um app. É uma infraestrutura.
+
+O UnifiCard é uma **camada de coordenação da vida econômica e social**. Não é marketplace, ERP, CRM, rede social ou fintech. É o sistema que faz todos esses domínios conversarem dentro da mesma ontologia.
+
+### O princípio zero = zero
+
+Quem cria conta e não faz nada, não recebe nada. Quem participa — compra, vende, presta serviço, compra ingresso, usa a plataforma — acumula participação real. Quando o sistema fecha os balanços, redistribui proporcionalmente à contribuição de cada usuário.
+
+O dinheiro que hoje vai para intermediários centralizados (operadoras, marketplaces, bancos, delivery apps) retorna para dentro das comunidades dos próprios usuários e para o Fundo Regional.
+
+### A metáfora da árvore
+
+```
+RAÍZES:  actors · identidade · categorias-base · marcas · fabricantes
+         localização · unidades · lastro econômico · regras sistêmicas
+
+TRONCO:  navegação N0/N1/N2 · core · ledger · autenticação
+         permissões · estoque · catálogo · eventos · comunicação · governança
+
+GALHOS:  marketplace · delivery · mobilidade · eventos · ERP · CRM
+         social · B2B · B2C · indústria · distribuição · governo
+
+FOLHAS:  um produto · uma venda · uma corrida · um evento
+         uma contratação · um pedido · um pagamento
+```
+
+Cada nova folha nasce conectada ao tronco. Não reinventa a raiz.
+
+### Ontologia compartilhada — entidade existe uma vez
+
+A Fiat não existe separadamente em cada módulo. Ela é uma entidade única. Serve rides, marketplace de carros, locação, autopeças, oficinas, seguros.
+
+A Coca-Cola 1L existe uma vez. Qualquer mercado, distribuidora ou vendedor instancia sua **disponibilidade comercial** sobre ela (estoque + preço + ativação). A entidade em si não se duplica.
+
+Empresas nascem pré-estruturadas pela categoria: um supermercado já vem com açougue, peixaria, hortifruti, bebidas. O empreendedor herda inteligência acumulada, não começa do zero.
+
+### Actor ≠ usuário
+
+Actor é uma entidade com **responsabilidade causal** dentro do sistema. Pessoa física, empresa, banda, igreja, torcida organizada, motoclube, associação, coletivo — cada um com escopos de autoridade distintos, agenda, reputação, localização, capacidades.
+
+O `actingForAccountId`/`actingForActorId` no sistema financeiro e a autoridade sobre catálogo são o mesmo sistema visto de ângulos diferentes.
+
+### Agenda universal — percepção temporal compartilhada
+
+Sem agenda universal: cada módulo vira silo temporal.
+Com agenda universal: o sistema sabe quem está livre quando e pode orquestrar sem coordenação manual.
+
+"Vou fazer aniversário" dispara: local, buffet, fotógrafo, banda, segurança, pagamento, divisão financeira, fundo regional, contratação temporária. O evento vira núcleo econômico vivo.
+
+### Governo como fluxo operacional
+
+"Tem buraco na minha rua" → registrar demanda → validar recorrência → localizar → abrir orçamento → contratar actor local → pagar via ledger → fiscalizar → auditar → avaliar. Fundo regional financia. Comunidade avalia. O ciclo fecha.
+
+### Capacidade composta — o efeito mais raro em software
+
+**Em software tradicional:** cada módulo novo carrega custo completo.
+**No UnifiCard:** cada módulo novo herda toda a inteligência já acumulada.
+
+Cada módulo fortalece os anteriores em vez de fragmentar a plataforma. O efeito de rede se aplica à inteligência estrutural, não só ao número de usuários.
+
+### Por que cada invariante técnico existe
+
+| Invariante técnico | Proteção real |
+|---|---|
+| LEDGER_SOVEREIGNTY | Nenhum centavo de participação se perde antes da redistribuição |
+| BIGINT em `*_cents` | Redistribuição exige aritmética exata — NUMERIC tem arredondamento silencioso |
+| `check_coverage_before_credit` | Zero = zero — crédito só existe onde há contribuição econômica real |
+| Ontologia N0/N1/N2 | Base da capacidade composta — sem ela, cada módulo fragmenta |
+| SSOT Registry | Uma verdade sobre cada entidade — sem isso, balanço de redistribuição não fecha |
+| Actor com causalidade | Toda operação tem responsável rastreável — governança distribuída funciona |
+| Documentação estrutural | Impede que o sistema imploda pela própria complexidade ao crescer |
+
+**Sem coerência estrutural: caos exponencial. Com ontologia correta: capacidade composta.**
 
 ---
 
@@ -3180,3 +3258,48 @@ Apenas 2 eram reais (DECISION-0030 ausente + DT Status duplicado).
 Auditoria cruzada multi-agente pode gerar lista de "lacunas" que são na verdade artefatos
 de workspace diferente, contexto desatualizado ou variações de formato sem consequência
 semântica. Verificar materialidade antes de editar.
+
+---
+
+## §23 — Como pensar antes de codar no UnifiCard (2026-05-13)
+
+### A pergunta errada vs a pergunta certa
+
+**Errada:** "Como resolvo este problema?"
+**Certa:** "Onde no sistema este problema já deveria estar resolvido, e por que não está sendo usado?"
+
+**Errada:** "Este módulo precisa de notificações, como implemento?"
+**Certa:** "O core já tem sistema de notificações? Se sim, usar. Se não, criar no core — não no módulo."
+
+**Errada:** "Este trigger está bloqueando, como desativo?"
+**Certa:** "Que invariante este trigger protege, e o que minha operação está violando?"
+
+### Antes de qualquer implementação
+
+1. Verificar se a entidade já existe na ontologia (categoria, marca, produto, actor type)
+2. Verificar se a funcionalidade já existe no core (notificação, ticket, auditoria, autorização)
+3. Verificar se a decisão arquitetural já foi tomada (REMEDIATION_DECISIONS_LOG.md)
+4. Verificar qual lei sistêmica governa o domínio (LEDGER_SOVEREIGNTY, Lei de Coerência, etc.)
+
+### O que cada elemento do sistema realmente é
+
+| Elemento | Parece ser | É de verdade |
+|---|---|---|
+| `actors` | tabela de usuários | taxonomia de comunidades econômicas com responsabilidade causal |
+| categorias | menus de navegação | estrutura ontológica compartilhada por todos os módulos |
+| produto | registro isolado | entidade única reutilizada em todos os contextos comerciais |
+| marca/fabricante | campo de texto | entidade institucional com governança distribuída |
+| agenda | calendário | percepção temporal compartilhada que habilita orquestração |
+| reputação | nota social | infraestrutura de confiança para seleção natural operacional |
+| estoque | número | disponibilidade comercial sobre existência ontológica |
+| `bank_ledger` | tabela de transações | fonte soberana de verdade de toda participação econômica |
+| fundo regional | conta bancária | reserva coletiva da população para autogestão democrática |
+| notificação | feature de UX | entidade transversal do core que serve todos os módulos |
+
+### Por que a documentação é estrutural, não opcional
+
+Em sistemas altamente conectados, o maior perigo não é o bug visível. É corrigir um problema local sem perceber o impacto sistêmico — ou criar uma segunda implementação de algo que já existe no core.
+
+As leis, invariantes, SSOT Registry e log de decisões existem para que um desenvolvedor seis meses depois não precise redescobrir por que algo foi feito assim. A decisão está registrada, tem razão documentada. Não reabre.
+
+**Se a fundação quebrar, o sistema implode pela própria complexidade — exatamente como a internet fragmentada que o UnifiCard existe para substituir.**
