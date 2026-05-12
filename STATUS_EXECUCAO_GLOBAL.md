@@ -1,45 +1,81 @@
-## 2026-05-11 — Sessão de remediação estrutural (rescue-structural)
+## 2026-05-11 — Sessão de remediação estrutural (rescue-structural) — CONSOLIDADO
 
-**Branch:** `rescue-structural` | **HEAD final:** `fd3f1018`
+**Branch:** `rescue-structural`
+**HEAD inicial:** `0460e66f` (bank-account repository provider)
+**HEAD final:** `68a91d72` (docs/status)
+**Commits da sessão:** `24f3e402`, `33fcd928`, `39577e45`, `3db7245a`, `fd3f1018`, `68a91d72`
 
-### Violações fechadas nesta sessão
+---
 
-| Violação | Commit | Descrição |
-|---|---|---|
-| C15 | `3db7245a` | tenant_products.price NUMERIC removida — migration 20260530530000 |
-| C50/C51 | `39577e45` | actorId como globalUserId corrigido em cultural.routes.ts e store-onboarding.routes.ts |
-| C64 | `33fcd928` | ticket_sales SCHEMA DRIFT — alinhado com schema (pending/completed/refunded/failed) |
-| C19 | `fd3f1018` | bank_transactions.reference_id UUID→TEXT — DECISION-0029, 3 ::uuid casts removidos |
+### Violações fechadas
+
+| Violação | Severidade | Commit | Descrição |
+|---|---|---|---|
+| C50/C51 | HIGH | `39577e45` | actorId passado como globalUserId em cultural.routes.ts e store-onboarding.routes.ts — `ensureUserActor()` resolve actor_id real |
+| C64 | HIGH | `33fcd928` | ticket_sales SCHEMA DRIFT: código RESERVED/PAID/CANCELLED vs schema pending/completed/refunded/failed — 4 arquivos alinhados |
+| C15 | MEDIUM | `3db7245a` | tenant_products.price NUMERIC removida (migration 20260530530000); product_offers e product_prices já corrigidas por migrations anteriores |
+| C19 | MEDIUM | `fd3f1018` | bank_transactions.reference_id UUID→TEXT (migration 20260530531000); 3 `::uuid` casts removidos em bank-split, bank-transaction.service, bank-transaction-read |
+
+### Violações reclassificadas (ALLOWLISTED)
+
+| Violação | Era | Decisão | Resumo |
+|---|---|---|---|
+| C22 | CRITICAL/OPEN | DECISION-0026 | users.id/user_id blindados por CHECK `users_id_user_id_equal` + trigger `trg_users_sync_id_user_id`. Zero bug runtime. Deadline: 2027-05-11 |
+| C29 | HIGH/OPEN | DECISION-0027 | 132 comparações UPPERCASE — 46 tabelas com CHECK, 41 lowercase, 2 UPPERCASE intencional, 1 mista. 0 bugs ativos. Deadline: 2027-05-11 |
 
 ### Decisões registradas
 
-| Decisão | Violação | Descrição |
+| Decisão | Violação | Escolha | Justificativa resumida |
+|---|---|---|---|
+| DECISION-0026 | C22 | ALLOWLISTED | CHECK+trigger garantem identidade users.id=user_id; 16 call-sites, sem bug |
+| DECISION-0027 | C29 | ALLOWLISTED | Auditoria material: 0 bugs ativos; UPPERCASE funciona porque tabelas têm CHECK UPPERCASE ou sem CHECK |
+| DECISION-0028 | C29-sub | Intencional | chat_reports/live_presence UPPERCASE é padrão de domínio; event_reservations mista → DT registrada |
+| DECISION-0029 | C19 | Opção A: schema | ALTER COLUMN UUID→TEXT; zero mudança TS; 10 tabelas adjacentes já TEXT |
+
+### DTs registradas
+
+| DT | Status | Descrição |
 |---|---|---|
-| DECISION-0026 | C22 | ALLOWLISTED — users.id/user_id controlado por CHECK+trigger, deadline 2027-05-11 |
-| DECISION-0027 | C29 | ALLOWLISTED — 132 comparações UPPERCASE, 0 bugs ativos, deadline 2027-05-11 |
-| DECISION-0028 | — | chat_reports/live_presence UPPERCASE intencional; event_reservations mista → DT aberto |
-| DECISION-0029 | C19 | Opção A: schema fix UUID→TEXT (não código) |
+| DT-event-reservations-mixed-case | OPEN | CHECK aceita lowercase E UPPERCASE para mesmos estados — contradição semântica |
 
-### Estado atual do sistema
+### Contexto: β.7 parcial — DT institucional
 
-- **FIXED total:** 22 (era 18; +C50, C51, C15, C19)
-- **OPEN:** 22 (era 26; -4 fechadas -2 allowlisted)
-- **ALLOWLISTED:** 4 (C13, C22, C29, + 1 de C63)
-- **DECISION_PENDING:** 10
+- **executei_1.md** contém a execução completa da validação β.7 financeira (schema Genesis, triggers, RLS, cobertura econômica).
+- **DT-beta7-trigger-disable-precedent** (CLOSED, INSTITUCIONAL): Durante β.7 Claude desabilitou trigger `bank_ledger_no_delete` para limpeza de teste. **NUNCA repetir.** Alternativas: entrada compensatória, tenant descartável, schema separado.
+- **Stash drop**: git stash usado durante baseline de gate 4; stash pop restaurou edits de C19 sem perda. Confirmado via grep pós-pop.
 
-### Gates (referência final)
+### Achado colateral β.7 (identidade Genesis)
 
-- TSC: 0 erros
-- validate:actor-writer-boundaries: PASS
-- validate:bank-ledger-boundaries: PASS
-- validate:regression-guards: PASS (295 migrations, numeração única)
-- validate:architectural: PASS (0 freeze-blocking; 20 violações pré-existentes de profile/categories)
+- Commit `24f3e402` (C50/C51 backlog): `actor-ssot.service.ts` faltava no stage — commitado separadamente.
+- Commit `0460e66f` (sessão anterior): bank-account repository provider Genesis aplicado.
 
-### Próximos fronts candidatos
+### Estado dos contadores (pós-sessão)
 
-- **C7** (MEDIUM, OPEN): Permissões hardcoded em `core/companies/` — bloqueado por C27
-- **C23/C28** (MEDIUM): `"createdAt"` coexistindo / 16 tabelas com aspas
-- **C36** (CRITICAL): 67 tabelas com `status` genérico
+| Métrica | Pré-sessão | Pós-sessão | Delta |
+|---|---|---|---|
+| FIXED | 18 | 22 | +4 (C50, C51, C15, C19) |
+| OPEN | 26 | 22 | -4 fechadas, -2 allowlisted → net -4 |
+| ALLOWLISTED | 0 | 2 | +2 (C22, C29) |
+| DECISION_PENDING | 10 | 10 | 0 |
+
+### Gates (HEAD fd3f1018 / 68a91d72)
+
+| Gate | Resultado |
+|---|---|
+| TSC (`pnpm tsc --noEmit`) | 0 erros |
+| validate:actor-writer-boundaries | PASS |
+| validate:bank-ledger-boundaries | PASS |
+| validate:regression-guards | PASS (295 migrations, numeração única, sufixos OK) |
+| validate:architectural | PASS (0 freeze-blocking; 20 pré-existentes em profile/categories — não introduzidos por esta sessão) |
+
+### Próximos fronts (§-1.5 aplicado)
+
+| Front | Severidade | §-1.5 | Motivo |
+|---|---|---|---|
+| **C40** | HIGH/OPEN | ✓ Q3 financeira | `system_coverage.*_cents` como NUMERIC — 2 colunas, 1 migration |
+| C38/C39 | HIGH/OPEN | △ Q3 parcial | `payment_execution_lock.type` sem CHECK — cirúrgico mas menor impacto |
+| C36 | CRITICAL/OPEN | — | 67 tabelas com `status` genérico — escopo amplo |
+| C27 | DECISION_PENDING | — | Fora de escopo (arquitetural) |
 
 ---
 
