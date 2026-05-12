@@ -145,7 +145,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C33 | FIXED | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
 | C34 | FIXED | Tabela `category_ai_logs` fantasma | `core/categories/categories.repository.ts` | FIXED (2026-04-28): migration 20260428240000_create_category_ai_logs.sql. col_count=15, RLS+FORCE+policy OK. Gates 4/4 PASS. ON CONFLICT (category_id) preservado. Guard IF EXISTS no código agora tem tabela real para acessar. |
 | C35 | FIXED | Tabela `partner_employees` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=4, RLS+FORCE+policy OK. partner_employees criada junto com audit_events (dependência de audit.service.ts). |
-| C38 | OPEN | 5 tabelas com `type` genérico | vários | |
+| C38 | OPEN-PARCIAL | 5 tabelas com `type` genérico — investigação 2026-05-12 distinguiu **1 caso ratificado por DECISION-0033** (`canonical_products.type` = discriminator estrutural ontológico, exceção formal restrita) + **4 casos mecânicos pendentes** (renomear coluna `<entity>_type`, lowercase já conforme em CHECK ou valor em uso) | 5 tabelas (canonical_products, payment_execution_lock, promotions, reconciliation_discrepancies, reconciliation_ledger_discrepancies) | PARCIAL 2026-05-12 (executei_9.md). Subcaso `canonical_products` resolvido por DECISION-0033 sem ação técnica (categoria semântica distinta de status operacional; ratificada como discriminator de classe ontológica análoga a entity_type/actor_type/event_type, com 3 Restrições explícitas para evitar buraco negro). Demais 4 tabelas seguem caminho mecânico em sub-frente separada (ALTER RENAME COLUMN + ~6 arquivos TS). Log: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md` |
 | C39 | NOT-A-BUG | ~~7 tabelas com `state` genérico~~ — 6 confirmadas no banco vivo, **todas usam `state` no sentido de endereço geográfico (UF)**, não state machine | 6 tabelas (regional_*, rides_cities, suppliers) | RECLASSIFICADO 2026-05-12 (executei_9.md). §4.20 do `07_NOMENCLATURA_CANONICA` reconhece `state` (VARCHAR(100)) como nome canônico para "Estado/Província" em endereço — distinto de `state` proibido por §3.4 (state machine). Auditoria original mapeou pelo nome literal sem distinguir uso semântico. Zero violação de norma. Sem migration, sem edits TS. Log: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md` |
 | C40 | FIXED | Monetário em NUMERIC/DECIMAL | `system_coverage` (VIEW) | FIXED (2026-05-11, 2337f577): VIEW system_coverage retornava NUMERIC em *_cents por COALESCE sem cast explícito. DROP + CREATE com ::bigint. Auditoria: coverage_audit_log já BIGINT; callers apenas leitura. Migration 20260530532000. DECISION-0030. TSC 0. Gates 4/4 PASS. |
 | C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
@@ -178,6 +178,19 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-05-12 — C38 PARCIAL: canonical_products.type ratificado por DECISION-0033 (discriminator estrutural)
+
+**C38 OPEN → OPEN-PARCIAL:** subcaso `canonical_products.type` resolvido por DECISION-0033 sem ação técnica.
+
+- Investigação read-only (executei_9.md) distinguiu 5 tabelas em 2 categorias semânticas:
+  - **1 arquitetural:** `canonical_products.type = 'INDUSTRIAL'` (35 registros, UPPERCASE, sem CHECK) — discriminator de classe ontológica análogo a `entity_type`/`actor_type`/`event_type` (§3.4 exceções canônicas), não status operacional
+  - **4 mecânicas:** `payment_execution_lock`, `promotions`, `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies` — todas com CHECK ou valor já lowercase; pedem RENAME COLUMN simples
+- DECISION-0033 ratifica subcaso arquitetural como exceção formal restrita com 3 Restrições explícitas (categoria limitada; proibição de expansão oportunista; prova de classe ontológica obrigatória em DECISIONs futuras).
+- DECISION-0033 NÃO autoriza atualização normativa formal de `07_NOMENCLATURA_CANONICA` §3.2 ou `SSOT_REGISTRY_UNIFICARD` por IA (§10 AGENT_PROTOCOL); pendência derivada para Clayton/RFC humano.
+- Sub-frente 2 (4 tabelas mecânicas): aguarda autorização para execução. RENAME COLUMN + ~6 arquivos TS coordenados. Risco baixo (tabelas vazias ou CHECK já lowercase).
+- Log institucional: `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md`
+- Artefato local (gitignored): `executei_9.md`
 
 ### 2026-05-12 — C39 RECLASSIFICADO NOT-A-BUG (state como endereço, não state machine)
 

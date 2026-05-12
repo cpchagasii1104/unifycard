@@ -2094,3 +2094,196 @@ revisão histórica silenciosa.
 
 ---
 
+### DECISION-0033 — `canonical_products.type` é discriminator estrutural ontológico (categoria semântica distinta de status operacional)
+
+- **Data:** 2026-05-12
+- **Tipo:** arquitetural (semântica linguística — exceção formal restrita)
+- **ID da violação (se aplicável):** C38 (subcaso parcial — `canonical_products`; demais 4 tabelas seguem caminho mecânico em sub-frente separada)
+- **Contexto:**
+  Investigação read-only de C38 (relatório `executei_9.md`, gitignored, 238 linhas)
+  identificou que das 5 tabelas com coluna `type` genérico, 4 são correção mecânica
+  trivial (renomear coluna `type` → `<entity>_type`, com CHECK ou valor já lowercase).
+  A 5ª — `canonical_products.type` — apresenta natureza semântica distinta que
+  exige decisão arquitetural específica.
+
+  **Estado material atual de `canonical_products.type`:**
+  - 35/35 registros em produção têm valor único `'INDUSTRIAL'` (UPPERCASE)
+  - Sem CHECK constraint
+  - Tipo TS é literal union de um único valor: `type: 'INDUSTRIAL'` (não enum
+    operacional com variantes esperadas)
+  - Predicado READY (§4.10 LEI_DE_COERÊNCIA) usa `type = 'INDUSTRIAL'` como
+    **gate de pertinência estrutural** para fluxos transacionais
+  - Comparações `IS DISTINCT FROM 'INDUSTRIAL'` em SQL helpers filtram
+    pertinência ao subdomínio
+  - Tabela `canonical_products` é catálogo canônico (entidade de produto
+    industrial); nome carrega `canonical` denotando intenção de identidade
+    ontológica
+  - Linhagem futura prevista (`'COMMERCIAL'`, `'SERVICE'`) mas não materializada
+
+  **Análise semântica decisiva:**
+  `canonical_products.type` **não funciona como status operacional** (que
+  varia entre estados de negócio: pending, paid, cancelled). Funciona como
+  **discriminator de classe ontológica**: define a que categoria de entidade
+  o registro pertence dentro do Core. É operacionalmente análogo a
+  `entity_type`, `actor_type`, `event_type` — exceções canônicas já
+  reconhecidas em `07_NOMENCLATURA_CANONICA` §3.4.
+
+  O fato de existir apenas `'INDUSTRIAL'` hoje não enfraquece esse status:
+  reforça que a coluna representa **classe de entidade**, não enum operacional
+  dinâmica. Se fosse status operacional, esperaria-se variantes (pending/active/
+  paid). Sendo discriminator, valor único significa "subdomínio único modelado
+  até agora" — extensão futura para `'COMMERCIAL'`/`'SERVICE'` é cabível e
+  arquiteturalmente prevista.
+
+- **Opções consideradas:**
+
+  1. **Opção A — Ratificar como exceção canônica formal (discriminator estrutural)** — ESCOLHIDA.
+     - Reconhecer `canonical_products.type` como **discriminator de classe ontológica**, categoria semântica distinta de status operacional.
+     - Alinhar com `entity_type`/`actor_type`/`event_type` em natureza (não em nome — cada um discrimina classe de seu próprio domínio).
+     - Permite preservar `'INDUSTRIAL'` UPPERCASE como convenção análoga aos discriminators canônicos do §3.4.
+     - Zero migration de schema, zero edição TS, zero alteração de comportamento runtime.
+
+  2. **Opção B — Tratar como status operacional (DECISION-0032 prevalece, normalizar para lowercase)** — refutada.
+     - Aplicaria §4.11 / §19.8 (status lowercase) sem distinção de categoria semântica.
+     - Forçaria `'INDUSTRIAL'` → `'industrial'` + renomear coluna para `product_type`.
+     - **Problema:** trataria coluna que NÃO é status como se fosse — normalização artificial por estética normativa, sem ganho semântico.
+     - Toca código de runtime ativo (35 produtos em produção; predicado READY usa `type = 'INDUSTRIAL'` como gate em fluxos transacionais financeiros).
+     - Mistura categorias ontologicamente distintas — exatamente o anti-padrão que §3.4 protege contra ao reconhecer exceções canônicas.
+
+  3. **Opção C — Renomear coluna mantendo valor UPPERCASE** — refutada.
+     - Caminho intermediário sem motivo arquitetural sólido.
+     - Replica fragilidade de DECISION-0028 ("UPPERCASE intencional porque alguém escreveu assim") sem fundamento ontológico explícito.
+     - Refutável pelo mesmo princípio que DECISION-0032 aplicou ao payment_*: sem evidência arquitetural fortíssima, exceção vira jeitinho institucional.
+
+- **Escolha:** Opção A — `canonical_products.type` é **discriminator estrutural ontológico**, categoria distinta de status operacional, ratificada como exceção canônica formal alinhada à natureza de `entity_type`/`actor_type`/`event_type` (§3.4).
+
+- **Justificativa:**
+  Status operacional varia entre estados de negócio (pending/paid/cancelled) e é resolvido por DECISION-0032 (lowercase canônico, mapper na fronteira). Discriminator de classe ontológica define **a que categoria de entidade um registro pertence** dentro do Core; comporta-se semanticamente como `entity_type`/`actor_type`/`event_type` que §3.4 já reconhece como exceções canônicas — não pelo nome, mas pela natureza estrutural.
+
+  Forçar normalização de `canonical_products.type` como se fosse status operacional aplicaria a regra correta na categoria errada. Norma aplicada fora do domínio que a justifica perde força institucional — vira estética normativa, não governança semântica.
+
+  DECISION-0032 permanece íntegra: continua governando status operacional (payment_*, transaction_*, etc.). DECISION-0033 governa categoria distinta (discriminator ontológico) com mesmo rigor mas critério próprio.
+
+- **EXIGÊNCIAS INSTITUCIONAIS (restrições explícitas para evitar buraco negro):**
+
+  Esta exceção é **estritamente delimitada**. Para prevenir expansão oportunista
+  ("ah então qualquer `type` agora pode ser UPPERCASE"), as seguintes restrições
+  são obrigatórias:
+
+  **Restrição 1 — Categoria limitada:**
+  "Discriminator estrutural ontológico" é categoria semântica restrita, **não buraco
+  negro para qualquer coluna chamada `type`**. Para uma coluna se qualificar como
+  exceção análoga a esta DECISION, deve atender simultaneamente:
+  - (a) Discriminar **classe de entidade** dentro de tabela canônica do Core
+    (não classificação operacional, não enum de negócio)
+  - (b) Funcionar como **gate estrutural** em fluxos canônicos do Core
+    (predicado READY, validação de pertinência, etc.)
+  - (c) Cristalizar em tipo TS como **literal de classe** (não union de
+    estados operacionais)
+  - (d) Pertencer a tabela com nome canônico (`canonical_*`, ou tabela com
+    natureza ontológica explícita do Core)
+
+  **Restrição 2 — Proibição de expansão oportunista:**
+  Aplicar esta DECISION a colunas que não atendem TODAS as 4 condições da
+  Restrição 1 é **violação institucional**. Em particular:
+  - `payment_*.status`, `*_status` em geral → governados por DECISION-0032
+    (lowercase canônico)
+  - `<entity>_type` em tabelas operacionais (promotions, reconciliation_*,
+    etc.) → renomeação mecânica + lowercase, **NÃO** se qualificam como
+    discriminator estrutural
+  - Qualquer pretendida nova exceção exige DECISION dedicada com prova de
+    classe ontológica (não apenas argumentação por analogia ao caso desta
+    DECISION)
+
+  **Restrição 3 — Prova de classe ontológica obrigatória em DECISIONs futuras:**
+  Qualquer DECISION futura que invoque DECISION-0033 como precedente para
+  ratificar UPPERCASE deve documentar **prova material** dos 4 critérios da
+  Restrição 1. Argumentação por analogia ("é parecido com canonical_products.type")
+  é insuficiente. Sem prova → caminho default permanece DECISION-0032 (lowercase).
+
+- **Consequências esperadas:**
+
+  - **Curto prazo:**
+    - `canonical_products.type` permanece como está. Zero migration, zero edição TS.
+    - Subcaso de C38 (canonical_products) é resolvido sem ação técnica.
+    - Demais 4 tabelas de C38 (`payment_execution_lock`, `promotions`,
+      `reconciliation_discrepancies`, `reconciliation_ledger_discrepancies`)
+      seguem caminho mecânico em sub-frente separada (Sub-frente 2):
+      renomear coluna `type` → `<entity>_type` + lowercase canônico (CHECK
+      ou valor já conformes em todas as 4).
+
+  - **Médio prazo (alteração normativa formal):**
+    - Esta DECISION **estabelece a posição arquitetural** mas não altera
+      `07_NOMENCLATURA_CANONICA` §3.2 ou `SSOT_REGISTRY_UNIFICARD` por si só.
+    - §10 do `00_AGENT_PROTOCOL` proíbe IA de alterar documentos normativos.
+    - §3.2 do `07_NOMENCLATURA_CANONICA` exige processo formal: "novo conceito
+      constitucional só pode ser adicionado após (1) atualização do
+      SSOT_REGISTRY_UNIFICARD, (2) atualização deste documento, (3) aprovação
+      formal em Gate, (4) RFC aprovado".
+    - **Responsabilidade humana derivada:** Clayton (ou processo RFC) deve
+      executar atualização normativa formal de §3.2 + SSOT_REGISTRY adicionando
+      `canonical_product_type` (ou nome canônico equivalente) à lista de
+      exceções estabelecidas, com referência a esta DECISION-0033 e suas
+      restrições explícitas.
+    - Até que essa atualização normativa formal aconteça, o status operacional
+      é: DECISION-0033 vigente como decisão arquitetural; alteração de §3.2 e
+      SSOT_REGISTRY pendente de RFC humano.
+
+  - **Longo prazo:**
+    - Modelagem futura de `'COMMERCIAL'`, `'SERVICE'` em `canonical_products`
+      (se vier a ser necessária) opera dentro da exceção desta DECISION:
+      valores UPPERCASE preservados, tipo TS expandido como `'INDUSTRIAL' |
+      'COMMERCIAL' | 'SERVICE'`, predicado READY ajustado conforme regra de
+      negócio.
+    - Qualquer pretendida nova exceção análoga (outro `*_type` UPPERCASE)
+      requer DECISION dedicada com prova material dos 4 critérios — sem
+      atalho via "precedente DECISION-0033".
+
+  - **Não autoriza:**
+    - Aplicar UPPERCASE em outras colunas `type` por analogia genérica
+    - Atualizar `07_NOMENCLATURA_CANONICA` ou `SSOT_REGISTRY` por IA
+    - Implementação direta para outras 4 tabelas de C38 (segue caminho
+      mecânico Sub-frente 2)
+    - Modificação de `canonical_products.type` em qualquer dimensão (schema,
+      tipo TS, valor) — preservar como está
+
+- **Responsável:** Clayton (decisão soberana) — multi-agente: Claude Code
+  (investigação material `executei_9.md` + redação derivada do framework
+  estabelecido), Clayton (refinamento da natureza ontológica + 2 exigências
+  institucionais explícitas + decisão soberana).
+- **Validação prévia:** investigação read-only `executei_9.md` (cobertura
+  norma + persistência + runtime + tipos cristalizados); contraste com
+  exceções canônicas já estabelecidas em §3.4 (`entity_type`/`actor_type`/
+  `event_type`); contraste com DECISION-0028 (precedente UPPERCASE delimitado
+  mas com fundamento mais frágil — esta DECISION explicita o critério que
+  faltava lá).
+- **Supera:** subcaso `canonical_products` de C38 (resolvido sem ação técnica).
+- **Superada por:** (preencher quando superada)
+
+#### Referências
+
+- `executei_9.md` (gitignored — relatório material da investigação read-only)
+- `docs/03_execution_log/2026-05-12_investigacao_C38_C39_drift_type_state.md`
+- Commit `dbef2569` — C39 NOT-A-BUG (sub-frente paralela de C38/C39)
+- `docs/01_normative/07_NOMENCLATURA_CANONICA.md` §3.2 / §3.4 / §3.5
+- `docs/01_normative/LEI_DE_COERÊNCIA_SISTÊMICA_UNIFICARD.md` §4.10 (predicado READY)
+- DECISION-0028 (precedente UPPERCASE delimitado — esta DECISION explicita
+  critério ontológico que aquela invocou implicitamente)
+- DECISION-0032 (categoria distinta — status operacional, lowercase canônico)
+- code.md §-4 (visão fundacional), §23 (como pensar antes de codar), §24
+  (camadas N0/N1/N2/CATEGORIES/CONCEPT)
+- Memória institucional: `feedback_norma_ja_decide` (norma aplicada na
+  categoria errada perde força)
+
+#### Pendência derivada (responsabilidade humana)
+
+Atualização normativa formal de `07_NOMENCLATURA_CANONICA` §3.2 + `SSOT_REGISTRY_UNIFICARD`
+adicionando `canonical_product_type` (ou nome canônico equivalente) como
+exceção estabelecida, com referência explícita às 3 Restrições desta
+DECISION. Pode ser feita por Clayton diretamente ou via RFC — **não por IA**
+(§10 AGENT_PROTOCOL).
+
+---
+
+
+
