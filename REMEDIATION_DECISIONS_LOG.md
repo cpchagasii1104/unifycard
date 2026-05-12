@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0017 (2026-04-30) |
+| Última entrada | DECISION-0028 (2026-05-11) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -1433,6 +1433,292 @@ sequência β:
 - Cross-AI: Codex (corpos de método + WHERE clause) + Claude Code (impacto em type BankCurrency)
 - §-2 (documentação não implica runtime)
 - §4-E (debugging que vira arqueologia, em maturação)
+
+---
+
+## DECISION-0026: C22 reclassificada de CRITICAL para DEBT (users.id + users.user_id)
+
+**Data:** 2026-05-11
+**Frente:** Remediação Estrutural — Auditoria C22
+**Status:** ACEITA
+**Escopo:** Tabela `users`, identidade de usuário, call-sites em core/ e modules/
+
+### Contexto
+
+C22 foi classificada como CRITICAL em 2026-04-21 com descrição:
+> `users.id` + `users.user_id` duplicados | `migration 2164-2182`
+
+Auditoria material em 2026-05-11 (Claude Code, documentada em `executei.md`) revelou
+que **alguém remediou C22 entre 21/04 e 11/05 sem fechar o ticket**.
+
+Estado atual do schema:
+
+1. **CHECK constraint:** `users_id_user_id_equal CHECK ((id = user_id))`
+   — Garante que ambas colunas sempre têm valor idêntico.
+
+2. **Trigger:** `trg_users_sync_id_user_id BEFORE INSERT OR UPDATE`
+   — Sincroniza automaticamente `id` e `user_id` em qualquer operação.
+
+3. **FK canônica estabelecida:** `actors.user_id → users.id`
+   — Relacionamento formal entre camadas de identidade.
+
+4. **16 call-sites mapeados:** Mix de `u.id = a.user_id` (correto) e
+   `a.user_id = u.user_id` (funciona mas semanticamente errado).
+   Nenhum causa bug porque CHECK garante igualdade.
+
+**Conclusão material:** A duplicação física persiste mas está **blindada**.
+Não há estado inconsistente possível em runtime. C22 não é BLOCKER.
+
+### Decisão
+
+Reclassificar C22 de CRITICAL para DEBT conforme critério da Seção 4 do
+SYSTEM_REMEDIATION_PLAN:
+
+> *"DEBT — Violação normativa sem impacto de runtime imediato.
+> Correção em sprints dedicados; não bloqueia fase."*
+
+**Justificativa para não executar DROP `user_id` (Opção A):**
+
+1. 16 call-sites espalhados em `core/`, `modules/groups`, `modules/events`,
+   `modules/social` — refactor amplo com blast radius significativo.
+2. Sistema pré-launch, prioridades operacionais mais urgentes.
+3. DROP é forward-only com risco material superior ao ganho cosmético.
+4. C36 (67 tabelas com status genérico) e C37 (gate schema-coherence)
+   têm ROI maior para o esforço equivalente.
+
+### ALLOWLIST Entry (P3 compliant)
+
+```json
+{
+  "id": "C22",
+  "type": "schema_duplication_with_guards",
+  "reason": "controlled by CHECK constraint + sync trigger; FK canonical established",
+  "owner": "Clayton",
+  "deadline": "2027-05-11",
+  "issue_id": "DECISION-0026"
+}
+```
+
+### Ação futura (opcional)
+
+Padronização de call-sites: normalizar `a.user_id = u.user_id` para
+`a.user_id = u.id` (alinhado com FK canônica). Não bloqueia nada;
+pode ser feito em tempo livre como cleanup cosmético.
+
+### Validação de aceitação
+
+- [ ] Atualizar SYSTEM_REMEDIATION_STATUS.md: C22 OPEN → ALLOWLISTED
+- [ ] Documentar em executei.md
+- [ ] 4 gates pós-commit
+
+### Referências
+
+- Auditoria material: executei.md (2026-05-11 05:30 UTC)
+- Auditoria cruzada: Opus 4.7 validou diagnóstico e recomendou Opção B
+- P3 do SYSTEM_REMEDIATION_PLAN (campos obrigatórios para allowlist)
+- Seção 4 do SYSTEM_REMEDIATION_PLAN (critério DEBT vs BLOCKER)
+
+---
+
+## DECISION-0027: C29 reclassificada de HIGH para DEBT (comparações status UPPERCASE)
+
+- **Data:** 2026-05-11
+- **Tipo:** arquitetural
+- **ID da violação:** C29
+- **Contexto:**
+  C29 identificou 132+ comparações de status usando UPPERCASE no código quando
+  §Nomenclatura define lowercase como padrão. Auditoria material (executei.md)
+  revelou que:
+  - 77 tabelas têm coluna `status`
+  - 46 têm CHECK constraint (41 lowercase, 2 UPPERCASE, 1 mista)
+  - 45 colunas SEM CHECK (código UPPERCASE funciona)
+  - 0 valores UPPERCASE inconsistentes em tabelas com CHECK lowercase
+  - Dados reais em tabelas críticas (orders, events, bookings) são lowercase
+
+  **Conclusão da auditoria:** C29 NÃO é bug ativo. É padronização de nomenclatura.
+  Código UPPERCASE funciona porque tabelas ou têm CHECK UPPERCASE ou não têm CHECK.
+
+- **Opções consideradas:**
+  1. Opção A — Corrigir 132+ sites para lowercase (alinhado com §Nomenclatura)
+     - Prós: Consistência total
+     - Contras: Alto esforço, sem ganho funcional, risco de regressão
+  2. Opção B — ALLOWLIST como debt de nomenclatura
+     - Prós: Zero risco, reconhece que não bloqueia nada
+     - Contras: Inconsistência permanece
+  3. Opção C — Padronizar para UPPERCASE (inverter §Nomenclatura)
+     - Prós: Alinha com código existente
+     - Contras: Requer reescrever normas, CHECK constraints, dados existentes
+
+- **Escolha:** Opção B
+
+- **Justificativa:**
+  Sistema está em pré-lançamento. Não há bug ativo — código funciona.
+  Padronização de nomenclatura é cleanup cosmético, não correção de defeito.
+  Mesmo padrão aplicado em C22/DECISION-0026: reclassificar de CRITICAL/HIGH
+  para DEBT quando controlado e sem impacto em runtime.
+
+- **Consequências esperadas:**
+  - Curto prazo: C29 deixa de consumir tempo de remediação urgente
+  - Médio prazo: Padronização pode ser feita em tempo livre como cleanup
+
+- **Responsável:** Clayton
+- **Validação prévia:** Opus 4.7 (via auditoria de executei.md)
+- **Supera:** nenhuma
+- **Superada por:** (preencher quando superada)
+
+### ALLOWLIST Entry (P3-compliant)
+
+```json
+{
+  "id": "C29",
+  "type": "nomenclature_inconsistency_controlled",
+  "reason": "UPPERCASE status comparisons work because tables either have UPPERCASE CHECK or no CHECK; 0 active bugs found",
+  "owner": "Clayton",
+  "deadline": "2027-05-11",
+  "issue_id": "DECISION-0027"
+}
+```
+
+### Descobertas colaterais (registradas separadamente)
+
+1. **ticket_sales SCHEMA DRIFT** — NÃO é C29. Bug latente separado.
+   Migration original: ENUM (RESERVED, PAID, CANCELLED)
+   Schema vivo: CHECK (pending, completed, refunded, failed)
+   Registrado como C64.
+
+2. **3 tabelas com CHECK UPPERCASE** — Exigem DECISION dedicada (DECISION-0028):
+   - chat_reports (OPEN/ACK/RESOLVED)
+   - live_presence (ONLINE/OFFLINE)
+   - event_reservations (mista: aceita ambos cases)
+
+### Referências
+
+- Auditoria material: executei.md (2026-05-11 07:30-08:15 UTC)
+- 3 perguntas materiais respondidas (Q1: 77 tabelas, Q2: valores reais, Q3: 46 CHECK)
+- Classificação em 3 buckets: BUG ATIVO (0), CORRETO (100+), AMBÍGUO (45)
+
+---
+
+## DECISION-0028: Tabelas com CHECK UPPERCASE são intencionais (chat_reports, live_presence, event_reservations)
+
+- **Data:** 2026-05-11
+- **Tipo:** arquitetural
+- **ID da violação:** C29 (subcaso)
+- **Contexto:**
+  Auditoria de C29 identificou 3 tabelas com CHECK constraint usando UPPERCASE:
+
+  | Tabela | CHECK values | Domínio |
+  |--------|--------------|---------|
+  | chat_reports | 'OPEN', 'ACK', 'RESOLVED' | Suporte/moderação |
+  | live_presence | 'ONLINE', 'OFFLINE' | Estado de sistema |
+  | event_reservations | Misto (lowercase + UPPERCASE) | Reservas de eventos |
+
+  **event_reservations é a única com contradição real:**
+  ```sql
+  CHECK ((status = ANY (ARRAY[
+    'pending', 'confirmed', 'cancelled', 'expired',
+    'PENDING', 'CONFIRMED', 'CHECKED_IN', 'NO_SHOW', 'CANCELLED'
+  ])))
+  ```
+  Aceita AMBOS os cases no mesmo constraint.
+
+- **Opções consideradas:**
+  1. Opção A — Padronizar todas para lowercase
+     - Prós: Alinhado com §Nomenclatura
+     - Contras: Requer migration + código + possíveis dados existentes
+  2. Opção B — Aceitar UPPERCASE como intencional para esses domínios
+     - Prós: Zero mudança, reconhece que foram desenhados assim
+     - Contras: Exceção à regra
+  3. Opção C — Resolver event_reservations (mista) como prioridade
+     - Prós: Elimina a única contradição real
+     - Contras: Deixa chat_reports e live_presence pendentes
+
+- **Escolha:** Opção B (com DT para event_reservations)
+
+- **Justificativa:**
+  - **chat_reports e live_presence:** UPPERCASE é padrão comum para estados
+    de sistema/suporte. Código e schema estão alinhados. Não há bug.
+  - **event_reservations:** CHECK misto é DT a resolver. Mas tabela funciona
+    para ambos os cases — não bloqueia runtime.
+
+  Aceitar como intencional significa: não é violação de §Nomenclatura,
+  é exceção documentada para domínios específicos.
+
+- **Consequências esperadas:**
+  - Curto prazo: Zero mudança necessária
+  - Médio prazo: DT-event-reservations-mixed-case pode ser resolvida em cleanup
+
+- **Responsável:** Clayton
+- **Validação prévia:** Opus 4.7 (validação da classificação C29)
+- **Supera:** nenhuma
+- **Superada por:** (preencher quando superada)
+
+### DT registrada
+
+**DT-event-reservations-mixed-case:**
+- Tabela: event_reservations
+- Problema: CHECK aceita lowercase E UPPERCASE para mesmos estados
+- Risco: Confusão semântica, dados inconsistentes possíveis
+- Ação futura: Escolher um case e migrar dados + constraint
+- Prioridade: BAIXA (funciona, não bloqueia)
+
+### Referências
+
+- Auditoria material: executei.md seção C29 (Q3 CHECK constraints)
+- Schema vivo: `\d event_reservations` mostra CHECK misto
+
+---
+
+## DECISION-0029: C19 — bank_transactions.reference_id UUID→TEXT (Opção A)
+
+- **Data:** 2026-05-11
+- **Tipo:** schema fix
+- **ID da violação:** C19
+- **Contexto:**
+  `bank_transactions.reference_id` estava tipado como UUID no schema (`0003_bank_core.sql:54`).
+  TypeScript (`bank-transaction.types.ts:78`) já usava `string`. Zod (`transaction.schemas.ts:13`) já usava `z.string().min(1)`.
+
+  8+ callers passam strings compostas/heterogêneas por design:
+  - `governance-funding`: `governance_funding:${proposalId}`
+  - `treasury-split`: `${settlementId}_regional_fund`
+  - `payout`: `${paymentIntentId}:${split.id}`
+  - `accounts-payable`: `manual-${Date.now()}`
+
+  Sistema funcionava com 4 registros UUID puros, mas qualquer execução real dos callers crasharia com
+  `invalid input syntax for type uuid`.
+
+  Cross-table: 18 tabelas com `reference_id`, 10 em TEXT, 7 em UUID — bank_transactions era o outlier.
+
+- **Opções consideradas:**
+  1. **Opção A** — ALTER COLUMN UUID→TEXT no schema (schema fix)
+     - Prós: Zero mudança de código TS; alinha com 10 tabelas adjacentes; callers ficam safe imediatamente
+     - Contras: Perda de validação UUID implícita (mas callers nunca precisaram disso)
+  2. **Opção B** — Validar e rejeitar inputs não-UUID no código
+     - Prós: Schema permanece strict
+     - Contras: Quebra todos os callers intencionais; requer refactor de 8+ sites
+
+- **Escolha:** Opção A (schema fix UUID→TEXT)
+
+- **Justificativa:**
+  - TypeScript e Zod já tratavam como `string` — schema estava desalinhado com o contrato real
+  - 4 registros existentes são UUIDs válidos → cast trivial TEXT, zero perda de dados
+  - UNIQUE constraint `uq_bank_transactions_reference(tenant_id, reference_type, reference_id)` sobrevive
+  - Triggers `trg_check_atl` e `trg_validate_purpose` não tocam `reference_id`
+  - 20 FKs apontam para `bank_transactions.id`, nenhuma para `reference_id`
+
+- **Artifacts:**
+  - Migration: `backend/migrations/20260530531000_bank_transactions_reference_id_uuid_to_text.sql`
+  - Residuais removidos: `bank-split.repository.ts:390`, `bank-transaction.service.ts:1466`, `bank-transaction-read.repository.ts:41`
+  - Commit: `fd3f1018`
+
+- **Consequências esperadas:**
+  - Curto prazo: governance-funding, treasury-split, payout, accounts-payable param de crashar
+  - Médio prazo: nenhuma degradação (campo permanece UNIQUE composto por tenant_id+reference_type+reference_id)
+
+- **Responsável:** Clayton
+- **Validação prévia:** Opus 4.7 (auditoria completa constraints/FKs/triggers)
+- **Supera:** nenhuma
+- **Superada por:** (preencher quando superada)
 
 ---
 

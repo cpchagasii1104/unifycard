@@ -44,6 +44,11 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 (congelado) |
 
 | Atualização 2026-04-30 | G2 Pipeline E2E PASS — 5 migrations, patch semântico, DECISION-0015 |
+| Atualização 2026-05-11 [1] | C22 ALLOWLISTED via DECISION-0026 — duplicação users.id/user_id controlada por constraint+trigger |
+| Atualização 2026-05-11 [2] | C50/C51 FIXED — actorId como globalUserId corrigido em cultural.routes.ts e store-onboarding.routes.ts |
+| Atualização 2026-05-11 [3] | C64 FIXED — ticket_sales SCHEMA DRIFT alinhado com schema (pending/completed/refunded/failed) |
+| Atualização 2026-05-11 [4] | C15 FIXED — tenant_products.price NUMERIC removida via migration 20260530530000 |
+| Atualização 2026-05-11 [5] | C19 FIXED — bank_transactions.reference_id UUID→TEXT via DECISION-0029 (commit fd3f1018) |
 
 ### 2026-04-30 — G2 PIPELINE E2E PASS
 
@@ -78,15 +83,15 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 
 | Métrica | Valor inicial | Pós primeiro nível (2026-04-22) | Pós segundo nível (2026-04-22) |
 |---|---|---|---|
-| Total de violações | 30 | 50 | **56** (+6 da auditoria destrutiva) |
+| Total de violações | 30 | 50 | **57** (+6 da auditoria destrutiva; +C64 2026-05-11) |
 | CRITICAL | 10 | 13 | **16** (+C54, C55, C56) |
-| HIGH | 11 | 22 | **24** (+C52, C53) |
+| HIGH | 11 | 22 | **25** (+C52, C53, C64) |
 | MEDIUM | 9 | 12 | **13** (+C57) |
-| OPEN | 21 | 26 | **27** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54 FIXED) |
+| OPEN | 21 | 26 | **22** (+5 novas abertas; C52 é DECISION_PENDING; C57+C47+C55+C54+C64+C50+C51+C15+C19 FIXED; C22+C29 ALLOWLISTED) |
 | IN_PROGRESS | 0 | 0 | 0 |
-| FIXED | 1 | 13 | **17** (+C57, +C47, +C55, +C54) |
+| FIXED | 1 | 13 | **22** (+C57, +C47, +C55, +C54, +C64, +C50, +C51, +C15, +C19) |
 | REOPENED | 0 | 1 (C44) | **2** (C44, C14 parcial) |
-| ALLOWLISTED | 0 | 0 | 0 |
+| ALLOWLISTED | 0 | 0 | **2** (C22 DECISION-0026, C29 DECISION-0027, 2026-05-11) |
 | DEFERRED | 0 | 0 | 0 |
 | DECISION_PENDING | 8 | 9 | **10** (+C52) |
 
@@ -107,7 +112,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C12 | FIXED | `actorId` retornado como `globalUserId` | `core/identity/identity.routes.ts` | |
 | C13 | ALLOWLISTED | 84 arquivos leem `bank_*` fora de `modules/bank/` | vários | 84 arquivos (expandido de 37 em 2026-04-26). bank-settlement-repository.ts faz INSERT/UPDATE fora do Bank. saga-compensation.handler.ts faz SELECT em bank_transactions. Analíticos ficam para allowlist FASE 5. ALLOWLISTED (2026-04-28): triagem completa de 66 arquivos. Resultado: 36 apenas comentários (ignorar), 15 leituras analíticas SAFE (reconciliação/observabilidade/reporting), 15 RISKY auditados individualmente — zero escrita ilegítima encontrada. bank-settlement-repository.ts corrigido em sessão anterior. saga-compensation e payment-event-resolver têm leituras de idempotência legítimas (ALLOWLIST com justificativa). C13 não requer correção adicional. |
 | C14 | FIXED | 23 try/catch mascarando erros de schema | +6 catches em caminhos críticos | C53 fechado em 85976e65 — authority-mode.ts extraído, strict/permissive em catches 42P01. C14 parcial absorvido. |
-| C22 | OPEN | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | |
+| C22 | ALLOWLISTED | `users.id` + `users.user_id` duplicados | `migration 2164-2182` | ALLOWLISTED (2026-05-11): CHECK constraint `users_id_user_id_equal` + trigger `trg_users_sync_id_user_id` garantem identidade. FK canônica `actors.user_id → users.id` estabelecida. Duplicação controlada, sem bug em runtime. Reclassificado CRITICAL→DEBT via DECISION-0026. Deadline: 2027-05-11. |
 | C26 | FIXED | `actors.id` + `actors.actor_id` sem CHECK | `migration 2804-2850` | CHECK confirmado. Resistiu ao ataque 2º nível. |
 | C36 | OPEN | 67 tabelas com `status` genérico | 67 tabelas | |
 | C37 | OPEN | Gate schema-coherence não valida nomenclatura canônica | gate | |
@@ -117,7 +122,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | **C56** | **FIXED** | **`real-margin.service.ts` deriva receita bruta via metadata+cast numeric** | **`modules/marketplace/real-margin.service.ts:L194079`** | real-margin.service.ts reescrito para usar bank_ledger como SSOT. Commits: 5c93766b, 17ac88ac, 02266c4b. |
 | **C63** | **FIXED** | **SSOT temporal duplicado (schedules ∥ unified_availability)** | **6 WRITE paths** | FIXED (2026-04-29). DECISION-0014 (Opção B) executada integralmente. DECISION-0015 registrada. RFC_C63_FASE2B.md criado. Etapas 1-5 concluídas: (1) ADD COLUMN unified_availability_id em events + unified_booking_id em event_tickets (migration 20260530509000); (2) createBooking aceita trx opcional (unified-availability.repository.ts + service); (3) checkout-ticket.service.ts substituído — zero WRITE em schedule_slots; (4) THROW implícito via fluxo canônico; (5) REVOKE INSERT/UPDATE em schedules e schedule_slots aplicado (20260428200000). Gates CI adicionados (G1 fechado). 4/4 gates verdes em todos os commits. schedule_slots e schedules agora READ-ONLY para roles não-superuser. |
 
-### HIGH (24)
+### HIGH (25)
 
 | ID | Status | Descrição curta | Arquivo/Tabela principal | Notas |
 |----|--------|-----------------|--------------------------|-------|
@@ -131,7 +136,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C21 | DECISION_PENDING | `bank_accounts.owner_id` TEXT dual | `migration 88-100` | |
 | C24 | DECISION_PENDING | 4 tabelas paralelas de produto | products/canonical/catalog/tenant | |
 | C27 | DECISION_PENDING | 3 sistemas de autorização coexistindo | vários | Agora com subcaso C54+C55. |
-| C29 | OPEN | 132 comparações status UPPERCASE | vários | Conecta com C52 (mesmo padrão em payment_intents). |
+| C29 | ALLOWLISTED | 132 comparações status UPPERCASE | vários | ALLOWLISTED (2026-05-11): Auditoria material (executei.md) confirmou 0 bugs ativos. 46 tabelas com CHECK (41 lowercase, 2 UPPERCASE, 1 mista). Código UPPERCASE funciona porque tabelas ou têm CHECK UPPERCASE ou não têm CHECK. Reclassificado HIGH→DEBT via DECISION-0027. Deadline: 2027-05-11. |
 | C31 | FIXED | Tabela `audit_events` fantasma | `core/audit/audit.service.ts` | FIXED (2026-04-28): migration 20260428230000_create_audit_events.sql. col_count=13, RLS+FORCE+policy OK. Gates 4/4 PASS. audit_events ativa — auditService.record() passa a gravar de verdade. |
 | C32 | FIXED | Tabela `webauthn_challenges` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
 | C33 | FIXED | Tabela `webauthn_credentials` fantasma | `core/auth/webauthn.repository.ts` | FIXED (2026-04-28): migration 20260428220000_create_webauthn_tables.sql. col_count OK, RLS+FORCE+policy OK. Gates 4/4 PASS. |
@@ -143,10 +148,11 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | C44 | FIXED | marketplace/group.repository.ts fix parcial | group.types.ts + service | group.service.ts — parentGroupId e createdByUserId bloqueados explicitamente (2fd1a5ac). |
 | C45 | FIXED | groups.service.ts: findOrCreateUserActor fora do writer | `modules/groups/groups.service.ts` | |
 | C46 | FIXED | groups: ownerUserId vs actor_id | 5 arquivos | |
-| C50 | OPEN | Padrões culturais passam actorId como globalUserId | cultural | |
-| C51 | OPEN | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | |
+| C50 | FIXED | Padrões culturais passam actorId como globalUserId | cultural | CORRIGIDO (2026-05-11, 39577e45): `ensureUserActor(req.tenant.id, req.user.id)` resolve actor_id real. TODO outdated removido. 4 gates PASS. |
+| C51 | FIXED | store-onboarding passa actorId como globalUserId | `modules/store-onboarding/` | CORRIGIDO (2026-05-11, 39577e45): fallback alterado de `fallbackUserPk` (userId) para `importerActorId` (actor_id). 4 gates PASS. |
 | **C52** | **FIXED** | **`payment_intents` tem 2 writers divergentes** | **`modules/marketplace/payment-intent.repository.ts:L187829` + `modules/payments/payment-intent-repository.ts:L221983`** | Writers unificados, CRM migrado, BUG-TICKET-001 corrigido. E2E PASS 6/6 fluxos. Commits: 69fff82d→9fb52199 (9 commits). |
 | **C53** | **FIXED** | **6 catches de `42P01` ativos em compliance/events/observability** | **3 arquivos** | authority-mode.ts extraído, strict/permissive em event-handler-failure + handler-metrics (85976e65). |
+| **C64** | **FIXED** | **ticket_sales SCHEMA DRIFT: código usa RESERVED/PAID/CANCELLED, schema tem pending/completed/refunded/failed** | **modules/events/ticket-sale.repository.ts** | FIXED (2026-05-11, 33fcd928): Código alinhado com schema. Type TS e repository agora usam pending/completed/refunded/failed. 4 arquivos corrigidos (event.types.ts, ticket-sale.repository.ts, checkin.service.ts, ticket.service.ts). Gates 3/3 PASS. |
 
 ### MEDIUM (13)
 
@@ -154,9 +160,9 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 |----|--------|-----------------|--------------------------|-------|
 | C7 | OPEN | Permissões hardcoded em `core/companies/` | `companies.service.ts` | |
 | C10 | DECISION_PENDING | 3 writers para tabela `events` | 3 arquivos | Conecta com C52 (mesma classe). |
-| C15 | OPEN | 3 tabelas com `price NUMERIC` | vários | |
+| C15 | FIXED | 3 tabelas com `price NUMERIC` | vários | FIXED (2026-05-11): 2 de 3 tabelas ja corrigidas por migrations anteriores (product_offers: 20260331150000, product_prices: 20260416100000). Apenas tenant_products tinha price NUMERIC residual. Migration 20260530530000 remove coluna. Commit 3db7245a. |
 | C18 | FIXED | RLS ENABLE sem FORCE em 30 tabelas | várias | FIXED (2026-04-28): migration 20260428250000_force_rls_missing_tables.sql. 29 tabelas com FORCE aplicado. categories excluída corretamente (tabela global sem tenant_id — DISABLE RLS intencional em migration L4377, comentário: Ontologia global N0-N3, slug único no sistema, sem tenant_id). Guard funcionou corretamente. Gates 4/4 PASS. |
-| C19 | OPEN | `reference_id` tipo inconsistente | `bank_transactions` | |
+| C19 | FIXED | `reference_id` tipo inconsistente | `bank_transactions` | FIXED (2026-05-11, fd3f1018): ALTER COLUMN reference_id UUID→TEXT via migration 20260530531000. 3 `::uuid` casts residuais removidos (bank-split.repository.ts, bank-transaction.service.ts, bank-transaction-read.repository.ts). DECISION-0029 (Opção A). TSC 0 erros. Gates 4/4 PASS. |
 | C23 | OPEN | `"createdAt"` coexistindo | vários | |
 | C25 | FIXED | `products.canonical_product_id` sem FK | `products` | |
 | C28 | OPEN | 16 tabelas com `"createdAt"` aspado | várias | |
@@ -169,6 +175,37 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 ---
 
 ## Log de Mudanças de Status
+
+### 2026-05-11 — C19 FIXED (bank_transactions.reference_id UUID→TEXT)
+
+**C19 FIXED:** DECISION-0029 (Opção A — schema fix).
+- `bank_transactions.reference_id` era UUID; 8+ callers passam strings compostas (`governance_funding:${id}`, `${settlementId}_regional_fund`, `manual-${ts}`, `${intentId}:${splitId}`).
+- Migration `20260530531000_bank_transactions_reference_id_uuid_to_text.sql`: `ALTER COLUMN reference_id TYPE TEXT USING reference_id::text`. 4 registros existentes preservados.
+- 3 residuais `::uuid` removidos: `bank-split.repository.ts:390`, `bank-transaction.service.ts:1466`, `bank-transaction-read.repository.ts:41`.
+- UNIQUE index `uq_bank_transactions_reference(tenant_id, reference_type, reference_id)` preservado automaticamente pelo Postgres.
+- Commit: `fd3f1018`. TSC: 0 erros. Gates: actor-writer OK · bank-ledger OK · regression-guards OK · architectural OK.
+
+### 2026-05-11 — C29 ALLOWLISTED + C64 ABERTO (ticket_sales DRIFT)
+
+**C29 ALLOWLISTED:** Auditoria material (executei.md) confirmou 0 bugs ativos.
+- 77 tabelas com coluna `status`
+- 46 com CHECK constraint (41 lowercase, 2 UPPERCASE, 1 mista)
+- Código UPPERCASE funciona porque tabelas ou têm CHECK UPPERCASE ou não têm CHECK
+- Reclassificado HIGH→DEBT via DECISION-0027. Deadline: 2027-05-11.
+
+**C64 FIXED:** Descoberto durante auditoria C29 — SCHEMA DRIFT em ticket_sales.
+- Migration original: ENUM (RESERVED, PAID, CANCELLED)
+- Schema vivo: CHECK (pending, completed, refunded, failed)
+- Solução: Código alinhado com schema (Opção A)
+- Commit: 33fcd928
+- Gates: 3/3 PASS
+
+**DECISION-0028:** 3 tabelas com CHECK UPPERCASE são intencionais:
+- chat_reports (OPEN/ACK/RESOLVED) — estado de suporte
+- live_presence (ONLINE/OFFLINE) — estado de sistema
+- event_reservations (mista) — DT registrada para resolver case inconsistente
+
+**C50/C51 FECHADOS:** Commit 39577e45 (sessão anterior).
 
 ### 2026-04-29 — C63 FIXED + correção documental (C64 fantasma removido)
 

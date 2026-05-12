@@ -1,3 +1,48 @@
+## 2026-05-11 — Sessão de remediação estrutural (rescue-structural)
+
+**Branch:** `rescue-structural` | **HEAD final:** `fd3f1018`
+
+### Violações fechadas nesta sessão
+
+| Violação | Commit | Descrição |
+|---|---|---|
+| C15 | `3db7245a` | tenant_products.price NUMERIC removida — migration 20260530530000 |
+| C50/C51 | `39577e45` | actorId como globalUserId corrigido em cultural.routes.ts e store-onboarding.routes.ts |
+| C64 | `33fcd928` | ticket_sales SCHEMA DRIFT — alinhado com schema (pending/completed/refunded/failed) |
+| C19 | `fd3f1018` | bank_transactions.reference_id UUID→TEXT — DECISION-0029, 3 ::uuid casts removidos |
+
+### Decisões registradas
+
+| Decisão | Violação | Descrição |
+|---|---|---|
+| DECISION-0026 | C22 | ALLOWLISTED — users.id/user_id controlado por CHECK+trigger, deadline 2027-05-11 |
+| DECISION-0027 | C29 | ALLOWLISTED — 132 comparações UPPERCASE, 0 bugs ativos, deadline 2027-05-11 |
+| DECISION-0028 | — | chat_reports/live_presence UPPERCASE intencional; event_reservations mista → DT aberto |
+| DECISION-0029 | C19 | Opção A: schema fix UUID→TEXT (não código) |
+
+### Estado atual do sistema
+
+- **FIXED total:** 22 (era 18; +C50, C51, C15, C19)
+- **OPEN:** 22 (era 26; -4 fechadas -2 allowlisted)
+- **ALLOWLISTED:** 4 (C13, C22, C29, + 1 de C63)
+- **DECISION_PENDING:** 10
+
+### Gates (referência final)
+
+- TSC: 0 erros
+- validate:actor-writer-boundaries: PASS
+- validate:bank-ledger-boundaries: PASS
+- validate:regression-guards: PASS (295 migrations, numeração única)
+- validate:architectural: PASS (0 freeze-blocking; 20 violações pré-existentes de profile/categories)
+
+### Próximos fronts candidatos
+
+- **C7** (MEDIUM, OPEN): Permissões hardcoded em `core/companies/` — bloqueado por C27
+- **C23/C28** (MEDIUM): `"createdAt"` coexistindo / 16 tabelas com aspas
+- **C36** (CRITICAL): 67 tabelas com `status` genérico
+
+---
+
 ## 2026-05-05 — Triagem completa do working tree (rescue-structural)
 
 **Snapshot inicial:** `8e9a4c93 docs(#019.FR)` — working tree com 1549 itens sujos
@@ -1664,7 +1709,9 @@ Diagnóstico: domínio fundacional parcialmente enterrado por refatoração. Tra
 
 - **A1, A2, A3** (Frente F2): FECHADAS
 - **A5** (Frente F2): PAUSADA — escalada para F3, fecha quando F3-S8 entregar
-- **A4, B1-B6, C1, D1, D2, E** (Frente F2): backlog
+- **A4 / group_invites**: **FECHADA via DECISION-0022** — alias de compatibilidade em `groups.repository.ts`. Schema vivo é actor-based (`invited_actor_id`, `invited_by_actor_id`) + snake_case (`id`, `expires_at`, `created_at`, `responded_at`). Código TS/API preserva shape legacy por alias: `invite_id`, `invited_user_id`, `invited_by_user_id`, `expiresAt`, `createdAt`, `updatedAt`. Validado: `GET /groups/invites/mine?status=pending` 200.
+- **NOVA — DT-groups-actor-rename**: refactor futuro para remover contrato legacy user-based do módulo groups. Escopo: `groups.repository.ts`, `groups.service.ts`, `groups.routes.ts`, `groups.types.ts`; substituir semanticamente `invitedUserId`/`invitedByUserId` por `invitedActorId`/`invitedByActorId` em tipos, services, routes e DTOs (alinhando com schema actor-based) e migrar nomes de timestamps no código TS de camelCase legacy (`expiresAt`, `createdAt`, `updatedAt`) para snake_case alinhado ao schema vivo, removendo necessidade dos aliases SQL atuais. Não bloqueia smoke atual.
+- **B1-B6, C1, D1, D2, E** (Frente F2): backlog
 - **C65** (Frente F1): PENDENTE (inalterada nesta sessão)
 - **DT-eol-autocrlf-windows**: backlog
 - **DT-debug-code-em-service**: backlog
@@ -1689,3 +1736,419 @@ Pré-requisitos para F3-S4 começar:
 - Evidências de F3-S1, S2, S3 salvas em `docs/F3-evidencias/`
 - opus.md atualizado com nota sobre F3 aberta
 
+---
+
+## 2026-05-09 — Smoke E2E principal FECHADO · 5 drifts corrigidos
+
+**Frente:** F2 — Runtime Smoke Test
+**Sessão:** apoiada por Codex e Claude Code, orquestrada por Clayton com auditoria de Opus
+
+### Resumo
+
+Smoke E2E principal atingido pela primeira vez. Backend rodando via `tsx BOOT.ts`, frontend Vite em `:5173`, banco `unificard_dev` conectado. Os 4 erros remanescentes do smoke após a sessão de 2026-05-08 foram fechados nesta sessão, mais o `/companies` que era o último bloqueador.
+
+### Endpoints validados (200)
+
+- `POST /auth/register` 201
+- `POST /auth/login` 200
+- `/home`, `/perfil`, `/bank/balance`, `/bank/statement`, `/bank/user/group-allocation`
+- `GET /plan` 200
+- `GET /groups/mine` 200
+- `GET /groups/invites/mine?status=pending` 200
+- `GET /companies` 200
+- `/health` 200
+
+### Drifts corrigidos (não commitados nesta sessão)
+
+| # | Arquivo / linha | Drift | Fix | Aplicado por |
+|---|---|---|---|---|
+| 1 | `groups.repository.ts` | `gm.joinedat` inexistente | `gm.created_at AS "joinedAt"` | Claude Code |
+| 2 | `auth.service.ts:316` | birthdate off-by-one (UTC vs BRT) | `new Date(...)` → `normalizeBirthdate(...)` + `$3::DATE` | Codex |
+| 3 | `auth.service.ts:344` | `users.plan` nullable, register sem default | `INSERT ... plan='free'` + backfill 4 usuários | Codex |
+| 4 | `groups.repository.ts:605` | drift actor-based + timestamps snake_case | 7 substituições com aliases preservando contrato (DECISION-0022) | Codex |
+| 5 | `companies.service.ts` (multi-linha) | gap de schema: 7 colunas inexistentes que código TS pressupunha | 2 migrations corretivas + alias `id AS company_user_id` (DECISION-0023) | Codex |
+
+### Migrations aplicadas
+
+- `20260530520000_add_company_users_updated_at.sql` — ADD `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` + trigger `trg_company_users_updated_at` usando `update_updated_at_column` (criada em F3-S4)
+- `20260530520500_add_company_users_rbac_columns.sql` — ADD 6 colunas: `role_description` (TEXT nullable), `can_manage_financial`, `can_manage_employees`, `can_view_reports`, `can_manage_services` (BOOLEAN NOT NULL DEFAULT false), `metadata` (JSONB NOT NULL DEFAULT '{}'::jsonb)
+
+Schema final `company_users`: 16 colunas (10 originais + 6 novas).
+
+### Decisões institucionais formalizadas
+
+- **DECISION-0022** — Alias SQL como ponte operacional para drift de nomenclatura cross-layer (caso `groups/invites`: schema institucionalmente correto + código legacy)
+- **DECISION-0023** — Materialização de schema quando código já assume colunas inexistentes (caso `companies`: código pressupõe domínio + schema atrasado). Diferenciação clara da DECISION-0022; alias mente quando o que falta é capacidade material, não rename. Anti-padrão registrado: `created_at AS updated_at` (mentir sobre auditoria temporal).
+
+### Erros não-bloqueantes em loop nos workers (ruído operacional, não tocar)
+
+- `ReleaseWorker`: intent `3327ef51` "Cannot transfer to the same account" (dado órfão de teste anterior)
+- `ReconciliationWorker`: "coluna pi.status não existe" (hint: bs.status)
+- `SlaMonitorWorker`: "coluna status não existe"
+- `PaymentWorker`: Redis (BullMQ desconectado, `REDIS_ENABLED=false` desligaria)
+
+### DTs status (delta desta sessão)
+
+- **A4 / group_invites** (Frente F2): **FECHADA via DECISION-0022** (mantida da entrada anterior)
+- **NOVA — DT-companies-rbac-schema-gap**: **FECHADA via DECISION-0023** nesta sessão. Schema `company_users` materializado com 6 colunas que o código TS já pressupunha (RBAC granular + `metadata`) + 1 coluna `updated_at` para auditoria temporal honesta. Trigger `trg_company_users_updated_at` ativo (não exercitado por banco vazio; será no primeiro UPDATE real).
+- **NOVA — DT-companies-tenant-aware-not-implemented**: backlog. `company_users` agora tem `metadata JSONB`, mas modelo de empresa multi-tenant ainda não foi reconciliado com DECISION-0021 (tenant-awareness em `addresses`). Resolve em F3-S10a (companies.service writer).
+- **DT-groups-actor-rename**: backlog (mantida)
+- Demais DTs (`B1-B6`, `C1`, `D1`, `D2`, `E`, `C65`, `DT-eol-autocrlf-windows`, `DT-debug-code-em-service`, `DT-companies-address-schema-gap`, `DT-location-core-rescue-progressive`): inalteradas
+
+### Estado pós-sessão
+
+- **0 erros smoke abertos.** Smoke E2E principal completo.
+- 4 fixes aplicados, não commitados (orchestrator decide quando commitar).
+- Frente F2 quase totalmente FECHADA (resta apenas A5 escalada para F3).
+- Frente F3 inalterada estruturalmente (não houve trabalho em Location Core nesta sessão).
+
+### Próxima sessão — opções (Clayton decide)
+
+- **Commit dos fixes desta sessão** + abrir frente F3-S8 (`companies.primary_address_id`) com janela operacional limpa e doutrina territorial consolidada (DECISION-0020/0021)
+- **F3-S8 → S9 → S10a → S10b** caminho crítico de endereço, fechando A5 finalmente (ROI alto, contexto fresco)
+- Limpar ruído operacional dos workers (B4, B5, C1) — backlog
+
+---
+
+## 2026-05-09 — Bank: remoção de fallback semântico perigoso · C1 FECHADO
+
+**Frente:** F2 — Runtime Smoke Test (saneamento de ruído operacional)
+**Aplicado por:** Codex (apoiado por Claude Code)
+**Status:** FECHADO institucionalmente
+
+### Contexto
+
+Worker `ReleaseWorker` em loop infinito processando intent `3327ef51-e1ce-456f-a993-c018c6f60102` com erro `Cannot transfer to the same account`. Backlog F2 listava como C1 (toca causalidade financeira).
+
+### Causa raiz descoberta
+
+Em `backend/src/modules/bank/bank-account.repository.ts`, lookup de lifecycle account fazia fallback implícito: quando a lifecycle account específica não existia para um `owner_type`, o repository retornava qualquer conta `system` disponível. Comportamento equivalente a "improvisar identidade financeira".
+
+Consequências do fallback:
+- Lifecycle account ausente → fallback silencioso para conta system genérica
+- Origem e destino acabavam apontando para a mesma conta
+- ReleaseWorker tentava transfer A→A → erro `Cannot transfer to the same account` em loop
+- Identidade financeira colapsava semanticamente
+
+### Correção aplicada
+
+- Fallback **removido completamente** de `bank-account.repository.ts`
+- Lookup falha **explicitamente** quando lifecycle account não existe
+- Intent órfã `3327ef51-e1ce-456f-a993-c018c6f60102` marcada `settled → failed`
+- Metadata da intent: `{"failure_reason":"missing_seller_lifecycle_accounts"}`
+
+### Princípio institucional reforçado
+
+> Fallback semântico em domínio financeiro cria autoridade implícita clandestina.
+> "Qualquer conta system serve" viola soberania de lifecycle accounts.
+> Ausência estrutural deve falhar explicitamente — nunca improvisar identidade financeira.
+
+### Validação
+
+- Gates `actor-writer` / `bank-ledger` / `regression-guards`: PASS
+- TSC errors restantes (dashboard/profile): pré-existentes, não introduzidos
+- ReleaseWorker não mais em loop sobre essa intent (intent agora é `failed`)
+
+### DT status (delta)
+
+- **C1** (Frente F2): **FECHADA** — fallback removido, intent órfã tratada
+- Demais DTs do backlog F2 (B1-B6, D1, D2, E): inalteradas
+
+---
+
+## 2026-05-09 — F3 reaberta · S8 e S9 fechados · infraestrutura de endereço pronta
+
+**Frente:** F3 — Domain Foundations: Location Core
+**Sessão:** apoiada por Codex, orquestrada por Clayton com auditoria de Opus
+**Pré-requisito:** smoke E2E principal completo (sessão anterior do dia)
+
+### Resumo
+
+Após fechar smoke E2E principal e remover fallback financeiro perigoso, Clayton reabriu F3 com janela operacional limpa e doutrina territorial consolidada (DECISION-0020/0021). Sessão preparatória: schema + writer prontos sem mudar comportamento visível em companies/perfil.
+
+### Sessões fechadas
+
+- **F3-S8** — Migration `20260530521000_add_companies_primary_address_id.sql`. `companies.primary_address_id UUID REFERENCES addresses(address_id) ON DELETE SET NULL`. Forward-only.
+- **F3-S9a** — Reader fix em `location.repository.ts`: alias `iso_alpha2 AS code` / `abbreviation AS code` em 6 queries. `is_active` lido honestamente. Tipos `CountryRow`/`StateRow` realinhados. Contrato externo intacto.
+- **F3-S9b** — Writer canônico em `location.repository.ts`: `createAddress` + `assignAddress`. 5 tipos novos em `location.types.ts`. Honra DECISION-0021.
+
+### Validação
+
+- `pnpm build` PASS sem erro novo
+- `/health` 200, banco conectado
+- `GET /locations/countries` 200 retornando seed Brasil
+
+### Estado pós-sessão
+
+- Frente F3 voltou a avançar (anteriormente parada em S6b desde 2026-05-08)
+- Frente F2-A5 ainda PAUSADA — fechará quando F3-S10b entregar (próxima sessão)
+- C1 FECHADO institucionalmente (entrada anterior desta data)
+
+### DTs status (delta desta sessão)
+
+- **NOVA — DT-address-source-type-strictness**: `Address.source` em TS é `string` enquanto `CreateAddressInput.source` é union estrito (6 valores). Inconsistência menor; alinhar em refactor futuro. Não bloqueante.
+- **NOVA — DT-address-latlng-pair-validation**: TypeScript não captura a constraint `addresses_latlng_paired` (banco rejeita lat sem lng). Documentar para chamadores em F3-S10a. Validação adicional via Zod schema seria ideal em sessão futura.
+- Demais DTs inalteradas
+
+### Próxima sessão — F3-S10a + S10b + smoke (Clayton decide)
+
+Caminho crítico para fechar A5 ponta-a-ponta:
+
+- **F3-S10a**: adapter writer em `companies.service.ts` — quando empresa for criada com endereço, INSERT em `addresses` + `address_assignments` (role='HQ') + grava `primary_address_id`. Mantém INSERT em colunas legacy durante coexistência.
+- **F3-S10b**: adapter reader em `core.service.ts:472` — substituir query `SELECT c.cep, c.address...` por JOIN em `addresses`. Fallback para colunas legacy.
+- **Smoke**: criar empresa pela API com endereço → ler em `/profile` → endereço via `addresses`. Fecha A5.
+
+---
+
+## 2026-05-09 — F3-S10a/b FECHADO · A5 fechado E2E · 3 drifts pré-existentes adicionais
+
+**Frente:** F3 — Domain Foundations: Location Core
+**Sessão:** apoiada por Codex, orquestrada por Clayton com auditoria de Opus
+**Pré-requisito:** F3-S8/S9 (infraestrutura de endereço) entregues anteriormente nesta data
+
+### Resumo
+
+Sessão de fechamento de A5 ponta-a-ponta. F3-S10a (writer) + F3-S10b (reader) aplicados. Smoke E2E executou pela primeira vez o caminho real de criação de empresa via API e validou A5 fechado. Caminho descobriu 4 drifts pré-existentes (1 esperado, 3 inesperados) no fluxo `createCompany` que nunca tinham sido exercitados.
+
+### Aplicado conforme plano F3-S10
+
+- **F3-S10a**: writer canônico em `companies.service.ts:511-569`. INSERT em `addresses` + `address_assignments` (HQ) + UPDATE primary_address_id com guarda de tenant. Try/catch defensivo, forward-only.
+- **F3-S10b**: reader em `core.service.ts:504-541`. Leitura via `primary_address_id` em `addresses`. `address_id` retorna UUID real quando canônico.
+
+### Drifts pré-existentes descobertos
+
+| # | Localização | Drift | Fix |
+|---|---|---|---|
+| 1 | `companies.service.ts:737` | `resolveTenantIdFromGlobalUserId` usava `gu.user_id` inexistente | SELECT direto sem JOIN |
+| 2 | `companies.service.ts:464` | INSERT companies com 17+ colunas inexistentes | INSERT reduzido a 12 colunas reais |
+| 3 | `companies.service.ts:603` | INSERT company_users sem `tenant_id` (NOT NULL) | `tenant_id` adicionado |
+| 4 | `companies.service.ts:548` | INSERT company_domains em tabela inexistente | Try/catch `42P01` como legacy opcional |
+
+Drift #1 era esperado (helper de tenant). Drifts #2, #3, #4 vieram do `createCompany` que nunca tinha sido exercitado por API real.
+
+### Validação E2E
+
+- `pnpm build` PASS
+- `/health` 200
+- `POST /companies` 201 (após fixes)
+- `companies.primary_address_id` preenchido
+- `addresses`: 1 linha (postal_code=80010100, source=UX_INPUT)
+- `address_assignments`: 1 linha (owner_type=company, role=HQ, is_primary=true)
+- `GET /core/profile` retorna endereço canônico com UUID real
+
+### A5 fechado E2E
+
+Caminho canônico provado: API → `addresses` → `address_assignments` → `companies.primary_address_id` → reader → response. Primeiro fluxo end-to-end de endereço funcional desde abertura de F3.
+
+### DTs status (delta desta sessão)
+
+- **A5** (Frente F2): **FECHADA E2E**
+- **NOVA — DT-companies-richmodel-vs-minimalist**: código TS pressupõe modelo de empresa rico (cep/address/phone/email/website/main_activity_*/revenue/metadata em `companies`). Schema vivo é minimalista (12 colunas). Decisão futura: materializar via ADD COLUMN ou limpar código. Não bloqueante. Fora do caminho crítico.
+- **NOVA — DT-company-domains-archived**: tabela `company_domains` removida do banco vivo (não existe em migrations ativas). Código TS ainda gravava nela. Patch operacional via try/catch `42P01`. Decisão futura: ressuscitar tabela ou refatorar código. Não bloqueante.
+- **NOVA — DT-companies-tenant-aware-not-implemented** (re-citada): `company_users.metadata JSONB` existe pós-DECISION-0023, mas modelo de empresa multi-tenant ainda não reconciliado com DECISION-0021.
+- **NOVA — DT-address-catalog-name-resolution**: `GET /core/profile` retorna `city/state/neighborhood` como `null` porque reader não resolve FK para catálogo (cities/states/neighborhoods). Fica para F3-S11.
+- Demais DTs (DT-address-source-type-strictness, DT-address-latlng-pair-validation, etc): inalteradas
+
+### Estado pós-sessão
+
+- Total de modificações não commitadas nesta data 2026-05-09:
+  - 4 drift fixes do smoke E2E principal (auth, groups, companies)
+  - Bank fallback removido + intent órfã marcada failed
+  - F3-S8/S9a/S9b/S10a/S10b aplicados (5 entregas técnicas)
+  - 4 drifts adicionais corrigidos no caminho de fechamento de A5
+- Decisão de commit fica para Clayton (sessão dedicada)
+
+### Próxima sessão — opções
+
+- **Commit em cascata** dos fixes desta data (proposta: 4-5 commits separados por frente)
+- **F3-S11**: resolver nomes city/state/neighborhood via JOIN em catálogo
+- **Sessão dedicada `company_domains`**: ressuscitar via migration ou refatorar fluxo `createCompany` para remover dependência
+- **Cleanup intents órfãs** (Claude Code investigou em paralelo, decisão pendente)
+- **Workers ruidosos** (B4 reconciliation, B5 sla-monitor): drift schema-vs-código
+
+---
+
+## 2026-05-09 (continuação) — Cascata de commits encerrada em estado consistente declarado · Bank Genesis Alignment descoberta
+
+**Frente:** F2 (commits) + descoberta de drift sistêmico Bank
+**Sessão:** apoiada por Codex e Claude Code, orquestrada por Clayton com auditoria de Opus
+**Pré-requisito:** F3-S10a/b fechado E2E (entrada anterior desta data)
+
+### Resumo
+
+Sessão de commit em cascata dos fixes acumulados nesta data. Plano original previa 6 commits (auth, groups, bank, RBAC migrations, F3 location, docs). Cascata fechou em **3 commits** após descoberta material de onda Bank Genesis Alignment paralela e interrompida, com HEAD broken desde 2026-04-22 (commit `5b3f2096`).
+
+### Commits fechados nesta cascata
+
+| # | Hash | Mensagem |
+|---|---|---|
+| 1 | `92913733` | `fix(auth): align register/login with live users schema` |
+| 2 | `c6999d84` | `fix(groups): align membership and invites queries with live schema` |
+| 4 | `c8b0b2e1` | `feat(company-users): materialize RBAC columns + updated_at trigger (DECISION-0023)` |
+
+### Commits NÃO fechados (motivos)
+
+- **Commit 3 (Bank fallback)** — PULADO. Investigação revelou que o fallback "qualquer system" não existe em HEAD. O método `getAccountByOwnerAndType` que continha o fallback **nunca foi commitado** — está em `stash@{0}` como parte de refactor amplo. C1 (ReleaseWorker loop) ficou tratado pela neutralização manual da intent órfã `3327ef51`. Correção institucional do opus.md §8 entrada Bank fica pendente para sessão futura (entrada atual está imprecisa).
+
+- **Commit 5 (F3 location)** — PENDENTE. Build TS não passa em HEAD (26 erros) por causa do acoplamento Bank descoberto. F3 mexe em `companies.service.ts` que importa de `core/economy/...` que importa de `bank/...`. Sem build PASS, não é seguro fechar F3.
+
+- **Commit 6 (docs)** — PENDENTE. Documentos precisam refletir descobertas desta sessão com honestidade institucional, incluindo correção da entrada Bank no opus.md.
+
+### Descoberta material crítica — Bank Genesis Alignment
+
+Investigação cruzada (Codex + Claude Code, validada por Opus) revelou que `bank-account.repository.ts` stashed é **uma peça de uma onda de refactor arquitetural muito maior**, não um arquivo isolado:
+
+| Componente | Estado |
+|---|---|
+| `bank-account.repository.ts` (stashed) | refactor amplo Genesis-aligned (+211/-83 linhas) |
+| Consumidores commitados em `5b3f2096` (2026-04-22) | já chamam API nova (`getAccountByOwnerAndType`, `getOrCreateSystemLiquidityIssuanceAccountId`, etc) |
+| 21 arquivos Bank modified no working tree | onda paralela não auditada |
+| 5 arquivos Bank/identity untracked | dependem da API nova |
+| Total da onda | ~27 arquivos |
+
+**Implicação:** o sistema está em estado intermediário não-funcional desde 2026-04-22. Build TS falha com 26 erros. Smoke E2E desta sessão funcionou apenas porque os caminhos exercitados (auth/register/login/companies/core/profile) não passam pelos métodos quebrados.
+
+**Nenhum desses 27 arquivos foi causado por esta sessão.** Eles foram revelados por ela.
+
+### DTs Bank novas (escopo da próxima frente)
+
+- **DT-bank-genesis-alignment-wave**: 27 arquivos formando onda de refactor arquitetural interrompida. Frente dedicada futura.
+- **DT-bank-balance-consolidation-genesis-drift**: `bank-balance-consolidation.service.ts` lê 5+ colunas inexistentes (`account_id, currency, cached_balance, metadata, updated_at`). Vai crashar quando exercitado em runtime.
+- **DT-bank-balance-by-cpf-genesis-drift** e **DT-bank-balance-by-region-genesis-drift**: provável drift similar.
+- **DT-bank-system-liquidity-helper-audit**: `getOrCreateSystemLiquidityIssuanceAccountId` em `bank-maintenance.service.ts` cria conta system automaticamente. Auditar se é fallback clandestino disfarçado ou backfill legítimo.
+- **DT-bank-fallback-original-still-active**: `getSystemAccount` em HEAD não tem fallback "qualquer system", mas a remoção planejada do fallback documentada no opus.md §8 nunca chegou em HEAD — está dentro do refactor amplo stashed.
+
+### DTs gerais novas
+
+- **DT-tsc-noEmit-not-gated**: build CI não roda `pnpm tsc --noEmit` como gate. HEAD broken passou despercebido por ~3 semanas (desde 2026-04-22). Adicionar como gate institucional.
+- **DT-company-documents-archived**: `companies.service.ts:1806-1841` faz INSERT em `company_documents` SEM proteção `42P01`. Tabela não existe no banco vivo. Vai crashar quando exercitado.
+- **DT-company-opportunity-preferences-archived**: `companies.service.ts:705-712` com try/catch silencioso em tabela arquivada.
+
+### Aprendizado institucional
+
+**§4-D — Quando debugging vira arqueologia (consolida e formaliza):**
+
+Quando a investigação revela que um drift não é falha pontual, mas resíduo de migração arquitetural interrompida, o modo da sessão muda. Não se "corrige" arqueologia — se reconstrói coerência ou se isola para frente dedicada.
+
+Sinais de que a sessão entrou em modo arqueológico:
+- Fornecedor e consumidores apontam para versões diferentes de uma mesma API
+- Stashes contêm peças de um todo coerente que nunca foi commitado
+- Build não passa em HEAD desde commit antigo, sem ninguém ter percebido
+- "Fazer rápido pra desbloquear cascata" é tentação de regressão
+
+Resposta correta: pausa institucional, evidência histórica, topologia real, decisão consciente sobre adotar/isolar/abandonar a versão arqueológica.
+
+**Aprendizado adicional:** smoke E2E não é gate suficiente. `pnpm tsc --noEmit` é gate complementar mínimo. TypeScript não protege runtime financeiro, mas detecta acoplamentos quebrados que smoke não exercita.
+
+**Aprendizado adicional 2:** stash pode esconder ondas, não apenas peças. Quando descobrir stash em domínio crítico, primeiro investigar toda a área dirty ao redor antes de decidir adotar/descartar.
+
+### Estado pós-sessão
+
+- HEAD: `c8b0b2e1` (após Commit 4)
+- Working tree dirty conscientemente: F3 modifications + Bank wave (27 arquivos) + 3 migrations untracked + opus.md untracked
+- Stashes preservados:
+  - `stash@{0}: bank-account-genesis-alignment-pendente-custodia` (refactor amplo bank-account.repository.ts)
+  - `stash@{1}: C65-distribution-amount-rename-pendente-custodia`
+  - `stash@{2}: local-before-rescue`
+- Build: 26 erros TS conhecidos, todos relacionados à onda Bank
+- Sistema em runtime: estável (memória carregada com código antigo coerente; reinício após Bank Genesis fechado)
+
+### Próxima sessão — prioridades
+
+1. **Frente Bank Genesis Alignment** (alta prioridade, sessão dedicada 2-3h):
+   - Mapear topologia completa da onda (27 arquivos)
+   - Auditar stash@{0} + 21 modified + 5 untracked como unidade arquitetural
+   - Decidir linhagem (Genesis puro, híbrido, rollback)
+   - Validar com smoke E2E real cobrindo saldo, transferência, reconciliação
+   - Commitar como onda atômica ou faseada conscientemente
+   - Corrigir entradas imprecisas no opus.md §8 sobre Bank
+
+2. **F3 fechamento** (média prioridade, ~30 min após Bank passar build):
+   - Commit 5 (pacote F3 location/companies/core)
+   - Commit 6 (docs com correções honestas)
+
+3. **F3-S11** (baixa prioridade, ~30 min):
+   - Resolver nomes city/state/neighborhood via LEFT JOIN catálogo
+   - Auditar `getFullAddress` (4 queries sequenciais → 1 JOIN)
+
+4. **Gate `tsc --noEmit`** (alta prioridade institucional):
+   - Adicionar `pnpm tsc --noEmit` à CI como gate bloqueante
+   - Evita futura repetição de HEAD broken passando despercebido
+
+---
+
+## 2026-05-11 — Sessao de Auditoria e Fechamento de Itens
+
+### Resumo
+
+Sessao focada em auditoria de itens pendentes e confirmacao de fixes ja aplicados. Context recovery pos-compactacao seguido de trabalho material.
+
+### Itens Trabalhados
+
+#### C15 FIXED (nesta sessao)
+- **Descricao:** 3 tabelas com `price NUMERIC`
+- **Auditoria:** 2 de 3 tabelas ja estavam corrigidas por migrations anteriores (product_offers, product_prices)
+- **Acao:** Migration `20260530530000_tenant_products_drop_price_numeric.sql` remove `price NUMERIC` residual
+- **Commit:** `3db7245a`
+- **Gates:** 4/4 PASS
+
+#### Bank Genesis Wave (verificacao)
+- **Descoberta:** Wave ja aplicada em sessao anterior nao documentada
+- **Commits em HEAD:** d5f5cff7, 467eae18, 1b3d35d6, ab469d8e, 0460e66f
+- **Build TS:** 0 erros (baseline zerado)
+- **Stash@{0}:** Agora e C65-distribution (Bank Genesis stash ja aplicado)
+
+#### C54 Auditoria (confirmacao de FIXED)
+- **Descricao:** 9 caminhos financeiros sem authority gate
+- **Resultado:** FIXED confirmado
+- **Evidencia:** 19 chamadas a `requireFinancialRiskClearance` em caminhos de usuario
+- **Caminhos de tesouraria:** Sem gate por design (operacoes de sistema sem actor de usuario)
+
+#### C55 Auditoria (confirmacao de FIXED)
+- **Descricao:** authority-decision.service fail-open em 3 camadas
+- **Resultado:** FIXED confirmado
+- **Evidencia:**
+  - Default mode: `strict` (fail-closed)
+  - `permissive` bloqueado fora de NODE_ENV=development (throws Error)
+  - 6 conversoes skip → block em strict mode (ATL x2, KYC x3, GUARDA x1)
+
+### Estado Atual
+
+| Item | Estado |
+|------|--------|
+| HEAD | `3db7245a` |
+| Build TS | 0 erros |
+| Gates | PASS (critical_new=0) |
+| C15 | FIXED (commit 3db7245a) |
+| C54 | FIXED (auditoria confirmou) |
+| C55 | FIXED (auditoria confirmou) |
+| Bank Genesis Wave | COMPLETO |
+
+### Arquivos Atualizados
+
+- `executei.md` — C15, Bank Genesis, C54 auditoria, C55 auditoria
+- `opus.md` — §8 entrada 2026-05-11 (Bank Genesis COMPLETO + C15)
+- `SYSTEM_REMEDIATION_STATUS.md` — C15 → FIXED
+- `STATUS_EXECUCAO_GLOBAL.md` — esta entrada
+
+### Proximas Frentes Candidatas
+
+Per filtro §-1.5 (3 perguntas):
+
+| Frente | Severidade | Bloqueio |
+|--------|------------|----------|
+| C7 (permissoes hardcoded) | OPEN | Bloqueado por C27 (DECISION_PENDING) |
+| C53 (6 catches 42P01) | HIGH | Pode atacar independente |
+| C19 (reference_id tipo inconsistente) | OPEN | Schema fix |
+| C23/C28 (createdAt aspado) | OPEN | Cosmético |
+
+
+#### C53 Auditoria (confirmacao de FIXED)
+- **Descricao:** 6 catches de 42P01 em compliance/events/observability
+- **Resultado:** FIXED confirmado
+- **Evidencia:**
+  - 8 catches em caminhos criticos usam `getAuthorityMode()`
+  - event-handler-failure.repository.ts: 4 catches (strict: throw)
+  - handler-metrics.service.ts: 1 catch (strict: error + null)
+  - authority-decision.service.ts: 3 catches (strict: block)
+- **Catches fora do escopo:** 15 catches em metricas/observability ou documentados como DTs
