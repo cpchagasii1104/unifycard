@@ -1,6 +1,6 @@
 # CODE.MD - Memória de Sessão Epistêmica
 
-**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito)
+**Data**: 2026-05-07 (atualizado 2026-05-12 — §20 C19/C40/smoke-E2E, smoke path corrigido, migrations=296; §21 DECISION-0031, audit normativo, princípio parar explícito > fingir implícito; atualizado 2026-05-13 — §22 reconciliação institucional, DECISION-0030 gap, protocolo sincronia)
 **Branch**: rescue-structural
 **Protocolo**: Auditoria forense com evidência material
 
@@ -3125,3 +3125,58 @@ qualquer DECISION arquitetural financeira.
 
 **Anti-padrão correspondente:** "destravar usuário" via bypass de invariante. Resolve
 sintoma, contamina fundação.
+
+---
+
+## §22 — Reconciliação Institucional e Protocolo de Sincronia (2026-05-13)
+
+### Lição 1: registrar DECISION no momento da decisão
+
+**O que aconteceu:** DECISION-0030 (C40 VIEW NUMERIC→BIGINT) foi tomada em 2026-05-11,
+referenciada em commit (`464fc45e`), migration (`20260530532000`) e STATUS, mas o registro
+no `REMEDIATION_DECISIONS_LOG.md` não foi materializado na ocasião. 2 dias depois, auditoria
+cruzada (Codex + ChatGPT + Opus) identificou o gap.
+
+**Consequência:** reconstrução retroativa foi necessária, com nota explícita de que é
+reconstrução — não o mesmo que registrar na hora.
+
+**Regra:** ao commitar fix de violação com DECISION-NNNN na mensagem, o entry no log
+canônico é parte do mesmo commit, não tarefa separada. Se saiu sem o entry, DT imediata.
+
+### Lição 2: DT com dois campos Status é ambiguidade real
+
+**O que aconteceu:** `DT-COVERAGE-BOOTSTRAP-REQUIRED` tinha `- **Status:** OPEN` no
+início da entrada (campo canônico) e `- **Status:** CLOSED` ao final (adicionado quando
+a DT foi encerrada por DECISION-0031). Duas linhas, dois estados, mesma entrada.
+
+**Consequência:** auditorias automatizadas (grep por Status) retornavam resultado
+ambíguo dependendo de qual linha capturavam primeiro.
+
+**Regra:** ao encerrar uma DT, substituir o campo `Status:` original — não adicionar
+novo campo ao final. O log é append-only como princípio, mas o campo Status de uma
+DT é um campo mutável por design (OPEN → CLOSED → SUPERSEDED).
+
+### Protocolo de verificação de sincronia
+
+Antes de iniciar sessão de reconciliação institucional, executar verificação read-only:
+
+```bash
+# Presença de DECISIONs citadas em commits/migrations/status
+grep -c "DECISION-NNNN" REMEDIATION_DECISIONS_LOG.md
+
+# Status de DTs envolvidas
+grep -n "Status:" REMEDIATION_DT_LOG.md | grep -A0 "DT-NOME"
+
+# TSC baseline
+pnpm --dir backend tsc --noEmit; echo "exit=$?"
+```
+
+Zero edição antes de confirmar que lacuna é real (não falso positivo de dessincronia).
+Em auditoria de 14 pontos realizada em 2026-05-13: 11 de 12 lacunas eram falso positivo.
+Apenas 2 eram reais (DECISION-0030 ausente + DT Status duplicado).
+
+### Anti-padrão: "corrigir" tudo que parece inconsistente
+
+Auditoria cruzada multi-agente pode gerar lista de "lacunas" que são na verdade artefatos
+de workspace diferente, contexto desatualizado ou variações de formato sem consequência
+semântica. Verificar materialidade antes de editar.
