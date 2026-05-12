@@ -3098,3 +3098,30 @@ alinhados e implementam uma lógica coerente, a falha do smoke indica que o smok
 
 Auditoria multi-agente (perspectivas técnica + ontológica + normativa) antes de
 qualquer DECISION arquitetural financeira.
+
+### Princípio operacional: parar explícito > fingir implícito
+
+**Frase canônica:** "O sistema deve preferir parar explicitamente a fingir solvência implicitamente."
+
+**Origem:** ChatGPT, sessão 2026-05-12, fechamento de DECISION-0031.
+
+**Aplicação institucional:**
+- Trigger que bloqueia operação financeira inválida está fazendo seu trabalho. Não
+  desligar, não excepcionar, não criar bypass.
+- Quando código encontra estado que não deveria existir, falhar explicitamente (throw,
+  RAISE EXCEPTION, return error) é preferível a "tratar gracefully" mascarando inconsistência.
+- Em domínios com causalidade material (financeiro, identidade, autoridade), falso PASS
+  é veneno institucional permanente. SKIP honesto é estado saudável.
+- Smoke tests podem assumir caminhos não-fundacionais e falhar legitimamente. Investigar
+  ontologia antes de "corrigir" smoke.
+
+**Exemplos materiais no UnifiCard:**
+- `check_coverage_before_credit` bloqueando emissão sem capacity
+- `ensureLiquidityIssuanceAccountId` falhando com erro explícito quando conta não existe
+  (vs criar silenciosamente)
+- `topUpRegionalFundBankFromReserve` lançando erro quando reserve ausente (vs alimentar
+  de fonte qualquer)
+- LEDGER_SOVEREIGNTY proibindo cálculo de saldo fora de `bank_ledger`
+
+**Anti-padrão correspondente:** "destravar usuário" via bypass de invariante. Resolve
+sintoma, contamina fundação.

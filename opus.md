@@ -1158,3 +1158,16 @@ Mesmo que o mint tenha falhado, a query `system_coverage` confirmou em runtime:
 - `pg_typeof(total_credits_cents) = bigint` ✓
 
 C40 parcialmente validado como efeito colateral do smoke v1.
+
+**Princípio operacional descoberto em runtime (preservar):**
+
+> O sistema deve preferir parar explicitamente a fingir solvência implicitamente.
+
+**Caso canônico:** Q3-E2E v1 (2026-05-12). Trigger `check_coverage_before_credit`
+bloqueou emissão sem capacity. A interrupção do fluxo foi comportamento correto do
+sistema, não falha operacional. O `COVERAGE_EXCEEDED: 100% — capacity=0` era a verdade
+institucional sendo enforced, não um bug a corrigir.
+
+**Lição:** invariantes econômicos reais devem sobreviver à pressão de execução, smoke
+tests e conveniência operacional. Quando smoke financeiro falha por invariante de
+runtime, hipótese-padrão é "invariante está certo, smoke estava errado", não o contrário.
