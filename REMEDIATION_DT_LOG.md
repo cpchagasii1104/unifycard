@@ -330,3 +330,46 @@ Status values:
 - **Resolução prevista:**
   Investigar intenção arquitetural do split engine antes de propor padronização.
   Prioridade: BAIXA (não bloqueia Q3-E2E v2 via event_ticket).
+
+---
+
+## DT-C36-actor-debts-case-drift
+
+- **Status:** OPEN
+- **Origem:** C36 remediação (2026-05-12) — auditoria de status sem CHECK
+- **Vinculada a:** C36
+- **Contexto:**
+  `actor_debts.status` usa case inconsistente: migration define DEFAULT 'pending' (lowercase),
+  mas o código em `event-scheduler.ts` escreve 'TRANSFERRED_TO_ORGANIZER' (UPPERCASE).
+  CHECK adicionado inclui ambos os valores para não quebrar runtime.
+- **Risco:**
+  Inconsistência de case impede filtros case-sensitive diretos. Queries como
+  `WHERE status = 'PENDING'` e `WHERE status = 'pending'` retornam resultados diferentes.
+- **Mitigação atual:**
+  CHECK constraint aceita ambos. Consultas no código usam os valores corretos para cada path.
+- **Resolução prevista:**
+  Normalizar para lowercase (migration UPDATE + ALTER DEFAULT + ajuste em event-scheduler.ts).
+  Prioridade: BAIXA (não gera bug runtime com CHECKs atuais).
+
+---
+
+## DT-C36-deferred-tables
+
+- **Status:** DEFERRED
+- **Origem:** C36 remediação (2026-05-12)
+- **Vinculada a:** C36
+- **Contexto:**
+  Três tabelas diferidas da remediação C36:
+  1. `company_validations.status` — coluna nullable TEXT nunca escrita pelo código atual;
+     INSERT não inclui status. Valor semântico desconhecido.
+  2. `unifycard_transactions.status` — valores não definidos no código TypeScript atual;
+     migration 0004_marketplace.sql declara TEXT sem DEFAULT.
+  3. `categories.status` — ontologia central (N0/N1/N2); requer revisão separada para
+     garantir que CHECK não restrinja o pipeline de criação de categorias.
+- **Risco:**
+  Valores arbitrários podem ser escritos nessas colunas sem validação DB.
+- **Mitigação atual:**
+  Nenhuma constraint de DB. Validação depende do código de aplicação.
+- **Resolução prevista:**
+  Investigar cada tabela em sessão dedicada antes de adicionar CHECK.
+  Prioridade: MÉDIA (company_validations, unifycard_transactions), BAIXA (categories).

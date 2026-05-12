@@ -1,3 +1,34 @@
+## 2026-05-12 — C36 FECHADO: 30 CHECK constraints em tabelas com status sem validação
+
+**Branch:** `rescue-structural`
+**Migration:** `20260530535000_c36_status_check_constraints.sql`
+**Resultado:** 30 CHECK constraints aplicadas | 4 gates PASS | 0 erros TSC
+
+### Escopo real (auditoria de runtime)
+
+| Categoria | Contagem | Tratamento |
+|---|---|---|
+| ENUM PostgreSQL (já protegidas) | 7 | SKIP — ENUM é equivalente ou mais forte que CHECK |
+| CHECK adicionadas | 30 | FIXED nesta migration |
+| Diferidas com DT | 3 | DT-C36-deferred-tables (company_validations, unifycard_transactions, categories) |
+| Case drift registrado | 1 | DT-C36-actor-debts-case-drift (pending + TRANSFERRED_TO_ORGANIZER) |
+
+### Normalização de dados
+
+`payment_transactions.status`: código usa UPPERCASE (PENDING/SUCCESS/FAILED), dados dev tinham lowercase 'pending'.
+Migration inclui UPDATE para normalizar antes de adicionar CHECK.
+
+### Gates (HEAD pós-migration)
+
+| Gate | Resultado |
+|---|---|
+| TSC (`pnpm tsc --noEmit`) | 0 erros |
+| validate:actor-writer-boundaries | GATE OK |
+| validate:bank-ledger-boundaries | GATE OK |
+| validate:regression-guards | GATE OK (297 migrations) |
+
+---
+
 ## 2026-05-12 — Q3-E2E v2 — Smoke Econômico Fundacional APROVADO
 
 **Branch:** `rescue-structural`

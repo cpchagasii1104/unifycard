@@ -51,6 +51,7 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | Atualização 2026-05-11 [5] | C19 FIXED — bank_transactions.reference_id UUID→TEXT via DECISION-0029 (commit fd3f1018) |
 | Atualização 2026-05-11 [6] | C40 FIXED — system_coverage.*_cents VIEW NUMERIC→BIGINT via DECISION-0030 (commit 2337f577) |
 | Atualização 2026-05-12 | Q3-E2E v2 APROVADO 11/11 — fundação econômica provada. Bug corrigido: bank-transaction.service debit query omitia actor_id |
+| Atualização 2026-05-12 [2] | C36 FIXED — 30 CHECK constraints adicionadas (migration 20260530535000); 7 ENUM já protegidas; 3 tabelas diferidas com DT |
 
 ### 2026-04-30 — G2 PIPELINE E2E PASS
 
