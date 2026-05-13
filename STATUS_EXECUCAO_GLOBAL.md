@@ -1,11 +1,12 @@
-## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (9 commits, 6 frentes + 3 housekeepings)
+## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica + descoberta material fundacional (13 commits, 7 frentes + 5 housekeepings)
 
 **Branch:** `rescue-structural`
-**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2), `8321878b` (F4), `485503e0` (F5) — 6 frentes + 3 housekeepings (`24c6e67b`, `9d602d8c`, `be3838ab`)
+**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2), `8321878b` (F4), `485503e0` (F5), `834ee486` (F6) — 7 frentes + 5 housekeepings (`24c6e67b`, `9d602d8c`, `be3838ab`, `cde2d712`, `fb99d32d`)
 **Frente 3 cancelada honestamente** (regional-fund-governance — descoberta material: tipos inline são fiéis ao schema; método toProposal já converte; convergência §4.7 real exigiria migration RENAME COLUMN, fronteira DDL)
 **Pivot meta-frente honesto na reabertura** (marketplace — investigação prévia GUARDIÃO revelou disparidade frontend↔backend 48/2 do padrão Money value object + `PLANO_CORRECAO_NOMENCLATURA` EIXO 5 formal preexistente; categoria muda, exige sessão dedicada com autorização explícita)
-**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 4 frentes funcionais + 1 pivot frente + 1 pivot meta-frente)
-**Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`; refinamento §30 estabilizado em 4 categorias materiais (drift real / tipo fiel ao DB / tipo polimórfico discriminator / Money value object pattern) — pronto para promoção à memória persistente após validação adicional
+**Descoberta material fundacional pós-F5** (sessão noturna): caminho fundacional declarado por DECISION-0031 (event_ticket → split engine → reserve 17%) **EXISTE em código** via `events-payment.service.ts` → `bank-integration.service.ts` → `bank-transaction.service.createTransactionWithSplit(context: 'event_ticket')` → `bankSplitEngine` 4 splits. **3 erros materiais reconhecidos durante investigação** (executei_21 declarou caminho ausente baseado em stubs de feature distinta; correção em executei_22). Smoke v3 fundacional canônico implementado (F6) substituindo v2 shortcut.
+**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 5 frentes funcionais + 1 pivot frente + 1 pivot meta-frente + 1 reconhecimento de erro material com correção dentro da mesma sessão)
+**Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`; refinamento §30 estabilizado em 4 categorias materiais (drift real / tipo fiel ao DB / tipo polimórfico discriminator / Money value object pattern); refinamento adicional: "ver stub ≠ ver feature ausente — stub pode ser de camada distinta; sempre buscar caminhos alternativos antes de declarar 'não existe'" (lição do erro #3 em executei_22)
 
 ### Pipeline cronológica
 
@@ -20,8 +21,17 @@
 | `8321878b` | Frente 4 — api/economy.ts (UserAccount.balance → balanceCents) + SocialFeed2 (bug "sempre zero" eliminado) | Convergência §4.7 frontend mecânica | 3 arquivos, +120/-2, TSC 0, 4/4 gates |
 | `be3838ab` | Housekeeping de fechamento da sessão (executei_18 + STATUS sincronizado pós-F4 + transparência sobre o que NÃO foi tocado) | Memória histórica | — |
 | `485503e0` | Frente 5 — Dashboard.tsx wallet.totalIn/totalOut → totalInCents/totalOutCents + tipagem DashboardData (bug 100x "Minha Carteira" eliminado) | Convergência §4.7 frontend mecânica | 3 arquivos, +223/-4, TSC 0, 3 PASS + 1 baseline preservado (architectural backend-only) |
+| `cde2d712` | HK4 — housekeeping pós-F5 (STATUS sincronizado, perímetro material marketplace via GUARDIÃO documentado) | Memória histórica | 2 arquivos, +104/-9 |
+| `fb99d32d` | HK5 — DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO registrada formalmente (falsa solvência institucional do caminho fundacional documentada antes da resolução) | Memória histórica (DT formal) | 2 arquivos, +126/-0 |
+| `834ee486` | Frente 6 — Smoke v3 fundacional canônico via event_ticket (DECISION-0031); v2 deprecated; DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION registrada | Implementação caminho fundacional + 2 DTs documentadas | 4 arquivos, +674/-5, TSC 0, 3 PASS + 1 baseline preservado |
 
-**Total funcional:** 40 arquivos modificados | +1.513/-320 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional F1/F2/F4; F5 = 3 PASS + 1 baseline preservado (architectural escaneia backend/src; F5 é frontend-only) | 6/6 frentes funcionais
+**Total funcional:** 44 arquivos modificados | +2.417/-334 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós F1/F2/F4; F5/F6 = 3 PASS + 1 baseline preservado (architectural escaneia backend/src; edits foram frontend-only F5 / backend-scripts+DT_LOG F6) | 7/7 frentes funcionais
+
+**Investigações GUARDIÃO desta sessão noturna** (read-only, executei_19 a 22):
+- executei_19 — Frente 5 (Dashboard wallet) + investigação prévia GUARDIÃO marketplace (pivot meta-frente)
+- executei_20 — Mapa pré-E2E (estado atual vs gap caminho fundacional)
+- executei_21 — **erro material #3**: declarou caminho fundacional ausente baseado em stubs de feature distinta (post-event reconciliation), não fundação no checkout
+- executei_22 — correção honesta: caminho fundacional EXISTE via cadeia events-payment → bank-integration → bank-transaction → bankSplitEngine. Categoria revisada de "2-4 sessões implementar fundação" para "1 sessão escrever smoke v3 fundacional"
 
 ### Resultado consolidado
 
@@ -29,6 +39,8 @@
 - **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** OPEN → CLOSED em F1 (`a2242cd0`); dívida adjacente backend↔norma registrada em F1 → FECHADA em F2 (`ee3c6add`). Bug 100x eliminado em 10 telas universais; convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas (transaction-level + summary-level)
 - **api/economy + SocialFeed2 (F4):** convergência §4.7 frontend; bug "sempre zero" no widget de saldo lateral eliminado (mesmo padrão do bug HeaderGlobal antes da F1)
 - **Dashboard.tsx wallet totalCents (F5):** convergência §4.7 frontend; bug 100x widget "Minha Carteira" (Total Recebido/Total Gasto) eliminado; tipagem `DashboardData = Record<string, any>` (anti-padrão que mascarava drift) substituída por interfaces canônicas espelhando backend
+- **Smoke Q3-E2E v3 fundacional (F6):** caminho canônico DECISION-0031 implementado em script executável; v2 (shortcut Opção C refutada) deprecated com nota institucional; 14 passos validando event_ticket → bankSplitEngine 4 splits (70 organizer + 3 fee + 10 regional_fund + 17 reserve); reserve fundada via 17% AUTOMÁTICO do checkout, NÃO via mint direto. Validação dinâmica (executar v3 em backend rodando) pendente — DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO permanece OPEN
+- **DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION (F6):** fragmentação descoberta durante implementação v3 — `ensurePlatformAccounts` cria contas com nomes (`risk_reserve`, `platform_fees`) distintos dos que `SystemAccountName` espera (`reserve`, `fee`, `regional_fund`). Workaround estabelecido em scripts E2E (criar manualmente 3 contas system antes do checkout). Resolução arquitetural pendente
 - **DT-C36-actor-debts:** OPEN → PARCIAL (CHECK preservado; vocabulário canônico final pendente)
 - **Convergência mecânica migration soberana 20260525100000:** fechada (escopo reduzido — 3 arquivos no Commit A1)
 - **Hit #4 (cluster c cross-layer events):** deferido para DECISION-0034 dedicada
@@ -89,6 +101,8 @@
 ### DTs em estado pós-sessão
 
 - **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** CLOSED (`a2242cd0`); dívida adjacente backend↔norma registrada no log F1 → FECHADA em F2 (`ee3c6add`) — convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas
+- **DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO (NOVA HK5):** OPEN — falsa solvência institucional do v2 documentada formalmente; substituto canônico (v3) criado em F6; critério parcialmente cumprido (TSC + gates), PENDENTE validação dinâmica em backend rodando antes de fechar
+- **DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION (NOVA F6):** OPEN, classe DT-A (arquitetural) — fragmentação entre `ensurePlatformAccounts` (cria `risk_reserve`/`platform_fees`) e `SystemAccountName` (espera `reserve`/`fee`/`regional_fund`). Tenant criado em produção via ensurePlatformAccounts puro NÃO consegue executar checkout event_ticket — bug causal silencioso mascarado por workaround em scripts E2E. Resolução exige decisão arquitetural
 - **DT-C36-actor-debts-case-drift:** PARCIAL (decisão vocabulário canônico final pendente)
 - **DT-bank-cachedBalanceCents-naming-heterogeneity:** OPEN (não-bloqueante até pós-β.5)
 - **DT-bank-accounts-last-activity-ghost-column:** OPEN (decisão pendente entre 2 opções)
@@ -121,6 +135,9 @@
 - `executei_17.md` (Frente 2 convergência summary + segunda aplicação HEAD inconsistente isolado — 14KB)
 - `executei_18.md` (Frente 4 + Frente 3 cancelada honestamente + reavaliação marketplace — 13KB)
 - `executei_19.md` (Frente 5 Dashboard wallet totalCents + investigação prévia GUARDIÃO marketplace + pivot meta-frente honesto)
+- `executei_20.md` (GUARDIÃO mapa pré-E2E — gap entre estado atual e fluxo causal ponta-a-ponta)
+- `executei_21.md` (PARO E REPORTO inicial — diagnóstico parcialmente errado de "caminho fundacional ausente" via 5 stubs)
+- `executei_22.md` (correção honesta do erro #3 — caminho fundacional EXISTE via cadeia events-payment → bankSplitEngine)
 
 ### Commits + logs institucionais criados
 
@@ -132,6 +149,9 @@
 - `docs/03_execution_log/2026-05-13_housekeeping_institucional_pos_f2.md` (Housekeeping pós-F2)
 - `docs/03_execution_log/2026-05-13_dt_economy_userAccount_balanceCents.md` (Frente 4 + cancelamento F3)
 - `docs/03_execution_log/2026-05-13_dt_dashboard_wallet_totalCents_convergence.md` (Frente 5)
+- `docs/03_execution_log/2026-05-13_housekeeping_institucional_pos_f5.md` (HK4 pós-F5)
+- `docs/03_execution_log/2026-05-13_housekeeping_dt_q3_e2e_v2_shortcut_epistemico.md` (HK5)
+- `docs/03_execution_log/2026-05-13_q3_e2e_v3_fundacional.md` (Frente 6)
 
 ---
 
