@@ -3764,3 +3764,20 @@ Não → prossegue
 ```
 
 Esta verificação é parte do checklist permanente de §9 da diretiva mestre.
+
+---
+
+## §30 — Heurísticas operacionais validadas em 2026-05-13
+
+Sessão 2026-05-13 (commits `221ced0e` + `f15ed8c7` + `a2242cd0`) ratificou material a calibração operacional registrada em memória institucional (`feedback_autonomia_operacional.md` em validação por 3-5 sessões). Três heurísticas merecem destaque permanente sem virar nova taxonomia:
+
+**1. Rename de tipo > grep semântico para mapear consumers.**
+DT-TRANSPARENCY-API-CENTS-CONVERGENCE mapeou 7 components via `grep -RnE "\.balance\b|\.amount\b|\.balanceAfter\b"`; TSC pós-rename de tipo revelou 5 consumers adicionais (`RegionalFundCard`, `TransactionSplitDetail`, `RegionalFundUser`, `TransactionDetail`, `useHomeData`). Padrão: ao planejar convergência de campo tipado, renomear primeiro o tipo e deixar TSC enumerar consumers reais. Mais confiável que grep manual — TSC localiza acessos aninhados (`obj.foo.bar`), reexports e arquivos criados após o último grep.
+
+**2. Dead code revelado por endpoint ausente é descoberta legítima, não distração.**
+`FundAdminPanel.tsx` chama `/fund/admin/regions` sem handler backend (grep `RegionFundData|getRegionsData|growth7Days|admin/regions` retornou vazio). Investigar shape antes de tocar revelou dead code efetivo (componente retorna 404 em runtime). Decisão honesta: não tocar no escopo da frente; reportar para decisão futura. Aplicação: antes de incluir component em refactor mecânico, verificar se endpoint backend existe.
+
+**3. Calibração "objetivo + restrições + fronteiras de parada" validada em runtime.**
+Frente 1 fechou em 1 parágrafo de diretiva, sem PASSOs enumerados, sem ping-pong, sem fronteira de parada acionada. Diretiva Clayton: *"Verifique rapidamente o shape real do endpoint /transparency. Se backend já expõe _cents, execute convergência frontend completa. Se encontrar divergência material backend/frontend, pare e reporte. Caso contrário, siga autonomamente até TSC + gates."* Padrão registrado em `feedback_autonomia_operacional.md` em validação por 3-5 sessões antes de consolidar como diretriz permanente.
+
+**Princípio operacional que tudo isso ratifica:** calibração existe para reduzir meta-governança, não para aumentar. Não criar §s subsequentes só por sessão produtiva — incluir aqui apenas heurística com aplicabilidade transversal verificada em runtime.

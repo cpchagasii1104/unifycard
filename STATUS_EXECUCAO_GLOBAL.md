@@ -1,3 +1,88 @@
+## 2026-05-13 — SESSÃO: convergência mecânica fechada (FASE 2 events lifecycle + Frente 3 actor-debts + Frente 1 DT-TRANSPARENCY)
+
+**Branch:** `rescue-structural`
+**Commits:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1) — 3 sequenciais (sem ping-pong intermediário)
+**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada)
+**Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`
+
+### Pipeline cronológica
+
+| Commit | Frente | Tipo | Métricas |
+|---|---|---|---|
+| `221ced0e` | FASE 2 — Convergência mecânica migration soberana `20260525100000` + TSC fix `UnifiedAvailability` | Convergência code↔schema soberano + autoria mista justificada por TSC | 3 arquivos, +173/-26, TSC 0, 4/4 gates |
+| `f15ed8c7` | FASE 3 — DT-C36-actor-debts dead branches eliminados em `trust.service.ts:481` | Convergência defensiva (CHECK preservado) | 2 arquivos, +124/-2, TSC 0, 4/4 gates |
+| `a2242cd0` | Frente 1 — DT-TRANSPARENCY CLOSED (11 arquivos frontend convergidos para `_cents`) | Convergência mecânica frontend↔§4.7 | 14 arquivos, +216/-60, TSC 0, 4/4 gates |
+
+**Total:** 19 arquivos modificados | +513/-88 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit
+
+### Resultado consolidado
+
+- 3/3 frentes fechadas com 4/4 gates PASS
+- **DT-TRANSPARENCY:** OPEN → CLOSED (bug 100x eliminado em 10 telas universais — Dashboard, GlobalContextBar, HeaderGlobal, MFIBank variants, RegionalFund variants, TransactionDetail)
+- **DT-C36-actor-debts:** OPEN → PARCIAL (CHECK preservado; vocabulário canônico final pendente)
+- **Convergência mecânica migration soberana 20260525100000:** fechada (escopo reduzido — 3 arquivos no Commit A1)
+- **Hit #4 (cluster c cross-layer events):** deferido para DECISION-0034 dedicada
+- **`event.service.ts` (core):** TSC fix `UnifiedAvailability` consumado (HEAD inconsistente isolado eliminado)
+
+### Lições estruturais novas registradas em memória institucional persistente
+
+- **`feedback_costura_clusters.md`** (NOVO) — hit pode ser semanticamente de um cluster mas tipograficamente de outro; classificar por DUAS dimensões (literal + cluster do tipo de origem); TSC é sinal arquitetural quando tipos paralelos cristalizados estão envolvidos
+- **`feedback_arquivo_nao_e_agregado.md`** (NOVO) — distinguir pilares paralelos (separar via stash cirúrgico) vs HEAD inconsistente isolado (incluir como dependência forçada); validar `tsc --noEmit` do HEAD antes de classificar pré-existentes
+- **`feedback_autonomia_operacional.md`** (ATUALIZADO) — calibração 2026-05-13 em validação por 3-5 sessões: "objetivo + restrições materiais + fronteiras de parada > coreografia procedural"
+
+### Calibração operacional validada na prática
+
+Frente 1 executada com 1 parágrafo de diretiva (objetivo + restrição + fronteira de parada + autorização autônoma), sem PASSOs enumerados, sem ping-pong intermediário. Fronteira "paro e consulto" não acionada (não houve divergência material backend/frontend; apenas dívida adjacente backend↔norma preservada honestamente). Padrão aprovado para validação contínua.
+
+### Anti-padrões fechados nesta sessão
+
+- §28 (código atrás de migration soberana) nos 3 pontos do escopo Frente 2
+- HEAD inconsistente isolado em `event.service.ts` (não compilava sem patches no working tree)
+- §4.7 violation crônica (frontend lendo nomes sem `_cents` apesar de backend já enviar)
+- Bug visual 100x em entrypoints universais (HeaderGlobal, Dashboard, GlobalContextBar)
+
+### Anti-padrões evitados nesta sessão
+
+- §29 (contaminação transversal) — Commit A1 expandiu escopo APENAS para TSC fix; mensagem nomeia honestamente
+- Cleanup destrutivo no hit #4 (cluster c) — TSC sinalizou que era cluster cross-layer, deferi
+- DT-AVAILABILITY-CONVERGENCE-LATENT (proposta inicialmente) — desfeita com transparência via evidência TSC
+- Tocar backend transparency.service.ts sem necessidade (já era conforme nos campos relevantes)
+- Tocar FundAdminPanel.tsx sem investigar (descobri dead code via grep — preservado)
+- Inflar memória institucional com nova taxonomia (calibração nova explicita: menos meta-governança)
+
+### DTs em estado pós-sessão
+
+- **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** CLOSED (`a2242cd0`)
+- **DT-C36-actor-debts-case-drift:** PARCIAL (decisão vocabulário canônico final pendente)
+- **DT-bank-cachedBalanceCents-naming-heterogeneity:** OPEN (não-bloqueante até pós-β.5)
+- **DT-bank-accounts-last-activity-ghost-column:** OPEN (decisão pendente entre 2 opções)
+- **DT-bank-balance-consolidation-region-fallback-tenant:** OPEN (depende de feature multi-região)
+- **DT-event-reservations-mixed-case:** OPEN (vinculada a DECISION-0028)
+- **DT-q3-e2e-v2-service-booking-sem-reserve:** OPEN (vinculada a DECISION-0031)
+
+### Pendências preservadas para próximas sessões
+
+- **DECISION-0034 (cluster c cross-layer events):** congelada por decisão Clayton até consolidar throughput de convergência mecânica
+- **Dívida summary backend transparency** (`summary.totalIn/totalOut/netAmount`, `byOrigin/byContext/byPeriod`, `SplitDetail.totalAmount/totalPercentage`, `wallet.totalIn/totalOut` em `/dashboard`): convergência de nome no backend quando alguma sessão tocar `transparency.service.ts` ou `/dashboard`
+- **FundAdminPanel.tsx:** dead code candidato (endpoint `/fund/admin/regions` sem handler backend)
+- **Sub-frente B P2P frontend:** 3 decisões UX/arquiteturais pendentes
+- **Pendência normativa DECISION-0033:** atualização formal `07_NOMENCLATURA_CANONICA §3.2` + SSOT_REGISTRY adicionando `canonical_product_type` — humano/RFC
+
+### Investigações read-only desta sessão (artefatos locais gitignored)
+
+- `executei_13.md` (Commit A1 análise inicial — 12.5KB)
+- `executei_14.md` (Diagnóstico revisto HEAD inconsistente isolado — 14.5KB)
+- `executei_15.md` (Opção α / Caminho A executados — 14.2KB)
+- `executei_16.md` (Frente 1 DT-TRANSPARENCY relatório completo — 14.5KB)
+
+### Commits + logs institucionais criados
+
+- `docs/03_execution_log/2026-05-12_convergencia_migration_20260525100000.md` (FASE 2)
+- `docs/03_execution_log/2026-05-12_dt_actor_debts_normalizacao_codigo.md` (FASE 3)
+- `docs/03_execution_log/2026-05-13_dt_transparency_convergencia_cents.md` (Frente 1)
+
+---
+
 ## 2026-05-12 — SESSÃO LONGA: convergência semântica (DECISION-0032/0033 + C39 NOT-A-BUG + §25 + DT-WALLET + C38 FIXED + transição institucional)
 
 **Branch:** `rescue-structural`
