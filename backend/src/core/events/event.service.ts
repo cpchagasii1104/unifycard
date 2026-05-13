@@ -127,9 +127,16 @@ class EventService {
 
   /**
    * Valida status (CONTRATO v1)
+   * Lista canônica conforme CHECK vigente (migration soberana 20260525100000 §4.38):
+   * draft, declared, published, active, ended, cancelled.
+   * 'completed' e 'archived' mantidos como compatibilidade transitória durante
+   * convergência gradual ao vocabulário canônico (§25 norma assintótica).
    */
   private validateStatus(status: string): status is EventStatus {
-    const validStatuses: EventStatus[] = ['draft', 'published', 'cancelled', 'completed', 'archived'];
+    const validStatuses: EventStatus[] = [
+      'draft', 'declared', 'published', 'active', 'ended', 'cancelled',
+      'completed', 'archived',
+    ];
     return validStatuses.includes(status as EventStatus);
   }
 
@@ -337,8 +344,10 @@ class EventService {
       }
     }
 
-    // 3. Validar que não está cancelado/finalizado
-    if (event.status === 'cancelled' || event.status === 'completed' || event.status === 'archived') {
+    // 3. Validar que não está cancelado/finalizado.
+    // Lifecycle encerrado segundo CHECK vigente (events.status): 'cancelled' ou 'ended'.
+    // 'completed'/'archived' eram dead branches contra CHECK soberano (20260525100000).
+    if (event.status === 'cancelled' || event.status === 'ended') {
       throw new BadRequestError(`Evento com status '${event.status}' não pode ser editado`);
     }
 
@@ -937,8 +946,8 @@ class EventService {
 
     // 2. Usar janela do evento ou query fornecida
     // FASE 5: datetime_start e datetime_end podem ser opcionais (ETAPA 0)
-    const startDatetime = query?.datetimeStart || event.datetimeStart;
-    const endDatetime = query?.datetimeEnd || event.datetimeEnd;
+    const startDatetime = query?.datetime_start || event.datetimeStart;
+    const endDatetime = query?.datetime_end || event.datetimeEnd;
     
     // Se não houver datas no evento nem na query, retornar informação parcial
     if (!startDatetime || !endDatetime) {
@@ -991,9 +1000,9 @@ class EventService {
           (eventStart <= availStart && eventEnd >= availEnd)
         ) {
           conflicts.push({
-            availability_id: availability.id,
-            start_datetime: availability.startDatetime,
-            end_datetime: availability.endDatetime,
+            availability_id: availability.availabilityId,
+            start_datetime: availability.startDatetime?.toISOString(),
+            end_datetime: availability.endDatetime?.toISOString(),
             owner_type: availability.ownerType,
             owner_id: availability.ownerId,
           });
@@ -1127,9 +1136,9 @@ class EventService {
             (windowStart <= availStart && windowEnd >= availEnd)
           ) {
             conflicts.push({
-              availability_id: availability.id,
-              start_datetime: availability.startDatetime.toISOString(),
-              end_datetime: availability.endDatetime.toISOString(),
+              availability_id: availability.availabilityId,
+              start_datetime: availability.startDatetime?.toISOString(),
+              end_datetime: availability.endDatetime?.toISOString(),
               owner_type: availability.ownerType,
               owner_id: availability.ownerId,
             });

@@ -18,23 +18,37 @@ interface EventRow {
 class EventScheduler {
   /**
    * Roda a cada hora
-   * Processa eventos que terminaram
-   * CONTRATO v1.4: Split automático pós-evento SOMENTE após completed_at
+   * Processa eventos que terminaram (events.status = 'ended')
+   * Estado da execução financeira pós-evento vive em event_financial_execution
+   * (separado de events conforme migration soberana 20260525100000 — §4.38).
    */
   async processEndedEvents(): Promise<void> {
     console.log('[EventScheduler] Verificando eventos finalizados...');
 
-    // Buscar eventos que terminaram, estão COMPLETED e não foram processados
-    // CONTRATO v1.4: Só processa se status = 'completed' e completed_at está definido
+    // Estado de execução financeira pós-evento: event_financial_execution (não events.split_processed).
+    // Enfileira trabalho para eventos ended com janela em datetime_end.
+    await pool.query(`
+      INSERT INTO event_financial_execution (tenant_id, event_id, status)
+      SELECT e.tenant_id, e.id, 'pending'
+      FROM events e
+      WHERE e.status = 'ended'
+        AND e.datetime_end IS NOT NULL
+        AND e.datetime_end < now()
+        AND e.datetime_end > now() - INTERVAL '2 hours'
+      ON CONFLICT (tenant_id, event_id) DO NOTHING
+    `);
+
     const result = await pool.query<EventRow>(
       `
-      SELECT e.id, e.tenant_id 
+      SELECT e.id, e.tenant_id
       FROM events e
-      WHERE e.status = 'completed'
-        AND e.completed_at IS NOT NULL
-        AND e.completed_at < now()
-        AND e.completed_at > now() - INTERVAL '2 hours'
-        AND (e.split_processed IS NULL OR e.split_processed = false)
+      INNER JOIN event_financial_execution efe
+        ON efe.tenant_id = e.tenant_id AND efe.event_id = e.id
+      WHERE e.status = 'ended'
+        AND e.datetime_end IS NOT NULL
+        AND e.datetime_end < now()
+        AND e.datetime_end > now() - INTERVAL '2 hours'
+        AND efe.status = 'pending'
       `
     );
     const events = result.rows;
@@ -68,6 +82,7 @@ class EventScheduler {
     );
     const events = result.rows;
 
+    const { escrowService } = await import('../modules/escrow/escrow.service');
     for (const event of events || []) {
       try {
         await escrowService.lock(event.tenant_id, event.id);
@@ -232,20 +247,22 @@ class EventScheduler {
     actorType: string,
     debtId: string
   ): Promise<void> {
-    // Verificar se há débitos pendentes
-    const pendingDebts = await pool.query<{ totalCents: number }>(
+    // Verificar se há débitos pendentes.
+    // CHECK chk_actor_debts_status aceita 'pending' (lowercase) — alinhado a §4.11.
+    // (Antes: status = 'PENDING' UPPERCASE → dead branch em runtime, nunca match.)
+    const pendingDebts = await pool.query<{ total_cents: string }>(
       `
-      SELECT COALESCE(SUM(amount_cents), 0) as total
+      SELECT COALESCE(SUM(amount_cents), 0)::bigint as total_cents
       FROM actor_debts
       WHERE tenant_id = $1
         AND debtor_actor_id = $2
         AND debtor_actor_type = $3
-        AND status = 'PENDING'
+        AND status = 'pending'
       `,
       [tenantId, actorId, actorType]
     );
 
-    const totalDebt = parseInt(String(pendingDebts.rows[0]?.total || '0'), 10);
+    const totalDebt = parseInt(String(pendingDebts.rows[0]?.total_cents ?? '0'), 10);
 
     if (totalDebt > 0) {
       // Aplicar penalidade de bloqueio
