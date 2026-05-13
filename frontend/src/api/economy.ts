@@ -3,9 +3,11 @@
 
 import { apiFetch } from './client';
 
+// Conformidade §4.7: campos monetários com sufixo `_cents` alinhados ao backend
+// (core/economy/accounts/account.routes.ts /me retorna `balanceCents`).
 export interface UserAccount {
   accountId: string;
-  balance: number;
+  balanceCents: number;
   currency: string;
   status: 'active' | 'inactive' | 'suspended';
 }

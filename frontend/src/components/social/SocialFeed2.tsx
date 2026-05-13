@@ -28,6 +28,7 @@ import { getIdentityProfile } from '../../api/identity';
 import { sortFeedByRelevance, type FeedItem as ScoringFeedItem } from '../../utils/feedScoring';
 import { validateActiveActor, safeApiCall, safeArray, safeNumber, safeString } from '../../utils/guardrails';
 import { devLog } from '../../utils/devLog';
+import { centsToReais } from '../../utils/money';
 import './SocialFeed2.css';
 
 export default function SocialFeed2() {
@@ -704,7 +705,7 @@ export default function SocialFeed2() {
                     {new Intl.NumberFormat('pt-BR', {
                       style: 'currency',
                       currency: safeString(myAccount.currency, 'BRL'),
-                    }).format(safeNumber(myAccount.balance, 0) / 100)}
+                    }).format(centsToReais(safeNumber(myAccount.balanceCents, 0)))}
                   </div>
                   <div className="account-status">
                     <span className={`status-badge status-${myAccount.status === 'active' ? 'active' : 'inactive'}`}>
