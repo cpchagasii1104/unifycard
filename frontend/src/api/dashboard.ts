@@ -159,8 +159,38 @@ export async function getInventoryDashboard(filters?: DashboardFilters): Promise
   return response.json();
 }
 
-// Backwards compatibility - flexible type for Dashboard.tsx
-export type DashboardData = Record<string, any>;
+/**
+ * Wallet do usuário no dashboard.
+ * Espelha backend `core/dashboard/dashboard.types.ts::DashboardWallet` (canônico §4.7).
+ */
+export interface DashboardWallet {
+  balanceCents: number;
+  currency: string;
+  totalInCents: number;
+  totalOutCents: number;
+  lastTransactions: Array<{
+    transactionId: string;
+    type: 'credit' | 'debit';
+    amountCents: number;
+    createdAt: string;
+  }>;
+}
+
+/**
+ * Payload retornado por GET /dashboard (consumido por Dashboard.tsx).
+ * Espelha backend `core/dashboard/dashboard.types.ts::DashboardData`.
+ */
+export interface DashboardData {
+  profile: {
+    global: Record<string, any>;
+    local: Record<string, any>;
+    residence: Record<string, any> | null;
+  };
+  wallet: DashboardWallet | null;
+  reputation: Record<string, any> | null;
+  /** Legado regional fund removido — sempre null em runtime. Tipo permissivo até dead code ser removido. */
+  fund: Record<string, any> | null;
+}
 
 /**
  * Obtém dashboard do usuário (perfil, wallet, reputação, fundo)

@@ -354,13 +354,13 @@ export default function Dashboard() {
                 <div className="stat-item">
                   <span className="stat-label">Total Recebido</span>
                   <span className="stat-value positive">
-                    {formatCurrency(centsToReais(data.wallet.totalIn))}
+                    {formatCurrency(centsToReais(data.wallet.totalInCents))}
                   </span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Total Gasto</span>
                   <span className="stat-value negative">
-                    {formatCurrency(centsToReais(data.wallet.totalOut))}
+                    {formatCurrency(centsToReais(data.wallet.totalOutCents))}
                   </span>
                 </div>
               </div>
