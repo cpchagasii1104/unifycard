@@ -1,8 +1,8 @@
-## 2026-05-13 — SESSÃO: convergência mecânica fechada (FASE 2 events lifecycle + Frente 3 actor-debts + Frente 1 DT-TRANSPARENCY)
+## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (5 commits, 4 frentes + housekeeping)
 
 **Branch:** `rescue-structural`
-**Commits:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1) — 3 sequenciais (sem ping-pong intermediário)
-**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada)
+**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2) — 4 frentes + 1 housekeeping (`24c6e67b`)
+**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 2 aplicações)
 **Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`
 
 ### Pipeline cronológica
@@ -11,18 +11,21 @@
 |---|---|---|---|
 | `221ced0e` | FASE 2 — Convergência mecânica migration soberana `20260525100000` + TSC fix `UnifiedAvailability` | Convergência code↔schema soberano + autoria mista justificada por TSC | 3 arquivos, +173/-26, TSC 0, 4/4 gates |
 | `f15ed8c7` | FASE 3 — DT-C36-actor-debts dead branches eliminados em `trust.service.ts:481` | Convergência defensiva (CHECK preservado) | 2 arquivos, +124/-2, TSC 0, 4/4 gates |
-| `a2242cd0` | Frente 1 — DT-TRANSPARENCY CLOSED (11 arquivos frontend convergidos para `_cents`) | Convergência mecânica frontend↔§4.7 | 14 arquivos, +216/-60, TSC 0, 4/4 gates |
+| `a2242cd0` | Frente 1 — DT-TRANSPARENCY CLOSED (11 arquivos frontend convergidos para `_cents`) | Convergência mecânica frontend↔§4.7 transaction-level | 14 arquivos, +216/-60, TSC 0, 4/4 gates |
+| `24c6e67b` | Housekeeping institucional consolidado (STATUS + code.md §30 + log) | Memória histórica da sessão | 3 arquivos, +202/-0 |
+| `ee3c6add` | Frente 2 — DT-TRANSPARENCY summary-level (backend) + TSC fix transparency.service.ts (HEAD inconsistente isolado, segunda ocorrência) | Convergência §4.7 summary backend + autoria mista justificada por TSC | 10 arquivos, +363/-211, TSC 0, 4/4 gates |
 
-**Total:** 19 arquivos modificados | +513/-88 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit
+**Total funcional:** 32 arquivos modificados | +1.078/-299 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional
 
 ### Resultado consolidado
 
-- 3/3 frentes fechadas com 4/4 gates PASS
-- **DT-TRANSPARENCY:** OPEN → CLOSED (bug 100x eliminado em 10 telas universais — Dashboard, GlobalContextBar, HeaderGlobal, MFIBank variants, RegionalFund variants, TransactionDetail)
+- 4/4 frentes funcionais fechadas com 4/4 gates PASS
+- **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** OPEN → CLOSED em F1 (`a2242cd0`); dívida adjacente backend↔norma registrada em F1 → FECHADA em F2 (`ee3c6add`). Bug 100x eliminado em 10 telas universais; convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas (transaction-level + summary-level)
 - **DT-C36-actor-debts:** OPEN → PARCIAL (CHECK preservado; vocabulário canônico final pendente)
 - **Convergência mecânica migration soberana 20260525100000:** fechada (escopo reduzido — 3 arquivos no Commit A1)
 - **Hit #4 (cluster c cross-layer events):** deferido para DECISION-0034 dedicada
-- **`event.service.ts` (core):** TSC fix `UnifiedAvailability` consumado (HEAD inconsistente isolado eliminado)
+- **`event.service.ts` (core) + `transparency.service.ts`:** TSC fix `UnifiedAvailability` / `RegionalFundEntry` consumado (padrão HEAD inconsistente isolado aplicado em 2 arquivos distintos — heurística reutilizável validada)
+- **Metabolismo arquitetural:** dívida nascida em F1 paga em F2 dentro da mesma sessão (24h). §25 funcionando: critério de convergência ≠ TODO eterno.
 
 ### Lições estruturais novas registradas em memória institucional persistente
 
@@ -30,16 +33,23 @@
 - **`feedback_arquivo_nao_e_agregado.md`** (NOVO) — distinguir pilares paralelos (separar via stash cirúrgico) vs HEAD inconsistente isolado (incluir como dependência forçada); validar `tsc --noEmit` do HEAD antes de classificar pré-existentes
 - **`feedback_autonomia_operacional.md`** (ATUALIZADO) — calibração 2026-05-13 em validação por 3-5 sessões: "objetivo + restrições materiais + fronteiras de parada > coreografia procedural"
 
-### Calibração operacional validada na prática
+### Calibração operacional validada na prática (2 aplicações)
 
-Frente 1 executada com 1 parágrafo de diretiva (objetivo + restrição + fronteira de parada + autorização autônoma), sem PASSOs enumerados, sem ping-pong intermediário. Fronteira "paro e consulto" não acionada (não houve divergência material backend/frontend; apenas dívida adjacente backend↔norma preservada honestamente). Padrão aprovado para validação contínua.
+**F1:** executada com 1 parágrafo de diretiva (objetivo + restrição + fronteira de parada + autorização autônoma), sem PASSOs enumerados, sem ping-pong intermediário. Fronteira "paro e consulto" não acionada.
+
+**F2:** delegação total de Clayton ("você decide o próximo passo, mantendo o sistema no trilho, respeitando as normas"). EXECUTOR escolheu autonomamente continuar convergência §4.7 fechando dívida adjacente da F1. Segunda ocorrência do padrão "HEAD inconsistente isolado" (`transparency.service.ts`) tratada autonomamente sem PARO E CONSULTO procedural — heurística registrada em `feedback_arquivo_nao_e_agregado.md` aplicada diretamente. Custo operacional ~5x menor que primeira ocorrência (`event.service.ts`, 4 idas e vindas).
+
+**Sinal de maturação:** quando a coordenação reduziu, o throughput aumentou — sem perder rigor (TSC 0 + 4/4 gates em ambas as frentes).
 
 ### Anti-padrões fechados nesta sessão
 
-- §28 (código atrás de migration soberana) nos 3 pontos do escopo Frente 2
+- §28 (código atrás de migration soberana) nos 3 pontos do escopo FASE 2
 - HEAD inconsistente isolado em `event.service.ts` (não compilava sem patches no working tree)
-- §4.7 violation crônica (frontend lendo nomes sem `_cents` apesar de backend já enviar)
-- Bug visual 100x em entrypoints universais (HeaderGlobal, Dashboard, GlobalContextBar)
+- HEAD inconsistente isolado em `transparency.service.ts` (mesmo padrão, segunda ocorrência — eliminado em F2)
+- §4.7 violation crônica em frontend (lendo nomes sem `_cents` apesar de backend já enviar) — fechado em F1
+- §4.7 violation residual em backend (campos summary com nomes ambíguos sem `_cents`) — fechado em F2
+- Bug visual 100x em entrypoints universais (HeaderGlobal, Dashboard, GlobalContextBar) — fechado em F1
+- Dívida adjacente backend↔norma registrada em F1 com critério de convergência (§25) — paga em F2 dentro da mesma sessão
 
 ### Anti-padrões evitados nesta sessão
 
@@ -52,7 +62,7 @@ Frente 1 executada com 1 parágrafo de diretiva (objetivo + restrição + fronte
 
 ### DTs em estado pós-sessão
 
-- **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** CLOSED (`a2242cd0`)
+- **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** CLOSED (`a2242cd0`); dívida adjacente backend↔norma registrada no log F1 → FECHADA em F2 (`ee3c6add`) — convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas
 - **DT-C36-actor-debts-case-drift:** PARCIAL (decisão vocabulário canônico final pendente)
 - **DT-bank-cachedBalanceCents-naming-heterogeneity:** OPEN (não-bloqueante até pós-β.5)
 - **DT-bank-accounts-last-activity-ghost-column:** OPEN (decisão pendente entre 2 opções)
@@ -63,7 +73,6 @@ Frente 1 executada com 1 parágrafo de diretiva (objetivo + restrição + fronte
 ### Pendências preservadas para próximas sessões
 
 - **DECISION-0034 (cluster c cross-layer events):** congelada por decisão Clayton até consolidar throughput de convergência mecânica
-- **Dívida summary backend transparency** (`summary.totalIn/totalOut/netAmount`, `byOrigin/byContext/byPeriod`, `SplitDetail.totalAmount/totalPercentage`, `wallet.totalIn/totalOut` em `/dashboard`): convergência de nome no backend quando alguma sessão tocar `transparency.service.ts` ou `/dashboard`
 - **FundAdminPanel.tsx:** dead code candidato (endpoint `/fund/admin/regions` sem handler backend)
 - **Sub-frente B P2P frontend:** 3 decisões UX/arquiteturais pendentes
 - **Pendência normativa DECISION-0033:** atualização formal `07_NOMENCLATURA_CANONICA §3.2` + SSOT_REGISTRY adicionando `canonical_product_type` — humano/RFC
@@ -74,12 +83,15 @@ Frente 1 executada com 1 parágrafo de diretiva (objetivo + restrição + fronte
 - `executei_14.md` (Diagnóstico revisto HEAD inconsistente isolado — 14.5KB)
 - `executei_15.md` (Opção α / Caminho A executados — 14.2KB)
 - `executei_16.md` (Frente 1 DT-TRANSPARENCY relatório completo — 14.5KB)
+- `executei_17.md` (Frente 2 convergência summary + segunda aplicação HEAD inconsistente isolado — 14KB)
 
 ### Commits + logs institucionais criados
 
 - `docs/03_execution_log/2026-05-12_convergencia_migration_20260525100000.md` (FASE 2)
 - `docs/03_execution_log/2026-05-12_dt_actor_debts_normalizacao_codigo.md` (FASE 3)
 - `docs/03_execution_log/2026-05-13_dt_transparency_convergencia_cents.md` (Frente 1)
+- `docs/03_execution_log/2026-05-13_housekeeping_institucional_consolidacao.md` (Housekeeping pós-F1)
+- `docs/03_execution_log/2026-05-13_dt_transparency_summary_convergencia.md` (Frente 2)
 
 ---
 
