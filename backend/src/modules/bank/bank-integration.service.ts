@@ -97,7 +97,20 @@ async function resolveEventOrganizerAccount(
     const event = result.rows[0];
 
     if (event.actor_type === 'user') {
-      return await resolveUserAccount(tenantId, event.actor_id, currency);
+      // events.actor_id é actor_id (não user_id). resolveUserAccount espera
+      // user_id porque getOrCreateAccount({ownerType: 'user'}) busca via
+      // actors.user_id no repository. Tradução semântica obrigatória aqui.
+      const { runQueryWithTenant } = await import('@core/database/pool');
+      const actorRow = await runQueryWithTenant<{ user_id: string | null }>(
+        tenantId,
+        `SELECT user_id FROM actors WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
+        [tenantId, event.actor_id]
+      );
+      const organizerUserId = actorRow?.user_id;
+      if (!organizerUserId) {
+        return null;
+      }
+      return await resolveUserAccount(tenantId, organizerUserId, currency);
     } else if (event.actor_type === 'page' || event.actor_type === 'company') {
       return await resolveCompanyAccount(tenantId, event.actor_id, currency);
     }

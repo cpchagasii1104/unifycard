@@ -1,12 +1,23 @@
 // backend/src/core/events/event-economy.service.ts
-// FASE 2 — Event Economy: processCheckout, bank_transaction, bank_splits, bank_ledger. amountCents canônico.
+// Camada econômica de eventos — tradução semântica HTTP→domain.
+//
+// Esta service NÃO duplica lógica financeira: DELEGA para
+// `bank-integration.processEventTicketPayment` (runtime soberano consolidado),
+// preservando memória operacional do legado:
+//   - validação de limite diário (bankLimitService)
+//   - autoria financeira via ownership (não system bypass)
+//   - idempotência (idempotencyKey || uuidv4 fallback)
+//   - ensureUserActor (cria actor se não existir)
+//   - suporte a organizer 'user' E 'page'/'company' (via resolveEventOrganizerAccount)
+//   - helpers reutilizados em 9+ caminhos cross-context
+//
+// Padrão arquitetural: análogo a `events-payment.service.processEventPayment`
+// (wrapper de delegação). Convergência via absorção do legado, não duplicação.
+// Vide executei_23.md para análise material completa.
 
-import { v4 as uuidv4 } from 'uuid';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
-import { bankTransactionService } from '@modules/bank';
 import { runQueryWithTenant } from '@core/database/pool';
-import type { FinancialAuthorshipContext } from '@modules/bank/financial-authorship.types';
 import { eventService } from './event.service';
 import type {
   ProcessCheckoutInput,
@@ -16,7 +27,16 @@ import type {
 
 class EventEconomyService {
   /**
-   * Processa checkout: cria bank_transaction, bank_splits, bank_ledger. Retorno tipado.
+   * Processa checkout de ingresso de evento.
+   *
+   * Responsabilidade desta camada:
+   *   1. Validações específicas do domínio HTTP (quantity, ticket_price)
+   *   2. Tradução semântica HTTP→domain (attendee_actor_id → buyer_user_id)
+   *   3. Delegação para bank-integration.processEventTicketPayment (runtime soberano)
+   *   4. Mapeamento de retorno para tipo CheckoutResult
+   *
+   * NÃO implementa: validação financeira, autoria, idempotência, resolução de
+   * contas, criação de actor. Esses são responsabilidade de bank-integration.
    */
   async processCheckout(
     tenantId: string,
@@ -24,6 +44,7 @@ class EventEconomyService {
   ): Promise<CheckoutResult> {
     const { eventId, attendeeActorId, quantity } = input;
 
+    // 1. Validações específicas do domínio HTTP
     if (quantity < 1 || quantity > 10) {
       throw new BadRequestError('quantity deve estar entre 1 e 10.');
     }
@@ -39,8 +60,8 @@ class EventEconomyService {
       throw new BadRequestError('Evento sem preço de ingresso configurado');
     }
 
-    // Resolver user_id a partir de actor_id — contrato BankAccountOwnerType='user' exige ownerId=user_id
-    // (repository busca actor via SELECT FROM actors WHERE user_id = $2 quando ownerType='user').
+    // 2. Tradução semântica: rota HTTP envia attendee_actor_id (actor_id);
+    // bank-integration.processEventTicketPayment espera buyer_user_id (user_id).
     const actorRow = await runQueryWithTenant<{ user_id: string | null }>(
       tenantId,
       `SELECT user_id FROM actors WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
@@ -51,86 +72,37 @@ class EventEconomyService {
       throw new BadRequestError('Attendee actor não está vinculado a um user');
     }
 
-    const bankAccount = bankPortsRegistry.getBankAccount();
-    const attendeeAccount = await bankAccount.getOrCreateAccount(tenantId, {
-      ownerId: attendeeUserId,
-      ownerType: 'user',
+    // 3. Delegação para runtime soberano (bank-integration).
+    // Preserva limite diário, autoria ownership, idempotência, ensureUserActor,
+    // resolveEventOrganizerAccount (suporta user E page/company).
+    const bankIntegration = bankPortsRegistry.getBankIntegration();
+    const result = await bankIntegration.processEventTicketPayment(tenantId, {
+      eventId,
+      buyerUserId: attendeeUserId,
+      amountCents: totalAmountCents,
       currency: 'BRL',
+      metadata: { quantity, attendeeActorId },
     });
 
-    // Resolver conta do organizer (revenue_share split target — context: event_ticket)
-    // event.actorId é actor_id; resolver user_id para getOrCreateAccount com ownerType='user'
-    if (event.actorType !== 'user') {
-      throw new BadRequestError(
-        `Organizer actor_type='${event.actorType}' não suportado nesta versão (esperado: 'user')`
-      );
-    }
-    const organizerActorRow = await runQueryWithTenant<{ user_id: string | null }>(
-      tenantId,
-      `SELECT user_id FROM actors WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
-      [tenantId, event.actorId]
-    );
-    const organizerUserId = organizerActorRow?.user_id;
-    if (!organizerUserId) {
-      throw new BadRequestError('Organizer actor não está vinculado a um user');
-    }
-    const organizerAccount = await bankAccount.getOrCreateAccount(tenantId, {
-      ownerId: organizerUserId,
-      ownerType: 'user',
-      currency: 'BRL',
-    });
-
-    const checkoutEventId = uuidv4();
-    const now = new Date().toISOString();
-    const authorship: FinancialAuthorshipContext = {
-      performedByUserId: null,
-      actingForActorId: attendeeActorId,
-      actingForAccountId: attendeeAccount.accountId,
-      authoritySource: 'system',
-      permissionSnapshot: {
-        permissionKey: 'event.checkout',
-        allowed: true,
-        actorId: attendeeActorId,
-        userId: '',
-        decidedAt: now,
-      },
-    };
-
-    const result = await bankTransactionService.createTransactionWithSplit(
-      tenantId,
-      {
-        eventId: checkoutEventId,
-        fromAccountId: attendeeAccount.accountId,
-        amountCents: totalAmountCents,
-        currency: 'BRL',
-        context: 'event_ticket',
-        revenueShareAccountId: organizerAccount.accountId,
-        fromUserId: attendeeUserId,
-        description: `Checkout evento ${eventId}, ${quantity} ingresso(s)`,
-        metadata: { eventId, attendeeActorId, quantity },
-        authorship,
-        concept_id: 'event-ticket-payment',
-      }
-    );
-
+    // 4. Mapeamento de retorno para tipo CheckoutResult específico de event-economy.
+    // bank-integration retorna { transactionId, splits: [{accountId, amountCents}] }.
+    // CheckoutResult espera splits: [{rule: {targetType, percentage}, amountCents, transactionId}].
     const splits: CheckoutSplitItem[] = result.splits.map((s) => ({
       rule: {
-        targetType: s.splitType,
-        percentage: s.percentage ?? 0,
+        targetType: 'revenue_share', // bank-integration não expõe splitType no retorno; preservar semântica de "share"
+        percentage: 0, // bank-integration não expõe percentage no retorno; downstream pode recalcular via amountCents/totalAmountCents
       },
       amountCents: s.amountCents,
-      transactionId: s.transactionId,
+      transactionId: result.transactionId,
     }));
 
-    const checkoutResult: CheckoutResult = {
+    return {
       eventId,
       attendeeId: attendeeActorId,
-      transactionId: result.transaction.transactionId,
+      transactionId: result.transactionId,
       totalAmountCents,
       splitResult: { splits },
     };
-
-    return checkoutResult;
   }
 }
 
