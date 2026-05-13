@@ -508,3 +508,59 @@ Status values:
   - **FundAdminPanel.tsx fora do escopo:** importa `api/fund-admin.ts` que chama endpoint `/fund/admin/regions` SEM HANDLER no backend. Componente é dead code efetivo (404 em runtime). Não tocado nesta frente. Marcar como dead code em frente futura ou documentar como DT própria se decisão for revivê-lo.
   - **Dívida adjacente backend↔norma preservada:** campos summary (`summary.totalIn/totalOut/netAmount`, `byOrigin/byContext/byPeriod`, `SplitDetail.totalAmount/totalPercentage`) ainda usam nomes sem `_cents` no backend embora valores sejam centavos. Frontend convergido tratando-os como centavos via convenção. Convergência de nome no backend fica para frente futura quando alguma sessão tocar `transparency.service.ts`.
   - **3 endpoints monetários convergentes ao §4.7 nos campos transaction-level:** `/bank/statement` + `/identity/wallet` + `/dashboard` todos enviam `amountCents`/`balanceCents`/`balanceAfterCents`. Norma vencendo em runtime.
+
+---
+
+## DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO
+
+- **Status:** OPEN
+- **Classe:** DT-R (runtime / falsa solvência institucional)
+- **Origem:** Investigação prévia smoke v3 fundacional (2026-05-13 sessão GUARDIÃO, artefato `executei_21.md`)
+- **Vinculada a:** DECISION-0031 (caminho fundacional event_ticket); commit `61e10c26` (Q3-E2E v2 11/11 PASS); achado material em `backend/src/modules/escrow/escrow.service.ts:312-347` (5 stubs vazios)
+- **Convergência prevista:** Após DECISION-0035 formalizada (decisão arquitetural sobre event-escrow + split engines + reserve funding) + smoke v3 fundacional canônico implementado, `q3-e2e-v2.ts` deprecated ou deletado. Critério de fechamento: smoke v3 substitui v2 + commit message + log institucional explícitos sobre substituição.
+- **Contexto:**
+  `backend/scripts/q3-e2e-v2.ts` (commit `61e10c26`, 2026-05-12 03:53) declara no commit message "smoke econômico **fundacional**". O código (P4 linhas 130-151) executa:
+
+  ```ts
+  await bankAccountRepository.createAccount(tenantId, {
+    ownerId: `system:reserve:${tenantId}`, ownerType: 'system', ...
+  });
+  const mintResult = await bankTransactionService.createSimpleTransaction(tenantId, {
+    fromAccountId: undefined,           // → system:liquidity_issuance auto-criada
+    toAccountId: sysReserve!.accountId, // mint direto para reserve
+    amountCents: SEED_AMOUNT_CENTS,     // R$ 5.000 hardcoded
+    concept_id: 'system-reserve-credit',
+    ...
+  });
+  ```
+
+  Isso é exatamente a **Opção C** que DECISION-0031 (mesmo dia, possivelmente depois) refutou explicitamente:
+
+  > "Opção C (seed de tenant provisiona reserve) — mesma violação que A: provisionamento artificial antes de qualquer atividade econômica. Reserve com saldo sem origem transacional real é contabilidade falsa."
+
+  Investigação posterior (executei_21) revelou que o caminho fundacional declarado em DECISION-0031 (`event_ticket → split engine → parcela de reserve 17% → coverage emergente`) **não está implementado** — `escrow.service.ts:312-347` tem 5 stubs vazios (`lock`, `startRelease`, `release`, `complete`, `getEscrowByEvent`) com TODO literal "integrar com event-escrow quando existir". `postEventSplitJob.execute()` invoca esses stubs em sequência (`backend/src/jobs/post-event-split.job.ts:109, 140, 197, 230, 279`).
+
+  Consequência: v2 passou 11/11 PASS validando ledger técnico (double-entry net=0, bigint, etc.) mas NÃO exerceu o caminho fundacional canônico declarado pela norma.
+
+- **Risco:**
+  Falsa solvência institucional. Próxima sessão (humana ou IA) que ler git log + STATUS_EXECUCAO_GLOBAL pode citar v2 como prova de "fluxo econômico fundacional validado em runtime" quando NÃO é. Externo (cofundador, investidor, parceiro técnico, auditor de devida diligência) que examinar o artefato pode chegar à mesma conclusão errada. Quanto mais tempo a falsa solvência permanece não-registrada, maior o risco de virar precedente institucional não-questionado.
+
+- **Mitigação atual:**
+  Esta DT + executei_21 (gitignored, mas conteúdo material em log institucional) + nota explícita em STATUS_EXECUCAO_GLOBAL.md (pós-housekeeping HK5) registram que v2 é shortcut, não fundacional. Próxima sessão que abrir o tema event_ticket / smoke / fluxo fundacional encontra DT antes de citar v2.
+
+- **Resolução prevista:**
+  Fluxo de 3 etapas:
+  1. **DECISION-0035 formalizada** (decisão arquitetural sobre event-escrow A/B/C — vide executei_21) — após audit multi-AI sobre DRAFT a produzir em δ'
+  2. **Smoke v3 fundacional canônico implementado** (`backend/scripts/q3-e2e-v3-fundacional.ts` ou nome equivalente) — exercita event_ticket → publish → checkout → split engine → reserve fundada → coverage emergente → P2P
+  3. **Cleanup do v2:** deletado OU marcado deprecated com comentário citando DECISION-0035 + apontando v3 como canônico. Commit message + log institucional documentando substituição.
+
+  Prioridade: ALTA. Falsa solvência institucional em ponto soberano do sistema (caminho fundacional econômico) tem custo de oportunidade institucional alto se permanecer não-registrada.
+
+- **Bloqueador para:**
+  Declaração legítima de "fluxo econômico ponta-a-ponta validado em runtime", inclusive em:
+  - STATUS_EXECUCAO_GLOBAL.md
+  - Comunicação externa (cofundador / investidor / parceiro técnico)
+  - Próxima sessão que abrir tema fluxo fundacional
+  - Qualquer DECISION futura que invoque "Q3-E2E como prova" sem distinguir v2 de v3
+
+---
