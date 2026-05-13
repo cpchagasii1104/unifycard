@@ -513,7 +513,7 @@ Status values:
 
 ## DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO
 
-- **Status:** OPEN
+- **Status:** CLOSED (2026-05-13 — encerrada por F9 commit `9e8a5f73` + HK7 commit deste fechamento)
 - **Classe:** DT-R (runtime / falsa solvência institucional)
 - **Origem:** Investigação prévia smoke v3 fundacional (2026-05-13 sessão GUARDIÃO, artefato `executei_21.md`)
 - **Vinculada a:** DECISION-0031 (caminho fundacional event_ticket); commit `61e10c26` (Q3-E2E v2 11/11 PASS); achado material em `backend/src/modules/escrow/escrow.service.ts:312-347` (5 stubs vazios)
@@ -562,6 +562,30 @@ Status values:
   - Comunicação externa (cofundador / investidor / parceiro técnico)
   - Próxima sessão que abrir tema fluxo fundacional
   - Qualquer DECISION futura que invoque "Q3-E2E como prova" sem distinguir v2 de v3
+
+- **Resolução final (2026-05-13):**
+  Fluxo de 3 etapas executado:
+  1. **DECISION-0036 formalizada** (commit `240a2bb0`) — refactor schema bank_splits
+     para target_account_id; premissa ontológica account-centric ratificada.
+  2. **F9 implementada** (commit `9e8a5f73`) — migration `20260530538000` aplicada;
+     repository refactor; bug pré-existente B10 em `validateSplitsSum` corrigido;
+     smoke v3 fundacional 14/14 PASS em runtime real.
+  3. **HK7 cleanup** (commit deste fechamento) — `q3-e2e-v2.ts` DELETADO; referência
+     histórica no header de `q3-e2e-v3-fundacional.ts`; STATUS_EXECUCAO_GLOBAL.md
+     atualizado refletindo realidade material atual.
+
+  **Prova material da convergência (F9 P9-P12 PASS):**
+  - event_ticket → bankSplitEngine → 4 splits canônicos (70 organizer + 3 fee +
+    10 regional_fund + 17 reserve) persistidos em bank_splits
+  - Reserve fundada via 17% AUTOMÁTICO do split (NÃO via shortcut concept_id
+    'system-reserve-credit' como v2 fazia)
+  - system_coverage.execution_capacity_cents bigint > 0 emergente do fluxo real
+  - P2P canônico via context p2p_transfer
+  - Ledger double-entry net=0 em todas as transações + pg_typeof bigint
+
+  DECISION-0031 ("coverage emerge de fluxo econômico fundacional, não de
+  provisionamento artificial") deixou de ser papel e virou comportamento
+  executado em runtime. Falsa solvência institucional eliminada.
 
 ---
 

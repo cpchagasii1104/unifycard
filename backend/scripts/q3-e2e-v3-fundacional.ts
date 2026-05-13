@@ -1,8 +1,9 @@
 /**
  * Q3-E2E v3 — SMOKE ECONÔMICO FUNDACIONAL CANÔNICO
  *
- * Substitui q3-e2e-v2.ts (commit 61e10c26 — Opção C refutada por DECISION-0031).
- * Fecha DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO.
+ * Substituiu q3-e2e-v2.ts (commit histórico 61e10c26 — Opção C refutada por
+ * DECISION-0031). v2 deletado em HK7 (2026-05-13) após validação dinâmica
+ * 14/14 PASS. DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO fechada.
  *
  * PROVA MATERIAL — caminho fundacional canônico de DECISION-0031:
  *   1. event_ticket → eventEconomyService.processCheckout
