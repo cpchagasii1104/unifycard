@@ -5,12 +5,9 @@ import { apiFetch } from './client';
 
 // Conformidade §4.7 (07_NOMENCLATURA_CANONICA): campos monetários com sufixo `_cents`,
 // alinhados ao shape real do backend (core/unifybank/transparency.service.ts).
-// Convergência DT-TRANSPARENCY-API-CENTS-CONVERGENCE.
+// Convergência DT-TRANSPARENCY-API-CENTS-CONVERGENCE (Frente 1) + summary fields (Frente 2).
 //
-// Dívida adjacente preservada (backend↔norma): summary.totalIn/totalOut/netAmount,
-// totalAmount, totalPercentage, byOrigin/byContext/byPeriod ainda usam nomes sem
-// `_cents` no backend embora valores sejam centavos. Convergência futura quando
-// alguma frente tocar a camada summary.
+// totalPercentage permanece sem sufixo Cents — é percentual, não monetário.
 
 export interface StatementEntry {
   transactionId: string;
@@ -57,7 +54,7 @@ export interface SplitDetail {
     createdAt: string;
   }>;
   totalPercentage: number;
-  totalAmount: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
+  totalAmountCents: number;
 }
 
 export interface RegionalFundEntry {
@@ -78,9 +75,9 @@ export interface RegionalFundView {
   currentBalanceCents: number;
   entries: RegionalFundEntry[];
   summary: {
-    totalIn: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
-    totalOut: number;
-    netAmount: number;
+    totalInCents: number;
+    totalOutCents: number;
+    netAmountCents: number;
   };
 }
 
@@ -90,15 +87,15 @@ export interface RegionalFundAdminView {
   currentBalanceCents: number;
   entries: RegionalFundEntry[];
   summary: {
-    totalIn: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
-    totalOut: number;
-    netAmount: number;
-    byOrigin: Record<string, number>;
-    byContext: Record<string, number>;
+    totalInCents: number;
+    totalOutCents: number;
+    netAmountCents: number;
+    byOriginCents: Record<string, number>;
+    byContextCents: Record<string, number>;
     byPeriod: Array<{
       period: string;
-      totalIn: number;
-      totalOut: number;
+      totalInCents: number;
+      totalOutCents: number;
     }>;
   };
 }

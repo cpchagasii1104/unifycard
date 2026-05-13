@@ -100,15 +100,15 @@ export default function RegionalFundUser() {
         </div>
         <div className="summary-card total-in">
           <div className="card-label">Total Recebido</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalIn))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalInCents))}</div>
         </div>
         <div className="summary-card total-out">
           <div className="card-label">Total Distribuído</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOut))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOutCents))}</div>
         </div>
         <div className="summary-card net">
           <div className="card-label">Saldo Líquido</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmount))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmountCents))}</div>
         </div>
       </div>
 

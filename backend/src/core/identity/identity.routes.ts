@@ -789,16 +789,16 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         { limit: 10 }
       );
 
-      // Calcular totais
-      let totalIn = 0;
-      let totalOut = 0;
+      // Calcular totais (em centavos)
+      let totalInCents = 0;
+      let totalOutCents = 0;
       const lastTransactions = transactions.slice(0, 10).map(tx => {
         const isCredit = primaryAccount && tx.toAccountId === primaryAccount.accountId;
         const amountCents = tx.amountCents;
         if (isCredit) {
-          totalIn += amountCents;
+          totalInCents += amountCents;
         } else {
-          totalOut += amountCents;
+          totalOutCents += amountCents;
         }
         return {
           transactionId: tx.transactionId,
@@ -812,8 +812,8 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
         globalUserId,
         balanceCents: primaryAccount.balanceCents,
         currency: primaryAccount.currency,
-        totalIn,
-        totalOut,
+        totalInCents,
+        totalOutCents,
         lastTransactions,
       };
     } catch (error) {

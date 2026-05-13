@@ -107,15 +107,15 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
         </div>
         <div className="summary-card total-in">
           <div className="card-label">Total Recebido</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalIn))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalInCents))}</div>
         </div>
         <div className="summary-card total-out">
           <div className="card-label">Total Distribuído</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOut))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOutCents))}</div>
         </div>
         <div className="summary-card net">
           <div className="card-label">Saldo Líquido</div>
-          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmount))}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmountCents))}</div>
         </div>
       </div>
 
@@ -123,10 +123,10 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
         <div className="grouping-section">
           <h3>Por Origem</h3>
           <div className="grouping-list">
-            {Object.entries(fund.summary.byOrigin).map(([origin, amount]) => (
+            {Object.entries(fund.summary.byOriginCents).map(([origin, amountCents]) => (
               <div key={origin} className="grouping-item">
                 <span className="grouping-label">{getOriginLabel(origin)}</span>
-                <span className="grouping-value">{formatCurrency(centsToReais(amount))}</span>
+                <span className="grouping-value">{formatCurrency(centsToReais(amountCents as number))}</span>
               </div>
             ))}
           </div>
@@ -135,10 +135,10 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
         <div className="grouping-section">
           <h3>Por Contexto</h3>
           <div className="grouping-list">
-            {Object.entries(fund.summary.byContext).map(([context, amount]) => (
+            {Object.entries(fund.summary.byContextCents).map(([context, amountCents]) => (
               <div key={context} className="grouping-item">
                 <span className="grouping-label">{context || 'Outro'}</span>
-                <span className="grouping-value">{formatCurrency(centsToReais(amount))}</span>
+                <span className="grouping-value">{formatCurrency(centsToReais(amountCents as number))}</span>
               </div>
             ))}
           </div>
@@ -155,11 +155,11 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
                 <div className="period-details">
                   <div className="period-detail">
                     <span className="period-label">Entradas:</span>
-                    <span className="period-value in">{formatCurrency(centsToReais(period.totalIn))}</span>
+                    <span className="period-value in">{formatCurrency(centsToReais(period.totalInCents))}</span>
                   </div>
                   <div className="period-detail">
                     <span className="period-label">Saídas:</span>
-                    <span className="period-value out">{formatCurrency(centsToReais(period.totalOut))}</span>
+                    <span className="period-value out">{formatCurrency(centsToReais(period.totalOutCents))}</span>
                   </div>
                 </div>
               </div>

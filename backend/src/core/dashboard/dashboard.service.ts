@@ -40,13 +40,13 @@ class DashboardService {
         ]);
 
         if (summary) {
-          let totalIn = 0;
-          let totalOut = 0;
+          let totalInCents = 0;
+          let totalOutCents = 0;
           const lastTransactions = recentTxs.map(tx => {
             if (tx.direction === 'credit') {
-              totalIn += tx.amountCents;
+              totalInCents += tx.amountCents;
             } else {
-              totalOut += tx.amountCents;
+              totalOutCents += tx.amountCents;
             }
             return {
               transactionId: tx.entryId,
@@ -59,8 +59,8 @@ class DashboardService {
           wallet = {
             balanceCents: summary.balanceCents,
             currency: summary.currency,
-            totalIn,
-            totalOut,
+            totalInCents,
+            totalOutCents,
             lastTransactions,
           };
         }

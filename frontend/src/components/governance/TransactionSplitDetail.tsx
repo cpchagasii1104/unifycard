@@ -115,7 +115,7 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
   }
 
   const baseAmountCents = splitDetail.baseTransaction.amountCents;
-  const totalSplitCents = splitDetail.totalAmount; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
+  const totalSplitCents = splitDetail.totalAmountCents;
   const totalPercentage = splitDetail.totalPercentage * 100;
 
   return (

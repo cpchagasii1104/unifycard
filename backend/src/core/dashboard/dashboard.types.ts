@@ -1,13 +1,12 @@
 // src/core/dashboard/dashboard.types.ts
 
 import type { IdentityProfile } from '../identity/identity.types';
-import type { RegionalFundView } from '../economy/fund/fund.types';
 
 export interface DashboardWallet {
-  balance: number;
+  balanceCents: number;
   currency: string;
-  totalIn: number;
-  totalOut: number;
+  totalInCents: number;
+  totalOutCents: number;
   lastTransactions: Array<{
     transactionId: string;
     type: 'credit' | 'debit';
@@ -24,7 +23,8 @@ export interface DashboardData {
   };
   wallet: DashboardWallet | null;
   reputation: IdentityProfile['reputation'] | null;
-  fund: RegionalFundView | null;
+  /** Legado regional fund removido — sempre null até read model em bank_* */
+  fund: null;
 }
 
 

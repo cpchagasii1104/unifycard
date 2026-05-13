@@ -107,11 +107,11 @@ export default function RegionalFundCard() {
           <div className="fund-summary">
             <div className="fund-summary-item">
               <span className="fund-summary-label">Total Entradas:</span>
-              <span className="fund-summary-value">{formatCurrency(regionalFund.summary.totalIn)}</span>
+              <span className="fund-summary-value">{formatCurrency(centsToReais(regionalFund.summary.totalInCents))}</span>
             </div>
             <div className="fund-summary-item">
               <span className="fund-summary-label">Total Saídas:</span>
-              <span className="fund-summary-value">{formatCurrency(regionalFund.summary.totalOut)}</span>
+              <span className="fund-summary-value">{formatCurrency(centsToReais(regionalFund.summary.totalOutCents))}</span>
             </div>
           </div>
         )}
