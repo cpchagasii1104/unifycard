@@ -2285,5 +2285,310 @@ DECISION. Pode ser feita por Clayton diretamente ou via RFC — **não por IA**
 
 ---
 
+### DECISION-0036 — `bank_splits` schema migra para target_account_id (refactor account-centric preservando compatibilidade actor-only original)
+
+- **Data:** 2026-05-13
+- **Tipo:** arquitetural (refactor schema soberano + ratificação de premissa ontológica)
+- **ID da violação (se aplicável):** B8 (bug arquitetural descoberto em smoke v3 dinâmico F7→F8; `bank_splits.resolveTargetActorId` rejeita destinos system)
+- **Contexto material:**
+  Smoke v3 fundacional dinâmico (executei_22 → F7 → F8) revelou contradição estrutural
+  entre 3 camadas do sistema sobre semântica de `bank_splits`:
+
+  | Camada | Visão sobre bank_splits |
+  |---|---|
+  | Schema soberano (`0003_bank_core.sql:83-93`) | "splits entre atores" — `target_actor_id UUID NOT NULL → actors(id)` |
+  | Repository INSERT (`bank-split.repository.ts:31-53`) | Tenta cumprir schema resolvendo actor de account; falha para destinos system com `owner_id` composto |
+  | Consumers SELECT (3 arquivos) | Esperam `target_account_id` (coluna que NÃO existe no schema atual); `split_type='fee'` para destinos SYSTEM |
+
+  Schema NÃO foi migrado para refletir intenção dos consumidores. Drift estrutural
+  histórico entre schema soberano e código consumer. Bug B8 nunca manifestou em
+  runtime real porque smoke v3 fundacional dinâmico só foi executado em F7→F8.
+
+  **Investigação material consolidada em `executei_24.md` (gitignored)** com:
+  - 4 fatos arquiteturais decisivos (schema, repository, 3 consumers, comentário arquitetural reporting-bank-aggregates.ts:5)
+  - 3 opções avaliadas com prós/contras (α refactor schema, β actors sistêmicos, γ filtrar repository)
+  - Recomendação fundamentada com 5 justificativas materiais
+  - 4 verificações pré-execução pendentes
+  - Plano operacional faseado em 7 etapas
+
+- **Premissa ontológica elevada a invariante (responsabilidade institucional):**
+
+  > **Conta = destino financeiro soberano; actor = camada contextual/autoritativa.**
+
+  Material verificado:
+  - `bank_ledger` opera sobre `account_id` (não `actor_id`)
+  - `bank_accounts.owner_id` aceita `'system:fee:tenantId'` (string composta, sem actor)
+  - Split engine `event_ticket` gera destinos onde target é conta sistêmica (fee/regional_fund/reserve)
+  - 3 consumers já leem por `target_account_id` (não `target_actor_id`)
+
+  Esta premissa **não é justificativa local desta DECISION** — é articulação do modelo
+  financeiro fundamental do UnifiCard. Pendência derivada (responsabilidade humana, §10
+  AGENT_PROTOCOL): considerar adendo em `07_NOMENCLATURA_CANONICA` ou
+  `LEI_DE_COERÊNCIA_SISTÊMICA` em sessão dedicada futura (não por IA).
+
+- **Evolução arquitetural reconhecida:**
+
+  `bank_splits` originalmente modelava apenas fluxos **actor→actor**. A evolução do
+  runtime introduziu destinos **account-centric sistêmicos** (fee/regional_fund/reserve
+  via split engine event_ticket) **não representáveis pelo schema original**. Esta
+  DECISION **não invalida** a história — **expande** o schema para suportar destinos
+  account-centric modernos preservando compatibilidade com o passado.
+
+- **Audit material da bank_splits histórica (read-only, 2026-05-13):**
+
+  Verificação `SELECT COUNT(*) FROM bank_splits` revelou **2 rows existentes** (não 0
+  como inicialmente previsto). Caracterização material:
+
+  | Atributo | row 0 | row 1 |
+  |---|---|---|
+  | `tenant_id` | `fbe13b78` | `fbe13b78` (mesmo) |
+  | `source_actor_id` | `6510c69c` (actor_type='user') | `6510c69c` (mesmo) |
+  | `target_actor_id` | `475a7d45` (actor_type='user') | `475a7d45` (mesmo) |
+  | `amount_cents` | 40000 | 40000 |
+  | `split_type` | `revenue_share` | `revenue_share` |
+  | `percentage` | 100.00 | 100.00 |
+  | `created_at` | 2026-04-30 14:44 | 2026-04-30 15:22 |
+
+  **Backfill determinístico confirmado (preview SQL):** target_actor `475a7d45` tem
+  **1 bank_account única** (`cf544aaa`, owner_type='actor', account_type='credit'),
+  sem ambiguidade. Statement 3 da migration (`UPDATE ... FROM bank_accounts ba WHERE
+  ba.actor_id = bs.target_actor_id`) resolve as 2 rows trivialmente 1:1 sem
+  decisão manual.
+
+  Conclusão: as 2 rows são caso simples (actor→actor revenue_share legítimo do
+  modelo original); reconciliação histórica complexa **não se aplica**; categoria
+  da migration permanece "expansion schema" e não "reconciliação".
+
+- **Opções consideradas:**
+
+  1. **Opção B8.α — Refactor schema: migrar bank_splits para `target_account_id`** — ESCOLHIDA.
+     Adiciona `target_account_id UUID REFERENCES bank_accounts(id)`; torna `target_actor_id`
+     NULLABLE; repository simplificada deletando `resolveTargetActorId`; alinha schema com
+     intenção dos consumidores; permite splits uniformemente para destinos atorial+system;
+     preserva memória operacional (target_actor_id continua populated quando target tem actor).
+
+  2. **Opção B8.β — Criar actors sistêmicos canônicos** (`fee_actor`, `regional_fund_actor`,
+     `reserve_actor` por tenant) — refutada.
+     - Quebra invariante semântica "actor = pessoa/page real"
+     - Tabela `actors` contaminada com entidades virtuais sistêmicas
+     - NÃO resolve drift dos consumers (que esperam `target_account_id`)
+     - Conceito difícil: "o que é actor de fee?"
+     - Mais invasivo: mexe em `ensurePlatformAccounts` + actor semantics
+
+  3. **Opção B8.γ — Filtrar em repository: NÃO inserir splits system em bank_splits** — refutada.
+     - Quebra `sumPlatformFeeFromBankSplitsCents` (agregação fee fica sempre 0)
+     - Amputa funcionalidade declarada (reporting de fee)
+     - Contradiz comentário arquitetural `reporting-bank-aggregates.ts:5` ("comissão/fee via bank_splits.split_type = 'fee'")
+     - NÃO resolve drift dos consumers (target_account_id)
+
+- **Escolha:** Opção B8.α — refactor schema account-centric preservando compatibilidade.
+
+- **Decisão sobre `source_actor_id` (invariância vs simetria):**
+
+  Investigação material curta sobre `source_actor_id` consolidada nesta DECISION:
+
+  | Evidência | Implicação |
+  |---|---|
+  | 2 rows existentes: 100% source `actor_type='user'` | Nenhum source system em runtime histórico |
+  | `bank-split.repository.ts:197-201` rejeita explicitamente source não-UUID-actor (`"actingForActorId deve ser UUID de actor válido"`) | Repository já enforce invariante source atorial |
+  | `financial-authorship.helper:118` fallback `'system'` é STRING (não UUID) | Sistema atual quebra se passar system como source |
+  | Padrão arquitetural: debit é sempre de payer/comprador/passenger atorial | Splits são disparados por ação de actor |
+
+  **Decisão (a) — `source_actor_id` permanece UUID NOT NULL REFERENCES actors(id).** Invariante
+  declarada: **source de split é sempre debitado atorial (comprador, payer, passenger).
+  System nunca é source de split nesta versão.**
+
+  Justificativa material: ausência de evidência de caminho real com source system; introduzir
+  `source_account_id` paralelo agora seria especulação sem demanda material (princípio §25
+  norma assintótica — não cristalizar suporte para hipótese sem evidência).
+
+  Pendência preservada: se futuro path real exigir source system (ex.: governance funding
+  automatizado, refund automático sem actor proxy), DECISION posterior pode introduzir
+  simetria `source_account_id` NULLABLE. Esta DECISION não bloqueia evolução futura.
+
+- **Migration soberana declarada (a executar em sessão posterior):**
+
+  ```sql
+  BEGIN;
+
+  -- Statement 1: adicionar target_account_id (NULLABLE durante backfill)
+  ALTER TABLE bank_splits ADD COLUMN target_account_id UUID
+    REFERENCES bank_accounts(id);
+
+  -- Statement 2: tornar target_actor_id NULLABLE (preserva FK historical)
+  ALTER TABLE bank_splits ALTER COLUMN target_actor_id DROP NOT NULL;
+
+  -- Statement 3: backfill determinístico das 2 rows actor→actor existentes
+  -- Política de backfill especificada:
+  -- - JOIN único ba.actor_id = bs.target_actor_id (mapeamento canônico actor→primary account)
+  -- - Múltiplas accounts por actor: política primeira created_at ASC (NÃO aplicável às
+  --   2 rows existentes — verificado pré-migration: 1 account por actor sem ambiguidade)
+  -- - Fallback ba.owner_id = actor_id direto (NÃO aplicável às 2 rows existentes —
+  --   verificado pré-migration: actor_id resolve via FK actors.id)
+  UPDATE bank_splits bs SET target_account_id = ba.id
+    FROM bank_accounts ba
+    WHERE ba.actor_id = bs.target_actor_id
+      AND ba.tenant_id = bs.tenant_id;
+
+  -- Statement 4: validação pós-backfill (zero rows com target_account_id NULL após backfill)
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM bank_splits WHERE target_account_id IS NULL) THEN
+      RAISE EXCEPTION 'bank_splits backfill incompleto: rows com target_account_id NULL';
+    END IF;
+  END $$;
+
+  -- Statement 5: tornar target_account_id NOT NULL após validação
+  ALTER TABLE bank_splits ALTER COLUMN target_account_id SET NOT NULL;
+
+  -- Statement 6: índice para queries dos consumers (transparency, economic-overview, reporting)
+  CREATE INDEX idx_bank_splits_target_account ON bank_splits(target_account_id);
+
+  COMMIT;
+  ```
+
+  `source_actor_id` permanece UUID NOT NULL REFERENCES actors(id) (decisão (a) acima).
+
+- **Repository refactor declarado (a executar em sessão posterior):**
+
+  - `resolveTargetActorId` em `bank-split.repository.ts:31-53` **DELETADA**.
+  - `createSplitWithAuthorship` (linha 175+) **simplificada**:
+    - Insere `target_account_id` direto (recebido como `input.targetAccountId`).
+    - Continua populando `target_actor_id` quando conta de destino tem `actor_id` válido (preserva legacy reads); NULL quando target é system.
+    - `source_actor_id` continua via `authorship.actingForActorId` com UUID check (linhas 197-201) inalterado.
+
+- **Verificações pré-execução restantes (a executar em sessão posterior antes da migration):**
+
+  1. **Volume bank_splits** ✓ EXECUTADA (2 rows, audit determinístico confirmado nesta DECISION)
+  2. **Auditar checks `target_actor_id IS NOT NULL`** no backend (grep TS) — garantir que tornar NULLABLE não quebra invariantes silenciosamente
+  3. **Auditar uso de `source_actor_id`** confirmar que source É sempre atorial — ✓ EXECUTADA (4 evidências convergentes registradas acima)
+  4. **Índices existentes** — `idx_bank_splits_target` em `target_actor_id` (criado 0003_bank_core.sql:97); decidir se manter ou substituir paralelo a `idx_bank_splits_target_account`
+
+  Verificações 1 e 3 ✓ executadas nesta DECISION. Verificações 2 e 4 ficam para sessão de implementação.
+
+- **Plano operacional faseado (sessão posterior, autorização Clayton explícita):**
+
+  | Etapa | Modo | Esforço |
+  |---|---|---|
+  | 1. Verificações 2 e 4 restantes | GUARDIÃO | ~20min |
+  | 2. Migration soberana `_bank_splits_target_account_id.sql` | EXECUTOR | ~30min |
+  | 3. Refactor `bank-split.repository.ts` (resolveTargetActorId deletada; createSplitWithAuthorship simplificada) | EXECUTOR | ~30min |
+  | 4. TSC + 4 gates institucionais | Validação | ~10min |
+  | 5. Re-executar smoke v3 dinâmico (P9 deve avançar para P10-P14) | EXECUTOR | ~10min |
+  | 6. Commit isolado F9 + log institucional | EXECUTOR | ~10min |
+  | 7. Atualizar STATUS_EXECUCAO_GLOBAL.md (HK7) | EXECUTOR | ~15min |
+
+  Total estimado: 1-2 sessões dedicadas (dependente de bugs descobertos em P10-P14).
+
+- **Justificativa:**
+
+  Schema canônico atual de `bank_splits` (FK NOT NULL → actors) é **modelo histórico**
+  preservado de fase antiga (apenas splits actor→actor). Evolução do split engine
+  event_ticket introduziu destinos system (fee/regional_fund/reserve) que **não se
+  encaixam no modelo original**. 3 consumidores foram codificados com expectativa de
+  schema account-centric (`target_account_id`) — schema NÃO foi migrado.
+
+  **Refactor para target_account_id é convergência necessária**, não decisão entre
+  arquiteturas concorrentes. As 2 rows históricas existentes **fortalecem** a DECISION:
+  provam que modelo actor→actor existiu, foi usado legitimamente, e é compatível com a
+  nova proposta (backfill determinístico 1:1).
+
+  Premissa ontológica declarada ("conta = destino financeiro soberano; actor = camada
+  contextual/autoritativa") **emerge** dessa convergência — não é decisão local mas
+  articulação do modelo financeiro fundamental verificado em 4 camadas materiais
+  (bank_ledger account-centric, owner_id composto system, split engine destinos system,
+  consumers target_account_id).
+
+- **Consequências esperadas:**
+
+  - **Curto prazo:** após implementação faseada (sessão posterior), smoke v3 P9 deve
+    avançar para P10-P14 (split de event_ticket persistido em bank_splits com destinos
+    system). DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO converge para CLOSED após smoke 14/14 PASS.
+
+  - **Médio prazo:** consumers (transparency, economic-overview, reporting) ficam
+    funcionais sem mudança (já leem `target_account_id`). Reporting de fee
+    (`sumPlatformFeeFromBankSplitsCents` com `split_type='fee'`) começa a retornar
+    valores reais conforme splits são persistidos.
+
+  - **Longo prazo:** schema canônico de `bank_splits` reflete runtime real. Futuras
+    evoluções (ex.: source system se necessário) podem ser tratadas via DECISIONs
+    posteriores sem mexer no fundamento account-centric estabelecido aqui.
+
+- **Não autoriza:**
+
+  - **Implementação direta da migration nesta sessão.** Esta DECISION é formalização
+    institucional documental. Implementação é sessão posterior dedicada com autorização
+    Clayton explícita.
+  - **Refactor de bank-split.repository.ts nesta sessão.** Mesma razão.
+  - **Re-execução de smoke v3 nesta sessão.** Mesma razão.
+  - **Adendo a `07_NOMENCLATURA_CANONICA` ou `LEI_DE_COERÊNCIA_SISTÊMICA`** referenciando
+    premissa ontológica account-centric — responsabilidade humana/RFC §10 AGENT_PROTOCOL.
+  - **Decisão sobre `source_account_id` simétrico futuro** — DECISION posterior se
+    demanda material emergir.
+
+- **Responsável:** Clayton (decisão soberana) — multi-agente: Claude Opus 4.7
+  (investigação material + redação derivada do framework estabelecido), Clayton
+  (refinamentos materiais: premissa ontológica elevada, volume bank_splits como
+  evidência, decisão explícita sobre source, política de backfill especificada),
+  IA externa (audit material + ratificação da abordagem absorver legado).
+
+- **Validação prévia:** investigação read-only consolidada em `executei_24.md`
+  (gitignored — DRAFT material com 4 fatos arquiteturais decisivos, 3 opções
+  comparadas, recomendação fundamentada); audit material adicional desta sessão
+  (volume bank_splits + caracterização das 2 rows + análise determinística do
+  backfill + investigação source confirmando invariante atorial); contraste com
+  evolução histórica de bank-integration (DECISION-0031) e padrões de absorção
+  do legado (F8 commit `02fde77d`).
+
+- **Supera:** B8 OPEN registrado em F7 (executei_21) — agora encaminhado para
+  resolução via refactor schema (sessão posterior).
+
+- **Superada por:** (preencher quando superada — provável: DECISION futura
+  introduzindo `source_account_id` simétrico se demanda material emergir; ou
+  DECISION revertendo refactor se evidência contrária a target_account_id surgir,
+  improvável dado material auditado).
+
+#### Referências
+
+- `executei_24.md` (gitignored — DRAFT material com 4 fatos arquiteturais decisivos)
+- `executei_21.md` + `executei_22.md` (gitignored — descoberta inicial de B8 e correção do erro material #3)
+- `docs/03_execution_log/2026-05-13_f8_event_economy_delega_bank_integration.md` (F8 commit `02fde77d`)
+- Commit `8f85ba31` (F7 — registro inicial de B8 como bug arquitetural)
+- `backend/migrations/0003_bank_core.sql:83-93` (schema atual bank_splits)
+- `backend/src/modules/bank/bank-split.repository.ts:31-53, 175-231` (repository INSERT)
+- `backend/src/core/unifybank/transparency.service.ts:441` (consumer #1)
+- `backend/src/modules/economy/economic-overview.projector.ts:18-19` (consumer #2)
+- `backend/src/modules/reporting/reporting-bank-aggregates.ts:5-44` (consumer #3 + intenção arquitetural declarada)
+- `backend/src/modules/bank/financial-authorship.helper.ts:118` (fallback 'system' como STRING não-UUID)
+- DECISION-0031 (precedente — pattern multi-AI audit + Clayton soberano)
+- code.md §25 (norma assintótica — não cristalizar suporte para hipótese sem evidência)
+- Memória institucional: `feedback_norma_ja_decide`, `project_hierarquia_epistemologica`, `feedback_autonomia_operacional` (calibração 2026-05-13)
+
+#### Impacto em DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO
+
+DT permanece OPEN. Após implementação faseada (sessão posterior):
+- P9 deve avançar (bank_splits aceita destinos system)
+- P10 (validar 4 splits ledger) — provável PASS
+- P11 (reserve fundada via split) — provável PASS
+- P12 (system_coverage bigint > 0) — provável PASS
+- P13 (P2P canônico) — pode revelar bugs P2P
+- P14 (double-entry + bigint) — provável PASS
+
+DT pode ser CLOSED após smoke v3 completar 14/14 PASS + v2 deletado/deprecated.
+
+#### Pendência derivada (responsabilidade humana, §10 AGENT_PROTOCOL)
+
+Considerar (em sessão dedicada futura, não por IA) adendo formal em
+`07_NOMENCLATURA_CANONICA` ou `LEI_DE_COERÊNCIA_SISTÊMICA_UNIFICARD` referenciando
+a premissa ontológica:
+
+> **Conta = destino financeiro soberano; actor = camada contextual/autoritativa.**
+
+Esta premissa emerge desta DECISION mas se aplica a todo o sistema financeiro do
+UnifiCard (bank_ledger account-centric, owner_id composto system, split engine
+destinos system, consumers target_account_id). Formalização em camada normativa
+soberana é responsabilidade humana/RFC.
+
+---
+
 
 
