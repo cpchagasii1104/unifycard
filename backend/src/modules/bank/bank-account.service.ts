@@ -338,6 +338,9 @@ class BankAccountService {
    * Chamar: no bootstrap do tenant ou na primeira operacao financeira do tenant.
    */
   async ensurePlatformAccounts(tenantId: string, currency: BankCurrency = 'BRL'): Promise<void> {
+    // Camada 1 — Lifecycle accounts (account_type específico; usados por
+    // getPlatformLifecycleAccount em escrow_payments, clearing, bank_settlement,
+    // seller_pending, seller_available, seller_payout, payouts).
     const platformTypes: BankAccountType[] = [
       'escrow_payments',
       'platform_revenue',
@@ -364,6 +367,46 @@ class BankAccountService {
             ownerId,
             ownerType: 'system',
             accountType,
+            currency,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('uq_bank_accounts_one_system_per_tenant') || msg.includes('duplicar valor da chave')) {
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
+    // Camada 2 — SystemAccountName accounts (DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION).
+    // Convergência implementacional alinhada com DECISION-0036 (premissa ontológica
+    // account-centric). 14 callers de getSystemAccount em runtime esperam owner_id
+    // pattern `system:${SystemAccountName}:${tenantId}` para resolver destinos de
+    // splits canônicos (fee, regional_fund, reserve) e escrow.
+    //
+    // account_type='credit' genérico — preserva CHECK constraint atual sem migration DDL.
+    // Conta resolvida por owner_id (não account_type) em bankAccountRepository.getSystemAccount.
+    //
+    // Tenant criado via ensurePlatformAccounts puro agora suporta primeiro checkout
+    // event_ticket sem workaround (antes desta convergência, scripts E2E criavam
+    // manualmente; vide validate-financial-flow-real.ts e validate-pipeline-e2e-transversal.ts).
+    const systemAccountNames: SystemAccountName[] = ['reserve', 'fee', 'regional_fund', 'escrow'];
+    for (const name of systemAccountNames) {
+      const ownerId = `system:${name}:${tenantId}`;
+      const existing = await bankAccountRepository.getAccountByOwnerAndType(
+        tenantId,
+        ownerId,
+        'system',
+        'credit',
+        currency
+      );
+      if (!existing) {
+        try {
+          await bankAccountRepository.createAccount(tenantId, {
+            ownerId,
+            ownerType: 'system',
+            accountType: 'credit',
             currency,
           });
         } catch (err: unknown) {

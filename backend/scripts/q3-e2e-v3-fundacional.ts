@@ -42,7 +42,6 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../src/core/database/pool';
-import { bankAccountRepository } from '../src/modules/bank/bank-account.repository';
 import { bankAccountService } from '../src/modules/bank/bank-account.service';
 import { bankTransactionService } from '../src/modules/bank/bank-transaction.service';
 import { buildSystemAuthorship } from '../src/modules/bank/financial-authorship.helper';
@@ -147,31 +146,18 @@ async function main() {
   await bankAccountService.ensurePlatformAccounts(tenantId, 'BRL');
   pass('P4 — platform lifecycle accounts garantidas', 'escrow_payments, platform_revenue, risk_reserve, etc.');
 
-  // ── P5: Setup contas system para bankSplitEngine (workaround DT) ─────────
-  // Nota: bankSplitEngine event_ticket espera contas system:reserve/fee/regional_fund.
-  // ensurePlatformAccounts cria com naming distinto ('risk_reserve', 'platform_fees').
-  // Padrão estabelecido em scripts E2E: criar manualmente.
-  // DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION (a registrar) cobre convergência futura.
-  console.log('[P5] Criar contas system necessárias para bankSplitEngine (reserve/fee/regional_fund)...');
-  const systemAccountNames = ['reserve', 'fee', 'regional_fund'] as const;
-  for (const name of systemAccountNames) {
-    const existing = await bankAccountService.getSystemAccount(tenantId, name, 'BRL');
-    if (!existing) {
-      await bankAccountRepository.createAccount(tenantId, {
-        ownerId: `system:${name}:${tenantId}`,
-        ownerType: 'system',
-        accountType: 'credit',
-        currency: 'BRL',
-      });
-    }
-  }
+  // ── P5: Validar contas system criadas por ensurePlatformAccounts ──────────
+  // Após F10 (DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION CLOSED), ensurePlatformAccounts
+  // cria automaticamente as 4 contas SystemAccountName (reserve/fee/regional_fund/escrow).
+  // Antes era workaround manual via bankAccountRepository.createAccount.
+  console.log('[P5] Validar contas system criadas automaticamente por ensurePlatformAccounts...');
   const sysReserve = await bankAccountService.getSystemAccount(tenantId, 'reserve', 'BRL');
   const sysFee = await bankAccountService.getSystemAccount(tenantId, 'fee', 'BRL');
   const sysRegionalFund = await bankAccountService.getSystemAccount(tenantId, 'regional_fund', 'BRL');
   if (!sysReserve || !sysFee || !sysRegionalFund) {
-    fail('P5 — system accounts', 'reserve/fee/regional_fund não encontradas após criação');
+    fail('P5 — system accounts', 'reserve/fee/regional_fund não criadas por ensurePlatformAccounts (DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION pode ter regredido)');
   }
-  pass('P5 — 3 contas system criadas', `reserve=${sysReserve!.accountId.slice(0, 8)} fee=${sysFee!.accountId.slice(0, 8)} regional_fund=${sysRegionalFund!.accountId.slice(0, 8)}`);
+  pass('P5 — 3 contas system disponíveis via ensurePlatformAccounts', `reserve=${sysReserve!.accountId.slice(0, 8)} fee=${sysFee!.accountId.slice(0, 8)} regional_fund=${sysRegionalFund!.accountId.slice(0, 8)}`);
 
   // ── P6: Bootstrap capacity inicial via mint para system:reserve ───────────
   // Nota institucional: este mint NÃO é a prova fundacional do smoke. É SETUP

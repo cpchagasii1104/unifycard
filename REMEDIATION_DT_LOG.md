@@ -591,7 +591,7 @@ Status values:
 
 ## DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION
 
-- **Status:** OPEN
+- **Status:** CLOSED (2026-05-13 — encerrada por F10, convergência implementacional alinhada com DECISION-0036)
 - **Classe:** DT-A (arquitetural — fragmentação de naming entre camadas)
 - **Origem:** Investigação execução smoke v3 fundacional (2026-05-13)
 - **Vinculada a:** DECISION-0031 (caminho fundacional event_ticket), `ensurePlatformAccounts` (bank-account.service.ts:340-378), `SystemAccountName` type (bank-account.types.ts:20 + bank-split.types.ts:102), bankSplitEngine event_ticket invocação (bank-split-engine.service.ts:154)
@@ -633,5 +633,38 @@ Status values:
   - Primeiro checkout de ticket em tenant criado via `ensurePlatformAccounts` puro
   - Declaração "sistema produz capacity emergente naturalmente via event_ticket" sem ressalva
   - Convergência de DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO (smoke v3 ainda usa workaround; convergência completa exigiria fix nesta DT)
+
+- **Resolução (2026-05-13 — F10):**
+  Convergência implementacional aplicada a `ensurePlatformAccounts` em
+  `backend/src/modules/bank/bank-account.service.ts:340-415`. Decisão alinhada
+  com diretiva "absorver legado" + heurística "runtime soberano = concentração
+  de causalidade validada":
+
+  **Audit material identificou runtime soberano:**
+  - `SystemAccountName` ('reserve'/'fee'/'regional_fund'/'escrow'/'platform_ops')
+    com 14 call sites ativos em runtime (bank-integration, regional-fund-governance,
+    transparency, marketplace/regional-fund, rides/distribution, etc.)
+  - `getPlatformLifecycleAccount` usado apenas para `escrow_payments`/`clearing`/
+    `bank_settlement` (4 call sites)
+  - `'risk_reserve'`/`'platform_fees'`/`'platform_revenue'` criados por
+    ensurePlatformAccounts MAS **sem callers** — arquitetura aspiracional
+    não convergida
+
+  **Fix aplicado (camada 2 adicionada em ensurePlatformAccounts):**
+  - Loop adicional cria 4 contas SystemAccountName ('reserve', 'fee',
+    'regional_fund', 'escrow') com `account_type='credit'` genérico
+  - `owner_id` pattern `system:${name}:${tenantId}` resolve via
+    `bankAccountRepository.getSystemAccount` (busca por owner_id, não account_type)
+  - Sem migration DDL (CHECK constraint de account_type preservado — 13 valores existentes)
+  - Camada 1 (9 contas legacy) preservada para callers de getPlatformLifecycleAccount
+
+  **Validação dinâmica:** smoke v3 fundacional 14/14 PASS em runtime real
+  **sem workaround manual** (P5 do script atualizado para validar — não criar — as
+  contas system). Tenant criado via ensurePlatformAccounts puro agora suporta
+  primeiro checkout event_ticket nativamente.
+
+  Padrão arquitetural: convergência via **runtime soberano absorvendo o que
+  o legado declarava aspiracionalmente**, sem amputar contas legacy nem
+  exigir migration DDL.
 
 ---
