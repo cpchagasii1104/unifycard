@@ -1373,7 +1373,7 @@ class BankTransactionService {
         splits.push(split);
       }
 
-      const validation = await bankSplitRepository.validateSplitsSum(tenantId, txId, amountCents);
+      const validation = await bankSplitRepository.validateSplitsSum(tenantId, txId, amountCents, client);
       if (!validation.isValid) {
         await client.query('ROLLBACK');
         throw new Error(

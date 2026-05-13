@@ -28,13 +28,22 @@ interface BankSplitRow {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-async function resolveTargetActorId(
+/**
+ * Resolve target_actor_id quando target account tem actor associado.
+ * DECISION-0036: target_actor_id é NULLABLE — destinos system (fee/regional_fund/
+ * reserve) não têm actor associado, mas continuam válidos como destinos de split
+ * via target_account_id (NOT NULL). Esta função retorna null para system.
+ *
+ * Preserva legacy reads (queries que agregam por actor) populando target_actor_id
+ * quando conta destino tem actor_id válido.
+ */
+async function resolveTargetActorIdOptional(
   client: PoolClient,
   tenantId: string,
   targetAccountId: string
-): Promise<string> {
-  const r = await client.query<{ actor_id: string | null; owner_id: string }>(
-    `SELECT actor_id, owner_id FROM bank_accounts WHERE tenant_id = $1 AND id = $2::uuid LIMIT 1`,
+): Promise<string | null> {
+  const r = await client.query<{ actor_id: string | null }>(
+    `SELECT actor_id FROM bank_accounts WHERE tenant_id = $1 AND id = $2::uuid LIMIT 1`,
     [tenantId, targetAccountId]
   );
   const row = r.rows[0];
@@ -44,12 +53,7 @@ async function resolveTargetActorId(
   if (row.actor_id && UUID_RE.test(row.actor_id)) {
     return row.actor_id;
   }
-  if (row.owner_id && UUID_RE.test(row.owner_id)) {
-    return row.owner_id;
-  }
-  throw new Error(
-    `bank_splits: não foi possível resolver target_actor_id a partir da conta ${targetAccountId}`
-  );
+  return null;
 }
 
 class BankSplitRepository {
@@ -200,7 +204,10 @@ class BankSplitRepository {
           'bank_splits: actingForActorId (source_actor_id) deve ser UUID de actor válido'
         );
       }
-      const targetActorId = await resolveTargetActorId(client, tenantId, targetAccountId);
+      // DECISION-0036: target_account_id é destino soberano (NOT NULL); target_actor_id
+      // é opcional (NULLABLE) — populated quando conta tem actor associado, NULL para
+      // destinos system (fee/regional_fund/reserve).
+      const targetActorIdOptional = await resolveTargetActorIdOptional(client, tenantId, targetAccountId);
 
       const result = await client.query<{
         id: string;
@@ -213,17 +220,18 @@ class BankSplitRepository {
       }>(
         `
         INSERT INTO bank_splits (
-          tenant_id, transaction_id, source_actor_id, target_actor_id,
+          tenant_id, transaction_id, source_actor_id, target_account_id, target_actor_id,
           amount_cents, split_type, percentage
         )
-        VALUES ($1, $2, $3::uuid, $4::uuid, $5, $6, $7)
+        VALUES ($1, $2, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8)
         RETURNING id, tenant_id, transaction_id, amount_cents, percentage::text, split_type, created_at
         `,
         [
           tenantId,
           transactionId,
           sourceActorId,
-          targetActorId,
+          targetAccountId,
+          targetActorIdOptional,
           amountCents,
           splitType,
           percentage ?? null,
@@ -326,14 +334,24 @@ class BankSplitRepository {
   }
 
   /**
-   * Valida que a soma dos splits é igual ao total da transação
+   * Valida que a soma dos splits é igual ao total da transação.
+   *
+   * Se `existingClient` for passado, executa na mesma transação SQL (vê INSERTs
+   * pré-COMMIT). Senão obtém conexão nova (só vê dados commitados).
+   *
+   * Bug pré-existente corrigido em F9 (DECISION-0036): antes desta correção, a
+   * função sempre obtinha conexão nova e não enxergava splits inseridos na
+   * transação ativa em createTransactionWithSplitAndAuthorship — falha mascarada
+   * por B8 (resolveTargetActorId rejeitava destinos system antes do validate).
    */
   async validateSplitsSum(
     tenantId: string,
     transactionId: string,
-    transactionAmountCents: number
+    transactionAmountCents: number,
+    existingClient?: PoolClient
   ): Promise<{ isValid: boolean; splitsSumCents: number; differenceCents: number }> {
-    const client = await getClientWithTenant(tenantId);
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
+    const ownClient = !existingClient;
 
     try {
       const result = await client.query<{ splitsSumCents: string }>(
@@ -354,7 +372,9 @@ class BankSplitRepository {
         differenceCents,
       };
     } finally {
-      client.release();
+      if (ownClient) {
+        client.release();
+      }
     }
   }
 

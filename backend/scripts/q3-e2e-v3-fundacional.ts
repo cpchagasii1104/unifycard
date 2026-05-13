@@ -381,7 +381,7 @@ async function main() {
     currency: 'BRL',
     transactionType: 'transfer',
     description: 'Q3-E2E v3 P2P canônico (não shortcut)',
-    concept_id: 'p2p-transfer',
+    concept_id: 'split-payment',
     authorship: buildSystemAuthorship({
       actingForAccountId: accountIdB,
       actingForActorId: actorIdB,
