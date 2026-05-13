@@ -473,12 +473,16 @@ class TrustService {
     }>(
       tenantId,
       `
-      SELECT 
+      SELECT
         COUNT(*) as times,
         COALESCE(SUM(amount_cents), 0) as total_received
       FROM actor_debts
       WHERE tenant_id = $1 AND creditor_actor_id = $2 AND creditor_actor_type = $3
-        AND status IN ('paid', 'transferred_to_organizer')
+        -- CHECK chk_actor_debts_status atual aceita 'pending' + 'TRANSFERRED_TO_ORGANIZER'.
+        -- 'paid' não existe na enum; 'transferred_to_organizer' lowercase tampouco.
+        -- Convergência defensiva ao vocabulário vigente do CHECK até DECISION sobre
+        -- vocabulário canônico final (DT-C36-actor-debts-case-drift).
+        AND status = 'TRANSFERRED_TO_ORGANIZER'
       `,
       [tenantId, actorId, actorType]
     );
