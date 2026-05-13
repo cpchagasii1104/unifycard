@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { getTransactionSplits, type SplitDetail } from '../../api/transparency';
 import { CoherenceSignal } from '../../utils/functioning-evidence';
+import { centsToReais } from '../../utils/money';
 import './TransactionSplitDetail.css';
 
 interface TransactionSplitDetailProps {
@@ -113,8 +114,8 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
     );
   }
 
-  const baseAmount = splitDetail.baseTransaction.amount;
-  const totalSplit = splitDetail.totalAmount;
+  const baseAmountCents = splitDetail.baseTransaction.amountCents;
+  const totalSplitCents = splitDetail.totalAmount; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
   const totalPercentage = splitDetail.totalPercentage * 100;
 
   return (
@@ -124,11 +125,11 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
         <div className="split-summary">
           <div className="split-summary-item">
             <span className="split-summary-label">Valor Bruto:</span>
-            <span className="split-summary-value">{formatCurrency(baseAmount)}</span>
+            <span className="split-summary-value">{formatCurrency(centsToReais(baseAmountCents))}</span>
           </div>
           <div className="split-summary-item">
             <span className="split-summary-label">Total Distribuído:</span>
-            <span className="split-summary-value">{formatCurrency(totalSplit)}</span>
+            <span className="split-summary-value">{formatCurrency(centsToReais(totalSplitCents))}</span>
           </div>
           <div className="split-summary-item">
             <span className="split-summary-label">Total %:</span>
@@ -140,7 +141,7 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
       <div className="split-list">
         {splitDetail.splits.map((split, index) => {
           const percentage = split.percentage * 100;
-          const percentageOfBase = (split.amount / baseAmount) * 100;
+          const percentageOfBase = baseAmountCents > 0 ? (split.amountCents / baseAmountCents) * 100 : 0;
           
           return (
             <div key={index} className="split-item">
@@ -149,7 +150,7 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
                 <div className="split-target-desc">{getTargetDescription(split.targetType)}</div>
               </div>
               <div className="split-values">
-                <div className="split-amount">{formatCurrency(split.amount)}</div>
+                <div className="split-amount">{formatCurrency(centsToReais(split.amountCents))}</div>
                 <div className="split-percentage">{percentage.toFixed(1)}%</div>
               </div>
               <div className="split-bar">

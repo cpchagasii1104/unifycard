@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminRegionalFund, type RegionalFundAdminView } from '../api/transparency';
+import { centsToReais } from '../utils/money';
 import './RegionalFundAdmin.css';
 
 interface RegionalFundAdminProps {
@@ -102,19 +103,19 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
       <div className="regional-fund-summary">
         <div className="summary-card balance">
           <div className="card-label">Saldo Atual</div>
-          <div className="card-value">{formatCurrency(fund.currentBalance)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.currentBalanceCents))}</div>
         </div>
         <div className="summary-card total-in">
           <div className="card-label">Total Recebido</div>
-          <div className="card-value">{formatCurrency(fund.summary.totalIn)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalIn))}</div>
         </div>
         <div className="summary-card total-out">
           <div className="card-label">Total Distribuído</div>
-          <div className="card-value">{formatCurrency(fund.summary.totalOut)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOut))}</div>
         </div>
         <div className="summary-card net">
           <div className="card-label">Saldo Líquido</div>
-          <div className="card-value">{formatCurrency(fund.summary.netAmount)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmount))}</div>
         </div>
       </div>
 
@@ -125,7 +126,7 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
             {Object.entries(fund.summary.byOrigin).map(([origin, amount]) => (
               <div key={origin} className="grouping-item">
                 <span className="grouping-label">{getOriginLabel(origin)}</span>
-                <span className="grouping-value">{formatCurrency(amount)}</span>
+                <span className="grouping-value">{formatCurrency(centsToReais(amount))}</span>
               </div>
             ))}
           </div>
@@ -137,7 +138,7 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
             {Object.entries(fund.summary.byContext).map(([context, amount]) => (
               <div key={context} className="grouping-item">
                 <span className="grouping-label">{context || 'Outro'}</span>
-                <span className="grouping-value">{formatCurrency(amount)}</span>
+                <span className="grouping-value">{formatCurrency(centsToReais(amount))}</span>
               </div>
             ))}
           </div>
@@ -154,11 +155,11 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
                 <div className="period-details">
                   <div className="period-detail">
                     <span className="period-label">Entradas:</span>
-                    <span className="period-value in">{formatCurrency(period.totalIn)}</span>
+                    <span className="period-value in">{formatCurrency(centsToReais(period.totalIn))}</span>
                   </div>
                   <div className="period-detail">
                     <span className="period-label">Saídas:</span>
-                    <span className="period-value out">{formatCurrency(period.totalOut)}</span>
+                    <span className="period-value out">{formatCurrency(centsToReais(period.totalOut))}</span>
                   </div>
                 </div>
               </div>
@@ -188,7 +189,7 @@ export default function RegionalFundAdmin({ regionId }: RegionalFundAdminProps) 
                   <div className="entry-right">
                     <div className={`entry-amount ${entry.type}`}>
                       {entry.type === 'credit' ? '+' : '-'}
-                      {formatCurrency(Math.abs(entry.amount))}
+                      {formatCurrency(centsToReais(Math.abs(entry.amountCents)))}
                     </div>
                   </div>
                 </div>

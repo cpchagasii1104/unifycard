@@ -7,6 +7,7 @@ import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { useSession } from '../../contexts/SessionProvider';
 import { getCoreProfile, type CompleteProfile } from '../../api/core';
 import { getUserStatement, getUserRegionalFund } from '../../api/transparency';
+import { centsToReais } from '../../utils/money';
 import { isAuthenticated, getTenantId, clearSession } from '../../config/auth';
 import './GlobalContextBar.css';
 
@@ -145,7 +146,7 @@ export default function GlobalContextBar({ onContextChange }: GlobalContextBarPr
         try {
           const statement = await getUserStatement({ limit: 1 });
           if (statement && statement.entries && statement.entries.length > 0) {
-            setWalletBalance(statement.entries[0].balanceAfter);
+            setWalletBalance(statement.entries[0].balanceAfterCents);
           } else {
             setWalletBalance(0);
           }
@@ -158,8 +159,8 @@ export default function GlobalContextBar({ onContextChange }: GlobalContextBarPr
         // Buscar saldo do fundo regional
         try {
           const regionalFund = await getUserRegionalFund({ limit: 1 });
-          if (regionalFund && regionalFund.currentBalance !== undefined) {
-            setRegionalFundBalance(regionalFund.currentBalance);
+          if (regionalFund && regionalFund.currentBalanceCents !== undefined) {
+            setRegionalFundBalance(regionalFund.currentBalanceCents);
           } else {
             setRegionalFundBalance(null);
           }
@@ -304,7 +305,7 @@ export default function GlobalContextBar({ onContextChange }: GlobalContextBarPr
               {walletBalance !== null ? (
                 <div className="context-balance-item">
                   <span className="context-balance-label">Saldo:</span>
-                  <span className="context-balance-value">{formatCurrency(walletBalance)}</span>
+                  <span className="context-balance-value">{formatCurrency(centsToReais(walletBalance))}</span>
                 </div>
               ) : (
                 // 🔴 Mostrar "Saldo indisponível" silenciosamente (sem erro)
@@ -321,7 +322,7 @@ export default function GlobalContextBar({ onContextChange }: GlobalContextBarPr
                   title="Ver Transparência"
                 >
                   <span className="context-balance-label">Fundo Regional:</span>
-                  <span className="context-balance-value">{formatCurrency(regionalFundBalance)}</span>
+                  <span className="context-balance-value">{formatCurrency(centsToReais(regionalFundBalance))}</span>
                 </button>
               ) : null}
               {/* 🔴 Não mostrar fundo regional se não disponível (silencioso) */}

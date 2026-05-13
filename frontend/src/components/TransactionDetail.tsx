@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { getTransactionSplits, type SplitDetail } from '../api/transparency';
 import TransactionSplitDetail from './governance/TransactionSplitDetail';
 import { PassiveConfirmation, CoherenceSignal } from '../utils/functioning-evidence';
+import { centsToReais } from '../utils/money';
 import './TransactionDetail.css';
 
 interface TransactionDetailProps {
@@ -119,7 +120,7 @@ export default function TransactionDetail({ transactionId, onClose }: Transactio
           <div className="info-row">
             <span className="info-label">Valor:</span>
             <span className="info-value amount">
-              {formatCurrency(detail.baseTransaction.amount)}
+              {formatCurrency(centsToReais(detail.baseTransaction.amountCents))}
             </span>
           </div>
           <div className="info-row">

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { getUserStatement, type StatementEntry } from '../../api/transparency';
+import { centsToReais } from '../../utils/money';
 import './MFIBankRecentTransactions.css';
 
 interface MFIBankRecentTransactionsProps {
@@ -128,7 +129,7 @@ export default function MFIBankRecentTransactions({ onTransactionClick }: MFIBan
             <div className="mfibank-recent-item-right">
               <div className={`mfibank-recent-amount ${entry.direction}`}>
                 {entry.direction === 'in' ? '+' : '-'}
-                {formatCurrency(Math.abs(entry.amount))}
+                {formatCurrency(centsToReais(Math.abs(entry.amountCents)))}
               </div>
               {onTransactionClick && (
                 <button className="mfibank-recent-details-button">

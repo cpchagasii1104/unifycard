@@ -477,7 +477,7 @@ Status values:
 
 ## DT-TRANSPARENCY-API-CENTS-CONVERGENCE
 
-- **Status:** OPEN
+- **Status:** CLOSED (2026-05-13 — encerrada por convergência mecânica DT-TRANSPARENCY na Frente 1)
 - **Origem:** Varredura adjacente durante DT-WALLET-CONSUMERS-CENTS-MIGRATION (commit `11f028d9`); 7 componentes que importam `frontend/src/api/transparency.ts` apresentam padrão de uso `region.balance`, `entry.amount`, `entry.balanceAfter` (sem sufixo `_cents`) ao consumir tipos da `transparency.ts` — drift de unidade monetária análogo ao já corrigido em `api/bank.ts`.
 - **Vinculada a:** DT-WALLET-CONSUMERS-CENTS-MIGRATION (drift adjacente fora do escopo); §4.7 (monetário em centavos com sufixo `_cents`); §25 code.md (norma assintótica)
 - **Convergência prevista:** Quando próxima sessão tocar UI financeira de admin (FundAdminPanel, RegionalFundAdmin), home (HeaderGlobal, GlobalContextBar, Dashboard) ou MFIBank — migrar consumer simultaneamente para usar campo canônico `_cents` com `centsToReais` do `frontend/src/utils/money.ts`. Não vale abrir sessão dedicada agora (refactor transversal sem bloqueio crítico — Wallet do usuário já corrigido como entrypoint mais visível).
@@ -499,3 +499,12 @@ Status values:
 - **Resolução prevista:**
   Investigação read-only sobre shape canônico de `frontend/src/api/transparency.ts` (verificar se backend já envia `*_cents` em /bank/statement vs /transparency endpoints). Depois migração coordenada das 7 telas usando `centsToReais` + `formatCentsAsBRL` do `frontend/src/utils/money.ts`. Pode ser feito em sessão dedicada OU incrementalmente quando cada tela for tocada por outra razão (princípio §25 — convergência gradual).
   Prioridade: P2 (bug observável em UI mas não toca causalidade do ledger — visualização errada).
+
+- **Resolução real (2026-05-13):**
+  Convergência mecânica em 11 arquivos via Frente 1: `frontend/src/api/transparency.ts` (rename canônico de tipos `amount → amountCents`, `balanceAfter → balanceAfterCents`, `currentBalance → currentBalanceCents`) + 10 consumers convergidos para `centsToReais` do `frontend/src/utils/money.ts`. TSC frontend = 0; 4 gates institucionais PASS. Backend já expunha `_cents` nos campos transaction-level (`transparency.service.ts`, `identity.routes.ts /wallet`, `dashboard.service.ts`) — só faltava frontend convergir.
+
+  **Lições materiais:**
+  - **DT subdimensionou contagem:** grep original de `11f028d9` mapeou 7 components; TSC pós-rename revelou 5 consumers extras (`RegionalFundCard`, `TransactionSplitDetail`, `RegionalFundUser`, `TransactionDetail`, `useHomeData`). Total real = 11 arquivos. Lição: rename de tipo é melhor "grep" que `grep -RnE` semântico — TSC localiza todos os consumers reais via tipo.
+  - **FundAdminPanel.tsx fora do escopo:** importa `api/fund-admin.ts` que chama endpoint `/fund/admin/regions` SEM HANDLER no backend. Componente é dead code efetivo (404 em runtime). Não tocado nesta frente. Marcar como dead code em frente futura ou documentar como DT própria se decisão for revivê-lo.
+  - **Dívida adjacente backend↔norma preservada:** campos summary (`summary.totalIn/totalOut/netAmount`, `byOrigin/byContext/byPeriod`, `SplitDetail.totalAmount/totalPercentage`) ainda usam nomes sem `_cents` no backend embora valores sejam centavos. Frontend convergido tratando-os como centavos via convenção. Convergência de nome no backend fica para frente futura quando alguma sessão tocar `transparency.service.ts`.
+  - **3 endpoints monetários convergentes ao §4.7 nos campos transaction-level:** `/bank/statement` + `/identity/wallet` + `/dashboard` todos enviam `amountCents`/`balanceCents`/`balanceAfterCents`. Norma vencendo em runtime.

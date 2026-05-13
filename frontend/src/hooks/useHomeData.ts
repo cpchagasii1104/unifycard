@@ -8,6 +8,7 @@ import { getIdentityProfile } from '../api/identity';
 import { getMatchingSuggestions, type MatchSuggestion } from '../api/matching';
 import { getUserStatement } from '../api/transparency';
 import { listPublicCulturalEvents } from '../api/cultural';
+import { centsToReais } from '../utils/money';
 
 export interface HomeContextData {
   actorName: string;
@@ -142,7 +143,7 @@ export function useHomeData(): HomeData {
             items.push({
               id: `transaction-${recentTransaction.transactionId}`,
               title: 'Transação recente',
-              description: `Última transação: ${formatCurrency(recentTransaction.amount)}`,
+              description: `Última transação: ${formatCurrency(centsToReais(recentTransaction.amountCents))}`,
               icon: recentTransaction.direction === 'in' ? '💰' : '💸',
               status: 'Recente',
               path: `/transaction/${recentTransaction.transactionId}`,

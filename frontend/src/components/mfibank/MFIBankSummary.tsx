@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from '../../contexts/SessionProvider';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { getUserStatement, getUserRegionalFund, type StatementEntry } from '../../api/transparency';
+import { centsToReais } from '../../utils/money';
 import './MFIBankSummary.css';
 
 interface MFIBankSummaryProps {
@@ -45,7 +46,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
       
       // Calcular saldo atual (balanceAfter da última transação, ou 0 se não houver)
       if (statementResult.entries.length > 0) {
-        setBalance(statementResult.entries[0].balanceAfter);
+        setBalance(statementResult.entries[0].balanceAfterCents);
       } else {
         setBalance(0);
       }
@@ -68,9 +69,9 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
         
         monthStatement.entries.forEach((entry: StatementEntry) => {
           if (entry.direction === 'in') {
-            totalIn += entry.amount;
+            totalIn += entry.amountCents;
           } else {
-            totalOut += entry.amount;
+            totalOut += entry.amountCents;
           }
         });
       } catch (err: any) {
@@ -90,7 +91,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
       try {
         const regionalFund = await getUserRegionalFund({ limit: 1 });
         if (regionalFund) {
-          setRegionalFundBalance(regionalFund.currentBalance);
+          setRegionalFundBalance(regionalFund.currentBalanceCents);
         } else {
           setRegionalFundBalance(null);
         }
@@ -207,7 +208,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
         <div className="mfibank-summary-card balance-card">
           <div className="mfibank-card-label">💰 Saldo Atual</div>
           <div className="mfibank-card-value">
-            {balance !== null ? formatCurrency(balance) : 'R$ 0,00'}
+            {balance !== null ? formatCurrency(centsToReais(balance)) : 'R$ 0,00'}
           </div>
         </div>
 
@@ -215,7 +216,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
         <div className="mfibank-summary-card in-card">
           <div className="mfibank-card-label">📊 Entradas do Mês</div>
           <div className="mfibank-card-value positive">
-            {formatCurrency(monthIn)}
+            {formatCurrency(centsToReais(monthIn))}
           </div>
         </div>
 
@@ -223,7 +224,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
         <div className="mfibank-summary-card out-card">
           <div className="mfibank-card-label">📉 Saídas do Mês</div>
           <div className="mfibank-card-value negative">
-            {formatCurrency(monthOut)}
+            {formatCurrency(centsToReais(monthOut))}
           </div>
         </div>
 
@@ -232,7 +233,7 @@ export default function MFIBankSummary({ onViewFullStatement }: MFIBankSummaryPr
           <div className="mfibank-card-label">🏦 Saldo do Fundo Regional</div>
           {regionalFundBalance !== null ? (
             <div className="mfibank-card-value">
-              {formatCurrency(regionalFundBalance)}
+              {formatCurrency(centsToReais(regionalFundBalance))}
             </div>
           ) : (
             <div className="mfibank-card-value unavailable">

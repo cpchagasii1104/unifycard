@@ -10,10 +10,11 @@ import { apiFetch } from '../../api/client';
 import { getImpactBalance, type ImpactBalance } from '../../api/impact';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { isPilotMode } from '../../config/pilot';
+import { centsToReais } from '../../utils/money';
 import './HeaderGlobal.css';
 
 interface WalletData {
-  balance: number;
+  balanceCents: number;
   currency: string;
 }
 
@@ -72,7 +73,7 @@ export default function HeaderGlobal() {
     // - tenantId não existir
     // - activeActor não estiver definido (endpoints protegidos precisam de actor)
     if (!sessionReady || !isAuthenticated() || !getTenantId() || !activeActor) {
-      setWallet({ balance: 0, currency: 'BRL' });
+      setWallet({ balanceCents: 0, currency: 'BRL' });
       return;
     }
 
@@ -111,25 +112,25 @@ export default function HeaderGlobal() {
       if (response.ok) {
         const walletData = await response.json();
         setWallet({
-          balance: walletData.balance || 0,
+          balanceCents: walletData.balanceCents || 0,
           currency: walletData.currency || 'BRL',
         });
       } else {
-        setWallet({ balance: 0, currency: 'BRL' });
+        setWallet({ balanceCents: 0, currency: 'BRL' });
       }
     } catch (err: any) {
       // ✅ Backend sempre retorna 200 - se chegou aqui, é erro inesperado
       console.warn('Erro ao carregar wallet:', err);
-      setWallet({ balance: 0, currency: 'BRL' });
+      setWallet({ balanceCents: 0, currency: 'BRL' });
     }
   };
 
-  const formatBalance = (balance: number): string => {
+  const formatBalance = (balanceReais: number): string => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
       minimumFractionDigits: 2,
-    }).format(balance);
+    }).format(balanceReais);
   };
 
   const handleGoToBank = () => {
@@ -320,7 +321,7 @@ export default function HeaderGlobal() {
             <div className="header-balance">
               <div className="balance-item">
                 <span className="balance-label">Unify:</span>
-                <span className="balance-value">{formatBalance(wallet.balance)}</span>
+                <span className="balance-value">{formatBalance(centsToReais(wallet.balanceCents))}</span>
               </div>
               <div className="balance-item">
                 <span className="balance-label">Impacto:</span>

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from '../../contexts/SessionProvider';
 import { getUserRegionalFund, type RegionalFundView } from '../../api/transparency';
 import { isAuthenticated, getTenantId } from '../../config/auth';
+import { centsToReais } from '../../utils/money';
 import './RegionalFundCard.css';
 
 export default function RegionalFundCard() {
@@ -89,7 +90,7 @@ export default function RegionalFundCard() {
         <div className="fund-balance">
           <div className="fund-balance-label">Total Acumulado</div>
           <div className="fund-balance-value">
-            {formatCurrency(regionalFund.currentBalance)}
+            {formatCurrency(centsToReais(regionalFund.currentBalanceCents))}
           </div>
         </div>
 

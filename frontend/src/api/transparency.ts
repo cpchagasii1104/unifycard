@@ -3,12 +3,21 @@
 
 import { apiFetch } from './client';
 
+// Conformidade §4.7 (07_NOMENCLATURA_CANONICA): campos monetários com sufixo `_cents`,
+// alinhados ao shape real do backend (core/unifybank/transparency.service.ts).
+// Convergência DT-TRANSPARENCY-API-CENTS-CONVERGENCE.
+//
+// Dívida adjacente preservada (backend↔norma): summary.totalIn/totalOut/netAmount,
+// totalAmount, totalPercentage, byOrigin/byContext/byPeriod ainda usam nomes sem
+// `_cents` no backend embora valores sejam centavos. Convergência futura quando
+// alguma frente tocar a camada summary.
+
 export interface StatementEntry {
   transactionId: string;
   type: 'p2p' | 'donation' | 'split' | 'compensation' | 'governance' | 'other';
-  amount: number;
+  amountCents: number;
   direction: 'in' | 'out';
-  balanceAfter: number;
+  balanceAfterCents: number;
   createdAt: string;
   context?: string; // event_ticket, service_booking, ride_payment, donation, p2p_transfer, etc.
   status?: 'completed' | 'reversed' | 'pending' | 'failed';
@@ -34,7 +43,7 @@ export interface StatementResult {
 export interface SplitDetail {
   baseTransaction: {
     transactionId: string;
-    amount: number;
+    amountCents: number;
     type: string;
     createdAt: string;
     metadata: Record<string, any>;
@@ -44,17 +53,17 @@ export interface SplitDetail {
     targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'platform';
     targetId?: string;
     percentage: number;
-    amount: number;
+    amountCents: number;
     createdAt: string;
   }>;
   totalPercentage: number;
-  totalAmount: number;
+  totalAmount: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
 }
 
 export interface RegionalFundEntry {
   transactionId: string;
   type: 'credit' | 'debit';
-  amount: number;
+  amountCents: number;
   origin: string;
   originTransactionId?: string;
   destination?: string;
@@ -66,10 +75,10 @@ export interface RegionalFundEntry {
 export interface RegionalFundView {
   accountId: string;
   regionId?: string;
-  currentBalance: number;
+  currentBalanceCents: number;
   entries: RegionalFundEntry[];
   summary: {
-    totalIn: number;
+    totalIn: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
     totalOut: number;
     netAmount: number;
   };
@@ -78,10 +87,10 @@ export interface RegionalFundView {
 export interface RegionalFundAdminView {
   regionId: string;
   accountId: string;
-  currentBalance: number;
+  currentBalanceCents: number;
   entries: RegionalFundEntry[];
   summary: {
-    totalIn: number;
+    totalIn: number; // dívida adjacente: backend ainda sem `_cents` (valor em centavos)
     totalOut: number;
     netAmount: number;
     byOrigin: Record<string, number>;

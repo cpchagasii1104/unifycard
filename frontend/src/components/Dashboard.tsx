@@ -11,6 +11,7 @@ import BackendConnectionError from './BackendConnectionError';
 import MFIBankCard from './mfibank/MFIBankCard';
 import FeedContextual from './FeedContextual';
 import MatchingContextual from './MatchingContextual';
+import { centsToReais } from '../utils/money';
 import './Dashboard.css';
 
 type DashboardTab = 'overview' | 'configurations';
@@ -347,19 +348,19 @@ export default function Dashboard() {
             <div className="wallet-card">
               <div className="wallet-balance">
                 <span className="balance-label">Saldo</span>
-                <span className="balance-value">{formatCurrency(data.wallet.balance)}</span>
+                <span className="balance-value">{formatCurrency(centsToReais(data.wallet.balanceCents))}</span>
               </div>
               <div className="wallet-stats">
                 <div className="stat-item">
                   <span className="stat-label">Total Recebido</span>
                   <span className="stat-value positive">
-                    {formatCurrency(data.wallet.totalIn)}
+                    {formatCurrency(centsToReais(data.wallet.totalIn))}
                   </span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Total Gasto</span>
                   <span className="stat-value negative">
-                    {formatCurrency(data.wallet.totalOut)}
+                    {formatCurrency(centsToReais(data.wallet.totalOut))}
                   </span>
                 </div>
               </div>
@@ -383,7 +384,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className={tx.type === 'credit' ? 'positive' : 'negative'}>
-                            {formatCurrency(tx.amount)}
+                            {formatCurrency(centsToReais(tx.amountCents))}
                           </td>
                           <td>{formatDate(tx.createdAt)}</td>
                         </tr>

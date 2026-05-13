@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { getUserRegionalFund, type RegionalFundView } from '../api/transparency';
+import { centsToReais } from '../utils/money';
 import './RegionalFundUser.css';
 
 export default function RegionalFundUser() {
@@ -95,19 +96,19 @@ export default function RegionalFundUser() {
       <div className="regional-fund-summary">
         <div className="summary-card balance">
           <div className="card-label">Saldo Atual</div>
-          <div className="card-value">{formatCurrency(fund.currentBalance)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.currentBalanceCents))}</div>
         </div>
         <div className="summary-card total-in">
           <div className="card-label">Total Recebido</div>
-          <div className="card-value">{formatCurrency(fund.summary.totalIn)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalIn))}</div>
         </div>
         <div className="summary-card total-out">
           <div className="card-label">Total Distribuído</div>
-          <div className="card-value">{formatCurrency(fund.summary.totalOut)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.totalOut))}</div>
         </div>
         <div className="summary-card net">
           <div className="card-label">Saldo Líquido</div>
-          <div className="card-value">{formatCurrency(fund.summary.netAmount)}</div>
+          <div className="card-value">{formatCurrency(centsToReais(fund.summary.netAmount))}</div>
         </div>
       </div>
 
@@ -132,7 +133,7 @@ export default function RegionalFundUser() {
                   <div className="entry-right">
                     <div className={`entry-amount ${entry.type}`}>
                       {entry.type === 'credit' ? '+' : '-'}
-                      {formatCurrency(Math.abs(entry.amount))}
+                      {formatCurrency(centsToReais(Math.abs(entry.amountCents)))}
                     </div>
                   </div>
                 </div>
