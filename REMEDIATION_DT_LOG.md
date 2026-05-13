@@ -564,3 +564,50 @@ Status values:
   - Qualquer DECISION futura que invoque "Q3-E2E como prova" sem distinguir v2 de v3
 
 ---
+
+## DT-PLATFORM-ACCOUNTS-NAMING-FRAGMENTATION
+
+- **Status:** OPEN
+- **Classe:** DT-A (arquitetural — fragmentação de naming entre camadas)
+- **Origem:** Investigação execução smoke v3 fundacional (2026-05-13)
+- **Vinculada a:** DECISION-0031 (caminho fundacional event_ticket), `ensurePlatformAccounts` (bank-account.service.ts:340-378), `SystemAccountName` type (bank-account.types.ts:20 + bank-split.types.ts:102), bankSplitEngine event_ticket invocação (bank-split-engine.service.ts:154)
+- **Convergência prevista:** Fix em `ensurePlatformAccounts` para criar adicionalmente contas `system:reserve:`, `system:fee:`, `system:regional_fund:` (com naming que `SystemAccountName` espera) OU refactor para que `SystemAccountName` use os nomes que `ensurePlatformAccounts` cria. Decisão arquitetural pendente.
+- **Contexto:**
+  Existem dois sistemas de naming paralelos para contas system no domínio bank:
+
+  **Sistema 1 — `ensurePlatformAccounts`** (bank-account.service.ts:340-378) cria contas lifecycle com `accountType`:
+  - `'escrow_payments'`, `'platform_revenue'`, `'platform_fees'`, `'clearing'`, `'bank_settlement'`, `'risk_reserve'`, `'seller_pending'`, `'seller_available'`, `'seller_payout'`
+  - Cada uma com `ownerId = 'system:${accountType}:${tenantId}'`
+
+  **Sistema 2 — `SystemAccountName`** (bank-account.types.ts:20 + bank-split.types.ts:102):
+  - `'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'platform_ops'`
+  - `bankAccountRepository.getSystemAccount(tenantId, name)` busca por `ownerId = 'system:${name}:${tenantId}'`
+
+  **Mismatch material:** `'reserve'` (Sistema 2) ≠ `'risk_reserve'` (Sistema 1); `'fee'` ≠ `'platform_fees'`; `'regional_fund'` não tem equivalente no Sistema 1.
+
+  **Consequência operacional:** quando `bankSplitEngine.calculateSplits(context: 'event_ticket')` é invocado, faz `getSystemAccount('reserve' | 'fee' | 'regional_fund')` que retorna `null` (Sistema 1 não criou essas) — e dispara `throw new Error('System account ${name} not found')` na linha 154-155 de bank-split-engine.service.ts.
+
+  **Workaround estabelecido** (em scripts E2E):
+  - `backend/src/scripts/validate-financial-flow-real.ts:87` cria manualmente `system:reserve:${TENANT_ID}`
+  - `backend/src/scripts/validate-pipeline-e2e-transversal.ts:144` mesmo padrão
+  - `backend/scripts/q3-e2e-v3-fundacional.ts:130-148` (este smoke) cria as 3 contas (`reserve`, `fee`, `regional_fund`) antes do checkout
+
+- **Risco:**
+  Tenant criado em produção via `ensurePlatformAccounts` SOZINHO **não tem as 3 contas necessárias** para que `bankSplitEngine.calculateSplits(context: 'event_ticket')` funcione. Primeiro checkout de ticket em produção falharia com erro `System account reserve not found`. Em prática, smoke v3 só funciona porque cria as contas manualmente — não exercita o caminho que produção realmente segue após `ensurePlatformAccounts`.
+
+- **Mitigação atual:**
+  Scripts E2E (validate-financial-flow-real, validate-pipeline-e2e-transversal, q3-e2e-v3-fundacional) criam manualmente. Esta DT documenta a fragmentação para convergência futura.
+
+- **Resolução prevista:**
+  Decisão arquitetural pendente — duas opções principais:
+  1. **Alinhar `ensurePlatformAccounts` ao `SystemAccountName`**: criar adicionalmente contas com naming `'reserve'`, `'fee'`, `'regional_fund'` (não substituir `'risk_reserve'` etc. — pode ter propósito distinto)
+  2. **Alinhar `SystemAccountName` ao `ensurePlatformAccounts`**: refactor de `bankSplitEngine` para usar `'risk_reserve'`, `'platform_fees'`, etc. Requer auditoria semântica para confirmar que `risk_reserve` é a mesma entidade que `reserve` no split (e definir o equivalente para `regional_fund`).
+
+  Prioridade: ALTA-MÉDIA (bloqueador silencioso para fluxo fundacional canônico em produção; mascarado por workaround em scripts de teste).
+
+- **Bloqueador para:**
+  - Primeiro checkout de ticket em tenant criado via `ensurePlatformAccounts` puro
+  - Declaração "sistema produz capacity emergente naturalmente via event_ticket" sem ressalva
+  - Convergência de DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO (smoke v3 ainda usa workaround; convergência completa exigiria fix nesta DT)
+
+---

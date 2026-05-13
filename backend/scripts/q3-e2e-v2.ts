@@ -1,10 +1,33 @@
 /**
- * Q3-E2E v2 — Smoke Econômico Fundacional
- * Usa tenant principal com users registrados via HTTP (fluxo real).
- * Bootstrap: liquidity_issuance → system:reserve → user
- * Prova: dinheiro entra → move → ledger double-entry íntegro → tipos bigint
+ * Q3-E2E v2 — Smoke Econômico (DEPRECADO 2026-05-13 — vide DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO)
  *
- * Uso: npx tsx scripts/q3-e2e-v2.ts
+ * ⚠️  DEPRECADO. Use q3-e2e-v3-fundacional.ts.
+ *
+ * Razão da deprecação:
+ *   - Commit message original (61e10c26) declarou "smoke econômico fundacional"
+ *     mas o código usa shortcut Opção C que DECISION-0031 refutou:
+ *     `createSimpleTransaction(fromAccountId: undefined → liquidity_issuance,
+ *      toAccountId: system:reserve, concept_id: 'system-reserve-credit')` —
+ *     "provisionamento artificial de reserve sem origem econômica real"
+ *     (texto literal da DECISION-0031 refutando esse caminho).
+ *   - Smoke passou 11/11 PASS validando ledger técnico (double-entry, bigint),
+ *     mas NÃO exercitou o caminho fundacional canônico declarado pela norma.
+ *   - Falsa solvência institucional documentada em REMEDIATION_DT_LOG.md
+ *     (DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO).
+ *
+ * Caminho canônico documentado por DECISION-0031:
+ *   event_ticket → split engine → parcela de reserve (17%) deposita em system:reserve
+ *
+ * Substituto: q3-e2e-v3-fundacional.ts (cria evento real, executa checkout via
+ * POST /events/:id/checkout que invoca eventEconomyService → bankTransactionService
+ * .createTransactionWithSplit(context: 'event_ticket') → bankSplitEngine 4 splits,
+ * fundando reserve via 17% do split — caminho fundacional canônico).
+ *
+ * Este arquivo permanece como artefato histórico até DT-Q3-E2E-V2-SHORTCUT-EPISTEMICO
+ * ser formalmente CLOSED em commit subsequente (após validação que v3 executa).
+ *
+ * Uso histórico: npx tsx scripts/q3-e2e-v2.ts
+ * Uso canônico:  npx tsx scripts/q3-e2e-v3-fundacional.ts
  */
 import dotenv from 'dotenv';
 import { join } from 'path';
