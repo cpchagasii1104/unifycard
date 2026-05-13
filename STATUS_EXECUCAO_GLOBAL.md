@@ -1,10 +1,11 @@
-## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (7 commits, 5 frentes + 2 housekeepings)
+## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (9 commits, 6 frentes + 3 housekeepings)
 
 **Branch:** `rescue-structural`
-**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2), `8321878b` (F4) — 5 frentes + 2 housekeepings (`24c6e67b`, `9d602d8c`)
+**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2), `8321878b` (F4), `485503e0` (F5) — 6 frentes + 3 housekeepings (`24c6e67b`, `9d602d8c`, `be3838ab`)
 **Frente 3 cancelada honestamente** (regional-fund-governance — descoberta material: tipos inline são fiéis ao schema; método toProposal já converte; convergência §4.7 real exigiria migration RENAME COLUMN, fronteira DDL)
-**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 3 aplicações + 1 pivot honesto)
-**Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`
+**Pivot meta-frente honesto na reabertura** (marketplace — investigação prévia GUARDIÃO revelou disparidade frontend↔backend 48/2 do padrão Money value object + `PLANO_CORRECAO_NOMENCLATURA` EIXO 5 formal preexistente; categoria muda, exige sessão dedicada com autorização explícita)
+**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 4 frentes funcionais + 1 pivot frente + 1 pivot meta-frente)
+**Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`; refinamento §30 estabilizado em 4 categorias materiais (drift real / tipo fiel ao DB / tipo polimórfico discriminator / Money value object pattern) — pronto para promoção à memória persistente após validação adicional
 
 ### Pipeline cronológica
 
@@ -17,20 +18,24 @@
 | `ee3c6add` | Frente 2 — DT-TRANSPARENCY summary-level (backend) + TSC fix transparency.service.ts (HEAD inconsistente isolado, segunda ocorrência) | Convergência §4.7 summary backend + autoria mista justificada por TSC | 10 arquivos, +363/-211, TSC 0, 4/4 gates |
 | `9d602d8c` | Housekeeping pós-F2 (STATUS_EXECUCAO_GLOBAL atualizado para incluir F2 + HK1 + nomeação explícita do que NÃO foi atualizado) | Memória histórica | 2 arquivos, +92/-15 |
 | `8321878b` | Frente 4 — api/economy.ts (UserAccount.balance → balanceCents) + SocialFeed2 (bug "sempre zero" eliminado) | Convergência §4.7 frontend mecânica | 3 arquivos, +120/-2, TSC 0, 4/4 gates |
+| `be3838ab` | Housekeeping de fechamento da sessão (executei_18 + STATUS sincronizado pós-F4 + transparência sobre o que NÃO foi tocado) | Memória histórica | — |
+| `485503e0` | Frente 5 — Dashboard.tsx wallet.totalIn/totalOut → totalInCents/totalOutCents + tipagem DashboardData (bug 100x "Minha Carteira" eliminado) | Convergência §4.7 frontend mecânica | 3 arquivos, +223/-4, TSC 0, 3 PASS + 1 baseline preservado (architectural backend-only) |
 
-**Total funcional:** 37 arquivos modificados | +1.290/-316 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional (5/5 frentes)
+**Total funcional:** 40 arquivos modificados | +1.513/-320 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional F1/F2/F4; F5 = 3 PASS + 1 baseline preservado (architectural escaneia backend/src; F5 é frontend-only) | 6/6 frentes funcionais
 
 ### Resultado consolidado
 
-- 5/5 frentes funcionais fechadas com 4/4 gates PASS + 1 frente cancelada honestamente (Frente 3)
+- 6/6 frentes funcionais fechadas (TSC 0 em todos os checkpoints; 4/4 gates PASS em F1/F2/F4; 3 PASS + 1 baseline preservado em F5 [architectural backend-only]) + 1 frente cancelada honestamente (Frente 3) + 1 pivot meta-frente honesto (marketplace — categoria muda, exige sessão dedicada)
 - **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** OPEN → CLOSED em F1 (`a2242cd0`); dívida adjacente backend↔norma registrada em F1 → FECHADA em F2 (`ee3c6add`). Bug 100x eliminado em 10 telas universais; convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas (transaction-level + summary-level)
 - **api/economy + SocialFeed2 (F4):** convergência §4.7 frontend; bug "sempre zero" no widget de saldo lateral eliminado (mesmo padrão do bug HeaderGlobal antes da F1)
+- **Dashboard.tsx wallet totalCents (F5):** convergência §4.7 frontend; bug 100x widget "Minha Carteira" (Total Recebido/Total Gasto) eliminado; tipagem `DashboardData = Record<string, any>` (anti-padrão que mascarava drift) substituída por interfaces canônicas espelhando backend
 - **DT-C36-actor-debts:** OPEN → PARCIAL (CHECK preservado; vocabulário canônico final pendente)
 - **Convergência mecânica migration soberana 20260525100000:** fechada (escopo reduzido — 3 arquivos no Commit A1)
 - **Hit #4 (cluster c cross-layer events):** deferido para DECISION-0034 dedicada
 - **`event.service.ts` (core) + `transparency.service.ts`:** TSC fix `UnifiedAvailability` / `RegionalFundEntry` consumado (padrão HEAD inconsistente isolado aplicado em 2 arquivos distintos — heurística reutilizável validada)
 - **Metabolismo arquitetural:** dívida nascida em F1 paga em F2 dentro da mesma sessão (24h). §25 funcionando: critério de convergência ≠ TODO eterno.
 - **Pivot honesto (F3):** proposta inicial cancelada após investigação material revelar que tipos inline eram fiéis ao schema; refinou heurística §30 ("rename de tipo > grep semântico" precisa cruzar com diagnóstico "drift real vs tipo fiel ao DB").
+- **Pivot meta-frente honesto (marketplace pós-F4):** candidato natural na trilha. Investigação prévia GUARDIÃO read-only (1h) revelou disparidade material (48 ocorrências Money value object `{amount,currency}` frontend vs 2 backend) + `PLANO_CORRECAO_NOMENCLATURA.md` v3.3.6 EIXO 5 formal preexistente + `_canonical/money.types.ts` canônico (`MoneyAmountCents` branded). Marketplace muda categoria — escopo arquitetural com pré-requisito EIXO 2 (11% completo); sessão dedicada com autorização explícita. PAREI antes de tocar qualquer arquivo. Calibração 2026-05-13 honrada em **escala de investigação**, não apenas em meio de execução.
 
 ### Lições estruturais novas registradas em memória institucional persistente
 
@@ -38,7 +43,7 @@
 - **`feedback_arquivo_nao_e_agregado.md`** (NOVO) — distinguir pilares paralelos (separar via stash cirúrgico) vs HEAD inconsistente isolado (incluir como dependência forçada); validar `tsc --noEmit` do HEAD antes de classificar pré-existentes
 - **`feedback_autonomia_operacional.md`** (ATUALIZADO) — calibração 2026-05-13 em validação por 3-5 sessões: "objetivo + restrições materiais + fronteiras de parada > coreografia procedural"
 
-### Calibração operacional validada na prática (3 aplicações + 1 pivot honesto)
+### Calibração operacional validada na prática (4 frentes funcionais + 1 pivot frente + 1 pivot meta-frente)
 
 **F1:** executada com 1 parágrafo de diretiva (objetivo + restrição + fronteira de parada + autorização autônoma), sem PASSOs enumerados, sem ping-pong intermediário. Fronteira "paro e consulto" não acionada.
 
@@ -48,7 +53,11 @@
 
 **F4:** "piloto automático" autorizado por Clayton. EXECUTOR identificou bug "sempre zero" em SocialFeed2 (análogo ao HeaderGlobal antes da F1), aplicou padrão F1 mecanicamente, fechou frente. Após F4 fechada, reavaliou candidatos e PAROU em marketplace (escopo arquitetural, 38+ pontos, exige investigação prévia).
 
-**Sinal de maturação:** quando a coordenação reduziu, o throughput aumentou — sem perder rigor (TSC 0 + 4/4 gates em todas as frentes funcionais). Pivot honesto e parada em fronteira material executados sem perda de momentum.
+**Pivot meta-frente honesto (marketplace pós-F4):** reabertura da sessão com autorização ampla "escolha o que é mais pertinente e executa". Candidato natural na trilha era marketplace. Antes de tocar qualquer arquivo, declarei modo GUARDIÃO + investigação prévia read-only (1h). Descoberta material (48 Money value object frontend / 2 backend + PLANO formal preexistente + `_canonical/money.types.ts` canônico) revelou mudança de categoria. PAREI e reportei com 4 opções + recomendação fundamentada. Calibração honrada em **escala de investigação**, antes mesmo do primeiro toque. Sinal de maturação adicional: autonomia executiva ampla não vira "execução de tudo na trilha".
+
+**F5:** após autorização explícita Clayton ("vai ter que fazer os outros, escolha o mais pertinente e executa"), pivotei para varredura curta dos demais `api/*.ts`. Descobri bug 100x ativo em Dashboard.tsx (`data.wallet.totalIn`/`totalOut` undefined porque backend envia `totalInCents`/`totalOutCents`). Frente cirúrgica (2 arquivos, 15min, TSC 0, 3 PASS + 1 baseline preservado). Padrão F1/F4 puro — convergência mecânica focada em bug runtime visível com escopo cirúrgico.
+
+**Sinal de maturação:** quando a coordenação reduziu, o throughput aumentou — sem perder rigor (TSC 0 + gates em todas as frentes funcionais). Pivot honesto e parada em fronteira material executados sem perda de momentum. Calibração agora validada em 6 contextos materialmente distintos (4 execuções + 1 pivot frente + 1 pivot meta-frente).
 
 ### Anti-padrões fechados nesta sessão
 
@@ -61,6 +70,9 @@
 - Dívida adjacente backend↔norma registrada em F1 com critério de convergência (§25) — paga em F2 dentro da mesma sessão
 - §4.7 violation em `api/economy.ts` (UserAccount.balance) — fechada em F4
 - Bug "sempre zero" em SocialFeed2 widget de saldo lateral — fechado em F4
+- §4.7 violation em `Dashboard.tsx` (`data.wallet.totalIn/totalOut`) — fechada em F5
+- Bug 100x em widget "Minha Carteira" Dashboard ("Total Recebido"/"Total Gasto" exibindo R$ NaN ou R$ 0,00) — fechado em F5
+- Anti-padrão `Record<string, any>` em retorno de função API (mascarava drift) — substituído por interfaces canônicas em F5
 
 ### Anti-padrões evitados nesta sessão
 
@@ -70,6 +82,9 @@
 - Tocar backend transparency.service.ts sem necessidade (já era conforme nos campos relevantes)
 - Tocar FundAdminPanel.tsx sem investigar (descobri dead code via grep — preservado)
 - Inflar memória institucional com nova taxonomia (calibração nova explicita: menos meta-governança)
+- Execução cega de marketplace com autorização ampla — investigação prévia GUARDIÃO descobriu mudança de categoria + PLANO formal preexistente; PAREI antes de tocar arquivos (F5 pivotou para Dashboard, candidato real)
+- Tocar `api/identity.ts` wallet drift como "frente conjunta com Dashboard" — verificação de consumers (7 importadores) revelou 0 leituras reais de `wallet.*`, drift institucional puro sem bug runtime; mantido fora de escopo F5 para preservar §29
+- Limpeza de dead code "Fundo Regional" em Dashboard.tsx — preservado via `Record<string,any>|null` permissivo para não inflar escopo F5
 
 ### DTs em estado pós-sessão
 
@@ -85,10 +100,15 @@
 
 - **DECISION-0034 (cluster c cross-layer events):** congelada por decisão Clayton até consolidar throughput de convergência mecânica
 - **Schema rename `regional_fund_proposals.amount → amount_cents`:** descoberto em F3 cancelada; varredura sistemática + migrations análogas a C38 — autorização explícita necessária (DDL produção)
-- **`api/marketplace.ts`:** 38+ campos sem `_cents` em tipos exportados; potencial 50-100+ consumers; escopo arquitetural exige investigação prévia (GUARDIÃO ~30min) antes de execução
+- **`api/marketplace.ts` — escopo arquitetural confirmado em F5 pré-investigação:** 48 ocorrências `{ amount: number; currency: string }` (Money value object) no frontend vs 2 no backend marketplace; 41 ocorrências `amount/total/value/fee/discount: number` plain; 0 usos de `MoneyAmountCents` canônico no frontend. Categoria = **abertura formal de EIXO 5 do `PLANO_CORRECAO_NOMENCLATURA.md` v3.3.6** com pré-requisito implícito de EIXO 2 (54 contratos backend v2 previstos, 6 criados — ~11% completo). Usa `MoneyAmountCents` branded de `backend/src/contracts/marketplace/_canonical/money.types.ts`. Autorização explícita Clayton + sessão dedicada conforme "uma sessão = um eixo" do PLANO
+- **`api/identity.ts` wallet drift institucional:** `balance`/`totalIn`/`totalOut`/`lastTransactions[].amount` sem `_cents`. Backend `identity.service.ts` declara `balanceCents` ✅ + `amountCents` ✅ mas `totalIn/totalOut` legacy sem `_cents`. Frente F5 verificou consumers (7 arquivos importadores de `IdentityProfile`) — **0 leituras reais de `wallet.*`**. Drift institucional puro sem bug runtime; possível convergência conjunta backend+frontend em frente futura (análogo F2)
+- **`api/fund.ts` (~25+ campos):** `currentBalance`, `totalRevenue`, `totalCosts`, `netBalance`, `totalContributions`, `totalReceived`, `splitBreakdown.{worker,platform,regionalFund,community}`, `history.entries[].amount`, `projection.estimatedBalance/estimatedIncrease` etc. **Ambiguidades semânticas:** `splitBreakdown` pode ser percentual OU cents; `growth.percentage`/`growth.currentPeriod`/`growth.previousPeriod` provavelmente percentuais; alguns são monetários puros. Investigação prévia material (GUARDIÃO ~30-60min) requerida — caso a caso
 - **`api/checkout.ts`:** importa `CheckoutResult` de `@unificard/contracts`; mexer em contracts compartilhado é fronteira (cluster compartilhado)
+- **`api/subscriptions.ts`:** Money value object pattern análogo marketplace (`Subscription.amount: number; currency: string`) — descartado de F5 por mesma razão que marketplace (escopo arquitetural)
+- **`api/loyalty.ts`:** `value: number | null` polimórfico por `voucherType` (DISCOUNT_FIXED → §4.7 cents vs DISCOUNT_PERCENT → §4.8 RateBps) — categoria DECISION-like, descartado de F5
 - **15+ components/pages órfãos** acessando `.amount`/`.balance`: dependem de mapear API de origem caso a caso
 - **FundAdminPanel.tsx:** dead code candidato (endpoint `/fund/admin/regions` sem handler backend)
+- **Dead code "Fundo Regional" em Dashboard.tsx L423-450:** backend retorna `fund: null` sempre; F5 preservou via tipo permissivo (`Record<string,any>|null`) para não inflar escopo
 - **Sub-frente B P2P frontend:** 3 decisões UX/arquiteturais pendentes
 - **Pendência normativa DECISION-0033:** atualização formal `07_NOMENCLATURA_CANONICA §3.2` + SSOT_REGISTRY adicionando `canonical_product_type` — humano/RFC
 
@@ -100,6 +120,7 @@
 - `executei_16.md` (Frente 1 DT-TRANSPARENCY relatório completo — 14.5KB)
 - `executei_17.md` (Frente 2 convergência summary + segunda aplicação HEAD inconsistente isolado — 14KB)
 - `executei_18.md` (Frente 4 + Frente 3 cancelada honestamente + reavaliação marketplace — 13KB)
+- `executei_19.md` (Frente 5 Dashboard wallet totalCents + investigação prévia GUARDIÃO marketplace + pivot meta-frente honesto)
 
 ### Commits + logs institucionais criados
 
@@ -110,6 +131,7 @@
 - `docs/03_execution_log/2026-05-13_dt_transparency_summary_convergencia.md` (Frente 2)
 - `docs/03_execution_log/2026-05-13_housekeeping_institucional_pos_f2.md` (Housekeeping pós-F2)
 - `docs/03_execution_log/2026-05-13_dt_economy_userAccount_balanceCents.md` (Frente 4 + cancelamento F3)
+- `docs/03_execution_log/2026-05-13_dt_dashboard_wallet_totalCents_convergence.md` (Frente 5)
 
 ---
 
