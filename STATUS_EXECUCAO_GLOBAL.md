@@ -1,8 +1,9 @@
-## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (5 commits, 4 frentes + housekeeping)
+## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica (7 commits, 5 frentes + 2 housekeepings)
 
 **Branch:** `rescue-structural`
-**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2) — 4 frentes + 1 housekeeping (`24c6e67b`)
-**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 2 aplicações)
+**Commits funcionais:** `221ced0e` (A1), `f15ed8c7` (B), `a2242cd0` (F1), `ee3c6add` (F2), `8321878b` (F4) — 5 frentes + 2 housekeepings (`24c6e67b`, `9d602d8c`)
+**Frente 3 cancelada honestamente** (regional-fund-governance — descoberta material: tipos inline são fiéis ao schema; método toProposal já converte; convergência §4.7 real exigiria migration RENAME COLUMN, fronteira DDL)
+**Modo predominante:** EXECUTOR autônomo (calibração nova "objetivo + restrições materiais + fronteiras de parada" validada em 3 aplicações + 1 pivot honesto)
 **Memória institucional:** 13 entradas + atualização de `feedback_autonomia_operacional.md`
 
 ### Pipeline cronológica
@@ -14,18 +15,22 @@
 | `a2242cd0` | Frente 1 — DT-TRANSPARENCY CLOSED (11 arquivos frontend convergidos para `_cents`) | Convergência mecânica frontend↔§4.7 transaction-level | 14 arquivos, +216/-60, TSC 0, 4/4 gates |
 | `24c6e67b` | Housekeeping institucional consolidado (STATUS + code.md §30 + log) | Memória histórica da sessão | 3 arquivos, +202/-0 |
 | `ee3c6add` | Frente 2 — DT-TRANSPARENCY summary-level (backend) + TSC fix transparency.service.ts (HEAD inconsistente isolado, segunda ocorrência) | Convergência §4.7 summary backend + autoria mista justificada por TSC | 10 arquivos, +363/-211, TSC 0, 4/4 gates |
+| `9d602d8c` | Housekeeping pós-F2 (STATUS_EXECUCAO_GLOBAL atualizado para incluir F2 + HK1 + nomeação explícita do que NÃO foi atualizado) | Memória histórica | 2 arquivos, +92/-15 |
+| `8321878b` | Frente 4 — api/economy.ts (UserAccount.balance → balanceCents) + SocialFeed2 (bug "sempre zero" eliminado) | Convergência §4.7 frontend mecânica | 3 arquivos, +120/-2, TSC 0, 4/4 gates |
 
-**Total funcional:** 32 arquivos modificados | +1.078/-299 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional
+**Total funcional:** 37 arquivos modificados | +1.290/-316 linhas | TSC = 0 em todos os checkpoints | 4/4 gates pós cada commit funcional (5/5 frentes)
 
 ### Resultado consolidado
 
-- 4/4 frentes funcionais fechadas com 4/4 gates PASS
+- 5/5 frentes funcionais fechadas com 4/4 gates PASS + 1 frente cancelada honestamente (Frente 3)
 - **DT-TRANSPARENCY-API-CENTS-CONVERGENCE:** OPEN → CLOSED em F1 (`a2242cd0`); dívida adjacente backend↔norma registrada em F1 → FECHADA em F2 (`ee3c6add`). Bug 100x eliminado em 10 telas universais; convergência §4.7 transparency/wallet/dashboard agora COMPLETA em ambas as camadas (transaction-level + summary-level)
+- **api/economy + SocialFeed2 (F4):** convergência §4.7 frontend; bug "sempre zero" no widget de saldo lateral eliminado (mesmo padrão do bug HeaderGlobal antes da F1)
 - **DT-C36-actor-debts:** OPEN → PARCIAL (CHECK preservado; vocabulário canônico final pendente)
 - **Convergência mecânica migration soberana 20260525100000:** fechada (escopo reduzido — 3 arquivos no Commit A1)
 - **Hit #4 (cluster c cross-layer events):** deferido para DECISION-0034 dedicada
 - **`event.service.ts` (core) + `transparency.service.ts`:** TSC fix `UnifiedAvailability` / `RegionalFundEntry` consumado (padrão HEAD inconsistente isolado aplicado em 2 arquivos distintos — heurística reutilizável validada)
 - **Metabolismo arquitetural:** dívida nascida em F1 paga em F2 dentro da mesma sessão (24h). §25 funcionando: critério de convergência ≠ TODO eterno.
+- **Pivot honesto (F3):** proposta inicial cancelada após investigação material revelar que tipos inline eram fiéis ao schema; refinou heurística §30 ("rename de tipo > grep semântico" precisa cruzar com diagnóstico "drift real vs tipo fiel ao DB").
 
 ### Lições estruturais novas registradas em memória institucional persistente
 
@@ -33,13 +38,17 @@
 - **`feedback_arquivo_nao_e_agregado.md`** (NOVO) — distinguir pilares paralelos (separar via stash cirúrgico) vs HEAD inconsistente isolado (incluir como dependência forçada); validar `tsc --noEmit` do HEAD antes de classificar pré-existentes
 - **`feedback_autonomia_operacional.md`** (ATUALIZADO) — calibração 2026-05-13 em validação por 3-5 sessões: "objetivo + restrições materiais + fronteiras de parada > coreografia procedural"
 
-### Calibração operacional validada na prática (2 aplicações)
+### Calibração operacional validada na prática (3 aplicações + 1 pivot honesto)
 
 **F1:** executada com 1 parágrafo de diretiva (objetivo + restrição + fronteira de parada + autorização autônoma), sem PASSOs enumerados, sem ping-pong intermediário. Fronteira "paro e consulto" não acionada.
 
-**F2:** delegação total de Clayton ("você decide o próximo passo, mantendo o sistema no trilho, respeitando as normas"). EXECUTOR escolheu autonomamente continuar convergência §4.7 fechando dívida adjacente da F1. Segunda ocorrência do padrão "HEAD inconsistente isolado" (`transparency.service.ts`) tratada autonomamente sem PARO E CONSULTO procedural — heurística registrada em `feedback_arquivo_nao_e_agregado.md` aplicada diretamente. Custo operacional ~5x menor que primeira ocorrência (`event.service.ts`, 4 idas e vindas).
+**F2:** delegação total de Clayton. EXECUTOR escolheu autonomamente continuar convergência §4.7 fechando dívida adjacente da F1. Segunda ocorrência do padrão "HEAD inconsistente isolado" (`transparency.service.ts`) tratada autonomamente sem PARO E CONSULTO procedural — heurística registrada em `feedback_arquivo_nao_e_agregado.md` aplicada diretamente. Custo operacional ~5x menor que primeira ocorrência (`event.service.ts`, 4 idas e vindas).
 
-**Sinal de maturação:** quando a coordenação reduziu, o throughput aumentou — sem perder rigor (TSC 0 + 4/4 gates em ambas as frentes).
+**F3 (pivot honesto):** investigação material revelou que proposta inicial estava errada — tipos inline em `regional-fund-governance.service.ts` eram fiéis ao schema, não drift §4.7. Cancelada autonomamente, pendência registrada para sessão dedicada futura (migration RENAME COLUMN análoga a C38). Calibração protege isso: "descoberta material que mude o cenário → paro".
+
+**F4:** "piloto automático" autorizado por Clayton. EXECUTOR identificou bug "sempre zero" em SocialFeed2 (análogo ao HeaderGlobal antes da F1), aplicou padrão F1 mecanicamente, fechou frente. Após F4 fechada, reavaliou candidatos e PAROU em marketplace (escopo arquitetural, 38+ pontos, exige investigação prévia).
+
+**Sinal de maturação:** quando a coordenação reduziu, o throughput aumentou — sem perder rigor (TSC 0 + 4/4 gates em todas as frentes funcionais). Pivot honesto e parada em fronteira material executados sem perda de momentum.
 
 ### Anti-padrões fechados nesta sessão
 
@@ -50,6 +59,8 @@
 - §4.7 violation residual em backend (campos summary com nomes ambíguos sem `_cents`) — fechado em F2
 - Bug visual 100x em entrypoints universais (HeaderGlobal, Dashboard, GlobalContextBar) — fechado em F1
 - Dívida adjacente backend↔norma registrada em F1 com critério de convergência (§25) — paga em F2 dentro da mesma sessão
+- §4.7 violation em `api/economy.ts` (UserAccount.balance) — fechada em F4
+- Bug "sempre zero" em SocialFeed2 widget de saldo lateral — fechado em F4
 
 ### Anti-padrões evitados nesta sessão
 
@@ -73,6 +84,10 @@
 ### Pendências preservadas para próximas sessões
 
 - **DECISION-0034 (cluster c cross-layer events):** congelada por decisão Clayton até consolidar throughput de convergência mecânica
+- **Schema rename `regional_fund_proposals.amount → amount_cents`:** descoberto em F3 cancelada; varredura sistemática + migrations análogas a C38 — autorização explícita necessária (DDL produção)
+- **`api/marketplace.ts`:** 38+ campos sem `_cents` em tipos exportados; potencial 50-100+ consumers; escopo arquitetural exige investigação prévia (GUARDIÃO ~30min) antes de execução
+- **`api/checkout.ts`:** importa `CheckoutResult` de `@unificard/contracts`; mexer em contracts compartilhado é fronteira (cluster compartilhado)
+- **15+ components/pages órfãos** acessando `.amount`/`.balance`: dependem de mapear API de origem caso a caso
 - **FundAdminPanel.tsx:** dead code candidato (endpoint `/fund/admin/regions` sem handler backend)
 - **Sub-frente B P2P frontend:** 3 decisões UX/arquiteturais pendentes
 - **Pendência normativa DECISION-0033:** atualização formal `07_NOMENCLATURA_CANONICA §3.2` + SSOT_REGISTRY adicionando `canonical_product_type` — humano/RFC
@@ -84,6 +99,7 @@
 - `executei_15.md` (Opção α / Caminho A executados — 14.2KB)
 - `executei_16.md` (Frente 1 DT-TRANSPARENCY relatório completo — 14.5KB)
 - `executei_17.md` (Frente 2 convergência summary + segunda aplicação HEAD inconsistente isolado — 14KB)
+- `executei_18.md` (Frente 4 + Frente 3 cancelada honestamente + reavaliação marketplace — 13KB)
 
 ### Commits + logs institucionais criados
 
@@ -92,6 +108,8 @@
 - `docs/03_execution_log/2026-05-13_dt_transparency_convergencia_cents.md` (Frente 1)
 - `docs/03_execution_log/2026-05-13_housekeeping_institucional_consolidacao.md` (Housekeeping pós-F1)
 - `docs/03_execution_log/2026-05-13_dt_transparency_summary_convergencia.md` (Frente 2)
+- `docs/03_execution_log/2026-05-13_housekeeping_institucional_pos_f2.md` (Housekeeping pós-F2)
+- `docs/03_execution_log/2026-05-13_dt_economy_userAccount_balanceCents.md` (Frente 4 + cancelamento F3)
 
 ---
 
