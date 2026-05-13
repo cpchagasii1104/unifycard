@@ -231,7 +231,7 @@ async function main() {
   console.log('[P8] Criar evento (POST /events) — organizer A, ticket R$100...');
   const eventStart = new Date(Date.now() + 86_400_000).toISOString();  // +1 dia
   const eventEnd = new Date(Date.now() + 86_400_000 * 2).toISOString(); // +2 dias
-  const createEventRes = await httpPost('/events', {
+  const createEventRes = await httpPost('/api/events', {
     actor_id: actorIdA,
     actor_type: 'user',
     event_type: 'cultural',
@@ -260,7 +260,7 @@ async function main() {
   // → bankSplitEngine 4 splits (70/3/10/17)
   console.log('[P9] Checkout (POST /events/:id/checkout) — attendee B compra ticket...');
   console.log('     ↳ CHAMADA FUNDACIONAL: event_ticket → split engine → 4 splits');
-  const checkoutRes = await httpPost(`/events/${eventId}/checkout`, {
+  const checkoutRes = await httpPost(`/api/events/${eventId}/checkout`, {
     attendee_actor_id: actorIdB,
     quantity: 1,
   }, {

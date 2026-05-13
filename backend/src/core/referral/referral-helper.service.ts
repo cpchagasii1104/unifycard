@@ -15,50 +15,69 @@ export async function getActiveReferral(
   userId: string,
   atDate: Date = new Date()
 ): Promise<string | null> {
-  // Tentar buscar da tabela referrals (nova)
-  const referralResult = await runQueryWithTenant<{
-    referrer_user_id: string;
-    endsAt: Date;
-    status: string;
-  }>(
-    tenantId,
-    `
-      SELECT referrer_user_id, endsAt, status
-      FROM referrals
-      WHERE tenant_id = $1 
-        AND referred_user_id = $2 
-        AND status = 'active'
-        AND endsAt > $3
-      LIMIT 1
-    `,
-    [tenantId, userId, atDate]
-  );
+  // Tentar buscar da tabela referrals (nova) — try/catch tolera tabela ausente
+  // para permitir fallback ao legacy + retorno null quando referral não existe (smoke v3 fundacional).
+  try {
+    const referralResult = await runQueryWithTenant<{
+      referrer_user_id: string;
+      endsAt: Date;
+      status: string;
+    }>(
+      tenantId,
+      `
+        SELECT referrer_user_id, endsAt, status
+        FROM referrals
+        WHERE tenant_id = $1
+          AND referred_user_id = $2
+          AND status = 'active'
+          AND endsAt > $3
+        LIMIT 1
+      `,
+      [tenantId, userId, atDate]
+    );
 
-  if (referralResult && referralResult.length > 0) {
-    return referralResult[0].referrer_user_id;
+    if (referralResult) {
+      return referralResult.referrer_user_id;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/relação .* não existe|relation .* does not exist/i.test(msg)) {
+      throw err;
+    }
+    // Tabela ausente — segue para legacy
   }
 
   // Fallback: usar user_referral_links (legacy) para backward compatibility
-  const legacyResult = await runQueryWithTenant<{
-    referrer_user_id: string;
-    createdAt: Date;
-  }>(
-    tenantId,
-    `
-      SELECT referrer_user_id, createdAt
-      FROM user_referral_links
-      WHERE tenant_id = $1 AND referred_user_id = $2
-      LIMIT 1
-    `,
-    [tenantId, userId]
-  );
-
-  if (!legacyResult || legacyResult.length === 0) {
+  let legacyResult: { referrer_user_id: string; created_at: Date } | null = null;
+  try {
+    legacyResult = (await runQueryWithTenant<{
+      referrer_user_id: string;
+      created_at: Date;
+    }>(
+      tenantId,
+      `
+        SELECT referrer_user_id, created_at
+        FROM user_referral_links
+        WHERE tenant_id = $1 AND referred_user_id = $2
+        LIMIT 1
+      `,
+      [tenantId, userId]
+    )) ?? null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/relação .* não existe|relation .* does not exist/i.test(msg)) {
+      throw err;
+    }
+    // Tabela legacy também ausente — sem referral
     return null;
   }
 
-  const link = legacyResult[0];
-  const referralDate = new Date(link.createdAt);
+  if (!legacyResult) {
+    return null;
+  }
+
+  const link = legacyResult;
+  const referralDate = new Date(link.created_at);
   const oneYearAgo = new Date(atDate);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 

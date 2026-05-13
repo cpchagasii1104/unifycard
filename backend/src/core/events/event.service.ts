@@ -39,7 +39,6 @@ interface EventRow {
   visibility: string;
   ticket_price_cents: number | null;
   max_attendees: number | null;
-  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, any> | null;
@@ -65,7 +64,6 @@ class EventService {
       visibility: row.visibility as EventVisibility,
       ticketPriceCents: row.ticket_price_cents,
       maxAttendees: row.max_attendees,
-      completedAt: row.completedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       metadata: row.metadata || {},
@@ -1215,9 +1213,8 @@ class EventService {
         visibility,
         ticket_price_cents,
         max_attendees,
-        completedAt,
-        createdAt,
-        updatedAt,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt",
         metadata
       FROM events
       WHERE tenant_id = $1 AND id = $2
