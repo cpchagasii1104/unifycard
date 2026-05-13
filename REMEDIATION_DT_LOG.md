@@ -335,21 +335,37 @@ Status values:
 
 ## DT-C36-actor-debts-case-drift
 
-- **Status:** OPEN
+- **Status:** PARCIAL — código convergido ao vocabulário do CHECK atual; CHECK e DECISION sobre vocabulário canônico final pendentes
 - **Origem:** C36 remediação (2026-05-12) — auditoria de status sem CHECK
-- **Vinculada a:** C36
+- **Vinculada a:** C36, DECISION-0032 (status operacional governado por lowercase canônico)
+- **Convergência prevista:** quando Clayton/RFC decidir vocabulário canônico final (`pending` + `transferred_to_organizer` + opcionalmente `paid`); aí migration revert CHECK misto + reaplicar CHECK lowercase puro.
 - **Contexto:**
   `actor_debts.status` usa case inconsistente: migration define DEFAULT 'pending' (lowercase),
   mas o código em `event-scheduler.ts` escreve 'TRANSFERRED_TO_ORGANIZER' (UPPERCASE).
   CHECK adicionado inclui ambos os valores para não quebrar runtime.
+
+  Investigação `executei_10.md` (2026-05-12) revelou drift mais extenso que o documentado:
+  5 grafias para 2 conceitos em código de produção ('pending', 'PENDING',
+  'TRANSFERRED_TO_ORGANIZER', 'transferred_to_organizer', 'paid'), com 3 dead branches
+  em runtime (event-scheduler.ts:257 'PENDING' UPPERCASE; trust.service.ts:481
+  IN ('paid', 'transferred_to_organizer') — ambos valores nunca permitidos pelo CHECK).
 - **Risco:**
   Inconsistência de case impede filtros case-sensitive diretos. Queries como
   `WHERE status = 'PENDING'` e `WHERE status = 'pending'` retornam resultados diferentes.
-- **Mitigação atual:**
-  CHECK constraint aceita ambos. Consultas no código usam os valores corretos para cada path.
-- **Resolução prevista:**
-  Normalizar para lowercase (migration UPDATE + ALTER DEFAULT + ajuste em event-scheduler.ts).
-  Prioridade: BAIXA (não gera bug runtime com CHECKs atuais).
+  Comparações com valores fora do CHECK retornam vazio em runtime (dead branches).
+- **Mitigação aplicada (Sub-frente normalização código, 2026-05-12):**
+  - `event-scheduler.ts:257` corrigido: 'PENDING' → 'pending' (alinha ao CHECK atual)
+  - `trust.service.ts:481` corrigido: IN ('paid', 'transferred_to_organizer') → = 'TRANSFERRED_TO_ORGANIZER' (elimina dead branches)
+  - Comentários explicativos adicionados marcando ambos como ajustes defensivos ao CHECK vigente, com referência a esta DT
+  - TSC backend: 0 erros
+  - Tabela vazia em produção; sem migração de dados necessária
+  - Log: `docs/03_execution_log/2026-05-12_dt_actor_debts_normalizacao_codigo.md`
+- **Pendência (PARO E CONSULTO — toca enforcement em produção):**
+  - Decisão sobre vocabulário canônico final (mantém `'TRANSFERRED_TO_ORGANIZER'` UPPERCASE como exceção formal restrita análoga a DECISION-0033, OU normaliza para `'transferred_to_organizer'` lowercase governado por DECISION-0032?)
+  - Considerar valor `'paid'` que `trust.service.ts:481` originalmente esperava — adicionar à enum se for estado real esperado
+  - Migration revert CHECK misto + reaplicar CHECK lowercase puro (toca enforcement de schema em produção — fronteira "PARO E CONSULTO" da diretiva mestre §2)
+  - Esta sub-frente (sem revert/reaplicar CHECK) elimina dead branches mas NÃO encerra a DT — preserva opcionalidade até decisão
+  - Prioridade: BAIXA (sem bug runtime ativo após sub-frente)
 
 ---
 
@@ -422,3 +438,64 @@ Status values:
   plano faseado de execução (migrations + edits TS + testes) será sessão dedicada.
 
   Prioridade: P2.
+
+
+---
+
+## DT-WALLET-CONSUMERS-CENTS-MIGRATION
+
+- **Status:** CLOSED (2026-05-12 — encerrada por commit `11f028d9`)
+- **Origem:** Sub-frente A da investigação Frontend ↔ Q3-E2E v2 (`executei_11.md`); aberta no commit `ec395abb` que corrigiu Wallet.tsx mas deixou 4 consumers exibindo saldo 100x maior por dependerem do campo legado `BankBalance.balance` (sem sufixo `_cents`).
+- **Vinculada a:** DECISION-0032 (status operacional lowercase canônico — adjacente); §4.7 (monetário em centavos com sufixo `_cents`); commit `ec395abb` (origem); commit `11f028d9` (encerramento)
+- **Convergência prevista:** N/A — encerrada por convergência completa.
+- **Contexto:**
+  Backend `GET /bank/balance` retorna `{ balanceCents, balance: balanceCents, currency, hasAccount }` — campo `balance` é cópia literal de `balanceCents`, em centavos (bank-http.routes.ts:165-171). Backend `GET /bank/statement` retorna `entries[].amountCents` e `balanceAfterCents` (canônico §4.7) — NÃO envia campos legados `amount`/`balanceAfter`.
+
+  Wallet.tsx lia `balance` (centavos) e formatava com `Intl.NumberFormat('currency: BRL')` que espera reais — exibia saldo 100x maior. `entry.amount` era `undefined` em runtime — `Math.abs(undefined) = NaN`.
+
+  Sub-frente A (commit `ec395abb`) corrigiu Wallet.tsx + criou helper `centsToReais` em `frontend/src/utils/money.ts`, mas deixou outros 4 consumers (CompanyFinancialTab, CompanyOverviewTab, HomeContextual, activity-aggregation.service) com fix defensivo `?? 0`/`?? null` em vez de migração para canônico.
+- **Risco:**
+  Bug 100x continuava observável em 4 telas (Aba Financeiro empresa; Aba Visão Geral empresa; card de saldo na home; descrições de timeline institucional). Tipo TS frontend declarava `amount` opcional para preservar build, mas `BankStatementEntry.amount` era `undefined` em runtime — qualquer fallback `?? 0` exibia "R$ 0,00" em vez do valor real.
+- **Resolução (commit `11f028d9`):**
+  Migrados 6 consumers definitivamente para `balanceCents`/`amountCents` canônicos:
+    - `CompanyFinancialTab.tsx` (saldo + extrato)
+    - `CompanyOverviewTab.tsx` (saldo + atividades)
+    - `HomeContextual.tsx` (interface `HomeContextualData` migrada; saldo + última transação)
+    - `activity-aggregation.service.ts` (descrições humanas via `formatCentsAsBRL`)
+    - `operational-limits.service.ts:244` (bypass `(balance as any).balance` removido)
+    - `workflow-detection.service.ts:131` (mesmo padrão)
+
+  Limpeza `frontend/src/api/bank.ts`:
+    - `BankBalance.balance` permanece `@deprecated` opcional (tolerância a instâncias antigas do backend)
+    - `BankStatementEntry.amount` e `balanceAfter` REMOVIDOS (backend nunca enviou esses campos legados)
+
+  TSC frontend: 0 erros. Backend, schema SQL, comportamento runtime ledger: ZERO alteração. Bug 100x ELIMINADO em todos os consumers diretos de `api/bank.ts`.
+- **Drift adjacente registrado durante varredura:**
+  7 componentes que importam `frontend/src/api/transparency.ts` (Dashboard, FundAdminPanel, GlobalContextBar, HeaderGlobal, MFIBank*, RegionalFundAdmin) provavelmente têm drift análogo de unidade monetária. NÃO investigado nesta frente — registrado como `DT-TRANSPARENCY-API-CENTS-CONVERGENCE` separada com critério de convergência §25 (norma assintótica).
+
+---
+
+## DT-TRANSPARENCY-API-CENTS-CONVERGENCE
+
+- **Status:** OPEN
+- **Origem:** Varredura adjacente durante DT-WALLET-CONSUMERS-CENTS-MIGRATION (commit `11f028d9`); 7 componentes que importam `frontend/src/api/transparency.ts` apresentam padrão de uso `region.balance`, `entry.amount`, `entry.balanceAfter` (sem sufixo `_cents`) ao consumir tipos da `transparency.ts` — drift de unidade monetária análogo ao já corrigido em `api/bank.ts`.
+- **Vinculada a:** DT-WALLET-CONSUMERS-CENTS-MIGRATION (drift adjacente fora do escopo); §4.7 (monetário em centavos com sufixo `_cents`); §25 code.md (norma assintótica)
+- **Convergência prevista:** Quando próxima sessão tocar UI financeira de admin (FundAdminPanel, RegionalFundAdmin), home (HeaderGlobal, GlobalContextBar, Dashboard) ou MFIBank — migrar consumer simultaneamente para usar campo canônico `_cents` com `centsToReais` do `frontend/src/utils/money.ts`. Não vale abrir sessão dedicada agora (refactor transversal sem bloqueio crítico — Wallet do usuário já corrigido como entrypoint mais visível).
+- **Contexto:**
+  Componentes afetados (mapeados via `grep -RnE "\.balance\b|\.amount\b|\.balanceAfter\b" frontend/src` no momento de `11f028d9`):
+    - `frontend/src/components/Dashboard.tsx` (`data.wallet.balance`, `tx.amount`)
+    - `frontend/src/components/FundAdminPanel.tsx` (`region.balance`)
+    - `frontend/src/components/home/GlobalContextBar.tsx` (`statement.entries[0].balanceAfter`)
+    - `frontend/src/components/layout/HeaderGlobal.tsx` (`walletData.balance`, `wallet.balance`, `impactBalance.balance`)
+    - `frontend/src/components/mfibank/MFIBankRecentTransactions.tsx` (`entry.amount`)
+    - `frontend/src/components/mfibank/MFIBankSummary.tsx` (`entries[0].balanceAfter`, `entry.amount`)
+    - `frontend/src/components/RegionalFundAdmin.tsx` (`entry.amount`)
+
+  Nenhum desses arquivos importa de `frontend/src/api/bank.ts` — usam tipos próprios em `frontend/src/api/transparency.ts` ou outros. Por isso ficaram fora do escopo de `11f028d9` (que migrou consumers diretos de `api/bank.ts`).
+- **Risco:**
+  Mesmas telas exibindo valor monetário 100x maior do que o real, conforme padrão do bug eliminado em Wallet. Risco varia conforme frequência de uso da tela (Dashboard, HeaderGlobal são entrypoints de uso recorrente; FundAdminPanel é admin-only).
+- **Mitigação atual:**
+  Fix defensivo `?? 0` aplicado durante `11f028d9` em `operational-limits.service.ts` e `workflow-detection.service.ts` (mas esses são services, não as 7 telas listadas acima). As 7 telas continuam com bug 100x até convergência.
+- **Resolução prevista:**
+  Investigação read-only sobre shape canônico de `frontend/src/api/transparency.ts` (verificar se backend já envia `*_cents` em /bank/statement vs /transparency endpoints). Depois migração coordenada das 7 telas usando `centsToReais` + `formatCentsAsBRL` do `frontend/src/utils/money.ts`. Pode ser feito em sessão dedicada OU incrementalmente quando cada tela for tocada por outra razão (princípio §25 — convergência gradual).
+  Prioridade: P2 (bug observável em UI mas não toca causalidade do ledger — visualização errada).

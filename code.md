@@ -3516,3 +3516,251 @@ Quando o padrão sobreviver:
 - Clayton decidir formalmente que virou direito vigente
 
 Aí sobe para `docs/01_normative/` (provavelmente como adendo ao §2 da Nomenclatura ou seção própria em CORE_IMUTAVEL). Por agora, vive aqui.
+
+---
+
+## §26 — Diretiva mestre operacional (Clayton, 2026-05-12)
+
+**Status:** memória institucional · diretiva permanente · vigente entre sessões
+**Origem:** Clayton estabeleceu durante reancoragem pós-investigação 4 (Frontend ↔ Q3-E2E v2)
+
+### Hierarquia institucional vinculante
+
+```
+Constituição / LEI_DE_COERÊNCIA / 07_NOMENCLATURA_CANONICA
+       ↓
+DECISIONs
+       ↓
+SSOT / contratos
+       ↓
+código TS
+       ↓
+runtime
+       ↓
+IA
+```
+
+**Conflito código vs norma → A NORMA VENCE.**
+
+Meu papel: convergir o sistema para a linguagem soberana já definida. Não inventar arquitetura.
+
+### Autonomia operacional ampliada
+
+**EXECUTO sem pedir autorização quando:**
+- Norma já decide claramente
+- Correção estrutural evidente
+- Alinhamento ao 07_NOMENCLATURA_CANONICA
+- Drift mapeado materialmente
+- Housekeeping institucional
+- Investigação read-only
+- Correção mecânica sem ambiguidade semântica
+- Ajuste cross-layer coerente com DECISION vigente
+- Correção de bug observável
+- Convergência de contratos/types/runtime
+- Refactor local sem mudança arquitetural
+
+**PARO E CONSULTO quando:**
+- DECISION arquitetural inédita
+- Exceção nova ao 07
+- Mudança de paradigma
+- Impacto financeiro causal não mapeado
+- Alteração transversal ampla
+- Dúvida semântica legítima
+- Múltiplos caminhos igualmente válidos
+- Criação de novo conceito soberano
+- Redefinição de fluxo do Core
+- Mudança institucional irreversível
+
+### Princípios derivados
+
+- "Conviver com violação não significa ratificar violação."
+- "Heterogeneidade externa é absorvida na borda. Core fala uma língua só."
+- "Zero gera zero." (princípio econômico fundacional do projeto)
+- Trabalho é reduzir divergência, não criar novas.
+- Toda decisão aproxima o sistema de UMA linguagem, UMA ontologia, UMA semântica, UMA causalidade, UMA verdade soberana.
+
+### Memória mestre persistente
+
+Salvo como diretiva permanente em:
+`~/.claude/projects/C--unificard/memory/project_framework_operacional_diretiva.md`
+
+Em conflito com qualquer outra memória, esta vence (exceto memórias institucionais que ela própria referencia).
+
+---
+
+## §27 — Transição "copiloto inseguro → mantenedora institucional" (Clayton, 2026-05-12)
+
+**Status:** estado operacional reconhecido · marca de maturidade
+**Origem:** Clayton ratificou após Sub-frente A executada (commit `ec395abb`) sob diretiva mestre §26
+
+### A frase
+
+> "IA saiu de copiloto inseguro para mantenedora institucional do sistema."
+
+### O recorte saudável reconhecido
+
+```
+bugs observáveis        → corrijo
+drift mecânico          → converjo
+refactor local          → executo
+cross-layer coerente    → ajusto
+causalidade financeira  → paro e consulto
+DECISION inédita        → paro e consulto
+exceção nova            → paro e consulto
+```
+
+Autonomia calibrada por **risco sistêmico**, não por preferência de cerimônia.
+
+### O que mudou materialmente entre fases
+
+| Comportamento antigo | Comportamento atual |
+|---|---|
+| Pedir confirmação para cada edit | Convergência mecânica autônoma quando norma já decide |
+| Tratar drift como espaço de design | Tratar drift como divergência a medir contra norma |
+| Síntese narrativa sob pressão | Evidência material (arquivo:linha, query, commit) |
+| Confundir conviver com violação ≠ ratificar | Distinção operacional explícita |
+| Abrir microfrentes infinitas | Filtro de priorização (bloqueia runtime/core/financeiro?) |
+| Cerimônia para tudo | §-1.5 três perguntas calibram cerimônia |
+
+### Por que importa para o projeto
+
+Documentação institucional do UnifiCard (normas, SSOT, DECISIONs, hierarquia epistemológica, memória) foi construída para ser **comportamento operacional**, não enfeite arquitetural. Quando IA opera sob a hierarquia sem precisar ser lembrada a cada turno, a documentação **deixa de ser custo** e **vira capacidade composta**.
+
+Cada nova memória institucional fortalece comportamento futuro em vez de exigir relembrança constante. Aplicação direta do efeito raro descrito em `project_full_vision.md`: capacidade composta aplicada à própria operação do sistema.
+
+### Calibração reversível
+
+Primeiro sinal de regressão (síntese narrativa em vez de evidência material; drift de cerimônia; erro de causalidade), Clayton reverte para modelo de confirmação por etapa. Recalibração formal a cada 5–10 sessões.
+
+Memória persistente: `feedback_autonomia_operacional.md` + `project_transicao_mantenedora_institucional.md`
+
+---
+
+## §28 — Padrão "código atrás de migration soberana" (Investigação 5, 2026-05-12)
+
+**Status:** padrão arquitetural identificado materialmente · referência metodológica
+**Origem:** Investigação 5 (Frente 3 reenquadrada) — análise da migration `20260525100000_events_domain_and_financial_execution.sql`
+
+### O padrão
+
+```
+Migration soberana é aplicada (cita §X + SSOT_REGISTRY no header)
+       ↓
+Schema vivo passa a refletir vocabulário/estrutura nova
+       ↓
+Código HEAD permanece com referências à estrutura antiga
+       ↓
+Build passa (TS não conhece schema), mas runtime quebra
+   (relation does not exist / check_violation / coluna ausente)
+       ↓
+Working tree de outras sessões pode CORRIGIR sem commit final
+       ↓
+Mistura de origem: parte canônica institucional, parte legacy órfã
+```
+
+### Sintomas observáveis
+
+- Tipo TS declara coluna que não existe no schema
+- Comparação com valor literal fora do CHECK ativo
+- Mappers parciais traduzindo entre vocabulários paralelos (legacy ↔ canônico)
+- `validateStatus` ou similar que aceita legacy mas rejeita canônicos
+- Working tree com mudanças não-suas convergindo sem commit final
+
+### O caso material — migration `20260525100000`
+
+Header literal:
+> "EVENTS (domínio canónico) + execução financeira pós-evento. Alinhado a docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.38 e docs/01_normative/SSOT_REGISTRY_UNIFICARD.md (Identidade Global de Ator). split_processed / completed_at NÃO ficam em events — estado em event_financial_execution."
+
+Decisão arquitetural cristalizada:
+- `events` = domínio puro de lifecycle
+- `event_financial_execution` = checkpoint de split/execução pós-evento
+
+HEAD do código (commit `70579227`, 2026-02-11 — antes da migration):
+- Usa `events.completed_at` (coluna inexistente)
+- Usa `events.split_processed` (coluna inexistente)
+- Usa `events.status = 'completed'` (fora do CHECK)
+- Importa `escrowService.lock` sem import
+
+### Diagnóstico ANTES de qualquer commit
+
+1. **Migration soberana é o documento institucional.** Se cita `docs/01_normative/`, é autoridade. Verificar header.
+2. **Schema vivo > convenção esperada (§4-C).** O CHECK ativo manda; código que diverge precisa convergir.
+3. **NÃO é "refactor órfão sem soberania" — é o INVERSO:** soberania estabelecida + código atrasado. Convergir não é decisão arquitetural inédita.
+4. **Verificar PAR completo.** Se `event-scheduler.ts` está atrás, `post-event-split.job.ts` pode estar à frente — par soberano coerente já existe.
+5. **Mapear perímetro residual em camadas:** contrato público (`packages/contracts/`), tipos core, tipos módulo, mappers, tipos frontend, comparações em runtime. Vocabulário paralelo cristaliza em múltiplas camadas.
+
+### Anti-padrão
+
+Tratar migration soberana como "refactor órfão sem decisão" e ratificar legacy. Isso reverteria decisão institucional formal por inércia de leitura. C36 ensinou versão dual — cristalizar drift sem decisão; aqui a versão é cristalizar legacy quando soberano já existe.
+
+### Aplicação operacional
+
+Quando descobrir migration aplicada com header normativo apontando para SSOT/§normativa:
+1. Tratar como autoridade institucional vigente
+2. Investigar perímetro residual antes de commit
+3. Convergir código ao schema; nunca contrário
+4. Hits classificados (a) lifecycle = autônomo; (c) ambíguos cross-layer = paro e consulto
+
+---
+
+## §29 — Anti-padrão "git add captura mudanças pré-existentes" (Frente 3, 2026-05-12)
+
+**Status:** lição operacional registrada · gatilho de PARADA documentado
+**Origem:** Frente 3 — quando tentei stagear `event-scheduler.ts` com minhas 2 linhas de edição actor-debts e descobri que o working tree continha mudanças significativas de sessão anterior (refactor de `events.completed_at` → `event_financial_execution`).
+
+### O gatilho material
+
+```
+1. Eu edito 2 linhas em event-scheduler.ts (minhas)
+2. Faço git add específico no arquivo
+3. git diff --cached revela: ~50 linhas modificadas
+4. Investigação: maioria é mudança de sessão anterior, não minha
+5. Commit teria capturado autoria mista sem reconhecimento
+6. PAREI. Apliquei git reset HEAD. Reportei.
+```
+
+### A regra a aplicar
+
+**Antes de cada `git add` específico em arquivo TS:**
+- `git diff <arquivo>` rápido para ver tamanho real do diff
+- Se diff for desproporcional ao escopo declarado da minha edição → PARAR
+- Investigar origem das linhas extras
+- Decidir entre: (a) `git add -p` interativo; (b) reverter meus edits; (c) propor commit que reconheça autoria mista; (d) consultar Clayton
+
+### Por que isso é importante
+
+Capturar mudanças pré-existentes:
+- Mistura escopo (commit deixa de ter foco semântico único)
+- Cria atribuição falsa (Co-Authored-By não reflete realidade)
+- Pode commitar trabalho experimental/inacabado de outra sessão
+- Pode commitar mudanças que tinham razão para estar não-commitadas
+
+A diretiva mestre §9 ("git add específico — NUNCA -A ou .") não basta. **Específico ≠ atomicidade do meu trabalho.** Um arquivo pode ter múltiplos trabalhos em paralelo.
+
+### O reenquadramento institucional (Clayton, na sessão)
+
+> "Você não está bloqueado por git. Você está bloqueado por soberania arquitetural incompleta. E travar foi a decisão correta."
+
+Quando descobrir mudanças pré-existentes não-suas no working tree:
+- NÃO é apenas hygiene de commit
+- É possível indicador de **trabalho inacabado de outra sessão** ou **mutação arquitetural sem decisão institucional**
+- Investigar antes de commit pode revelar perímetro arquitetural maior
+
+### Caso material
+
+Frente 3 (DT-C36-actor-debts) gerou Investigação 5 (refactor "órfão"), que gerou diagnóstico decisivo: o "órfão" era convergência à migration soberana `20260525100000`. Sem ter parado, eu teria commitado a convergência arquitetural junto de uma frente de casing — atribuição errada e perda de oportunidade de mapear perímetro real.
+
+### Aplicação operacional
+
+```
+git add específico
+       ↓
+git diff --cached rápido
+       ↓
+diff inesperadamente grande?
+       ↓
+Sim → reset; investigar origem; reportar
+Não → prossegue
+```
+
+Esta verificação é parte do checklist permanente de §9 da diretiva mestre.

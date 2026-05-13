@@ -1,3 +1,70 @@
+## 2026-05-12 — SESSÃO LONGA: convergência semântica (DECISION-0032/0033 + C39 NOT-A-BUG + §25 + DT-WALLET + C38 FIXED + transição institucional)
+
+**Branch:** `rescue-structural`
+**Commits:** `c8c0b08e`, `dbef2569`, `508cd431`, `c29a7f1b`, `ec395abb`, `11f028d9`, `bcb71017` (7 sequenciais)
+**Modo predominante:** GUARDIÃO (5 investigações read-only) → EXECUTOR (3 fixes commitados)
+**Memória institucional:** 11 entradas em `~/.claude/projects/C--unificard/memory/MEMORY.md`
+
+### Pipeline cronológica
+
+| Commit | Frente | Tipo |
+|---|---|---|
+| `c8c0b08e` | DECISION-0032 (payment status lowercase canônico) + DT-PAYMENT-CASING-DRIFT CLOSED | Arquitetural |
+| `dbef2569` | C39 NOT-A-BUG (state como endereço §4.20) | Reclassificação direta sem DECISION nova |
+| `508cd431` | DECISION-0033 (canonical_products.type = discriminator estrutural ontológico, exceção formal restrita com 3 Restrições) | Arquitetural |
+| `c29a7f1b` | code.md §25 — norma assintótica como princípio operacional (memória epistêmica) | Doc |
+| `ec395abb` | Bug 100x Wallet corrigido (Sub-frente A — Frontend ↔ Q3-E2E v2) | Fix runtime cross-layer |
+| `11f028d9` | DT-WALLET-CONSUMERS-CENTS-MIGRATION (6 consumers convergidos para `_cents` canônico §4.7) | Convergência mecânica |
+| `bcb71017` | C38 Sub-frente 2 (RENAME `type` → `<entity>_type` em 4 tabelas mecânicas) — CHECKs preservados pelo PostgreSQL | Convergência schema+code |
+
+### Decisões institucionais consolidadas
+
+- **DECISION-0032:** `payment_*.status` lowercase canônico + boundary mapper obrigatório (refutou ratificar UPPERCASE; contratos congelados adjacentes já decidiram lowercase)
+- **DECISION-0033:** `canonical_products.type` é discriminator estrutural ontológico (categoria semântica distinta de status operacional) com 3 Restrições anti-buraco-negro
+- **§25 code.md:** norma assintótica — convivência ≠ ratificação; toda DT carrega critério de convergência
+
+### Direção institucional ratificada por Clayton
+
+- **Diretiva mestre operacional** (cristalizada em memória): hierarquia vinculante Constituição/LEI_DE_COERÊNCIA/07 → DECISIONs → SSOT → código → runtime → IA. Conflito código vs norma → **a norma vence**.
+- **Transição reconhecida:** "IA saiu de copiloto inseguro para mantenedora institucional do sistema"
+- **Eixo de valor priorizado:** RFQ · Booking · Frontend integrado · Navegação transversal · Bootstrap operacional · Fluxo econômico ponta a ponta
+
+### Status final dos códigos C-numbered tocados
+
+- C38: OPEN → OPEN-PARCIAL (DECISION-0033) → **FIXED** (Sub-frente 2)
+- C39: OPEN → **NOT-A-BUG** (§4.20 reconhece `state` como endereço)
+
+### DTs registradas
+
+- DT-PAYMENT-CASING-DRIFT: OPEN → CLOSED (DECISION-0032)
+- DT-WALLET-CONSUMERS-CENTS-MIGRATION: aberta `ec395abb` → CLOSED `11f028d9` (entry formal no DT_LOG no commit deste housekeeping)
+- DT-TRANSPARENCY-API-CENTS-CONVERGENCE: registrada em commit message + log; entry formal no DT_LOG no commit deste housekeeping
+- DT-C36-actor-debts-case-drift: working tree pendente (Frente 3 congelada após investigação 5 reenquadrar como convergência migration soberana 20260525100000)
+
+### Investigações read-only conduzidas (artefatos locais gitignored)
+
+- `executei_8.md` (DT-PAYMENT-CASING-DRIFT, 384 linhas)
+- `executei_9.md` (C38/C39, 238 linhas)
+- `executei_10.md` (DT-C36-actor-debts)
+- `executei_11.md` (Frontend ↔ Q3-E2E v2, 308 linhas — 3 lacunas materiais identificadas)
+- `executei_12.md` (Investigação estrutural FASE 1 da convergência migration soberana 20260525100000, 303 linhas — perímetro real de 14 pontos em 4 camadas)
+
+### Estado pendente para próximas sessões
+
+- **Frente 3 / FASE 2** (Commit A1 da migration soberana): aguarda autorização explícita Clayton sobre subdivisão proposta em `executei_12.md`
+- **Cluster (c) ambíguos** (`packages/contracts/events.ts` + vocabulário paralelo `'CLOSED'`/`'finished'` cross-layer): pede DECISION arquitetural dedicada
+- **Sub-frente B** (smoke público P2P frontend): 3 decisões UX/arquiteturais pendentes (input destinatário; formato scope; bootstrap reserve)
+- **Pendência normativa DECISION-0033:** atualização formal de `07_NOMENCLATURA_CANONICA` §3.2 + SSOT_REGISTRY adicionando `canonical_product_type` — humano/RFC (§10 AGENT_PROTOCOL)
+
+### Frontend
+
+- Bug runtime cross-layer **ELIMINADO em todos consumers diretos de `api/bank.ts`** (Wallet, Company tabs, HomeContextual, activity-aggregation, 2 services adicionais)
+- TSC frontend: 0 erros
+- Backend TSC: 0 erros
+- Schema SQL: migrations `20260530537000` aplicadas; CHECKs preservados via `pg_get_constraintdef`
+
+---
+
 ## 2026-05-12 — C36 FECHADO: 30 CHECK constraints em tabelas com status sem validação
 
 **Branch:** `rescue-structural`
