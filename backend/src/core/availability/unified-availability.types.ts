@@ -16,6 +16,7 @@ export enum AvailabilityOwnerType {
   SERVICE = 'service', // Disponibilidade de serviço
   EVENT = 'event',   // Disponibilidade de evento
   GROUP = 'group',   // Disponibilidade de grupo
+  PAGE = 'page',     // Disponibilidade de página (ex.: organizador tipo page)
 }
 
 /**
@@ -111,12 +112,19 @@ export interface UnifiedAvailabilityRow {
   timezone: string;
   capacity: number | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
  * Linha do banco de dados (UnifiedBookingRow)
+ *
+ * B+A1 convergência (2026-05-14): schema canônico da migration
+ * 20260530491000_create_unified_availability_tables.sql usa snake_case em
+ * todas as colunas (requested_at, checked_in_at, checked_out_at, cancelled_at,
+ * expired_at, confirmed_at). Definição anterior misturava camelCase em alguns
+ * campos — drift que tornava `.toISOString()` em `undefined` (campo do row
+ * não existia com nome camelCase). Exposto via smoke HTTP B+A.
  */
 export interface UnifiedBookingRow {
   booking_id: string;
@@ -124,16 +132,16 @@ export interface UnifiedBookingRow {
   availability_id: string;
   requester_actor_id: string;
   status: UnifiedBookingStatus;
-  requestedAt: Date;
-  checked_inAt: Date | null;
-  checked_outAt: Date | null;
+  requested_at: Date;
+  checked_in_at: Date | null;
+  checked_out_at: Date | null;
   notes: string | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  cancelledAt: Date | null;
-  expiredAt: Date | null;
-  confirmedAt: Date | null;
+  created_at: string;
+  updated_at: string;
+  cancelled_at: Date | null;
+  expired_at: Date | null;
+  confirmed_at: Date | null;
 }
 
 /**
@@ -259,8 +267,8 @@ export interface AvailabilityParticipantRow {
   actor_id: string;
   role: ParticipantRole;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

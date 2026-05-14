@@ -5,6 +5,21 @@
 import { apiFetchJson } from './client';
 
 /**
+ * Backend tem 2 shapes de response convivendo:
+ *   - `{ ok: true, data: T }` (rotas de availability)
+ *   - `T` direto, sem wrapper (rotas de booking lifecycle: bookings POST/PUT/check-in/check-out)
+ *
+ * Esta função normaliza ambos. Convergência completa exigiria refactor de
+ * rotas backend (fora do escopo de B+A; registrar como DT se virar gargalo).
+ */
+function unwrapResponse<T>(raw: any): T {
+  if (raw && typeof raw === 'object' && 'ok' in raw && 'data' in raw) {
+    return raw.data as T;
+  }
+  return raw as T;
+}
+
+/**
  * Tipo de owner da disponibilidade
  */
 export type AvailabilityOwnerType = 'user' | 'service' | 'event' | 'group';
@@ -30,6 +45,24 @@ export type UnifiedBookingStatus = 'requested' | 'confirmed' | 'cancelled' | 'ex
 export type ParticipantRole = 'executor' | 'participant' | 'guest';
 
 /**
+ * Convenção de chaves reservadas em availability.metadata (v2 invariante 3 — buffers físicos)
+ *
+ * B+A2: campos estruturalmente reservados, SEM UI ativa nesta fase.
+ * Backend ainda não interpreta — apenas armazena. Fase 6 (matching) e Fase 7
+ * (recomposição) ativarão interpretação. Reservar agora evita backfill quando
+ * dados já existem.
+ *
+ * Princípio: "disponibilidade matemática ≠ disponibilidade física".
+ * Matching/recomposição futuros honram ambos os buffers.
+ */
+export interface AvailabilityBufferMetadata {
+  /** Minutos de preparação/setup antes do start_datetime (v2 invariante 3) */
+  buffer_before_minutes?: number;
+  /** Minutos de limpeza/deslocamento/transição depois do end_datetime (v2 invariante 3) */
+  buffer_after_minutes?: number;
+}
+
+/**
  * Disponibilidade unificada
  */
 export interface UnifiedAvailability {
@@ -43,7 +76,11 @@ export interface UnifiedAvailability {
   endDatetime: string; // ISO 8601
   timezone: string;
   capacity: number | null;
-  metadata: Record<string, any>;
+  /**
+   * Metadata JSONB extensível. Chaves reservadas convencionais
+   * documentadas em AvailabilityBufferMetadata (sem UI ativa em Fase 2).
+   */
+  metadata: Record<string, any> & Partial<AvailabilityBufferMetadata>;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }
@@ -216,8 +253,130 @@ export async function getAvailability(availabilityId: string): Promise<UnifiedAv
 }
 
 /**
+ * Criar booking (status inicial: 'requested')
+ *
+ * B+A1: wrapper HTTP do caminho canônico unified-availability.
+ * Lifecycle posterior via updateBooking/checkInBooking/checkOutBooking/cancelBooking.
+ *
+ * @param input availabilityId + requesterActorId obrigatórios; notes e metadata opcionais
+ * @returns Booking criado
+ */
+export async function createBooking(input: {
+  availabilityId: string;
+  requesterActorId: string;
+  notes?: string | null;
+  metadata?: Record<string, any>;
+}): Promise<UnifiedBooking> {
+  const raw = await apiFetchJson<any>('/availability/bookings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  const booking = unwrapResponse<UnifiedBooking>(raw);
+  if (!booking?.bookingId) {
+    throw new Error('Erro ao criar booking');
+  }
+  return booking;
+}
+
+/**
+ * Confirmar booking (status: 'requested' → 'confirmed')
+ *
+ * B+A1: usa rota genérica PUT /availability/bookings/:id passando status='confirmed'.
+ * Backend é fonte da verdade; frontend apenas declara transição.
+ */
+export async function confirmBooking(
+  bookingId: string,
+  metadata?: Record<string, any>
+): Promise<UnifiedBooking> {
+  const raw = await apiFetchJson<any>(`/availability/bookings/${bookingId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'confirmed', metadata }),
+  });
+  const booking = unwrapResponse<UnifiedBooking>(raw);
+  if (!booking?.bookingId) {
+    throw new Error('Erro ao confirmar booking');
+  }
+  return booking;
+}
+
+/**
+ * Cancelar booking (qualquer status ativo → 'cancelled')
+ *
+ * B+A1: usa rota genérica PUT /availability/bookings/:id passando status='cancelled'.
+ *
+ * v2.1 invariante 5 (cancelamento como redistribuição causal):
+ *   - reason e service_type/urgency embedded em metadata permitem
+ *     que evento booking.cancelled no outbox carregue payload suficiente
+ *     para recomposição futura (Fase 7) sem migration retroativa.
+ *   - Frontend apenas declara intenção; backend é responsável por emitir evento.
+ */
+export async function cancelBooking(
+  bookingId: string,
+  input?: {
+    reason?: 'cliente_desistiu' | 'profissional_nao_pode' | 'no_show' | 'outro';
+    metadata?: Record<string, any>;
+  }
+): Promise<UnifiedBooking> {
+  const cancelMetadata: Record<string, any> = {
+    ...(input?.metadata ?? {}),
+    cancel_reason: input?.reason ?? 'outro',
+    cancelled_via: 'frontend_user_action',
+  };
+
+  const raw = await apiFetchJson<any>(`/availability/bookings/${bookingId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'cancelled', metadata: cancelMetadata }),
+  });
+  const booking = unwrapResponse<UnifiedBooking>(raw);
+  if (!booking?.bookingId) {
+    throw new Error('Erro ao cancelar booking');
+  }
+  return booking;
+}
+
+/**
+ * Check-in (status confirmed → checked_in; popula checked_in_at)
+ *
+ * B+A1: rota dedicada POST /availability/bookings/:id/check-in.
+ */
+export async function checkInBooking(
+  bookingId: string,
+  metadata?: Record<string, any>
+): Promise<UnifiedBooking> {
+  const raw = await apiFetchJson<any>(`/availability/bookings/${bookingId}/check-in`, {
+    method: 'POST',
+    body: JSON.stringify({ metadata: metadata ?? {} }),
+  });
+  const booking = unwrapResponse<UnifiedBooking>(raw);
+  if (!booking?.bookingId) {
+    throw new Error('Erro ao realizar check-in');
+  }
+  return booking;
+}
+
+/**
+ * Check-out (status checked_in → checked_out; popula checked_out_at)
+ *
+ * B+A1: rota dedicada POST /availability/bookings/:id/check-out.
+ */
+export async function checkOutBooking(
+  bookingId: string,
+  metadata?: Record<string, any>
+): Promise<UnifiedBooking> {
+  const raw = await apiFetchJson<any>(`/availability/bookings/${bookingId}/check-out`, {
+    method: 'POST',
+    body: JSON.stringify({ metadata: metadata ?? {} }),
+  });
+  const booking = unwrapResponse<UnifiedBooking>(raw);
+  if (!booking?.bookingId) {
+    throw new Error('Erro ao realizar check-out');
+  }
+  return booking;
+}
+
+/**
  * Listar bookings com filtros
- * 
+ *
  * @param filters Filtros de busca
  * @returns Lista de bookings
  */

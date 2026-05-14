@@ -45,8 +45,8 @@ class UnifiedAvailabilityRepository {
       timezone: row.timezone,
       capacity: row.capacity || undefined,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -54,22 +54,26 @@ class UnifiedAvailabilityRepository {
    * Converte UnifiedBookingRow para UnifiedBooking
    */
   private toUnifiedBooking(row: UnifiedBookingRow): UnifiedBooking {
+    // B+A1 convergência: schema canônico do banco usa snake_case
+    // (requested_at, checked_in_at, checked_out_at, cancelled_at, expired_at, confirmed_at).
+    // Mapeamento anterior misturava camelCase no acesso ao row — campos retornavam undefined
+    // e `.toISOString()` quebrava em runtime (descoberto via smoke B+A 2026-05-14).
     return {
       bookingId: row.booking_id,
       tenantId: row.tenant_id,
       availabilityId: row.availability_id,
       requesterActorId: row.requester_actor_id,
       status: row.status,
-      requestedAt: row.requestedAt,
-      checkedInAt: row.checked_inAt || undefined,
-      checkedOutAt: row.checked_outAt || undefined,
+      requestedAt: row.requested_at,
+      checkedInAt: row.checked_in_at || undefined,
+      checkedOutAt: row.checked_out_at || undefined,
       notes: row.notes || undefined,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      cancelledAt: row.cancelledAt || undefined,
-      expiredAt: row.expiredAt || undefined,
-      confirmedAt: row.confirmedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      cancelledAt: row.cancelled_at || undefined,
+      expiredAt: row.expired_at || undefined,
+      confirmedAt: row.confirmed_at || undefined,
     };
   }
 
@@ -257,7 +261,7 @@ class UnifiedAvailabilityRepository {
       tenantId,
       `
       UPDATE availability
-      SET ${fields.join(', ')}, updatedAt = now()
+      SET ${fields.join(', ')}, updated_at = now()
       WHERE availability_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
       RETURNING *
       `,
@@ -278,7 +282,8 @@ class UnifiedAvailabilityRepository {
    */
   async createBooking(
     tenantId: string,
-    input: CreateUnifiedBookingInput
+    input: CreateUnifiedBookingInput,
+    trx?: { query: (q: { text: string; values?: any[] }) => Promise<any[]> }
   ): Promise<UnifiedBooking> {
     const {
       availabilityId,
@@ -294,24 +299,32 @@ class UnifiedAvailabilityRepository {
       throw new BadRequestError('requesterActorId é obrigatório para criar booking');
     }
 
-    const row = await runQueryWithTenant<UnifiedBookingRow>(
-      tenantId,
-      `
-      INSERT INTO bookings (
-        tenant_id, availability_id, requester_actor_id, status, notes, metadata
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
+    const insertQuery = {
+      text: `
+        INSERT INTO bookings (
+          tenant_id, availability_id, requester_actor_id, status, notes, metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
       `,
-      [
+      values: [
         tenantId,
         availabilityId,
         requesterActorId,
         UnifiedBookingStatus.REQUESTED,
         notes,
         JSON.stringify(metadata),
-      ]
-    );
+      ],
+    };
+
+    let row: UnifiedBookingRow | undefined;
+
+    if (trx) {
+      const rows = await trx.query(insertQuery);
+      row = rows[0] as UnifiedBookingRow | undefined;
+    } else {
+      row = await runQueryWithTenant<UnifiedBookingRow>(tenantId, insertQuery.text, insertQuery.values);
+    }
 
     if (!row) {
       throw new BadRequestError('Failed to create booking');
@@ -359,7 +372,7 @@ class UnifiedAvailabilityRepository {
       paramIndex++;
     }
 
-    query += ` ORDER BY requestedAt DESC`;
+    query += ` ORDER BY requested_at DESC`;
 
     const rows = await runQueriesWithTenant<UnifiedBookingRow>(tenantId, query, params);
     return rows.map(this.toUnifiedBooking);
@@ -385,11 +398,11 @@ class UnifiedAvailabilityRepository {
 
       // Atualizar timestamps baseado no status
       if (input.status === UnifiedBookingStatus.CONFIRMED) {
-        fields.push(`confirmedAt = now()`);
+        fields.push(`confirmed_at = now()`);
       } else if (input.status === UnifiedBookingStatus.CANCELLED) {
-        fields.push(`cancelledAt = now()`);
+        fields.push(`cancelled_at = now()`);
       } else if (input.status === UnifiedBookingStatus.EXPIRED) {
-        fields.push(`expiredAt = now()`);
+        fields.push(`expired_at = now()`);
       }
     }
     if (input.notes !== undefined) {
@@ -409,15 +422,18 @@ class UnifiedAvailabilityRepository {
       return existing;
     }
 
+    // B+A1 fix: paramIndex aponta para o PRÓXIMO placeholder disponível.
+    // bookingId vai em $paramIndex; tenantId em $paramIndex+1.
+    const bookingParamIdx = paramIndex;
+    const tenantParamIdx = paramIndex + 1;
     params.push(bookingId, tenantId);
-    paramIndex += 2;
 
     const row = await runQueryWithTenant<UnifiedBookingRow>(
       tenantId,
       `
       UPDATE bookings
-      SET ${fields.join(', ')}, updatedAt = now()
-      WHERE booking_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
+      SET ${fields.join(', ')}, updated_at = now()
+      WHERE booking_id = $${bookingParamIdx} AND tenant_id = $${tenantParamIdx}
       RETURNING *
       `,
       params
@@ -445,9 +461,9 @@ class UnifiedAvailabilityRepository {
       UPDATE bookings
       SET 
         status = 'checked_in',
-        checked_inAt = now(),
+        checked_in_at = now(),
         metadata = COALESCE(metadata, '{}'::jsonb) || $1,
-        updatedAt = now()
+        updated_at = now()
       WHERE booking_id = $2 AND tenant_id = $3
       RETURNING *
       `,
@@ -476,9 +492,9 @@ class UnifiedAvailabilityRepository {
       UPDATE bookings
       SET 
         status = 'checked_out',
-        checked_outAt = now(),
+        checked_out_at = now(),
         metadata = COALESCE(metadata, '{}'::jsonb) || $1,
-        updatedAt = now()
+        updated_at = now()
       WHERE booking_id = $2 AND tenant_id = $3
       RETURNING *
       `,
@@ -503,8 +519,8 @@ class UnifiedAvailabilityRepository {
       actorId: row.actor_id,
       role: row.role,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -595,7 +611,7 @@ class UnifiedAvailabilityRepository {
       paramIndex++;
     }
 
-    query += ` ORDER BY createdAt ASC`;
+    query += ` ORDER BY created_at ASC`;
 
     const rows = await runQueriesWithTenant<AvailabilityParticipantRow>(tenantId, query, params);
     return rows.map(this.toAvailabilityParticipant);
@@ -637,7 +653,7 @@ class UnifiedAvailabilityRepository {
       tenantId,
       `
       UPDATE availability_participants
-      SET ${fields.join(', ')}, updatedAt = now()
+      SET ${fields.join(', ')}, updated_at = now()
       WHERE participant_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
       RETURNING *
       `,
