@@ -668,3 +668,77 @@ Status values:
   exigir migration DDL.
 
 ---
+
+## DT-SERVICE-BOOKING-CONVERGENCE-MAP (Raio-X 2026-05-14)
+
+- **Status:** OPEN — frente convergível futura (NÃO refatorar agora)
+- **Classe:** DT-A (arquitetural) + mapa institucional de convergência
+- **Origem:** GUARDIÃO ativado por autorização de piloto automático Clayton (2026-05-14); detectado 2 caminhos paralelos no domínio service_booking sem decisão arquitetural prévia
+- **Bloqueador para MVP humano atual:** **NÃO** (event_ticket + p2p_transfer cobrem validação humana imediata)
+
+### Caminhos identificados
+
+**Caminho 1 — `processServiceBookingPayment` (bank-integration.service.ts:326)**
+- Estado: **DORMENTE** (0 callers)
+- Arquitetura: alinhada ao core — usa `bankSplitEngine` context=`service_booking` (defaults 97%/3%), concept_id=`service-booking-payment` hardcoded
+- Padrão idêntico a event_ticket (Fase 1) e p2p_transfer (P2P-Fase2)
+- Limitações: single receiver, apenas user_id
+
+**Caminho 2 — `processServicePaymentExecutionCanonical` (bank-integration.service.ts:450)**
+- Estado: **VIVO** (cadeia HTTP exercitada: service-hire.routes + service-payment-execution.routes → service-payment-execution.service → este método; 2 transações `service_execution` reais no banco)
+- Arquitetura: parcialmente alinhada — usa `createTransactionWithExplicitSplitLines` (bypassa split engine), concept_id via SSOT do banco (`'ride-payment'` em domínio `'financeiro-payment'`)
+- Edge cases REAIS capturados pelo runtime:
+  1. Múltiplos receivers (`splitRecipients[]`) — serviço com vários prestadores
+  2. Multi actor_type (user/page/group via `resolveBankAccountForServiceActor`)
+  3. `executionId` separado de `paymentRequestId` — execuções parciais
+  4. Concept_id via SSOT no banco — flexibilidade de regra sem deploy
+
+### Convergência preservada — causalidade financeira
+
+Ambos caminhos:
+- Validam limite diário via `bankLimitService` (fail-closed)
+- Constroem authorship via `buildFinancialAuthorshipFromRequest`
+- Geram bank_ledger double-entry imutável
+- Passam concept_id explícito (após E1.6/P2P-1 é obrigatório)
+
+### Dependência de `unified_availability`
+
+- Camada financeira (`bank-integration.service.ts`): **NULA** — desacoplada (correto)
+- Camada de orquestração (`service-order.service.ts` + booking-decision): **8+ referências** — booking, conflicts, getAvailability
+- Conclusão: financeiro está limpo; agendamento vive na camada acima
+
+### Decisão arquitetural pendente — 3 hipóteses avaliadas
+
+| Hipótese | Pró | Contra |
+|---|---|---|
+| **A — Tornar dormente canônico, amputar vivo** | Alinhamento total ao core | Amputa 4 edge cases reais; quebra service-hire.routes ativo |
+| **B — Tornar vivo canônico, amputar dormente** | Remoção lógica imediata (sem caller) | Mantém bypass do split engine; semântica confusa (concept `'ride-payment'` em contexto de serviço) |
+| **C — Absorver vivo dentro do dormente** (RECOMENDADA) | Preserva edge cases + aproxima ao core canônico | Requer PR cirúrgico futuro com 5 passos |
+
+### Plano de convergência futura (Hipótese C — quando priorizar)
+
+1. Estender `processServiceBookingPayment` para aceitar `splitRecipients[]` opcional (default mantém defaults do split engine)
+2. Permitir actor_type polimórfico no destinatário via `resolveBankAccountForServiceActor`
+3. `concept_id` default via lookup SSOT (semântica unificada com o domínio financeiro-payment)
+4. Rerrotear `service-payment-execution.service` para chamar o dormente unificado
+5. Remover método vivo após confirmar zero callers
+
+### Por que NÃO converger agora
+
+- service_booking NÃO bloqueia validação humana do MVP atual (event_ticket + p2p_transfer pendentes de uso humano real)
+- Decisão arquitetural prematura sem uso humano de service_booking arrisca repetir o padrão das 3 reconstruções anteriores
+- Aprendizado sobre service_booking só virá quando humano usar — múltiplos receivers, partial execution, multi actor_type são edge cases que o uso real vai validar ou refinar
+
+### Critério de convergência
+
+Esta DT vira frente prioritária quando:
+- Sub-frente service_booking entrar no caminho do humano (Clayton ou usuário real) E
+- 2 contextos vivos atuais (event_ticket, p2p_transfer) estiverem ratificados em uso humano
+
+Antes disso: **arquivada como conhecimento operacional**, NÃO frente ativa.
+
+### Padrão institucional capturado
+
+GUARDIÃO maduro = **transformar "buraco negro arquitetural assustador" em "frente conhecida, mapeada e priorizável"** sem refatorar nem amputar. Aplicado pela primeira vez aqui (2026-05-14) sob diretiva Clayton + IA externa de auditoria sem decisão precipitada.
+
+---
