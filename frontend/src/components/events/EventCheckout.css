@@ -271,3 +271,40 @@
   font-weight: 500;
 }
 
+.event-checkout-success-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+.event-checkout-action-secondary,
+.event-checkout-action-primary {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.event-checkout-action-secondary {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.event-checkout-action-secondary:hover {
+  background: #e5e7eb;
+}
+
+.event-checkout-action-primary {
+  background: #10b981;
+  color: white;
+}
+
+.event-checkout-action-primary:hover {
+  background: #059669;
+}
+

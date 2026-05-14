@@ -6,7 +6,7 @@ import { checkoutTicket } from '../../api/checkout';
 import { type CulturalEvent } from '../../api/cultural';
 import { showToast } from '../common/Toast';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
-import TransactionImpactSummary from '../social/TransactionImpactSummary';
+import TransactionSplitDetail from '../governance/TransactionSplitDetail';
 import './EventCheckout.css';
 
 interface EventCheckoutProps {
@@ -20,7 +20,7 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
   const { activeActor } = useActiveActor();
   const [step, setStep] = useState<'confirm' | 'processing' | 'success' | 'error'>('confirm');
   const [error, setError] = useState<string | null>(null);
-  const [ticketData, setTicketData] = useState<{ ticketId: string; qrCode: string } | null>(null);
+  const [ticketData, setTicketData] = useState<{ ticketId: string; qrCode: string; transactionId?: string } | null>(null);
 
   const ticketPrice = event.ticket_price_cents ? event.ticket_price_cents / 100 : 0;
 
@@ -65,6 +65,7 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
       setTicketData({
         ticketId: result.ticketId,
         qrCode: result.qrCode || '',
+        transactionId: result.transactionId,
       });
 
       setStep('success');
@@ -96,8 +97,6 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
   };
 
   if (step === 'success') {
-    const totalAmount = ticketPrice ? Math.round(ticketPrice * 100) : 0;
-    
     return (
       <div className="event-checkout-overlay" onClick={onClose}>
         <div className="event-checkout-modal" onClick={(e) => e.stopPropagation()}>
@@ -111,23 +110,32 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
                 <code className="qr-code-value">{ticketData.qrCode.substring(0, 20)}...</code>
               </div>
             )}
-            
-            {/* Mini-resumo de impacto */}
-            {totalAmount > 0 && (
-              <TransactionImpactSummary
-                totalAmount={totalAmount}
-                currency="BRL"
-                onViewLedger={() => {
+
+            {ticketData?.transactionId && (
+              <TransactionSplitDetail transactionId={ticketData.transactionId} />
+            )}
+
+            <div className="event-checkout-success-actions">
+              <button
+                className="event-checkout-action-secondary"
+                onClick={() => {
                   window.location.href = '/social/ledger';
                 }}
-                onBackToFeed={() => {
+              >
+                Ver Extrato
+              </button>
+              <button
+                className="event-checkout-action-primary"
+                onClick={() => {
                   if (onSuccess && ticketData?.ticketId && ticketData?.qrCode) {
                     onSuccess(ticketData.ticketId, ticketData.qrCode);
                   }
                   onClose();
                 }}
-              />
-            )}
+              >
+                Voltar ao Feed
+              </button>
+            </div>
           </div>
         </div>
       </div>
