@@ -1,3 +1,29 @@
+## 2026-05-14 (continuação 2) — SESSÃO: B+A4 emissão de SERVICE_BOOKING_CANCELLED no outbox (1 commit funcional)
+
+**Branch:** `rescue-structural`
+**HEAD inicial:** `bb01bfc2` | **HEAD final:** `6a7161f6`
+**Commit funcional (1):**
+- `6a7161f6` feat(Fase2-B+A4): emissão de SERVICE_BOOKING_CANCELLED no outbox com payload v2.1 invariante 5 completo
+
+**Modo operacional:** EXECUTOR cirúrgico (continuação B+A combinado)
+
+**v2.1 invariante 5 materializado em runtime:**
+Quando booking transita para 'cancelled', service emite `SERVICE_BOOKING_CANCELLED` no `event_outbox` com payload estruturado completo:
+- Slot liberado: `slotStartDatetime`, `slotEndDatetime`, `slotOwnerType`, `slotOwnerId`
+- Booking original: `bookingId`, `availabilityId`, `requesterActorId`, `previousStatus`
+- Razão: `cancelReason`, `cancelledVia` (embutidos por frontend B+A3)
+- Preferências: `serviceType`, `urgency` (para Fase 7 sem re-perguntar)
+
+**Pattern reaproveitado:** mesmo padrão de `service-booking-decision.service.ts` (que já emite ACCEPTED/REJECTED). Effect tipo `ActorEffect.SERVICE_BOOKING_CANCELLED` já existia no enum, sem caller.
+
+**Smoke HTTP B+A4 PASS:** event materializado em `event_outbox`, todos os campos obrigatórios validados.
+
+**Validação:** TSC backend 0, 3 gates PASS (critical_new=0, 300 migrations, bank-ledger §4.6).
+
+**Substrato preparado para Fase 7 (recomposição automática):** worker futuro consumirá `SERVICE_BOOKING_CANCELLED` do outbox + fará JOIN com `demand_attempts` (substrato a criar em Fase 6) usando informação do payload — sem migration retroativa.
+
+---
+
 ## 2026-05-14 (continuação) — SESSÃO: B+A Fase 2 parte estrutural — lifecycle completo de bookings habilitado (1 commit)
 
 **Branch:** `rescue-structural`
