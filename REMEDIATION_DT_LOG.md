@@ -742,3 +742,55 @@ Antes disso: **arquivada como conhecimento operacional**, NÃO frente ativa.
 GUARDIÃO maduro = **transformar "buraco negro arquitetural assustador" em "frente conhecida, mapeada e priorizável"** sem refatorar nem amputar. Aplicado pela primeira vez aqui (2026-05-14) sob diretiva Clayton + IA externa de auditoria sem decisão precipitada.
 
 ---
+
+## DT-AVAILABILITY-CONFLICT-EFFECT-EMISSION-DRIFT (B+A Fase 2 — 2026-05-14)
+
+- **Status:** OPEN — fóssil cirúrgico latente (NÃO bloqueia lifecycle de bookings)
+- **Classe:** DT-A (drift de tipo + path side effect)
+- **Origem:** Smoke HTTP B+A1 (lifecycle completo de bookings) — exposto durante validação material substituta de uso humano UI
+
+### Onde mora
+
+`backend/src/core/availability/unified-availability.service.ts:192-247` — emissão do effect `AVAILABILITY_CONFLICT_DETECTED` no outbox quando `detectConflicts()` retorna conflitos durante `createBooking`.
+
+Linhas 212-220 chamam `.toISOString()` em campos provenientes de `detectConflicts()` que vêm do SQL function `detect_availability_conflicts` (linhas 700-718 do repository). Em runtime real, alguns campos chegam como `undefined` → `.toISOString()` em `undefined` quebra.
+
+### Quando dispara
+
+Apenas quando `availability.ownerType === 'user'` E o requester tem availabilities conflitantes — caso edge específico. Para owner_type não-user, o caminho try/catch não é exercitado.
+
+### O que NÃO bloqueia
+
+- Booking é criado materialmente (linha 163 do service, ANTES do try/catch da emissão)
+- Lifecycle completo (confirmed → checked_in → checked_out → cancelled) funciona via rotas separadas
+- Smoke B+A1 valida 8/8 steps PASS mesmo com este fóssil dormente em alguns casos edge
+
+### O que bloqueia
+
+- Effect `AVAILABILITY_CONFLICT_DETECTED` não chega ao Social Inbox Projector quando há conflito real (read-model perdido)
+- Alerta de conflito não vira inbox item para o user afetado
+- Não impacta integridade de dados, apenas observabilidade do conflito
+
+### Convergência prevista
+
+Investigação dedicada:
+1. Auditar SQL function `detect_availability_conflicts` (assinatura de retorno)
+2. Mapear types `AvailabilityConflict` no repository (linhas 712-717) — campos `Date` esperados
+3. Adicionar fallback ou cast explícito na emissão do effect (linhas 219-220 do service)
+4. Smoke dedicado para reproduzir caso edge (user com 2 availabilities sobrepostas)
+
+**Cluster cross-layer.** Não cirúrgico via 1 arquivo. Exigirá auditoria dedicada quando recomposição automática (Fase 7 do plano v2.1) ativar consumer de AVAILABILITY_CONFLICT_DETECTED.
+
+### Critério de convergência
+
+Esta DT vira frente prioritária quando:
+- Fase 7 do plano v2.1 (recomposição automática em cancelamento) abrir, OU
+- Caso edge de conflito de availability em runtime real expuser o alerta perdido como bloqueio funcional
+
+Antes disso: **arquivada como conhecimento operacional**, NÃO frente ativa.
+
+### Padrão institucional capturado
+
+Smoke HTTP material (B+A) como substituto de uso humano expõe fósseis estruturais que TSC e gates não detectam. Confirma princípio: "encanamento testável programaticamente; UX subjetiva ainda aguarda humano clicar" — mas mesmo o teste programático captura drift de runtime real que estaria invisível em validação estática.
+
+---
