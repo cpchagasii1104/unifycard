@@ -6,12 +6,13 @@
 // 🔴 BLINDAGEM: Availability apenas expõe janelas disponíveis
 // 🔴 BLINDAGEM: NÃO cria lógica decisória automática
 
+import { createHash } from 'crypto';
+import { getClientWithTenant } from '@core/database/pool';
+import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { BadRequestError, NotFoundError } from '@core/errors';
-import { eventBus } from '@core/events/event-bus';
 import { ActorEffect } from '@core/social/ports';
-import { v4 as uuidv4 } from 'uuid';
 import type {
   UnifiedAvailability,
   UnifiedBooking,
@@ -31,6 +32,23 @@ import type {
   AvailabilityConflict,
 } from './unified-availability.types';
 import { UnifiedBookingStatus } from './unified-availability.types';
+
+/** `event_outbox.event_id` estável — seed `${eventType}:${tenantId}:${entityId}`; entityId = bookingId | participantId conforme o fluxo */
+function deterministicAvailabilityEventId(
+  tenantId: string,
+  entityId: string,
+  eventType: string
+): string {
+  const hash = createHash('sha256')
+    .update(`${eventType}:${tenantId}:${entityId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 class UnifiedAvailabilityService {
   /**
@@ -115,7 +133,8 @@ class UnifiedAvailabilityService {
   async createBooking(
     tenantId: string,
     userId: string,
-    input: CreateUnifiedBookingInput
+    input: CreateUnifiedBookingInput,
+    trx?: { query: (q: { text: string; values?: any[] }) => Promise<any[]> }
   ): Promise<UnifiedBooking> {
     // 🔴 BLINDAGEM: Validar que availabilityId foi fornecido
     if (!input.availabilityId) {
@@ -141,7 +160,7 @@ class UnifiedAvailabilityService {
     }
 
     // 🔴 BLINDAGEM: Criar booking (NÃO executa pagamento)
-    const booking = await unifiedAvailabilityRepository.createBooking(tenantId, input);
+    const booking = await unifiedAvailabilityRepository.createBooking(tenantId, input, trx);
 
     // 🔴 BLINDAGEM: Detectar conflitos APÓS criar booking (não bloqueia)
     // Se booking envolver owner_type user e houver conflito, emitir effect AVAILABILITY_CONFLICT_DETECTED
@@ -168,33 +187,47 @@ class UnifiedAvailabilityService {
             conflictCount: conflictResult.conflicts.length,
           });
           
-          await eventBus.publish({
-            eventId: uuidv4(),
-            tenantId,
-            type: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
-            version: 1,
-            payload: {
-              actorId: input.requesterActorId, // Actor que deve ser alertado (requester)
-              actorType: requesterActor.actor_type,
-              sourceId: input.availabilityId, // Availability principal
-              sourceType: 'availability',
-            },
-            metadata: {
-              availabilityId: input.availabilityId,
-              bookingId: booking.bookingId,
-              conflictingAvailabilityIds,
-              windowStart: availability.startDatetime.toISOString(),
-              windowEnd: availability.endDatetime.toISOString(),
-              source: 'booking_created', // Fonte do conflito
-              conflicts: conflictResult.conflicts.map(c => ({
-                conflictingAvailabilityId: c.conflictAvailabilityId,
-                conflictingOwnerType: c.conflictOwnerType,
-                conflictingOwnerId: c.conflictOwnerId,
-                conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
-                conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
-              })),
-            },
-          });
+          const outboxClient = await getClientWithTenant(tenantId);
+          try {
+            await outboxClient.query('BEGIN');
+            await insertEventOutboxRow(outboxClient, {
+              tenantId,
+              eventId: deterministicAvailabilityEventId(
+                tenantId,
+                booking.bookingId,
+                ActorEffect.AVAILABILITY_CONFLICT_DETECTED
+              ),
+              eventType: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
+              eventVersion: 1,
+              payload: {
+                actorId: input.requesterActorId, // Actor que deve ser alertado (requester)
+                actorType: requesterActor.actor_type,
+                sourceId: input.availabilityId, // Availability principal
+                sourceType: 'availability',
+              },
+              metadata: {
+                availabilityId: input.availabilityId,
+                bookingId: booking.bookingId,
+                conflictingAvailabilityIds,
+                windowStart: availability.startDatetime.toISOString(),
+                windowEnd: availability.endDatetime.toISOString(),
+                source: 'booking_created', // Fonte do conflito
+                conflicts: conflictResult.conflicts.map(c => ({
+                  conflictingAvailabilityId: c.conflictAvailabilityId,
+                  conflictingOwnerType: c.conflictOwnerType,
+                  conflictingOwnerId: c.conflictOwnerId,
+                  conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
+                  conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
+                })),
+              },
+            });
+            await outboxClient.query('COMMIT');
+          } catch (err) {
+            await outboxClient.query('ROLLBACK');
+            throw err;
+          } finally {
+            outboxClient.release();
+          }
         }
       }
     } catch (error) {
@@ -254,7 +287,77 @@ class UnifiedAvailabilityService {
     }
 
     // 🔴 BLINDAGEM: Atualizar booking (NÃO executa pagamento)
-    return await unifiedAvailabilityRepository.updateBooking(tenantId, bookingId, input);
+    const updated = await unifiedAvailabilityRepository.updateBooking(tenantId, bookingId, input);
+
+    // 🔴 B+A4 (Fase 2 plano v2.1 invariante 5): emissão de event SERVICE_BOOKING_CANCELLED
+    // no outbox quando booking transita para 'cancelled'. Payload estruturado carrega
+    // slot liberado + booking original + cancel_reason para recomposição futura (Fase 7)
+    // sem migration de payload retroativa.
+    // Effect é consequência sistêmica, NÃO decisão humana.
+    if (input.status === UnifiedBookingStatus.CANCELLED && existing.status !== UnifiedBookingStatus.CANCELLED) {
+      try {
+        // Resolver availability associada para payload completo
+        const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, updated.availabilityId);
+        const cancelMetadata = (input.metadata ?? updated.metadata ?? {}) as Record<string, any>;
+
+        const outboxClient = await getClientWithTenant(tenantId);
+        try {
+          await outboxClient.query('BEGIN');
+          await insertEventOutboxRow(outboxClient, {
+            tenantId,
+            eventId: deterministicAvailabilityEventId(
+              tenantId,
+              bookingId,
+              ActorEffect.SERVICE_BOOKING_CANCELLED
+            ),
+            eventType: ActorEffect.SERVICE_BOOKING_CANCELLED,
+            eventVersion: 1,
+            payload: {
+              actorId: updated.requesterActorId, // Cliente afetado pelo cancelamento
+              actorType: 'user' as any, // Resolvido em Fase 7 se necessário
+              intent: 'CANCEL_BOOKING',
+              sourceId: bookingId,
+              sourceType: 'unified_booking',
+              metadata: {
+                // Slot liberado (v2.1 invariante 5 — para recomposição/JOIN com demand_attempts em Fase 7)
+                slotStartDatetime: availability?.startDatetime ? new Date(availability.startDatetime).toISOString() : null,
+                slotEndDatetime: availability?.endDatetime ? new Date(availability.endDatetime).toISOString() : null,
+                slotOwnerType: availability?.ownerType ?? null,
+                slotOwnerId: availability?.ownerId ?? null,
+                // Booking original (cliente + preferências de recomposição se houver)
+                bookingId,
+                availabilityId: updated.availabilityId,
+                requesterActorId: updated.requesterActorId,
+                previousStatus: existing.status,
+                // Razão do cancelamento (cancel_reason embedded por frontend em B+A3)
+                cancelReason: cancelMetadata.cancel_reason ?? 'outro',
+                cancelledVia: cancelMetadata.cancelled_via ?? 'unknown',
+                // Metadata adicional preservada (service_type, urgency, acceptable_alternatives — se booking carregar)
+                serviceType: cancelMetadata.service_type ?? existing.metadata?.service_type ?? null,
+                urgency: cancelMetadata.urgency ?? existing.metadata?.urgency ?? null,
+              },
+            },
+            metadata: {
+              userId,
+              bookingId,
+              availabilityId: updated.availabilityId,
+            },
+          });
+          await outboxClient.query('COMMIT');
+        } catch (outboxErr) {
+          await outboxClient.query('ROLLBACK');
+          throw outboxErr;
+        } finally {
+          outboxClient.release();
+        }
+      } catch (error) {
+        // 🔴 BLINDAGEM: Não quebrar fluxo principal se enfileiramento falhar
+        // O booking já foi atualizado, apenas o alerta de recomposição não foi emitido
+        console.error('[updateBooking] Erro ao enfileirar effect SERVICE_BOOKING_CANCELLED (não crítico):', error);
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -365,32 +468,46 @@ class UnifiedAvailabilityService {
           conflictCount: conflictResult.conflicts.length,
         });
         
-        await eventBus.publish({
-          eventId: uuidv4(),
-          tenantId,
-          type: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
-          version: 1,
-          payload: {
-            actorId: input.actorId, // Actor que deve ser alertado (participante)
-            actorType: actor.actor_type,
-            sourceId: input.availabilityId, // Availability principal
-            sourceType: 'availability',
-          },
-          metadata: {
-            availabilityId: input.availabilityId,
-            conflictingAvailabilityIds,
-            windowStart: availability.startDatetime.toISOString(),
-            windowEnd: availability.endDatetime.toISOString(),
-            source: 'participant_added', // Fonte do conflito
-            conflicts: conflictResult.conflicts.map(c => ({
-              conflictingAvailabilityId: c.conflictAvailabilityId,
-              conflictingOwnerType: c.conflictOwnerType,
-              conflictingOwnerId: c.conflictOwnerId,
-              conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
-              conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
-            })),
-          },
-        });
+        const outboxClient = await getClientWithTenant(tenantId);
+        try {
+          await outboxClient.query('BEGIN');
+          await insertEventOutboxRow(outboxClient, {
+            tenantId,
+            eventId: deterministicAvailabilityEventId(
+              tenantId,
+              participant.participantId,
+              ActorEffect.AVAILABILITY_CONFLICT_DETECTED
+            ),
+            eventType: ActorEffect.AVAILABILITY_CONFLICT_DETECTED,
+            eventVersion: 1,
+            payload: {
+              actorId: input.actorId, // Actor que deve ser alertado (participante)
+              actorType: actor.actor_type,
+              sourceId: input.availabilityId, // Availability principal
+              sourceType: 'availability',
+            },
+            metadata: {
+              availabilityId: input.availabilityId,
+              conflictingAvailabilityIds,
+              windowStart: availability.startDatetime.toISOString(),
+              windowEnd: availability.endDatetime.toISOString(),
+              source: 'participant_added', // Fonte do conflito
+              conflicts: conflictResult.conflicts.map(c => ({
+                conflictingAvailabilityId: c.conflictAvailabilityId,
+                conflictingOwnerType: c.conflictOwnerType,
+                conflictingOwnerId: c.conflictOwnerId,
+                conflictingStartDatetime: c.conflictStartDatetime.toISOString(),
+                conflictingEndDatetime: c.conflictEndDatetime.toISOString(),
+              })),
+            },
+          });
+          await outboxClient.query('COMMIT');
+        } catch (err) {
+          await outboxClient.query('ROLLBACK');
+          throw err;
+        } finally {
+          outboxClient.release();
+        }
       }
     } catch (error) {
       // 🔴 BLINDAGEM: Não quebrar fluxo principal se emissão de effect falhar
