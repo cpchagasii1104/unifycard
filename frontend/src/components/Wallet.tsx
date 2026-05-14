@@ -10,6 +10,7 @@ import { getBankBalance, getBankStatement, type BankStatementEntry } from '../ap
 import { useSession } from '../contexts/SessionProvider';
 import { isAuthenticated, getTenantId } from '../config/auth';
 import { centsToReais } from '../utils/money';
+import P2PTransferModal from './P2PTransferModal';
 import './Wallet.css';
 
 interface WalletProps {
@@ -26,6 +27,7 @@ export default function Wallet({ onTransactionClick }: WalletProps) {
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showP2P, setShowP2P] = useState(false);
 
   const loadWallet = async (reset = false) => {
     // Guard: só fazer chamadas quando sessão estiver pronta
@@ -144,10 +146,30 @@ export default function Wallet({ onTransactionClick }: WalletProps) {
     <div className="wallet-container">
       <div className="wallet-header">
         <h2>Carteira</h2>
-        <button onClick={() => loadWallet(true)} className="refresh-button">
-          Atualizar
-        </button>
+        <div className="wallet-header-actions">
+          <button
+            onClick={() => setShowP2P(true)}
+            className="wallet-transfer-button"
+            disabled={balanceCents === null || balanceCents <= 0}
+          >
+            Transferir
+          </button>
+          <button onClick={() => loadWallet(true)} className="refresh-button">
+            Atualizar
+          </button>
+        </div>
       </div>
+
+      {showP2P && balanceCents !== null && (
+        <P2PTransferModal
+          currentBalanceCents={balanceCents}
+          onClose={() => setShowP2P(false)}
+          onSuccess={() => {
+            setShowP2P(false);
+            loadWallet(true);
+          }}
+        />
+      )}
 
       {/* Saldo Atual */}
       <div className="wallet-balance-section">

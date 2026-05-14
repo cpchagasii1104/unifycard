@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { pilotEventsService } from '../pilot/pilot-events.service';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 
 export interface P2PTransferParams {
   fromUserId: string;
@@ -22,8 +23,8 @@ export interface P2PTransferResult {
     currency: string;
     createdAt: Date;
   };
-  fromAccountBalance: number;
-  toAccountBalance: number;
+  fromAccountBalanceCents: number;
+  toAccountBalanceCents: number;
   fromUserId: string;
   toUserId: string;
 }
@@ -48,10 +49,10 @@ class BankP2PTransferService {
     tenantId: string,
     params: P2PTransferParams
   ): Promise<P2PTransferResult> {
-    const { fromUserId, toUserId, amount, eventId } = params;
+    const { fromUserId, toUserId, amountCents, eventId } = params;
 
     // 1. Validações básicas
-    if (amount <= 0) {
+    if (amountCents <= 0) {
       const error = new Error('Amount must be greater than zero');
       (error as any).statusCode = 400;
       throw error;
@@ -71,6 +72,22 @@ class BankP2PTransferService {
       throw error;
     }
 
+    // AUTORIDADE: fail-closed — qualquer erro ou ausência de actor bloqueia.
+    // Sem try/catch: erro 403 e erro de infraestrutura resultam igualmente em bloqueio.
+    // Actor não resolvido = bloqueio (não bypass silencioso).
+    // Ref: docs/ssot/AUTHORITY_PRECEDENCE.md §2, LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md
+    const { resolveActorIdForWalletOwner } = await import('@modules/risk-identity/risk-permissions');
+    const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
+    const fromActorId = await resolveActorIdForWalletOwner(tenantId, fromUserId);
+    if (!fromActorId) {
+      throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
+    }
+    await requireFinancialRiskClearance(tenantId, {
+      actorId: fromActorId,
+      action: 'financial_transfer',
+      amountCents,
+    });
+
     // 3. Resolver contas dos usuários no Unify Bank
     const bankAccount = bankPortsRegistry.getBankAccount();
     const fromAccount = await bankAccount.getOrCreateAccount(tenantId, {
@@ -85,36 +102,27 @@ class BankP2PTransferService {
       currency: 'BRL',
     });
 
-    // 4. Validar saldo do remetente (deve ser >= amount)
+    // 4. Validar saldo do remetente (deve ser >= amountCents)
     const fromBalance = await bankAccount.getBalance(tenantId, fromAccount.accountId);
-    if (fromBalance.balance < amount) {
+    if (fromBalance.balanceCents < amountCents) {
       const error = new Error('Insufficient balance');
       (error as any).statusCode = 400;
       throw error;
     }
 
-    // 5. SPRINT 36.2: Validar limite diário (enforcement)
-    try {
-      const bankLimit = bankPortsRegistry.getBankLimit();
-      await bankLimit.validateLimit(
-        tenantId,
-        fromUserId,
-        'transfer_out',
-        amount,
-        fromUserId
-      );
-    } catch (limitError: any) {
-      // Re-throw erro de limite (já tem statusCode 403)
-      if (limitError.statusCode === 403) {
-        throw limitError;
-      }
-      // Se não for erro de limite, logar mas não bloquear (fail-open)
-      console.warn('[BankLimit] Erro ao validar limite (não bloqueante):', limitError);
-    }
+    // 5. SPRINT 36.2: Validar limite diário (enforcement) — fail-closed
+    // Ref: docs/ssot/AUTHORITY_PRECEDENCE.md §2 (UNIFICARD_PLANO_MESTRE_v2_1 — PASSO 1B)
+    const bankLimit = bankPortsRegistry.getBankLimit();
+    await bankLimit.validateLimit(
+      tenantId,
+      fromUserId,
+      'transfer',
+      amountCents,
+      fromUserId
+    );
 
     // Resolver actor do remetente para autoria
-    const { actorRepository } = await import('@modules/social/actor.repository');
-    const fromActor = await actorRepository.findOrCreateUserActor(tenantId, fromUserId);
+    const fromActor = await ensureUserActor(tenantId, fromUserId);
 
     // Construir autoria (ownership: remetente é dono da conta origem)
     const { buildFinancialAuthorshipFromRequest } = await import('@modules/bank/financial-authorship.helper');
@@ -122,7 +130,14 @@ class BankP2PTransferService {
       performedByUserId: fromUserId,
       actingForActorId: fromActor.actor_id,
       actingForAccountId: fromAccount.accountId,
-      authoritySource: 'ownership', // Remetente é dono da conta origem
+      authoritySource: 'ownership',
+      permissionSnapshot: {
+        permissionKey: 'ownership',
+        allowed: true,
+        actorId: fromActor.actor_id,
+        userId: fromUserId,
+        decidedAt: new Date().toISOString(),
+      },
     });
 
     // 5. Executar transferência usando Unify Bank (context: p2p_transfer, 0% fee)
@@ -130,12 +145,13 @@ class BankP2PTransferService {
     const result = await bankTransaction.createTransactionWithSplit(tenantId, {
       eventId,
       fromAccountId: fromAccount.accountId,
-      amount,
+      amountCents,
       currency: 'BRL',
       context: 'p2p_transfer',
-      revenueShareAccountId: toAccount.accountId, // 100% para destinatário
-      fromUserId, // Para calcular referral e group allocation
+      revenueShareAccountId: toAccount.accountId,
+      fromUserId,
       description: `P2P transfer: ${fromUserId} → ${toUserId}`,
+      concept_id: 'split-payment', // P2P-1: concept canônico existente (não criar concept novo — DECISION-C2-009/010)
       metadata: {
         type: 'p2p_transfer',
         fromUserId,
@@ -155,7 +171,7 @@ class BankP2PTransferService {
       actorType: 'user',
       metadata: {
         transactionType: 'p2p_transfer',
-        amount,
+        amountCents,
       },
     }).catch((err) => {
       // Erro silencioso - não quebrar fluxo
@@ -166,12 +182,12 @@ class BankP2PTransferService {
       transaction: {
         transactionId: result.transaction.transactionId,
         eventId,
-        amount,
+        amountCents: result.transaction.amountCents ?? amountCents,
         currency: 'BRL',
         createdAt: result.transaction.createdAt,
       },
-      fromAccountBalance: fromBalanceAfter.balance,
-      toAccountBalance: toBalanceAfter.balance,
+      fromAccountBalanceCents: fromBalanceAfter.balanceCents,
+      toAccountBalanceCents: toBalanceAfter.balanceCents,
       fromUserId,
       toUserId,
     };

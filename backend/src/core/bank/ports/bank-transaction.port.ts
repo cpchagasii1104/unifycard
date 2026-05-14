@@ -64,6 +64,7 @@ export interface BankTransactionPort {
     tenantId: string,
     input: {
       eventId: string;
+      referenceType: string;
       fromAccountId?: string;
       toAccountId?: string;
       amountCents: number;
@@ -71,6 +72,7 @@ export interface BankTransactionPort {
       transactionType: BankTransactionType;
       description?: string;
       metadata?: Record<string, any>;
+      authorship?: unknown;
     }
   ): Promise<{
     transaction: BankTransaction;
@@ -88,7 +90,11 @@ export interface BankTransactionPort {
       revenueShareAccountId?: string;
       fromUserId?: string;
       description?: string;
+      /** Concept canônico (DECISION-C2-009/010). Validado pelo motor; obrigatório em runtime. */
+      concept_id?: string;
       metadata?: Record<string, any>;
+      /** Contexto de autoria (implementação em @modules/bank) */
+      authorship?: unknown;
     }
   ): Promise<{
     transaction: BankTransaction;

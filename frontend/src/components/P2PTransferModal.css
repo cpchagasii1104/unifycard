@@ -1,0 +1,249 @@
+.p2p-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.p2p-modal {
+  background: white;
+  border-radius: 0.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.p2p-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.p2p-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.p2p-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.p2p-modal-content {
+  padding: 1.5rem;
+}
+
+.p2p-balance-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3f4f6;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.p2p-balance-line strong {
+  color: #047857;
+  font-weight: 700;
+}
+
+.p2p-field {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.p2p-field > span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  margin-bottom: 0.375rem;
+}
+
+.p2p-field input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.p2p-field input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.p2p-preview {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.p2p-preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.p2p-preview-row + .p2p-preview-row {
+  border-top: 1px solid #e5e7eb;
+}
+
+.p2p-preview-row span {
+  color: #6b7280;
+}
+
+.p2p-preview-row code {
+  font-family: monospace;
+  color: #1e40af;
+  font-size: 0.8125rem;
+}
+
+.p2p-error {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.p2p-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.p2p-action-secondary,
+.p2p-action-primary {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.p2p-action-secondary {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.p2p-action-secondary:hover {
+  background: #e5e7eb;
+}
+
+.p2p-action-primary {
+  background: #10b981;
+  color: white;
+}
+
+.p2p-action-primary:hover {
+  background: #059669;
+}
+
+.p2p-processing {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.p2p-processing p {
+  margin-top: 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.p2p-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto;
+  border: 3px solid #e5e7eb;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: p2p-spin 0.8s linear infinite;
+}
+
+@keyframes p2p-spin {
+  to { transform: rotate(360deg); }
+}
+
+.p2p-success {
+  padding: 2rem;
+  text-align: center;
+}
+
+.p2p-success-icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.p2p-success h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.p2p-success p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+
+.p2p-success-meta {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.p2p-success-meta > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+}
+
+.p2p-success-meta span {
+  color: #6b7280;
+}
+
+.p2p-success-meta code {
+  font-family: monospace;
+  color: #1e40af;
+}

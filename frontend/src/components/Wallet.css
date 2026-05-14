@@ -71,6 +71,31 @@
   background: #0056b3;
 }
 
+.wallet-header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wallet-transfer-button {
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.wallet-transfer-button:hover:not(:disabled) {
+  background: #059669;
+}
+
+.wallet-transfer-button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
 .wallet-loading,
 .wallet-empty {
   text-align: center;

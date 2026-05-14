@@ -74,6 +74,47 @@ export async function getBankBalance(): Promise<BankBalance> {
   return data;
 }
 
+export interface P2PTransferResult {
+  success: boolean;
+  transaction: {
+    transactionId: string;
+    eventId: string;
+    amountCents: number;
+    currency: string;
+    createdAt: string;
+  };
+  fromUserId: string;
+  toUserId: string;
+  fromAccountBalanceCents: number;
+  toAccountBalanceCents: number;
+}
+
+/**
+ * Transferência P2P entre usuários (segundo contexto econômico ponta-a-ponta)
+ *
+ * Backend: POST /bank/p2p-transfer → bankP2PTransferService.transferP2P
+ *          → bank-integration motor canônico (mesmo de event_ticket)
+ *          → context: 'p2p_transfer', concept_id: 'split-payment'
+ *
+ * Causalidade preservada: ledger imutável, double-entry, autoria rastreável.
+ */
+export async function p2pTransfer(input: {
+  toUserId: string;
+  amountCents: number;
+}): Promise<P2PTransferResult> {
+  const response = await apiFetch('/bank/p2p-transfer', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Erro ao transferir: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
 /**
  * Busca extrato financeiro do usuário autenticado
  */
