@@ -31,15 +31,34 @@ export interface CheckoutConsumptionResponse extends CheckoutResult {
 /**
  * Checkout de ingresso
  * 🔴 Frontend não calcula valores, apenas envia intenção
+ *
+ * Etapa 1.7 — rerrota: usa caminho canônico POST /api/events/:id/checkout
+ * (eventEconomyService → bank-integration → bankSplitEngine: motor F9 fundacional).
+ * Caminho /api/checkout/event-ticket é vestígio histórico (paradigma de event_tickets
+ * com qrCode/global_user_id), preservado mas inalcançável após schema convergir.
  */
 export async function checkoutTicket(
-  input: CheckoutEventTicketInput
+  input: CheckoutEventTicketInput & { attendeeActorId: string }
 ): Promise<CheckoutTicketResponse> {
-  const response = await apiFetch('/api/checkout/event-ticket', {
+  const response = await apiFetch(`/api/events/${input.eventId}/checkout`, {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      attendee_actor_id: input.attendeeActorId,
+      quantity: 1,
+    }),
   });
-  return response.json();
+  const body = await response.json();
+  // Caminho B retorna { checkout: { event_id, attendee_id, transaction_id, total_amount_cents, splits } }
+  // Normaliza para shape esperado pelo consumidor (EventCheckout) — qrCode/ticketId não emergem
+  // do caminho canônico atual; preservados como vazios.
+  const c = body?.checkout ?? body;
+  return {
+    success: true,
+    ticketId: c?.attendee_id ?? '',
+    qrCode: '',
+    price: typeof c?.total_amount_cents === 'number' ? c.total_amount_cents : null,
+    transactionId: c?.transaction_id,
+  } as CheckoutTicketResponse;
 }
 
 /**

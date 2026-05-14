@@ -100,6 +100,7 @@ export default function EventCheckoutModal({ event, onClose, onSuccess }: EventC
         async () => checkoutTicket({
           eventId: event.id,
           idempotencyKey: `ticket_${event.id}_${activeActor!.actor_id}_${Date.now()}`,
+          attendeeActorId: activeActor!.actor_id,
         }),
         null,
         'Erro ao processar compra'

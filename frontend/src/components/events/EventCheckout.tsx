@@ -57,6 +57,7 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
       const result = await checkoutTicket({
         eventId: event.id,
         idempotencyKey: `ticket_${event.id}_${activeActor.actor_id}_${Date.now()}`,
+        attendeeActorId: activeActor.actor_id,
       });
 
       if (!result.success) {

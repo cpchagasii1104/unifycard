@@ -530,7 +530,7 @@ class TransparencyService {
         [regionAccountId, tenantId, limit, offset]
       );
 
-      // 5. Buscar metadados das transações do Unify Bank (Etapa 1.5 — bank_transactions.id)
+      // 5. Buscar metadados das transações do Unify Bank (Etapa 1.5 — bank_transactions.id é UUID)
       const transactionIds = ledgerEntries.rows.map((r) => r.transaction_id);
       const transactions = transactionIds.length > 0
         ? await client.query<{
@@ -540,7 +540,7 @@ class TransparencyService {
             `
             SELECT id AS transaction_id, metadata
             FROM bank_transactions
-            WHERE id = ANY($1::text[]) AND tenant_id = $2
+            WHERE id = ANY($1::uuid[]) AND tenant_id = $2
             `,
             [transactionIds, tenantId]
           )
