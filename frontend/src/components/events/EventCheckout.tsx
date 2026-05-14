@@ -7,6 +7,7 @@ import { type CulturalEvent } from '../../api/cultural';
 import { showToast } from '../common/Toast';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import TransactionSplitDetail from '../governance/TransactionSplitDetail';
+import RegionalFundCard from '../governance/RegionalFundCard';
 import './EventCheckout.css';
 
 interface EventCheckoutProps {
@@ -114,6 +115,8 @@ export default function EventCheckout({ event, onClose, onSuccess }: EventChecko
             {ticketData?.transactionId && (
               <TransactionSplitDetail transactionId={ticketData.transactionId} />
             )}
+
+            <RegionalFundCard />
 
             <div className="event-checkout-success-actions">
               <button
