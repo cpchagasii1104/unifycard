@@ -1,3 +1,42 @@
+## 2026-05-14 (continuação) — SESSÃO: B+A Fase 2 parte estrutural — lifecycle completo de bookings habilitado (1 commit)
+
+**Branch:** `rescue-structural`
+**HEAD inicial:** `65a7e3c4` | **HEAD final:** `1e222d58`
+**Commit funcional (1):**
+- `1e222d58` feat(Fase2-B+A1): lifecycle completo de bookings habilitado via UI — wrappers HTTP frontend (5 funções) + drift snake_case convergido no backend + buffer/payload reservados
+
+**Modo operacional:** EXECUTOR cirúrgico (B+A combinado: encanamento estrutural + smoke HTTP como substituto material de uso humano)
+
+**Invariantes honrados:**
+- v2 invariante 1 (availability temporal estrita): wrappers chamam rotas canônicas, sem lógica não-temporal
+- v2 invariante 3 (buffers físicos): `buffer_before_minutes`/`buffer_after_minutes` reservados em metadata sem UI ativa
+- v2.1 invariante 5 (cancelamento = redistribuição causal): cancelBooking embute `cancel_reason` + `cancelled_via` em metadata para recomposição futura (Fase 7) sem migration retroativa
+
+**Smoke HTTP fim-a-fim PASS (8 steps):**
+- createAvailability + buffer metadata persistidos (15/10)
+- createBooking → confirmBooking → checkIn → checkOut → cancelBooking
+- Banco confirma todos os timestamps populados corretamente (booking `e5735a02` lifecycle completo + booking `db1ed1c6` cancel com payload estruturado)
+
+**Fósseis convergidos (cirúrgicos, expostos pelo smoke):**
+- `UnifiedBookingRow` camelCase misto → snake_case canônico
+- `toUnifiedBooking` mapping snake_case
+- `ORDER BY requestedAt` → `requested_at` (identificador inválido em pg)
+- `confirmedAt/cancelledAt/expiredAt = now()` em SQL UPDATE → `confirmed_at/cancelled_at/expired_at`
+- `updateBooking` paramIndex off-by-one (`$4`/`$5` referenciado mas array com 4 elementos) → captura `bookingParamIdx`/`tenantParamIdx` antes do push
+
+**Fósseis NÃO convergidos (registrar como DTs futuras se virar gargalo):**
+- `detect_availability_conflicts` emission de effect: drift de tipo Date vs string causa toISOString em undefined no path de effect emission. Não bloqueia lifecycle.
+- Backend response shapes inconsistentes ({ok,data} vs flat) entre rotas. Frontend tolera via `unwrapResponse`.
+
+**Validação:** TSC frontend+backend 0, 3 gates institucionais PASS (critical_new=0, 300 migrations, bank-ledger §4.6)
+
+**Estado preparado para uso humano (Fase 1 do plano v2.1 ainda gargalo):**
+- Backend `:3000` + frontend `:5173` vivos
+- Lifecycle completo de bookings agora navegável via UI quando Clayton atravessar
+- Credenciais e evento preparados (mesma sessão 2026-05-14 anterior)
+
+---
+
 ## 2026-05-14 — SESSÃO: Fase 1 acoplamento humano completo + P2P-Fase2 (segundo contexto econômico ponta-a-ponta) + DT-SERVICE-BOOKING-CONVERGENCE-MAP (9 commits)
 
 **Branch:** `rescue-structural`
