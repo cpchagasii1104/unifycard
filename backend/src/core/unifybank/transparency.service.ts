@@ -240,20 +240,27 @@ class TransparencyService {
     const client = await getClientWithTenant(tenantId);
 
     try {
+      // Etapa 1.5 — schema vigente:
+      //   bank_ledger.id (não entry_id), direction (não entry_type), amount_cents (não amount)
+      //   bank_transactions.id (não transaction_id), concept_id (proxy de transaction_type)
+      //   status: derivado de internal_completed_at IS NOT NULL
+      //   original_transaction_id: extraído de metadata->>'originTransactionId'
+      //   balance_after: running sum window por conta (não persistido)
       let query = `
-        SELECT 
-          l.entry_id,
+        SELECT
+          l.id AS entry_id,
           l.transaction_id,
-          l.entry_type,
-          l.amount AS "amountCents",
-          l.balance_after,
+          l.direction AS entry_type,
+          l.amount_cents AS "amountCents",
+          SUM(CASE WHEN l.direction = 'credit' THEN l.amount_cents ELSE -l.amount_cents END)
+            OVER (PARTITION BY l.account_id ORDER BY l.created_at ASC, l.id ASC ROWS UNBOUNDED PRECEDING) AS balance_after,
           l.created_at,
           t.metadata as transaction_metadata,
-          t.status,
-          t.transaction_type,
-          t.original_transaction_id
+          CASE WHEN t.internal_completed_at IS NOT NULL THEN 'completed' ELSE 'pending' END AS status,
+          t.concept_id AS transaction_type,
+          (t.metadata->>'originTransactionId') AS original_transaction_id
         FROM bank_ledger l
-        INNER JOIN bank_transactions t ON t.transaction_id = l.transaction_id
+        INNER JOIN bank_transactions t ON t.id = l.transaction_id
         WHERE l.account_id = $1 AND l.tenant_id = $2
       `;
 
@@ -386,7 +393,7 @@ class TransparencyService {
     const client = await getClientWithTenant(tenantId);
 
     try {
-      // 1. Buscar transação base no Unify Bank
+      // 1. Buscar transação base no Unify Bank (Etapa 1.5 — schema vigente: id, amount_cents)
       const baseTx = await client.query<{
         transaction_id: string;
         amountCents: string;
@@ -394,9 +401,9 @@ class TransparencyService {
         created_at: Date;
       }>(
         `
-        SELECT transaction_id, amount AS "amountCents", metadata, created_at
+        SELECT id AS transaction_id, amount_cents AS "amountCents", metadata, created_at
         FROM bank_transactions
-        WHERE transaction_id = $1 AND tenant_id = $2
+        WHERE id = $1 AND tenant_id = $2
         LIMIT 1
         `,
         [transactionId, tenantId]
@@ -408,25 +415,13 @@ class TransparencyService {
 
       const base = baseTx.rows[0];
       const baseMetadata = base.metadata || {};
-      const splitGroupId = baseMetadata.splitGroupId;
 
-      // Se não tem splitGroupId, não é uma transação com split
-      if (!splitGroupId) {
-        return {
-          baseTransaction: {
-            transactionId: base.transaction_id,
-            amountCents: integerCentsFromDbWire(base.amountCents, 'base.amountCents'),
-            type: baseMetadata.type || 'other',
-            createdAt: base.created_at,
-            metadata: baseMetadata,
-          },
-          splits: [],
-          totalPercentage: 0,
-          totalAmountCents: 0,
-        };
-      }
+      // Etapa 1.5 — removido short-circuit baseado em metadata.splitGroupId (vestígio do schema antigo
+      // onde splits eram transações separadas agregadas por splitGroupId). DECISION-0036 estabeleceu
+      // bank_splits como tabela soberana linkada via bank_splits.transaction_id; basta consultar
+      // diretamente. Transações sem splits retornam splits=[] naturalmente pela query.
 
-      // 2. Buscar todos os splits da transação no Unify Bank
+      // 2. Buscar todos os splits da transação no Unify Bank (Etapa 1.5 — schema vigente: id, amount_cents)
       // No Unify Bank, splits estão na tabela bank_splits, não em transações separadas
       const splits = await client.query<{
         split_id: string;
@@ -438,7 +433,7 @@ class TransparencyService {
         created_at: Date;
       }>(
         `
-        SELECT split_id, transaction_id, target_account_id, amount AS "amountCents", percentage, split_type, created_at
+        SELECT id AS split_id, transaction_id, target_account_id, amount_cents AS "amountCents", percentage, split_type, created_at
         FROM bank_splits
         WHERE tenant_id = $1 AND transaction_id = $2
         ORDER BY created_at ASC
@@ -446,15 +441,15 @@ class TransparencyService {
         [tenantId, transactionId]
       );
 
-      // Buscar informações das contas de destino dos splits
+      // Buscar informações das contas de destino dos splits (Etapa 1.5 — bank_accounts.id)
       const splitAccountIds = splits.rows.map((s) => s.target_account_id);
       type SplitAccountRow = { account_id: string; owner_id: string; owner_type: string };
       const splitAccounts: { rows: SplitAccountRow[] } = splitAccountIds.length > 0
         ? await client.query<SplitAccountRow>(
             `
-            SELECT account_id, owner_id, owner_type
+            SELECT id AS account_id, owner_id, owner_type
             FROM bank_accounts
-            WHERE account_id = ANY($1::text[]) AND tenant_id = $2
+            WHERE id = ANY($1::uuid[]) AND tenant_id = $2
             `,
             [splitAccountIds, tenantId]
           )
@@ -518,6 +513,7 @@ class TransparencyService {
     const client = await getClientWithTenant(tenantId);
 
     try {
+      // Etapa 1.5 — schema vigente: bank_ledger.direction (não entry_type), amount_cents (não amount)
       const ledgerEntries = await client.query<{
         transaction_id: string;
         entry_type: string;
@@ -525,7 +521,7 @@ class TransparencyService {
         created_at: Date;
       }>(
         `
-        SELECT l.transaction_id, l.entry_type, l.amount AS "amountCents", l.created_at
+        SELECT l.transaction_id, l.direction AS entry_type, l.amount_cents AS "amountCents", l.created_at
         FROM bank_ledger l
         WHERE l.account_id = $1 AND l.tenant_id = $2
         ORDER BY l.created_at DESC
@@ -534,7 +530,7 @@ class TransparencyService {
         [regionAccountId, tenantId, limit, offset]
       );
 
-      // 5. Buscar metadados das transações do Unify Bank
+      // 5. Buscar metadados das transações do Unify Bank (Etapa 1.5 — bank_transactions.id)
       const transactionIds = ledgerEntries.rows.map((r) => r.transaction_id);
       const transactions = transactionIds.length > 0
         ? await client.query<{
@@ -542,9 +538,9 @@ class TransparencyService {
             metadata: any;
           }>(
             `
-            SELECT transaction_id, metadata
+            SELECT id AS transaction_id, metadata
             FROM bank_transactions
-            WHERE transaction_id = ANY($1::text[]) AND tenant_id = $2
+            WHERE id = ANY($1::text[]) AND tenant_id = $2
             `,
             [transactionIds, tenantId]
           )
@@ -616,15 +612,16 @@ class TransparencyService {
     const client = await getClientWithTenant(tenantId);
 
     try {
+      // Etapa 1.5 — schema vigente: bank_ledger.direction/amount_cents; JOIN via bank_transactions.id
       let query = `
-        SELECT 
+        SELECT
           l.transaction_id,
-          l.entry_type,
-          l.amount AS "amountCents",
+          l.direction AS entry_type,
+          l.amount_cents AS "amountCents",
           l.created_at,
           t.metadata
         FROM bank_ledger l
-        INNER JOIN bank_transactions t ON t.transaction_id = l.transaction_id
+        INNER JOIN bank_transactions t ON t.id = l.transaction_id
         WHERE l.account_id = $1 AND l.tenant_id = $2
       `;
 
