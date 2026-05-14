@@ -1,3 +1,50 @@
+## 2026-05-14 — SESSÃO: Fase 1 acoplamento humano completo + P2P-Fase2 (segundo contexto econômico ponta-a-ponta) + DT-SERVICE-BOOKING-CONVERGENCE-MAP (9 commits)
+
+**Branch:** `rescue-structural`
+**HEAD inicial:** `98207a40` (fim sessão 2026-05-13) | **HEAD final:** `bcd33835`
+**Commits funcionais (8):**
+- `ade28e37` Fase1-E1 — EventCheckout exibe 4 splits canônicos via TransactionSplitDetail (reuso, sem criar)
+- `5b450f4f` Fase1-E2 — EventCheckout exibe RegionalFundCard pós-compra (reuso)
+- `3d690c14` Fase1-E3 — `reserve` targetType mapeado + legenda regenerativa (E3 expôs bug semântico latente)
+- `251c25dd` Fase1-E1.5 — transparency.service inteira convergida para schema vigente (4 métodos críticos, mapeamento sistêmico de colunas pré-rename)
+- `70f21904` Fase1-E1.6 — CheckoutTicketService valida status lowercase (vestígio uppercase inalcançável)
+- `8e72b11e` Fase1-E1.7 — frontend rerrotado caminho A (fóssil) → caminho B canônico F9 + uuid cast fix
+- `ba405e50` P2P-Fase2 — segundo contexto econômico ponta-a-ponta: backend rota + tipo do port + frontend `p2pTransfer()` + P2PTransferModal.tsx + botão Wallet
+- `bcd33835` DT-SB-MAP — raio-X service_booking arquivado como DT institucional (frente futura conhecida, NÃO ativa)
+
+**Modo predominante:** ACOPLAMENTO MVP-HUMANO (transição de "arquitetura funciona" → "humano consegue usar")
+**Princípio operacional registrado:** "Cada contexto econômico só muda parâmetros — nunca o motor" (1ª evidência operacional: event_ticket + p2p_transfer rodando no mesmo `bankSplitEngine` com contexts diferentes)
+**Erro cognitivo material #5 reconhecido:** confiar em TSC+gates como prova de "pronto" sem validar runtime. Família dos 4 anteriores; padrão estrutural meu; sequência GUARDIÃO→DECISÃO→EXECUTOR existe para interceptar
+**Definição primária do projeto registrada (Clayton 2026-05-14):** "O sistema é um orquestrador somado a autogestão da sociedade fazendo a expansão / lucros / criação de valor voltar para os usuários" — etimologia ancorada: `unificar = unus + facere = "fazer um"`
+
+### Padrões institucionais consolidados nesta sessão
+
+1. **A UI virou ferramenta de auditoria institucional** — cada commit Fase 1 expôs fóssil latente que TSC + gates não detectavam
+2. **GUARDIÃO maduro** = transformar "buraco negro arquitetural" em "frente conhecida priorizável" sem refatorar (primeira aplicação institucional em DT-SB-MAP)
+3. **Filtro convergir vs deixar quieto:** toca runtime vivo / frontend humano / financeiro = convergir; sem caller + não bloqueia = arquivar como vestígio; cascata = parar e converter em DT
+4. **Modo ACOPLAMENTO MVP-HUMANO formalizado:** gatilhos de intervenção (5) + 3 critérios de decisão (aproxima humano do valor / conecta camadas / melhora capacidade de usar) + lista NÃO (purificação infinita, caça arqueológica, governança expansiva, convergência abstrata, mapeamento sistêmico amplo)
+
+### Frentes NÃO abertas (com motivo institucional)
+
+- **service_booking** — DT-SB-MAP registrada; aguarda decisão arquitetural + uso humano
+- **marketplace** — frente arquitetural maior; v1/v2/multi-vendor paralelas
+- **DT-SOCIAL-REPOSITORY-DRIFT-§28** — cascata 20+ arquivos preservada
+- **governance regional democrática** — depende de uso humano dos contextos vivos primeiro
+- **Federação peer-network** — fora do horizonte imediato
+
+### Estado preparado para validação humana
+
+- Backend `:3000` + frontend `:5173` vivos
+- Onboarding `requiresOnboarding=false` aplicado ao attendee de teste
+- Saldo R$ 500 (seed da reserve) na conta do attendee
+- Credenciais: `q3v3-attendee-1778711956358@e2e.local` / `Q3v3Test@2026`
+- Evento publicado: `localhost:5173/events/e68ce49c-0aea-41c0-a1e8-d6038a4804a3`
+- UUID destino p2p (organizer): `9fb14fb7-2ffd-40b9-abbb-5bfafabc47c9`
+- Smoke HTTP fim-a-fim PASS para ambos contextos (event_ticket + p2p_transfer)
+- Log institucional: `executei_30.md`
+
+---
+
 ## 2026-05-13 — SESSÃO: pipeline contínuo de convergência mecânica + descoberta material fundacional + caminho fundacional canônico EXERCITADO em runtime (18 commits, 9 frentes + 6 housekeepings + DECISION-0036)
 
 **Branch:** `rescue-structural`
