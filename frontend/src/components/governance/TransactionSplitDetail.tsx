@@ -60,11 +60,17 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
       group: 'Grupo',
       project: 'Projeto',
       regional_fund: 'Fundo Regional',
+      reserve: 'Reserva',
       platform: 'Taxa do Sistema',
     };
-    
+
     const baseLabel = labels[targetType] || targetType;
-    if (targetId && targetType !== 'platform' && targetType !== 'regional_fund') {
+    if (
+      targetId &&
+      targetType !== 'platform' &&
+      targetType !== 'regional_fund' &&
+      targetType !== 'reserve'
+    ) {
       return `${baseLabel} (${targetId.substring(0, 8)}...)`;
     }
     return baseLabel;
@@ -75,7 +81,8 @@ export default function TransactionSplitDetail({ transactionId }: TransactionSpl
       user: 'Prestador, motorista ou destinatário',
       group: 'Grupo comunitário configurado',
       project: 'Projeto específico',
-      regional_fund: 'Usado para expansão do sistema na região',
+      regional_fund: 'Circula valor de volta para a sua região',
+      reserve: 'Garante coberturas e estabilidade econômica futura',
       platform: 'Cobrança operacional do sistema',
     };
     return descriptions[targetType] || 'Destino do split';

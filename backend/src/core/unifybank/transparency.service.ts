@@ -46,7 +46,7 @@ export interface SplitDetail {
   };
   splits: Array<{
     transactionId: string;
-    targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'platform';
+    targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'reserve' | 'platform';
     targetId?: string;
     percentage: number;
     amountCents: number;
@@ -148,6 +148,7 @@ class TransparencyService {
     if (metadata.targetType === 'user') targetType = 'user';
     else if (metadata.targetType === 'company' || metadata.targetType === 'group') targetType = 'group';
     else if (metadata.splitType === 'regional_fund') targetType = 'regional_fund';
+    else if (metadata.splitType === 'reserve') targetType = 'reserve';
     else if (metadata.splitType === 'fee') targetType = 'platform';
     return targetType;
   }

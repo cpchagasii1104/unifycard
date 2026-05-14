@@ -47,7 +47,7 @@ export interface SplitDetail {
   };
   splits: Array<{
     transactionId: string;
-    targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'platform';
+    targetType: 'user' | 'group' | 'project' | 'regional_fund' | 'reserve' | 'platform';
     targetId?: string;
     percentage: number;
     amountCents: number;
