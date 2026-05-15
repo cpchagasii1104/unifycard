@@ -794,3 +794,63 @@ Antes disso: **arquivada como conhecimento operacional**, NÃO frente ativa.
 Smoke HTTP material (B+A) como substituto de uso humano expõe fósseis estruturais que TSC e gates não detectam. Confirma princípio: "encanamento testável programaticamente; UX subjetiva ainda aguarda humano clicar" — mas mesmo o teste programático captura drift de runtime real que estaria invisível em validação estática.
 
 ---
+
+## DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT
+
+- **Status:** OPEN
+- **Origem:** T2 da auditoria autônoma (sessão GUARDIÃO 2026-05-14, modo ausência humana controlada)
+- **Vinculada a:** Bug 3 (commit 3ed43d50) — fix canônico em `client.ts`
+
+### Contexto material
+
+`frontend/src/api/client.ts:325-332` foi convergido (commit 3ed43d50) para extrair `.message` de objeto aninhado quando backend retorna shape Fastify default `{ error: { code, message, details } }`. Sem isso, `new Error(errorDetails.error)` produzia `Error("[object Object]")` visível na UI.
+
+Auditoria T2 detectou que o mesmo padrão antigo (`errorData.error || errorData.message || HTTP ...`) ainda existe em **22+ ocorrências** em arquivos da api/ que extraem erro fora do pipeline canônico:
+
+| Arquivo | Ocorrências |
+|---|---|
+| `frontend/src/api/groups.ts` | 17 (linhas 132, 150, 176, 254, 299, 316, 332, 367, 384, 429, 446, 462, 497, 514, 531, e duas no setter de imagens) |
+| `frontend/src/api/education.ts` | 3 (linhas 75, 93, 114) |
+| `frontend/src/api/core.ts` | 1 (linha 92) |
+| `frontend/src/api/identity.ts` | 1 (linha 212) |
+
+Total: ~22 callers vulneráveis ao mesmo bug latente.
+
+### O que já foi convergido nesta sessão
+
+- `frontend/src/api/auth.ts:91` (register) — commit `ee712dbf`
+- `frontend/src/api/auth.ts:172` (login) — commit `ee712dbf`
+
+Esses 2 callers são os caminhos pré-autenticação críticos. Os 22 restantes foram **deixados intencionalmente** porque cluster excede escopo cirúrgico autônomo (>5 pontos, frente dedicada).
+
+### Risco
+
+Quando o backend retorna erro Fastify default em qualquer endpoint consumido por groups/education/core/identity, a UI renderiza "[object Object]" ao invés de mensagem legível. Não causa perda de dados — causa fricção UX em fluxos de criação/atualização (grupos especialmente).
+
+### Mitigação atual
+
+- Caminho canônico via `apiFetch` (client.ts) já corrigido — maioria dos consumers passa por ele
+- Callers diretos `response.json()` em api/ permanecem vulneráveis
+- Erros 4xx em runtime usuário precisam validar manualmente
+
+### Convergência prevista
+
+Frente dedicada (~30-60min):
+1. Extrair helper `extractErrorMessage(errorData, statusCode)` em `client.ts` ou utils dedicado
+2. Substituir o padrão antigo nos ~22 callers usando o helper
+3. TSC + smoke dos endpoints afetados
+4. Considerar refactor maior: migrar todos os callers diretos `response.json()` para usar `apiFetch` canônico (frente arquitetural, escopo maior)
+
+### Critério de convergência prioritária
+
+Esta DT vira frente prioritária se:
+- Usuário humano reportar nova "[object Object]" em grupos/education/identity, OU
+- Sessão dedicada de Frontend Hygiene abrir, OU
+- Refactor para `apiFetch` único pipeline for autorizado
+
+Antes disso: arquivada como conhecimento operacional.
+
+### Padrão institucional capturado
+
+`client.ts` foi convergido como pipeline canônico, mas vários arquivos da api/ existem como "wrappers paralelos" que fazem fetch direto + parsing próprio — verdade paralela arquitetural. Convergir todos via helper compartilhado seria o caminho assintótico.
+
