@@ -45,6 +45,18 @@ export default function HeaderGlobal() {
     };
   }, [isActorDropdownOpen]);
 
+  // A2 (2026-05-15): abrir dropdown via evento disparado de outras páginas
+  // (ex: botão "trocar" na Home → HomeContextual dispara open-actor-dropdown).
+  useEffect(() => {
+    const handleOpenDropdown = () => {
+      setIsActorDropdownOpen(true);
+      // Scroll suave até o header para o usuário ver o dropdown abrindo
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('open-actor-dropdown', handleOpenDropdown);
+    return () => window.removeEventListener('open-actor-dropdown', handleOpenDropdown);
+  }, []);
+
   const loadImpactBalance = useCallback(async () => {
     if (!activeActor) return;
     

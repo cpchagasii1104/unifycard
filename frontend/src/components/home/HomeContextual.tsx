@@ -201,17 +201,49 @@ export default function HomeContextual() {
     );
   }
 
+  // A1 (2026-05-15): extrair primeiro nome do display_name do actor para saudação personalizada.
+  // Para actor_type='user', display_name é o nome completo (ex: "Aparecida Pereira Chagas").
+  // Para actor_type='page', display_name é a razão social da empresa — usamos o nome inteiro.
+  const firstName = (() => {
+    if (!activeActor?.display_name) return null;
+    if (activeActor.actor_type === 'user') {
+      return activeActor.display_name.trim().split(/\s+/)[0];
+    }
+    return activeActor.display_name;
+  })();
+
+  // A3 (2026-05-15): saldo sempre visível com R$0,00 explícito enquanto carrega ou sem dados.
+  const balanceToShow = data.balanceCents ?? 0;
+
   return (
     <div className="home-contextual">
       {/* ============================================
           1) IDENTIDADE E ESTADO - TOPO
           ============================================ */}
-      
+
+      {/* A1: Saudação personalizada */}
+      {firstName && (
+        <div className="home-greeting">
+          <h2 className="home-greeting-text">
+            Olá <strong>{firstName}</strong>, o que deseja fazer hoje?
+          </h2>
+        </div>
+      )}
+
       {/* Situação Atual */}
       <div className="home-situation">
         <h2>Situação Atual</h2>
         <div className="situation-content">
-          <div className="situation-actor">
+          {/* A2: actor clicável que abre o dropdown do Header global */}
+          <button
+            type="button"
+            className="situation-actor situation-actor-button"
+            onClick={() => {
+              // HeaderGlobal escuta este evento para abrir o dropdown de actors
+              window.dispatchEvent(new CustomEvent('open-actor-dropdown'));
+            }}
+            aria-label="Trocar usuário ou perfil ativo"
+          >
             <span className="situation-label">Atuando como:</span>
             <span className="situation-value">
               {activeActor ? (
@@ -223,17 +255,16 @@ export default function HomeContextual() {
                 'Não definido'
               )}
             </span>
-          </div>
+            <span className="situation-actor-hint">▼ trocar</span>
+          </button>
 
-          {/* Saldo (se aplicável) */}
-          {data.balanceCents !== null && (
-            <div className="situation-balance">
-              <span className="situation-label">Saldo:</span>
-              <span className={`situation-value ${data.balanceCents >= 0 ? 'positive' : 'negative'}`}>
-                {formatCentsAsBRL(data.balanceCents)}
-              </span>
-            </div>
-          )}
+          {/* A3: Saldo sempre visível (R$0,00 quando vazio) */}
+          <div className="situation-balance">
+            <span className="situation-label">Saldo do usuário selecionado:</span>
+            <span className={`situation-value ${balanceToShow >= 0 ? 'positive' : 'negative'}`}>
+              {formatCentsAsBRL(balanceToShow)}
+            </span>
+          </div>
         </div>
       </div>
 

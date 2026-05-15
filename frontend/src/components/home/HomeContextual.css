@@ -58,6 +58,52 @@
   cursor: pointer;
 }
 
+/* A1: Saudação personalizada (2026-05-15) */
+.home-greeting {
+  margin-bottom: 1.5rem;
+}
+
+.home-greeting-text {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #1a1a1a;
+}
+
+.home-greeting-text strong {
+  font-weight: 700;
+  color: #0066cc;
+}
+
+/* A2: Botão "Atuando como" clicável (2026-05-15) */
+.situation-actor-button {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.situation-actor-button:hover {
+  background-color: #f5f8ff;
+  border-color: #c0d4f5;
+}
+
+.situation-actor-button:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+.situation-actor-hint {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #0066cc;
+  font-weight: 500;
+}
+
 /* Situação Atual */
 .home-situation {
   background: white;
