@@ -4,9 +4,8 @@
 // sidebar). Conteúdo muda contextualmente conforme actor ativo, mas estrutura
 // é universal.
 //
-// Substitui:
-//   - HeaderGlobal.tsx antigo (saldo + Atuando como + Ir para Banco)
-//   - TopBar inline do DashboardHome
+// Substitui o HeaderGlobal antigo (saldo + Atuando como + Ir para Banco, deletado
+// 2026-05-15) e o TopBar inline do DashboardHome.
 //
 // Estrutura:
 //   - Saudação personalizada (Olá, [primeiro nome])
