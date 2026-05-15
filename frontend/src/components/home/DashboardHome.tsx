@@ -202,56 +202,117 @@ export default function DashboardHome() {
       {/* Sidebar + Header agora vêm do UnifiedAuthLayout (HomePage.tsx).
           DashboardHome renderiza somente os blocos centrais do dashboard. */}
 
-      {/* 4 cards de visão geral */}
-        <section className="dh-overview-cards">
-          {isUser && (
-            <div className="dh-card dh-card-1">
-              <div className="dh-card-head">
-                <div className="dh-card-icon-circle">🌍</div>
-                <div className="dh-card-label">Fundo Regional</div>
-              </div>
-              <div className="dh-card-value">{formatBRL(regionalFundCents ?? 0)}</div>
-              <div className="dh-card-foot">
-                <span className="dh-card-hint">onde você mora</span>
-              </div>
-            </div>
-          )}
-
-          <div className="dh-card dh-card-2">
-            <div className="dh-card-head">
-              <div className="dh-card-icon-circle">💰</div>
-              <div className="dh-card-label">Meu saldo Unifibank</div>
-            </div>
-            <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
-              {formatBRL(balanceToShow)}
-            </div>
-            <div className="dh-card-foot">
-              <span className="dh-card-hint">saldo disponível</span>
-            </div>
-          </div>
-
-          <div className="dh-card dh-card-3">
-            <div className="dh-card-head">
-              <div className="dh-card-icon-circle">⏳</div>
-              <div className="dh-card-label">Em processamento</div>
-            </div>
-            <div className="dh-card-value dh-card-placeholder">—</div>
-            <div className="dh-card-foot">
-              <span className="dh-card-hint">a confirmar</span>
-            </div>
-          </div>
-
-          <div className="dh-card dh-card-4">
-            <div className="dh-card-head">
-              <div className="dh-card-icon-circle">💳</div>
-              <div className="dh-card-label">Limite disponível</div>
-            </div>
-            <div className="dh-card-value dh-card-placeholder">—</div>
-            <div className="dh-card-foot">
-              <span className="dh-card-hint">UnifyCard</span>
-            </div>
-          </div>
-        </section>
+      {/* Cards de visão geral — contextuais ao actor (actorProfile.dashboardCards).
+          PF: Fundo Regional + Meu saldo + Em processamento + Limite UnifyCard.
+          PJ: Caixa empresa + Movimentações + Em processamento + Limite UnifyCard.
+          Grupo: Caixa grupo + Movimentações + Em processamento.
+          Channel: Meu saldo + Movimentações + Em processamento.
+          Cards sem substrato real exibem "—" (não fake data — diretriz §-3). */}
+      <section className="dh-overview-cards">
+        {actorProfile.dashboardCards.map((cardId) => {
+          switch (cardId) {
+            case 'fundo-regional':
+              return (
+                <div key={cardId} className="dh-card dh-card-1">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">🌍</div>
+                    <div className="dh-card-label">Fundo Regional</div>
+                  </div>
+                  <div className="dh-card-value">{formatBRL(regionalFundCents ?? 0)}</div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">onde você mora</span>
+                  </div>
+                </div>
+              );
+            case 'meu-saldo':
+              return (
+                <div key={cardId} className="dh-card dh-card-2">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">💰</div>
+                    <div className="dh-card-label">Meu saldo Unifibank</div>
+                  </div>
+                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
+                    {formatBRL(balanceToShow)}
+                  </div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">saldo disponível</span>
+                  </div>
+                </div>
+              );
+            case 'caixa-empresa':
+              return (
+                <div key={cardId} className="dh-card dh-card-2">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">🏢</div>
+                    <div className="dh-card-label">Caixa da empresa</div>
+                  </div>
+                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
+                    {formatBRL(balanceToShow)}
+                  </div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">saldo operacional</span>
+                  </div>
+                </div>
+              );
+            case 'caixa-grupo':
+              return (
+                <div key={cardId} className="dh-card dh-card-2">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">👥</div>
+                    <div className="dh-card-label">Caixa do grupo</div>
+                  </div>
+                  <div className={`dh-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
+                    {formatBRL(balanceToShow)}
+                  </div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">contribuições</span>
+                  </div>
+                </div>
+              );
+            case 'movimentacoes-mes':
+              return (
+                <div key={cardId} className="dh-card dh-card-3">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">📊</div>
+                    <div className="dh-card-label">Movimentações do mês</div>
+                  </div>
+                  <div className="dh-card-value dh-card-placeholder">—</div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">a consolidar</span>
+                  </div>
+                </div>
+              );
+            case 'em-processamento':
+              return (
+                <div key={cardId} className="dh-card dh-card-3">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">⏳</div>
+                    <div className="dh-card-label">Em processamento</div>
+                  </div>
+                  <div className="dh-card-value dh-card-placeholder">—</div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">a confirmar</span>
+                  </div>
+                </div>
+              );
+            case 'limite-disponivel':
+              return (
+                <div key={cardId} className="dh-card dh-card-4">
+                  <div className="dh-card-head">
+                    <div className="dh-card-icon-circle">💳</div>
+                    <div className="dh-card-label">Limite disponível</div>
+                  </div>
+                  <div className="dh-card-value dh-card-placeholder">—</div>
+                  <div className="dh-card-foot">
+                    <span className="dh-card-hint">UnifyCard</span>
+                  </div>
+                </div>
+              );
+            default:
+              return null;
+          }
+        })}
+      </section>
 
         {/* Meus grupos */}
         <section className="dh-section">
