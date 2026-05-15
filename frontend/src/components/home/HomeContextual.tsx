@@ -7,8 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../api/bank';
 import { listCompanies } from '../../api/companies';
-import { getMyGroups, getGroupBalance } from '../../api/groups';
-import { getReferralEarnings } from '../../api/auth';
+import { getMyGroups } from '../../api/groups';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import MoneyDistribution from '../governance/MoneyDistribution';
@@ -37,11 +36,6 @@ interface HomeContextualData {
   groupsCount: number;
   eventsCount: number; // TODO: implementar quando API estiver disponível
   servicesCount: number; // TODO: implementar quando API estiver disponível
-  /** A5: saldos dos grupos do usuário (nome + balance em BRL). */
-  groupBalances: Array<{ groupId: string; name: string; balance: number; currency: string }>;
-  /** A6: ganhos acumulados com código de indicação (cents). */
-  referralEarningsCents: number;
-  referralEarningsCount: number;
 }
 
 export default function HomeContextual() {
@@ -54,9 +48,6 @@ export default function HomeContextual() {
     groupsCount: 0,
     eventsCount: 0,
     servicesCount: 0,
-    groupBalances: [],
-    referralEarningsCents: 0,
-    referralEarningsCount: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,16 +62,16 @@ export default function HomeContextual() {
     try {
       // Carregar dados em paralelo
       // CONTINUOUS PRODUCTION: Usar Promise.allSettled para não quebrar se uma API falhar
-      const [balanceResult, statementResult, companiesResult, groupsResult, referralResult] = await Promise.allSettled([
-        getBankBalance().catch(() => null), // null se não conseguir carregar
+      // Nota (2026-05-15): saudação + saldos (user/groups/referral) foram extraídos para
+      // HomeHeaderBlock (topo da HomePage). Aqui ficam apenas dados usados pelo restante:
+      // last transaction, companies count, groups count, balance para card UnifyBank.
+      const [balanceResult, statementResult, companiesResult, groupsResult] = await Promise.allSettled([
+        getBankBalance().catch(() => null),
         getBankStatement({ limit: 1 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
         activeActor.actor_type === 'user' ? listCompanies().catch(() => []) : Promise.resolve([]),
         getMyGroups().catch(() => ({ groups: [] })),
-        // A6: só carrega se actor for user; empresa não tem código de indicação próprio
-        activeActor.actor_type === 'user' ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
       ]);
 
-      // Processar resultados — preferir `balanceCents` canônico (§4.7); cair para `balance` legado.
       const balanceCents = balanceResult.status === 'fulfilled' && balanceResult.value
         ? (balanceResult.value.balanceCents ?? balanceResult.value.balance ?? null)
         : null;
@@ -90,28 +81,9 @@ export default function HomeContextual() {
       const companies = companiesResult.status === 'fulfilled' ? companiesResult.value : [];
       const groups = groupsResult.status === 'fulfilled' ? groupsResult.value.groups || [] : [];
 
-      // A5 (2026-05-15): fan-out de saldos por grupo. Endpoint GET /groups/:id/balance
-      // já existe (groups.routes.ts:938 — lê via bankIntegrationService.getGroupBalance).
-      // Falha individual em um grupo não derruba os outros.
-      const balanceFetches = await Promise.allSettled(
-        groups.map((g) => getGroupBalance(g.groupId).then((b) => ({ group: g, balance: b })))
-      );
-      const groupBalances = balanceFetches
-        .map((r) => (r.status === 'fulfilled' ? r.value : null))
-        .filter((x): x is { group: typeof groups[number]; balance: any } => !!x && !!x.balance)
-        .map(({ group, balance }) => ({
-          groupId: group.groupId,
-          name: group.name,
-          balance: balance.balance,
-          currency: balance.currency,
-        }));
-
-      // Detectar se deve mostrar conteúdo de confiança (novo usuário ou sem atividade)
       const hasNoActivity = !lastEntry && balanceCents === null;
       const hasNoCompanies = activeActor.actor_type === 'user' && companies.length === 0;
       setShowTrustContent(hasNoActivity || hasNoCompanies);
-
-      const referralEarnings = referralResult.status === 'fulfilled' ? referralResult.value : null;
 
       setData({
         balanceCents,
@@ -123,11 +95,8 @@ export default function HomeContextual() {
         } : null,
         companiesCount: companies.length,
         groupsCount: groups.length,
-        eventsCount: 0, // TODO: implementar quando API estiver disponível
-        servicesCount: 0, // TODO: implementar quando API estiver disponível
-        groupBalances,
-        referralEarningsCents: referralEarnings?.totalCents ?? 0,
-        referralEarningsCount: referralEarnings?.count ?? 0,
+        eventsCount: 0,
+        servicesCount: 0,
       });
     } catch (err: any) {
       console.error('Erro ao carregar dados contextuais:', err);
@@ -200,16 +169,6 @@ export default function HomeContextual() {
     return labels[context || ''] || 'Transação';
   };
 
-  const getActorTypeLabel = (actorType: string): string => {
-    const labels: Record<string, string> = {
-      user: 'Pessoa Física',
-      page: 'Empresa',
-      group: 'Grupo',
-      channel: 'Canal',
-    };
-    return labels[actorType] || actorType;
-  };
-
   if (loading) {
     return (
       <div className="home-contextual">
@@ -233,105 +192,12 @@ export default function HomeContextual() {
     );
   }
 
-  // A1 (2026-05-15): extrair primeiro nome do display_name do actor para saudação personalizada.
-  // Para actor_type='user', display_name é o nome completo (ex: "Aparecida Pereira Chagas").
-  // Para actor_type='page', display_name é a razão social da empresa — usamos o nome inteiro.
-  const firstName = (() => {
-    if (!activeActor?.display_name) return null;
-    if (activeActor.actor_type === 'user') {
-      return activeActor.display_name.trim().split(/\s+/)[0];
-    }
-    return activeActor.display_name;
-  })();
-
-  // A3 (2026-05-15): saldo sempre visível com R$0,00 explícito enquanto carrega ou sem dados.
-  const balanceToShow = data.balanceCents ?? 0;
-
   return (
     <div className="home-contextual">
       {/* ============================================
-          1) IDENTIDADE E ESTADO - TOPO
+          1) IDENTIDADE E ESTADO
+          (Saudação + Situação Atual foram movidas para HomeHeaderBlock — topo da HomePage)
           ============================================ */}
-
-      {/* A1: Saudação personalizada */}
-      {firstName && (
-        <div className="home-greeting">
-          <h2 className="home-greeting-text">
-            Olá <strong>{firstName}</strong>, o que deseja fazer hoje?
-          </h2>
-        </div>
-      )}
-
-      {/* Situação Atual */}
-      <div className="home-situation">
-        <h2>Situação Atual</h2>
-        <div className="situation-content">
-          {/* A2: actor clicável que abre o dropdown do Header global */}
-          <button
-            type="button"
-            className="situation-actor situation-actor-button"
-            onClick={() => {
-              // HeaderGlobal escuta este evento para abrir o dropdown de actors
-              window.dispatchEvent(new CustomEvent('open-actor-dropdown'));
-            }}
-            aria-label="Trocar usuário ou perfil ativo"
-          >
-            <span className="situation-label">Atuando como:</span>
-            <span className="situation-value">
-              {activeActor ? (
-                <>
-                  <strong>{activeActor.display_name}</strong>
-                  <span className="situation-type">({getActorTypeLabel(activeActor.actor_type)})</span>
-                </>
-              ) : (
-                'Não definido'
-              )}
-            </span>
-            <span className="situation-actor-hint">▼ trocar</span>
-          </button>
-
-          {/* A3: Saldo sempre visível (R$0,00 quando vazio) */}
-          <div className="situation-balance">
-            <span className="situation-label">Saldo do usuário selecionado:</span>
-            <span className={`situation-value ${balanceToShow >= 0 ? 'positive' : 'negative'}`}>
-              {formatCentsAsBRL(balanceToShow)}
-            </span>
-          </div>
-
-          {/* A6: Ganhos com código de indicação (só renderiza para actor_type='user') */}
-          {activeActor?.actor_type === 'user' && (
-            <div className="situation-balance">
-              <span className="situation-label">Ganhos com o código de indicação:</span>
-              <span className={`situation-value ${data.referralEarningsCents >= 0 ? 'positive' : 'negative'}`}>
-                {formatCentsAsBRL(data.referralEarningsCents)}
-              </span>
-              {data.referralEarningsCount > 0 && (
-                <span className="situation-type">({data.referralEarningsCount} indicação{data.referralEarningsCount > 1 ? 'ões' : ''})</span>
-              )}
-            </div>
-          )}
-
-          {/* A5: Saldo de cada grupo do usuário (nome + valor) */}
-          {data.groupBalances.length > 0 && (
-            <div className="situation-group-balances">
-              <div className="situation-label">Saldos dos grupos:</div>
-              <ul className="group-balance-list">
-                {data.groupBalances.map((gb) => (
-                  <li key={gb.groupId} className="group-balance-item">
-                    <span className="group-balance-name">{gb.name}</span>
-                    <span className={`group-balance-value ${gb.balance >= 0 ? 'positive' : 'negative'}`}>
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: gb.currency || 'BRL',
-                      }).format(gb.balance)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Transparência & Confiança (frase curta no topo) */}
       {activeActor && (
