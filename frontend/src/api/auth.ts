@@ -1,15 +1,8 @@
 // src/api/auth.ts
 // API de autenticação - Registro e Login
 
-import { apiFetch } from './client';
-
-// Usar valor padrão se não estiver configurado (desenvolvimento local)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-
-// Aviso apenas em console, não quebra o sistema
-if (!import.meta.env.VITE_API_BASE_URL) {
-  console.warn('[API] VITE_API_BASE_URL não configurada, usando padrão:', API_BASE_URL);
-}
+import type { Gender } from '@unificard/contracts';
+import { apiFetch, apiFetchPublic } from './client';
 
 export interface RegisterRequest {
   email: string;
@@ -19,7 +12,8 @@ export interface RegisterRequest {
   // 🔴 DADOS CIVIS IMUTÁVEIS (coletados no cadastro)
   fullName?: string;
   birthdate?: string; // YYYY-MM-DD
-  gender?: 'male' | 'female';
+  /** Vocabulário canónico — alinhado a `auth.routes` + `@unificard/contracts` */
+  gender?: Gender;
 }
 
 export interface LoginRequest {
@@ -51,7 +45,7 @@ export async function register(
   referralCode?: string,
   fullName?: string,
   birthdate?: string,
-  gender?: 'male' | 'female'
+  gender?: Gender
 ): Promise<AuthResponse> {
   let response: Response;
   
@@ -74,17 +68,14 @@ export async function register(
       body.gender = gender;
     }
     
-    response = await fetch(`${API_BASE_URL}/auth/register`, {
+    response = await apiFetchPublic('/auth/register', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(body),
     });
   } catch (error) {
     // Erro de rede (Failed to fetch)
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.warn('[API] Backend não disponível:', API_BASE_URL);
+      console.warn('[API] Backend não disponível (register)');
       const friendlyMessage = 'Aguardando conexão com o servidor...';
       const errorObj = new Error(friendlyMessage) as any;
       errorObj.code = 'BACKEND_OFFLINE';
@@ -96,8 +87,20 @@ export async function register(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erro ao registrar' }));
-    // Suporta ambos os formatos: { error: ... } e { ok: false, message: ... }
-    const errorMessage = error.message || error.error || `HTTP ${response.status}`;
+    // T2 convergence (2026-05-14): mesmo pipeline canônico de client.ts (Bug 3 fix / 3ed43d50).
+    // Backend pode retornar erro em 3 shapes — sem extrair `.message` do objeto aninhado
+    // (shape c: Fastify default) o `new Error(obj)` virava "[object Object]" na UI.
+    const nestedError = (error as any).error;
+    let errorMessage: string;
+    if (typeof (error as any).message === 'string') {
+      errorMessage = (error as any).message;
+    } else if (typeof nestedError === 'string') {
+      errorMessage = nestedError;
+    } else if (nestedError && typeof nestedError === 'object' && typeof nestedError.message === 'string') {
+      errorMessage = nestedError.message;
+    } else {
+      errorMessage = `HTTP ${response.status}`;
+    }
     const errorObj = new Error(errorMessage) as Error & { statusCode?: number };
     errorObj.statusCode = response.status;
     throw errorObj;
@@ -141,7 +144,7 @@ export async function login(email: string, password: string, tenantId?: string):
       };
       // tenantId NÃO é enviado - backend ignora mesmo se fornecido
       
-      response = await fetch(`${API_BASE_URL}/auth/login`, {
+      response = await apiFetchPublic('/auth/login', {
         method: 'POST',
         headers,
         body: JSON.stringify({ email, password }),
@@ -153,7 +156,7 @@ export async function login(email: string, password: string, tenantId?: string):
       
       // Erro de timeout ou abort
       if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-        console.warn('[API] Timeout ao conectar com backend:', API_BASE_URL);
+        console.warn('[API] Timeout ao conectar com backend (login)');
         const errorObj = new Error('Servidor não respondeu. Verifique se o backend está rodando.') as any;
         errorObj.code = 'BACKEND_OFFLINE';
         errorObj.isRetryable = true;
@@ -162,7 +165,7 @@ export async function login(email: string, password: string, tenantId?: string):
       
       // Erro de rede (Failed to fetch)
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('[API] Backend não disponível:', API_BASE_URL);
+        console.warn('[API] Backend não disponível (login)');
         const errorObj = new Error('Não foi possível conectar ao servidor. Verifique se o backend está rodando.') as any;
         errorObj.code = 'BACKEND_OFFLINE';
         errorObj.isRetryable = true;
@@ -177,9 +180,21 @@ export async function login(email: string, password: string, tenantId?: string):
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Erro ao fazer login' }));
-      // Suporta ambos os formatos: { error: ... } e { ok: false, message: ... }
-      const errorMessage = error.message || error.error || `HTTP ${response.status}`;
-      
+      // T2 convergence (2026-05-14): mesmo pipeline canônico de client.ts (Bug 3 fix / 3ed43d50).
+      // Backend pode retornar erro em 3 shapes — sem extrair `.message` do objeto aninhado
+      // (shape c: Fastify default) o `new Error(obj)` virava "[object Object]" na UI.
+      const nestedError = (error as any).error;
+      let errorMessage: string;
+      if (typeof (error as any).message === 'string') {
+        errorMessage = (error as any).message;
+      } else if (typeof nestedError === 'string') {
+        errorMessage = nestedError;
+      } else if (nestedError && typeof nestedError === 'object' && typeof nestedError.message === 'string') {
+        errorMessage = nestedError.message;
+      } else {
+        errorMessage = `HTTP ${response.status}`;
+      }
+
       // Tratar erro 429 especificamente
       if (response.status === 429) {
         const rateLimitError = new Error('Muitas tentativas de login. Aguarde alguns segundos antes de tentar novamente.') as any;
@@ -187,7 +202,7 @@ export async function login(email: string, password: string, tenantId?: string):
         rateLimitError.status = 429;
         throw rateLimitError;
       }
-      
+
       throw new Error(errorMessage);
     }
 
@@ -210,12 +225,10 @@ export async function checkCpfExists(cpf: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/check-cpf?cpf=${encodeURIComponent(cpfNumbers)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await apiFetchPublic(
+      `/auth/check-cpf?cpf=${encodeURIComponent(cpfNumbers)}`,
+      { method: 'GET' }
+    );
 
     if (!response.ok) {
       // Se der erro, assumir que não existe (não bloquear cadastro)
