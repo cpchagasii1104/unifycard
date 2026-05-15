@@ -9,15 +9,15 @@ export class CityRepository {
   async findByStateId(stateId: string): Promise<CityRow[]> {
     return runSystemQuery<CityRow>({
       text: `
-        SELECT 
+        SELECT
           city_id,
           state_id,
           name,
-          name_en,
-          latitude,
-          longitude,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          lat AS latitude,
+          lng AS longitude,
+          created_at,
+          updated_at
         FROM cities
         WHERE state_id = $1
         ORDER BY name ASC
@@ -32,15 +32,15 @@ export class CityRepository {
   async findById(cityId: string): Promise<CityRow | undefined> {
     const rows = await runSystemQuery<CityRow>({
       text: `
-        SELECT 
+        SELECT
           city_id,
           state_id,
           name,
-          name_en,
-          latitude,
-          longitude,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          lat AS latitude,
+          lng AS longitude,
+          created_at,
+          updated_at
         FROM cities
         WHERE city_id = $1
       `,
@@ -55,21 +55,18 @@ export class CityRepository {
   async search(term: string, countryId?: string, stateId?: string, limit: number = 20, offset: number = 0): Promise<CityRow[]> {
     const searchTerm = `%${term}%`;
     let query = `
-      SELECT 
+      SELECT
         c.city_id,
         c.state_id,
         c.name,
-        c.name_en,
-        c.latitude,
-        c.longitude,
-        c.createdAt,
-        c.updatedAt
+        NULL::text AS name_en,
+        c.lat AS latitude,
+        c.lng AS longitude,
+        c.created_at,
+        c.updated_at
       FROM cities c
       INNER JOIN states s ON c.state_id = s.state_id
-      WHERE (
-        UPPER(c.name) LIKE UPPER($1)
-        OR UPPER(c.name_en) LIKE UPPER($1)
-      )
+      WHERE UPPER(c.name) LIKE UPPER($1)
     `;
     const values: any[] = [searchTerm];
     let paramIndex = 2;

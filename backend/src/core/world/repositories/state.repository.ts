@@ -9,14 +9,14 @@ export class StateRepository {
   async findByCountryId(countryId: string): Promise<StateRow[]> {
     return runSystemQuery<StateRow>({
       text: `
-        SELECT 
+        SELECT
           state_id,
           country_id,
-          code,
+          COALESCE(abbreviation, iso_3166_2) AS code,
           name,
-          name_en,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          created_at,
+          updated_at
         FROM states
         WHERE country_id = $1
         ORDER BY name ASC
@@ -31,14 +31,14 @@ export class StateRepository {
   async findById(stateId: string): Promise<StateRow | undefined> {
     const rows = await runSystemQuery<StateRow>({
       text: `
-        SELECT 
+        SELECT
           state_id,
           country_id,
-          code,
+          COALESCE(abbreviation, iso_3166_2) AS code,
           name,
-          name_en,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          created_at,
+          updated_at
         FROM states
         WHERE state_id = $1
       `,
