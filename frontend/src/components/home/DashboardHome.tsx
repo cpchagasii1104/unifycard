@@ -24,6 +24,7 @@ import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import { useActorMode } from '../../hooks/useActorMode';
 import { useProfessionalContext } from '../../hooks/useProfessionalContext';
+import { resolveQuickActionsWithProfession } from '../../config/actorContextConfig';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -108,8 +109,17 @@ const contextLabels: Record<string, string> = {
 export default function DashboardHome() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
-  const { profile: actorProfile, quickActions: contextualQuickActions } = useActorMode();
+  const { profile: actorProfile } = useActorMode();
   const { context: professionalContext } = useProfessionalContext();
+
+  // Quick actions combinadas: profissão primeiro (até 3) + actor (preenche restante).
+  // resolveQuickActionsWithProfession mantém diretriz "lente vs caixinha" — não
+  // remove actor actions, só prioriza profissão quando aplicável.
+  const contextualQuickActions = resolveQuickActionsWithProfession(
+    actorProfile,
+    professionalContext?.suggestedQuickActions,
+    8
+  );
 
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
