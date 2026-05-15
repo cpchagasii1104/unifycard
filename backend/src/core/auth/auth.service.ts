@@ -381,16 +381,24 @@ class AuthService {
     
     // 🔴 PARTE 1 - CORREÇÃO BUG: Salvar nome, data de nascimento e sexo no cadastro
     // IMPORTANTE: Fazer isso DEPOIS de criar a identidade global para garantir que globalUserId existe
-    if (fullName || birthdate || gender) {
+    if (fullName || birthdate || gender || normalizedCpf) {
       try {
         const { profileService } = await import('@core/profile/profile.service');
-        
+
         // Preparar dados do perfil
         const profileMetadata: Record<string, any> = {};
         if (gender) {
           profileMetadata.gender = gender;
         }
-        
+        // Bug CPF fix (2026-05-14): propagar CPF para user_profiles via profileService.
+        // GET /core/profile monta personal_profile.cpf de user_profiles.cpf (core.service.ts:289-304),
+        // mas REGISTER só gravava profiles.cpf — Profile inicial via vazio e usuário tinha que
+        // reinserir CPF. profileService.upsertProfile lê metadata.cpf, valida via validateCpfOrThrow
+        // e faz UPSERT em user_profiles (linha 456) sem persistir cpf dentro de profiles.metadata.
+        if (normalizedCpf) {
+          profileMetadata.cpf = normalizedCpf;
+        }
+
         // Salvar nome e sexo no perfil
         // 🔴 PADRONIZAÇÃO: Usar nome já normalizado
         await profileService.upsertProfile(finalTenantId, user.userId, {
