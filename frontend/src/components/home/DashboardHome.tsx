@@ -435,28 +435,34 @@ export default function DashboardHome() {
           </div>
         </section>
 
-        {/* Banner promo */}
-        <section className="dh-promo">
-          <div className="dh-promo-text">
-            <h3 className="dh-promo-title">UnifiCard é mais que sua carteira</h3>
-            <p className="dh-promo-sub">
-              Coordene tempo, dinheiro e relações em um só lugar. Cooperativismo, transparência e
-              autogestão em cada transação.
-            </p>
-            <button
-              type="button"
-              className="dh-btn dh-btn-on-promo"
-              onClick={() => navigate('/transparencia')}
-            >
-              Saiba mais
-            </button>
-          </div>
-          <div className="dh-promo-art" aria-hidden="true">
-            <span>🌐</span>
-            <span>💸</span>
-            <span>👥</span>
-          </div>
-        </section>
+        {/* Banner promo — contextual ao actor ativo */}
+        {(() => {
+          const banner = actorProfile.contextualBanner ?? {
+            title: 'UnifiCard é mais que sua carteira',
+            subtitle: 'Coordene tempo, dinheiro e relações em um só lugar. Cooperativismo, transparência e autogestão em cada transação.',
+            route: '/transparencia',
+          };
+          return (
+            <section className="dh-promo">
+              <div className="dh-promo-text">
+                <h3 className="dh-promo-title">{banner.title}</h3>
+                <p className="dh-promo-sub">{banner.subtitle}</p>
+                <button
+                  type="button"
+                  className="dh-btn dh-btn-on-promo"
+                  onClick={() => navigate(banner.route ?? '/transparencia')}
+                >
+                  Saiba mais
+                </button>
+              </div>
+              <div className="dh-promo-art" aria-hidden="true">
+                <span>🌐</span>
+                <span>💸</span>
+                <span>👥</span>
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Atividade recente */}
         <section className="dh-section">
