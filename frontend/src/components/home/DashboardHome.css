@@ -493,6 +493,23 @@
   background: var(--dh-border-soft);
 }
 
+.dh-section-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dh-section-prof-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
 .dh-section-link:hover {
   background: var(--dh-primary-soft);
 }

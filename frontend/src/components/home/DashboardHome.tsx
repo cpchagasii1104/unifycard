@@ -24,6 +24,7 @@ import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import { useActorMode } from '../../hooks/useActorMode';
+import { useProfessionalContext } from '../../hooks/useProfessionalContext';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -109,6 +110,7 @@ export default function DashboardHome() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
   const { profile: actorProfile, quickActions: contextualQuickActions } = useActorMode();
+  const { context: professionalContext } = useProfessionalContext();
 
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
@@ -347,7 +349,22 @@ export default function DashboardHome() {
         <section className="dh-section">
           <div className="dh-section-header">
             <h2 className="dh-section-title">Acessos rápidos</h2>
-            <span className="dh-section-subtle">{actorProfile.modeName}</span>
+            <div className="dh-section-tags">
+              <span className="dh-section-subtle">{actorProfile.modeName}</span>
+              {professionalContext && (
+                <span
+                  className="dh-section-prof-badge"
+                  style={{
+                    backgroundColor: professionalContext.color + '22',
+                    color: professionalContext.color,
+                  }}
+                  title="Modo profissional ativado a partir do seu perfil"
+                >
+                  <span aria-hidden="true">{professionalContext.icon}</span>
+                  {professionalContext.label}
+                </span>
+              )}
+            </div>
           </div>
           <div className="dh-quick-actions">
             {contextualQuickActions.map((a) => (
