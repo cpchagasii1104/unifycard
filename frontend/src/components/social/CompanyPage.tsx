@@ -1,9 +1,13 @@
 // src/components/social/CompanyPage.tsx
-// Página de empresa com capa + posts + CTA
+// 2026-05-15: refatorada para usar EntityHero (primitivo lego universal).
+// Antes desta refatoração, era ~95% paralela a ProfilePage. Agora a estrutura
+// visual de cabeçalho vem do componente compartilhado e apenas a parametrização
+// muda (variant='company' + botão extra "Contatar").
 
 import { useState, useEffect } from 'react';
 import PostCard, { type PostCardData } from './PostCard';
 import SalesHistory from './SalesHistory';
+import EntityHero, { type EntityHeroStat, type EntityHeroAction } from '../entity/EntityHero';
 import { getActor, toggleReaction, createComment, followActor, unfollowActor } from '../../api/social';
 import { showToast } from '../common/Toast';
 import './CompanyPage.css';
@@ -29,6 +33,7 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFollowingAction, setIsFollowingAction] = useState(false);
 
   useEffect(() => {
     loadCompany();
@@ -58,19 +63,21 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
   const handleReaction = async (postId: string, reactionType: string) => {
     try {
       await toggleReaction(postId, reactionType as 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry');
-      setPosts(prev => prev.map((post) => {
-        if (post.post_id === postId) {
-          const wasLiked = post.user_reaction === reactionType;
-          return {
-            ...post,
-            user_reaction: wasLiked ? null : reactionType,
-            reactions_count: wasLiked
-              ? post.reactions_count - 1
-              : post.reactions_count + (post.user_reaction ? 0 : 1),
-          };
-        }
-        return post;
-      }));
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post.post_id === postId) {
+            const wasLiked = post.user_reaction === reactionType;
+            return {
+              ...post,
+              user_reaction: wasLiked ? null : reactionType,
+              reactions_count: wasLiked
+                ? post.reactions_count - 1
+                : post.reactions_count + (post.user_reaction ? 0 : 1),
+            };
+          }
+          return post;
+        })
+      );
     } catch (err) {
       console.error('Erro ao reagir:', err);
     }
@@ -79,18 +86,15 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
   const handleComment = async (postId: string, content: string) => {
     try {
       await createComment(postId, { content });
-      setPosts(prev => prev.map((post) => {
-        if (post.post_id === postId) {
-          return { ...post, comments_count: post.comments_count + 1 };
-        }
-        return post;
-      }));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.post_id === postId ? { ...post, comments_count: post.comments_count + 1 } : post
+        )
+      );
     } catch (err) {
       console.error('Erro ao comentar:', err);
     }
   };
-
-  const [isFollowingAction, setIsFollowingAction] = useState(false);
 
   const handleFollow = async () => {
     if (isFollowingAction) return;
@@ -98,7 +102,7 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
     try {
       await followActor(actorId);
       setIsFollowing(true);
-      setCounts(prev => ({ ...prev, followers_count: prev.followers_count + 1 }));
+      setCounts((prev) => ({ ...prev, followers_count: prev.followers_count + 1 }));
       showToast('Agora você está seguindo!', 'success');
     } catch (err) {
       console.error('Erro ao seguir:', err);
@@ -114,7 +118,7 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
     try {
       await unfollowActor(actorId);
       setIsFollowing(false);
-      setCounts(prev => ({ ...prev, followers_count: Math.max(0, prev.followers_count - 1) }));
+      setCounts((prev) => ({ ...prev, followers_count: Math.max(0, prev.followers_count - 1) }));
       showToast('Você deixou de seguir.', 'info');
     } catch (err) {
       console.error('Erro ao deixar de seguir:', err);
@@ -137,95 +141,60 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
     );
   }
 
+  const serviceCount = posts.filter((p) => p.intent === 'service_offer').length;
+  const eventCount = posts.filter((p) => p.intent === 'event' || p.linked_event).length;
+
+  const stats: EntityHeroStat[] = [
+    { label: 'publicações', value: counts.posts_count },
+    { label: 'seguidores', value: counts.followers_count },
+    ...(serviceCount > 0 ? [{ label: 'serviços', value: serviceCount }] : []),
+    ...(eventCount > 0 ? [{ label: 'eventos', value: eventCount }] : []),
+  ];
+
+  const actions: EntityHeroAction[] = [
+    isFollowing
+      ? {
+          label: isFollowingAction ? '...' : 'Deixar de seguir',
+          onClick: handleUnfollow,
+          variant: 'secondary',
+          disabled: isFollowingAction,
+        }
+      : {
+          label: isFollowingAction ? '...' : 'Seguir',
+          onClick: handleFollow,
+          variant: 'primary',
+          disabled: isFollowingAction,
+        },
+    {
+      label: 'Contatar',
+      onClick: () => showToast('Contato em desenvolvimento — em breve.', 'info'),
+      variant: 'secondary',
+    },
+  ];
+
   return (
     <div className="company-page">
-      {/* Botão voltar */}
-      <div className="page-back">
-        <button onClick={() => window.history.back()} className="back-button">
-          ← Voltar
-        </button>
-      </div>
-      
-      {/* Capa */}
-      <div className="company-cover">
-        {actor.cover_url ? (
-          <img src={actor.cover_url} alt="Capa" />
-        ) : (
-          <div className="cover-placeholder">Capa da Empresa</div>
-        )}
-      </div>
-
-      {/* Header */}
-      <div className="company-header">
-        <div className="company-avatar-section">
-          {actor.avatar_url ? (
-            <img src={actor.avatar_url} alt={actor.display_name} className="company-avatar" />
-          ) : (
-            <div className="company-avatar-placeholder">
-              {actor.display_name[0]?.toUpperCase() || 'E'}
-            </div>
-          )}
-        </div>
-        <div className="company-info">
-          <div className="company-name-section">
-            <h1>{actor.display_name}</h1>
-            {/* TODO: Adicionar badge de verificação quando company_status estiver disponível */}
-          </div>
-          {actor.bio && <p className="company-bio">{actor.bio}</p>}
-          <div className="company-stats">
-            <span className="stat-item">
-              <strong>{counts.posts_count}</strong> publicações
-            </span>
-            <span className="stat-item">
-              <strong>{counts.followers_count}</strong> seguidores
-            </span>
-            {posts.filter(p => p.intent === 'service_offer').length > 0 && (
-              <span className="stat-item">
-                <strong>{posts.filter(p => p.intent === 'service_offer').length}</strong> serviços
-              </span>
-            )}
-            {posts.filter(p => p.intent === 'event' || p.linked_event).length > 0 && (
-              <span className="stat-item">
-                <strong>{posts.filter(p => p.intent === 'event' || p.linked_event).length}</strong> eventos
-              </span>
-            )}
-          </div>
-          {counts.posts_count > 0 && (
-            <p className="company-trust-text">
-              {counts.posts_count > 5 ? '✓ Empresa ativa na comunidade' : 'Nova empresa'}
-            </p>
-          )}
-        </div>
-        {/* CTA */}
-        <div className="company-cta">
-          {isFollowing ? (
-            <button 
-              onClick={handleUnfollow} 
-              className="cta-button secondary"
-              disabled={isFollowingAction}
-            >
-              {isFollowingAction ? '...' : 'Deixar de seguir'}
-            </button>
-          ) : (
-            <button 
-              onClick={handleFollow} 
-              className="cta-button primary"
-              disabled={isFollowingAction}
-            >
-              {isFollowingAction ? '...' : 'Seguir'}
-            </button>
-          )}
-          <button className="cta-button secondary">Contatar</button>
-        </div>
-      </div>
-
-      {/* Histórico de vendas/ofertas */}
-      <SalesHistory 
-        posts={posts} 
-        actorType={actor.actor_type as 'user' | 'page'}
+      <EntityHero
+        variant="company"
+        onBack={() => window.history.back()}
+        coverUrl={actor.cover_url}
+        avatarUrl={actor.avatar_url}
+        avatarFallback={actor.display_name[0] || 'E'}
+        displayName={actor.display_name}
+        bio={actor.bio}
+        stats={stats}
+        trustText={
+          counts.posts_count > 0
+            ? counts.posts_count > 5
+              ? '✓ Empresa ativa na comunidade'
+              : 'Nova empresa'
+            : null
+        }
+        actions={actions}
       />
 
-      {/* Posts */}
+      <SalesHistory posts={posts} actorType={actor.actor_type as 'user' | 'page'} />
+
       <div className="company-posts">
         <h2>Publicações</h2>
         {posts.length === 0 ? (
@@ -248,8 +217,3 @@ export default function CompanyPage({ actorId }: { actorId: string }) {
     </div>
   );
 }
-
-
-
-
-

@@ -1,0 +1,282 @@
+/* EntityHero.css — primitivo lego universal (2026-05-15) */
+
+.eh-root {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.eh-back {
+  padding: 0.75rem 1rem 0 1rem;
+}
+
+.eh-back-button {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  color: #5b3fe4;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.eh-back-button:hover {
+  background: #ede9fe;
+}
+
+/* Capa */
+.eh-cover {
+  width: 100%;
+  height: 220px;
+  position: relative;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  overflow: hidden;
+}
+
+.eh-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.eh-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(91, 63, 228, 0.45);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Variantes — tons de placeholder por tipo de entidade */
+.eh-variant-company .eh-cover {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+.eh-variant-company .eh-cover-placeholder {
+  color: rgba(59, 130, 246, 0.45);
+}
+.eh-variant-group .eh-cover {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+.eh-variant-group .eh-cover-placeholder {
+  color: rgba(16, 185, 129, 0.45);
+}
+.eh-variant-event .eh-cover {
+  background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+}
+.eh-variant-event .eh-cover-placeholder {
+  color: rgba(217, 119, 6, 0.55);
+}
+.eh-variant-channel .eh-cover {
+  background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%);
+}
+.eh-variant-channel .eh-cover-placeholder {
+  color: rgba(219, 39, 119, 0.55);
+}
+.eh-variant-page .eh-cover {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+}
+.eh-variant-page .eh-cover-placeholder {
+  color: rgba(99, 102, 241, 0.55);
+}
+
+/* Header com avatar + info */
+.eh-header {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  margin-top: -50px;
+  position: relative;
+  align-items: flex-end;
+}
+
+.eh-avatar-section {
+  flex-shrink: 0;
+}
+
+.eh-avatar,
+.eh-avatar-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 4px solid white;
+  display: block;
+  background-color: #f3f4f6;
+}
+
+.eh-avatar {
+  object-fit: cover;
+}
+
+.eh-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #5b3fe4 0%, #8b5cf6 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 3rem;
+  letter-spacing: -0.02em;
+}
+
+.eh-info {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eh-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.eh-name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.eh-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.eh-badge--active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.eh-badge--verified {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.eh-badge--new {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.eh-bio {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.eh-stats {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.1rem;
+}
+
+.eh-stat {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.eh-stat strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+.eh-trust {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.eh-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.eh-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.eh-action--primary {
+  background: #5b3fe4;
+  color: white;
+}
+
+.eh-action--primary:hover:not(:disabled) {
+  background: #4a30c4;
+  transform: translateY(-1px);
+}
+
+.eh-action--secondary {
+  background: transparent;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+}
+
+.eh-action--secondary:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.eh-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsivo mobile */
+@media (max-width: 640px) {
+  .eh-cover {
+    height: 140px;
+  }
+
+  .eh-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0 1rem 1.25rem 1rem;
+    margin-top: -40px;
+  }
+
+  .eh-avatar,
+  .eh-avatar-placeholder {
+    width: 90px;
+    height: 90px;
+    font-size: 2.2rem;
+  }
+
+  .eh-name {
+    font-size: 1.25rem;
+  }
+}
