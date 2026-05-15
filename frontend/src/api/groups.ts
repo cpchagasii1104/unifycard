@@ -186,7 +186,7 @@ export async function uploadGroupImage(
 export async function getGroupCategories(): Promise<GroupCategory[]> {
   try {
     const { searchCategories } = await import('./categories');
-    const categories = await searchCategories('', 1000, 'group');
+    const categories = await searchCategories('', 1000, 'group' as import('@unificard/contracts').CategoryContext);
     
     return categories.map(cat => ({
       categoryId: cat.categoryId,
@@ -260,6 +260,32 @@ export async function getGroup(groupId: string): Promise<Group> {
     ...group,
     avatarUrl: group.avatar_url || group.avatarUrl,
     coverUrl: group.cover_url || group.coverUrl,
+  };
+}
+
+/**
+ * A5 (2026-05-15): saldo do grupo via bank_ledger.
+ * GET /groups/:id/balance
+ * Retorna saldo soberano do grupo (canônico §4.7 — em BRL, não cents).
+ */
+export interface GroupBalance {
+  balance: number;
+  currency: string;
+  accountId?: string;
+  hasAccount: boolean;
+}
+
+export async function getGroupBalance(groupId: string): Promise<GroupBalance | null> {
+  const response = await apiFetch(`/groups/${groupId}/balance`, {}, { silent401: true, silent404: true });
+  if (!response.ok) return null;
+  const json = await response.json();
+  // Backend retorna { ok, data: { balance, currency, hasAccount, accountId? } }
+  const data = json?.data ?? json;
+  return {
+    balance: data.balance ?? 0,
+    currency: data.currency ?? 'BRL',
+    accountId: data.accountId,
+    hasAccount: !!data.hasAccount,
   };
 }
 

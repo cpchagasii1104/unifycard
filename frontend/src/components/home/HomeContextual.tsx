@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../api/bank';
 import { listCompanies } from '../../api/companies';
-import { getMyGroups } from '../../api/groups';
+import { getMyGroups, getGroupBalance } from '../../api/groups';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import MoneyDistribution from '../governance/MoneyDistribution';
@@ -36,6 +36,8 @@ interface HomeContextualData {
   groupsCount: number;
   eventsCount: number; // TODO: implementar quando API estiver disponível
   servicesCount: number; // TODO: implementar quando API estiver disponível
+  /** A5: saldos dos grupos do usuário (nome + balance em BRL). */
+  groupBalances: Array<{ groupId: string; name: string; balance: number; currency: string }>;
 }
 
 export default function HomeContextual() {
@@ -48,6 +50,7 @@ export default function HomeContextual() {
     groupsCount: 0,
     eventsCount: 0,
     servicesCount: 0,
+    groupBalances: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +82,22 @@ export default function HomeContextual() {
       const companies = companiesResult.status === 'fulfilled' ? companiesResult.value : [];
       const groups = groupsResult.status === 'fulfilled' ? groupsResult.value.groups || [] : [];
 
+      // A5 (2026-05-15): fan-out de saldos por grupo. Endpoint GET /groups/:id/balance
+      // já existe (groups.routes.ts:938 — lê via bankIntegrationService.getGroupBalance).
+      // Falha individual em um grupo não derruba os outros.
+      const balanceFetches = await Promise.allSettled(
+        groups.map((g) => getGroupBalance(g.groupId).then((b) => ({ group: g, balance: b })))
+      );
+      const groupBalances = balanceFetches
+        .map((r) => (r.status === 'fulfilled' ? r.value : null))
+        .filter((x): x is { group: typeof groups[number]; balance: any } => !!x && !!x.balance)
+        .map(({ group, balance }) => ({
+          groupId: group.groupId,
+          name: group.name,
+          balance: balance.balance,
+          currency: balance.currency,
+        }));
+
       // Detectar se deve mostrar conteúdo de confiança (novo usuário ou sem atividade)
       const hasNoActivity = !lastEntry && balanceCents === null;
       const hasNoCompanies = activeActor.actor_type === 'user' && companies.length === 0;
@@ -96,6 +115,7 @@ export default function HomeContextual() {
         groupsCount: groups.length,
         eventsCount: 0, // TODO: implementar quando API estiver disponível
         servicesCount: 0, // TODO: implementar quando API estiver disponível
+        groupBalances,
       });
     } catch (err: any) {
       console.error('Erro ao carregar dados contextuais:', err);
@@ -265,6 +285,26 @@ export default function HomeContextual() {
               {formatCentsAsBRL(balanceToShow)}
             </span>
           </div>
+
+          {/* A5: Saldo de cada grupo do usuário (nome + valor) */}
+          {data.groupBalances.length > 0 && (
+            <div className="situation-group-balances">
+              <div className="situation-label">Saldos dos grupos:</div>
+              <ul className="group-balance-list">
+                {data.groupBalances.map((gb) => (
+                  <li key={gb.groupId} className="group-balance-item">
+                    <span className="group-balance-name">{gb.name}</span>
+                    <span className={`group-balance-value ${gb.balance >= 0 ? 'positive' : 'negative'}`}>
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: gb.currency || 'BRL',
+                      }).format(gb.balance)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 

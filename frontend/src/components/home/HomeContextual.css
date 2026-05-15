@@ -160,6 +160,50 @@
   margin-left: 0.25rem;
 }
 
+/* A5: Lista de saldos de grupos (2026-05-15) */
+.situation-group-balances {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #ececec;
+}
+
+.group-balance-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.group-balance-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.group-balance-name {
+  color: #333;
+  font-weight: 500;
+}
+
+.group-balance-value {
+  font-weight: 600;
+}
+
+.group-balance-value.positive {
+  color: #28a745;
+}
+
+.group-balance-value.negative {
+  color: #dc3545;
+}
+
 /* Pendências */
 .home-pending-actions {
   margin-top: 2rem;
