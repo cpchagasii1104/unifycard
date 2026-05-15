@@ -55,7 +55,7 @@ export default function GlobalHeader() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDropdownOpen]);
 
-  // Escutar evento global (ex: HomeContextual dispara open-actor-dropdown)
+  // Escutar evento global open-actor-dropdown (disparado por botão em qualquer página)
   useEffect(() => {
     const handler = () => {
       setIsDropdownOpen(true);
