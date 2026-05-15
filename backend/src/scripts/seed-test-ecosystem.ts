@@ -158,6 +158,93 @@ interface GroupSeed {
   memberEmails: string[];
 }
 
+interface PostSeed {
+  authorKey: string; // identifier (email ou displayName de page) que mapeamos para actor_id
+  authorType: 'user' | 'page' | 'group';
+  content: string;
+  intent?: string | null;
+  intentMetadata?: Record<string, any> | null;
+  postType?: 'standard' | 'group_post';
+}
+
+// Posts cross-contexto para validar feed contextual.
+// authorKey: email para users; displayName para pages; group name para groups.
+const POSTS: PostSeed[] = [
+  // João dentista (atuando como Clínica Sorrisos)
+  {
+    authorKey: 'Clínica Sorrisos',
+    authorType: 'page',
+    content: 'Implante de zircônia finalizado hoje — sorriso natural restaurado. Atendemos com agenda flexível e seguimos protocolo da Receita Federal e ANVISA.',
+    intent: 'service_offer',
+    intentMetadata: { category: 'odontologia', service: 'implante_zirconia' },
+  },
+  // João banda (atuando como Voltagem Bar Band)
+  {
+    authorKey: 'Voltagem Bar Band',
+    authorType: 'page',
+    content: 'Agenda aberta para shows em bares e eventos do centro. Repertório rock 80/90 com 2h de set list. Cachê acessível para casas em formação.',
+    intent: 'service_offer',
+    intentMetadata: { category: 'musica', service: 'show_ao_vivo' },
+  },
+  // Pedro restaurante
+  {
+    authorKey: 'Bar do Tonho',
+    authorType: 'page',
+    content: 'Procurando banda para sexta-feira (21h-23h) — música ao vivo na nossa casa do bairro. Pago cachê combinado + bebida da casa para os músicos.',
+    intent: 'service_request',
+    intentMetadata: { category: 'musica', service: 'show_ao_vivo', urgency: 'this_week' },
+  },
+  // Maria confeiteira (contexto profissional contextual — sem page)
+  {
+    authorKey: 'maria.souza@teste.unificard.local',
+    authorType: 'user',
+    content: 'Bolo de casamento entregue ontem para a Aparecida — 3 andares, recheio brigadeiro com nozes. Gratidão pela confiança. Aceito encomendas para fevereiro.',
+    intent: 'portfolio',
+    intentMetadata: {
+      profession_context: 'confeitaria',
+      category: 'doces',
+      tags: ['bolo_casamento', 'encomenda_aberta'],
+    },
+  },
+  // Lúcia advogada (contexto profissional contextual)
+  {
+    authorKey: 'lucia.lopes@teste.unificard.local',
+    authorType: 'user',
+    content: 'Workshop LGPD para pequenas empresas — sábado 14h online. Foco prático: o que sua loja precisa fazer até final do ano. Vagas limitadas, inscrições em DM.',
+    intent: 'event_announce',
+    intentMetadata: {
+      profession_context: 'juridico',
+      category: 'consultoria',
+      event_format: 'online',
+    },
+  },
+  // Carla (PF, sem profissão)
+  {
+    authorKey: 'carla.mendes@teste.unificard.local',
+    authorType: 'user',
+    content: 'Aniversário no Bar do Tonho semana que vem! Já chamei a galera. Tem confirmação de música ao vivo? 🎉',
+    intent: 'social',
+    intentMetadata: { tags: ['aniversario', 'eventos_pessoais'] },
+  },
+  // João (PF, social — fora do contexto profissional)
+  {
+    authorKey: 'joao.silva@teste.unificard.local',
+    authorType: 'user',
+    content: 'Churrasco no domingo aqui em casa, traz a família. Carne já garantida, cervejinha por conta de cada um 🍺',
+    intent: 'social',
+    intentMetadata: { tags: ['churrasco', 'familia'] },
+  },
+  // Grupo Vizinhos do Centro (group actor)
+  {
+    authorKey: 'Vizinhos do Centro',
+    authorType: 'group',
+    content: 'Reunião quinta-feira 19h sobre reciclagem do bairro — confirmem presença. Pauta: pontos de coleta + parceria com cooperativa local.',
+    intent: 'group_announce',
+    intentMetadata: { tags: ['reuniao', 'reciclagem'] },
+    postType: 'group_post',
+  },
+];
+
 const GROUP: GroupSeed = {
   name: 'Vizinhos do Centro',
   description: 'Comunidade dos moradores e comerciantes do bairro Centro.',
@@ -401,6 +488,46 @@ async function ensureTestGroup(
   return created.groupId;
 }
 
+async function getGroupActorId(groupId: string): Promise<string | null> {
+  const res = await runQueryWithTenant<{ actor_id: string | null }>(
+    TENANT_ID,
+    `SELECT actor_id FROM groups WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+    [groupId, TENANT_ID]
+  );
+  return res?.actor_id ?? null;
+}
+
+async function ensureTestPost(actorId: string, post: PostSeed): Promise<void> {
+  // Idempotência: check por (actor_id + content) — conteúdo único na 1ª leva.
+  const existing = await runQueryWithTenant<{ id: string }>(
+    TENANT_ID,
+    `SELECT id FROM posts WHERE tenant_id = $1 AND actor_id = $2 AND content = $3 LIMIT 1`,
+    [TENANT_ID, actorId, post.content]
+  );
+  if (existing?.id) return;
+
+  await runQueryWithTenant(
+    TENANT_ID,
+    `
+      INSERT INTO posts (
+        tenant_id, actor_id, content, post_type,
+        intent, intent_metadata, targeting, metadata
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb)
+    `,
+    [
+      TENANT_ID,
+      actorId,
+      post.content,
+      post.postType ?? 'standard',
+      post.intent ?? null,
+      post.intentMetadata ? JSON.stringify(post.intentMetadata) : null,
+      JSON.stringify({ visibility: 'public' }),
+      JSON.stringify({ seed_test_ecosystem: true }),
+    ]
+  );
+}
+
 async function ensureGroupMember(
   groupId: string,
   userId: string,
@@ -452,7 +579,8 @@ async function main() {
 
   // 2. Pages
   console.log('');
-  console.log('🏢 [2/3] Criando pages (empresas/bandas/restaurantes)...');
+  console.log('🏢 [2/4] Criando pages (empresas/bandas/restaurantes)...');
+  const pageActorByDisplayName = new Map<string, string>();
   for (const page of PAGES) {
     const owner = personaResults.get(page.ownerEmail);
     if (!owner) {
@@ -460,12 +588,14 @@ async function main() {
       continue;
     }
     const pageActorId = await ensureTestPage(page, owner.userId);
+    pageActorByDisplayName.set(page.displayName, pageActorId);
     console.log(`   ✅ ${page.displayName} [${page.category}] — actor=${pageActorId.slice(0, 8)}`);
   }
 
   // 3. Grupo
   console.log('');
-  console.log('👥 [3/3] Criando grupo + membros...');
+  console.log('👥 [3/4] Criando grupo + membros...');
+  let groupActorIdForPosts: string | null = null;
   const groupCategoryId = await getDefaultGroupCategoryId();
   const countryId = await getDefaultCountryId();
   if (!countryId) {
@@ -476,6 +606,7 @@ async function main() {
       try {
         const groupId = await ensureTestGroup(GROUP, groupOwner.userId, groupCategoryId, countryId);
         console.log(`   ✅ Grupo "${GROUP.name}" — id=${groupId.slice(0, 8)}`);
+        groupActorIdForPosts = await getGroupActorId(groupId);
 
         // Garante owner também em group_members (createGroup pode falhar silenciosamente
         // em rodadas anteriores quando ON CONFLICT estava errado)
@@ -494,6 +625,34 @@ async function main() {
         console.warn(`       ${err?.message ?? err}`);
         console.warn(`       Personas + pages criadas com sucesso; grupo fica para 2ª leva.`);
       }
+    }
+  }
+
+  // 4. Posts cross-contexto
+  console.log('');
+  console.log('📝 [4/4] Criando posts cross-contexto...');
+  for (const post of POSTS) {
+    let actorId: string | null = null;
+
+    if (post.authorType === 'user') {
+      actorId = personaResults.get(post.authorKey)?.actorId ?? null;
+    } else if (post.authorType === 'page') {
+      actorId = pageActorByDisplayName.get(post.authorKey) ?? null;
+    } else if (post.authorType === 'group') {
+      actorId = groupActorIdForPosts;
+    }
+
+    if (!actorId) {
+      console.warn(`   ⚠️  Post pulado — actor não resolvido para ${post.authorKey}`);
+      continue;
+    }
+
+    try {
+      await ensureTestPost(actorId, post);
+      const preview = post.content.slice(0, 60).replace(/\n/g, ' ');
+      console.log(`   ✅ [${post.authorKey}] "${preview}..."`);
+    } catch (err: any) {
+      console.warn(`   ⚠️  Falha ao criar post de ${post.authorKey}: ${err?.message ?? err}`);
     }
   }
 
