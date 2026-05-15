@@ -255,24 +255,55 @@ async function ensureTestUser(persona: PersonaSeed): Promise<{ userId: string; a
   }
 }
 
-async function ensureTestPage(page: PageSeed, ownerUserId: string): Promise<string> {
-  // Check existente por display_name
-  const existing = await runQueryWithTenant<{ actor_id: string }>(
+/**
+ * Garante linha em company_users vinculando owner (global_user_id) à company.
+ * Sem essa linha, findAvailableActors NÃO retorna a page (JOIN obrigatório).
+ * Idempotente via UNIQUE(company_id, global_user_id).
+ */
+async function ensureCompanyUserLink(companyId: string, globalUserId: string): Promise<void> {
+  await runQueryWithTenant(
     TENANT_ID,
     `
-      SELECT actor_id FROM actors
-      WHERE tenant_id = $1 AND display_name = $2 AND actor_type = 'page'
+      INSERT INTO company_users (
+        tenant_id, company_id, global_user_id, role,
+        can_manage_company, is_active, is_primary,
+        can_manage_financial, can_manage_employees, can_view_reports, can_manage_services
+      )
+      VALUES ($1, $2, $3, 'owner', true, true, true, true, true, true, true)
+      ON CONFLICT (company_id, global_user_id) DO UPDATE
+      SET is_active = true,
+          can_manage_company = true,
+          is_primary = true,
+          updated_at = now()
+    `,
+    [TENANT_ID, companyId, globalUserId]
+  );
+}
+
+async function ensureTestPage(page: PageSeed, ownerUserId: string): Promise<string> {
+  const globalUser = await identityService.createGlobalIdentityForUser(ownerUserId, TENANT_ID);
+
+  // Check existente por display_name (idempotência)
+  const existing = await runQueryWithTenant<{ actor_id: string; company_id: string | null }>(
+    TENANT_ID,
+    `
+      SELECT a.actor_id, a.company_id
+      FROM actors a
+      WHERE a.tenant_id = $1 AND a.display_name = $2 AND a.actor_type = 'page'
       LIMIT 1
     `,
     [TENANT_ID, page.displayName]
   );
 
   if (existing?.actor_id) {
+    // Garante company_users mesmo em re-rodada (corrige seeds anteriores)
+    if (existing.company_id) {
+      await ensureCompanyUserLink(existing.company_id, globalUser.globalUserId);
+    }
     return existing.actor_id;
   }
 
   // Cria company + page actor
-  const globalUser = await identityService.createGlobalIdentityForUser(ownerUserId, TENANT_ID);
   const cnpj = `SEED${uuidv4().replace(/-/g, '').slice(0, 11)}`;
 
   const companyRow = await runQueryWithTenant<{ company_id: string }>(
@@ -289,6 +320,9 @@ async function ensureTestPage(page: PageSeed, ownerUserId: string): Promise<stri
   if (!companyRow?.company_id) {
     throw new Error(`Falha ao criar company: ${page.displayName}`);
   }
+
+  // Linka owner em company_users — sem isso findAvailableActors não retorna a page
+  await ensureCompanyUserLink(companyRow.company_id, globalUser.globalUserId);
 
   const humanActor = await ensureUserActor(TENANT_ID, ownerUserId);
   const pageActor = await ensurePageActor(TENANT_ID, companyRow.company_id, humanActor.actor_id);
