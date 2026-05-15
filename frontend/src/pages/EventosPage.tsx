@@ -55,16 +55,26 @@ export default function EventosPage() {
         setIsLoading(false);
         return;
       }
-      
+
+      // Bug 2 fix (2026-05-14): tolerar gracioso failure dos 2 feeds individualmente.
+      // Ambos dependem de DT-SOCIAL-REPOSITORY-DRIFT-§28 (cascata 20+ arquivos —
+      // schema canônico posts.id vs camelCase legacy p.post_id). Falha de um feed
+      // não deve impedir navegação ou ocultar eventos encontrados no outro.
       const feedData = await getSocialFeed({
         actor_type: activeActor.actor_type as 'user' | 'page',
         actor_id: activeActor.actor_id,
         actor_status: activeActor.company_status,
         limit: 50,
+      }).catch((err) => {
+        console.warn('[EventosPage] getSocialFeed indisponível (DT-§28):', err?.message);
+        return { posts: [] as any[] };
       });
 
       // 2. Buscar feed unificado (eventos standalone) - mesma fonte do feed
-      const unifiedData = await getUnifiedFeed({ limit: 50 });
+      const unifiedData = await getUnifiedFeed({ limit: 50 }).catch((err) => {
+        console.warn('[EventosPage] getUnifiedFeed indisponível (DT-§28):', err?.message);
+        return { items: [] as any[] };
+      });
 
       // 3. Extrair eventos de posts com intent=event ou linked_event
       const eventItems: EventFromFeed[] = [];
