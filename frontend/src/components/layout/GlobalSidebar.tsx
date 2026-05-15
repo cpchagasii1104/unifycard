@@ -53,6 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Fazer compras', icon: '🛒', route: '/marketplace' },
       { label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility' },
       { label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food' },
+      { label: 'Locações', icon: '🔑', route: '/em-desenvolvimento?feature=locacoes' },
       { label: 'Serviços', icon: '🔧', route: '/services' },
     ],
   },
