@@ -2,66 +2,89 @@
 import { runSystemQuery } from '@core/db';
 import type { CountryRow } from '../world.types';
 
+type CountryRowDb = Omit<CountryRow, 'createdAt' | 'updatedAt'> & {
+  created_at: string;
+  updated_at: string;
+};
+
 export class CountryRepository {
   /**
    * Busca todos os países
    */
   async findAll(): Promise<CountryRow[]> {
-    return runSystemQuery<CountryRow>({
+    const rows = await runSystemQuery<CountryRowDb>({
       text: `
-        SELECT 
+        SELECT
           country_id,
-          code,
+          iso_alpha2 AS code,
           name,
-          name_en,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          created_at,
+          updated_at
         FROM countries
         ORDER BY name ASC
       `,
     });
+
+    return rows.map((r) => ({
+      ...r,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
   }
 
   /**
    * Busca país por ID
    */
   async findById(countryId: string): Promise<CountryRow | undefined> {
-    const rows = await runSystemQuery<CountryRow>({
+    const rows = await runSystemQuery<CountryRowDb>({
       text: `
-        SELECT 
+        SELECT
           country_id,
-          code,
+          iso_alpha2 AS code,
           name,
-          name_en,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          created_at,
+          updated_at
         FROM countries
         WHERE country_id = $1
       `,
       values: [countryId],
     });
-    return rows[0];
+    const r = rows[0];
+    if (!r) return undefined;
+    return {
+      ...r,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    };
   }
 
   /**
    * Busca país por código ISO
    */
   async findByCode(code: string): Promise<CountryRow | undefined> {
-    const rows = await runSystemQuery<CountryRow>({
+    const rows = await runSystemQuery<CountryRowDb>({
       text: `
-        SELECT 
+        SELECT
           country_id,
-          code,
+          iso_alpha2 AS code,
           name,
-          name_en,
-          createdAt,
-          updatedAt
+          NULL::text AS name_en,
+          created_at,
+          updated_at
         FROM countries
-        WHERE UPPER(code) = UPPER($1)
+        WHERE UPPER(iso_alpha2) = UPPER($1)
       `,
       values: [code],
     });
-    return rows[0];
+    const r = rows[0];
+    if (!r) return undefined;
+    return {
+      ...r,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    };
   }
 }
 

@@ -401,14 +401,23 @@ async function ensureTestGroup(
   return created.groupId;
 }
 
-async function ensureGroupMember(groupId: string, userId: string): Promise<void> {
-  try {
-    await groupsService.joinGroup(TENANT_ID, groupId, userId);
-  } catch (err: any) {
-    if (err?.message?.includes('already a member')) return;
-    if (err?.message?.includes('já é membro')) return;
-    throw err;
-  }
+async function ensureGroupMember(
+  groupId: string,
+  userId: string,
+  role: 'owner' | 'admin' | 'member' = 'member'
+): Promise<void> {
+  // Insert direto com ON CONFLICT canônico (tenant_id+group_id+user_id) —
+  // independente de joinGroup (que falha se grupo está private/secret + check
+  // de já-membro). Idempotente.
+  await runQueryWithTenant(
+    TENANT_ID,
+    `
+      INSERT INTO group_members (tenant_id, group_id, user_id, role)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE SET role = EXCLUDED.role
+    `,
+    [TENANT_ID, groupId, userId, role]
+  );
 }
 
 // ============================================================
@@ -467,12 +476,16 @@ async function main() {
       try {
         const groupId = await ensureTestGroup(GROUP, groupOwner.userId, groupCategoryId, countryId);
         console.log(`   ✅ Grupo "${GROUP.name}" — id=${groupId.slice(0, 8)}`);
+
+        // Garante owner também em group_members (createGroup pode falhar silenciosamente
+        // em rodadas anteriores quando ON CONFLICT estava errado)
+        await ensureGroupMember(groupId, groupOwner.userId, 'owner');
         console.log(`   ✅ Owner: ${GROUP.ownerEmail}`);
 
         for (const memberEmail of GROUP.memberEmails) {
           const member = personaResults.get(memberEmail);
           if (member) {
-            await ensureGroupMember(groupId, member.userId);
+            await ensureGroupMember(groupId, member.userId, 'member');
             console.log(`   ✅ Membro: ${memberEmail}`);
           }
         }

@@ -391,7 +391,7 @@ class GroupsRepository {
       `
       INSERT INTO group_members (tenant_id, group_id, user_id, role)
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role
+      ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE SET role = EXCLUDED.role
       RETURNING group_id, user_id, role, created_at AS "joinedAt"
       `,
       [tenantId, groupId, userId, role]
