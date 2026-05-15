@@ -20,7 +20,6 @@ import { getBankBalance, getBankStatement, type BankStatementEntry } from '../..
 import { getMyGroups, getGroupBalance } from '../../api/groups';
 import { getReferralEarnings } from '../../api/auth';
 import { getUserRegionalFund } from '../../api/transparency';
-import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import { useActorMode } from '../../hooks/useActorMode';
@@ -117,20 +116,20 @@ export default function DashboardHome() {
   const [referralEarningsCents, setReferralEarningsCents] = useState(0);
   const [referralCount, setReferralCount] = useState(0);
   const [groups, setGroups] = useState<GroupRow[]>([]);
-  const [profileProgress, setProfileProgress] = useState<ProfileProgress | null>(null);
   const [recentEntries, setRecentEntries] = useState<BankStatementEntry[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // 2026-05-15: profileProgress + searchQuery removidos — moveram para GlobalHeader.
+  // firstName + handleSearch também (avatar/busca agora ficam no header global).
 
   const loadData = useCallback(async () => {
     if (!activeActor) return;
     const isUser = activeActor.actor_type === 'user';
 
-    const [balanceR, groupsR, referralR, regionalR, progressR, statementR] = await Promise.allSettled([
+    const [balanceR, groupsR, referralR, regionalR, statementR] = await Promise.allSettled([
       getBankBalance().catch(() => null),
       getMyGroups().catch(() => ({ groups: [] })),
       isUser ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
       isUser ? getUserRegionalFund({ limit: 1 }).catch(() => null) : Promise.resolve(null),
-      isUser ? getProfileProgress().catch(() => null) : Promise.resolve(null),
       getBankStatement({ limit: 4 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
     ]);
 
@@ -148,7 +147,6 @@ export default function DashboardHome() {
       setReferralEarningsCents(referralR.value.totalCents);
       setReferralCount(referralR.value.count);
     }
-    setProfileProgress(progressR.status === 'fulfilled' ? progressR.value : null);
     setRecentEntries(statementR.status === 'fulfilled' ? statementR.value.entries : []);
 
     const groupsList = groupsR.status === 'fulfilled' ? groupsR.value.groups || [] : [];
@@ -186,25 +184,8 @@ export default function DashboardHome() {
 
   if (!activeActor) return null;
 
-  const firstName = (() => {
-    if (!activeActor.display_name) return null;
-    if (activeActor.actor_type === 'user') {
-      return activeActor.display_name.trim().split(/\s+/)[0];
-    }
-    return activeActor.display_name;
-  })();
-
   const isUser = activeActor.actor_type === 'user';
   const balanceToShow = balanceCents ?? 0;
-  const progressPct = profileProgress?.progress ?? 0;
-  const showProfileCompact = isUser && progressPct < 100;
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/marketplace?q=${encodeURIComponent(searchQuery)}`);
-    }
-  };
 
   return (
     <div className="dh-content">
