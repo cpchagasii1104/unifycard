@@ -90,6 +90,58 @@ export interface ApiFetchContextOptions {
   silent404?: boolean; // Tratar 404 como feature indisponível (não erro)
 }
 
+const ACTOR_STORAGE_KEY = 'unificard_active_actor_id';
+
+/**
+ * Aguarda `unificard_active_actor_id` no localStorage (ex.: outro fluxo acabou de persistir).
+ * Não bloqueia a UI; usar apenas de apiFetch ou chamadas pontuais.
+ */
+export async function waitForActorContext(maxMs = 2000, pollMs = 50): Promise<string | null> {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const id = localStorage.getItem(ACTOR_STORAGE_KEY)?.trim();
+    if (id) return id;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  return null;
+}
+
+/**
+ * Rotas que NÃO exigem actorId no cliente (bootstrap, auth, health).
+ * Demais rotas com token+tenant disparam enforcement se actor ausente após espera.
+ */
+export function isPathExemptFromActorRequirement(path: string): boolean {
+  const p = path.split('?')[0];
+  if (p.startsWith('/auth/')) return true;
+  if (p.includes('/social/actors/available')) return true;
+  if (p === '/health' || p.startsWith('/health/')) return true;
+  // CORE profile: JWT + tenant; actorId é query opcional (contrato core.routes).
+  if (p === '/core/profile') return true;
+  return false;
+}
+
+/**
+ * HTTP para rotas públicas ou pré-sessão (sem tenant obrigatório nem ActionContext).
+ * Registo, login, health, links de pagamento guest. Única implementação de `fetch` além de `apiFetch`.
+ */
+export async function apiFetchPublic(path: string, options: RequestInit = {}): Promise<Response> {
+  const url = `${API_BASE_URL}${path}`;
+  const isFormData = options.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.headers as Record<string, string>),
+  };
+  delete headers['x-acting-actor-id'];
+  delete headers['x-actor-id'];
+
+  const timeoutMs = path.includes('/location/cep/') ? 15000 : 10000;
+  return fetch(url, {
+    ...options,
+    headers,
+    signal: options.signal ?? AbortSignal.timeout(timeoutMs),
+  });
+}
+
 export async function apiFetch(
   path: string, 
   options: RequestInit = {},
@@ -104,6 +156,9 @@ export async function apiFetch(
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
+  // Não enviar headers que o backend ActionContext não usa (evita confusão com contrato V2)
+  delete headers['x-acting-actor-id'];
+  delete headers['x-actor-id'];
 
   // Adicionar token de autenticação se existir
   const token = getAuthToken();
@@ -169,23 +224,31 @@ export async function apiFetch(
   // 🔴 GARANTIA FINAL: tenantId válido - sempre enviar header
   headers['x-tenant-id'] = tenantId;
 
-  // 🔴 INVARIANTE ABSOLUTA: x-acting-actor-id só é enviado APÓS tenantId estar validado
-  // Actor nunca existe fora de tenant válido - garantir ordem determinística
-  // Backend espera x-acting-actor-id (não x-actor-id) para action context
-  // Prioridade: header explícito > localStorage > não enviar (não quebra)
-  const ACTOR_STORAGE_KEY = 'unificard_active_actor_id';
-  const explicitActorId = (options.headers as Record<string, string>)?.['x-acting-actor-id'] 
-    || (options.headers as Record<string, string>)?.['x-actor-id']; // Fallback para compatibilidade
-  const storedActorId = localStorage.getItem(ACTOR_STORAGE_KEY);
-  
-  // 🔴 GARANTIA: Actor só é enviado se tenantId já estiver validado
-  // tenantId foi validado acima (linha 158-167) - garantia de ordem determinística
-  if (explicitActorId) {
-    headers['x-acting-actor-id'] = explicitActorId;
-  } else if (storedActorId) {
-    headers['x-acting-actor-id'] = storedActorId;
+  // ActionContext V2 (SSOT): actorId só de unificard_active_actor_id (nunca JWT/userId).
+  // Enforcement: rotas protegidas sem actor após espera → DEV throw, PROD console.error
+  const exemptFromActor = isPathExemptFromActorRequirement(path);
+  if (!headers['x-action-context'] && token && tenantId.trim() !== '') {
+    let actorForContext = localStorage.getItem(ACTOR_STORAGE_KEY)?.trim() ?? '';
+    if (!actorForContext && !exemptFromActor) {
+      actorForContext = (await waitForActorContext(2000))?.trim() ?? '';
+    }
+    if (!exemptFromActor && !actorForContext) {
+      const payload = { path, hasToken: true, hasActor: false };
+      if (import.meta.env.DEV) {
+        console.error('[apiFetch] Protected route without ActionContext', payload);
+        throw new Error('Protected route called without ActionContext (actorId missing)');
+      }
+      console.error('[apiFetch] Protected route without ActionContext', payload);
+    }
+    if (actorForContext) {
+      headers['x-action-context'] = JSON.stringify({
+        actorId: actorForContext,
+        intent: 'user_action',
+        source: 'frontend',
+        scope: `tenant:${tenantId.trim()}`,
+      });
+    }
   }
-  // Se não houver actorId, não enviar header (backend retornará erro claro se necessário)
   
   // 🔴 DIAGNÓSTICO: Log apenas em desenvolvimento e apenas para endpoints específicos
   // Eliminar logs ambíguos - apenas informações essenciais
@@ -252,15 +315,33 @@ export async function apiFetch(
         });
       }
       
-      // Priorizar mensagem específica do backend (suporta ambos os formatos)
-      errorMessage = errorDetails.message || errorDetails.error || errorMessage;
-      
-      // Preservar código de erro se disponível
+      // Bug 3 fix (2026-05-14): backend pode retornar erro em 3 shapes:
+      //   (a) { message: "string" }                              — direto
+      //   (b) { error: "string" }                                — flat
+      //   (c) { error: { code, message, details }, meta: {...} } — aninhado (Fastify error handler padrão)
+      // Antes (errorDetails.message || errorDetails.error) caía no shape (c) → errorMessage virava
+      // OBJETO → new Error(obj) → renderizava "[object Object]". Agora extrai .message do objeto
+      // aninhado para sempre obter string legível.
+      const nestedError = errorDetails.error;
+      if (typeof errorDetails.message === 'string') {
+        errorMessage = errorDetails.message;
+      } else if (typeof nestedError === 'string') {
+        errorMessage = nestedError;
+      } else if (nestedError && typeof nestedError === 'object' && typeof nestedError.message === 'string') {
+        errorMessage = nestedError.message;
+      }
+
+      // Preservar código de erro se disponível (top-level OU aninhado)
       const error = new Error(errorMessage) as any;
       if (errorDetails.code) {
         error.code = errorDetails.code;
+      } else if (nestedError && typeof nestedError === 'object' && nestedError.code) {
+        error.code = nestedError.code;
       }
-      
+      if (errorDetails.errorCode) {
+        error.errorCode = errorDetails.errorCode;
+      }
+
       // Tratamento especial para 404 (feature indisponível)
       if (response.status === 404) {
         // Se silent404 estiver ativado, tratar silenciosamente
