@@ -1,0 +1,43 @@
+/* UnifiedAuthLayout.css (2026-05-15) */
+
+.ual-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  background: #f5f7fb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.ual-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ual-main {
+  flex: 1;
+  padding: 1.5rem 2rem 2.5rem 2rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Tablet — sidebar compacta 72px */
+@media (max-width: 1023px) {
+  .ual-shell {
+    grid-template-columns: 72px 1fr;
+  }
+  .ual-main {
+    padding: 1rem 1.25rem 2rem 1.25rem;
+  }
+}
+
+/* Mobile — sidebar oculta (bottom nav assume se houver) */
+@media (max-width: 767px) {
+  .ual-shell {
+    grid-template-columns: 1fr;
+  }
+  .ual-main {
+    padding: 1rem;
+  }
+}

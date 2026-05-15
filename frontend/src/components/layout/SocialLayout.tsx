@@ -4,8 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import HeaderGlobal from './HeaderGlobal';
-import GlobalSidebar from './GlobalSidebar';
+import UnifiedAuthLayout from './UnifiedAuthLayout';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { getUnreadCounts, type UnreadCounts } from '../../api/unread';
 import { getMyInvites } from '../../api/groups';
@@ -183,15 +182,5 @@ export default function SocialLayout() {
     );
   }
 
-  return (
-    <div className="social-layout">
-      <HeaderGlobal />
-      <div className="social-layout-content">
-        <GlobalSidebar />
-        <main className="social-main">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
+  return <UnifiedAuthLayout mainClassName="social-main" />;
 }

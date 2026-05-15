@@ -1,17 +1,9 @@
 // src/components/layout/AppLayout.tsx
-// 2026-05-15: sidebar local removida — agora usa GlobalSidebar unificada.
+// 2026-05-15: thin wrapper sobre UnifiedAuthLayout.
 
-import { Outlet } from 'react-router-dom';
-import GlobalSidebar from './GlobalSidebar';
+import UnifiedAuthLayout from './UnifiedAuthLayout';
 import './AppLayout.css';
 
 export default function AppLayout() {
-  return (
-    <div className="app-layout">
-      <GlobalSidebar />
-      <main className="app-content">
-        <Outlet />
-      </main>
-    </div>
-  );
+  return <UnifiedAuthLayout mainClassName="app-content" />;
 }

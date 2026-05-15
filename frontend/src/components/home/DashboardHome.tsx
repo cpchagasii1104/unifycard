@@ -23,7 +23,6 @@ import { getUserRegionalFund } from '../../api/transparency';
 import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
-import GlobalSidebar from '../layout/GlobalSidebar';
 import { useActorMode } from '../../hooks/useActorMode';
 import './DashboardHome.css';
 
@@ -206,82 +205,11 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="dh-shell">
-      {/* Sidebar global unificada (mesma em todas as páginas autenticadas) */}
-      <GlobalSidebar />
+    <div className="dh-content">
+      {/* Sidebar + Header agora vêm do UnifiedAuthLayout (HomePage.tsx).
+          DashboardHome renderiza somente os blocos centrais do dashboard. */}
 
-      {/* ============ MAIN ============ */}
-      <main className="dh-main">
-        {/* TopBar */}
-        <header className="dh-topbar">
-          <div className="dh-topbar-left">
-            <h1 className="dh-greeting-title">
-              {firstName ? (
-                <>Olá, <span>{firstName}</span>! 👋</>
-              ) : (
-                <>Bem-vindo ao UnifiCard 👋</>
-              )}
-            </h1>
-            <p className="dh-greeting-subtitle">Bem-vindo de volta ao UnifiCard</p>
-          </div>
-
-          <form className="dh-search" onSubmit={handleSearch} role="search">
-            <span className="dh-search-icon" aria-hidden="true">🔍</span>
-            <input
-              type="text"
-              placeholder="Buscar no UnifiCard..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="dh-search-input"
-              aria-label="Buscar"
-            />
-          </form>
-
-          <div className="dh-topbar-actions">
-            {showProfileCompact && (
-              <button
-                type="button"
-                className="dh-profile-compact"
-                onClick={() => navigate('/perfil')}
-                aria-label={`Completar meu perfil — ${progressPct}% concluído`}
-              >
-                <span className="dh-profile-compact-text">Completar meu perfil</span>
-                <span className="dh-profile-compact-pct">{progressPct}%</span>
-                <div className="dh-profile-compact-bar">
-                  <div className="dh-profile-compact-fill" style={{ width: `${progressPct}%` }} />
-                </div>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="dh-topbar-bell"
-              onClick={() => navigate('/notifications')}
-              aria-label="Notificações"
-            >
-              🔔
-            </button>
-
-            <button
-              type="button"
-              className="dh-topbar-avatar"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-actor-dropdown'))}
-              aria-label="Trocar perfil ativo"
-            >
-              <div className="dh-avatar-circle" aria-hidden="true">
-                {firstName ? firstName[0].toUpperCase() : '?'}
-              </div>
-              <div className="dh-avatar-text">
-                <div className="dh-avatar-name">{activeActor.display_name}</div>
-                <div className="dh-avatar-role">
-                  {activeActor.actor_type === 'user' ? 'Pessoa Física' : 'Empresa'} ▼
-                </div>
-              </div>
-            </button>
-          </div>
-        </header>
-
-        {/* 4 cards de visão geral */}
+      {/* 4 cards de visão geral */}
         <section className="dh-overview-cards">
           {isUser && (
             <div className="dh-card dh-card-1">
@@ -516,41 +444,6 @@ export default function DashboardHome() {
             </ul>
           )}
         </section>
-      </main>
-
-      {/* ============ BOTTOM NAV (mobile) com FAB central ============ */}
-      <nav className="dh-bottom-nav" aria-label="Navegação inferior">
-        {BOTTOM_NAV_LEFT.map((b) => (
-          <button
-            key={b.label}
-            type="button"
-            className={`dh-bn-item ${b.route === '/home' ? 'active' : ''}`}
-            onClick={() => navigate(b.route)}
-          >
-            <span className="dh-bn-icon">{b.icon}</span>
-            <span className="dh-bn-label">{b.label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          className="dh-bn-fab"
-          onClick={() => window.dispatchEvent(new CustomEvent('open-actor-dropdown'))}
-          aria-label="Ações rápidas"
-        >
-          +
-        </button>
-        {BOTTOM_NAV_RIGHT.map((b) => (
-          <button
-            key={b.label}
-            type="button"
-            className="dh-bn-item"
-            onClick={() => navigate(b.route)}
-          >
-            <span className="dh-bn-icon">{b.icon}</span>
-            <span className="dh-bn-label">{b.label}</span>
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }
