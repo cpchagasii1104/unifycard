@@ -1,0 +1,185 @@
+/* GlobalSidebar.css — sidebar unificada (2026-05-15) */
+
+.gs-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.75rem 1rem 0.75rem;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  flex-shrink: 0;
+}
+
+.gs-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.gs-brand:hover {
+  background: #f3f4f6;
+}
+
+.gs-brand-icon {
+  font-size: 1.6rem;
+}
+
+.gs-brand-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #5b3fe4;
+}
+
+.gs-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.gs-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.gs-group + .gs-group {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.gs-group-title {
+  padding: 0.4rem 0.75rem 0.2rem 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.gs-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: #4b5563;
+  text-align: left;
+  transition: all 0.12s;
+  width: 100%;
+}
+
+.gs-item:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.gs-item.active {
+  background: #ede9fe;
+  color: #5b3fe4;
+  font-weight: 600;
+}
+
+.gs-item-icon {
+  font-size: 1.05rem;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.gs-item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gs-group-logout {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.gs-item-logout {
+  color: #dc2626;
+}
+
+.gs-item-logout:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.gs-footer {
+  padding-top: 0.85rem;
+  border-top: 1px solid #f3f4f6;
+  margin-top: 0.5rem;
+}
+
+.gs-secure {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+.gs-secure-title {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.8rem;
+}
+
+.gs-secure-hint {
+  color: #9ca3af;
+  font-size: 0.7rem;
+}
+
+/* ============ Tablet (sidebar compacta — só ícones) ============ */
+@media (max-width: 1023px) {
+  .gs-sidebar {
+    width: 72px;
+    padding: 1rem 0.5rem;
+  }
+
+  .gs-brand-name,
+  .gs-group-title,
+  .gs-item-label,
+  .gs-secure > div {
+    display: none;
+  }
+
+  .gs-item {
+    justify-content: center;
+    padding: 0.7rem;
+  }
+
+  .gs-secure {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+}
+
+/* ============ Mobile (esconde sidebar — bottom nav assume) ============ */
+@media (max-width: 767px) {
+  .gs-sidebar {
+    display: none;
+  }
+}

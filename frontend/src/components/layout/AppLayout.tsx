@@ -1,62 +1,17 @@
 // src/components/layout/AppLayout.tsx
-// Layout principal com menu lateral esquerdo
+// 2026-05-15: sidebar local removida — agora usa GlobalSidebar unificada.
 
-import { Outlet, NavLink } from 'react-router-dom';
-import { clearSession } from '../../config/auth';
+import { Outlet } from 'react-router-dom';
+import GlobalSidebar from './GlobalSidebar';
 import './AppLayout.css';
 
 export default function AppLayout() {
-  const handleLogout = () => {
-    clearSession(); // Limpar token + tenant (logout explícito)
-    window.location.href = '/login';
-  };
-
-  const getNavLinkClassName = (isActive: boolean): string => {
-    return `nav-link ${isActive ? 'active' : ''}`;
-  };
-
   return (
     <div className="app-layout">
-      <aside className="app-sidebar">
-        <div className="sidebar-header">
-          <h1>Unificard</h1>
-        </div>
-        <nav className="sidebar-nav">
-          <NavLink 
-            to="/dashboard" 
-            className={({ isActive }: { isActive: boolean }) => getNavLinkClassName(isActive)}
-          >
-            Dashboard
-          </NavLink>
-          <NavLink 
-            to="/perfil" 
-            className={({ isActive }: { isActive: boolean }) => getNavLinkClassName(isActive)}
-          >
-            Meu Perfil
-          </NavLink>
-          <NavLink 
-            to="/empresas" 
-            className={({ isActive }: { isActive: boolean }) => getNavLinkClassName(isActive)}
-          >
-            Minhas Empresas
-          </NavLink>
-          <NavLink 
-            to="/grupos" 
-            className={({ isActive }: { isActive: boolean }) => getNavLinkClassName(isActive)}
-          >
-            Grupos
-          </NavLink>
-        </nav>
-        <div className="sidebar-footer">
-          <button onClick={handleLogout} className="logout-button">
-            Sair
-          </button>
-        </div>
-      </aside>
+      <GlobalSidebar />
       <main className="app-content">
         <Outlet />
       </main>
     </div>
   );
 }
-

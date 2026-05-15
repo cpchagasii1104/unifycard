@@ -5,17 +5,24 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import HeaderGlobal from './HeaderGlobal';
+import GlobalSidebar from './GlobalSidebar';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { getUnreadCounts, type UnreadCounts } from '../../api/unread';
 import { getMyInvites } from '../../api/groups';
 import { validateActiveActor, safeApiCall, safeNumber } from '../../utils/guardrails';
-import { clearSession } from '../../config/auth';
+import { clearSession, isAuthenticated } from '../../config/auth';
 import { getAppsForContext, mapActorTypeToContext } from '../../config/appsRegistry';
 import './SocialLayout.css';
 
 export default function SocialLayout() {
   const navigate = useNavigate();
-  const { activeActor, isLoading: actorsLoading } = useActiveActor();
+  const {
+    activeActor,
+    isLoading: actorsLoading,
+    actors,
+    hasValidActor,
+    authHydrated,
+  } = useActiveActor();
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({
     feed: 0,
     groups: 0,
@@ -160,219 +167,27 @@ export default function SocialLayout() {
     setPendingInvitesCount(safeNumber(count, 0));
   };
 
+  if (isAuthenticated() && authHydrated && !hasValidActor) {
+    if (actors.length > 0) {
+      return (
+        <div className="social-layout social-layout--blocked" style={{ padding: '2rem', textAlign: 'center' }}>
+          <p>A preparar contexto operacional…</p>
+        </div>
+      );
+    }
+    return (
+      <div className="social-layout social-layout--blocked" style={{ padding: '2rem', textAlign: 'center' }}>
+        <p>Não há actor disponível para esta conta.</p>
+        <p>Crie ou associe um perfil ou empresa para continuar a usar a área social.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="social-layout">
       <HeaderGlobal />
       <div className="social-layout-content">
-        <aside className="social-sidebar">
-          <nav className="social-sidebar-nav">
-            {/* Seção SOCIAL */}
-            <div className="nav-section">
-              <div className="nav-section-title">📣 SOCIAL</div>
-              <NavLink 
-                to="/social" 
-                className={getNavLinkClassName}
-              >
-                📰 Feed
-                {unreadCounts.feed > 0 && (
-                  <span className="nav-badge">{unreadCounts.feed}</span>
-                )}
-              </NavLink>
-              <NavLink 
-                to="/grupos" 
-                className={getNavLinkClassName}
-              >
-                👥 Grupos
-                {unreadCounts.groups > 0 && (
-                  <span className="nav-badge">{unreadCounts.groups}</span>
-                )}
-              </NavLink>
-              <NavLink 
-                to="/convites" 
-                className={getNavLinkClassName}
-              >
-                📬 Convites
-                {pendingInvitesCount > 0 && (
-                  <span className="nav-badge">{pendingInvitesCount}</span>
-                )}
-              </NavLink>
-              <NavLink 
-                to="/eventos" 
-                className={getNavLinkClassName}
-              >
-                🎭 Eventos
-                {unreadCounts.events > 0 && (
-                  <span className="nav-badge">{unreadCounts.events}</span>
-                )}
-              </NavLink>
-              <NavLink 
-                to="/servicos" 
-                className={getNavLinkClassName}
-              >
-                🛠️ Serviços
-                {unreadCounts.services > 0 && (
-                  <span className="nav-badge">{unreadCounts.services}</span>
-                )}
-              </NavLink>
-              <NavLink 
-                to="/votacoes" 
-                className={getNavLinkClassName}
-              >
-                🗳️ Votações
-              </NavLink>
-              <NavLink 
-                to="/impacto" 
-                className={getNavLinkClassName}
-              >
-                💚 Impacto
-              </NavLink>
-            </div>
-
-            {/* Seção CONTA */}
-            <div className="nav-section">
-              <div className="nav-section-title">👤 CONTA</div>
-              <NavLink 
-                to="/perfil" 
-                className={getNavLinkClassName}
-              >
-                👤 Meu Perfil
-              </NavLink>
-              <NavLink 
-                to="/empresas" 
-                className={getNavLinkClassName}
-              >
-                🏢 Minhas Empresas
-              </NavLink>
-              <NavLink 
-                to="/dashboard" 
-                className={getNavLinkClassName}
-              >
-                ⚙️ Configurações
-              </NavLink>
-              <NavLink 
-                to="/ledger" 
-                className={getNavLinkClassName}
-              >
-                📜 Ledger Social
-              </NavLink>
-            </div>
-
-            {/* Seção FINANCEIRO */}
-            <div className="nav-section">
-              <div className="nav-section-title">💰 FINANCEIRO</div>
-              <button
-                onClick={handleBankNavigation}
-                className="social-nav-link social-nav-button"
-              >
-                🏦 UnifyBank
-              </button>
-              <button
-                onClick={() => navigate('/extrato')}
-                className="social-nav-link social-nav-button"
-              >
-                📄 Extrato
-              </button>
-              <button
-                onClick={() => navigate('/fundo-regional')}
-                className="social-nav-link social-nav-button"
-              >
-                🌱 Fundo Regional
-              </button>
-              {/* Adicionar UnifyCard se disponível */}
-              {availableApps.find(app => app.id === 'card') && (
-                <button
-                  onClick={() => navigate('/em-desenvolvimento?feature=card')}
-                  className="social-nav-link social-nav-button"
-                >
-                  💳 UnifyCard
-                </button>
-              )}
-            </div>
-
-            {/* Renderizar apps adicionais por categoria */}
-            {Object.entries(appsByCategory).map(([category, apps]) => {
-              // Pular categorias já renderizadas manualmente
-              if (category === 'social' || category === 'core') {
-                return null;
-              }
-
-              // Se for finance, já foi renderizado, mas pode ter apps adicionais
-              if (category === 'finance' && apps.length === 0) {
-                return null;
-              }
-
-              return (
-                <div key={category} className="nav-section">
-                  <div className="nav-section-title">{categoryLabels[category] || category.toUpperCase()}</div>
-                  {apps.map((app) => {
-                    if (app.status === 'wip') {
-                      return (
-                        <button
-                          key={app.id}
-                          onClick={() => navigate(app.route)}
-                          className="social-nav-link social-nav-button"
-                        >
-                          {app.icon} {app.name}
-                        </button>
-                      );
-                    }
-                    return (
-                      <NavLink
-                        key={app.id}
-                        to={app.route}
-                        className={getNavLinkClassName}
-                      >
-                        {app.icon} {app.name}
-                      </NavLink>
-                    );
-                  })}
-                </div>
-              );
-            })}
-
-            {/* Seção SISTEMA (separada para destacar) */}
-            {appsByCategory.system && appsByCategory.system.length > 0 && (
-              <div className="nav-section">
-                <div className="nav-section-title">⚙️ SISTEMA</div>
-                {appsByCategory.system.map((app) => {
-                  if (app.status === 'wip') {
-                    return (
-                      <button
-                        key={app.id}
-                        onClick={() => navigate(app.route)}
-                        className="social-nav-link social-nav-button"
-                      >
-                        {app.icon} {app.name}
-                      </button>
-                    );
-                  }
-                  return (
-                    <NavLink
-                      key={app.id}
-                      to={app.route}
-                      className={getNavLinkClassName}
-                    >
-                      {app.icon} {app.name}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Separador antes de Sair */}
-            <div className="nav-section-separator"></div>
-
-            {/* Opção Sair */}
-            <div className="nav-section">
-              <button
-                onClick={handleLogout}
-                className="social-nav-link social-nav-button nav-link-logout"
-              >
-                🚪 Sair
-              </button>
-            </div>
-          </nav>
-        </aside>
+        <GlobalSidebar />
         <main className="social-main">
           <Outlet />
         </main>

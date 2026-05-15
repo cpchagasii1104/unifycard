@@ -23,6 +23,7 @@ import { getUserRegionalFund } from '../../api/transparency';
 import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
+import GlobalSidebar from '../layout/GlobalSidebar';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -81,56 +82,6 @@ function TrendChart({ color, large = false }: { color: string; large?: boolean }
     </svg>
   );
 }
-
-interface SidebarItem {
-  label: string;
-  icon: string;
-  route: string;
-}
-
-interface SidebarGroup {
-  title: string | null;
-  items: SidebarItem[];
-}
-
-// Sidebar reorganizada (2026-05-15): "Mercado" virou "Fazer compras"; adicionados
-// "Pedir um carro" e "Pedir comida"; nova secao "Criar" agrupa 5 acoes de
-// cadastro. Entidades ainda sem schema (pagina, canal) caem em /em-desenvolvimento
-// para preservar hierarquia ontologica N0/N1/N2.
-const SIDEBAR_GROUPS: SidebarGroup[] = [
-  {
-    title: null,
-    items: [
-      { label: 'Início', icon: '🏠', route: '/home' },
-      { label: 'Carteira', icon: '💳', route: '/banco' },
-      { label: 'Pagamentos', icon: '💸', route: '/banco' },
-      { label: 'Grupos', icon: '👥', route: '/grupos' },
-      { label: 'Rede Social', icon: '💬', route: '/social' },
-      { label: 'Fazer compras', icon: '🛒', route: '/marketplace' },
-      { label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility' },
-      { label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food' },
-      { label: 'Serviços', icon: '🔧', route: '/services' },
-      { label: 'Reputação', icon: '⭐', route: '/perfil' },
-      { label: 'Transparência', icon: '🔍', route: '/transparencia' },
-    ],
-  },
-  {
-    title: 'Criar',
-    items: [
-      { label: 'Empresa', icon: '🏢', route: '/empresas' },
-      { label: 'Página', icon: '📄', route: '/em-desenvolvimento?feature=page' },
-      { label: 'Grupo', icon: '👥', route: '/grupos' },
-      { label: 'Canal', icon: '📡', route: '/em-desenvolvimento?feature=channel' },
-      { label: 'Evento', icon: '🎭', route: '/events/new' },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: 'Configurações', icon: '⚙️', route: '/configuracoes' },
-    ],
-  },
-];
 
 const QUICK_ACTIONS: Array<{ label: string; icon: string; route: string; color: string }> = [
   { label: 'Rede Social', icon: '💬', route: '/social', color: '#10b981' },
@@ -262,42 +213,8 @@ export default function DashboardHome() {
 
   return (
     <div className="dh-shell">
-      {/* ============ SIDEBAR (desktop) ============ */}
-      <aside className="dh-sidebar" aria-label="Navegação principal">
-        <div className="dh-sidebar-brand">
-          <span className="dh-sidebar-brand-icon">💠</span>
-          <span className="dh-sidebar-brand-name">UnifiCard</span>
-        </div>
-        <nav className="dh-sidebar-nav">
-          {SIDEBAR_GROUPS.map((group, gIdx) => (
-            <div key={gIdx} className="dh-sidebar-group">
-              {group.title && (
-                <div className="dh-sidebar-group-title">{group.title}</div>
-              )}
-              {group.items.map((item) => (
-                <button
-                  key={item.label + item.route}
-                  className={`dh-sidebar-item ${item.route === '/home' ? 'active' : ''}`}
-                  onClick={() => navigate(item.route)}
-                  type="button"
-                >
-                  <span className="dh-sidebar-icon">{item.icon}</span>
-                  <span className="dh-sidebar-label">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <div className="dh-sidebar-footer">
-          <div className="dh-sidebar-secure">
-            <span>🔒</span>
-            <div>
-              <div className="dh-sidebar-secure-title">Sua conta está segura</div>
-              <div className="dh-sidebar-secure-hint">Auditável e responsável</div>
-            </div>
-          </div>
-        </div>
-      </aside>
+      {/* Sidebar global unificada (mesma em todas as páginas autenticadas) */}
+      <GlobalSidebar />
 
       {/* ============ MAIN ============ */}
       <main className="dh-main">
