@@ -17,6 +17,7 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearSession } from '../../config/auth';
+import { useActorMode } from '../../hooks/useActorMode';
 import './GlobalSidebar.css';
 
 interface NavItem {
@@ -88,12 +89,20 @@ const NAV_GROUPS: NavGroup[] = [
 export default function GlobalSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile } = useActorMode();
 
   const isActive = (item: NavItem): boolean => {
     const path = item.route.split('?')[0];
     if (item.exact) return location.pathname === path;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
+
+  // 2026-05-15: priorityRoutes vêm do perfil contextual do actor ativo.
+  // Itens prioritários recebem destaque visual (badge "⭐ prioritário").
+  // NÃO escondemos itens — apenas marcamos visualmente. Mantém base estrutural
+  // universal conforme diretriz "actor = modo operacional".
+  const priorityRoutes = new Set(profile.sidebarPriorities);
+  const isPriority = (item: NavItem): boolean => priorityRoutes.has(item.route);
 
   const handleLogout = () => {
     clearSession();
@@ -112,17 +121,23 @@ export default function GlobalSidebar() {
         {NAV_GROUPS.map((group, gIdx) => (
           <div key={gIdx} className="gs-group">
             {group.title && <div className="gs-group-title">{group.title}</div>}
-            {group.items.map((item) => (
-              <button
-                key={item.label + item.route}
-                type="button"
-                className={`gs-item ${isActive(item) ? 'active' : ''}`}
-                onClick={() => navigate(item.route)}
-              >
-                <span className="gs-item-icon">{item.icon}</span>
-                <span className="gs-item-label">{item.label}</span>
-              </button>
-            ))}
+            {group.items.map((item) => {
+              const active = isActive(item);
+              const priority = isPriority(item);
+              return (
+                <button
+                  key={item.label + item.route}
+                  type="button"
+                  className={`gs-item ${active ? 'active' : ''} ${priority ? 'priority' : ''}`}
+                  onClick={() => navigate(item.route)}
+                  title={priority ? 'Sugerido para seu perfil atual' : undefined}
+                >
+                  <span className="gs-item-icon">{item.icon}</span>
+                  <span className="gs-item-label">{item.label}</span>
+                  {priority && !active && <span className="gs-priority-dot" aria-hidden="true">●</span>}
+                </button>
+              );
+            })}
           </div>
         ))}
 

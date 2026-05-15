@@ -484,6 +484,15 @@
   transition: background 0.15s;
 }
 
+.dh-section-subtle {
+  font-size: 0.75rem;
+  color: var(--dh-text-faint);
+  font-weight: 500;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--dh-border-soft);
+}
+
 .dh-section-link:hover {
   background: var(--dh-primary-soft);
 }

@@ -24,6 +24,7 @@ import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import GlobalSidebar from '../layout/GlobalSidebar';
+import { useActorMode } from '../../hooks/useActorMode';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -83,16 +84,8 @@ function TrendChart({ color, large = false }: { color: string; large?: boolean }
   );
 }
 
-const QUICK_ACTIONS: Array<{ label: string; icon: string; route: string; color: string }> = [
-  { label: 'Rede Social', icon: '💬', route: '/social', color: '#10b981' },
-  { label: 'Meus Grupos', icon: '👥', route: '/grupos', color: '#8b5cf6' },
-  { label: 'Pedir um Carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility', color: '#f59e0b' },
-  { label: 'Eventos', icon: '🎭', route: '/eventos', color: '#ec4899' },
-  { label: 'Marketplace', icon: '🛒', route: '/marketplace', color: '#06b6d4' },
-  { label: 'Transferir', icon: '↗️', route: '/banco', color: '#3b82f6' },
-  { label: 'Depósito', icon: '⬇️', route: '/banco', color: '#84cc16' },
-  { label: 'Sacar', icon: '⬆️', route: '/banco', color: '#ef4444' },
-];
+// QUICK_ACTIONS agora vêm contextuais via useActorMode().quickActions
+// (catálogo central em config/actorContextConfig.ts).
 
 const BOTTOM_NAV_LEFT: Array<{ label: string; icon: string; route: string }> = [
   { label: 'Início', icon: '🏠', route: '/home' },
@@ -116,6 +109,7 @@ const contextLabels: Record<string, string> = {
 export default function DashboardHome() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
+  const { profile: actorProfile, quickActions: contextualQuickActions } = useActorMode();
 
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
@@ -421,15 +415,16 @@ export default function DashboardHome() {
           </section>
         )}
 
-        {/* Acessos rápidos */}
+        {/* Acessos rápidos — contextuais ao actor ativo (useActorMode) */}
         <section className="dh-section">
           <div className="dh-section-header">
             <h2 className="dh-section-title">Acessos rápidos</h2>
+            <span className="dh-section-subtle">{actorProfile.modeName}</span>
           </div>
           <div className="dh-quick-actions">
-            {QUICK_ACTIONS.map((a) => (
+            {contextualQuickActions.map((a) => (
               <button
-                key={a.label}
+                key={a.id}
                 type="button"
                 className="dh-quick-action"
                 onClick={() => navigate(a.route)}

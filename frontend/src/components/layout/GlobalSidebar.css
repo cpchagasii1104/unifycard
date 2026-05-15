@@ -96,6 +96,19 @@
   font-weight: 600;
 }
 
+/* Item sugerido pelo perfil contextual do actor ativo */
+.gs-item.priority:not(.active) {
+  color: #111827;
+  font-weight: 500;
+}
+
+.gs-priority-dot {
+  font-size: 0.55rem;
+  color: #5b3fe4;
+  margin-left: auto;
+  line-height: 1;
+}
+
 .gs-item-icon {
   font-size: 1.05rem;
   width: 22px;
