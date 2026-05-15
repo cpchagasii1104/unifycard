@@ -41,9 +41,20 @@ import "./Profile.css";
 
 type Tab = "personal" | "professional" | "physical" | "learning" | "health" | "education" | "legal" | "agenda";
 
+const VALID_TABS: Tab[] = ["personal", "professional", "physical", "learning", "health", "education", "legal", "agenda"];
+
+function getInitialTab(): Tab {
+  // 2026-05-15: suportar /perfil?tab=agenda (quick actions profissionais apontam para aba específica)
+  if (typeof window === 'undefined') return 'personal';
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('tab');
+  if (raw && (VALID_TABS as string[]).includes(raw)) return raw as Tab;
+  return 'personal';
+}
+
 export default function Profile() {
   const { refreshActors, activeActor, sessionReady } = useSession();
-  const [activeTab, setActiveTab] = useState<Tab>("personal");
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +62,8 @@ export default function Profile() {
   // 🔴 ONBOARDING: Estados para controle de onboarding (baseado APENAS no backend)
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-  const [canEditPersonalData, setCanEditPersonalData] = useState(true);
+  /** Cadeado identidade (CPF+nascimento+sexo): só quando confirmado E CPF+nascimento existem (evita “travado sem dado”). */
+  const [lockIdentityCore, setLockIdentityCore] = useState(false);
   const [profileProgress, setProfileProgress] = useState<number | null>(null);
 
   // Formulário Pessoal - usando hook extraído
@@ -380,10 +392,11 @@ export default function Profile() {
 
       // CPF (sempre setar, mesmo se vazio)
       // 🔴 CORREÇÃO: CPF vem de personal_profile.cpf, não de metadata
-      const cpfValue = personalProfile?.cpf ? maskCPF(personalProfile.cpf) : "";
+      const cpfDigits =
+        personalProfile?.cpf?.replace(/\D/g, "") ?? "";
+      const cpfValue = cpfDigits.length === 11 ? maskCPF(cpfDigits) : "";
       setCpf(cpfValue);
-      // 🔴 IMUTABILIDADE: Se CPF existe, marcar como já cadastrado (imutável)
-      setHasCpf(!!personalProfile?.cpf);
+      setHasCpf(cpfDigits.length === 11);
 
       // Gender (sempre setar, mesmo se vazio)
       const genderValue = (metadata.gender as "male" | "female" | "") || "";
@@ -467,87 +480,80 @@ export default function Profile() {
         setStateTracked("");
       }
 
-      // 🔴 CORREÇÃO CRÍTICA: Buscar identity APENAS para birthdate (que não está em profiles)
-      // NUNCA sobrescrever fullName ou outros campos de profiles com dados de identity
+      // Identity: reputação / onboarding flags; nascimento vem primeiro do CORE (personal_profile.birthdate), depois identity
       let identityData: IdentityProfile | null = null;
       try {
         identityData = await getIdentityProfile();
-
-        // 🔴 REGRA: NUNCA sobrescrever fullName de profiles com identity
-        // fullName vem APENAS de profiles (já setado acima)
-        // if (identityData && identityData.global?.fullName) {
-        //   setFullName(identityData.global.fullName); // ❌ REMOVIDO - não sobrescrever!
-        // }
-
-        // birthdate vem de identity (não está em profiles)
-        if (identityData && identityData.global?.birthdate) {
-          // 🔴 CRÍTICO: Converter data do backend SEM conversão de timezone
-          // O input type="date" sempre trabalha com data local (sem hora)
-          const dateStr = identityData.global.birthdate;
-          if (dateStr) {
-            let normalizedDate = "";
-            // Se já está no formato YYYY-MM-DD, usar diretamente
-            if (
-              typeof dateStr === "string" &&
-              /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
-            ) {
-              normalizedDate = dateStr;
-            } else if (
-              typeof dateStr === "string" &&
-              /^\d{4}-\d{2}-\d{2}/.test(dateStr)
-            ) {
-              // Se for ISO string, extrair apenas YYYY-MM-DD
-              normalizedDate = dateStr.substring(0, 10);
-            } else {
-              // Se for Date ou outra string, criar Date e usar métodos UTC para evitar timezone
-              // IMPORTANTE: Usar UTC para garantir que a data não mude de dia
-              const date = new Date(dateStr);
-              // Usar UTC para extrair ano, mês e dia (evita problemas de timezone)
-              const year = date.getUTCFullYear();
-              const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-              const day = String(date.getUTCDate()).padStart(2, "0");
-              normalizedDate = `${year}-${month}-${day}`;
-            }
-            setBirthdate(normalizedDate);
-            // 🔴 IMUTABILIDADE: Se birthdate existe, marcar como já cadastrado (imutável)
-            setHasBirthdate(true);
-          }
-        }
       } catch (err) {
         console.warn("Erro ao buscar identity (não crítico):", err);
       }
-      
-      // 🔴 CORREÇÃO PRIMEIRO ACESSO: Usar profile_personal_confirmed para modal
-      // Esta é a fonte de verdade para controlar:
-      // - Se o modal de primeiro acesso aparece (false = aparece, true = não aparece)
-      const profilePersonalConfirmed =
-        (identityData as any)?.profile_personal_confirmed === true; // 🔧 FIX
 
-      // 🔧 FIX (onboarding only after first successful save): Cadeado depende EXCLUSIVAMENTE de metadata.onboarding_completed
-      // Fonte única de verdade: profile.metadata.onboarding_completed
-      // No primeiro acesso (onboarding_completed === false), campos DEVEM ser editáveis
-      const onboardingCompleted = metadata?.onboarding_completed === true || identityData?.global?.metadata?.onboarding_completed === true;
-      setCanEditPersonalData(!onboardingCompleted);
+      const pp = coreProfile.personal_profile as
+        | (typeof coreProfile.personal_profile & {
+            profilePersonalConfirmed?: boolean;
+            birthdate?: string | null;
+          })
+        | null
+        | undefined;
+
+      let birthIso = "";
+      const coreBirth = pp?.birthdate;
+      if (typeof coreBirth === "string" && /^\d{4}-\d{2}-\d{2}/.test(coreBirth)) {
+        birthIso = coreBirth.substring(0, 10);
+      } else if (identityData?.global?.birthdate) {
+        const dateStr = identityData.global.birthdate;
+        if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          birthIso = dateStr;
+        } else if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+          birthIso = dateStr.substring(0, 10);
+        } else if (dateStr) {
+          const date = new Date(dateStr as string);
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(date.getUTCDate()).padStart(2, "0");
+          birthIso = `${year}-${month}-${day}`;
+        }
+      }
+      if (birthIso) {
+        setBirthdate(birthIso);
+        setHasBirthdate(true);
+      } else {
+        setBirthdate("");
+        setHasBirthdate(false);
+      }
+
+      const profilePersonalConfirmed =
+        pp?.profile_personal_confirmed === true ||
+        pp?.profilePersonalConfirmed === true;
+
+      const cpfPresent = cpfDigits.length === 11;
+      const birthPresent = birthIso.length >= 10;
+      const lockTrio =
+        profilePersonalConfirmed === true &&
+        cpfPresent &&
+        birthPresent;
+      setLockIdentityCore(lockTrio);
+
+      const onboardingCompleted =
+        metadata?.onboarding_completed === true ||
+        identityData?.global?.metadata?.onboarding_completed === true;
       setOnboardingCompleted(onboardingCompleted);
 
-      // 🔴 MODAL: Mostrar modal APENAS se profile_personal_confirmed === false
       setShowOnboardingModal(!profilePersonalConfirmed);
 
       console.log("[Profile] ✅ Estado de primeiro acesso atualizado:", {
         profilePersonalConfirmed,
         onboardingCompleted,
-        canEditPersonalData: !onboardingCompleted,
+        lockIdentityCore: lockTrio,
         showOnboardingModal: !profilePersonalConfirmed,
         fullName: fullNameValue,
-        birthdate: identityData?.global?.birthdate,
+        birthIso,
         gender: metadata.gender,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar perfil");
-      // Em caso de erro, manter estado padrão (pode editar)
-      setCanEditPersonalData(true);
-      setOnboardingCompleted(false);
-      setShowOnboardingModal(true);
+      setLockIdentityCore(false);
+      // Não alterar showOnboardingModal nem onboardingCompleted — erro ≠ decisão de negócio
     } finally {
       setIsLoading(false);
 
@@ -621,8 +627,8 @@ export default function Profile() {
     // Validações completas antes de salvar
     const errors: string[] = [];
 
-    // 🔴 ONBOARDING: Validar nome apenas se pode editar (onboarding não concluído)
-    if (canEditPersonalData) {
+    // Nome: obrigatório só enquanto ainda não há nome persistido no perfil
+    if (!hasFullName) {
       if (!fullName) {
         setFullNameError("Nome completo é obrigatório");
         errors.push("Nome completo");
@@ -646,8 +652,8 @@ export default function Profile() {
       }
     }
 
-    // 🔴 ONBOARDING: Validar data de nascimento apenas se pode editar
-    if (canEditPersonalData) {
+    // Nascimento / sexo: validar só quando o trio ainda não está travado (dados editáveis)
+    if (!lockIdentityCore) {
       if (!birthdate) {
         setBirthdateError("Data de nascimento é obrigatória");
         errors.push("Data de nascimento");
@@ -660,10 +666,6 @@ export default function Profile() {
           setUserAge(birthValidation.age);
         }
       }
-    }
-
-    // 🔴 ONBOARDING: Validar sexo apenas se pode editar
-    if (canEditPersonalData) {
       if (!gender) {
         setGenderError("Sexo é obrigatório");
         errors.push("Sexo");
@@ -984,9 +986,9 @@ export default function Profile() {
    * Chamado quando o usuário clica em "Entendi, continuar" no modal
    *
    * REGRA DE OURO: Este handler FAZ APENAS:
-   * 1. Chama POST /profile/confirm-first-access (backend valida se dados obrigatórios foram salvos)
-   * 2. Fecha o modal (setShowOnboardingModal = false)
-   * 3. Deixa o usuário preencher os campos DEPOIS
+   * 1. Chama POST /profile/confirm-first-access
+   * 2. Fecha o modal de imediato após sucesso (UI otimista)
+   * 3. loadData() para alinhar estado ao CORE (profile_personal_confirmed)
    *
    * O QUE ELE NÃO FAZ:
    * - NÃO valida campos obrigatórios (isso é responsabilidade de handleSavePersonal)
@@ -998,31 +1000,19 @@ export default function Profile() {
     console.log("[Profile] ✅ Confirmando primeiro acesso (SEM validação frontend)...");
 
     try {
-      // 🔧 FIX: confirmFirstAccess já envia body {} automaticamente
-      // Chamar backend para confirmar primeiro acesso
-      // Backend validará SE os dados obrigatórios já foram salvos
-      // Se não foram salvos, backend retorna erro mas NÃO travamos o usuário
       console.log("[Profile] Chamando POST /profile/confirm-first-access...");
       await confirmFirstAccess({}); // 🔧 FIX: body explícito (defensivo)
 
-      // Recarregar perfil para obter profile_personal_confirmed = true
+      setShowOnboardingModal(false);
+
       console.log("[Profile] Recarregando perfil após confirmação...");
       await loadData();
 
-      // Modal será fechado automaticamente porque loadData atualiza showOnboardingModal
       console.log("[Profile] ✅ Primeiro acesso confirmado com sucesso");
     } catch (err) {
-      console.error("[Profile] ⚠️ Backend retornou erro (provavelmente dados obrigatórios faltando):", err);
-
-      // 🔧 FIX: SEMPRE fechar o modal, mesmo se houver erro
-      // ✅ REGRA DE OURO: Fechar o modal MESMO SE houver erro
-      // Isso permite que o usuário preencha os campos e salve depois
-      console.log("[Profile] Fechando modal para permitir preenchimento dos campos...");
-      setShowOnboardingModal(false);
-
-      // Log informativo (não bloquear o usuário com alert)
+      console.error("[Profile] ⚠️ Erro ao confirmar primeiro acesso:", err);
       const errorMessage = err instanceof Error ? err.message : "Erro ao confirmar primeiro acesso";
-      console.warn("[Profile] Usuário pode preencher campos e salvar depois:", errorMessage);
+      console.warn("[Profile] Confirmação não persistiu; modal permanece até novo sucesso:", errorMessage);
     }
   };
 
@@ -1179,12 +1169,15 @@ export default function Profile() {
         {activeTab === "personal" && (
           <ProfilePersonalForm
             error={error}
-            canEditPersonalData={canEditPersonalData}
+            hasFullName={hasFullName}
+            lockIdentityCore={lockIdentityCore}
+            lockCpfField={hasCpf && lockIdentityCore}
+            lockBirthField={lockIdentityCore && hasBirthdate}
+            lockGenderField={lockIdentityCore && hasGender}
             fullName={fullName}
             setFullName={setFullName}
             fullNameError={fullNameError}
             setFullNameError={setFullNameError}
-            hasCpf={hasCpf}
             cpf={cpf}
             handleCpfChange={handleCpfChange}
             cpfError={cpfError}

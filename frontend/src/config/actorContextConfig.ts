@@ -62,27 +62,31 @@ export const QUICK_ACTIONS_CATALOG: Record<string, QuickActionDefinition> = {
   // Profissionais (catalogo extendido — usado por useProfessionalContext)
   // Mesmas rotas wip enquanto modulos especificos nao existem; importante e
   // sinalizar contextualmente. Cores alinhadas com paleta profissional.
-  'atender-paciente': { id: 'atender-paciente', label: 'Atender paciente', icon: '🦷', route: '/em-desenvolvimento?feature=patient-appointment', color: '#06b6d4' },
-  'agenda-clinica': { id: 'agenda-clinica', label: 'Agenda clínica', icon: '📅', route: '/em-desenvolvimento?feature=clinic-agenda', color: '#06b6d4' },
-  'nova-consulta': { id: 'nova-consulta', label: 'Nova consulta', icon: '⚖️', route: '/em-desenvolvimento?feature=legal-consult', color: '#3b82f6' },
-  'agenda-juridica': { id: 'agenda-juridica', label: 'Agenda jurídica', icon: '📅', route: '/em-desenvolvimento?feature=legal-agenda', color: '#3b82f6' },
+  // 2026-05-15: actions "agenda-*" apontam para /perfil?tab=agenda (ProfileAgenda).
+  // ProfileAgenda integra unified_availability (agenda universal soberana — fonte
+  // única de verdade conforme diretriz Clayton "agenda universal" / plano v2.1).
+  // Labels permanecem contextuais por profissão; destino é o mesmo módulo canônico.
+  'atender-paciente': { id: 'atender-paciente', label: 'Atender paciente', icon: '🦷', route: '/perfil?tab=agenda', color: '#06b6d4' },
+  'agenda-clinica': { id: 'agenda-clinica', label: 'Agenda clínica', icon: '📅', route: '/perfil?tab=agenda', color: '#06b6d4' },
+  'nova-consulta': { id: 'nova-consulta', label: 'Nova consulta', icon: '⚖️', route: '/perfil?tab=agenda', color: '#3b82f6' },
+  'agenda-juridica': { id: 'agenda-juridica', label: 'Agenda jurídica', icon: '📅', route: '/perfil?tab=agenda', color: '#3b82f6' },
   'publicar-conteudo': { id: 'publicar-conteudo', label: 'Publicar conteúdo', icon: '✏️', route: '/social', color: '#8b5cf6' },
-  'nova-encomenda': { id: 'nova-encomenda', label: 'Nova encomenda', icon: '🎂', route: '/em-desenvolvimento?feature=new-order', color: '#ec4899' },
-  'agenda-entregas': { id: 'agenda-entregas', label: 'Agenda entregas', icon: '📦', route: '/em-desenvolvimento?feature=delivery-agenda', color: '#ec4899' },
+  'nova-encomenda': { id: 'nova-encomenda', label: 'Nova encomenda', icon: '🎂', route: '/perfil?tab=agenda', color: '#ec4899' },
+  'agenda-entregas': { id: 'agenda-entregas', label: 'Agenda entregas', icon: '📦', route: '/perfil?tab=agenda', color: '#ec4899' },
   'publicar-portfolio': { id: 'publicar-portfolio', label: 'Publicar portfólio', icon: '🖼️', route: '/social', color: '#8b5cf6' },
-  'novo-ensaio': { id: 'novo-ensaio', label: 'Novo ensaio', icon: '📷', route: '/em-desenvolvimento?feature=photo-session', color: '#8b5cf6' },
-  'agenda-fotos': { id: 'agenda-fotos', label: 'Agenda fotos', icon: '📅', route: '/em-desenvolvimento?feature=photo-agenda', color: '#8b5cf6' },
-  'novo-projeto': { id: 'novo-projeto', label: 'Novo projeto', icon: '📐', route: '/em-desenvolvimento?feature=new-project', color: '#f59e0b' },
-  'agenda-cliente': { id: 'agenda-cliente', label: 'Agenda cliente', icon: '📅', route: '/em-desenvolvimento?feature=client-agenda', color: '#f59e0b' },
-  'novo-orcamento': { id: 'novo-orcamento', label: 'Novo orçamento', icon: '💰', route: '/em-desenvolvimento?feature=quote', color: '#10b981' },
-  'agenda-obras': { id: 'agenda-obras', label: 'Agenda obras', icon: '🏗️', route: '/em-desenvolvimento?feature=work-agenda', color: '#10b981' },
+  'novo-ensaio': { id: 'novo-ensaio', label: 'Novo ensaio', icon: '📷', route: '/perfil?tab=agenda', color: '#8b5cf6' },
+  'agenda-fotos': { id: 'agenda-fotos', label: 'Agenda fotos', icon: '📅', route: '/perfil?tab=agenda', color: '#8b5cf6' },
+  'novo-projeto': { id: 'novo-projeto', label: 'Novo projeto', icon: '📐', route: '/perfil?tab=agenda', color: '#f59e0b' },
+  'agenda-cliente': { id: 'agenda-cliente', label: 'Agenda cliente', icon: '📅', route: '/perfil?tab=agenda', color: '#f59e0b' },
+  'novo-orcamento': { id: 'novo-orcamento', label: 'Novo orçamento', icon: '💰', route: '/perfil?tab=agenda', color: '#10b981' },
+  'agenda-obras': { id: 'agenda-obras', label: 'Agenda obras', icon: '🏗️', route: '/perfil?tab=agenda', color: '#10b981' },
   'publicar-antes-depois': { id: 'publicar-antes-depois', label: 'Antes/depois', icon: '🎨', route: '/social', color: '#10b981' },
-  'agenda-servico': { id: 'agenda-servico', label: 'Agenda serviço', icon: '🔧', route: '/em-desenvolvimento?feature=service-agenda', color: '#eab308' },
-  'novo-aluno': { id: 'novo-aluno', label: 'Novo aluno', icon: '💪', route: '/em-desenvolvimento?feature=new-student', color: '#ef4444' },
-  'agenda-treinos': { id: 'agenda-treinos', label: 'Agenda treinos', icon: '📅', route: '/em-desenvolvimento?feature=training-agenda', color: '#ef4444' },
-  'nova-sessao': { id: 'nova-sessao', label: 'Nova sessão', icon: '🧠', route: '/em-desenvolvimento?feature=therapy-session', color: '#a855f7' },
-  'agenda-pacientes': { id: 'agenda-pacientes', label: 'Agenda pacientes', icon: '📅', route: '/em-desenvolvimento?feature=patient-agenda', color: '#a855f7' },
-  'nova-agenda': { id: 'nova-agenda', label: 'Nova agenda', icon: '🎵', route: '/em-desenvolvimento?feature=music-gig', color: '#8b5cf6' },
+  'agenda-servico': { id: 'agenda-servico', label: 'Agenda serviço', icon: '🔧', route: '/perfil?tab=agenda', color: '#eab308' },
+  'novo-aluno': { id: 'novo-aluno', label: 'Novo aluno', icon: '💪', route: '/perfil?tab=agenda', color: '#ef4444' },
+  'agenda-treinos': { id: 'agenda-treinos', label: 'Agenda treinos', icon: '📅', route: '/perfil?tab=agenda', color: '#ef4444' },
+  'nova-sessao': { id: 'nova-sessao', label: 'Nova sessão', icon: '🧠', route: '/perfil?tab=agenda', color: '#a855f7' },
+  'agenda-pacientes': { id: 'agenda-pacientes', label: 'Agenda pacientes', icon: '📅', route: '/perfil?tab=agenda', color: '#a855f7' },
+  'nova-agenda': { id: 'nova-agenda', label: 'Nova agenda', icon: '🎵', route: '/perfil?tab=agenda', color: '#8b5cf6' },
   'networking-artistas': { id: 'networking-artistas', label: 'Networking artistas', icon: '🤝', route: '/social', color: '#8b5cf6' },
 };
 
