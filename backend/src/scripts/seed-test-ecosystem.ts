@@ -399,7 +399,7 @@ async function ensureTestPage(page: PageSeed, ownerUserId: string): Promise<stri
       INSERT INTO companies (
         tenant_id, company_name, trade_name, cnpj, global_user_id, status, company_status
       )
-      VALUES ($1, $2, $3, $4, $5, 'active', 'ACTIVE')
+      VALUES ($1, $2, $3, $4, $5, 'active', 'VERIFIED')
       RETURNING company_id
     `,
     [TENANT_ID, page.companyName, page.displayName, cnpj, globalUser.globalUserId]
