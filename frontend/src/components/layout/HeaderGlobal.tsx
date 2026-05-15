@@ -11,6 +11,7 @@ import { getImpactBalance, type ImpactBalance } from '../../api/impact';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { isPilotMode } from '../../config/pilot';
 import { centsToReais } from '../../utils/money';
+import { showToast } from '../common/Toast';
 import './HeaderGlobal.css';
 
 interface WalletData {
@@ -292,13 +293,11 @@ export default function HeaderGlobal() {
                     );
                   })}
 
-                  {/* Botão cadastrar empresa */}
+                  {/* Botões de cadastro de novas entidades */}
                   <div className="actor-dropdown-separator" />
                   <button
                     className="actor-dropdown-item actor-dropdown-item-action"
                     onClick={() => {
-                      // Manter dropdown aberto para facilitar navegação
-                      // setIsActorDropdownOpen(false);
                       navigate('/empresas');
                     }}
                     type="button"
@@ -306,6 +305,69 @@ export default function HeaderGlobal() {
                     <span className="actor-item-icon">➕</span>
                     <div className="actor-item-info">
                       <div className="actor-item-name">Cadastrar nova empresa</div>
+                    </div>
+                  </button>
+
+                  {/*
+                    C1 (2026-05-15): opções pedidas por Clayton no screenshot Home-4.jpg.
+                    Página/grupo/artista-banda/canal AINDA NÃO existem como actor_types
+                    no schema (ontologia N0/N1/N2). Botões aparecem para preservar UX
+                    pedida, mas destinos são "em desenvolvimento" — não criam entidades
+                    nem actor_types prematuramente. Frente arquitetural dedicada exige
+                    DECISION antes de tornar essas entidades funcionais.
+                  */}
+                  <button
+                    className="actor-dropdown-item actor-dropdown-item-action"
+                    onClick={() => {
+                      showToast('Cadastro de página em desenvolvimento — em breve.', 'info');
+                    }}
+                    type="button"
+                  >
+                    <span className="actor-item-icon">➕</span>
+                    <div className="actor-item-info">
+                      <div className="actor-item-name">Cadastrar uma página</div>
+                      <div className="actor-item-subtitle">em breve</div>
+                    </div>
+                  </button>
+
+                  <button
+                    className="actor-dropdown-item actor-dropdown-item-action"
+                    onClick={() => {
+                      navigate('/grupos');
+                    }}
+                    type="button"
+                  >
+                    <span className="actor-item-icon">➕</span>
+                    <div className="actor-item-info">
+                      <div className="actor-item-name">Cadastrar um grupo</div>
+                    </div>
+                  </button>
+
+                  <button
+                    className="actor-dropdown-item actor-dropdown-item-action"
+                    onClick={() => {
+                      showToast('Cadastro de artista/banda em desenvolvimento — em breve.', 'info');
+                    }}
+                    type="button"
+                  >
+                    <span className="actor-item-icon">➕</span>
+                    <div className="actor-item-info">
+                      <div className="actor-item-name">Cadastrar um artista / banda</div>
+                      <div className="actor-item-subtitle">em breve</div>
+                    </div>
+                  </button>
+
+                  <button
+                    className="actor-dropdown-item actor-dropdown-item-action"
+                    onClick={() => {
+                      showToast('Cadastro de canal em desenvolvimento — em breve.', 'info');
+                    }}
+                    type="button"
+                  >
+                    <span className="actor-item-icon">➕</span>
+                    <div className="actor-item-info">
+                      <div className="actor-item-name">Cadastrar um canal</div>
+                      <div className="actor-item-subtitle">em breve</div>
                     </div>
                   </button>
                 </div>
