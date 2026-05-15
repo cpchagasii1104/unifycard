@@ -278,3 +278,32 @@ export async function validateReferralCode(code: string): Promise<ValidateReferr
   const response = await apiFetch(`/referral/validate?code=${encodeURIComponent(code)}`);
   return response.json();
 }
+
+/**
+ * A6 (2026-05-15): ganhos acumulados via código de indicação.
+ * Backend agrega bank_splits.split_type='referral' onde target_account_id = user account.
+ */
+export interface ReferralEarnings {
+  totalCents: number;
+  count: number;
+  hasAccount: boolean;
+  currency: string;
+}
+
+export async function getReferralEarnings(): Promise<ReferralEarnings | null> {
+  try {
+    const response = await apiFetch('/referral/earnings', {}, { silent401: true, silent404: true });
+    if (!response.ok) return null;
+    const json = await response.json();
+    const data = json?.data ?? json;
+    return {
+      totalCents: data.totalCents ?? 0,
+      count: data.count ?? 0,
+      hasAccount: !!data.hasAccount,
+      currency: data.currency ?? 'BRL',
+    };
+  } catch (err) {
+    console.warn('[API] Erro ao buscar ganhos de indicação:', err);
+    return null;
+  }
+}

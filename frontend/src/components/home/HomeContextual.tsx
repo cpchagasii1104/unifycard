@@ -8,6 +8,7 @@ import { useSession } from '../../contexts/SessionProvider';
 import { getBankBalance, getBankStatement } from '../../api/bank';
 import { listCompanies } from '../../api/companies';
 import { getMyGroups, getGroupBalance } from '../../api/groups';
+import { getReferralEarnings } from '../../api/auth';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import MoneyDistribution from '../governance/MoneyDistribution';
@@ -38,6 +39,9 @@ interface HomeContextualData {
   servicesCount: number; // TODO: implementar quando API estiver disponível
   /** A5: saldos dos grupos do usuário (nome + balance em BRL). */
   groupBalances: Array<{ groupId: string; name: string; balance: number; currency: string }>;
+  /** A6: ganhos acumulados com código de indicação (cents). */
+  referralEarningsCents: number;
+  referralEarningsCount: number;
 }
 
 export default function HomeContextual() {
@@ -51,6 +55,8 @@ export default function HomeContextual() {
     eventsCount: 0,
     servicesCount: 0,
     groupBalances: [],
+    referralEarningsCents: 0,
+    referralEarningsCount: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +71,13 @@ export default function HomeContextual() {
     try {
       // Carregar dados em paralelo
       // CONTINUOUS PRODUCTION: Usar Promise.allSettled para não quebrar se uma API falhar
-      const [balanceResult, statementResult, companiesResult, groupsResult] = await Promise.allSettled([
+      const [balanceResult, statementResult, companiesResult, groupsResult, referralResult] = await Promise.allSettled([
         getBankBalance().catch(() => null), // null se não conseguir carregar
         getBankStatement({ limit: 1 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
         activeActor.actor_type === 'user' ? listCompanies().catch(() => []) : Promise.resolve([]),
         getMyGroups().catch(() => ({ groups: [] })),
+        // A6: só carrega se actor for user; empresa não tem código de indicação próprio
+        activeActor.actor_type === 'user' ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
       ]);
 
       // Processar resultados — preferir `balanceCents` canônico (§4.7); cair para `balance` legado.
@@ -103,6 +111,8 @@ export default function HomeContextual() {
       const hasNoCompanies = activeActor.actor_type === 'user' && companies.length === 0;
       setShowTrustContent(hasNoActivity || hasNoCompanies);
 
+      const referralEarnings = referralResult.status === 'fulfilled' ? referralResult.value : null;
+
       setData({
         balanceCents,
         lastTransaction: lastEntry ? {
@@ -116,6 +126,8 @@ export default function HomeContextual() {
         eventsCount: 0, // TODO: implementar quando API estiver disponível
         servicesCount: 0, // TODO: implementar quando API estiver disponível
         groupBalances,
+        referralEarningsCents: referralEarnings?.totalCents ?? 0,
+        referralEarningsCount: referralEarnings?.count ?? 0,
       });
     } catch (err: any) {
       console.error('Erro ao carregar dados contextuais:', err);
@@ -285,6 +297,19 @@ export default function HomeContextual() {
               {formatCentsAsBRL(balanceToShow)}
             </span>
           </div>
+
+          {/* A6: Ganhos com código de indicação (só renderiza para actor_type='user') */}
+          {activeActor?.actor_type === 'user' && (
+            <div className="situation-balance">
+              <span className="situation-label">Ganhos com o código de indicação:</span>
+              <span className={`situation-value ${data.referralEarningsCents >= 0 ? 'positive' : 'negative'}`}>
+                {formatCentsAsBRL(data.referralEarningsCents)}
+              </span>
+              {data.referralEarningsCount > 0 && (
+                <span className="situation-type">({data.referralEarningsCount} indicação{data.referralEarningsCount > 1 ? 'ões' : ''})</span>
+              )}
+            </div>
+          )}
 
           {/* A5: Saldo de cada grupo do usuário (nome + valor) */}
           {data.groupBalances.length > 0 && (

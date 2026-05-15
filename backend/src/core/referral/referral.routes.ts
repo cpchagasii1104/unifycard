@@ -62,6 +62,66 @@ const referralRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /referral/earnings
+   * A6 (2026-05-15): retorna ganhos acumulados do user com código de indicação.
+   * Substrato material: bank_splits com split_type='referral' já são gerados pelo
+   * bank-split-engine (linha 196) quando user transactor tem referrer ativo. Esta
+   * rota agrega esses splits para a conta do user autenticado.
+   */
+  fastify.get('/earnings', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
+    try {
+      const { bankAccountService } = await import('../../modules/bank/bank-account.service');
+      const userAccount = await bankAccountService.getAccountByOwner(
+        req.tenant.id,
+        req.user.id,
+        'user',
+        'BRL'
+      );
+
+      if (!userAccount) {
+        return reply.send({ ok: true, data: { totalCents: 0, count: 0, hasAccount: false } });
+      }
+
+      const result = await runQueryWithTenant<{ total_cents: string; cnt: string }>(
+        req.tenant.id,
+        `
+          SELECT
+            COALESCE(SUM(amount_cents), 0)::text AS total_cents,
+            COUNT(*)::text AS cnt
+          FROM bank_splits
+          WHERE tenant_id = $1
+            AND target_account_id = $2
+            AND split_type = 'referral'
+        `,
+        [req.tenant.id, userAccount.accountId]
+      );
+
+      const totalCents = parseInt(result?.total_cents ?? '0', 10);
+      const count = parseInt(result?.cnt ?? '0', 10);
+
+      return reply.send({
+        ok: true,
+        data: {
+          totalCents,
+          count,
+          hasAccount: true,
+          currency: 'BRL',
+        },
+      });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao buscar ganhos de indicação');
+      return reply.status(500).send({ error: 'Erro ao buscar ganhos de indicação' });
+    }
+  });
+
+  /**
    * GET /referral/validate
    * 🔧 FIX: Valida se um código de indicação existe (para UX em tempo real)
    * Não aplica o código, apenas verifica existência
