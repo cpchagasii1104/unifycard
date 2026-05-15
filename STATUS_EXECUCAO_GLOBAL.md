@@ -1,3 +1,35 @@
+## 2026-05-14 (continuação 3) — SESSÃO: Fase 1 humana ATIVADA + 3 bugs convergidos cirurgicamente (3 commits funcionais)
+
+**Branch:** `rescue-structural`
+**HEAD inicial:** `7145421b` | **HEAD final:** `3ed43d50`
+
+**MARCO INSTITUCIONAL:** Pela primeira vez Clayton atravessou Fase 1 humana do plano v2.1 (logou via UI como attendee `q3v3-attendee-1778711956358`). Exposição de 3 bugs reais ANTES de comprar ingresso/transferir P2P — fricção humana materializada exatamente como o plano antecipou.
+
+**3 commits funcionais (bugs expostos pelo uso humano, fixes cirúrgicos):**
+
+- `5adc7b9e` fix(bug-1): HeaderGlobal convergido para `/bank/balance` canônico (Header mostrava R$0 vs Home R$485 — duas fontes de saldo divergentes; legacy `/identity/wallet` lia accountService stale)
+- `61a552c6` fix(bug-2): EventosPage tolera gracioso failure de feeds (DT-SOCIAL-REPOSITORY-DRIFT-§28 cluster preservado — não amputar 20+ arquivos por causa de erro vermelho fatal)
+- `3ed43d50` fix(bug-3): `client.ts` extrai `.message` de `errorDetails.error` aninhado (evita `[object Object]` quando Fastify retorna shape `{error:{code,message,details}}`)
+
+**Modo predominante:** EXECUTOR cirúrgico com critérios de parada honrados (bug 2 borderline-cascata → escolhi gracioso failure em vez de converger DT-§28).
+
+**Validação por bug:**
+- TSC frontend = 0 erros em todos os checkpoints
+- 3 gates institucionais PASS (critical_new=0, 300 migrations, bank-ledger §4.6)
+
+**Substrato preparado para retomada de uso humano:**
+- Backend `:3000` + frontend `:5173` vivos (sem restart necessário — frontend hot-reload pega mudanças)
+- Clayton pode recarregar Home/Perfil → saldo agora unificado
+- Clayton pode navegar /eventos → sem erro vermelho fatal (lista pode estar vazia se feeds caírem, mas navegação não bloqueia)
+- Clayton pode tentar criar evento → mensagem de erro legível em português em vez de `[object Object]`
+
+**Frentes NÃO abertas (critérios de parada honrados):**
+- DT-SOCIAL-REPOSITORY-DRIFT-§28 (cascata 20+ arquivos preservada)
+- Diferenciação UX organizer vs attendee em /eventos (decisão arquitetural fora de escopo)
+- Auditoria sistêmica de outros pontos com `[object Object]` (fix em camada central client.ts já beneficia todos os callers)
+
+---
+
 ## 2026-05-14 (continuação 2) — SESSÃO: B+A4 emissão de SERVICE_BOOKING_CANCELLED no outbox (1 commit funcional)
 
 **Branch:** `rescue-structural`
