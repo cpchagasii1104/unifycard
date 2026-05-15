@@ -45,13 +45,13 @@ export class ReputationService {
   ): Promise<ActorReputation> {
     // 1. Buscar saldo de impacto atual
     const balance = await impactService.getBalance(tenantId, actorId, actorType);
-    const impactTotal = balance.balance;
+    const impactTotal = balance?.balance ?? 0;
 
     // 2. Calcular dias distintos com atividade
     const activeDaysResult = await runQueryWithTenant<{ distinct_days: number }>(
       tenantId,
       `
-      SELECT COUNT(DISTINCT DATE(createdAt))::int as distinct_days
+      SELECT COUNT(DISTINCT DATE(created_at))::int as distinct_days
       FROM impact_ledger
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       `,
@@ -78,7 +78,7 @@ export class ReputationService {
     let previousLevel = 0;
     try {
       const existing = await this.getReputation(tenantId, actorId, actorType);
-      previousLevel = existing.reputation_level;
+      if (existing) previousLevel = existing.reputation_level;
     } catch (err) {
       // Ignorar se não existir (primeira vez)
     }
@@ -92,8 +92,8 @@ export class ReputationService {
       active_days: number;
       diversity_score: number;
       reputation_level: number;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string;
+      updated_at: string;
     }>(
       tenantId,
       `
@@ -107,8 +107,8 @@ export class ReputationService {
         active_days = EXCLUDED.active_days,
         diversity_score = EXCLUDED.diversity_score,
         reputation_level = EXCLUDED.reputation_level,
-        updatedAt = NOW()
-      RETURNING tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, createdAt, updatedAt
+        updated_at = NOW()
+      RETURNING tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, NULL::timestamptz AS created_at, updated_at
       `,
       [tenantId, actorId, actorType, impactTotal, activeDays, diversityScore, reputationLevel]
     );
@@ -142,8 +142,8 @@ export class ReputationService {
       active_days: row.active_days,
       diversity_score: row.diversity_score,
       reputation_level: row.reputation_level,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -196,12 +196,12 @@ export class ReputationService {
       active_days: number;
       diversity_score: number;
       reputation_level: number;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string;
+      updated_at: string;
     }>(
       tenantId,
       `
-      SELECT tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, createdAt, updatedAt
+      SELECT tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, NULL::timestamptz AS created_at, updated_at
       FROM actor_reputation
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       LIMIT 1
@@ -233,8 +233,8 @@ export class ReputationService {
       active_days: row.active_days,
       diversity_score: row.diversity_score,
       reputation_level: row.reputation_level,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -252,7 +252,7 @@ export class ReputationService {
    * 🔴 LEGACY — NÃO USAR COMO DECISÃO DE AUTORIZAÇÃO
    * Este método retorna métricas/INPUT, não autorização.
    * NÃO usar getPermissions() para decidir permissões.
-   * Decisão final DEVE passar por authorization.service.canActAs().
+   * Decisão final DEVE passar por authority.service (fachada modules) / canActAs no core.
    */
   async getPermissions(
     tenantId: string,
@@ -261,7 +261,7 @@ export class ReputationService {
     companyStatus?: string
   ): Promise<ActorPermissions> {
     const reputation = await this.getReputation(tenantId, actorId, actorType);
-    const level = reputation.reputation_level;
+    const level = reputation?.reputation_level ?? 0;
 
     // 🔴 VALIDAÇÃO: Verificar capacidade antes de calcular permissão
     // Se não tem capacidade, permissão é false
