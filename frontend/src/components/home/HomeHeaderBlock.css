@@ -1,0 +1,295 @@
+/* HomeHeaderBlock.css — Home Refresh (2026-05-15) */
+
+.home-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* ============================================
+   Saudação enriquecida
+   ============================================ */
+.hhb-greeting {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.hhb-greeting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hhb-greeting-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.hhb-greeting-name {
+  font-weight: 700;
+  color: #0066cc;
+}
+
+.hhb-emoji {
+  display: inline-block;
+  font-size: 1.5rem;
+}
+
+.hhb-greeting-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+/* Botão "Atuando como" */
+.hhb-actor-switch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  padding: 0.65rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  min-width: 200px;
+}
+
+.hhb-actor-switch:hover {
+  background-color: #f5f8ff;
+  border-color: #c0d4f5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.08);
+}
+
+.hhb-actor-switch:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+.hhb-actor-label {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hhb-actor-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.hhb-actor-hint {
+  font-size: 0.75rem;
+  color: #0066cc;
+  font-weight: 500;
+}
+
+/* ============================================
+   3 cards de visão geral
+   ============================================ */
+.hhb-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.hhb-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.hhb-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.hhb-card-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.hhb-card-regional .hhb-card-icon {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+}
+
+.hhb-card-balance .hhb-card-icon {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+}
+
+.hhb-card-referral .hhb-card-icon {
+  background: linear-gradient(135deg, #fed7aa, #fdba74);
+}
+
+.hhb-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.hhb-card-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.hhb-card-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.hhb-card-value.negative {
+  color: #dc2626;
+}
+
+.hhb-card-hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ============================================
+   Meus Grupos — cards visuais
+   ============================================ */
+.hhb-groups-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.hhb-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.hhb-section-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.hhb-section-count {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  background-color: #f3f4f6;
+  padding: 0.15rem 0.55rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.hhb-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.hhb-group-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.hhb-group-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  border-color: #d1d5db;
+}
+
+.hhb-group-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.hhb-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.hhb-group-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hhb-group-balance {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.hhb-group-balance.negative {
+  color: #dc2626;
+}
+
+/* ============================================
+   Responsividade
+   ============================================ */
+@media (max-width: 640px) {
+  .hhb-greeting {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hhb-actor-switch {
+    align-items: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hhb-greeting-title {
+    font-size: 1.4rem;
+  }
+
+  .hhb-card-value {
+    font-size: 1.2rem;
+  }
+}

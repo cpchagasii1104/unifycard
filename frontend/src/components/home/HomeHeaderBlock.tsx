@@ -1,20 +1,16 @@
 // frontend/src/components/home/HomeHeaderBlock.tsx
-// Bloco de TOPO da Home: saudação personalizada + Situação Atual com todos os saldos.
-// Renderizado por HomePage.tsx ANTES de SearchBar e AppGrid (acima dos aplicativos).
-//
-// 2026-05-15: extraído de HomeContextual.tsx por pedido de Clayton — saudação e saldos
-// devem ficar no topo da página, acima da SearchBar e AppGrid. O resto do HomeContextual
-// (transparência, pendências, saúde, cards de distribuição, workflow) permanece após
-// SearchBar/AppGrid.
+// Bloco de TOPO da Home: saudação enriquecida + 3 cards visuais de visão geral + cards de grupos.
+// 2026-05-15: redesign visual inspirado nas sugestões de Clayton (ChatGPT mockups).
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from '../../contexts/SessionProvider';
 import { getBankBalance } from '../../api/bank';
 import { getMyGroups, getGroupBalance } from '../../api/groups';
 import { getReferralEarnings } from '../../api/auth';
+import { getUserRegionalFund } from '../../api/transparency';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
-import './HomeContextual.css';
+import './HomeHeaderBlock.css';
 
 interface GroupBalanceRow {
   groupId: string;
@@ -23,19 +19,43 @@ interface GroupBalanceRow {
   currency: string;
 }
 
+const formatBRL = (cents: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(centsToReais(cents));
+
+const formatBRLFromReais = (reais: number, currency = 'BRL') =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(reais);
+
+// Cor consistente para um grupo a partir do seu ID (hash simples).
+const groupColor = (groupId: string): string => {
+  const palette = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'];
+  let hash = 0;
+  for (let i = 0; i < groupId.length; i++) hash = (hash * 31 + groupId.charCodeAt(i)) & 0xffffffff;
+  return palette[Math.abs(hash) % palette.length];
+};
+
+const initialsFromName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 export default function HomeHeaderBlock() {
   const { sessionReady, activeActor } = useSession();
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
+  const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
   const [groupBalances, setGroupBalances] = useState<GroupBalanceRow[]>([]);
   const [referralEarningsCents, setReferralEarningsCents] = useState(0);
-  const [referralEarningsCount, setReferralEarningsCount] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!activeActor) return;
-    const [balanceR, groupsR, referralR] = await Promise.allSettled([
+
+    const isUser = activeActor.actor_type === 'user';
+
+    const [balanceR, groupsR, referralR, regionalR] = await Promise.allSettled([
       getBankBalance().catch(() => null),
       getMyGroups().catch(() => ({ groups: [] })),
-      activeActor.actor_type === 'user' ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
+      isUser ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
+      isUser ? getUserRegionalFund({ limit: 1 }).catch(() => null) : Promise.resolve(null),
     ]);
 
     // Saldo do usuário (cents canônico §4.7)
@@ -45,7 +65,14 @@ export default function HomeHeaderBlock() {
       setBalanceCents(null);
     }
 
-    // Saldos por grupo via fan-out (mesma estratégia A5)
+    // Saldo do fundo regional
+    if (regionalR.status === 'fulfilled' && regionalR.value) {
+      setRegionalFundCents(regionalR.value.currentBalanceCents ?? 0);
+    } else {
+      setRegionalFundCents(null);
+    }
+
+    // Saldos por grupo via fan-out
     const groups = groupsR.status === 'fulfilled' ? groupsR.value.groups || [] : [];
     const balanceFetches = await Promise.allSettled(
       groups.map((g) => getGroupBalance(g.groupId).then((b) => ({ group: g, balance: b })))
@@ -64,7 +91,6 @@ export default function HomeHeaderBlock() {
     // Ganhos com indicação
     const referral = referralR.status === 'fulfilled' ? referralR.value : null;
     setReferralEarningsCents(referral?.totalCents ?? 0);
-    setReferralEarningsCount(referral?.count ?? 0);
   }, [activeActor]);
 
   useEffect(() => {
@@ -72,7 +98,6 @@ export default function HomeHeaderBlock() {
     loadData();
   }, [sessionReady, activeActor?.actor_id, loadData]);
 
-  // Recarregar ao trocar de actor ou invalidar queries
   useEffect(() => {
     const handler = () => {
       if (sessionReady && isAuthenticated() && getTenantId() && activeActor) {
@@ -87,108 +112,111 @@ export default function HomeHeaderBlock() {
     };
   }, [sessionReady, activeActor, loadData]);
 
-  const formatCentsAsBRL = (cents: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(centsToReais(cents));
+  if (!activeActor) return null;
 
-  const getActorTypeLabel = (actorType: string): string => {
-    const labels: Record<string, string> = {
-      user: 'Pessoa Física',
-      page: 'Empresa',
-      group: 'Grupo',
-      channel: 'Canal',
-    };
-    return labels[actorType] || actorType;
-  };
-
-  // Primeiro nome do actor para saudação personalizada
   const firstName = (() => {
-    if (!activeActor?.display_name) return null;
+    if (!activeActor.display_name) return null;
     if (activeActor.actor_type === 'user') {
       return activeActor.display_name.trim().split(/\s+/)[0];
     }
     return activeActor.display_name;
   })();
 
+  const isUser = activeActor.actor_type === 'user';
   const balanceToShow = balanceCents ?? 0;
-
-  if (!activeActor) return null;
 
   return (
     <div className="home-header-block">
-      {/* Saudação personalizada */}
-      {firstName && (
-        <div className="home-greeting">
-          <h2 className="home-greeting-text">
-            Olá <strong>{firstName}</strong>, o que deseja fazer hoje?
-          </h2>
+      {/* Saudação enriquecida */}
+      <div className="hhb-greeting">
+        <div className="hhb-greeting-text">
+          {firstName ? (
+            <>
+              <h1 className="hhb-greeting-title">
+                Olá, <span className="hhb-greeting-name">{firstName}</span> <span className="hhb-emoji">👋</span>
+              </h1>
+              <p className="hhb-greeting-subtitle">Bem-vindo de volta ao UnifiCard</p>
+            </>
+          ) : (
+            <h1 className="hhb-greeting-title">Bem-vindo ao UnifiCard</h1>
+          )}
+        </div>
+        <button
+          type="button"
+          className="hhb-actor-switch"
+          onClick={() => window.dispatchEvent(new CustomEvent('open-actor-dropdown'))}
+          aria-label="Trocar usuário ou perfil ativo"
+        >
+          <span className="hhb-actor-label">Atuando como</span>
+          <span className="hhb-actor-name">{activeActor.display_name}</span>
+          <span className="hhb-actor-hint">▼ trocar</span>
+        </button>
+      </div>
+
+      {/* 3 cards visuais de visão geral */}
+      <div className="hhb-overview-cards">
+        {isUser && (
+          <div className="hhb-card hhb-card-regional">
+            <div className="hhb-card-icon">🌍</div>
+            <div className="hhb-card-body">
+              <div className="hhb-card-label">Fundo Regional</div>
+              <div className="hhb-card-value">{formatBRL(regionalFundCents ?? 0)}</div>
+              <div className="hhb-card-hint">onde você mora</div>
+            </div>
+          </div>
+        )}
+
+        <div className="hhb-card hhb-card-balance">
+          <div className="hhb-card-icon">💰</div>
+          <div className="hhb-card-body">
+            <div className="hhb-card-label">Meu saldo</div>
+            <div className={`hhb-card-value ${balanceToShow < 0 ? 'negative' : ''}`}>
+              {formatBRL(balanceToShow)}
+            </div>
+            <div className="hhb-card-hint">UnifyBank</div>
+          </div>
+        </div>
+
+        {isUser && (
+          <div className="hhb-card hhb-card-referral">
+            <div className="hhb-card-icon">🎁</div>
+            <div className="hhb-card-body">
+              <div className="hhb-card-label">Indicações</div>
+              <div className="hhb-card-value">{formatBRL(referralEarningsCents)}</div>
+              <div className="hhb-card-hint">ganhos acumulados</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Meus grupos — cards visuais */}
+      {groupBalances.length > 0 && (
+        <div className="hhb-groups-section">
+          <div className="hhb-section-header">
+            <h2 className="hhb-section-title">Meus grupos</h2>
+            <span className="hhb-section-count">{groupBalances.length}</span>
+          </div>
+          <div className="hhb-groups-grid">
+            {groupBalances.map((gb) => (
+              <div key={gb.groupId} className="hhb-group-card">
+                <div
+                  className="hhb-group-avatar"
+                  style={{ backgroundColor: groupColor(gb.groupId) }}
+                  aria-hidden="true"
+                >
+                  {initialsFromName(gb.name)}
+                </div>
+                <div className="hhb-group-body">
+                  <div className="hhb-group-name" title={gb.name}>{gb.name}</div>
+                  <div className={`hhb-group-balance ${gb.balance < 0 ? 'negative' : ''}`}>
+                    {formatBRLFromReais(gb.balance, gb.currency || 'BRL')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-
-      {/* Situação Atual — saldos */}
-      <div className="home-situation">
-        <h2>Situação Atual</h2>
-        <div className="situation-content">
-          {/* Botão clicável que abre o dropdown do Header global */}
-          <button
-            type="button"
-            className="situation-actor situation-actor-button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('open-actor-dropdown'));
-            }}
-            aria-label="Trocar usuário ou perfil ativo"
-          >
-            <span className="situation-label">Atuando como:</span>
-            <span className="situation-value">
-              <strong>{activeActor.display_name}</strong>
-              <span className="situation-type">({getActorTypeLabel(activeActor.actor_type)})</span>
-            </span>
-            <span className="situation-actor-hint">▼ trocar</span>
-          </button>
-
-          {/* Saldo do usuário selecionado */}
-          <div className="situation-balance">
-            <span className="situation-label">Saldo do usuário selecionado:</span>
-            <span className={`situation-value ${balanceToShow >= 0 ? 'positive' : 'negative'}`}>
-              {formatCentsAsBRL(balanceToShow)}
-            </span>
-          </div>
-
-          {/* Ganhos com código de indicação (só para actor_type='user') */}
-          {activeActor.actor_type === 'user' && (
-            <div className="situation-balance">
-              <span className="situation-label">Ganhos com o código de indicação:</span>
-              <span className={`situation-value ${referralEarningsCents >= 0 ? 'positive' : 'negative'}`}>
-                {formatCentsAsBRL(referralEarningsCents)}
-              </span>
-              {referralEarningsCount > 0 && (
-                <span className="situation-type">
-                  ({referralEarningsCount} indicação{referralEarningsCount > 1 ? 'ões' : ''})
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Saldo de cada grupo (nome + valor) */}
-          {groupBalances.length > 0 && (
-            <div className="situation-group-balances">
-              <div className="situation-label">Saldos dos grupos:</div>
-              <ul className="group-balance-list">
-                {groupBalances.map((gb) => (
-                  <li key={gb.groupId} className="group-balance-item">
-                    <span className="group-balance-name">{gb.name}</span>
-                    <span className={`group-balance-value ${gb.balance >= 0 ? 'positive' : 'negative'}`}>
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: gb.currency || 'BRL',
-                      }).format(gb.balance)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
