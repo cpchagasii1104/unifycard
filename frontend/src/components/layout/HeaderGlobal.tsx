@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { useSession } from '../../contexts/SessionProvider';
-import { apiFetch } from '../../api/client';
+import { getBankBalance } from '../../api/bank';
 import { getImpactBalance, type ImpactBalance } from '../../api/impact';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { isPilotMode } from '../../config/pilot';
@@ -107,19 +107,16 @@ export default function HeaderGlobal() {
 
   const loadWallet = async () => {
     try {
-      // ✅ Backend sempre retorna 200 (com payload vazio se não houver conta)
-      const response = await apiFetch('/identity/wallet');
-      if (response.ok) {
-        const walletData = await response.json();
-        setWallet({
-          balanceCents: walletData.balanceCents || 0,
-          currency: walletData.currency || 'BRL',
-        });
-      } else {
-        setWallet({ balanceCents: 0, currency: 'BRL' });
-      }
+      // Bug 1 fix (2026-05-14): Header consulta fonte canônica `/bank/balance` (bank_ledger via getBankBalance),
+      // mesma fonte que HomeContextual usa. Endpoint legacy `/identity/wallet` lia via
+      // `accountService.getAccountsByGlobalUserId` (cache stale / contas legacy) e retornava 0
+      // mesmo quando bank_ledger tinha saldo real — gerava divergência visível entre Home e Header.
+      const balanceResult = await getBankBalance();
+      setWallet({
+        balanceCents: balanceResult.balanceCents ?? balanceResult.balance ?? 0,
+        currency: balanceResult.currency || 'BRL',
+      });
     } catch (err: any) {
-      // ✅ Backend sempre retorna 200 - se chegou aqui, é erro inesperado
       console.warn('Erro ao carregar wallet:', err);
       setWallet({ balanceCents: 0, currency: 'BRL' });
     }
