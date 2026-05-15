@@ -146,7 +146,11 @@
   background: #f3f4f6;
 }
 
-/* Avatar */
+/* Avatar + Dropdown */
+.gh-avatar-container {
+  position: relative;
+}
+
 .gh-avatar-button {
   display: flex;
   align-items: center;
@@ -197,6 +201,116 @@
 .gh-avatar-role {
   font-size: 0.7rem;
   color: #9ca3af;
+}
+
+/* Dropdown de actors */
+.gh-dd-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 320px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  z-index: 100;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.gh-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s;
+  width: 100%;
+}
+
+.gh-dd-item:hover {
+  background: #f5f8ff;
+}
+
+.gh-dd-item.active {
+  background: #ede9fe;
+}
+
+.gh-dd-item-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 50%;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.gh-dd-item.active .gh-dd-item-icon {
+  background: linear-gradient(135deg, #5b3fe4 0%, #8b5cf6 100%);
+  color: white;
+}
+
+.gh-dd-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gh-dd-item-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gh-dd-item-subtitle {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.gh-dd-item-check {
+  color: #5b3fe4;
+  font-weight: 700;
+}
+
+.gh-dd-badge-provisional {
+  font-size: 0.65rem;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.gh-dd-separator {
+  height: 1px;
+  background: #f3f4f6;
+  margin: 0.3rem 0;
+}
+
+.gh-dd-item-action {
+  color: #5b3fe4;
+}
+
+.gh-dd-item-action .gh-dd-item-name {
+  color: #5b3fe4;
+}
+
+.gh-dd-item-action .gh-dd-item-icon {
+  background: #ede9fe;
 }
 
 /* Tablet */
