@@ -88,17 +88,48 @@ interface SidebarItem {
   route: string;
 }
 
-const SIDEBAR_ITEMS: SidebarItem[] = [
-  { label: 'Início', icon: '🏠', route: '/home' },
-  { label: 'Carteira', icon: '💳', route: '/banco' },
-  { label: 'Pagamentos', icon: '💸', route: '/banco' },
-  { label: 'Grupos', icon: '👥', route: '/grupos' },
-  { label: 'Rede Social', icon: '💬', route: '/social' },
-  { label: 'Mercado', icon: '🛒', route: '/marketplace' },
-  { label: 'Serviços', icon: '🔧', route: '/services' },
-  { label: 'Reputação', icon: '⭐', route: '/perfil' },
-  { label: 'Transparência', icon: '🔍', route: '/transparencia' },
-  { label: 'Configurações', icon: '⚙️', route: '/configuracoes' },
+interface SidebarGroup {
+  title: string | null;
+  items: SidebarItem[];
+}
+
+// Sidebar reorganizada (2026-05-15): "Mercado" virou "Fazer compras"; adicionados
+// "Pedir um carro" e "Pedir comida"; nova secao "Criar" agrupa 5 acoes de
+// cadastro. Entidades ainda sem schema (pagina, canal) caem em /em-desenvolvimento
+// para preservar hierarquia ontologica N0/N1/N2.
+const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    title: null,
+    items: [
+      { label: 'Início', icon: '🏠', route: '/home' },
+      { label: 'Carteira', icon: '💳', route: '/banco' },
+      { label: 'Pagamentos', icon: '💸', route: '/banco' },
+      { label: 'Grupos', icon: '👥', route: '/grupos' },
+      { label: 'Rede Social', icon: '💬', route: '/social' },
+      { label: 'Fazer compras', icon: '🛒', route: '/marketplace' },
+      { label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility' },
+      { label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food' },
+      { label: 'Serviços', icon: '🔧', route: '/services' },
+      { label: 'Reputação', icon: '⭐', route: '/perfil' },
+      { label: 'Transparência', icon: '🔍', route: '/transparencia' },
+    ],
+  },
+  {
+    title: 'Criar',
+    items: [
+      { label: 'Empresa', icon: '🏢', route: '/empresas' },
+      { label: 'Página', icon: '📄', route: '/em-desenvolvimento?feature=page' },
+      { label: 'Grupo', icon: '👥', route: '/grupos' },
+      { label: 'Canal', icon: '📡', route: '/em-desenvolvimento?feature=channel' },
+      { label: 'Evento', icon: '🎭', route: '/events/new' },
+    ],
+  },
+  {
+    title: null,
+    items: [
+      { label: 'Configurações', icon: '⚙️', route: '/configuracoes' },
+    ],
+  },
 ];
 
 const QUICK_ACTIONS: Array<{ label: string; icon: string; route: string; color: string }> = [
@@ -238,16 +269,23 @@ export default function DashboardHome() {
           <span className="dh-sidebar-brand-name">UnifiCard</span>
         </div>
         <nav className="dh-sidebar-nav">
-          {SIDEBAR_ITEMS.map((item) => (
-            <button
-              key={item.label}
-              className={`dh-sidebar-item ${item.route === '/home' ? 'active' : ''}`}
-              onClick={() => navigate(item.route)}
-              type="button"
-            >
-              <span className="dh-sidebar-icon">{item.icon}</span>
-              <span className="dh-sidebar-label">{item.label}</span>
-            </button>
+          {SIDEBAR_GROUPS.map((group, gIdx) => (
+            <div key={gIdx} className="dh-sidebar-group">
+              {group.title && (
+                <div className="dh-sidebar-group-title">{group.title}</div>
+              )}
+              {group.items.map((item) => (
+                <button
+                  key={item.label + item.route}
+                  className={`dh-sidebar-item ${item.route === '/home' ? 'active' : ''}`}
+                  onClick={() => navigate(item.route)}
+                  type="button"
+                >
+                  <span className="dh-sidebar-icon">{item.icon}</span>
+                  <span className="dh-sidebar-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="dh-sidebar-footer">
