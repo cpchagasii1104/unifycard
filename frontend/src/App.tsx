@@ -82,8 +82,10 @@ import PayoutBatchDetailPage from './pages/PayoutBatchDetailPage';
 import InvoiceDashboardPage from './pages/InvoiceDashboardPage';
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import FinancialDashboardPage from './pages/FinancialDashboardPage';
-import RiskCommandCenterPage from './pages/RiskCommandCenterPage';
-import PolicyManagementPage from './pages/PolicyManagementPage';
+// CONGELADO via DECISION-0041 (PREMATURO — aguarda ecossistema risk+trust+evidence em runtime real)
+// import RiskCommandCenterPage from './pages/RiskCommandCenterPage';
+// CONGELADO via DECISION-0041 (PREMATURO — aguarda ecossistema risk+trust+evidence em runtime real)
+// import PolicyManagementPage from './pages/PolicyManagementPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import MarketplaceHomePage from './pages/MarketplaceHomePage';
 import MarketplaceDomainPage from './pages/MarketplaceDomainPage';
@@ -146,17 +148,17 @@ function WalletNavigationListener() {
 
 // Componente interno que precisa de SessionProvider
 function AppContent() {
-  const { sessionReady } = useSession();
+  const { authHydrated } = useSession();
   const location = useLocation();
 
-  // Permitir renderização de rotas públicas mesmo sem sessionReady
+  // Rotas públicas não dependem de hidratação de sessão
   const isPublicRoute = location.pathname.startsWith('/marketplace') || 
                         location.pathname === '/login' || 
                         location.pathname === '/register' ||
                         location.pathname.startsWith('/pay/');
 
-  // Bloquear renderização apenas para rotas protegidas
-  if (!sessionReady && !isPublicRoute) {
+  // Aguardar só até o bootstrap terminar; sem actor válido, layouts mostram UI de bloqueio (não loading infinito)
+  if (!authHydrated && !isPublicRoute) {
     return <FullScreenLoading />;
   }
 
@@ -355,10 +357,10 @@ function AppContent() {
           <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
           {/* Financial & Compliance Dashboard (Finance/Admin) */}
           <Route path="financial-dashboard" element={<FinancialDashboardPage />} />
-          {/* Risk & Trust Command Center (Finance/Admin) */}
-          <Route path="risk-command-center" element={<RiskCommandCenterPage />} />
-          {/* Policy & Enforcement Engine (Finance/Admin) */}
-          <Route path="policy-management" element={<PolicyManagementPage />} />
+          {/* Risk & Trust Command Center — CONGELADO via DECISION-0041 (PREMATURO; DT-MODULE-POLICY-ENGINE-PREMATURO-AGUARDA-ECOSSISTEMA-RISK) */}
+          {/* <Route path="risk-command-center" element={<RiskCommandCenterPage />} /> */}
+          {/* Policy & Enforcement Engine — CONGELADO via DECISION-0041 (PREMATURO; DT-MODULE-POLICY-ENGINE-PREMATURO-AGUARDA-ECOSSISTEMA-RISK) */}
+          {/* <Route path="policy-management" element={<PolicyManagementPage />} /> */}
         </Route>
       </Routes>
       </OnboardingWrapper>
