@@ -13,6 +13,7 @@ import {
   type HealthSection,
 } from '../api/health';
 import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import { useProfileHealthState } from '../hooks/useProfileHealthState';
 import { useProfileHealthLogic } from '../hooks/useProfileHealthLogic';
 import ProfileHealthForm from './ProfileHealthForm';
@@ -20,6 +21,13 @@ import './Profile.css';
 
 
 export default function ProfileHealth() {
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="saúde" />;
+  }
+
   const {
     activeSection,
     setActiveSection,

@@ -2,6 +2,7 @@
 // Página de perfil com abas: Pessoal, Profissional, Interesses e Gostos, Pessoa Jurídica
 
 import { useState, useEffect, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import {
   getIdentityProfile,
   updateIdentity,
@@ -54,6 +55,16 @@ function getInitialTab(): Tab {
 
 export default function Profile() {
   const { refreshActors, activeActor, sessionReady } = useSession();
+
+  // FIX 2.b — DECISION-0043 pendente / DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT.
+  // Princípios 8 e 9: redirect reorganiza superfície (não migra soberania),
+  // síncrono, derivado de activeActor já resolvido no cliente. Zero fetch.
+  // Posicionado ANTES de useState/useEffect/fetch — Profile não monta quando
+  // actor=page (defesa em profundidade reforçada pelos guards em sub-componentes).
+  if (activeActor?.actor_type === 'page' && activeActor.company_id) {
+    return <Navigate to={`/empresa/${activeActor.company_id}`} replace />;
+  }
+
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -539,13 +550,20 @@ export default function Profile() {
         identityData?.global?.metadata?.onboarding_completed === true;
       setOnboardingCompleted(onboardingCompleted);
 
-      setShowOnboardingModal(!profilePersonalConfirmed);
+      // 🔴 GUARD: Modal de primeiro acesso só faz sentido para actor=user.
+      // Backend retorna personal_profile=null deliberadamente para page/group/channel
+      // (core.service.ts:138-154), o que fazia o modal entrar em loop ao trocar para
+      // page actor: clique no botão gravava em user real (correto), mas loadData()
+      // subsequente lia personal_profile=null e re-abria o modal.
+      // Sub-instância resolvida de DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT.
+      const showModal = activeActor?.actor_type === 'user' && !profilePersonalConfirmed;
+      setShowOnboardingModal(showModal);
 
       console.log("[Profile] ✅ Estado de primeiro acesso atualizado:", {
         profilePersonalConfirmed,
         onboardingCompleted,
         lockIdentityCore: lockTrio,
-        showOnboardingModal: !profilePersonalConfirmed,
+        showOnboardingModal: showModal,
         fullName: fullNameValue,
         birthIso,
         gender: metadata.gender,

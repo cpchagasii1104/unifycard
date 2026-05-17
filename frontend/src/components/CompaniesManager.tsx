@@ -16,11 +16,21 @@ import { useAddressResolver } from '../hooks/useAddressResolver';
 import { useCompaniesState } from '../hooks/useCompaniesState';
 import { useCompaniesData } from '../hooks/useCompaniesData';
 import CompaniesManagerForm from './CompaniesManagerForm';
+import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import './CompaniesManager.css';
 
 export function CompaniesManager() {
   const navigate = useNavigate();
-  
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  // "Minhas empresas" é semântica do user logado; quando actor é page/group/channel,
+  // ausência é esperada (não mostrar empresas alheias do user logado a partir de outro contexto).
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="empresas" />;
+  }
+
   const state = useCompaniesState();
   const {
     companies,

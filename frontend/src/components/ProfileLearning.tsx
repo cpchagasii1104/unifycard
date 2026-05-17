@@ -2,6 +2,8 @@
 // Componente de perfil de aprendizado/trilha - "O Que Você Está Aprendendo"
 
 import { useEffect, useRef, useState } from 'react';
+import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import { CategoryContext } from '@unificard/contracts';
 import {
   getLearningProfile,
@@ -17,7 +19,6 @@ import {
   type CategoryAutocompleteResult,
   type CategoryPathSuggestion,
 } from '../api/categories';
-import { useSession } from '../contexts/SessionProvider';
 import { useProfileLearningState } from '../hooks/useProfileLearningState';
 import { useProfileLearningLogic } from '../hooks/useProfileLearningLogic';
 import ProfileLearningForm from './ProfileLearningForm';
@@ -33,6 +34,13 @@ interface SelectedLearning {
 }
 
 export default function ProfileLearning() {
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="aprendizado" />;
+  }
+
   const {
     categoryTree,
     setCategoryTree,

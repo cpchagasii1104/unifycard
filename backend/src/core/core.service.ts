@@ -129,13 +129,14 @@ export class CoreService {
             bio: actor.bio || null,
           };
           
-          // 🔴 BLINDAGEM: Para actors não-user (page/group/channel), alguns perfis não são suportados
-          // Retornar estrutura vazia ao invés de dados de PF
+          // Bifurcação contextual (DECISION-0043 pendente; princípio 4 DT_PRIORIZATION):
+          // campos não aplicáveis por actor_type são comportamento esperado, não gap.
+          // Perfis PF-only (personal/professional/physical/learning/health) permanecem
+          // null (já inicializados linhas 99-110). Apenas education_profile (event-based
+          // por actor) e companies (relacionadas) são populados quando aplicáveis.
+          // Resolve DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT: substitui early return
+          // rotulado "BLINDAGEM" (commit c4c45ec77) por bifurcação explícita.
           if (actor.actor_type !== 'user') {
-            // Profile pessoal/profissional/saúde/aprendizado não são suportados para page/group/channel
-            // Manter estrutura vazia (já inicializada acima)
-            // Apenas education_profile pode ser usado (já é event-based por actor)
-            // Buscar education_profile se actorId fornecido
             try {
               const { profileEducationService } = await import('./profile/profile-education.service');
               const educationProfile = await profileEducationService.getEducationProfile(tenantId, userId);
@@ -143,7 +144,6 @@ export class CoreService {
                 profile.education_profile = educationProfile;
               }
             } catch (err) {
-              // Log mas não quebra
               console.error('Erro ao buscar education_profile:', err);
             }
             return profile;

@@ -14,6 +14,8 @@ import {
 import { useProfilePhysicalState } from '../hooks/useProfilePhysicalState';
 import { useProfilePhysicalLogic } from '../hooks/useProfilePhysicalLogic';
 import ProfilePhysicalForm from './ProfilePhysicalForm';
+import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import './ProfilePhysical.css';
 
 // ============================================================
@@ -145,6 +147,13 @@ interface PhysicalProfileData {
 }
 
 export default function ProfilePhysical() {
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="físico" />;
+  }
+
   const {
     activeDomain,
     setActiveDomain,

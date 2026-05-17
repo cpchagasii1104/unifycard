@@ -15,12 +15,20 @@ import {
   type CreateEducationEventInput,
 } from '../api/education';
 import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import { useProfileEducationState } from '../hooks/useProfileEducationState';
 import { useProfileEducationLogic } from '../hooks/useProfileEducationLogic';
 import ProfileEducationForm from './ProfileEducationForm';
 import './ProfileEducation.css';
 
 export default function ProfileEducation() {
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="educação" />;
+  }
+
   const {
     profile,
     setProfile,

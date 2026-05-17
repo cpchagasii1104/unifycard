@@ -1,3 +1,5 @@
+import { useSession } from "../contexts/SessionProvider";
+import NotApplicableMessage from "./NotApplicableMessage";
 import { maskCPF } from "../utils/cpf";
 import {
   COUNTRY_CODES,
@@ -16,12 +18,20 @@ import LockedField from "./ui/LockedField";
 
 interface ProfilePersonalFormProps {
   error: string | null;
-  canEditPersonalData: boolean;
+  /** Nome já persistido no perfil → campo somente leitura */
+  hasFullName: boolean;
+  /** CPF+nascimento confirmados no backend (não exige sexo para o trio) */
+  lockIdentityCore: boolean;
+  /** CPF: cadeado só com CPF válido + lockIdentityCore */
+  lockCpfField: boolean;
+  /** Nascimento: não mostrar cadeado em campo vazio */
+  lockBirthField: boolean;
+  /** Sexo: cadeado só se sexo já foi informado (evita “Não informado” + cadeado) */
+  lockGenderField: boolean;
   fullName: string;
   setFullName: (value: string) => void;
   fullNameError: string | null;
   setFullNameError: (error: string | null) => void;
-  hasCpf: boolean;
   cpf: string;
   handleCpfChange: (value: string) => void;
   cpfError: string | null;
@@ -78,12 +88,15 @@ interface ProfilePersonalFormProps {
 
 export default function ProfilePersonalForm({
   error,
-  canEditPersonalData,
+  hasFullName,
+  lockIdentityCore,
+  lockCpfField,
+  lockBirthField,
+  lockGenderField,
   fullName,
   setFullName,
   fullNameError,
   setFullNameError,
-  hasCpf,
   cpf,
   handleCpfChange,
   cpfError,
@@ -137,6 +150,13 @@ export default function ProfilePersonalForm({
   handleSavePersonal,
   isSaving,
 }: ProfilePersonalFormProps) {
+  const { activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="pessoal" />;
+  }
+
   return (
     <div className="profile-form">
       <h2>Informações Pessoais</h2>
@@ -158,8 +178,7 @@ export default function ProfilePersonalForm({
         </div>
       )}
 
-      {/* 🔴 ONBOARDING: Bloquear edição APENAS se onboarding foi concluído (flag do backend) */}
-      {!canEditPersonalData ? (
+      {hasFullName ? (
         <LockedField
           value={fullName}
           label="Nome Completo"
@@ -204,7 +223,7 @@ export default function ProfilePersonalForm({
       )}
 
       <div className="form-row">
-        {hasCpf ? (
+        {lockCpfField ? (
           <LockedField
             value={cpf.replace(/\D/g, '')} // Garantir que seja apenas números para formatação
             label="CPF"
@@ -231,8 +250,7 @@ export default function ProfilePersonalForm({
           </div>
         )}
 
-        {/* 🔴 ONBOARDING: Bloquear edição APENAS se onboarding foi concluído (flag do backend) */}
-        {!canEditPersonalData ? (
+        {lockBirthField ? (
           <LockedField
             value={birthdate}
             label="Data de Nascimento"
@@ -292,8 +310,7 @@ export default function ProfilePersonalForm({
           </div>
         )}
 
-        {/* 🔴 ONBOARDING: Bloquear edição APENAS se onboarding foi concluído (flag do backend) */}
-        {!canEditPersonalData ? (
+        {lockGenderField ? (
           <LockedField
             value={gender}
             label="Sexo"

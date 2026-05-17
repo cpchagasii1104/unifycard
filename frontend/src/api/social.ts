@@ -32,6 +32,10 @@ export interface AvailableActor {
   user_role?: string;
   company_status?: string;
   can_post?: boolean;
+  // DECISION-0043 pendente: company_id usado pelo redirect contextual síncrono
+  // em /perfil quando actor_type='page' (Profile.tsx guard). Backend já envia
+  // (actors.company_id em actor.repository.ts:39); type apenas expõe.
+  company_id?: string | null;
 }
 
 export async function getAvailableActors(_options?: any): Promise<AvailableActor[]> {

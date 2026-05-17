@@ -23,6 +23,7 @@ import {
 } from '../utils/validation';
 import { normalizeCategoryLabel, normalizeCategoryPath } from '../utils/categoryLabelNormalizer';
 import { useSession } from '../contexts/SessionProvider';
+import NotApplicableMessage from './NotApplicableMessage';
 import { useProfileProfessionalState } from '../hooks/useProfileProfessionalState';
 import { useProfessionalCategories } from '../hooks/useProfessionalCategories';
 import ProfileProfessionalForm from './ProfileProfessionalForm';
@@ -47,7 +48,12 @@ interface SelectedSkill {
 }
 
 export default function ProfileProfessional() {
-  const { sessionReady } = useSession();
+  const { sessionReady, activeActor } = useSession();
+
+  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
+  if (activeActor && activeActor.actor_type !== 'user') {
+    return <NotApplicableMessage actor={activeActor} tab="profissional" />;
+  }
   
   // Estados extraídos para hook
   const state = useProfileProfessionalState();
