@@ -264,9 +264,12 @@ export async function getGroup(groupId: string): Promise<Group> {
 }
 
 /**
- * A5 (2026-05-15): saldo do grupo via bank_ledger.
+ * A5 (2026-05-15): saldo do grupo via backend bank service (LEI §4.6 — SSOT financeiro soberano).
  * GET /groups/:id/balance
  * Retorna saldo soberano do grupo (canônico §4.7 — em BRL, não cents).
+ *
+ * NOTA arquitetural: frontend NÃO acessa tabelas bank diretamente (LEI §4.6).
+ * Saldo é resolvido server-side via bank service; frontend consome apenas a API HTTP.
  */
 export interface GroupBalance {
   balance: number;
