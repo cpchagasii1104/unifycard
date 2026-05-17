@@ -85,6 +85,32 @@ function isCritical401(path: string, errorMessage: string): boolean {
   return true;
 }
 
+/**
+ * Extrai mensagem legível de erro vindo do backend.
+ * Cobre os 3 shapes possíveis:
+ *   (a) { error: "string" }                                — flat (legado)
+ *   (b) { error: { code, message, details }, meta: {...} } — Fastify error handler padrão (nested)
+ *   (c) { message: "string" }                              — direto
+ *
+ * Preserva ordem original (error > nested.message > message > fallback) para não introduzir
+ * mudança semântica em endpoints onde errorData.error é string técnica e errorData.message
+ * é texto amigável. Resolve bug "[object Object]" especificamente quando errorData.error é objeto nested.
+ *
+ * DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT (sessão 2026-05-16) — resolução.
+ */
+export function extractErrorMessage(
+  errorData: any,
+  fallback: string = 'Erro desconhecido'
+): string {
+  const errField = errorData?.error;
+  if (typeof errField === 'string') return errField;
+  if (errField && typeof errField === 'object' && typeof errField.message === 'string') {
+    return errField.message;
+  }
+  if (typeof errorData?.message === 'string') return errorData.message;
+  return fallback;
+}
+
 export interface ApiFetchContextOptions {
   silent401?: boolean;
   silent404?: boolean; // Tratar 404 como feature indisponível (não erro)

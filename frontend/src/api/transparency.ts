@@ -1,7 +1,7 @@
 // frontend/src/api/transparency.ts
 // API para Transparência Financeira - FASE 7
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 // Conformidade §4.7 (07_NOMENCLATURA_CANONICA): campos monetários com sufixo `_cents`,
 // alinhados ao shape real do backend (core/unifybank/transparency.service.ts).
@@ -132,7 +132,7 @@ export async function getUserStatement(options: {
       throw error;
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao buscar extrato: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao buscar extrato: ${response.status}`));
   }
   
   const data = await response.json();
@@ -156,7 +156,7 @@ export async function getTransactionSplits(transactionId: string): Promise<Split
       return null;
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao buscar splits: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao buscar splits: ${response.status}`));
   }
   
   const data = await response.json();
@@ -188,7 +188,7 @@ export async function getUserRegionalFund(options: {
         return null;
       }
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Erro ao buscar fundo regional: ${response.status}`);
+      throw new Error(extractErrorMessage(errorData, `Erro ao buscar fundo regional: ${response.status}`));
     }
     
     const data = await response.json();

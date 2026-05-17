@@ -1,7 +1,7 @@
 // frontend/src/api/pilot.ts
 // SPRINT 13: API para eventos de observação do modo piloto
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 import type { PilotEventType } from '../services/pilot-observer.service';
 
 // Re-export for convenience
@@ -35,7 +35,7 @@ export async function listPilotEvents(options?: {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar eventos de piloto');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar eventos de piloto'));
   }
 
   const data = await response.json();
@@ -53,7 +53,7 @@ export async function countPilotEvents(eventType?: PilotEventType): Promise<numb
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao contar eventos de piloto');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao contar eventos de piloto'));
   }
 
   const data = await response.json();

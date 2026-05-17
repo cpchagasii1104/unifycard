@@ -1,7 +1,7 @@
 // frontend/src/api/pilot-hypotheses.ts
 // SPRINT 16: API para hipóteses de interpretação humana
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface PilotHypothesis {
   hypothesisId: string;
@@ -26,7 +26,7 @@ export async function listHypotheses(options?: {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar hipóteses');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar hipóteses'));
   }
 
   const data = await response.json();
@@ -44,7 +44,7 @@ export async function createHypothesis(content: string): Promise<PilotHypothesis
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao criar hipótese');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao criar hipótese'));
   }
 
   const data = await response.json();
@@ -61,7 +61,7 @@ export async function deleteHypothesis(hypothesisId: string): Promise<boolean> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao deletar hipótese');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao deletar hipótese'));
   }
 
   const data = await response.json();

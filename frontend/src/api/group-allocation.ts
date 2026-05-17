@@ -1,7 +1,7 @@
 // frontend/src/api/group-allocation.ts
 // CONTINUOUS PRODUCTION: API para alocação de grupos - SPRINT 4
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 import { observePilotEvent } from '../services/pilot-observer.service';
 
 export interface GroupAllocation {
@@ -74,7 +74,7 @@ export async function setUserGroupAllocations(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao definir alocações: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao definir alocações: ${response.status}`));
   }
   
   const data = await response.json();

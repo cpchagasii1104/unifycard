@@ -1,7 +1,7 @@
 // src/api/profile.ts
 // API de perfil de usuário
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface Profile {
   profileId: string;
@@ -47,7 +47,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<Profile>
       statusText: response.statusText,
       error: errorData,
     });
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const result = await response.json();
@@ -75,7 +75,7 @@ export async function completeOnboarding(): Promise<Profile> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   const result = await response.json();
@@ -103,7 +103,7 @@ export async function confirmFirstAccess(body?: Record<string, any>): Promise<Pr
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
     console.error('[profile.ts] Erro ao confirmar primeiro acesso:', errorData);
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   const result = await response.json();
@@ -136,7 +136,7 @@ export async function getProfileProgress(): Promise<ProfileProgress> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const result = await response.json();

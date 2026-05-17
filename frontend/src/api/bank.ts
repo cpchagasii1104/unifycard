@@ -8,7 +8,7 @@
 // Todos os consumers internos foram migrados para `balanceCents`/`amountCents`
 // via `centsToReais` (ver `frontend/src/utils/money.ts`).
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface BankBalance {
   success: boolean;
@@ -67,7 +67,7 @@ export async function getBankBalance(): Promise<BankBalance> {
       };
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao buscar saldo: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao buscar saldo: ${response.status}`));
   }
   
   const data = await response.json();
@@ -109,7 +109,7 @@ export async function p2pTransfer(input: {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao transferir: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao transferir: ${response.status}`));
   }
 
   return await response.json();
@@ -147,7 +147,7 @@ export async function getBankStatement(options: {
       };
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro ao buscar extrato: ${response.status}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ao buscar extrato: ${response.status}`));
   }
   
   const data = await response.json();

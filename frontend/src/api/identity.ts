@@ -1,7 +1,7 @@
 // src/api/identity.ts
 // API de identidade global do usuário
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface IdentityProfile {
   global: {
@@ -209,7 +209,7 @@ export async function updateIdentity(input: UpdateIdentityInput): Promise<Identi
         statusText: response.statusText,
         error: errorData,
       });
-      throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+      throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
     }
     
     const result = await response.json();

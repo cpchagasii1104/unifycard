@@ -1,7 +1,7 @@
 // frontend/src/api/pilot-invites.ts
 // SPRINT 14: API para convites do modo piloto
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export type PilotInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
@@ -40,7 +40,7 @@ export async function listPilotInvites(options?: {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar convites');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar convites'));
   }
 
   const data = await response.json();
@@ -58,7 +58,7 @@ export async function createPilotInvite(input: CreatePilotInviteInput): Promise<
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao criar convite');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao criar convite'));
   }
 
   const data = await response.json();
@@ -75,7 +75,7 @@ export async function revokePilotInvite(inviteId: string): Promise<PilotInvite> 
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao revogar convite');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao revogar convite'));
   }
 
   const data = await response.json();

@@ -1,7 +1,7 @@
 // src/api/education.ts
 // API para perfil educacional - MODELO 100% EVENT-BASED
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export type EducationType = 'formal' | 'informal' | 'autodidata';
 
@@ -72,7 +72,7 @@ export async function getEducationProfile(): Promise<EducationProfile> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const result = await response.json();
@@ -90,7 +90,7 @@ export async function listEducationEvents(): Promise<EducationEvent[]> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const result = await response.json();
@@ -111,7 +111,7 @@ export async function createEducationEvent(input: CreateEducationEventInput): Pr
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const result = await response.json();

@@ -1,7 +1,7 @@
 // src/api/groups.ts
 // API de Grupos Sociais
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface GroupSuggestion {
   group_id: string;
@@ -129,7 +129,7 @@ export async function createGroup(input: CreateGroupInput): Promise<Group> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -147,7 +147,7 @@ export async function updateGroup(groupId: string, input: UpdateGroupInput): Pro
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -173,7 +173,7 @@ export async function uploadGroupImage(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -251,7 +251,7 @@ export async function getGroup(groupId: string): Promise<Group> {
       console.error('[Groups] Erro do servidor ao buscar grupo:', response.status, response.statusText);
     }
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   
   const group: any = await response.json();
@@ -322,7 +322,7 @@ export async function updateMemberRole(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -339,7 +339,7 @@ export async function removeGroupMember(groupId: string, memberUserId: string): 
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 }
 
@@ -355,7 +355,7 @@ export async function createGroupInvite(groupId: string, invitedUserId: string):
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -390,7 +390,7 @@ export async function acceptGroupInvite(groupId: string, inviteId: string): Prom
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -407,7 +407,7 @@ export async function declineGroupInvite(groupId: string, inviteId: string): Pro
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 }
 
@@ -452,7 +452,7 @@ export async function getGroupEconomy(groupId: string): Promise<{
   const response = await apiFetch(`/groups/${groupId}/economy`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   return await response.json();
 }
@@ -469,7 +469,7 @@ export async function getGroupClosureSummary(groupId: string): Promise<{
   const response = await apiFetch(`/groups/${groupId}/closure-summary`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   return await response.json();
 }
@@ -485,7 +485,7 @@ export async function getGroupStateHistory(groupId: string): Promise<Array<{
   const response = await apiFetch(`/groups/${groupId}/state-history`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
   return await response.json();
 }
@@ -520,7 +520,7 @@ export async function requestJoinGroup(groupId: string, expiresInDays?: number):
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -537,7 +537,7 @@ export async function approveJoinRequest(groupId: string, inviteId: string): Pro
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 
   return await response.json();
@@ -554,7 +554,7 @@ export async function rejectJoinRequest(groupId: string, inviteId: string): Prom
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`);
+    throw new Error(extractErrorMessage(errorData, `Erro ${response.status}: ${response.statusText}`));
   }
 }
 

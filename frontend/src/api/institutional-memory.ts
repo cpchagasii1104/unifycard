@@ -19,7 +19,7 @@
 //    - Ferramentas de registro de aprendizado
 // ═══════════════════════════════════════════════════════════════
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface InstitutionalMemoryDeclaration {
   declarationId: string;
@@ -57,7 +57,7 @@ export async function listInstitutionalMemory(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar declarações');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar declarações'));
   }
 
   const data = await response.json();
@@ -77,7 +77,7 @@ export async function createInstitutionalMemory(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao criar declaração');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao criar declaração'));
   }
 
   const data = await response.json();
@@ -98,7 +98,7 @@ export async function updateInstitutionalMemory(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao atualizar declaração');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao atualizar declaração'));
   }
 
   const data = await response.json();
@@ -117,7 +117,7 @@ export async function deleteInstitutionalMemory(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao deletar declaração');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao deletar declaração'));
   }
 }
 

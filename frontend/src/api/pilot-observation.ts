@@ -1,7 +1,7 @@
 // frontend/src/api/pilot-observation.ts
 // SPRINT 15: API para observação humana (checklist e notas)
 
-import { apiFetch } from './client';
+import { apiFetch, extractErrorMessage } from './client';
 
 export interface PilotChecklistItem {
   checklistId: string;
@@ -33,7 +33,7 @@ export async function listObservationUsers(): Promise<string[]> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar usuários');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar usuários'));
   }
 
   const data = await response.json();
@@ -48,7 +48,7 @@ export async function getChecklist(userId: string): Promise<PilotChecklistItem[]
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao buscar checklist');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao buscar checklist'));
   }
 
   const data = await response.json();
@@ -65,7 +65,7 @@ export async function initializeChecklist(userId: string): Promise<PilotChecklis
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao inicializar checklist');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao inicializar checklist'));
   }
 
   const data = await response.json();
@@ -92,7 +92,7 @@ export async function updateChecklistItem(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao atualizar checklist');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao atualizar checklist'));
   }
 
   const data = await response.json();
@@ -117,7 +117,7 @@ export async function getNotes(
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao listar notas');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao listar notas'));
   }
 
   const data = await response.json();
@@ -135,7 +135,7 @@ export async function createNote(userId: string, content: string): Promise<Pilot
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao criar nota');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao criar nota'));
   }
 
   const data = await response.json();
@@ -152,7 +152,7 @@ export async function deleteNote(noteId: string): Promise<boolean> {
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Erro ao deletar nota');
+    throw new Error(extractErrorMessage(errorData, 'Erro ao deletar nota'));
   }
 
   const data = await response.json();
