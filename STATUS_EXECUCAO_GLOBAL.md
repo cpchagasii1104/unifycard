@@ -3413,3 +3413,72 @@ Lista de candidatas (não autodecidir — pendente humano):
 5. **DT-MODULES-ASPIRATIONAL-VS-RUNTIME** (#1 em BLOQUEIA_PRODUTO — 24 endpoints frontend chamam tabelas inexistentes)
 
 **MODO: AGUARDANDO_AUTORIZACAO para próxima frente.** Commit MEMBERSHIP é último ato deste piloto.
+
+---
+
+## 2026-05-16 — Fechamento débitos sessão: UI Sprint 78 + pipeline migrate destravado
+
+### Frente 1 — Esconder botões /organization/* mortos em CompanyTeamTab
+
+**Razão:** Bug ficou MAIS visível pós-frente MEMBERSHIP (aba Equipe passou a funcionar; botões secundários levavam a Sprint 78 inerte → HTTP 500). Não deixar débito introduzido lateralmente.
+
+**Mudança:** `frontend/src/components/company/tabs/CompanyTeamTab.tsx:169-201` — removidos 4 botões (`Gerenciar Membros`, `Ver Convites`, `Papéis`, `Unidades`) que linkavam para `/organization/{members,invites,roles,units}`. Substituídos por comentário JSX explicando origem (DT-ORGANIZATION-SPRINT78-FROZEN) e critério de restauração (Sprint 78 descongelada).
+
+**Gates:** TSC frontend 0 erros ✓ | Funcionalidade core da aba (lista membros + convite + role + revoke) preservada ✓
+
+**DT atualizada:** `DT-ORGANIZATION-SPRINT78-FROZEN` recebe nota — mitigação cirúrgica aplicada; restauração depende de descongelamento Sprint 78.
+
+### Frente 5 — Destravar `npm run migrate`
+
+**Razão:** Anti-padrão recorrente: migrations aplicadas manualmente via psql não registradas em `schema_migrations` → runner quebra ao re-executar. Migration MEMBERSHIP (DECISION-0042) caiu nesse padrão.
+
+**Mudanças:**
+
+1. **Idempotência cirúrgica:** `backend/migrations/20260530516500_add_states_country_abbreviation_unique.sql` — `ALTER TABLE ADD CONSTRAINT` envolvido em `DO $$ ... IF NOT EXISTS ... END$$`. Mantém intenção arquitetural (UNIQUE preservada) sem quebrar re-execução.
+
+2. **Script baseline batch:** `backend/scripts/register-pending-baselines-2026-05-16.ts` — segue padrão institucional `register-migration-113.ts` + função interna `markMigrationAsBaseline` (migrate.ts:373-380). Registra 12 migrations já materialmente aplicadas em runtime com `checksum=NULL` (não tampering — padrão BASELINE estabelecido).
+
+   Migrations baselined (auditoria material via SQL confirmou efeito presente no DB):
+
+   | # | Migration | Evidência material |
+   |---|---|---|
+   | 1 | `517000_seed_location_core_brazil_minimal` | BR + 27 states existem |
+   | 2 | `518000_create_payment_milestones` | tabela existe |
+   | 3 | `518500_add_addresses_created_by_tenant_id` | coluna existe |
+   | 4 | `519000_seed_concept_split_engineering` | concept existe |
+   | 5 | `520000_add_company_users_updated_at` | coluna + trigger existe |
+   | 6 | `520500_add_company_users_rbac_columns` | 6 colunas can_manage_* + metadata existem |
+   | 7 | `521000_add_companies_primary_address_id` | coluna existe |
+   | 8 | `530000_tenant_products_drop_price_numeric` | price column NÃO existe (drop OK) |
+   | 9 | `538000_bank_splits_target_account_id` | coluna existe |
+   | 10 | `539000_fix_servicos_orphans_path` | 4 categorias com path=`{profissoes}` |
+   | 11 | `540000_seed_learning_categories` | 44 rows em scope=learning |
+   | 12 | `541000_company_users_membership_expansion` | member_status existe (apliquei manualmente na frente MEMBERSHIP) |
+
+**Validação final:** `npm run migrate` retorna `"Todas as migrations já foram registradas e validadas. Nada a fazer."` ✓ (303 migrations disco, 305 registradas)
+
+**Gates:** TSC backend 0 erros ✓
+
+### Padrão institucional capturado — DT preventiva
+
+**Anti-padrão:** aplicar migration manualmente via psql sem registrar em schema_migrations gera bloqueio futuro do runner. Causa recorrente: runner trava em migration anterior + dev aplica nova diretamente + nova fica órfã no audit trail.
+
+**Mitigação institucional:** sempre que aplicar migration manual fora do runner, executar `npx tsx scripts/register-pending-baselines-YYYY-MM-DD.ts` (ou script equivalente) IMEDIATAMENTE após para registrar baseline.
+
+**Reflexo:** próxima vez que migration runner falhar, primeira ação é diagnosticar SE migration já foi aplicada (via efeito material no DB) ANTES de tentar re-executar. Se aplicada, baseline. Se não, investigar bloqueio real.
+
+### Resumo sessão 2026-05-16 (consolidado)
+
+| Frente | Estado |
+|---|---|
+| Modal loop /perfil + page actor | CLOSED (Profile.tsx:542-549 guard) |
+| 4 AUDITORIA pré-classificação | CLOSED (4 DTs classificadas: 1 drift real + 3 PREMATURO + 1 DESIGN_CONSCIENTE) |
+| MEMBERSHIP — DECISION-0042 | CLOSED (Opção A — company_users expandido; commit `e78464ae`) |
+| #1 botões Sprint 78 mortos | CLOSED |
+| #5 npm migrate destravado | CLOSED |
+
+**Refutações materiais acumuladas:** 10 → 11ª (frente #5 — hipótese inicial "1 migration bloqueada" → na verdade **12 migrations órfãs** com efeitos já aplicados).
+
+**Próxima frente (humana decide):** 2, 3 ou 4 do plano anterior (MODULES-ASPIRATIONAL / COVERAGE-BOOTSTRAP / GLOBAL-USER-ID).
+
+**MODO:** AGUARDANDO_AUTORIZACAO.

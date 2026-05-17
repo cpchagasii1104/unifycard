@@ -29,9 +29,21 @@
 
 BEGIN;
 
-ALTER TABLE states
-  ADD CONSTRAINT states_country_abbreviation_unique
-  UNIQUE (country_id, abbreviation);
+-- Idempotencia (2026-05-16): runner npm migrate quebrava com 42P07
+-- (relation already exists) quando re-executado contra DB onde
+-- constraint ja foi aplicada manualmente. DO block torna aditiva.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.states'::regclass
+      AND conname = 'states_country_abbreviation_unique'
+  ) THEN
+    ALTER TABLE states
+      ADD CONSTRAINT states_country_abbreviation_unique
+      UNIQUE (country_id, abbreviation);
+  END IF;
+END$$;
 
 COMMIT;
 

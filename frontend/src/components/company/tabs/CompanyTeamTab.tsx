@@ -168,36 +168,13 @@ export default function CompanyTeamTab({ company, companyId }: CompanyTeamTabPro
 
       <div className="team-header">
         <h3>Equipe & Permissões</h3>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() => window.location.href = '/organization/members'}
-            className="team-invite-button"
-            type="button"
-          >
-            Gerenciar Membros
-          </button>
-          <button
-            onClick={() => window.location.href = '/organization/invites'}
-            className="team-invite-button"
-            type="button"
-          >
-            Ver Convites
-          </button>
-          <button
-            onClick={() => window.location.href = '/organization/roles'}
-            className="team-invite-button"
-            type="button"
-          >
-            Papéis
-          </button>
-          <button
-            onClick={() => window.location.href = '/organization/units'}
-            className="team-invite-button"
-            type="button"
-          >
-            Unidades
-          </button>
-        </div>
+        {/*
+          DT-ORGANIZATION-SPRINT78-FROZEN (2026-05-16): 4 botões de
+          navegação para /organization/{members,invites,roles,units}
+          foram removidos. Rotas retornam HTTP 500 em runtime — tabelas
+          organization_* não existem (Sprint 78 congelada via DECISION-0042).
+          Restaurar este bloco quando Sprint 78 for descongelada.
+        */}
       </div>
 
       {/* Formulário de Convite */}
