@@ -3787,3 +3787,82 @@ Reforça princípio "auditoria material antes de classificação por inferência
 - DT collective opcional para órfãos (limpeza dead code)
 - Avançar para #3 ou #4 (frentes arquiteturais grandes)
 - Fechar sessão
+
+---
+
+## 2026-05-17 — Mitigação Opção 1 (FinancialDashboardPage) — Opção C aplicada
+
+### Auditoria PASSO 1 (READ-ONLY) — refutou hipótese inicial
+
+Hipótese: "FinancialDashboardPage 100% reporting → comentar rota (DECISION-0041 pattern)".
+
+Realidade material: **MIX de tabelas vivas e fantasma**. Apenas 2 endpoints causam Promise.all rejection:
+- `getFinancialKPIs` → `payoutService.listOrders` (SEM try/catch) + `invoiceService.listInvoices` (SEM try/catch) — payout_*/invoices ausentes
+- `getDisputeOverview` → `evidenceService.listPacks` (SEM try/catch) — evidence_packs ausente
+
+**3 endpoints 100% vivos** (Tab Receita inteira: revenuePeriod + revenueService + commission) + 1 endpoint funcional (Trust) eram **desperdiçados** porque Promise.all rejeitava no primeiro fail.
+
+### PASSO 2 — Decisão humana
+
+Clayton escolheu **Opção C**: refactor frontend `Promise.all → Promise.allSettled` + fallback UX por tab.
+
+Razão: defensivo, sem tocar backend financeiro, preserva valor existente (Tab Receita 100% viva passa a funcionar HOJE).
+
+### Implementação
+
+**Arquivo único modificado:** `frontend/src/pages/FinancialDashboardPage.tsx`
+
+**Edits:**
+
+1. **`loadData()` (linhas 49-93)** — `Promise.all` → `Promise.allSettled`:
+   - Cada result extraído defensivamente (`.status === 'fulfilled' ? .value : default`)
+   - `setError` SÓ disparado se 100% das chamadas falharem (cenário "backend offline")
+   - `console.warn` lista endpoints degradados para diagnóstico
+   - Comment explicativo referencia mapeamento material do PASSO 1
+
+2. **Render Tab "Visão Geral" (linha 222)** — fallback UX:
+   - Quando `kpis === null` (única forma de falha clara — KPIs é objeto, não array): mostra banner amarelo amigável "KPIs financeiros temporariamente indisponíveis (depende de módulos payout/invoicing em desenvolvimento). Acesse outras abas para dados disponíveis."
+   - Não trata arrays vazios (ambíguos: pode ser "sem dados no período" ou "endpoint degradado")
+
+### Comportamento esperado pós-fix
+
+| Tab | Antes (Promise.all) | Depois (allSettled) |
+|---|---|---|
+| Visão Geral | Erro fatal página inteira | Banner amigável quando KPIs falha (payout/invoice ausentes) |
+| Receita | Não renderizava (página em erro) | **3 sub-tabelas vivas** funcionando |
+| Trust & Risk | Não renderizava | Tabela funcional (trust_profiles ✅ + trust_events ✅; evidencePackIds vazios pelo try/catch já existente) |
+| Disputas | Não renderizava | Tabela vazia silenciosa (evidenceService.listPacks falha, retorna []) |
+
+### Gates
+
+- TSC frontend: 0 erros ✓
+- Backend financeiro: zero edits ✓
+- `bank_transactions`/`bank_splits`/`bank_ledger`/`trust_profiles`/`trust_events`/`escrow_accounts`: 100% intactas ✓
+- Pattern Promise.allSettled: defensivo já usado em outras partes do projeto (não introduz invento)
+
+### Disciplina financeira (memória `feedback_autonomia_operacional`)
+
+Opção B (refactor backend reporting.service envolvendo callers FANTASMA em try/catch) **rejeitada** — toca causalidade financeira backend. Opção C contorna sem tocar backend.
+
+### Refinamento do princípio FANTASMA captured
+
+> "Página com chamadas a backend FANTASMA não é necessariamente página 100% morta. Auditoria por endpoint revela frequentemente MIX — alguns vivos desperdiçados por Promise.all rejection. allSettled preserva valor sem tocar backend."
+
+Aplicação futura: outras páginas com Promise.all + chamadas mistas podem se beneficiar do mesmo pattern. Não generalizei aqui (escopo cirúrgico).
+
+### Estado consolidado sessão 2026-05-17
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B (auditoria) | CLOSED | `990e9695` |
+| **FinancialDashboard mitigação (Opção C)** | **CLOSED** | pendente commit |
+
+### 15ª refutação material
+
+Hipótese: "Página financeira 100% fantasma = comentar tudo". Realidade: **MIX preservável via mudança de 1 await** (Promise.all → allSettled). Auditoria por endpoint > generalização por nome de página.

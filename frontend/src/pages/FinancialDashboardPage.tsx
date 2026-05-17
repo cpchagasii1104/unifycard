@@ -50,7 +50,13 @@ export default function FinancialDashboardPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [kpisData, revenuePeriod, revenueService, commission, trust, disputes] = await Promise.all([
+      // 2026-05-17 — Promise.allSettled (era Promise.all):
+      // Mapeamento material PASSO 1 mostrou que apenas KPIs e Disputas
+      // dependem de tabelas FANTASMA (payout_*, invoices, evidence_packs).
+      // Receita (3 endpoints) e Trust são 100% VIVAS. Promise.all rejeitava
+      // tudo no primeiro fail — desperdicando endpoints funcionais.
+      // allSettled isola falhas por endpoint; tabs vivas permanecem operáveis.
+      const results = await Promise.allSettled([
         getFinancialKPIs(filters),
         getRevenueByPeriod(filters),
         getRevenueByServiceType(filters),
@@ -59,13 +65,28 @@ export default function FinancialDashboardPage() {
         getDisputeOverview({ limit: 100 }),
       ]);
 
-      setKPIs(kpisData);
-      setRevenueByPeriod(revenuePeriod);
-      setRevenueByServiceType(revenueService);
-      setPlatformCommission(commission);
-      setTrustOverview(trust);
-      setDisputeOverview(disputes);
+      const [kpisRes, revenuePeriodRes, revenueServiceRes, commissionRes, trustRes, disputesRes] = results;
+
+      setKPIs(kpisRes.status === 'fulfilled' ? kpisRes.value : null);
+      setRevenueByPeriod(revenuePeriodRes.status === 'fulfilled' ? revenuePeriodRes.value : []);
+      setRevenueByServiceType(revenueServiceRes.status === 'fulfilled' ? revenueServiceRes.value : []);
+      setPlatformCommission(commissionRes.status === 'fulfilled' ? commissionRes.value : []);
+      setTrustOverview(trustRes.status === 'fulfilled' ? trustRes.value : []);
+      setDisputeOverview(disputesRes.status === 'fulfilled' ? disputesRes.value : []);
+
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.warn(
+          `[FinancialDashboard] ${failures.length}/${results.length} endpoints degradados:`,
+          failures.map((f: any) => f.reason?.message || String(f.reason))
+        );
+      }
+      // Só mostrar erro fatal quando 100% das chamadas falharem (ex: backend offline)
+      if (failures.length === results.length) {
+        setError('Não foi possível carregar dados financeiros. Tente novamente.');
+      }
     } catch (err: any) {
+      // allSettled não rejeita, mas mantemos defensivo para erros inesperados
       setError(err.message || 'Erro ao carregar dados');
       console.error('Erro ao carregar dados:', err);
     } finally {
@@ -218,6 +239,15 @@ export default function FinancialDashboardPage() {
           Disputas
         </button>
       </div>
+
+      {activeTab === 'overview' && !kpis && (
+        <div className="dashboard-content">
+          <div className="dashboard-warning" style={{ padding: '1rem', background: '#fef3c7', borderRadius: '4px', color: '#92400e' }}>
+            KPIs financeiros temporariamente indisponíveis (depende de módulos payout/invoicing em desenvolvimento).
+            Acesse outras abas para dados disponíveis.
+          </div>
+        </div>
+      )}
 
       {activeTab === 'overview' && kpis && (
         <div className="dashboard-content">
