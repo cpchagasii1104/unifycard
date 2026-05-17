@@ -4111,3 +4111,151 @@ Próxima escolha humana:
 - **#4 GLOBAL-USER-ID** — frente arquitetural grande (fronteira PASSO 6)
 - **Auditar runtime DECISION-0031** ou **Q3-E2E v2** (fronteira financeira PASSO 6)
 - **Fechar sessão**
+
+---
+
+## 2026-05-17 — PASSO 11: Frente #4 GUARDIÃO READ-ONLY — DT-GLOBAL-USER-ID-DUPLICATION-E2E
+
+### Contexto
+
+Próximo passo recomendado em piloto: aplicar mesmo método de #3 à DT-GLOBAL-USER-ID. Verificar materialmente Status antes de presumir abertura. Aprendi com #3 que abrir frente assumindo "ATIVA" pode revelar fechamento institucional.
+
+### Achado material — DT GENUINAMENTE OPEN (não é erro de tabulação)
+
+`REMEDIATION_DT_LOG.md:1093` → `Status: OPEN` confirmado. Diferente de COVERAGE-BOOTSTRAP — aqui o estado é real.
+
+**Origem material registrada (não hipótese):**
+- SQL direto revelou `global_user_id = 19616af8...` vinculado a **23 users em 23 tenants distintos** (família E2E `q3v3-attendee-*`, `q3v2-b-*`)
+- Causa: `/auth/register` reusa global_user_id por match de CPF; scripts E2E usam CPFs hardcoded (`11144477735`, `22233344405`)
+
+**Sintoma principal JÁ CORRIGIDO cirurgicamente:**
+- `companies.routes.ts:187` passa `req.tenant?.id` explícito → INSERT usa tenant do JWT
+- Path de criação de empresa isolado
+
+**Risco residual explicitamente "não auditado materialmente"** (texto da própria DT: "Não auditei materialmente quais outros call sites existem. Precisa varredura quando próxima fricção emergir.")
+
+### Auditoria material executada (mínima, READ-ONLY)
+
+`grep "resolveTenantIdFromGlobalUserId"` em `backend/src/`:
+
+**10 ocorrências em `companies.service.ts` (único arquivo que chama):**
+
+| Linha | Tipo | Padrão |
+|---|---|---|
+| 261 | caller | protegido (`if (!finalTenantId) { ... }`) |
+| 738 | definição | — |
+| 977 | caller | protegido |
+| 1264 | caller | protegido (`tenantId ?? ...`) |
+| 1391 | caller | protegido |
+| 1504 | caller | protegido |
+| 1653 | caller | protegido |
+| 1750 | caller | protegido |
+| 1923 | caller | protegido |
+| 2196 | caller | **NÃO protegido** — `adminOverrideToVerified` |
+
+**Padrão protegido (8 callers):**
+```ts
+let finalTenantId = tenantId;
+if (!finalTenantId) {
+  finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
+}
+```
+Vulnerabilidade depende do caller HTTP passar `tenantId` (igual `companies.routes.ts:187` pré-fix).
+
+**Linha 2196 não-protegida (`adminOverrideToVerified`):**
+```ts
+/* ⚠️ ATENÇÃO: Esta função é apenas para testes. 
+   Não deve ser usada em produção sem auditoria adequada. */
+async adminOverrideToVerified(companyId, adminGlobalUserId): Promise<Company> {
+  const finalTenantId = await this.resolveTenantIdFromGlobalUserId(adminGlobalUserId);
+  ...
+}
+```
+**Função de TESTE explicitamente marcada.** Risco produção: baixo (não exposta como rota HTTP de uso normal).
+
+### Análise de risco residual
+
+| Vetor | Estado | Mitigação atual |
+|---|---|---|
+| `companies.routes.ts:187` create | CORRIGIDO | passa `req.tenant?.id` |
+| 7 outros métodos com padrão protegido | DEPENDE caller HTTP | nenhuma centralizada — disciplina por caller |
+| `adminOverrideToVerified` (teste) | NÃO protegido | comentário declarativo "apenas testes" |
+| Outros services com pattern análogo (auth recovery, bank account, profile merge) | NÃO AUDITADO | — |
+
+### Auditoria estendida NÃO executada (fronteira PASSO 6)
+
+NÃO mapeei:
+- Rotas HTTP que chamam os 7 métodos protegidos restantes (cluster cross-layer)
+- Outros services usando padrão análogo (auth, bank, profile)
+- Runtime atual: ainda existem os 23 users compartilhados? Ou foi limpado lateralmente?
+
+Todos esses tocam **identidade transversal + cluster cross-layer + potencialmente runtime financeiro**. PASSO 6 fronteira de parada explícita.
+
+### Critério de convergência da própria DT já especifica
+
+> "Esta DT vira prioritária quando:
+> - Outro fluxo cross-tenant apresentar sintoma similar (empresa/conta/profile 'perdido')
+> - Auditoria de segurança questionar isolamento real entre tenants E2E
+> - Refactor de `/auth/register` for retomado por outra razão
+> - Decisão arquitetural sobre semântica de global_user_id for formalizada"
+
+**Nenhuma das 4 condições ativada hoje.** DT está documentada + dormindo, aguardando pressão material.
+
+### Refinamento sobre PASSO 9 (importante)
+
+PASSO 9 corrigiu COVERAGE-BOOTSTRAP que estava listado erroneamente como BLOQUEIA_PRODUTO. **GLOBAL-USER-ID, por contraste, está corretamente listada como BLOQUEIA_PRODUTO** — bug real, mitigação parcial, risco residual ativo.
+
+PASSO 10 categorizou GLOBAL-USER-ID em Categoria 1 (header coerente). Confirmado materialmente: lista correta.
+
+### 19ª refutação material (parcial)
+
+Hipótese: "DT-GLOBAL-USER-ID pode ser outro erro de tabulação como COVERAGE-BOOTSTRAP".
+Realidade: **DT genuinamente OPEN, bug material com 23 rows runtime registradas, mitigação parcial aplicada, risco residual real**. 8 callers protegidos dependem de disciplina HTTP; 1 não-protegido é teste.
+
+Princípio capturado: refutação não generalizada — cada DT precisa auditoria material própria. Erro de tabulação não vira padrão universal só porque ocorreu uma vez.
+
+### Opções reportadas (NÃO autodecididas — PASSO 6 + DECISION humana)
+
+**A — Continuar auditoria HTTP dos 7 métodos protegidos** (READ-ONLY ainda, mas cluster cross-layer expansive)
+- Trabalho longo, valor incremental documental
+- Risco baixo (apenas grep + leitura)
+- Mas resultado pode disparar DECISION inédita (encontrar caller HTTP sem proteção = bug ativo)
+
+**B — Aceitar diagnóstico atual e fechar Frente #4** (alinhado com critério de convergência da própria DT)
+- "Aguarda pressão material adicional" — nenhuma das 4 condições ativadas
+- DT continua documentada + dormindo
+- Próxima sessão que tocar cross-tenant reabre
+
+**C — Frente arquitetural de decisão sobre semântica global_user_id** (Hipótese 1 da DT)
+- DECISION inédita humana
+- Fora de piloto
+
+### Recomendação minha (Opção B)
+
+**B alinha com critério de convergência declarado pela própria DT.** Continuar auditoria sem pressão material concreta = construir narrativa antes de ancorar (padrão #4). A ou C esperam pressão real.
+
+PASSO 11 cumpre função de Frente #4 GUARDIÃO: confirma material que DT está OPEN, mapeia o que já estava mapeado, identifica risco residual conforme critério da DT, **não executa mitigação sem pressão.**
+
+### Estado consolidado sessão 2026-05-17 (12 commits)
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B auditoria | CLOSED | `990e9695` |
+| FinancialDashboard Opção C | CLOSED | `68d04914` |
+| #2 DT-FANTASMA-ORPHAN-COLLECTIVE | CLOSED | `825030e3` |
+| #3 GUARDIÃO + PASSO 9 Higiene | CLOSED | `d05e4d6d` |
+| PASSO 10 Cruzamento material | CLOSED | `92a5e745` |
+| **#4 GUARDIÃO + PASSO 11** | **CLOSED com recomendação B** | pendente commit |
+
+**MODO:** AGUARDANDO_AUTORIZACAO.
+
+Próximas opções residuais:
+- **A** ou **C** acima (audit estendido ou DECISION arquitetural inédita)
+- Mitigação A/B do PASSO 10 (decisão organizacional documental)
+- **Fechar sessão** — 12 commits + 19 refutações materiais; ponto natural de consolidação
