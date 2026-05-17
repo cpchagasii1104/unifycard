@@ -169,6 +169,42 @@ class InventoryService {
   }
 
   /**
+   * Obtém saldo atual de uma variante NA PERSPECTIVA DE UM ACTOR (DERIVADO de movimentações).
+   *
+   * Saldo "operacional" do actor (unidade de estoque): quanto da variante X está sob
+   * o controle deste actor específico, somando apenas movimentos onde actor_id = $actor.
+   *
+   * Distingue-se de getCurrentBalance (que agrega todos actors do tenant — visão tenant-wide).
+   * Read model inventory_balances NÃO discrimina por actor; este método sempre derive de movements.
+   */
+  async getCurrentBalanceByActor(
+    tenantId: string,
+    actorId: string,
+    productVariantId: string
+  ): Promise<{ quantity: number; unit: string }> {
+    if (!actorId?.trim()) {
+      throw new Error('actorId é obrigatório para saldo operacional por actor');
+    }
+    await assertInventoryUnitActorEligible(tenantId, actorId);
+
+    // Verificar se variante existe
+    const variant = await productVariantRepository.getVariantById(
+      tenantId,
+      productVariantId
+    );
+
+    if (!variant) {
+      throw new Error(`Variante não encontrada: ${productVariantId}`);
+    }
+
+    return await inventoryMovementRepository.calculateBalanceByActor(
+      tenantId,
+      actorId,
+      productVariantId
+    );
+  }
+
+  /**
    * Obtém saldo do read model (opcional, para performance)
    * Se não existir, calcula das movimentações
    */

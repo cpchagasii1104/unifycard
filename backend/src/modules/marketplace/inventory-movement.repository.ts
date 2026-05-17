@@ -246,6 +246,50 @@ class InventoryMovementRepository {
   }
 
   /**
+   * Calcula saldo de uma variante restrito a um actor (unidade operacional de estoque).
+   * Mesma fórmula de calculateBalance, com filtro adicional por actor_id.
+   *
+   * SSOT = inventory_movements (cf. header de 0103_inventory_balances.sql).
+   * Não materializa projeção (read model agrega por variante-tenant, sem dimensão actor).
+   * Substrato adjacente é actor-aware (orders/transfers/offers/purchase_orders/movements):
+   * este método projeta sob demanda sem exigir DDL em inventory_balances.
+   */
+  async calculateBalanceByActor(
+    tenantId: string,
+    actorId: string,
+    productVariantId: string
+  ): Promise<{ quantity: number; unit: string }> {
+    const result = await runQueryWithTenant<{
+      total_quantity: string;
+      unit: string;
+    }>(
+      tenantId,
+      `
+      SELECT
+        COALESCE(
+          SUM(
+            CASE
+              WHEN movement_type = 'IN' THEN quantity
+              WHEN movement_type = 'OUT' THEN -quantity
+              WHEN movement_type = 'ADJUSTMENT' THEN quantity
+            END
+          ),
+          0
+        )::text as total_quantity,
+        COALESCE(MAX(unit), 'un') as unit
+      FROM inventory_movements
+      WHERE tenant_id = $1 AND actor_id = $2 AND product_variant_id = $3
+      `,
+      [tenantId, actorId, productVariantId]
+    );
+
+    return {
+      quantity: parseFloat(result?.total_quantity || '0'),
+      unit: result?.unit || 'un',
+    };
+  }
+
+  /**
    * Mesmo cálculo que calculateBalance, na transação do client (obrigatório após lock na variante).
    */
   async calculateBalanceWithClient(
