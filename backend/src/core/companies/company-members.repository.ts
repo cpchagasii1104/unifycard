@@ -1,43 +1,110 @@
 // src/core/companies/company-members.repository.ts
-// Repository para COMPANY MEMBERS
-// 🔴 BLINDAGEM: Base estrutural, NÃO CRM/ERP completo
+// DECISION-0042 (2026-05-16): adapter thin sobre `company_users` (SSOT unico).
+// company_members.* (tabela) foi descartada — frente MEMBERSHIP consolidou
+// role-based membership em company_users (9 rows vivas + colunas role +
+// member_status adicionadas via migration 20260530541000).
+//
+// Esta camada preserva a interface CompanyMember/CRUD para que callers
+// upstream (service, routes, frontend) continuem inalterados.
+//
+// Mapeamento:
+//   member_id    ↔ company_users.id
+//   actor_id     ↔ derivado de global_user_id (JOIN actors via users)
+//   role/status  ↔ company_users.role / company_users.member_status
+//   metadata     ↔ company_users.metadata
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { NotFoundError } from '@core/errors';
+import { NotFoundError, BadRequestError } from '@core/errors';
 import type {
   CompanyMember,
-  CompanyMemberRow,
   CreateCompanyMemberInput,
   UpdateCompanyMemberInput,
   CompanyMemberFilters,
 } from './company-members.types';
 import { CompanyMemberRole, CompanyMemberStatus } from './company-members.types';
 
-/**
- * Repository para Company Members
- * 🔴 BLINDAGEM: Repository apenas gerencia dados, não decide comportamento
- */
+interface CompanyUserAdapterRow {
+  id: string;
+  tenant_id: string;
+  company_id: string;
+  global_user_id: string;
+  actor_id: string | null;
+  role: string;
+  member_status: string;
+  metadata: Record<string, any> | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+const SELECT_WITH_ACTOR = `
+  SELECT
+    cu.id,
+    cu.tenant_id,
+    cu.company_id,
+    cu.global_user_id,
+    a.actor_id,
+    cu.role,
+    cu.member_status,
+    cu.metadata,
+    cu.created_at,
+    cu.updated_at
+  FROM company_users cu
+  LEFT JOIN users u
+    ON u.global_user_id = cu.global_user_id
+   AND u.tenant_id = cu.tenant_id
+  LEFT JOIN actors a
+    ON a.user_id = u.user_id
+   AND a.tenant_id = cu.tenant_id
+   AND a.actor_type = 'user'
+`;
+
 class CompanyMembersRepository {
-  /**
-   * Converte linha do banco para entidade de domínio
-   */
-  private toCompanyMember(row: CompanyMemberRow): CompanyMember {
+  private toCompanyMember(row: CompanyUserAdapterRow): CompanyMember {
+    const createdAt =
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at);
+    const updatedAt =
+      row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at);
+
     return {
-      memberId: row.member_id,
+      memberId: row.id,
       tenantId: row.tenant_id,
       companyId: row.company_id,
-      actorId: row.actor_id,
+      actorId: row.actor_id ?? row.global_user_id,
       role: row.role as CompanyMemberRole,
-      status: row.status as CompanyMemberStatus,
+      status: row.member_status as CompanyMemberStatus,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt,
+      updatedAt,
     };
   }
 
-  /**
-   * Cria um novo membro
-   */
+  private async resolveGlobalUserIdFromActor(
+    tenantId: string,
+    actorId: string
+  ): Promise<string> {
+    const row = await runQueryWithTenant<{ global_user_id: string }>(
+      tenantId,
+      `
+        SELECT u.global_user_id
+        FROM actors a
+        JOIN users u ON u.user_id = a.user_id AND u.tenant_id = a.tenant_id
+        WHERE a.actor_id = $1
+          AND a.tenant_id = $2
+          AND a.actor_type = 'user'
+        LIMIT 1
+      `,
+      [actorId, tenantId]
+    );
+
+    if (!row || !row.global_user_id) {
+      throw new BadRequestError(
+        `Actor ${actorId} não resolvível para global_user_id (precisa ser actor_type='user')`
+      );
+    }
+
+    return row.global_user_id;
+  }
+
   async create(
     tenantId: string,
     input: CreateCompanyMemberInput
@@ -50,92 +117,99 @@ class CompanyMembersRepository {
       metadata = {},
     } = input;
 
-    const result = await runQueryWithTenant<CompanyMemberRow>(
+    const globalUserId = await this.resolveGlobalUserIdFromActor(tenantId, actorId);
+
+    await runQueryWithTenant(
       tenantId,
       `
-      INSERT INTO company_members (
-        tenant_id, company_id, actor_id, role, status, metadata
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
+        INSERT INTO company_users (
+          tenant_id, company_id, global_user_id, role, member_status, metadata, is_active
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (company_id, global_user_id) DO UPDATE
+        SET role = EXCLUDED.role,
+            member_status = EXCLUDED.member_status,
+            metadata = EXCLUDED.metadata,
+            updated_at = now()
       `,
-      [tenantId, companyId, actorId, role, status, JSON.stringify(metadata)]
+      [
+        tenantId,
+        companyId,
+        globalUserId,
+        role,
+        status,
+        JSON.stringify(metadata),
+        status === CompanyMemberStatus.ACTIVE,
+      ]
     );
 
-    if (!result) {
-      throw new NotFoundError('Failed to create company member');
+    const row = await runQueryWithTenant<CompanyUserAdapterRow>(
+      tenantId,
+      `${SELECT_WITH_ACTOR}
+        WHERE cu.tenant_id = $1
+          AND cu.company_id = $2
+          AND cu.global_user_id = $3
+        LIMIT 1
+      `,
+      [tenantId, companyId, globalUserId]
+    );
+
+    if (!row) {
+      throw new NotFoundError('Falha ao criar membro (upsert sem retorno)');
     }
 
-    return this.toCompanyMember(result);
+    return this.toCompanyMember(row);
   }
 
-  /**
-   * Busca membro por ID
-   */
   async findById(tenantId: string, memberId: string): Promise<CompanyMember | null> {
-    const result = await runQueryWithTenant<CompanyMemberRow>(
+    const row = await runQueryWithTenant<CompanyUserAdapterRow>(
       tenantId,
-      `
-      SELECT *
-      FROM company_members
-      WHERE tenant_id = $1 AND member_id = $2
-      LIMIT 1
+      `${SELECT_WITH_ACTOR}
+        WHERE cu.tenant_id = $1 AND cu.id = $2
+        LIMIT 1
       `,
       [tenantId, memberId]
     );
 
-    if (!result) {
-      return null;
-    }
-
-    return this.toCompanyMember(result);
+    return row ? this.toCompanyMember(row) : null;
   }
 
-  /**
-   * Busca membros com filtros
-   */
   async find(tenantId: string, filters: CompanyMemberFilters): Promise<CompanyMember[]> {
-    let query = `
-      SELECT *
-      FROM company_members
-      WHERE tenant_id = $1
-    `;
+    let query = `${SELECT_WITH_ACTOR} WHERE cu.tenant_id = $1`;
     const params: any[] = [tenantId];
     let paramIndex = 2;
 
     if (filters.companyId) {
-      query += ` AND company_id = $${paramIndex}`;
+      query += ` AND cu.company_id = $${paramIndex}`;
       params.push(filters.companyId);
       paramIndex++;
     }
 
     if (filters.actorId) {
-      query += ` AND actor_id = $${paramIndex}`;
-      params.push(filters.actorId);
+      const globalUserId = await this.resolveGlobalUserIdFromActor(tenantId, filters.actorId);
+      query += ` AND cu.global_user_id = $${paramIndex}`;
+      params.push(globalUserId);
       paramIndex++;
     }
 
     if (filters.role) {
-      query += ` AND role = $${paramIndex}`;
+      query += ` AND cu.role = $${paramIndex}`;
       params.push(filters.role);
       paramIndex++;
     }
 
     if (filters.status) {
-      query += ` AND status = $${paramIndex}`;
+      query += ` AND cu.member_status = $${paramIndex}`;
       params.push(filters.status);
       paramIndex++;
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY cu.created_at DESC`;
 
-    const rows = await runQueriesWithTenant<CompanyMemberRow>(tenantId, query, params);
-    return rows.map(this.toCompanyMember);
+    const rows = await runQueriesWithTenant<CompanyUserAdapterRow>(tenantId, query, params);
+    return rows.map((row) => this.toCompanyMember(row));
   }
 
-  /**
-   * Atualiza membro
-   */
   async update(
     tenantId: string,
     memberId: string,
@@ -152,8 +226,12 @@ class CompanyMembersRepository {
     }
 
     if (input.status !== undefined) {
-      fields.push(`status = $${paramIndex}`);
+      fields.push(`member_status = $${paramIndex}`);
       params.push(input.status);
+      paramIndex++;
+      // Manter is_active sincronizado com member_status para callers legados que ainda leem is_active.
+      fields.push(`is_active = $${paramIndex}`);
+      params.push(input.status === CompanyMemberStatus.ACTIVE);
       paramIndex++;
     }
 
@@ -172,15 +250,16 @@ class CompanyMembersRepository {
     }
 
     params.push(memberId, tenantId);
-    paramIndex += 2;
+    const memberIdIdx = paramIndex;
+    const tenantIdIdx = paramIndex + 1;
 
-    const result = await runQueryWithTenant<CompanyMemberRow>(
+    const result = await runQueryWithTenant(
       tenantId,
       `
-      UPDATE company_members
-      SET ${fields.join(', ')}, updatedAt = now()
-      WHERE member_id = $${paramIndex - 1} AND tenant_id = $${paramIndex}
-      RETURNING *
+        UPDATE company_users
+        SET ${fields.join(', ')}, updated_at = now()
+        WHERE id = $${memberIdIdx} AND tenant_id = $${tenantIdIdx}
+        RETURNING id
       `,
       params
     );
@@ -189,19 +268,20 @@ class CompanyMembersRepository {
       throw new NotFoundError('Company member not found or failed to update');
     }
 
-    return this.toCompanyMember(result);
+    const updated = await this.findById(tenantId, memberId);
+    if (!updated) {
+      throw new NotFoundError('Company member not found after update');
+    }
+    return updated;
   }
 
-  /**
-   * Remove membro
-   */
   async delete(tenantId: string, memberId: string): Promise<void> {
-    const result = await runQueryWithTenant<{ member_id: string }>(
+    const result = await runQueryWithTenant<{ id: string }>(
       tenantId,
       `
-      DELETE FROM company_members
-      WHERE tenant_id = $1 AND member_id = $2
-      RETURNING member_id
+        DELETE FROM company_users
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING id
       `,
       [tenantId, memberId]
     );
@@ -213,5 +293,3 @@ class CompanyMembersRepository {
 }
 
 export const companyMembersRepository = new CompanyMembersRepository();
-
-

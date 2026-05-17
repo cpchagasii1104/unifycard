@@ -2592,3 +2592,287 @@ soberana é responsabilidade humana/RFC.
 
 
 
+
+
+### DECISION-0037 — Ratificação de `unified-availability` como SSOT temporal soberana + mapeamento de projeções
+
+- **Data:** 2026-05-16
+- **Tipo:** arquitetural (ratificação institucional de convergência silenciosa pré-existente)
+- **ID da violação (se aplicável):** N/A — emerge do inventário Frente 2 (MODULES_INVENTORY.md seção 5 Padrão 1)
+- **Contexto material:**
+  Frente 2 (sessão 1+2) descobriu que `core/availability/unified-availability.*` já existe como API completa (createAvailability, createBooking, checkIn, checkOut, **detectConflicts**) com runtime real: `availability` (20 rows) + `bookings` (24 rows) + `availability_participants`. A narrativa prévia (Sunny + ChatGPT) assumia que Agenda Universal precisava ser criada — material refutou: **já existe e é exercitada**.
+
+  Análise material do Padrão 1 (com critério Sunny — 80%+ Jaccard OU domínios mutuamente exclusivos): 4 tabelas paralelas modelam conceito semanticamente equivalente a `availability`:
+
+  | Tabela paralela | Convergência possível | Razão material |
+  |---|---|---|
+  | `event_sessions` (10 cols: starts_at/ends_at/capacity) | Projetar como availability(owner_type='event') | Mesma natureza (janela+capacity); convergência via View |
+  | `rides_driver_sessions` (7 cols: started_at/ended_at/is_online) | Projetar como availability(owner_type='driver') | Mesma natureza; driver session é availability com online flag |
+  | `pdv_sessions` (9 cols: opened_at/closed_at) | Projetar como availability(owner_type='pdv') | Janela de PDV; convergência por projeção |
+  | `schedules + schedule_slots` | Template recorrente gera availabilities concretas | Schedule é template; availability é manifestação |
+
+  `services` foi falso positivo da hipótese original — é catálogo (não temporal), não pertence ao padrão.
+
+  `bookings` ↔ `event_reservations` é par paralelo (reserva sobre janela); `event_reservations` adiciona `payment_bank_transaction_id`. Convergência via projeção também.
+
+- **Decisão:**
+  **`unified-availability` é a SSOT temporal soberana do sistema para janelas + capacidade.** As 4 tabelas paralelas (event_sessions, rides_driver_sessions, pdv_sessions, schedules+schedule_slots) e `event_reservations` são reconhecidas como projeções/consumidoras potenciais. Convergência arquitetural é frente futura — esta DECISION ratifica o status atual + cristaliza a direção.
+
+- **Restrições explícitas anti-buraco-negro:**
+  1. **NÃO implementar convergência agora.** Esta DECISION ratifica o status, não autoriza refactor. Convergência exige sessão dedicada por par de tabelas.
+  2. **NÃO criar SSOT temporal paralela.** Qualquer novo módulo que precise modelar "janela temporal + capacidade" deve usar `unified-availability` via `owner_type+owner_id`. Tabela própria exige justificativa arquitetural explícita + DECISION nova.
+  3. **`services` permanece como catálogo (não temporal).** Não confundir com availability. Service.availability emerge via FK `availability.owner_type='service'+owner_id=service_id` quando aplicável.
+
+- **Referência material:** `MODULES_INVENTORY.md` seção 5 Padrão 1; DT-CONVERGENCE-AVAILABILITY-AS-CANONICAL-TEMPORAL no REMEDIATION_DT_LOG.md.
+
+---
+
+### DECISION-0038 — Princípio "código aspiracional ≠ capacidade": inventário formal obrigatório antes de presumir feature
+
+- **Data:** 2026-05-16
+- **Tipo:** institucional (princípio operacional soberano + critério de governança)
+- **ID da violação (se aplicável):** N/A — emerge do inventário Frente 2 (29 FANTASMAs descobertos)
+- **Contexto material:**
+  Inventário Frente 2 classificou 157 módulos backend e descobriu **29 FANTASMAs** (18%) — código que referencia tabelas inexistentes. **24 dos 29 têm frontend caller** (endpoints chamados pelo frontend que falham em runtime). Top 5 em rotas: work-instant (14), venue (12), policy-engine (11), presence (11), automation (10).
+
+  Risco institucional material: próximo desenvolvedor (humano ou IA) pode olhar `backend/src/modules/` e contar 80 módulos como capacidade. **Não é capacidade.** Subset operacional real é ~71 funcionais (45%). 60+ módulos são código aspiracional sem fundo.
+
+  Sintoma adicional: a narrativa anterior (Sunny + ChatGPT) estimou "15-20 funcionais de 80" — erro de 4× para baixo por extrapolação de poucos exemplos prioritários. Sem inventário formal sustentado por dados, percepção de capacidade fica ao gosto do observador.
+
+- **Decisão:**
+  **Antes de iniciar nova frente que dependa de módulo X, IA ou humano deve verificar em inventário formal: (a) tabelas referenciadas existem? (b) rows > 0? (c) frontend chama? (d) classificação FUNCIONAL/ESQUELETO/FANTASMA.** Sem essa verificação, presumir capacidade é anti-padrão institucional.
+
+  Inventário formal vigente: `MODULES_INVENTORY.md` (raiz, sessão 2026-05-16). Reprodutível via queries listadas em apêndice A.
+
+- **Restrições explícitas:**
+  1. **Inventário formal tem janela de validade** — quando 30%+ dos módulos mudarem classificação (estimativa de 90+ dias), inventário precisa re-executado.
+  2. **Mudança de classificação de módulo** (FANTASMA → FUNCIONAL ou inverso) exige DT específica + atualização de inventário.
+  3. **NÃO substituir inventário formal por percepção informal.** Frase "o módulo X existe" não é dado material — verificar inventário primeiro.
+
+- **Princípio operacional registrado (Clayton, 2026-05-16):**
+
+  > **"Sistemas morrem na hora em que começam a convergir — porque equipe acelera, engines paralelas surgem, authority duplica, presença duplica, agenda duplica, tudo fragmenta. Vocês estão fazendo o contrário: congelando ANTES da fragmentação cristalizar."**
+
+  Esta DECISION materializa o princípio: inventário formal + congelamento explícito de FANTASMAs/DORMENTES = mecanismo institucional anti-fragmentação preventivo.
+
+- **Referência material:** `MODULES_INVENTORY.md` seções 0+2+10; DT-MODULES-ASPIRATIONAL-VS-RUNTIME no REMEDIATION_DT_LOG.md.
+
+---
+
+### DECISION-0039 — Modo operante v1 ratificado como projeção UX hardcoded; v2 dinâmico aguarda 3 frentes prévias
+
+- **Data:** 2026-05-16
+- **Tipo:** arquitetural (formalização institucional de tradeoff consciente)
+- **ID da violação (se aplicável):** N/A — formaliza implementação da sessão 2026-05-16 + descobertas Frente 2
+- **Contexto material:**
+  v1 do modo operante foi implementado em 2026-05-16 como projeção UX hardcoded em `frontend/src/config/actorContextConfig.ts` — listas estáticas de quick actions por `(actor_type, mode)` com 2 modos (Consumir/Operar), cross-mode hint, persistência localStorage por actor.
+
+  Definição soberana (memória `project_modo_operante.md`): "Modo operante NÃO cria capability, REVELA capabilities já autorizadas." Implementação v1 não realiza essa definição materialmente — usa lista hardcoded em vez de resolver dinâmico de `actor_delegations` + `company_users` + `authority_decision_audit`.
+
+  Frente 2 (inventário) confirmou que v2 dinâmico depende de **3 frentes prévias**, não apenas de "esperar C27":
+  1. `actor_delegations` ter runtime real (hoje 0 rows — DT-ACTOR-DELEGATIONS-ZERO-RUNTIME)
+  2. **DECISÃO ARQUITETURAL sobre P5** (qual modelo de vínculo absorve o caso canônico — DT-OPERATIONAL-BINDING-FRAGMENTATION)
+  3. **DECISÃO ARQUITETURAL sobre P4** (qual modelo de presença absorve — DT-PRESENCE-FRAGMENTATION-CONFIRMED)
+
+  Mesmo C27 resolvido, sem P4 + P5 decididos, v2 reproduz Frankenstein.
+
+- **Decisão:**
+  **v1 modo operante (hardcoded, frontend-only) é ratificado como projeção UX correta para o estágio atual.** É tradeoff consciente que valida UX antes de investir em resolver dinâmico. Não é dívida a ser corrigida — é fundação de validação.
+
+  **v2 dinâmico permanece bloqueado** até as 3 frentes prévias materializarem. Sem elas, v2 é decisão arquitetural prematura.
+
+- **Restrições explícitas:**
+  1. **NÃO substituir v1 hardcoded por resolver dinâmico** sem antes resolver as 3 frentes prévias.
+  2. **NÃO adicionar 3º modo operante** (Investir/Governar/etc) sem MVP v1 validado primeiro. MVP rigorosamente Consumir/Operar.
+  3. **NÃO usar profession como ACL implícita** — profission é hint dentro de Operar quando v2 emergir; nunca autorização (DT-PROFESSION-DATA-SPARSE: 3/61 profiles populados hoje, hint vazio para 95%).
+  4. **NÃO persistir mode em schema backend** — runtime localStorage é parte do tradeoff v1.
+
+- **Critério de progressão v1 → v2:**
+  Quando simultaneamente: (a) primeira delegação real exercitada via UI, (b) DECISION arquitetural P5 (vínculo) tomada, (c) DECISION arquitetural P4 (presença) tomada, e (d) autorização explícita Clayton para v2 — então frente nova abre.
+
+- **Referência material:** memória `project_modo_operante.md`; `MODULES_INVENTORY.md` seção 5 (P4+P5) + 5.B; DT-OPERATING-MODE-STATIC-PROJECTION + DT-ACTOR-DELEGATIONS-ZERO-RUNTIME + DT-PRESENCE-FRAGMENTATION-CONFIRMED + DT-OPERATIONAL-BINDING-FRAGMENTATION.
+
+---
+
+### DECISION-0040 — FANTASMAs com frontend caller — ratificação das decisões caso a caso (top 5 + 19 restantes)
+
+- **Data:** 2026-05-16
+- **Tipo:** institucional (ratificação de classificação operacional + critério de descongelamento)
+- **ID da violação (se aplicável):** N/A — emerge do inventário Frente 2 (MODULES_INVENTORY.md seção 10)
+- **Contexto material:**
+  29 módulos backend foram classificados como FANTASMA na Frente 2 (referenciam tabelas inexistentes). 24 desses têm frontend caller — endpoints chamados pelo frontend que falham em runtime. Decisões propostas pela auditoria foram ratificadas por Clayton + ChatGPT + Opus (convergência total).
+
+- **Decisão (top 5 ratificada):**
+
+  | Módulo | Rotas | Decisão ratificada | DT específica |
+  |---|---:|---|---|
+  | `modules/work-instant` | 14 | **CONGELAR pre-P4-P5-delegations** | DT-MODULE-WORK-INSTANT-FROZEN-PRE-P4-P5 |
+  | `modules/venue` | 12 | **CONGELAR pre-vertical restaurant** | DT-MODULE-VENUE-FROZEN-PRE-RESTAURANT-VERTICAL |
+  | `modules/policy-engine` | 11 | **AUDITORIA_HUMANA_URGENTE** (possível conflito com authority chain) | DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE |
+  | `modules/presence` | 11 | **CONGELAR pre-P4-decision** | DT-MODULE-PRESENCE-FROZEN-PRE-P4-DECISION |
+  | `modules/automation` | 10 | **AUDITORIA_HUMANA** (possível duplicação com bank alerts) | DT-MODULE-AUTOMATION-AUDIT-PRE-OVERLAP-CHECK (pendente registro no PASSO 2) |
+
+- **Decisão (19 restantes — classificação proposta na Frente 2):**
+
+  | Categoria | Qtd | Módulos |
+  |---|---:|---|
+  | CONGELAR | 6 | evidence, loyalty, subscriptions, invoicing, memory, (+ 1 dos PROVISÓRIOs prováveis) |
+  | AUDITORIA_HUMANA | 9 | agreements, contextual-messaging, payout, reporting, system-notifications, votes, social-actions, care, user-group-allocation |
+  | CRIAR_TABELA | 2 | core/root-config, core/residence |
+  | PROVISÓRIO (aguarda ratificação final) | 3 | business-audit, media, social-chat |
+
+  Detalhamento em `MODULES_INVENTORY.md` seção 10.
+
+- **Restrições explícitas:**
+  1. **CONGELAR ≠ apagar.** Módulos congelados mantêm código no disco. Rotas frontend devem ser escondidas/desabilitadas (não removidas sem nova DECISION).
+  2. **AUDITORIA_HUMANA ≠ implementar.** São pendências humanas. Cada uma exige decisão pré-implementação (criar tabela vs remover endpoint vs consolidar com tabela existente).
+  3. **Frente própria por módulo AUDITORIA_HUMANA** quando primeiro uso real emergir. Não tentar resolver todos os 11 simultaneamente.
+  4. **policy-engine é URGENTE** porque pode conflitar com authority chain canônica (`authorization.service.ts` + `authority_decision_audit`). Implementar policy_rules sem decisão arquitetural reproduziria authority paralela — anti-padrão C27.
+
+- **Critério institucional de descongelamento:**
+  Cada DT-MODULE-*-FROZEN tem critério de descongelamento próprio (referência `REMEDIATION_DT_LOG.md`). Nenhum descongelamento sem critério satisfeito + DECISION nova.
+
+- **Referência material:** `MODULES_INVENTORY.md` seção 10 (24 FANTASMAs); REMEDIATION_DT_LOG.md (DTs de congelamento específicas).
+
+
+### DECISION-0041 — policy-engine como módulo de risk-management isolado (não authority paralela)
+
+- **Data:** 2026-05-16
+- **Tipo:** arquitetural (classificação de domínio + congelamento consciente de módulo prematuro)
+- **ID da violação (se aplicável):** N/A — emerge de auditoria material da DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (Frente 4, sprint Priorização)
+- **Contexto material:**
+  Auditoria material READ-ONLY de `backend/src/modules/policy-engine/*` (5 arquivos, 1343 linhas) + frontend callers + cruzamento com authority chain canônica respondeu as 4 perguntas binárias inicialmente abertas:
+
+  | # | Pergunta | Resposta | Evidência material |
+  |---|---|---|---|
+  | 1 | É replacement do authority atual? | **NÃO** | `policy.routes.ts:31-44` middleware `requirePolicyPermission` chama `businessAuthorizationService.requirePermission(tenantId, userId, actor.actor_id, 'financial:view_all_ledger', 'policy_engine')` — USA authority como dependência |
+  | 2 | É overlay sobre authority? | **NÃO no domínio de permissão.** SIM no domínio adjacente de risk-management/enforcement | Authority responde "actor pode X?"; policy-engine responde "actor deve ser temporariamente restrito por behavior?" |
+  | 3 | É obsoleto (substituído)? | **NÃO** | Papel próprio integrado com risk-command-center + trust + evidence (módulos vivos); RiskCommandCenterPage chama `evaluatePoliciesForActor` + `applyPolicyDecision` |
+  | 4 | Se replacement: plano de migração? | **N/A** | Não é replacement |
+
+  Domínio material confirmado: risk-management/enforcement com decisão humana.
+  - `PolicyType`: `feature_throttling | temporary_block | manual_review_required`
+  - `PolicyAction`: `limit_rfq_creation, block_messaging, require_review_payout, ...`
+  - `PolicyCondition`: `minRiskLevel, maxTrustScore, hasOpenDisputes, bypassDetectedLast30Days, financialVolumeCents`
+  - `evaluatePoliciesForActor` busca `riskDashboardService.getActorRiskProfile` + `trustRepository.findByActor`
+  - `applyPolicyDecision` cria `Evidence Pack` (`evidenceService.getOrCreatePack(...contextType:'risk_command_center')`)
+  - Blindagens documentadas no código: "Nenhuma sanção automática", "Todas as decisões são explícitas e humanas", "Tudo reversível"
+
+- **Decisão:**
+  **policy-engine ocupa domínio próprio (risk-management/enforcement). Authority chain (`authorization.service` + `actor_delegations` + `company_users` + RBAC) permanece soberana para permissão.** Não há sobreposição funcional; o módulo NÃO é authority paralela.
+
+  **Sub-decisão de execução: opção (b) — esconder rotas frontend + arquivar até primeira necessidade real de risk-management.**
+
+  Risk-management automation é frente arquitetural grande (precisa risk profile real + trust score real + evidence service real funcionando). Hoje todos esses sub-módulos têm runtime parcial. Ativar policy-engine sem o ecossistema completo gera ilusão de capability.
+
+- **Princípio operacional registrado (ChatGPT via Clayton, 2026-05-16) — chave de leitura para futuras priorizações:**
+
+  > **"O sistema contém módulos conceitualmente corretos que ainda não deveriam estar vivos. Módulo PREMATURO ≠ módulo ESTRUTURALMENTE ERRADO. Maturidade temporal ≠ incoerência estrutural. Congelar módulos prematuros preserva convergência futura sem cristalizar runtime inadequado."**
+
+  Aplicação: ao auditar DTs, separar entre 3 categorias semânticas (não apenas técnicas):
+  - **ESTRUTURALMENTE_ERRADO** → corrigir OU arquivar consciente
+  - **PREMATURO** → congelar / aguardar pressão real / preservar para reativação futura
+  - **INFORMATIVA** → documentar lição, sem ação
+
+  policy-engine é caso canônico de **PREMATURO**: módulo estruturalmente correto (separação de risk vs authority é design certo, blindagens humanas-no-loop são corretas, integração com evidence pack é correta), mas runtime adequado ainda não emergiu (precisa ecossistema risk+trust+evidence vivo).
+
+- **Restrições explícitas:**
+  1. **NÃO criar tabelas** `policy_rules` + `policy_decisions` sem primeira necessidade real de risk-management emergir (ex: primeira fraude detectada, primeira dispute escalada, primeiro abuso de limit).
+  2. **NÃO interpretar policy-engine como replacement de authority** em sessões futuras. Cristalizaria anti-padrão inexistente.
+  3. **NÃO ativar Risk Command Center page** até ecossistema (risk + trust + evidence) atingir runtime real exercitado (não apenas tabelas criadas).
+  4. **NÃO confundir esconder com remover.** Frontend hide preserva código; remoção exige DECISION nova.
+
+- **Implicação na Frente 4:**
+  - DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE reclassificada de AUDIT_URGENT → **AUDIT_RESOLVIDA + PREMATURO**
+  - Sub-DT nova: `DT-MODULE-POLICY-ENGINE-PREMATURO-AGUARDA-ECOSSISTEMA-RISK`
+  - Reflexo institucional: minha auditoria anterior classificou policy-engine como "HIGH risco authority paralela" — **6º caso desta sessão** de classificação superficial refutada por auditoria material. O princípio "auditoria material antes de classificação por inferência de nome" (DECISION-0040 contexto + DT_PRIORIZATION.md) confirma valor.
+
+- **Referência material:**
+  - Código auditado: `backend/src/modules/policy-engine/policy-engine.service.ts` (432 linhas), `policy.routes.ts` (297 linhas), `policy.repository.ts` (438 linhas), `policy.types.ts` (161 linhas), `policy-engine.module.ts` (15 linhas)
+  - Frontend callers: `frontend/src/api/policies.ts`, `frontend/src/pages/PolicyManagementPage.tsx`, `frontend/src/pages/RiskCommandCenterPage.tsx`
+  - Authority chain canônica: `backend/src/core/authorization/authorization.service.ts` (`canActAs` ownership→delegation→legacy ramo)
+  - Ecossistema risk: `risk-command-center`, `trust`, `evidence`, `business-audit` (todos com runtime parcial — não auditados nesta sessão para escopo)
+  - DT que fechou: DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (REMEDIATION_DT_LOG.md)
+
+### DECISION-0042 — MEMBERSHIP SSOT: company_users expandido (Opção A)
+
+**Data:** 2026-05-16
+**Sessão:** continuação 2026-05-16 (PASSO 2 do plano frente MEMBERSHIP)
+**Status:** EXECUTED (commit pendente)
+**Autorização:** Clayton via AskUserQuestion (Opção A — recomendada com dados materiais)
+
+#### Contexto
+
+Frente MEMBERSHIP gerada por DT-MEMBERSHIP-SSOT-DECISION-REQUIRED (BLOQUEIA_PRODUTO criada após auditoria 4 AUDITORIA). Auditoria profunda READ-ONLY (PASSO 2.a) revelou:
+
+- 5 callers backend de `company_members` (não 1): repository, service, routes, authorization, bank-balance-by-cpf
+- 2 callers de teste
+- Frontend completo: `CompanyTeamTab.tsx` + `companyMembers.ts` API + handlers
+- Sprint 78 (`organization_*`) JÁ implementado paralelamente (backend + pages + api)
+- **Estado runtime DB:** apenas `company_users` (9 rows) e `actor_delegations` (0 rows) existem; `company_members`, `company_employees`, `organization_*` (4 tabelas) — TODAS INEXISTENTES
+- `company_users` JÁ TEM `role` (text, default 'member'), `is_active`, `is_primary`, 5 colunas `can_manage_*`
+
+#### Decisão
+
+**Opção A:** `company_users` expandido como SSOT único de membership role-based.
+
+- Migration aditiva: `member_status TEXT NOT NULL DEFAULT 'active'` + CHECK constraints em `role` e `member_status` + índice composto
+- `role` JÁ existe — apenas relaxar valores válidos via CHECK (`owner`, `admin`, `staff`, `contractor`, `member`)
+- `member_status` substrato para fluxo invited/active/suspended (is_active mantido para compat)
+- `company-members.repository.ts` vira adapter thin: preserva interface CompanyMember, mapeia para company_users
+- `authorization.service.ts:369` lê company_users.role='admin' direto
+- `bank-balance-by-cpf.service.ts:151` substitui subquery por JOIN users → company_users
+
+#### Razão de escolha sobre B e C
+
+| Critério | A | B | C |
+|---|---|---|---|
+| Substrato vivo | ✅ 9 rows | ❌ 0 rows | ❌ 0 rows × 4 tabelas |
+| Refactor backend | 2 callers | 0 | 2+ callers |
+| Refactor frontend | 0 | 0 | adapter |
+| Dead code resolvido | Sprint 78 fica congelada DT separada | company_members vira viva, Sprint 78 morta | company_members vira legado com DT |
+| Reversibilidade | ALTA | BAIXA | BAIXA |
+| Blast | BAIXO | MÉDIO | ALTO |
+
+A é a única opção que **não cria nova tabela** e **aproveita substrato existente**.
+
+#### Restrição explícita (não fazer)
+
+1. **NÃO** apagar `company-members.*` (repository/service/routes) imediatamente — adapter preserva contrato para callers atuais (incluindo frontend `CompanyTeamTab.tsx`)
+2. **NÃO** materializar Sprint 78 (`organization_*`) nesta frente — fica congelada via DT separada (`DT-ORGANIZATION-SPRINT78-FROZEN`) com critério de descongelamento
+3. **NÃO** remover `is_active` de `company_users` — mantido sincronizado com `member_status` para compat com callers legados
+4. **NÃO** popular dados em `actor_delegations` aqui — frente separada
+
+#### Artefatos materiais
+
+| Arquivo | Mudança |
+|---|---|
+| `backend/migrations/20260530541000_company_users_membership_expansion.sql` | NOVA — migration aditiva (member_status + CHECK constraints + índice) |
+| `backend/src/core/authorization/authorization.service.ts` | Refactor: companyMembersRepository → query direta company_users |
+| `backend/src/modules/bank/bank-balance-by-cpf.service.ts` | Refactor: subquery company_members → JOIN users + company_users |
+| `backend/src/core/companies/company-members.repository.ts` | Reescrito como adapter thin sobre company_users (preserva interface) |
+| `backend/tests/smoke/mvp-smoke.test.ts` | Test fixture: company_members → company_users |
+| `backend/tests/integration/actor-delegation.test.ts` | Cleanup: DELETE FROM company_members → company_users |
+
+#### Gates aplicados
+
+- TSC backend: 0 erros ✓
+- TSC frontend: 0 erros ✓
+- SQL smoke SELECT_WITH_ACTOR retorna 5 rows com JOIN actors válido ✓
+- SQL smoke authorization admin path retorna 0 rows (sem admins no DB, mas SQL não quebra) ✓
+- 9 rows existentes preservados com `role='owner'`, `member_status='active'` ✓
+- CHECK constraints aplicadas: `chk_company_users_role_valid`, `chk_company_users_member_status_valid` ✓
+
+#### Caveat audit trail
+
+Migration `20260530541000` aplicada manualmente via `psql` (não via `npm run migrate`) porque runner tem bloqueio em migration anterior pendente `20260530516500_add_states_country_abbreviation_unique.sql` (index conflict — não relacionada à frente MEMBERSHIP).
+
+Schema_migrations NÃO foi populado (recusa de tampering com audit trail). Próxima execução de `npm migrate` reaplica idempotentemente (DO blocks com IF NOT EXISTS). Frente separada precisa resolver `states_country_abbreviation_unique` para destravar pipeline normal — DT registrada implicitamente em STATUS_EXECUCAO_GLOBAL.
+
+#### Implicações institucionais
+
+- **DT-MEMBERSHIP-SSOT-DECISION-REQUIRED → CLOSED**
+- **DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS** absorvida (sub-DT histórica)
+- **Nova DT-ORGANIZATION-SPRINT78-FROZEN** registrada (Sprint 78 congelada com critério de descongelamento)
+- DT-PRIORIZATION.md: BLOQUEIA_PRODUTO 3 → 2 (MEMBERSHIP sai); BLOQUEIA_FRENTE ganha SPRINT78
+- DECISION-0040 reforçada: auditoria material precede decisão (3 opções emergiram porque dados foram coletados)

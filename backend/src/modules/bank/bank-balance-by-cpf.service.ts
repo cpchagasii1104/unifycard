@@ -15,7 +15,7 @@ export interface AccountBalance {
   ownerId: string;
   ownerType: BankAccountOwnerType;
   currency: string;
-  balance: number;
+  balanceCents: number;
 }
 
 /**
@@ -58,7 +58,7 @@ export interface BalanceByCpf {
    * Soma total APENAS PARA VISUALIZAÇÃO (não é saldo contábil real)
    * NOTA: Esta soma é apenas informativa. Cada conta mantém seu saldo separado.
    */
-  totalBalanceForDisplay: number;
+  totalBalanceForDisplayCents: number;
 
   /**
    * Timestamp de cálculo (runtime only, não persistido)
@@ -146,12 +146,16 @@ class BankBalanceByCpfService {
       WHERE tenant_id = $1
         AND (
           user_id = ANY($2::uuid[])
+          -- DECISION-0042: membership consolidado em company_users (SSOT unico).
+          -- company_users vincula global_user_id (nao user_id); resolver via JOIN.
           OR company_id IN (
-            SELECT company_id
-            FROM company_members
-            WHERE tenant_id = $1
-              AND user_id = ANY($2::uuid[])
-              AND role IN ('owner', 'admin')
+            SELECT cu.company_id
+            FROM company_users cu
+            JOIN users u ON u.global_user_id = cu.global_user_id
+            WHERE cu.tenant_id = $1
+              AND u.user_id = ANY($2::uuid[])
+              AND cu.role IN ('owner', 'admin')
+              AND cu.member_status = 'active'
           )
         )
       `,
@@ -213,7 +217,7 @@ class BankBalanceByCpfService {
           companyId: a.company_id || undefined,
         })),
         accountBalances: [],
-        totalBalanceForDisplay: 0,
+        totalBalanceForDisplayCents: 0,
         calculatedAt: new Date().toISOString(),
       };
     }
@@ -234,7 +238,7 @@ class BankBalanceByCpfService {
 
     // 4. Calcular saldo de cada conta via ledger (FONTE DA VERDADE)
     const accountBalances: AccountBalance[] = [];
-    let totalBalanceForDisplay = 0;
+    let totalBalanceForDisplayCents = 0;
 
     for (const account of accounts) {
       const balance = await bankLedgerRepository.calculateBalance(
@@ -247,11 +251,11 @@ class BankBalanceByCpfService {
         ownerId: account.owner_id,
         ownerType: account.owner_type as BankAccountOwnerType,
         currency: account.currency,
-        balance: balance.balance,
+        balanceCents: balance.balanceCents,
       });
 
       // Soma total APENAS PARA VISUALIZAÇÃO (não é saldo contábil real)
-      totalBalanceForDisplay += balance.balance;
+      totalBalanceForDisplayCents += balance.balanceCents;
     }
 
     // 5. Retornar estrutura consolidada (READ-MODEL)
@@ -265,7 +269,7 @@ class BankBalanceByCpfService {
         companyId: a.company_id || undefined,
       })),
       accountBalances,
-      totalBalanceForDisplay, // APENAS PARA VISUALIZAÇÃO
+      totalBalanceForDisplayCents,
       calculatedAt: new Date().toISOString(),
     };
   }

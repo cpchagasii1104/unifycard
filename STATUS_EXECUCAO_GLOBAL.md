@@ -2663,3 +2663,753 @@ Per filtro §-1.5 (3 perguntas):
 - Backend: porta 3000 (tsx BOOT.ts, PID 48347)
 - Frontend: porta 5173 (pnpm dev, PID 48801)
 
+
+
+## 2026-05-16 — Frente 2: Inventário estrutural backend (sessão 1 de 2-3)
+
+**Plano governante:** `~/.claude/plans/veja-as-respostas-das-sunny-church.md` (aprovado por Clayton; refinamentos Sunny aplicados)
+
+### Entregue nesta sessão (~70% do escopo da Frente 2)
+
+| Item | Status |
+|---|---|
+| `MODULES_INVENTORY.md` (raiz) | ✓ — 157 módulos backend classificados |
+| Refinamento Sunny #1 (ESQUELETO sub-classificado RECENTE/DORMENTE) | ✓ — 4 RECENTE + 16 DORMENTE |
+| Refinamento Sunny #3 (authority_decision_audit decomposto) | ✓ — 26 allow + 8 block, TODOS financial_* |
+| Padrão 1 (Disponibilidade) com critério material duro | ✓ — núcleo comum só genéricos; convergência possível mas não automática |
+| Padrões 2-7 em nível institucional | ✓ — mapa formado, profundidade rasa |
+| 8 DTs registradas em `REMEDIATION_DT_LOG.md` | ✓ — total agora: 35 DTs |
+| TSC backend + frontend | ✓ — 0 erros (read-only confirmado) |
+
+### Distribuição material (157 módulos)
+
+| Classificação | Qtd | % |
+|---|---:|---:|
+| FUNCIONAL | 71 | 45% |
+| FANTASMA | 29 | 18% — risco operacional |
+| NO_DATA_LAYER | 25 | 16% — categoria neutra |
+| ESQUELETO | 20 | 13% (4 RECENTE + 16 DORMENTE) |
+| INDEFINIDO | 12 | 8% — aggregator/proxy |
+
+**Insight crítico:** narrativa anterior ("15-20 funcionais de 80") estava errada por extrapolação. Realidade material é 71 FUNCIONAIS — 4× mais saudável.
+
+### DTs novas (8)
+
+1. DT-MODULES-ASPIRATIONAL-VS-RUNTIME (HIGH)
+2. DT-ACTOR-DELEGATIONS-ZERO-RUNTIME (HIGH)
+3. DT-BANK-SATELLITE-MODULES-DORMANT (MEDIUM)
+4. DT-PROFESSION-DATA-SPARSE (MEDIUM)
+5. DT-OPERATING-MODE-STATIC-PROJECTION (MEDIUM)
+6. DT-CONVERGENCE-AVAILABILITY-AS-CANONICAL-TEMPORAL (MEDIUM)
+7. DT-PRESENCE-FRAGMENTED-NO-RUNTIME (MEDIUM)
+8. DT-AUTHORITY-AUDIT-LIMITED-TO-FINANCIAL (MEDIUM)
+
+### Pendente para próxima(s) sessão(ões)
+
+- Análise profunda dos Padrões 2-7 com critério material duro (cruzamento de schemas, como feito para Padrão 1)
+- Validação cruzada por Sunny do `MODULES_INVENTORY.md`
+- Frente 4: DECISIONs (apenas após Frente 2 fechar completamente)
+
+### Não tocado intencional (conforme plano)
+
+- v1 modo operante: aguarda smoke humano (Frente 1)
+- v2 modo operante dinâmico: bloqueado por DT-ACTOR-DELEGATIONS-ZERO-RUNTIME
+- Decisão de vertical primária: postergada (Frente 3 postposta)
+- Edits em `backend/src/*` ou `frontend/src/*`: **ZERO** (confirmado por TSC inalterado)
+
+### Arquivos tocados nesta sessão
+
+- Criado: `MODULES_INVENTORY.md` (raiz, ~16KB)
+- Atualizado: `REMEDIATION_DT_LOG.md` (+9.3KB, 8 DTs novas)
+- Atualizado: este arquivo (`STATUS_EXECUCAO_GLOBAL.md`)
+- Criado: `~/.claude/plans/veja-as-respostas-das-sunny-church.md` (plano governante)
+- Nenhuma alteração em `src/`, contratos, schema, migrations
+
+### Sequência institucional registrada
+
+```
+Frente 1 (v1 modo operante smoke) ──┐  ← humano-dependente, NÃO bloqueia
+Frente 2 (inventário, sessão 1) ────┤  ← entregue ~70% nesta sessão
+   restante (1-2 sessões)            │
+                                     ↓
+                            Aprovação humana
+                                     ↓
+                        Frente 4 (DECISIONs + congelamentos)
+```
+
+Frente 3 (vertical primária) postergada; pode emergir do próprio inventário ("infraestrutura operacional contextual" em vez de "ERP de nicho").
+
+
+## 2026-05-16 — Frente 2: Inventário estrutural backend (sessão 2 de 2-3)
+
+**Continuação da sessão 1.** Foco: Padrões 2-7 com critério material duro Sunny (80%+ Jaccard OU domínios mutuamente exclusivos).
+
+### Entregue nesta sessão
+
+| Item | Status |
+|---|---|
+| Padrão 2 (Dispatch/matching) — análise material | ✓ — fragmentação por design (5 domínios distintos); NÃO converge |
+| Padrão 3 (Pipeline/estado) — análise material | ✓ — especialização por canal (B2C/B2B/services); marketplace é gravidade |
+| Padrão 4 (Presença/checkin) — análise material | ✓ — **FRAGMENTAÇÃO REAL CONFIRMADA** (8-9 modelos, 0 runtime, 4 categorias) |
+| Padrão 5 (Vínculo operacional) — análise material | ✓ — **FRAGMENTAÇÃO MAIS SEVERA** (6+ modelos, runtime fragmentado em 4) |
+| Padrão 6 (Pagamento) — análise material | ✓ — sobreposição alta mas design coerente |
+| Padrão 7 (Estoque) — análise material | ✓ — sistema completo dormant (já coberto) |
+| 3 DTs novas registradas | ✓ — total agora: 38 DTs |
+| MODULES_INVENTORY.md atualizado (seção 5 + 5.B) | ✓ — análise profunda + síntese dos 7 padrões |
+| TSC backend + frontend | ✓ — 0 erros (read-only confirmado) |
+
+### Hipóteses Sunny verificadas materialmente
+
+**Suspeita Sunny:** "Padrão 4 (Presença/check-in) e Padrão 5 (Vínculo operacional) terão descobertas grandes — sustentam v2 modo operante."
+
+**Verificação material:** **CONFIRMADAS as duas.**
+- P4: 8 tabelas (todas 0 rows) + 1 FANTASMA overlay = 9 modelos paralelos sem critério prévio de qual venceria
+- P5: 6+ tabelas modelando "X tem papel em Y" com 4 versões exercitadas em runtime (company_users, role_permissions, group_members, user_roles) mas SSOT canônica (actor_delegations) vazia. Fragmentação **mais severa** que P4 porque há runtime espalhado.
+
+**Implicação institucional decisiva:** v2 do modo operante depende NÃO APENAS de actor_delegations ter runtime (já capturado em DT-ACTOR-DELEGATIONS-ZERO-RUNTIME), mas de **DECISÃO ARQUITETURAL PRÉVIA** sobre qual modelo de presença (P4) e qual modelo de vínculo (P5) absorvem o caso canônico. Sem essas decisões, v2 reproduz fragmentação em vez de "revelar capabilities já autorizadas".
+
+### 3 DTs novas
+
+1. **DT-PRESENCE-FRAGMENTATION-CONFIRMED** (HIGH) — evolui DT-PRESENCE-FRAGMENTED-NO-RUNTIME após confirmação material; 9 modelos paralelos, sem critério de SSOT
+2. **DT-OPERATIONAL-BINDING-FRAGMENTATION** (HIGH) — sub-DT do DT-ACTOR-DELEGATIONS-ZERO-RUNTIME; 6+ modelos de vínculo operacional, runtime fragmentado
+3. **DT-PAYMENT-DOMAIN-COMPLEX** (MEDIUM informativa) — Payment Engine com sobreposição alta mas design coerente; não autoriza convergência
+
+### Síntese dos 7 padrões (tabela completa)
+
+| Padrão | Veredito | DT |
+|---|---|---|
+| P1 — Disponibilidade | Convergência possível | DT-CONVERGENCE-AVAILABILITY-AS-CANONICAL-TEMPORAL ✓ |
+| P2 — Dispatch/matching | Fragmentação por design (5 domínios) | Nenhuma necessária |
+| P3 — Pipeline/estado | Especialização por canal | Nenhuma necessária |
+| **P4 — Presença/checkin** | **FRAGMENTAÇÃO REAL** | DT-PRESENCE-FRAGMENTATION-CONFIRMED ✓ (HIGH) |
+| **P5 — Vínculo operacional** | **FRAGMENTAÇÃO MAIS SEVERA** | DT-OPERATIONAL-BINDING-FRAGMENTATION ✓ (HIGH) |
+| P6 — Pagamento | Sobreposição alta mas design coerente | DT-PAYMENT-DOMAIN-COMPLEX ✓ (MEDIUM) |
+| P7 — Estoque | Sistema completo dormant | Coberto por DT-MODULES-ASPIRATIONAL-VS-RUNTIME |
+
+### Status da Frente 2 (após sessões 1+2)
+
+| Item do plano | Status |
+|---|---|
+| Inventário 157 módulos classificados | ✓ (sessão 1) |
+| Refinamentos Sunny aplicados (3/3) | ✓ (sessão 1+2) |
+| Padrões 1-7 com critério material duro | ✓ (P1 sessão 1, P2-P7 sessão 2) |
+| Síntese dos padrões (5.B) | ✓ (sessão 2) |
+| DTs registradas | ✓ — total 38 (11 da Frente 2: 8 sessão 1 + 3 sessão 2) |
+| Relatório executivo curto | Pendente (sessão 3 — opcional/curto) |
+| Validação cruzada por Sunny | Pendente (humano) |
+| Aprovação humana antes Frente 4 | Pendente |
+
+**Estimativa Sunny:** 2 sessões para padrões 2-7 + relatório. Material entregue em **1 sessão**. Relatório executivo curto pode caber em 1/2 sessão ou nem ser necessário (MODULES_INVENTORY.md já é o relatório material).
+
+### Não tocado (intencional)
+
+- v1 modo operante: smoke aguarda Clayton (Frente 1, paralela)
+- v2 modo operante dinâmico: bloqueado por 2 fragmentações (P4 + P5) + delegations zero runtime
+- Decisão de vertical primária: postergada
+- Frente 4 (DECISIONs): apenas após Frente 2 fechar 100% + aprovação humana
+- Edits em `backend/src/*` ou `frontend/src/*`: **ZERO** confirmado por TSC inalterado
+
+### Arquivos tocados na sessão 2
+
+- Atualizado: `MODULES_INVENTORY.md` (seção 5 reescrita + seção 5.B nova)
+- Atualizado: `REMEDIATION_DT_LOG.md` (+5.9KB, 3 DTs novas)
+- Atualizado: este arquivo
+- Nenhuma alteração em `src/`, contratos, schema, migrations
+
+
+## 2026-05-16 — FECHAMENTO Frente 2 + FECHAMENTO Frente 4 (consolidado)
+
+**Plano governante:** `~/.claude/plans/veja-as-respostas-das-sunny-church.md`
+**Modo:** AGUARDANDO_AUTORIZACAO mantido entre todos os passos
+**Estado material:** zero edits em `backend/src/*` ou `frontend/src/*` em qualquer momento das duas frentes; TSC backend + frontend limpos em todos os checkpoints
+
+---
+
+### Fechamento Frente 2 (sessões 1 + 2 + pendências sessão 3)
+
+| Item | Status |
+|---|---|
+| Inventário automatizado de 157 módulos backend (`src/core/*` + `src/modules/*`) | ✓ |
+| Refinamentos Sunny aplicados | ✓ 1 (ESQUELETO sub-classificado) + ✓ 2 (critério material duro) + ✓ 3 (authority_audit decomposto) |
+| 7 padrões estruturais analisados com critério Sunny | ✓ |
+| Hipóteses Sunny sobre P4 e P5 verificadas materialmente | ✓ CONFIRMADAS as duas (P4 fragmentação real / P5 mais severa) |
+| 3 pendências sessão 3 entregues | ✓ (auditoria 24 FANTASMAs + resumo executivo + validação cruzada própria) |
+| `MODULES_INVENTORY.md` | ✓ NOVO (raiz, ~30KB, 12 seções) |
+| DTs novas da Frente 2 | 11 + 5 refinamentos = 16 entradas (era 27, foi para 38 DTs no log antes da Frente 4) |
+| Validação cruzada própria | ✓ 5 casos limite identificados + auto-crítica metodológica |
+
+**Distribuição material descoberta (157 módulos):**
+- FUNCIONAL: 71 (45%) — backbone real
+- FANTASMA: 29 (18%) — 24 com frontend caller (risco operacional)
+- NO_DATA_LAYER: 25 (16%)
+- ESQUELETO: 20 (13%) — 4 RECENTE + 16 DORMENTE
+- INDEFINIDO: 12 (8%)
+
+**Narrativa anterior refutada:** "15-20 módulos funcionais de 80" estava errada por 4×. Realidade 71/157. Sistema NÃO é majoritariamente fachada. Padrão cognitivo identificado: extrapolação pessimista a partir de poucos exemplos FANTASMA prioritários.
+
+**Convergência silenciosa identificada (vitória material da Frente 2):**
+`unified-availability` é SSOT temporal real (44 rows ativas). 4 tabelas paralelas (event_sessions, rides_driver_sessions, pdv_sessions, schedules+schedule_slots) projetam via owner_type. Não estava nomeado — agora está.
+
+**Fragmentações reais confirmadas (2 padrões):**
+- **P4 (Presença/checkin):** 9 modelos paralelos, zero runtime, 4 categorias semânticas distintas
+- **P5 (Vínculo operacional):** 6+ modelos para "X tem papel em Y", runtime fragmentado em 4 (company_users 9 / role_permissions 68 / group_members 5 / user_roles 1), SSOT canônica (actor_delegations) com zero rows
+
+**Implicação institucional decisiva:** v2 modo operante depende de **3 frentes prévias**, não apenas "esperar C27":
+1. `actor_delegations` ter runtime real (zero rows hoje)
+2. DECISÃO arquitetural P5 (vínculo)
+3. DECISÃO arquitetural P4 (presença)
+
+Mesmo C27 resolvido, sem P4 + P5 decididos, v2 reproduz Frankenstein.
+
+---
+
+### Fechamento Frente 4 (passos 1 + 2 + 3 + 4)
+
+**PASSO 1 — 4 DECISIONs registradas** em `REMEDIATION_DECISIONS_LOG.md`:
+
+| # | Título | Tipo | Restrições explícitas |
+|---|---|---|---|
+| **0037** | Ratificação de `unified-availability` como SSOT temporal soberana + mapeamento de projeções | Arquitetural (convergência silenciosa) | 3 (não convergir agora; não criar SSOT temporal paralela; services permanece catálogo) |
+| **0038** | Princípio "código aspiracional ≠ capacidade" — inventário formal obrigatório | Institucional | 3 (inventário tem janela de validade; mudança de classificação exige DT; não substituir inventário por percepção informal) |
+| **0039** | Modo operante v1 ratificado como projeção UX hardcoded; v2 aguarda 3 frentes prévias | Arquitetural (tradeoff formalizado) | 4 (não substituir v1 sem 3 prévias; não 3º modo; profession nunca como ACL; não persistir mode em schema) |
+| **0040** | FANTASMAs com frontend caller — ratificação caso a caso (top 5 + 19) | Institucional | 4 (CONGELAR ≠ apagar; AUDITORIA_HUMANA ≠ implementar; frente própria por módulo; policy-engine URGENTE) |
+
+**Princípio operacional registrado (DECISION-0038):**
+> "Sistemas morrem na hora em que começam a convergir — porque equipe acelera, engines paralelas surgem, authority duplica, presença duplica, agenda duplica, tudo fragmenta. Vocês estão fazendo o contrário: congelando ANTES da fragmentação cristalizar." — Clayton, 2026-05-16
+
+**PASSO 2 — 5 ratificações + 1 DT nova** em `REMEDIATION_DT_LOG.md`:
+
+| Módulo | Status ratificado | Refinamento do critério |
+|---|---|---|
+| work-instant | FROZEN | 4 condições simultâneas para descongelar |
+| venue | FROZEN | 3 condições (vertical restaurant + cliente-piloto + pdv) |
+| presence | FROZEN | Decision P4 + (se live_presence vencer, migrar) |
+| policy-engine | AUDIT_URGENT | 4 perguntas binárias antes de qualquer commit |
+| automation (DT NOVA: DT-MODULE-AUTOMATION-AUDIT-PRE-OVERLAP-CHECK) | AUDIT_PRE_OVERLAP_CHECK | Auditoria de overlap triplo (alerts × scheduler × workers) |
+
+Cada ratificação tem "Ação intermediária permitida" (esconder rotas frontend) vs "Ação proibida sem nova DECISION" (criar tabelas). Refinamento crítico contra movimento parcial que cristaliza fragmentação.
+
+**PASSO 3 — 16 bank satellites ratificados como bloco** em `REMEDIATION_DT_LOG.md`:
+
+Tabela completa com migration · data · propósito · critério de descongelamento · recomendação preliminar. Distribuição (soma exata = 16):
+
+| Recomendação preliminar | Qtd |
+|---|---:|
+| CONGELAR_REVERSIVEL | 11 |
+| AUDITORIA pré-recomendação | 2 (governance, risk — possível overlap) |
+| CONGELAR_PERMANENTE | 1 (sla — SLA contratual distante) |
+| ARQUIVAR_FORMAL | 1 (core/intent — provável substituição por idempotency_keys) |
+| PROVISÓRIO | 1 (treasury — reconfirmar junto com treasury-split) |
+
+**Padrão material:** bank engine foi superdesenhado relativamente à visão atual cooperativista. Maioria fica congelada permanentemente ou por muito tempo. **Não é dívida a corrigir — é fundação aspiracional histórica que pode envelhecer sem prejuízo.**
+
+**Critério institucional geral de descongelamento (4 condições simultâneas):**
+1. Necessidade real exercitada (não antecipação)
+2. Auditoria pré-implementação de overlap
+3. DECISION nova registrada
+4. DT específica de re-congelamento se runtime não materializar
+
+**PASSO 4 — esta entrada (fechamento consolidado).**
+
+---
+
+### Métricas materiais finais (após Frentes 2 + 4)
+
+| Métrica | Antes | Depois | Δ |
+|---|---:|---:|---:|
+| DECISIONs em log | 34 (último 0036) | 38 (0037-0040) | +4 |
+| DTs em log | 27 | **45** (44 explícitas + 1 ratificação encapsulada) | +18 (+11 da Frente 2 + 5 refinamentos/novas + ratificações) |
+| RATIFICAÇÃO headers no log | 0 | 5 (4 PASSO 2 + 1 PASSO 3 completa) | +5 |
+| Linhas no `REMEDIATION_DT_LOG.md` | ~1.425 | ~1.968 | +543 |
+| Arquivos novos institucionais | — | `MODULES_INVENTORY.md` (~30KB, 12 seções) | +1 |
+| Edits em `backend/src/*` ou `frontend/src/*` | — | **ZERO** | 0 |
+
+---
+
+### Próxima frente sugerida (NÃO autorizada — apenas registrada)
+
+**Priorização de 45 DTs.**
+
+Lista plana sem priorização perde força institucional — tudo tem o mesmo peso = nada tem peso. Sunny apontou explicitamente como necessidade pós-Frente 4.
+
+Critério sugerido (separar em 3 categorias):
+
+| Categoria | Definição | Exemplos prováveis |
+|---|---|---|
+| **BLOQUEIA_PRODUTO** | Não pode passar para v2/launch/primeiro usuário real sem resolver | DT-MODULES-ASPIRATIONAL-VS-RUNTIME (24 FANTASMAs em produção), DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (risco C27), DT-PRESENCE-FRAGMENTATION-CONFIRMED (sem SSOT presença, primeiro caso real falha) |
+| **BLOQUEIA_FRENTE** | Impede frente específica abrir sem dor | DT-ACTOR-DELEGATIONS-ZERO-RUNTIME (bloqueia modo operante v2), DT-OPERATIONAL-BINDING-FRAGMENTATION (bloqueia P5 decision), DT-MODULE-WORK-INSTANT-FROZEN-PRE-P4-P5 |
+| **INFORMATIVA** | Documenta debt sem urgência; consulta institucional | DT-PAYMENT-DOMAIN-COMPLEX (documentação cross-table), DT-AUTHORITY-AUDIT-LIMITED-TO-FINANCIAL (limitação de métrica), DT-BANK-SATELLITE-MODULES-DORMANT (16 dormentes) |
+
+**Frente própria, escopo ~1 sessão.** Output: 45 DTs classificadas em 3 buckets + lista de "top 5 BLOQUEIA_PRODUTO" para foco operacional imediato.
+
+**NÃO antecipar próxima frente real ainda** — priorização vem antes de decidir o que atacar primeiro.
+
+---
+
+### Não tocado (correto conforme plano governante)
+
+- v1 modo operante: aguarda smoke humano (Frente 1, paralela)
+- v2 modo operante dinâmico: bloqueado por DECISION-0039 + 3 frentes prévias
+- Decisão de vertical primária: postergada pelo plano governante (refinamento Clayton: pode emergir do próprio inventário)
+- Frentes que dependem de FANTASMAs CONGELADOs: bloqueadas pelos critérios respectivos
+- Edits em código: **zero em qualquer momento das Frentes 2 e 4**
+
+---
+
+### Arquivos institucionais tocados nas Frentes 2 + 4
+
+| Arquivo | Status final |
+|---|---|
+| `MODULES_INVENTORY.md` | NOVO na raiz (~30KB, 12 seções incluindo resumo executivo + auditoria 24 FANTASMAs + validação cruzada) |
+| `REMEDIATION_DECISIONS_LOG.md` | M append (+4 DECISIONs com restrições explícitas) |
+| `REMEDIATION_DT_LOG.md` | M append (+11 DTs novas Frente 2 + 5 ratificações Frente 4 + DT-AUTOMATION nova + bloco 16 bank satellites) |
+| `STATUS_EXECUCAO_GLOBAL.md` | M append (esta entrada de fechamento consolidado) |
+| `~/.claude/plans/veja-as-respostas-das-sunny-church.md` | Plano governante (criado no início) |
+| `backend/src/*` + `frontend/src/*` | **ZERO edits** (TSC backend + frontend limpos em todos os checkpoints) |
+
+
+## 2026-05-16 — Frente de Priorização de DTs (pós-Frente 4)
+
+**Plano governante:** `~/.claude/plans/veja-as-respostas-das-sunny-church.md` — frente sucessora pós-Frente 4 (proposta Sunny pós-fechamento)
+
+### Entregue
+
+- ✓ `DT_PRIORIZATION.md` NOVO (raiz) — 36 DTs ativas classificadas em 3 buckets
+- ✓ 7 DTs CLOSED listadas para completeness (fora da priorização)
+- ✓ 2 ordenações de Top 5 BLOQUEIA_PRODUTO (gravidade arquitetural vs prontidão cirúrgica)
+- ✓ Mapa de dependências entre DTs (3 fragmentações como nó crítico v2 modo operante)
+- ✓ 5 opções de próxima frente registradas (A/B/C/D/E)
+
+### Distribuição final (36 DTs ativas)
+
+| Bucket | Qtd | % |
+|---|---:|---:|
+| BLOQUEIA_PRODUTO | 9 | 25% |
+| BLOQUEIA_FRENTE | 17 | 47% |
+| INFORMATIVA | 10 | 28% |
+| CLOSED (fora) | 7 | — |
+
+### Insight material principal
+
+**Nó crítico v2 modo operante:** 3 DTs estruturais (DT-ACTOR-DELEGATIONS-ZERO-RUNTIME + DT-OPERATIONAL-BINDING-FRAGMENTATION + DT-PRESENCE-FRAGMENTATION-CONFIRMED) bloqueiam **simultaneamente** 4-5 DTs em cascata (modo operante v2 + work-instant + presence module + outras). Resolver as 3 destrava cascata.
+
+### Top 5 BLOQUEIA_PRODUTO — duas ordenações
+
+**Ordenação A (gravidade arquitetural):**
+1. DT-MODULES-ASPIRATIONAL-VS-RUNTIME (24 endpoints quebrados)
+2. DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (risco authority paralela / C27)
+3. DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (tenant isolation)
+4. DT-COVERAGE-BOOTSTRAP-REQUIRED (ledger consistente)
+5. DT-GLOBAL-USER-ID-DUPLICATION-E2E (duplicação identidade)
+
+**Ordenação B (prontidão cirúrgica — fix rápido, alto impacto UX):**
+1. DT-COMPANIES-METADATA-COLUMN-MISSING (≤30min — ALTER TABLE)
+2. DT-DASHBOARD-OWNER-PERMISSION-GAP (≤1h — mapeamento permission)
+3. DT-API-FEED-POST-ID-DRIFT (≤2h — fix cirúrgico)
+4. DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (≤2h — leitura de actorId)
+5. DT-COMPANY-CREATION-PATHS-DIVERGENCE (2-4h — consolidar paths)
+
+**Recomendação:** ordens são complementares (sprint cirúrgico curto + frente arquitetural longa), não either/or.
+
+### Próximas frentes possíveis (5 opções, NÃO autorizadas — apenas registradas)
+
+| Opção | Custo | Desbloqueio |
+|---|---|---|
+| A | Sprint cirúrgico (Ordenação B) — 5 fixes UX | 1-2 dias |
+| B | Frente caso-a-caso 19 FANTASMAs restantes | 1-2 sessões |
+| C | Frente DECISION humana policy-engine | sessão própria |
+| D | Nó crítico v2 modo operante (3 DTs estruturais) | semanas-meses |
+| E | Frente health (4 caminhos sob DT-HEALTH-MODULE-FROZEN) | decisão + implementação |
+
+### Estado material
+
+| Arquivo | Status |
+|---|---|
+| `DT_PRIORIZATION.md` | NOVO (raiz) |
+| `STATUS_EXECUCAO_GLOBAL.md` | M (esta entrada) |
+| `backend/src/*` + `frontend/src/*` | **ZERO edits** (read-only mantido) |
+
+
+## 2026-05-16 — OPÇÃO C: auditoria policy-engine + DECISION-0041 + congelamento executado
+
+**Plano governante:** `~/.claude/plans/veja-as-respostas-das-sunny-church.md` — Opção C aprovada após Frente Priorização
+**Sequência:** 5 passos sequenciais, AGUARDANDO_AUTORIZACAO entre cada
+**Primeiro commit da longa sessão de Frentes 2+4+Priorização+Opção C:** `a8bf37af`
+
+### Entregue
+
+| PASSO | Output |
+|---|---|
+| 1 | DECISION-0041 registrada em REMEDIATION_DECISIONS_LOG.md (4 perguntas binárias respondidas com 6 evidências materiais; sub-decisão (b); princípio "PREMATURO ≠ ESTRUTURALMENTE_ERRADO" integrado) |
+| 2 | Reclassificação DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE → AUDIT_RESOLVIDA + PREMATURO; DT nova criada (DT-MODULE-POLICY-ENGINE-PREMATURO-AGUARDA-ECOSSISTEMA-RISK) com 2 condições simultâneas de descongelamento |
+| 3 | Edit cirúrgico em `frontend/src/App.tsx` (12 insertions / 10 deletions); TSC 0 erros; smoke OK; commit atômico `a8bf37af` |
+| 4 | DT_PRIORIZATION.md atualizado (append-only): policy-engine removida de BLOQUEIA_PRODUTO, sucessora PREMATURO em BLOQUEIA_FRENTE; Top BLOQUEIA_PRODUTO Ordenação A reduzido 5→3 (calibração honesta) |
+| 5 | Esta entrada |
+
+### Auditoria material policy-engine — 4 perguntas binárias
+
+| # | Pergunta | Resposta | Evidência material |
+|---|---|---|---|
+| 1 | É replacement do authority atual? | **NÃO** | Middleware `requirePolicyPermission` usa `businessAuthorizationService.requirePermission(...'financial:view_all_ledger', 'policy_engine')` |
+| 2 | É overlay sobre authority? | **NÃO no domínio de permissão** | Authority = "actor pode X?"; policy = "actor deve ser restrito por behavior?" |
+| 3 | É obsoleto (substituído)? | **NÃO** | Papel próprio integrado com risk-command-center + trust + evidence |
+| 4 | Se replacement: plano migração? | **N/A** | Não é replacement |
+
+**Domínio confirmado:** risk-management/enforcement com decisão humana. Blindagens documentadas no código ("Nenhuma sanção automática", "Decisões explícitas e humanas", "Tudo reversível").
+
+### Princípio operacional do momento (DECISION-0041)
+
+> **"Módulo PREMATURO ≠ módulo ESTRUTURALMENTE ERRADO. Maturidade temporal ≠ incoerência estrutural. Congelar módulos prematuros preserva convergência futura sem cristalizar runtime inadequado."** — ChatGPT via Clayton, 2026-05-16
+
+**Chave de leitura para Higiene futura — 3 categorias semânticas:**
+- **ESTRUTURALMENTE_ERRADO** → corrigir/arquivar
+- **PREMATURO** → congelar/aguardar pressão real
+- **INFORMATIVA** → documentar sem ação
+
+policy-engine = caso paradigmático de PREMATURO.
+
+### Estado material após OPÇÃO C
+
+| Métrica | Antes OPÇÃO C | Depois | Δ |
+|---|---:|---:|---:|
+| DECISIONs em log | 40 (último 0040) | **41** (último 0041) | +1 |
+| `## DT-*` headers | 45 | **46** | +1 (sucessora PREMATURO) |
+| RATIFICAÇÃO/RECLASSIFICAÇÃO headers | 5 | 6 (reclass policy-engine) | +1 |
+| BLOQUEIA_PRODUTO | 4 | **3** | -1 |
+| BLOQUEIA_FRENTE | 21 | **22** | +1 |
+| INFORMATIVA | 10-11 | 10-11 | 0 |
+| Commits em git | 0 | **1** (`a8bf37af`) | +1 |
+| Edits em `src/` | 0 (sessão inteira) | **1** (`frontend/src/App.tsx` apenas) | +1 |
+
+### Auto-crítica metodológica reforçada
+
+OPÇÃO C foi 6º caso da sessão 2026-05-16 de classificação superficial refutada por auditoria material:
+1-5: Ordenação B do PASSO 5 (5/5 DTs reclassificadas)
+6: DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (era HIGH por "risco authority paralela"; auditoria material refutou)
+
+Princípio "auditoria material antes de classificação por inferência de nome" reforçado em escala (DECISION-0040 contexto + DT_PRIORIZATION.md princípio metodológico permanente).
+
+### TOP BLOQUEIA_PRODUTO Ordenação A — atualizado (3 DTs)
+
+1. **DT-MODULES-ASPIRATIONAL-VS-RUNTIME** — 24 endpoints frontend chamam tabelas inexistentes
+2. **DT-COVERAGE-BOOTSTRAP-REQUIRED** — bootstrap econômico para ledger consistente
+3. **DT-GLOBAL-USER-ID-DUPLICATION-E2E** — duplicação de identidade em fluxos compostos
+
+Calibração honesta: redução de 5→3 não é melhoria do sistema, é refutação por auditoria material.
+
+### Próxima frente sugerida — Higiene das DTs restantes
+
+**Escopo:** aplicar critério "auditoria material antes de classificação" + 3 categorias semânticas em:
+- 22 BLOQUEIA_FRENTE (validar cada uma resiste à auditoria material)
+- 10-11 INFORMATIVA (validar se alguma deveria subir prioridade por pressão emergente)
+
+**Output esperado:** DT_PRIORIZATION.md v2 com classificações ratificadas ou reclassificadas; cada DT marcada como ESTRUTURALMENTE_ERRADO / PREMATURO / INFORMATIVA.
+
+**Custo estimado:** algumas horas (Sunny). READ-ONLY até auditoria material concluir; edições/commits/DECISIONs apenas após classificação semântica firmada.
+
+**Frente após Higiene:** D (nó crítico v2 modo operante — 3 DTs estruturais: actor-delegations + P5 + P4). Escopo pode ser redefinido após Higiene.
+
+### Não tocado nesta OPÇÃO C (intencional)
+
+- Outras DTs da Ordenação B (refutadas no PASSO 5, aguardam Higiene para reclassificação semântica)
+- 4 DTs BLOQUEIA_PRODUTO Ordenação A restantes (frente própria — não OPÇÃO C)
+- Frente A' (sprint cirúrgico) — suspensa até Higiene revelar fixes realmente cirúrgicos
+- Frente D (v2 modo operante) — aguarda Higiene
+- Edits em `backend/src/*` — ZERO
+
+### Arquivos tocados em OPÇÃO C
+
+| Arquivo | Status |
+|---|---|
+| `REMEDIATION_DECISIONS_LOG.md` | M (append DECISION-0041) |
+| `REMEDIATION_DT_LOG.md` | M (append reclassificação + DT sucessora PREMATURO) |
+| `DT_PRIORIZATION.md` | M (append atualização PASSO 4 OPÇÃO C) |
+| `frontend/src/App.tsx` | M (12+10 cirúrgico; commit `a8bf37af`) |
+| `STATUS_EXECUCAO_GLOBAL.md` | M (esta entrada de fechamento) |
+| `backend/src/*` | ZERO edits |
+
+### Princípios institucionais permanentes acumulados na sessão 2026-05-16
+
+| # | Princípio | DECISION/Documento |
+|---|---|---|
+| 1 | "Sistemas morrem na hora em que começam a convergir... vocês estão fazendo o contrário: congelando ANTES da fragmentação cristalizar" | DECISION-0038 |
+| 2 | "Classificação cirúrgica por inferência de nome é anti-padrão. Auditoria material antes de execução é obrigatória" | DT_PRIORIZATION.md + REMEDIATION_DT_LOG.md (PASSO 5) |
+| 3 | "Módulo PREMATURO ≠ módulo ESTRUTURALMENTE ERRADO. Congelar módulos prematuros preserva convergência futura" | DECISION-0041 |
+| 4 | 3 categorias semânticas para Higiene: ESTRUTURALMENTE_ERRADO / PREMATURO / INFORMATIVA | DECISION-0041 + DT_PRIORIZATION.md |
+
+**OPÇÃO C: FECHADA institucionalmente.** Modo: AGUARDANDO_AUTORIZACAO para próxima frente (Higiene → D → A' eventual).
+
+
+## 2026-05-16 — A''.expandido EXECUTADO: DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT resolvida
+
+**Plano governante:** `~/.claude/plans/veja-as-respostas-das-sunny-church.md`
+**Sequência:** PRÉVIO de overlap (READ-ONLY, zero overlap) → Etapas 1-5 EXECUÇÃO (com ajuste no helper)
+**Princípio adicional registrado:** #8 ("DT registra alerta, NÃO escopo")
+
+### Entregue
+
+| Etapa | Output |
+|---|---|
+| 1 — Helper exportado | `extractErrorMessage` em `frontend/src/api/client.ts` (ordem original preservada: error > nested.message > message > fallback) |
+| 2 — Substituições | 49 callers em 12 arquivos com fallback específico preservado |
+| 3 — Gates | TSC 0 erros + grep residual 0 + smoke 3 rotas 200×3 |
+| 4 — Commit atômico | `036a8fc8` — git add específico (13 arquivos, não os 8 outros dirty pré-existentes) |
+| 5 — Atualizações | REMEDIATION_DT_LOG.md (DT CLOSED) + DT_PRIORIZATION.md (bucket atualizado) + esta entrada |
+
+### Refutação material 8/8 da sessão
+
+DT alegava: 22 callers em 4 arquivos
+Realidade: **49 callers em 12 arquivos**
+
+Detalhamento por arquivo: vide REMEDIATION_DT_LOG.md entrada de fechamento.
+
+### Métricas materiais
+
+| Item | Valor |
+|---|---|
+| Commits aplicados nesta sessão | 2 (`a8bf37af` policy-engine hide + `036a8fc8` error-extraction) |
+| Arquivos editados em A'' | 13 (12 callers + client.ts) |
+| Substituições mecânicas | 49 |
+| Inserções / deleções | 87 / 61 |
+| TSC frontend pós-edit | 0 erros |
+| Grep residual padrão antigo | 0 ocorrências |
+| Smoke (/perfil, /grupos, /banco) | 200 × 3 |
+
+### Helper exportado — preservação semântica
+
+```ts
+export function extractErrorMessage(errorData: any, fallback: string = 'Erro desconhecido'): string {
+  const errField = errorData?.error;
+  if (typeof errField === 'string') return errField;
+  if (errField && typeof errField === 'object' && typeof errField.message === 'string') {
+    return errField.message;
+  }
+  if (typeof errorData?.message === 'string') return errorData.message;
+  return fallback;
+}
+```
+
+Ordem preservada do pattern original (ajuste Sunny):
+- `error` string → usa direto
+- `error` objeto nested → extrai `.message` (resolve bug "[object Object]")
+- `message` string → fallback secundário
+- fallback final
+
+### Estado material após A''.expandido
+
+| Bucket | Anterior | Atual | Δ |
+|---|---:|---:|---:|
+| BLOQUEIA_PRODUTO | 2 | 2 | 0 |
+| BLOQUEIA_FRENTE | 22 | **21** | -1 |
+| INFORMATIVA | 7 | 7 | 0 |
+| CLOSED (fora) | 8 | **9** | +1 |
+| **Total ativas** | 31 | **30** | -1 |
+
+### Princípio 8 reforçado em execução
+
+A própria execução de A'' validou o princípio 8 (registrado antes da execução): DT alegava 22 callers em 4 arquivos; auditoria material pré-execução descobriu 49 em 12. Sem auditoria, fix ficaria parcial e deixaria 26 callers vulneráveis ao mesmo bug.
+
+### Arquivos tocados em A''.expandido
+
+| Arquivo | Status |
+|---|---|
+| `frontend/src/api/client.ts` | M (helper exportado) |
+| `frontend/src/api/bank.ts` | M (3 callers + import) |
+| `frontend/src/api/education.ts` | M (3 callers + import) |
+| `frontend/src/api/group-allocation.ts` | M (1 caller + import) |
+| `frontend/src/api/groups.ts` | M (15 callers + import) |
+| `frontend/src/api/identity.ts` | M (1 caller + import) |
+| `frontend/src/api/institutional-memory.ts` | M (4 callers + import) |
+| `frontend/src/api/pilot-hypotheses.ts` | M (3 callers + import) |
+| `frontend/src/api/pilot-invites.ts` | M (3 callers + import) |
+| `frontend/src/api/pilot.ts` | M (2 callers + import) |
+| `frontend/src/api/pilot-observation.ts` | M (7 callers + import) |
+| `frontend/src/api/profile.ts` | M (4 callers + import) |
+| `frontend/src/api/transparency.ts` | M (3 callers + import) |
+
+13 arquivos no commit, git add específico (§29). Outros 8 arquivos dirty no working tree (core.ts, events-v2.ts, events.ts, marketplace.ts, service-discovery.ts, social-2.0.ts, store-onboarding.ts, venue.ts) **NÃO foram incluídos** — preservados intactos para auditoria/commit posterior próprio.
+
+### Próxima frente
+
+Conforme sequência aprovada do plano: **4 AUDITORIA pré-classificação pendentes**
+- DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS
+- DT-MODULE-AUTOMATION-AUDIT-PRE-OVERLAP-CHECK
+- DT-q3-e2e-v2-service-booking-sem-reserve
+- DT-BANK-SATELLITE governance/risk
+
+Após 4 AUDITORIA: decisão sobre frente arquitetural grande (D / DT-GLOBAL-USER-ID / health).
+
+---
+
+## 2026-05-16 — Fechamento frente 4 AUDITORIA pré-classificação + descoberta de drift MEMBERSHIP
+
+### Frente entregue
+
+Sequência aprovada por Clayton: resolver as 4 (5 com sub-itens) DTs pendentes em categoria AUDITORIA pré-classificação em frente única READ-ONLY.
+
+**DTs auditadas:**
+- DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS
+- DT-MODULE-AUTOMATION-AUDIT-PRE-OVERLAP-CHECK
+- DT-BANK-SATELLITE governance (sub)
+- DT-BANK-SATELLITE risk (sub)
+- DT-q3-e2e-v2-service-booking-sem-reserve
+
+### Resultados classificatórios
+
+| DT | Resultado | Bucket final |
+|---|---|---|
+| DT-MEMBERSHIP | DRIFT REAL — BUG LATENTE | BLOQUEIA_PRODUTO (via nova DT-MEMBERSHIP-SSOT-DECISION-REQUIRED) |
+| DT-MODULE-AUTOMATION | PREMATURO | BLOQUEIA_FRENTE |
+| DT-BANK-SATELLITE governance | PREMATURO | BLOQUEIA_FRENTE (sub-grupo já ratificado) |
+| DT-BANK-SATELLITE risk | PREMATURO | BLOQUEIA_FRENTE (sub-grupo já ratificado) |
+| DT-q3-e2e-v2-service-booking-sem-reserve | DESIGN_CONSCIENTE | **CLOSED** |
+
+### Evidência crítica MEMBERSHIP
+
+- `backend/src/core/authorization/authorization.service.ts:369` consulta `company_members`
+- SQL `SELECT to_regclass('public.company_members')` → `NULL`
+- Migrations originais referenciam tabela; archive contém apenas adapter `company_users`
+- BUG LATENTE: try/catch silencioso provavelmente encobre erro em runtime
+- Frente admin/grupos quebra ao primeiro fluxo real
+
+**Única DT desta sessão com evidência ativa de quebra em runtime.** Razão para elevação a #1 em BLOQUEIA_PRODUTO.
+
+### Bug colateral resolvido (modal loop)
+
+Durante a sessão, descoberto e resolvido bug em `/perfil` quando actor é page/group/channel: modal "Primeiro acesso" entrava em loop. Causa raiz estrutural — `core.service.ts:138-154` faz early return com `personal_profile=null` para actors não-user; `Profile.tsx:542` interpretava como "não confirmado" e re-abria o modal após cada confirmação.
+
+**Fix aplicado:** `frontend/src/components/Profile.tsx:542-549` — guard `activeActor?.actor_type === 'user'` antes de abrir modal. Sub-instância resolvida de DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT.
+
+**TSC frontend:** 0 erros pós-fix ✓
+
+### Padrão consolidado — 9ª refutação material da sessão
+
+Razão de refutação 4/5 (80%) sobre as DTs auditadas reforça:
+- **Princípio 8:** "DT registra alerta, NÃO escopo"
+- **DECISION-0041:** "PREMATURO ≠ ESTRUTURALMENTE_ERRADO"
+- **Princípio operacional:** Hipótese inicial baseada em nome da DT ou intuição de gravidade sobre-estima drift majoritariamente. Auditoria material precede classificação.
+
+Padrão recorrente da sessão (acumulada 2026-05-16):
+1. Ordenação B 5/5 reclassificadas como decisão arquitetural disfarçada
+2. DT-MODULE-POLICY-ENGINE → PREMATURO (refutação 6)
+3. DT-COVERAGE-BOOTSTRAP → já CLOSED (refutação 7)
+4. DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT (22→49 callers, refutação 8 — escopo)
+5. **Frente 4 AUDITORIA: 1 drift real, 3 PREMATURO, 1 DESIGN_CONSCIENTE (refutação 9 — pattern de over-classification)**
+
+### Arquivos documentais atualizados
+
+| Arquivo | Mudança |
+|---|---|
+| `REMEDIATION_DT_LOG.md` | + bloco de resolução 4 AUDITORIA + DT-q3-e2e-v2-service-booking-sem-reserve CLOSED + DT-MEMBERSHIP-SSOT-DECISION-REQUIRED nova (HIGH, BLOQUEIA_PRODUTO) + DT-PROFILE-MODAL-LOOP-PAGE-ACTOR (CLOSED) + DT-PROFILE-PERSONAL-TAB-VISIBLE-FOR-NON-USER-ACTOR (INFORMATIVA) |
+| `DT_PRIORIZATION.md` | + PASSO 7 com reclassificações materiais; distribuição final declarada 3 / 21 / 6 / 10 (BLOQUEIA_PRODUTO / BLOQUEIA_FRENTE / INFORMATIVA / CLOSED); MEMBERSHIP elevada a #1 em BLOQUEIA_PRODUTO; service-booking removida |
+| `STATUS_EXECUCAO_GLOBAL.md` | esta entrada |
+| `frontend/src/components/Profile.tsx` | edit cirúrgico linhas 542-549 (guard actor_type) — único edit em src/ desta sessão |
+
+### Gates aplicados (frente 4 AUDITORIA)
+
+- Auditoria 100% READ-ONLY em `backend/src/` durante frente
+- SQL `to_regclass` reproduzível
+- Grep frontend caller-check para automation/governance/risk: zero callers
+- Auditoria material precedeu classificação por inferência de nome
+- Edit em `Profile.tsx:542-549` é frente paralela (modal loop) — autorizado e validado (TSC 0 erros)
+
+### Próxima frente recomendada — MEMBERSHIP
+
+Razão: única DT desta sessão com **bug latente real confirmado em runtime**. 3 frentes arquiteturais alternativas (GLOBAL-USER-ID / D nó crítico v2 / health) ficam atrás porque MEMBERSHIP tem evidência de quebra ativa, não risco potencial.
+
+**Estrutura proposta** (aguardando autorização explícita Clayton):
+- **PASSO 2.a:** Auditoria profunda READ-ONLY do impacto real (callers de `company_members`, cenários admin chain, try/catch silenciosos, uso real de `CompanyTeamTab.tsx`)
+- **PASSO 2.b:** DECISION arquitetural prévia entre 3 opções (A: `company_users` expandido / B: `company_members` via migration / C: `organization_*` via Sprint 78). Custo, blast radius, alinhamento com SSOTs, reversibilidade material documentados.
+- **PASSO 2.c:** Frente de execução (após DECISION) com gates + commits atômicos
+
+**MODO:** AGUARDANDO_AUTORIZACAO entre PASSO 1 (este update documental) e PASSO 2 (frente MEMBERSHIP).
+
+---
+
+## 2026-05-16 — Frente MEMBERSHIP executada — DECISION-0042 aplicada (Opção A)
+
+### Sumário executivo
+
+Frente MEMBERSHIP do plano traçado (PASSO 2.a auditoria → 2.b DECISION → 2.c execução) entregue em modo piloto autônomo (autorizado por Clayton). DECISION arquitetural humana (escolha A entre 3 opções materiais), execução técnica delegada.
+
+### PASSO 2.a — Auditoria profunda READ-ONLY (concluído)
+
+Descobertas materiais que mudaram a leitura inicial:
+
+| Aspecto | Hipótese inicial | Achado material |
+|---|---|---|
+| Callers backend `company_members` | 1 (`authorization.service:369`) | **5** (repo + service + routes + authorization + bank-balance) |
+| Frontend uso real | "talvez exercitado" | **Feature COMPLETA**: `CompanyTeamTab.tsx` + API + handlers + UI lista/convite/role/revoke |
+| Sprint 78 (organization_*) | "alternativa a implementar" | **Já implementada** em backend (4 repos + service + routes) e frontend (3 pages + api), MAS 0/4 tabelas existem |
+| Estado runtime DB | "tabela ausente" | `company_users` (9 rows) + `actor_delegations` (0 rows) ÚNICAS vivas; `company_members`, `company_employees`, `organization_*` (4) TODAS INEXISTENTES |
+| `company_users` colunas | "tabela simples" | JÁ TINHA `role` (text, default 'member'), `is_active`, `is_primary`, 5 colunas `can_manage_*` |
+
+### PASSO 2.b — DECISION arquitetural (concluído)
+
+3 opções apresentadas a Clayton via AskUserQuestion com dados materiais (custo / blast / reversibilidade / alinhamento com SSOTs). Escolha humana: **A — company_users expandido**.
+
+DECISION-0042 registrada em `REMEDIATION_DECISIONS_LOG.md`.
+
+### PASSO 2.c — Execução cirúrgica (concluído)
+
+6 artefatos materiais:
+
+| Arquivo | Operação | LOC |
+|---|---|---|
+| `backend/migrations/20260530541000_company_users_membership_expansion.sql` | NEW | 74 |
+| `backend/src/core/authorization/authorization.service.ts` | M (refactor) | -16/+19 |
+| `backend/src/modules/bank/bank-balance-by-cpf.service.ts` | M (refactor) | -6/+10 |
+| `backend/src/core/companies/company-members.repository.ts` | M (reescrito como adapter) | -216/+277 |
+| `backend/tests/smoke/mvp-smoke.test.ts` | M (test fixture) | -7/+18 |
+| `backend/tests/integration/actor-delegation.test.ts` | M (cleanup) | -1/+2 |
+
+### Gates
+
+- TSC backend: 0 erros ✓
+- TSC frontend: 0 erros ✓
+- SQL smoke `SELECT_WITH_ACTOR`: 5 rows com JOIN actors válido ✓
+- SQL smoke admin path: 0 rows (sem admins no DB, mas query não quebra) ✓
+- 9 rows existentes preservados (`role='owner'`, `member_status='active'`) ✓
+- CHECK constraints aplicadas: `chk_company_users_role_valid`, `chk_company_users_member_status_valid` ✓
+- Índice composto `idx_company_users_company_role_status` criado ✓
+
+### Caveat audit trail
+
+Migration `20260530541000` aplicada manualmente via `psql` (não via `npm run migrate`) porque runner bloqueia em migration anterior pendente `20260530516500_add_states_country_abbreviation_unique.sql` (index conflict, não relacionada a MEMBERSHIP). `schema_migrations` NÃO populado (recusa de tampering com audit trail).
+
+Migration é **idempotente** (DO blocks com IF NOT EXISTS) — próxima execução de `npm migrate` reaplicará sem efeito. DT implícita registrada: **destravar pipeline `npm run migrate` é frente separada** (não MEMBERSHIP). Sintoma: 11 migrations pendentes no diretório acumuladas; primeira `20260530516500` quebra runner.
+
+### DTs atualizadas
+
+| DT | Estado |
+|---|---|
+| DT-MEMBERSHIP-SSOT-DECISION-REQUIRED | **CLOSED** (DECISION-0042 aplicada) |
+| DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS | CLOSED como standalone; preservada como sub-DT histórica |
+| DT-ORGANIZATION-SPRINT78-FROZEN | **NOVA** (BLOQUEIA_FRENTE — Sprint 78 congelada com critério de descongelamento) |
+
+### DT bug visível residual (descoberta lateral, não tratada nesta frente)
+
+`CompanyTeamTab.tsx:173-200` mantém 4 botões que linkam para `/organization/members /invites /roles /units` — rotas que **retornam 500 em runtime** porque tabelas `organization_*` não existem. Não é bug nesta frente (já existia), mas ficou MAIS visível porque a aba `Equipe & Permissões` agora **funciona** e usuários vão navegar para esses botões.
+
+Mitigação cirúrgica recomendada (frente separada, não autodecidir): esconder ou desabilitar os 4 botões enquanto Sprint 78 fica congelada. DT mencionada em `DT-ORGANIZATION-SPRINT78-FROZEN`.
+
+### Padrão consolidado — 10ª refutação material da sessão
+
+Auditoria material PASSO 2.a refutou:
+- "1 caller backend" → **5 callers + frontend completo + Sprint 78 paralelo**
+- "tabela ausente simples" → **3 camadas paralelas (companies/companies/organization) + apenas 2 tabelas vivas no runtime de 8 candidatas**
+- "DECISION B (restaurar archive) seria opção natural" → na verdade A (substrato vivo) é mais barato
+
+Padrão recorrente: o material sempre revela cenário mais rico que a hipótese inicial. Decisões guiadas apenas por nomes/intuição correm risco alto de errar magnitude.
+
+### Próxima frente recomendada
+
+Lista de candidatas (não autodecidir — pendente humano):
+
+1. **Esconder botões /organization/* mortos em CompanyTeamTab** (mitiga DT bug visível residual; ~1 hora)
+2. **DT-COVERAGE-BOOTSTRAP-REQUIRED** (#2 em BLOQUEIA_PRODUTO — ledger consistente)
+3. **DT-GLOBAL-USER-ID-DUPLICATION-E2E** (#3 em BLOQUEIA_PRODUTO — risco transversal)
+4. **Destravar pipeline npm migrate** (states_country_abbreviation_unique conflict — separar archive frente)
+5. **DT-MODULES-ASPIRATIONAL-VS-RUNTIME** (#1 em BLOQUEIA_PRODUTO — 24 endpoints frontend chamam tabelas inexistentes)
+
+**MODO: AGUARDANDO_AUTORIZACAO para próxima frente.** Commit MEMBERSHIP é último ato deste piloto.

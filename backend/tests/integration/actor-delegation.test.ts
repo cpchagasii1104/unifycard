@@ -59,7 +59,13 @@ describe('Actor Delegation - Continuous Production', () => {
     // Criar actors
     testUser1ActorId = (await actorRepository.findOrCreateUserActor(testTenantId, testUserId1)).actor_id;
     testUser2ActorId = (await actorRepository.findOrCreateUserActor(testTenantId, testUserId2)).actor_id;
-    testCompanyActorId = (await actorRepository.findOrCreatePageActor(testTenantId, testCompanyId)).actor_id;
+    testCompanyActorId = (
+      await actorRepository.findOrCreatePageActor(
+        testTenantId,
+        testCompanyId,
+        testUser1ActorId
+      )
+    ).actor_id;
 
     // Registrar company no Actor Registry
     await actorRegistryService.register(
@@ -80,7 +86,8 @@ describe('Actor Delegation - Continuous Production', () => {
     // Limpar dados de teste
     await pool.query('DELETE FROM actor_delegations WHERE tenant_id = $1', [testTenantId]);
     await pool.query('DELETE FROM actor_registry WHERE tenant_id = $1', [testTenantId]);
-    await pool.query('DELETE FROM company_members WHERE tenant_id = $1', [testTenantId]);
+    // DECISION-0042: cleanup de membership agora aponta para company_users (SSOT unico).
+    await pool.query('DELETE FROM company_users WHERE tenant_id = $1', [testTenantId]);
     await pool.query('DELETE FROM actors WHERE tenant_id = $1', [testTenantId]);
     await pool.query('DELETE FROM companies WHERE tenant_id = $1', [testTenantId]);
     await pool.query('DELETE FROM users WHERE tenant_id = $1', [testTenantId]);
@@ -159,7 +166,13 @@ describe('Actor Delegation - Continuous Production', () => {
   describe('4. Capability gate: actor sem can_publish_feed não publica', () => {
     it('should deny even with delegation if actor lacks capability', async () => {
       // Criar actor sem capability can_publish_feed
-      const limitedActorId = (await actorRepository.findOrCreatePageActor(testTenantId, testCompanyId)).actor_id;
+      const limitedActorId = (
+        await actorRepository.findOrCreatePageActor(
+          testTenantId,
+          testCompanyId,
+          testUser1ActorId
+        )
+      ).actor_id;
       
       await actorRegistryService.register(
         testTenantId,
@@ -205,7 +218,13 @@ describe('Actor Delegation - Continuous Production', () => {
         [testTenantId]
       );
       const testCompany2Id = company2Result.rows[0].company_id;
-      const testCompany2ActorId = (await actorRepository.findOrCreatePageActor(testTenantId, testCompany2Id)).actor_id;
+      const testCompany2ActorId = (
+        await actorRepository.findOrCreatePageActor(
+          testTenantId,
+          testCompany2Id,
+          testUser1ActorId
+        )
+      ).actor_id;
 
       await actorRegistryService.register(
         testTenantId,

@@ -319,14 +319,25 @@ describe('MVP Smoke Tests - Fluxos Críticos', () => {
         [companyActorId, tenantId, 'page', testCompanyId, 'Test Company Actor']
       );
 
-      // Criar member de teste
-      const memberId = uuidv4();
-      await pool.query(
-        `INSERT INTO company_members (member_id, tenant_id, company_id, actor_id, role, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (member_id) DO NOTHING`,
-        [memberId, tenantId, testCompanyId, testActor.actorId, 'staff', 'active']
+      // DECISION-0042: membership consolidado em company_users (adapter thin).
+      // Resolver global_user_id a partir do actorId (actor_type='user').
+      const actorRow = await pool.query<{ global_user_id: string }>(
+        `SELECT u.global_user_id
+         FROM actors a
+         JOIN users u ON u.user_id = a.user_id
+         WHERE a.actor_id = $1 AND a.tenant_id = $2 AND a.actor_type = 'user'
+         LIMIT 1`,
+        [testActor.actorId, tenantId]
       );
+      const globalUserId = actorRow.rows[0]?.global_user_id;
+      if (globalUserId) {
+        await pool.query(
+          `INSERT INTO company_users (id, tenant_id, company_id, global_user_id, role, member_status, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, true)
+           ON CONFLICT (company_id, global_user_id) DO NOTHING`,
+          [uuidv4(), tenantId, testCompanyId, globalUserId, 'staff', 'active']
+        );
+      }
 
       const response = await request(app.server)
         .get(`/companies/${testCompanyId}/members`)

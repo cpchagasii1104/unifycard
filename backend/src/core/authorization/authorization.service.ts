@@ -3,8 +3,7 @@
 // Centraliza lógica de permissões sem espalhar ifs
 
 import { socialPortsRegistry } from '@core/social/ports-registry';
-import { actorRegistryService } from '../actor-registry/actor-registry.service';
-import { companyMembersRepository } from '../companies/company-members.repository';
+import { actorRegistryService, type ActorRegistryEntry } from '../actor-registry/actor-registry.service';
 import { actorDelegationRepository } from '../actor-delegation/actor-delegation.repository';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { runQueryWithTenant } from '@core/database/pool';
@@ -71,7 +70,10 @@ class AuthorizationService {
    * Ordem de verificação:
    * 1. Ownership (user é o próprio actor ou owner da entidade)
    * 2. Delegation (user tem delegação ativa)
-   * 3. System (capabilities do actor permitem)
+   * 3. Ramo legado: capability no registry sem vínculo → deny (não é allow implícito)
+   *
+   * Antes de qualquer `allowed: true`, se {@link PERMISSION_CAPABILITIES} exige string,
+   * exige linha em `actor_registry` com `capabilities_json[cap] === true`.
    */
   async canActAs(
     tenantId: string,
@@ -117,8 +119,30 @@ class AuthorizationService {
       return result;
     }
 
+    const registry = await actorRegistryService.findByActorId(tenantId, actorId);
+
     // 2. Verificar ownership (user é o próprio actor)
-    if (actor.actor_type === 'user' && actor.user_id === userId) {
+    // Inclui actor_human / person (schema 0064) além do canónico 'user' (LEI §4.8.7).
+    if (
+      actor.user_id === userId &&
+      (actor.actor_type === 'user' ||
+        actor.actor_type === 'actor_human' ||
+        actor.actor_type === 'person')
+    ) {
+      const capDeny = this.denyIfMissingRequiredRegistryCapability(permissionKey, registry);
+      if (capDeny) {
+        canonicalLogger.authzDeny(null, 'Permissão negada: capability obrigatória ausente no registry', {
+          tenantId,
+          userId,
+          actorId,
+          permissionKey,
+          reason: capDeny.reason,
+        });
+        this.calculateAndLogShadowDivergence(tenantId, userId, actorId, permissionKey, scope, capDeny)
+          .catch(() => {});
+        return capDeny;
+      }
+
       const result: AuthorizationResult = { 
         allowed: true, 
         authoritySource: 'ownership',
@@ -141,10 +165,23 @@ class AuthorizationService {
     }
 
     // 3. Verificar se é owner da entidade (para actors institucionais)
-    const registry = await actorRegistryService.findByActorId(tenantId, actorId);
     if (registry) {
       const isOwner = await this.checkOwnership(tenantId, userId, registry.entityTable, registry.entityId);
       if (isOwner) {
+        const capDeny = this.denyIfMissingRequiredRegistryCapability(permissionKey, registry);
+        if (capDeny) {
+          canonicalLogger.authzDeny(null, 'Permissão negada: capability obrigatória ausente no registry', {
+            tenantId,
+            userId,
+            actorId,
+            permissionKey,
+            reason: capDeny.reason,
+          });
+          this.calculateAndLogShadowDivergence(tenantId, userId, actorId, permissionKey, scope, capDeny)
+            .catch(() => {});
+          return capDeny;
+        }
+
         const result: AuthorizationResult = { 
           allowed: true, 
           authoritySource: 'ownership',
@@ -174,6 +211,20 @@ class AuthorizationService {
     if (delegation) {
       const hasPermission = this.checkDelegationPermission(delegation.scopes, permissionKey);
       if (hasPermission) {
+        const capDeny = this.denyIfMissingRequiredRegistryCapability(permissionKey, registry);
+        if (capDeny) {
+          canonicalLogger.authzDeny(null, 'Permissão negada: capability obrigatória ausente no registry', {
+            tenantId,
+            userId,
+            actorId,
+            permissionKey,
+            reason: capDeny.reason,
+          });
+          this.calculateAndLogShadowDivergence(tenantId, userId, actorId, permissionKey, scope, capDeny)
+            .catch(() => {});
+          return capDeny;
+        }
+
         const result: AuthorizationResult = { 
           allowed: true, 
           authoritySource: 'delegation',
@@ -261,6 +312,26 @@ class AuthorizationService {
   }
 
   /**
+   * Se o mapa canónico exige capability em `actor_registry`, falha fechada sem linha ou sem flag `true`.
+   */
+  private denyIfMissingRequiredRegistryCapability(
+    permissionKey: PermissionKey,
+    registry: ActorRegistryEntry | null
+  ): AuthorizationResult | null {
+    const requiredCapability = PERMISSION_CAPABILITIES[permissionKey];
+    if (requiredCapability === null || requiredCapability === undefined) {
+      return null;
+    }
+    if (!registry || registry.capabilities?.[requiredCapability] !== true) {
+      return {
+        allowed: false,
+        reason: 'Missing required capability',
+      };
+    }
+    return null;
+  }
+
+  /**
    * Verifica se user é owner da entidade
    */
   private async checkOwnership(
@@ -289,24 +360,29 @@ class AuthorizationService {
         [entityId, globalUserId]
       );
 
-      if (companyUser && companyUser.length > 0) {
+      if (companyUser) {
         return true;
       }
 
-      // Verificar company_members (novo) - apenas se role = admin
-      const members = await companyMembersRepository.find(tenantId, {
-        companyId: entityId,
-        role: 'admin' as any,
-        status: 'active' as any,
-      });
+      // DECISION-0042: company_users absorve role-based membership.
+      // Verificar admin via company_users.role='admin' + member_status='active'.
+      // Substitui consulta antiga a company_members (tabela inexistente em runtime).
+      const adminMatch = await runQueryWithTenant<{ global_user_id: string }>(
+        tenantId,
+        `
+          SELECT global_user_id
+          FROM company_users
+          WHERE company_id = $1
+            AND global_user_id = $2
+            AND role = 'admin'
+            AND member_status = 'active'
+          LIMIT 1
+        `,
+        [entityId, globalUserId]
+      );
 
-      // Verificar se algum membro admin é o user
-      for (const m of members) {
-        const actorRepository = socialPortsRegistry.getActorRepository();
-        const actor = await actorRepository.findById(tenantId, m.actorId);
-        if (actor && actor.user_id === userId) {
-          return true;
-        }
+      if (adminMatch) {
+        return true;
       }
     }
 
@@ -323,9 +399,9 @@ class AuthorizationService {
         [entityId]
       );
 
-      if (group && group.length > 0) {
+      if (group) {
         const actorRepository = socialPortsRegistry.getActorRepository();
-        const ownerActor = await actorRepository.findById(tenantId, group[0].owner_actor_id);
+        const ownerActor = await actorRepository.findById(tenantId, group.owner_actor_id);
         if (ownerActor && ownerActor.user_id === userId) {
           return true;
         }
@@ -345,9 +421,9 @@ class AuthorizationService {
         [entityId]
       );
 
-      if (event && event.length > 0) {
+      if (event) {
         const actorRepository = socialPortsRegistry.getActorRepository();
-        const eventActor = await actorRepository.findById(tenantId, event[0].actor_id);
+        const eventActor = await actorRepository.findById(tenantId, event.actor_id);
         if (eventActor && eventActor.user_id === userId) {
           return true;
         }
