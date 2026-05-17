@@ -3936,3 +3936,67 @@ Hipótese: "9 órfãos puros = não tem nada a fazer". Realidade: **8 órfãos p
 - **Fechar sessão** (9 commits, 16 refutações materiais — sessão muito longa, considerar consolidação final)
 
 **MODO:** AGUARDANDO_AUTORIZACAO.
+
+---
+
+## 2026-05-17 — Frente #3 GUARDIÃO READ-ONLY + PASSO 9 Higiene
+
+### Frente #3 aberta como auditoria material profunda de COVERAGE-BOOTSTRAP
+
+Clayton autorizou abertura em READ-ONLY com reporte antes de mitigação. Primeira leitura do DT_LOG (linha 295) revelou: **DT está CLOSED desde 2026-05-12** via DECISION-0031.
+
+### Achado material — 3 evidências convergentes pré-existentes
+
+- `REMEDIATION_DT_LOG.md:295` — `Status: CLOSED (encerrada por DECISION-0031)`
+- `DT_PRIORIZATION.md:330-332` — `"Erro material da tabulação anterior"`
+- `DT_PRIORIZATION.md:459-461` — `"Achado 1 — DT-COVERAGE-BOOTSTRAP-REQUIRED estava CLOSED"`
+
+Listas TOP em PASSO 7 (`DT_PRIORIZATION.md:801`) e PASSO 8 (`DT_PRIORIZATION.md:852`) — escritas nesta sessão — reinseriram a DT por descuido. Eu propaguei nas minhas mensagens "próxima escolha" sem verificar.
+
+### Decisão GUARDIÃO
+
+NÃO executei auditoria runtime (`system_coverage` view + triggers + `ensurePlatformAccounts`). Fronteira de parada PASSO 6 — causalidade financeira ativa.
+
+### Próximo passo executado em piloto: PASSO 9 Higiene
+
+Recomendação minha (única executável em piloto sem tocar runtime financeiro): **higienizar DT_PRIORIZATION** removendo COVERAGE-BOOTSTRAP das listas TOP.
+
+**Append-only:** PASSO 9 adicionado a `DT_PRIORIZATION.md` (linhas 875-938) declarando:
+- Achado material da Frente #3
+- Padrão cognitivo #4 manifestou-se 5ª vez ao escrever PASSO 7 e PASSO 8
+- Lista TOP BLOQUEIA_PRODUTO superseded por nova lista de 2 itens (MODULES-ASPIRATIONAL triada + GLOBAL-USER-ID arquitetural)
+- Distribuição correta: 2 / 21 / 6 / 11
+- Frentes derivadas legítimas (NÃO são "DT-COVERAGE-BOOTSTRAP"): auditoria coerência runtime + Q3-E2E v2
+
+**Princípio operacional registrado:**
+> "Listas TOP referenciais derivadas de outras listas (não da fonte material da DT) propagam erros como cascata. Toda consulta a 'qual DT abrir' deve cruzar com fonte material vigente (`Status: CLOSED|OPEN` na entrada da DT no DT_LOG), não com lista intermediária."
+
+### Por que doc-only e append-only
+
+- Edits de código: zero (princípio escopo cirúrgico)
+- Edits em entradas históricas: zero (preservar histórico do erro como evidência institucional, igual code.md §-3 preserva 4 erros materiais)
+- Doc novo: apenas append PASSO 9 em DT_PRIORIZATION + esta entrada em STATUS
+
+### 17ª refutação material da sessão
+
+Hipótese inicial: "Frente #3 = abrir DT-COVERAGE-BOOTSTRAP".
+Realidade: **DT institucionalmente fechada há 5 dias por DECISION soberana multi-auditada. Auditoria material no próprio log já havia documentado o erro 3 vezes — e eu propaguei a lista desatualizada.**
+
+Reforça §-3 code.md: padrão estrutural, não acidente.
+
+### Estado consolidado sessão 2026-05-17 (10 commits)
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B auditoria | CLOSED | `990e9695` |
+| FinancialDashboard Opção C | CLOSED | `68d04914` |
+| #2 DT-FANTASMA-ORPHAN-COLLECTIVE | CLOSED | `825030e3` |
+| **#3 GUARDIÃO + PASSO 9 Higiene** | **CLOSED** | pendente commit |
+
+**MODO:** AGUARDANDO_AUTORIZACAO.
