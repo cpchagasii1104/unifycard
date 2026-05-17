@@ -2592,3 +2592,83 @@ Sprint 78 é exemplo de **convergência interrompida** (memória `project_lei_hi
 
 3 reconstruções históricas tentaram consolidar membership (`company_employees`, `company_members`, `organization_members`). Decisão A reconhece: a única que **deixou substrato vivo** é a primeira (`company_users`). Convergir para o vivo é mais barato que ressuscitar archives ou criar tudo novo.
 
+
+---
+
+## DT-FANTASMA-ORPHAN-COLLECTIVE — 8 módulos FANTASMA sem caller frontend real
+
+**Status:** OPEN
+**Prioridade:** LOW
+**Bucket:** INFORMATIVA (não bloqueia produto; preserva memória institucional)
+**Data:** 2026-05-17
+**Categoria:** PREMATURO (código aspiracional sem demanda frontend)
+**Origem:** Auditoria Pendência B (Frente #2 MODULES-ASPIRATIONAL-VS-RUNTIME)
+
+### Resumo material
+
+Auditoria caso-a-caso dos 16 sub-callers FANTASMA mapeados no MODULES_INVENTORY (Pendência B) revelou que **8 módulos não possuem caller frontend real em runtime**. MODULES_INVENTORY contou rotas backend que referenciam tabelas inexistentes; auditoria frontend confirmou ausência de chamada efetiva.
+
+### Inventário dos 8 órfãos
+
+| Módulo | Backend (rotas) | Frontend | Status caller real |
+|---|---|---|---|
+| `core/residence` | 3 rotas | api file não existe | zero callers |
+| `core/root-config` | 6 rotas | api file não existe | zero callers |
+| `core/user-group-allocation` | 2 rotas | api file não existe | zero callers |
+| `modules/care` | 3 rotas | api file não existe | zero callers |
+| `modules/social-chat` | 2 rotas | api file não existe | zero callers |
+| `modules/work-instant` | 14 rotas | api file não existe | zero callers |
+| `modules/media` | 2 rotas | `getPresignUrl` exportada em `api/social-2.0.ts:239` | NÃO invocada em runtime (PostComposer:298 tem comentário "Placeholder; gera IDs temp") |
+| `modules/presence` | 11 rotas | `api/presence.ts` existe | zero callers fora do próprio arquivo |
+
+### Refinamento Categoria 1 vs Categoria 3 (Pendência B atualizada)
+
+`core/memory` (inicialmente categorizado como órfão na Pendência B) foi **reclassificado para Categoria 1 — silent fail**:
+- Componente `utils/institutional-memory.tsx:84` faz `useEffect → listInstitutionalMemory()`
+- Renderizado por `PilotObserverPage.tsx` (rota `/admin/pilot` ATIVA, App.tsx:347)
+- Backend `/memory` → tabelas `user_memory_*` ausentes → erro tratado por try/catch + `console.error`
+- UX não quebra (silent fail), mas há chamada wasted ao abrir `/admin/pilot`
+
+Contagem final Pendência B: 8 órfãos puros (não 9).
+
+### Por que não remover código (princípio archive)
+
+Memória `feedback_archive_nao_e_ssot.md`: "não apagar sem auditar, mas congelar com critério explícito". Cada módulo pode representar convergência interrompida (memória `project_lei_historica_sistema`):
+- `modules/work-instant` (14 rotas): Uber-like matching aspiracional — congelado em DT-MODULE-WORK-INSTANT-FROZEN-PRE-P4-P5 (sessão Frente 2)
+- `modules/presence` (11 rotas): 9º modelo paralelo de check-in/presence — congelado em DT-PRESENCE-FRAGMENTED-NO-RUNTIME
+- `core/residence`, `core/root-config`, `core/user-group-allocation`: infraestrutura aspiracional sem migração ativa
+- `modules/care`, `modules/social-chat`: features ainda não demandadas
+- `modules/media` (presign): preparado para futuro upload S3-style, mas sistema atual usa IDs temp
+
+Remover hoje = perder intenção arquitetural visível. **NÃO há bug runtime** — não há urgência.
+
+### Critério de descongelamento
+
+Reabrir auditoria + decidir remover/migrar quando:
+- (a) demanda real emergir para qualquer um dos 8 módulos (frontend páginas/componentes começam a usar)
+- (b) frente de "cleanup arquitetural ampla" autorizada por Clayton (escopo: remover código aspiracional sem demanda há > 6 meses)
+- (c) onboarding novo dev relatar confusão repetida com qualquer um dos 8 módulos
+
+### Riscos preservados
+
+- **Risco institucional baixo:** próximo dev pode presumir que módulos funcionam (já capturado em DT-MODULES-ASPIRATIONAL-VS-RUNTIME). MODULES_INVENTORY na raiz mitiga.
+- **Network observability:** zero (não há chamada real)
+- **Performance:** zero (não há fetch em mount)
+- **UX:** zero (sem caller visível)
+
+### Princípio capturado
+
+> "FANTASMA backend sem caller frontend real ≠ bug — é código aspiracional sem demanda. Auditoria material distingue 'morto e quebra' (mitigar) de 'morto e silencioso' (registrar e preservar)."
+
+### Mitigação alternativa explicitamente NÃO aplicada
+
+- ❌ Apagar arquivos: violaria princípio archive
+- ❌ Adicionar header `@deprecated` em cada arquivo: scope creep sem autorização ampla
+- ❌ Comentar exports: introduz fragmentação sem ganho material
+- ✅ DT collective + critério descongelamento + MODULES_INVENTORY como SSOT
+
+### Referência
+
+`MODULES_INVENTORY.md` seção 2 (tabela material FANTASMAS) — auditoria material que produziu a lista.
+
+`STATUS_EXECUCAO_GLOBAL.md` entrada 2026-05-17 — Pendência B triagem por categoria.

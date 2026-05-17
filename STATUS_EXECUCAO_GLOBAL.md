@@ -3866,3 +3866,73 @@ Aplicação futura: outras páginas com Promise.all + chamadas mistas podem se b
 ### 15ª refutação material
 
 Hipótese: "Página financeira 100% fantasma = comentar tudo". Realidade: **MIX preservável via mudança de 1 await** (Promise.all → allSettled). Auditoria por endpoint > generalização por nome de página.
+
+---
+
+## 2026-05-17 — Fechamento Frente #2 — DT-FANTASMA-ORPHAN-COLLECTIVE registrada
+
+### Contexto
+
+Próximo passo lógico após mitigação completa dos casos com bug runtime (fase 1 + fase 2 + Opção C). Fecha Frente #2 MODULES-ASPIRATIONAL-VS-RUNTIME com tratamento institucional dos 8 órfãos puros descobertos na Pendência B.
+
+### Refinamento descoberto durante registro
+
+`core/memory` (inicialmente Categoria 3 da Pendência B) **reclassificado para Categoria 1 — silent fail**:
+- Componente `utils/institutional-memory.tsx:84` faz `useEffect → listInstitutionalMemory()` em mount
+- Renderizado por `PilotObserverPage.tsx` (rota `/admin/pilot` ATIVA)
+- Backend `/memory` → tabelas `user_memory_*` ausentes → silent fail via try/catch + `console.error`
+- Sem bug UX, mas chamada wasted ao admin abrir `/admin/pilot`
+
+Total órfãos puros refinado: **8** (não 9 como reportei antes).
+
+### DT registrada
+
+`REMEDIATION_DT_LOG.md` apêndice: **DT-FANTASMA-ORPHAN-COLLECTIVE**
+- 8 módulos sem caller frontend real (residence, root-config, user-group-allocation, care, social-chat, work-instant, media, presence)
+- Critério de descongelamento explícito (demanda real / cleanup arquitetural ampla / confusão de onboarding)
+- Mitigação alternativa NÃO aplicada (apagar / @deprecated / comentar exports) com razões registradas
+- Princípio captured: "FANTASMA backend sem caller frontend real ≠ bug — é código aspiracional sem demanda"
+
+### Por que doc-only (sem editar código)
+
+Memória `feedback_archive_nao_e_ssot`: não apagar sem auditar. Cada módulo pode representar convergência interrompida (`project_lei_historica_sistema`). 8 módulos têm DTs específicas já registradas (work-instant, presence, etc.).
+
+Tocar 8 arquivos com header `@deprecated` ou comentar exports seria scope creep sem autorização ampla. DT collective + MODULES_INVENTORY como SSOT cumpre função institucional sem fragmentar código.
+
+### Frente #2 MODULES-ASPIRATIONAL-VS-RUNTIME — FECHAMENTO TOTAL
+
+| Sub-categoria | # módulos | Tratamento |
+|---|---|---|
+| Trat. anteriores (policy-engine, automation) | 2 | CLOSED (DECISION-0041) |
+| Fase 1 mitigada (votes, subscriptions, venue, loyalty, organization Sprint 78) | 13 rotas | CLOSED (commit `99870acb`) |
+| Fase 2 financeiras mitigadas (payouts, invoices, alerts) | 5 rotas | CLOSED (commit `10fefd04`, DECISION-0041 pattern) |
+| Pendência B — silent fail (agreements, evidence, business-audit, contextual-messaging, system-notifications, core/memory) | 6 | nenhuma ação necessária (try/catch defensivo) |
+| Pendência B — UX consciente (social-actions) | 1 | nenhuma ação (feedback amigável existente) |
+| Pendência B — financeiro (reporting) | 1 | CLOSED (Opção C, commit `68d04914`) |
+| **Pendência B — órfãos puros (DT collective)** | **8** | **CLOSED (DT-FANTASMA-ORPHAN-COLLECTIVE registrada)** |
+
+**Cobertura total #2:** 100% dos 24 módulos FANTASMA com frontend caller mapeados em MODULES_INVENTORY classificados e tratados (mitigados ou registrados com critério explícito).
+
+### 16ª refutação material da sessão
+
+Hipótese: "9 órfãos puros = não tem nada a fazer". Realidade: **8 órfãos puros** (1 reclassificado durante registro) + **registro institucional explícito é o trabalho** quando não há bug runtime. DT collective com critério de descongelamento é mitigação a sério, não falta de execução.
+
+### Estado consolidado sessão 2026-05-17 (9 commits)
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B auditoria | CLOSED | `990e9695` |
+| FinancialDashboard Opção C | CLOSED | `68d04914` |
+| **#2 DT-FANTASMA-ORPHAN-COLLECTIVE** | **CLOSED** | pendente commit |
+
+**Frente #2 totalmente encerrada.** Próximas opções:
+- **#3 COVERAGE-BOOTSTRAP** ou **#4 GLOBAL-USER-ID** (frentes arquiteturais grandes; DECISION humana inevitável)
+- **Fechar sessão** (9 commits, 16 refutações materiais — sessão muito longa, considerar consolidação final)
+
+**MODO:** AGUARDANDO_AUTORIZACAO.
