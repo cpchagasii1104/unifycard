@@ -166,9 +166,11 @@ export const APPS_REGISTRY: AppDefinition[] = [
     id: 'votes',
     name: 'Votações',
     icon: '🗳️',
-    route: '/votes',
+    // DT-MODULE-VOTES-FANTASMA (2026-05-16): tabelas votes/vote_options/vote_responses
+    // ausentes em runtime. Rerouteado para /em-desenvolvimento até migrations criadas.
+    route: '/em-desenvolvimento?feature=votes',
     contexts: ['pf', 'pj', 'group', 'channel'],
-    status: 'ready',
+    status: 'wip',
     category: 'governance',
   },
   {

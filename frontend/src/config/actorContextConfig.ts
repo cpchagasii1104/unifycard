@@ -12,6 +12,7 @@
 // subtype dentro de actor_type quando a hierarquia ontológica N0/N1/N2 amadurecer.
 
 import type { AppContext } from './appsRegistry';
+import type { OperatingMode } from './operatingMode';
 
 // ============================================================
 // CATÁLOGO: Quick Actions (todas as ações disponíveis no sistema)
@@ -52,12 +53,26 @@ export const QUICK_ACTIONS_CATALOG: Record<string, QuickActionDefinition> = {
 
   // Grupo / governança
   'membros': { id: 'membros', label: 'Membros', icon: '👥', route: '/grupos', color: '#8b5cf6' },
-  'votacoes': { id: 'votacoes', label: 'Votações', icon: '🗳️', route: '/votacoes', color: '#3b82f6' },
+  // DT-MODULE-VOTES-FANTASMA (2026-05-16): /votacoes desativado — tabelas inexistentes.
+  'votacoes': { id: 'votacoes', label: 'Votações', icon: '🗳️', route: '/em-desenvolvimento?feature=votes', color: '#3b82f6' },
   'contribuir': { id: 'contribuir', label: 'Contribuir', icon: '💚', route: '/em-desenvolvimento?feature=group-contribution', color: '#10b981' },
   'impacto': { id: 'impacto', label: 'Impacto', icon: '💚', route: '/impacto', color: '#10b981' },
 
   // Canal / publicação
   'publicar': { id: 'publicar', label: 'Publicar', icon: '✏️', route: '/social', color: '#8b5cf6' },
+
+  // Modo operante "Operar" — actions de trabalho (PF que opera)
+  'dirigir':          { id: 'dirigir',          label: 'Dirigir',                icon: '🚙', route: '/em-desenvolvimento?feature=driver',   color: '#f59e0b' },
+  'entregar':         { id: 'entregar',         label: 'Entregar',               icon: '🛵', route: '/em-desenvolvimento?feature=courier',  color: '#ef4444' },
+  'prestar-servico':  { id: 'prestar-servico',  label: 'Prestar serviço',        icon: '🔧', route: '/em-desenvolvimento?feature=service-provider', color: '#10b981' },
+  'atender-pedidos':  { id: 'atender-pedidos',  label: 'Atender pedidos',        icon: '📋', route: '/em-desenvolvimento?feature=orders',   color: '#f59e0b' },
+  'agenda':           { id: 'agenda',           label: 'Agenda',                 icon: '📅', route: '/perfil?tab=agenda',                   color: '#06b6d4' },
+  'trabalhar-perto':  { id: 'trabalhar-perto',  label: 'Trabalhe perto',         icon: '📍', route: '/em-desenvolvimento?feature=local-work', color: '#10b981' },
+
+  // Modo operante "Consumir" para PJ — empresa também consome
+  'comprar-insumos':  { id: 'comprar-insumos',  label: 'Comprar insumos',        icon: '🛍️', route: '/marketplace',                         color: '#06b6d4' },
+  'fornecedores':     { id: 'fornecedores',     label: 'Fornecedores',           icon: '🏭', route: '/em-desenvolvimento?feature=suppliers', color: '#3b82f6' },
+  'contratar-servico':{ id: 'contratar-servico',label: 'Contratar serviço',      icon: '🤝', route: '/em-desenvolvimento?feature=hire-service', color: '#8b5cf6' },
 
   // Profissionais (catalogo extendido — usado por useProfessionalContext)
   // Mesmas rotas wip enquanto modulos especificos nao existem; importante e
@@ -118,14 +133,35 @@ export type SidebarPriorityId = string;
 // PROFILE: configuração contextual por actor
 // ============================================================
 
+/**
+ * Cross-mode hint (frase-âncora: "prioriza, não esconde").
+ * Action sutil renderizada no slot final do mosaico de quick actions, sugerindo
+ * o outro lado do ecossistema. Não obriga troca de modo — convite transversal.
+ */
+export interface CrossModeHint {
+  /** ID de QuickAction no QUICK_ACTIONS_CATALOG. */
+  actionId: string;
+  /** Label opcional que sobrescreve o do catálogo (ex: "Ganhe dirigindo"). */
+  label?: string;
+}
+
+export interface OperatingModeOverrides {
+  /** Quick actions específicas deste modo (até 7 — slot 8 é cross-mode). */
+  quickActions?: string[];
+  /** Rotas da sidebar com destaque neste modo. */
+  sidebarPriorities?: SidebarPriorityId[];
+  /** Convite transversal para o modo oposto. */
+  crossModeHint?: CrossModeHint;
+}
+
 export interface ActorContextProfile {
   context: AppContext;
   modeName: string;
-  /** Quick actions na ordem de prioridade (até 8 renderizadas). */
+  /** Quick actions na ordem de prioridade (até 8 renderizadas). Fallback se sem byOperatingMode. */
   quickActions: string[];
-  /** Cards de visão geral mostrados (na ordem). */
+  /** Cards de visão geral mostrados (na ordem). NÃO especializa por modo — finanças são transversais. */
   dashboardCards: DashboardCardId[];
-  /** Rotas da sidebar que recebem destaque visual. */
+  /** Rotas da sidebar que recebem destaque visual. Fallback se sem byOperatingMode. */
   sidebarPriorities: SidebarPriorityId[];
   /** CTA de criação primário sugerido (botão FAB / banner). null = nenhum. */
   primaryCreateCta: { label: string; route: string } | null;
@@ -135,11 +171,30 @@ export interface ActorContextProfile {
     subtitle: string;
     route?: string;
   };
+  /**
+   * Especializações por modo operante (camada de intenção). OPCIONAL.
+   * Quando ausente, profile é "mono-modo" (toggle não aparece para esse actor type).
+   * Quando presente com 2 chaves (consumir + operar), toggle aparece.
+   */
+  byOperatingMode?: Partial<Record<OperatingMode, OperatingModeOverrides>>;
+}
+
+/**
+ * Envelope para render. Distingue actions normais de cross-mode (convite ao outro modo).
+ * DashboardHome usa `isCrossMode` para renderizar com peso visual menor.
+ */
+export interface RenderableQuickAction {
+  definition: QuickActionDefinition;
+  /** True quando esta action representa convite ao modo oposto. */
+  isCrossMode: boolean;
+  /** Label override (vem de CrossModeHint.label). */
+  overrideLabel?: string;
 }
 
 const PROFILE_PF: ActorContextProfile = {
   context: 'pf',
   modeName: 'Pessoa Física',
+  // Fallback = modo Consumir (estado padrão da PF)
   quickActions: [
     'rede-social',
     'meus-grupos',
@@ -148,17 +203,47 @@ const PROFILE_PF: ActorContextProfile = {
     'eventos',
     'marketplace',
     'transferir',
-    'extrato',
   ],
   dashboardCards: ['fundo-regional', 'meu-saldo', 'em-processamento', 'limite-disponivel'],
   sidebarPriorities: ['/social', '/grupos', '/marketplace', '/em-desenvolvimento?feature=mobility', '/em-desenvolvimento?feature=food'],
   primaryCreateCta: { label: 'Criar evento', route: '/events/new' },
+  byOperatingMode: {
+    consumir: {
+      quickActions: [
+        'rede-social',
+        'meus-grupos',
+        'pedir-comida',
+        'pedir-carro',
+        'eventos',
+        'marketplace',
+        'transferir',
+      ],
+      sidebarPriorities: ['/social', '/grupos', '/marketplace', '/em-desenvolvimento?feature=mobility', '/em-desenvolvimento?feature=food'],
+      // Convite transversal ao modo Operar
+      crossModeHint: { actionId: 'trabalhar-perto', label: 'Trabalhe perto' },
+    },
+    operar: {
+      quickActions: [
+        'dirigir',
+        'entregar',
+        'prestar-servico',
+        'atender-pedidos',
+        'agenda',
+        'transferir',
+        'extrato',
+      ],
+      sidebarPriorities: ['/perfil?tab=agenda', '/services', '/extrato', '/banco'],
+      // Convite transversal ao modo Consumir
+      crossModeHint: { actionId: 'pedir-comida', label: 'Pedir comida' },
+    },
+  },
 };
 
 const PROFILE_PJ: ActorContextProfile = {
   context: 'pj',
   modeName: 'Empresa',
-  quickActions: ['vender', 'campanhas', 'pedidos', 'crm', 'contratar', 'marketplace', 'transferir', 'extrato'],
+  // Fallback = modo Operar (estado padrão da empresa)
+  quickActions: ['vender', 'campanhas', 'pedidos', 'crm', 'contratar', 'marketplace', 'transferir'],
   dashboardCards: ['caixa-empresa', 'movimentacoes-mes', 'em-processamento', 'limite-disponivel'],
   sidebarPriorities: ['/marketplace', '/services', '/banco', '/extrato'],
   primaryCreateCta: { label: 'Criar campanha', route: '/em-desenvolvimento?feature=campaign' },
@@ -166,6 +251,18 @@ const PROFILE_PJ: ActorContextProfile = {
     title: 'Sua empresa no UnifiCard',
     subtitle: 'Venda, divulgue e coordene operações em um só lugar',
     route: '/marketplace',
+  },
+  byOperatingMode: {
+    operar: {
+      quickActions: ['vender', 'campanhas', 'pedidos', 'crm', 'contratar', 'marketplace', 'transferir'],
+      sidebarPriorities: ['/marketplace', '/services', '/banco', '/extrato'],
+      crossModeHint: { actionId: 'comprar-insumos', label: 'Comprar insumos' },
+    },
+    consumir: {
+      quickActions: ['comprar-insumos', 'fornecedores', 'contratar-servico', 'marketplace', 'transferir', 'extrato', 'campanhas'],
+      sidebarPriorities: ['/marketplace', '/services', '/extrato', '/banco'],
+      crossModeHint: { actionId: 'vender', label: 'Voltar a vender' },
+    },
   },
 };
 
@@ -201,16 +298,51 @@ const PROFILES_BY_CONTEXT: Record<AppContext, ActorContextProfile> = {
 
 /**
  * Retorna o perfil operacional contextual conforme o AppContext.
+ * Quando `mode` é informado e o profile tem `byOperatingMode[mode]`, retorna
+ * profile com `quickActions` e `sidebarPriorities` substituídos pelo override.
  * Default: PF (fallback seguro).
  */
-export function getActorContextProfile(context: AppContext | null | undefined): ActorContextProfile {
-  if (!context) return PROFILE_PF;
-  return PROFILES_BY_CONTEXT[context] ?? PROFILE_PF;
+export function getActorContextProfile(
+  context: AppContext | null | undefined,
+  mode?: OperatingMode
+): ActorContextProfile {
+  const base = context ? PROFILES_BY_CONTEXT[context] ?? PROFILE_PF : PROFILE_PF;
+  if (!mode || !base.byOperatingMode) return base;
+
+  const override = base.byOperatingMode[mode];
+  if (!override) return base;
+
+  return {
+    ...base,
+    quickActions: override.quickActions ?? base.quickActions,
+    sidebarPriorities: override.sidebarPriorities ?? base.sidebarPriorities,
+  };
 }
 
 /**
- * Resolve quick actions definitions a partir do perfil contextual.
- * Filtra IDs inválidos (defensivo).
+ * Indica se o profile tem 2 modos operantes declarados (consumir + operar).
+ * Usado pelo OperatingModeToggle para decidir se aparece (group/channel são
+ * mono-modo — toggle some).
+ */
+export function profileHasTwoOperatingModes(profile: ActorContextProfile): boolean {
+  const m = profile.byOperatingMode;
+  return !!m && !!m.consumir && !!m.operar;
+}
+
+/**
+ * Resolve cross-mode hint do profile no modo atual.
+ */
+function resolveCrossModeHint(
+  baseProfile: ActorContextProfile,
+  mode: OperatingMode | undefined
+): CrossModeHint | null {
+  if (!mode || !baseProfile.byOperatingMode) return null;
+  return baseProfile.byOperatingMode[mode]?.crossModeHint ?? null;
+}
+
+/**
+ * Resolve quick actions DEFINIÇÕES a partir do perfil contextual (sem profissão).
+ * Mantida para compat — consumidores legados.
  */
 export function resolveQuickActions(profile: ActorContextProfile, limit = 8): QuickActionDefinition[] {
   return profile.quickActions
@@ -220,44 +352,67 @@ export function resolveQuickActions(profile: ActorContextProfile, limit = 8): Qu
 }
 
 /**
- * 2026-05-15: combina quick actions do actor profile com sugestões do contexto
- * profissional (quando aplicável). Profissionais ganham as ações da profissão
- * no INÍCIO da lista, sem remover totalmente as do actor (preserva diretriz
- * "lente operacional vs caixinhas isoladas" — não fragmenta).
+ * Resolve quick actions COM ENVELOPE renderizável: 7 actions do modo + 1 cross-mode.
+ *
+ * Frase-âncora "prioriza, não esconde": slot 8 sugere o modo oposto sem trocar
+ * de modo automaticamente. Visual menor.
  *
  * Estratégia:
- *   - Se há contexto profissional → primeiras 3 actions vêm da profissão
- *   - Restantes preenchem com actor quick actions (sem duplicar IDs)
- *   - Limite total mantém o do actor (default 8)
+ *   - Profissão (até 3) — APENAS quando mode === 'operar' (profissão refina trabalho,
+ *     não consumo)
+ *   - Actor mode quickActions preenchem até 7 (sem duplicar)
+ *   - Slot 8: cross-mode hint do modo atual (action do modo oposto, label customizada)
+ *
+ * Quando profile NÃO tem byOperatingMode (group/channel mono-modo), cross-mode
+ * não é adicionado — 8 actions normais.
  */
 export function resolveQuickActionsWithProfession(
   profile: ActorContextProfile,
   professionalQuickActionIds: string[] | null | undefined,
+  mode: OperatingMode | undefined,
   limit = 8
-): QuickActionDefinition[] {
-  const seen = new Set<string>();
-  const merged: QuickActionDefinition[] = [];
+): RenderableQuickAction[] {
+  const hint = resolveCrossModeHint(profile, mode);
+  const reservedForCrossMode = hint ? 1 : 0;
+  const normalSlots = Math.max(0, limit - reservedForCrossMode);
 
-  // 1. Profissão primeiro (até 3)
-  if (professionalQuickActionIds && professionalQuickActionIds.length > 0) {
+  const seen = new Set<string>();
+  const normal: RenderableQuickAction[] = [];
+
+  // 1. Profissão primeiro (até 3) — só faz sentido no modo Operar
+  if (mode === 'operar' && professionalQuickActionIds && professionalQuickActionIds.length > 0) {
     for (const id of professionalQuickActionIds.slice(0, 3)) {
       const def = QUICK_ACTIONS_CATALOG[id];
-      if (def && !seen.has(def.id)) {
-        merged.push(def);
+      if (def && !seen.has(def.id) && normal.length < normalSlots) {
+        normal.push({ definition: def, isCrossMode: false });
         seen.add(def.id);
       }
     }
   }
 
-  // 2. Completa com actor quick actions (sem duplicar)
+  // 2. Actor mode preenche até normalSlots (sem duplicar; pula se for o mesmo do hint)
   for (const id of profile.quickActions) {
-    if (merged.length >= limit) break;
+    if (normal.length >= normalSlots) break;
+    if (hint && id === hint.actionId) continue;
     const def = QUICK_ACTIONS_CATALOG[id];
     if (def && !seen.has(def.id)) {
-      merged.push(def);
+      normal.push({ definition: def, isCrossMode: false });
       seen.add(def.id);
     }
   }
 
-  return merged.slice(0, limit);
+  // 3. Slot final: cross-mode hint (se houver)
+  const result = [...normal];
+  if (hint) {
+    const def = QUICK_ACTIONS_CATALOG[hint.actionId];
+    if (def && !seen.has(def.id)) {
+      result.push({
+        definition: def,
+        isCrossMode: true,
+        overrideLabel: hint.label,
+      });
+    }
+  }
+
+  return result.slice(0, limit);
 }

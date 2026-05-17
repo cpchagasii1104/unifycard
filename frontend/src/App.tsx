@@ -246,8 +246,11 @@ function AppContent() {
           <Route path="grupos/:id" element={<GrupoDetailPage />} />
           <Route path="convites" element={<InvitesPage />} />
           <Route path="feed" element={<SocialPage />} />
-          <Route path="votacoes" element={<VotesPage />} />
-          <Route path="votes" element={<VotesPage />} />
+          {/* DT-MODULE-VOTES-FANTASMA (2026-05-16): rotas comentadas — tabelas
+              votes/vote_options/vote_responses inexistentes em runtime.
+              Restaurar quando migrations + seed criados. */}
+          {/* <Route path="votacoes" element={<VotesPage />} /> */}
+          {/* <Route path="votes" element={<VotesPage />} /> */}
           <Route path="servicos" element={<ServicosPage />} />
           <Route path="agenda-unificada" element={<UnifiedAgendaPage />} />
           <Route path="unified-calendar" element={<UnifiedAgendaPage />} />
@@ -283,19 +286,26 @@ function AppContent() {
           <Route path="service-orders/:id" element={<ServiceOrderDetailPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="crm/contacts/:id" element={<CrmContactDetailPage />} />
-          {/* SPRINT 87: Assinaturas */}
-          <Route path="subscriptions" element={<SubscriptionsPage />} />
-          {/* SPRINT 92: Venue (Menu + Tab) */}
-          <Route path="v/:slug" element={<VenuePublicPage />} />
-          <Route path="t/:qrToken" element={<TabPage />} />
-          {/* SPRINT 93: Loyalty / Fidelidade */}
-          <Route path="loyalty" element={<LoyaltyPage />} />
-          {/* Organization MVP */}
-          <Route path="organization/members" element={<OrganizationMembersPage />} />
-          <Route path="organization/invites" element={<OrganizationInvitesPage />} />
-          <Route path="organization/invites/new" element={<OrganizationInvitePage />} />
-          <Route path="organization/roles" element={<OrganizationRolesPage />} />
-          <Route path="organization/units" element={<OrganizationUnitsPage />} />
+{/* SPRINT 87: Assinaturas
+              DT-MODULE-SUBSCRIPTIONS-FANTASMA (2026-05-16): tabela subscriptions
+              ausente em runtime. Rota comentada para evitar HTTP 500 visivel. */}
+          {/* <Route path="subscriptions" element={<SubscriptionsPage />} /> */}
+          {/* SPRINT 92: Venue (Menu + Tab)
+              DT-MODULE-VENUE-FANTASMA (2026-05-16): tabelas tabs/menus/menu_items
+              ausentes. Vertical restaurant nao emergiu como prioridade. */}
+          {/* <Route path="v/:slug" element={<VenuePublicPage />} /> */}
+          {/* <Route path="t/:qrToken" element={<TabPage />} /> */}
+          {/* SPRINT 93: Loyalty / Fidelidade
+              DT-MODULE-LOYALTY-FANTASMA (2026-05-16): tabelas loyalty_* ausentes. */}
+          {/* <Route path="loyalty" element={<LoyaltyPage />} /> */}
+          {/* DT-ORGANIZATION-SPRINT78-FROZEN (2026-05-16): 5 rotas Sprint 78 comentadas.
+              Tabelas organization_* (4) inexistentes em runtime. Membership consolidado em
+              company_users via DECISION-0042. Restaurar se Sprint 78 for descongelada. */}
+          {/* <Route path="organization/members" element={<OrganizationMembersPage />} /> */}
+          {/* <Route path="organization/invites" element={<OrganizationInvitesPage />} /> */}
+          {/* <Route path="organization/invites/new" element={<OrganizationInvitePage />} /> */}
+          {/* <Route path="organization/roles" element={<OrganizationRolesPage />} /> */}
+          {/* <Route path="organization/units" element={<OrganizationUnitsPage />} /> */}
           {/* Services MVP */}
           <Route path="services" element={<ServicesListPage />} />
           <Route path="services/:id" element={<ServiceDetailPage />} />
@@ -307,8 +317,10 @@ function AppContent() {
           <Route path="discover/services/:id" element={<ServiceDiscoveryDetailPage />} />
           {/* Groups MVP */}
           <Route path="grupos/:id/timeline" element={<GroupTimelinePage />} />
-          <Route path="grupos/:id/votes" element={<GroupVotesPage />} />
-          <Route path="grupos/:id/votes/:voteId" element={<GroupVoteDetailPage />} />
+          {/* DT-MODULE-VOTES-FANTASMA (2026-05-16): votes em grupos comentados pelo mesmo motivo
+              das rotas votes globais — tabelas inexistentes em runtime. */}
+          {/* <Route path="grupos/:id/votes" element={<GroupVotesPage />} /> */}
+          {/* <Route path="grupos/:id/votes/:voteId" element={<GroupVoteDetailPage />} /> */}
           <Route path="grupos/:id/campaigns" element={<GroupCampaignsPage />} />
           <Route path="grupos/:id/campaigns/:campaignId" element={<GroupCampaignDetailPage />} />
         </Route>

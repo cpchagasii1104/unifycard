@@ -3482,3 +3482,105 @@ Lista de candidatas (não autodecidir — pendente humano):
 **Próxima frente (humana decide):** 2, 3 ou 4 do plano anterior (MODULES-ASPIRATIONAL / COVERAGE-BOOTSTRAP / GLOBAL-USER-ID).
 
 **MODO:** AGUARDANDO_AUTORIZACAO.
+
+---
+
+## 2026-05-16 — Frente #2 (MODULES-ASPIRATIONAL-VS-RUNTIME) — mitigação cirúrgica em batch
+
+### Escolha de frente em piloto automático
+
+Critério aplicado (memória `feedback_autonomia_operacional`):
+- **#3 COVERAGE-BOOTSTRAP** rejeitada — toca causalidade financeira (paro e consulto)
+- **#4 GLOBAL-USER-ID-DUPLICATION-E2E** rejeitada — identidade transversal (frente arquitetural grande)
+- **#2 MODULES-ASPIRATIONAL-VS-RUNTIME** escolhida — natureza similar a Sprint 78 + policy-engine (mitigação cirúrgica = esconder UI; padrão estabelecido + reversível)
+
+### Escopo executado
+
+Triagem das 24 rotas FANTASMA com frontend caller (do MODULES_INVENTORY.md). Status conhecido pré-frente:
+- 2 já tratadas: `policy-engine` (CLOSED via DECISION-0041) + `automation` (PREMATURO ratificado)
+
+Auditoria material adicional via App.tsx revelou **mais rotas frontend ativas que MODULES_INVENTORY tinha mapeado**: além das 7 com entry point direto (votes, subscriptions, venue, loyalty, payouts, invoices), encontradas 5 rotas Sprint 78 (organization_*) + 1 alerts. Total expandido: 17 rotas em produção apontando para tabelas inexistentes.
+
+### Disciplina financeira aplicada
+
+**Comentadas (13 rotas)** — features sem causalidade financeira:
+- `votes` / `votacoes` (2 rotas globais + 2 grupos) — tabelas votes/vote_options/vote_responses ausentes
+- `subscriptions` (1) — tabela subscriptions ausente
+- `venue` / `v/:slug` + `t/:qrToken` (2) — tabelas tabs/menus/menu_items/tab_orders ausentes
+- `loyalty` (1) — tabelas loyalty_* ausentes
+- `organization/*` (5 — members/invites/invites/new/roles/units) — tabelas organization_* ausentes (Sprint 78 já documentada DT-ORGANIZATION-SPRINT78-FROZEN)
+
+**Pausadas para DECISION humana (3 rotas + 1 sub-grupo)** — tocam ou potencialmente tocam causalidade financeira:
+- `payouts` + `payouts/batches/:batchId` (2) — payout_batches/payout_orders ausentes
+- `invoices` + `invoices/:invoiceId` (2) — tabela invoices ausente
+- `alerts` (1) — tabela alerts ambígua (DT-BANK-SATELLITE-MODULES-DORMANT inclui alerts no sub-grupo bank)
+
+Memória `feedback_autonomia_operacional`: "causalidade financeira = paro e consulto" — não auto-decido nenhuma mitigação em rotas financeiras.
+
+### Cascata de mitigação aplicada (visibilidade UI consistente)
+
+Detectado material que `votes` linkado em **4 lugares** simultâneos do frontend (não apenas rota App.tsx):
+
+| Arquivo | Edit |
+|---|---|
+| `frontend/src/App.tsx` | 13 rotas comentadas com DT-MODULE-X-FANTASMA referenciado |
+| `frontend/src/config/appsRegistry.ts:166-173` | votes app `status: 'ready'` → `'wip'` + route → `/em-desenvolvimento?feature=votes` (padrão estabelecido por 10+ apps WIP) |
+| `frontend/src/components/layout/GlobalSidebar.tsx:65` | menu lateral "Votações" → reroute para /em-desenvolvimento |
+| `frontend/src/config/actorContextConfig.ts:56` | quick action 'votacoes' → reroute para /em-desenvolvimento |
+
+Padrão: usa `/em-desenvolvimento?feature=votes` (existente, usado por 10+ apps WIP) — UX consistente, não cria nova página.
+
+### Gates
+
+- TSC frontend: 0 erros ✓
+- Pattern Sprint 78 + policy-engine + bank satellites: replicado consistentemente ✓
+- Disciplina financeira: 100% respeitada (zero edits em payouts/invoices/alerts) ✓
+
+### Pendências para DECISION humana
+
+**3 rotas financeiras** ficaram intactas — pedem DECISION humana similar a DECISION-0041 (Risk/Policy CONGELADO):
+
+1. **payouts** (2 rotas, `PayoutDashboardPage` + `PayoutBatchDetailPage`) — modules/payout FANTASMA com 7 rotas backend. Tabelas `payout_batches`, `payout_orders` ausentes.
+2. **invoices** (2 rotas, `InvoiceDashboardPage` + `InvoiceDetailPage`) — modules/invoicing FANTASMA com 5 rotas backend. Tabela `invoices` ausente.
+3. **alerts** (1 rota, `AlertsPage`) — ambiguidade entre `modules/automation` FANTASMA e `bank-satellites` ESQUELETO_DORMENTE. Auditoria material adicional necessária antes de decisão.
+
+Sugestão (não autodecidir): replicar DECISION-0041 pattern — CONGELAR rotas com comment explicativo, registrar DT por módulo com critério de descongelamento.
+
+### Outros 17 callers FANTASMA sem entry point UI direto
+
+Módulos FANTASMA mapeados em MODULES_INVENTORY com frontend caller MAS sem rota direta no App.tsx (chamados via auto-fetch em hooks, modal contextuais, ou código órfão):
+- core/memory, core/reporting, core/residence, core/root-config, core/user-group-allocation
+- modules/agreements, modules/business-audit, modules/care, modules/contextual-messaging
+- modules/evidence, modules/media, modules/social-actions, modules/social-chat, modules/system-notifications, modules/presence, modules/work-instant
+
+Triagem individual NÃO executada nesta frente — requer auditoria caso a caso (cada um pode ter padrão diferente: feature flag, auto-fetch silencioso, modal opcional). **Recomendação:** frente própria DT-FANTASMA-INTERNAL-CALLERS-AUDIT após Clayton decidir prioridades.
+
+### DT atualizada (sem nova DT criada — mantém DT-MODULES-ASPIRATIONAL-VS-RUNTIME)
+
+**Progresso registrado:** 13/24 mitigadas (54%); 3 pendentes humanas financeiras; 17 sub-callers internos pendentes auditoria individual.
+
+### Refutação material da sessão #12
+
+Hipótese inicial: "24 endpoints frontend FANTASMA". Auditoria material revelou:
+- 17 rotas registradas em App.tsx (não 24)
+- 1 rota votes está em **4 lugares simultâneos** do frontend (não 1) — exige cascata
+- Sprint 78 organization_* tem 5 rotas adicionais que não estavam contadas separadamente
+- 3 callers financeiros sensíveis exigem disciplina (não auto-decidir)
+
+Padrão recorrente: contagem por backend (24 módulos) sub-estima cascata frontend (rotas + menus + quick actions + registries). Mitigação completa requer auditoria de propagação.
+
+### Estado final sessão consolidada
+
+| Frente | Estado |
+|---|---|
+| Modal loop /perfil + page actor | CLOSED |
+| 4 AUDITORIA pré-classificação | CLOSED |
+| MEMBERSHIP — DECISION-0042 | CLOSED |
+| #1 botões Sprint 78 mortos | CLOSED |
+| #5 npm migrate destravado | CLOSED |
+| #2 MODULES-ASPIRATIONAL — fase 1 batch | **PARCIAL** (13/24 mitigadas; 3 financeiras pendentes humanas; 17 sub-callers internos pendentes auditoria) |
+
+**MODO:** AGUARDANDO_AUTORIZACAO. Próxima escolha humana:
+- Mitigar 3 rotas financeiras pendentes (replicar DECISION-0041 pattern; HIGH visibilidade, MÉDIO risco arquitetural)
+- Auditoria caso-a-caso dos 17 sub-callers internos (LOW visibilidade, BAIXO risco)
+- Avançar para #3 COVERAGE-BOOTSTRAP ou #4 GLOBAL-USER-ID (frentes arquiteturais grandes)

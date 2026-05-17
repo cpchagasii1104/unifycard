@@ -62,7 +62,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Rede Social', icon: '💬', route: '/social' },
       { label: 'Grupos', icon: '👥', route: '/grupos' },
-      { label: 'Votações', icon: '🗳️', route: '/votacoes' },
+      // DT-MODULE-VOTES-FANTASMA (2026-05-16): /votacoes desativado — tabelas inexistentes.
+      { label: 'Votações', icon: '🗳️', route: '/em-desenvolvimento?feature=votes' },
       { label: 'Impacto', icon: '💚', route: '/impacto' },
     ],
   },
