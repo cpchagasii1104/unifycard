@@ -3673,3 +3673,117 @@ Hipótese inicial fase 2: "3 rotas financeiras com 3 DECISIONs separadas". Reali
 - Pendência B (auditoria 17 sub-callers internos) — frente longa, baixo risco unitário, alto valor de limpeza
 - #3 COVERAGE-BOOTSTRAP ou #4 GLOBAL-USER-ID (frentes arquiteturais grandes)
 - Fechar sessão (consolidar entregas)
+
+---
+
+## 2026-05-17 — Pendência B — auditoria 16 sub-callers FANTASMA
+
+### Método
+
+Para cada um dos 16 módulos FANTASMA sem entry point UI direto no App.tsx:
+1. Identificar API file frontend dedicado
+2. Grep callers (componentes que importam)
+3. Para cada componente: identificar onde é renderizado (página viva?)
+4. Classificar pelo comportamento real em runtime
+
+### Triagem completa por categoria
+
+#### Categoria 1 — FAIL SILENT em mount (NÃO quebra UX, apenas log + chamada wasted)
+
+| Módulo | Caller frontend | Onde renderiza | Comportamento erro |
+|---|---|---|---|
+| `agreements` | `AgreementBanner.tsx` | `events/EventPage.tsx:464` | try/catch silent → `setAgreement(null)` → banner não renderiza |
+| `evidence` | `DisputeBanner.tsx`, `EvidenceTimeline.tsx`, `EvidenceViewer.tsx` | `events/EventPage.tsx:476` (DisputeBanner) | similar — silent fail |
+| `business-audit` | `AuditHistoryView.tsx` | **órfão** (sem caller externo) | nunca dispara |
+| `contextual-messaging` | `ContextualThreadView.tsx` | **órfão** (sem caller externo) | nunca dispara |
+| `system-notifications` | `NotificationBell.tsx`, `NotificationList.tsx` | **órfão** (sem caller externo — NÃO está em topbar global) | nunca dispara |
+
+**Decisão:** NÃO mitigar. UX não quebra. Performance/network observability pollution baixa (poucos componentes). DT collective futura cobre se Clayton priorizar limpeza.
+
+#### Categoria 2 — BUG visível MAS com feedback amigável (UX consciente)
+
+| Módulo | Caller | Trigger | Comportamento erro |
+|---|---|---|---|
+| `social-actions` | `AssistantChat.tsx:128` | User clica ação sugerida no /assistant | mensagem amigável: `❌ Falhou ao executar: <label> (<error>)` |
+
+**Decisão:** NÃO mitigar. UX já trata erro graciosamente. Comportamento consciente.
+
+#### Categoria 3 — ÓRFÃOS PUROS (zero callers reais em runtime)
+
+| Módulo | Status no frontend |
+|---|---|
+| `core/memory` | utility `institutional-memory.tsx` — não detectei call backend |
+| `core/residence` | ZERO callers frontend |
+| `core/root-config` | ZERO callers frontend |
+| `core/user-group-allocation` | ZERO callers frontend |
+| `modules/care` | ZERO callers frontend |
+| `modules/social-chat` | ZERO callers frontend |
+| `modules/work-instant` | ZERO callers frontend |
+| `modules/media` | `getPresignUrl` exportada em `api/social-2.0.ts:239` mas **não invocada em runtime** — `PostComposer.tsx:298` tem comentário "Placeholder: em produção, chamaria /media/presign" + gera IDs temp em vez |
+| `modules/presence` | api file `presence.ts` existe mas zero callers fora |
+
+**Decisão:** NÃO mitigar — não há bug runtime. MODULES_INVENTORY contou rotas BACKEND (não calls frontend reais). Frontend está OK; backend mantém código aspiracional inerte. Mesma categoria de "convergência interrompida" (memória `feedback_archive_nao_e_ssot.md`).
+
+#### Categoria 4 — FINANCEIRO (disciplina paro — 4º caso, NÃO autodecidir)
+
+| Módulo | Caller | Status |
+|---|---|---|
+| `reporting` | `FinancialDashboardPage.tsx:22` (409 LOC) + useEffect mount fetch | Rota `/financial-dashboard` ATIVA em `App.tsx:379` |
+
+**Tabelas runtime:** `reports`, `report_events`, `risk_flags` — todas ausentes. Quando user navega `/financial-dashboard` → useEffect dispara → reporting calls → 500.
+
+**Decisão:** **PARO + REPORTAR como pendência adicional**. 4ª rota financeira (após payouts/invoices/alerts da fase 2). Precedente DECISION-0041 cobriria — mas FinancialDashboardPage tem 409 LOC e pode ter conteúdo parcial funcional. Comentar rota inteira seria autodecisão sobre escopo (DECISION-0041 cobria módulos puramente PREMATURO; FinancialDashboardPage pode ter dependências mistas).
+
+**Sugestão (não autodecidida):** auditoria material adicional do que FinancialDashboardPage realmente consome além de reporting (talvez também transparency, governance, bank — alguns vivos). Se 100% dependente de reporting, comentar. Se parcial, refactor seletivo.
+
+### Resumo numérico
+
+| Categoria | Módulos | Ação |
+|---|---|---|
+| 1 — Silent fail | 5 | nenhuma |
+| 2 — UX consciente | 1 | nenhuma |
+| 3 — Órfãos puros | 9 | nenhuma (DT collective futura opcional) |
+| 4 — Financeiro pendente | 1 | REPORTAR |
+| **Total auditado** | **16** | **15 sem ação, 1 reportada** |
+
+### Reflexão metodológica
+
+**Auditoria da Pendência B revelou expectativa errada:** "16 sub-callers precisam mitigação como fase 1+2". Realidade material: maioria não tem bug runtime. MODULES_INVENTORY contou módulos pela existência de **código backend referenciando tabelas inexistentes**; não pela existência de **caller frontend real disparando query em runtime**.
+
+A discrepância foi gerada porque:
+- Frontend tem padrão de **silent fail** em banners contextuais (AgreementBanner, DisputeBanner) — não quebram UX
+- Frontend tem código exportado mas **não invocado** (getPresignUrl, NotificationBell) — não dispara
+- MODULES_INVENTORY contou backend, não fluxo frontend
+
+### Princípio capturado
+
+> "FANTASMA backend ≠ bug frontend. Auditar fluxo real do mount/click antes de presumir necessidade de mitigação. Try/catch silent + `if (!data) return null` é padrão arquitetural válido — não bug a tratar."
+
+### Pendência atualizada
+
+**Pendência A (resolved fase 2):** 3 financeiras mitigadas via DECISION-0041 pattern. ✓
+**Pendência B (auditada agora):** 15 sub-callers sem mitigação necessária. 1 financeira (reporting/FinancialDashboardPage) PARO — escopo precisa auditoria adicional ou DECISION humana.
+
+### 14ª refutação material da sessão
+
+Hipótese inicial Pendência B: "16 sub-callers em useEffect/auto-fetch silencioso = bugs ativos não detectados". Realidade: **maioria já tem silent fail defensivo ou não dispara em runtime**. Apenas 1 (reporting) merece atenção, e essa é financeira (paro institucional).
+
+Reforça princípio "auditoria material antes de classificação por inferência" (DECISION-0040) — sub-callers FANTASMA pareciam ameaças escondidas, mas inspeção revelou comportamento defensivo já presente no código.
+
+### Estado consolidado
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| **#2 Pendência B (16 sub-callers)** | **AUDITADA — 15 sem mitigação / 1 reportada (reporting)** | pendente commit (apenas STATUS) |
+
+**MODO:** AGUARDANDO_AUTORIZACAO. Próxima escolha:
+- Mitigar `reporting/FinancialDashboardPage` (4ª financeira; auditoria adicional ou DECISION estendendo DECISION-0041)
+- DT collective opcional para órfãos (limpeza dead code)
+- Avançar para #3 ou #4 (frentes arquiteturais grandes)
+- Fechar sessão
