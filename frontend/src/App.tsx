@@ -359,14 +359,22 @@ function AppContent() {
           <Route path="admin/pilot" element={<PilotObserverPage />} />
           {/* Compatibilidade */}
           <Route path="dashboard" element={<DashboardPage />} />
-          {/* SPRINT 50: Alertas Operacionais */}
-          <Route path="alerts" element={<AlertsPage />} />
-          {/* Payout Management (Finance/Admin) */}
-          <Route path="payouts" element={<PayoutDashboardPage />} />
-          <Route path="payouts/batches/:batchId" element={<PayoutBatchDetailPage />} />
-          {/* Invoice Management (Finance/Admin) */}
-          <Route path="invoices" element={<InvoiceDashboardPage />} />
-          <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
+          {/* DT-MODULE-ALERTS-FANTASMA (2026-05-17): SPRINT 50 alertas operacionais.
+              AlertsPage chama /automation/alerts → tabela `alerts` ausente em runtime
+              (modules/automation já PREMATURO em DT-MODULE-AUTOMATION-PREMATURO).
+              Aplicacao DECISION-0041 pattern. */}
+          {/* <Route path="alerts" element={<AlertsPage />} /> */}
+          {/* DT-MODULE-PAYOUT-FANTASMA (2026-05-17): Payout Management (Finance/Admin).
+              Tabelas payout_batches/payout_orders ausentes em runtime. Ecossistema
+              settlement/disputes/treasury ainda nao exercitado. Aplicacao DECISION-0041
+              pattern (PREMATURO; aguarda ecossistema runtime real). */}
+          {/* <Route path="payouts" element={<PayoutDashboardPage />} /> */}
+          {/* <Route path="payouts/batches/:batchId" element={<PayoutBatchDetailPage />} /> */}
+          {/* DT-MODULE-INVOICING-FANTASMA (2026-05-17): Invoice Management (Finance/Admin).
+              Tabelas invoices/invoice_items ausentes em runtime. Ecossistema
+              billing/subscription ainda nao exercitado. Aplicacao DECISION-0041 pattern. */}
+          {/* <Route path="invoices" element={<InvoiceDashboardPage />} /> */}
+          {/* <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} /> */}
           {/* Financial & Compliance Dashboard (Finance/Admin) */}
           <Route path="financial-dashboard" element={<FinancialDashboardPage />} />
           {/* Risk & Trust Command Center — CONGELADO via DECISION-0041 (PREMATURO; DT-MODULE-POLICY-ENGINE-PREMATURO-AGUARDA-ECOSSISTEMA-RISK) */}

@@ -3584,3 +3584,92 @@ Padrão recorrente: contagem por backend (24 módulos) sub-estima cascata fronte
 - Mitigar 3 rotas financeiras pendentes (replicar DECISION-0041 pattern; HIGH visibilidade, MÉDIO risco arquitetural)
 - Auditoria caso-a-caso dos 17 sub-callers internos (LOW visibilidade, BAIXO risco)
 - Avançar para #3 COVERAGE-BOOTSTRAP ou #4 GLOBAL-USER-ID (frentes arquiteturais grandes)
+
+---
+
+## 2026-05-17 — Frente #2 fase 2 (mitigação financeiras) — DECISION-0041 pattern replicado
+
+### Autorização
+
+Outra IA validou trabalho da fase 1 e recomendou aplicar pattern DECISION-0041 nas 3 financeiras pendentes (15min). Clayton confirmou "Sim. Material e disciplinarmente." + manter piloto.
+
+Aplicação de **precedente arquitetural** (não decisão inédita): DECISION-0041 estabeleceu padrão CONGELAR para módulos PREMATURO sem ecossistema runtime real. Memória `feedback_norma_ja_decide`: norma já decide → investigação mede divergência.
+
+### Auditoria material extra (financeiro = disciplina dupla)
+
+| Módulo | Tabelas runtime | Status |
+|---|---|---|
+| `payouts` | `payout_batches` ❌, `payout_orders` ❌ | PREMATURO confirmado |
+| `invoices` | `invoices` ❌, `invoice_items` ❌ | PREMATURO confirmado |
+| `alerts` | `alerts` ❌ (NÃO confundir com `financial_alerts` ✅ que é outro engine bank-satellite) | PREMATURO confirmado |
+
+**Caller backend ambíguo resolvido materialmente:** AlertsPage importa `../api/automation` → backend rota `/automation/alerts` → `automation/alert.repository.ts:61` faz `INSERT INTO alerts` → tabela inexistente. Pertence a `modules/automation` (já PREMATURO em DT-MODULE-AUTOMATION). Sem ambiguidade real — outra tabela `financial_alerts` (bank-satellites) NÃO é chamada por AlertsPage.
+
+### Edits aplicados
+
+| Arquivo | Mudança |
+|---|---|
+| `frontend/src/App.tsx` | 5 rotas comentadas: `alerts`, `payouts`, `payouts/batches/:batchId`, `invoices`, `invoices/:invoiceId` |
+| `frontend/src/pages/DashboardPage.tsx:188` | Badge alerta reroute defensivo `/alerts` → `/em-desenvolvimento?feature=alerts` (alertCount provavelmente 0, mas blindagem extra) |
+
+### Cascata audit aplicada (lição da fase 1 — votes apareceu em 4 lugares)
+
+| Camada | payouts | invoices | alerts |
+|---|---|---|---|
+| App.tsx routes | ✅ comentadas | ✅ comentadas | ✅ comentada |
+| appsRegistry | sem entry | sem entry | sem entry |
+| GlobalSidebar | sem item | sem item | sem item |
+| actorContextConfig | sem quick action | sem quick action | sem quick action |
+| DashboardPage badge | n/a | n/a | ✅ reroute |
+| Botões "voltar" intra-páginas (`InvoiceDetailPage:169`, `PayoutBatchDetailPage:110`) | irrelevante (páginas já comentadas) | irrelevante | n/a |
+
+**Resultado cascata:** financeiras mais "auto-contidas" que votes — não estavam expostas em menus globais. Mitigação ficou mais simples (5 rotas comentadas + 1 reroute defensivo).
+
+### Princípio capturado (sugerido pela outra IA, ratificado por mim materialmente)
+
+> "Mitigar FANTASMA frontend não é fechar rota no router. É fechar rota + registry + sidebar + quick actions + qualquer outro entry point que projete a rota."
+
+Fase 1 (votes): cascata em 4 camadas. Fase 2 (financeiras): cascata em 2 camadas (router + badge). Auditoria por grep amplo antes de comentar evita esquecer camada.
+
+### Gates
+
+- TSC frontend: 0 erros ✓
+- Pattern DECISION-0041: replicado consistentemente nos 3 módulos ✓
+- 0 edits em backend financeiro: causalidade financeira preservada ✓
+- 0 edits em ledger/transactions/accounts vivos: 100% intactos ✓
+
+### Estado consolidado pós-fase 2
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA pré-classificação | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 botões Sprint 78 + #5 migrate destravado | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| **#2 fase 2 (3 financeiras) — DECISION-0041 pattern** | **CLOSED** | pendente commit |
+
+**Cobertura #2 total:** 18/24 rotas FANTASMA com entry point UI mitigadas (75%). 6 restantes:
+- 1 `automation` (sem entry UI direto além de /alerts já tratado — sub-callers via outros componentes pendentes)
+- 5 sub-callers internos (core/memory, core/reporting, etc.) — Pendência B (auditoria caso-a-caso)
+
+### Pendência única remanescente
+
+**B — 17 sub-callers FANTASMA sem entry point UI direto**:
+- core/memory, core/reporting, core/residence, core/root-config, core/user-group-allocation
+- modules/agreements, modules/business-audit, modules/care, modules/contextual-messaging
+- modules/evidence, modules/media, modules/social-actions, modules/social-chat
+- modules/system-notifications, modules/presence, modules/work-instant
+
+Outra IA alertou: "sub-callers internos podem estar em useEffect de componente que ainda renderiza / em service que outro caller usa / em hook compartilhado. Mitigar UI não cobre sub-caller que dispara em mount."
+
+Frente própria recomendada — não autodecidir esquema de auditoria sem critério humano.
+
+### 13ª refutação material da sessão
+
+Hipótese inicial fase 2: "3 rotas financeiras com 3 DECISIONs separadas". Realidade material: **1 precedente aplicado em 3 instâncias análogas**. DECISION-0041 cobre todas — não há decisão inédita. Aplicação de norma existente, não criação de norma nova.
+
+**MODO:** AGUARDANDO_AUTORIZACAO. Próxima escolha:
+- Pendência B (auditoria 17 sub-callers internos) — frente longa, baixo risco unitário, alto valor de limpeza
+- #3 COVERAGE-BOOTSTRAP ou #4 GLOBAL-USER-ID (frentes arquiteturais grandes)
+- Fechar sessão (consolidar entregas)

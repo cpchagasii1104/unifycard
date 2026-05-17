@@ -185,7 +185,10 @@ export default function DashboardPage() {
           {alertCount > 0 && (
             <div
               className="dashboard-alert-badge"
-              onClick={() => navigate('/alerts')}
+              // DT-MODULE-ALERTS-FANTASMA (2026-05-17): /alerts comentado em App.tsx.
+              // Reroute defensivo para /em-desenvolvimento (alertCount provavelmente
+              // 0 ja que /automation/alerts retorna 500, mas blindagem extra).
+              onClick={() => navigate('/em-desenvolvimento?feature=alerts')}
               title="Ver alertas"
             >
               <span className="dashboard-alert-count">{alertCount}</span>
