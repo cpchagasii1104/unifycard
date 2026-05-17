@@ -4259,3 +4259,101 @@ Próximas opções residuais:
 - **A** ou **C** acima (audit estendido ou DECISION arquitetural inédita)
 - Mitigação A/B do PASSO 10 (decisão organizacional documental)
 - **Fechar sessão** — 12 commits + 19 refutações materiais; ponto natural de consolidação
+
+---
+
+## 2026-05-17 — Frente /perfil contextual progressiva ENCERRADA (commit `0c710b47`)
+
+### Resumo executivo
+
+Primeira superfície da convergência contextual progressiva atravessada. DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT resolvida estruturalmente. 9 princípios + DECISION-0043 + DT CLOSED + 3 fixes cirúrgicos.
+
+### Origem da frente
+
+- Auditoria Fase A: backend `core.service.ts:138-154` faz early return PF (commit `c4c45ec77` 2026-01-27, rotulado "BLINDAGEM"); frontend Profile.tsx 7/8 tabs com 0 menções activeActor
+- Auditoria histórica: contradição temporal do mesmo autor (jan: BLINDAGEM / mai: gap a resolver) sem DECISION arbitrando
+- Decisão humana: direção (b) refinada — progressiva, não maximalista
+
+### PASSO 1 — 9 princípios em DT_PRIORIZATION.md (append-only)
+
+`DT_PRIORIZATION.md`: 938 → 996 linhas. Bloco "Princípios da convergência contextual progressiva — Frente /perfil (2026-05-17)":
+1. Convergência por pressão local material
+2. Progressivo NÃO é lento — respeito ao mecanismo histórico
+3. Backend respeita identidade; frontend respeita projeção
+4. Campos não aplicáveis são comportamento esperado, não gap
+5. Frontend NÃO mascara ausência com fallback implícito
+6. DECISION posterior à validação
+7. Três sinais de saturação (70% / 2-3 sessões / cluster perfil+bank+CRM)
+8. Redirect reorganiza superfície, NÃO migra soberania
+9. Redirect contextual síncrono no cliente (zero fetch/await)
+
+### PASSO 2 — 3 fixes cirúrgicos (commit `0c710b47`, +163/-23 LOC, 11 arquivos)
+
+**FIX 2.a** — `backend/src/core/core.service.ts`: substitui early return rotulado "BLINDAGEM" por bifurcação contextual explícita. Comportamento observável preservado (PF-only campos null para non-user actors; education_profile populado quando aplicável). Sem mudança de shape do `CompleteProfile`.
+
+**FIX 2.b** — `frontend/src/components/Profile.tsx`: redirect síncrono (`<Navigate to={/empresa/:companyId} replace />`) quando `activeActor.actor_type='page'`. Posicionado ANTES de qualquer useState/useEffect/fetch. Princípios 8 + 9.
+
+`frontend/src/api/social.ts`: `AvailableActor.company_id?: string | null` exposto (backend já enviava via `actor.repository.ts:39`; type atualizado).
+
+**FIX 2.c** — 7 sub-componentes Profile* + `NotApplicableMessage.tsx` (novo, 52 LOC): guard defensivo `if (activeActor && activeActor.actor_type !== 'user') return <NotApplicableMessage ... />`. Defesa em profundidade contra race conditions / hot reload / navegação direta via URL. Princípios 4 + 5.
+
+Componentes tocados: ProfilePersonalForm, ProfileProfessional, ProfilePhysical, ProfileLearning, ProfileHealth, ProfileEducation, CompaniesManager.
+
+### PASSO 3 — Gates expandidos
+
+- TSC backend: 0 erros ✓
+- TSC frontend: 0 erros ✓ (após fix de duplicate import detectado e corrigido em ProfileLearning.tsx)
+- Diff isolado: 11 arquivos da frente apenas (`git add` específico para isolar de pré-existente do working tree em core.service.ts — backup + revert + reapply do hunk minha)
+- Limite de escopo: ZERO alterações em rotas/layouts/operating mode/CRM/bank/App.tsx
+- Pre-existente do Clayton em core.service.ts (campos extras em CompleteProfile interface, query SQL com birthdate) preservado no working tree post-commit
+
+### PASSO 4 — Commit atômico `0c710b47`
+
+```
+feat(profile): contextual projection — backend respects actorId, frontend redirects page actors to company surface
+```
+11 arquivos, +163/-23 LOC. Scope limit respeitado.
+
+### PASSO 5 — DECISION-0043 (REMEDIATION_DECISIONS_LOG.md)
+
+Formalização: "Convergência contextual progressiva — backend respeita actor, frontend respeita projeção, ausência contextual é semântica". Tipo arquitetural. Vínculo: 9 princípios + commit `0c710b47`. Pattern de "DECISION posterior à validação" (princípio 6). Total DECISIONs no log: **18** (era 17).
+
+### PASSO 6 — DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT → CLOSED
+
+Append em REMEDIATION_DT_LOG.md (linha ~2700). Resolução material referenciando DECISION-0043 + commit `0c710b47`. Contradição contrato/implementação eliminada. Sub-instância PASSO 9 desta sessão (modal loop) já mitigada cirurgicamente — guard redundante mas preservado.
+
+### Padrão capturado para frentes futuras
+
+> "Quando código + DT divergem sem DECISION arbitrando, auditoria histórica (git blame + grep DECISIONs + leitura DT completa) é caminho institucional honesto antes de propor mitigação."
+
+### Sinais de saturação (princípio 7) — estado atual
+
+- (a) 70%+ superfícies não-soberanas adaptadas: **NÃO** (apenas /perfil)
+- (b) Pressão local cessou: **N/A** (frente apenas começou)
+- (c) Cluster crítico (perfil + bank + CRM) atravessado: **NÃO** (apenas perfil)
+
+**0 sinais batidos. Convergência continua emergindo por pressão local conforme aparecer.**
+
+### Estado consolidado sessão 2026-05-17 (13 commits)
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B auditoria | CLOSED | `990e9695` |
+| FinancialDashboard Opção C | CLOSED | `68d04914` |
+| #2 DT-FANTASMA-ORPHAN-COLLECTIVE | CLOSED | `825030e3` |
+| #3 GUARDIÃO + PASSO 9 | CLOSED | `d05e4d6d` |
+| PASSO 10 Cruzamento | CLOSED | `92a5e745` |
+| #4 GUARDIÃO + PASSO 11 | CLOSED | `f88bce70` |
+| **Frente /perfil contextual progressiva (DECISION-0043)** | **CLOSED** | `0c710b47` |
+
+### Próxima superfície
+
+Emerge por pressão material (princípio 1), não por roadmap. Candidatas naturais quando pressão emergir: bank (read path PF-only confirmado), CRM (module-centric confirmado), agenda contextual mais profunda, layouts internos. Não autodecidido — humano abre quando surgir necessidade real.
+
+**MODO:** AGUARDANDO_AUTORIZACAO ao final do PASSO 7 (conforme declarado por Clayton).

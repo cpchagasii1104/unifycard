@@ -2876,3 +2876,74 @@ Schema_migrations NÃO foi populado (recusa de tampering com audit trail). Próx
 - **Nova DT-ORGANIZATION-SPRINT78-FROZEN** registrada (Sprint 78 congelada com critério de descongelamento)
 - DT-PRIORIZATION.md: BLOQUEIA_PRODUTO 3 → 2 (MEMBERSHIP sai); BLOQUEIA_FRENTE ganha SPRINT78
 - DECISION-0040 reforçada: auditoria material precede decisão (3 opções emergiram porque dados foram coletados)
+
+### DECISION-0043 — Convergência contextual progressiva — backend respeita actor, frontend respeita projeção, ausência contextual é semântica
+
+- **Data:** 2026-05-17
+- **Tipo:** arquitetural
+- **Pattern:** posterior à validação (princípio 6) — formalizada após commit `0c710b47` atravessar pattern em 3 fixes cirúrgicos sem regressão
+- **ID da violação resolvida:** DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (vide PASSO 6 do mesmo ciclo)
+
+#### Contexto
+
+Auditoria material desta sessão (Fase A Frente "Convergência Contextual Profunda") + auditoria histórica revelou contradição temporal não-arbitrada:
+
+- Commit `c4c45ec77` (2026-01-27): early return PF rotulado "BLINDAGEM" em `core.service.ts:138-154`
+- DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (2026-05-15): mesmo autor reclassifica como "DT-P projeção contextual incompleta"
+- Zero DECISIONs em REMEDIATION_DECISIONS_LOG arbitrando entre as leituras
+
+Backend energizado em runtime (DECISION-0042 MEMBERSHIP + energização do circuito operacional desta sessão) atravessou o ramo Delegation de `canActAs` end-to-end com 1 row real em `actor_delegations`. Superfície operacional não acompanhou no mesmo ritmo: 7/8 tabs do Profile.tsx com 0 menções `activeActor`; backend `core.service.ts` ignora actorId.
+
+#### Decisão
+
+Direção **(b) refinada — progressiva**, não maximalista. Backend respeita identidade (actor); frontend respeita projeção; ausência contextual é parte válida da semântica.
+
+**Concretizada via 3 fixes cirúrgicos (commit `0c710b47`):**
+
+1. **Backend** `core.service.ts:136-154`: substitui early return rotulado "BLINDAGEM" por bifurcação contextual explícita. Comportamento observável preservado (PF-only campos null para actor≠user), mas intenção documentada per princípio 4. Sem mudança de shape.
+
+2. **Frontend** `Profile.tsx`: redirect síncrono (Navigate replace) quando `activeActor.actor_type='page'` → `/empresa/:companyId`. Posicionado antes de qualquer useState/useEffect/fetch. Zero await, derivado de activeActor já resolvido no cliente. Princípios 8 (reorganiza superfície, não migra soberania) e 9 (síncrono, derivado de estado client).
+
+3. **Frontend** 7 sub-componentes Profile* (+ `NotApplicableMessage.tsx` novo): guard defensivo retorna mensagem visual quando `activeActor.actor_type !== 'user'`. Defesa em profundidade contra race condition / hot reload / navegação direta via URL. Honra princípios 4 (ausência é semântica) e 5 (sem fallback implícito de outro contexto).
+
+#### Restrições explícitas (derivadas dos princípios)
+
+- **Princípio 3 ratificado:** Backend NÃO inventa shapes polymorphic por actor_type. CompleteProfile mantém shape único; campos PF-only ficam null para actor≠user. Sem `empresaProfile` / `bandProfile` / etc.
+- **Princípio 4 ratificado:** Campos null em `personal_profile`, `professional_profile`, etc., para page actor são comportamento esperado, não gap.
+- **Princípio 5 ratificado:** Frontend NÃO mascara ausência contextual com fallback PF de outro actor. NotApplicableMessage substitui dados ausentes por mensagem semântica.
+- **Princípio 8 ratificado:** Navigate em Profile.tsx reorganiza superfície visual; activeActor / authority / ownership / delegation permanecem intactos. Frontend NUNCA troca actor implicitamente via reroute.
+- **Princípio 9 ratificado:** Redirect derivado de `activeActor.company_id` já resolvido no cliente. Zero fetch / zero await / zero lookup. Síncrono.
+
+#### Sinais de saturação para frentes futuras (princípio 7)
+
+Convergência contextual progressiva pausa quando 2 dos 3 sinais batem:
+- (a) 70%+ das superfícies operacionais não-soberanas adaptadas
+- (b) Pressão local cessou (2-3 sessões sem nova superfície exigindo adaptação)
+- (c) Cluster crítico atravessado (perfil + bank + CRM)
+
+**Hoje (pós-DECISION-0043):** apenas perfil atravessado. Cluster incompleto (faltam bank + CRM). Nenhum sinal de saturação batido — convergência continua emergindo por pressão local conforme aparecer.
+
+#### Consequências esperadas
+
+- Curto prazo: /perfil deixa de exibir dados PF para page actor; user navegando entre actors percebe superfície contextual coerente. Modal loop de PASSO 9 desta sessão eliminado pela raiz.
+- Médio prazo: Frentes futuras de convergência contextual em outras superfícies (bank/CRM/agenda) invocam mesmos 9 princípios. Mesmo pattern: backend respeita identidade + frontend respeita projeção + ausência é semântica.
+- Frontend convergência cresce por pressão material, não por roadmap antecipado.
+
+#### Responsável
+
+Clayton (decisão soberana arbitrante entre as duas leituras temporais do próprio autor). Auditoria material conduzida por Claude Code. Pattern de "DECISION posterior à validação" preservado.
+
+#### Validação prévia
+
+- Auditoria histórica desta sessão (git blame `c4c45ec77`, grep REMEDIATION_DECISIONS_LOG, leitura completa DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT)
+- TSC backend + frontend: 0 erros pós-fixes
+- Smoke `/perfil` (actor=user) preservado (sem regressão)
+- Smoke `/perfil` (actor=page) → redirect síncrono /empresa/:companyId
+
+#### Supera
+
+- DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (encerrada em PASSO 6 do mesmo ciclo)
+
+#### Superada por
+
+(preencher quando superada)

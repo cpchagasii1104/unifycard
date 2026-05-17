@@ -2672,3 +2672,46 @@ Reabrir auditoria + decidir remover/migrar quando:
 `MODULES_INVENTORY.md` seção 2 (tabela material FANTASMAS) — auditoria material que produziu a lista.
 
 `STATUS_EXECUCAO_GLOBAL.md` entrada 2026-05-17 — Pendência B triagem por categoria.
+
+---
+
+## DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT — CLOSED
+
+**Status:** CLOSED 2026-05-17
+**Resolução:** DECISION-0043 + commit `0c710b47`
+**Pattern:** Frente /perfil contextual progressiva (primeira superfície da convergência contextual progressiva atravessada)
+
+### Resolução material
+
+- Backend `core.service.ts:136-154`: substitui early return rotulado "BLINDAGEM" (commit `c4c45ec77` 2026-01-27) por bifurcação contextual explícita per princípio 4 (DT_PRIORIZATION). Comportamento observável preservado (PF-only campos null para actor≠user, education_profile populado quando aplicável); intenção documentada elimina contradição contrato/implementação.
+- Frontend `Profile.tsx`: redirect síncrono (Navigate replace) quando `activeActor.actor_type='page'` → `/empresa/:companyId`. Princípios 8 e 9 honrados (reorganiza superfície sem migrar soberania; síncrono, derivado de estado client).
+- Frontend 7 sub-componentes Profile* + `NotApplicableMessage.tsx`: defesa em profundidade — princípios 4 e 5 honrados (ausência é semântica; sem fallback implícito).
+
+### Contradição contrato/implementação eliminada
+
+DT original (2026-05-15) documentava: "Endpoint declara contextualização (aceita actorId), mas executa hardcoded user-centric."
+
+Pós-resolução: endpoint declara E executa bifurcação contextual consciente. Comentários no código referenciam DECISION-0043 + princípio 4 + commit `c4c45ec77` original como evidência arqueológica preservada.
+
+### Sub-instâncias resolvidas anteriormente
+
+- **PASSO 9 desta sessão** (modal loop /perfil para page actor): commit `9907f5c8` aplicou guard cirúrgico em `Profile.tsx:542` (`activeActor?.actor_type === 'user'` antes de abrir modal). Sub-instância tratada antes da resolução estrutural; agora redundante com guard 2.b mas mantido como defesa adicional.
+
+### Princípios materializados em runtime
+
+DECISION-0043 (princípios 1-9 em DT_PRIORIZATION.md) ratificados via:
+- 9 arquivos modificados + 1 novo
+- TSC 0 erros (backend + frontend)
+- Diff isolado +163/-23 LOC
+- Limite de escopo absoluto respeitado (zero alterações em rotas/layouts/operating mode/CRM/bank/App.tsx)
+
+### Lição preservada
+
+Contradição temporal do mesmo autor (jan 2026 BLINDAGEM cega / mai 2026 gap a resolver) atravessada por **decisão soberana arbitrante via auditoria histórica material**. Pattern útil para frentes futuras: quando código + DT divergem sem DECISION arbitrando, auditoria histórica (git blame + grep DECISIONs + leitura DT completa) é caminho institucional honesto antes de propor mitigação.
+
+### Referência cruzada
+
+- DECISION-0043 (REMEDIATION_DECISIONS_LOG.md): formalização
+- DT_PRIORIZATION.md "Princípios da convergência contextual progressiva — Frente /perfil (2026-05-17)" (linhas 938-996): 9 princípios invocados
+- Commit `0c710b47`: implementação cirúrgica
+- STATUS_EXECUCAO_GLOBAL.md entrada 2026-05-17: registro institucional do fechamento
