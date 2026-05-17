@@ -4000,3 +4000,114 @@ Reforça §-3 code.md: padrão estrutural, não acidente.
 | **#3 GUARDIÃO + PASSO 9 Higiene** | **CLOSED** | pendente commit |
 
 **MODO:** AGUARDANDO_AUTORIZACAO.
+
+---
+
+## 2026-05-17 — PASSO 10: cruzamento material DT_PRIORIZATION × DT_LOG (25 DTs)
+
+### Contexto
+
+PASSO 9 corrigiu UMA inconsistência (DT-COVERAGE-BOOTSTRAP listada erroneamente em TOP). Disciplina anti-padrão #4: "descobrir 1 erro sem verificar se há outros = fingir que está limpo". Aplicação direta do princípio capturado em PASSO 9 (auditoria material em pontos críticos é permanente).
+
+### Método
+
+Para cada DT mencionada em listas TOP de `DT_PRIORIZATION.md` (BLOQUEIA_PRODUTO 1-9 + BLOQUEIA_FRENTE 10-26):
+1. `grep "^## $dt$"` no `REMEDIATION_DT_LOG.md`
+2. Capturar `Status:` na entrada
+3. Cruzar com estado declarado em DT_PRIORIZATION
+
+### Resultados (25 DTs auditadas)
+
+**Categoria 1 — Header e listas TOP coerentes (20 DTs):**
+- DT-MODULES-ASPIRATIONAL-VS-RUNTIME (OPEN, tratada 100% nesta sessão — coberta por mitigações cirúrgicas + DT-FANTASMA-ORPHAN-COLLECTIVE)
+- DT-MODULE-POLICY-ENGINE-AUDIT-URGENTE (OPEN — superseded por DECISION-0041, mas header mantém OPEN como esperado pelo padrão)
+- DT-GLOBAL-USER-ID-DUPLICATION-E2E (OPEN — frente arquitetural pendente)
+- DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (OPEN)
+- DT-COMPANIES-METADATA-COLUMN-MISSING (OPEN)
+- DT-COMPANY-CREATION-PATHS-DIVERGENCE (OPEN)
+- DT-API-FEED-POST-ID-DRIFT (OPEN)
+- DT-DASHBOARD-OWNER-PERMISSION-GAP (OPEN)
+- DT-ACTOR-DELEGATIONS-ZERO-RUNTIME (OPEN — ECOSSISTEMA)
+- DT-OPERATIONAL-BINDING-FRAGMENTATION (OPEN — ECOSSISTEMA)
+- DT-OPERATING-MODE-STATIC-PROJECTION (OPEN — ECOSSISTEMA)
+- DT-CONVERGENCE-AVAILABILITY-AS-CANONICAL-TEMPORAL (OPEN — frente futura)
+- DT-PRESENCE-FRAGMENTATION-CONFIRMED (OPEN — ECOSSISTEMA)
+- DT-MODULE-WORK-INSTANT-FROZEN-PRE-P4-P5 (OPEN — congelado consciente)
+- DT-MODULE-VENUE-FROZEN-PRE-RESTAURANT-VERTICAL (OPEN — congelado consciente)
+- DT-MODULE-PRESENCE-FROZEN-PRE-P4-DECISION (OPEN — congelado consciente)
+- DT-MODULE-AUTOMATION-AUDIT-PRE-OVERLAP-CHECK (OPEN — auditoria pré pendente, já tratada como PREMATURO)
+- DT-PROFESSION-DATA-SPARSE (OPEN — frente futura UX)
+- DT-PROFILE-AGENDA-CONFIRM-ACTIVATE-MISSING (OPEN — frente própria)
+- DT-HEALTH-MODULE-FROZEN (OPEN — vertical health pendente)
+- DT-SERVICE-BOOKING-CONVERGENCE-MAP (linha 672, header explicitamente "OPEN — frente convergível futura (NÃO refatorar agora)")
+
+**Categoria 2 — Inconsistência real CORRIGIDA em PASSO 9 (1 DT):**
+- DT-COVERAGE-BOOTSTRAP-REQUIRED (header linha 295 = CLOSED por DECISION-0031; listas TOP tinham listado erroneamente; corrigido em PASSO 9)
+
+**Categoria 3 — Padrão append-only "header OPEN + entrada CLOSED posterior" (3 DTs):**
+
+| DT | Header | Entrada de fechamento | Risco |
+|---|---|---|---|
+| DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT | linha 798 — OPEN | linha 2147 — `## DT-FRONTEND-API-ERROR-EXTRACTION-DRIFT — RESOLVIDA (2026-05-16)` | grep simples (`grep ^## DT-X | head -1`) retorna header OPEN como primeiro resultado |
+| DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS | linha 999 — OPEN | linha 2578 — `## DT-MEMBERSHIP-MIGRATIONS-INTERROMPIDAS — Reposicionada como sub-DT histórica de DECISION-0042 / Status: CLOSED como standalone` | mesmo padrão |
+| DT-q3-e2e-v2-service-booking-sem-reserve | linha 299 — OPEN | linha ~2400 — `## DT-q3-e2e-v2-service-booking-sem-reserve — CLOSED` | mesmo padrão |
+
+### Análise institucional
+
+**Categoria 3 NÃO é inconsistência funcional.** É padrão append-only consciente — preserva memória da DT original (igual code.md §-3 preserva 4 erros materiais; igual STATUS preserva PASSO 7 e PASSO 8 que listaram COVERAGE-BOOTSTRAP errado).
+
+**É risco operacional latente.** Próximo dev/IA fazendo grep simples por nome da DT pode ler o header OPEN sem perceber a entrada de fechamento posterior. PASSO 9 mostrou que ESTE PADRÃO me enganou — eu li o header OPEN da lista TOP em PASSO 7/8 sem cruzar com fonte material.
+
+### Mitigações possíveis (NÃO autodecididas)
+
+**A — Notas inline no header das 3 DTs:**
+- Adicionar `> **NOTA 2026-05-17:** STATUS ATUALIZADO ABAIXO (linha XXXX) — entrada de fechamento append.` no topo de cada header original
+- Edit cirúrgico em 3 lugares específicos
+- **Risco:** toca entradas históricas (princípio §29 anti-padrão "git add captura mudanças pré-existentes")
+
+**B — Índice de DTs no topo do DT_LOG:**
+- Adicionar tabela `DT name → Status atual → linha do header → linha de fechamento` no início do arquivo
+- Atualizada por convenção a cada mudança de Status
+- **Risco:** decisão arquitetural de organização do DT_LOG; pode dessincronizar se convenção não for seguida
+
+**C — Manter como está + registrar princípio:**
+- Não tocar DT_LOG
+- Registrar em STATUS (esta entrada) que o padrão é consciente mas tem risco
+- Próxima Higiene Total documental humana decide direção
+
+### Recomendação minha (Opção C — registrar)
+
+**C é o mais conservador.** Aplica princípio §29 (não tocar entradas históricas reflexivamente). Aplica princípio do PASSO 9 (preservar histórico do erro como evidência institucional).
+
+A e B exigem DECISION arquitetural de organização documental que não está no meu escopo de autonomia.
+
+### Refutação parcial #18
+
+Hipótese pós-PASSO 9: "vou achar várias outras DTs em estado incorreto nas listas TOP".
+Realidade: **apenas 1 inconsistência real (COVERAGE-BOOTSTRAP, já corrigida em PASSO 9)**. 3 outras são padrão append-only consciente — risco latente, não erro.
+
+Reforço material: padrão #4 manifestou-se nas listas TOP do DT_PRIORIZATION (PASSO 7/8), NÃO no DT_LOG propriamente. **Fonte material (DT_LOG entries) está em ordem; problema foi projeção em listas intermediárias.** Confirma princípio capturado no PASSO 9: "Fonte concentra causalidade; listas projetam."
+
+### Estado consolidado sessão 2026-05-17 (11 commits)
+
+| Frente | Estado | Commit |
+|---|---|---|
+| Modal loop /perfil | CLOSED | (anterior) |
+| 4 AUDITORIA | CLOSED | (anterior) |
+| MEMBERSHIP DECISION-0042 | CLOSED | `e78464ae` |
+| #1 Sprint 78 + #5 migrate | CLOSED | `9907f5c8` |
+| #2 fase 1 (13/24) | CLOSED | `99870acb` |
+| #2 fase 2 (3 financeiras) | CLOSED | `10fefd04` |
+| #2 Pendência B auditoria | CLOSED | `990e9695` |
+| FinancialDashboard Opção C | CLOSED | `68d04914` |
+| #2 DT-FANTASMA-ORPHAN-COLLECTIVE | CLOSED | `825030e3` |
+| #3 GUARDIÃO + PASSO 9 Higiene | CLOSED | `d05e4d6d` |
+| **PASSO 10 Cruzamento material** | **CLOSED** | pendente commit |
+
+**MODO:** AGUARDANDO_AUTORIZACAO.
+
+Próxima escolha humana:
+- **A/B** — mitigação inline ou índice DT_LOG (decisão arquitetural documental)
+- **#4 GLOBAL-USER-ID** — frente arquitetural grande (fronteira PASSO 6)
+- **Auditar runtime DECISION-0031** ou **Q3-E2E v2** (fronteira financeira PASSO 6)
+- **Fechar sessão**
