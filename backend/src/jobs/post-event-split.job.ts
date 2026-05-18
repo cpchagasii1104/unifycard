@@ -44,6 +44,8 @@ class PostEventSplitJob {
   async execute(tenantId: string, eventId: string): Promise<void> {
     console.log(`[PostEventSplit] Iniciando para evento ${eventId}`);
 
+    const { escrowService } = await import('../modules/escrow/escrow.service');
+
     // 1. Verificar se evento já foi processado
     const event = await this.getEvent(tenantId, eventId);
     if (!event) {
@@ -51,25 +53,69 @@ class PostEventSplitJob {
       return;
     }
 
-    // Verificar se já foi processado (campo split_processed)
-    const processed = await runQueryWithTenant<{ split_processed: boolean }>(
+    await runQueryWithTenant(
       tenantId,
-      `SELECT split_processed FROM events WHERE id = $1`,
-      [eventId]
+      `
+      INSERT INTO event_financial_execution (tenant_id, event_id, status)
+      VALUES ($1, $2, 'pending')
+      ON CONFLICT (tenant_id, event_id) DO NOTHING
+      `,
+      [tenantId, eventId]
     );
 
-    if (processed?.split_processed) {
-      console.log(`[PostEventSplit] Evento já processado`);
+    // Reivindicar linha de execução financeira (idempotente; evita dual state em events)
+    //
+    // ⚠️ DT-EVENT-FINANCIAL-EXECUTION-ORPHAN-RECOVERY (REMEDIATION_DT_LOG.md, registrada 2026-05-18)
+    // Risco LATENTE: se job crashar entre claim (status='processing') e .complete final,
+    // status fica 'processing' permanente. Próxima execução do cron NÃO reentra (claim só
+    // pega 'pending'). Pagamentos parciais persistem sem recovery automático.
+    // Hoje INATIVO: escrowService.release é stub (no-op em runtime). Vira ATIVO quando
+    // event-escrow for implementado.
+    // Mitigação prevista (ADIADA por decisão Clayton 2026-05-18): processing_started_at
+    // + reclaim timeout em worker dedicado. NÃO improvisar — risco de replay financeiro
+    // em job parcialmente liquidado. Fix obrigatório antes de produção em escala real.
+    const claimed = await runQueryWithTenant<{ id: string }>(
+      tenantId,
+      `
+      UPDATE event_financial_execution efe
+      SET status = 'processing', updated_at = now()
+      FROM events e
+      WHERE e.id = efe.event_id
+        AND e.tenant_id = efe.tenant_id
+        AND e.tenant_id = $1
+        AND efe.event_id = $2
+        AND efe.status = 'pending'
+      RETURNING efe.id
+      `,
+      [tenantId, eventId]
+    );
+
+    if (!claimed) {
+      const row = await runQueryWithTenant<{ status: string }>(
+        tenantId,
+        `SELECT status FROM event_financial_execution WHERE tenant_id = $1 AND event_id = $2`,
+        [tenantId, eventId]
+      );
+      if (row?.status === 'completed') {
+        console.log(`[PostEventSplit] Evento já processado`);
+      }
       return;
     }
 
-    // 2. Verificar que evento está COMPLETED (HARD LOCK)
-    if (event.status !== 'completed' || !event.datetime_end || new Date(event.datetime_end) > new Date()) {
-      console.log(`[PostEventSplit] Evento não está COMPLETED, aguardando...`);
+    // 2. Verificar que evento está ended e já passou datetime_end (HARD LOCK)
+    if (event.status !== 'ended' || !event.datetime_end || new Date(event.datetime_end) > new Date()) {
+      await runQueryWithTenant(
+        tenantId,
+        `UPDATE event_financial_execution SET status = 'pending', updated_at = now()
+         WHERE tenant_id = $1 AND event_id = $2 AND status = 'processing'`,
+        [tenantId, eventId]
+      );
+      console.log(`[PostEventSplit] Evento não está ended ou ainda não passou datetime_end, aguardando...`);
       return;
     }
 
-    // 3. Iniciar liberação do escrow (HARD LOCK: só libera se COMPLETED)
+    try {
+    // 3. Iniciar liberação do escrow (HARD LOCK: só após ended + datetime_end)
     await escrowService.startRelease(tenantId, eventId);
 
     // 4. Buscar participantes com attendance_status
@@ -101,13 +147,17 @@ class PostEventSplitJob {
       const adjustedAmount = Math.floor(participant.agreed_amount_cents * paymentRate);
 
       if (adjustedAmount > 0) {
+        // PASSO 6b auditoria 2026-05-18 (R1): idempotencyKey DETERMINÍSTICO.
+        // Anterior: `split-${eventId}-${participant.id}-${uuidv4()}` quebrava idempotência
+        // (cada retry gerava key nova). Hoje escrowService.release é stub (no-op);
+        // quando event-escrow for implementado, esta chave determinística previne double payout.
         await escrowService.release(tenantId, {
           eventId,
           destinationAccountId: participant.account_id,
           amountCents: adjustedAmount,
           participantId: participant.id,
           reason: `PARTICIPANT_PAYMENT_${participant.role}_${status}`,
-          idempotencyKey: `split-${eventId}-${participant.id}-${uuidv4()}`,
+          idempotencyKey: `split-${eventId}-${participant.id}`,
         });
       }
 
@@ -160,14 +210,28 @@ class PostEventSplitJob {
     // 8. Finalizar escrow
     await escrowService.complete(tenantId, eventId);
 
-    // 9. Marcar evento como processado
+    // 9. Marcar execução financeira como concluída
     await runQueryWithTenant(
       tenantId,
-      `UPDATE events SET split_processed = true, split_processed_at = now() WHERE id = $1`,
-      [eventId]
+      `UPDATE event_financial_execution
+       SET status = 'completed', processed_at = now(), updated_at = now(), error_message = NULL
+       WHERE tenant_id = $1 AND event_id = $2`,
+      [tenantId, eventId]
     );
 
     console.log(`[PostEventSplit] Concluído para evento ${eventId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.slice(0, 2000) : String(err).slice(0, 2000);
+      await runQueryWithTenant(
+        tenantId,
+        `UPDATE event_financial_execution
+         SET status = 'failed', error_message = $3, updated_at = now()
+         WHERE tenant_id = $1 AND event_id = $2 AND status = 'processing'`,
+        [tenantId, eventId, msg]
+      );
+      console.error(`[PostEventSplit] Falha para evento ${eventId}:`, err);
+      throw err;
+    }
   }
 
   /**
@@ -175,6 +239,7 @@ class PostEventSplitJob {
    * CONTRATO v1.3: Split padrão após pagar participantes
    */
   private async distributeRemainder(tenantId: string, eventId: string, event: EventRow): Promise<void> {
+    const { escrowService } = await import('../modules/escrow/escrow.service');
     // Buscar saldo restante
     const escrow = await escrowService.getEscrowByEvent(tenantId, eventId);
     if (!escrow || escrow.current_balance_cents <= 0) {
@@ -194,7 +259,7 @@ class PostEventSplitJob {
     // Por enquanto, vamos usar split engine para calcular
     const splitContext = {
       tenantId,
-      amountCents: remainder / 100, // Converter para reais
+      amountCents: remainder,
       currency: 'BRL' as const,
       source: 'event_ticket',
       customerAccountId: organizerAccount, // Conta de origem (escrow)
@@ -210,7 +275,7 @@ class PostEventSplitJob {
 
     // Liberar cada split do escrow
     for (const split of splitResult.splits) {
-      if (split.amount <= 0) continue;
+      if (split.amountCents <= 0) continue;
 
       // Resolver conta de destino baseado no targetType
       let destinationAccountId: string | null = null;
@@ -225,12 +290,15 @@ class PostEventSplitJob {
       }
 
       if (destinationAccountId) {
+        // PASSO 6b auditoria 2026-05-18 (R1): idempotencyKey DETERMINÍSTICO.
+        // Mesmo fix da chamada de release por participante: previne double payout
+        // quando event-escrow for implementado.
         await escrowService.release(tenantId, {
           eventId,
           destinationAccountId,
-          amountCents: Math.floor(split.amount * 100), // Converter para centavos
+          amountCents: split.amountCents,
           reason: split.rule.targetType,
-          idempotencyKey: `split-${eventId}-${split.rule.targetType}-${uuidv4()}`,
+          idempotencyKey: `split-${eventId}-remainder-${split.rule.targetType}`,
         });
       }
     }
@@ -321,10 +389,11 @@ class PostEventSplitJob {
     actorId: string,
     actorType: string
   ): Promise<string | null> {
+    const { accountService } = await import('../core/economy/account.service');
     const accounts = await accountService.getAccountsByOwner(
       tenantId,
       actorId,
-      actorType === 'user' ? 'user' : 'merchant'
+      actorType === 'user' ? 'user' : 'company'
     );
 
     return accounts.length > 0 ? accounts[0].accountId : null;
