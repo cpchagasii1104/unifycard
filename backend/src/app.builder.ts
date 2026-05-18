@@ -449,6 +449,24 @@ export async function buildApp(): Promise<FastifyInstance> {
     // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P1).
     const actorCapabilitiesRoutes = (await import('./core/actor-capabilities/actor-capabilities.routes')).default;
     await protectedScope.register(actorCapabilitiesRoutes, { prefix: '/actors' });
+
+    // 2026-05-18 P2 — Índice de Coordenação Humana (semente)
+    // GET /actors/:actorId/recent-counterparts (read-only, agrega bank_splits)
+    // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P2 item 1).
+    const recentCounterpartsRoutes = (await import('./core/actor-coordination/recent-counterparts.routes')).default;
+    await protectedScope.register(recentCounterpartsRoutes, { prefix: '/actors' });
+
+    // 2026-05-18 P2 — Home Feed multi-vetor v1 (composer)
+    // GET /actors/:actorId/home-feed (read-only, 3 vetores: Compromisso + Convite + Recorrência)
+    // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P2 itens 2 e 6).
+    const homeFeedRoutes = (await import('./core/home-feed/home-feed.routes')).default;
+    await protectedScope.register(homeFeedRoutes, { prefix: '/actors' });
+
+    // 2026-05-18 P2 — Profile Inference MVP (interesses inferidos)
+    // GET /actors/:actorId/inferred-profile (read-only, event affinities + communities)
+    // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P2 item 3, §C).
+    const profileInferenceRoutes = (await import('./core/profile-inference/profile-inference.routes')).default;
+    await protectedScope.register(profileInferenceRoutes, { prefix: '/actors' });
     await protectedScope.register(mediaModule, { prefix: '/media' });
     await protectedScope.register(culturalModule, { prefix: '/cultural' });
     await protectedScope.register(votesModule, { prefix: '/api' });
