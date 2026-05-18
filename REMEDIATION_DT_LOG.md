@@ -2715,3 +2715,202 @@ Contradição temporal do mesmo autor (jan 2026 BLINDAGEM cega / mai 2026 gap a 
 - DT_PRIORIZATION.md "Princípios da convergência contextual progressiva — Frente /perfil (2026-05-17)" (linhas 938-996): 9 princípios invocados
 - Commit `0c710b47`: implementação cirúrgica
 - STATUS_EXECUCAO_GLOBAL.md entrada 2026-05-17: registro institucional do fechamento
+
+---
+
+## DT-DRIFT-STATUS-CASE-SYSTEMIC
+
+- **Status:** OPEN
+- **Origem:** PASSO 6b (smoke supply chain 2026-05-17, ELO 1) — descoberta institucional via runtime real
+- **Vinculada a:** nenhuma DECISION arbitrando convenção de status canônica
+- **Contexto:**
+  Drift sistêmico entre literais de status em código TypeScript (UPPERCASE) e
+  CHECK constraints no DB (lowercase). Confirmado materialmente em runtime no
+  ELO 1 do smoke supply chain.
+
+  Bug concreto confirmado (1):
+  - `supplier.service.ts:48` — `status: input.status || 'ACTIVE'`
+  - `supplier.types.ts:7` — `type SupplierStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'`
+  - DB constraint `suppliers_status_check` — `CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text]))`
+  - DB default — `'active'::text`
+  - Sintoma runtime: Postgres error 23514 (violação da CHECK constraint)
+
+  Mapa material (auditoria anterior — Codex, 2026-05-17):
+  - 76 arquivos `.ts` usam status com literais UPPERCASE
+  - 70 de 75 CHECK constraints DB usam lowercase canônico
+  - 5 constraints exceção (`chat_reports`, `chat_messages`, `live_presence`)
+  - 2 mistas (`actor_debts`, `event_reservations`)
+
+  Bugs latentes prováveis (não confirmados em runtime — tabelas vazias):
+  subscriptions, reversals, b2b_orders, regional_fund, bank_limits,
+  order_saga, reconciliation, e outros services Sprint 60+.
+
+  Pattern observado: features de Sprints altas (suppliers/POs = Sprint 69)
+  nunca foram exercitadas em runtime — tabelas com 0 rows globais escondem o
+  drift até primeiro uso real. Smoke é descoberta institucional.
+
+- **Risco:**
+  - P1 sistêmico: cada feature dessas falha no primeiro uso real
+  - Não bloqueia hoje (tabelas vazias em runtime)
+  - Bloqueia primeiro uso real de cada feature afetada
+  - Constraint protege banco (erro explícito), mas degrada UX (operação parece
+    aceitar e quebra)
+
+- **Mitigação atual:**
+  Workaround cirúrgico no script de smoke (`backend/scripts/smoke-supply-chain-2026-05-17.ts`):
+  passar `status: 'active' as any` explicitamente no ELO 1 (sobrepõe default
+  UPPERCASE do service). Comentário inline referencia esta DT.
+
+- **Resolução prevista:**
+  Frente própria (1-2 sessões dedicadas, descrita por Clayton 2026-05-17):
+  - Etapa 1: auditoria 1:1 código vs constraint (mapeia bugs reais)
+  - Etapa 2: decisão sobre norma (lowercase canônico OU mixed por legado documentado)
+  - Etapa 3: fix em batches por sprint origem (Sprint 69 supplier/PO primeiro,
+    depois subscriptions/reversals/b2b_orders/etc)
+  - Etapa 4: gate CI que detecta mismatch entre TS literal e CHECK constraint
+
+  Não abrir agora. Smoke primeiro (decisão Clayton 2026-05-17). Frente
+  quando autorizada explicitamente.
+
+---
+
+## DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES
+
+- **Status:** OPEN
+- **Origem:** PASSO 6b (smoke supply chain 2026-05-17, ELO 2 v1) — descoberta institucional via runtime real
+- **Vinculada a:** nenhuma
+- **Contexto:**
+  `categories.repository.ts:106-116` executa SELECT incluindo coluna
+  `domain_type` que não existe na tabela `categories`. Sintoma runtime:
+  Postgres error 42703 (`coluna "domain_type" não existe`).
+
+  Query bugada (SELECT inclui `domain_type` entre as colunas projetadas):
+  ```
+  SELECT category_id, parent_id, name, slug, description, level, path,
+         COALESCE(keywords, '[]'::jsonb) AS keywords,
+         country_code, scope, domain_type, metadata, created_at, updated_at
+  FROM categories
+  WHERE category_id = $1 ...
+  ```
+
+  Colunas reais da tabela `categories` (21, sem `domain_type`):
+  `category_id, parent_id, name, slug, description, level, path, keywords,
+  country_code, scope, status, requires_review, is_created_by_ai, is_active,
+  metadata, approved_by, approved_at, rejection_reason, created_at, updated_at,
+  concept_id`.
+
+  Hipótese arqueológica: alguma migration dropou `domain_type` ou a coluna
+  nunca foi adicionada (apesar do código já assumir sua existência). `findById`
+  nunca foi exercitado em runtime — mesmo padrão do bug supplier (categories
+  tem 102 rows mas leitura via `findById` deste repository específico provavelmente
+  não tinha caller real até o smoke).
+
+  Classe de drift distinta de DT-DRIFT-STATUS-CASE-SYSTEMIC:
+  - status case = constraint rejeita, banco protege
+  - schema mismatch = banco aceita schema, código defasa, runtime quebra ao
+    parsear resultset
+
+- **Risco:**
+  - Bloqueia qualquer caller de `categoryService.findById` (e portanto de
+    `productCatalogService.createProduct` quando `categoryId` é fornecido)
+  - Pode haver outras queries com `domain_type` ou outras colunas removidas/renomeadas
+    em outros repositories core — auditoria não conduzida
+
+- **Mitigação atual:**
+  Workaround tentado no smoke v2 (omitir `categoryId`) não funcionou — gerou
+  DT-DRIFT-CONTRACT-INTERFACE-RUNTIME separada. Smoke pausou no ELO 2 v2 sem
+  prosseguir.
+
+- **Resolução prevista:**
+  Frente própria de auditoria sistêmica: grep por queries SELECT que referenciam
+  colunas e cruzar com `information_schema.columns` (similar à estratégia de
+  DT-DRIFT-STATUS-CASE-SYSTEMIC mas para mismatch schema-vs-código).
+
+  Possível gate CI: validar em build-time que queries SQL referenciam apenas
+  colunas que existem nas migrations conhecidas.
+
+  Não abrir agora. Clayton decide ordem entre as 3 DTs em sessão futura.
+
+---
+
+## DT-DRIFT-CONTRACT-INTERFACE-RUNTIME
+
+- **Status:** OPEN
+- **Origem:** PASSO 6b (smoke supply chain 2026-05-17, ELO 2 v2) — descoberta institucional via runtime real
+- **Vinculada a:** nenhuma
+- **Contexto:**
+  Tipo TypeScript declara campo opcional mas regra runtime exige. Material
+  confirmado em runtime no ELO 2 v2 do smoke supply chain.
+
+  Bug concreto confirmado (1):
+  - `product-catalog.types.ts` — `interface CreateProductInput { categoryId?: string | null; ... }` (tipo diz opcional)
+  - `product.repository.ts:22-31` — `requireCategoryIdForProductCreate` lança
+    `CATEGORY_REQUIRED` se categoryId vazio/nulo (regra "P0 RFC 0: category_id
+    obrigatório na criação de product")
+  - Sintoma runtime: caller que confia no tipo passa `undefined` → exceção
+    runtime sem aviso pelo TS
+
+  Classe de drift distinta das anteriores:
+  - Status case = literal vs constraint
+  - Schema mismatch = código vs colunas
+  - Contract drift = tipo público vs regra runtime privada
+
+  Repository carrega a verdade material (regra "P0 RFC 0"), mas interface pública
+  mente sobre obrigatoriedade. Caller de boa fé sofre erro tardio.
+
+  Hipótese arqueológica: regra `requireCategoryIdForProductCreate` foi
+  adicionada após a interface ser publicada (P0 RFC 0 = posterior), sem atualizar
+  o tipo correspondente. Tipo defasou.
+
+  Bugs latentes prováveis (não confirmados): outros campos com guard
+  obrigatório em repository mas opcional em interface. Auditoria não conduzida.
+
+- **Risco:**
+  - Quebra caller de boa fé (ou agente humano que confia no tipo)
+  - Mascara obrigatoriedade real na documentação tipada
+  - Padrão se repete: smoke autorizado por Clayton ("Service trata como opcional
+    — interface confirma") foi baseado no tipo e quebrou no runtime
+
+- **Mitigação atual:**
+  Smoke pausou no ELO 2 v2. Sem workaround aplicado. Estado preservado
+  (1 row em `suppliers` do ELO 1 + cleanup opcional).
+
+- **Resolução prevista:**
+  Frente própria — duas estratégias possíveis:
+  - (a) Sincronizar tipos com regras runtime (tornar `categoryId` obrigatório
+    no tipo, atualizar todos callers)
+  - (b) Mover regra para o service (eliminar `requireCategoryIdForProductCreate`
+    do repository) — mais arriscado, regra arquitetural P0 RFC 0 protegida hoje
+
+  Pode ser parte da mesma frente de gate CI (DT-DRIFT-STATUS-CASE-SYSTEMIC etapa 4):
+  detector que cruza tipo público vs guards runtime em repositories.
+
+  Não abrir agora.
+
+---
+
+## Convergência das 3 DTs do PASSO 6b (2026-05-17)
+
+As 3 DTs acima foram descobertas na mesma sessão durante o mesmo smoke
+(`backend/scripts/smoke-supply-chain-2026-05-17.ts`). Cada falha revelou classe
+distinta de drift:
+
+| DT | Classe | Mecanismo |
+|---|---|---|
+| DT-DRIFT-STATUS-CASE-SYSTEMIC | literal vs constraint DB | banco rejeita explicitamente |
+| DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES | código vs schema DB | resultset parse quebra |
+| DT-DRIFT-CONTRACT-INTERFACE-RUNTIME | tipo público vs regra runtime privada | runtime lança após type-check passar |
+
+Princípio operacional emergente (a registrar em STATUS_EXECUCAO_GLOBAL.md desta
+sessão):
+
+> Smoke em sistema com 0-row-em-runtime é descoberta institucional, não validação
+> de fluxo. Cada ELO pode revelar classe nova de drift. Workaround + DT, sem fix
+> raiz no meio. Após smoke (ou pausa autorizada), reportar lista completa de
+> drifts. Clayton decide estratégia de gates progressivos por valor/frequência
+> observada.
+
+Sobre formalizar DECISION-0044 (PO/inventory pipeline pattern): NÃO formalizada
+nesta sessão. Princípio 6 da DECISION-0043 ("DECISION posterior à validação")
+exige pattern validar end-to-end antes de cristalizar. Smoke parou no ELO 2 v2
+sem completar a cadeia. Pattern aguarda validação real em sessão futura.

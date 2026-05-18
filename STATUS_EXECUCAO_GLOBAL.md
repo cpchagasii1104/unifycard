@@ -4357,3 +4357,145 @@ Append em REMEDIATION_DT_LOG.md (linha ~2700). Resolução material referenciand
 Emerge por pressão material (princípio 1), não por roadmap. Candidatas naturais quando pressão emergir: bank (read path PF-only confirmado), CRM (module-centric confirmado), agenda contextual mais profunda, layouts internos. Não autodecidido — humano abre quando surgir necessidade real.
 
 **MODO:** AGUARDANDO_AUTORIZACAO ao final do PASSO 7 (conforme declarado por Clayton).
+
+---
+
+## 2026-05-17 — FASE 1: Re-tabulação MODULES_INVENTORY (core/* vs modules/*) — ENCERRADA
+
+### Contexto
+
+Após convergência das 3 IAs externas (Codex/Opus/ChatGPT) sobre "núcleo universal + projeção contextual" + auditoria material das 7 dimensões da proposta, Clayton refinou observação: MODULES_INVENTORY reporta "157 módulos / 45% funcional" tratando `core/*` (~80 = infraestrutura compartilhada) e `modules/*` (~80 = features/verticais) como categoria única, podendo inflar a métrica agregada.
+
+FASE 1 do novo plano: re-tabular READ-ONLY, sem reescrever conteúdo histórico (append-only).
+
+### Achado material
+
+**Distribuição é assimétrica entre as categorias — métrica global "45% funcional" oculta o padrão real.**
+
+| Classificação | core/* (78) | % core/* | modules/* (79) | % modules/* |
+|---|---:|---:|---:|---:|
+| FUNCIONAL | ~42 | **54%** | ~25 | **32%** |
+| FANTASMA | 8 | 10% | 21 | 27% |
+| ESQUELETO | 3 | 4% | 17 | 22% |
+| NO_DATA_LAYER | ~24 | 31% | ~8 | 10% |
+| INDEFINIDO | ~1 | 1% | ~5 | 6% |
+
+**Resumo material:**
+- **core/* (substrato) é saudável**: 54% FUNCIONAL + 31% utilities legítimas = 85% com propósito claro. Apenas 14% aspiracional (10% FANTASMA + 4% ESQUELETO).
+- **modules/* (features) é parcial**: 32% FUNCIONAL vs **49% aspiracional** (FANTASMA + ESQUELETO somados — 39 de 79).
+- Cenário (a) do plano confirmado.
+
+### Refinamento da narrativa institucional anterior
+
+**Antes** (MODULES_INVENTORY linha 86): *"Sistema não é majoritariamente fachada — realidade é ~4× mais saudável do que assumido."*
+
+**Refinamento (NÃO substitui; append-only):**
+- A afirmação **se sustenta integralmente para o substrato (core/*)**: 85% com propósito claro.
+- Para features/verticais (modules/*), **precisa recalibração**: 49% aspiracional — quase metade dos módulos verticais é código sem substrato.
+
+### Conexão com proposta arquitetural das 3 IAs
+
+A re-tabulação **fortalece materialmente** a direção "núcleo universal + projeção contextual":
+- Núcleos universais (core/*) já são substrato sólido — não precisam ser construídos, precisam ser exercitados.
+- Features verticais (modules/*) com 49% aspiracional sugerem: expandir features paralelas sem aproveitar core leva à fragmentação.
+- Pattern coerente com DECISION-0043 (perfil contextual progressivo): backend respeita identidade (core), frontend respeita projeção contextual.
+
+### Limitações declaradas
+
+- Classificação dos 108 módulos restantes (71 FUNC não-top + 25 NDL + 12 INDEFINIDO globais) baseada em proxy material (arquivos por subdir + classificação top 25 + fantasmas + esqueletos), **não em inspeção SQL+grep 1:1**.
+- Margem de erro: ±5-10% por categoria.
+- Top 25 FUNCIONAIS, 29 FANTASMAS, 20 ESQUELETOS permanecem verificados materialmente (não-estimados).
+
+### Arquivos atualizados
+
+- `MODULES_INVENTORY.md`: 645 → 739 linhas. Section 12 nova "Re-tabulação por categoria core/* vs modules/* — 2026-05-17". Append-only. Sections 1-11 preservadas integralmente.
+- `STATUS_EXECUCAO_GLOBAL.md` (esta entrada).
+
+### Modo
+
+FASE 1 do plano "Re-tabulação MODULES_INVENTORY + Design Clínica Sorrisos" entregue. **AGUARDANDO_AUTORIZACAO entre FASE 1 e FASE 2.** FASE 2 (design experimento Clínica Sorrisos baseado em métrica recalibrada) aguarda autorização explícita.
+
+Sem propor próximo passo. Decisão humana.
+
+---
+
+## 2026-05-17 — PASSO 6b PAUSADO (smoke supply chain PARCIAL) + 3 DTs + PASSO 7 fechamento
+
+### Contexto
+
+Trilho Codex+Claude (Prova A Supply Chain Doméstica). PASSOs 1-5 entregues nesta sessão:
+
+| PASSO | Frente | Commit |
+|---|---|---|
+| 1 | Higiene 4 achados Codex (gate critical_new, typecheck script, notas MODULES_INVENTORY) | `026de195` |
+| 3 | Backend Opção C: `calculateBalanceByActor` + `getCurrentBalanceByActor` (sem DDL) | `16e7c760` |
+| 4 | HTTP Nível A: 3 GETs em `marketplace-inventory.routes.ts` (preenche stub) | `4bff4a93` |
+| 5 | Frontend Opção 1: aba `Estoque` em `CompanyDashboard` + reuso `MarketplaceInventory` + fix bug oculto (`balance.currentQuantity` → `balance.quantity` + envelope `data.balance` → direto) | `1cf72493` |
+| 6a + 6a-bis | Auditoria READ-ONLY pré-condições + auth + writer chain | (sem commit, READ-ONLY) |
+| 6b | Smoke supply chain — PARCIAL (ELO 1 OK, ELO 2 v2 falha) | script criado, não commitado |
+
+### Smoke supply chain — execução parcial
+
+Script `backend/scripts/smoke-supply-chain-2026-05-17.ts` (pattern service-direct, precedente `energize-circuit-2026-05-17.ts`). Marker reversibilidade `metadata.test_smoke='smoke_supply_chain_2026_05_17'`. Append-only, idempotente.
+
+| ELO | Status | Observação |
+|---|---|---|
+| 1 supplier | OK (workaround Opção A — `status: 'active'` lowercase) | `supplierId=0cfd6544-5ec1-4560-88db-64c5d2079a85` criado, idempotência OK em re-run |
+| 2 product v1 (com categoryId) | FALHA: schema mismatch `domain_type` | DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES |
+| 2 product v2 (sem categoryId) | FALHA: `CATEGORY_REQUIRED` runtime | DT-DRIFT-CONTRACT-INTERFACE-RUNTIME |
+| 3-8 | não executados | smoke pausado por decisão Clayton |
+
+### Estado DB pós-smoke
+
+| Tabela | Rows com `metadata.test_smoke='smoke_supply_chain_2026_05_17'` |
+|---|---|
+| `suppliers` | 1 (ELO 1 — `0cfd6544-5ec1-4560-88db-64c5d2079a85`) |
+| `products` | 0 |
+| `product_variants` | 0 |
+| `purchase_orders` | 0 |
+| `inventory_movements` | 0 |
+
+Cleanup futuro (se Clayton autorizar): `DELETE FROM suppliers WHERE metadata->>'test_smoke'='smoke_supply_chain_2026_05_17'`.
+
+### 3 DTs registradas (REMEDIATION_DT_LOG.md)
+
+1. **DT-DRIFT-STATUS-CASE-SYSTEMIC** — literal TS UPPERCASE vs CHECK DB lowercase. 1 bug confirmado (`supplier.service.ts:48`); ~76 arquivos com risco latente
+2. **DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES** — `categories.repository.ts:110` SELECT referencia coluna `domain_type` inexistente
+3. **DT-DRIFT-CONTRACT-INTERFACE-RUNTIME** — `CreateProductInput.categoryId?` opcional no tipo; `requireCategoryIdForProductCreate` exige em runtime (regra P0 RFC 0)
+
+Convergência: 3 classes distintas de drift descobertas no MESMO smoke. Confirma princípio operacional emergente.
+
+### Princípio operacional emergente (ratificado)
+
+> Smoke em sistema com 0-row-em-runtime é descoberta institucional, não validação de fluxo. Cada ELO pode revelar classe nova de drift. Workaround + DT, sem fix raiz no meio. Após smoke (ou pausa autorizada), reportar lista completa de drifts. Clayton decide estratégia de gates progressivos por valor/frequência observada.
+
+Aplicado materialmente em 3 ELOs (1, 2v1, 2v2) desta sessão. Candidato a memória institucional (regra 2+ aplicações — esta sessão tem 1 aplicação consolidada; aguarda 2ª em smoke próximo).
+
+### Decisão sobre DECISION-0044
+
+**NÃO formalizada nesta sessão.** Razão material: Princípio 6 da DECISION-0043 ("DECISION posterior à validação") exige pattern validar end-to-end antes de cristalizar. Smoke parou no ELO 2 v2 sem completar a cadeia compra → estoque → leitura consistente. Pattern PO/inventory aguarda validação real em sessão futura (após resolução das 3 DTs ou via caminho alternativo).
+
+### Pattern "DECISION posterior à validação"
+
+4ª oportunidade observada (após DECISION-0037 availability, DECISION-0042 MEMBERSHIP, DECISION-0043 perfil contextual). As 3 anteriores validaram antes de cristalizar — esta é exemplo de **não cristalizar** porque validação falhou. Confirma princípio em sua forma negativa também: pattern só vira DECISION quando uso real prova; quando não prova, fica fora do log.
+
+### Coordenação Codex + Claude (acordada nesta sessão)
+
+Clayton dividiu papéis formalmente: Claude = backend/causalidade/SSOT, Codex = frontend/UX/projeção contextual. Protocolo de fronteiras registrado em memória institucional (`project_coordenacao_claude_codex.md`). Soberania (`unified-availability`, `actors`, `bank_*`, `inventory_*`, `actor_delegations`, `ledger`) exige consulta obrigatória a Claude antes de Codex evoluir.
+
+### Arquivos atualizados nesta entrada
+
+- `REMEDIATION_DT_LOG.md`: +3 DTs (DRIFT-STATUS-CASE-SYSTEMIC, DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES, DRIFT-CONTRACT-INTERFACE-RUNTIME) + seção de convergência
+- `STATUS_EXECUCAO_GLOBAL.md` (esta entrada)
+- `backend/scripts/smoke-supply-chain-2026-05-17.ts`: criado, **não commitado** — aguarda decisão Clayton (commitar como ferramenta de descoberta institucional OU manter local)
+- Memória institucional Claude: `project_coordenacao_claude_codex.md` (novo, indexado em MEMORY.md)
+
+### Próxima sessão — opções (Clayton decide)
+
+- (α) Frente de fix dos 3 drifts confirmados antes de retomar smoke
+- (β) Frente de gate CI preventivo (estratégia "zerar futuros")
+- (γ) Outra direção priorizada por Clayton
+
+### Modo
+
+**PASSO 6b PAUSADO + PASSO 7 (formalização) FECHADO.** Trilho Prova A continua vivo mas em hold. AGUARDANDO_AUTORIZACAO sobre cleanup do supplier criado + decisão sobre commitar script de smoke + direção próxima sessão. Sem propor próximo passo.
