@@ -443,6 +443,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     const { socialGroupsLightRoutes } = await import('./modules/social/social-groups-light.routes');
     await protectedScope.register(socialRelationshipsRoutes, { prefix: '/social' });
     await protectedScope.register(socialGroupsLightRoutes, { prefix: '/social/groups-light' });
+
+    // 2026-05-18 P1 — Capability Resolver MVP (read-only aggregation)
+    // GET /actors/:actorId/capabilities
+    // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P1).
+    const actorCapabilitiesRoutes = (await import('./core/actor-capabilities/actor-capabilities.routes')).default;
+    await protectedScope.register(actorCapabilitiesRoutes, { prefix: '/actors' });
     await protectedScope.register(mediaModule, { prefix: '/media' });
     await protectedScope.register(culturalModule, { prefix: '/cultural' });
     await protectedScope.register(votesModule, { prefix: '/api' });
