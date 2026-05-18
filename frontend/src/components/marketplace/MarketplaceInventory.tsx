@@ -1,10 +1,14 @@
 // src/components/marketplace/MarketplaceInventory.tsx
 // Estoque: movimentações e lotes
+// PASSO 5 do trilho Codex: prop opcional actorId para drill-down por actor (loja).
+// Quando actorId presente → consome getBalanceByActor (saldo daquela unidade operacional).
+// Quando actorId ausente → mantém comportamento global (saldo tenant-wide, visão matriz).
 import { useState, useEffect } from 'react';
 import {
   listProducts,
   listVariants,
   getBalance,
+  getBalanceByActor,
   getMovements,
   addMovement,
   listLots,
@@ -16,7 +20,12 @@ import {
 } from '../../api/marketplace';
 import { showToast } from '../common/Toast';
 
-export default function MarketplaceInventory() {
+interface MarketplaceInventoryProps {
+  /** Quando informado, mostra saldo do actor (drill-down loja); ausente = visão matriz tenant-wide. */
+  actorId?: string;
+}
+
+export default function MarketplaceInventory({ actorId }: MarketplaceInventoryProps = {}) {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [balance, setBalance] = useState<InventoryBalance | null>(null);
@@ -34,7 +43,7 @@ export default function MarketplaceInventory() {
     if (selectedVariantId) {
       loadInventoryData(selectedVariantId);
     }
-  }, [selectedVariantId]);
+  }, [selectedVariantId, actorId]);
 
   const loadVariants = async () => {
     setIsLoading(true);
@@ -56,8 +65,11 @@ export default function MarketplaceInventory() {
 
   const loadInventoryData = async (variantId: string) => {
     try {
+      const balancePromise = actorId
+        ? getBalanceByActor(actorId, variantId)
+        : getBalance(variantId);
       const [bal, movs, lts] = await Promise.all([
-        getBalance(variantId),
+        balancePromise,
         getMovements(variantId),
         listLots(variantId),
       ]);
@@ -134,7 +146,8 @@ export default function MarketplaceInventory() {
         <>
           {balance && (
             <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
-              <strong>Saldo Atual:</strong> {balance.currentQuantity} {balance.unit}
+              <strong>Saldo {actorId ? 'operacional (loja)' : 'consolidado (matriz)'}:</strong>{' '}
+              {balance.quantity} {balance.unit}
             </div>
           )}
 

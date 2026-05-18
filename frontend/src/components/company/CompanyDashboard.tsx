@@ -10,13 +10,14 @@ import CompanyOverviewTab from './tabs/CompanyOverviewTab';
 import CompanyTeamTab from './tabs/CompanyTeamTab';
 import CompanyFinancialTab from './tabs/CompanyFinancialTab';
 import CompanyActivitiesTab from './tabs/CompanyActivitiesTab';
+import CompanyInventoryTab from './tabs/CompanyInventoryTab';
 import './CompanyDashboard.css';
 
 interface CompanyDashboardProps {
   companyId: string;
 }
 
-type TabId = 'overview' | 'team' | 'financial' | 'activities';
+type TabId = 'overview' | 'team' | 'financial' | 'activities' | 'inventory';
 
 export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
   const { sessionReady, activeActor } = useSession();
@@ -131,6 +132,13 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
         >
           Atividades
         </button>
+        <button
+          className={`company-tab ${activeTab === 'inventory' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inventory')}
+          type="button"
+        >
+          Estoque
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -146,6 +154,9 @@ export default function CompanyDashboard({ companyId }: CompanyDashboardProps) {
         )}
         {activeTab === 'activities' && (
           <CompanyActivitiesTab company={company} companyId={companyId} />
+        )}
+        {activeTab === 'inventory' && (
+          <CompanyInventoryTab company={company} companyId={companyId} />
         )}
       </div>
     </div>

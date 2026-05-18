@@ -56,6 +56,7 @@ export interface MarketplaceBranch {
   branch_id: string;
   name: string;
   city: string;
+  neighborhood?: string | null;
   pickup: boolean;
   delivery: boolean;
 }
@@ -65,6 +66,7 @@ export interface MarketplaceStore {
   name: string;
   template_id: string;
   branches: MarketplaceBranch[];
+  location?: { visible_in_locator?: boolean };
 }
 
 export interface MarketplaceStores {
@@ -372,52 +374,8 @@ export async function getDeliveriesByCheckout(checkoutId: string): Promise<GetDe
   return apiFetchJson<GetDeliveriesResult>(`/marketplace/delivery/checkout/${checkoutId}`);
 }
 
-// ============================================================
-// PDV (PONTO DE VENDA) - ERP LIGHT
-// ============================================================
-
-export interface StoreCustomer {
-  customer_id: string;
-  store_id: string;
-  name?: string;
-  phone?: string;
-  linked_user_id?: string;
-  created_at: string;
-}
-
-export interface CreatePhysicalOrderInput {
-  store_id: string;
-  items: Array<{
-    product_id: string;
-    quantity: number;
-  }>;
-  customer_id?: string;
-}
-
-export interface CreateStoreCustomerInput {
-  store_id: string;
-  name?: string;
-  phone?: string;
-  linked_user_id?: string;
-}
-
-export async function createPhysicalOrder(input: CreatePhysicalOrderInput): Promise<Order> {
-  return apiFetchJson<Order>('/marketplace/pdv/order', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export async function createStoreCustomer(input: CreateStoreCustomerInput): Promise<StoreCustomer> {
-  return apiFetchJson<StoreCustomer>('/marketplace/pdv/customer', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export async function getStoreCustomer(customerId: string): Promise<StoreCustomer> {
-  return apiFetchJson<StoreCustomer>(`/marketplace/pdv/customer/${customerId}`);
-}
+// PDV canónico: `src/api/pdv.ts` → `/pdv/*` (sessões + orders em PostgreSQL).
+// Removido: `/marketplace/pdv/*` (Map em memória).
 
 // ============================================================
 // SERVIÇOS, AGENDA E RECORRÊNCIA
@@ -759,9 +717,13 @@ export interface InventoryMovement {
   createdAt: string;
 }
 
+/**
+ * Saldo de variante. Backend retorna {quantity, unit} (cf. inventoryService.getCurrentBalance);
+ * productVariantId é injetado client-side pelo caller (não está no payload).
+ */
 export interface InventoryBalance {
   productVariantId: string;
-  currentQuantity: number;
+  quantity: number;
   unit: string;
 }
 
@@ -783,7 +745,22 @@ export async function getMovements(variantId: string): Promise<InventoryMovement
 export async function getBalance(variantId: string): Promise<InventoryBalance> {
   const response = await apiFetch(`/marketplace/inventory/balance?variantId=${variantId}`);
   const data = await response.json();
-  return data.balance;
+  return { productVariantId: variantId, quantity: data.quantity, unit: data.unit };
+}
+
+/**
+ * Saldo operacional de uma variante NA PERSPECTIVA DE UM ACTOR (drill-down).
+ * Consome GET /marketplace/inventory/balance/by-actor (PASSO 4 do trilho Codex).
+ */
+export async function getBalanceByActor(
+  actorId: string,
+  variantId: string
+): Promise<InventoryBalance> {
+  const response = await apiFetch(
+    `/marketplace/inventory/balance/by-actor?actorId=${encodeURIComponent(actorId)}&variantId=${encodeURIComponent(variantId)}`
+  );
+  const data = await response.json();
+  return { productVariantId: variantId, quantity: data.quantity, unit: data.unit };
 }
 
 export interface AvailableStock {
@@ -3847,9 +3824,9 @@ export interface BusinessTemplate {
     icon?: string;
   };
   flags: {
-    allows_own_products: boolean;
-    allows_industrial_products: boolean;
-    allows_services: boolean;
+    produto_proprio: boolean;
+    industrial: boolean;
+    ambos: boolean;
   };
   created_at: string;
   updated_at?: string;
