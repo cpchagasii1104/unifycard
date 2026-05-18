@@ -3080,3 +3080,324 @@ Princípio operacional Clayton 2026-05-18:
 
 Disciplina respeitada: nenhum fix de oportunidade no meio de escopo cirúrgico
 autorizado. Ambas as DTs aguardam frente própria com autorização explícita.
+
+---
+
+## DT-PRESSURE-BANK-ACTOR-CONTEXT
+
+- **Status:** OPEN
+- **Origem:** auditoria contextual frontend 2026-05-18 (sessão modelagem Home Contextual) — confirmada via grep material em `frontend/src/api/bank.ts`
+- **Vinculada a:** memória `project_home_contextual_modelo_2026-05-18.md` (P1, item destrava trabalho de Codex)
+- **Categoria:** DT-PRESSURE (auditoria frontend identificou gap backend que bloqueia projeção contextual real)
+- **Contexto:**
+
+  `frontend/src/api/bank.ts:56` declara explicitamente que `getBankBalance()`
+  retorna saldo do **usuário autenticado**, sem aceitar `actorId`. Idem para
+  `getBankStatement()` em `bank.ts:121`. Grep em todo `bank.ts` por
+  `actor_id|actorId|activeActor` retorna zero ocorrências.
+
+  Consumo material em `frontend/src/components/home/DashboardHome.tsx:177-294`:
+  - Variável `balanceCents` é compartilhada entre cards `meu-saldo` (PF) e
+    `caixa-empresa` (PJ) — ambos lêem do mesmo state
+  - Quando `activeActor.actor_type === 'page'` (empresa), o card "Caixa da
+    empresa / saldo operacional" mostra valor retornado por
+    `getBankBalance()` — que é o saldo do **usuário autenticado**, não da
+    empresa
+  - Atividade recente (`getBankStatement`) sofre do mesmo problema
+
+  Mesmo padrão se replica em outros consumidores frontend que assumem
+  contexto de actor mas chamam API que ignora.
+
+- **Risco:**
+
+  **Falsificação semântica de dado financeiro com label trocado.** Frontend
+  renderiza saldo do user com label "Caixa da empresa Voltagem Bar Band" e
+  rótulo "saldo operacional". É estruturalmente impossível mostrar o valor
+  correto da empresa enquanto a API não aceita `actorId`.
+
+  Cenários onde isso vira bug visível:
+  - Usuário PF com saldo R$ X troca para actor empresa (saldo R$ Y diferente)
+    → vê seu próprio R$ X marcado como "Caixa da empresa"
+  - Atividade recente da empresa mostra transações da pessoa
+  - Limites/processamento mostram dados misturados
+
+  Em runtime atual com volume baixo e saldos zerados, sintoma é invisível.
+  Em produção com volume real, vira incidente de causalidade financeira
+  observável pelo usuário.
+
+- **Mitigação atual:**
+
+  Aplicada parcialmente no frontend recente (2026-05-18, sessão EXECUTOR
+  AUTORIZADO):
+  - Card `caixa-empresa` permanece renderizando, mas memória institucional
+    e este DT-PRESSURE registram a falsificação estrutural
+  - Princípio operacional registrado: **frontend não tem como mostrar saldo
+    correto da empresa enquanto API for cega a actor**
+
+  Próximo passo de mitigação (não fix): substituir `balanceCents` por `—`
+  no card `caixa-empresa` enquanto API não suportar — empty state honesto.
+  Decisão pendente de Clayton (afeta UX).
+
+- **Resolução prevista:**
+
+  P1 do roadmap material (próximas 4-8 semanas):
+
+  1. Estender `/bank/balance` para aceitar `?actorId=` (query param)
+     - Backend valida que actor pertence ao user autenticado
+     - Resolve saldo via ledger com `actingForActorId = actorId`
+     - Mantém compatibilidade: sem `actorId`, comportamento atual (user)
+  2. Idem `/bank/statement?actorId=`
+  3. Frontend `api/bank.ts` aceita parâmetro opcional `actorId`
+  4. `DashboardHome.tsx` e demais consumidores passam `activeActor.actor_id`
+     quando actor é page/group/channel
+  5. Smoke: trocar actor PF↔empresa → verificar valores diferentes nos cards
+
+  **Não é DECISION arquitetural inédita.** É extensão de endpoint existente
+  para aceitar contexto explícito. `actingForActorId` já é conceito vivo no
+  ledger (memória `feedback_boundary_domain_canonical.md` e DECISION-0024).
+
+  Estimativa: 1-2 dias backend + 1-2 dias frontend + smoke.
+
+- **Convergência institucional:**
+
+  Esta DT-PRESSURE foi previamente identificada nas auditorias contextuais
+  de 2026-05-18 (relatórios "Auditoria Frontend — Contexto Operacional/Actor/
+  Capabilities" e "Auditoria Frontend — Transição de Actor × Modo Operante").
+  Formalizada aqui após autorização explícita Clayton para consolidação
+  institucional.
+
+  Bloqueio explícito: enquanto esta DT não fechar, frontend está
+  **estruturalmente incapaz** de honrar a projeção contextual para PJ. O
+  trabalho de UX contextual (sessão 2026-05-18 que estendeu actorContextConfig
+  + businessProfileCatalog + DashboardHome) é base válida, mas o eixo
+  financeiro só convergirá com este fix.
+
+
+---
+
+## Atualização DT-PRESSURE-BANK-ACTOR-CONTEXT (2026-05-18 P1 — mitigação implementada)
+
+- **Status:** OPEN → MITIGADA EM CÓDIGO (aguarda smoke browser para CLOSED)
+- **Implementação P1:** sessão EXECUCAO_MATERIAL_P1 2026-05-18
+- **Mudanças materiais:**
+  - `backend/src/core/bank/ports/bank-integration.port.ts`: novo método `getActorBalance(tenantId, actorId, currency)`
+  - `backend/src/modules/bank/bank-integration.service.ts`: implementação `getActorBalance` que resolve actor → owner (user/page/group) → conta
+  - `backend/src/modules/bank/adapters/bank-integration.adapter.ts`: adapter expõe `getActorBalance`
+  - `backend/src/core/unifybank/bank-http.routes.ts`: `GET /bank/balance` aceita `?actorId=` com validação de authority via `actorCapabilitiesService`
+  - `backend/src/core/unifybank/transparency.service.ts`: novo método `getActorStatement` + helper privado `_getStatementForAccount` (refator localizado, sem nova abstração)
+  - `backend/src/core/unifybank/transparency.routes.ts`: `GET /bank/statement` aceita `?actorId=` com validação de authority
+  - `frontend/src/api/bank.ts`: `getBankBalance({actorId?})` e `getBankStatement({actorId?})` aceitam parâmetro opcional
+  - `frontend/src/components/home/DashboardHome.tsx`: passa `activeActor.actor_id` para banco quando actor não é user
+- **Authority validation:** via `actorCapabilitiesService.resolveForUser` (capability resolver MVP — read-only, lê SSOT `actor_delegations` + `company_users.can_*` + `actors`). Sem authority: 403.
+- **TS check:** backend exit=0; frontend exit=0
+- **Smoke pendente:** trocar actor PF para empresa no browser, verificar saldos diferentes em "Caixa da empresa" vs "Meu saldo Unifibank"
+- **Princípio operacional respeitado:** frontend NUNCA infere saldo — passa `actorId` e backend resolve.
+
+---
+
+## DT-CAPABILITY-RESOLVER-MVP-IMPLEMENTED
+
+- **Status:** OPEN (MVP — aguarda validação em runtime real)
+- **Origem:** sessão EXECUCAO_MATERIAL_P1 2026-05-18 (P1 prioridade 1 — capability resolver backend)
+- **Vinculada a:** memória `project_home_contextual_modelo_2026-05-18.md` (P1 item 3); fecha pré-requisito de DT-PRESSURE-BANK-ACTOR-CONTEXT
+- **Contexto:**
+
+  Novo módulo `backend/src/core/actor-capabilities/` materializa capability resolver MVP read-only:
+  - `actor-capabilities.types.ts`: tipos `ActorCapabilitiesResponse`, `CapabilityKey`
+  - `actor-capabilities.service.ts`: agregação read-only de SSOT existentes (actor_type → capabilities base + `company_users.can_*` direto → capabilities company + `actor_delegations` ativos)
+  - `actor-capabilities.routes.ts`: `GET /actors/:actorId/capabilities`
+  - Registrado em `app.builder.ts`
+
+  Authority validada por dupla via no `isAuthorizedOver`:
+    - self (user_id corresponde a auth)
+    - company_users.is_active (page)
+    - actor_delegations ativo (qualquer institucional)
+
+  **Princípio crítico aplicado:** capability é OUTPUT da composição, não nova SSOT. `company_users.can_*` é lido diretamente como SSOT permissions — NÃO há mapeamento role para capability paralelo (versão inicial tinha; corrigida após reforço da regra de soberania durante a execução).
+
+- **Risco:**
+
+  V1 hardcoded para `BASE_CAPABILITIES_BY_TYPE` (capabilities base por `actor_type`). Quando v2 do modo operante for implementada, capability resolver precisa virar fonte dinâmica.
+
+- **Mitigação atual:**
+
+  V1 cobre o caso material principal (validação de authority em endpoints bank actor-context). Documentação institucional vinculada (memória `project_home_contextual_modelo_2026-05-18.md` P1 item 3).
+
+- **Resolução prevista:**
+
+  V2 (P3 do roadmap) — capability resolver com inferência dinâmica baseada em todos os eixos (actor + tempo + mode + relação + delegação).
+
+---
+
+## DT-PRESSURE-CONFIRM-CTA-FANTASMA
+
+- **Status:** OPEN
+- **Origem:** quarentena Frente A 2026-05-18 — auditoria identificou stub `confirmCTA` em `api/social.ts:124` retornando sucesso hardcoded
+- **Vinculada a:** Princípio Operacional §1 (causalidade declarada por item)
+- **Contexto:**
+
+  `frontend/src/api/social.ts` exportava `confirmCTA(_ctaId, _data?)` que retornava sucesso SEM CHAMAR BACKEND. Função é tipada com `transactionId`, `revenue_entry`, `profit_share_entry` — sugere fluxo financeiro.
+
+  Callers ativos:
+    - `frontend/src/components/social/CTAModal.tsx:89` (usa safeApiCall — tratamento ok)
+    - `frontend/src/components/ServicePostCard.tsx:82` (try/catch + alert disparava em runtime real mesmo sem backend de pagamento existir)
+
+- **Risco:**
+
+  CRÍTICO. UI mostrava "Pagamento realizado com sucesso" para CTA financeiro inexistente em backend. Falsificação de causalidade financeira observável pelo usuário.
+
+- **Mitigação atual (2026-05-18 P1):**
+
+  Substituído por `throw new Error('NOT_IMPLEMENTED: confirmCTA — backend endpoint ausente...')`. Callers existentes têm try/catch e mostrarão erro honesto.
+
+- **Resolução prevista:**
+
+  Backend precisa decidir se CTA financeiro existe como fluxo soberano. Se sim, endpoint específico com integração bank. Se não, remover tipo e callers em sessão dedicada.
+
+---
+
+## DT-FOLLOW-MECHANICS-DECISION-PENDING
+
+- **Status:** OPEN (decisão arquitetural pendente)
+- **Origem:** quarentena Frente A 2026-05-18
+- **Contexto:**
+
+  Funções `followActor`/`unfollowActor` em `frontend/src/api/social.ts` eram stubs `{success: true}`. Princípio Operacional §10 do modelo Home Contextual: "Relação emerge de comportamento, NÃO de declaração. Sem adicionar amigo estilo Facebook."
+
+  Callers ativos:
+    - `frontend/src/components/social/CompanyPage.tsx:103,119`
+    - `frontend/src/components/social/ProfilePage.tsx:103,119`
+
+- **Risco:**
+
+  Decisão arquitetural inédita: UnifiCard adota mecânica follow como Twitter/Instagram? Memória institucional sugere NÃO. Mantê-la na UI sem implementação backend gera confusão.
+
+- **Mitigação atual:**
+
+  Throw NOT_IMPLEMENTED. Botões de follow vão mostrar erro toast.
+
+- **Resolução prevista:**
+
+  DECISION humana: (a) confirmar que UnifiCard NÃO terá follow declarativo → remover UI; (b) implementar backend de follow se decidido manter; (c) substituir por vínculo emergente baseado em interações materiais. Memória atual aponta (a) ou (c).
+
+---
+
+## DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS
+
+- **Status:** OPEN
+- **Origem:** quarentena Frente A 2026-05-18
+- **Vinculada a:** SSOT_EXCLUSIVE_BANK_RULE §4 (social-ledger.service em REGIME DE EXTINÇÃO)
+- **Contexto:**
+
+  Funções `getLedger`/`getLedgerSummary` em `frontend/src/api/social.ts` apontam para `modules/social/social-ledger.service.ts` que está em regime de extinção por SSOT_EXCLUSIVE_BANK_RULE. Stubs retornavam vazios hardcoded.
+
+  Callers ativos:
+    - `getLedger`: `GroupProfile.tsx:59`, `CommunityActivitySummary.tsx:51`
+    - `getLedgerSummary`: `EventImpact.tsx:29`, `EventPage.tsx:223`, `CommunitiesBenefited.tsx:32`, `GroupProfile.tsx:46`
+
+- **Risco:**
+
+  Componentes mostram zero/vazio sem indicar que dado real existe no `bank_ledger`. Causa confusão sobre estado do impacto coletivo.
+
+- **Mitigação atual:**
+
+  Throw NOT_IMPLEMENTED com referência a `getBankStatement` como fonte canônica. Callers existentes têm try/catch — vão para empty state.
+
+- **Resolução prevista:**
+
+  Refator dos 6 callers para usar `getBankStatement` filtrado por contexto OU endpoint backend específico de impacto coletivo derivado de bank_ledger. Frente própria — não escopo P1.
+
+---
+
+## DT-PRESSURE-COMMENTS-FANTASMA
+
+- **Status:** OPEN
+- **Origem:** quarentena Frente A 2026-05-18
+- **Contexto:**
+
+  `getComments(postId, options?)` em `frontend/src/api/social.ts` era stub que retornava vazio hardcoded. Endpoint backend pode existir mas frontend não chega lá.
+
+  Callers ativos:
+    - `frontend/src/components/social/CommentsDrawer.tsx:45` (try/catch ok)
+
+- **Risco:**
+
+  Drawer de comentários sempre mostra vazio mesmo se backend tem comments.
+
+- **Mitigação atual:**
+
+  Throw NOT_IMPLEMENTED. Drawer vai mostrar erro inline.
+
+- **Resolução prevista:**
+
+  Auditar backend para endpoint de comments. Se sim, fazer call real. Se não, decisão arquitetural sobre comments no UnifiCard. Frente própria.
+
+---
+
+## Convergência Frente P1 EXECUCAO_MATERIAL 2026-05-18
+
+Esta sessão fechou materialmente:
+- Capability resolver MVP read-only (módulo novo, registrado em app.builder)
+- Bank actor-context (`/bank/balance?actorId=` + `/bank/statement?actorId=` com validação via capability resolver)
+- Activity propagation (`companies.activity.mainActivityDescription` em `AvailableActor` + `useBusinessProfile` consumindo)
+- Quarentena dos 5+1 stubs `api/social.ts` (throw NOT_IMPLEMENTED com referência DT)
+
+TS limpo (backend exit=0, frontend exit=0). Sem commits ainda — aguarda autorização Clayton.
+
+Princípio operacional Clayton 2026-05-18 ("Frontend NUNCA cria verdade — frontend projeta verdade resolvida no core/backend") aplicado em todas as decisões:
+  - Frontend bank.ts não infere saldo; passa actorId, backend resolve
+  - Capability resolver lê `company_users.can_*` como SSOT (NÃO mapeia role para capability paralelo — correção feita durante execução após reforço da regra)
+  - Activity é propagação read-only de `companies.activity` (SSOT)
+  - Stubs falsificadores substituídos por throw que expõe a mentira
+
+
+---
+
+## DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD
+
+- **Status:** OPEN (aguarda migration backend)
+- **Origem:** smoke FAIL crítico de bootstrap 2026-05-18 — Frente C do P1 revertida materialmente
+- **Vinculada a:** memória `project_home_contextual_modelo_2026-05-18.md` (P1 item 4)
+- **Contexto:**
+
+  Frente C do P1 EXECUCAO_MATERIAL tentou propagar `companies.activity.mainActivityDescription` em `AvailableActor` (`/social/actors/available`) para alimentar `useBusinessProfile` com precisão maior que heurística por display_name.
+
+  Implementação inicial adicionou `c.activity` e `c.activity->>'mainActivityDescription'` ao SELECT de `findAvailableActors` em `backend/src/modules/social/actor.repository.ts`.
+
+  **FALHA MATERIAL DETECTADA NO SMOKE:** coluna `companies.activity` **não existe** no schema (auditado em migrations `0065_create_companies_minimal.sql`, `0066_profile_support_tables.sql`, e todas as ADD COLUMN posteriores). Tipo TS `Company.activity: CompanyActivity` em `frontend/src/api/companies.ts` era projeção tipográfica do contrato, não SSOT material.
+
+  Resultado em runtime: query SQL falha com `column c.activity does not exist`. `findAvailableActors` rethrow. `SessionProvider.bootstrapSession` catch silencia (linha 232 do bootstrap), `setActors([])`, frontend mostra "Não há actor disponível para esta conta".
+
+- **Lição operacional registrada:**
+
+  **Código nunca presume schema sem verificar migration.** Tipo TS em `contracts/` ou `api/` é projeção do que o domínio gostaria de ter. Schema material em `migrations/` é o que o domínio realmente tem. Os dois divergem. Quando divergem, schema vence.
+
+  Variante da regra "frontend nunca cria verdade" aplicada a backend: backend nunca presume coluna sem verificar migration. TS check não pega — strings SQL são opacas para TS.
+
+- **Risco:**
+
+  Heurística de businessProfile no frontend (resolver `BUSINESS_PROFILES_CATALOG` por `displayNameKeywords`) tem ~70% de precisão. Falsos positivos previsíveis (ex: "Bar Mitzvah Eventos" matcheia keyword "bar" mas não é bar/restaurante).
+
+- **Mitigação atual:**
+
+  Reversão total da Frente C em 3 arquivos:
+  - `backend/src/modules/social/actor.repository.ts` — SELECT volta ao estado original
+  - `frontend/src/api/social.ts` — campo `activity_main_description?` removido de `AvailableActor`
+  - `frontend/src/hooks/useBusinessProfile.ts` — passa `null` como segundo argumento de `resolveBusinessProfile`
+
+  Bootstrap confirmado funcional após reversão (Clayton smoke 2026-05-18).
+
+  TS check: backend exit=0, frontend exit=0.
+
+- **Resolução prevista:**
+
+  Migration backend para adicionar `companies.activity JSONB DEFAULT '{}'` (estrutura CompanyActivity: mainActivityCode, mainActivityDescription, secondaryActivities). Depois propagar campo em `findAvailableActors` SELECT + tipos frontend.
+
+  Não bloqueia P1 — businessProfile continua resolvendo via heurística display_name. P2 ou frente própria.
+
+- **Convergência institucional:**
+
+  Esta DT formaliza o aprendizado material da sessão. Princípio registrado em memória para evitar repetição:
+  - Antes de qualquer SELECT com coluna nova: verificar migration que cria a coluna
+  - Antes de assumir field em DTO/contract: verificar mapeamento backend ↔ schema
+  - Type-check de TS NÃO substitui auditoria de migration

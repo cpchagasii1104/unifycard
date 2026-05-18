@@ -4499,3 +4499,117 @@ Clayton dividiu papéis formalmente: Claude = backend/causalidade/SSOT, Codex = 
 ### Modo
 
 **PASSO 6b PAUSADO + PASSO 7 (formalização) FECHADO.** Trilho Prova A continua vivo mas em hold. AGUARDANDO_AUTORIZACAO sobre cleanup do supplier criado + decisão sobre commitar script de smoke + direção próxima sessão. Sem propor próximo passo.
+
+
+---
+
+## Checkpoint EXECUCAO_MATERIAL_P1 — 2026-05-18 (capability resolver + bank actor-context + quarentena stubs)
+
+### Modo
+Sessão Claude em EXECUCAO_MATERIAL_P1 (exceção pontual de coordenação Claude+Codex autorizada por Clayton 2026-05-18, dado Codex offline). Frontend tocado em exceção controlada. Disciplina de soberania "frontend nunca cria verdade" aplicada continuamente.
+
+### Frentes do P1
+
+| Frente | Status | Evidência material |
+|---|---|---|
+| Capability resolver MVP | ✅ FECHADA | Módulo novo `backend/src/core/actor-capabilities/` + rota `GET /actors/:id/capabilities` em `app.builder.ts`. Smoke E2E via curl PASS em 4 cenários (self/staff/owner/negative-403). 7c retornou delegação ATIVA real do seed (scopes `publish_feed,create_events`) — prova leitura SSOT de `actor_delegations`. |
+| Bank actor-context | ✅ FECHADA | `/bank/balance?actorId=` + `/bank/statement?actorId=` aceitam parâmetro; authority validada via `actorCapabilitiesService`. Smoke E2E via curl PASS estrutural em 7 cenários (3a-3d + 4a-4c) — todos autorizam corretamente, todos retornam zero por seed vazio. Correção `hasAccount` aplicada (descuido detectado durante auditoria: `balanceCents > 0 \|\| true` → resolução material da conta). Aguarda reinício de backend para entrar em runtime. DT-PRESSURE-BANK-ACTOR-CONTEXT mitigada em código. |
+| Quarentena 6 stubs `api/social.ts` | ✅ FECHADA | `confirmCTA`, `followActor`, `unfollowActor`, `getLedger`, `getLedgerSummary`, `getComments` substituídos por `throw NOT_IMPLEMENTED`. Callers verificados (todos com try/catch). DTs registradas: DT-PRESSURE-CONFIRM-CTA-FANTASMA, DT-FOLLOW-MECHANICS-DECISION-PENDING, DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS, DT-PRESSURE-COMMENTS-FANTASMA. |
+| Activity propagation (Frente C) | ❌ REVERTIDA | Coluna `companies.activity` não existe no schema material. Tentativa de SELECT quebrou bootstrap (smoke FAIL: "Não há actor disponível"). Reversão total em 3 arquivos. Lição operacional: tipo TS ≠ schema. DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD aberta. |
+
+### Gates rodados
+
+| Gate | Resultado |
+|---|---|
+| `pnpm tsc --noEmit` backend | ✅ exit=0 |
+| `pnpm tsc --noEmit` frontend | ✅ exit=0 |
+| `tsc -p tsconfig.build.json --noEmit` backend | ✅ exit=0 |
+| ESLint backend | ⏭️ pulado (sem `.eslintrc*` no workspace) |
+| ESLint frontend | ⏭️ pulado (eslint não instalado em node_modules) |
+| Jest backend (suite completa) | ⏭️ pulado (sem testes específicos para `actor-capabilities` ou `bank-integration`; rodar suite completa fora do escopo cirúrgico) |
+| Vitest frontend | ⏭️ pulado (pasta `frontend/tests` não existe) |
+
+### Smoke E2E via curl direto ao backend (porta 3000)
+
+Login OK para `joao.silva@teste.unificard.local`. 3 actors disponíveis (PF + Voltagem Bar Band + Clínica Sorrisos).
+
+```
+ITEM 3 BANK BALANCE:
+  3a (sem actorId, PF JWT-based):       balanceCents=0, hasAccount=true
+  3b (actorId=PF):                       balanceCents=0, hasAccount=true
+  3c (actorId=Voltagem Bar Band):        balanceCents=0, hasAccount=true (após correção: refletirá conta real)
+  3d (actorId=Clínica Sorrisos):         balanceCents=0, hasAccount=true (idem)
+
+ITEM 4 BANK STATEMENT:
+  4a (sem actorId):                      entries=[], hasMore=false
+  4b (actorId=Voltagem):                 entries=[], hasMore=false
+  4c (actorId=Clínica):                  entries=[], hasMore=false
+
+ITEM 7 CAPABILITIES:
+  7a PF (self):           11 caps + roleOnActor="self" + delegations=[]
+  7b Voltagem (staff):    13 caps (company.* via SSOT can_*) + role="staff"
+  7c Clínica (owner):     13 caps + roleOnActor="owner" + 1 delegação ATIVA do seed
+  7d Negative:            HTTP 403 "Actor not found or user has no authority"
+```
+
+Saldos zero não permitem validar diferença material entre actors. Causa: seed sem transações para essas contas. Não bloqueia fechar P1 — autoridade validada nos 4 actors corretamente.
+
+### Itens visuais pendentes
+
+- Item 1 (PF Consumir UI) — passou login + bootstrap confirmado por Clayton no browser
+- Item 2 (Trocar empresa UI) — PASS confirmado por Clayton no browser
+- Itens 5 (Botão Seguir) e 6 (Botão Pagar CTA) — **PENDENTE-SEM-SEED**. Não há perfis sociais nem posts de serviço com CTA no seed atual. Código está com `throw NOT_IMPLEMENTED`, callers têm try/catch. Validação visual fica para sessão com seed específico.
+
+### Arquivos tocados (12 backend + 4 frontend + 1 DT log)
+
+**Backend novos:**
+- `src/core/actor-capabilities/actor-capabilities.types.ts`
+- `src/core/actor-capabilities/actor-capabilities.service.ts`
+- `src/core/actor-capabilities/actor-capabilities.routes.ts`
+
+**Backend modificados:**
+- `src/core/bank/ports/bank-integration.port.ts` (novo método getActorBalance)
+- `src/modules/bank/bank-integration.service.ts` (implementação)
+- `src/modules/bank/adapters/bank-integration.adapter.ts` (expor)
+- `src/core/unifybank/bank-http.routes.ts` (?actorId= + correção hasAccount)
+- `src/core/unifybank/transparency.service.ts` (getActorStatement + helper)
+- `src/core/unifybank/transparency.routes.ts` (?actorId=)
+- `src/modules/social/actor.repository.ts` (alteração + REVERSÃO Frente C)
+- `src/app.builder.ts` (registro de /actors capabilities)
+
+**Frontend modificados:**
+- `src/api/social.ts` (quarentena 6 stubs + AvailableActor estendido + revertido)
+- `src/api/bank.ts` (parâmetro actorId opcional em balance e statement)
+- `src/hooks/useBusinessProfile.ts` (passa null após reversão Frente C)
+- `src/components/home/DashboardHome.tsx` (passa actor_id para bank quando não-user)
+
+**Institucional:**
+- `REMEDIATION_DT_LOG.md`: +7 DT entries (DT-PRESSURE-BANK-ACTOR-CONTEXT atualizada + 6 DTs novas)
+
+### DTs OPEN abertas/atualizadas nesta sessão
+
+1. **DT-PRESSURE-BANK-ACTOR-CONTEXT** — OPEN → mitigada em código (aguarda smoke browser final)
+2. **DT-CAPABILITY-RESOLVER-MVP-IMPLEMENTED** — MVP v1, v2 dinâmica adiada para P3
+3. **DT-PRESSURE-CONFIRM-CTA-FANTASMA** — endpoint backend inexistente
+4. **DT-FOLLOW-MECHANICS-DECISION-PENDING** — UnifiCard adota follow? Decisão humana
+5. **DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS** — 6 callers em social-ledger em extinção
+6. **DT-PRESSURE-COMMENTS-FANTASMA** — endpoint backend não confirmado
+7. **DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD** — coluna `companies.activity` ausente do schema material
+
+### Lições operacionais materializadas
+
+1. **"Frontend nunca cria verdade"** — aplicada continuamente. Detectou e corrigiu em tempo real:
+   - Mapeamento `role→capability_keys` paralelo a `company_users.can_*` SSOT (corrigido)
+   - `hasAccount: balanceCents > 0 || true` fake-success silencioso (corrigido)
+2. **"Código nunca presume schema sem verificar migration"** — variante registrada após FAIL crítico de Frente C. Tipo TS em `contracts/` ou `api/` é projeção; schema material em `migrations/` é realidade. Auditar migration antes de SELECT com coluna nova.
+
+### Próximas ações pendentes
+
+- Reinício de backend para correção `hasAccount` entrar em runtime (depende de Clayton)
+- Re-validação curl pós-reinício
+- Autorização para commits granulares (5-7 commits — princípio §29 `git add` específico)
+- Decisão sobre P2 (frente backend para migration `companies.activity` OU outra direção)
+
+### Coordenação institucional
+
+Coordenação Codex+Claude (memória `project_coordenacao_claude_codex.md`) preservada: este trabalho foi exceção pontual autorizada explicitamente. Brief para Codex registrado em `COORDENACAO_RESPOSTA_§4_CLAUDE_PARA_CODEX_2026-05-18.md` e `BRIEF_CODEX_QUARENTENA_STUBS_SOCIAL_2026-05-18.md`. Quando Codex retornar, tem material para retomar trabalhos sociais (DT-FOLLOW-MECHANICS, DT-SOCIAL-LEDGER-EXTINCTION).

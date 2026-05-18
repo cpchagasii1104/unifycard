@@ -1,21 +1,24 @@
 // src/modules/social/actor.repository.ts
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import type { ActorTypeDb } from '@core/social/actor-type';
 
 export interface ActorRow {
   actor_id: string;
   tenant_id: string;
-  actor_type: 'user' | 'page' | 'group' | 'channel';
+  actor_type: ActorTypeDb;
   user_id: string | null;
   company_id: string | null;
   group_id: string | null;
+  /** Âncora humana (FK actors.id); ver §4.8 LEI / migrations actor_responsibility */
+  responsible_actor_id: string | null;
   display_name: string;
   slug: string | null;
   avatar_url: string | null;
   cover_url: string | null;
   bio: string | null;
   metadata: any;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export class ActorRepository {
@@ -34,8 +37,9 @@ export class ActorRepository {
       tenantId,
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
+             responsible_actor_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM actors
       WHERE tenant_id = $1 AND actor_id = $2
       LIMIT 1
@@ -122,7 +126,7 @@ export class ActorRepository {
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM actors
       WHERE tenant_id = $1 AND user_id = $2 AND actor_type = 'user'
       LIMIT 1
@@ -141,8 +145,9 @@ export class ActorRepository {
       tenantId,
       `
       SELECT actor_id, tenant_id, actor_type, user_id, company_id, group_id,
+             responsible_actor_id,
              display_name, slug, avatar_url, cover_url, bio, metadata,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM actors
       WHERE tenant_id = $1 AND company_id = $2 AND actor_type = 'page'
       LIMIT 1
@@ -195,7 +200,7 @@ export class ActorRepository {
       tenantId,
       `
       UPDATE actors
-      SET display_name = $1, updatedAt = now()
+      SET display_name = $1, updated_at = now()
       WHERE actor_id = $2
       RETURNING *
       `,
@@ -210,7 +215,8 @@ export class ActorRepository {
    */
   async findOrCreatePageActor(
     tenantId: string,
-    companyId: string
+    companyId: string,
+    responsibleActorId: string
   ): Promise<ActorRow> {
     const existing = await runQueryWithTenant<ActorRow>(
       tenantId,
@@ -223,6 +229,23 @@ export class ActorRepository {
     );
 
     if (existing) {
+      const needsAnchor =
+        existing.responsible_actor_id == null &&
+        responsibleActorId &&
+        String(responsibleActorId).length > 0;
+      if (needsAnchor) {
+        const patched = await runQueryWithTenant<ActorRow>(
+          tenantId,
+          `
+          UPDATE actors
+          SET responsible_actor_id = $3, updated_at = now()
+          WHERE tenant_id = $1 AND actor_id = $2 AND responsible_actor_id IS NULL
+          RETURNING *
+          `,
+          [tenantId, existing.actor_id, responsibleActorId]
+        );
+        return patched || existing;
+      }
       return existing;
     }
 
@@ -251,12 +274,18 @@ export class ActorRepository {
       tenantId,
       `
       INSERT INTO actors (
-        tenant_id, actor_type, company_id, display_name, slug
+        tenant_id, actor_type, company_id, display_name, slug, responsible_actor_id
       )
-      VALUES ($1, 'page', $2, $3, $4)
+      VALUES ($1, 'page', $2, $3, $4, $5)
       RETURNING *
       `,
-      [tenantId, companyId, displayName, `page-${companyId.substring(0, 8)}`]
+      [
+        tenantId,
+        companyId,
+        displayName,
+        `page-${companyId.substring(0, 8)}`,
+        responsibleActorId,
+      ]
     );
 
     if (!newActor) {
@@ -304,25 +333,43 @@ export class ActorRepository {
 
     // 2. Actors de empresas onde o usuário tem permissão
     // Busca empresas via JOIN direto entre company_users e users usando global_user_id
-    const companyActors = await runQueriesWithTenant<ActorRow & { role: string; can_manage_company: boolean; company_status: string }>(
+    // LEFT JOIN company_types para expor slug (bootstrap contextual — Fase 1 capabilities)
+    // 2026-05-18 P1 Frente C — REVERTIDA após smoke FAIL crítico de bootstrap.
+    // Causa raiz: coluna `companies.activity` NÃO EXISTE no schema material
+    // (auditado em migration 0065 e seguintes). Tipo TS `Company.activity`
+    // em frontend/src/api/companies.ts é projeção tipográfica do contrato,
+    // não SSOT material. Adicionar `c.activity` ao SELECT quebrou a query
+    // em runtime → SessionProvider silenciava → "Não há actor disponível".
+    //
+    // Princípio operacional Clayton: confiar em tipo TS sem auditar migration
+    // é caminho para verdade paralela. Schema é SSOT, tipo é projeção.
+    //
+    // Propagação de activity.mainActivityDescription fica pendente em
+    // DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD até existir migration que
+    // adicione a coluna em `companies`. Por enquanto, businessProfile no
+    // frontend continua resolvendo apenas via heurística display_name.
+    const companyActors = await runQueriesWithTenant<ActorRow & { role: string; can_manage_company: boolean; company_status: string; company_type_slug: string | null }>(
       tenantId,
       `
-      SELECT 
+      SELECT
         a.*,
         cu.role,
         cu.can_manage_company,
-        c.company_status
+        c.company_status,
+        ct.slug AS company_type_slug
       FROM actors a
       INNER JOIN companies c ON a.company_id = c.company_id
       INNER JOIN company_users cu ON c.company_id = cu.company_id
       INNER JOIN users u ON cu.global_user_id = u.global_user_id
+      INNER JOIN tenants t ON a.tenant_id = t.id
+      LEFT JOIN company_types ct ON ct.id = t.company_type_id
       WHERE a.tenant_id = $1
         AND a.actor_type = 'page'
         AND u.user_id = $2
         AND u.tenant_id = $1
         AND cu.is_active = true
         AND c.status != 'suspended'
-      ORDER BY cu.is_primary DESC, c.createdAt DESC
+      ORDER BY cu.is_primary DESC, c.created_at DESC
       `,
       [tenantId, userId]
     );
