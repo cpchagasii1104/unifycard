@@ -38,6 +38,13 @@ export interface BusinessProfileDefinition {
    * este perfil, SUBSTITUI os intentGroups genéricos do PROFILE_PJ.
    */
   intentGroups: IntentGroup[];
+  /**
+   * Sidebar priorities específicas deste perfil. Quando presentes, são
+   * mergeadas (não substituem) com as priorities do actor profile no
+   * GlobalSidebar — princípio "prioriza, não esconde".
+   * Opcional: sem este campo, sidebar usa apenas priorities do actor.
+   */
+  sidebarPriorities?: string[];
 }
 
 export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition> = {
@@ -49,6 +56,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['band', 'banda', 'musica', 'musical', 'grupo musical', 'duo', 'trio', 'orquestra', 'coral', 'dj', 'mc '],
     suggestedQuickActions: ['shows-agenda', 'cache-pagamentos', 'equipe-tecnica', 'setlist-repertorio', 'venues-contratos', 'redes-fas'],
     tagline: 'shows, agenda e contratos em um só lugar',
+    sidebarPriorities: ['/eventos', '/perfil?tab=agenda', '/social', '/banco', '/extrato'],
     intentGroups: [
       {
         title: 'Tocar e produzir',
@@ -84,6 +92,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['clinica', 'clínica', 'consultorio', 'consultório', 'odonto', 'odontologica', 'medical', 'medica', 'saude', 'saúde', 'hospital', 'laboratorio', 'laboratório'],
     suggestedQuickActions: ['atender-paciente', 'agenda-clinica', 'prontuarios', 'equipe-saude', 'convenios-planos'],
     tagline: 'pacientes, agenda e prontuários organizados',
+    sidebarPriorities: ['/perfil?tab=agenda', '/services', '/banco', '/extrato', '/marketplace'],
     intentGroups: [
       {
         title: 'Atender pacientes',
@@ -119,6 +128,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['bar ', 'bar.', 'restaurante', 'pizzaria', 'lanchonete', 'cafe', 'café', 'cafeteria', 'churrascaria', 'pub', 'boteco', 'choperia', 'rotisseria', 'food', 'cozinha'],
     suggestedQuickActions: ['cardapio-precos', 'mesas-pedidos', 'comprar-insumos', 'equipe-salao', 'eventos-bar'],
     tagline: 'cardápio, mesas e operação do salão',
+    sidebarPriorities: ['/marketplace', '/eventos', '/banco', '/services', '/extrato'],
     intentGroups: [
       {
         title: 'Servir',
@@ -154,6 +164,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['loja', 'store', 'shop', 'boutique', 'magazine', 'moda', 'vestuario', 'vestuário', 'roupa', 'calcad', 'calçad', 'mercearia', 'minimercado', 'supermercad', 'mercado'],
     suggestedQuickActions: ['vender', 'estoque-produtos', 'pdv-caixa', 'catalogo-vitrine', 'promocoes', 'fidelidade-clientes'],
     tagline: 'estoque, vendas e vitrine sempre prontos',
+    sidebarPriorities: ['/marketplace', '/empresas', '/banco', '/extrato', '/services'],
     intentGroups: [
       {
         title: 'Vender',
@@ -189,6 +200,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['distribuidora', 'atacad', 'atacão', 'atacão', 'logistica', 'logística', 'transportadora', 'frete', 'cargo'],
     suggestedQuickActions: ['pedidos-b2b', 'estoque-produtos', 'rotas-entregas', 'fornecedores', 'condicoes-pagamento'],
     tagline: 'pedidos B2B, estoque e logística',
+    sidebarPriorities: ['/marketplace', '/empresas', '/banco', '/extrato', '/services'],
     intentGroups: [
       {
         title: 'Operar atacado',
@@ -224,6 +236,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['oficina', 'mecanica', 'mecânica', 'auto eletrica', 'auto elétrica', 'borracharia', 'assistencia', 'assistência tecnica', 'assistência técnica', 'conserto', 'reparo'],
     suggestedQuickActions: ['ordens-servico', 'agenda-oficina', 'pecas-estoque', 'orcamentos-os', 'tecnicos-equipe'],
     tagline: 'ordens de serviço, peças e agenda',
+    sidebarPriorities: ['/services', '/perfil?tab=agenda', '/marketplace', '/banco', '/extrato'],
     intentGroups: [
       {
         title: 'Atender clientes',
@@ -259,6 +272,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['escola', 'colegio', 'colégio', 'curso', 'academia', 'instituto', 'faculdade', 'ensino', 'school'],
     suggestedQuickActions: ['alunos-turmas', 'agenda-aulas', 'material-didatico', 'frequencia', 'mensalidades'],
     tagline: 'alunos, turmas e agenda acadêmica',
+    sidebarPriorities: ['/perfil?tab=agenda', '/eventos', '/banco', '/social', '/extrato'],
     intentGroups: [
       {
         title: 'Ensinar',
@@ -294,6 +308,7 @@ export const BUSINESS_PROFILES_CATALOG: Record<string, BusinessProfileDefinition
     displayNameKeywords: ['coletivo', 'associaca', 'associação', 'instituto', 'ong', 'fundaca', 'fundação', 'cooperativa', 'sindicato', 'movimento'],
     suggestedQuickActions: ['projetos-coletivos', 'voluntarios-equipe', 'doacoes-arrecadacao', 'votacoes-internas', 'prestacao-contas'],
     tagline: 'projetos, voluntários e transparência',
+    sidebarPriorities: ['/grupos', '/impacto', '/em-desenvolvimento?feature=votes', '/transparencia', '/banco'],
     intentGroups: [
       {
         title: 'Coordenar',

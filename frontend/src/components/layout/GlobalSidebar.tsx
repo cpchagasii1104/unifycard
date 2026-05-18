@@ -18,6 +18,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearSession } from '../../config/auth';
 import { useActorMode } from '../../hooks/useActorMode';
+import { useBusinessProfile } from '../../hooks/useBusinessProfile';
 import './GlobalSidebar.css';
 
 interface NavItem {
@@ -92,6 +93,7 @@ export default function GlobalSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useActorMode();
+  const { profile: businessProfile } = useBusinessProfile();
 
   const isActive = (item: NavItem): boolean => {
     const path = item.route.split('?')[0];
@@ -100,10 +102,17 @@ export default function GlobalSidebar() {
   };
 
   // 2026-05-15: priorityRoutes vêm do perfil contextual do actor ativo.
-  // Itens prioritários recebem destaque visual (badge "⭐ prioritário").
-  // NÃO escondemos itens — apenas marcamos visualmente. Mantém base estrutural
-  // universal conforme diretriz "actor = modo operacional".
-  const priorityRoutes = new Set(profile.sidebarPriorities);
+  // 2026-05-18 P2 item 5: businessProfile (banda/clínica/loja/etc) MERGE com
+  // priorities do actor — princípio "prioriza, não esconde" preservado.
+  // Sem businessProfile: priorities = profile.sidebarPriorities (legacy).
+  // Com businessProfile: union (Set) — destaque combinado, sem remoção.
+  // Itens prioritários recebem destaque visual (badge "● prioritário").
+  // NÃO escondemos itens — apenas marcamos visualmente. Mantém base
+  // estrutural universal conforme diretriz "actor = modo operacional".
+  const priorityRoutes = new Set([
+    ...profile.sidebarPriorities,
+    ...(businessProfile?.sidebarPriorities ?? []),
+  ]);
   const isPriority = (item: NavItem): boolean => priorityRoutes.has(item.route);
 
   const handleLogout = () => {

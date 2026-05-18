@@ -26,6 +26,7 @@ import { useProfessionalContext } from '../../hooks/useProfessionalContext';
 import { useBusinessProfile } from '../../hooks/useBusinessProfile';
 import { resolveIntentGroups, type ContextualOverlay } from '../../config/actorContextConfig';
 import OperatingModeToggle from '../layout/OperatingModeToggle';
+import InferredProfileCard from '../InferredProfileCard';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -418,6 +419,11 @@ export default function DashboardHome() {
             </div>
           )}
         </section>
+
+        {/* 2026-05-18 P2 item 4 — UI "isso é você?" (display honesto)
+            Renderiza apenas se backend retorna inferências reais (degradação graciosa).
+            Frontend NÃO infere — só projeta o que /actors/:id/inferred-profile retornou. */}
+        <InferredProfileCard />
 
         {/* Card destacado de Indicações */}
         {isUser && (
