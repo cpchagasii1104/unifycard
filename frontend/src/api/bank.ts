@@ -51,13 +51,21 @@ export interface BankStatement {
 }
 
 /**
- * Busca saldo atual (MFI) do usuário autenticado
+ * Busca saldo atual no Unify Bank.
+ *
+ * 2026-05-18 P1 — Bank actor-context (DT-PRESSURE-BANK-ACTOR-CONTEXT fechada).
+ * Quando `actorId` presente: backend valida authority via capability resolver
+ * e retorna saldo do actor (user/page/group). Sem `actorId`: saldo do user
+ * autenticado (comportamento legado).
+ *
+ * Frontend NUNCA infere saldo localmente — sempre delega ao backend.
  */
-export async function getBankBalance(): Promise<BankBalance> {
-  const response = await apiFetch('/bank/balance', {}, { silent401: true });
-  
+export async function getBankBalance(options?: { actorId?: string }): Promise<BankBalance> {
+  const qs = options?.actorId ? `?actorId=${encodeURIComponent(options.actorId)}` : '';
+  const response = await apiFetch(`/bank/balance${qs}`, {}, { silent401: true });
+
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403) {
       return {
         success: true,
         balanceCents: 0,
@@ -69,7 +77,7 @@ export async function getBankBalance(): Promise<BankBalance> {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(extractErrorMessage(errorData, `Erro ao buscar saldo: ${response.status}`));
   }
-  
+
   const data = await response.json();
   return data;
 }
@@ -116,16 +124,21 @@ export async function p2pTransfer(input: {
 }
 
 /**
- * Busca extrato financeiro do usuário autenticado
+ * Busca extrato financeiro.
+ *
+ * 2026-05-18 P1 — Bank actor-context. Quando `actorId` presente, backend
+ * valida authority e resolve extrato do actor (user/page/group).
+ * Frontend NUNCA infere — sempre delega ao backend.
  */
 export async function getBankStatement(options: {
   limit?: number;
   offset?: number;
   startDate?: Date;
   endDate?: Date;
+  actorId?: string;
 } = {}): Promise<BankStatement> {
-  const { limit = 50, offset = 0, startDate, endDate } = options;
-  
+  const { limit = 50, offset = 0, startDate, endDate, actorId } = options;
+
   const params = new URLSearchParams();
   params.append('limit', limit.toString());
   params.append('offset', offset.toString());
@@ -135,11 +148,14 @@ export async function getBankStatement(options: {
   if (endDate) {
     params.append('endDate', endDate.toISOString());
   }
+  if (actorId) {
+    params.append('actorId', actorId);
+  }
 
   const response = await apiFetch(`/bank/statement?${params.toString()}`, {}, { silent401: true });
-  
+
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403) {
       return {
         entries: [],
         total: 0,
@@ -149,13 +165,13 @@ export async function getBankStatement(options: {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(extractErrorMessage(errorData, `Erro ao buscar extrato: ${response.status}`));
   }
-  
+
   const data = await response.json();
-  
+
   if (!data.statement) {
     throw new Error('Resposta inválida do servidor');
   }
-  
+
   return data.statement;
 }
 

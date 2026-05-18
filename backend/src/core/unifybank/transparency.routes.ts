@@ -13,6 +13,9 @@ const statementQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional().default(0),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
+  // 2026-05-18 P1 — actor-context. Quando presente, valida authority via
+  // actorCapabilitiesService e resolve extrato por actor (user/page/group).
+  actorId: z.string().uuid().optional(),
 });
 
 const regionalFundQuerySchema = z.object({
@@ -28,72 +31,7 @@ const adminRegionalFundQuerySchema = z.object({
 });
 
 const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * GET /bank/balance
-   * Obtém saldo atual (MFI) do usuário autenticado
-   * 
-   * Autenticação: OBRIGATÓRIA (JWT)
-   * 
-   * Respostas:
-   * - 200: Saldo retornado com sucesso
-   * - 401: Não autenticado
-   */
-  fastify.get('/balance', async (req, reply) => {
-    if (!req.user || !req.user.id) {
-      return reply.status(200).send({
-        success: true,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
-    }
-
-    if (!req.tenant || !req.tenant.id) {
-      return reply.status(200).send({
-        success: true,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
-    }
-
-    const tenantId = req.tenant.id;
-    const userId = req.user.id;
-
-    // Resolver globalUserId
-    const globalUserId = await resolveGlobalUserId(userId, tenantId);
-    if (!globalUserId) {
-      return reply.status(200).send({
-        success: true,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
-    }
-
-    try {
-      const { bankPortsRegistry } = await import('@core/bank/ports-registry');
-      const bankIntegration = bankPortsRegistry.getBankIntegration();
-      const balance = await bankIntegration.getUserBalance(tenantId, userId, 'BRL');
-
-      return reply.status(200).send({
-        success: true,
-        balance,
-        currency: 'BRL',
-        hasAccount: true,
-      });
-    } catch (error) {
-      const err = error as Error;
-      fastify.log.error({ err: error, userId, tenantId }, 'Error fetching user balance');
-      // Sempre retornar 200 com saldo 0 em caso de erro
-      return reply.status(200).send({
-        success: true,
-        balance: 0,
-        currency: 'BRL',
-        hasAccount: false,
-      });
-    }
-  });
+  // GET /bank/balance → bank-http.routes.ts (resposta canónica com balanceCents + balance legado)
 
   /**
    * GET /bank/statement
@@ -169,12 +107,35 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const result = await transparencyService.getUserStatement(tenantId, globalUserId, {
-        limit: parsed.data.limit,
-        offset: parsed.data.offset,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-      });
+      let result;
+      if (parsed.data.actorId) {
+        // 2026-05-18 P1 — actor-context. Valida authority via capability resolver.
+        const { actorCapabilitiesService } = await import('@core/actor-capabilities/actor-capabilities.service');
+        const caps = await actorCapabilitiesService.resolveForUser(tenantId, parsed.data.actorId, userId);
+        if (!caps) {
+          return reply.status(403).send({ error: 'User has no authority over this actor' });
+        }
+        const allowed = caps.capabilities.includes('bank.view_balance')
+          || caps.capabilities.includes('company.view_reports')
+          || caps.capabilities.includes('company.manage_financial')
+          || caps.capabilities.includes('company.manage_company');
+        if (!allowed) {
+          return reply.status(403).send({ error: 'Authority over actor present but no capability to view statement' });
+        }
+        result = await transparencyService.getActorStatement(tenantId, parsed.data.actorId, {
+          limit: parsed.data.limit,
+          offset: parsed.data.offset,
+          startDate: parsed.data.startDate,
+          endDate: parsed.data.endDate,
+        });
+      } else {
+        result = await transparencyService.getUserStatement(tenantId, globalUserId, {
+          limit: parsed.data.limit,
+          offset: parsed.data.offset,
+          startDate: parsed.data.startDate,
+          endDate: parsed.data.endDate,
+        });
+      }
 
       // ✅ Sempre retornar 200, mesmo se não houver conta (resultado vazio)
       return reply.status(200).send({
@@ -183,7 +144,7 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
       });
     } catch (error) {
       const err = error as Error;
-      fastify.log.error({ err: error, userId, tenantId, globalUserId }, 'Error fetching user statement');
+      fastify.log.error({ err: error, userId, tenantId, globalUserId, actorId: parsed.data.actorId }, 'Error fetching user statement');
       // 🔴 NUNCA retornar 500 - sempre retornar 200 com payload vazio
       return reply.status(200).send({
         success: true,

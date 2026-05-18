@@ -44,6 +44,20 @@ export interface BankIntegrationPort {
     userId: string,
     currency?: BankCurrency
   ): Promise<number>;
+
+  /**
+   * 2026-05-18 P1 — Bank actor-context.
+   * Resolve saldo de um actor (user, page, group). Authority deve ser
+   * validada pelo caller ANTES (via actorCapabilitiesService). Este port
+   * apenas resolve actor → conta apropriada e consulta saldo.
+   *
+   * Retorna 0 quando actor não tem conta ou actor_type não suportado.
+   */
+  getActorBalance(
+    tenantId: string,
+    actorId: string,
+    currency?: BankCurrency
+  ): Promise<number>;
 }
 
 

@@ -119,11 +119,18 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /bank/balance
    * Saldo do utilizador autenticado (centavos inteiros — §4.7).
+   *
+   * 2026-05-18 P1 — aceita ?actorId= opcional para resolver saldo por actor.
+   * Quando actorId presente: valida authority via actorCapabilitiesService
+   * (mesma cadeia de SSOT: actors + company_users + actor_delegations) e
+   * resolve saldo do actor (user/page/group). Sem actorId: comportamento
+   * legado (saldo do user autenticado).
+   * Fecha DT-PRESSURE-BANK-ACTOR-CONTEXT.
    */
-  fastify.get('/balance', async (req, reply) => {
+  fastify.get<{ Querystring: { actorId?: string } }>('/balance', async (req, reply) => {
     const requestId = bankHttpReqId(req);
     reply.header('x-request-id', requestId);
-    req.log.info({ requestId, route: 'GET /bank/balance' }, 'bank.http.balance');
+    req.log.info({ requestId, route: 'GET /bank/balance', actorId: req.query.actorId }, 'bank.http.balance');
 
     if (!req.user?.id) {
       return reply.status(200).send({
@@ -147,6 +154,7 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
 
     const tenantId = req.tenant.id;
     const userId = req.user.id;
+    const actorIdParam = req.query.actorId;
 
     const globalUserId = await resolveGlobalUserId(userId, tenantId);
     if (!globalUserId) {
@@ -161,16 +169,65 @@ const bankHttpRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const bankIntegration = bankPortsRegistry.getBankIntegration();
-      const balanceCents = await bankIntegration.getUserBalance(tenantId, userId, 'BRL');
+
+      // Caminho legado: sem actorId → saldo do user
+      if (!actorIdParam) {
+        const balanceCents = await bankIntegration.getUserBalance(tenantId, userId, 'BRL');
+        return reply.status(200).send({
+          success: true,
+          balanceCents,
+          balance: balanceCents,
+          currency: 'BRL',
+          hasAccount: true,
+        });
+      }
+
+      // Caminho novo: valida authority via capability resolver e resolve por actor.
+      // actorCapabilitiesService retorna null se user sem authority sobre actor.
+      const { actorCapabilitiesService } = await import('@core/actor-capabilities/actor-capabilities.service');
+      const caps = await actorCapabilitiesService.resolveForUser(tenantId, actorIdParam, userId);
+      if (!caps) {
+        return sendBankError(reply, req, 403, 'FORBIDDEN', 'User has no authority over this actor');
+      }
+      // Verifica capability mínima (bank.view_balance — base de user; company.view_reports — page com permissão; sempre presente para owner/director)
+      const allowed = caps.capabilities.includes('bank.view_balance') || caps.capabilities.includes('company.view_reports') || caps.capabilities.includes('company.manage_financial') || caps.capabilities.includes('company.manage_company');
+      if (!allowed) {
+        return sendBankError(reply, req, 403, 'FORBIDDEN', 'Authority over actor present but no capability to view balance');
+      }
+      // hasAccount reflete realidade material: getActorBalance resolve actor → conta;
+      // se conta não existe, retorna 0 e hasAccount=false. Quando conta existe mas
+      // saldo é zero, hasAccount=true. Sem fake success.
+      const balanceCents = await bankIntegration.getActorBalance(tenantId, actorIdParam, 'BRL');
+      const accountResolved = await (async () => {
+        // Re-resolve para distinguir "actor sem conta" de "conta com saldo zero"
+        const { bankAccountService } = await import('@modules/bank/bank-account.service');
+        const { runQueryWithTenant } = await import('@core/database/pool');
+        const actorRow = await runQueryWithTenant<{ actor_type: string; user_id: string | null; company_id: string | null; group_id: string | null }>(
+          tenantId,
+          `SELECT actor_type, user_id, company_id, group_id FROM actors WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1`,
+          [tenantId, actorIdParam]
+        );
+        if (!actorRow) return false;
+        if (actorRow.actor_type === 'user' && actorRow.user_id) {
+          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.user_id, 'user', 'BRL'));
+        }
+        if (actorRow.actor_type === 'page' && actorRow.company_id) {
+          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.company_id, 'company', 'BRL'));
+        }
+        if (actorRow.actor_type === 'group' && actorRow.group_id) {
+          return !!(await bankAccountService.getAccountByOwner(tenantId, actorRow.group_id, 'company', 'BRL'));
+        }
+        return false;
+      })();
       return reply.status(200).send({
         success: true,
         balanceCents,
         balance: balanceCents,
         currency: 'BRL',
-        hasAccount: true,
+        hasAccount: accountResolved,
       });
     } catch (err) {
-      req.log.error({ err, requestId, userId, tenantId }, 'bank.http.balance.error');
+      req.log.error({ err, requestId, userId, tenantId, actorId: actorIdParam }, 'bank.http.balance.error');
       return reply.status(200).send({
         success: true,
         balanceCents: 0,

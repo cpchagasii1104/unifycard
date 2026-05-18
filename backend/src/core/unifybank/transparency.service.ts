@@ -214,8 +214,6 @@ class TransparencyService {
     globalUserId: string,
     options: { limit?: number; offset?: number; startDate?: Date; endDate?: Date } = {}
   ): Promise<StatementResult> {
-    const { limit = 50, offset = 0, startDate, endDate } = options;
-
     // 1. Resolver conta principal do usuário no Unify Bank
     const userId = await this.getUserIdFromGlobalId(tenantId, globalUserId);
     if (!userId) {
@@ -227,16 +225,71 @@ class TransparencyService {
     const userAccount = await bankAccount.getAccountByOwner(tenantId, userId, 'user', 'BRL');
     if (!userAccount) {
       // Sem conta bancária: retornar extrato vazio (não é erro)
-      return {
-        entries: [],
-        totalCents: 0,
-        hasMore: false,
-      };
+      return { entries: [], totalCents: 0, hasMore: false };
     }
+    return this._getStatementForAccount(tenantId, userAccount.accountId, options);
+  }
 
-    const accountId = userAccount.accountId;
+  /**
+   * 2026-05-18 P1 — Bank actor-context.
+   * Obtém extrato financeiro por actor. Resolve actor → conta apropriada
+   * (user/page/group) e delega para _getStatementForAccount.
+   *
+   * Authority do user sobre o actor DEVE ser validada pelo caller ANTES
+   * (via actorCapabilitiesService). Este método apenas resolve actor → conta.
+   */
+  async getActorStatement(
+    tenantId: string,
+    actorId: string,
+    options: { limit?: number; offset?: number; startDate?: Date; endDate?: Date } = {}
+  ): Promise<StatementResult> {
+    const client = await getClientWithTenant(tenantId);
+    let actorRow: { actor_type: string; user_id: string | null; company_id: string | null; group_id: string | null } | null = null;
+    try {
+      const r = await client.query<{
+        actor_type: string;
+        user_id: string | null;
+        company_id: string | null;
+        group_id: string | null;
+      }>(
+        `SELECT actor_type, user_id, company_id, group_id FROM actors WHERE tenant_id = $1 AND actor_id = $2 LIMIT 1`,
+        [tenantId, actorId]
+      );
+      actorRow = r.rows[0] ?? null;
+    } finally {
+      client.release();
+    }
+    if (!actorRow) {
+      return { entries: [], totalCents: 0, hasMore: false };
+    }
+    const bankAccount = bankPortsRegistry.getBankAccount();
+    let account = null as Awaited<ReturnType<typeof bankAccount.getAccountByOwner>> | null;
+    if (actorRow.actor_type === 'user' && actorRow.user_id) {
+      account = await bankAccount.getAccountByOwner(tenantId, actorRow.user_id, 'user', 'BRL');
+    } else if (actorRow.actor_type === 'page' && actorRow.company_id) {
+      account = await bankAccount.getAccountByOwner(tenantId, actorRow.company_id, 'company', 'BRL');
+    } else if (actorRow.actor_type === 'group' && actorRow.group_id) {
+      account = await bankAccount.getAccountByOwner(tenantId, actorRow.group_id, 'company', 'BRL');
+    }
+    if (!account) {
+      return { entries: [], totalCents: 0, hasMore: false };
+    }
+    return this._getStatementForAccount(tenantId, account.accountId, options);
+  }
 
-    // 2. Buscar entradas do bank_ledger para essa conta
+  /**
+   * Helper privado — query SQL de extrato para um accountId resolvido.
+   * Compartilhado por getUserStatement e getActorStatement.
+   * Não duplica lógica; refator localizado para suporte de actor-context.
+   */
+  private async _getStatementForAccount(
+    tenantId: string,
+    accountId: string,
+    options: { limit?: number; offset?: number; startDate?: Date; endDate?: Date }
+  ): Promise<StatementResult> {
+    const { limit = 50, offset = 0, startDate, endDate } = options;
+
+    // Buscar entradas do bank_ledger para essa conta
     const client = await getClientWithTenant(tenantId);
 
     try {

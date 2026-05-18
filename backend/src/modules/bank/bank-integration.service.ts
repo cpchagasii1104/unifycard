@@ -711,6 +711,62 @@ class BankIntegrationService {
   }
 
   /**
+   * 2026-05-18 P1 — Bank actor-context.
+   * Obtém saldo de um actor (user/page/group/channel).
+   * Resolve actor → owner apropriado via `actors` table → conta bank.
+   *
+   * Authority do user sobre o actor DEVE ser validada pelo caller ANTES
+   * (via actorCapabilitiesService.resolveForUser). Este método apenas
+   * resolve actor → conta e consulta saldo.
+   *
+   * @returns Centavos inteiros (§4.7). Retorna 0 se actor não tem conta.
+   */
+  async getActorBalance(
+    tenantId: string,
+    actorId: string,
+    currency: BankCurrency = 'BRL'
+  ): Promise<MoneyCents> {
+    const actorRow = await runQueryWithTenant<{
+      actor_type: string;
+      user_id: string | null;
+      company_id: string | null;
+      group_id: string | null;
+    }>(
+      tenantId,
+      `
+      SELECT actor_type, user_id, company_id, group_id
+      FROM actors
+      WHERE tenant_id = $1 AND actor_id = $2
+      LIMIT 1
+      `,
+      [tenantId, actorId]
+    );
+    if (!actorRow) {
+      return asMoneyCents(0);
+    }
+
+    if (actorRow.actor_type === 'user' && actorRow.user_id) {
+      return await this.getUserBalance(tenantId, actorRow.user_id, currency);
+    }
+    if (actorRow.actor_type === 'page' && actorRow.company_id) {
+      const account = await bankAccountService.getAccountByOwner(
+        tenantId,
+        actorRow.company_id,
+        'company',
+        currency
+      );
+      if (!account) return asMoneyCents(0);
+      const balance = await bankAccountService.getBalance(tenantId, account.accountId);
+      return asMoneyCents(balance.balanceCents);
+    }
+    if (actorRow.actor_type === 'group' && actorRow.group_id) {
+      return await this.getGroupBalance(tenantId, actorRow.group_id, currency);
+    }
+    // channel não tem conta dedicada hoje — retorna 0
+    return asMoneyCents(0);
+  }
+
+  /**
    * Obtém saldo do organizador de evento
    * @returns Centavos inteiros (§4.7).
    */
