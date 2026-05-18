@@ -2914,3 +2914,169 @@ Sobre formalizar DECISION-0044 (PO/inventory pipeline pattern): NÃO formalizada
 nesta sessão. Princípio 6 da DECISION-0043 ("DECISION posterior à validação")
 exige pattern validar end-to-end antes de cristalizar. Smoke parou no ELO 2 v2
 sem completar a cadeia. Pattern aguarda validação real em sessão futura.
+
+---
+
+## DT-PIX-LEDGER-ALIMENTATION-AMBIGUITY
+
+- **Status:** OPEN
+- **Origem:** Auditoria estrutural 2026-05-18 (R5 — leitura profunda
+  pré-fix) — descobriu ambiguidade arquitetural não resolvível por fix cirúrgico
+- **Vinculada a:** nenhuma DECISION arbitrando contrato PIX↔ledger
+- **Contexto:**
+  `payment-execution.service.ts:1463-1467` (`markPixPaymentAsSuccess`) marca
+  `payment_transactions.status='SUCCESS'` quando webhook PIX confirma, armazenando
+  `pixChargeId` no campo `bank_transaction_id`:
+
+  ```ts
+  const successTransaction = await paymentTransactionRepository.markAsSuccess(
+    tenantId,
+    pendingTransaction.id,
+    pixChargeId // Usar pixChargeId como identificador
+  );
+  ```
+
+  Função **NÃO** chama `bankTransactionService.transfer` — `bank_ledger` não é
+  alimentado neste fluxo. `bank_transaction_id` armazena ID do PIX charge, não
+  de uma row em `bank_transactions`.
+
+  **Ambiguidade arquitetural:** unclear se:
+  - (a) settlement do PIX vem por OUTRO fluxo assíncrono (e neste caso o status
+    SUCCESS sem ledger é estado transitório intencional, esperando settlement
+    que alimentará o ledger depois), OU
+  - (b) é bug — payment marcado SUCCESS sem dinheiro entrar no ledger soberano
+
+  Diferença material:
+  - Se (a): documentar contrato, anotar campo metadata.settlement_pending,
+    timeline esperada, worker que alimenta ledger depois
+  - Se (b): chamar `bankTransactionService.transfer` no webhook OU mover
+    `markAsSuccess` para o callback do settlement
+
+- **Risco:**
+  - Fluxos downstream (fulfillment, accounts-receivable, settlement, loyalty,
+    fiscal) confiam em `payment_transactions.status='SUCCESS'` para acionar
+    side-effects (cf. `payment-execution.service.ts:524-790`)
+  - Se settlement async nunca chegar (gateway perde callback, retry esgotado):
+    produto enviado, contabilizado, sem dinheiro real no ledger
+  - Bank ledger é SSOT financeiro absoluto (LEI §4.6) — divergência semântica
+    entre "pagamento ocorreu" e "ledger reflete" viola invariante de soberania
+
+- **Mitigação atual:**
+  - `paymentTransactionRepository` armazena `pixChargeId` como rastro
+  - `gateway_webhook_events` idempotência DB-level previne replay de webhook
+  - Auditoria pre-fix R5 PAROU antes de "corrigir" (princípio explícito Clayton
+    2026-05-18: "Se houver ambiguidade arquitetural: parar, reportar, NÃO corrigir")
+  - Nenhuma mitigação técnica no momento — apenas registro
+
+- **Resolução prevista:**
+  Frente arquitetural própria — DECISION formal sobre quando bank_ledger é
+  alimentado em fluxo PIX. Pré-requisito: auditoria de qual settlement async
+  existe (se algum). Caminhos possíveis:
+  - DECISION-X: PIX alimenta ledger no webhook (chama bankTransactionService.transfer)
+  - DECISION-Y: PIX tem settlement async separado, ledger alimentado por worker
+    dedicado lendo de pix_charges + payment_transactions
+  - DECISION-Z: PIX é registrado em ledger paralelo (pix_ledger?) e reconciliado
+    com bank_ledger via job
+
+  NÃO tocar `markPixPaymentAsSuccess` sem essa DECISION. Pattern Clayton:
+  "bug confirmado → corrigir; causalidade não explicitada → DECISION".
+
+---
+
+## DT-EVENT-FINANCIAL-EXECUTION-ORPHAN-RECOVERY
+
+- **Status:** OPEN (adiada por decisão Clayton 2026-05-18)
+- **Origem:** Auditoria estrutural 2026-05-18 (R2 — escopo de blindagem
+  cirúrgica, item adiado por análise pós-R5)
+- **Vinculada a:** R1 (Fix 1 commit `35b45451` — comentário inline em
+  `post-event-split.job.ts` aponta para esta DT)
+- **Contexto:**
+  `post-event-split.job.ts:67-93` reivindica linha de `event_financial_execution`
+  via UPDATE `WHERE status='pending'` atómico → status='processing'. Loop processa
+  participantes chamando `escrowService.release`. Ao final, marca status='completed'.
+
+  Cenário de orphan: se job crashar **entre** claim (status='processing') e
+  `.complete` final, status fica `'processing'` permanente.
+
+  Próxima execução do cron NÃO reentra (claim só pega `'pending'`). Pagamentos
+  parciais persistem sem recovery automático.
+
+  Mecanismo de claim atual:
+  ```ts
+  UPDATE event_financial_execution efe
+  SET status = 'processing', updated_at = now()
+  FROM events e
+  WHERE e.id = efe.event_id
+    AND e.tenant_id = efe.tenant_id
+    AND e.tenant_id = $1
+    AND efe.event_id = $2
+    AND efe.status = 'pending'
+  RETURNING efe.id
+  ```
+
+  Funciona perfeitamente em fluxo feliz. Falha apenas em recovery pós-crash.
+
+  **Hoje INATIVO:** `escrowService.release` é stub vazio (`escrow.service.ts:322-334`).
+  Loop sempre completa sem fazer nada de fato; status='processing' nunca persiste
+  porque chega rapidamente ao `.complete`. Orphan é teórico em runtime atual.
+
+  **Vira ATIVO** quando event-escrow event-based for implementado E houver
+  crash real no meio do loop.
+
+- **Risco:**
+  - Latente hoje (release stub no-op em runtime)
+  - Ativo quando event-escrow for implementado: estado parcial não recuperável,
+    participantes pagos enquanto outros não, ledger íntegro mas processo morto
+  - **Bomba operacional silenciosa** antes de produção em escala real (texto
+    literal Clayton 2026-05-18)
+
+- **Mitigação atual:**
+  - Fix 1 (commit `35b45451`) — `idempotencyKey` determinístico previne double
+    payout SE alguém retomar manualmente (re-rodar o job não duplica, mas também
+    não reentra automaticamente)
+  - Comentário inline em `post-event-split.job.ts:66-74` aponta para esta DT
+    como sinalização para próxima IA/dev tocar o arquivo
+  - HARD LOCK temporal (`post-event-split.job.ts:96-105`) impede release antes
+    de `event.status='ended'` AND `datetime_end <= now()` — limita janela de
+    crash para período pós-evento
+
+- **Resolução prevista:**
+  Frente própria — mecanismo de reclaim baseado em idade. NÃO improvisar.
+  Recovery automático em fluxo financeiro carrega risco real de replay sobre
+  pagamento parcialmente liquidado.
+
+  Estratégia preferencial (proposta para frente futura, NÃO autorizada):
+  - Adicionar `processing_started_at TIMESTAMPTZ` em `event_financial_execution`
+  - Worker dedicado (ou reuso de `saga-timeout.worker.ts` adaptado) que detecta
+    `status='processing' AND processing_started_at < NOW() - INTERVAL '10 min'`
+  - Antes de reset → verificar se houve release material no intervalo (consulta
+    a `escrow_transactions` ou tabela equivalente quando implementada)
+  - Reset CONTROLADO para `'pending'` apenas se NENHUMA release material
+    ocorreu — fail-safe contra replay
+
+  **Critério de implementação obrigatória:** antes de produção em escala real
+  (qualquer fluxo em que `escrowService.release` deixe de ser stub E job rode
+  em ambiente sem supervisão humana imediata).
+
+  Marker temporal: registrar agora, executar quando event-escrow event-based
+  entrar em pipeline de implementação.
+
+---
+
+## Convergência das 2 DTs do Fix 4 (blindagem cirúrgica 2026-05-18)
+
+As 2 DTs acima foram registradas como **parte deliberada** do escopo de blindagem
+cirúrgica. Nenhuma virou fix técnico nesta sessão. Razões distintas:
+
+| DT | Razão para NÃO fixar |
+|---|---|
+| DT-PIX-LEDGER-ALIMENTATION-AMBIGUITY | Ambiguidade arquitetural — precisa DECISION humana antes de qualquer alteração em fluxo PIX |
+| DT-EVENT-FINANCIAL-EXECUTION-ORPHAN-RECOVERY | Latente hoje (release stub no-op) — fix de recovery sem dinheiro real para recuperar é ginástica; adiar até event-escrow ser implementado |
+
+Princípio operacional Clayton 2026-05-18:
+> "Bug confirmado → corrigir. Causalidade não explicitada → DECISION.
+> Risco latente → registrar + adiar. Recovery automático em fluxo financeiro
+> é mais perigoso que problema."
+
+Disciplina respeitada: nenhum fix de oportunidade no meio de escopo cirúrgico
+autorizado. Ambas as DTs aguardam frente própria com autorização explícita.
