@@ -4613,3 +4613,96 @@ Saldos zero não permitem validar diferença material entre actors. Causa: seed 
 ### Coordenação institucional
 
 Coordenação Codex+Claude (memória `project_coordenacao_claude_codex.md`) preservada: este trabalho foi exceção pontual autorizada explicitamente. Brief para Codex registrado em `COORDENACAO_RESPOSTA_§4_CLAUDE_PARA_CODEX_2026-05-18.md` e `BRIEF_CODEX_QUARENTENA_STUBS_SOCIAL_2026-05-18.md`. Quando Codex retornar, tem material para retomar trabalhos sociais (DT-FOLLOW-MECHANICS, DT-SOCIAL-LEDGER-EXTINCTION).
+
+
+---
+
+## Checkpoint EXECUCAO_MATERIAL_P2 — 2026-05-18 (Home Contextual P2 completo)
+
+### Modo
+Sessão Claude EXECUCAO_MATERIAL_P2 sob exceção operacional ampliada por Clayton (continuidade frontend sem Codex). Backend + frontend desta frente Claude. Coordenação institucional Claude+Codex preservada — fora dessa exceção pontual a alçada de frontend volta ao Codex.
+
+### Frentes P2 (todas 6 do roadmap memorial fechadas)
+
+| # | Item | Status | Commit | Endpoint/Componente |
+|---|---|---|---|---|
+| 1 | Recent counterparts (semente Índice de Coordenação Humana) | ✅ | `43d30917` | `GET /actors/:id/recent-counterparts` |
+| 2 | Home Feed multi-vetor v1 (Compromisso + Convite) | ✅ | `43d30917` | `GET /actors/:id/home-feed` |
+| 3 | Profile Inference MVP (event affinities + communities) | ✅ | `43d30917` | `GET /actors/:id/inferred-profile` |
+| 4 | UI "isso é você?" (display honesto v1) | ✅ | `b3107ce3` | `InferredProfileCard.tsx` integrado em DashboardHome |
+| 5 | Sidebar adaptativa por businessProfile | ✅ | `b3107ce3` | `BusinessProfileDefinition.sidebarPriorities` + merge UNION em `GlobalSidebar` |
+| 6 | Vetor Recorrência v1 (heurística DOW + threshold 3+) | ✅ | `43d30917` | integrado ao `home-feed.service.ts` |
+
+**Backend: 4 itens fechados** (1, 2, 3, 6). **Frontend: 2 itens fechados** (4, 5).
+
+### Volume material P2 total
+- 17 arquivos (13 novos + 4 modificações)
+- 1.363 linhas adicionadas (984 backend + 379 frontend)
+- 5 endpoints novos (4 backend + 1 consumer frontend)
+- 3 módulos backend novos: `core/actor-coordination/`, `core/home-feed/`, `core/profile-inference/`
+- 1 componente frontend novo: `InferredProfileCard`
+- 4 registros em `app.builder.ts` (todos sob `protectedScope`, prefix `/actors`)
+- TS check exit=0 backend e frontend
+- Zero migration DDL · zero nova soberania · zero verdade paralela
+
+### Smoke E2E via curl direto contra runtime
+- 16+ cenários PASS (4 endpoints × 4 cenários cada)
+- 1 dado material real validado: community **"Vizinhos do Centro"** (PF João Silva, member desde 2026-05-15) via JOIN cross-domain `actors → users → group_members → groups`
+- Negative tests (HTTP 403) PASS em todos os endpoints — capability resolver validando authority como esperado
+- Demais retornos: `items=[]` / `counterparts=[]` / `eventTypeAffinities=[]` (esperado por seed sem volume de dados)
+
+### Gates rodados
+- `tsc --noEmit` backend: exit=0
+- `tsc --noEmit` frontend: exit=0
+- ESLint backend: pulado (sem `.eslintrc*` configurado)
+- ESLint frontend: pulado (não instalado em node_modules)
+- Jest backend: pulado (sem suite específica para estes módulos novos)
+- Vitest frontend: pulado (pasta `frontend/tests` não existe)
+
+### DTs registradas nesta frente
+Nenhuma DT nova nesta sessão P2 — tudo foi implementação dentro do modelo congelado (`project_home_contextual_modelo_2026-05-18.md`) sem descoberta de drift novo. As 7 DTs do P1 permanecem registradas e relevantes.
+
+### Smoke browser PENDENTE
+P2 inteiro foi validado via curl backend mas **não foi rodado no browser**. Risco honesto: erro de integração visual (CSS, hooks, ordem de render) que só aparece em runtime visual. Item 4 (`InferredProfileCard`) tem mais risco visual por ser componente novo na home.
+
+### Princípios operacionais aplicados (continuidade da disciplina P1)
+1. **"Frontend nunca cria verdade"** — InferredProfileCard só renderiza response do backend; useBusinessProfile resolve via heurística declarada com fonte rastreável
+2. **"Código nunca presume schema sem verificar migration"** — auto-vigilância pegou `groups.display_name` (errado) → `groups.name` (real) ANTES do smoke; segunda aplicação material da regra
+3. **"Módulo não possui verdade própria"** — 3 módulos novos backend = PROJEÇÃO DERIVADA de SSOT (bank_splits, event_reservations, group_invites, event_attendees, group_members intactos)
+4. **Authority validation reaproveitada** — capability resolver chamado em todos os 4 endpoints; sem duplicação
+5. **Anti-inflar** — Vetor Recorrência integrado ao home-feed (não criou módulo separado); item 5 reaproveita useBusinessProfile e estende BusinessProfileDefinition em vez de criar abstração
+6. **"Frontend não antecipa verdade material"** — item 4 NÃO inclui botões "validar/negar" porque NÃO existe endpoint backend de feedback; sem simular validação sem onde gravar
+7. **Heurística sem IA** — Recorrência usa EXTRACT DOW + COUNT + threshold; profile-inference usa COUNT + ORDER BY. Pattern detection puro, sem opaco, sem caching de verdade
+
+### Limites institucionais respeitados
+- Sem migration DDL (limite vinculante)
+- Sem DECISION arquitetural nova
+- Sem alteração de norma soberana
+- Sem commit sem autorização explícita (3 commits autorizados por Clayton: 43d30917 backend + b3107ce3 frontend + chore institucional)
+- Coordenação Codex+Claude preservada (exceção pontual ampliada, não permanente)
+
+### Próximas decisões pendentes (não-bloqueantes)
+- Smoke browser P2 (Clayton executa)
+- P3 RFQ + matching + booking — **3 versões possíveis** (A: amadurecer pedaços / B: orchestrator transversal / C: vertical específica); explicação material entregue a Clayton em sessão atual
+- P3 Reputação operacional — exige decisões humanas (privacidade, threshold, opt-in)
+- P3 `relationships_cache` materialized view — exige migration DDL (autorização explícita necessária)
+- P3 `contexto_situacional.service` v1 — cabe em sessão se autorizar
+- Refator dos 6 callers de `getLedger` (DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS) — frente própria
+- Resposta institucional ao Codex quando retornar (briefs P1 já registrados)
+
+### Estado consolidado pós-P2
+Home Contextual UnifiCard agora tem:
+- Authority resolution (capability resolver MVP — P1)
+- Bank actor-context (saldo correto por actor — P1)
+- UX contextual (intentGroups + businessProfile + dropdown universal + mode badge — P1)
+- Quarentena de stubs falsos (api/social.ts — P1)
+- Coordenação derivada (recent-counterparts — P2)
+- Feed multi-vetor v1 (Compromisso + Convite + Recorrência — P2)
+- Profile inferido (event affinities + communities — P2)
+- UI honesta de inferências (InferredProfileCard — P2)
+- Sidebar adaptativa businessProfile (P2)
+
+Total: **8 commits limpos** desde início do P1 (fd0b9996 → b3107ce3).
+
+### Modo final desta sessão
+**AGUARDANDO_AUTORIZACAO** — P2 fechado, próxima decisão arbitrada por Clayton.
