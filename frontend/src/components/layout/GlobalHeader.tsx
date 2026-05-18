@@ -22,12 +22,19 @@ import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { getProfileProgress, type ProfileProgress } from '../../api/profile';
 import { isAuthenticated, getTenantId } from '../../config/auth';
 import { showToast } from '../common/Toast';
+import OperatingModeToggle from './OperatingModeToggle';
+import OperatingModeBadge from './OperatingModeBadge';
+import { useActorMode } from '../../hooks/useActorMode';
+import { useBusinessProfile } from '../../hooks/useBusinessProfile';
+import { getActorGreetingSubtitle } from '../../config/actorContextConfig';
 import './GlobalHeader.css';
 
 export default function GlobalHeader() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
   const { actors, setActiveActor } = useActiveActor();
+  const { profile: actorProfile, mode } = useActorMode();
+  const { profile: businessProfile } = useBusinessProfile();
   const [profileProgress, setProfileProgress] = useState<ProfileProgress | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -98,10 +105,21 @@ export default function GlobalHeader() {
   const availableActors = Array.isArray(actors) ? actors : [];
   const personalActor = availableActors.find((a) => a.actor_type === 'user');
   const companyActors = availableActors.filter((a) => a.actor_type === 'page');
+  // 2026-05-18 RC4: dropdown agora inclui grupos e canais.
+  const groupActors = availableActors.filter((a) => a.actor_type === 'group');
+  const channelActors = availableActors.filter((a) => a.actor_type === 'channel');
+
+  // 2026-05-18 RC5: subtítulo contextual derivado do actor + mode (com
+  // override de businessProfile quando empresa for banda/clínica/loja/etc).
+  const greetingSubtitle = (() => {
+    if (businessProfile) return businessProfile.tagline;
+    return getActorGreetingSubtitle(actorProfile, mode);
+  })();
 
   const handleSelectActor = (actorId: string) => {
     setActiveActor(actorId);
-    // Mantém dropdown aberto para navegação rápida; usuário fecha clicando fora.
+    setIsDropdownOpen(false);
+    navigate('/home');
   };
 
   const getActorIcon = (type: string) => {
@@ -154,7 +172,7 @@ export default function GlobalHeader() {
             <>Bem-vindo ao UnifiCard 👋</>
           )}
         </h1>
-        <p className="gh-greeting-subtitle">Bem-vindo de volta ao UnifiCard</p>
+        <p className="gh-greeting-subtitle">{greetingSubtitle}</p>
       </div>
 
       <form className="gh-search" onSubmit={handleSearch} role="search">
@@ -167,6 +185,7 @@ export default function GlobalHeader() {
           className="gh-search-input"
           aria-label="Buscar"
         />
+        <span className="gh-search-shortcut" aria-hidden="true">Ctrl K</span>
       </form>
 
       <div className="gh-actions">
@@ -194,6 +213,11 @@ export default function GlobalHeader() {
           🔔
         </button>
 
+        <OperatingModeToggle />
+        {/* 2026-05-18 RC6: badge discreto persistente do modo operante.
+            Sinaliza contexto operacional mesmo fora da home. */}
+        <OperatingModeBadge />
+
         <div className="gh-avatar-container" ref={dropdownRef}>
           <button
             type="button"
@@ -215,9 +239,37 @@ export default function GlobalHeader() {
 
           {isDropdownOpen && (
             <div className="gh-dd-menu">
-              {personalActor && renderActorItem(personalActor, 'Pessoa Física')}
-              {personalActor && companyActors.length > 0 && <div className="gh-dd-separator" />}
-              {companyActors.map((actor) => renderActorItem(actor))}
+              {/* Pessoal */}
+              {personalActor && (
+                <>
+                  <div className="gh-dd-group-label">Pessoal</div>
+                  {renderActorItem(personalActor, 'Pessoa Física')}
+                </>
+              )}
+              {/* Empresas */}
+              {companyActors.length > 0 && (
+                <>
+                  <div className="gh-dd-separator" />
+                  <div className="gh-dd-group-label">Empresas</div>
+                  {companyActors.map((actor) => renderActorItem(actor))}
+                </>
+              )}
+              {/* Grupos (RC4 2026-05-18) */}
+              {groupActors.length > 0 && (
+                <>
+                  <div className="gh-dd-separator" />
+                  <div className="gh-dd-group-label">Grupos</div>
+                  {groupActors.map((actor) => renderActorItem(actor, 'Coordenando'))}
+                </>
+              )}
+              {/* Canais (RC4 2026-05-18) */}
+              {channelActors.length > 0 && (
+                <>
+                  <div className="gh-dd-separator" />
+                  <div className="gh-dd-group-label">Canais</div>
+                  {channelActors.map((actor) => renderActorItem(actor, 'Publicando'))}
+                </>
+              )}
 
               <div className="gh-dd-separator" />
 

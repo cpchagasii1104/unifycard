@@ -8,10 +8,9 @@
 //   2. 4 cards visão geral — Fundo Regional + Meu saldo OK; Em processamento + Limite disponível como "—" (sem substrato real)
 //   3. Card destacado "Ganho com indicações" com mini-gráfico decorativo
 //   4. Meus grupos (cards horizontais com avatar + papel + saldo + linha colorida)
-//   5. Acessos rápidos (8 atalhos circulares)
-//   6. Banner promo (estático)
-//   7. Atividade recente (getBankStatement últimas 4)
-//   8. Bottom nav (mobile) com FAB central
+//   5. Banner promo (estático)
+//   6. Atividade recente (getBankStatement últimas 4)
+//   7. Bottom nav (mobile) com FAB central
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +23,9 @@ import { isAuthenticated, getTenantId } from '../../config/auth';
 import { centsToReais } from '../../utils/money';
 import { useActorMode } from '../../hooks/useActorMode';
 import { useProfessionalContext } from '../../hooks/useProfessionalContext';
-import { resolveQuickActionsWithProfession } from '../../config/actorContextConfig';
+import { useBusinessProfile } from '../../hooks/useBusinessProfile';
+import { resolveIntentGroups, type ContextualOverlay } from '../../config/actorContextConfig';
+import OperatingModeToggle from '../layout/OperatingModeToggle';
 import './DashboardHome.css';
 
 interface GroupRow {
@@ -84,9 +85,6 @@ function TrendChart({ color, large = false }: { color: string; large?: boolean }
   );
 }
 
-// QUICK_ACTIONS agora vêm contextuais via useActorMode().quickActions
-// (catálogo central em config/actorContextConfig.ts).
-
 const BOTTOM_NAV_LEFT: Array<{ label: string; icon: string; route: string }> = [
   { label: 'Início', icon: '🏠', route: '/home' },
   { label: 'Carteira', icon: '💳', route: '/banco' },
@@ -106,20 +104,33 @@ const contextLabels: Record<string, string> = {
   group_contribution: 'Contribuição de grupo',
 };
 
+// 2026-05-18: intentGroups agora vêm de actorContextConfig + businessProfile +
+// professionalContext (RC1+RC2+RC3+RC8 da auditoria contextual). Array literal
+// universal antigo removido — gerava "Atender pacientes" para banda.
+
 export default function DashboardHome() {
   const navigate = useNavigate();
   const { sessionReady, activeActor } = useSession();
-  const { profile: actorProfile } = useActorMode();
+  const { profile: actorProfile, mode } = useActorMode();
   const { context: professionalContext } = useProfessionalContext();
+  const { profile: businessProfile } = useBusinessProfile();
 
-  // Quick actions combinadas: profissão primeiro (até 3) + actor (preenche restante).
-  // resolveQuickActionsWithProfession mantém diretriz "lente vs caixinha" — não
-  // remove actor actions, só prioriza profissão quando aplicável.
-  const contextualQuickActions = resolveQuickActionsWithProfession(
-    actorProfile,
-    professionalContext?.suggestedQuickActions,
-    8
-  );
+  // Intent groups contextuais. Substituem o array literal universal antigo.
+  // - businessProfile (PJ): substitui groups genéricos da PJ pelo perfil resolvido
+  // - professionalContext (PF + modo Operar): insere grupo "Sua profissão" no topo
+  // - fallback: groups do profile base (PF / PJ genérico / Group / Channel)
+  const intentGroups = (() => {
+    const professionOverlay: ContextualOverlay | null = professionalContext
+      ? {
+          title: `Sua profissão hoje (${professionalContext.label.toLowerCase()})`,
+          quickActionIds: professionalContext.suggestedQuickActions,
+        }
+      : null;
+    const businessOverlay: ContextualOverlay | null = businessProfile
+      ? { intentGroupsOverride: businessProfile.intentGroups }
+      : null;
+    return resolveIntentGroups(actorProfile, mode, professionOverlay, businessOverlay);
+  })();
 
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [regionalFundCents, setRegionalFundCents] = useState<number | null>(null);
@@ -128,19 +139,21 @@ export default function DashboardHome() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [recentEntries, setRecentEntries] = useState<BankStatementEntry[]>([]);
 
-  // 2026-05-15: profileProgress + searchQuery removidos — moveram para GlobalHeader.
-  // firstName + handleSearch também (avatar/busca agora ficam no header global).
-
   const loadData = useCallback(async () => {
     if (!activeActor) return;
     const isUser = activeActor.actor_type === 'user';
 
+    // 2026-05-18 P1 — Bank actor-context. Passa actor_id quando actor não é
+    // o user autenticado. Backend valida authority e resolve saldo/extrato do
+    // actor correto (DT-PRESSURE-BANK-ACTOR-CONTEXT fechada).
+    const bankActorId = isUser ? undefined : activeActor.actor_id;
+
     const [balanceR, groupsR, referralR, regionalR, statementR] = await Promise.allSettled([
-      getBankBalance().catch(() => null),
+      getBankBalance({ actorId: bankActorId }).catch(() => null),
       getMyGroups().catch(() => ({ groups: [] })),
       isUser ? getReferralEarnings().catch(() => null) : Promise.resolve(null),
       isUser ? getUserRegionalFund({ limit: 1 }).catch(() => null) : Promise.resolve(null),
-      getBankStatement({ limit: 4 }).catch(() => ({ entries: [], total: 0, hasMore: false })),
+      getBankStatement({ limit: 4, actorId: bankActorId }).catch(() => ({ entries: [], total: 0, hasMore: false })),
     ]);
 
     setBalanceCents(
@@ -202,6 +215,7 @@ export default function DashboardHome() {
       {/* Sidebar + Header agora vêm do UnifiedAuthLayout (HomePage.tsx).
           DashboardHome renderiza somente os blocos centrais do dashboard. */}
 
+      <div className="dh-primary-column">
       {/* Cards de visão geral — contextuais ao actor (actorProfile.dashboardCards).
           PF: Fundo Regional + Meu saldo + Em processamento + Limite UnifyCard.
           PJ: Caixa empresa + Movimentações + Em processamento + Limite UnifyCard.
@@ -314,6 +328,45 @@ export default function DashboardHome() {
         })}
       </section>
 
+        <section className="dh-intent-panel">
+          <div className="dh-intent-header">
+            <h2 className="dh-intent-title">O que você busca agora?</h2>
+            <p className="dh-intent-subtitle">Busque, participe, organize ou opere o que faz parte da sua vida.</p>
+            <div className="dh-intent-mode-control">
+              <OperatingModeToggle />
+            </div>
+            <span className={`dh-intent-badge ${mode === 'operar' ? 'operar' : 'consumir'}`}>
+              {mode === 'operar' ? 'Operando' : 'Consumindo'}
+            </span>
+          </div>
+          <div className="dh-intent-groups">
+            {intentGroups.map((group) => (
+              <section key={group.title} className="dh-intent-group" aria-label={group.title}>
+                <h3 className="dh-intent-group-title">{group.title}</h3>
+                <div className="dh-intent-actions">
+                  {group.items.map((action) => {
+                    const copy = mode === 'operar' ? action.operate : action.consume;
+                    return (
+                      <button
+                        key={`${group.title}-${action.consume[0]}`}
+                        type="button"
+                        className={`dh-intent-action ${action.tone === 'discover' ? 'dh-intent-action--discover' : ''}`}
+                        onClick={() => navigate(action.route)}
+                      >
+                        <span className="dh-intent-action-icon" aria-hidden="true">{action.icon}</span>
+                        <span className="dh-intent-action-copy">
+                          <span className="dh-intent-action-label">{copy[0]}</span>
+                          <span className="dh-intent-action-hint">{copy[1]}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
+
         {/* Meus grupos */}
         <section className="dh-section">
           <div className="dh-section-header">
@@ -396,44 +449,6 @@ export default function DashboardHome() {
             </div>
           </section>
         )}
-
-        {/* Acessos rápidos — contextuais ao actor ativo (useActorMode) */}
-        <section className="dh-section">
-          <div className="dh-section-header">
-            <h2 className="dh-section-title">Acessos rápidos</h2>
-            <div className="dh-section-tags">
-              <span className="dh-section-subtle">{actorProfile.modeName}</span>
-              {professionalContext && (
-                <span
-                  className="dh-section-prof-badge"
-                  style={{
-                    backgroundColor: professionalContext.color + '22',
-                    color: professionalContext.color,
-                  }}
-                  title="Modo profissional ativado a partir do seu perfil"
-                >
-                  <span aria-hidden="true">{professionalContext.icon}</span>
-                  {professionalContext.label}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="dh-quick-actions">
-            {contextualQuickActions.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                className="dh-quick-action"
-                onClick={() => navigate(a.route)}
-              >
-                <div className="dh-quick-icon" style={{ backgroundColor: a.color + '22', color: a.color }}>
-                  <span>{a.icon}</span>
-                </div>
-                <span className="dh-quick-label">{a.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
 
         {/* Banner promo — contextual ao actor ativo */}
         {(() => {
@@ -519,6 +534,75 @@ export default function DashboardHome() {
             </ul>
           )}
         </section>
+      </div>
+
+      <aside className="dh-right-rail" aria-label="Informações contextuais">
+        <section className="dh-rail-section">
+          <div className="dh-rail-heading">
+            <h2 className="dh-rail-title">Patrocinado</h2>
+            <span className="dh-rail-kicker">publicidade</span>
+          </div>
+          <div className="dh-rail-stack">
+            <div className="dh-rail-card dh-rail-card-sponsored dh-rail-ad-card dh-rail-card-accent-purple">
+              <div className="dh-rail-card-icon" aria-hidden="true">📣</div>
+              <div className="dh-rail-card-body">
+                <span className="dh-rail-card-label">Anuncie para quem está perto</span>
+                <span className="dh-rail-card-text">Espaço para parceiros, lojas locais e campanhas segmentadas.</span>
+                <span className="dh-rail-ad-price">Patrocínio local</span>
+              </div>
+            </div>
+            <div className="dh-rail-card dh-rail-card-sponsored dh-rail-ad-card dh-rail-card-accent-green">
+              <div className="dh-rail-card-icon" aria-hidden="true">💼</div>
+              <div className="dh-rail-card-body">
+                <span className="dh-rail-card-label">Destaque sua empresa</span>
+                <span className="dh-rail-card-text">Vitrine contextual para ofertas, serviços e eventos patrocinados.</span>
+                <span className="dh-rail-ad-price">Gerar receita</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="dh-rail-section">
+          <div className="dh-rail-heading">
+            <h2 className="dh-rail-title">Lembretes</h2>
+            <span className="dh-rail-kicker">hoje</span>
+          </div>
+          <div className="dh-rail-card dh-rail-card-compact">
+            <div className="dh-rail-card-icon dh-rail-card-icon-soft" aria-hidden="true">🔔</div>
+            <div className="dh-rail-card-body">
+              <span className="dh-rail-card-label">Nada urgente agora</span>
+              <span className="dh-rail-card-text">Aniversários, contas e compromissos entram aqui.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="dh-rail-section">
+          <div className="dh-rail-heading">
+            <h2 className="dh-rail-title">Mensagens</h2>
+            <span className="dh-rail-kicker">em aberto</span>
+          </div>
+          <div className="dh-rail-card dh-rail-card-compact">
+            <div className="dh-rail-card-icon dh-rail-card-icon-soft" aria-hidden="true">💬</div>
+            <div className="dh-rail-card-body">
+              <span className="dh-rail-card-label">Caixa tranquila</span>
+              <span className="dh-rail-card-text">Conversas e solicitações em andamento aparecerão aqui.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="dh-rail-section">
+          <div className="dh-rail-heading">
+            <h2 className="dh-rail-title">Status do sistema</h2>
+          </div>
+          <div className="dh-rail-card dh-rail-card-compact">
+            <div className="dh-rail-card-icon dh-rail-status-ok" aria-hidden="true">✓</div>
+            <div className="dh-rail-card-body">
+              <span className="dh-rail-card-label">Tudo funcionando</span>
+              <span className="dh-rail-card-text">Última verificação: agora</span>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }

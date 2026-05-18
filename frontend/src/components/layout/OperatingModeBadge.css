@@ -1,0 +1,51 @@
+/* frontend/src/components/layout/OperatingModeBadge.css
+ * 2026-05-18 RC6: chip discreto persistente do modo operante.
+ * Coexiste com OperatingModeToggle (controle) — este é o sinal contextual.
+ */
+
+.om-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+  cursor: default;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.om-badge-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.om-badge-label {
+  font-size: 0.78rem;
+}
+
+/* Modo Consumir — paleta suave roxa */
+.om-badge--consumir {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+/* Modo Operar — paleta verde operacional */
+.om-badge--operar {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+/* Mobile: esconder label, manter ícone */
+@media (max-width: 720px) {
+  .om-badge-label {
+    display: none;
+  }
+  .om-badge {
+    padding: 0.25rem 0.45rem;
+  }
+}

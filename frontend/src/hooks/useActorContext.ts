@@ -1,6 +1,15 @@
 // src/hooks/useActorContext.ts
-// Hook para gerenciar contexto de ator (Actor) globalmente
-// Persiste a escolha do ator durante a sessão
+//
+// @deprecated 2026-05-18 — RC10 da auditoria de transição actor×mode.
+// Hook paralelo a SessionProvider/useSession com chave de localStorage
+// DIFERENTE (`unificard_active_actor` vs `unificard_active_actor_id` do
+// SessionProvider). Mantido apenas para não quebrar imports legados em
+// build — não há consumers ativos no frontend (verificado via grep).
+//
+// MIGRAR para `useSession` (SessionProvider.tsx) — runtime soberano.
+// Remover em sessão dedicada após varredura confirmando zero call sites.
+//
+// NÃO usar em código novo.
 
 import { useState, useEffect, useCallback } from 'react';
 import { getAvailableActors, type AvailableActor } from '../api/social';

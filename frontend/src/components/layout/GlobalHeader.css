@@ -1,6 +1,9 @@
 /* GlobalHeader.css — header universal compartilhado (2026-05-15) */
 
 .gh-root {
+  position: sticky;
+  top: 0;
+  z-index: 60;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
   gap: 1.5rem;
@@ -8,6 +11,7 @@
   padding: 1.25rem 2rem;
   background: white;
   border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -53,7 +57,7 @@
 
 .gh-search-input {
   width: 100%;
-  padding: 0.7rem 1rem 0.7rem 2.5rem;
+  padding: 0.7rem 4.4rem 0.7rem 2.5rem;
   border: 1px solid #e5e7eb;
   border-radius: 999px;
   background: #f9fafb;
@@ -61,6 +65,20 @@
   font-size: 0.9rem;
   outline: none;
   transition: all 0.15s;
+}
+
+.gh-search-shortcut {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.2rem 0.48rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 .gh-search-input:focus {
@@ -74,6 +92,8 @@
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 /* Completar perfil compacto */
@@ -213,7 +233,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  z-index: 100;
+  z-index: 80;
   padding: 0.4rem;
   display: flex;
   flex-direction: column;
@@ -301,6 +321,16 @@
   margin: 0.3rem 0;
 }
 
+/* 2026-05-18 RC4: rótulo de seção no dropdown (Pessoal/Empresas/Grupos/Canais) */
+.gh-dd-group-label {
+  padding: 0.4rem 0.85rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+}
+
 .gh-dd-item-action {
   color: #5b3fe4;
 }
@@ -327,6 +357,13 @@
     order: 1;
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gh-root {
+    grid-template-columns: minmax(170px, 0.75fr) minmax(360px, 1.35fr) auto;
+    gap: 1rem;
   }
 }
 
