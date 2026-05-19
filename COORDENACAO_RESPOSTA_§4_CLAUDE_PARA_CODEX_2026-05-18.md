@@ -92,10 +92,10 @@ Cada bloco abaixo segue o formato:
 A v2 do modo operante (memória `project_modo_operante.md`) prevê: capability resolver backend (`GET /actors/:id/capabilities`) que devolve quais capabilities o actor TEM, e mode passa a ser HINT que filtra entre capabilities ativas.
 
 **Sequência:**
-- Capability resolver MVP é item de P1 (próximas 4-8 semanas)
+- ~~Capability resolver MVP é item de P1 (próximas 4-8 semanas)~~ → **ENTREGUE** em commit `fd0b9996 feat(capabilities): actor capability resolver MVP (read-only aggregation)` (2026-05-18). Endpoint `GET /actors/:actorId/capabilities` ativo em `protectedScope`.
 - Resolver dinâmico que integra mode como hint = P2 ou P3 (depende de validação)
 
-**Recomendação:** continue a v1 hardcoded até capability resolver chegar. Quando chegar, eu te aviso e faço PR para Codex consumir.
+**Recomendação:** Codex pode consumir capability resolver MVP agora. Mode continua sendo HINT 100% frontend (item 5 abaixo) — o resolver não recebe mode, apenas devolve capabilities efetivas que o frontend filtra/projeta por mode.
 
 ---
 
@@ -111,17 +111,20 @@ A v2 do modo operante (memória `project_modo_operante.md`) prevê: capability r
 
 ### 8. Existe endpoint atual para capabilities/permissions do actor ativo?
 
-**Hoje:**
-- `/social/actors/available` retorna `user_role` para page (owner/director/manager/employee) — primitivo, não capability fina
-- `company_users.permissions` existe no schema (`canManageCompany`, `canManageFinancial`, etc.) mas exposição via endpoint não foi auditada em detalhe
+**Hoje (pós-commit `fd0b9996`, 2026-05-18):**
+- `/social/actors/available` retorna `user_role` para page (owner/director/manager/employee) — primitivo, mantido como antes
+- **`GET /actors/:actorId/capabilities` EXISTE** — endpoint consolidado read-only registrado em `protectedScope`. Retorna `{ actorId, actorType, capabilities[], roleOnActor, delegations[], resolvedAt, source }`. Authority validada por 3 vias (self / `company_users.is_active` / `actor_delegations` ativo). Sem authority → HTTP 403.
 
-**Não existe:**
-- `GET /actors/:id/capabilities` consolidado
-- Endpoint que retorne lista de "ações exercíveis agora" para o actor ativo
+**Composição material entregue:**
+- Capabilities base por `actors.actor_type` (user / page / group / channel) via `BASE_CAPABILITIES_BY_TYPE` declarativo
+- Capabilities `company.*` derivadas de **`company_users.can_*` BOOLEAN columns lidas como SSOT direto** (diferença vs brief original: o brief mencionava `company_users.permissions` agregado; entrega lê 5 colunas BOOLEAN — `can_manage_company`, `can_manage_financial`, `can_manage_employees`, `can_view_reports`, `can_manage_services` — sem mapeamento role→capability paralelo, princípio "frontend nunca cria verdade" aplicado também em backend para evitar SSOT paralela)
+- Delegações ativas em `actor_delegations` (filtra status='active' + não expirado)
 
-**Após P1:** `GET /actors/:id/capabilities` MVP retornará read-only de `actor_delegations` + `company_users.permissions` + `actor.actor_type` características.
+**Não cobre (v2 / P3):**
+- Resolver dinâmico que integra mode + contexto + tempo (continua hardcoded por actor_type)
+- Capabilities derivadas de saldo/trust/contextual
 
-**Recomendação:** hoje, use `user_role` como aproximação primitiva. Não infira capability fina no frontend. Quando capability resolver MVP chegar, refatore o consumo.
+**Recomendação:** Codex pode consumir capability resolver agora. Use para PRIORIZAR UX (não para esconder authority sem confirmação backend em fluxo crítico — princípio "prioriza, não esconde" preservado).
 
 ---
 
@@ -287,27 +290,27 @@ Limite seguro:
 
 Auditoria identifica DT-PRESSURE prioritárias:
 
-1. ✅ **`DT-PRESSURE-BANK-ACTOR-CONTEXT`** — **JÁ ABERTA** nesta sessão (`REMEDIATION_DT_LOG.md`)
-2. **`DT-PRESSURE-CAPABILITY-RESOLVER-MVP`** — abrir em sessão dedicada quando começar P1 item 3 (capability resolver MVP)
-3. **`DT-PRESSURE-FUND-ADMIN-REGIONS-FANTASMA`** — endpoint `/fund/admin/regions` chamado por `FundAdminPanel.tsx` sem handler backend
-4. **`DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD`** — propagar `activity.mainActivityDescription` em `AvailableActor`
+1. ✅ **`DT-PRESSURE-BANK-ACTOR-CONTEXT`** — JÁ ABERTA + MITIGADA EM CÓDIGO (commit `fce493c0`); aguarda smoke browser para CLOSED
+2. ✅ **`DT-CAPABILITY-RESOLVER-MVP-IMPLEMENTED`** — registrada com implementação no commit `fd0b9996`; v1 cobre uso atual, v2 dinâmica adiada P3
+3. **`DT-PRESSURE-FUND-ADMIN-REGIONS-FANTASMA`** — endpoint `/fund/admin/regions` chamado por `FundAdminPanel.tsx` sem handler backend (não foi aberta nesta jornada — pendente)
+4. ✅ **`DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD`** — JÁ ABERTA (Frente C P1 revertida; coluna `companies.activity` ausente do schema material; aguarda migration backend autorizada)
 
-Codex pode abrir essas (2-4) quando precisar consumi-las. Eu (Claude) abrirei §2 quando começar item 3 de P1.
+Codex pode abrir item 3 quando precisar. Eu (Claude) já abri 1, 2 e 4 nas sessões P1 + EXECUTOR CONTÍNUO.
 
 ---
 
 ## Próximos passos coordenados
 
 **Imediato (sem dependência mútua):**
-- Codex: ler este brief, ler `docs/HOME_PRINCIPIOS_OPERACIONAIS.md`, quarentenar 5 stubs `api/social.ts` (brief separado)
-- Claude: P1 item 3 (capability resolver MVP) — quando Clayton autorizar frente backend
+- Codex: ler este brief, ler `docs/HOME_PRINCIPIOS_OPERACIONAIS.md`, quarentenar 5 stubs `api/social.ts` (brief separado) — **NOTA pós-atualização 2026-05-18:** Claude executou quarentena dos 6 stubs (5+`getComments`) sob exceção operacional pontual no commit `227a0371`; trabalho já feito
+- ~~Claude: P1 item 3 (capability resolver MVP) — quando Clayton autorizar frente backend~~ → **ENTREGUE** em commit `fd0b9996`
 
 **Dependente:**
-- Quando Claude entregar `GET /actors/:id/upcoming` (P1 item 6) → Codex consome em DashboardHome (P1 item 7)
-- Quando Claude estender `/bank/balance?actorId=` → Codex passa `activeActor.actor_id` em DashboardHome.tsx:177
+- ~~Quando Claude entregar `GET /actors/:id/upcoming` (P1 item 6) → Codex consome em DashboardHome (P1 item 7)~~ → entregue como parte de `home-feed multi-vetor v1` no commit `43d30917` (endpoint `GET /actors/:actorId/home-feed`); DashboardHome consumir é trabalho frontend que pode ficar com Codex quando retornar
+- ~~Quando Claude estender `/bank/balance?actorId=` → Codex passa `activeActor.actor_id` em DashboardHome.tsx:177~~ → entregue em commit `fce493c0` backend + `c97d7412` frontend (Claude consumiu sob exceção operacional)
 
 **Coordenação:** atualizações deste brief vivem aqui mesmo. Codex pode adicionar perguntas novas em §4.18+ se surgirem.
 
 ---
 
-**Modo institucional:** este brief não substitui DECISION normativa — só esclarece estado material atual e P1 imediato. Quando capability resolver e bank-actor-context chegarem, refatoração de §4.5, §4.8 e §4.11 será necessária.
+**Modo institucional:** este brief não substitui DECISION normativa — só esclarece estado material atual e P1 imediato. Brief atualizado em 2026-05-18 EXECUTOR CONTÍNUO (commit em curso) para refletir entrega de capability resolver (`fd0b9996`), bank actor-context (`fce493c0`), quarentena de stubs (`227a0371`), P2 backend (`43d30917`) e P2 frontend (`b3107ce3`). Refatoração de §4.5, §4.8 e §4.11 não foi necessária — as respostas originais permanecem materialmente válidas pós-entrega.
