@@ -4,11 +4,13 @@
 import { FastifyPluginAsync } from 'fastify';
 import { social2Service } from './social-2.0.service';
 import { actorRepository } from './actor.repository';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { socialLedgerService } from './social-ledger.service';
 import { socialVotesService } from './social-votes.service';
 import { resolveActiveActorFromRequest } from './actor.utils';
 import { recordActorSwitch } from './actor-audit.service';
 import { runQueryWithTenant } from '@core/database/pool';
+import { getLocalUserIdByGlobalUserId } from '@modules/identity/actor-ssot.service';
 import { z } from 'zod';
 
 const createPostSchema = z.object({
@@ -60,9 +62,19 @@ const commentSchema = z.object({
 
 const social2Routes: FastifyPluginAsync = async (fastify) => {
   /**
-   * GET /social/feed?cursor=&actor_type=&actor_id=&group_id=
-   * Feed com cursor pagination e modo de atuação (PF vs PJ)
-   * Quando group_id é fornecido, retorna apenas posts do grupo
+   * GET /social/feed?cursor=&actor_type=&actor_id=&group_id=&scope=&value=&include_global=
+   *
+   * Feed com cursor pagination e modo de atuação (PF vs PJ).
+   * Quando group_id é fornecido, retorna apenas posts do grupo.
+   *
+   * DECISION-0030 (F3): filtro de proximidade opcional via {scope, value}:
+   *   - scope=radius_km, value=N → posts dentro de N km da localização ativa do actor
+   *   - scope=city → posts cujo address.city_id = user.address.city_id
+   *   - scope=state → posts cujo address.state_id = user.address.state_id
+   *   - scope=unlimited → sem filtro geo (default quando scope ausente)
+   *   - include_global=true → também inclui posts com address_id IS NULL
+   *
+   * Backward compat: ausência de scope = comportamento atual (sem filtro geo).
    */
   fastify.get<{
     Querystring: {
@@ -74,6 +86,10 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       user_preferences?: string; // JSON string: { music_genres?: string[], event_types?: string[] }
       user_location?: string; // JSON string: { lat: number, lng: number }
       group_id?: string; // ID do grupo para filtrar posts (opcional)
+      // DECISION-0030 (F3): payload polimórfico de filtro geo
+      scope?: 'radius_km' | 'city' | 'state' | 'unlimited';
+      value?: string; // número em km quando scope=radius_km (parsed para number)
+      include_global?: string; // 'true' / 'false' (parsed para boolean)
     };
   }>('/feed', async (req, reply) => {
     if (!req.user) {
@@ -118,10 +134,9 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       let userLocation: { lat: number; lng: number } | undefined = undefined;
       if (req.query.user_location) {
         try {
-          userLocation = JSON.parse(req.query.user_location);
-          // Validar coordenadas
-          if (typeof userLocation.lat !== 'number' || typeof userLocation.lng !== 'number') {
-            userLocation = undefined;
+          const parsed = JSON.parse(req.query.user_location);
+          if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+            userLocation = { lat: parsed.lat, lng: parsed.lng };
           }
         } catch (err) {
           fastify.log.warn({ err }, 'Erro ao parsear user_location (ignorando)');
@@ -129,6 +144,30 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       }
 
       const groupId = req.query.group_id || undefined;
+
+      // DECISION-0030 (F3): parse proximityFilter
+      let proximityFilter:
+        | import('@core/location/feed-proximity.types').FeedProximityFilterInput
+        | undefined = undefined;
+      const rawScope = req.query.scope;
+      if (rawScope === 'radius_km' || rawScope === 'city' || rawScope === 'state' || rawScope === 'unlimited') {
+        let parsedValue: number | undefined = undefined;
+        if (rawScope === 'radius_km') {
+          const v = parseFloat(req.query.value ?? '');
+          if (!Number.isFinite(v) || v <= 0) {
+            return reply.status(400).send({
+              error: 'scope=radius_km requer value > 0 (km)',
+            });
+          }
+          parsedValue = v;
+        }
+        const includeGlobal = req.query.include_global === 'true';
+        proximityFilter = {
+          scope: rawScope,
+          value: parsedValue,
+          includeGlobal,
+        };
+      }
 
       const feed = await social2Service.getFeed(
         req.tenant.id,
@@ -140,7 +179,8 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         actorStatus,
         userPreferences,
         userLocation,
-        groupId
+        groupId,
+        proximityFilter
       );
 
       return reply.send(feed);
@@ -186,7 +226,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       
       // CONTINUOUS PRODUCTION: Verificar permissão específica para publicar feed
       // Action context já foi resolvido pelo middleware
-      if (actionContext && validated.actor_id) {
+      if (req.actionContext && validated.actor_id) {
         const { requirePermission } = await import('@core/authorization/require-permission.guard');
         const guard = requirePermission('publish_feed');
         await guard(req, reply);
@@ -209,7 +249,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         validated.targeting,
         validated.cta,
         validated.group_id, // Passar groupId para o service
-        createdByUserId, // CONTINUOUS PRODUCTION: Audit field
+        req.user.id, // CONTINUOUS PRODUCTION: Audit field (createdByUserId)
         createdAsActorId // CONTINUOUS PRODUCTION: Audit field
       );
 
@@ -372,16 +412,19 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      if (!req.actionContext || !req.actionContext.actorId) {
-        return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      const userId = req.user!.id as string;
+      // findAvailableActors espera users.user_id. actorId no ActionContext é actors.actor_id.
+      let listingUserId = userId;
+      if (req.actionContext?.actorId) {
+        const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+        if (actor?.user_id) {
+          listingUserId = actor.user_id;
+        } else if (req.actionContext.actorId === userId) {
+          listingUserId = userId;
+        }
       }
 
-      const actorId = req.actionContext.actorId;
-
-      const actors = await actorRepository.findAvailableActors(
-        req.tenant.id,
-        actorId
-      );
+      const actors = await actorRepository.findAvailableActors(req.tenant.id, listingUserId);
 
       // 🔴 AUDITORIA: Registrar troca de actor se houver mudança
       // (Frontend pode chamar endpoint específico para registrar troca explícita)
@@ -430,6 +473,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Verificar se usuário tem acesso ao actor
+      const userId = req.user!.id;
       const availableActors = await actorRepository.findAvailableActors(req.tenant.id, userId);
       const hasAccess = availableActors.some(a => a.actor_id === to_actor_id);
       if (!hasAccess) {
@@ -484,23 +528,11 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
       // Verifica se o usuário atual está seguindo
       let isFollowing = false;
-      if (req.user?.globalUserId) {
-        const user = await runQueryWithTenant<{ user_id: string }>(
-          req.tenant.id,
-          `
-          SELECT user_id FROM users
-          WHERE user_id IN (
-            SELECT user_id FROM global_users WHERE global_user_id = $1
-          )
-          LIMIT 1
-          `,
-          [req.actionContext.actorId]
-        );
-        if (user) {
-          const currentActor = await actorRepository.findOrCreateUserActor(
-            req.tenant.id,
-            user.user_id
-          );
+      const gFollow = req.user?.globalUserId;
+      if (gFollow) {
+        const localUid = await getLocalUserIdByGlobalUserId(req.tenant.id, gFollow);
+        if (localUid) {
+          const currentActor = await ensureUserActor(req.tenant.id, localUid);
           isFollowing = await social2Service.isFollowing(
             req.tenant.id,
             currentActor.actor_id,
@@ -542,26 +574,16 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const user = await runQueryWithTenant<{ user_id: string }>(
-        req.tenant.id,
-        `
-        SELECT user_id FROM users
-        WHERE user_id IN (
-          SELECT user_id FROM global_users WHERE global_user_id = $1
-        )
-        LIMIT 1
-        `,
-        [req.actionContext.actorId]
-      );
-
-      if (!user) {
+      const g = req.user.globalUserId;
+      if (!g) {
+        return reply.status(400).send({ error: 'global_user_id ausente' });
+      }
+      const localUid = await getLocalUserIdByGlobalUserId(req.tenant.id, g);
+      if (!localUid) {
         return reply.status(404).send({ error: 'Usuário não encontrado' });
       }
 
-      const currentActor = await actorRepository.findOrCreateUserActor(
-        req.tenant.id,
-        user.user_id
-      );
+      const currentActor = await ensureUserActor(req.tenant.id, localUid);
 
       const result = await social2Service.followActor(
         req.tenant.id,
@@ -597,26 +619,16 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const user = await runQueryWithTenant<{ user_id: string }>(
-        req.tenant.id,
-        `
-        SELECT user_id FROM users
-        WHERE user_id IN (
-          SELECT user_id FROM global_users WHERE global_user_id = $1
-        )
-        LIMIT 1
-        `,
-        [req.actionContext.actorId]
-      );
-
-      if (!user) {
+      const gUn = req.user.globalUserId;
+      if (!gUn) {
+        return reply.status(400).send({ error: 'global_user_id ausente' });
+      }
+      const localUidUn = await getLocalUserIdByGlobalUserId(req.tenant.id, gUn);
+      if (!localUidUn) {
         return reply.status(404).send({ error: 'Usuário não encontrado' });
       }
 
-      const currentActor = await actorRepository.findOrCreateUserActor(
-        req.tenant.id,
-        user.user_id
-      );
+      const currentActor = await ensureUserActor(req.tenant.id, localUidUn);
 
       const result = await social2Service.unfollowActor(
         req.tenant.id,
@@ -748,25 +760,16 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
       const cta = ctaRow;
 
-      // Buscar actor do usuário atual
-      const user = await runQueryWithTenant<{ user_id: string }>(
-        req.tenant.id,
-        `
-        SELECT user_id FROM users
-        WHERE global_user_id = $1 AND tenant_id = $2
-        LIMIT 1
-        `,
-        [req.actionContext.actorId, req.tenant.id]
-      );
-
-      if (!user) {
+      const gCta = req.user?.globalUserId;
+      if (!gCta) {
+        return reply.status(400).send({ error: 'global_user_id ausente' });
+      }
+      const localUidCta = await getLocalUserIdByGlobalUserId(req.tenant.id, gCta);
+      if (!localUidCta) {
         return reply.status(404).send({ error: 'Usuário não encontrado' });
       }
 
-      const currentActor = await actorRepository.findOrCreateUserActor(
-        req.tenant.id,
-        user.user_id
-      );
+      const currentActor = await ensureUserActor(req.tenant.id, localUidCta);
 
       // Buscar actor destinatário (se houver)
       let recipientActorId = null;
@@ -924,18 +927,12 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // Buscar actor do usuário
-      const user = await runQueryWithTenant<{ user_id: string }>(
-        req.tenant.id,
-        `
-        SELECT user_id FROM users
-        WHERE global_user_id = $1 AND tenant_id = $2
-        LIMIT 1
-        `,
-        [req.actionContext.actorId, req.tenant.id]
-      );
-
-      if (!user) {
+      const gVote = req.user.globalUserId;
+      if (!gVote) {
+        return reply.status(400).send({ ok: false, message: 'global_user_id ausente' });
+      }
+      const localUidVote = await getLocalUserIdByGlobalUserId(req.tenant.id, gVote);
+      if (!localUidVote) {
         return reply.status(404).send({ ok: false, message: 'Usuário não encontrado' });
       }
 
@@ -969,7 +966,7 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         req.params.post_id,
         currentActor.actor_id,
         req.body.option_index,
-        user.user_id
+        localUidVote
       );
 
       return reply.send({ ok: true, data: result });
@@ -1056,6 +1053,10 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
         actorId,
         actorType
       );
+
+      if (!balance) {
+        return reply.status(404).send({ error: 'Saldo de impacto não encontrado' });
+      }
 
       return reply.send({
         actor_id: balance.actor_id,

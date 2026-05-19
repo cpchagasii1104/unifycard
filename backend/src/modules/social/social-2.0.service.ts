@@ -1,9 +1,16 @@
 // src/modules/social/social-2.0.service.ts
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { bankSplitRepository } from '@modules/bank/bank-split.repository';
+import { getLocalUserIdByGlobalUserId } from '@modules/identity/actor-ssot.service';
 import { actorRepository } from './actor.repository';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { impactService } from './impact.service';
 import { HttpError } from '@core/errors/http-error';
 import type { PermissionKey } from '@core/authorization/permission-keys';
+
+function tsIso(v: string | Date): string {
+  return v instanceof Date ? v.toISOString() : String(v);
+}
 
 export interface PostWithActor {
   post_id: string;
@@ -125,7 +132,9 @@ export class Social2Service {
       lat: number;
       lng: number;
     },
-    groupId?: string // NOVO: ID do grupo para filtrar posts (opcional)
+    groupId?: string, // NOVO: ID do grupo para filtrar posts (opcional)
+    // DECISION-0030 (F3): filtro de proximidade por scope (radius_km/city/state/unlimited)
+    proximityFilter?: import('@core/location/feed-proximity.types').FeedProximityFilterInput
   ): Promise<FeedResponse> {
     // Usar actor_id fornecido ou buscar actor padrão do usuário
     let currentActorId: string | null = actorId || null;
@@ -135,31 +144,18 @@ export class Social2Service {
       // Busca actor do usuário atual (fallback)
       // Nota: globalUserId ainda é usado aqui temporariamente para compatibilidade
       // mas será removido em refatoração futura
-      user = await runQueryWithTenant<{ user_id: string }>(
-        tenantId,
-        `
-        SELECT user_id FROM users
-        WHERE global_user_id = $1 AND tenant_id = $2
-        LIMIT 1
-        `,
-        [globalUserId, tenantId]
-      );
-
-      if (user) {
-        const actor = await actorRepository.findOrCreateUserActor(tenantId, user.user_id);
+      const uid = await getLocalUserIdByGlobalUserId(tenantId, globalUserId);
+      if (uid) {
+        user = { user_id: uid };
+        const actor = await ensureUserActor(tenantId, uid);
         currentActorId = actor.actor_id;
       }
     } else {
       // Buscar user_id mesmo quando currentActorId já existe, para usar no cálculo de relevância
-      user = await runQueryWithTenant<{ user_id: string }>(
-        tenantId,
-        `
-        SELECT user_id FROM users
-        WHERE global_user_id = $1 AND tenant_id = $2
-        LIMIT 1
-        `,
-        [globalUserId, tenantId]
-      );
+      const uid2 = await getLocalUserIdByGlobalUserId(tenantId, globalUserId);
+      if (uid2) {
+        user = { user_id: uid2 };
+      }
     }
 
     let query = `
@@ -173,8 +169,8 @@ export class Social2Service {
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
-        p.createdAt,
-        p.updatedAt,
+        p.created_at,
+        p.updated_at,
         COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
@@ -204,11 +200,7 @@ export class Social2Service {
         cta.price,
         cta.currency,
         NULL::text as group_name,
-        COALESCE((
-          SELECT SUM(amount_cents)
-          FROM social_ledger sl
-          WHERE sl.post_id = p.post_id AND sl.amount_type = 'profit_share'
-        ), 0) as total_impact_cents
+        0::bigint AS total_impact_cents
       FROM posts p
       LEFT JOIN actors a ON p.actor_id = a.actor_id
       LEFT JOIN post_cta cta ON cta.post_id = p.post_id AND cta.is_active = true
@@ -262,18 +254,43 @@ export class Social2Service {
       )`;
     }
 
+    // DECISION-0030 (F3): filtro de proximidade por scope/value
+    // Resolução server-side (princípio "Frontend nunca cria verdade") via feed-proximity.service.
+    // Só aplica quando há actor resolvido (currentActorId) — sem actor não há de quem buscar localização ativa.
+    if (proximityFilter && currentActorId) {
+      const { feedProximityService } = await import('@core/location/feed-proximity.service');
+      const resolved = await feedProximityService.resolveFilter(
+        tenantId,
+        currentActorId,
+        proximityFilter,
+        paramIndex - 1 // resolveFilter usa offset+1, +2, ... ; offset = paramIndex - 1 alinha
+      );
+      query += ` AND (${resolved.sqlFragment})`;
+      params.push(...resolved.params);
+      paramIndex += resolved.params.length;
+    }
+
     if (cursor) {
-      query += ` AND p.createdAt < (SELECT createdAt FROM posts WHERE post_id = $${paramIndex})`;
+      query += ` AND p.created_at < (SELECT created_at FROM posts WHERE post_id = $${paramIndex})`;
       params.push(cursor);
       paramIndex++;
     }
 
     // Buscar mais posts para permitir ranking por relevância
     // Ordenação final será feita após cálculo de relevância
-    query += ` ORDER BY p.createdAt DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY p.created_at DESC LIMIT $${paramIndex}`;
     params.push(Math.min(limit * 3, 100)); // Busca 3x o limite para ter opções de ranking
 
     const rows = await runQueriesWithTenant<any>(tenantId, query, params);
+
+    const postIds = rows.map((r: { post_id: string }) => r.post_id).filter(Boolean);
+    const impactMap = await bankSplitRepository.sumImpactCentsByTransactionReferenceIds(
+      tenantId,
+      postIds
+    );
+    for (const r of rows) {
+      r.total_impact_cents = impactMap.get(r.post_id) ?? 0;
+    }
 
     // Buscar perfil CORE do usuário para calcular relevância
     let userCoreProfile: any = null;
@@ -546,8 +563,8 @@ export class Social2Service {
         intent: row.intent || 'personal',
         intent_metadata: undefined, // FASE 3.6: intent_metadata não existe na tabela posts ainda
         targeting: targeting || undefined, // FASE 3.6: targeting não existe na tabela posts ainda
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
+        createdAt: tsIso(row.created_at),
+        updatedAt: tsIso(row.updated_at),
         actor: row.actor_actor_id
           ? {
               actor_id: row.actor_actor_id,
@@ -670,7 +687,7 @@ export class Social2Service {
         companyStatus = company?.company_status || null;
       }
     } else {
-      actor = await actorRepository.findOrCreateUserActor(tenantId, userId);
+      actor = await ensureUserActor(tenantId, userId);
     }
 
     // 🔴 BLINDAGEM: Validar Intent em um único lugar centralizado
@@ -694,15 +711,14 @@ export class Social2Service {
       );
     }
 
-    // 🔴 BLINDAGEM: Verificar permissão via authorization.service (Core de Decisão)
-    // Decisão FINAL de autorização deve passar por authorizationService.canActAs()
+    // 🔴 BLINDAGEM: permissão via authority.service (fachada modules — §4.9)
     // reputationService.getPermissions() retorna apenas MÉTRICAS/INPUT, não decisão
-    const { authorizationService } = await import('@core/authorization/authorization.service');
-    const auth = await authorizationService.canActAs(
-      tenantId,
-      userId,
+    const { authorityService } = await import('@modules/authority/authority.service');
+    const auth = await authorityService.canPerformAction(
       actor.actor_id,
-      'publish_feed'
+      'publish_feed',
+      undefined,
+      { tenantId, userId }
     );
     if (!auth.allowed) {
       throw HttpError.forbidden(
@@ -724,8 +740,8 @@ export class Social2Service {
     // Cria post com intent, intent_metadata, targeting e metadata
     const post = await runQueryWithTenant<{
       post_id: string;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string | Date;
+      updated_at: string | Date;
     }>(
       tenantId,
       `
@@ -733,7 +749,7 @@ export class Social2Service {
         tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
       )
       VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, $7::jsonb, $8::jsonb)
-      RETURNING post_id, createdAt, updatedAt
+      RETURNING post_id, created_at, updated_at
       `,
       [
         tenantId,
@@ -900,8 +916,8 @@ export class Social2Service {
       intent: intent || 'personal',
       intent_metadata: intentMetadata,
       targeting,
-      createdAt: safePost.createdAt,
-      updatedAt: safePost.updatedAt,
+      createdAt: tsIso(safePost.created_at),
+      updatedAt: tsIso(safePost.updated_at),
       actor: {
         actor_id: actor.actor_id,
         actor_type: actor.actor_type,
@@ -961,21 +977,21 @@ export class Social2Service {
         // Atualiza tipo
         const updated = await runQueryWithTenant<{
           reaction_id: string;
-          createdAt: string;
+          created_at: string | Date;
         }>(
           tenantId,
           `
           UPDATE reactions
           SET reaction_type = $1
           WHERE reaction_id = $2
-          RETURNING reaction_id, createdAt
+          RETURNING reaction_id, created_at
           `,
           [reactionType, existing.reaction_id]
         );
         return {
           reaction_id: updated!.reaction_id,
           reaction_type: reactionType,
-          createdAt: updated!.createdAt,
+          createdAt: tsIso(updated!.created_at),
           is_new: false,
         };
       }
@@ -984,13 +1000,13 @@ export class Social2Service {
     // Cria nova reação
     const newReaction = await runQueryWithTenant<{
       reaction_id: string;
-      createdAt: string;
+      created_at: string | Date;
     }>(
       tenantId,
       `
       INSERT INTO reactions (tenant_id, post_id, global_user_id, reaction_type)
       VALUES ($1, $2, $3, $4)
-      RETURNING reaction_id, createdAt
+      RETURNING reaction_id, created_at
       `,
       [tenantId, postId, globalUserId, reactionType]
     );
@@ -1002,7 +1018,7 @@ export class Social2Service {
     return {
       reaction_id: newReaction.reaction_id,
       reaction_type: reactionType,
-      createdAt: newReaction.createdAt,
+      createdAt: tsIso(newReaction.created_at),
       is_new: true,
     };
   }
@@ -1019,7 +1035,7 @@ export class Social2Service {
   ): Promise<CommentResponse> {
     const comment = await runQueryWithTenant<{
       comment_id: string;
-      createdAt: string;
+      created_at: string | Date;
     }>(
       tenantId,
       `
@@ -1027,7 +1043,7 @@ export class Social2Service {
         tenant_id, post_id, global_user_id, content, parent_comment_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING comment_id, createdAt
+      RETURNING comment_id, created_at
       `,
       [tenantId, postId, globalUserId, content, parentCommentId || null]
     );
@@ -1036,20 +1052,10 @@ export class Social2Service {
       throw new Error('Erro ao criar comentário');
     }
 
-    // Busca actor do usuário
-    const user = await runQueryWithTenant<{ user_id: string }>(
-      tenantId,
-      `
-      SELECT user_id FROM users
-      WHERE global_user_id = $1 AND tenant_id = $2
-      LIMIT 1
-      `,
-      [globalUserId, tenantId]
-    );
-
+    const localUid = await getLocalUserIdByGlobalUserId(tenantId, globalUserId);
     let actor = null;
-    if (user) {
-      actor = await actorRepository.findOrCreateUserActor(tenantId, user.user_id);
+    if (localUid) {
+      actor = await ensureUserActor(tenantId, localUid);
     }
 
     return {
@@ -1058,7 +1064,7 @@ export class Social2Service {
       global_user_id: globalUserId,
       content,
       parent_comment_id: parentCommentId || null,
-      createdAt: comment.createdAt,
+      createdAt: tsIso(comment.created_at),
       actor: actor
         ? {
             actor_id: actor.actor_id,
@@ -1089,7 +1095,7 @@ export class Social2Service {
         c.global_user_id,
         c.content,
         c.parent_comment_id,
-        c.createdAt,
+        c.created_at,
         a.actor_id,
         a.display_name,
         a.avatar_url
@@ -1104,12 +1110,12 @@ export class Social2Service {
 
     if (cursor) {
       // Cursor pagination: buscar comentários criados após o cursor (para ordem ASC)
-      query += ` AND c.createdAt > (SELECT createdAt FROM comments WHERE comment_id = $${paramIndex} AND tenant_id = $1)`;
+      query += ` AND c.created_at > (SELECT created_at FROM comments WHERE comment_id = $${paramIndex} AND tenant_id = $1)`;
       params.push(cursor);
       paramIndex++;
     }
 
-    query += ` ORDER BY c.createdAt ASC LIMIT $${paramIndex}`;
+    query += ` ORDER BY c.created_at ASC LIMIT $${paramIndex}`;
     params.push(limit + 1); // Buscar um a mais para verificar se há mais
 
     const rows = await runQueriesWithTenant<any>(tenantId, query, params);
@@ -1121,7 +1127,7 @@ export class Social2Service {
       global_user_id: row.global_user_id,
       content: row.content,
       parent_comment_id: row.parent_comment_id,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: tsIso(row.created_at),
       actor: row.actor_id
         ? {
             actor_id: row.actor_id,
@@ -1163,8 +1169,8 @@ export class Social2Service {
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
-        p.createdAt,
-        p.updatedAt,
+        p.created_at,
+        p.updated_at,
         COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
@@ -1188,21 +1194,26 @@ export class Social2Service {
         cta.price,
         cta.currency,
         NULL::text as group_name,
-        COALESCE((
-          SELECT SUM(amount_cents)
-          FROM social_ledger sl
-          WHERE sl.post_id = p.post_id AND sl.amount_type = 'profit_share'
-        ), 0) as total_impact_cents
+        0::bigint AS total_impact_cents
       FROM posts p
       LEFT JOIN actors a ON p.actor_id = a.actor_id
       LEFT JOIN post_cta cta ON cta.post_id = p.post_id AND cta.is_active = true
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
       WHERE p.tenant_id = $1 AND p.actor_id = $2
-      ORDER BY p.createdAt DESC
+      ORDER BY p.created_at DESC
       LIMIT $3
       `,
       [tenantId, actorId, limit]
     );
+
+    const actorPostIds = rows.map((r: { post_id: string }) => r.post_id).filter(Boolean);
+    const actorImpactMap = await bankSplitRepository.sumImpactCentsByTransactionReferenceIds(
+      tenantId,
+      actorPostIds
+    );
+    for (const r of rows) {
+      r.total_impact_cents = actorImpactMap.get(r.post_id) ?? 0;
+    }
 
     return rows.map((row) => ({
       post_id: row.post_id,
@@ -1214,8 +1225,8 @@ export class Social2Service {
       intent: row.intent || 'personal',
       intent_metadata: row.intent_metadata ? (typeof row.intent_metadata === 'string' ? JSON.parse(row.intent_metadata) : row.intent_metadata) : undefined,
       targeting: row.targeting ? (typeof row.targeting === 'string' ? JSON.parse(row.targeting) : row.targeting) : undefined,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: tsIso(row.created_at),
+      updatedAt: tsIso(row.updated_at),
       actor: row.actor_actor_id
         ? {
             actor_id: row.actor_actor_id,
@@ -1381,7 +1392,7 @@ export class Social2Service {
         return null;
       }
 
-      const actor = await actorRepository.findOrCreateUserActor(tenantId, user.user_id);
+      const actor = await ensureUserActor(tenantId, user.user_id);
       return { actor_id: actor.actor_id };
     } catch (err) {
       console.error('Erro ao buscar actor do usuário:', err);
