@@ -21,6 +21,9 @@ export interface City {
   name: string;
   stateId: string;
   countryId: string;
+  /** Coordenadas opcionais retornadas por backend (city.repository expõe lat AS latitude) */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /**

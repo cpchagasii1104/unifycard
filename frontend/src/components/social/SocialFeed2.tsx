@@ -19,6 +19,9 @@ import { OnboardingHighlight, useOnboardingHighlights } from '../onboarding/Onbo
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { getSocialFeed, createSocialPost, toggleReaction, createComment, vote } from '../../api/social';
 import { getUnifiedFeed } from '../../api/feed';
+import { getActiveLocation, type ActiveLocation } from '../../api/active-location';
+import FeedScopeSelector, { type FeedScopeValue } from '../feed/FeedScopeSelector';
+import ActiveLocationManager from '../feed/ActiveLocationManager';
 import { listPublicCulturalEvents, type CulturalEvent } from '../../api/cultural';
 import { getEmptyStateText } from '../../utils/actorLanguage';
 import { getMyAccount, type UserAccount } from '../../api/economy';
@@ -47,6 +50,26 @@ export default function SocialFeed2() {
   }>>([]);
   const [culturalEvents, setCulturalEvents] = useState<CulturalEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // DECISION-0030 (F5): filtro geo do feed
+  const [feedScope, setFeedScope] = useState<FeedScopeValue>({
+    scope: 'unlimited',
+    includeGlobal: true,
+  });
+  const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+
+  // Hidratar localização ativa ao montar
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const loc = await getActiveLocation();
+      if (!cancelled) setActiveLocation(loc);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -112,7 +135,9 @@ export default function SocialFeed2() {
     if (activeActor && !actorsLoading) {
       loadFeed();
     }
-  }, [activeActor?.actor_id, actorsLoading]); // Recarrega quando o ator muda ou quando termina de carregar
+    // F5 — Recarrega também quando filtro geo (scope/value/includeGlobal) muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeActor?.actor_id, actorsLoading, feedScope.scope, feedScope.value, feedScope.includeGlobal]);
 
   // Reagir à mudança de ator ativo (evento customizado)
   useEffect(() => {
@@ -195,14 +220,19 @@ export default function SocialFeed2() {
     setError(null);
     try {
       // Buscar feed social usando API centralizada com modo de atuação + preferências + geo
-      const data = await getSocialFeed({ 
-        cursor: nextCursor || undefined, 
+      // DECISION-0030 (F5): payload polimórfico {scope, value, include_global} enviado ao backend
+      const data = await getSocialFeed({
+        cursor: nextCursor || undefined,
         limit: 20,
         actor_type: activeActor.actor_type as 'user' | 'page',
         actor_id: activeActor.actor_id,
         actor_status: activeActor.company_status, // Status da empresa (PROVISIONAL, VERIFIED, etc)
         user_preferences: userPreferences || undefined, // EVENTOS ÂNCORA: Preferências
         user_location: userLocation || undefined, // EVENTOS ÂNCORA: Geolocalização
+        // F5 — filtro geo soberano via backend (frontend NÃO calcula raio)
+        scope: feedScope.scope,
+        value: feedScope.value,
+        include_global: feedScope.includeGlobal,
       });
       
       // CORREÇÃO: usar função de atualização para evitar closure
@@ -476,6 +506,11 @@ export default function SocialFeed2() {
 
   return (
     <div className="social-feed-2">
+      <ActiveLocationManager
+        open={locationModalOpen}
+        onClose={() => setLocationModalOpen(false)}
+        onLocationChange={(next) => setActiveLocation(next)}
+      />
       <div className="feed-layout">
         {/* Feed Central - Expandido */}
       <main className="feed-center">
@@ -486,6 +521,15 @@ export default function SocialFeed2() {
           </span>
           <span className="mode-badge-text">{modeLabel}</span>
         </div>
+
+        {/* DECISION-0030 (F5): seletor de scope geográfico */}
+        <FeedScopeSelector
+          value={feedScope}
+          onChange={setFeedScope}
+          hasActiveLocation={activeLocation !== null}
+          onActivateLocation={() => setLocationModalOpen(true)}
+          disabled={isLoading}
+        />
 
         {/* Saldo de Impacto */}
         <div id="impact-balance-badge">

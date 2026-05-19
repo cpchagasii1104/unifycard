@@ -1,6 +1,7 @@
 // src/api/social-2.0.ts
 // API client para Social 2.0
 
+import type { Gender } from '@unificard/contracts';
 import { apiFetch } from './client';
 
 export interface Actor {
@@ -82,7 +83,7 @@ export interface CreatePostInput {
   targeting?: {
     demographics?: {
       age_range?: [number, number];
-      gender?: ('male' | 'female' | 'other')[];
+      gender?: Gender[];
     };
     lifestyle?: {
       drinks?: boolean;
@@ -141,15 +142,35 @@ export interface ActorProfile {
 }
 
 /**
- * Busca feed com cursor pagination
+ * Tipos do payload polimórfico de filtro geo (DECISION-0030 — F3).
+ * Backend resolve via feed-proximity.service. Frontend apenas envia.
+ */
+export type FeedScope = 'radius_km' | 'city' | 'state' | 'unlimited';
+
+export interface FeedProximityOptions {
+  scope?: FeedScope;
+  /** Obrigatório quando scope='radius_km'; em km */
+  value?: number;
+  /** Quando true, inclui posts sem address_id (globais) */
+  include_global?: boolean;
+}
+
+/**
+ * Busca feed com cursor pagination + filtro geo opcional (DECISION-0030).
+ *
  * @param cursor Cursor para paginação
  * @param limit Limite de posts por página
  * @param groupId ID do grupo para filtrar posts (opcional)
  * @param actorType Tipo do ator (user | page) - obrigatório se não fornecido via activeActor
  * @param actorId ID do ator - obrigatório se não fornecido via activeActor
+ *
+ * Filtro geo via options object:
+ *   getFeed({ scope: 'radius_km', value: 10, include_global: true, ... })
+ *
+ * Backward compat: ausência de scope = comportamento original (sem filtro geo).
  */
 export async function getFeed(
-  cursorOrOptions?: string | Record<string, any>,
+  cursorOrOptions?: string | (Record<string, any> & FeedProximityOptions),
   limit: number = 20,
   groupId?: string,
   actorType?: 'user' | 'page',
@@ -165,6 +186,16 @@ export async function getFeed(
     if (opts.group_id) params.append('group_id', opts.group_id);
     if (opts.actor_type) params.append('actor_type', opts.actor_type);
     if (opts.actor_id) params.append('actor_id', opts.actor_id);
+    // DECISION-0030 (F3): filtro geo polimórfico
+    if (opts.scope) {
+      params.append('scope', opts.scope);
+      if (opts.scope === 'radius_km' && typeof opts.value === 'number') {
+        params.append('value', String(opts.value));
+      }
+      if (opts.include_global) {
+        params.append('include_global', 'true');
+      }
+    }
   } else {
     if (cursorOrOptions) params.append('cursor', cursorOrOptions);
     params.append('limit', limit.toString());
