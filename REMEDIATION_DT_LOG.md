@@ -3770,3 +3770,95 @@ NÃO autorizada nesta sessão (migration DDL exige autorização explícita; aud
 - DECISION-0020 (2026-05-08) decidiu o pilar; implementação parcial.
 - Memória `project_localizacao_pilar_soberano.md` (2026-05-19) institucionalizou auto-vigilância operacional + mapeia gap.
 - Esta DT formaliza o achado para próxima sessão poder agir cirurgicamente.
+
+---
+
+## DT-PRESSURE-POSTGIS-MISSING-RIDES-WORK-CALLERS
+
+- **Status:** OPEN
+- **Severidade:** HIGH (latente mas ativável a qualquer momento)
+- **Origem:** Audit material 2026-05-19 durante Fase 0 do plano `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`. Cruzamento entre `pg_extension` e grep por funções PostGIS no código.
+- **Vinculada a:** DECISION-0030 (Sub-decisão A — Haversine SQL canônico) — qualquer correção desta DT deve respeitar o pattern Haversine canônico decidido em DECISION-0030
+- **Categoria:** DT-PRESSURE (bug ativo dormindo, não dívida latente)
+
+### Contexto material
+
+PostgreSQL extension PostGIS **NÃO está instalada** no DB do projeto:
+
+```sql
+SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname='postgis');
+→ FALSE
+```
+
+Mas código TS usa funções PostGIS (`ST_DWithin`, `ST_Distance`, `ST_SetSRID`, `ST_MakePoint`) em 7+ call sites:
+
+| Arquivo | Linha | Função usada |
+|---|---|---|
+| `backend/src/modules/rides/location/location.service.ts` | 92 | `ST_DWithin` |
+| `backend/src/modules/rides/demand/demand.service.ts` | 83 | `ST_DWithin` |
+| `backend/src/modules/rides/pricing/pricing.service.ts` | 183 | `ST_Distance` |
+| `backend/src/modules/rides/pricing/pricing.service.ts` | 207 | `ST_Distance` |
+| `backend/src/modules/rides/pricing/pricing.service.ts` | 253 | `ST_Distance` |
+| `backend/src/modules/work/workers/worker.service.ts` | 446 | `ST_DWithin` |
+| `backend/src/modules/work/jobs/job.service.ts` | 246 | `ST_DWithin` + `ST_SetSRID` + `ST_MakePoint` |
+
+Plus: `rides_driver_locations.location` é declarada como `jsonb` (não `geography`) — workaround visível para PostGIS imaginado.
+
+### Sintoma runtime esperado
+
+Postgres error `42883` (function does not exist) OU `42704` (type does not exist) ao executar qualquer query que invoque essas funções. Crash garantido se rota correspondente for exercitada.
+
+### Por que está latente
+
+Features rides/work são **aspiracionais** — não exercitadas em runtime real até hoje. Mesmo padrão observado em outras DTs (Sprint 60+ supplier/PO confirmado no PASSO 6b da auditoria estrutural). Tabelas com 0 rows globais escondem o bug até primeiro uso real.
+
+### Risco material
+
+- **Ativo no primeiro uso real** de qualquer rota que dispare:
+  - `rides/location.service` calculando proximidade entre drivers
+  - `rides/pricing.service` calculando preço dinâmico baseado em distância
+  - `rides/demand.service` calculando densidade de demanda regional
+  - `work/worker.service` matching de workers por raio
+  - `work/job.service` matching de jobs por proximidade
+- **Bloqueia** features rides + work-instant + smart-matching quando alguém ativar
+
+### Conexão com DECISION-0030 (esta sessão)
+
+DECISION-0030 Sub-decisão A decidiu **pattern canônico Haversine SQL** (não PostGIS) para esta frente do feed. Qualquer fix futuro desta DT deve:
+
+1. **NÃO** instalar PostGIS sem cruzar com DECISION-0030 (pattern canônico Haversine já estabelecido)
+2. **Migrar callers** rides/work para Haversine SQL OU reconhecer que features rides/work precisam de PostGIS (decisão arquitetural separada)
+3. **Não criar verdade paralela** entre Haversine (feed) e PostGIS (rides/work) sem decisão consciente
+
+### Mitigação atual
+
+Nenhuma técnica. Apenas formalização institucional:
+- Esta DT registra o achado
+- DECISION-0030 estabelece pattern canônico Haversine para nova frente
+- Próxima sessão que tocar rides/work TEM que enfrentar essa DT (não vai conseguir ignorar)
+
+### Resolução prevista
+
+Frente própria. **3 opções arquiteturais (futuras, NÃO esta frente):**
+
+1. **Migrar callers para Haversine SQL** (Opção A — alinhado com DECISION-0030)
+   - Custo: 7 call sites × ~10 LOC cada = ~70 LOC
+   - Pré: feature rides/work em escopo de uso real
+
+2. **Instalar PostGIS** (Opção B — decisão arquitetural ampla)
+   - Custo: extension + columns geography + indexes GiST
+   - Pré: DECISION arquitetural reconsiderando Sub-decisão A de DECISION-0030
+   - Implica revisar performance e compat com Haversine SQL existente
+
+3. **Congelar rides/work** (Opção C — aplicação DECISION-0041 pattern)
+   - Reconhecer que features são PREMATURAS (aspiracionais sem runtime real)
+   - Comentar rotas em `app.builder.ts`
+   - Quando ecossistema rides/work emergir, escolher Opção A ou B
+
+**NÃO autorizada nesta sessão** — DECISION arquitetural separada. Registro institucional aqui.
+
+### Convergência institucional
+
+- Achado durante audit Fase 0 do plano `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`
+- DECISION-0030 (Sub-decisão A) condiciona qualquer fix futuro
+- Pattern consistente com sessões anteriores: features aspiracionais Sprint X escondem bugs até primeiro uso real (PASSO 6b smoke supply chain, 2026-05-17)

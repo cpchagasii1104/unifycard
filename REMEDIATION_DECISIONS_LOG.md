@@ -2947,3 +2947,103 @@ Clayton (decisão soberana arbitrante entre as duas leituras temporais do própr
 #### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0030 — Localização contextual de actor como entidade temporal-operacional soberana
+
+- **Data:** 2026-05-19
+- **Tipo:** arquitetural — extensão de DECISION-0020
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão Fase 0 do plano `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`)
+
+### Princípio
+
+Localização contextual de actor é entidade **temporal-operacional** com 4 projeções semanticamente distintas. `actor_active_location` é fonte compartilhada; cada módulo consumidor define sua própria regra de uso.
+
+### Relação com DECISION-0020 (Location Core)
+
+Esta DECISION **ESTENDE — não substitui**. Localização contextual é camada ACIMA do catálogo territorial soberano (`countries`/`states`/`cities`/`neighborhoods`/`addresses`). Hierarquia administrativa permanece SSOT geográfico; nova camada adiciona dimensão contextual-temporal de uso.
+
+### Relação com DECISION-0021 (addresses sem RLS)
+
+`actor_active_location` TEM RLS por tenant + `tenant_id NOT NULL`. `addresses` (DECISION-0021) é catálogo geográfico global compartilhado. São tabelas com **naturezas OPOSTAS de isolamento, ambas corretas em seu padrão**.
+
+**Razão:** localização ATIVA de um actor é dado privado de uso operacional (LGPD-relevante). Catálogo de endereços é fato geográfico público.
+
+### 4 Projeções (semânticas distintas)
+
+1. **Descoberta** (feed/posts): user controla via slider — preferência declarada, configurável
+2. **Operacional** (rides, delivery, serviços presenciais): constraint físico-logístico definido PELO MÓDULO, não pelo user
+3. **Marketplace**: híbrido — toggle local/global como UX
+4. **Fiscal/soberana**: residência legal, jurisdição (já modelada via `primary_address_id` / `headquarters_address_id`, DECISION-0020/0021)
+
+### Anti-padrões formalmente proibidos
+
+1. **Service genérico de proximidade** servindo feed + operacional + marketplace (cada um tem semântica oposta). Naming canônico: `feed-proximity.service.ts` para descoberta; `ride-coverage.service.ts` / `delivery-zone.service.ts` / `marketplace-shipping.service.ts` para os demais.
+2. **Módulo operacional respeitar preferência de feed** (rides ou delivery aceitando "ilimitado" quando constraint é físico).
+3. **Frontend calcular distância sozinho** — sempre via backend (princípio "Frontend nunca cria verdade", memória 2026-05-19).
+4. **Lat/lng em tabela que não seja** `addresses`, `actor_active_location`, `cities`, ou tabelas geo-específicas existentes (`rides_driver_locations`).
+5. **Confundir "user quer ver mundo todo no feed" com "user aceita delivery de qualquer lugar"** — projeções distintas, decisões distintas.
+6. **Poluir `address_assignments.role` com USER_CURRENT_LOCATION** — role é fiscal/logístico estável (BILLING/DELIVERY/RESIDENCE/HQ/OPERATIONAL/PICKUP/DROPOFF), não contextual temporal.
+
+### Sub-decisão A (resolvida nesta DECISION) — Haversine SQL canônico
+
+Pattern canônico para cálculo de distância: **Haversine SQL puro** via function PostgreSQL `haversine_distance_km(lat1, lng1, lat2, lng2)` documentada como reusável.
+
+- PostGIS NÃO é instalado nesta frente (decisão arquitetural ampla, fora do escopo).
+- Helper JS existente (`social-2.0.service.ts:302 calculateHaversineDistance`) é cálculo em memória — não SQL. Tradução necessária para `haversine_distance_km` SQL function.
+- Performance OK até ~50-100k posts sem index espacial; escala futura pode pressionar PostGIS (decisão posterior).
+
+### Caso de uso material que motivou a DECISION
+
+Slider de raio configurável no feed (user define distância de descoberta de posts). Plano completo em `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`.
+
+### Schema canônico aprovado
+
+```sql
+CREATE TABLE actor_active_location (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
+  address_id UUID REFERENCES addresses(address_id) ON DELETE SET NULL,
+  lat NUMERIC(10,7),
+  lng NUMERIC(10,7),
+  source TEXT NOT NULL CHECK (source IN (
+    'USER_INPUT_CITY','BROWSER_GEOLOCATION','IP_ESTIMATE','EXPLICIT_TRAVEL_MODE')),
+  scope_level TEXT CHECK (scope_level IN ('NEIGHBORHOOD','CITY','STATE','COUNTRY')),
+  activated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (address_id IS NOT NULL OR (lat IS NOT NULL AND lng IS NOT NULL))
+);
+
+CREATE UNIQUE INDEX uniq_active_actor_location
+  ON actor_active_location (tenant_id, actor_id) WHERE is_active = true;
+
+ALTER TABLE actor_active_location ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY active_location_rls ON actor_active_location
+  USING (tenant_id::text = current_setting('app.current_tenant', true));
+
+ALTER TABLE posts
+  ADD COLUMN address_id UUID REFERENCES addresses(address_id) ON DELETE SET NULL;
+```
+
+### Implementação prevista
+
+Plano em fases F1-F6 detalhado em `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`. Cada fase com autorização explícita por Clayton.
+
+#### Supera
+
+(nenhuma — DECISION inédita)
+
+#### Estende
+
+- DECISION-0020 (Location Core: território como infraestrutura soberana)
+- DECISION-0021 (addresses sem RLS — catálogo global)
+
+#### Superada por
+
+(preencher quando superada)
