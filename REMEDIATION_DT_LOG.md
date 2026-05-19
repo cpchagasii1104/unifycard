@@ -3862,3 +3862,72 @@ Frente própria. **3 opções arquiteturais (futuras, NÃO esta frente):**
 - Achado durante audit Fase 0 do plano `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`
 - DECISION-0030 (Sub-decisão A) condiciona qualquer fix futuro
 - Pattern consistente com sessões anteriores: features aspiracionais Sprint X escondem bugs até primeiro uso real (PASSO 6b smoke supply chain, 2026-05-17)
+
+---
+
+## DT-PRESSURE-AUTH-CHECK-PARITY-INVARIANT
+
+- **Status:** CLOSED-LESSON
+- **Origem:** Sessão 2026-05-19 — bug WelcomePage redirecionando `/` → `/login` em aba anônima
+- **Fechada por:** commit `0508ba66` (feat(welcome): WelcomePage pública + alinhar auth check par soberano (token+tenant))
+- **Vinculada a:** princípio "Frontend nunca cria verdade" (memória `project_frontend_nunca_cria_verdade.md`)
+- **Categoria:** lição institucional sobre invariância de check de auth entre camadas
+
+### Contexto material do bug
+
+`frontend/src/App.tsx:177` (versão pré-fix) rota `/` checava apenas `isAuthenticated()` (só token).
+`frontend/src/components/auth/ProtectedRoute.tsx:20` checa `isAuthenticated() AND getTenantId()` (par completo).
+
+Mismatch causava loop quando localStorage tinha **token órfão sem tenant**:
+1. User abre `/` → `isAuthenticated() === true` → `Navigate(/home)`
+2. `/home` → ProtectedRoute → `!isAuthenticated() || !getTenantId()` = `false || true` = `true` → `Navigate(/login)`
+
+Resultado: `/` → `/home` → `/login`. Aba anônima eventualmente acaba aqui se localStorage tem token resquício de outra sessão.
+
+### Causa raiz institucional
+
+**Dois critérios de "autenticado" coexistindo no frontend:**
+- `isAuthenticated()` em `auth.ts:40-42` — checa só `getAuthToken()`
+- `ProtectedRoute` — checa par soberano `(token, tenant)`
+
+Verdade paralela entre camadas. Cada camada decidia "autenticado" com critério próprio.
+
+### Fix aplicado (commit `0508ba66`)
+
+Alinhamento de TODOS os checks de rota pública (`/`, `/login`, `/register`) com o par soberano:
+```ts
+(isAuthenticated() && getTenantId()) ? <Navigate to="/home" replace /> : <componente_publico>
+```
+
+Cleanup posterior (commit `28eb000a`) removeu atalho diagnóstico `/start` + `console.log` quando bug confirmado resolvido pela mecânica.
+
+### Lição institucional
+
+**Invariância de check de auth:** se múltiplas camadas decidem "autenticado", TODAS devem usar o mesmo conjunto de campos soberanos. Mismatch entre camadas produz loop de redirect imperceptível durante implementação inicial — só aparece em condições edge (token órfão, expiração parcial, multi-tab).
+
+**Pattern derivado:** o "par soberano de autenticação" `(getAuthToken(), getTenantId())` é unidade indivisível para frontend. Pattern do checklist mental:
+
+> "Antes de redirecionar baseado em estado de auth, ESTOU usando o mesmo conjunto de campos que a camada que vai me recuperar?"
+
+Aplicação: ProtectedRoute (camada de proteção) é fonte canônica do critério; rotas públicas (camada de gate) devem espelhar EXATAMENTE.
+
+### Convergência com "Frontend nunca cria verdade" (memória 2026-05-19)
+
+Esta DT precede a memória mas converge perfeitamente. Backend define contrato de auth (par token+tenant); frontend deveria projetar uniformemente em TODAS as camadas. Não alinhar = criar verdade paralela "user está autenticado" entre 2 camadas frontend.
+
+### Resolução prevista (já materializada)
+
+- Commit `0508ba66` aplicou alinhamento cirúrgico (~3 linhas mais 1 import).
+- Cleanup `28eb000a` removeu artefatos diagnósticos.
+- Memória `project_frontend_nunca_cria_verdade.md` (2026-05-19) codifica o princípio derivado dessa lição.
+- Esta DT preserva a lição institucionalmente — formalizada como **CLOSED-LESSON** (não-OPEN; lição arqueológica disponível para próxima IA).
+
+### Pattern para checklist futuro
+
+Quando criar/refatorar rota com lógica condicional baseada em auth:
+1. Identificar TODAS as camadas que decidem auth para a rota (público guard, ProtectedRoute, ação interna do componente)
+2. Listar os campos soberanos checados em cada camada
+3. Convergir para o conjunto MAIS RESTRITIVO (geralmente o de ProtectedRoute)
+4. Aplicar uniformemente em todas as camadas
+
+Se houver tentação de "ser mais permissivo na entrada" (ex: rota `/` só checa token), o sistema vai criar loops invisíveis. Resistir.
