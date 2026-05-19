@@ -3932,6 +3932,87 @@ Quando criar/refatorar rota com lógica condicional baseada em auth:
 
 Se houver tentação de "ser mais permissivo na entrada" (ex: rota `/` só checa token), o sistema vai criar loops invisíveis. Resistir.
 
+### Terceira ocorrência (2026-05-19) — ambiguidade de match de rota React Router
+
+Após `0508ba66` (par soberano alinhado) o bug `/` → `/login` em aba anônima fresca PERSISTIU. Diagnóstico DevTools (Clayton) revelou `[ProtectedRoute DIAG]` logando `pathname="/"` com 4 renders — apesar do código TS estar materialmente coerente com o fix.
+
+**Causa raiz material:** `App.tsx:246-253` declarava layout protegido como **pathless parent + Route index**:
+
+```tsx
+<Route element={<ProtectedRoute><SocialLayout /></ProtectedRoute>}>
+  <Route index element={<Navigate to="/home" replace />} />  {/* ← casava com "/" */}
+  <Route path="social" element={<SocialPage />} />
+  ...
+</Route>
+```
+
+Em React Router v6, `<Route>` pai sem `path` é "pathless layout route" — herda o path do contexto pai (aqui: root). `<Route index>` aninhado casa com o path do parent, ou seja, com `"/"`. Resultado: match ambíguo com `<Route path="/" element={<WelcomePage />}>` em `App.tsx:177`. React Router prioriza o index aninhado, ProtectedRoute monta, vê `!isAuthenticated() || !getTenantId()` → `<Navigate to="/login">`.
+
+**Notar:** apenas o SocialLayout pai tinha esse padrão. BankLayout (linhas 339-355) e AdminLayout (linhas 358-394) são também pathless mas SEM `<Route index>` filho — não disparavam o bug. Isso fez o sintoma assimétrico (só SocialLayout capturava "/").
+
+**Fix aplicado (2026-05-19, ≤10 LOC):** remover `<Route index>` da linha 253. Substituído por comentário DT-style explicando a remoção e apontando para a rota raiz pública (linhas 176-179) que já cobre os dois casos (logado → /home; não-logado → WelcomePage).
+
+**Generalização da lição:** "auth-check parity" cobre **dois eixos**:
+1. **Eixo dos campos checados** (causa do bug original): camadas decidindo "autenticado" com critérios diferentes.
+2. **Eixo do match de rota** (terceira ocorrência): caminho protegido capturando silenciosamente rotas que deveriam ser públicas. Mesmo com critérios alinhados, se o pathless parent + index estiver intercepando "/" antes da rota pública, o usuário anônimo é redirecionado para `/login`.
+
+**Padrão preventivo (adicionar ao checklist 1-4):**
+5. Verificar se há **pathless layout route** com `<Route index>` aninhado. Se sim, o index casa com o path-base do parent (geralmente "/"), conflitando com rotas raiz públicas. Solução: ou remover o index (cobrir o caso via rota raiz absoluta), ou dar path explícito ao parent (`path="app/*"`).
+
+### Métrica institucional
+
+3 ocorrências do mesmo pattern em ~12 dias (auth-check parity em camadas diferentes):
+- Origem (≤2026-05-13): `/` checava só token, ProtectedRoute checava par
+- Segunda (2026-05-19 sessão A): mesmo bug observado e investigado
+- Terceira (2026-05-19 sessão B): pathless parent + Route index sobrescrevendo rota pública
+
+Pattern já passa do limite de 2 aplicações independentes — codificado como **lei operacional permanente** acima do nível "lição". Lição arqueológica: **toda rota raiz pública deve ser auditada contra ambiguidade de match em layouts protegidos aninhados.**
+
+---
+
+## DT-PRESSURE-AUTH-BACK-TO-HOME
+
+- **Status:** OPEN
+- **Origem:** Sessão 2026-05-19 (terceira ocorrência DT-AUTH-CHECK-PARITY) — após fix de Route index + AuthWrapper, Clayton reportou gap UX: Login e Register não têm caminho de volta para `/` (WelcomePage). User fica restrito ao toggle login↔register.
+- **Categoria:** UX-gap não-crítico (não bloqueia auth; afeta apenas navegação)
+
+### Estado material
+
+Edits cirúrgicos foram aplicados em working tree mas **NÃO commitados**:
+- `frontend/src/components/Login.tsx` — prop opcional `onBackToHome` + botão "← Voltar para início" (~15 LOC)
+- `frontend/src/components/Register.tsx` — prop opcional `onBackToHome` + botão "← Voltar para início" (~15 LOC)
+- `frontend/src/App.tsx` (AuthWrapper) — passa `onBackToHome={() => navigate('/')}` para ambos componentes (já commitado nesta rodada como parte do refactor URL→view)
+
+### Razão da postergação
+
+Working tree dos arquivos `Login.tsx` e `Register.tsx` continha mudanças preexistentes de **outras frentes paralelas** ao serem editados nesta sessão:
+
+- **Login.tsx**: 1 linha preexistente — `localStorage.removeItem('unificard_active_actor_id')` no fluxo pós-login. Frente "actor-scope-cleanup", provavelmente Codex.
+- **Register.tsx**: ~6 mudanças preexistentes — vocabulário canônico Gender (import `Gender`/`isGender` de `@unificard/contracts`, opções `non_binary`/`other`/`prefer_not_to_say`, labels `Sexo→Gênero`, refator de validação). Frente "vocabulário-canônico-gender", provavelmente Codex.
+
+`git add` específico no nível de arquivo arrastaria essas frentes alheias para o commit, violando disciplina "1122 entries preservadas das frentes paralelas". `git add -p` interativo não é executável neste contexto. `git checkout HEAD --` + re-edit + restore é destrutivo se backup falhar.
+
+### Resolução prevista
+
+Quando working tree for organizado (Codex/Clayton separar as 3 frentes coexistindo em `Login.tsx` e `Register.tsx`), aplicar os 2 fixes `onBackToHome` em commits independentes:
+- 1 commit isolado para `actor-scope-cleanup` em Login.tsx
+- 1 commit isolado para `vocabulário-canônico-gender` em Register.tsx
+- 1 commit isolado para `auth-back-to-home` em ambos os componentes
+
+### Não bloqueia
+
+- Fluxo de auth funciona ponta-a-ponta (login, register, logout)
+- WelcomePage renderiza em `/`
+- Toggle login↔register funciona via URL
+- User com URL conhecida (digitar `/` na barra ou usar bookmark) chega na WelcomePage
+- Botão "back" do browser também volta para `/` se user navegou via WelcomePage
+
+Gap é apenas: dentro do Login/Register, falta CTA explícito "voltar para início" para user que entrou direto via URL ou que mudou de ideia.
+
+### Critério de fechamento
+
+DT fecha quando os ~30 LOC pendentes (`onBackToHome` em Login + Register) forem efetivamente commitados após organização do working tree.
+
 ---
 
 ## DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH

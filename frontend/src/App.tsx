@@ -100,23 +100,24 @@ import './App.css';
 import './styles/global.css';
 
 // Componente wrapper para Login/Register com navegação
+// URL é fonte única do modo (pathname '/register' → Register; demais → Login).
+// Sem useState local — evita verdade paralela entre router e estado do componente
+// (princípio "Frontend nunca cria verdade", memória 2026-05-19).
 function AuthWrapper() {
-  const [currentView, setCurrentView] = useState<'login' | 'register'>('login');
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentView: 'login' | 'register' =
+    location.pathname === '/register' ? 'register' : 'login';
 
-  const handleLoginSuccess = () => {
-    navigate('/home');
-  };
-
-  const handleRegisterSuccess = () => {
-    navigate('/home');
-  };
+  const handleLoginSuccess = () => navigate('/home');
+  const handleRegisterSuccess = () => navigate('/home');
 
   if (currentView === 'register') {
     return (
       <Register
         onRegisterSuccess={handleRegisterSuccess}
-        onBackToLogin={() => setCurrentView('login')}
+        onBackToLogin={() => navigate('/login')}
+        onBackToHome={() => navigate('/')}
       />
     );
   }
@@ -124,7 +125,8 @@ function AuthWrapper() {
   return (
     <Login
       onLoginSuccess={handleLoginSuccess}
-      onGoToRegister={() => setCurrentView('register')}
+      onGoToRegister={() => navigate('/register')}
+      onBackToHome={() => navigate('/')}
     />
   );
 }
@@ -250,7 +252,12 @@ function AppContent() {
               </ProtectedRoute>
             }
           >
-          <Route index element={<Navigate to="/home" replace />} />
+          {/* DT-PRESSURE-AUTH-CHECK-PARITY-INVARIANT (terceira ocorrência 2026-05-19):
+              Route index removido. Pathless parent (<Route> sem path envolvendo
+              ProtectedRoute+SocialLayout) + Route index aninhado casava com "/" raiz,
+              forçando ProtectedRoute → /login mesmo em aba anônima. O redirect
+              /→/home para user autenticado já é coberto por <Route path="/">
+              nas linhas 176-179 (par soberano token+tenant). */}
           <Route path="social" element={<SocialPage />} />
           <Route path="grupos" element={<GruposPage />} />
           <Route path="grupos/:id" element={<GrupoDetailPage />} />
