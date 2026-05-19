@@ -3931,3 +3931,107 @@ Quando criar/refatorar rota com lógica condicional baseada em auth:
 4. Aplicar uniformemente em todas as camadas
 
 Se houver tentação de "ser mais permissivo na entrada" (ex: rota `/` só checa token), o sistema vai criar loops invisíveis. Resistir.
+
+---
+
+## DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH
+
+- **Status:** OPEN
+- **Severidade:** CRITICAL (bloqueia feed social inteiro em runtime real)
+- **Origem:** Smoke visual Clayton 2026-05-19 em `localhost:5173/social` retornou "Erro ao buscar feed". Diagnóstico via service-direct (`scripts/debug-feed-error.ts`, removido após confirmação) revelou 7 drifts independentes em `social-2.0.service.ts` getFeed query.
+- **Vinculada a:** ZERO relação com F3 (proximityFilter) — bug pré-existente confirmado material via curl SEM `scope` query param (backward compat também HTTP 500).
+- **Categoria:** DT-DRIFT-SCHEMA-CODE-MISMATCH (mesmo pattern de DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES 2026-05-17)
+
+### Contexto material
+
+Pergunta direta: feed `/social/feed` retorna HTTP 500 mesmo na chamada backward-compat (sem scope). NÃO é regressão F3.
+
+Reprodução: curl com auth JOAO retorna `{"error":"Erro ao buscar feed"}` HTTP 500.
+Service-direct (`social2Service.getFeed`) reproduz Postgres errors em cascata.
+
+### Drifts mapeados em runtime (7 confirmados)
+
+| # | Esperado pelo código (`social-2.0.service.ts`) | Schema real no DB |
+|---|---|---|
+| 1 | `post_cta` (tabela com cta_id, cta_type, target_actor_id, target_group_id, price, currency) | **TABELA NÃO EXISTE** (FANTASMA — `to_regclass` retorna NULL) |
+| 2 | `posts.post_id` (PK) | `posts.id` (PK real) |
+| 3 | `posts.global_user_id` | **COLUNA NÃO EXISTE** |
+| 4 | `posts.media` | `posts.media_ids` (array UUID) |
+| 5 | `follows.actor_id` | `follows.followed_actor_id` |
+| 6 | `follows.follow_id` | `follows.id` |
+| 7 | `reactions.post_id` | **COLUNA NÃO EXISTE** (reactions usa `entity_type` + `entity_id` polymórfico) |
+
+Plus: `comments.post_id` OK (existe). Mais drifts possíveis em outras queries do mesmo service não-auditadas (1389 LOC total).
+
+### Schema real auditado
+
+```
+posts: id, tenant_id, actor_id, content, post_type, media_ids, intent,
+       intent_metadata, targeting, is_published, is_deleted, metadata,
+       created_at, updated_at, address_id (F1)
+
+reactions: id, tenant_id, actor_id, entity_type, entity_id, reaction_type, created_at
+comments:  id, tenant_id, actor_id, post_id, parent_comment_id, content,
+           is_deleted, metadata, created_at
+follows:   id, tenant_id, follower_actor_id, followed_actor_id, created_at
+post_cta:  AUSENTE
+```
+
+### Tentativa de fix cirúrgico (revertida)
+
+Apliquei 4 fixes parciais durante diagnóstico:
+1. `post_cta` LEFT JOIN substituído por NULL casts em 2 queries
+2. `follows.follow_id` → `follows.id`
+3. `follows.actor_id` → `follows.followed_actor_id`
+4. `p.post_id` → `p.id AS post_id` + `posts.global_user_id`/`media` substituídos por NULL casts
+
+Após cada fix, query revelava próximo drift. 4º fix ainda quebrava em `reactions.post_id`.
+
+**Padrão §4 (auto-vigilância material) acionado**: cada coluna corrigida revelava próxima. NÃO é cirurgia ≤30 LOC — é refator amplo de SQL. Apliquei `git checkout HEAD --` em `social-2.0.service.ts` revertendo todos os fixes parciais. Script debug-feed-error.ts removido.
+
+### Risco material
+
+- **Feed `/social` bloqueado em runtime** — bloqueia validação visual F5 (Clayton acessa, vê "Erro ao buscar feed")
+- **Bug pré-existente** desde antes da auditoria — não é regressão recente
+- **Reactions polymorphic**: refator não-trivial (entity_type='post' + entity_id=post_id em vez de FK direta)
+- **Não-bloqueia core financeiro** (bank/ledger/transactions intocados)
+- **Outras queries do service podem ter drifts similares** (1389 LOC; só ~3 queries auditadas)
+
+### Mitigação atual
+
+Nenhuma. Reporte material para frente própria. Estado preservado:
+- Service revertido para HEAD
+- F3 (proximityFilter integration) intacto — TSC verde, gates verdes
+- Demais commits da sessão (F1-F4, F6) intactos
+- F5 frontend (commit `8b61bb06`) intacto — pronto para validar quando feed funcionar
+
+### Resolução prevista
+
+Frente própria backend (~estimativa 2-4 sessões dedicadas):
+1. Auditoria material query-by-query do `social-2.0.service.ts` (1389 LOC, 3+ queries grandes)
+2. Cruzar cada coluna/JOIN com `information_schema.columns`
+3. Decisão arquitetural sobre `reactions`:
+   - (a) Migrar para FK direta (reactions.post_id) — DDL aditiva
+   - (b) Refatorar queries para usar polymorphic entity_type/entity_id (consistente com schema atual)
+4. Decisão sobre `post_cta`:
+   - (a) Materializar tabela (DDL aditiva)
+   - (b) Comentar paths CTA (pattern DECISION-0041 PREMATURO; já consolidado em outras DTs)
+5. Fix `posts.post_id` → `posts.id AS post_id` (alias preserva contrato externo)
+6. Fix `follows` columns (followed_actor_id, id)
+7. Smoke runtime end-to-end pós-fix
+
+**NÃO autorizada nesta sessão.** Drift sistêmico exige frente própria com escopo claro.
+
+### Convergência institucional
+
+- Pattern consistente com DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES (PASSO 6b 2026-05-17): código referencia colunas/tabelas que migration não criou ou removeu.
+- "Features aspiracionais Sprint X com 0 rows escondem bugs até primeiro uso real" — `posts` tem rows hoje, mas o getFeed específico nunca foi exercitado em runtime real (ou exercitado apenas pelo path "vazio sem dados" que evita o JOIN crítico).
+- Pattern §4 cognitive: tentação de fix em cascata revelou estrutura mais ampla. Auto-vigilância funcionou — revertido + reportado.
+
+### Workaround disponível
+
+Para Clayton validar F5 visualmente:
+- F5 não exige feed funcional para mostrar `<FeedScopeSelector>` (componente renderiza independente do feed loading)
+- Toggle de scope, modal de localização ativa, e API client funcionam independentemente
+- **A interação completa** (mudar scope → feed atualiza) **bloqueada por esta DT**
+- Smoke F6 backend já validou que o filtro server-side funciona end-to-end (7/7 cenários PASS)
