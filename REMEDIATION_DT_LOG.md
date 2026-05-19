@@ -3085,7 +3085,7 @@ autorizado. Ambas as DTs aguardam frente própria com autorização explícita.
 
 ## DT-PRESSURE-BANK-ACTOR-CONTEXT
 
-- **Status:** OPEN
+- **Status:** MITIGADA EM CÓDIGO (aguarda smoke browser para CLOSED) — implementada na P1, commit `fce493c0` (feat(bank): actor-context resolution). Smoke E2E via curl PASS 4 cenários incluindo `hasAccount=false` material para actors sem conta bank. Reconciliação §22 lição 2 — Status header substituído (não duplicado) em 2026-05-18 EXECUTOR CONTÍNUO; ver bloco "Atualização" abaixo para detalhe.
 - **Origem:** auditoria contextual frontend 2026-05-18 (sessão modelagem Home Contextual) — confirmada via grep material em `frontend/src/api/bank.ts`
 - **Vinculada a:** memória `project_home_contextual_modelo_2026-05-18.md` (P1, item destrava trabalho de Codex)
 - **Categoria:** DT-PRESSURE (auditoria frontend identificou gap backend que bloqueia projeção contextual real)

@@ -4706,3 +4706,54 @@ Total: **8 commits limpos** desde início do P1 (fd0b9996 → b3107ce3).
 
 ### Modo final desta sessão
 **AGUARDANDO_AUTORIZACAO** — P2 fechado, próxima decisão arbitrada por Clayton.
+
+
+---
+
+## Reconciliação documental — audit estrutural 2026-05-18 (sessão EXECUTOR CONTÍNUO)
+
+Convergência cruzada entre STATUS / DT_LOG / commits para os 4 itens do
+audit estrutural pendentes em `AUDIT_STRUCTURAL_RISKS_2026_05_18.md`.
+Esta entrada apenas explicita ato consumado distribuído entre sessões —
+nenhum novo trabalho material.
+
+### Mapeamento ITEM → COMMIT/DT → STATUS
+
+| Item audit | Status material | Onde está |
+|---|---|---|
+| **R1** post-event-split uuidv4 → determinístico | ATO CONSUMADO | commit `35b45451 fix(events): idempotencyKey determinístico em post-event-split (R1 + R2-anotação)` (sessão Fix 4 cirúrgica) |
+| **R2** post-event-split orphan recovery | DT REGISTRADA, ADIADA DELIBERADAMENTE | DT-EVENT-FINANCIAL-EXECUTION-ORPHAN-RECOVERY (REMEDIATION_DT_LOG.md); latente hoje (escrowService.release stub); reativa quando event-escrow event-based for implementado |
+| **R3** event-outbox FOR UPDATE SKIP LOCKED + SAVEPOINT | ATO CONSUMADO | commit `ce61f363 fix(outbox): FOR UPDATE SKIP LOCKED + SAVEPOINT por row (R3 multi-worker safety)` (sessão Fix 4 cirúrgica) |
+| **R4** PIX webhook HMAC verification | ATO CONSUMADO | commit `0f1a890c fix(pix-webhook): HMAC verification + fail-closed automático em produção (R4)` (sessão Fix 4 cirúrgica) |
+| **R5** PIX↔ledger ambiguidade arquitetural | DT REGISTRADA, AGUARDA DECISION | DT-PIX-LEDGER-ALIMENTATION-AMBIGUITY (REMEDIATION_DT_LOG.md); fix sem decision arbitrando contrato PIX↔ledger seria criar verdade paralela |
+
+### DT P1 reconciliada nesta sessão
+
+| DT | Status atualizado |
+|---|---|
+| DT-PRESSURE-BANK-ACTOR-CONTEXT | "OPEN" → "MITIGADA EM CÓDIGO (aguarda smoke browser para CLOSED)" — commit `fce493c0 feat(bank): actor-context resolution`. Status header substituído (não duplicado) conforme §22 lição 2 do `code.md`. Smoke E2E via curl PASS 4 cenários incluindo `hasAccount=false` material para actors sem conta bank. |
+
+### DTs P1 que permanecem OPEN (sem mudança)
+
+Permanecem OPEN aguardando decisão humana (A1-A5 do mapa de decisões 2026-05-18):
+- DT-CAPABILITY-RESOLVER-MVP-IMPLEMENTED — v1 cobre uso atual; v2 dinâmica adiada P3
+- DT-PRESSURE-CONFIRM-CTA-FANTASMA — aguarda decisão A2 (CTA financeiro existe?)
+- DT-FOLLOW-MECHANICS-DECISION-PENDING — aguarda decisão A1 (UnifiCard adota follow?)
+- DT-SOCIAL-LEDGER-EXTINCTION-CONSUMERS — frente própria; refator dos 6 callers para `getBankStatement`
+- DT-PRESSURE-COMMENTS-FANTASMA — aguarda auditoria backend confirmar endpoint
+- DT-PRESSURE-AVAILABLE-ACTOR-ACTIVITY-FIELD — aguarda autorização B1 (migration `companies.activity`)
+
+### Princípio operacional aplicado nesta convergência
+
+Calibração Clayton 2026-05-18 EXECUTOR CONTÍNUO autorizou explicitamente:
+- "Garantir que REMEDIATION_DT_LOG.md reflete estado dos commits Fix 4 (35b45451 / ce61f363 / 0f1a890c) e fce493c0 do P1"
+- "Atualizar STATUS_EXECUCAO_GLOBAL.md se desatualizado"
+- "Coerência cruzada entre os 3 documentos canônicos"
+
+Sem implementação nova — apenas explicitação de ato consumado já distribuído.
+
+### Limites respeitados
+
+- R2 e R5 permanecem OPEN deliberadamente (princípio Clayton 2026-05-18: "Bug confirmado → corrigir. Causalidade não explicitada → DECISION. Risco latente → registrar + adiar.")
+- DT-PRESSURE-BANK-ACTOR-CONTEXT permanece MITIGADA EM CÓDIGO (não CLOSED) até smoke browser validar visualmente — fronteira "Clayton executa" do mapa de delegação
+- Nenhum commit Fix 4 retroativamente modificado — apenas referenciado para coerência documental
