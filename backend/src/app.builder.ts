@@ -467,6 +467,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     // Vinculado a memória project_home_contextual_modelo_2026-05-18.md (P2 item 3, §C).
     const profileInferenceRoutes = (await import('./core/profile-inference/profile-inference.routes')).default;
     await protectedScope.register(profileInferenceRoutes, { prefix: '/actors' });
+
+    // 2026-05-19 — DECISION-0030 (F4): localização ativa do actor (user-facing).
+    // POST/DELETE/GET /me/active-location — set/clear/read da localização contextual.
+    // Vinculado a memória project_localizacao_pilar_soberano.md + plano feed geo.
+    const meActiveLocationRoutes = (await import('./core/location/me-active-location.routes')).default;
+    await protectedScope.register(meActiveLocationRoutes, { prefix: '/me' });
+
     await protectedScope.register(mediaModule, { prefix: '/media' });
     await protectedScope.register(culturalModule, { prefix: '/cultural' });
     await protectedScope.register(votesModule, { prefix: '/api' });
