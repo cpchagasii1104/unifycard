@@ -252,6 +252,43 @@ class BankAccountRepository {
           [tenantId, userUuid]
         );
         actorId = actorRow?.id ?? null;
+      } else if (ownerType === 'company') {
+        // 2026-05-18 fix DT-PRESSURE-BANK-ACCOUNT-COMPANY-OWNER-FK-VIOLATION:
+        // Resolve actor_id via JOIN — padrão clonado do bloco 'user' acima.
+        // Bug anterior usava ownerId (companyId) direto como actor_id, violando
+        // FK bank_accounts.actor_id → actors.id (companyId ≠ actor.id).
+        //
+        // Material: ownerType='company' é usado por DOIS callers distintos no
+        // runtime atual:
+        //   1. bankIntegrationService.resolveCompanyAccount → ownerId=companyId
+        //   2. bankIntegrationService.resolveGroupAccount → ownerId=groupId
+        //      (workaround upstream: comentário literal em bank-integration.service.ts:60
+        //       "Grupos usam ownerType 'company' por enquanto (pode ser ajustado depois)")
+        //
+        // Logo o fix tenta resolver por company_id primeiro (caso 1);
+        // se não bater, tenta por group_id (caso 2). Sem inventar contrato novo
+        // — apenas cobrindo o uso material atual.
+        const ownerUuid = ownerId.includes(':') ? ownerId.split(':')[0]! : ownerId;
+        const companyActorRow = await runQueryWithTenant<{ id: string }>(
+          tenantId,
+          `SELECT id FROM actors
+           WHERE tenant_id = $1 AND company_id = $2::uuid AND actor_type = 'page'
+           LIMIT 1`,
+          [tenantId, ownerUuid]
+        );
+        if (companyActorRow) {
+          actorId = companyActorRow.id;
+        } else {
+          // Fallback: caller pode ter passado groupId (resolveGroupAccount)
+          const groupActorRow = await runQueryWithTenant<{ id: string }>(
+            tenantId,
+            `SELECT id FROM actors
+             WHERE tenant_id = $1 AND group_id = $2::uuid AND actor_type = 'group'
+             LIMIT 1`,
+            [tenantId, ownerUuid]
+          );
+          actorId = groupActorRow?.id ?? null;
+        }
       } else {
         actorId = ownerId.includes(':') ? ownerId.split(':')[0]! : ownerId;
       }
