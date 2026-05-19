@@ -4116,3 +4116,62 @@ Para Clayton validar F5 visualmente:
 - Toggle de scope, modal de localização ativa, e API client funcionam independentemente
 - **A interação completa** (mudar scope → feed atualiza) **bloqueada por esta DT**
 - Smoke F6 backend já validou que o filtro server-side funciona end-to-end (7/7 cenários PASS)
+
+---
+
+## DT-PRESSURE-PUBLICATION-ENGINE-REACTIONS-USER-ID-DRIFT
+
+- **Status:** OPEN
+- **Severidade:** depende de quem chama `publication-engine.service.ts` em runtime — pode estar latente OU ativo conforme exercício real do engine canônico
+- **Origem:** Auditoria material durante remediação de `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (2026-05-19, Fase 1 GUARDIÃO). Descoberto que `publication-engine.service.ts` (engine canônico para reactions) usa `user_id` em queries, mas schema real de `reactions` só tem `actor_id` (auditado em DT-DRIFT-SOCIAL-2.0).
+
+### Call sites
+
+`backend/src/core/publication/publication-engine.service.ts`:
+- **Linha 402** — SELECT: `WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3 AND user_id = $4`
+- **Linha 413** — UPDATE: `WHERE tenant_id = $2 AND entity_type = $3 AND entity_id = $4 AND user_id = $5`
+- **Linha 422** — INSERT: `(entity_type, entity_id, tenant_id, reaction_type, user_id, actor_id)` — usa **AMBOS** user_id E actor_id
+- **Linha 462** — DELETE: `WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3 AND user_id = $4`
+
+### Schema real auditado (cross-reference DT-DRIFT-SOCIAL-2.0)
+
+```
+reactions: id, tenant_id, actor_id, entity_type, entity_id, reaction_type, created_at
+```
+
+`user_id` **NÃO existe** no schema real. Toda query em `publication-engine.service.ts` que filtra por `user_id` retorna 0 rows ou erro.
+
+### Hipóteses sobre estado runtime
+
+1. **Drift latente** — engine canônico nunca foi exercitado pelo runtime real (apenas social-2.0.service.ts é o caller atual do feed). Bug existe materialmente mas não dispara error visível.
+2. **Drift ativo** — algum caller secundário (audit log, notification, etc.) usa o engine e silenciosamente recebe 0 rows quando deveria receber matches.
+3. **Schema parcialmente auditado** — coluna `user_id` pode existir como ALTER TABLE aditiva posterior ao schema auditado pela DT. Hipótese improvável (auditoria via `information_schema.columns` é normalmente exaustiva).
+
+Validação requer:
+- Grep callers de `publicationEngineService.addReaction`/`removeReaction` em runtime real
+- Verificar se há try/catch ou silent fail que esconda o erro
+- `information_schema.columns WHERE table_name = 'reactions'` para confirmar ausência absoluta de `user_id`
+
+### Vinculação com DECISION-0031
+
+DECISION-0031 (Reactions polimórfico soberano, 2026-05-19) estabelece que coluna de identidade canônica em `reactions` é `actor_id` (NÃO `user_id`/`global_user_id`). `publication-engine.service.ts` está em **violação material** dessa DECISION. Frente de fix futuro deve alinhar com DECISION-0031.
+
+### Resolução prevista
+
+Frente própria backend (estimativa ≤1 sessão dedicada):
+1. Validar via `information_schema` que `user_id` não existe em `reactions`
+2. Identificar callers materiais do engine em runtime (`publication-engine.service.addReaction`/`removeReaction`)
+3. Substituir `user_id` por `actor_id` nas 4 call sites (402, 413, 422, 462)
+4. Smoke runtime: validar que reactions polimórficas continuam funcionando
+5. Atualizar contract `CreateReactionInput` se necessário (remover `user_id`, exigir `actor_id`)
+
+### Não bloqueia
+
+- Frente atual `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (fix isolado em `social-2.0.service.ts`)
+- Feed `/social` pós-fix funcionará via social-2.0 (caller atual)
+- `publication-engine.service.ts` NÃO é tocado nesta frente (fronteira explícita Clayton 2026-05-19)
+
+### Convergência institucional
+
+- Pattern consistente com `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`: 2 serviços paralelos com drift de identidade em `reactions` (social-2.0 usa `global_user_id`; publication-engine usa `user_id`). Schema canônico (`actor_id`) só é respeitado pelo INSERT em publication-engine (linha 422, que inclui ambos `user_id` e `actor_id`).
+- Aplica heurística `feedback_runtime_soberano.md`: runtime soberano se identifica pela concentração de causalidade VALIDADA. `publication-engine.service.ts` declara-se canônico mas não está alinhado com schema real — drift contradiz declaração de soberania.

@@ -3047,3 +3047,119 @@ Plano em fases F1-F6 detalhado em `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`. Ca
 #### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0031 — Reactions como tabela polimórfica soberana
+
+- **Data:** 2026-05-19
+- **Tipo:** arquitetural — ratificação de schema canônico
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão remediação `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`)
+
+### Princípio
+
+A tabela `reactions` é **soberanamente polimórfica**. Schema canônico vigente:
+
+```sql
+reactions (
+  id           UUID PRIMARY KEY,
+  tenant_id    UUID NOT NULL,
+  actor_id     UUID NOT NULL,
+  entity_type  TEXT NOT NULL,  -- 'post' | 'comment' | 'event' | ...
+  entity_id    UUID NOT NULL,
+  reaction_type TEXT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+```
+
+Toda query/INSERT/UPDATE/DELETE em `reactions` DEVE usar `(entity_type, entity_id, actor_id)` como vocabulário canônico.
+
+### Anti-padrões formalmente proibidos
+
+1. **FK direta tipo-específica** — adicionar `reactions.post_id`, `reactions.comment_id`, `reactions.event_id` duplicando `entity_id`. Cria caminhos paralelos de identificação e fragmenta polimorfismo.
+2. **Coluna de identidade não-canônica** — usar `user_id` ou `global_user_id` em vez de `actor_id`. Schema só conhece `actor_id` (alinhamento com modelo "Actor como unidade operacional soberana", memória 2026-05-15). Outras camadas de identidade são derivadas, não soberanas.
+3. **Tabelas espelho** — criar `post_reactions`, `comment_reactions`, `event_reactions` separadas. Inflar N tabelas para N tipos é exatamente o que polimorfismo evita.
+
+### Caso material que motivou ratificação
+
+`social-2.0.service.ts` (1407 LOC) usava em paralelo:
+- `reactions.post_id` (drift — coluna não existe)
+- `reactions.global_user_id` (drift — coluna não existe)
+- `reactions.reaction_id` (drift — coluna é `id`)
+
+Em 3 funções (`getFeed`, `addReaction`, `getActorPosts`). Schema real diverge do código há tempo desconhecido. Causa raiz: código herdado de versão anterior do schema (vide `migrations_archive/0040_social_actors_extension.sql:72-85` que TINHA `post_id` direto) sem refator pós-mudança para polimorfismo.
+
+### Coordenação com runtime soberano
+
+`publication-engine.service.ts:399-432` JÁ usa modelo polimórfico (`entity_type`, `entity_id`) — confirma que a semântica polimórfica está ratificada no engine canônico. Drift residual no engine (uso de `user_id` em vez de `actor_id`) registrado como DT própria: `DT-PRESSURE-PUBLICATION-ENGINE-REACTIONS-USER-ID-DRIFT` (2026-05-19).
+
+### Implementação prevista
+
+Refator de `social-2.0.service.ts` (frente atual) converge para o modelo:
+- SELECT: `WHERE entity_type = 'post' AND entity_id = $X AND actor_id = $Y`
+- INSERT: `(tenant_id, actor_id, entity_type, entity_id, reaction_type)`
+- UPDATE: `WHERE id = $X` (não mais `reaction_id`)
+- DELETE: `WHERE id = $X`
+
+#### Supera
+
+- Modelo histórico `reactions(post_id, actor_id)` de `migrations_archive/0040_social_actors_extension.sql` (substituído por polimorfismo em migration posterior ao archive)
+
+#### Estende
+
+- Modelo Actor soberano (memória `project_actor_unidade_operacional_soberana.md`, 2026-05-15) — `actor_id` é coluna canônica de identidade
+
+#### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0032 — post_cta como feature não-materializada (PREMATURO)
+
+- **Data:** 2026-05-19
+- **Tipo:** arquitetural — aplicação de DECISION-0041 PREMATURO
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão remediação `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`)
+
+### Princípio
+
+CTA (Call-To-Action) em posts é **feature pendente de maturação produto**. Não há:
+- Tabela `post_cta` materializada em runtime (FANTASMA — `to_regclass` retorna NULL)
+- UX desenhado (zero componente frontend renderiza `cta_label`/`cta_url`/`cta_action`)
+- JTBD validado em uso real
+- Caller frontend que consume payload de CTA (0 matches em `frontend/src` para `post_cta`/`cta_label`/`cta_url`/`cta_action`/`cta_target`)
+
+Aplicar pattern **DECISION-0041 PREMATURO**: código aspiracional sem ecossistema runtime de suporte deve ser **removido** (não comentado), até que produto materialize a necessidade.
+
+### Estado pós-aplicação
+
+- `social-2.0.service.ts`: bloco INSERT post_cta (linhas ~827-854) removido com comentário arqueológico curto
+- `social-2.0.service.ts`: JOINs `LEFT JOIN post_cta` em `getFeed` (linha 206) e `getActorPosts` (linha 1200) removidos; campos `cta_id`/`cta_type`/`target_actor_id`/`target_group_id`/`price`/`currency` do payload removidos
+- `social-2.0.routes.ts`: endpoint POST CTA action (linhas 740-770) comentado inteiro + DT-MODULE-POST-CTA-FANTASMA registrada
+- **NÃO criar** tabela `post_cta` via migration
+
+### Critério de reabertura
+
+Reabrir feature exige:
+1. UX desenhado e validado (Figma/protótipo)
+2. JTBD claro (qual problema o CTA resolve no contexto do post?)
+3. Caller frontend implementado em ambiente de teste
+4. Uso real validado por pelo menos um actor em piloto
+5. Nova DECISION explícita revertendo PREMATURO + DDL aditiva
+
+### Convergência com pattern institucional
+
+Aplicação consistente com `DT-MODULE-SUBSCRIPTIONS-FANTASMA`, `DT-MODULE-VENUE-FANTASMA`, `DT-MODULE-LOYALTY-FANTASMA`, `DT-MODULE-PAYOUT-FANTASMA`, `DT-MODULE-INVOICING-FANTASMA`, `DT-MODULE-ALERTS-FANTASMA`, `DT-MODULE-VOTES-FANTASMA`, `DT-MODULE-AUTOMATION-PREMATURO` — todos formalizam o padrão "feature aspiracional comentada/removida até runtime real exigir".
+
+#### Supera
+
+(nenhuma — DECISION inédita aplicando pattern DECISION-0041 a `post_cta`)
+
+#### Estende
+
+- DECISION-0041 (PREMATURO — features sem ecossistema runtime de suporte são removidas)
+- Memória `project_norma_assintotica.md` (sistema converge para schema canônico; toda exceção carrega prazo ou critério de convergência)
+
+#### Superada por
+
+(preencher quando superada)
