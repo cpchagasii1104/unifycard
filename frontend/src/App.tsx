@@ -31,6 +31,7 @@ import EventosPage from './pages/EventosPage';
 import SharePage from './pages/SharePage';
 import SocialPage from './pages/SocialPage';
 import HomePage from './pages/HomePage';
+import WelcomePage from './pages/WelcomePage';
 import SearchPage from './pages/SearchPage';
 import EmDesenvolvimentoPage from './pages/EmDesenvolvimentoPage';
 import VotesPage from './pages/VotesPage';
@@ -94,7 +95,7 @@ import CategoryNavigationPage from './pages/CategoryNavigationPage';
 import DepartmentPage from './pages/DepartmentPage';
 import StoreOnboardingWizard from './pages/StoreOnboardingWizard';
 import CheckoutPage from './pages/CheckoutPage';
-import { isAuthenticated } from './config/auth';
+import { isAuthenticated, getTenantId } from './config/auth';
 import './App.css';
 import './styles/global.css';
 
@@ -152,8 +153,10 @@ function AppContent() {
   const location = useLocation();
 
   // Rotas públicas não dependem de hidratação de sessão
-  const isPublicRoute = location.pathname.startsWith('/marketplace') || 
-                        location.pathname === '/login' || 
+  const isPublicRoute = location.pathname === '/' ||
+                        location.pathname === '/start' ||
+                        location.pathname.startsWith('/marketplace') ||
+                        location.pathname === '/login' ||
                         location.pathname === '/register' ||
                         location.pathname.startsWith('/pay/');
 
@@ -167,14 +170,24 @@ function AppContent() {
       <WalletNavigationListener />
       <OnboardingWrapper>
         <Routes>
-          {/* Rotas públicas */}
-          <Route 
-            path="/login" 
-            element={isAuthenticated() ? <Navigate to="/home" replace /> : <AuthWrapper />} 
+          {/* Start inicial público — antes de login/registro.
+              Se autenticado COM tenant, vai direto para /home; senão mostra WelcomePage.
+              Check alinhado com ProtectedRoute (par soberano token+tenant) para evitar
+              loop /→/home→/login quando há token órfão sem tenant. */}
+          <Route
+            path="/"
+            element={(isAuthenticated() && getTenantId()) ? <Navigate to="/home" replace /> : <WelcomePage />}
           />
-          <Route 
-            path="/register" 
-            element={isAuthenticated() ? <Navigate to="/home" replace /> : <AuthWrapper />} 
+          {/* Atalho diagnóstico /start — força WelcomePage sem condição. */}
+          <Route path="/start" element={<WelcomePage />} />
+          {/* Rotas públicas — mesmo alinhamento do par soberano (token+tenant) */}
+          <Route
+            path="/login"
+            element={(isAuthenticated() && getTenantId()) ? <Navigate to="/home" replace /> : <AuthWrapper />}
+          />
+          <Route
+            path="/register"
+            element={(isAuthenticated() && getTenantId()) ? <Navigate to="/home" replace /> : <AuthWrapper />}
           />
           {/* SPRINT 86: Payment Links (rota pública) */}
           <Route path="/pay/:slug" element={<PaymentLinkPage />} />
