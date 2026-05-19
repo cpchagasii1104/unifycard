@@ -62,13 +62,26 @@ async function creditFromReserve(
   toAccount: AccountLike,
   amountCents: number,
   description: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  // 2026-05-18: autoria humana de seed (NÃO 'system' literal).
+  // Achado factual em sessão EXECUTOR CONTÍNUO Fase 1 Parte B:
+  // buildSystemAuthorship default actingForActorId='system' (string literal)
+  // passa por bank-transaction.service.ts:1034-1043 como actor_id UUID em
+  // INSERT bank_transactions → erro 22P02 "sintaxe inválida para tipo uuid".
+  // bank_accounts owner_type='system' também têm actor_id=NULL (verificado
+  // via _inspect-system-actor.ts). Não existe actor 'system' canônico neste
+  // tenant. Bug arquitetural toca causalidade financeira — NÃO corrigido
+  // aqui (fronteira). DT-PRESSURE-BUILDSYSTEMAUTHORSHIP-INVALID-ACTOR-ID
+  // registrada. Workaround LOCAL deste seed: passa actor UUID existente
+  // (autoria humana de seed dev). Não é mock — é uso correto da API com
+  // actor real existente.
+  authorActorId: string
 ) {
   // eventId determinístico → idempotência via gateway_webhook_events / dedupe
   const eventId = `${eventTag}-${tenantId}`;
   const authorship = buildSystemAuthorship({
     actingForAccountId: toAccount.accountId,
-    actingForActorId: 'system',
+    actingForActorId: authorActorId,
   });
 
   try {
@@ -199,7 +212,8 @@ async function main() {
       pfAccount,
       PF_CREDITS_CENTS[i],
       `Smoke P2 seed PF #${i} (${PF_CREDITS_CENTS[i]} cents)`,
-      { userId, side: 'PF', sequence: i }
+      { userId, side: 'PF', sequence: i },
+      actorUserId
     );
   }
 
@@ -213,7 +227,8 @@ async function main() {
       pjAccount,
       PJ_CREDITS_CENTS[i],
       `Smoke P2 seed PJ #${i} (${PJ_CREDITS_CENTS[i]} cents)`,
-      { companyId, side: 'PJ', sequence: i }
+      { companyId, side: 'PJ', sequence: i },
+      actorPageId
     );
   }
 

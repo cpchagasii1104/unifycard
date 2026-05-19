@@ -3407,7 +3407,7 @@ Princípio operacional Clayton 2026-05-18 ("Frontend NUNCA cria verdade — fron
 
 ## DT-PRESSURE-BANK-ACCOUNT-COMPANY-OWNER-FK-VIOLATION
 
-- **Status:** OPEN (achado factual em sessão EXECUTOR CONTÍNUO Fase 1 — 2026-05-18; bug NÃO corrigido nesta rodada por princípio operacional)
+- **Status:** CLOSED — fix cirúrgico aplicado em commit `bd641aab` (2026-05-18), autorizado por Clayton em sessão EXECUTOR CONTÍNUO Fase 1. Conta PJ criada com sucesso na primeira chamada (`pjAccountId=6047f445-69fc-44db-a73b-73e76c1fea26` em rerun do `seed-smoke-p2`).
 - **Origem:** Tentativa de criar substrato bank para Fase 1 do smoke browser PF↔PJ via `seed-smoke-p2.ts`. Conta PF criada com sucesso; conta PJ falhou na primeira criação.
 - **Vinculada a:** DT-PRESSURE-BANK-ACTOR-CONTEXT (pré-requisito de Codex P1 item 7) — substrato PJ é pré-requisito do smoke browser que fecharia DT-PRESSURE-BANK-ACTOR-CONTEXT
 - **Categoria:** DT-PRESSURE (bug runtime real que bloqueia criação de conta bank de empresa via API canônica)
@@ -3508,3 +3508,186 @@ NÃO autorizada nesta sessão (Clayton no loop semântico exigido — Fase 1 blo
 - Substrato PJ bloqueado materialmente — Fase 1 reportada como FAIL específico
 - Smoke browser P2 da DT-PRESSURE-BANK-ACTOR-CONTEXT **NÃO pode validar bleed PF↔PJ** até este bug fechar (substrato PJ vazio = ambos lados retornam saldo zero, bleed visível impossível de provar/refutar)
 - Princípio Clayton 2026-05-18 respeitado: "se algum passo expor bug real, reportar como achado factual. NÃO corrigir o bug nesta rodada — fechamento causal exige Clayton no loop semântico"
+- Resolução em rodada seguinte: Clayton autorizou fix cirúrgico encadeado com continuidade da Fase 1. Padrão clonado de bloco 'user' (linhas 240-254) para 'company' + fallback 'group'. Sem migration DDL. Sem nova soberania.
+
+---
+
+## DT-PRESSURE-BUILDSYSTEMAUTHORSHIP-INVALID-ACTOR-ID
+
+- **Status:** OPEN (achado factual em sessão EXECUTOR CONTÍNUO Fase 1 Parte B — 2026-05-18; bug arquitetural NÃO corrigido nesta rodada por princípio de fronteira — toca causalidade financeira)
+- **Origem:** Após fix da DT-PRESSURE-BANK-ACCOUNT-COMPANY-OWNER-FK-VIOLATION (commit `bd641aab`), rerun do `seed-smoke-p2.ts` criou conta PJ mas falhou ao creditar via `bankTransactionService.createSimpleTransaction`.
+- **Categoria:** DT-PRESSURE (bug arquitetural em helper de autorship financeira — código nunca foi exercitado em runtime real)
+
+### Contexto material
+
+`buildSystemAuthorship` (em `backend/src/modules/bank/financial-authorship.helper.ts:118+125`) usa default `actingForActorId: params.actingForActorId || 'system'` — string literal `'system'`.
+
+Esse valor flui para `bank-transaction.service.ts:1034-1043`:
+
+```ts
+const actorId = authorship.actingForActorId ?? fromAccountId ?? toAccountId ?? '';
+// INSERT INTO bank_transactions (..., actor_id) VALUES (..., $N::uuid)
+```
+
+`bank_transactions.actor_id` é UUID NOT NULL com FK para `actors.id`. String `'system'` falha imediatamente com erro 22P02:
+`sintaxe de entrada é inválida para tipo uuid: "system"`.
+
+### Verificação de SSOT (via `_inspect-system-actor.ts`)
+
+Não existe actor canônico para "system" neste tenant:
+
+```
+SYSTEM ACCOUNTS (em bank_accounts WHERE owner_type='system'):
+  - bank_reserve, bank_settlement, risk_reserve, seller_pending, seller_available
+  - TODOS com actor_id=NULL
+```
+
+Logo o caminho `buildSystemAuthorship` sem `actingForActorId` explícito sempre falharia se chegasse ao INSERT em `bank_transactions`.
+
+### Risco material
+
+- **Latente até esta sessão** porque nenhum caller de `createSimpleTransaction` em produção/runtime real chamou `buildSystemAuthorship` sem actor real (ou esses callers nunca foram exercitados em runtime — investigação pendente)
+- **Bloqueia smoke browser P2** para validar bleed PF↔PJ se workaround de seed não for usado
+- **Toca causalidade financeira** — toda transação de sistema (créditos automáticos, settlement, escrow release) hipoteticamente sofreria o mesmo defeito se invocada
+
+### Mitigação atual
+
+- **No seed `seed-smoke-p2.ts`**: workaround LOCAL, não invasivo. Passa `authorActorId` explícito (`actorUserId` para créditos PF, `actorPageId` para créditos PJ) em vez de delegar para o default `'system'`. Comentário institucional registra que é autoria humana de seed, não mock. Não corrige o bug — só evita disparar.
+- **No helper**: nenhum fix aplicado. Princípio "causalidade financeira é fronteira rígida" respeitado.
+
+### Resolução prevista
+
+Frente própria backend cirúrgica, requer Clayton no loop semântico:
+
+1. **Auditoria de callers**: grep por `buildSystemAuthorship\(` para mapear quem usa default `'system'` em vez de actor explícito. Verificar se algum caller produção depende disso e que tipo de erro silencioso (ou crash) ocorre quando exercitado.
+2. **Decisão arquitetural inédita**: criar actor canônico `actor_type='system'` por tenant (e seed em migration) **OU** mudar `bank_transactions.actor_id` para nullable + adicionar `is_system_transaction boolean` **OU** rejeitar `buildSystemAuthorship` sem `actingForActorId` explícito (validação na entrada).
+3. Cada uma das 3 opções tem trade-offs distintos de SSOT, retrocompatibilidade e semântica de autorship. NÃO é decisão para sessão de execução — exige Clayton.
+
+### Convergência institucional
+
+- Achado consumado durante EXECUTOR CONTÍNUO Fase 1 Parte B (continuação autorizada após fix da FK)
+- Substrato PJ desbloqueado materialmente via fix da DT-FK + workaround LOCAL do seed
+- Smoke browser P2 pode prosseguir com substrato real (autoria do seed registrada honestamente)
+- Princípio "fronteira de causalidade financeira" respeitado — não toquei helper nem service em sessão de execução autônoma
+
+---
+
+## DT-PRESSURE-BANK-PJ-INITIATED-TRANSFER-MISSING-PATH
+
+- **Status:** OPEN (achado factual arquitetural em sessão EXECUTOR CONTÍNUO Fase 2 — 2026-05-18; descoberta via F7 do smoke browser P3 — autorizado por Clayton)
+- **Categoria:** DT-PRESSURE (gap de capability — não há rota HTTP para PJ→X iniciada pelo dono via membership)
+- **Vinculada a:** princípio Clayton 2026-05-18 "múltiplos CNPJs do mesmo dono não podem se misturar, mas devem poder se mover entre si"
+
+### Contexto material
+
+F7 do smoke-fase2-http.sh tentou: João (autenticado) move R$ 300 de Voltagem Bar Band (PJ próprio) para Clínica Sorrisos (PJ próprio). João tem membership ativa com `can_manage_financial=true` em ambas as empresas (verificado materialmente).
+
+Resultado: `HTTP 403 — "Forbidden: fromAccountId must belong to the authenticated user"`.
+
+Causa raiz (em `backend/src/core/unifybank/bank-http.routes.ts:52-70`):
+
+```ts
+async function assertUserOwnsFromAccount(tenantId, userId, fromAccountId) {
+  const account = await bankAccountService.getAccountById(tenantId, fromAccountId);
+  if (account.ownerType !== 'user' || account.ownerId !== userId) {
+    e.statusCode = 403;
+    throw e;  // ❌ Não consulta company_users nem actor_delegations
+  }
+}
+```
+
+Aplicado em `POST /bank/transactions/simple` (linha 277) e `POST /bank/transactions/split` (linha 387). Ambos endpoints validam ownership APENAS via `ownerType === 'user'`. Nenhum path HTTP atual aceita conta PJ como `fromAccountId`.
+
+### Verificação cruzada de rotas
+
+Mapeamento material das rotas POST que iniciam transações financeiras:
+
+| Rota | fromAccount aceito | Suporta PJ→X via membership? |
+|---|---|---|
+| `POST /bank/p2p-transfer` | conta PF do user autenticado (implícito via JWT) | NÃO (toUserId obrigatório, sem company) |
+| `POST /bank/donate` | conta PF do user autenticado | NÃO (targetType só user/project/group, sem company/page) |
+| `POST /bank/transactions/simple` | rejeita se `ownerType !== 'user'` | NÃO |
+| `POST /bank/transactions/split` | mesma rejeição | NÃO |
+
+Nenhuma rota HTTP atual permite que João (logado), com membership `can_manage_financial=true` em Voltagem Bar Band, mova dinheiro DA conta de Voltagem para qualquer destino.
+
+### Authority real é granular e correta — gap está só no path HTTP
+
+- Capability resolver (`actorCapabilitiesService`) **JÁ retorna** `company.manage_financial` para João sobre Voltagem (verificado em F2 do smoke Fase 1)
+- Authority gate de `bank/balance` **JÁ honra** essa capability (F4 Lúcia leu Voltagem via delegação)
+- O gap é apenas: `assertUserOwnsFromAccount` não conhece capability `company.manage_financial`
+
+### Risco material
+
+- **PJ inteiramente "preso"** no path HTTP: não pode pagar fornecedores, não pode fazer settlement, não pode transferir entre CNPJs do mesmo dono via UX humana
+- **F2 e F6 também afetados** (PF→PJ via `/bank/transactions/simple`): erro diferente (`INVALID_CONCEPT_ID`), mas mesmo gap arquitetural — não há rota HTTP canônica humana para PF→PJ direto
+- Bloqueia toda UX de "Pagamentos de empresa" no frontend
+- Casos reais bloqueados: empresário multi-CNPJ movimentando entre próprias contas; pagamento de fornecedor PJ→PJ; transferência entre wallets de unidades da mesma empresa
+
+### Mitigação atual
+
+Nenhuma no path HTTP. O service interno `bankTransactionService.createSimpleTransaction` **funciona** com `fromAccount` de qualquer tipo (verificado materialmente — seed-smoke-p3 movimenta da reserve system para PJ via service direto). O gap é exclusivamente no gate HTTP.
+
+### Resolução prevista
+
+Frente própria backend, requer Clayton no loop semântico (decisão arquitetural):
+
+1. **Opção A — Estender `assertUserOwnsFromAccount`**: aceitar `fromAccountId` de PJ se `actorCapabilitiesService` resolver `company.manage_financial` (ou `company.manage_company`) para o user sobre o actor PJ dono da conta. Requer passar `actorId` no body (qual actor está "agindo") + buscar conta correspondente.
+2. **Opção B — Rota dedicada `POST /bank/actor-transfer`**: novo endpoint que exige `fromActorId` no body, valida authority via capability resolver, resolve conta do actor. Não toca rotas legadas.
+3. **Opção C — Apenas P2J explícito**: rota `POST /bank/p2j-transfer` (PF→PJ) e `POST /bank/pj-transfer` (PJ→X), cada uma com semântica clara.
+
+Cada opção tem trade-offs de SSOT, retrocompatibilidade e expressividade. NÃO é decisão para sessão de execução — exige Clayton.
+
+### Convergência institucional
+
+- Achado consumado durante EXECUTOR CONTÍNUO Fase 2 (autorizado por Clayton para validar exatamente este cenário)
+- F3 do smoke ✓ provou que **bleed contextual entre actors do mesmo dono NÃO ocorre na camada de leitura** (saldos isolados por actor)
+- F4/F4b/F5 ✓ provaram que **delegação é granular por actor** (não vaza para outros PJs do mesmo dono)
+- F7 expôs que **escrita PJ-initiated NÃO existe no path HTTP humano** — gap, não bleed
+- Princípio "ContextualBleed: cada CNPJ é entidade separada" CONFIRMADO no que está exposto, MAS impossibilidade de provar/refutar para escrita até DT resolver
+
+---
+
+## DT-PRESSURE-BANK-TRANSACTIONS-SIMPLE-CONCEPT-ID-OBRIGATORIO
+
+- **Status:** OPEN (achado factual em sessão EXECUTOR CONTÍNUO Fase 2 — 2026-05-18; descoberta via F2 e F6 do smoke browser P3)
+- **Categoria:** DT-PRESSURE (inconsistência schema HTTP ↔ service interno; rota provavelmente não destinada a UX humana)
+
+### Contexto material
+
+`POST /bank/transactions/simple` aceita body sem `concept_id` (schema Zod em `bank-http.routes.ts:95-105` não inclui o campo), mas o service interno `bankTransactionService.createSimpleTransaction` rejeita com:
+
+```
+HTTP 500 — "INVALID_CONCEPT_ID: concept_id vazio ou nao-string"
+```
+
+Mesmo passando `concept_id: "p2p-transfer"` explicitamente no body, é ignorado pelo schema Zod (não está no `simpleTransactionBodySchema`) e nunca chega ao service.
+
+### Hipótese
+
+A rota `/bank/transactions/simple` parece destinada a **orquestração interna** (chamada por outros services como `bankIntegrationService`, donation, P2P, settlement, etc.), não a UX humana direta. O `concept_id` é resolvido pelo orquestrador (e.g., `concept-financial-resolver.service.ts`), não pelo cliente HTTP.
+
+Confirma-se observando que `POST /bank/p2p-transfer` e `POST /bank/donate` (rotas humanas) **não exigem** `concept_id` no payload — ambos resolvem internamente.
+
+### Risco material
+
+- Endpoint exposto sem documentação clara de uso humano
+- Body schema aceita payload "válido" que sempre falha em 500 (não 400)
+- Confunde durante testes de smoke e integração frontend
+
+### Resolução prevista
+
+Opções (não exclusivas):
+
+1. Remover `/bank/transactions/simple` e `/bank/transactions/split` da superfície HTTP pública (manter como service interno)
+2. Marcar rotas como admin-only (mover para `/admin/bank/...`)
+3. Adicionar `concept_id` ao schema Zod + validação 400 quando ausente
+4. Resolver `concept_id` na rota com base em `transactionType` (e.g., `transfer` → `p2p-transfer` ou similar)
+
+NÃO é decisão para sessão de execução — exige Clayton.
+
+### Convergência institucional
+
+- Achado paralelo ao DT-PRESSURE-BANK-PJ-INITIATED-TRANSFER-MISSING-PATH — mesma sessão, mesmos endpoints atingidos
+- F2/F6 não puderam ser validados (PF→PJ humano não tem path), mas o erro técnico revela uma segunda camada do gap: até para PF→PF via `/transactions/simple` o `concept_id` impede uso direto
+- Frontend deve usar `/bank/p2p-transfer` e `/bank/donate` para fluxos humanos; nunca chamar `/bank/transactions/simple` diretamente
