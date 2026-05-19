@@ -3401,3 +3401,110 @@ Princípio operacional Clayton 2026-05-18 ("Frontend NUNCA cria verdade — fron
   - Antes de qualquer SELECT com coluna nova: verificar migration que cria a coluna
   - Antes de assumir field em DTO/contract: verificar mapeamento backend ↔ schema
   - Type-check de TS NÃO substitui auditoria de migration
+
+
+---
+
+## DT-PRESSURE-BANK-ACCOUNT-COMPANY-OWNER-FK-VIOLATION
+
+- **Status:** OPEN (achado factual em sessão EXECUTOR CONTÍNUO Fase 1 — 2026-05-18; bug NÃO corrigido nesta rodada por princípio operacional)
+- **Origem:** Tentativa de criar substrato bank para Fase 1 do smoke browser PF↔PJ via `seed-smoke-p2.ts`. Conta PF criada com sucesso; conta PJ falhou na primeira criação.
+- **Vinculada a:** DT-PRESSURE-BANK-ACTOR-CONTEXT (pré-requisito de Codex P1 item 7) — substrato PJ é pré-requisito do smoke browser que fecharia DT-PRESSURE-BANK-ACTOR-CONTEXT
+- **Categoria:** DT-PRESSURE (bug runtime real que bloqueia criação de conta bank de empresa via API canônica)
+
+### Contexto material
+
+`bankAccountService.getOrCreateAccount(tenantId, { ownerId: companyId, ownerType: 'company', currency: 'BRL' })`
+falha com FK violation quando precisa CRIAR (não buscar) conta para uma empresa que ainda não tem conta.
+
+Causa raiz (verificada materialmente em `backend/src/modules/bank/bank-account.repository.ts:233-258`):
+
+```ts
+async createAccount(tenantId, input) {
+  const { ownerId, ownerType, accountType = 'credit' } = input;
+  const dbOwnerType = toDbOwnerType(ownerType);  // 'company' → 'actor'
+
+  let actorId: string | null = null;
+  if (dbOwnerType === 'escrow') {
+    actorId = null;
+  } else if (dbOwnerType === 'actor') {
+    if (ownerType === 'user') {
+      // JOIN com actors.user_id para resolver actorId — FUNCIONA
+      const actorRow = await runQueryWithTenant(
+        tenantId,
+        `SELECT id FROM actors WHERE tenant_id = $1 AND user_id = $2::uuid
+         AND actor_type IN ('user', 'person', 'actor_human') LIMIT 1`,
+        [tenantId, userUuid]
+      );
+      actorId = actorRow?.id ?? null;
+    } else {
+      // ❌ BUG: para ownerType='company', usa ownerId (que é companyId) como actorId.
+      //    companyId NÃO está em actors.id → FK violation em INSERT.
+      actorId = ownerId.includes(':') ? ownerId.split(':')[0]! : ownerId;
+    }
+  }
+  // INSERT INTO bank_accounts (..., actor_id) VALUES (..., $5)
+  // FK actor_id REFERENCES actors(id) — VIOLADO quando dbOwnerType='actor' E ownerType≠'user'
+}
+```
+
+### Evidência de runtime (curl + log do seed-smoke-p2)
+
+```
+❌ Database query error:
+   query: INSERT INTO bank_accounts (tenant_id, owner_id, owner_type, account_type, actor_id) VALUES ($1, $2, $3, $4, $5) ...
+   values: [
+     'fbe13b78-4516-493d-905a-363796aea1d1',   // tenantId
+     '2167934d-0836-4bf0-9c63-a28b11b73b7e',   // ownerId (companyId)
+     'actor',                                    // dbOwnerType
+     'credit',
+     '2167934d-0836-4bf0-9c63-a28b11b73b7e'    // actorId (= ownerId = companyId)  ← FK violation
+   ]
+   error: 'inserção ou atualização em tabela "bank_accounts" viola restrição de chave estrangeira "bank_accounts_actor_id_fkey"'
+   detail: 'Chave (actor_id)=(2167934d-0836-4bf0-9c63-a28b11b73b7e) não está presente na tabela "actors".'
+```
+
+`actorPageId` correto (verificado materialmente):
+`actors.id = '69be4114-8e65-4e2b-b200-db359d060cb7'` (resolvido via `SELECT id FROM actors WHERE company_id = '2167934d-...' AND actor_type = 'page'`).
+
+### Risco material
+
+- **Latente hoje** porque seed-test-ecosystem **não cria contas bank para empresas**. Fluxos econômicos de empresa não foram exercitados em runtime real até esta sessão.
+- **Ativo** sempre que um fluxo dispara primeira criação de conta de empresa via `getOrCreateAccount({ownerType: 'company'})` — exemplos materiais existentes que disparariam:
+  - `bankIntegrationService.resolveCompanyAccount` (linhas 36-47 de `bank-integration.service.ts`)
+  - `bankIntegrationService.resolveGroupAccount` (linhas 52-64 — `ownerType: 'company'` para grupos também)
+  - `bankIntegrationService.resolveEventOrganizerAccount` quando event.actor_type='page'/'company' (linha 114-115)
+  - `bankIntegrationService.getActorBalance` (P1 commit `fce493c0`) quando actor.actor_type='page' e conta não existe ainda
+- **Bloqueia smoke browser P2** para validar bleed material PF vs PJ — sem conta PJ não há saldo PJ diferente.
+
+### Mitigação atual
+
+Nenhuma. Achado factual reportado. Sem workaround aplicado:
+- Não inseri linha direto em `bank_accounts` (princípio anti-SSOT-paralela)
+- Não chamei API fora de contrato
+- Não criei "fix" sem Clayton no loop semântico
+
+### Resolução prevista
+
+Frente própria backend cirúrgica (estimativa <30 LOC, 1 sessão), padrão clonado de bloco 'user' (linhas 240-254). Resolve `actorId` via JOIN explícito:
+
+```ts
+// Para ownerType='company':
+const actorRow = await runQueryWithTenant<{ id: string }>(
+  tenantId,
+  `SELECT id FROM actors WHERE tenant_id = $1 AND company_id = $2::uuid AND actor_type = 'page' LIMIT 1`,
+  [tenantId, ownerId]
+);
+actorId = actorRow?.id ?? null;
+```
+
+Decisão arquitetural não inédita — apenas estender o pattern já presente para 'user'. Sem migration DDL. Sem nova soberania.
+
+NÃO autorizada nesta sessão (Clayton no loop semântico exigido — Fase 1 bloqueada por achado factual, não por falta de autorização).
+
+### Convergência institucional
+
+- Achado consumado durante EXECUTOR CONTÍNUO Fase 1 autorizada
+- Substrato PJ bloqueado materialmente — Fase 1 reportada como FAIL específico
+- Smoke browser P2 da DT-PRESSURE-BANK-ACTOR-CONTEXT **NÃO pode validar bleed PF↔PJ** até este bug fechar (substrato PJ vazio = ambos lados retornam saldo zero, bleed visível impossível de provar/refutar)
+- Princípio Clayton 2026-05-18 respeitado: "se algum passo expor bug real, reportar como achado factual. NÃO corrigir o bug nesta rodada — fechamento causal exige Clayton no loop semântico"
