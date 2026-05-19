@@ -4757,3 +4757,83 @@ Sem implementação nova — apenas explicitação de ato consumado já distribu
 - R2 e R5 permanecem OPEN deliberadamente (princípio Clayton 2026-05-18: "Bug confirmado → corrigir. Causalidade não explicitada → DECISION. Risco latente → registrar + adiar.")
 - DT-PRESSURE-BANK-ACTOR-CONTEXT permanece MITIGADA EM CÓDIGO (não CLOSED) até smoke browser validar visualmente — fronteira "Clayton executa" do mapa de delegação
 - Nenhum commit Fix 4 retroativamente modificado — apenas referenciado para coerência documental
+
+---
+
+## 2026-05-19 — Sessão piloto automático: WelcomePage + institucionalização Localização
+
+### Contexto
+
+Sessão iniciada com reancoragem institucional + adição de memória "Frontend nunca cria verdade" como autocontrole permanente. Clayton autorizou piloto automático para execução cirúrgica respeitando fronteiras §6.
+
+### Memórias institucionalizadas
+
+| Memória | Categoria MEMORY.md |
+|---|---|
+| `project_frontend_nunca_cria_verdade.md` | 🟠 LEI OPERACIONAL CROSS-LAYER |
+| `project_localizacao_pilar_soberano.md` | 🔵 PILAR SOBERANO MATERIAL |
+
+Localização agora é sexto pilar soberano explícito (identidade, autoridade, tempo, dinheiro/ledger, capability, **localização**). Memória direciona auditores futuros para DECISION-0020 como fonte canônica.
+
+### Achado material decisivo (padrão cognitivo §4 protegido)
+
+Pergunta Clayton "será que não envolve localização também?" levou a auditoria que descobriu **DECISION-0020 — Location Core (2026-05-08)** já formalizara o pilar inteiro. Expansão tese-central 2026-05-19 foi redescoberta consciente do mesmo modelo. NÃO criei DECISION-0030 duplicada — §4 protegido por cruzamento material com REMEDIATION_DECISIONS_LOG.md.
+
+Estado material de implementação DECISION-0020: 6 de 10 componentes materializados:
+
+| Materializado ✅ | Ausente ❌ |
+|---|---|
+| countries (1), states (27), cities (27), neighborhoods (0), addresses (4) | economic_regions, economic_region_members, tenant_operational_regions |
+| address_assignments (modelo temporal-contextual ATIVO) | — |
+| tenants.headquarters_address_id (coluna) | — |
+
+Camada admin + endereço + atribuição contextual viva. Camada operacional/econômica pendente.
+
+### Fix material executado — WelcomePage redirect bug
+
+Causa raiz (auditoria cruzou 3 pontos materiais):
+- `App.tsx:177` rota `/` checava `isAuthenticated()` (só token)
+- `ProtectedRoute.tsx:20` checa `isAuthenticated() AND getTenantId()`
+- Mismatch: token órfão sem tenant causava loop `/` → `/home` → `/login`
+
+Fix: alinhar rotas públicas (`/`, `/login`, `/register`) com o par soberano (token+tenant) que ProtectedRoute já usa. Verdade paralela entre 2 camadas de auth check eliminada. Disciplina "Frontend nunca cria verdade" aplicada — fix alinha checks, não cria SSOT nova.
+
+| Commit | Descrição |
+|---|---|
+| `0508ba66` | feat(welcome): WelcomePage pública + alinhar auth check par soberano (token+tenant) |
+| `28eb000a` | chore(welcome): cleanup diagnóstico (console.log + rota /start) |
+
+### Gates pós-fix (read-only)
+
+Rodados contra HEAD após commits: TODOS verdes.
+
+| Gate | Resultado |
+|---|---|
+| validate:actor-writer-boundaries | GATE OK [actor-writer §4.8.1] |
+| validate:bank-ledger-boundaries | GATE OK [bank-ledger §4.6] |
+| validate:regression-guards | financial-regression + sql-regression-lint + migrations integrity: PASSOU |
+| validate-architectural-patterns --strict | critical_new=0 (2 warnings preexistentes PASSO 4) |
+| TSC backend | 0 erros |
+| TSC frontend | 0 erros |
+
+### DT registrada nesta sessão
+
+`DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING` — gap material entre DECISION-0020 §4 e implementação:
+- 3 tabelas previstas (`economic_regions`, `economic_region_members`, `tenant_operational_regions`) AUSENTES
+- Workaround atual `tenant.cityId → stateId` viola §4 (estado político ≠ região econômica) mas funciona transitoriamente
+- Bloqueia desenho fino de fundo regional (cooperativismo de participação)
+- Frente própria backend ~1 sessão; migration DDL exige autorização explícita
+
+### Fronteiras §6 respeitadas
+
+NÃO executado nesta sessão (limites institucionais permanentes):
+- DECISION-0030 duplicada (DECISION-0020 já cobre)
+- 3 DTs Bank arquiteturais (causalidade financeira)
+- Migration DDL para economic_regions (soberania)
+- Auditoria sistêmica caso-a-caso de 50 DTs (decisão humana por DT)
+- Sub-frente B P2P UX (gatilho humano explícito)
+- Cleanup de trabalho paralelo de outras frentes (1128 entries working tree preservadas)
+
+### Modo
+
+Piloto automático concluiu ciclo natural. Próximas frentes todas exigem decisão humana (causalidade financeira / DECISION inédita / DDL / UX). AGUARDANDO_AUTORIZACAO para validação visual WelcomePage OU escolha de próxima frente.

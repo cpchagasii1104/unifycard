@@ -3691,3 +3691,82 @@ NÃO é decisão para sessão de execução — exige Clayton.
 - Achado paralelo ao DT-PRESSURE-BANK-PJ-INITIATED-TRANSFER-MISSING-PATH — mesma sessão, mesmos endpoints atingidos
 - F2/F6 não puderam ser validados (PF→PJ humano não tem path), mas o erro técnico revela uma segunda camada do gap: até para PF→PF via `/transactions/simple` o `concept_id` impede uso direto
 - Frontend deve usar `/bank/p2p-transfer` e `/bank/donate` para fluxos humanos; nunca chamar `/bank/transactions/simple` diretamente
+
+---
+
+## DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING
+
+- **Status:** OPEN
+- **Origem:** Auditoria material 2026-05-19 durante institucionalização do pilar Localização (sessão "piloto automático" pós-reancoragem). Cruzamento entre REMEDIATION_DECISIONS_LOG.md (DECISION-0020 §4) e estado runtime DB.
+- **Vinculada a:** DECISION-0020 — Location Core: território como infraestrutura soberana (2026-05-08, APROVADA por Clayton)
+- **Categoria:** DT-PRESSURE (gap material entre DECISION soberana e implementação)
+
+### Contexto material
+
+DECISION-0020 §4 prevê separação entre região administrativa e região econômica:
+
+> "Estado político ≠ região econômica ≠ delivery zone ≠ território cultural. Tabela `economic_regions` com `region_type` (`FUND`, `RIDE_ZONE`, `DELIVERY_AREA`, `FISCAL`, `CULTURAL`, `CUSTOM`) e membros N:N com `cities` ou `states`. Resolve o `TODO: stateId como regionId` do código atual de forma definitiva."
+
+Schema previsto em DECISION-0020:
+
+```
+economic_regions(region_id, tenant_id NULL=global, region_type CHECK IN
+  ('FUND','RIDE_ZONE','DELIVERY_AREA','FISCAL','CULTURAL','CUSTOM'),
+  name, description, is_active, *_at)
+
+economic_region_members(member_id, region_id FK, member_type CHECK IN
+  ('state','city','neighborhood'), member_state_id?, member_city_id?,
+  member_neighborhood_id?, CHECK apenas o campo correto preenchido, *_at)
+
+tenant_operational_regions (N:N tenants × economic_regions)
+```
+
+### Verificação material runtime (2026-05-19)
+
+Estado de implementação de DECISION-0020 — 6 de 10 componentes materializados:
+
+| Componente | Materializado? |
+|---|---|
+| countries, states, cities, neighborhoods | ✅ (1+27+27+0 rows) |
+| addresses | ✅ (4 rows) |
+| address_assignments | ✅ EXISTE (modelo temporal-contextual ativo) |
+| tenants.headquarters_address_id (coluna) | ✅ existe |
+| **economic_regions** | ❌ **AUSENTE** |
+| **economic_region_members** | ❌ AUSENTE |
+| **tenant_operational_regions** | ❌ AUSENTE |
+
+Camada admin + endereço + atribuição contextual viva. Camada operacional/econômica pendente.
+
+### Risco material
+
+- **Latente hoje** — nenhum caller pode usar `economic_regions` (tabela não existe). Código atual usa workaround `tenant.cityId → stateId → regionId` em `payment-execution.service.ts:693-707`.
+- **Ativo** quando algum fluxo precisar:
+  - Regional fund customizado (não state-bound). Hoje `regional_funds` UNIQUE compound (country, state, city) — não permite zonas customizadas que cruzam fronteiras administrativas.
+  - Delivery zone com membros customizados (várias cidades vizinhas)
+  - Fiscal cross-state
+  - Cultural region (ex: "Vale do Itajaí" como entidade)
+  - Tenant expandindo operação para múltiplas cidades sem ser HQ em todas
+- Já bloqueia desenho fino de fundo regional (memória `project_full_vision.md` cita "fundo regional com democracia direta" como direção institucional; sem `economic_regions` o fundo é state-bound apenas).
+
+### Mitigação atual
+
+- `tenant.cityId → worldService.getCityFullPath → stateId` usado como proxy de regionId em settlement
+- Resolve "região = estado" mas viola DECISION-0020 §4 (estado político ≠ região econômica)
+- Workaround consciente; documentado como TODO no código
+
+### Resolução prevista
+
+Frente própria backend (~3 tabelas + 1 migration), seguindo schema exato de DECISION-0020 §4-§5. Estimativa: 1 sessão, autorização explícita de Clayton necessária (migration DDL é soberania).
+
+Pré-requisitos:
+- DECISION-0020 já aprovada (não precisa nova DECISION arquitetural)
+- Apenas DDL aditiva (CREATE TABLE × 3)
+- Sem refactor de callers existentes — workaround `tenant.cityId → stateId` segue válido até region_type='FUND' ter members reais
+
+NÃO autorizada nesta sessão (migration DDL exige autorização explícita; auditoria identificou achado, registro institucional aqui).
+
+### Convergência institucional
+
+- DECISION-0020 (2026-05-08) decidiu o pilar; implementação parcial.
+- Memória `project_localizacao_pilar_soberano.md` (2026-05-19) institucionalizou auto-vigilância operacional + mapeia gap.
+- Esta DT formaliza o achado para próxima sessão poder agir cirurgicamente.
