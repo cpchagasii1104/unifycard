@@ -18,9 +18,6 @@ import './WelcomePage.css';
 export default function WelcomePage() {
   const navigate = useNavigate();
 
-  // DIAGNOSTIC 2026-05-19 — confirma se este componente está sendo montado
-  console.log('🎯 WelcomePage MOUNTED — rota / pública renderizou');
-
   return (
     <div className="welcome-root">
       <header className="welcome-header">

@@ -154,7 +154,6 @@ function AppContent() {
 
   // Rotas públicas não dependem de hidratação de sessão
   const isPublicRoute = location.pathname === '/' ||
-                        location.pathname === '/start' ||
                         location.pathname.startsWith('/marketplace') ||
                         location.pathname === '/login' ||
                         location.pathname === '/register' ||
@@ -178,8 +177,6 @@ function AppContent() {
             path="/"
             element={(isAuthenticated() && getTenantId()) ? <Navigate to="/home" replace /> : <WelcomePage />}
           />
-          {/* Atalho diagnóstico /start — força WelcomePage sem condição. */}
-          <Route path="/start" element={<WelcomePage />} />
           {/* Rotas públicas — mesmo alinhamento do par soberano (token+tenant) */}
           <Route
             path="/login"
