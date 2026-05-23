@@ -293,15 +293,6 @@ export async function startServer(): Promise<void> {
     console.warn('[BOOT] Aviso: Bank Settlement Worker não iniciado:', err);
   }
 
-  // Reconciliation Integrity Worker — verificação contínua (apenas SELECT, a cada 30s)
-  try {
-    const { startReconciliationWorker } = await import('./src/workers/reconciliation-worker');
-    startReconciliationWorker();
-    console.log('[BOOT] Reconciliation Worker iniciado (integrity checks a cada 30s)');
-  } catch (err) {
-    console.warn('[BOOT] Aviso: Reconciliation Worker não iniciado:', err);
-  }
-
   // Reconciliation Engine (Prompt 52) — diagnóstico ledger/transactions/contas, a cada 5min (configurável)
   try {
     const { startReconciliationEngineWorker } = await import(

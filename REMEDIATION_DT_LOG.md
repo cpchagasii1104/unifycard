@@ -4468,9 +4468,10 @@ Cleanup executado em 2026-05-24. Suíte C52 limpa. DT fecha CLOSED. Próxima fat
 
 ## DT-RECONCILIATION-WORKER-COLUMN-MISMATCH
 
-- **Status:** OPEN
+- **Status:** CLOSED (2026-05-24 — substituída pelo apagamento do worker via remoção da invocação em `BOOT.ts` e DELETE de `backend/src/workers/reconciliation-worker.ts`)
 - **Origem:** Sessão 2026-05-24 — capturado nos logs durante validação do boot da Fatia 2 (commit `c149ede4`)
 - **Vinculada a:** — (bug pré-existente independente da Fatia 2)
+- **Resolução:** worker `reconciliation-worker.ts` apagado por completo após leitura dirigida revelar que (a) era soberania duplicada da engine canônica (`reconciliation-engine.service.ts`), (b) nunca cumpriu nenhuma das 3 verificações dele em runtime (try/catch externo matava o ciclo na primeira query buggada — verificações 2 e 3 nunca rodaram), (c) o caso material da verificação 1 já é coberto pela engine canônica via FK explícita desde a Fatia 2 (commit `c149ede4`, `settled_intent_without_credit`), e (d) `checkLedgerIntegrity` (verificação 3) continua usada por `financial-health.ts` e `financial-dashboard.controller.ts` — não fica órfã. Apagar foi diff verdadeiro (limpa duplicação morta), não destrutivo (não removeu cobertura porque não havia cobertura).
 
 ### Contexto
 
@@ -4510,3 +4511,75 @@ Risco mínimo, baixa prioridade. Não bloqueante para nenhuma frente ativa.
 
 - Fatia 2 (reconciliation ampliada) — confirmado em validação: engine roda 96x, vigia novo detecta 0 discrepâncias, worker faz ruído apartado em loop sem afetar.
 - Qualquer outra frente.
+
+---
+
+## DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES
+
+- **Status:** OPEN
+- **Severidade:** ALTA (bug ativo no fluxo de pagamento; corrupção silenciosa de estado em produção quando release sucede)
+- **Origem:** Sessão 2026-05-24 — descoberto durante leitura dirigida para o DELETE do `reconciliation-worker.ts`. A insistência de Clayton em nomenclatura levantou o caso oculto.
+- **Vinculada a:** — (descoberta nova, bug ativo independente do worker apagado)
+- **Prioridade na fila:** **PRÓXIMA FATIA** — bug ativo no money, não higiene. Não urgente no sentido "para tudo agora" (não dispara em dev hoje), mas prioritário como próximo trabalho real.
+
+### Contexto
+
+`backend/src/modules/gateway/payment-event-resolver.ts` faz 4 chamadas a `updatePaymentIntentStatus(intent.id, <valor>)`. A função em `modules/payments/payment-intent-repository.ts:118-133` executa diretamente `UPDATE payment_intents SET payment_status = $3` — toca o campo sob CHECK constraint.
+
+CHECK constraint **real e atual** (verificado via `pg_constraint` em 2026-05-24):
+
+```
+CHECK (payment_status = ANY (ARRAY[
+  'pending', 'authorized', 'captured', 'escrowed', 'settled',
+  'failed', 'cancelled', 'reversed', 'partially_refunded',
+  'disputed', 'expired'
+]))
+```
+
+**Duas das 4 chamadas escrevem valores fora do enum:**
+
+| Linha | Valor | Enum? |
+|---|---|---|
+| 41 | `'settled'` | ✅ válido |
+| **179** | **`'completed'`** | **❌ INVÁLIDO** — não existe no enum |
+| **259** | **`'payment_received'`** | **❌ INVÁLIDO** — não existe no enum |
+| 264 | `'escrowed'` | ✅ válido |
+
+Quando alcançadas, essas duas chamadas disparam erro PostgreSQL `42514 — new row violates check constraint`. Sem try/catch local no resolver — propaga.
+
+### Por que não disparou em dev até agora
+
+A linha 179 (`'completed'`) é alcançada APÓS o `bankTransactionService.transfer` em `releaseSettledPaymentIntent` (linhas 161-175). Em dev, a única fixture com `payment_status='settled'` era a C52 (intent `e691e226`), que sempre falhava com `INSUFFICIENT_FUNDS` no transfer — nunca chegava no UPDATE. Bug oculto atrás de outro bug. Após a limpeza da C52 (commit `62efc478`), não há mais intents `settled` em dev para acionar o release; o bug permanece adormecido.
+
+### Por que é grave em produção
+
+Quando um release real dá certo em produção (transfer sucede sem `INSUFFICIENT_FUNDS`), o código chega na linha 179 e tenta gravar `'completed'`. O CHECK rejeita. UPDATE falha. **O intent fica preso em `'settled'` para sempre, nunca atinge o estado terminal pretendido.** Estado financeiro inconsistente silencioso: o transfer rodou e foi commitado (dinheiro moveu de `seller_pending` para `seller_available`), mas o registro do intent não acompanha. Auditoria fica enganada. Workers/fluxos que esperam `'completed'` para continuar (se houver) ficam travados.
+
+Mesma natureza vale para `'payment_received'` na linha 259 — dispara em algum caminho do `resolvePaymentEvent` (a investigar na fatia de conserto).
+
+### Risco
+
+- **Curto prazo:** zero em dev (sem fixtures settled); médio-alto em produção (depende de tráfego — qualquer release bem-sucedido aciona).
+- **Médio prazo (alto):** acumulação de intents em estado preso; engine canônica de reconciliation (Fatia 2 — `settled_intent_without_credit`) pode confundir esses intents com órfãos reais (eles têm credit no ledger, mas estado não progrediu).
+- **Longo prazo:** integridade de relatórios de margem (`real-margin.service.ts`) e KPIs (`reporting.service.ts`) corrompida — filtram por estado.
+
+### Mitigação atual
+
+Nenhuma. Bug ativo, oculto em dev pela cleanup da C52. Em produção, depende do tráfego.
+
+### Resolução prevista — fatia própria, decisão de produto antes do EXECUTOR
+
+O conserto exige **decisão semântica sobre qual valor canônico substitui `'completed'` e `'payment_received'`**. A fatia começa com leitura dirigida do fluxo completo de estados de `payment_intents` cruzada com `docs/01_normas/07_NOMENCLATURA_CANONICA.md`, e Clayton decide o vocabulário antes do EXECUTOR.
+
+Opções iniciais (a confirmar com fluxo na mão):
+1. Estender o enum via migration (`'completed'` e `'payment_received'` viram valores válidos);
+2. Refatorar o resolver para usar valores existentes (`'settled'` permanece como estado terminal pós-release; release marca conclusão por outra dimensão, ex.: timestamp/metadata);
+3. Reformulação semântica do conjunto de estados (decisão de produto sobre o ciclo de vida completo).
+
+### Não bloqueia
+
+- Apagamento do worker (commit desta sessão) — independente; worker era código morto.
+- Engine canônica de reconciliation (Fatia 2) — segue rodando; cobre `settled` sem credit.
+- Runtime em dev hoje — sem fixtures settled.
+
+**Bloqueia em produção** quando o primeiro release bem-sucedido acontecer.
