@@ -18,6 +18,7 @@ export {
 } from './ledger-compensation.service';
 export { bankLimitService } from './bank-limit.service';
 export { bankLimitRepository } from './bank-limit.repository';
+export { bankReportingRepository } from './bank-reporting.repository';
 
 export {
   parseMoneyToCents,

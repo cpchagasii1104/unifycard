@@ -14,19 +14,12 @@ import type {
   ExportType,
   ExportFormat,
 } from './reporting.types';
-import {
-  sumBankTransactionVolumeCents,
-  sumPlatformFeeFromBankSplitsCents,
-  sumBankTransactionVolumeByMonth,
-  sumBankTransactionVolumeByReferenceType,
-  sumPlatformFeeByMonthFromSplits,
-  listBankLedgerRowsForExport,
-} from './reporting-bank-aggregates';
+import { bankReportingRepository } from '@modules/bank/bank-reporting.repository';
 
 class ReportingService {
   /**
    * Calcula KPIs Financeiros Principais
-   * 🔴 BLINDAGEM: Agregações a partir de bank_transactions / bank_splits (SSOT), não do economy ledger (stub).
+   * 🔴 BLINDAGEM: Agregações via repositório canônico do bank (SSOT financeiro), não do economy ledger (stub).
    */
   async getFinancialKPIs(
     tenantId: string,
@@ -39,11 +32,11 @@ class ReportingService {
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // Último ano
     const endDate = filters.endDate || new Date();
 
-    // 1. Volume de transações (bank_transactions no período) — proxy operacional de GMV
-    const totalGMVCents = await sumBankTransactionVolumeCents(tenantId, startDate, endDate);
+    // 1. Volume de transações no período — proxy operacional de GMV
+    const totalGMVCents = await bankReportingRepository.sumBankTransactionVolumeCents(tenantId, startDate, endDate);
 
-    // 2. Receita de fee da plataforma (bank_splits.split_type = 'fee')
-    const platformRevenueCents = await sumPlatformFeeFromBankSplitsCents(tenantId, startDate, endDate);
+    // 2. Receita de fee da plataforma (split_type = 'fee')
+    const platformRevenueCents = await bankReportingRepository.sumPlatformFeeFromBankSplitsCents(tenantId, startDate, endDate);
 
     // 3. Valor em Escrow (soma de escrows não RELEASED)
     let escrowHeldCents = 0;
@@ -110,7 +103,7 @@ class ReportingService {
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    const rows = await sumBankTransactionVolumeByMonth(tenantId, startDate, endDate);
+    const rows = await bankReportingRepository.sumBankTransactionVolumeByMonth(tenantId, startDate, endDate);
     return rows.map((r) => ({
       period: r.period,
       revenueCents: r.revenueCents,
@@ -129,7 +122,7 @@ class ReportingService {
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    const rows = await sumBankTransactionVolumeByReferenceType(tenantId, startDate, endDate);
+    const rows = await bankReportingRepository.sumBankTransactionVolumeByReferenceType(tenantId, startDate, endDate);
     return rows.map((r) => ({
       serviceType: r.referenceType,
       revenueCents: r.revenueCents,
@@ -148,7 +141,7 @@ class ReportingService {
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    const rows = await sumPlatformFeeByMonthFromSplits(tenantId, startDate, endDate);
+    const rows = await bankReportingRepository.sumPlatformFeeByMonthFromSplits(tenantId, startDate, endDate);
     return rows.map((r) => ({
       period: r.period,
       commissionCents: r.commissionCents,
@@ -283,7 +276,7 @@ class ReportingService {
 
     switch (exportType) {
       case 'ledger': {
-        data = await listBankLedgerRowsForExport(
+        data = await bankReportingRepository.listBankLedgerRowsForExport(
           tenantId,
           filters.startDate,
           filters.endDate,

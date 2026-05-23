@@ -157,12 +157,10 @@ class PayoutService {
     });
 
     // 3. Buscar linhas elegíveis no bank_ledger (créditos a contas com actor) — substitui economy ledger stub
-    const { listBankLedgerCreditLinesForPayoutWindow } = await import(
-      '../reporting/reporting-bank-aggregates'
-    );
+    const { bankReportingRepository } = await import('../bank/bank-reporting.repository');
     const windowStart = input.startDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const windowEnd = input.endDate ?? new Date();
-    const ledgerEntries = await listBankLedgerCreditLinesForPayoutWindow(
+    const ledgerEntries = await bankReportingRepository.listBankLedgerCreditLinesForPayoutWindow(
       tenantId,
       windowStart,
       windowEnd,

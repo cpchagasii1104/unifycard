@@ -4,7 +4,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { LedgerEntryFilters } from './ledger.types';
 import { bankLedgerRepository } from '../bank/bank-ledger.repository';
-import { listBankLedgerRowsForExport } from '../reporting/reporting-bank-aggregates';
+import { bankReportingRepository } from '../bank/bank-reporting.repository';
 import { BadRequestError, ForbiddenError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
 
@@ -111,7 +111,7 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
         createdAt: e.createdAt,
       }));
     } else {
-      rows = await listBankLedgerRowsForExport(tenantId, start, end, limit, undefined);
+      rows = await bankReportingRepository.listBankLedgerRowsForExport(tenantId, start, end, limit, undefined);
     }
 
     const totalCents = rows.reduce((s, r) => s + r.amountCents, 0);

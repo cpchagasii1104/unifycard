@@ -75,10 +75,10 @@ class RiskDashboardService {
       averageResolutionTimeDays = Math.round(totalDays / resolvedDisputes.length);
     }
 
-    // 6. Volume financeiro (bank_transactions, últimos 365 dias)
-    const { sumBankTransactionVolumeCents } = await import('../reporting/reporting-bank-aggregates');
+    // 6. Volume financeiro (últimos 365 dias)
+    const { bankReportingRepository } = await import('../bank/bank-reporting.repository');
     const yearStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-    const totalFinancialVolumeCents = await sumBankTransactionVolumeCents(tenantId, yearStart, now);
+    const totalFinancialVolumeCents = await bankReportingRepository.sumBankTransactionVolumeCents(tenantId, yearStart, now);
 
     // 7. Buscar payouts bloqueados e falhos
     const { payoutService } = await import('../payout/payout.service');
@@ -135,7 +135,7 @@ class RiskDashboardService {
 
     // 2. Para cada profile, consolidar dados
     const { evidenceService } = await import('../evidence/evidence.service');
-    const { sumLedgerVolumeCentsForActorAccounts } = await import('../reporting/reporting-bank-aggregates');
+    const { bankReportingRepository } = await import('../bank/bank-reporting.repository');
     const { escrowRepository } = await import('../escrow/escrow.repository');
     const { payoutService } = await import('../payout/payout.service');
     const { agreementRepository } = await import('../agreements/agreement.repository');
@@ -197,9 +197,9 @@ class RiskDashboardService {
             })()
           : null;
 
-      // Volume em bank_ledger nas contas do actor (últimos 365 dias)
+      // Volume no bank_ledger nas contas do actor (últimos 365 dias)
       const windowStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      const financialVolumeCents = await sumLedgerVolumeCentsForActorAccounts(
+      const financialVolumeCents = await bankReportingRepository.sumLedgerVolumeCentsForActorAccounts(
         tenantId,
         profile.actorId,
         windowStart,
