@@ -4017,8 +4017,8 @@ DT fecha quando os ~30 LOC pendentes (`onBackToHome` em Login + Register) forem 
 
 ## DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH
 
-- **Status:** OPEN
-- **Severidade:** CRITICAL (bloqueia feed social inteiro em runtime real)
+- **Status:** CLOSED (2026-05-24) — método `getFeed` convergido para schema canônico via aplicação executiva de DECISION-0031/0032-social/0033. Smoke runtime: `GET /social/feed` HTTP 200 com 5 posts hidratados (user_reaction polimórfico funcionando). Outras queries do mesmo service (createPost, getActorPosts, addReaction) podem manter drift análogo — escopo de fatia própria futura, não bloqueante para o feed visível.
+- **Severidade original:** CRITICAL (bloqueia feed social inteiro em runtime real)
 - **Origem:** Smoke visual Clayton 2026-05-19 em `localhost:5173/social` retornou "Erro ao buscar feed". Diagnóstico via service-direct (`scripts/debug-feed-error.ts`, removido após confirmação) revelou 7 drifts independentes em `social-2.0.service.ts` getFeed query.
 - **Vinculada a:** ZERO relação com F3 (proximityFilter) — bug pré-existente confirmado material via curl SEM `scope` query param (backward compat também HTTP 500).
 - **Categoria:** DT-DRIFT-SCHEMA-CODE-MISMATCH (mesmo pattern de DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES 2026-05-17)
@@ -4724,3 +4724,69 @@ Cada item acima vira fatia separada quando dor material puxar (não por antecipa
 ### Lição de método registrada (memória)
 
 `feedback_consultar_log_antes_de_abrir_frente.md` — antes de abrir DT/decisão sobre tema material, grep no DECISIONS_LOG e DT_LOG por termo do tema (`payment_status`, `bank_ledger`, etc.). Duplicação de numeração no log = sinal de séries paralelas — ler o título de cada uma. Se já há DECISION/DT, alinhar plano a ela; não re-investigar.
+
+---
+
+## DT-FEED-MEDIA-HIDRATATION-PENDING
+
+- **Status:** OPEN
+- **Severidade:** MEDIUM (feed funciona; mídia não é renderizada — UX degradada graciosa, não bloqueante)
+- **Origem:** Fatia executiva 2026-05-24 que fechou `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`. Drift #4 (`p.media` em service vs `posts.media_ids UUID[]` no schema, com frontend esperando `MediaItem[]` de objetos `{media_id, media_type, url, thumbnail_url}`) foi resolvido provisoriamente pela **opção (c)** decidida por Clayton: service retorna `'[]'::jsonb AS media` (array vazio); frontend tolera via guard `post.media && post.media.length > 0` em `PostCard.tsx:283` e `GrupoDetailPage.tsx:848`. DECISION-0033 fixou o SCHEMA (embedded `media_ids UUID[]`) mas não o CONTRATO DE API (como hidratar IDs em objetos renderizáveis).
+- **Vinculada a:** DECISION-0033 (post_media → posts.media_ids), `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (CLOSED 2026-05-24).
+
+### Contexto material
+
+- Schema vigente: `posts.media_ids UUID[] NOT NULL DEFAULT '{}'` (`20260530300000_social_posts.sql:11`).
+- **Não existe tabela canônica `media`/`media_items`/`attachments`/`media_assets`** em `backend/migrations/` (auditado por glob+grep 2026-05-24).
+- Frontend `api/social-2.0.ts:33` declara `media: MediaItem[]` com `interface MediaItem { media_id, media_type, url, thumbnail_url }` — espera objetos hidratados, não array de IDs.
+- Hoje o feed retorna `media: []` para todos os posts (opção c). Sem regressão visível em dev (0 posts com mídia hidratada hoje); em produção, posts com `media_ids` populado deixam de mostrar mídia.
+
+### Risco
+
+UX de mídia ausente até frente futura. Não bloqueia operação econômica nem soberania de actor.
+
+### Resolução prevista (3 opções a decidir)
+
+1. **(a) Hidratar via tabela canônica de mídia.** Criar `media` (ou nome canônico via SSOT_REGISTRY) com `id, tenant_id, actor_id, media_type, url, thumbnail_url, created_at`. Service hidrata `media_ids` via JOIN/lookup, retorna `MediaItem[]`. Preserva contrato externo. Custo: DDL + repository + migração de upload pipeline. Frente arquitetural — exige DECISION nova.
+2. **(b) Expor `media_ids` nus + endpoint de hidratação separado.** Service retorna `media_ids: UUID[]`; frontend chama endpoint de mídia conforme renderiza. Frontend muda (`Post.media` → `Post.media_ids`) — afeta `PostCard`, `GrupoDetailPage` (~10-30 LOC). Sem tabela canônica = endpoint precisa de outra fonte de URL.
+3. **(c) Manter status quo + DT viva até feature ter dor real.** Atual.
+
+### Critério de reabertura
+
+Reabrir feature exige: (i) JTBD real (uploads sendo feitos em produção / posts perdendo valor por falta de mídia); (ii) decisão sobre modelo canônico (tabela vs URL stack externa vs CDN provider); (iii) formalização SSOT_REGISTRY antes de qualquer DDL.
+
+### Não bloqueia
+
+- Feed funciona ponta a ponta (HTTP 200 confirmado em runtime, 5 posts hidratados).
+- Reactions, comments, follows, scope/proximity geo — todos funcionam.
+- Outras queries do `social-2.0.service.ts` (createPost, getActorPosts, addReaction) — escopo de DT-DRIFT-SOCIAL-2.0 que era CRITICAL, agora não bloqueia mais.
+
+---
+
+## DT-PRESSURE-GROUPS-VISIBILITY-FANTASMA
+
+- **Status:** OPEN
+- **Severidade:** MEDIUM (filtro semântico de grupos privados/secretos é aspiracional; impacto material limitado enquanto não houver UX para marcar grupo como privado)
+- **Origem:** Fatia executiva 2026-05-24 — runtime real do `GET /social/feed` (após convergência da query) expôs drift adicional **não listado na DT original**: `WHERE g.group_id::text = ... AND g.visibility = 'public'` em `social-2.0.service.ts:248-253` (else-branch do filtro de grupos no feed global). Schema vigente de `groups` (`20260530180000_groups.sql:4-17`) tem `id` (PK) e `status` (active/inactive via `20260530535000_c36_status_check_constraints.sql:128`) — **NÃO tem `group_id` nem `visibility`**.
+- **Vinculada a:** `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (CLOSED 2026-05-24 — drift descoberto pelo runtime imediatamente após os 9 originais serem convergidos).
+
+### Contexto material
+
+- Schema `groups`: `id, tenant_id, name, description, slug, actor_id, owner_actor_id, status ('active'|'inactive'), metadata, created_at, updated_at`.
+- Semântica "público/privado/secreto" para grupos é **aspiracional** — não há coluna `visibility` materializada. UX de seleção de visibilidade também não existe (zero callers frontend).
+- Fix provisório aplicado na fatia executiva: `g.group_id` → `g.id` (mecânico) + `g.visibility = 'public'` → `g.status = 'active'` (substituição semântica conservadora — exclui grupos inativos do feed global, mais defensivo que original).
+
+### Risco
+
+- Filtro atual permite que TODOS os posts de grupos ativos apareçam no feed global (semântica "privado/secreto" não enforçada). Em dev hoje (0 grupos com semântica privada): zero regressão. Em produção: idêntico (sem coluna `visibility`, ninguém pode marcar grupo como privado, então não há violação de privacidade real — apenas filtro semanticamente otimista).
+- `groups-repository.findById` chamado em path `groupId provided` (linha 234) também referencia `group.visibility !== 'public'` — provável drift análogo no repository (não auditado nesta fatia, fora do escopo da query do getFeed). Pode quebrar quando frontend passar `group_id` querystring específico.
+
+### Resolução prevista (2 caminhos)
+
+1. **Materializar `visibility`** se houver demanda real: ALTER TABLE groups ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private','secret')). Atualiza filtros canonicamente. Exige UX para marcar visibilidade.
+2. **Confirmar feature PREMATURO** (DECISION-0041 pattern, igual `post_cta`/`post_projects`): remover toda referência a `visibility` no service+repository; visibility deixa de existir até produto puxar.
+
+### Não bloqueia
+
+- Feed global funciona (HTTP 200 confirmado).
+- Path `groupId provided` não foi exercitado na smoke desta fatia — pode estar quebrado em runtime quando exercitado, mas não bloqueia o feed default da tela `/social`.

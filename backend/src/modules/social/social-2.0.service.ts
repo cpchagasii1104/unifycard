@@ -158,20 +158,25 @@ export class Social2Service {
       }
     }
 
+    // Query convergida com schema canônico — fecha DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH.
+    // DECISION-0031: reactions polimórfico (entity_type/entity_id/actor_id).
+    // DECISION-0032-social: post_cta PREMATURO — JOIN e 6 campos cta removidos.
+    // DECISION-0033: alias `id AS post_id` preserva contrato externo (frontend tem 65 callers de Post.post_id).
+    // #4 media: opção (c) — array vazio até DT-FEED-MEDIA-HIDRATATION-PENDING resolver hidratação.
+    // $2 = currentActorId (pode ser null; `WHERE actor_id = NULL` devolve 0 rows = sem user_reaction).
     let query = `
-      SELECT 
-        p.post_id,
+      SELECT
+        p.id AS post_id,
         p.tenant_id,
         p.actor_id,
-        p.global_user_id,
         p.content,
-        p.media,
+        '[]'::jsonb AS media,
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
         p.created_at,
         p.updated_at,
-        COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
+        COALESCE(a.id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
         a.avatar_url,
@@ -179,42 +184,33 @@ export class Social2Service {
         COALESCE((
           SELECT COUNT(*)::int
           FROM reactions r
-          WHERE r.post_id = p.post_id
+          WHERE r.entity_type = 'post' AND r.entity_id = p.id
         ), 0) as reactions_count,
         COALESCE((
           SELECT COUNT(*)::int
           FROM comments c
-          WHERE c.post_id = p.post_id AND c.is_deleted = false
+          WHERE c.post_id = p.id AND c.is_deleted = false
         ), 0) as comments_count,
         (
           SELECT r.reaction_type
           FROM reactions r
-          WHERE r.post_id = p.post_id AND r.global_user_id = $2
+          WHERE r.entity_type = 'post' AND r.entity_id = p.id AND r.actor_id = $2
           LIMIT 1
         ) as user_reaction,
-        CASE WHEN f.follow_id IS NOT NULL THEN true ELSE false END as is_followed,
-        cta.cta_id,
-        cta.cta_type,
-        cta.target_actor_id,
-        cta.target_group_id,
-        cta.price,
-        cta.currency,
+        CASE WHEN f.id IS NOT NULL THEN true ELSE false END as is_followed,
         NULL::text as group_name,
         0::bigint AS total_impact_cents
       FROM posts p
-      LEFT JOIN actors a ON p.actor_id = a.actor_id
-      LEFT JOIN post_cta cta ON cta.post_id = p.post_id AND cta.is_active = true
+      LEFT JOIN actors a ON p.actor_id = a.id
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
     `;
 
-    const params: any[] = [tenantId, globalUserId];
+    const params: any[] = [tenantId, currentActorId];
     let paramIndex = 3;
 
-    // Adiciona join de follows se houver actor atual
+    // JOIN follows usa $2 (currentActorId) direto; sem actor, ON é trivialmente false.
     if (currentActorId) {
-      query += ` LEFT JOIN follows f ON f.actor_id = p.actor_id AND f.follower_actor_id = $${paramIndex}`;
-      params.push(currentActorId);
-      paramIndex++;
+      query += ` LEFT JOIN follows f ON f.followed_actor_id = p.actor_id AND f.follower_actor_id = $2`;
     } else {
       query += ` LEFT JOIN follows f ON false`;
     }
@@ -241,15 +237,17 @@ export class Social2Service {
         }
       }
     } else {
-      // 🔴 FILTRO DE GRUPOS NO FEED GLOBAL: Excluir posts de grupos privados/secretos
-      // Posts de grupos privados/secretos não devem aparecer no feed global
+      // 🔴 FILTRO DE GRUPOS NO FEED GLOBAL: Incluir post sem grupo OU de grupo ativo.
+      // Schema canônico vigente (20260530180000_groups.sql): groups.id (PK), groups.status.
+      // `visibility public/private/secret` é semântica aspiracional sem coluna materializada
+      // — DT-PRESSURE-GROUPS-VISIBILITY-FANTASMA. Filtro defensivo via status='active'.
       query += ` AND (
         p.metadata->>'groupId' IS NULL
         OR EXISTS (
           SELECT 1 FROM groups g
-          WHERE g.group_id::text = p.metadata->>'groupId'
+          WHERE g.id::text = p.metadata->>'groupId'
             AND g.tenant_id = p.tenant_id
-            AND g.visibility = 'public'
+            AND g.status = 'active'
         )
       )`;
     }
@@ -271,7 +269,7 @@ export class Social2Service {
     }
 
     if (cursor) {
-      query += ` AND p.created_at < (SELECT created_at FROM posts WHERE post_id = $${paramIndex})`;
+      query += ` AND p.created_at < (SELECT created_at FROM posts WHERE id = $${paramIndex})`;
       params.push(cursor);
       paramIndex++;
     }
