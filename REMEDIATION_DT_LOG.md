@@ -4407,3 +4407,59 @@ Ambas as versões fazem essencialmente o mesmo trabalho (abrir client, set_confi
 Frente de higiene de infra: unificar em uma única implementação canônica (provavelmente `pool.ts`, que parece mais recente e completa), deprecar a versão `db.ts` com período de transição, e atualizar imports do codebase via search-and-replace controlado.
 
 Prioridade: BAIXA. Não bloqueante. Fica registrado como melhoria estrutural, fatia futura.
+
+---
+
+## DT-FIXTURE-C52-CLEANUP
+
+- **Status:** CLOSED (2026-05-24)
+- **Origem:** Sessão 2026-05-23 — descoberta da fixture órfã durante investigação do `INSUFFICIENT_FUNDS` no boot pós-marco-zero
+- **Vinculada a:** DECISION-0044 (princípio quádruplo — natureza 3 script de teste; aqui aplicado a fixture E2E órfã), DECISION-0045 (registra os 9 do `e2e-incentive-bank-checklist.ts` como natureza 3; este cleanup é a contraparte de "limpeza pontual" do mesmo princípio)
+
+### Contexto
+
+Investigação inicial pós-marco-zero (2026-05-23) detectou no boot `[ReleaseWorker] Release failed for intent e691e226-c039-45a5-a828-d2d8e01efa17 Error: INSUFFICIENT_FUNDS` em loop. Análise material revelou: o intent era fixture de suíte E2E **C52** (metadata `{"test": "c52"}`), criada em 2026-04-24, marcada como `settled` mas **sem credit correspondente em `bank_ledger`** — daí o ReleaseWorker tentar mover fundos inexistentes da conta `seller_pending` para `seller_available` e bater na invariante `validate_non_negative_balance`. Sistema fail-closed do `bank_ledger` operando corretamente; ruído contínuo de fixture órfã.
+
+Pós-mapeamento de escopo em 2026-05-24, descoberto que a suíte C52 não era 1 fixture mas **6 fixtures pareadas** (intent + order), cobrindo 6 canais distintos do mesmo cenário de teste, todas criadas no mesmo timestamp:
+
+| # | intent_id | payment_status | e2e_source | order_id |
+|---|---|---|---|---|
+| 1 | `a388c1e6-6b37-42fe-a276-3ebe566dba6d` | pending | payment_link | `c9165abe-7352-4697-8df1-2b9876eff512` |
+| 2 | `5f0ddeec-c620-487f-b51c-3dd64171a5b6` | pending | governance | `5e943fa2-cc6a-4659-b5a6-33a78840aa04` |
+| 3 | `d9744350-f6e8-4366-9c56-a3acb16ed7fb` | pending (subscription) | subscription | `8c876aa9-21c8-40a1-89d2-577ced66bb38` |
+| 4 | `8a7d89f3-8de6-4492-a550-a0e3e98d25e8` | captured | pdv | `7ff7c91f-e538-410c-a39b-b1c3a5c9ab88` |
+| 5 | `e691e226-c039-45a5-a828-d2d8e01efa17` | **settled** | **ticket** | `1a150db2-aa3f-4ca4-b0d0-a8a059d4ea00` |
+| 6 | `3327ef51-e1ce-456f-a993-c018c6f60102` | failed | venue | `9fad2d98-1280-4931-9c93-a2f3e0d01565` |
+
+Mapeamento confirmou **zero dependências** das 6 fixtures em qualquer FK: `payment_transactions`, `bank_transactions`, `order_items`, `fulfillment_orders`, `inventory_reservations`, `order_status_history` — todas 0 rows. Órfãs completas, sem cabos pendurados.
+
+### Decisão
+
+Apagar a **suíte C52 inteira** em transação atômica (opção B), não apenas a fixture `ticket` (opção A). Razão: mesma metadata, mesmo timestamp, mesma origem, todas órfãs — limpar só uma deixaria as outras 5 esperando descoberta amanhã, com o mesmo raio-x. Mesma cirurgia, mesmo lote.
+
+### Execução (2026-05-24)
+
+Transação atômica em `unificard_dev` (banco local de desenvolvimento):
+
+```sql
+BEGIN;
+DELETE FROM payment_intents WHERE id IN (<6 intent uuids>);  -- DELETE 6
+DELETE FROM orders WHERE id IN (<6 order uuids>);            -- DELETE 6
+COMMIT;
+```
+
+Persistência verificada pós-COMMIT: 0 rows para os 6 intent_ids em `payment_intents`, 0 rows para os 6 order_ids em `orders`, 0 rows com `metadata->>'test' = 'c52'` em `payment_intents`. Universo C52 zerado materialmente.
+
+### Resultado
+
+- ReleaseWorker não tem mais intent `settled` órfão para processar; o erro `INSUFFICIENT_FUNDS` no boot deixa de aparecer.
+- Universo limpo para a próxima fatia (reconciliation ampliada — cruzar `payment_intents.settled × bank_ledger.credits`): nenhuma fixture C52 vai aparecer como falso-positivo do vigia novo. Vigia simples, universo limpo.
+- Limite institucional respeitado: cleanup só em dev local, com autorização explícita de Clayton e mapeamento prévio de dependências antes do DELETE. Não é precedente para "apagar dados em produção"; é cleanup pontual de fixture E2E órfã.
+
+### Lição registrada
+
+Suítes E2E que criam dados marcados (`metadata.test`) sem mecanismo de cleanup automático no fim do teste deixam órfãos acumulados que: (a) podem confundir reconciliation futura, (b) podem fazer workers/jobs barulharem em loop. Disciplina de teste preferível a filtro no vigia: seeds que limpam seus próprios dados ao fim. Esta DT é caso resolvido, não pattern para repetir.
+
+### Fechamento
+
+Cleanup executado em 2026-05-24. Suíte C52 limpa. DT fecha CLOSED. Próxima fatia (reconciliation ampliada) ocorre em universo limpo.
