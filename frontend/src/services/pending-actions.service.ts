@@ -75,7 +75,7 @@ async function detectUserPendingActions(
               label: 'Gerenciar Equipe',
               path: `/empresa/${company.companyId}`,
             },
-            metadata: { companyId: company.companyId, companyName: company.name },
+            metadata: { companyId: company.companyId, companyName: company.companyName },
           });
         }
       } catch {

@@ -1,7 +1,7 @@
 // src/modules/rides/zones/zones.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 import { BadRequestError, NotFoundError } from '@core/errors';
 
 export class ZonesService {
@@ -28,14 +28,13 @@ export class ZonesService {
       throw new BadRequestError('Polígono inválido. Verifique o GeoJSON.');
     }
 
-    const zone = await runQueryWithTenant<{ zone_id: string; name: string; city_id: string }>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       INSERT INTO rides_zones (
         tenant_id, city_id,
         name, polygon, area_m2,
-        createdAt
+        created_at
       )
       VALUES (
         $1, $2,
@@ -45,31 +44,29 @@ export class ZonesService {
       )
       RETURNING zone_id, name, city_id
       `,
-        values: [tenantId, cityId, name, JSON.stringify(polygon)],
+        [tenantId, cityId, name, JSON.stringify(polygon)]
+      );
+      const zone = res.rows[0];
+      if (!zone) {
+        throw new Error('Failed to create zone');
       }
-    );
-
-    if (!zone) {
-      throw new Error('Failed to create zone');
-    }
-
-    await eventBus.emit({
-      type: 'rides.zone.created',
-      tenantId,
-      payload: {
-        cityId,
-        zoneId: zone.zone_id,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.zone.created',
+        tenantId,
+        payload: {
+          cityId,
+          zoneId: zone.zone_id,
+        },
+      });
+      return zone;
     });
-
-    return zone;
   }
 
   // ============================================================================================
   // 🔹 2. Atualizar zona
   // ============================================================================================
   async updateZone(tenantId: string, zoneId: string, patch: any) {
-    const existing = await this.getZone(tenantId, zoneId);
+    await this.getZone(tenantId, zoneId);
 
     let newPolygon = null;
     let newArea = null;
@@ -101,10 +98,9 @@ export class ZonesService {
       newArea = areaRow;
     }
 
-    const updated = await runQueryWithTenant<any>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       UPDATE rides_zones
       SET 
         name = COALESCE($3, name),
@@ -113,33 +109,31 @@ export class ZonesService {
           polygon
         ),
         area_m2 = COALESCE($5, area_m2),
-        updatedAt = now()
+        updated_at = now()
       WHERE tenant_id = $1 AND zone_id = $2
       RETURNING *
       `,
-        values: [
+        [
           tenantId,
           zoneId,
           patch.name,
           newPolygon ? JSON.stringify(newPolygon) : null,
           newArea ? newArea.area : null,
-        ],
+        ]
+      );
+      const updated = res.rows[0];
+      if (!updated) {
+        throw new Error('Failed to update zone');
       }
-    );
-
-    if (!updated) {
-      throw new Error('Failed to update zone');
-    }
-
-    await eventBus.emit({
-      type: 'rides.zone.updated',
-      tenantId,
-      payload: {
-        zoneId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.zone.updated',
+        tenantId,
+        payload: {
+          zoneId,
+        },
+      });
+      return updated;
     });
-
-    return updated;
   }
 
   // ============================================================================================
@@ -172,11 +166,11 @@ export class ZonesService {
   // 🔹 4. Listar zonas de uma cidade
   // ============================================================================================
   async listZonesByCity(tenantId: string, cityId: string) {
-    return runQueriesWithTenant<{ zone_id: string; name: string; area_m2: number; createdAt: Date }>(
+    return runQueriesWithTenant<{ zone_id: string; name: string; area_m2: number; created_at: Date }>(
       tenantId,
       {
         text: `
-      SELECT zone_id, name, area_m2, createdAt
+      SELECT zone_id, name, area_m2, created_at
       FROM rides_zones
       WHERE tenant_id = $1 AND city_id = $2
       ORDER BY name ASC
@@ -210,28 +204,26 @@ export class ZonesService {
   // 🔹 6. Deletar zona
   // ============================================================================================
   async deleteZone(tenantId: string, zoneId: string) {
-    const deleted = await runQueryWithTenant<{ zone_id: string }>(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       DELETE FROM rides_zones
       WHERE tenant_id = $1 AND zone_id = $2
       RETURNING zone_id
       `,
-        values: [tenantId, zoneId],
+        [tenantId, zoneId]
+      );
+      const deleted = res.rows[0];
+      if (!deleted) {
+        throw new NotFoundError('Zona não encontrada.');
       }
-    );
-
-    if (!deleted) {
-      throw new NotFoundError('Zona não encontrada.');
-    }
-
-    await eventBus.emit({
-      type: 'rides.zone.deleted',
-      tenantId,
-      payload: {
-        zoneId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.zone.deleted',
+        tenantId,
+        payload: {
+          zoneId,
+        },
+      });
     });
 
     return { ok: true };
@@ -241,20 +233,16 @@ export class ZonesService {
   // 🔹 7. Atualizar pressão de demanda ao alterar zona
   // ============================================================================================
   async recalcDemandForZone(tenantId: string, zoneId: string) {
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `SELECT rides_calculate_zone_pressure($1, $2)`,
-        values: [tenantId, zoneId],
-      }
-    );
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(`SELECT rides_calculate_zone_pressure($1, $2)`, [tenantId, zoneId]);
 
-    await eventBus.emit({
-      type: 'rides.zone.demand_recalculated',
-      tenantId,
-      payload: {
-        zoneId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.zone.demand_recalculated',
+        tenantId,
+        payload: {
+          zoneId,
+        },
+      });
     });
 
     return { ok: true };

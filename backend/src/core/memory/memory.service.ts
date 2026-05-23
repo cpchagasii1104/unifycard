@@ -78,15 +78,15 @@ class MemoryService {
     await this.repository.upsertInteraction({
       tenantId,
       globalUserId,
-      intent,
+      intent: intent ?? 'unknown',
       entityType: entityType || 'unknown',
       entityId: entityId || null,
       entityName: entityName || null,
-      parameters,
+      parameters: parameters ?? {},
     });
 
     // 2. Extrair preferências baseadas no intent e parâmetros
-    await this.extractPreferences(tenantId, globalUserId, intent, parameters);
+    await this.extractPreferences(tenantId, globalUserId, intent ?? 'unknown', parameters ?? {});
 
     // 3. Registrar entidade se houver
     if (entityId && entityType) {
@@ -97,20 +97,20 @@ class MemoryService {
         targetGlobalUserId: entityType === 'worker' ? entityId : null,
         targetCompanyId: entityType === 'company' ? entityId : null,
         entityName: entityName || 'Unknown',
-        entityMetadata: parameters,
+        entityMetadata: parameters ?? {},
         relevanceScore: 1.0,
       });
     }
 
     // 4. Criar/atualizar shortcut se for ação frequente
-    if (this.isFrequentAction(intent, parameters)) {
-      const label = this.generateShortcutLabel(intent, parameters, entityName);
+    if (this.isFrequentAction(intent ?? 'unknown', parameters ?? {})) {
+      const label = this.generateShortcutLabel(intent ?? 'unknown', parameters ?? {}, entityName);
       await this.repository.upsertShortcut({
         tenantId,
         globalUserId,
         label,
-        intent,
-        parameters,
+        intent: intent ?? 'unknown',
+        parameters: parameters ?? {},
       });
     }
   }
@@ -294,7 +294,7 @@ class MemoryService {
         result[pref.category] = {};
       }
       result[pref.category][pref.key] = {
-        valueCents: pref.value,
+        valueCents: pref.valueCents,
         confidence: pref.confidence,
         usageCount: pref.usageCount,
         lastUsedAt: pref.lastUsedAt,
@@ -329,11 +329,11 @@ class MemoryService {
     await this.repository.upsertEntity({
       tenantId,
       globalUserId,
-      entityType,
-      targetGlobalUserId: entityType === 'worker' ? entityId : null,
-      targetCompanyId: entityType === 'company' ? entityId : null,
+      entityType: entityType ?? 'unknown',
+      targetGlobalUserId: entityType === 'worker' ? entityId ?? null : null,
+      targetCompanyId: entityType === 'company' ? entityId ?? null : null,
       entityName: entityName || 'Unknown',
-      entityMetadata: metadata || {},
+      entityMetadata: metadata ?? {},
       relevanceScore: 1.0,
     });
   }

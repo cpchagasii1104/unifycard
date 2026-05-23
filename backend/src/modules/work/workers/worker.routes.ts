@@ -1,5 +1,6 @@
 // src/modules/work/workers/worker.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { workerService } from './worker.service';
 import {
   createWorkerSchema,
@@ -35,14 +36,14 @@ const workerRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get('/me', {
     preHandler: fastify.requirePermission(['work:worker:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     const tenantId = req.tenant!.id;
     const userId = req.user!.id;
 
     const worker = await workerService.getByUserId(tenantId, userId);
 
     if (!worker) {
-      return reply.notFound('Worker profile not found');
+      throw new NotFoundError('Worker profile not found');
     }
 
     return worker;
@@ -72,7 +73,7 @@ const workerRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof workerIdParamsSchema>;
   }>('/:workerId', {
     preHandler: fastify.requirePermission(['work:worker:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = workerIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -81,7 +82,7 @@ const workerRoutes: FastifyPluginAsync = async (fastify) => {
     const worker = await workerService.getById(tenantId, workerId);
 
     if (!worker) {
-      return reply.notFound('Worker not found');
+      throw new NotFoundError('Worker not found');
     }
 
     return worker;

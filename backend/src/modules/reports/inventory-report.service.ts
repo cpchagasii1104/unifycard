@@ -66,12 +66,19 @@ class InventoryReportService {
           END
         ), 0) as current_quantity,
         COALESCE(SUM(
-          CASE WHEN ir.status = 'ACTIVE' THEN ir.quantity ELSE 0 END
+          CASE
+            WHEN ir.status = 'ACTIVE'
+              AND (ir.expires_at IS NULL OR ir.expires_at > now())
+            THEN ir.quantity
+            ELSE 0
+          END
         ), 0) as reserved_quantity,
         pv.metadata->>'unit' as unit
       FROM product_variants pv
-      LEFT JOIN inventory_movements im ON pv.id = im.product_variant_id
-      LEFT JOIN inventory_reservations ir ON pv.id = ir.product_variant_id
+      LEFT JOIN inventory_movements im
+        ON pv.id = im.product_variant_id AND im.tenant_id = pv.tenant_id
+      LEFT JOIN inventory_reservations ir
+        ON pv.id = ir.product_variant_id AND ir.tenant_id = pv.tenant_id
       WHERE pv.tenant_id = $1
     `;
 
@@ -126,7 +133,7 @@ class InventoryReportService {
 
     let query = `
       SELECT
-        DATE(im.createdAt) as period,
+        DATE(im.created_at) as period,
         im.product_variant_id as variant_id,
         pv.sku as variant_name,
         SUM(CASE WHEN im.movement_type = 'OUT' THEN im.quantity ELSE 0 END) as consumed_quantity,
@@ -135,8 +142,8 @@ class InventoryReportService {
       INNER JOIN product_variants pv ON im.product_variant_id = pv.id
       WHERE im.tenant_id = $1
         AND im.movement_type = 'OUT'
-        AND im.createdAt >= $2
-        AND im.createdAt <= $3
+        AND im.created_at >= $2
+        AND im.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -152,7 +159,7 @@ class InventoryReportService {
     }
 
     query += `
-      GROUP BY DATE(im.createdAt), im.product_variant_id, pv.sku, im.unit
+      GROUP BY DATE(im.created_at), im.product_variant_id, pv.sku, im.unit
       ORDER BY period ASC, variant_id ASC
     `;
 

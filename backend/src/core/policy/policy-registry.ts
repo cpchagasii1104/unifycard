@@ -392,7 +392,7 @@ class PolicyRegistry {
     if (!policy) {
       return defaultValue !== undefined ? defaultValue : null;
     }
-    return policy.value as T;
+    return policy.valueCents as T;
   }
 }
 

@@ -5,7 +5,7 @@
 
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { socialWorkPaymentService } from './social-work-payment.service';
-import { transactionService } from '@core/economy/transactions/transaction.service';
+import { transactionService } from '@core/economy/transaction.service';
 import { rbacService } from '@core/rbac/rbac.service';
 import { z } from 'zod';
 
@@ -37,9 +37,9 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
         },
         body: {
           type: 'object',
-          required: ['amount'],
+          required: ['amountCents'],
           properties: {
-            amountCents: { type: 'number', minimum: 0.01 },
+            amountCents: { type: 'number', minimum: 1 },
           },
         },
       },
@@ -65,7 +65,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
         globalUserId,
         'social-work.action': 'payment-from-post',
         postId,
-        amountCents: validated.amount,
+        amountCents: validated.amountCents,
         source: 'social_post',
       }, 'Creating payment from social post');
 
@@ -100,7 +100,7 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           postId,
           tenantId,
           userId,
-          validated.amount
+          validated.amountCents
         );
 
         req.log.info({
@@ -113,13 +113,14 @@ const socialWorkPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           jobId: scheduledJob.jobId,
           scheduleId: scheduledJob.scheduleId,
           slotId: scheduledJob.slotId,
-          amountCents: validated.amount,
+          amountCents: validated.amountCents,
           transactionId: transaction.transactionId,
           providerUserId: jobFull.clientUserId,
           source: 'social_post',
         }, 'Payment created from social post successfully');
 
         return reply.status(201).send({
+          transactionId: transaction.transactionId,
           transaction,
           postId,
           jobId: scheduledJob.jobId,

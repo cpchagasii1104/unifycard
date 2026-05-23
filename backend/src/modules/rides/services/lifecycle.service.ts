@@ -1,23 +1,13 @@
 // src/modules/rides/services/lifecycle.service.ts
 //
 // Lógica oficial de Lifecycle do módulo Rides.
-// Rotas chamam este service para garantir:
-//   - atomicidade
-//   - validações
-//   - integração com Economy / Reviews
-//   - emissão de eventos
-//
 
-import {
-  runQueryWithTenant,
-  runTenantTransaction,
-} from "@core/db";
+import { runTenantTransactionWithClient } from "@core/db";
 
 import { pricingService } from "./pricing.service";
-import { eventBus } from "@core/events/event-bus";
 import { notifyService } from "@core/notify/notify.service";
-import { processRidePayment } from "../shared/payment";
-import { reviewService } from "@core/reviews/reviews.service";
+import { distributionService } from "../distribution/distribution.service";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 import {
   BadRequestError,
   ConflictError,
@@ -25,7 +15,6 @@ import {
 } from "@core/errors";
 
 class LifecycleService {
-  // criar ride request
   async createRequest(tenantId: string, passengerId: string, data: any) {
     const {
       origin,
@@ -38,16 +27,16 @@ class LifecycleService {
       throw new BadRequestError("origin missing");
     }
 
-    const [request] = await runTenantTransaction(tenantId, async (trx) => {
-      const rows = await trx.query({
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const { rows } = await client.query(
+        `
           INSERT INTO rides_ride_requests (
             passenger_user_id,
             origin,
             destination,
             service_type_id,
             status,
-            createdAt
+            created_at
           )
           VALUES (
             $1,
@@ -59,18 +48,18 @@ class LifecycleService {
           )
           RETURNING *;
         `,
-        values: [
+        [
           passengerId,
           origin.lng, origin.lat,
           destination.lng, destination.lat,
           serviceTypeId,
-        ],
-      });
+        ]
+      );
 
       if (stops?.length) {
         for (let i = 0; i < stops.length; i++) {
-          await trx.query({
-            text: `
+          await client.query(
+            `
               INSERT INTO rides_ride_stops (
                 ride_request_id,
                 stop_order,
@@ -78,54 +67,53 @@ class LifecycleService {
               )
               VALUES ($1, $2, ST_Point($3, $4));
             `,
-            values: [
+            [
               rows[0].ride_request_id,
               i + 1,
               stops[i].lng,
               stops[i].lat,
-            ],
-          });
+            ]
+          );
         }
       }
 
-      return rows;
-    });
+      const request = rows[0];
 
-    eventBus.emit({
-      type: "rides.request.created",
-      tenantId,
-      payload: {
-        rideRequestId: request.ride_request_id,
-        passengerId,
-      },
-    });
+      await publishRideEventOutbox(client, {
+        type: "rides.request.created",
+        tenantId,
+        payload: {
+          rideRequestId: request.ride_request_id,
+          passengerId,
+        },
+      });
 
-    return request;
+      return request;
+    });
   }
 
-  // criar ride a partir de driver assignment
   async assignDriver(tenantId: string, data: any) {
     const { rideRequestId, driverId, vehicleId } = data;
 
-    const [ride] = await runTenantTransaction(tenantId, async (trx) => {
-      await trx.query({
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
           UPDATE rides_ride_requests
           SET status = 'driver_assigned'
           WHERE ride_request_id = $1;
         `,
-        values: [rideRequestId],
-      });
+        [rideRequestId]
+      );
 
-      const rows = await trx.query({
-        text: `
+      const { rows } = await client.query(
+        `
           INSERT INTO rides_rides (
             ride_request_id,
             driver_id,
             vehicle_id,
             passenger_user_id,
             status,
-            createdAt
+            created_at
           )
           SELECT
             rr.ride_request_id,
@@ -138,73 +126,70 @@ class LifecycleService {
           WHERE rr.ride_request_id = $1
           RETURNING *;
         `,
-        values: [rideRequestId, driverId, vehicleId],
+        [rideRequestId, driverId, vehicleId]
+      );
+
+      const ride = rows[0];
+
+      await publishRideEventOutbox(client, {
+        type: "rides.ride.driver_assigned",
+        tenantId,
+        payload: {
+          rideId: ride.ride_id,
+          driverId,
+        },
       });
 
-      return rows;
+      return ride;
     });
-
-    eventBus.emit({
-      type: "rides.ride.driver_assigned",
-      tenantId,
-      payload: {
-        rideId: ride.ride_id,
-        driverId,
-      },
-    });
-
-    return ride;
   }
 
-  // motorista inicia corrida
   async startRide(tenantId: string, rideId: string, driverUserId: string) {
-    const [ride] = await runTenantTransaction(tenantId, async (trx) => {
-      const [info] = await trx.query({
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const { rows: infoRows } = await client.query(
+        `
           SELECT r.*, d.user_id AS driver_user_id
           FROM rides_rides r
           JOIN rides_drivers d ON d.driver_id = r.driver_id
           WHERE ride_id = $1;
         `,
-        values: [rideId],
-      });
+        [rideId]
+      );
+      const info = infoRows[0];
 
       if (!info) throw new NotFoundError("Ride not found");
       if (info.driver_user_id !== driverUserId) {
         throw new ConflictError("Unauthorized driver");
       }
 
-      await trx.query({
-        text: `
+      await client.query(
+        `
           UPDATE rides_rides
           SET status = 'started',
               startedAt = NOW()
           WHERE ride_id = $1;
         `,
-        values: [rideId],
-      });
+        [rideId]
+      );
 
-      await trx.query({
-        text: `
+      await client.query(
+        `
           INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
           VALUES ($1, 'ride_started', NOW());
         `,
-        values: [rideId],
+        [rideId]
+      );
+
+      await publishRideEventOutbox(client, {
+        type: "rides.ride.started",
+        tenantId,
+        payload: { rideId },
       });
 
       return info;
     });
-
-    eventBus.emit({
-      type: "rides.ride.started",
-      tenantId,
-      payload: { rideId },
-    });
-
-    return ride;
   }
 
-  // finalizar corrida
   async completeRide(tenantId: string, driverUserId: string, data: any) {
     const {
       rideId,
@@ -214,23 +199,23 @@ class LifecycleService {
       tipAmount,
     } = data;
 
-    const ride = await runTenantTransaction(tenantId, async (trx) => {
-      const [found] = await trx.query({
-        text: `
+    const ride = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const { rows: foundRows } = await client.query(
+        `
           SELECT r.*, d.user_id AS driver_user_id
           FROM rides_rides r
           JOIN rides_drivers d ON d.driver_id = r.driver_id
           WHERE ride_id = $1;
         `,
-        values: [rideId],
-      });
+        [rideId]
+      );
+      const found = foundRows[0];
 
       if (!found) throw new NotFoundError("Ride not found");
       if (found.driver_user_id !== driverUserId) {
         throw new ConflictError("Unauthorized");
       }
 
-      // calcular preço
       const pricing = await pricingService.calculate({
         tenantId,
         rideId,
@@ -239,8 +224,8 @@ class LifecycleService {
         waitTimeSeconds,
       });
 
-      const [updated] = await trx.query({
-        text: `
+      const { rows: updatedRows } = await client.query(
+        `
           UPDATE rides_rides
           SET status = 'completed',
               completedAt = NOW(),
@@ -252,53 +237,43 @@ class LifecycleService {
           WHERE ride_id = $1
           RETURNING *;
         `,
-        values: [
+        [
           rideId,
-          pricing.total,
+          pricing.totalCents,
           totalDistanceKm,
           totalDurationMinutes,
           waitTimeSeconds ?? null,
           tipAmount ?? 0,
-        ],
-      });
+        ]
+      );
+      const updated = updatedRows[0];
 
-      await trx.query({
-        text: `
+      await client.query(
+        `
           INSERT INTO rides_ride_events (ride_id, event_type, occurredAt)
           VALUES ($1, 'ride_completed', NOW());
         `,
-        values: [rideId],
+        [rideId]
+      );
+
+      await publishRideEventOutbox(client, {
+        type: "rides.ride.completed",
+        tenantId,
+        payload: {
+          rideId,
+          passengerId: updated.passenger_user_id,
+          driverId: updated.driver_id,
+          finalPrice: updated.final_price,
+        },
       });
 
       return updated;
     });
 
-    // pagamento
-    await processRidePayment({
-      tenantId,
-      rideId,
-      passengerId: ride.passenger_user_id,
-      driverId: ride.driver_id,
-      totalAmount: ride.final_price,
-      platformFeePercent: 15,
-      communityFeePercent: 2,
-      driverIncentives: 0,
-      tipAmount: tipAmount ?? 0,
+    await distributionService.processRidePayment(tenantId, ride, {
+      totalCents: ride.final_price ?? 0,
     });
 
-    // evento
-    eventBus.emit({
-      type: "rides.ride.completed",
-      tenantId,
-      payload: {
-        rideId,
-        passengerId: ride.passenger_user_id,
-        driverId: ride.driver_id,
-        finalPrice: ride.final_price,
-      },
-    });
-
-    // notificação
     await notifyService.send(tenantId, {
       userId: ride.passenger_user_id,
       channel: "push",
@@ -311,4 +286,3 @@ class LifecycleService {
 }
 
 export const lifecycleService = new LifecycleService();
-

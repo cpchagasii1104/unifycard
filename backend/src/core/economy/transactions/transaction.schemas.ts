@@ -9,6 +9,8 @@ export const createTransferSchema = z.object({
   toAccount: z.string().uuid('Invalid destination account ID'),
   amountCents: z.number().positive('Amount must be greater than zero'),
   eventId: z.string().uuid('Invalid event ID').optional(),
+  referenceType: z.string().min(1, 'referenceType is required'),
+  referenceId: z.string().min(1, 'referenceId is required'),
   metadata: z.record(z.any()).optional(),
 });
 

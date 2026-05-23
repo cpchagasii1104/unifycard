@@ -88,7 +88,7 @@ class HumanMvpEventInstanceService {
 
     // VALIDAÇÃO 4: Context é válido
     const context = matchEvent.context;
-    const allowedContexts: CategoryContext[] = ['professional', 'person', 'interest'];
+    const allowedContexts: (CategoryContext | 'person')[] = ['professional', 'person', 'interest'];
     if (!allowedContexts.includes(context)) {
       throw new Error('Context inválido');
     }
@@ -116,7 +116,7 @@ class HumanMvpEventInstanceService {
     const result = await pool.query<{ id: string }>(
       `
       INSERT INTO human_mvp_event_instances (
-        tenant_id, opportunity_id, person_id, category_id, context, scheduledAt, createdAt, updatedAt
+        tenant_id, opportunity_id, person_id, category_id, context, scheduled_at, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING id
@@ -154,7 +154,7 @@ class HumanMvpEventInstanceService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, createdAt
+        event_type, tenant_id, person_id, category_id, context, details, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,

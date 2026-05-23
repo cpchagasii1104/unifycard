@@ -63,11 +63,11 @@ const testCurrencyRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         // AUTORIDADE: ensureUserActor → gate → transfer (INV-ID + INV-FIN)
         const adminActor = await ensureUserActor(req.tenant.id, req.user.id);
-        if (!adminActor?.id) {
+        if (!adminActor?.actor_id) {
           return reply.status(400).send({ ok: false, message: 'ACTOR_ID_NOT_RESOLVED' });
         }
         await requireFinancialRiskClearance(req.tenant.id, {
-          actorId: adminActor.id,
+          actorId: adminActor.actor_id,
           action: 'financial_transfer',
           amountCents: parsed.data.amountCents,
         });

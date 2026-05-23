@@ -36,6 +36,7 @@ export interface BankSplit {
   transactionId: string;
   serviceOrderId?: string | null;
   targetAccountId: string;
+  /** Centavos inteiros > 0 (§4.7). */
   amountCents: number;
   percentage?: number | null;
   splitType: BankSplitType;
@@ -51,6 +52,7 @@ export interface CreateBankSplitInput {
   transactionId: string;
   serviceOrderId?: string | null;
   targetAccountId: string;
+  /** Centavos inteiros > 0 (§4.7). */
   amountCents: number;
   percentage?: number;
   splitType: BankSplitType;
@@ -79,21 +81,25 @@ export interface BankSplitConfig {
  * Resultado de cálculo de splits
  */
 export interface BankSplitCalculation {
-  totalAmount: number;
+  /** Total da transação em centavos (inteiro). */
+  totalAmountCents: number;
   splits: Array<{
     splitType: BankSplitType;
     targetAccountId: string;
+    /** Centavos inteiros > 0 por linha (§4.7). */
     amountCents: number;
+    /** Fração 0–1 do total (regra de negócio); não confundir com basis points. */
     percentage: number;
-    metadata?: Record<string, any>; // Metadata opcional (ex: groupId para group allocations)
+    metadata?: Record<string, any>;
   }>;
-  remainder?: number; // Diferença por arredondamento
+  /** Sobra em centavos após alocação (0 quando válido). */
+  remainderCents?: number;
 }
 
 /**
  * Nome das contas do sistema
  */
-export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow';
+export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'platform_ops';
 
 
 

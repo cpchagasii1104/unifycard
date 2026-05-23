@@ -44,11 +44,11 @@ export interface ServiceBookingDecisionRow {
   booking_id: string;
   decided_by_actor_id: string;
   status: BookingDecisionStatus;
-  decidedAt: Date;
+  decided_at: Date;
   reason: string | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 /**

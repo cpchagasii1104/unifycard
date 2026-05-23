@@ -2,6 +2,12 @@
 // Serviço de catálogo canônico
 
 import { runQueryWithTenant, runQueriesWithTenant } from '../../core/database/pool';
+import {
+  isCanonicalProductOperationalReady,
+  sqlCanonicalIndustrialOperationalReady,
+  sqlCanonicalIdMatchesTenantContext,
+  sqlOrderScopedCanonicalFirst,
+} from '../../core/catalog/canonical/canonical-product-readiness';
 import type {
   CanonicalProduct,
   LocalProduct,
@@ -10,16 +16,25 @@ import type {
 
 interface CanonicalProductRow {
   id: string;
-  tenant_id: string;
-  gtin: string;
+  tenant_id: string | null;
+  gtin: string | null;
   name: string;
   brand: string | null;
-  images: string[];
+  images: unknown;
   attributes: any;
   category_id: string | null;
   type: string;
-  createdAt: Date;
-  updatedAt: Date;
+  concept_id: string | null;
+  concept_resolution_status: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function normalizeCanonicalImagesCatalog(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((x): x is string => typeof x === 'string');
 }
 
 interface LocalProductRow {
@@ -32,8 +47,8 @@ interface LocalProductRow {
   attributes: any;
   category_id: string | null;
   type: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class CatalogService {
@@ -41,18 +56,32 @@ class CatalogService {
    * Converte row do banco para CanonicalProduct
    */
   private toCanonicalProduct(row: CanonicalProductRow): CanonicalProduct {
+    const crs = row.concept_resolution_status?.trim();
+    const conceptResolutionStatus =
+      crs === 'unresolved' || crs === 'auto_suggested' || crs === 'confirmed' ? crs : undefined;
+    const rowType = row.type || 'INDUSTRIAL';
     return {
       id: row.id,
       tenantId: row.tenant_id,
-      gtin: row.gtin,
+      gtin: row.gtin ?? '',
       name: row.name,
       brand: row.brand || undefined,
-      images: row.images || [],
+      images: normalizeCanonicalImagesCatalog(row.images),
       attributes: row.attributes || {},
       categoryId: row.category_id || '',
+      conceptId: row.concept_id || undefined,
+      conceptResolutionStatus,
       type: 'INDUSTRIAL',
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      operationalReady: isCanonicalProductOperationalReady({
+        type: rowType,
+        name: row.name,
+        categoryId: row.category_id,
+        conceptId: row.concept_id,
+        conceptResolutionStatus: conceptResolutionStatus ?? 'unresolved',
+        attributes: row.attributes,
+      }),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -70,47 +99,73 @@ class CatalogService {
       attributes: row.attributes || {},
       categoryId: row.category_id || '',
       type: 'LOCAL',
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
   /**
    * Busca produto canônico por GTIN
    */
-  async findByGTIN(tenantId: string, gtin: string): Promise<CanonicalProduct | null> {
+  async findByGTIN(
+    tenantId: string,
+    gtin: string,
+    options?: { includeNonReady?: boolean }
+  ): Promise<CanonicalProduct | null> {
     const row = await runQueryWithTenant<CanonicalProductRow>(
       tenantId,
       {
         text: `
-          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
+          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, concept_id, concept_resolution_status, created_at, updated_at
           FROM canonical_products
-          WHERE tenant_id = $1 AND gtin = $2
+          WHERE ${sqlCanonicalIdMatchesTenantContext('canonical_products', '$1::uuid')}
+            AND gtin IS NOT DISTINCT FROM $2::text
+          ORDER BY ${sqlOrderScopedCanonicalFirst('canonical_products')}, created_at ASC
+          LIMIT 1
         `,
         values: [tenantId, gtin],
       }
     );
 
-    return row ? this.toCanonicalProduct(row) : null;
+    if (!row) {
+      return null;
+    }
+    const p = this.toCanonicalProduct(row);
+    if (!options?.includeNonReady && !p.operationalReady) {
+      return null;
+    }
+    return p;
   }
 
   /**
    * Busca produto canônico por ID
    */
-  async findById(tenantId: string, productId: string): Promise<CanonicalProduct | null> {
+  async findById(
+    tenantId: string,
+    productId: string,
+    options?: { includeNonReady?: boolean }
+  ): Promise<CanonicalProduct | null> {
     const row = await runQueryWithTenant<CanonicalProductRow>(
       tenantId,
       {
         text: `
-          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
+          SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, concept_id, concept_resolution_status, created_at, updated_at
           FROM canonical_products
-          WHERE tenant_id = $1 AND id = $2
+          WHERE id = $2
+            AND ${sqlCanonicalIdMatchesTenantContext('canonical_products', '$1::uuid')}
         `,
         values: [tenantId, productId],
       }
     );
 
-    return row ? this.toCanonicalProduct(row) : null;
+    if (!row) {
+      return null;
+    }
+    const p = this.toCanonicalProduct(row);
+    if (!options?.includeNonReady && !p.operationalReady) {
+      return null;
+    }
+    return p;
   }
 
   /**
@@ -128,6 +183,7 @@ class CatalogService {
       type?: 'INDUSTRIAL' | 'LOCAL' | 'ALL';
       limit?: number;
       offset?: number;
+      includeNonReady?: boolean;
     }
   ): Promise<CatalogSearchResult> {
     const {
@@ -135,6 +191,7 @@ class CatalogService {
       type = 'ALL',
       limit = 50,
       offset = 0,
+      includeNonReady = false,
     } = options || {};
 
     const searchTerm = `%${query}%`;
@@ -144,11 +201,12 @@ class CatalogService {
 
     // Produtos canônicos
     if (type === 'ALL' || type === 'INDUSTRIAL') {
+      const canVis = sqlCanonicalIdMatchesTenantContext('canonical_products', '$1::uuid');
       let canonicalQuery = `
-        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, createdAt, updatedAt
+        SELECT id, tenant_id, gtin, name, brand, images, attributes, category_id, type, concept_id, concept_resolution_status, created_at, updated_at
         FROM canonical_products
-        WHERE tenant_id = $1
-          AND (name ILIKE $2 OR brand ILIKE $2 OR gtin = $3)
+        WHERE ${canVis}
+          AND (name ILIKE $2 OR brand ILIKE $2 OR gtin IS NOT DISTINCT FROM $3::text)
       `;
 
       const params: any[] = [tenantId, searchTerm, query];
@@ -156,6 +214,10 @@ class CatalogService {
       if (categoryId) {
         canonicalQuery += ` AND category_id = $${params.length + 1}`;
         params.push(categoryId);
+      }
+
+      if (!includeNonReady) {
+        canonicalQuery += ` AND ${sqlCanonicalIndustrialOperationalReady('canonical_products')}`;
       }
 
       canonicalQuery += `
@@ -176,7 +238,7 @@ class CatalogService {
     // Produtos locais
     if (type === 'ALL' || type === 'LOCAL') {
       let localQuery = `
-        SELECT id, tenant_id, merchant_id, name, description, images, attributes, category_id, type, createdAt, updatedAt
+        SELECT id, tenant_id, merchant_id, name, description, images, attributes, category_id, type, created_at, updated_at
         FROM local_products
         WHERE tenant_id = $1
           AND (name ILIKE $2 OR description ILIKE $2)

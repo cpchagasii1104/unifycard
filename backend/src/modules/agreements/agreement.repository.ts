@@ -28,11 +28,11 @@ interface AgreementRow {
   status: string;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  finalizedAt: Date | null;
+  finalized_at: Date | null;
   finalized_by_actor_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class AgreementRepository {
@@ -55,11 +55,11 @@ class AgreementRepository {
       status: row.status as any,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      finalizedAt: row.finalizedAt,
+      finalizedAt: row.finalized_at,
       finalizedByActorId: row.finalized_by_actor_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -70,67 +70,55 @@ class AgreementRepository {
     const { randomUUID } = await import('crypto');
     const agreementId = randomUUID();
 
-    const rows = await runQueriesWithTenant(
-      tenantId,
-      [
-        {
-          text: `
-            INSERT INTO agreements (
-              agreement_id, tenant_id, context_type, context_id, thread_id,
-              requester_actor_id, provider_actor_id, price_cents, currency,
-              scope, included_items, excluded_items, responsibilities,
-              capacity_assumptions, status, created_by_actor_id, created_by_user_id,
-              metadata
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-            ) RETURNING *
-          `,
-          values: [
-            agreementId,
-            tenantId,
-            input.contextType,
-            input.contextId,
-            input.threadId || null,
-            input.requesterActorId,
-            input.providerActorId,
-            input.priceCents,
-            input.currency,
-            input.scope,
-            JSON.stringify(input.includedItems || []),
-            JSON.stringify(input.excludedItems || []),
-            input.responsibilities || null,
-            input.capacityAssumptions || null,
-            'draft',
-            input.requesterActorId, // Por padrão, criado pelo requester
-            userId,
-            JSON.stringify(input.metadata || {}),
-          ],
-        },
+    const row = await runQueryWithTenant<AgreementRow>(tenantId, {
+      text: `
+        INSERT INTO agreements (
+          agreement_id, tenant_id, context_type, context_id, thread_id,
+          requester_actor_id, provider_actor_id, price_cents, currency,
+          scope, included_items, excluded_items, responsibilities,
+          capacity_assumptions, status, created_by_actor_id, created_by_user_id,
+          metadata
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+        ) RETURNING *
+      `,
+      values: [
+        agreementId,
+        tenantId,
+        input.contextType,
+        input.contextId,
+        input.threadId || null,
+        input.requesterActorId,
+        input.providerActorId,
+        input.priceCents,
+        input.currency,
+        input.scope,
+        JSON.stringify(input.includedItems || []),
+        JSON.stringify(input.excludedItems || []),
+        input.responsibilities || null,
+        input.capacityAssumptions || null,
+        'draft',
+        input.requesterActorId,
+        userId,
+        JSON.stringify(input.metadata || {}),
       ],
-      'agreement.repository.create'
-    );
+    });
 
-    return this.toAgreement(rows[0] as AgreementRow);
+    if (!row) throw new Error('Falha ao criar agreement');
+    return this.toAgreement(row);
   }
 
   /**
    * Busca agreement por ID
    */
   async findById(tenantId: string, agreementId: string): Promise<Agreement | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: 'SELECT * FROM agreements WHERE tenant_id = $1 AND agreement_id = $2',
-        values: [tenantId, agreementId],
-      },
-      'agreement.repository.findById'
-    );
+    const row = await runQueryWithTenant<AgreementRow>(tenantId, {
+      text: 'SELECT * FROM agreements WHERE tenant_id = $1 AND agreement_id = $2',
+      values: [tenantId, agreementId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toAgreement(rows[0] as AgreementRow);
+    if (!row) return null;
+    return this.toAgreement(row);
   }
 
   /**
@@ -141,20 +129,16 @@ class AgreementRepository {
     contextType: string,
     contextId: string
   ): Promise<Agreement[]> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM agreements
-          WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-          ORDER BY createdAt DESC
-        `,
-        values: [tenantId, contextType, contextId],
-      },
-      'agreement.repository.findByContext'
-    );
+    const rows = await runQueriesWithTenant<AgreementRow>(tenantId, {
+      text: `
+        SELECT * FROM agreements
+        WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
+        ORDER BY created_at DESC
+      `,
+      values: [tenantId, contextType, contextId],
+    });
 
-    return rows.map((row) => this.toAgreement(row as AgreementRow));
+    return rows.map((row) => this.toAgreement(row));
   }
 
   /**
@@ -166,25 +150,18 @@ class AgreementRepository {
     contextType: string,
     contextId: string
   ): Promise<Agreement | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM agreements
-          WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = 'finalized'
-          ORDER BY finalizedAt DESC
-          LIMIT 1
-        `,
-        values: [tenantId, contextType, contextId],
-      },
-      'agreement.repository.findFinalizedByContext'
-    );
+    const row = await runQueryWithTenant<AgreementRow>(tenantId, {
+      text: `
+        SELECT * FROM agreements
+        WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = 'finalized'
+        ORDER BY finalized_at DESC
+        LIMIT 1
+      `,
+      values: [tenantId, contextType, contextId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toAgreement(rows[0] as AgreementRow);
+    if (!row) return null;
+    return this.toAgreement(row);
   }
 
   /**
@@ -234,21 +211,17 @@ class AgreementRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM agreements
-          WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `,
-        values: [...values, limit, offset],
-      },
-      'agreement.repository.list'
-    );
+    const rows = await runQueriesWithTenant<AgreementRow>(tenantId, {
+      text: `
+        SELECT * FROM agreements
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `,
+      values: [...values, limit, offset],
+    });
 
-    return rows.map((row) => this.toAgreement(row as AgreementRow));
+    return rows.map((row) => this.toAgreement(row));
   }
 
   /**
@@ -320,25 +293,18 @@ class AgreementRepository {
       return agreement;
     }
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          UPDATE agreements
-          SET ${updates.join(', ')}
-          WHERE tenant_id = $1 AND agreement_id = $2
-          RETURNING *
-        `,
-        values,
-      },
-      'agreement.repository.update'
-    );
+    const row = await runQueryWithTenant<AgreementRow>(tenantId, {
+      text: `
+        UPDATE agreements
+        SET ${updates.join(', ')}
+        WHERE tenant_id = $1 AND agreement_id = $2
+        RETURNING *
+      `,
+      values,
+    });
 
-    if (rows.length === 0) {
-      throw new Error('Agreement não encontrado');
-    }
-
-    return this.toAgreement(rows[0] as AgreementRow);
+    if (!row) throw new Error('Agreement não encontrado');
+    return this.toAgreement(row);
   }
 
   /**
@@ -363,25 +329,18 @@ class AgreementRepository {
       }
     }
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          UPDATE agreements
-          SET ${updates.join(', ')}
-          WHERE tenant_id = $1 AND agreement_id = $2
-          RETURNING *
-        `,
-        values,
-      },
-      'agreement.repository.updateStatus'
-    );
+    const row = await runQueryWithTenant<AgreementRow>(tenantId, {
+      text: `
+        UPDATE agreements
+        SET ${updates.join(', ')}
+        WHERE tenant_id = $1 AND agreement_id = $2
+        RETURNING *
+      `,
+      values,
+    });
 
-    if (rows.length === 0) {
-      throw new Error('Agreement não encontrado');
-    }
-
-    return this.toAgreement(rows[0] as AgreementRow);
+    if (!row) throw new Error('Agreement não encontrado');
+    return this.toAgreement(row);
   }
 }
 

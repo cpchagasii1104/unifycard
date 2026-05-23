@@ -10,15 +10,15 @@ interface PixChargeRow {
   payment_intent_id: string;
   provider: string;
   provider_charge_id: string;
-  amountCents: number;
+  amount: string; // DB column; map to amountCents in TS
   currency: string;
   status: string;
-  expiresAt: Date;
-  paidAt: Date | null;
+  expires_at: Date;
+  paid_at: Date | null;
   payload_snapshot: any;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PixChargeRepository {
@@ -29,15 +29,15 @@ class PixChargeRepository {
       paymentIntentId: row.payment_intent_id,
       provider: row.provider,
       providerChargeId: row.provider_charge_id,
-      amountCents: row.amount,
+      amountCents: typeof row.amount === 'number' ? row.amount : parseFloat(String(row.amount)),
       currency: row.currency,
       status: row.status as any,
-      expiresAt: row.expiresAt,
-      paidAt: row.paidAt,
+      expiresAt: row.expires_at,
+      paidAt: row.paid_at,
       payloadSnapshot: row.payload_snapshot || {},
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -53,19 +53,19 @@ class PixChargeRepository {
       `
       INSERT INTO pix_charges (
         tenant_id, payment_intent_id, provider, provider_charge_id,
-        amount, currency, status, expiresAt, payload_snapshot, metadata
+        amount, currency, status, expires_at, payload_snapshot, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, 'CREATED', $7, $8::jsonb, $9::jsonb)
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expiresAt, paidAt,
-                payload_snapshot, metadata, createdAt, updatedAt
+                amount, currency, status, expires_at, paid_at,
+                payload_snapshot, metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.paymentIntentId,
         provider,
         providerChargeId,
-        input.amount,
+        input.amountCents,
         input.currency || 'BRL',
         input.expiresInMinutes
           ? new Date(Date.now() + input.expiresInMinutes * 60 * 1000)
@@ -75,6 +75,9 @@ class PixChargeRepository {
       ]
     );
 
+    if (!row) {
+      throw new Error('Falha ao criar PIX charge');
+    }
     return this.toPixCharge(row);
   }
 
@@ -83,8 +86,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expiresAt, paidAt,
-             payload_snapshot, metadata, createdAt, updatedAt
+             amount, currency, status, expires_at, paid_at,
+             payload_snapshot, metadata, created_at, updated_at
       FROM pix_charges
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -106,8 +109,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expiresAt, paidAt,
-             payload_snapshot, metadata, createdAt, updatedAt
+             amount, currency, status, expires_at, paid_at,
+             payload_snapshot, metadata, created_at, updated_at
       FROM pix_charges
       WHERE tenant_id = $1 AND payment_intent_id = $2
       `,
@@ -130,8 +133,8 @@ class PixChargeRepository {
       tenantId,
       `
       SELECT id, tenant_id, payment_intent_id, provider, provider_charge_id,
-             amount, currency, status, expiresAt, paidAt,
-             payload_snapshot, metadata, createdAt, updatedAt
+             amount, currency, status, expires_at, paid_at,
+             payload_snapshot, metadata, created_at, updated_at
       FROM pix_charges
       WHERE tenant_id = $1 AND provider = $2 AND provider_charge_id = $3
       `,
@@ -150,15 +153,18 @@ class PixChargeRepository {
       tenantId,
       `
       UPDATE pix_charges
-      SET status = 'PAID', paidAt = $3, updatedAt = NOW()
+      SET status = 'PAID', paid_at = $3, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'CREATED'
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expiresAt, paidAt,
-                payload_snapshot, metadata, createdAt, updatedAt
+                amount, currency, status, expires_at, paid_at,
+                payload_snapshot, metadata, created_at, updated_at
       `,
       [tenantId, chargeId, paidAt]
     );
 
+    if (!row) {
+      throw new Error('PIX charge não encontrado ou já pago/expirado');
+    }
     return this.toPixCharge(row);
   }
 
@@ -167,25 +173,20 @@ class PixChargeRepository {
       tenantId,
       `
       UPDATE pix_charges
-      SET status = 'EXPIRED', updatedAt = NOW()
+      SET status = 'EXPIRED', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'CREATED'
       RETURNING id, tenant_id, payment_intent_id, provider, provider_charge_id,
-                amount, currency, status, expiresAt, paidAt,
-                payload_snapshot, metadata, createdAt, updatedAt
+                amount, currency, status, expires_at, paid_at,
+                payload_snapshot, metadata, created_at, updated_at
       `,
       [tenantId, chargeId]
     );
 
+    if (!row) {
+      throw new Error('PIX charge não encontrado ou já expirado');
+    }
     return this.toPixCharge(row);
   }
 }
 
 export const pixChargeRepository = new PixChargeRepository();
-
-
-
-
-
-
-
-

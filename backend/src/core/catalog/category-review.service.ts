@@ -13,7 +13,6 @@ interface PendingCategoryWithMetadata extends Category {
   createdByAI?: boolean;
   originalText?: string;
   aiReasoning?: string;
-  createdAt: Date;
 }
 
 interface ApproveCategoryInput {
@@ -56,10 +55,10 @@ class CategoryReviewService {
         c.requires_review,
         c.created_by_ai,
         c.approved_by,
-        c.approvedAt,
+        c.approved_at,
         c.rejection_reason,
-        c.createdAt,
-        c.updatedAt,
+        c.created_at,
+        c.updated_at,
         -- Buscar metadados de auditoria da tabela category_ai_logs
         cal.ai_confidence as confidence,
         cal.original_text,
@@ -67,7 +66,7 @@ class CategoryReviewService {
       FROM categories c
       LEFT JOIN category_ai_logs cal ON cal.category_id = c.category_id
       WHERE c.status = 'pending' AND c.requires_review = true
-      ORDER BY c.createdAt DESC
+      ORDER BY c.created_at DESC
       `
     );
 

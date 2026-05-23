@@ -141,7 +141,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             updatedAt: availability.updatedAt,
           },
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -173,8 +173,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    const filters: any = {};
     try {
-      const filters: any = {};
       if (req.query.ownerType) {
         filters.ownerType = req.query.ownerType as AvailabilityOwnerType;
       }
@@ -267,7 +267,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: availability.updatedAt,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       fastify.log.error(error);
       return reply.status(error.statusCode || 500).send({ error: error.message });
     }
@@ -345,7 +345,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             updatedAt: availability.updatedAt,
           },
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -402,7 +402,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           status: booking.status,
           requestedAt: booking.requestedAt.toISOString(),
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -431,8 +431,8 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant not found' });
     }
 
+    const filters: any = {};
     try {
-      const filters: any = {};
       if (req.query.availabilityId) {
         filters.availabilityId = req.query.availabilityId;
       }
@@ -511,7 +511,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           createdAt: booking.createdAt,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       fastify.log.error(error);
       return reply.status(error.statusCode || 500).send({ error: error.message });
     }
@@ -558,7 +558,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           status: booking.status,
           confirmedAt: booking.confirmedAt?.toISOString(),
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -609,7 +609,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           status: booking.status,
           checkedInAt: booking.checkedInAt?.toISOString(),
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -660,7 +660,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           status: booking.status,
           checkedOutAt: booking.checkedOutAt?.toISOString(),
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -749,7 +749,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             message: conflictDetection.message,
           } : null,
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -848,7 +848,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: participant.updatedAt,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       fastify.log.error(error);
       return reply.status(error.statusCode || 500).send({ error: error.message });
     }
@@ -898,7 +898,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           participantId: participant.participantId,
           role: participant.role,
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
@@ -929,7 +929,7 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       return reply.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
       fastify.log.error(error);
       return reply.status(error.statusCode || 500).send({ error: error.message });
     }

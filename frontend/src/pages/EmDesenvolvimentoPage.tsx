@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import UnifiedAuthLayout from '../components/layout/UnifiedAuthLayout';
 import './EmDesenvolvimentoPage.css';
 
 // Importar nomes de apps do registry
@@ -63,22 +64,24 @@ export default function EmDesenvolvimentoPage() {
   }
 
   return (
-    <div className="em-desenvolvimento-page">
-      <div className="em-desenvolvimento-content">
-        <div className="em-desenvolvimento-icon">🚧</div>
-        <h1 className="em-desenvolvimento-title">
-          {featureName ? `${featureName} está em desenvolvimento.` : 'Este aplicativo está em desenvolvimento.'}
-        </h1>
-        <p className="em-desenvolvimento-message">
-          Em breve você poderá acessar esta funcionalidade.
-        </p>
-        {feature && (
-          <p className="em-desenvolvimento-feature">
-            <small>Feature: {feature}</small>
+    <UnifiedAuthLayout>
+      <div className="em-desenvolvimento-page">
+        <div className="em-desenvolvimento-content">
+          <div className="em-desenvolvimento-icon">🚧</div>
+          <h1 className="em-desenvolvimento-title">
+            {featureName ? `${featureName} está em desenvolvimento.` : 'Este aplicativo está em desenvolvimento.'}
+          </h1>
+          <p className="em-desenvolvimento-message">
+            Em breve você poderá acessar esta funcionalidade.
           </p>
-        )}
+          {feature && (
+            <p className="em-desenvolvimento-feature">
+              <small>Feature: {feature}</small>
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </UnifiedAuthLayout>
   );
 }
 

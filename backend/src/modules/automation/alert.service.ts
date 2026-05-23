@@ -4,6 +4,7 @@
 import { alertRepository } from './alert.repository';
 import type {
   Alert,
+  AlertSeverity,
   CreateAlertInput,
   UpdateAlertStatusInput,
   AlertFilters,
@@ -64,7 +65,7 @@ class AlertService {
    */
   async countOpenAlerts(
     tenantId: string,
-    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+    severity?: AlertSeverity
   ): Promise<number> {
     return await alertRepository.countOpenAlerts(tenantId, severity);
   }

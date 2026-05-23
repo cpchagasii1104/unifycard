@@ -29,7 +29,7 @@ export interface ChatMessageRow {
   categories: string[];
   suggested_actions: any; // JSONB
   metadata: any; // JSONB
-  createdAt: string;
+  created_at: string | Date;
 }
 
 export interface MediaItem {

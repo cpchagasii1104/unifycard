@@ -87,7 +87,7 @@ export function translateEventToCanonical(event: UnificardEvent): CanonicalEvent
       tenantId: event.tenantId,
       regionId,
       userId,
-      amount,
+      amountCents: amount ?? 0,
       currency: payload?.currency || metadata?.currency || 'BRL',
       occurredAt: event.createdAt.toISOString(),
       metadata: {

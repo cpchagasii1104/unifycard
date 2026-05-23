@@ -18,6 +18,8 @@ export interface CompleteProfile {
     metadata: Record<string, any>;
     referralCode: string | null;
     cpf: string | null;
+    /** YYYY-MM-DD — projeção no CORE (global_users / identity) */
+    birthdate?: string | null;
     profile_personal_confirmed?: boolean;
     can_edit_personal_data?: boolean;
   } | null;

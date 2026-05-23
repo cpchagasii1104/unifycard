@@ -23,9 +23,9 @@ export interface UserMemoryPreferenceRow {
   valueCents: any; // JSONB
   confidence: number;
   usage_count: number;
-  last_usedAt: Date;
-  createdAt: string;
-  updatedAt: string;
+  last_used_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 export interface UserMemoryInteraction {
@@ -54,10 +54,10 @@ export interface UserMemoryInteractionRow {
   entity_name: string | null;
   parameters: any; // JSONB
   interaction_count: number;
-  first_interactionAt: Date;
-  last_interactionAt: Date;
-  createdAt: string;
-  updatedAt: string;
+  first_interaction_at: Date;
+  last_interaction_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 export interface UserMemoryEntity {
@@ -87,9 +87,9 @@ export interface UserMemoryEntityRow {
   entity_metadata: any; // JSONB
   relevance_score: number;
   interaction_count: number;
-  last_interactionAt: Date;
-  createdAt: string;
-  updatedAt: string;
+  last_interaction_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 export interface UserMemoryShortcut {
@@ -113,9 +113,9 @@ export interface UserMemoryShortcutRow {
   intent: string;
   parameters: any; // JSONB
   usage_count: number;
-  last_usedAt: Date;
-  createdAt: string;
-  updatedAt: string;
+  last_used_at: Date;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 export interface UserPreferences {

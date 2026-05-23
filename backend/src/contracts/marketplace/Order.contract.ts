@@ -31,5 +31,7 @@ export interface Order {
     subtotal: number;
   }>;
   totalCents: number;
+  /** Opcional: data de criação (uso interno/domínio). */
+  createdAt?: string;
 }
 

@@ -14,6 +14,10 @@ import type {
 } from './social-group.types';
 import type { CreatePostInput } from './social.types';
 
+function tsIso(v: string | Date): string {
+  return v instanceof Date ? v.toISOString() : String(v);
+}
+
 class SocialGroupService {
   /**
    * Busca informações sociais de um grupo
@@ -50,7 +54,7 @@ class SocialGroupService {
       }
     }
     
-    const { rows, total } = await socialGroupRepository.getGroupFeed(
+    const { rows, totalCents } = await socialGroupRepository.getGroupFeed(
       tenantId,
       groupId,
       options
@@ -60,16 +64,16 @@ class SocialGroupService {
       postId: row.post_id,
       content: row.content,
       globalUserId: row.global_user_id,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: tsIso(row.created_at),
       metadata: row.metadata || {},
       isAutoPost: row.metadata?.type === 'system_auto_post',
     }));
 
-    const hasMore = (options.offset || 0) + posts.length < total;
+    const hasMore = (options.offset || 0) + posts.length < totalCents;
 
     return {
       posts,
-      total,
+      totalCents,
       hasMore,
     };
   }
@@ -131,7 +135,7 @@ class SocialGroupService {
     userId: string,
     options: { limit?: number; offset?: number } = {}
   ): Promise<ImpactFeedResult> {
-    const { items, total } = await socialGroupRepository.getImpactFeed(
+    const { items, totalCents } = await socialGroupRepository.getImpactFeed(
       tenantId,
       userId,
       options
@@ -152,16 +156,16 @@ class SocialGroupService {
         globalUserId: item.global_user_id,
         groupId: metadata.groupId,
         amountCents: metadata.splitAmount,
-        createdAt: item.createdAt,
+        createdAt: tsIso(item.created_at),
         metadata,
       };
     });
 
-    const hasMore = (options.offset || 0) + feedItems.length < total;
+    const hasMore = (options.offset || 0) + feedItems.length < totalCents;
 
     return {
       items: feedItems,
-      total,
+      totalCents,
       hasMore,
     };
   }

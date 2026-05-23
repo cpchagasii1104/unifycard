@@ -1,7 +1,7 @@
 // backend/src/core/pilot/pilot-invites.repository.ts
 // SPRINT 14: Repository para convites do modo piloto
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export type PilotInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
@@ -42,7 +42,7 @@ class PilotInvitesRepository {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias
 
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       invite_id: string;
       tenant_id: string;
       email: string;
@@ -55,7 +55,8 @@ class PilotInvitesRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         INSERT INTO pilot_invites (
           tenant_id, email, invited_by_user_id, status,
           expiresAt, metadata
@@ -63,16 +64,17 @@ class PilotInvitesRepository {
         VALUES ($1, $2, $3, 'pending', $4, $5)
         RETURNING *
       `,
-      [
-        tenantId,
-        input.email.toLowerCase().trim(),
-        input.invitedByUserId,
-        expiresAt,
-        JSON.stringify(input.metadata || {}),
-      ]
+        values: [
+          tenantId,
+          input.email.toLowerCase().trim(),
+          input.invitedByUserId,
+          expiresAt,
+          JSON.stringify(input.metadata || {}),
+        ],
+      }
     );
 
-    const row = result[0];
+    if (!row) throw new Error('create: no row returned');
     return {
       inviteId: row.invite_id,
       tenantId: row.tenant_id,
@@ -94,7 +96,7 @@ class PilotInvitesRepository {
     tenantId: string,
     email: string
   ): Promise<PilotInvite | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       invite_id: string;
       tenant_id: string;
       email: string;
@@ -107,7 +109,8 @@ class PilotInvitesRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         SELECT *
         FROM pilot_invites
         WHERE tenant_id = $1
@@ -117,14 +120,11 @@ class PilotInvitesRepository {
         ORDER BY invitedAt DESC
         LIMIT 1
       `,
-      [tenantId, email]
+        values: [tenantId, email],
+      }
     );
 
-    if (result.length === 0) {
-      return null;
-    }
-
-    const row = result[0];
+    if (!row) return null;
     return {
       inviteId: row.invite_id,
       tenantId: row.tenant_id,
@@ -146,7 +146,7 @@ class PilotInvitesRepository {
     tenantId: string,
     email: string
   ): Promise<PilotInvite | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       invite_id: string;
       tenant_id: string;
       email: string;
@@ -159,7 +159,8 @@ class PilotInvitesRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         UPDATE pilot_invites
         SET status = 'accepted',
             acceptedAt = NOW()
@@ -169,14 +170,11 @@ class PilotInvitesRepository {
           AND expiresAt > NOW()
         RETURNING *
       `,
-      [tenantId, email]
+        values: [tenantId, email],
+      }
     );
 
-    if (result.length === 0) {
-      return null;
-    }
-
-    const row = result[0];
+    if (!row) return null;
     return {
       inviteId: row.invite_id,
       tenantId: row.tenant_id,
@@ -198,7 +196,7 @@ class PilotInvitesRepository {
     tenantId: string,
     inviteId: string
   ): Promise<PilotInvite | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       invite_id: string;
       tenant_id: string;
       email: string;
@@ -211,7 +209,8 @@ class PilotInvitesRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         UPDATE pilot_invites
         SET status = 'revoked'
         WHERE tenant_id = $1
@@ -219,14 +218,11 @@ class PilotInvitesRepository {
           AND status = 'pending'
         RETURNING *
       `,
-      [tenantId, inviteId]
+        values: [tenantId, inviteId],
+      }
     );
 
-    if (result.length === 0) {
-      return null;
-    }
-
-    const row = result[0];
+    if (!row) return null;
     return {
       inviteId: row.invite_id,
       tenantId: row.tenant_id,
@@ -274,7 +270,7 @@ class PilotInvitesRepository {
     `;
     params.push(limit, offset);
 
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       invite_id: string;
       tenant_id: string;
       email: string;
@@ -287,7 +283,7 @@ class PilotInvitesRepository {
       createdAt: Date;
     }>(tenantId, query, params);
 
-    return result.map((row) => ({
+    return rows.map((row) => ({
       inviteId: row.invite_id,
       tenantId: row.tenant_id,
       email: row.email,
@@ -318,7 +314,7 @@ class PilotInvitesRepository {
       [tenantId]
     );
 
-    return parseInt(result[0]?.count || '0', 10);
+    return parseInt(result?.count ?? '0', 10);
   }
 }
 

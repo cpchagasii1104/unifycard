@@ -14,6 +14,8 @@ export interface LearningCategory {
   categoryName: string;
   categoryPath: string[];
   level: number;
+  /** Fase de exploração (beginner/intermediate/advanced). Alias de preferences.progress para uso em inferência. */
+  progress?: 'beginner' | 'intermediate' | 'advanced' | null;
   preferences?: {
     // 🔴 SEMÂNTICA: progress representa fase de exploração/interesse, não capacidade
     // - beginner = explorando (interesse inicial)

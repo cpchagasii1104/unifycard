@@ -2,10 +2,17 @@
 // Rotas REST para eventos conforme CONTRATO DE EVENTOS v1
 // FASE 5: INTEGRAÇÃO CONTROLADA
 
-import { FastifyPluginAsync } from 'fastify';
+import { randomUUID } from 'crypto';
+import { FastifyPluginAsync, type FastifyReply, type FastifyRequest } from 'fastify';
 import { eventService } from './event.service';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
-import { runQueryWithTenant } from '@core/database/pool';
+import { ErrorCode } from '@core/errors/error-codes';
+import { buildCanonicalHttpErrorPayload } from '@core/http/canonical-http-error';
+import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from './event-outbox.repository';
 import { eventRateLimitService } from './event-rate-limit.service';
 import type {
   CreateEventInput,
@@ -33,6 +40,134 @@ import { eventCustodyService } from './event-custody.service';
 import type { CreateCustodyInput } from './event-custody.service';
 import { eventPaymentPreparedService } from './event-payment-prepared.service';
 import type { AuthorizePaymentInput } from './event-payment-prepared.service';
+import { eventEconomyService } from './event-economy.service';
+import { eventSplitDeclarativeService } from './event-split-declarative.service';
+import { eventRefundChargebackService } from './event-refund-chargeback.service';
+import { eventPaymentExecutionService } from './event-payment-execution.service';
+import {
+  IdempotencyMismatchError,
+  IDEMPOTENCY_MISMATCH_HTTP_MESSAGE,
+} from '@core/events/idempotency-tracker';
+import type { CalculateSplitInput } from './event-economy.types';
+import type { RequestRefundInput, InitiateChargebackInput } from './event-payment.types';
+
+function eventRoutesReqId(req: FastifyRequest): string {
+  const raw = (req as { requestId?: string; id?: string }).requestId ?? req.id;
+  return typeof raw === 'string' && raw.trim() !== '' ? raw : randomUUID();
+}
+
+function sendEventHttpError(
+  reply: FastifyReply,
+  req: FastifyRequest,
+  statusCode: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>
+) {
+  return reply.status(statusCode).send(
+    buildCanonicalHttpErrorPayload(
+      code,
+      message,
+      eventRoutesReqId(req),
+      details && Object.keys(details).length > 0 ? { details } : undefined
+    )
+  );
+}
+
+/**
+ * Body em snake_case (contrato externo da API) para criação de evento.
+ * Converter para CreateEventInput (camelCase) antes de usar nos serviços.
+ */
+interface CreateEventBodyRaw {
+  actor_id: string;
+  actor_type: 'user' | 'page';
+  event_type: string;
+  event_subtype?: string | null;
+  title: string;
+  description?: string | null;
+  datetime_start?: string | null;
+  datetime_end?: string | null;
+  visibility?: string;
+  ticket_price_cents?: number | null;
+  max_attendees?: number | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+function toCreateEventInput(body: CreateEventBodyRaw): CreateEventInput {
+  return {
+    actorId: body.actor_id,
+    actorType: body.actor_type,
+    eventType: body.event_type as EventType,
+    eventSubtype: body.event_subtype ?? undefined,
+    title: body.title,
+    description: body.description ?? undefined,
+    datetimeStart: body.datetime_start ?? undefined,
+    datetimeEnd: body.datetime_end ?? undefined,
+    visibility: body.visibility as EventVisibility | undefined,
+    ticketPriceCents: body.ticket_price_cents ?? undefined,
+    maxAttendees: body.max_attendees ?? undefined,
+    metadata: body.metadata ?? undefined,
+  };
+}
+
+/**
+ * Body em snake_case para criar OperationalCommitment.
+ */
+interface CreateOperationalCommitmentBodyRaw {
+  responsible_actor_id: string;
+  responsible_actor_type: 'user' | 'page' | 'group' | 'channel';
+  role: string;
+  time_window_ref?: {
+    start_datetime: string;
+    end_datetime: string;
+    timezone?: string | null;
+  } | null;
+}
+
+function toCreateOperationalCommitmentInput(
+  eventId: string,
+  body: CreateOperationalCommitmentBodyRaw
+): CreateOperationalCommitmentInput {
+  return {
+    eventId,
+    responsibleActorId: body.responsible_actor_id,
+    responsibleActorType: body.responsible_actor_type,
+    role: body.role,
+    timeWindowRef: body.time_window_ref
+      ? {
+          startDatetime: body.time_window_ref.start_datetime,
+          endDatetime: body.time_window_ref.end_datetime,
+          timezone: body.time_window_ref.timezone ?? undefined,
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Body em snake_case para SetTimeWindows.
+ */
+interface SetTimeWindowsBodyRaw {
+  desired_time_windows?: Array<{
+    start_datetime: string;
+    end_datetime: string;
+    timezone?: string | null;
+  }> | null;
+  flexibility_level?: string | null;
+  timezone?: string | null;
+}
+
+function toSetTimeWindowsInput(eventId: string, body: SetTimeWindowsBodyRaw): SetTimeWindowsInput {
+  return {
+    eventId,
+    desiredTimeWindows: (body.desired_time_windows ?? []).map((w) => ({
+      startDatetime: w.start_datetime,
+      endDatetime: w.end_datetime,
+      timezone: w.timezone ?? undefined,
+    })),
+    flexibilityLevel: (body.flexibility_level as 'strict' | 'flexible' | 'very_flexible') ?? undefined,
+    timezone: body.timezone ?? undefined,
+  };
+}
 
 /**
  * Helper: Obtém actor_id do usuário autenticado
@@ -66,7 +201,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    * Cria um novo evento
    */
   fastify.post<{
-    Body: CreateEventInput;
+    Body: CreateEventBodyRaw;
   }>(
     '/',
     {
@@ -99,18 +234,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         // Obter actor do ActionContext
@@ -125,17 +260,25 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           userActor.actor_id
         );
         if (!rateLimit.allowed) {
-          return reply.status(429).send({
-            error: 'Limite de criação de eventos excedido',
-            resetAt: rateLimit.resetAt.toISOString(),
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
+            'Event creation rate limit exceeded',
+            { resetAt: rateLimit.resetAt.toISOString() }
+          );
         }
 
         // Validar que actor_id do input corresponde ao actor do usuário autenticado
         if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
-          return reply.status(403).send({ 
-            error: 'actor_id não corresponde ao usuário autenticado' 
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            'actor_id does not match authenticated user'
+          );
         }
 
         // Se actor_type é 'page', validar que actor pertence ao usuário
@@ -144,7 +287,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   const actorRepository = socialPortsRegistry.getActorRepository();
           const pageActor = await actorRepository.findById(req.tenant.id, req.body.actor_id);
           if (!pageActor) {
-            return reply.status(404).send({ error: 'Actor (page) não encontrado' });
+            return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Actor (page) not found');
           }
           // Validar que page pertence ao usuário (via companies)
           // TODO: Implementar validação completa de ownership de page
@@ -161,32 +304,48 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         );
         if (debtCheck.hasDebt) {
           const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
-          return reply.status(403).send({
-            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            `Account blocked: pending debt (BRL ${amountReais}). Settle to continue.`
+          );
         }
         
-        const event = await eventService.createEvent(req.tenant.id, req.body);
+        const event = await eventService.createEvent(req.tenant.id, toCreateEventInput(req.body));
 
-        // Publicar evento no EventBus para criar post no feed
+        // Enfileirar evento na outbox para criar post no feed (worker → bus canónico)
         try {
-          const { eventBus } = await import('@core/events/event-bus');
-          await eventBus.publish({
-            tenantId: req.tenant.id,
-            type: 'event.created',
-            payload: {
-              eventId: event.id,
-              actorId: event.actorId,
-              globalUserId: req.actionContext!.actorId,
-              title: event.title,
-              description: event.description,
-              eventType: event.eventType,
-              createdByGlobalUserId: req.actionContext!.actorId,
-            },
-          });
+          const tenantId = req.tenant.id;
+          const outboxClient = await getClientWithTenant(tenantId);
+          try {
+            await outboxClient.query('BEGIN');
+            await insertEventOutboxRow(outboxClient, {
+              tenantId,
+              eventId: outboxEventIdFromSeed(`event.created:${tenantId}:${event.id}`),
+              eventType: 'event.created',
+              eventVersion: 1,
+              payload: {
+                eventId: event.id,
+                actorId: event.actorId,
+                globalUserId: req.actionContext!.actorId,
+                title: event.title,
+                description: event.description,
+                eventType: event.eventType,
+                createdByGlobalUserId: req.actionContext!.actorId,
+              },
+            });
+            await outboxClient.query('COMMIT');
+          } catch (inner) {
+            await outboxClient.query('ROLLBACK');
+            throw inner;
+          } finally {
+            outboxClient.release();
+          }
         } catch (err) {
-          // Não quebra criação do evento se EventBus falhar
-          fastify.log.warn({ err }, 'Erro ao publicar evento no EventBus (não crítico)');
+          // Não quebra criação do evento se outbox falhar
+          fastify.log.warn({ err }, 'Erro ao enfileirar event.created na outbox (não crítico)');
         }
 
         // Log estruturado: criação de evento
@@ -210,7 +369,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.create.error',
             error_type: 'BadRequestError',
           }, 'Erro ao criar evento (validação)');
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
           fastify.log.warn({
@@ -220,7 +379,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.create.error',
             error_type: 'NotFoundError',
           }, 'Erro ao criar evento (não encontrado)');
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
           fastify.log.warn({
@@ -230,7 +389,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.create.error',
             error_type: 'ForbiddenError',
           }, 'Erro ao criar evento (permissão)');
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
         fastify.log.error({
@@ -240,7 +399,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           'economy.action': 'event.create.error',
           error_type: 'UnexpectedError',
         }, 'Erro inesperado ao criar evento');
-        return reply.status(500).send({ error: 'Erro ao criar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to create event');
       }
     }
   );
@@ -284,18 +443,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -329,7 +488,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.update.error',
             error_type: 'BadRequestError',
           }, 'Erro ao atualizar evento (validação)');
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
           fastify.log.warn({
@@ -339,7 +498,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.update.error',
             error_type: 'NotFoundError',
           }, 'Erro ao atualizar evento (não encontrado)');
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
           fastify.log.warn({
@@ -349,7 +508,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.update.error',
             error_type: 'ForbiddenError',
           }, 'Erro ao atualizar evento (permissão)');
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
         fastify.log.error({
@@ -359,7 +518,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           'economy.action': 'event.update.error',
           error_type: 'UnexpectedError',
         }, 'Erro inesperado ao atualizar evento');
-        return reply.status(500).send({ error: 'Erro ao atualizar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to update event');
       }
     }
   );
@@ -385,18 +544,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -408,7 +567,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         // CORREÇÃO: Verificar débitos do actor do evento, não sempre do user
         const event = await eventService.getEvent(req.tenant.id, req.params.id);
         if (!event) {
-          return reply.status(404).send({ error: 'Evento não encontrado' });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
         }
 
         // Verificar débitos pendentes do actor efetivo do evento (CONTRATO v1.4: bloqueia publicação)
@@ -421,9 +580,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         );
         if (debtCheck.hasDebt) {
           const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
-          return reply.status(403).send({
-            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            `Account blocked: pending debt (BRL ${amountReais}). Settle to continue.`
+          );
         }
 
         // Rate limiting: publicação de eventos
@@ -432,10 +595,14 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           userActor.actor_id
         );
         if (!rateLimit.allowed) {
-          return reply.status(429).send({
-            error: 'Limite de publicação de eventos excedido',
-            resetAt: rateLimit.resetAt.toISOString(),
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
+            'Event publish rate limit exceeded',
+            { resetAt: rateLimit.resetAt.toISOString() }
+          );
         }
         
         const publishedEvent = await eventService.publishEvent(
@@ -467,7 +634,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': isEconomyError ? 'event.publish.error.economy' : 'event.publish.error',
             error_type: 'BadRequestError',
           }, isEconomyError ? 'Erro ao publicar evento (economia inválida)' : 'Erro ao publicar evento (validação)');
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
           fastify.log.warn({
@@ -477,7 +644,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.publish.error',
             error_type: 'NotFoundError',
           }, 'Erro ao publicar evento (não encontrado)');
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
           fastify.log.warn({
@@ -487,7 +654,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.publish.error',
             error_type: 'ForbiddenError',
           }, 'Erro ao publicar evento (permissão)');
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
         fastify.log.error({
@@ -497,7 +664,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           'economy.action': 'event.publish.error',
           error_type: 'UnexpectedError',
         }, 'Erro inesperado ao publicar evento');
-        return reply.status(500).send({ error: 'Erro ao publicar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to publish event');
       }
     }
   );
@@ -523,18 +690,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -567,7 +734,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.cancel.error',
             error_type: 'BadRequestError',
           }, 'Erro ao cancelar evento (validação)');
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
           fastify.log.warn({
@@ -577,7 +744,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.cancel.error',
             error_type: 'NotFoundError',
           }, 'Erro ao cancelar evento (não encontrado)');
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
           fastify.log.warn({
@@ -587,7 +754,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.cancel.error',
             error_type: 'ForbiddenError',
           }, 'Erro ao cancelar evento (permissão)');
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
         fastify.log.error({
@@ -597,7 +764,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           'economy.action': 'event.cancel.error',
           error_type: 'UnexpectedError',
         }, 'Erro inesperado ao cancelar evento');
-        return reply.status(500).send({ error: 'Erro ao cancelar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to cancel event');
       }
     }
   );
@@ -623,20 +790,20 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         const event = await eventService.getEvent(req.tenant.id, req.params.id);
 
         if (!event) {
-          return reply.status(404).send({ error: 'Evento não encontrado' });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Event not found');
         }
 
         return reply.status(200).send({ event });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar evento');
-        return reply.status(500).send({ error: 'Erro ao buscar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch event');
       }
     }
   );
@@ -675,18 +842,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -700,14 +867,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   const actorRepository = socialPortsRegistry.getActorRepository();
         const attendeeActor = await actorRepository.findById(req.tenant.id, req.body.attendee_actor_id);
         if (!attendeeActor) {
-          return reply.status(404).send({ error: 'Actor (attendee) não encontrado' });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Actor (attendee) not found');
         }
 
         // Validar ownership: se for user, deve ser o user autenticado; se for page, deve pertencer ao user
         if (attendeeActor.actor_type === 'user' && req.body.attendee_actor_id !== userActor.actor_id) {
-          return reply.status(403).send({ 
-            error: 'attendee_actor_id não corresponde ao usuário autenticado' 
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            'attendee_actor_id does not match authenticated user'
+          );
         }
         // TODO: Validar ownership de page (via companies)
 
@@ -722,9 +893,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         );
         if (debtCheck.hasDebt) {
           const amountReais = (debtCheck.totalAmountCents! / 100).toFixed(2);
-          return reply.status(403).send({
-            error: `Conta bloqueada: débito pendente (R$${amountReais}). Quite para continuar.`,
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            `Account blocked: pending debt (BRL ${amountReais}). Settle to continue.`
+          );
         }
 
         // Rate limiting: checkout
@@ -733,13 +908,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           userActor.actor_id
         );
         if (!rateLimit.allowed) {
-          return reply.status(429).send({
-            error: 'Limite de checkout excedido',
-            resetAt: rateLimit.resetAt.toISOString(),
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
+            'Checkout rate limit exceeded',
+            { resetAt: rateLimit.resetAt.toISOString() }
+          );
         }
 
-        const { eventEconomyService } = await import('./event-economy.service');
         const result = await eventEconomyService.processCheckout(req.tenant.id, {
           eventId: req.params.id,
           attendeeActorId: req.body.attendee_actor_id,
@@ -782,7 +960,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.checkout.error',
             error_type: 'BadRequestError',
           }, 'Erro ao processar checkout (validação)');
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
           fastify.log.warn({
@@ -793,7 +971,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.checkout.error',
             error_type: 'NotFoundError',
           }, 'Erro ao processar checkout (não encontrado)');
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
           fastify.log.warn({
@@ -804,7 +982,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             'economy.action': 'event.checkout.error',
             error_type: 'ForbiddenError',
           }, 'Erro ao processar checkout (permissão)');
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
         fastify.log.error({
@@ -815,7 +993,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           'economy.action': 'event.checkout.error',
           error_type: 'UnexpectedError',
         }, 'Erro inesperado ao processar checkout');
-        return reply.status(500).send({ error: 'Erro ao processar checkout' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to process checkout');
       }
     }
   );
@@ -833,7 +1011,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    * Cria evento em draft (exige actor explícito)
    */
   fastify.post<{
-    Body: CreateEventInput;
+    Body: CreateEventBodyRaw;
   }>(
     '/v2/draft',
     {
@@ -866,18 +1044,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         // Obter actor do ActionContext
@@ -888,13 +1066,17 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Validar que actor_id do input corresponde ao actor do usuário autenticado
         if (req.body.actor_type === 'user' && req.body.actor_id !== userActor.actor_id) {
-          return reply.status(403).send({ 
-            error: 'actor_id não corresponde ao usuário autenticado' 
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            'actor_id does not match authenticated user'
+          );
         }
 
         // V2: responsible_actor obrigatório (exigido explicitamente)
-        const event = await eventService.createDraftEvent(req.tenant.id, req.body);
+        const event = await eventService.createDraftEvent(req.tenant.id, toCreateEventInput(req.body));
 
         return reply.status(201).send({ 
           event: {
@@ -905,10 +1087,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao criar draft de evento');
-        return reply.status(500).send({ error: 'Erro interno ao criar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while creating event');
       }
     }
   );
@@ -949,18 +1131,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -984,16 +1166,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao declarar evento');
-        return reply.status(500).send({ error: 'Erro interno ao declarar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while declaring event');
       }
     }
   );
@@ -1019,18 +1201,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1053,16 +1235,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao publicar evento');
-        return reply.status(500).send({ error: 'Erro interno ao publicar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while publishing event');
       }
     }
   );
@@ -1088,18 +1270,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1122,16 +1304,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao ativar evento');
-        return reply.status(500).send({ error: 'Erro interno ao ativar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while activating event');
       }
     }
   );
@@ -1157,18 +1339,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1191,16 +1373,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao encerrar evento');
-        return reply.status(500).send({ error: 'Erro interno ao encerrar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while closing event');
       }
     }
   );
@@ -1230,11 +1412,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1246,10 +1428,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ availability: richAvailability });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao consultar rich availability do evento');
-        return reply.status(500).send({ error: 'Erro interno ao consultar rich availability' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while querying rich availability');
       }
     }
   );
@@ -1289,11 +1471,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1310,10 +1492,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ availability });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao consultar disponibilidade do evento');
-        return reply.status(500).send({ error: 'Erro interno ao consultar disponibilidade' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while querying availability');
       }
     }
   );
@@ -1330,7 +1512,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { id: string };
-    Body: Omit<CreateOperationalCommitmentInput, 'event_id'>;
+    Body: CreateOperationalCommitmentBodyRaw;
   }>(
     '/:id/v2/commitments',
     {
@@ -1363,32 +1545,29 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         const commitment = await operationalCommitmentsService.createCommitment(
           req.tenant.id,
-          {
-            event_id: req.params.id,
-            ...req.body,
-          }
+          toCreateOperationalCommitmentInput(req.params.id, req.body)
         );
 
         return reply.status(201).send({ commitment });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao criar commitment');
-        return reply.status(500).send({ error: 'Erro interno ao criar commitment' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while creating commitment');
       }
     }
   );
@@ -1414,11 +1593,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1430,10 +1609,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ commitments });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao listar commitments');
-        return reply.status(500).send({ error: 'Erro interno ao listar commitments' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while listing commitments');
       }
     }
   );
@@ -1468,11 +1647,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1485,13 +1664,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ commitment });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao fazer check-in');
-        return reply.status(500).send({ error: 'Erro interno ao fazer check-in' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error during check-in');
       }
     }
   );
@@ -1526,11 +1705,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1543,13 +1722,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ commitment });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao fazer check-out');
-        return reply.status(500).send({ error: 'Erro interno ao fazer check-out' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error during check-out');
       }
     }
   );
@@ -1584,11 +1763,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1601,13 +1780,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ commitment });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao marcar como failed');
-        return reply.status(500).send({ error: 'Erro interno ao marcar como failed' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while marking as failed');
       }
     }
   );
@@ -1633,18 +1812,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1667,16 +1846,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao cancelar evento');
-        return reply.status(500).send({ error: 'Erro interno ao cancelar evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while cancelling event');
       }
     }
   );
@@ -1723,18 +1902,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1757,13 +1936,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao criar ou avançar rascunho');
-        return reply.status(500).send({ error: 'Erro interno ao criar ou avançar rascunho' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while creating or advancing draft');
       }
     }
   );
@@ -1775,7 +1954,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { id: string };
-    Body: Omit<SetTimeWindowsInput, 'event_id'>;
+    Body: SetTimeWindowsBodyRaw;
   }>(
     '/:id/v2/time-windows',
     {
@@ -1810,18 +1989,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1831,23 +2010,20 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
 
         const event = await eventCreationOrchestrator.setTimeWindows(
           req.tenant.id,
-          {
-            event_id: req.params.id,
-            ...req.body,
-          },
+          toSetTimeWindowsInput(req.params.id, req.body),
           userActor.actor_id
         );
 
         return reply.status(200).send({ event });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao definir janelas de tempo');
-        return reply.status(500).send({ error: 'Erro interno ao definir janelas de tempo' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while setting time windows');
       }
     }
   );
@@ -1875,11 +2051,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -1891,10 +2067,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ summary });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao obter resumo do evento');
-        return reply.status(500).send({ error: 'Erro interno ao obter resumo do evento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while fetching event summary');
       }
     }
   );
@@ -1945,18 +2121,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -1979,13 +2155,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao executar handoff para fase econômica');
-        return reply.status(500).send({ error: 'Erro interno ao executar handoff' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error during handoff');
       }
     }
   );
@@ -2033,11 +2209,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -2055,13 +2231,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao criar custódia');
-        return reply.status(500).send({ error: 'Erro interno ao criar custódia' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while creating custody');
       }
     }
   );
@@ -2087,11 +2263,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -2103,10 +2279,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ custodies });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao listar custódias');
-        return reply.status(500).send({ error: 'Erro interno ao listar custódias' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while listing custody records');
       }
     }
   );
@@ -2156,11 +2332,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -2178,13 +2354,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao calcular split');
-        return reply.status(500).send({ error: 'Erro interno ao calcular split' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while calculating split');
       }
     }
   );
@@ -2210,11 +2386,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -2226,10 +2402,10 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ splits });
       } catch (error) {
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao listar splits');
-        return reply.status(500).send({ error: 'Erro interno ao listar splits' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while listing splits');
       }
     }
   );
@@ -2267,18 +2443,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -2301,13 +2477,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao autorizar pagamento');
-        return reply.status(500).send({ error: 'Erro interno ao autorizar pagamento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while authorizing payment');
       }
     }
   );
@@ -2342,11 +2518,11 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
@@ -2362,13 +2538,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao revogar autorização');
-        return reply.status(500).send({ error: 'Erro interno ao revogar autorização' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while revoking authorization');
       }
     }
   );
@@ -2384,7 +2560,7 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post<{
     Params: { eventId: string };
-    Body: { authorization_id: string; confirmation: boolean };
+    Body: { authorization_id: string; confirmation: boolean; sandbox_mode: boolean };
   }>(
     '/:eventId/economic/v2/payment/execute',
     {
@@ -2409,28 +2585,32 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         if (!req.body.confirmation) {
-          return reply.status(400).send({ error: 'Confirmação explícita é obrigatória' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'Explicit confirmation is required');
         }
 
         if (req.body.sandbox_mode !== true) {
-          return reply.status(400).send({ 
-            error: 'sandbox_mode=true é obrigatório. Nenhum dinheiro real será movido.',
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            'sandbox_mode=true is required. No real money will be moved.'
+          );
         }
 
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -2444,9 +2624,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.params.eventId
         );
         if (hasFrozen) {
-          return reply.status(403).send({ 
-            error: 'Execuções congeladas devido a chargeback ativo',
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            403,
+            ErrorCode.FORBIDDEN,
+            'Executions frozen due to active chargeback'
+          );
         }
 
         // Buscar autorização
@@ -2455,26 +2639,29 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.body.authorization_id
         );
         if (!authorization) {
-          return reply.status(404).send({ error: 'Autorização não encontrada' });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, 'Authorization not found');
         }
         if (authorization.event_id !== req.params.eventId) {
-          return reply.status(400).send({ error: 'Autorização não pertence ao evento' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, 'Authorization does not belong to this event');
         }
         if (authorization.status !== 'authorized') {
-          return reply.status(400).send({ 
-            error: `Autorização não está autorizada (status: ${authorization.status})`,
-          });
+          return sendEventHttpError(
+            reply,
+            req,
+            400,
+            ErrorCode.BAD_REQUEST,
+            `Authorization is not in authorized state (status: ${authorization.status})`
+          );
         }
 
         // Executar pagamento real (SANDBOX)
-        const { eventPaymentExecutionService } = await import('./event-payment-execution.service');
         const execution = await eventPaymentExecutionService.executePayment(
           req.tenant.id,
           {
             event_id: req.params.eventId,
             authorization_id: req.body.authorization_id,
             executed_by_actor_id: userActor.actor_id,
-            sandbox_mode: true, // 🔴 OBRIGATÓRIO: sempre true por enquanto
+            sandbox_mode: req.body.sandbox_mode,
           }
         );
 
@@ -2483,17 +2670,26 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           message: 'Pagamento executado em modo SANDBOX. Evento emitido: event.payment.executed',
         });
       } catch (error) {
+        if (error instanceof IdempotencyMismatchError) {
+          return reply.status(409).send(
+            buildCanonicalHttpErrorPayload(
+              error.code,
+              IDEMPOTENCY_MISMATCH_HTTP_MESSAGE,
+              eventRoutesReqId(req)
+            )
+          );
+        }
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         if (error instanceof ForbiddenError) {
-          return reply.status(403).send({ error: error.message });
+          return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao executar pagamento');
-        return reply.status(500).send({ error: 'Erro interno ao executar pagamento' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while executing payment');
       }
     }
   );
@@ -2531,18 +2727,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -2565,13 +2761,13 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao solicitar estorno');
-        return reply.status(500).send({ error: 'Erro interno ao solicitar estorno' });
+        return sendEventHttpError(reply, req, 500, ErrorCode.INTERNAL_ERROR, 'Internal error while requesting refund');
       }
     }
   );
@@ -2609,18 +2805,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -2643,13 +2839,19 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao iniciar chargeback');
-        return reply.status(500).send({ error: 'Erro interno ao iniciar chargeback' });
+        return sendEventHttpError(
+          reply,
+          req,
+          500,
+          ErrorCode.INTERNAL_ERROR,
+          'Internal error while initiating chargeback'
+        );
       }
     }
   );
@@ -2686,18 +2888,18 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       if (!req.user) {
-        return reply.status(401).send({ error: 'Não autenticado' });
+        return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
 
       if (!req.tenant) {
-        return reply.status(400).send({ error: 'Tenant não encontrado' });
+        return sendEventHttpError(reply, req, 400, ErrorCode.MISSING_TENANT, 'Tenant not found');
       }
 
       try {
         // ActionContext é obrigatório
         // ActionContext é obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
-          return reply.status(400).send({ error: 'ActionContext obrigatório' });
+          return sendEventHttpError(reply, req, 400, ErrorCode.VALIDATION_ERROR, 'ActionContext is required');
         }
 
         const userActor = await getAuthenticatedUserActor(
@@ -2705,11 +2907,12 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           req.actionContext.actorId
         );
 
+        const resolution = req.body.resolution === 'approved' ? 'accepted' as const : 'disputed' as const;
         const chargeback = await eventRefundChargebackService.resolveChargeback(
           req.tenant.id,
           req.body.chargeback_id,
           userActor.actor_id,
-          req.body.resolution,
+          resolution,
           req.body.resolution_reason
         );
 
@@ -2719,13 +2922,19 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (error) {
         if (error instanceof BadRequestError) {
-          return reply.status(400).send({ error: error.message });
+          return sendEventHttpError(reply, req, 400, ErrorCode.BAD_REQUEST, error.message);
         }
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return sendEventHttpError(reply, req, 404, ErrorCode.NOT_FOUND, error.message);
         }
         fastify.log.error({ err: error }, 'Erro ao resolver chargeback');
-        return reply.status(500).send({ error: 'Erro interno ao resolver chargeback' });
+        return sendEventHttpError(
+          reply,
+          req,
+          500,
+          ErrorCode.INTERNAL_ERROR,
+          'Internal error while resolving chargeback'
+        );
       }
     }
   );

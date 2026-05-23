@@ -46,8 +46,8 @@ export interface PostRow {
   suggested_actions: any; // JSONB
   metadata: any; // JSONB
   event_id: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface MediaItem {

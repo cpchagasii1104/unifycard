@@ -190,7 +190,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND createdAt >= $2
+          AND created_at >= $2
           AND visibility = 'PUBLIC'
         `,
         [tenantId, oneDayAgo]
@@ -207,7 +207,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND createdAt >= $2
+          AND created_at >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -222,9 +222,10 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('published', 'ongoing')
-          AND starts_at >= NOW()
-          AND starts_at <= $2
+          AND status IN ('published', 'active')
+          AND datetime_start IS NOT NULL
+          AND datetime_start >= NOW()
+          AND datetime_start <= $2
         `,
         [tenantId, sevenDaysFromNow]
       );
@@ -237,7 +238,7 @@ const socialRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND createdAt >= $2
+          AND created_at >= $2
         `,
         [tenantId, sevenDaysAgo]
       );

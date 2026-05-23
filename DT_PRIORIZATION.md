@@ -936,3 +936,61 @@ Reforça padrão estrutural §-3 code.md: reconhecer 4 vezes (agora 5) reduz fre
 ### Edits de código
 
 Nenhum. Doc-only. Append-only para preservar histórico do erro como evidência institucional (igual code.md §-3 preserva 4 erros materiais).
+
+---
+
+## Princípios da convergência contextual progressiva — Frente /perfil (2026-05-17)
+
+Origem material: Fase A da Frente "Convergência Contextual Profunda da Superfície". Auditoria histórica confirmou que `core/profile` early return PF foi cristalizado em commit `c4c45ec77` (2026-01-27) como "BLINDAGEM" sem DECISION formal; DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (2026-05-15) reclassificou como gap. Decisão arbitra entre as duas leituras do próprio autor — escolhida direção **(b) refinada — progressiva** (não maximalista, com 3 sinais de saturação, começando por /perfil em escopo cirúrgico).
+
+Princípios registrados aqui são reflexo permanente para frentes futuras de convergência contextual.
+
+### 1. Convergência por pressão local material
+
+> Convergência contextual emerge por pressão local material, não por desenho global antecipado. Cada superfície adapta quando há pressão real (bug ativo, decisão bloqueada, caso de uso concreto).
+
+### 2. Progressivo NÃO é lento — é respeito ao mecanismo histórico
+
+> Progressiva NÃO é lentidão. É respeitar mecanismo histórico de convergência demonstrado em availability, delegation, authority, membership. Antecipar abstração contradiz padrão documentado em 14+ refutações materiais.
+
+### 3. Separação de papéis: backend respeita identidade; frontend respeita projeção
+
+> Backend respeita identidade. Frontend respeita projeção. Backend NÃO inventa shapes polymorphic por actor_type — isso recria módulos soberanos dentro de profile e contradiz padrão de convergência por pressão local.
+
+### 4. Campos não aplicáveis são comportamento esperado, não gap
+
+> Campos não aplicáveis por actor_type são comportamento esperado, não gap funcional a corrigir. Quando actor_type não tem semântica para um campo (ex: health_profile para actor_type='page'), ausência é comportamento esperado, não drift.
+
+### 5. Frontend NÃO mascara ausência contextual
+
+> Frontend NÃO mascara ausência contextual com fallback implícito de outro actor/contexto. Empresa usando dados PF silenciosamente, banda mostrando profile humano mascarado, CRM herdando contexto errado — todos cenários proibidos. Ausência contextual vira parte válida da semântica.
+
+### 6. DECISION posterior à validação
+
+> DECISION posterior à validação. Pattern do sistema: availability foi exercitada antes de DECISION-0037; delegation atravessou viva antes de qualquer DECISION formal; MEMBERSHIP foi resolvido em DECISION-0042 após pattern validado. Repetir esse padrão em /perfil — DECISION-0043 formalizada após pattern funcionar.
+
+### 7. Três sinais de saturação para pausa estratégica
+
+> Três sinais de saturação institucionalmente registrados para convergência contextual progressiva:
+> - (a) 70%+ das superfícies operacionais não-soberanas adaptadas
+> - (b) Pressão local cessou (2-3 sessões sem nova superfície exigindo adaptação)
+> - (c) Cluster crítico atravessado (perfil + bank + CRM)
+>
+> Quando 2 dos 3 sinais batem: pausa estratégica, reavaliar se vale continuar.
+
+### 8. Redirect reorganiza superfície, NÃO migra soberania
+
+> Redirect contextual reorganiza superfície visual, NÃO altera activeActor, authority, ownership, delegation ou identidade soberana. Frontend NUNCA troca actor implicitamente via reroute. Superfície migra por soberania; soberania não migra por superfície.
+
+### 9. Redirect contextual síncrono no cliente
+
+> Redirect contextual em /perfil é derivado exclusivamente do activeActor já resolvido no cliente. Determinístico e síncrono por actor_type. NÃO depende de fetch assíncrono, permission lookup ou resolução remota.
+
+### Aplicação institucional
+
+Estes 9 princípios:
+- São referência para PASSO 2 (3 fixes cirúrgicos), PASSO 3 (gates expandidos), PASSO 5 (DECISION-0043) e PASSO 6 (DT CLOSED) da mesma frente
+- Devem ser invocados em frentes futuras de convergência contextual em outras superfícies (bank, CRM, agenda, etc.) — mesma direção, mesmo mecanismo
+- NÃO substituem norma soberana (Constituição, LEI_DE_COERENCIA, AUTHORITY_LAW)
+- NÃO autorizam refactor amplo — apenas explicitam direção quando pressão local emerge
+- Sinal 7 (saturação) é gate institucional para evitar virar dogma de convergência infinita

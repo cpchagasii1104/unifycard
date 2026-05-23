@@ -9,8 +9,8 @@ type RoleRow = {
   name: string;
   description: string | null;
   is_system_role: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 class RoleService {
@@ -21,8 +21,8 @@ class RoleService {
       name: row.name,
       description: row.description,
       isSystemRole: row.is_system_role,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 
@@ -126,7 +126,7 @@ class RoleService {
       `UPDATE roles 
        SET name = COALESCE($1, name),
            description = COALESCE($2, description),
-           updatedAt = now()
+           updated_at = now()
        WHERE role_id = $3
        RETURNING *`,
       [name || null, description !== undefined ? description : null, roleId]

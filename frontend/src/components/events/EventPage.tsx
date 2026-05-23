@@ -89,14 +89,14 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
 
         // Carregar necessidades do evento (se existirem)
         if (eventData.metadata?.eventNeeds) {
-          setEventNeeds(eventData.metadata.eventNeeds);
+          setEventNeeds((eventData.metadata.eventNeeds ?? []) as unknown as EventNeed[]);
         } else {
           setEventNeeds([]);
         }
 
         // Carregar serviços selecionados (se existirem)
         if (eventData.metadata?.selected_services) {
-          setSelectedServices(eventData.metadata.selected_services);
+          setSelectedServices((eventData.metadata.selected_services ?? []) as unknown as SelectedService[]);
         } else {
           setSelectedServices([]);
         }
@@ -979,8 +979,6 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
       {/* Modal de Visualização de Propostas do RFQ */}
       {selectedRFQId && (
         <EventRFQQuotesView
-          isOpen={!!selectedRFQId}
-          onClose={() => setSelectedRFQId(null)}
           eventId={eventId}
           rfqId={selectedRFQId}
         />

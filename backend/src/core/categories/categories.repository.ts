@@ -2,7 +2,7 @@
 import { pool } from '@core/database/pool';
 import { CategoryContext } from '@unificard/contracts';
 import type { CategoryRow } from './categories.types';
-import { ssotObservabilityService } from './ssot-observability.service';
+import { ssotObservabilityUtil } from '@core/observability/ssot-observability.util';
 
 export class CategoryRepository {
   private _hasStatusColumn: boolean | null = null;
@@ -59,7 +59,7 @@ export class CategoryRepository {
     const { context, countryCode, includeNullScope = true } = args;
 
     if (!context) {
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: null,
         details: {
@@ -106,12 +106,8 @@ export class CategoryRepository {
     const result = await queryClient.query(
       `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             CASE 
-               WHEN keywords IS NULL THEN '[]'::jsonb
-               WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
-               ELSE to_jsonb(keywords)
-             END as keywords, 
-             country_code, scope, metadata, createdAt, updatedAt
+             COALESCE(keywords, '[]'::jsonb) AS keywords,
+             country_code, scope, domain_type, metadata, created_at, updated_at
       FROM categories
       WHERE category_id = $1 AND ${statusCondition}
       LIMIT 1
@@ -146,7 +142,7 @@ export class CategoryRepository {
     const statusCondition = await this.getStatusCondition();
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, domain_type, metadata, created_at, updated_at
       FROM categories
       WHERE slug = $1 AND ${statusCondition}
     `;
@@ -205,7 +201,7 @@ export class CategoryRepository {
         `
         SELECT category_id, parent_id, name, slug, description, level, path,
                COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
-               country_code, status, createdAt, updatedAt
+               country_code, status, created_at, updated_at
         FROM categories
         WHERE slug = $1
           AND parent_id IS NULL
@@ -222,7 +218,7 @@ export class CategoryRepository {
       `
       SELECT category_id, parent_id, name, slug, description, level, path,
              COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords,
-             country_code, status, createdAt, updatedAt
+             country_code, status, created_at, updated_at
       FROM categories
       WHERE slug = $1
         AND parent_id = $2::uuid
@@ -243,7 +239,7 @@ export class CategoryRepository {
     const statusCondition = await this.getStatusCondition();
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE parent_id IS NULL AND ${statusCondition}
     `;
@@ -282,7 +278,7 @@ export class CategoryRepository {
   async findChildren(parentId: string, context: CategoryContext, countryCode?: string | null, client?: any): Promise<CategoryRow[]> {
     if (!context) {
       // Registrar SSOT_VIOLATION antes de lançar erro
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: null,
         details: {
@@ -306,7 +302,7 @@ export class CategoryRepository {
 
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path,
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, createdAt, updatedAt
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, created_at, updated_at
       FROM categories
       WHERE ${whereSql} AND parent_id = $${parentIdParamIndex}
       ORDER BY level ASC, name ASC
@@ -367,7 +363,7 @@ export class CategoryRepository {
     const result = await queryClient.query(
         `
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
         FROM categories
         WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
           AND parent_id IS NULL
@@ -384,7 +380,7 @@ export class CategoryRepository {
     const result = await queryClient.query(
       `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
       FROM categories
       WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
         AND parent_id = $2::uuid
@@ -409,7 +405,7 @@ export class CategoryRepository {
     const result = await queryClient.query(
         `
         SELECT category_id, parent_id, name, slug, description, level, path, 
-               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
+               COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
         FROM categories
         WHERE LOWER(TRIM(name)) = $1
           AND parent_id IS NULL
@@ -426,7 +422,7 @@ export class CategoryRepository {
     const result = await queryClient.query(
       `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, createdAt, updatedAt
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, created_at, updated_at
       FROM categories
       WHERE LOWER(TRIM(name)) = $1
         AND parent_id = $2::uuid
@@ -484,16 +480,19 @@ export class CategoryRepository {
 
     if (keywordsExists) {
       keywordsCondition = `
-        -- Busca em keywords (array TEXT[])
+        -- Busca em keywords (coluna JSONB: array de strings)
         OR EXISTS (
-          SELECT 1 FROM unnest(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $3
+          SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(keywords) = 'array' THEN keywords ELSE '[]'::jsonb END
+          ) AS kw
+          WHERE LOWER(kw) LIKE $3
         )`;
       keywordsRelevance = `
-          -- Keywords contém o termo (busca em array TEXT[])
           WHEN EXISTS (
-            SELECT 1 FROM unnest(keywords) AS keyword
-            WHERE LOWER(keyword) LIKE $3
+            SELECT 1 FROM jsonb_array_elements_text(
+              CASE WHEN jsonb_typeof(keywords) = 'array' THEN keywords ELSE '[]'::jsonb END
+            ) AS kw
+            WHERE LOWER(kw) LIKE $3
           ) THEN 40`;
     }
 
@@ -531,7 +530,7 @@ export class CategoryRepository {
       `
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt,
+        COALESCE(keywords, '[]'::jsonb) AS keywords, country_code, scope, metadata, created_at, updated_at,
         -- Calcular relevância para ordenação
         CASE
           -- Match exato no nome (maior prioridade)
@@ -648,17 +647,23 @@ export class CategoryRepository {
     if (keywordsExists) {
       keywordsCondition = `
         OR EXISTS (
-          SELECT 1 FROM unnest(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $${searchParam3} OR LOWER(keyword) LIKE $${searchParam4}
+          SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(keywords) = 'array' THEN keywords ELSE '[]'::jsonb END
+          ) AS kw
+          WHERE LOWER(kw) LIKE $${searchParam3} OR LOWER(kw) LIKE $${searchParam4}
         )`;
       keywordsRelevance = `
         WHEN EXISTS (
-          SELECT 1 FROM unnest(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $${searchParam3}
+          SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(keywords) = 'array' THEN keywords ELSE '[]'::jsonb END
+          ) AS kw
+          WHERE LOWER(kw) LIKE $${searchParam3}
         ) THEN 45
         WHEN EXISTS (
-          SELECT 1 FROM unnest(keywords) AS keyword
-          WHERE LOWER(keyword) LIKE $${searchParam4}
+          SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(keywords) = 'array' THEN keywords ELSE '[]'::jsonb END
+          ) AS kw
+          WHERE LOWER(kw) LIKE $${searchParam4}
         ) THEN 40`;
     }
 
@@ -679,7 +684,7 @@ export class CategoryRepository {
       `
       SELECT 
         category_id, parent_id, name, slug, description, level, path, 
-        COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, createdAt, updatedAt,
+        COALESCE(keywords, '[]'::jsonb) AS keywords, country_code, scope, metadata, created_at, updated_at,
         -- Calcular relevância para ordenação (prioriza prefixo)
         CASE
           -- Match exato no nome (maior prioridade)
@@ -771,10 +776,10 @@ export class CategoryRepository {
           name, slug, description, parent_id, level, path, keywords, country_code,
           status, requires_review, created_by_ai
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8, $9, $10, $11)
-        RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
+        RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
         `,
-        [data.name, data.slug, data.description, data.parentId, data.level, data.path, data.keywords || [], data.countryCode || null, status, requiresReview, createdByAI]
+        [data.name, data.slug, data.description, data.parentId, data.level, data.path, JSON.stringify(data.keywords || []), data.countryCode || null, status, requiresReview, createdByAI]
       );
       return result.rows[0] as CategoryRow;
     } catch (error: any) {
@@ -829,7 +834,7 @@ export class CategoryRepository {
         status, requires_review, created_by_ai
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, 'pending', true, true)
-      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
+      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
       `,
       [data.name, data.slug, data.description, data.parentId, data.level, data.path, keywordsJson, data.countryCode || null]
     );
@@ -898,7 +903,7 @@ export class CategoryRepository {
       UPDATE categories
       SET ${updates.join(', ')}
       WHERE category_id = $${paramIndex}
-      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, createdAt, updatedAt
+      RETURNING category_id, parent_id, name, slug, description, level, path, keywords, country_code, created_at, updated_at
       `,
       values
     );
@@ -913,7 +918,7 @@ export class CategoryRepository {
   async findAll(countryCode?: string | null, context?: CategoryContext, client?: any): Promise<CategoryRow[]> {
     if (!context) {
       // Registrar SSOT_VIOLATION antes de lançar erro
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: null,
         details: {
@@ -931,17 +936,11 @@ export class CategoryRepository {
       includeNullScope: true,
     });
     
-    // 🔴 CORREÇÃO: keywords é TEXT[], não jsonb
-    // Converter corretamente: TEXT[] -> jsonb usando to_jsonb() que funciona com arrays
-    // 🔴 GARANTIR: Root categories (parent_id IS NULL) não são filtradas
+    // keywords: JSONB (migration 0061) — alinhado ao schema; path permanece TEXT[]
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             CASE 
-               WHEN keywords IS NULL THEN '[]'::jsonb
-               WHEN array_length(keywords, 1) IS NULL THEN '[]'::jsonb
-               ELSE to_jsonb(keywords)
-             END as keywords, 
-             country_code, scope, metadata, createdAt, updatedAt
+             COALESCE(keywords, '[]'::jsonb) AS keywords,
+             country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE ${whereSql}
       ORDER BY level ASC, name ASC

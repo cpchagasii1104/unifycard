@@ -93,6 +93,16 @@ export default function EventFoundationStep({ data, onUpdate }: EventFoundationS
   
   // 🔴 MIGRAÇÃO: Preencher campos quando address do hook canônico mudar
   const lastAddressRef = useRef<string | null>(null);
+
+  const updateFoundation = useCallback((updates: Partial<EventFoundationData>) => {
+    onUpdate({
+      foundation: {
+        ...foundation,
+        ...updates,
+      },
+    });
+  }, [foundation, onUpdate]);
+
   useEffect(() => {
     if (address) {
       // Evitar reexecução se address não mudou
@@ -124,15 +134,6 @@ export default function EventFoundationStep({ data, onUpdate }: EventFoundationS
   const displaySubtype = data.event_subtype === 'other' && data.custom_subtype_text
     ? data.custom_subtype_text
     : subtypeOption?.label || selectedSubtype;
-
-  const updateFoundation = (updates: Partial<EventFoundationData>) => {
-    onUpdate({
-      foundation: {
-        ...foundation,
-        ...updates,
-      },
-    });
-  };
 
   // Handlers antigos removidos - agora usando componentes temporais canônicos
 

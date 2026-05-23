@@ -26,8 +26,8 @@ export interface SocialActionRow {
   parameters: any; // JSONB
   status: string;
   execution_result: any; // JSONB
-  createdAt: string;
-  executedAt: Date | null;
+  created_at: string | Date;
+  executed_at: Date | null;
 }
 
 export interface CreateActionInput {

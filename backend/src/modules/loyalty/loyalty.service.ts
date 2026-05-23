@@ -109,8 +109,8 @@ class LoyaltyService {
     // 4. Calcular pontos por regra
     let totalPoints = 0;
     for (const rule of rules) {
-      // Validar min_amount
-      if (rule.minAmount && input.amount < rule.minAmount) {
+      // Validar min_amount (em centavos)
+      if (rule.minAmount != null && input.amountCents < rule.minAmount) {
         continue;
       }
 
@@ -126,9 +126,9 @@ class LoyaltyService {
       // Calcular pontos
       let points = 0;
       if (rule.ruleType === 'PERCENT_OF_AMOUNT') {
-        points = Math.round(input.amount * (rule.value / 100));
+        points = Math.round(input.amountCents * (rule.valueCents / 100));
       } else if (rule.ruleType === 'FIXED_POINTS') {
-        points = Math.round(rule.value);
+        points = Math.round(rule.valueCents);
       }
 
       totalPoints += points;
@@ -139,14 +139,14 @@ class LoyaltyService {
     }
 
     // 5. Aplicar cap diário (policy)
-    const maxDaily = policyRegistry.getPolicyValue<number>('loyalty', 'max_points_per_day', 5000);
+    const maxDaily = policyRegistry.getPolicyValue<number>('loyalty', 'max_points_per_day', 5000) ?? 5000;
 
     // Calcular pontos já ganhos hoje
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayEntries = await loyaltyRepository.listLedger(tenantId, { contactId: input.contactId }, 1000, 0);
+    const todayEntries = await loyaltyRepository.listLedger(tenantId, input.contactId, 1000, 0);
     const todayEarned = todayEntries
-      .filter((e) => e.entryType === 'EARN' && e.createdAt >= today)
+      .filter((e) => e.entryType === 'EARN' && (typeof e.createdAt === 'string' ? new Date(e.createdAt) : e.createdAt) >= today)
       .reduce((sum, e) => sum + e.points, 0);
 
     // Aplicar cap
@@ -166,7 +166,7 @@ class LoyaltyService {
       input.referenceType,
       input.referenceId,
       'PAYMENT_SUCCESS',
-      `Pontos ganhos por pagamento de R$ ${input.amount.toFixed(2)}`,
+      `Pontos ganhos por pagamento de R$ ${(input.amountCents / 100).toFixed(2)}`,
       input.actorId || null,
       null
     );
@@ -221,7 +221,7 @@ class LoyaltyService {
       tenantId,
       input.contactId,
       input.voucherType,
-      input.value || null,
+      input.valueCents ?? null,
       input.benefitCode || null,
       input.expiresAt || null,
       ledgerEntry.id
@@ -246,7 +246,12 @@ class LoyaltyService {
   private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: (data.eventType as string) ?? 'LOYALTY_EVENT',
+        severity: 'medium',
+        source: 'impact',
+        context: data,
+      });
     } catch (error) {
       console.warn('[LoyaltyService] Erro ao registrar auditoria:', error);
     }

@@ -8,6 +8,7 @@ import { runQueryWithTenant } from '@core/database/pool';
 import { eventBus } from '@core/events/event-bus';
 import { splitLoggerService } from '../logging/split-logger.service';
 import { policyRegistry } from '../policy/policy-registry';
+import { transactionService } from './transaction.service';
 import type {
   SplitRule,
   SplitConfig,
@@ -111,38 +112,38 @@ class SplitEngineService {
     );
     const splits: Array<{ rule: SplitRule; amountCents: number }> = [];
 
-    // Calcular amount para cada regra
+    // Calcular amountCents para cada regra (percentage é decimal: 0.70, 0.15, etc.)
     let totalCalculated = 0;
     for (const rule of config.rules) {
-      const amount = context.amount * rule.percentage;
+      const amountCents = Math.round(context.amountCents * rule.percentage);
       splits.push({
         rule,
-        amount,
+        amountCents,
       });
-      totalCalculated += amount;
+      totalCalculated += amountCents;
     }
 
     // Normalizar para não ultrapassar o total
     // Ajustar diferença no split primário (WORKER ou EVENT_ORGANIZER)
-    const difference = context.amount - totalCalculated;
+    const difference = context.amountCents - totalCalculated;
     if (Math.abs(difference) > ROUNDING_TOLERANCE) {
       // Ajustar o split primário (WORKER ou EVENT_ORGANIZER)
       const primarySplitIndex = splits.findIndex(
         (s) => s.rule.targetType === 'WORKER' || s.rule.targetType === 'EVENT_ORGANIZER'
       );
       if (primarySplitIndex >= 0) {
-        splits[primarySplitIndex].amount += difference;
+        splits[primarySplitIndex].amountCents += difference;
       } else {
         // Fallback: ajustar o último split
-        splits[splits.length - 1].amount += difference;
+        splits[splits.length - 1].amountCents += difference;
       }
     }
 
     return {
-      totalAmount: context.amount,
+      totalAmount: context.amountCents,
       splits: splits.map((s) => ({
         rule: s.rule,
-        amountCents: Math.round(s.amount * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER, // Arredondar para 2 casas decimais
+        amountCents: s.amountCents,
       })),
     };
   }
@@ -189,17 +190,23 @@ class SplitEngineService {
             console.warn({
               tenantId: context.tenantId,
               targetType: split.rule.targetType,
-              amountCents: split.amount,
+              amountCents: split.amountCents,
               'economy.action': 'split-skipped',
             }, `Skipping GROUP split: no group accounts provided`);
             result.splits.push({
               rule: split.rule,
-              amountCents: split.amount,
+              amountCents: split.amountCents,
             });
             continue;
           }
-          // Dividir o valor do GROUP igualmente entre todos os grupos
-          const groupAmountPerAccount = split.amount / context.groupAccountIds.length;
+          // Dividir o valor do GROUP igualmente (Math.floor evita float, remainder vai ao primeiro grupo)
+          if (!context.groupAccountIds?.length) {
+            throw new Error('GROUP_WITHOUT_ACCOUNTS');
+          }
+          const groupSize = context.groupAccountIds.length;
+          const groupAmountPerAccount = Math.floor(split.amountCents / groupSize);
+          const groupRemainder = split.amountCents - (groupAmountPerAccount * groupSize);
+          const groupStartIndex = result.splits.length;
           for (let i = 0; i < context.groupAccountIds.length; i++) {
             const groupAccountId = context.groupAccountIds[i];
             try {
@@ -207,6 +214,8 @@ class SplitEngineService {
                 fromAccount: context.customerAccountId,
                 toAccount: groupAccountId,
                 amountCents: groupAmountPerAccount,
+                referenceType: 'split',
+                referenceId: context.metadata?.idempotencyKey || context.tenantId,
                 metadata: {
                   ...context.metadata,
                   splitTargetType: split.rule.targetType,
@@ -222,7 +231,7 @@ class SplitEngineService {
               result.splits.push({
                 rule: split.rule,
                 amountCents: groupAmountPerAccount,
-                transactionId: transferResult.transaction.transactionId,
+                transactionId: transferResult.transactionId,
               });
 
               // Emitir evento group.fund.received (com informações para auto-post)
@@ -244,7 +253,7 @@ class SplitEngineService {
                       accountId: groupAccountId,
                       amountCents: groupAmountPerAccount,
                       source: context.source,
-                      transactionId: transferResult.transaction.transactionId,
+                      transactionId: transferResult.transactionId,
                       assignmentId: context.metadata?.assignmentId,
                       jobId: context.metadata?.jobId,
                       workerUserId: context.metadata?.workerUserId,
@@ -276,6 +285,13 @@ class SplitEngineService {
               });
             }
           }
+          // Adicionar remainder ao primeiro grupo processado (conservação de centavos)
+          if (groupRemainder > 0) {
+            const firstGroupSplit = result.splits[groupStartIndex];
+            if (firstGroupSplit) {
+              firstGroupSplit.amountCents += groupRemainder;
+            }
+          }
           continue; // Já processado, pular para próximo split
       }
 
@@ -293,12 +309,12 @@ class SplitEngineService {
         console.warn({
           tenantId: context.tenantId,
           targetType: split.rule.targetType,
-          amountCents: split.amount,
+          amountCents: split.amountCents,
           'economy.action': 'split-skipped',
         }, `Skipping split: no account found for target type ${split.rule.targetType}`);
         result.splits.push({
           rule: split.rule,
-          amountCents: split.amount,
+          amountCents: split.amountCents,
         });
         continue;
       }
@@ -322,28 +338,31 @@ class SplitEngineService {
         const transferResult = await transactionService.transfer(context.tenantId, {
           fromAccount: context.customerAccountId,
           toAccount: targetAccountId,
-          amountCents: split.amount,
+          amountCents: split.amountCents,
           eventId, // 🔴 CRÍTICO: eventId determinístico para idempotência
+          referenceType: 'split',
+          referenceId: context.metadata?.idempotencyKey || context.tenantId,
           metadata: {
             ...context.metadata,
             splitTargetType: split.rule.targetType,
             splitDescription: split.rule.description,
             splitPercentage: split.rule.percentage,
           },
+          concept_id: 'split-payment',
         });
 
         result.splits.push({
           rule: split.rule,
-          amountCents: split.amount,
-          transactionId: transferResult.transaction.transactionId,
+          amountCents: split.amountCents,
+          transactionId: transferResult.transactionId,
         });
 
         // Log estruturado para split executado
         splitLoggerService.logSplit({
           timestamp: new Date().toISOString(),
           module: context.metadata?.module || 'unknown',
-          amountCents: split.amount,
-          transactionId: transferResult.transaction.transactionId,
+          amountCents: split.amountCents,
+          transactionId: transferResult.transactionId,
           tenantId: context.tenantId,
           splitTargetType: split.rule.targetType,
           splitPercentage: split.rule.percentage,
@@ -358,8 +377,8 @@ class SplitEngineService {
             timestamp: new Date().toISOString(),
             module: context.metadata?.module || 'work',
             regionId,
-            amountCents: split.amount,
-            transactionId: transferResult.transaction.transactionId,
+            amountCents: split.amountCents,
+            transactionId: transferResult.transactionId,
             tenantId: context.tenantId,
           });
         }
@@ -368,14 +387,14 @@ class SplitEngineService {
           tenantId: context.tenantId,
           targetType: split.rule.targetType,
           targetAccountId,
-          amountCents: split.amount,
+          amountCents: split.amountCents,
           err: error,
           'economy.action': 'split-error',
         }, `Error creating split transaction for ${split.rule.targetType}`);
         // Adicionar split sem transactionId (erro)
         result.splits.push({
           rule: split.rule,
-          amountCents: split.amount,
+          amountCents: split.amountCents,
         });
       }
     }
@@ -383,14 +402,14 @@ class SplitEngineService {
     // Log estruturado
     console.log({
       tenantId: context.tenantId,
-      amountCents: context.amount,
+          amountCents: context.amountCents,
       currency: context.currency,
       source: context.source,
       splitCount: result.splits.length,
       splits: result.splits.map((s) => ({
         targetType: s.rule.targetType,
         percentage: s.rule.percentage,
-        amountCents: s.amount,
+        amountCents: s.amountCents,
         transactionId: s.transactionId || null,
       })),
       'economy.action': 'apply-splits',

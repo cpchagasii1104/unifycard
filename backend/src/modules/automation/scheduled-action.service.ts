@@ -314,7 +314,7 @@ class ScheduledActionService {
         throw new Error(`Conta a pagar não encontrada: ${action.referenceId}`);
       }
 
-      if (payable.status !== 'SCHEDULED') {
+      if (payable.status !== 'scheduled') {
         throw new Error(`Conta a pagar não está agendada (status: ${payable.status})`);
       }
 
@@ -390,8 +390,8 @@ class ScheduledActionService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.createdByActorId || data.cancelledByActorId || null,
+        severity: 'medium',
+        actor_id: data.createdByActorId || data.cancelledByActorId || undefined,
         actor_type: 'user',
         source: 'automation',
         context: {

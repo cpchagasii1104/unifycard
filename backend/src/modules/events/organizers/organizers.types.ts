@@ -20,8 +20,8 @@ export interface EventOrganizerRow {
   description: string | null;
   logo_url: string | null;
   owner_global_user_id: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface EventOrganizerMember {
@@ -37,7 +37,7 @@ export interface EventOrganizerMemberRow {
   organizer_id: string;
   global_user_id: string;
   role: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface CreateOrganizerInput {

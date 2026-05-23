@@ -12,6 +12,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * Busca trust profile por actor
    */
   fastify.get<{ Params: { actorId: string } }>('/trust/profile/:actorId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const profile = await trustEngineService.getTrustProfile(tenantId, req.params.actorId);
 
@@ -32,6 +35,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/trust/profiles', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       actorId: req.query.actorId,
@@ -62,6 +68,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/trust/events', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       actorId: req.query.actorId,
@@ -83,6 +92,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * Registra evento de trust
    */
   fastify.post<{ Body: RegisterTrustEventInput }>('/trust/events', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const result = await trustEngineService.registerTrustEvent(tenantId, req.body);
 
@@ -94,6 +106,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * Verifica se pode prosseguir com ação baseado em trust score
    */
   fastify.post<{ Body: CanProceedInput }>('/trust/can-proceed', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const result = await trustEngineService.canProceedWithAction(tenantId, req.body);
 
@@ -105,6 +120,9 @@ const trustRoutes = async (fastify: FastifyInstance) => {
    * Recalcula score de um actor
    */
   fastify.post<{ Params: { actorId: string } }>('/trust/recalculate/:actorId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const profile = await trustEngineService.recalculateScore(tenantId, req.params.actorId);
 

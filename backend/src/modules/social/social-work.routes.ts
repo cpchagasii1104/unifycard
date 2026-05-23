@@ -4,6 +4,7 @@
 // Permite criar jobs a partir de posts da rede social
 
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { socialWorkService } from './social-work.service';
 import { socialService } from './social.service';
 import { rbacService } from '@core/rbac/rbac.service';
@@ -27,7 +28,7 @@ const socialWorkRoutes: FastifyPluginAsync = async (fastify) => {
     // Buscar post
     const post = await socialService.getPost(tenantId, postId);
     if (!post) {
-      throw fastify.httpErrors.notFound('Post not found');
+      throw new NotFoundError('Post not found');
     }
 
     // Se for o dono do post, permitir

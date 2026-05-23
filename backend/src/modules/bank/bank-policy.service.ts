@@ -136,7 +136,8 @@ class BankPolicyService {
   async setPolicy(
     tenantId: string,
     key: string,
-    valueCents: any,
+    /** JSON serializável (política); não é montante monetário. */
+    policyPayloadJson: unknown,
     status: 'active' | 'deprecated' | 'draft' = 'active'
   ): Promise<void> {
     // Buscar última versão
@@ -150,7 +151,7 @@ class BankPolicyService {
       [tenantId, key]
     );
 
-    const nextVersion = (lastVersion[0]?.version || 0) + 1;
+    const nextVersion = (lastVersion?.version ?? 0) + 1;
 
     // Se status é 'active', deprecar versões anteriores
     if (status === 'active') {
@@ -172,7 +173,7 @@ class BankPolicyService {
         INSERT INTO bank_policies (tenant_id, key, version, status, value_json)
         VALUES ($1, $2, $3, $4, $5)
       `,
-      [tenantId, key, nextVersion, status, JSON.stringify(value)]
+      [tenantId, key, nextVersion, status, JSON.stringify(policyPayloadJson)]
     );
   }
 }

@@ -20,8 +20,8 @@ export interface UserResidenceRow {
   timezone: string | null;
   currency: string;
   languages: string[];
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface SetResidenceInput {

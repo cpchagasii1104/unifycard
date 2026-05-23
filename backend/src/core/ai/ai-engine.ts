@@ -168,8 +168,8 @@ export class AIEngine {
 
           // Buscar snapshot de wallet
           try {
-            const { accountService } = await import('../economy/accounts/account.service');
-            const { transactionService } = await import('../economy/transactions/transaction.service');
+            const { accountService } = await import('../economy/account.service');
+            const { transactionService } = await import('../economy/transaction.service');
             const accounts = await accountService.getAccountsByGlobalUserId(globalUserId);
             
             if (accounts.length > 0) {
@@ -177,15 +177,17 @@ export class AIEngine {
               const transactions = await transactionService.getTransactionsByGlobalUserId(globalUserId, { limit: 3 });
               
               contextWithRegion.wallet = {
-                balance: primaryAccount.balance,
+                balanceCents: primaryAccount.balanceCents,
                 currency: primaryAccount.currency,
                 lastTransactions: transactions.slice(0, 3).map(tx => ({
                   transactionId: tx.transactionId,
-                  type: tx.toGlobalUserId === globalUserId ? 'credit' as const : 'debit' as const,
-                  amountCents: tx.amount,
+                  type: tx.toAccountId ? 'credit' as const : 'debit' as const,
+                  amountCents: tx.amountCents,
                 })),
               };
-              reasoning.push(`Wallet detectada: saldo ${primaryAccount.currency} ${primaryAccount.balance.toFixed(2)}`);
+              reasoning.push(
+                `Wallet detectada: saldo ${primaryAccount.currency} ${(primaryAccount.balanceCents / 100).toFixed(2)}`
+              );
             }
           } catch (error) {
             // Silenciosamente ignora erros ao buscar wallet

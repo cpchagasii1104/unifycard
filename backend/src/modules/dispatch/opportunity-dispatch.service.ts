@@ -8,8 +8,12 @@
 // 🔴 BLINDAGEM: Critérios: mesmo território, mesmo tipo de atuação, mesmo interesse declarado
 // 🔴 BLINDAGEM: NUNCA educação, NUNCA score
 
+import { createHash } from 'crypto';
+import { getClientWithTenant } from '@core/database/pool';
+import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { opportunityDispatchRepository } from './opportunity-dispatch.repository';
 import { actorRepository } from '@modules/social/actor.repository';
+import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import type {
   OpportunityDispatch,
@@ -19,6 +23,23 @@ import type {
   OpportunityType,
 } from './opportunity-dispatch.types';
 import { DispatchResponse } from './opportunity-dispatch.types';
+
+/** `event_outbox.event_id` estável por tipo + tenant + dispatch — alinhado a service-booking-decision / EVENT_OUTBOX */
+function deterministicOpportunityDispatchEventId(
+  tenantId: string,
+  dispatchId: string,
+  eventType: string
+): string {
+  const hash = createHash('sha256')
+    .update(`${eventType}:${tenantId}:${dispatchId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 class OpportunityDispatchService {
   /**
@@ -54,33 +75,43 @@ class OpportunityDispatchService {
     // 🔴 BLINDAGEM: Emitir effect canônico após criar dispatch
     // O sistema NÃO decide o que acontece depois, apenas emite o fato
     try {
-      const { eventBus } = await import('@core/events/event-bus');
-      const { v4: uuidv4 } = await import('uuid');
-      const { ActorEffect } = await import('@modules/social/actor-effects.types');
-      
-      await eventBus.publish({
-        eventId: uuidv4(),
-        tenantId,
-        type: ActorEffect.OPPORTUNITY_DISPATCHED,
-        version: 1,
-        payload: {
-          actorId: dispatch.targetActorId,
-          actorType: targetActor.actor_type as any,
-          intent: 'DISPATCH_OPPORTUNITY',
-          sourceId: dispatch.dispatchId,
-          sourceType: 'opportunity_dispatch',
-          metadata: {
-            opportunityId: dispatch.opportunityId,
-            opportunityType: dispatch.opportunityType,
-            contextType: input.metadata?.contextType || null, // Preservar contextType se fornecido (ex: 'rfq')
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: deterministicOpportunityDispatchEventId(
+            tenantId,
+            dispatch.dispatchId,
+            ActorEffect.OPPORTUNITY_DISPATCHED
+          ),
+          eventType: ActorEffect.OPPORTUNITY_DISPATCHED,
+          eventVersion: 1,
+          payload: {
+            actorId: dispatch.targetActorId,
+            actorType: targetActor.actor_type as any,
+            intent: 'DISPATCH_OPPORTUNITY',
+            sourceId: dispatch.dispatchId,
+            sourceType: 'opportunity_dispatch',
+            metadata: {
+              opportunityId: dispatch.opportunityId,
+              opportunityType: dispatch.opportunityType,
+              contextType: input.metadata?.contextType || null, // Preservar contextType se fornecido (ex: 'rfq')
+            },
           },
-        },
-        metadata: {
-          userId: userId,
-          dispatchId: dispatch.dispatchId,
-          opportunityId: dispatch.opportunityId,
-        },
-      });
+          metadata: {
+            userId: userId,
+            dispatchId: dispatch.dispatchId,
+            opportunityId: dispatch.opportunityId,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (err) {
+        await outboxClient.query('ROLLBACK');
+        throw err;
+      } finally {
+        outboxClient.release();
+      }
     } catch (error) {
       console.error('Erro ao emitir effect OPPORTUNITY_DISPATCHED (não crítico):', error);
     }
@@ -153,33 +184,43 @@ class OpportunityDispatchService {
     // 🔴 BLINDAGEM: Emitir effect canônico após responder dispatch
     // O sistema NÃO decide o que acontece depois, apenas emite o fato
     try {
-      const { eventBus } = await import('@core/events/event-bus');
-      const { v4: uuidv4 } = await import('uuid');
-      const { ActorEffect } = await import('@modules/social/actor-effects.types');
-      
-      await eventBus.publish({
-        eventId: uuidv4(),
-        tenantId,
-        type: ActorEffect.OPPORTUNITY_DISPATCH_RESPONDED,
-        version: 1,
-        payload: {
-          actorId: updatedDispatch.targetActorId,
-          actorType: targetActor.actor_type as any,
-          intent: 'RESPOND_TO_DISPATCH',
-          sourceId: updatedDispatch.dispatchId,
-          sourceType: 'opportunity_dispatch',
-          metadata: {
-            opportunityId: updatedDispatch.opportunityId,
-            opportunityType: updatedDispatch.opportunityType,
-            response: updatedDispatch.response,
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: deterministicOpportunityDispatchEventId(
+            tenantId,
+            updatedDispatch.dispatchId,
+            ActorEffect.OPPORTUNITY_DISPATCH_RESPONDED
+          ),
+          eventType: ActorEffect.OPPORTUNITY_DISPATCH_RESPONDED,
+          eventVersion: 1,
+          payload: {
+            actorId: updatedDispatch.targetActorId,
+            actorType: targetActor.actor_type as any,
+            intent: 'RESPOND_TO_DISPATCH',
+            sourceId: updatedDispatch.dispatchId,
+            sourceType: 'opportunity_dispatch',
+            metadata: {
+              opportunityId: updatedDispatch.opportunityId,
+              opportunityType: updatedDispatch.opportunityType,
+              response: updatedDispatch.response,
+            },
           },
-        },
-        metadata: {
-          userId: userId,
-          dispatchId: updatedDispatch.dispatchId,
-          opportunityId: updatedDispatch.opportunityId,
-        },
-      });
+          metadata: {
+            userId: userId,
+            dispatchId: updatedDispatch.dispatchId,
+            opportunityId: updatedDispatch.opportunityId,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (err) {
+        await outboxClient.query('ROLLBACK');
+        throw err;
+      } finally {
+        outboxClient.release();
+      }
     } catch (error) {
       console.error('Erro ao emitir effect OPPORTUNITY_DISPATCH_RESPONDED (não crítico):', error);
     }

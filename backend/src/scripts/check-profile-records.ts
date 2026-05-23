@@ -14,6 +14,56 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+type ProfileRecordRow = {
+  profile_id: string;
+  tenant_id: string;
+  user_id: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
+type ProfileMetadataRow = {
+  profile_id: string;
+  metadata: any;
+  full_name: string | null;
+  phone: string | null;
+};
+
+type ProfileRecord = {
+  profileId: string;
+  tenantId: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ProfileMetadataRecord = {
+  profileId: string;
+  metadata: any;
+  fullName: string | null;
+  phone: string | null;
+};
+
+// boundary: DB -> domain mapping
+function mapProfileRecordRowToDomain(row: ProfileRecordRow): ProfileRecord {
+  return {
+    profileId: row.profile_id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapProfileMetadataRowToDomain(row: ProfileMetadataRow): ProfileMetadataRecord {
+  return {
+    profileId: row.profile_id,
+    metadata: row.metadata,
+    fullName: row.full_name,
+    phone: row.phone,
+  };
+}
+
 async function checkProfileRecords(tenantId: string, userId: string) {
   console.log('='.repeat(80));
   console.log('🔬 TESTE OBRIGATÓRIO: Verificar registros em profiles');
@@ -26,13 +76,7 @@ async function checkProfileRecords(tenantId: string, userId: string) {
   
   try {
     // Query exata solicitada
-    const result = await client.query<{
-      profile_id: string;
-      tenant_id: string;
-      user_id: string;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await client.query<ProfileRecordRow>(
       `
       SELECT
         profile_id,
@@ -47,40 +91,41 @@ async function checkProfileRecords(tenantId: string, userId: string) {
       `,
       [tenantId, userId]
     );
+    const records = result.rows.map(mapProfileRecordRowToDomain);
 
-    console.log(`📊 RESULTADO: ${result.rows.length} registro(s) encontrado(s)`);
+    console.log(`📊 RESULTADO: ${records.length} registro(s) encontrado(s)`);
     console.log('');
 
-    if (result.rows.length === 0) {
+    if (records.length === 0) {
       console.log('⚠️  NENHUM registro encontrado para este tenant_id + user_id');
       console.log('');
       console.log('Isso pode indicar:');
       console.log('  - O perfil nunca foi criado');
       console.log('  - Os IDs estão incorretos');
       console.log('  - Problema de isolamento multi-tenant (RLS bloqueando)');
-    } else if (result.rows.length === 1) {
+    } else if (records.length === 1) {
       console.log('✅ APENAS UM registro encontrado (CORRETO)');
       console.log('');
-      const row = result.rows[0];
+      const record = records[0];
       console.log('Dados do registro:');
-      console.log(`  Profile ID: ${row.profile_id}`);
-      console.log(`  Tenant ID: ${row.tenant_id}`);
-      console.log(`  User ID: ${row.user_id}`);
-      console.log(`  Created At: ${row.created_at}`);
-      console.log(`  Updated At: ${row.updated_at}`);
+      console.log(`  Profile ID: ${record.profileId}`);
+      console.log(`  Tenant ID: ${record.tenantId}`);
+      console.log(`  User ID: ${record.userId}`);
+      console.log(`  Created At: ${record.createdAt}`);
+      console.log(`  Updated At: ${record.updatedAt}`);
     } else {
       console.log('❌ MÚLTIPLOS registros encontrados (PROBLEMA CRÍTICO!)');
       console.log('');
-      console.log(`Total: ${result.rows.length} registros`);
+      console.log(`Total: ${records.length} registros`);
       console.log('');
       console.log('Detalhes de cada registro:');
-      result.rows.forEach((row, index) => {
+      records.forEach((record, index) => {
         console.log(`\n  Registro #${index + 1}:`);
-        console.log(`    Profile ID: ${row.profile_id}`);
-        console.log(`    Tenant ID: ${row.tenant_id}`);
-        console.log(`    User ID: ${row.user_id}`);
-        console.log(`    Created At: ${row.created_at}`);
-        console.log(`    Updated At: ${row.updated_at}`);
+        console.log(`    Profile ID: ${record.profileId}`);
+        console.log(`    Tenant ID: ${record.tenantId}`);
+        console.log(`    User ID: ${record.userId}`);
+        console.log(`    Created At: ${record.createdAt}`);
+        console.log(`    Updated At: ${record.updatedAt}`);
       });
       console.log('');
       console.log('🔴 PROBLEMA IDENTIFICADO:');
@@ -96,15 +141,10 @@ async function checkProfileRecords(tenantId: string, userId: string) {
     }
 
     // Verificar também metadata para ver se há diferenças
-    if (result.rows.length > 1) {
+    if (records.length > 1) {
       console.log('');
       console.log('📋 Verificando metadata de cada registro:');
-      const metadataResults = await client.query<{
-        profile_id: string;
-        metadata: any;
-        full_name: string | null;
-        phone: string | null;
-      }>(
+      const metadataResults = await client.query<ProfileMetadataRow>(
         `
         SELECT profile_id, metadata, full_name, phone
         FROM profiles
@@ -113,14 +153,15 @@ async function checkProfileRecords(tenantId: string, userId: string) {
         `,
         [tenantId, userId]
       );
+      const metadataRecords = metadataResults.rows.map(mapProfileMetadataRowToDomain);
 
-      metadataResults.rows.forEach((row, index) => {
-        console.log(`\n  Registro #${index + 1} (${row.profile_id}):`);
-        console.log(`    Full Name: ${row.full_name || '(null)'}`);
-        console.log(`    Phone: ${row.phone || '(null)'}`);
-        console.log(`    Metadata keys: ${Object.keys(row.metadata || {}).join(', ') || '(vazio)'}`);
-        if (row.metadata?.address) {
-          console.log(`    Address: ${JSON.stringify(row.metadata.address)}`);
+      metadataRecords.forEach((record, index) => {
+        console.log(`\n  Registro #${index + 1} (${record.profileId}):`);
+        console.log(`    Full Name: ${record.fullName || '(null)'}`);
+        console.log(`    Phone: ${record.phone || '(null)'}`);
+        console.log(`    Metadata keys: ${Object.keys(record.metadata || {}).join(', ') || '(vazio)'}`);
+        if (record.metadata?.address) {
+          console.log(`    Address: ${JSON.stringify(record.metadata.address)}`);
         }
       });
     }

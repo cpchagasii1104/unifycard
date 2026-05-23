@@ -13,12 +13,16 @@ export interface Category {
   keywords: string[];
   countryCode: string | null; // Código ISO do país (ex: 'BR', 'US', 'CN'). NULL para categorias globais
   scope?: string; // Scope da categoria (ex: 'professional', 'cause', 'learning')
+  /** PRODUCT = taxonomia catálogo físico; SERVICE = legado (papéis/navegação). Coluna `categories.domain_type`. */
+  domainType?: 'SERVICE' | 'PRODUCT';
   status?: CategoryStatus;
   requiresReview?: boolean;
   createdByAI?: boolean;
   approvedBy?: string | null;
   approvedAt?: Date | null;
   rejectionReason?: string | null;
+  /** JSONB `categories.metadata` (ex.: domain marketplace). */
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,14 +38,17 @@ export interface CategoryRow {
   keywords: string[] | null;
   country_code: string | null;
   scope?: string;
+  domain_type?: 'SERVICE' | 'PRODUCT';
   status?: CategoryStatus;
   requires_review?: boolean;
   created_by_ai?: boolean;
   approved_by?: string | null;
-  approvedAt?: Date | null;
+  /** Coluna DB (snake_case); node-pg pode devolver Date */
+  approved_at?: Date | string | null;
   rejection_reason?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  metadata?: unknown;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface CategoryTree extends Category {
@@ -53,6 +60,8 @@ export interface CreateCategoryInput {
   slug?: string;
   description?: string | null;
   parentId?: string | null;
+  /** Alternativa a parentId: resolve pai pelo slug (usado em scripts) */
+  parentSlug?: string | null;
   keywords?: string[];
   countryCode?: string | null; // Código ISO do país para categorias específicas por país
   // GOVERNANÇA: Flag explícita para criar como active (requer validação de admin)

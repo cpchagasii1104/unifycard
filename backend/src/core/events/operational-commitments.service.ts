@@ -32,7 +32,7 @@
  * marcar como LEGADO e não executar.
  */
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import type {
   OperationalCommitment,
@@ -50,14 +50,14 @@ interface OperationalCommitmentRow {
   global_user_id: string | null;
   role: string;
   assigned_by_global_user_id: string | null;
-  createdAt: string;
-  updatedAt: string | null;
+  created_at: Date;
+  updated_at: Date | null;
   responsible_actor_id: string | null;
   responsible_actor_type: string | null;
   status: string | null;
   time_window_ref: Record<string, any> | null;
-  checked_inAt: string | null;
-  checked_outAt: string | null;
+  checked_in_at: Date | null;
+  checked_out_at: Date | null;
   failure_reason: string | null;
   source: string | null;
 }
@@ -76,12 +76,12 @@ class OperationalCommitmentsService {
       role: row.role,
       status: (row.status || 'expected') as OperationalCommitmentStatus,
       timeWindowRef: row.time_window_ref as any,
-      checkedInAt: row.checked_inAt,
-      checkedOutAt: row.checked_outAt,
+      checkedInAt: row.checked_in_at ? row.checked_in_at.toISOString() : null,
+      checkedOutAt: row.checked_out_at ? row.checked_out_at.toISOString() : null,
       failureReason: row.failure_reason,
       source: (row.source || 'legacy') as 'legacy' | 'v2',
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt || row.createdAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: (row.updated_at || row.created_at).toISOString(),
       globalUserId: row.global_user_id,
       assignedByGlobalUserId: row.assigned_by_global_user_id,
     };
@@ -112,7 +112,7 @@ class OperationalCommitmentsService {
       [input.eventId, tenantId]
     );
 
-    if (!event || event.length === 0) {
+    if (!event) {
       throw new NotFoundError('Evento não encontrado');
     }
 
@@ -135,7 +135,7 @@ class OperationalCommitmentsService {
       [tenantId, input.responsibleActorId, input.responsibleActorType]
     );
 
-    if (!actor || actor.length === 0) {
+    if (!actor) {
       throw new BadRequestError(`Actor '${input.responsibleActorId}' (${input.responsibleActorType}) não encontrado`);
     }
 
@@ -151,8 +151,8 @@ class OperationalCommitmentsService {
         status,
         time_window_ref,
         source,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
@@ -168,11 +168,11 @@ class OperationalCommitmentsService {
       ]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       throw new Error('Falha ao criar commitment');
     }
 
-    return this.toCommitment(row[0], tenantId);
+    return this.toCommitment(row, tenantId);
   }
 
   /**
@@ -207,19 +207,19 @@ class OperationalCommitmentsService {
       UPDATE event_staff
       SET 
         status = 'checked_in',
-        checked_inAt = $1,
-        updatedAt = NOW()
+        checked_in_at = $1,
+        updated_at = NOW()
       WHERE id = $2
       RETURNING *
       `,
       [observedAt, commitmentId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       throw new Error('Falha ao registrar check-in');
     }
 
-    return this.toCommitment(row[0], tenantId);
+    return this.toCommitment(row, tenantId);
   }
 
   /**
@@ -254,19 +254,19 @@ class OperationalCommitmentsService {
       UPDATE event_staff
       SET 
         status = 'checked_out',
-        checked_outAt = $1,
-        updatedAt = NOW()
+        checked_out_at = $1,
+        updated_at = NOW()
       WHERE id = $2
       RETURNING *
       `,
       [observedAt, commitmentId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       throw new Error('Falha ao registrar check-out');
     }
 
-    return this.toCommitment(row[0], tenantId);
+    return this.toCommitment(row, tenantId);
   }
 
   /**
@@ -300,18 +300,18 @@ class OperationalCommitmentsService {
       SET 
         status = 'failed',
         failure_reason = $1,
-        updatedAt = NOW()
+        updated_at = NOW()
       WHERE id = $2
       RETURNING *
       `,
       [input.failureReason, commitmentId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       throw new Error('Falha ao marcar como failed');
     }
 
-    return this.toCommitment(row[0], tenantId);
+    return this.toCommitment(row, tenantId);
   }
 
   /**
@@ -334,11 +334,11 @@ class OperationalCommitmentsService {
       [commitmentId, tenantId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.toCommitment(row[0], tenantId);
+    return this.toCommitment(row, tenantId);
   }
 
   /**
@@ -348,14 +348,14 @@ class OperationalCommitmentsService {
     tenantId: string,
     eventId: string
   ): Promise<OperationalCommitment[]> {
-    const rows = await runQueryWithTenant<OperationalCommitmentRow>(
+    const rows = await runQueriesWithTenant<OperationalCommitmentRow>(
       tenantId,
       `
       SELECT es.*, e.tenant_id
       FROM event_staff es
       INNER JOIN events e ON e.id = es.event_id
       WHERE es.event_id = $1 AND e.tenant_id = $2
-      ORDER BY es.createdAt DESC
+      ORDER BY es.created_at DESC
       `,
       [eventId, tenantId]
     );

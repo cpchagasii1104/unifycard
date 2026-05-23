@@ -67,14 +67,14 @@ class AutomationService {
     event: AutomationEvent
   ): Promise<void> {
     const isOutOfStock = event.eventType === 'INVENTORY_OUT_OF_STOCK';
-    const severity = isOutOfStock ? 'HIGH' : 'MEDIUM';
+    const severity = isOutOfStock ? 'high' : 'medium';
     const message = isOutOfStock
       ? `Estoque zerado para variante ${event.entityId}`
       : `Estoque baixo para variante ${event.entityId} (${event.context.availableQuantity || 'N/A'} disponível)`;
 
     await alertService.createAlert(tenantId, {
       type: isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK',
-      severity: severity as any,
+      severity,
       message,
       entityType: 'variant',
       entityId: event.entityId,
@@ -89,9 +89,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: severity as any,
-      actor_id: null,
-      actor_type: 'system',
+      severity,
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK',
@@ -112,7 +112,7 @@ class AutomationService {
 
     await alertService.createAlert(tenantId, {
       type: 'PAYMENT_FAILED',
-      severity: 'HIGH',
+      severity: 'high',
       message,
       entityType: 'payment',
       entityId: event.entityId,
@@ -128,9 +128,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: 'HIGH',
-      actor_id: null,
-      actor_type: 'system',
+      severity: 'high',
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: 'PAYMENT_FAILED',
@@ -152,7 +152,7 @@ class AutomationService {
 
     await alertService.createAlert(tenantId, {
       type: 'PAYOUT_FAILED',
-      severity: 'HIGH',
+      severity: 'high',
       message,
       entityType: 'payout',
       entityId: event.entityId,
@@ -169,9 +169,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: 'HIGH',
-      actor_id: null,
-      actor_type: 'system',
+      severity: 'high',
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: 'PAYOUT_FAILED',
@@ -192,7 +192,7 @@ class AutomationService {
 
     await alertService.createAlert(tenantId, {
       type: 'FISCAL_PENDING',
-      severity: 'MEDIUM',
+      severity: 'medium',
       message,
       entityType: 'fiscal_document',
       entityId: event.entityId,
@@ -207,9 +207,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: 'MEDIUM',
-      actor_id: null,
-      actor_type: 'system',
+      severity: 'medium',
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: 'FISCAL_PENDING',
@@ -230,7 +230,7 @@ class AutomationService {
 
     await alertService.createAlert(tenantId, {
       type: 'ORDER_EXPIRED',
-      severity: 'LOW',
+      severity: 'low',
       message,
       entityType: 'order',
       entityId: event.entityId,
@@ -243,9 +243,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: 'LOW',
-      actor_id: null,
-      actor_type: 'system',
+      severity: 'low',
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: 'ORDER_EXPIRED',
@@ -266,7 +266,7 @@ class AutomationService {
 
     await alertService.createAlert(tenantId, {
       type: 'RESERVATION_EXPIRED',
-      severity: 'LOW',
+      severity: 'low',
       message,
       entityType: 'reservation',
       entityId: event.entityId,
@@ -280,9 +280,9 @@ class AutomationService {
     // Registrar evento institucional
     await auditService.record(tenantId, {
       event_type: 'AUTOMATION_ALERT_CREATED',
-      severity: 'LOW',
-      actor_id: null,
-      actor_type: 'system',
+      severity: 'low',
+      actor_id: undefined,
+      actor_type: 'user',
       source: 'automation',
       context: {
         alert_type: 'RESERVATION_EXPIRED',

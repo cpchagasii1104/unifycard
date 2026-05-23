@@ -2,6 +2,7 @@
 // Rotas para perfil físico/interesses
 
 import { FastifyPluginAsync } from 'fastify';
+import { HttpError } from '../errors/http-error';
 import { profilePhysicalService } from './profile-physical.service';
 
 const profilePhysicalRoutes: FastifyPluginAsync = async (fastify) => {
@@ -37,11 +38,14 @@ const profilePhysicalRoutes: FastifyPluginAsync = async (fastify) => {
       };
       return reply.send({ ok: true, data });
     } catch (error) {
+      if (error instanceof HttpError) {
+        return reply.status(error.statusCode).send({ ok: false, message: error.message });
+      }
       fastify.log.error({ err: error }, 'Erro ao buscar perfil físico');
-      return reply.status(500).send({ 
-        ok: false, 
+      return reply.status(500).send({
+        ok: false,
         message: 'Erro ao buscar perfil físico',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });
@@ -84,14 +88,17 @@ const profilePhysicalRoutes: FastifyPluginAsync = async (fastify) => {
       );
       return updated;
     } catch (error) {
+      if (error instanceof HttpError) {
+        return reply.status(error.statusCode).send({ ok: false, message: error.message });
+      }
       fastify.log.error({ err: error }, 'Erro ao atualizar perfil físico');
       if (error instanceof Error) {
         return reply.status(400).send({ error: error.message });
       }
-      return reply.status(500).send({ 
-        ok: false, 
+      return reply.status(500).send({
+        ok: false,
         message: 'Erro ao atualizar perfil físico',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });

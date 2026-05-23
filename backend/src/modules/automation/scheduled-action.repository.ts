@@ -20,12 +20,12 @@ interface ScheduledActionRow {
   policy_snapshot: any;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  executedAt: Date | null;
+  executed_at: Date | null;
   execution_error_code: string | null;
   execution_error_message: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class ScheduledActionRepository {
@@ -44,12 +44,12 @@ class ScheduledActionRepository {
       policySnapshot: row.policy_snapshot,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      executedAt: row.executedAt,
+      executedAt: row.executed_at,
       executionErrorCode: row.execution_error_code,
       executionErrorMessage: row.execution_error_message,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -81,8 +81,8 @@ class ScheduledActionRepository {
       RETURNING id, tenant_id, action_type, reference_type, reference_id,
                 scheduled_for, status, policy_snapshot,
                 created_by_actor_id, created_by_user_id,
-                executedAt, execution_error_code, execution_error_message,
-                metadata, createdAt, updatedAt
+                executed_at, execution_error_code, execution_error_message,
+                metadata, created_at, updated_at
       `,
       [
         tenantId,
@@ -115,8 +115,8 @@ class ScheduledActionRepository {
       SELECT id, tenant_id, action_type, reference_type, reference_id,
              scheduled_for, status, policy_snapshot,
              created_by_actor_id, created_by_user_id,
-             executedAt, execution_error_code, execution_error_message,
-             metadata, createdAt, updatedAt
+             executed_at, execution_error_code, execution_error_message,
+             metadata, created_at, updated_at
       FROM scheduled_actions
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -140,8 +140,8 @@ class ScheduledActionRepository {
       SELECT id, tenant_id, action_type, reference_type, reference_id,
              scheduled_for, status, policy_snapshot,
              created_by_actor_id, created_by_user_id,
-             executedAt, execution_error_code, execution_error_message,
-             metadata, createdAt, updatedAt
+             executed_at, execution_error_code, execution_error_message,
+             metadata, created_at, updated_at
       FROM scheduled_actions
       WHERE tenant_id = $1
         AND status = 'SCHEDULED'
@@ -210,8 +210,8 @@ class ScheduledActionRepository {
       SELECT id, tenant_id, action_type, reference_type, reference_id,
              scheduled_for, status, policy_snapshot,
              created_by_actor_id, created_by_user_id,
-             executedAt, execution_error_code, execution_error_message,
-             metadata, createdAt, updatedAt
+             executed_at, execution_error_code, execution_error_message,
+             metadata, created_at, updated_at
       FROM scheduled_actions
       WHERE ${conditions.join(' AND ')}
       ORDER BY scheduled_for DESC
@@ -231,13 +231,13 @@ class ScheduledActionRepository {
       tenantId,
       `
       UPDATE scheduled_actions
-      SET status = 'CANCELLED', updatedAt = NOW()
+      SET status = 'CANCELLED', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'SCHEDULED'
       RETURNING id, tenant_id, action_type, reference_type, reference_id,
                 scheduled_for, status, policy_snapshot,
                 created_by_actor_id, created_by_user_id,
-                executedAt, execution_error_code, execution_error_message,
-                metadata, createdAt, updatedAt
+                executed_at, execution_error_code, execution_error_message,
+                metadata, created_at, updated_at
       `,
       [tenantId, actionId]
     );
@@ -257,13 +257,13 @@ class ScheduledActionRepository {
       tenantId,
       `
       UPDATE scheduled_actions
-      SET status = 'EXECUTED', executedAt = NOW(), updatedAt = NOW()
+      SET status = 'EXECUTED', executed_at = NOW(), updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'SCHEDULED'
       RETURNING id, tenant_id, action_type, reference_type, reference_id,
                 scheduled_for, status, policy_snapshot,
                 created_by_actor_id, created_by_user_id,
-                executedAt, execution_error_code, execution_error_message,
-                metadata, createdAt, updatedAt
+                executed_at, execution_error_code, execution_error_message,
+                metadata, created_at, updated_at
       `,
       [tenantId, actionId]
     );
@@ -288,15 +288,15 @@ class ScheduledActionRepository {
       tenantId,
       `
       UPDATE scheduled_actions
-      SET status = 'FAILED', executedAt = NOW(),
+      SET status = 'FAILED', executed_at = NOW(),
           execution_error_code = $3, execution_error_message = $4,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'SCHEDULED'
       RETURNING id, tenant_id, action_type, reference_type, reference_id,
                 scheduled_for, status, policy_snapshot,
                 created_by_actor_id, created_by_user_id,
-                executedAt, execution_error_code, execution_error_message,
-                metadata, createdAt, updatedAt
+                executed_at, execution_error_code, execution_error_message,
+                metadata, created_at, updated_at
       `,
       [tenantId, actionId, errorCode, errorMessage]
     );

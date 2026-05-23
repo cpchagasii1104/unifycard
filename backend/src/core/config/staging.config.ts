@@ -38,6 +38,11 @@ export const stagingConfig = {
   // Feature Flags
   fundVisibilityEnabled: process.env.FUND_VISIBILITY_ENABLED !== 'false', // default: true
 
+  /** Rotas /procurement/* (campanhas neutras). Default: false. */
+  procurementCampaignEnabled:
+    process.env.ENABLE_PROCUREMENT_CAMPAIGN === 'true' ||
+    process.env.ENABLE_PROCUREMENT_CAMPAIGN === '1',
+
   // Logging
   logLevel: process.env.LOG_LEVEL || (IS_STAGING ? 'info' : 'debug'),
 };

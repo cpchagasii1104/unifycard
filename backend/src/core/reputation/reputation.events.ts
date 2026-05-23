@@ -6,6 +6,9 @@ import type { ReviewCreatedEventPayload } from './reputation.types';
 import { withIdempotency } from '@core/events/idempotency-tracker';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 
+/** 3.º segmento da chave canónica §4.12.1 (07_NOMENCLATURA_CANONICA). */
+const REPUTATION_APPLY_REVIEW_HANDLER = 'reputation.applyReview';
+
 /**
  * Registra handlers do módulo Reputation dentro do EventBus.
  *
@@ -24,6 +27,7 @@ import { canonicalLogger } from '@core/logging/canonical-logger';
 export function registerReputationEventHandlers(eventBus: EventBus) {
   eventBus.subscribe(
     'core.review.created',
+    REPUTATION_APPLY_REVIEW_HANDLER,
     async (event: DomainEvent) => {
       // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
       if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
@@ -38,12 +42,14 @@ export function registerReputationEventHandlers(eventBus: EventBus) {
       const { tenantId } = event;
       const payload = event.payload as unknown as ReviewCreatedEventPayload;
 
-      // 🔴 IDEMPOTÊNCIA: Garantir que replay não causa efeitos colaterais
+      // 🔴 IDEMPOTÊNCIA — §4.12.1: forma canónica semântica
+      //   ${event.type}:${reference_id}:${handler_name}
+      //   ex.: core.review.created:${payload.reviewId}:reputation.applyReview
       await withIdempotency(
         tenantId,
         event.eventId,
         event.type,
-        'reputation.applyReview',
+        REPUTATION_APPLY_REVIEW_HANDLER,
         payload,
         async () => {
           // Atualiza o score da entidade avaliada

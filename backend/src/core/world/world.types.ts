@@ -46,8 +46,8 @@ export interface StateRow {
   code: string;
   name: string;
   name_en: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CityRow {
@@ -57,8 +57,8 @@ export interface CityRow {
   name_en: string | null;
   latitude: number | null;
   longitude: number | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CityFullPath {

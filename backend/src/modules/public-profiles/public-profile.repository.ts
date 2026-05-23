@@ -16,8 +16,8 @@ interface PublicProfileRow {
   cover_url: string | null;
   visibility: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PublicProfileRepository {
@@ -34,8 +34,8 @@ class PublicProfileRepository {
       coverUrl: row.cover_url,
       visibility: row.visibility as any,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -133,7 +133,7 @@ class PublicProfileRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
         bio, avatar_url, cover_url, visibility, metadata,
-        createdAt, updatedAt
+        created_at, updated_at
       `,
       [
         tenantId,
@@ -203,10 +203,14 @@ class PublicProfileRepository {
 
     if (updates.length === 0) {
       // Nada para atualizar, retornar perfil atual
-      return await this.getProfileById(tenantId, profileId);
+      const profile = await this.getProfileById(tenantId, profileId);
+      if (!profile) {
+        throw new Error('Perfil público não encontrado');
+      }
+      return profile;
     }
 
-    updates.push(`updatedAt = NOW()`);
+    updates.push(`updated_at = NOW()`);
 
     const row = await runQueryWithTenant<PublicProfileRow>(
       tenantId,
@@ -216,7 +220,7 @@ class PublicProfileRepository {
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, actor_id, profile_type, slug, display_name,
         bio, avatar_url, cover_url, visibility, metadata,
-        createdAt, updatedAt
+        created_at, updated_at
       `,
       params
     );
@@ -234,7 +238,7 @@ class PublicProfileRepository {
       `
       SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
         bio, avatar_url, cover_url, visibility, metadata,
-        createdAt, updatedAt
+        created_at, updated_at
       FROM public_profiles
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -254,7 +258,7 @@ class PublicProfileRepository {
       `
       SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
         bio, avatar_url, cover_url, visibility, metadata,
-        createdAt, updatedAt
+        created_at, updated_at
       FROM public_profiles
       WHERE tenant_id = $1 AND slug = $2
       `,
@@ -302,10 +306,10 @@ class PublicProfileRepository {
       `
       SELECT id, tenant_id, actor_id, profile_type, slug, display_name,
         bio, avatar_url, cover_url, visibility, metadata,
-        createdAt, updatedAt
+        created_at, updated_at
       FROM public_profiles
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]

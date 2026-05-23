@@ -21,15 +21,14 @@ export class NotifyProcessor {
    * Coleta todos os tenants existentes.
    */
   private async getAllTenants(): Promise<string[]> {
-    const result = await pool.query<{ tenant_id: string }>(
+    const result = await pool.query<{ id: string }>(
       `
-        SELECT tenant_id
+        SELECT id
         FROM tenants
-        WHERE is_active = TRUE
       `.trim()
     );
 
-    return result.rows.map((r) => r.tenant_id);
+    return result.rows.map((r) => r.id);
   }
 
   /**

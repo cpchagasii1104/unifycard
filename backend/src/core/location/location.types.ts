@@ -60,19 +60,71 @@ export interface FullLocation {
   neighborhood?: Neighborhood;
 }
 
+export interface CreateAddressInput {
+  countryId: string;
+  stateId?: string | null;
+  cityId?: string | null;
+  neighborhoodId?: string | null;
+  postalCode?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  reference?: string | null;
+  source: 'UX_INPUT' | 'CEP_RESOLVED' | 'GEOCODED' | 'MANUAL_OVERRIDE' | 'IMPORT_LEGACY' | 'EXTERNAL_API';
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export interface Address {
+  id: string;
+  countryId: string;
+  stateId: string | null;
+  cityId: string | null;
+  neighborhoodId: string | null;
+  postalCode: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  reference: string | null;
+  source: string;
+  isGeocoded: boolean;
+  lat: number | null;
+  lng: number | null;
+  createdByTenantId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AddressOwnerType = 'company' | 'profile' | 'event' | 'ride' | 'group' | 'tenant_hq' | 'service_provider';
+
+export type AddressRole = 'BILLING' | 'DELIVERY' | 'RESIDENCE' | 'HQ' | 'OPERATIONAL' | 'PICKUP' | 'DROPOFF';
+
+export interface AddressAssignment {
+  id: string;
+  ownerType: AddressOwnerType;
+  ownerId: string;
+  addressId: string;
+  role: AddressRole;
+  isPrimary: boolean;
+  validFromAt: Date;
+  validUntilAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /**
  * Tipos de linha do banco de dados
  */
 export interface CountryRow {
-  country_id: string;
+  id: string;
   code: string;
   name: string;
-  isActive: boolean;
+  is_active: boolean;
 }
 
 export interface StateRow {
-  state_id: string;
-  country_id: string;
+  id: string;
+  countryId: string;
   code: string;
   name: string;
 }

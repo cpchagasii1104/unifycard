@@ -16,7 +16,7 @@ interface MenuRow {
   name: string;
   is_active: boolean;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 interface MenuItemRow {
@@ -29,7 +29,7 @@ interface MenuItemRow {
   is_available: boolean;
   sort_order: number;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class VenueMenuRepository {
@@ -41,7 +41,7 @@ class VenueMenuRepository {
       name: row.name,
       isActive: row.is_active,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -56,7 +56,7 @@ class VenueMenuRepository {
       isAvailable: row.is_available,
       sortOrder: row.sort_order,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -66,7 +66,7 @@ class VenueMenuRepository {
       `
       INSERT INTO menus (tenant_id, actor_id, name, is_active, metadata)
       VALUES ($1, $2, $3, $4, $5::jsonb)
-      RETURNING id, tenant_id, actor_id, name, is_active, metadata, createdAt
+      RETURNING id, tenant_id, actor_id, name, is_active, metadata, created_at
       `,
       [
         tenantId,
@@ -88,7 +88,7 @@ class VenueMenuRepository {
     const row = await runQueryWithTenant<MenuRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, name, is_active, metadata, createdAt
+      SELECT id, tenant_id, actor_id, name, is_active, metadata, created_at
       FROM menus
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -102,10 +102,10 @@ class VenueMenuRepository {
     const row = await runQueryWithTenant<MenuRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, name, is_active, metadata, createdAt
+      SELECT id, tenant_id, actor_id, name, is_active, metadata, created_at
       FROM menus
       WHERE tenant_id = $1 AND actor_id = $2 AND is_active = true
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT 1
       `,
       [tenantId, actorId]
@@ -124,7 +124,7 @@ class VenueMenuRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING id, tenant_id, menu_id, product_variant_id, display_name, description,
-                is_available, sort_order, metadata, createdAt
+               is_available, sort_order, metadata, created_at
       `,
       [
         menuId,
@@ -149,10 +149,10 @@ class VenueMenuRepository {
       tenantId,
       `
       SELECT id, tenant_id, menu_id, product_variant_id, display_name, description,
-             is_available, sort_order, metadata, createdAt
+             is_available, sort_order, metadata, created_at
       FROM menu_items
       WHERE tenant_id = $1 AND menu_id = $2
-      ORDER BY sort_order ASC, createdAt ASC
+      ORDER BY sort_order ASC, created_at ASC
       `,
       [tenantId, menuId]
     );
@@ -181,7 +181,7 @@ class VenueMenuRepository {
       tenantId,
       `
       SELECT id, tenant_id, menu_id, product_variant_id, display_name, description,
-             is_available, sort_order, metadata, createdAt
+             is_available, sort_order, metadata, created_at
       FROM menu_items
       WHERE tenant_id = $1 AND id = $2
       `,

@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listMyOrders, getMyOrdersStats, type MyOrderItem, type MyOrdersStats, type MyOrdersFilters } from '../api/my-orders';
+import { listMyOrders, getMyOrdersStats, type MyOrderItem, type MyOrdersStats, type MyOrdersFilters, type OrderType, type OrderStatus } from '../api/my-orders';
 import { showToast } from '../utils/toast';
 import './MyOrdersPage.css';
 
@@ -104,7 +104,7 @@ export default function MyOrdersPage() {
     if (threadId) {
       navigate(`/chat/${threadId}`);
     } else {
-      showToast('Chat não disponível para este pedido', 'warning');
+      showToast('Chat não disponível para este pedido', 'info');
     }
   };
 
@@ -112,7 +112,7 @@ export default function MyOrdersPage() {
     if (agreementId) {
       navigate(`/agreements/${agreementId}`);
     } else {
-      showToast('Acordo não disponível para este pedido', 'warning');
+      showToast('Acordo não disponível para este pedido', 'info');
     }
   };
 
@@ -120,13 +120,13 @@ export default function MyOrdersPage() {
     if (evidencePackId) {
       navigate(`/evidence/${evidencePackId}`);
     } else {
-      showToast('Evidence Pack não disponível para este pedido', 'warning');
+      showToast('Evidence Pack não disponível para este pedido', 'info');
     }
   };
 
   const handleDownloadInvoice = async (invoiceId: string | null) => {
     if (!invoiceId) {
-      showToast('Invoice não disponível para este pedido', 'warning');
+      showToast('Invoice não disponível para este pedido', 'info');
       return;
     }
 

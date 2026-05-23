@@ -66,8 +66,8 @@ export interface ServicePaymentExecutionRow {
   currency: string;
   executedAt: Date;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -81,8 +81,8 @@ export interface PaymentSplitRow {
   amountCents: number;
   percentage: number | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

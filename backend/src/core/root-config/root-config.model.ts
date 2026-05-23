@@ -14,8 +14,8 @@ export class RootConfigModel {
       timezone: row.timezone,
       currency: row.currency,
       languages: row.languages || [],
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 }

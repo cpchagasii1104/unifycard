@@ -1,22 +1,21 @@
-// src/utils/devLog.ts
-// Utilitário para logs estruturados apenas em desenvolvimento
-// 🔴 GOLDEN_PATH: Logs nunca via console.log direto. Apenas devLog.
+import { logger } from '@core/logging/logger';
 
-const isDev = process.env.NODE_ENV !== 'production';
+type LogMeta = Record<string, unknown>;
+
+function log(level: 'info' | 'error', event: string, meta?: LogMeta): void {
+  logger.log(level, event, meta ?? {});
+}
 
 export const devLog = {
-  info: (namespace: string, context?: any) => {
-    if (isDev) console.log(`[DEV:${namespace}]`, context ?? '');
+  info(event: string, meta?: LogMeta): void {
+    log('info', event, meta);
   },
-  warn: (namespace: string, context?: any) => {
-    if (isDev) console.warn(`[DEV:${namespace}]`, context ?? '');
+
+  success(event: string, meta?: LogMeta): void {
+    log('info', event, meta);
   },
-  error: (namespace: string, context?: any) => {
-    if (isDev) console.error(`[DEV:${namespace}]`, context ?? '');
-  },
-  success: (namespace: string, context?: any) => {
-    if (isDev) console.log(`[DEV:${namespace}] ✅`, context ?? '');
+
+  error(event: string, meta?: LogMeta): void {
+    log('error', event, meta);
   },
 };
-
-export default devLog;

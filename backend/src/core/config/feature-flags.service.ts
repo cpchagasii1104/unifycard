@@ -10,6 +10,14 @@ class FeatureFlagsService {
   isFundVisibilityEnabled(): boolean {
     return stagingConfig.fundVisibilityEnabled;
   }
+
+  /**
+   * Campanhas de procurement (fase neutra, sem dinheiro).
+   * Por defeito desligado — rotas não são registadas no BOOT.
+   */
+  isProcurementCampaignEnabled(): boolean {
+    return stagingConfig.procurementCampaignEnabled;
+  }
 }
 
 export const featureFlagsService = new FeatureFlagsService();

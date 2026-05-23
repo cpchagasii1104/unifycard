@@ -2,7 +2,7 @@
 // SPRINT 76: EVENTS + TICKETING + CHECK-IN (CANÔNICO)
 
 import type { FastifyInstance } from 'fastify';
-import { eventService } from './event.service';
+import { eventRepository } from './event.repository';
 import { ticketService } from './ticket.service';
 import { checkInService } from './checkin.service';
 import type {
@@ -10,6 +10,44 @@ import type {
   CreateEventTicketInput,
   ReserveTicketInput,
 } from './event.types';
+
+/** Mesma auditoria que o wrapper sprint76 removido (create + audit). */
+async function recordSprint76EventAudit(
+  tenantId: string,
+  data: {
+    eventType: string;
+    eventId: string;
+    createdByActorId?: string;
+    createdByUserId?: string | null;
+    publishedByActorId?: string;
+    publishedByUserId?: string | null;
+    cancelledByActorId?: string;
+    cancelledByUserId?: string | null;
+    cancellationReason?: string | null;
+  }
+): Promise<void> {
+  try {
+    const { auditService } = await import('@core/audit/audit.service');
+    await auditService.record(tenantId, {
+      event_type: data.eventType,
+      severity: 'medium',
+      actor_id: data.createdByActorId || data.publishedByActorId || data.cancelledByActorId || undefined,
+      actor_type: 'user',
+      source: 'cultural_event_checkin',
+      context: {
+        event_id: data.eventId,
+        created_by_user_id: data.createdByUserId,
+        published_by_actor_id: data.publishedByActorId,
+        published_by_user_id: data.publishedByUserId,
+        cancelled_by_actor_id: data.cancelledByActorId,
+        cancelled_by_user_id: data.cancelledByUserId,
+        cancellation_reason: data.cancellationReason,
+      },
+    });
+  } catch (error) {
+    console.warn('[Event] Erro ao registrar auditoria:', error);
+  }
+}
 
 const eventsSprint76Routes = async (fastify: FastifyInstance) => {
   // ============================================================
@@ -40,12 +78,24 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       body.endAt = new Date(body.endAt);
     }
 
-    const event = await eventService.createEvent(
-      tenantId,
-      body,
-      actionContext.actorId,
-      actionContext.actorId
-    );
+    const event = await eventRepository.createEvent(tenantId, {
+      organizerActorId: body.organizerActorId,
+      title: body.title,
+      description: body.description || null,
+      locationActorId: body.locationActorId || null,
+      startAt: body.startAt,
+      endAt: body.endAt,
+      createdByActorId: actionContext.actorId,
+      createdByUserId: actionContext.actorId,
+      metadata: body.metadata || {},
+    });
+
+    await recordSprint76EventAudit(tenantId, {
+      eventType: 'EVENT_CREATED',
+      eventId: event.id,
+      createdByActorId: actionContext.actorId,
+      createdByUserId: actionContext.actorId,
+    });
 
     return reply.status(201).send(event);
   });
@@ -122,7 +172,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       filters.offset = req.query.offset;
     }
 
-    const events = await eventService.listEvents(tenantId, filters);
+    const events = await eventRepository.listEvents(tenantId, filters);
 
     return reply.send({ events, totalCents: events.length });
   });
@@ -137,7 +187,7 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     }
     const tenantId = req.tenant.id;
 
-    const event = await eventService.getEventById(tenantId, req.params.id);
+    const event = await eventRepository.getEventById(tenantId, req.params.id);
 
     if (!event) {
       return reply.status(404).send({ error: 'Evento não encontrado' });

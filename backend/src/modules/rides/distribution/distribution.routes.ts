@@ -1,6 +1,19 @@
 // src/modules/rides/distribution/distribution.routes.ts
 //
 // Rotas Fastify para distribuição financeira no módulo Rides
+//
+/**
+ * ⚠️ PROJEÇÃO FINANCEIRA — NÃO É SSOT (`rides_ride_distributions`)
+ * Estes dados NÃO representam dinheiro real.
+ * A verdade financeira está em:
+ * - bank_ledger
+ * - bank_transactions
+ *
+ * NÃO usar para:
+ * - saldo
+ * - reconciliação
+ * - decisão financeira
+ */
 
 import type {
   FastifyInstance,
@@ -30,6 +43,8 @@ const distributionRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       preHandler: [fastify.requirePermission(['rides:distribution:read'])],
     },
     async (req, _reply) => {
+      // ⚠️ Este endpoint retorna distribuição derivada
+      // NÃO é prova financeira canónica
       const tenantId = req.tenant?.id;
       if (!tenantId) throw new BadRequestError('Missing tenant context');
 
@@ -48,6 +63,8 @@ const distributionRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       preHandler: [fastify.requirePermission(['rides:distribution:write'])],
     },
     async (req, _reply) => {
+      // ⚠️ Este endpoint retorna distribuição derivada
+      // NÃO é prova financeira canónica
       const tenantId = req.tenant?.id;
       if (!tenantId) throw new BadRequestError('Missing tenant context');
 

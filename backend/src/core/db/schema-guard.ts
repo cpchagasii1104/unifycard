@@ -4,13 +4,12 @@
 // Garante que colunas críticas existem e corrige automaticamente quando possível
 // BLOQUEIA o boot se não conseguir corrigir
 
-import dotenv from 'dotenv';
 import { join } from 'path';
 import { Pool, PoolClient } from 'pg';
 import { readFile } from 'fs/promises';
+import { BACKEND_ROOT, loadBackendEnv } from './load-backend-env';
 
-// Carrega variáveis de ambiente
-dotenv.config({ path: join(process.cwd(), '.env') });
+loadBackendEnv();
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const CONNECTION_TIMEOUT_MS = 5000;

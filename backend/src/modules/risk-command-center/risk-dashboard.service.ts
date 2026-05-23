@@ -39,21 +39,21 @@ class RiskDashboardService {
     const last180Days = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
 
     const bypassEvents30 = await trustRepository.listEvents(tenantId, {
-      eventType: 'bypass_attempt_detected' as any,
+      eventType: 'bypass_attempt_detected',
       limit: 10000,
     });
     const bypassEvents90 = await trustRepository.listEvents(tenantId, {
-      eventType: 'bypass_attempt_detected' as any,
+      eventType: 'bypass_attempt_detected',
       limit: 10000,
     });
     const bypassEvents180 = await trustRepository.listEvents(tenantId, {
-      eventType: 'bypass_attempt_detected' as any,
+      eventType: 'bypass_attempt_detected',
       limit: 10000,
     });
 
-    const bypass30 = bypassEvents30.filter((e) => e.createdAt >= last30Days).length;
-    const bypass90 = bypassEvents90.filter((e) => e.createdAt >= last90Days).length;
-    const bypass180 = bypassEvents180.filter((e) => e.createdAt >= last180Days).length;
+    const bypass30 = bypassEvents30.filter((e) => new Date(e.createdAt) >= last30Days).length;
+    const bypass90 = bypassEvents90.filter((e) => new Date(e.createdAt) >= last90Days).length;
+    const bypass180 = bypassEvents180.filter((e) => new Date(e.createdAt) >= last180Days).length;
 
     // 4. Buscar disputas abertas
     const { evidenceService } = await import('../evidence/evidence.service');
@@ -68,19 +68,17 @@ class RiskDashboardService {
     if (resolvedDisputes.length > 0) {
       const totalDays = resolvedDisputes.reduce((sum, p) => {
         if (p.openedAt && p.resolvedAt) {
-          return sum + Math.round((p.resolvedAt.getTime() - p.openedAt.getTime()) / (1000 * 60 * 60 * 24));
+          return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
         }
         return sum;
       }, 0);
       averageResolutionTimeDays = Math.round(totalDays / resolvedDisputes.length);
     }
 
-    // 6. Calcular volume financeiro total (do ledger)
-    const { ledgerService } = await import('../ledger/ledger.service');
-    const allEntries = await ledgerService.listEntries(tenantId, { limit: 100000 });
-    const totalFinancialVolumeCents = allEntries
-      .filter((e) => e.entryType === 'ESCROW_HOLD' || e.entryType === 'ESCROW_RELEASE')
-      .reduce((sum, e) => sum + e.amountCents, 0);
+    // 6. Volume financeiro (bank_transactions, últimos 365 dias)
+    const { sumBankTransactionVolumeCents } = await import('../reporting/reporting-bank-aggregates');
+    const yearStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const totalFinancialVolumeCents = await sumBankTransactionVolumeCents(tenantId, yearStart, now);
 
     // 7. Buscar payouts bloqueados e falhos
     const { payoutService } = await import('../payout/payout.service');
@@ -92,8 +90,8 @@ class RiskDashboardService {
     const { agreementRepository } = await import('../agreements/agreement.repository');
     const allAgreements = await agreementRepository.list(tenantId, { limit: 10000 });
     const abandonedAgreements = allAgreements.filter((a) => {
-      if (a.status === 'PROPOSED' || a.status === 'DRAFT') {
-        const daysSinceUpdate = Math.round((now.getTime() - a.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+      if (a.status === 'proposed' || a.status === 'draft') {
+        const daysSinceUpdate = Math.round((now.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
         return daysSinceUpdate > 30;
       }
       return false;
@@ -137,8 +135,8 @@ class RiskDashboardService {
 
     // 2. Para cada profile, consolidar dados
     const { evidenceService } = await import('../evidence/evidence.service');
-    const { ledgerService } = await import('../ledger/ledger.service');
-    const { escrowService } = await import('../escrow/escrow.service');
+    const { sumLedgerVolumeCentsForActorAccounts } = await import('../reporting/reporting-bank-aggregates');
+    const { escrowRepository } = await import('../escrow/escrow.repository');
     const { payoutService } = await import('../payout/payout.service');
     const { agreementRepository } = await import('../agreements/agreement.repository');
 
@@ -148,7 +146,7 @@ class RiskDashboardService {
       // Buscar eventos de bypass
       const bypassEvents = await trustRepository.listEvents(tenantId, {
         actorId: profile.actorId,
-        eventType: 'bypass_attempt_detected' as any,
+        eventType: 'bypass_attempt_detected',
         limit: 1000,
       });
 
@@ -157,11 +155,11 @@ class RiskDashboardService {
       const last90Days = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       const last180Days = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
 
-      const bypass30 = bypassEvents.filter((e) => e.createdAt >= last30Days).length;
-      const bypass90 = bypassEvents.filter((e) => e.createdAt >= last90Days).length;
-      const bypass180 = bypassEvents.filter((e) => e.createdAt >= last180Days).length;
+      const bypass30 = bypassEvents.filter((e) => new Date(e.createdAt) >= last30Days).length;
+      const bypass90 = bypassEvents.filter((e) => new Date(e.createdAt) >= last90Days).length;
+      const bypass180 = bypassEvents.filter((e) => new Date(e.createdAt) >= last180Days).length;
       const lastBypassAt =
-        bypassEvents.length > 0 ? bypassEvents[0].createdAt : null;
+        bypassEvents.length > 0 ? new Date(bypassEvents[0].createdAt) : null;
 
       // Buscar disputas
       const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
@@ -180,7 +178,7 @@ class RiskDashboardService {
       if (resolvedWithTime.length > 0) {
         const totalDays = resolvedWithTime.reduce((sum, p) => {
           if (p.openedAt && p.resolvedAt) {
-            return sum + Math.round((p.resolvedAt.getTime() - p.openedAt.getTime()) / (1000 * 60 * 60 * 24));
+            return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
           }
           return sum;
         }, 0);
@@ -189,29 +187,35 @@ class RiskDashboardService {
 
       const lastDisputeAt =
         actorPacks.length > 0
-          ? actorPacks
-              .map((p) => p.openedAt || p.createdAt)
-              .sort((a, b) => b.getTime() - a.getTime())[0]
+          ? (() => {
+              const dates = actorPacks
+                .map((p) => p.openedAt ?? (p as { createdAt?: Date | string }).createdAt)
+                .filter((d): d is Date | string => d != null);
+              if (dates.length === 0) return null;
+              const sorted = dates.slice().sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+              return new Date(sorted[0]);
+            })()
           : null;
 
-      // Buscar volume financeiro (ledger entries relacionados ao actor)
-      const actorAccountId = `actor:${profile.actorId}`;
-      const ledgerEntries = await ledgerService.listEntries(tenantId, { limit: 100000 });
-      const actorEntries = ledgerEntries.filter(
-        (e) => e.debitAccountId === actorAccountId || e.creditAccountId === actorAccountId
+      // Volume em bank_ledger nas contas do actor (últimos 365 dias)
+      const windowStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const financialVolumeCents = await sumLedgerVolumeCentsForActorAccounts(
+        tenantId,
+        profile.actorId,
+        windowStart,
+        now
       );
-      const financialVolumeCents = actorEntries.reduce((sum, e) => sum + e.amountCents, 0);
 
       // Buscar escrow
-      const escrows = await escrowService.listEscrowAccounts(tenantId, { limit: 1000 });
+      const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
       // Filtrar escrows relacionados ao actor (via agreements - simplificado)
       const actorEscrows = escrows; // TODO: Filtrar por agreement.requesterActorId ou providerActorId
       const escrowHeldCents = actorEscrows
-        .filter((e) => e.status === 'FUNDS_HELD')
-        .reduce((sum, e) => sum + (e.totalAmountCents - e.releasedAmountCents - e.refundedAmountCents), 0);
+        .filter((e: { status: string }) => e.status === 'funds_held')
+        .reduce((sum: number, e: { heldAmountCents: number }) => sum + e.heldAmountCents, 0);
       const escrowReleasedCents = actorEscrows
-        .filter((e) => e.status === 'RELEASED')
-        .reduce((sum, e) => sum + e.releasedAmountCents, 0);
+        .filter((e: { status: string }) => e.status === 'released')
+        .reduce((sum: number, e: { releasedAmountCents: number }) => sum + e.releasedAmountCents, 0);
 
       // Buscar payouts
       const payouts = await payoutService.listOrders(tenantId, { limit: 10000 });
@@ -226,8 +230,8 @@ class RiskDashboardService {
       );
       const now2 = new Date();
       const abandonedAgreements = actorAgreements.filter((a) => {
-        if (a.status === 'PROPOSED' || a.status === 'DRAFT') {
-          const daysSinceUpdate = Math.round((now2.getTime() - a.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+        if (a.status === 'proposed' || a.status === 'draft') {
+          const daysSinceUpdate = Math.round((now2.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
           return daysSinceUpdate > 30;
         }
         return false;
@@ -237,7 +241,8 @@ class RiskDashboardService {
       const evidencePackIds = Array.from(new Set(actorPacks.map((p) => p.packId)));
       const agreementIds = Array.from(new Set(actorAgreements.map((a) => a.agreementId)));
       const payoutOrderIds = Array.from(new Set(actorPayouts.map((p) => p.orderId)));
-      const ledgerEntryIds = Array.from(new Set(actorEntries.map((e) => e.entryId)));
+      // IDs de linhas bank_ledger por actor: não listamos aqui (custo); ver relatórios / bank_ledger por conta
+      const ledgerEntryIds: string[] = [];
 
       riskProfiles.push({
         actorId: profile.actorId,
@@ -261,7 +266,7 @@ class RiskDashboardService {
         blockedPayouts,
         failedPayouts,
         abandonedAgreements,
-        lastEventAt: profile.lastEventAt,
+        lastEventAt: profile.lastEventAt instanceof Date ? profile.lastEventAt : (profile.lastEventAt != null ? new Date(profile.lastEventAt) : null),
         lastBypassAt,
         lastDisputeAt,
         evidencePackIds,
@@ -278,7 +283,7 @@ class RiskDashboardService {
       filtered = filtered.filter((p) => p.openDisputes > 0);
     }
     if (filters.hasBypassDetected) {
-      filtered = filtered.filter((p) => p.bypassDetected.total > 0);
+      filtered = filtered.filter((p) => p.bypassDetected.totalCents > 0);
     }
     if (filters.minFinancialVolumeCents !== undefined) {
       filtered = filtered.filter((p) => p.financialVolumeCents >= filters.minFinancialVolumeCents!);
@@ -319,7 +324,7 @@ class RiskDashboardService {
     for (const event of trustEvents) {
       timeline.push({
         eventId: event.eventId,
-        timestamp: event.createdAt,
+        timestamp: new Date(event.createdAt),
         eventType: 'trust_event',
         severity: event.severity,
         title: `Trust Event: ${event.eventType}`,
@@ -341,7 +346,7 @@ class RiskDashboardService {
     for (const event of bypassEvents) {
       timeline.push({
         eventId: event.eventId,
-        timestamp: event.createdAt,
+        timestamp: new Date(event.createdAt),
         eventType: 'bypass_detected',
         severity: 'HIGH',
         title: 'Bypass Detectado',
@@ -368,7 +373,7 @@ class RiskDashboardService {
       if (pack.disputeStatus === 'OPEN' && pack.openedAt) {
         timeline.push({
           eventId: `dispute-${pack.packId}`,
-          timestamp: pack.openedAt,
+          timestamp: pack.openedAt instanceof Date ? pack.openedAt : new Date(pack.openedAt),
           eventType: 'dispute_opened',
           severity: 'HIGH',
           title: 'Disputa Aberta',
@@ -386,7 +391,7 @@ class RiskDashboardService {
       if (pack.disputeStatus === 'RESOLVED' && pack.resolvedAt) {
         timeline.push({
           eventId: `dispute-resolved-${pack.packId}`,
-          timestamp: pack.resolvedAt,
+          timestamp: pack.resolvedAt instanceof Date ? pack.resolvedAt : new Date(pack.resolvedAt),
           eventType: 'dispute_resolved',
           severity: 'MEDIUM',
           title: 'Disputa Resolvida',
@@ -403,8 +408,8 @@ class RiskDashboardService {
     }
 
     // 4. Escrow Events (simplificado)
-    const { escrowService } = await import('../escrow/escrow.service');
-    const escrows = await escrowService.listEscrowAccounts(tenantId, { limit: 1000 });
+    const { escrowRepository } = await import('../escrow/escrow.repository');
+    const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
     // TODO: Filtrar escrows relacionados ao actor
 
     // 5. Payout Events
@@ -416,7 +421,7 @@ class RiskDashboardService {
       if (payout.status === 'BLOCKED') {
         timeline.push({
           eventId: `payout-blocked-${payout.orderId}`,
-          timestamp: payout.createdAt,
+          timestamp: typeof payout.createdAt === 'string' ? new Date(payout.createdAt) : (payout.createdAt ?? new Date()),
           eventType: 'payout_blocked',
           severity: 'HIGH',
           title: 'Payout Bloqueado',
@@ -435,7 +440,10 @@ class RiskDashboardService {
       if (payout.status === 'FAILED') {
         timeline.push({
           eventId: `payout-failed-${payout.orderId}`,
-          timestamp: payout.updatedAt || payout.createdAt,
+          timestamp: (() => {
+            const t = payout.updatedAt ?? payout.createdAt;
+            return t != null ? (typeof t === 'string' ? new Date(t) : t) : new Date();
+          })(),
           eventType: 'payout_failed',
           severity: 'MEDIUM',
           title: 'Payout Falhou',
@@ -461,12 +469,12 @@ class RiskDashboardService {
 
     const now = new Date();
     for (const agreement of actorAgreements) {
-      if (agreement.status === 'PROPOSED' || agreement.status === 'DRAFT') {
-        const daysSinceUpdate = Math.round((now.getTime() - agreement.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+      if (agreement.status === 'proposed' || agreement.status === 'draft') {
+        const daysSinceUpdate = Math.round((now.getTime() - new Date(agreement.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
         if (daysSinceUpdate > 30) {
           timeline.push({
             eventId: `agreement-abandoned-${agreement.agreementId}`,
-            timestamp: agreement.updatedAt,
+            timestamp: new Date(agreement.updatedAt),
             eventType: 'agreement_abandoned',
             severity: 'LOW',
             title: 'Agreement Abandonado',

@@ -84,8 +84,8 @@ describe('Bank P2P Transfer and Donation Migration - Continuous Production', () 
       });
 
       expect(result.transaction.transactionId).toBeDefined();
-      expect(result.fromAccountBalance).toBeLessThan(1000);
-      expect(result.toAccountBalance).toBe(100);
+      expect(result.fromAccountBalanceCents).toBeLessThan(1000);
+      expect(result.toAccountBalanceCents).toBe(100);
 
       // Verificar que transação existe no Bank
       const transaction = await bankTransactionService.getTransactionById(
@@ -210,7 +210,7 @@ describe('Bank P2P Transfer and Donation Migration - Continuous Production', () 
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Processar P2P e doação via Bank
       await bankP2PTransferService.transferP2P(testTenantId, {
@@ -235,7 +235,7 @@ describe('Bank P2P Transfer and Donation Migration - Continuous Production', () 
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Total deve ser igual (dinheiro não é criado nem destruído)
       expect(Math.abs(sumBefore - sumAfter)).toBeLessThan(0.01);

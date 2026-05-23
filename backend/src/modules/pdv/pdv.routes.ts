@@ -5,6 +5,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requirePermission } from '@core/authorization/require-permission.guard';
 import { pdvService } from './pdv.service';
 import { auditService } from '@core/audit/audit.service';
+import type { AuditSeverity, AuditSource } from '@core/audit/audit.service';
 import type {
   CreatePdvSessionInput,
   ClosePdvSessionInput,
@@ -55,10 +56,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_OPENED',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: session.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: { session_id: session.id, opened_by: actionContext.actorId },
       });
 
@@ -81,10 +82,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_CLOSED',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: session.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: { session_id: session.id, closed_by: actionContext.actorId },
       });
 
@@ -141,10 +142,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_CLOSED_WITH_SUMMARY',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: summary.operator.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: {
           session_id: id,
           total_orders: summary.totalOrders,
@@ -176,10 +177,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_ORDER_CREATED',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: actionContext.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: {
           order_id: order.id,
           session_id: input.sessionId,
@@ -207,10 +208,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_ITEM_ADDED',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: actionContext.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: {
           order_id: orderId,
           item_id: item.id,
@@ -239,10 +240,10 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_ITEM_ADDED_BY_WEIGHT',
-        severity: 'info',
+        severity: 'low' as AuditSeverity,
         actor_id: actionContext.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: {
           order_id: orderId,
           item_id: item.id,
@@ -281,15 +282,15 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'PDV_PAYMENT_EXECUTED',
-        severity: 'MEDIUM',
+        severity: 'medium',
         actor_id: actionContext.actorId,
         actor_type: 'user',
-        source: 'pdv',
+        source: 'impact' as AuditSource,
         context: {
           order_id: orderId,
           payment_intent_id: result.paymentIntent.id,
           transaction_id: result.transaction.id,
-          amountCents: input.amount,
+          amountCents: input.amountCents,
           session_id: input.sessionId,
         },
       });

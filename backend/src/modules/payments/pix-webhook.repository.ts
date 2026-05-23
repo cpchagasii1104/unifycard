@@ -12,11 +12,11 @@ interface PixWebhookEventRow {
   pix_charge_id: string | null;
   status: string;
   raw_payload: any;
-  receivedAt: Date;
-  processedAt: Date | null;
   error_message: string | null;
   metadata: any;
-  createdAt: Date;
+  received_at: Date;
+  processed_at: Date | null;
+  created_at: Date;
 }
 
 class PixWebhookEventRepository {
@@ -29,11 +29,11 @@ class PixWebhookEventRepository {
       pixChargeId: row.pix_charge_id,
       status: row.status as any,
       rawPayload: row.raw_payload || {},
-      receivedAt: row.receivedAt,
-      processedAt: row.processedAt,
+      receivedAt: row.received_at,
+      processedAt: row.processed_at,
       errorMessage: row.error_message,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -54,8 +54,8 @@ class PixWebhookEventRepository {
       VALUES ($1, $2, $3, $4, 'RECEIVED', $5::jsonb, '{}'::jsonb)
       ON CONFLICT (tenant_id, provider, provider_event_id) DO NOTHING
       RETURNING id, tenant_id, provider, provider_event_id, pix_charge_id,
-                status, raw_payload, receivedAt, processedAt, error_message,
-                metadata, createdAt
+                status, raw_payload, received_at, processed_at, error_message,
+                metadata, created_at
       `,
       [
         tenantId,
@@ -87,8 +87,8 @@ class PixWebhookEventRepository {
       tenantId,
       `
       SELECT id, tenant_id, provider, provider_event_id, pix_charge_id,
-             status, raw_payload, receivedAt, processedAt, error_message,
-             metadata, createdAt
+             status, raw_payload, received_at, processed_at, error_message,
+             metadata, created_at
       FROM pix_webhook_events
       WHERE tenant_id = $1 AND provider = $2 AND provider_event_id = $3
       `,
@@ -107,7 +107,7 @@ class PixWebhookEventRepository {
     eventId: string,
     pixChargeId?: string
   ): Promise<PixWebhookEvent> {
-    const updates: string[] = ['status = $3', 'processedAt = NOW()'];
+    const updates: string[] = ['status = $3', 'processed_at = NOW()'];
     const params: any[] = [tenantId, eventId, 'PROCESSED'];
     
     if (pixChargeId) {
@@ -122,12 +122,15 @@ class PixWebhookEventRepository {
       SET ${updates.join(', ')}
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, provider, provider_event_id, pix_charge_id,
-                status, raw_payload, receivedAt, processedAt, error_message,
-                metadata, createdAt
+                status, raw_payload, received_at, processed_at, error_message,
+                metadata, created_at
       `,
       params
     );
 
+    if (!row) {
+      throw new Error('Webhook event não encontrado ao marcar como processado');
+    }
     return this.toWebhookEvent(row);
   }
 
@@ -140,15 +143,18 @@ class PixWebhookEventRepository {
       tenantId,
       `
       UPDATE pix_webhook_events
-      SET status = 'FAILED', error_message = $3, processedAt = NOW()
+      SET status = 'FAILED', error_message = $3, processed_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, provider, provider_event_id, pix_charge_id,
-                status, raw_payload, receivedAt, processedAt, error_message,
-                metadata, createdAt
+                status, raw_payload, received_at, processed_at, error_message,
+                metadata, created_at
       `,
       [tenantId, eventId, errorMessage]
     );
 
+    if (!row) {
+      throw new Error('Webhook event não encontrado ao marcar como falha');
+    }
     return this.toWebhookEvent(row);
   }
 
@@ -160,15 +166,18 @@ class PixWebhookEventRepository {
       tenantId,
       `
       UPDATE pix_webhook_events
-      SET status = 'DUPLICATE', processedAt = NOW()
+      SET status = 'DUPLICATE', processed_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, provider, provider_event_id, pix_charge_id,
-                status, raw_payload, receivedAt, processedAt, error_message,
-                metadata, createdAt
+                status, raw_payload, received_at, processed_at, error_message,
+                metadata, created_at
       `,
       [tenantId, eventId]
     );
 
+    if (!row) {
+      throw new Error('Webhook event não encontrado ao marcar como duplicado');
+    }
     return this.toWebhookEvent(row);
   }
 }

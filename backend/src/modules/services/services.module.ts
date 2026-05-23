@@ -3,22 +3,28 @@
 // 🔴 BLINDAGEM: Registra ServicesFeedPlugin no FeedPluginRegistry
 
 import { FastifyPluginAsync } from 'fastify';
+import servicesDiscoveryRoutes from './services-discovery.routes';
 import servicesRoutes from './services.routes';
 import serviceBookingDecisionRoutes from './service-booking-decision.routes';
 import servicePaymentRequestRoutes from './service-payment-request.routes';
 import servicePaymentExecutionRoutes from './service-payment-execution.routes';
 import serviceOrderRoutes from './service-order.routes'; // SPRINT 68
 import serviceBundleRoutes from './service-bundle.routes';
+import serviceHireRoutes from './service-hire.routes';
 import { feedPluginService } from '@core/feed/feed-plugin.service';
 import { servicesFeedPlugin } from './service-feed.plugin';
 
 const servicesModule: FastifyPluginAsync = async (fastify) => {
+  // Rotas literais (/offers, /search, /request) antes de /:id em services.routes
+  await fastify.register(servicesDiscoveryRoutes);
   await fastify.register(servicesRoutes);
   // 🔴 CORREÇÃO FASE 1: Removidas rotas de service-availability, service-booking e calendar
   // Toda lógica temporal agora usa Unified Availability
   await fastify.register(serviceBookingDecisionRoutes);
   await fastify.register(servicePaymentRequestRoutes);
   await fastify.register(servicePaymentExecutionRoutes, { prefix: '/payments' });
+  // Q4 — Hire aggregator
+  await fastify.register(serviceHireRoutes);
   // SPRINT 68: Service Orders
   await fastify.register(serviceOrderRoutes);
   // Service Bundles (co-agendamento)

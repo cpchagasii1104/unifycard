@@ -11,8 +11,8 @@ interface OrganizationMemberRow {
   user_id: string;
   role_id: string;
   status: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class OrganizationMemberRepository {
@@ -24,8 +24,8 @@ class OrganizationMemberRepository {
       userId: row.user_id,
       roleId: row.role_id,
       status: row.status as any,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -47,8 +47,8 @@ class OrganizationMemberRepository {
       ON CONFLICT (tenant_id, actor_id, user_id) DO UPDATE
       SET role_id = EXCLUDED.role_id,
           status = 'ACTIVE',
-          updatedAt = NOW()
-      RETURNING id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+          updated_at = NOW()
+      RETURNING id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       `,
       [tenantId, input.actorId, input.userId, input.roleId, 'ACTIVE']
     );
@@ -64,7 +64,7 @@ class OrganizationMemberRepository {
     const rows = await runQueriesWithTenant<OrganizationMemberRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       FROM organization_members
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -82,7 +82,7 @@ class OrganizationMemberRepository {
     const rows = await runQueriesWithTenant<OrganizationMemberRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       FROM organization_members
       WHERE tenant_id = $1 AND user_id = $2 AND actor_id = $3
       `,
@@ -122,10 +122,10 @@ class OrganizationMemberRepository {
     const rows = await runQueriesWithTenant<OrganizationMemberRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       FROM organization_members
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -140,9 +140,9 @@ class OrganizationMemberRepository {
       `
       UPDATE organization_members
       SET role_id = $3,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+      RETURNING id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       `,
       [tenantId, memberId, roleId]
     );
@@ -171,9 +171,9 @@ class OrganizationMemberRepository {
       `
       UPDATE organization_members
       SET status = 'SUSPENDED',
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, actor_id, user_id, role_id, status, createdAt, updatedAt
+      RETURNING id, tenant_id, actor_id, user_id, role_id, status, created_at, updated_at
       `,
       [tenantId, memberId]
     );

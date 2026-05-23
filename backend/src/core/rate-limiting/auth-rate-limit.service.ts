@@ -78,12 +78,11 @@ class AuthRateLimitService {
     // 2. Tentar x-forwarded-for (primeiro IP da lista)
     const forwardedFor = req.headers['x-forwarded-for'];
     if (forwardedFor) {
-      const ips = typeof forwardedFor === 'string' 
-        ? forwardedFor.split(',').map(ip => ip.trim())
-        : [forwardedFor];
-      if (ips.length > 0 && ips[0]) {
-        return ips[0];
-      }
+      const ips: string[] = typeof forwardedFor === 'string'
+        ? forwardedFor.split(',').map((ip: string) => ip.trim())
+        : Array.isArray(forwardedFor) ? forwardedFor.map((x: string) => String(x)) : [String(forwardedFor)];
+      const first = ips[0];
+      if (first) return first;
     }
 
     // 3. Tentar x-real-ip

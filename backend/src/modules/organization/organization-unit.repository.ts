@@ -15,9 +15,10 @@ interface OrganizationUnitRow {
   name: string;
   type: string;
   parent_id: string | null;
+  slug?: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class OrganizationUnitRepository {
@@ -29,11 +30,12 @@ class OrganizationUnitRepository {
       id: row.id,
       tenantId: row.tenant_id,
       name: row.name,
-      type: row.type as any,
+      type: row.type,
       parentId: row.parent_id,
-      metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      slug: row.slug ?? '',
+      metadata: (row.metadata as Record<string, unknown>) ?? undefined,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -51,12 +53,12 @@ class OrganizationUnitRepository {
         tenant_id, name, type, parent_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.name,
-        input.type,
+        input.type ?? 'UNIT',
         input.parentId || null,
         JSON.stringify(input.metadata || {}),
       ]
@@ -110,7 +112,7 @@ class OrganizationUnitRepository {
       return await this.getUnitById(tenantId, unitId) || ({} as OrganizationUnit);
     }
 
-    updates.push(`updatedAt = NOW()`);
+    updates.push(`updated_at = NOW()`);
 
     const row = await runQueryWithTenant<OrganizationUnitRow>(
       tenantId,
@@ -118,7 +120,7 @@ class OrganizationUnitRepository {
       UPDATE organization_units
       SET ${updates.join(', ')}
       WHERE tenant_id = $1 AND id = $2
-      RETURNING id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
       `,
       params
     );
@@ -140,7 +142,7 @@ class OrganizationUnitRepository {
     const row = await runQueryWithTenant<OrganizationUnitRow>(
       tenantId,
       `
-      SELECT id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
       FROM organization_units
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -159,7 +161,7 @@ class OrganizationUnitRepository {
     type?: string
   ): Promise<OrganizationUnit[]> {
     let query = `
-      SELECT id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
       FROM organization_units
       WHERE tenant_id = $1
     `;
@@ -210,18 +212,18 @@ class OrganizationUnitRepository {
       tenantId,
       `
       WITH RECURSIVE descendants AS (
-        SELECT id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+        SELECT id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
         FROM organization_units
         WHERE tenant_id = $1 AND parent_id = $2
         
         UNION ALL
         
-        SELECT ou.id, ou.tenant_id, ou.name, ou.type, ou.parent_id, ou.metadata, ou.createdAt, ou.updatedAt
+        SELECT ou.id, ou.tenant_id, ou.name, ou.type, ou.parent_id, ou.metadata, ou.created_at, ou.updated_at
         FROM organization_units ou
         INNER JOIN descendants d ON ou.parent_id = d.id
         WHERE ou.tenant_id = $1
       )
-      SELECT id, tenant_id, name, type, parent_id, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, name, type, parent_id, metadata, created_at, updated_at
       FROM descendants
       ORDER BY name ASC
       `,
@@ -241,7 +243,7 @@ class OrganizationUnitRepository {
     const row = await runQueryWithTenant<OrganizationUnitRow>(
       tenantId,
       `
-      SELECT ou.id, ou.tenant_id, ou.name, ou.type, ou.parent_id, ou.metadata, ou.createdAt, ou.updatedAt
+      SELECT ou.id, ou.tenant_id, ou.name, ou.type, ou.parent_id, ou.metadata, ou.created_at, ou.updated_at
       FROM organization_units ou
       INNER JOIN actors a ON a.organization_unit_id = ou.id
       WHERE ou.tenant_id = $1 AND a.actor_id = $2

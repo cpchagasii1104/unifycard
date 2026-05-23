@@ -5,6 +5,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { trustService } from './trust.service';
 import { NotFoundError } from '@core/errors';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 
 const trustRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -21,12 +22,7 @@ const trustRoutes: FastifyPluginAsync = async (fastify) => {
       if (!req.user.id) {
         return reply.status(400).send({ error: 'ID do usuário não encontrado' });
       }
-      const { socialPortsRegistry } = await import('@core/social/ports-registry');
-      const actorRepository = socialPortsRegistry.getActorRepository();
-      const userActor = await actorRepository.findOrCreateUserActor(
-        req.tenant.id,
-        req.user.id
-      );
+      const userActor = await ensureUserActor(req.tenant.id, req.user.id);
 
       if (!userActor?.actor_id) {
         return reply.status(400).send({ error: 'Actor não encontrado' });
@@ -63,12 +59,7 @@ const trustRoutes: FastifyPluginAsync = async (fastify) => {
       if (!req.user.id) {
         return reply.status(400).send({ error: 'ID do usuário não encontrado' });
       }
-      const { socialPortsRegistry } = await import('@core/social/ports-registry');
-      const actorRepository = socialPortsRegistry.getActorRepository();
-      const userActor = await actorRepository.findOrCreateUserActor(
-        req.tenant.id,
-        req.user.id
-      );
+      const userActor = await ensureUserActor(req.tenant.id, req.user.id);
 
       if (!userActor?.actor_id) {
         return reply.status(400).send({ error: 'Actor não encontrado' });

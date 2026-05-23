@@ -1,7 +1,7 @@
 // backend/src/core/pilot/pilot-notes.repository.ts
 // SPRINT 15: Repository para notas de observação humana
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface PilotNote {
   noteId: string;
@@ -32,7 +32,7 @@ class PilotNotesRepository {
       observed_user_id: string;
       content: string;
       created_by_user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -45,14 +45,14 @@ class PilotNotesRepository {
       [tenantId, input.observedUserId, input.content.trim(), createdByUserId]
     );
 
-    const row = result[0];
+    if (!result) throw new Error('create: INSERT did not return row');
     return {
-      noteId: row.note_id,
-      tenantId: row.tenant_id,
-      observedUserId: row.observed_user_id,
-      content: row.content,
-      createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt,
+      noteId: result.note_id,
+      tenantId: result.tenant_id,
+      observedUserId: result.observed_user_id,
+      content: result.content,
+      createdByUserId: result.created_by_user_id,
+      createdAt: result.created_at,
     };
   }
 
@@ -70,13 +70,13 @@ class PilotNotesRepository {
     const limit = options?.limit || 100;
     const offset = options?.offset || 0;
 
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       note_id: string;
       tenant_id: string;
       observed_user_id: string;
       content: string;
       created_by_user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -84,20 +84,20 @@ class PilotNotesRepository {
         FROM pilot_notes
         WHERE tenant_id = $1
           AND observed_user_id = $2
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT $3
         OFFSET $4
       `,
       [tenantId, observedUserId, limit, offset]
     );
 
-    return result.map((row) => ({
+    return rows.map((row) => ({
       noteId: row.note_id,
       tenantId: row.tenant_id,
       observedUserId: row.observed_user_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt,
+      createdAt: row.created_at,
     }));
   }
 
@@ -119,7 +119,7 @@ class PilotNotesRepository {
       [tenantId, noteId]
     );
 
-    return parseInt(result[0]?.count || '0', 10) > 0;
+    return parseInt(result?.count ?? '0', 10) > 0;
   }
 }
 

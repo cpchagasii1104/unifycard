@@ -9,12 +9,16 @@
 // 🔴 BLINDAGEM: Nenhum check-in
 // 🔴 BLINDAGEM: Nenhuma decisão sistêmica
 
+import { createHash } from 'crypto';
+import { getClientWithTenant } from '@core/database/pool';
+import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { servicePaymentRequestRepository } from './service-payment-request.repository';
 // 🔴 CORREÇÃO FASE 1B: Removida referência a serviceBookingRepository
 // Toda lógica temporal agora usa unifiedAvailabilityService
 import { serviceBookingDecisionRepository } from './service-booking-decision.repository';
 import { servicesRepository } from './services.repository';
 import { actorRepository } from '@modules/social/actor.repository';
+import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
 import type {
   ServicePaymentRequest,
@@ -23,6 +27,43 @@ import type {
 } from './service-payment-request.types';
 import { PaymentRequestStatus } from './service-payment-request.types';
 import { BookingDecisionStatus } from './service-booking-decision.types';
+
+/**
+ * `event_outbox.event_id` UUID estável por pedido — pós-commit após `repository.create`
+ * (repositório não aceita `PoolClient`; ver EVENT_OUTBOX_E_ENTREGA_CANONICO.md §3).
+ */
+function deterministicServicePaymentRequestedOutboxEventId(
+  tenantId: string,
+  paymentRequestId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`SERVICE_PAYMENT_REQUESTED:${tenantId}:${paymentRequestId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * UUID estável por cancelamento — pós-commit após `repository.update` (ramo CANCELLED).
+ */
+function deterministicServicePaymentCancelledOutboxEventId(
+  tenantId: string,
+  paymentRequestId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`SERVICE_PAYMENT_CANCELLED:${tenantId}:${paymentRequestId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 class ServicePaymentRequestService {
   /**
@@ -109,43 +150,51 @@ class ServicePaymentRequestService {
       currency: input.currency || 'FIC', // Default: moeda fictícia
     });
 
-    // 🔴 BLINDAGEM: Emitir effects ao criar payment request
+    // 🔴 BLINDAGEM: Enfileirar effect na outbox (pós-commit do INSERT do pedido)
     // Effect é consequência sistêmica, não decisão humana
-    // Pagamento é um PEDIDO de pagamento, não execução automática
     try {
-      const { eventBus } = await import('@core/events/event-bus');
-      const { v4: uuidv4 } = await import('uuid');
-      const { ActorEffect } = await import('@modules/social/actor-effects.types');
-      
-      await eventBus.publish({
-        eventId: uuidv4(),
-        tenantId,
-        type: ActorEffect.SERVICE_PAYMENT_REQUESTED,
-        version: 1,
-        payload: {
-          actorId: input.payerActorId,
-          actorType: payerActor.actor_type as any,
-          intent: 'REQUEST_PAYMENT',
-          sourceId: paymentRequest.paymentRequestId,
-          sourceType: 'service_payment_request',
-          metadata: {
-            bookingId: booking.bookingId,
-            serviceId: service.serviceId,
-            amountCents: paymentRequest.amountCents,
-            currency: paymentRequest.currency,
-            status: paymentRequest.status,
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: deterministicServicePaymentRequestedOutboxEventId(
+            tenantId,
+            paymentRequest.paymentRequestId
+          ),
+          eventType: ActorEffect.SERVICE_PAYMENT_REQUESTED,
+          eventVersion: 1,
+          payload: {
+            actorId: input.payerActorId,
+            actorType: payerActor.actor_type as any,
+            intent: 'REQUEST_PAYMENT',
+            sourceId: paymentRequest.paymentRequestId,
+            sourceType: 'service_payment_request',
+            metadata: {
+              bookingId: booking.bookingId,
+              serviceId: service.serviceId,
+              amountCents: paymentRequest.amountCents,
+              currency: paymentRequest.currency,
+              status: paymentRequest.status,
+            },
           },
-        },
-        metadata: {
-          userId: userId,
-          serviceId: service.serviceId,
-          bookingId: booking.bookingId,
-          paymentRequestId: paymentRequest.paymentRequestId,
-        },
-      });
+          metadata: {
+            userId: userId,
+            serviceId: service.serviceId,
+            bookingId: booking.bookingId,
+            paymentRequestId: paymentRequest.paymentRequestId,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (outboxErr) {
+        await outboxClient.query('ROLLBACK');
+        throw outboxErr;
+      } finally {
+        outboxClient.release();
+      }
     } catch (error) {
-      // Não quebra criação se effect falhar
-      console.error('Erro ao emitir effects ao criar payment request (não crítico):', error);
+      // Não quebra criação se enfileiramento falhar
+      console.error('Erro ao enfileirar effect ao criar payment request (não crítico):', error);
     }
 
     return paymentRequest;
@@ -222,44 +271,53 @@ class ServicePaymentRequestService {
     // Atualizar payment request
     const updatedPaymentRequest = await servicePaymentRequestRepository.update(tenantId, paymentRequestId, input);
 
-    // 🔴 BLINDAGEM: Emitir effects se status mudou para 'cancelled'
+    // 🔴 BLINDAGEM: Enfileirar effect na outbox se status mudou para 'cancelled'
     // Pagamento é um PEDIDO de pagamento, não execução automática
     if (input.status === PaymentRequestStatus.CANCELLED && currentPaymentRequest.status !== PaymentRequestStatus.CANCELLED) {
       try {
-        const { eventBus } = await import('@core/events/event-bus');
-        const { v4: uuidv4 } = await import('uuid');
-        const { ActorEffect } = await import('@modules/social/actor-effects.types');
-        
-        await eventBus.publish({
-          eventId: uuidv4(),
-          tenantId,
-          type: ActorEffect.SERVICE_PAYMENT_CANCELLED,
-          version: 1,
-          payload: {
-            actorId: currentPaymentRequest.payerActorId,
-            actorType: 'user' as any, // Será resolvido pelo effect handler
-            intent: 'REQUEST_PAYMENT',
-            sourceId: updatedPaymentRequest.paymentRequestId,
-            sourceType: 'service_payment_request',
-            metadata: {
-              bookingId: currentPaymentRequest.bookingId,
-              serviceId: service.serviceId,
-              amountCents: updatedPaymentRequest.amountCents,
-              currency: updatedPaymentRequest.currency,
-              status: updatedPaymentRequest.status,
-              cancelled: true,
+        const outboxClient = await getClientWithTenant(tenantId);
+        try {
+          await outboxClient.query('BEGIN');
+          await insertEventOutboxRow(outboxClient, {
+            tenantId,
+            eventId: deterministicServicePaymentCancelledOutboxEventId(
+              tenantId,
+              updatedPaymentRequest.paymentRequestId
+            ),
+            eventType: ActorEffect.SERVICE_PAYMENT_CANCELLED,
+            eventVersion: 1,
+            payload: {
+              actorId: currentPaymentRequest.payerActorId,
+              actorType: 'user' as any, // Será resolvido pelo effect handler
+              intent: 'REQUEST_PAYMENT',
+              sourceId: updatedPaymentRequest.paymentRequestId,
+              sourceType: 'service_payment_request',
+              metadata: {
+                bookingId: currentPaymentRequest.bookingId,
+                serviceId: service.serviceId,
+                amountCents: updatedPaymentRequest.amountCents,
+                currency: updatedPaymentRequest.currency,
+                status: updatedPaymentRequest.status,
+                cancelled: true,
+              },
             },
-          },
-          metadata: {
-            userId: userId,
-            serviceId: service.serviceId,
-            bookingId: currentPaymentRequest.bookingId,
-            paymentRequestId: updatedPaymentRequest.paymentRequestId,
-          },
-        });
+            metadata: {
+              userId: userId,
+              serviceId: service.serviceId,
+              bookingId: currentPaymentRequest.bookingId,
+              paymentRequestId: updatedPaymentRequest.paymentRequestId,
+            },
+          });
+          await outboxClient.query('COMMIT');
+        } catch (outboxErr) {
+          await outboxClient.query('ROLLBACK');
+          throw outboxErr;
+        } finally {
+          outboxClient.release();
+        }
       } catch (error) {
-        // Não quebra atualização se effect falhar
-        console.error('Erro ao emitir effects ao cancelar payment request (não crítico):', error);
+        // Não quebra atualização se enfileiramento falhar
+        console.error('Erro ao enfileirar effect ao cancelar payment request (não crítico):', error);
       }
     }
 

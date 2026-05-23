@@ -17,23 +17,23 @@ class MyOrdersService {
   ): Promise<MyOrderItem[]> {
     const orders: MyOrderItem[] = [];
 
-    // 1. Buscar Bookings
-    const { serviceBookingRepository } = await import('../services/service-booking.repository');
-    const bookings = await serviceBookingRepository.findByRequesterActor(tenantId, requesterActorId);
+    // 1. Buscar Service Orders com booking (tratados como "bookings" para exibição)
+    const { serviceOrderRepository } = await import('../services/service-order.repository');
+    const ordersWithBooking = await serviceOrderRepository.listOrders(tenantId, {
+      customerActorId: requesterActorId,
+      limit: 10000,
+    });
+    const bookingsFromOrders = ordersWithBooking.filter((so) => so.bookingId != null);
 
-    for (const booking of bookings) {
-      // Buscar Service Order relacionado
-      let serviceOrder = null;
-      if (booking.bookingId) {
-        const { serviceOrderRepository } = await import('../services/service-order.repository');
-        const orders = await serviceOrderRepository.listOrders(tenantId, {
-          bookingId: booking.bookingId,
-          limit: 1,
-        });
-        serviceOrder = orders.length > 0 ? orders[0] : null;
-      }
-
-      // Buscar Agreement relacionado
+    for (const so of bookingsFromOrders) {
+      const booking = {
+        bookingId: so.bookingId as string,
+        serviceId: so.serviceId,
+        requesterActorId: so.customerActorId,
+        status: so.status,
+        metadata: so.metadata,
+      };
+      const serviceOrder = so;
       const { agreementRepository } = await import('../agreements/agreement.repository');
       const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
       const agreement = agreements.find(
@@ -77,18 +77,18 @@ class MyOrdersService {
       if (hasOpenDispute) {
         status = 'disputed';
       } else if (serviceOrder) {
-        if (serviceOrder.status === 'COMPLETED') {
+        if (serviceOrder.status === 'completed') {
           status = 'completed';
-        } else if (serviceOrder.status === 'IN_PROGRESS') {
+        } else if (serviceOrder.status === 'in_progress') {
           status = 'in_execution';
-        } else if (serviceOrder.status === 'CANCELLED') {
+        } else if (serviceOrder.status === 'cancelled') {
           status = 'cancelled';
-        } else if (serviceOrder.status === 'CONFIRMED') {
-          status = agreement?.status === 'FINALIZED' ? 'agreement_finalized' : 'negotiation';
+        } else if (serviceOrder.status === 'confirmed') {
+          status = agreement?.status === 'finalized' ? 'agreement_finalized' : 'negotiation';
         }
-      } else if (booking.status === 'CANCELLED' || booking.status === 'EXPIRED') {
+      } else if (booking.status === 'cancelled') {
         status = 'cancelled';
-      } else if (agreement?.status === 'FINALIZED') {
+      } else if (agreement?.status === 'finalized') {
         status = 'agreement_finalized';
       }
 
@@ -112,9 +112,9 @@ class MyOrdersService {
         eventName: booking.metadata?.eventName || null,
         agreedPriceCents: agreement?.priceCents || null,
         currency: agreement?.currency || 'BRL',
-        createdAt: booking.createdAt,
-        updatedAt: booking.updatedAt,
-        scheduledStart: serviceOrder?.scheduledStart || null,
+        createdAt: so.createdAt,
+        updatedAt: so.updatedAt,
+        scheduledStart: serviceOrder?.scheduledStart ?? null,
         scheduledEnd: serviceOrder?.scheduledEnd || null,
         completedAt: serviceOrder?.completedAt || null,
         bookingId: booking.bookingId,
@@ -132,7 +132,6 @@ class MyOrdersService {
     }
 
     // 2. Buscar Service Orders diretos (sem booking)
-    const { serviceOrderRepository } = await import('../services/service-order.repository');
     const serviceOrders = await serviceOrderRepository.listOrders(tenantId, {
       customerActorId: requesterActorId,
       limit: 1000,
@@ -148,7 +147,7 @@ class MyOrdersService {
       const { agreementRepository } = await import('../agreements/agreement.repository');
       const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
       const agreement = agreements.find(
-        (a) => a.contextType === 'service_order' && a.contextId === so.id
+        (a) => a.contextType === 'service' && a.contextId === so.id
       );
 
       // Buscar Evidence Pack
@@ -179,14 +178,14 @@ class MyOrdersService {
 
       // Determinar status
       let status: MyOrderItem['status'] = 'negotiation';
-      if (so.status === 'COMPLETED') {
+      if (so.status === 'completed') {
         status = 'completed';
-      } else if (so.status === 'IN_PROGRESS') {
+      } else if (so.status === 'in_progress') {
         status = 'in_execution';
-      } else if (so.status === 'CANCELLED') {
+      } else if (so.status === 'cancelled') {
         status = 'cancelled';
-      } else if (so.status === 'CONFIRMED') {
-        status = agreement?.status === 'FINALIZED' ? 'agreement_finalized' : 'negotiation';
+      } else if (so.status === 'confirmed') {
+        status = agreement?.status === 'finalized' ? 'agreement_finalized' : 'negotiation';
       }
 
       const hasOpenDispute = evidencePack?.disputeStatus === 'OPEN';
@@ -231,8 +230,8 @@ class MyOrdersService {
     }
 
     // 3. Buscar RFQs
-    const { eventService } = await import('../events/event.service');
-    const events = await eventService.listEvents(tenantId, { limit: 10000 });
+    const { eventRepository } = await import('../events/event.repository');
+    const events = await eventRepository.listEvents(tenantId, { limit: 10000 });
     
     for (const event of events) {
       if (event.organizerActorId !== requesterActorId) continue;
@@ -261,7 +260,7 @@ class MyOrdersService {
         let status: MyOrderItem['status'] = 'negotiation';
         if (hasOpenDispute) {
           status = 'disputed';
-        } else if (agreement?.status === 'FINALIZED') {
+        } else if (agreement?.status === 'finalized') {
           status = 'agreement_finalized';
         } else if (rfq.status === 'closed') {
           status = 'cancelled';
@@ -277,8 +276,14 @@ class MyOrdersService {
           eventName: event.title,
           agreedPriceCents: agreement?.priceCents || null,
           currency: agreement?.currency || 'BRL',
-          createdAt: new Date(rfq.createdAt || event.createdAt),
-          updatedAt: new Date(rfq.updatedAt || event.updatedAt),
+          createdAt: (() => {
+            const d = rfq.createdAt ?? event.createdAt;
+            return typeof d === 'string' ? d : new Date(d as number | Date).toISOString();
+          })(),
+          updatedAt: (() => {
+            const d = rfq.updatedAt ?? event.updatedAt;
+            return typeof d === 'string' ? d : new Date(d as number | Date).toISOString();
+          })(),
           scheduledStart: event.startAt || null,
           scheduledEnd: event.endAt || null,
           completedAt: null,
@@ -306,17 +311,17 @@ class MyOrdersService {
       filtered = filtered.filter((o) => o.status === filters.status);
     }
     if (filters.startDate) {
-      filtered = filtered.filter((o) => o.createdAt >= filters.startDate!);
+      filtered = filtered.filter((o) => new Date(o.createdAt) >= filters.startDate!);
     }
     if (filters.endDate) {
-      filtered = filtered.filter((o) => o.createdAt <= filters.endDate!);
+      filtered = filtered.filter((o) => new Date(o.createdAt) <= filters.endDate!);
     }
     if (filters.hasOpenDispute !== undefined) {
       filtered = filtered.filter((o) => o.hasOpenDispute === filters.hasOpenDispute);
     }
 
     // Ordenar por data de atualização (mais recente primeiro)
-    filtered.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     // Aplicar paginação
     const limit = filters.limit || 100;
@@ -368,8 +373,8 @@ class MyOrdersService {
 
     return {
       totalOrders: orders.length,
-      ordersByStatus: ordersByStatus as any,
-      ordersByType: ordersByType as any,
+      ordersByStatus: ordersByStatus as Record<MyOrderItem['status'], number>,
+      ordersByType: ordersByType as Record<MyOrderItem['orderType'], number>,
       totalValueCents,
       currency: 'BRL',
       openDisputes,

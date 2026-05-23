@@ -26,6 +26,10 @@ export interface CompleteProfile {
     metadata: Record<string, any>;
     referralCode: string | null;
     cpf: string | null;
+    birthdate: string | null;
+    profile_personal_confirmed: boolean;
+    profilePersonalConfirmed: boolean;
+    can_edit_personal_data: boolean;
   } | null;
   identity_status: 'COMPLETE' | 'INCOMPLETE';
   professional_profile: {
@@ -226,6 +230,8 @@ export class CoreService {
           phone: string | null;
           metadata: any;
           cpf: string | null;
+          birthdate: Date | string | null;
+          profile_personal_confirmed: boolean | null;
         }>(
           tenantId,
           `
@@ -233,9 +239,16 @@ export class CoreService {
             p.full_name,
             p.phone,
             p.metadata,
-            up.cpf
+            up.cpf,
+            gu.birthdate,
+            (
+              COALESCE(p.is_profile_personal_confirmed, false)
+              OR COALESCE((p.metadata->>'profile_personal_confirmed')::boolean, false)
+            ) AS profile_personal_confirmed
           FROM profiles p
           LEFT JOIN user_profiles up ON up.user_id = p.user_id
+          LEFT JOIN users u ON u.id = p.user_id
+          LEFT JOIN global_users gu ON gu.global_user_id = u.global_user_id
           WHERE p.tenant_id = $1 AND p.user_id = $2
           ORDER BY p.updated_at DESC
           LIMIT 1
@@ -250,6 +263,13 @@ export class CoreService {
           // 🔴 REGRA: CPF SEMPRE vem de user_profiles (fonte única de verdade)
           // Se não encontrou CPF na query acima, usar o que foi buscado anteriormente
           const finalCpf = row.cpf || cpf;
+          const profilePersonalConfirmed = row.profile_personal_confirmed === true;
+          const birthdate =
+            row.birthdate instanceof Date
+              ? `${row.birthdate.getUTCFullYear()}-${String(row.birthdate.getUTCMonth() + 1).padStart(2, '0')}-${String(row.birthdate.getUTCDate()).padStart(2, '0')}`
+              : typeof row.birthdate === 'string'
+                ? row.birthdate.substring(0, 10)
+                : null;
           
           // 🔴 INSTRUMENTAÇÃO: Log do metadata ANTES de montar personal_profile
           console.log('[CoreService] 🔍 Dados recebidos da query com JOIN:', {
@@ -262,6 +282,7 @@ export class CoreService {
             metadataKeys: row.metadata ? Object.keys(row.metadata) : [],
             cpfFromUserProfiles: row.cpf,
             finalCpf: finalCpf,
+            profilePersonalConfirmed,
             hasAddress: !!row.metadata?.address,
           });
           
@@ -274,6 +295,10 @@ export class CoreService {
             metadata: row.metadata || {},
             referralCode: referralCode,
             cpf: finalCpf, // ← FONTE ÚNICA: user_profiles
+            birthdate,
+            profile_personal_confirmed: profilePersonalConfirmed,
+            profilePersonalConfirmed,
+            can_edit_personal_data: !profilePersonalConfirmed,
           };
           
           console.log('[CoreService] ✅ personal_profile montado com CPF de user_profiles:', {
@@ -284,6 +309,7 @@ export class CoreService {
             hasMetadata: !!profile.personal_profile.metadata,
             metadataKeys: Object.keys(profile.personal_profile.metadata || {}),
             cpf: profile.personal_profile.cpf ? profile.personal_profile.cpf.substring(0, 3) + '***' : null,
+            profilePersonalConfirmed: profile.personal_profile.profilePersonalConfirmed,
             cpfSource: 'user_profiles',
           });
         } else {
@@ -295,6 +321,10 @@ export class CoreService {
             metadata: {},
             referralCode: referralCode,
             cpf: cpf, // ← FONTE ÚNICA: user_profiles (buscado anteriormente)
+            birthdate: null,
+            profile_personal_confirmed: false,
+            profilePersonalConfirmed: false,
+            can_edit_personal_data: true,
           };
         }
       } catch (err) {
@@ -306,6 +336,10 @@ export class CoreService {
           metadata: {},
           referralCode: referralCode,
           cpf: cpf, // ← FONTE ÚNICA: user_profiles (buscado anteriormente)
+          birthdate: null,
+          profile_personal_confirmed: false,
+          profilePersonalConfirmed: false,
+          can_edit_personal_data: true,
         };
       }
 
@@ -472,11 +506,21 @@ export class CoreService {
           const companyAddress = await runQueryWithTenant<any>(
             tenantId,
             `
-            SELECT c.cep, c.address, c.address_number, c.complement, c.neighborhood, c.city, c.state, c.country
+            SELECT
+              a.postal_code AS cep,
+              a.street AS address,
+              a.number AS address_number,
+              a.complement AS complement,
+              NULL::text AS neighborhood,
+              NULL::text AS city,
+              NULL::text AS state,
+              'BR'::text AS country,
+              a.address_id AS canonical_address_id
             FROM companies c
             INNER JOIN company_users cu ON c.company_id = cu.company_id
             INNER JOIN users u ON cu.global_user_id = u.global_user_id
-            WHERE u.user_id = $1 AND u.tenant_id = $2 AND c.status = 'active'
+            LEFT JOIN addresses a ON c.primary_address_id = a.address_id
+            WHERE u.user_id = $1 AND u.tenant_id = $2 AND c.status = 'active' AND a.address_id IS NOT NULL
             ORDER BY c.created_at DESC
             LIMIT 1
             `,
@@ -484,7 +528,7 @@ export class CoreService {
           );
           if (companyAddress) {
             profile.addresses = [{
-              address_id: 'company',
+              address_id: companyAddress.canonical_address_id || 'company',
               cep: companyAddress.cep,
               address: companyAddress.address,
               address_number: companyAddress.address_number,
@@ -793,6 +837,3 @@ export class CoreService {
 }
 
 export const coreService = new CoreService();
-
-
-

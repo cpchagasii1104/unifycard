@@ -21,6 +21,7 @@ Objetivo:
 
 Dependências obrigatórias:
 - tenants
+- tenant_contexts (migration 0059; bootstrap alinhado a tenant.service.createTenant)
 - users
 - profiles
 - companies
@@ -97,7 +98,8 @@ BEGIN
   -- =================================================
   -- 1) TENANT DEMO
   -- =================================================
-  SELECT t.tenant_id
+  -- Contrato SSOT (espelho de createTenant): INSERT tenant + bootstrap canónico em tenant_contexts no mesmo ramo.
+  SELECT t.id
     INTO v_tenant_id
   FROM tenants t
   WHERE t.slug = c_tenant_slug
@@ -106,7 +108,23 @@ BEGIN
   IF v_tenant_id IS NULL THEN
     INSERT INTO tenants (name, slug)
     VALUES (c_tenant_name, c_tenant_slug)
-    RETURNING tenant_id INTO v_tenant_id;
+    RETURNING id INTO v_tenant_id;
+
+    INSERT INTO tenant_contexts (tenant_id, context, permission)
+    SELECT v_tenant_id, c, 'read'::text
+    FROM unnest(
+      ARRAY[
+        'professional',
+        'interest',
+        'education',
+        'hobby',
+        'learning',
+        'health',
+        'company',
+        'lifestyle'
+      ]::text[]
+    ) AS t(c)
+    ON CONFLICT (tenant_id, context) DO NOTHING;
 
     RAISE NOTICE '✅ Tenant criado: % (%).', c_tenant_name, v_tenant_id;
   ELSE

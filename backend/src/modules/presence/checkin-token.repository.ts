@@ -21,7 +21,7 @@ interface CheckinTokenRow {
   created_by_actor_id: string | null;
   created_by_user_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class CheckinTokenRepository {
@@ -38,7 +38,7 @@ class CheckinTokenRepository {
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -64,7 +64,7 @@ class CheckinTokenRepository {
       )
       VALUES ($1, $2, $3, $4, 'ACTIVE', $5, $6, $7, $8, $9::jsonb)
       RETURNING id, tenant_id, context_type, context_id, token, status,
-                valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, createdAt
+                valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, created_at
       `,
       [
         tenantId,
@@ -91,7 +91,7 @@ class CheckinTokenRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, token, status,
-             valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, createdAt
+             valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, created_at
       FROM checkin_tokens
       WHERE tenant_id = $1 AND token = $2
       `,
@@ -122,10 +122,10 @@ class CheckinTokenRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, token, status,
-             valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, createdAt
+             valid_from, valid_to, created_by_actor_id, created_by_user_id, metadata, created_at
       FROM checkin_tokens
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, contextType, contextId]
     );

@@ -67,9 +67,14 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
           metadata: item.metadata,
         })),
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -94,9 +99,14 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       return reply.send({ ok: true, data: counter });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -127,9 +137,14 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
         status: item.status,
         readAt: item.readAt?.toISOString(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -160,9 +175,14 @@ const socialInboxRoutes: FastifyPluginAsync = async (fastify) => {
         status: item.status,
         archivedAt: item.archivedAt?.toISOString(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 };

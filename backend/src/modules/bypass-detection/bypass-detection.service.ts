@@ -290,7 +290,7 @@ class BypassDetectionService {
     tenantId: string,
     actorId: string,
     messageContent: string,
-    contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread',
+    contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread' | 'rfq',
     contextId: string
   ): Promise<{ detected: boolean; eventId?: string; signalType?: BypassSignalType }> {
     const analysis = this.analyzeMessage(messageContent);

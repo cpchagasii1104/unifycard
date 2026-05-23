@@ -14,6 +14,8 @@ export interface ActorCapabilities {
   can_hold_assets?: boolean;
   can_create_events?: boolean;
   can_manage_members?: boolean;
+  /** Gate marketplace (PERMISSION_CAPABILITIES / authorization.service). */
+  can_manage_marketplace?: boolean;
   [key: string]: any;
 }
 
@@ -77,8 +79,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -92,7 +94,7 @@ class ActorRegistryService {
           entity_table = EXCLUDED.entity_table,
           entity_id = EXCLUDED.entity_id,
           capabilities_json = EXCLUDED.capabilities_json,
-          updatedAt = NOW()
+          updated_at = NOW()
         RETURNING *
       `,
       [tenantId, actorId, actorType, entityTable, entityId, JSON.stringify(finalCapabilities)]
@@ -113,15 +115,15 @@ class ActorRegistryService {
     }
 
     return {
-      registryId: result[0].registry_id,
-      tenantId: result[0].tenant_id,
-      actorId: result[0].actor_id,
-      actorType: result[0].actor_type as ActorRegistryType,
-      entityTable: result[0].entity_table,
-      entityId: result[0].entity_id,
-      capabilities: result[0].capabilities_json,
-      createdAt: result[0].createdAt,
-      updatedAt: result[0].updatedAt,
+      registryId: result?.registry_id ?? '',
+      tenantId: result?.tenant_id ?? '',
+      actorId: result?.actor_id ?? '',
+      actorType: (result?.actor_type as ActorRegistryType) ?? 'company',
+      entityTable: result?.entity_table ?? '',
+      entityId: result?.entity_id ?? '',
+      capabilities: result?.capabilities_json ?? {},
+      createdAt: result?.created_at ?? new Date(),
+      updatedAt: result?.updated_at ?? new Date(),
     };
   }
 
@@ -132,7 +134,7 @@ class ActorRegistryService {
     tenantId: string,
     actorId: string
   ): Promise<ActorRegistryEntry | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       registry_id: string;
       tenant_id: string;
       actor_id: string;
@@ -140,8 +142,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -153,11 +155,10 @@ class ActorRegistryService {
       [tenantId, actorId]
     );
 
-    if (!result || result.length === 0) {
+    if (!row) {
       return null;
     }
 
-    const row = result[0];
     return {
       registryId: row.registry_id,
       tenantId: row.tenant_id,
@@ -166,8 +167,8 @@ class ActorRegistryService {
       entityTable: row.entity_table,
       entityId: row.entity_id,
       capabilities: row.capabilities_json,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -179,7 +180,7 @@ class ActorRegistryService {
     entityTable: string,
     entityId: string
   ): Promise<ActorRegistryEntry | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       registry_id: string;
       tenant_id: string;
       actor_id: string;
@@ -187,8 +188,8 @@ class ActorRegistryService {
       entity_table: string;
       entity_id: string;
       capabilities_json: any;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -200,11 +201,10 @@ class ActorRegistryService {
       [tenantId, entityTable, entityId]
     );
 
-    if (!result || result.length === 0) {
+    if (!row) {
       return null;
     }
 
-    const row = result[0];
     return {
       registryId: row.registry_id,
       tenantId: row.tenant_id,
@@ -213,8 +213,8 @@ class ActorRegistryService {
       entityTable: row.entity_table,
       entityId: row.entity_id,
       capabilities: row.capabilities_json,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -231,6 +231,7 @@ class ActorRegistryService {
           can_hold_assets: true,
           can_create_events: true,
           can_manage_members: true,
+          can_manage_marketplace: true,
         };
       case 'event':
         return {

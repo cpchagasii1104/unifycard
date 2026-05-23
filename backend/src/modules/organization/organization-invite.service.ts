@@ -7,6 +7,7 @@ import { organizationMemberRepository } from './organization-member.repository';
 import { organizationRoleService } from './organization-role.service';
 import type {
   OrganizationInvite,
+  OrganizationMember,
   InviteUserInput,
   AcceptInviteInput,
   OrganizationInviteFilters,
@@ -115,21 +116,20 @@ class OrganizationInviteService {
 
     // Validar que usuário existe e email corresponde
     const { runQueryWithTenant } = await import('@core/database/pool');
-    const userRows = await runQueryWithTenant<{ user_id: string; email: string }>(
-      tenantId,
-      `
+    const userRow = await runQueryWithTenant<{ user_id: string; email: string }>(tenantId, {
+      text: `
       SELECT user_id, email
       FROM users
       WHERE tenant_id = $1 AND user_id = $2
       `,
-      [tenantId, input.userId]
-    );
+      values: [tenantId, input.userId],
+    });
 
-    if (!userRows || userRows.length === 0) {
+    if (!userRow) {
       throw new Error('Usuário não encontrado');
     }
 
-    const user = userRows[0];
+    const user = userRow;
     if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
       throw new Error('Email do usuário não corresponde ao convite');
     }
@@ -246,8 +246,8 @@ class OrganizationInviteService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.invitedByUserId || data.revokedByUserId || data.userId || null,
+        severity: 'medium',
+        actor_id: (data.invitedByUserId || data.revokedByUserId || data.userId) ?? undefined,
         actor_type: 'user',
         source: 'organization',
         context: {

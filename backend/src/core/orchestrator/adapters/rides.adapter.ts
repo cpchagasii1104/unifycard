@@ -80,7 +80,7 @@ function translateRidesEvent(event: UnificardEvent): CanonicalEvent | null {
       tenantId: event.tenantId,
       regionId,
       userId,
-      amount,
+      amountCents: amount ?? 0,
       currency: payload?.currency || metadata?.currency || 'BRL',
       occurredAt: event.createdAt.toISOString(),
       metadata: {
@@ -132,7 +132,7 @@ export async function registerRidesAdapters(): Promise<void> {
 
   for (const eventType of ridesEventTypes) {
     try {
-      eventBus.registerHandler(eventType, handleRidesEvent);
+      eventBus.registerHandler(eventType, `canonical.rides_adapter.${eventType}`, handleRidesEvent);
     } catch (error) {
       console.warn(`[RidesAdapter] Erro ao registrar handler para ${eventType}:`, error);
     }

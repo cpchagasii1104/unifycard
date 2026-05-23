@@ -47,8 +47,8 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
 
     const entries = await loyaltyService.listLedger(tenantId, {
       contactId,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-      offset: offset ? parseInt(offset as string, 10) : undefined,
+      limit: limit != null ? Number(limit) : undefined,
+      offset: offset != null ? Number(offset) : undefined,
     });
 
     return reply.send({ entries });
@@ -63,19 +63,19 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       contactId: string;
       points: number;
       voucherType: 'DISCOUNT_FIXED' | 'DISCOUNT_PERCENT' | 'BENEFIT_FLAG';
-      valueCents: number | null;
+      valueCents?: number | null;
       benefitCode?: string | null;
       expiresAt?: string | null;
     };
   }>('/redeem', async (req, reply) => {
     const tenantId = req.tenant!.id;
-    const { contactId, points, voucherType, value, benefitCode, expiresAt } = req.body;
+    const { contactId, points, voucherType, valueCents, benefitCode, expiresAt } = req.body;
 
     const result = await loyaltyService.redeemPoints(tenantId, {
       contactId,
       points,
       voucherType,
-      valueCents: value || null,
+      valueCents: valueCents ?? null,
       benefitCode: benefitCode || null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     });
@@ -103,8 +103,8 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
     if (query.status) filters.status = query.status;
     if (query.appliesTo) filters.appliesTo = query.appliesTo;
     if (query.appliesId) filters.appliesId = query.appliesId;
-    if (query.limit) filters.limit = parseInt(query.limit as string, 10);
-    if (query.offset) filters.offset = parseInt(query.offset as string, 10);
+    if (query.limit != null) filters.limit = Number(query.limit);
+    if (query.offset != null) filters.offset = Number(query.offset);
 
     const rules = await loyaltyService.listRules(tenantId, filters);
 
@@ -135,7 +135,7 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       name,
       status,
       ruleType,
-      value,
+      valueCents,
       appliesTo,
       appliesId,
       minAmount,
@@ -149,7 +149,7 @@ const loyaltyRoutes = async (fastify: FastifyInstance) => {
       name,
       status,
       ruleType,
-      value,
+      valueCents: valueCents ?? 0,
       appliesTo,
       appliesId: appliesId || null,
       minAmount: minAmount || null,

@@ -14,7 +14,7 @@ interface SocialMarketplaceRefRow {
   ref_type: string;
   ref_id: string;
   metadata: any;
-  createdAt: Date;
+  created_at: string | Date;
 }
 
 class SocialMarketplaceRefRepository {
@@ -29,7 +29,10 @@ class SocialMarketplaceRefRepository {
       refType: row.ref_type as any,
       refId: row.ref_id,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : String(row.created_at),
     };
   }
 
@@ -49,7 +52,7 @@ class SocialMarketplaceRefRepository {
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (tenant_id, post_id, ref_type) 
       DO UPDATE SET ref_id = EXCLUDED.ref_id, metadata = EXCLUDED.metadata
-      RETURNING id, tenant_id, post_id, ref_type, ref_id, metadata, createdAt
+      RETURNING id, tenant_id, post_id, ref_type, ref_id, metadata, created_at
       `,
       [
         tenantId,
@@ -77,7 +80,7 @@ class SocialMarketplaceRefRepository {
     const row = await runQueryWithTenant<SocialMarketplaceRefRow>(
       tenantId,
       `
-      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, createdAt
+      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, created_at
       FROM social_marketplace_refs
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -98,10 +101,10 @@ class SocialMarketplaceRefRepository {
     const rows = await runQueriesWithTenant<SocialMarketplaceRefRow>(
       tenantId,
       `
-      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, createdAt
+      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, created_at
       FROM social_marketplace_refs
       WHERE tenant_id = $1 AND post_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, postId]
     );
@@ -120,10 +123,10 @@ class SocialMarketplaceRefRepository {
     const rows = await runQueriesWithTenant<SocialMarketplaceRefRow>(
       tenantId,
       `
-      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, createdAt
+      SELECT id, tenant_id, post_id, ref_type, ref_id, metadata, created_at
       FROM social_marketplace_refs
       WHERE tenant_id = $1 AND ref_type = $2 AND ref_id = $3
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, refType, refId]
     );

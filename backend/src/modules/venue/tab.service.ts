@@ -53,7 +53,11 @@ class TabService {
 
     return {
       ...tab,
-      orders,
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderId: o.orderId,
+        createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
+      })),
     };
   }
 
@@ -138,7 +142,7 @@ class TabService {
       throw new Error(`Comanda não está aberta (status: ${tab.status})`);
     }
 
-    // Criar order DRAFT
+    // Criar order draft
     const { orderService } = await import('../marketplace/order.service');
     
     // Assumir que buyer é o contact (se houver) ou criar order sem buyer específico
@@ -146,7 +150,7 @@ class TabService {
     const order = await orderService.createOrder(tenantId, {
       buyerActorId: tab.openedByContactId ? tab.actorId : tab.actorId, // Futuro: resolver buyer correto
       sellerActorId: tab.actorId,
-      status: 'DRAFT',
+      status: 'draft',
       metadata: {
         tab_id: tabId,
         source: 'VENUE',
@@ -168,10 +172,21 @@ class TabService {
     return { orderId: order.id, tabId };
   }
 
-  private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
+  private async recordAudit(tenantId: string, data: Record<string, unknown>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      const eventType = typeof data.eventType === 'string' ? data.eventType : 'TAB_EVENT';
+      const context: Record<string, unknown> = { ...data };
+      const input: import('@core/audit/audit.service').AuditEventInput = {
+        event_type: eventType,
+        severity: 'low',
+        source: 'impact',
+        context,
+      };
+      if (typeof data.actorId === 'string') {
+        input.actor_id = data.actorId;
+      }
+      await auditService.record(tenantId, input);
     } catch (error) {
       console.warn('[TabService] Erro ao registrar auditoria:', error);
     }

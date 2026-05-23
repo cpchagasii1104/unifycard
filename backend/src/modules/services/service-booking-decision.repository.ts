@@ -22,11 +22,11 @@ class ServiceBookingDecisionRepository {
       bookingId: row.booking_id,
       decidedByActorId: row.decided_by_actor_id,
       status: row.status as BookingDecisionStatus,
-      decidedAt: row.decidedAt,
+      decidedAt: row.decided_at,
       reason: row.reason,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -39,8 +39,8 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decidedAt, reason, metadata,
-        createdAt, updatedAt
+        status, decided_at, reason, metadata,
+        created_at, updated_at
       FROM service_booking_decisions
       WHERE decision_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -67,8 +67,8 @@ class ServiceBookingDecisionRepository {
       `
       SELECT 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decidedAt, reason, metadata,
-        createdAt, updatedAt
+        status, decided_at, reason, metadata,
+        created_at, updated_at
       FROM service_booking_decisions
       WHERE booking_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -106,14 +106,14 @@ class ServiceBookingDecisionRepository {
       `
       INSERT INTO service_booking_decisions (
         tenant_id, booking_id, decided_by_actor_id,
-        status, decidedAt, reason, metadata
+        status, decided_at, reason, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         decision_id, tenant_id, booking_id, decided_by_actor_id,
-        status, decidedAt, reason, metadata,
-        createdAt, updatedAt
+        status, decided_at, reason, metadata,
+        created_at, updated_at
       `,
       [
         tenantId,

@@ -2,6 +2,10 @@
 // Rotas para motor de inferência entre trilhas
 
 import { FastifyPluginAsync } from 'fastify';
+import {
+  isSemanticResolutionError,
+  replySemanticResolutionFailure,
+} from '@core/semantic/semantic-http';
 import { profileInferenceService } from './profile-inference.service';
 
 const profileInferenceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -26,6 +30,9 @@ const profileInferenceRoutes: FastifyPluginAsync = async (fastify) => {
       );
       return reply.send({ ok: true, data: inferences });
     } catch (error) {
+      if (isSemanticResolutionError(error)) {
+        return replySemanticResolutionFailure(reply, error);
+      }
       fastify.log.error({ err: error }, 'Erro ao buscar inferências');
       return reply.status(500).send({ 
         ok: false, 

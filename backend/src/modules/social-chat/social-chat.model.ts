@@ -2,6 +2,10 @@
 import type { ChatMessage, ChatMessageRow } from './social-chat.types';
 
 export class SocialChatModel {
+  private static tsIso(v: string | Date): string {
+    return v instanceof Date ? v.toISOString() : String(v);
+  }
+
   static fromRow(row: ChatMessageRow): ChatMessage {
     return {
       messageId: row.message_id,
@@ -16,7 +20,7 @@ export class SocialChatModel {
       categories: Array.isArray(row.categories) ? row.categories : [],
       suggestedActions: Array.isArray(row.suggested_actions) ? row.suggested_actions : [],
       metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
-      createdAt: row.createdAt,
+      createdAt: this.tsIso(row.created_at),
     };
   }
 

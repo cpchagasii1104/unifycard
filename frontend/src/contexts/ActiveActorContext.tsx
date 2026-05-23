@@ -2,6 +2,7 @@
 // Wrapper para compatibilidade - agora usa SessionProvider internamente
 
 import { useSession } from './SessionProvider';
+import { isAuthenticated } from '../config/auth';
 import type { AvailableActor } from '../api/social';
 
 // Re-exportar tipos
@@ -13,13 +14,16 @@ export type { AvailableActor };
  */
 export function useActiveActor() {
   const session = useSession();
-  
+
   return {
     activeActor: session.activeActor,
     actors: session.actors,
-    isLoading: !session.sessionReady, // isLoading = !sessionReady
+    /** Carregando enquanto sessão autenticada ainda não hidratou (bootstrap em curso) */
+    isLoading: isAuthenticated() && !session.authHydrated,
     setActiveActor: session.setActiveActor,
     refreshActors: session.refreshActors,
+    hasValidActor: session.hasValidActor,
+    authHydrated: session.authHydrated,
   };
 }
 

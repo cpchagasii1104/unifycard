@@ -103,15 +103,15 @@ describe('Bank P2P Transfer - Integração', () => {
       expect(result.transaction.eventId).toBe(eventId);
       expect(result.fromUserId).toBe(fromUserId);
       expect(result.toUserId).toBe(toUserId);
-      expect(result.fromAccountBalance).toBe(900); // 1000 - 100
-      expect(result.toAccountBalance).toBe(100); // 0 + 100
+      expect(result.fromAccountBalanceCents).toBe(900); // 1000 - 100
+      expect(result.toAccountBalanceCents).toBe(100); // 0 + 100
 
       // Verificar saldos no banco
       const fromAccount = await accountService.getAccountById(testTenantId, fromAccountId);
       const toAccount = await accountService.getAccountById(testTenantId, toAccountId);
 
-      expect(fromAccount?.balance).toBe(900);
-      expect(toAccount?.balance).toBe(100);
+      expect(fromAccount?.balanceCents).toBe(900);
+      expect(toAccount?.balanceCents).toBe(100);
     });
 
     it('deve criar entradas no ledger (double-entry)', async () => {
@@ -325,7 +325,7 @@ describe('Bank P2P Transfer - Integração', () => {
 
       // Verificar que saldo não mudou (rollback funcionou)
       const fromAccount = await accountService.getAccountById(testTenantId, fromAccountId);
-      expect(fromAccount?.balance).toBe(100); // Não mudou
+      expect(fromAccount?.balanceCents).toBe(100); // Não mudou
     });
 
     it('deve garantir ledger balanceado mesmo em caso de erro', async () => {

@@ -13,8 +13,11 @@
 // Nada além disso é autorizado.
 
 import { v4 as uuidv4 } from 'uuid';
-import { runQueryWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '@core/events/event-outbox.repository';
 import { BadRequestError } from '@core/errors';
 
 export type DocumentType = 'CPF' | 'CNPJ';
@@ -104,7 +107,7 @@ class CompanyCanonicalService {
       country: string;
       state: string;
       global_user_id: string | null;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -117,8 +120,8 @@ class CompanyCanonicalService {
         country,
         state,
         global_user_id,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NOW(), NOW())
       RETURNING 
@@ -130,7 +133,7 @@ class CompanyCanonicalService {
         country,
         state,
         global_user_id,
-        createdAt
+        created_at
       `,
       [
         companyId,
@@ -156,26 +159,37 @@ class CompanyCanonicalService {
       country: companyRow.country,
       state: 'CREATED',
       global_user_id: companyRow.global_user_id,
-      createdAt: companyRow.createdAt,
+      createdAt: companyRow.created_at,
     };
 
     // 3. Emitir evento COMPANY_CREATED (ÚNICO evento permitido)
     try {
-      await eventBus.publish({
-        tenantId,
-        type: 'COMPANY_CREATED',
-        version: 1,
-        payload: {
-          company_id: company.company_id,
-          state: 'CREATED',
-        },
-        metadata: {
-          legal_name: company.legal_name,
-          document_type: company.document_type,
-          document_number: company.document_number,
-          country: company.country,
-        },
-      });
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: outboxEventIdFromSeed(`COMPANY_CREATED:${tenantId}:${company.company_id}`),
+          eventType: 'COMPANY_CREATED',
+          eventVersion: 1,
+          payload: {
+            company_id: company.company_id,
+            state: 'CREATED',
+          },
+          metadata: {
+            legal_name: company.legal_name,
+            document_type: company.document_type,
+            document_number: company.document_number,
+            country: company.country,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (inner) {
+        await outboxClient.query('ROLLBACK');
+        throw inner;
+      } finally {
+        outboxClient.release();
+      }
     } catch (error) {
       // 🔴 REGRA: Falha no evento NÃO apaga Company (proibido rollback ontológico)
       // Company permanece mesmo se evento falhar

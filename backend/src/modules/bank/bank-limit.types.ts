@@ -2,6 +2,8 @@
 // SPRINT 36.1: BANK SAFETY LAYER - Modelo Canônico de Limites
 // Tipos para pedidos de mudança de limite
 
+import type { MoneyCents } from '@contracts/marketplace/canonical';
+
 /**
  * Tipo de limite bancário
  */
@@ -25,7 +27,8 @@ export interface BankLimitChangeRequest {
   tenantId: string;
   actorId: string;
   limitType: BankLimitType;
-  requestedAmount: number;
+  /** Valor pedido em centavos (inteiro). */
+  requestedAmountCents: MoneyCents;
   requestedAt: Date;
   effectiveAt: Date;
   status: LimitChangeRequestStatus;
@@ -42,7 +45,7 @@ export interface BankLimitChangeRequest {
 export interface RequestLimitChangeInput {
   actorId: string;
   limitType: BankLimitType;
-  amountCents: number;
+  amountCents: MoneyCents;
   requestedByUserId?: string;
   authoritySource?: AuthoritySource;
   metadata?: Record<string, any>;
@@ -54,13 +57,16 @@ export interface RequestLimitChangeInput {
  */
 export interface CurrentLimits {
   actorId: string;
-  limits: Record<BankLimitType, {
-    current: number;
-    pending?: {
-      amountCents: number;
-      effectiveAt: Date;
-    } | null;
-  }>;
+  limits: Record<
+    BankLimitType,
+    {
+      currentAmountCents: MoneyCents;
+      pending: {
+        requestedAmountCents: MoneyCents;
+        effectiveAt: Date;
+      } | null;
+    }
+  >;
 }
 
 /**
@@ -68,8 +74,8 @@ export interface CurrentLimits {
  */
 export interface ActorLimit {
   limitType: BankLimitType;
-  currentAmount: number;
-  pendingAmount?: number | null;
+  currentAmountCents: MoneyCents;
+  pendingAmountCents?: MoneyCents | null;
   pendingEffectiveAt?: Date | null;
 }
 

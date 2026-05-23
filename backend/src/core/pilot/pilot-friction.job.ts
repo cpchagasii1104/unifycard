@@ -91,8 +91,8 @@ export async function runPilotFrictionJob(): Promise<void> {
   try {
     // Buscar todos os tenants (simplificado - em produção pode ser mais complexo)
     const { pool } = await import('@core/database/pool');
-    const result = await pool.query<{ tenant_id: string }>(
-      'SELECT tenant_id FROM tenants'
+    const result = await pool.query<{ id: string }>(
+      'SELECT id FROM tenants'
     );
 
     let totalExpired = 0;
@@ -101,12 +101,12 @@ export async function runPilotFrictionJob(): Promise<void> {
     for (const row of result.rows) {
       try {
         const { expiredCount, frictionEventsCreated } = await processExpiredInvites(
-          row.tenant_id
+          row.id
         );
         totalExpired += expiredCount;
         totalFrictions += frictionEventsCreated;
       } catch (err) {
-        console.error(`[PilotFriction] Erro ao processar tenant ${row.tenant_id}:`, err);
+        console.error(`[PilotFriction] Erro ao processar tenant ${row.id}:`, err);
       }
     }
 

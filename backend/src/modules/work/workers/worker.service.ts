@@ -1,8 +1,8 @@
 // backend/src/modules/work/workers/worker.service.ts
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
 import { reputationService } from '@core/reputation/reputation.service'; // ⭐ IMPORTAÇÃO NOVA
+import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 
 import type {
   WorkerRow,
@@ -46,8 +46,8 @@ class WorkerService {
       responseTimeAvgMinutes: row.response_time_avg_minutes ?? undefined,
       isActive: row.is_active,
       isVerified: row.is_verified,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -74,8 +74,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       FROM workers
       WHERE worker_id = $1
       `,
@@ -122,8 +122,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       FROM workers
       WHERE user_id = $1
       `,
@@ -233,8 +233,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       `,
       params,
     );
@@ -245,14 +245,16 @@ class WorkerService {
 
     const worker = this.toWorker(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.worker.created',
-      payload: {
+      'work.worker.created',
+      worker.workerId,
+      undefined,
+      {
         workerId: worker.workerId,
         userId: worker.userId,
-      },
-    });
+      }
+    );
 
     // ⭐ ADICIONA REPUTAÇÃO UNIVERSAL
     worker.reputation = await reputationService.getScore(
@@ -331,7 +333,7 @@ class WorkerService {
           ELSE location
         END,
         is_active = COALESCE($8, is_active),
-        updatedAt = now()
+        updated_at = now()
       WHERE tenant_id = $1
         AND worker_id = $2
       RETURNING
@@ -350,8 +352,8 @@ class WorkerService {
         response_time_avg_minutes,
         is_active,
         is_verified,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       `,
       params,
     );
@@ -364,13 +366,15 @@ class WorkerService {
 
     const worker = this.toWorker(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.worker.updated',
-      payload: {
+      'work.worker.updated',
+      worker.workerId,
+      `worker.service:${worker.updatedAt}`,
+      {
         workerId: worker.workerId,
-      },
-    });
+      }
+    );
 
     // ⭐ ADICIONA REPUTAÇÃO UNIVERSAL
     worker.reputation = await reputationService.getScore(
@@ -471,27 +475,26 @@ class WorkerService {
         w.response_time_avg_minutes,
         w.is_active,
         w.is_verified,
-        w.createdAt,
-        w.updatedAt
+        w.created_at,
+        w.updated_at
       ${baseQuery}
       ${whereSql}
-      ORDER BY w.reputation_score DESC, w.createdAt DESC
+      ORDER BY w.reputation_score DESC, w.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset],
     );
 
-    const countRow = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      `
-      SELECT COUNT(*) AS total
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: `
+      SELECT COUNT(*)::text AS "totalCents"
       ${baseQuery}
       ${whereSql}
       `,
-      params,
-    );
+      values: params,
+    });
 
-    const total = countRow ? Number(countRow.total) : 0;
+    const totalCents = countRow ? Number(countRow.totalCents) : 0;
 
     const workers = rows.map((row) => this.toWorker(row));
 
@@ -504,7 +507,7 @@ class WorkerService {
       );
     }
 
-    return { workers, total };
+    return { workers, totalCents };
   }
 }
 

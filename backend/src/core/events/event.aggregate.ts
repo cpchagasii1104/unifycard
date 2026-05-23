@@ -66,12 +66,7 @@ export function canTransition(from: EventStatus, to: EventStatus): boolean {
   if (from === 'ended' || from === 'cancelled') {
     return false;
   }
-  
-  // Não pode cancelar ended
-  if (from === 'ended' && to === 'cancelled') {
-    return false;
-  }
-  
+
   // Mapear status legacy para canônico
   const canonicalFrom = mapToCanonicalStatus(from);
   const canonicalTo = mapToCanonicalStatus(to);

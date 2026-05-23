@@ -38,13 +38,13 @@ class MockPixProvider implements PixProvider {
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
     // Gerar QR Code mock (base64 de uma imagem simples ou texto)
-    const qrCodeText = `00020126580014BR.GOV.BCB.PIX0136${chargeId}5204000053039865405${(input.amount / 100).toFixed(2)}5802BR5925MOCK PIX PROVIDER6009SAO PAULO62070503***6304`;
+    const qrCodeText = `00020126580014BR.GOV.BCB.PIX0136${chargeId}5204000053039865405${(input.amountCents / 100).toFixed(2)}5802BR5925MOCK PIX PROVIDER6009SAO PAULO62070503***6304`;
 
     // Salvar charge no mapa (simulação de banco)
     this.charges.set(chargeId, {
       chargeId,
       status: 'CREATED',
-      amountCents: input.amount,
+      amountCents: input.amountCents,
       expiresAt,
       metadata: input.metadata,
     });
@@ -76,7 +76,7 @@ class MockPixProvider implements PixProvider {
     return {
       chargeId: charge.chargeId,
       status: charge.status,
-      amountCents: charge.amount,
+      amountCents: charge.amountCents,
       expiresAt: charge.expiresAt,
       paidAt: charge.paidAt,
       metadata: charge.metadata,
@@ -97,7 +97,7 @@ class MockPixProvider implements PixProvider {
         chargeId: payload.chargeId,
         providerEventId: payload.providerEventId,
         paidAt: payload.paidAt ? new Date(payload.paidAt) : undefined,
-        amountCents: payload.amount,
+        amountCents: payload.amountCents ?? 0,
         metadata: payload.metadata,
       };
     }

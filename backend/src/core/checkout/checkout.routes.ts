@@ -2,42 +2,59 @@
 // 🔴 CRÍTICO: Rotas de checkout (ingresso + consumo)
 import { FastifyPluginAsync } from 'fastify';
 import { CheckoutEventTicketInput } from '@unificard/contracts';
-import { checkoutService } from './CheckoutService';
-import { TicketService } from '../../services/events/TicketService';
-import { ConsumptionService } from '../../services/events/ConsumptionService';
+import { CheckoutTicketService } from '../../modules/events/CheckoutTicketService';
+import { CheckoutConsumptionService } from '../../modules/events/CheckoutConsumptionService';
+import {
+  AppError,
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+  UnauthorizedError,
+} from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
-const ticketService = new TicketService();
-const consumptionService = new ConsumptionService();
+const ticketService = new CheckoutTicketService();
+const consumptionService = new CheckoutConsumptionService();
+
+function mapCheckoutError(error: Error): never {
+  if (error.message.includes('Event not found')) {
+    throw new NotFoundError(error.message);
+  }
+  if (error.message.includes('sold out') || error.message.includes('not available')) {
+    throw new BadRequestError(error.message, ErrorCode.INVALID_INPUT);
+  }
+  if (error.message.includes('Payment failed') || error.message.includes('Checkout failed')) {
+    throw new AppError(402, error.message, 'PAYMENT_FAILED');
+  }
+  throw new BadRequestError(error.message, ErrorCode.BAD_REQUEST);
+}
 
 const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * POST /api/checkout/event-ticket
-   * Checkout de ingresso
-   */
   fastify.post<{
     Body: CheckoutEventTicketInput;
   }>('/event-ticket', async (req, reply) => {
     if (!req.user) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+      throw new UnauthorizedError('Not authenticated');
     }
 
     if (!req.tenant) {
-      return reply.status(400).send({ error: 'Tenant não encontrado' });
+      throw new BadRequestError('Tenant not found', ErrorCode.MISSING_TENANT);
     }
 
     try {
-      const { eventId } = req.body;
+      const body = req.body as CheckoutEventTicketInput;
+      const { eventId, idempotencyKey } = body;
       const userId = req.user.globalUserId || req.user.id;
 
       if (!eventId) {
-        return reply.status(400).send({ error: 'eventId é obrigatório' });
+        throw new BadRequestError('eventId is required', ErrorCode.VALIDATION_ERROR);
       }
 
       const result = await ticketService.purchaseTicket({
         eventId,
         buyerUserId: userId,
         tenantId: req.tenant.id,
-        idempotencyKey: req.body.idempotencyKey,
+        idempotencyKey,
       });
 
       return reply.status(200).send({
@@ -48,28 +65,15 @@ const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         transactionId: result.transactionId || undefined,
       });
     } catch (error) {
+      if (error instanceof AppError) throw error;
       if (error instanceof Error) {
-        // Erros específicos
-        if (error.message.includes('Event not found')) {
-          return reply.status(404).send({ error: error.message });
-        }
-        if (error.message.includes('sold out') || error.message.includes('not available')) {
-          return reply.status(400).send({ error: error.message });
-        }
-        if (error.message.includes('Payment failed') || error.message.includes('Checkout failed')) {
-          return reply.status(402).send({ error: error.message });
-        }
-        return reply.status(400).send({ error: error.message });
+        mapCheckoutError(error);
       }
       fastify.log.error({ err: error }, 'Erro ao processar checkout de ingresso');
-      return reply.status(500).send({ error: 'Erro ao processar checkout de ingresso' });
+      throw new InternalServerError('Failed to process ticket checkout');
     }
   });
 
-  /**
-   * POST /api/checkout/event-consumption
-   * Checkout de consumo
-   */
   fastify.post<{
     Body: {
       eventId: string;
@@ -82,11 +86,11 @@ const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }>('/event-consumption', async (req, reply) => {
     if (!req.user) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+      throw new UnauthorizedError('Not authenticated');
     }
 
     if (!req.tenant) {
-      return reply.status(400).send({ error: 'Tenant não encontrado' });
+      throw new BadRequestError('Tenant not found', ErrorCode.MISSING_TENANT);
     }
 
     try {
@@ -94,17 +98,28 @@ const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
       const userId = req.user.globalUserId || req.user.id;
 
       if (!eventId) {
-        return reply.status(400).send({ error: 'eventId é obrigatório' });
+        throw new BadRequestError('eventId is required', ErrorCode.VALIDATION_ERROR);
       }
 
       if (!items || !Array.isArray(items) || items.length === 0) {
-        return reply.status(400).send({ error: 'items é obrigatório e deve ser um array não vazio' });
+        throw new BadRequestError(
+          'items is required and must be a non-empty array',
+          ErrorCode.VALIDATION_ERROR
+        );
       }
 
-      // Validação de itens
       for (const item of items) {
-        if (!item.name || typeof item.quantity !== 'number' || item.quantity <= 0 || typeof item.price !== 'number' || item.price < 0) {
-          return reply.status(400).send({ error: 'Cada item deve ter name, quantity > 0 e price >= 0' });
+        if (
+          !item.name ||
+          typeof item.quantity !== 'number' ||
+          item.quantity <= 0 ||
+          typeof item.price !== 'number' ||
+          item.price < 0
+        ) {
+          throw new BadRequestError(
+            'Each item must have name, quantity > 0 and price >= 0',
+            ErrorCode.VALIDATION_ERROR
+          );
         }
       }
 
@@ -123,26 +138,23 @@ const checkoutRoutes: FastifyPluginAsync = async (fastify) => {
         transactionId: result.transactionId || undefined,
       });
     } catch (error) {
+      if (error instanceof AppError) throw error;
       if (error instanceof Error) {
-        // Erros específicos
         if (error.message.includes('Event not found')) {
-          return reply.status(404).send({ error: error.message });
+          throw new NotFoundError(error.message);
         }
         if (error.message.includes('does not accept consumption')) {
-          return reply.status(400).send({ error: error.message });
+          throw new BadRequestError(error.message, ErrorCode.INVALID_INPUT);
         }
         if (error.message.includes('Payment failed') || error.message.includes('Checkout failed')) {
-          return reply.status(402).send({ error: error.message });
+          throw new AppError(402, error.message, 'PAYMENT_FAILED');
         }
-        return reply.status(400).send({ error: error.message });
+        throw new BadRequestError(error.message, ErrorCode.BAD_REQUEST);
       }
       fastify.log.error({ err: error }, 'Erro ao processar checkout de consumo');
-      return reply.status(500).send({ error: 'Erro ao processar checkout de consumo' });
+      throw new InternalServerError('Failed to process consumption checkout');
     }
   });
 };
 
 export default checkoutRoutes;
-
-
-

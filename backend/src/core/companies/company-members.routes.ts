@@ -67,12 +67,17 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
             createdAt: member.createdAt,
           },
         });
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
+        if (error instanceof Error) {
+          fastify.log.error(error);
+          const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+          return reply.status(code ?? 500).send({ error: error.message });
+        }
         fastify.log.error(error);
-        return reply.status(error.statusCode || 500).send({ error: error.message });
+        return reply.status(500).send({ error: String(error) });
       }
     }
   );
@@ -123,9 +128,14 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: m.updatedAt,
         })),
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -159,9 +169,14 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: member.updatedAt,
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -217,12 +232,17 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
             updatedAt: member.updatedAt,
           },
         });
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({ error: error.errors });
         }
+        if (error instanceof Error) {
+          fastify.log.error(error);
+          const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+          return reply.status(code ?? 500).send({ error: error.message });
+        }
         fastify.log.error(error);
-        return reply.status(error.statusCode || 500).send({ error: error.message });
+        return reply.status(500).send({ error: String(error) });
       }
     }
   );
@@ -250,9 +270,14 @@ const companyMembersRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       return reply.status(204).send();
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        const code = 'statusCode' in error && typeof (error as { statusCode?: number }).statusCode === 'number' ? (error as { statusCode?: number }).statusCode : 500;
+        return reply.status(code ?? 500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(error.statusCode || 500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 };

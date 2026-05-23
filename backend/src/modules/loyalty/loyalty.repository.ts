@@ -18,8 +18,8 @@ interface LoyaltyAccountRow {
   lifetime_earned: string;
   lifetime_redeemed: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface LoyaltyLedgerRow {
@@ -34,7 +34,7 @@ interface LoyaltyLedgerRow {
   description: string | null;
   created_by_actor_id: string | null;
   created_by_user_id: string | null;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class LoyaltyRepository {
@@ -48,8 +48,8 @@ class LoyaltyRepository {
       lifetimeEarned: parseInt(row.lifetime_earned, 10),
       lifetimeRedeemed: parseInt(row.lifetime_redeemed, 10),
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -66,7 +66,7 @@ class LoyaltyRepository {
       description: row.description,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -83,8 +83,8 @@ class LoyaltyRepository {
       `
       INSERT INTO loyalty_accounts (tenant_id, contact_id, status, points_balance, lifetime_earned, lifetime_redeemed, metadata)
       VALUES ($1, $2, 'ACTIVE', 0, 0, 0, '{}'::jsonb)
-      ON CONFLICT (tenant_id, contact_id) DO UPDATE SET updatedAt = NOW()
-      RETURNING id, tenant_id, contact_id, status, points_balance, lifetime_earned, lifetime_redeemed, metadata, createdAt, updatedAt
+      ON CONFLICT (tenant_id, contact_id) DO UPDATE SET updated_at = NOW()
+      RETURNING id, tenant_id, contact_id, status, points_balance, lifetime_earned, lifetime_redeemed, metadata, created_at, updated_at
       `,
       [tenantId, contactId]
     );
@@ -100,7 +100,7 @@ class LoyaltyRepository {
     const row = await runQueryWithTenant<LoyaltyAccountRow>(
       tenantId,
       `
-      SELECT id, tenant_id, contact_id, status, points_balance, lifetime_earned, lifetime_redeemed, metadata, createdAt, updatedAt
+      SELECT id, tenant_id, contact_id, status, points_balance, lifetime_earned, lifetime_redeemed, metadata, created_at, updated_at
       FROM loyalty_accounts
       WHERE tenant_id = $1 AND contact_id = $2
       `,
@@ -141,7 +141,7 @@ class LoyaltyRepository {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (tenant_id, reference_type, reference_id, entry_type) DO NOTHING
         RETURNING id, tenant_id, contact_id, entry_type, points, reference_type, reference_id,
-                  reason_code, description, created_by_actor_id, created_by_user_id, createdAt
+                  reason_code, description, created_by_actor_id, created_by_user_id, created_at
         `,
         [
           tenantId,
@@ -163,7 +163,7 @@ class LoyaltyRepository {
           tenantId,
           `
           SELECT id, tenant_id, contact_id, entry_type, points, reference_type, reference_id,
-                 reason_code, description, created_by_actor_id, created_by_user_id, createdAt
+                 reason_code, description, created_by_actor_id, created_by_user_id, created_at
           FROM loyalty_ledger
           WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3 AND entry_type = $4
           `,
@@ -191,7 +191,7 @@ class LoyaltyRepository {
           UPDATE loyalty_accounts
           SET points_balance = points_balance + $1,
               lifetime_earned = lifetime_earned + $1,
-              updatedAt = NOW()
+              updated_at = NOW()
           WHERE tenant_id = $2 AND contact_id = $3
           `,
           [points, tenantId, contactId]
@@ -202,7 +202,7 @@ class LoyaltyRepository {
           UPDATE loyalty_accounts
           SET points_balance = points_balance - $1,
               lifetime_redeemed = lifetime_redeemed + $1,
-              updatedAt = NOW()
+              updated_at = NOW()
           WHERE tenant_id = $2 AND contact_id = $3
           `,
           [points, tenantId, contactId]
@@ -235,10 +235,10 @@ class LoyaltyRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, entry_type, points, reference_type, reference_id,
-             reason_code, description, created_by_actor_id, created_by_user_id, createdAt
+             reason_code, description, created_by_actor_id, created_by_user_id, created_at
       FROM loyalty_ledger
       WHERE tenant_id = $1 AND contact_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $3 OFFSET $4
       `,
       [tenantId, contactId, limit, offset]

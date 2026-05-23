@@ -1,6 +1,6 @@
 // backend/src/modules/work/skills/skill.service.ts
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
+import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 import type {
   SkillRow,
   Skill,
@@ -16,8 +16,8 @@ class SkillService {
       name: row.name,
       category: row.category,
       description: row.description ?? undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: new Date(row.created_at).toISOString(),
+      updatedAt: new Date(row.created_at).toISOString(),
     };
   }
 
@@ -41,11 +41,13 @@ class SkillService {
 
     const skill = this.toSkill(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.skill.created',
-      payload: { skillId: skill.skillId },
-    });
+      'work.skill.created',
+      skill.skillId,
+      undefined,
+      { skillId: skill.skillId }
+    );
 
     return skill;
   }
@@ -62,8 +64,7 @@ class SkillService {
       SET
         name = COALESCE($3, name),
         category = COALESCE($4, category),
-        description = COALESCE($5, description),
-        updatedAt = now()
+        description = COALESCE($5, description)
       WHERE tenant_id = $1 AND skill_id = $2
       RETURNING *
       `,
@@ -82,11 +83,14 @@ class SkillService {
       throw err;
     }
 
-    await eventBus.publish({
+    const stateKey = `${row.name}\u0000${row.category ?? ''}\u0000${row.description ?? ''}`;
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.skill.updated',
-      payload: { skillId },
-    });
+      'work.skill.updated',
+      skillId,
+      stateKey,
+      { skillId }
+    );
 
     return this.toSkill(row);
   }
@@ -111,11 +115,13 @@ class SkillService {
       throw err;
     }
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.skill.deleted',
-      payload: { skillId },
-    });
+      'work.skill.deleted',
+      skillId,
+      undefined,
+      { skillId }
+    );
   }
 
   async getById(
@@ -169,19 +175,18 @@ class SkillService {
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      `
-      SELECT COUNT(*) AS total
+    const count = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: `
+      SELECT COUNT(*)::text AS "totalCents"
       FROM skills
       WHERE ${whereSQL}
       `,
-      params,
-    );
+      values: params,
+    });
 
     return {
       skills: rows.map(row => this.toSkill(row)),
-      totalCents: count ? Number(count.total) : 0,
+      totalCents: count ? Number(count.totalCents) : 0,
     };
   }
 }

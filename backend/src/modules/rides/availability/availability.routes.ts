@@ -117,13 +117,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const [availability] = (await trx.query({
           text: `
             INSERT INTO rides_driver_availability (
-              driver_id, is_available, updatedAt
+              driver_id, is_available, updated_at
             )
             VALUES ($1, TRUE, NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               is_available = TRUE,
-              updatedAt = NOW()
+              updated_at = NOW()
             RETURNING *;
           `,
           values: [driverId],
@@ -133,13 +133,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await trx.query({
           text: `
             INSERT INTO rides_driver_locations (
-              driver_id, location, updatedAt
+              driver_id, location, updated_at
             )
             VALUES ($1, ST_Point($2, $3), NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               location = ST_Point($2, $3),
-              updatedAt = NOW();
+              updated_at = NOW();
           `,
           values: [driverId, lng, lat],
         });
@@ -201,7 +201,7 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         const [availability] = (await trx.query({
           text: `
             UPDATE rides_driver_availability
-            SET is_available = FALSE, updatedAt = NOW()
+            SET is_available = FALSE, updated_at = NOW()
             WHERE driver_id = $1
             RETURNING *;
           `,
@@ -259,13 +259,13 @@ const availabilityRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
         await trx.query({
           text: `
             INSERT INTO rides_driver_locations (
-              driver_id, location, updatedAt
+              driver_id, location, updated_at
             )
             VALUES ($1, ST_Point($2, $3), NOW())
             ON CONFLICT (driver_id)
             DO UPDATE SET
               location = ST_Point($2, $3),
-              updatedAt = NOW();
+              updated_at = NOW();
           `,
           values: [driverId, lng, lat],
         });

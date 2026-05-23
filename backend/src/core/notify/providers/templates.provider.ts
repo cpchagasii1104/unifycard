@@ -20,8 +20,8 @@ function mapTemplateRow(row: NotifyTemplateRow): NotifyTemplate {
     body: row.body,
     metadata: (row.metadata as NotificationPayload) ?? {},
     isActive: row.is_active,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -35,7 +35,7 @@ export class TemplateProvider {
       tenantId,
       `
       SELECT template_id, tenant_id, channel, name, description, subject, body, metadata, is_active,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM notify_templates
       WHERE channel = $1 AND name = $2 AND is_active = TRUE
       LIMIT 1
@@ -62,15 +62,15 @@ export class TemplateProvider {
         let valueCents: any = context.payload;
 
         for (const segment of segments) {
-          if (value && typeof value === 'object' && segment in value) {
-            value = value[segment];
+          if (valueCents && typeof valueCents === 'object' && segment in valueCents) {
+            valueCents = valueCents[segment];
           } else {
-            value = undefined;
+            valueCents = undefined;
             break;
           }
         }
 
-        return value != null ? String(value) : '';
+        return valueCents != null ? String(valueCents) : '';
       });
     };
 

@@ -254,14 +254,14 @@ describe('Bank Rides Integration - Sprint 4', () => {
       // Saldo do passageiro deve voltar (recebe de volta o que pagou)
       expect(
         Math.abs(
-          passengerBalanceAfter.balance - (passengerBalanceBefore.balance + 60.0)
+          passengerBalanceAfter.balanceCents - (passengerBalanceBefore.balanceCents + 60.0)
         )
       ).toBeLessThan(0.01);
 
       // Saldo do motorista deve voltar (perde o que recebeu)
       expect(
         Math.abs(
-          driverBalanceAfter.balance - (driverBalanceBefore.balance - 58.2)
+          driverBalanceAfter.balanceCents - (driverBalanceBefore.balanceCents - 58.2)
         )
       ).toBeLessThan(0.01); // 60 * 0.97
     });
@@ -276,7 +276,7 @@ describe('Bank Rides Integration - Sprint 4', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Processar pagamento de corrida
       await bankIntegrationService.processRidePayment(testTenantId, {
@@ -295,7 +295,7 @@ describe('Bank Rides Integration - Sprint 4', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Total deve ser igual (dinheiro não é criado nem destruído)
       expect(Math.abs(sumBefore - sumAfter)).toBeLessThan(0.01);
@@ -309,7 +309,7 @@ describe('Bank Rides Integration - Sprint 4', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Criar e reverter transação
       const paymentResult = await bankIntegrationService.processRidePayment(testTenantId, {
@@ -330,7 +330,7 @@ describe('Bank Rides Integration - Sprint 4', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Total deve ser igual (reversão não cria nem destrói dinheiro)
       expect(Math.abs(sumBefore - sumAfter)).toBeLessThan(0.01);
@@ -352,7 +352,7 @@ describe('Bank Rides Integration - Sprint 4', () => {
       );
 
       // Tentar pagar mais do que tem
-      if (balance.balance < 200) {
+      if (balance.balanceCents < 200) {
         await expect(
           bankIntegrationService.processRidePayment(testTenantId, {
             rideId: uuidv4(),

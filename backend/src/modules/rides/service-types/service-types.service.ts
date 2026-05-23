@@ -1,7 +1,7 @@
 // src/modules/rides/service-types/service-types.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from "@core/db";
-import { eventBus } from "@core/events/event-bus";
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from "@core/db";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 import { BadRequestError, NotFoundError } from "@core/errors";
 
 export class ServiceTypesService {
@@ -41,17 +41,16 @@ export class ServiceTypesService {
       throw new BadRequestError("Já existe um serviço com esse nome.");
     }
 
-    const row = await runQueryWithTenant<any>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       INSERT INTO rides_service_types (
         tenant_id, name, description,
         base_fare, min_fare, price_per_km, price_per_min,
         capacity_min, capacity_max,
         is_luxury, is_motorcycle, is_cargo,
         icon_url, image_url,
-        createdAt
+        created_at
       )
       VALUES (
         $1,$2,$3,
@@ -63,7 +62,7 @@ export class ServiceTypesService {
       )
       RETURNING *
       `,
-        values: [
+        [
           tenantId,
           name,
           description,
@@ -78,23 +77,21 @@ export class ServiceTypesService {
           is_cargo,
           icon_url,
           image_url,
-        ],
+        ]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to create service type');
       }
-    );
-
-    if (!row) {
-      throw new Error('Failed to create service type');
-    }
-
-    await eventBus.emit({
-      type: "rides.service_type.created",
-      tenantId,
-      payload: {
-        serviceTypeId: row.service_type_id,
-      },
+      await publishRideEventOutbox(client, {
+        type: "rides.service_type.created",
+        tenantId,
+        payload: {
+          serviceTypeId: row.service_type_id,
+        },
+      });
+      return row;
     });
-
-    return row;
   }
 
   // ============================================================================
@@ -103,10 +100,9 @@ export class ServiceTypesService {
   async updateServiceType(tenantId: string, serviceTypeId: string, patch: any) {
     const existing = await this.getServiceType(tenantId, serviceTypeId);
 
-    const row = await runQueryWithTenant<any>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       UPDATE rides_service_types
       SET
         name = COALESCE($3, name),
@@ -122,11 +118,11 @@ export class ServiceTypesService {
         is_cargo = COALESCE($13, is_cargo),
         icon_url = COALESCE($14, icon_url),
         image_url = COALESCE($15, image_url),
-        updatedAt = now()
+        updated_at = now()
       WHERE tenant_id = $1 AND service_type_id = $2
       RETURNING *
       `,
-        values: [
+        [
           tenantId,
           serviceTypeId,
           patch.name,
@@ -142,23 +138,21 @@ export class ServiceTypesService {
           patch.is_cargo,
           patch.icon_url,
           patch.image_url,
-        ],
+        ]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to update service type');
       }
-    );
-
-    if (!row) {
-      throw new Error('Failed to update service type');
-    }
-
-    await eventBus.emit({
-      type: "rides.service_type.updated",
-      tenantId,
-      payload: {
-        serviceTypeId,
-      },
+      await publishRideEventOutbox(client, {
+        type: "rides.service_type.updated",
+        tenantId,
+        payload: {
+          serviceTypeId,
+        },
+      });
+      return row;
     });
-
-    return row;
   }
 
   // ============================================================================
@@ -219,23 +213,22 @@ export class ServiceTypesService {
       throw new BadRequestError("Não é possível excluir serviço com veículos associados.");
     }
 
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
       DELETE FROM rides_service_types
       WHERE tenant_id = $1 AND service_type_id = $2
       `,
-        values: [tenantId, serviceTypeId],
-      }
-    );
+        [tenantId, serviceTypeId]
+      );
 
-    await eventBus.emit({
-      type: "rides.service_type.deleted",
-      tenantId,
-      payload: {
-        serviceTypeId,
-      },
+      await publishRideEventOutbox(client, {
+        type: "rides.service_type.deleted",
+        tenantId,
+        payload: {
+          serviceTypeId,
+        },
+      });
     });
 
     return { ok: true };

@@ -17,6 +17,42 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Tax ID canonicality ledger + manifest (gate)
+        run: npm run validate:tax-id-ledger
+
+      # Coerência STATUS_EXECUCAO_GLOBAL; não falha só por §GLOBAL BLOCK ATIVO (evita CI sempre vermelho até CP-7).
+      # Para bloquear merges com gap Identity: definir SYSTEM_STATE_STRICT: '1' neste step.
+      - name: System state (STATUS + opcional A1–A4 se DATABASE_URL)
+        run: npm run validate:system-state
+        env:
+          SYSTEM_STATE_STRICT: '0'
+
+      - name: Architectural patterns + append métricas JSONL (fora do git)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          set +e
+          node scripts/validate-architectural-patterns.mjs --strict 2>&1 | tee artifacts/arch-patterns-last.log
+          VALIDATE_EXIT="${PIPESTATUS[0]}"
+          set -e
+          node scripts/append-architectural-metrics.mjs artifacts/arch-patterns-last.log
+          exit "${VALIDATE_EXIT}"
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architectural-metrics
+          path: |
+            artifacts/architectural-metrics.jsonl
+            artifacts/arch-patterns-last.log
+          if-no-files-found: warn
+
       - name: Install dependencies
         run: npm ci
 
@@ -46,11 +82,30 @@ jobs:
       - name: Type check backend
         run: npm run typecheck -w unificard-backend
 
+      - name: Build + guard artefacto app.builder
+        run: npm run validate:build-and-builder-guard -w unificard-backend
+
+      - name: Dependency cruiser (core architecture / boundaries)
+        run: npm run arch:core:validate -w unificard-backend
+
       - name: Check Fastify schema rule
         run: npm run check:fastify-schema -w unificard-backend
 
-      - name: Check migration numbering integrity (GATE 3)
-        run: npm run check:migrations -w unificard-backend
+      - name: Regression guards (GATE 3 + financial + SQL)
+        run: npm run validate:regression-guards -w unificard-backend
+
+        - name: Actor writer boundaries (GATE §4.8.1)
+          run: pnpm --dir backend run validate:actor-writer-boundaries
+
+        - name: Bank ledger boundaries (GATE §4.6)
+          run: pnpm --dir backend run validate:bank-ledger-boundaries
+
+      # Gate progressivo: falha só se o count aumentar face a backend/.sql-snake-baseline. Métrica no log do CI.
+      - name: SQL snake in TS templates (metric + baseline gate)
+        run: |
+          COUNT=$(node backend/scripts/verify-sql-snake-columns-in-src.mjs --print-count)
+          echo "SQL snake (template SQL camelCase occurrences): ${COUNT}"
+          node backend/scripts/verify-sql-snake-columns-in-src.mjs --baseline --summary
 
       - name: Check economy imports (guardrail)
         run: node backend/scripts/check-economy-imports.js
@@ -69,8 +124,66 @@ jobs:
         run: bash backend/scripts/check-relative-imports.sh
         continue-on-error: true  # Baseline: 16 violations known
 
-      - name: Lint backend
-        run: npm run lint -w unificard-backend || true
+      - name: Lint backend (ESLint; falha o job se violar regras)
+        run: npm run lint -w unificard-backend
+
+  financial-integrity-invariants:
+    name: Financial integrity (Postgres + invariantes reais)
+    runs-on: ubuntu-latest
+    needs: validate-contracts
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: unificard_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build contracts (workspace dependency)
+        run: npm run build:contracts
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: npm run migrate -w unificard-backend
+
+      - name: Verify public schema column names (snake_case)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: npm run verify:public-snake-columns -w unificard-backend
+
+      - name: Seed database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+        run: npm run seed -w unificard-backend
+
+      - name: Financial DB structural invariants (fail-fast)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+          RUN_FINANCIAL_DB_STRUCTURAL: '1'
+        run: npm run test:financial-db-structural:ci -w unificard-backend
+
+      - name: Financial integrity invariants (fail-fast)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unificard_dev
+          RUN_FINANCIAL_INTEGRITY: '1'
+        run: npm run test:financial-integrity:ci -w unificard-backend
 
   validate-frontend:
     name: Validate Frontend
@@ -92,10 +205,15 @@ jobs:
       - name: Type check frontend
         run: npm run typecheck -w unificard-frontend || cd frontend && npx tsc --noEmit
 
+      - name: Frontend HTTP invariants (no direct fetch; ActionContext tests)
+        run: |
+          node scripts/check-frontend-no-direct-fetch.mjs
+          cd frontend && npx vitest run tests/invariants
+
   check-contract-usage:
     name: Check Contract Usage
     runs-on: ubuntu-latest
-    needs: [validate-backend, validate-frontend]
+    needs: [validate-backend, validate-frontend, financial-integrity-invariants]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

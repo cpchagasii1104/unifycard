@@ -1,6 +1,8 @@
 // src/utils/backend-check.ts
 // Utilitário para verificar conectividade com o backend
 
+import { apiFetchPublic } from '../api/client';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface BackendStatus {
@@ -14,16 +16,11 @@ export interface BackendStatus {
  * Verifica se o backend está online
  */
 export async function checkBackendStatus(): Promise<BackendStatus> {
-  const url = `${API_BASE_URL}/health`;
   const startTime = Date.now();
   
   try {
-    const response = await fetch(url, {
+    const response = await apiFetchPublic('/health', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // Timeout de 5 segundos
       signal: AbortSignal.timeout(5000),
     });
     

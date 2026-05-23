@@ -2,6 +2,18 @@
 //
 // Rides Analytics – versão Fastify 100% compatível com Unificard v1
 //
+/**
+ * ⚠️ PROJEÇÃO FINANCEIRA — NÃO É SSOT (`rides_ride_distributions`)
+ * Estes dados NÃO representam dinheiro real.
+ * A verdade financeira está em:
+ * - bank_ledger
+ * - bank_transactions
+ *
+ * NÃO usar para:
+ * - saldo
+ * - reconciliação
+ * - decisão financeira
+ */
 
 import type {
   FastifyInstance,
@@ -58,6 +70,8 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
               AND completedAt::date = NOW()::date
           ),
           earnings_today AS (
+            -- ⚠️ MÉTRICA DERIVADA — NÃO CANÔNICA
+            -- Para valores oficiais usar Bank
             SELECT COALESCE(SUM(driver_amount), 0) AS amount
             FROM rides_ride_distributions
             WHERE ride_id IN (
@@ -120,8 +134,10 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
         text: `
           SELECT
             DATE_TRUNC('hour', distributedAt) AS hour,
+            -- ⚠️ MÉTRICA DERIVADA — NÃO CANÔNICA
+            -- Para valores oficiais usar Bank
             SUM(driver_amount) AS earnings
-          FROM rides_ride_distributions
+            FROM rides_ride_distributions
           WHERE ride_id IN (
             SELECT ride_id FROM rides_rides WHERE driver_id = $1
           )
@@ -282,6 +298,8 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => 
           revenue AS (
             SELECT
               distributedAt::date AS day,
+              -- ⚠️ MÉTRICA DERIVADA — NÃO CANÔNICA
+              -- Para valores oficiais usar Bank
               SUM(driver_amount + platform_fee + community_fee) AS revenue
             FROM rides_ride_distributions
             WHERE distributedAt > NOW() - INTERVAL '7 days'

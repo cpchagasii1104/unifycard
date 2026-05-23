@@ -2,7 +2,7 @@
 // Repository para Logs de Auditoria de Negócio
 // 🔴 BLINDAGEM: Logs são IMUTÁVEIS (append-only)
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   BusinessAuditLog,
   CreateBusinessAuditLogInput,
@@ -18,7 +18,7 @@ interface BusinessAuditLogRow {
   context_type: string;
   context_id: string;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class BusinessAuditLogRepository {
@@ -32,7 +32,7 @@ class BusinessAuditLogRepository {
       contextType: row.context_type as any,
       contextId: row.context_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -49,7 +49,7 @@ class BusinessAuditLogRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-                metadata, createdAt
+                metadata, created_at
       `,
       [
         tenantId,
@@ -77,7 +77,7 @@ class BusinessAuditLogRepository {
       tenantId,
       `
       SELECT log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-             metadata, createdAt
+             metadata, created_at
       FROM business_audit_logs
       WHERE tenant_id = $1 AND log_id = $2
       `,
@@ -120,12 +120,12 @@ class BusinessAuditLogRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`createdAt >= $${paramIndex++}`);
+      conditions.push(`created_at >= $${paramIndex++}`);
       params.push(filters.startDate);
     }
 
     if (filters.endDate) {
-      conditions.push(`createdAt <= $${paramIndex++}`);
+      conditions.push(`created_at <= $${paramIndex++}`);
       params.push(filters.endDate);
     }
 
@@ -148,22 +148,24 @@ class BusinessAuditLogRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant<BusinessAuditLogRow>(
+    const rows = await runQueriesWithTenant<BusinessAuditLogRow>(
       tenantId,
-      `
+      {
+        text: `
       SELECT log_id, tenant_id, action, actor_id, user_id, context_type, context_id,
-             metadata, createdAt
+             metadata, created_at
       FROM business_audit_logs
       ${whereClause}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `,
-      [...params, limit, offset]
+        values: [...params, limit, offset],
+      }
     );
 
     return {
       logs: rows.map((row) => this.toLog(row)),
-      total,
+      totalCents: total,
     };
   }
 }

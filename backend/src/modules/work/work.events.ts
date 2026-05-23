@@ -3,8 +3,8 @@
 // Centraliza a emissão de eventos do módulo Work
 // Integra com Orchestrator, AI Kernel e Memory Engine
 
-import { eventBus } from '@core/events/event-bus';
 import type { FastifyRequest } from 'fastify';
+import { insertWorkEventOutbox } from './work-event-outbox.helper';
 
 /**
  * Emite evento quando um job é criado
@@ -15,16 +15,18 @@ export async function emitJobCreated(
   jobId: string,
   requestId?: string
 ): Promise<void> {
-  await eventBus.publish({
+  await insertWorkEventOutbox(
     tenantId,
-    type: 'work.job.created',
-    payload: {
+    'work.job.created',
+    jobId,
+    'work.events',
+    {
       jobId,
       userId,
       timestamp: new Date().toISOString(),
       requestId: requestId || undefined,
-    },
-  });
+    }
+  );
 }
 
 /**
@@ -38,18 +40,20 @@ export async function emitApplicationCreated(
   workerId: string,
   requestId?: string
 ): Promise<void> {
-  await eventBus.publish({
+  await insertWorkEventOutbox(
     tenantId,
-    type: 'work.application.created',
-    payload: {
+    'work.application.created',
+    applicationId,
+    'work.events',
+    {
       applicationId,
       jobId,
       workerId,
       userId,
       timestamp: new Date().toISOString(),
       requestId: requestId || undefined,
-    },
-  });
+    }
+  );
 }
 
 /**
@@ -63,18 +67,20 @@ export async function emitAssignmentCreated(
   workerId: string,
   requestId?: string
 ): Promise<void> {
-  await eventBus.publish({
+  await insertWorkEventOutbox(
     tenantId,
-    type: 'work.assignment.created',
-    payload: {
+    'work.assignment.created',
+    assignmentId,
+    'work.events',
+    {
       assignmentId,
       jobId,
       workerId,
       userId,
       timestamp: new Date().toISOString(),
       requestId: requestId || undefined,
-    },
-  });
+    }
+  );
 }
 
 /**
@@ -89,10 +95,12 @@ export async function emitAssignmentCompleted(
   paymentTransactionId?: string,
   requestId?: string
 ): Promise<void> {
-  await eventBus.publish({
+  await insertWorkEventOutbox(
     tenantId,
-    type: 'work.assignment.completed',
-    payload: {
+    'work.assignment.completed',
+    assignmentId,
+    'work.events',
+    {
       assignmentId,
       jobId,
       workerId,
@@ -100,8 +108,8 @@ export async function emitAssignmentCompleted(
       paymentTransactionId: paymentTransactionId || undefined,
       timestamp: new Date().toISOString(),
       requestId: requestId || undefined,
-    },
-  });
+    }
+  );
 }
 
 /**

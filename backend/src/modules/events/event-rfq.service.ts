@@ -22,6 +22,7 @@ import type {
   QuoteListResult,
 } from './event-rfq.types';
 import { RFQStatus } from './event-rfq.types';
+import { AvailabilityOwnerType, UnifiedAvailabilityType } from '@core/availability/unified-availability.types';
 
 /**
  * Service para Event RFQ
@@ -71,14 +72,14 @@ class EventRFQService {
       console.warn('[EventRFQ] Erro ao verificar rate limit (não bloqueante):', rateLimitError);
     }
 
-    // 1. Validar permissão via authorization.service (Core de Decisão)
+    // 1. Validar permissão via authority.service (§4.9)
     if (userId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        userId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         organizerActorId,
-        'rfq:create'
+        'rfq:create',
+        undefined,
+        { tenantId, userId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -144,7 +145,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -293,7 +294,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -353,14 +354,14 @@ class EventRFQService {
       console.warn('[EventRFQ] Erro ao verificar rate limit (não bloqueante):', rateLimitError);
     }
 
-    // 1. Validar permissão via authorization.service (Core de Decisão)
+    // 1. Validar permissão via authority.service (§4.9)
     if (userId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        userId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         providerActorId,
-        'quote:submit'
+        'quote:submit',
+        undefined,
+        { tenantId, userId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -434,7 +435,7 @@ class EventRFQService {
       `
       UPDATE events
       SET metadata = $1::jsonb,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $2 AND id = $3
       `,
       [
@@ -517,6 +518,113 @@ class EventRFQService {
     return {
       quotes: normalizedQuotes,
       totalCents: normalizedQuotes.length,
+    };
+  }
+
+  /**
+   * Aceita uma proposta (Quote) de um RFQ
+   * Q3 — Conecta evento → booking de serviço via RFQ
+   *
+   * §7 LEI_COERENCIA_SISTEMICA: ESTADO → FINANCEIRO → EVENTO
+   * 🔴 BLINDAGEM: NÃO executa pagamento — apenas cria booking + payment request pendente
+   * 🔴 BLINDAGEM: NÃO aceita automaticamente — requer ação explícita do organizador
+   */
+  async acceptQuote(
+    tenantId: string,
+    eventId: string,
+    rfqId: string,
+    quoteId: string,
+    organizerActorId: string,
+    organizerUserId: string
+  ): Promise<{ quote: QuoteResponse; bookingId: string; paymentRequestId: string }> {
+    // 1. Buscar evento e RFQ
+    const event = await eventRepository.getEventById(tenantId, eventId);
+    if (!event) throw new NotFoundError(`Evento não encontrado: ${eventId}`);
+
+    const rfq = await this.getRFQById(tenantId, eventId, rfqId);
+    if (!rfq) throw new NotFoundError(`RFQ não encontrado: ${rfqId}`);
+
+    if (rfq.status === RFQStatus.CLOSED) {
+      throw new BadRequestError('RFQ já está fechado');
+    }
+
+    const quotes = (rfq as any).quotes || [];
+    const quoteIndex = quotes.findIndex((q: any) => q.quoteId === quoteId);
+    if (quoteIndex === -1) throw new NotFoundError(`Proposta não encontrada: ${quoteId}`);
+
+    const quote: QuoteResponse = quotes[quoteIndex];
+
+    // 2. Marcar quote como aceita e fechar RFQ no metadata
+    const currentMetadata = event.metadata || {};
+    const rfqs = (currentMetadata.rfqs || []) as any[];
+    const rfqIdx = rfqs.findIndex((r: any) => r.rfqId === rfqId);
+
+    rfqs[rfqIdx].quotes[quoteIndex] = { ...quote, accepted: true, acceptedAt: new Date().toISOString() };
+    rfqs[rfqIdx].status = RFQStatus.CLOSED;
+    rfqs[rfqIdx].closedAt = new Date().toISOString();
+    rfqs[rfqIdx].updatedAt = new Date().toISOString();
+
+    await runQueryWithTenant(
+      tenantId,
+      `UPDATE events SET metadata = $1::jsonb, updated_at = NOW() WHERE tenant_id = $2 AND id = $3`,
+      [JSON.stringify({ ...currentMetadata, rfqs }), tenantId, eventId]
+    );
+
+    // 3. Criar disponibilidade ad-hoc para o provider com a data do evento
+    // (necessária para o pipeline de booking — data do evento ou agora+1h se não definida)
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const eventDate = event.metadata?.date ? new Date(event.metadata.date) : new Date();
+    const startDatetime = eventDate;
+    const endDatetime = new Date(startDatetime.getTime() + 4 * 60 * 60 * 1000); // +4h
+
+    const availability = await unifiedAvailabilityService.createAvailability(tenantId, organizerUserId, {
+      ownerType: AvailabilityOwnerType.SERVICE,
+      ownerId: quote.serviceId,
+      availabilityType: UnifiedAvailabilityType.FIXED,
+      startDatetime,
+      endDatetime,
+      metadata: { rfqId, quoteId, eventId, source: 'rfq_accept' },
+    });
+
+    // 4. Criar booking
+    const booking = await unifiedAvailabilityService.createBooking(tenantId, organizerUserId, {
+      availabilityId: availability.availabilityId,
+      requesterActorId: organizerActorId,
+      metadata: { rfqId, quoteId, eventId, serviceId: quote.serviceId, source: 'rfq_accept' },
+    });
+
+    // 5. Aceitar booking (provider confirma via RFQ)
+    const { serviceBookingDecisionService } = await import('../services/service-booking-decision.service');
+    const { BookingDecisionStatus } = await import('../services/service-booking-decision.types');
+    const { actorRepository } = await import('@modules/social/actor.repository');
+    const providerActor = await actorRepository.findById(tenantId, quote.providerActorId);
+    const providerUserId = providerActor?.user_id || organizerUserId;
+
+    await serviceBookingDecisionService.createDecision(tenantId, providerUserId, {
+      bookingId: booking.bookingId,
+      decidedByActorId: quote.providerActorId,
+      status: BookingDecisionStatus.ACCEPTED,
+    });
+
+    // 6. Criar payment request (pendente — sem executar pagamento)
+    const { servicePaymentRequestService } = await import('../services/service-payment-request.service');
+    const paymentRequest = await servicePaymentRequestService.createPaymentRequest(
+      tenantId,
+      organizerUserId,
+      {
+        bookingId: booking.bookingId,
+        serviceId: quote.serviceId,
+        payerActorId: organizerActorId,
+        receiverActorId: quote.providerActorId,
+        amountCents: quote.priceCents,
+        currency: quote.currency,
+      }
+    );
+
+    return {
+      quote: { ...quote, accepted: true } as QuoteResponse,
+      bookingId: booking.bookingId,
+      paymentRequestId: paymentRequest.paymentRequestId,
     };
   }
 }

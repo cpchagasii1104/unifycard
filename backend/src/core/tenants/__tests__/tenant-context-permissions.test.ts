@@ -20,7 +20,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     await ensureSystemTenant();
 
     // Garantir que system-tenant tem read em todos os contexts
-    const contexts: CategoryContext[] = [
+    const contexts = [
       'professional',
       'interest',
       'learning',
@@ -31,11 +31,11 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
       'person',
       'government',
       'infrastructure',
-    ];
+    ] as CategoryContext[];
 
     for (const context of contexts) {
       await pool.query(
-        `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
+        `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
          VALUES ($1, $2, 'read', NOW())
          ON CONFLICT (tenant_id, context) DO NOTHING`,
         [SYSTEM_TENANT.tenantId, context]
@@ -49,7 +49,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
 
     // Criar tenants no banco
     await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, createdAt, updatedAt)
+      `INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
        VALUES ($1, 'Government Tenant', 'government-test', NOW(), NOW()),
               ($2, 'Company Tenant', 'company-test', NOW(), NOW()),
               ($3, 'Person Tenant', 'person-test', NOW(), NOW())
@@ -61,7 +61,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // admin em government, infrastructure
     // read em professional, company
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
        VALUES ($1, 'government', 'admin', NOW()),
               ($1, 'infrastructure', 'admin', NOW()),
               ($1, 'professional', 'read', NOW()),
@@ -74,7 +74,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // write em company
     // read em professional
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
        VALUES ($1, 'company', 'write', NOW()),
               ($1, 'professional', 'read', NOW())
        ON CONFLICT (tenant_id, context) DO UPDATE SET permission = EXCLUDED.permission`,
@@ -85,7 +85,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
     // write em person
     // read em professional
     await pool.query(
-      `INSERT INTO tenant_contexts (tenant_id, context, permission, createdAt)
+      `INSERT INTO tenant_contexts (tenant_id, context, permission, created_at)
        VALUES ($1, 'person', 'write', NOW()),
               ($1, 'professional', 'read', NOW())
        ON CONFLICT (tenant_id, context) DO UPDATE SET permission = EXCLUDED.permission`,
@@ -147,19 +147,19 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
       // Company não tem permissão em government
       const hasReadAccess = await tenantContextPermissionService.hasReadAccess(
         companyTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(hasReadAccess).toBe(false);
 
       const hasWriteAccess = await tenantContextPermissionService.hasWriteAccess(
         companyTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(hasWriteAccess).toBe(false);
 
       // Deve lançar CONTEXT_ACCESS_DENIED ao tentar ler
       await expect(
-        categoriesService.getCategoriesForTenant(companyTenantId, 'government')
+        categoriesService.getCategoriesForTenant(companyTenantId, 'government' as CategoryContext)
       ).rejects.toThrow('CONTEXT_ACCESS_DENIED');
     });
   });
@@ -187,19 +187,19 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
       // Person não tem permissão em government
       const hasReadAccess = await tenantContextPermissionService.hasReadAccess(
         personTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(hasReadAccess).toBe(false);
 
       const hasWriteAccess = await tenantContextPermissionService.hasWriteAccess(
         personTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(hasWriteAccess).toBe(false);
 
       // Deve lançar CONTEXT_ACCESS_DENIED ao tentar ler
       await expect(
-        categoriesService.getCategoriesForTenant(personTenantId, 'government')
+        categoriesService.getCategoriesForTenant(personTenantId, 'government' as CategoryContext)
       ).rejects.toThrow('CONTEXT_ACCESS_DENIED');
     });
   });
@@ -207,7 +207,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
   describe('TEST 6 — System-tenant lê tudo', () => {
     it('deve permitir acesso de leitura para system-tenant em todos os contexts', async () => {
       // System-tenant deve ter read em todos os contexts
-      const contexts: CategoryContext[] = [
+      const contexts = [
         'professional',
         'interest',
         'learning',
@@ -218,7 +218,7 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
         'person',
         'government',
         'infrastructure',
-      ];
+      ] as CategoryContext[];
 
       for (const context of contexts) {
         const hasReadAccess = await tenantContextPermissionService.hasReadAccess(
@@ -256,14 +256,14 @@ describe('Tenant Context Permissions — Isolamento Soberano', () => {
       // Mas company NÃO tem acesso a government
       const companyHasGovAccess = await tenantContextPermissionService.hasReadAccess(
         companyTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(companyHasGovAccess).toBe(false);
 
       // E government tem admin em government
       const govHasAdminAccess = await tenantContextPermissionService.hasAdminAccess(
         governmentTenantId,
-        'government'
+        'government' as CategoryContext
       );
       expect(govHasAdminAccess).toBe(true);
     });

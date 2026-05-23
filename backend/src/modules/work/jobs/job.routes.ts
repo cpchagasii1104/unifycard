@@ -1,5 +1,6 @@
 // src/modules/work/jobs/job.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { jobService } from './job.service';
 import {
   createJobSchema,
@@ -53,7 +54,7 @@ const jobRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof jobIdParamsSchema>;
   }>('/:jobId', {
     preHandler: fastify.requirePermission(['work:job:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = jobIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -62,7 +63,7 @@ const jobRoutes: FastifyPluginAsync = async (fastify) => {
     const job = await jobService.getById(tenantId, jobId);
 
     if (!job) {
-      return reply.notFound('Job not found');
+      throw new NotFoundError('Job not found');
     }
 
     return job;

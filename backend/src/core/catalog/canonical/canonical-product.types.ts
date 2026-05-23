@@ -1,5 +1,7 @@
 // src/core/catalog/canonical/canonical-product.types.ts
-// Tipos para catálogo canônico de produtos - READ-ONLY
+// Tipos de domínio (camelCase — §5.2). Shapes PG: `canonical-product-db.types.ts`.
+
+import type { ConceptResolutionStatus } from './canonical-concept.types';
 
 /**
  * Produto canônico
@@ -7,14 +9,21 @@
  */
 export interface CanonicalProduct {
   id: string;
-  tenantId: string;
+  /** NULL quando canónico global. */
+  tenantId: string | null;
   gtin: string; // Global Trade Item Number (EAN/UPC)
   name: string;
   brand?: string;
   images: string[]; // URLs das imagens (único por produto)
   attributes: Record<string, unknown>; // JSONB: peso, volume, etc.
   categoryId?: string;
+  /** FK opcional para `concepts` (SSOT semântico). */
+  conceptId?: string;
+  /** Estado da resolução semântica (independente de fingerprint_v1). */
+  conceptResolutionStatus?: ConceptResolutionStatus;
   type: 'INDUSTRIAL'; // Sempre INDUSTRIAL para produtos canônicos
+  /** Derivado de `isCanonicalProductOperationalReady` (sem persistência). */
+  operationalReady: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -23,7 +23,7 @@ class PaymentLinkService {
     input: CreatePaymentLinkInput
   ): Promise<PaymentLink> {
     // Validar amount
-    if (input.amount <= 0) {
+    if (input.amountCents <= 0) {
       throw new Error('Amount deve ser maior que zero');
     }
 
@@ -44,7 +44,7 @@ class PaymentLinkService {
       eventType: 'PAYMENT_LINK_CREATED',
       linkId: link.id,
       slug: link.slug,
-      amountCents: link.amount,
+      amountCents: link.amountCents,
       createdByActorId,
     });
 
@@ -165,9 +165,13 @@ class PaymentLinkService {
   ): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: data.eventType ?? data.event_type ?? 'PAYMENT_LINK_ACTION',
+        severity: 'low',
+        source: 'payments',
+        context: data,
+      });
     } catch (error) {
-      // Não bloquear se auditoria falhar
       console.warn('[PaymentLinkService] Erro ao registrar auditoria:', error);
     }
   }

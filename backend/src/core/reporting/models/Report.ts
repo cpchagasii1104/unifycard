@@ -55,9 +55,9 @@ export interface ReportRow {
   status: string;
   severity: string;
   risk_score: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  resolvedAt: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  resolved_at: Date | null;
 }
 
 

@@ -13,6 +13,33 @@ const DEV_EMAIL = 'dev@unificard.local';
 const DEV_PASSWORD = 'dev12345'; // Deve corresponder à senha padrão do frontend
 const DEV_TENANT_ID = 'fbe13b78-4516-493d-905a-363796aea1d1';
 
+type UserAuthRow = {
+  user_id: string;
+  tenant_id: string;
+  email: string;
+  password_hash: string;
+  token_version: number;
+};
+
+type UserAuthRecord = {
+  userId: string;
+  tenantId: string;
+  email: string;
+  passwordHash: string;
+  tokenVersion: number;
+};
+
+// boundary: DB -> domain mapping
+function mapUserAuthRowToDomain(row: UserAuthRow): UserAuthRecord {
+  return {
+    userId: row.user_id,
+    tenantId: row.tenant_id,
+    email: row.email,
+    passwordHash: row.password_hash,
+    tokenVersion: row.token_version,
+  };
+}
+
 async function testLogin() {
   console.log('🧪 Testando login DEV...\n');
 
@@ -20,7 +47,7 @@ async function testLogin() {
   try {
     // 1. Buscar usuário
     console.log('1️⃣ Buscando usuário no banco...');
-    const result = await client.query(
+    const result = await client.query<UserAuthRow>(
       `
         SELECT user_id, tenant_id, email, password_hash, token_version
         FROM users
@@ -35,21 +62,22 @@ async function testLogin() {
       return;
     }
 
-    const user = result.rows[0];
+    const user = mapUserAuthRowToDomain(result.rows[0]!);
     console.log('✅ Usuário encontrado:');
-    console.log(`   User ID: ${user.user_id}`);
+    console.log(`   User ID: ${user.userId}`);
     console.log(`   Email: ${user.email}`);
-    console.log(`   Tenant ID: ${user.tenant_id}`);
-    console.log(`   Password Hash (primeiros 50 chars): ${user.password_hash.substring(0, 50)}...`);
-    console.log(`   Password Hash (tamanho): ${user.password_hash.length}`);
+    console.log(`   Tenant ID: ${user.tenantId}`);
+    console.log(`   Password Hash (primeiros 50 chars): ${user.passwordHash.substring(0, 50)}...`);
+    console.log(`   Password Hash (tamanho): ${user.passwordHash.length}`);
+    console.log(`   Token Version: ${user.tokenVersion}`);
     console.log('');
 
     // 2. Testar bcrypt.compare
     console.log('2️⃣ Testando bcrypt.compare...');
     console.log(`   Senha plaintext: "${DEV_PASSWORD}"`);
-    console.log(`   Hash do banco: ${user.password_hash.substring(0, 30)}...`);
+    console.log(`   Hash do banco: ${user.passwordHash.substring(0, 30)}...`);
     
-    const match = await bcrypt.compare(DEV_PASSWORD, user.password_hash);
+    const match = await bcrypt.compare(DEV_PASSWORD, user.passwordHash);
     console.log(`   Resultado: ${match ? '✅ MATCH' : '❌ NO MATCH'}`);
     console.log('');
 
@@ -63,7 +91,7 @@ async function testLogin() {
 
     // 4. Comparar hashes diretamente
     console.log('4️⃣ Comparando hashes diretamente...');
-    console.log(`   Hash do banco === Novo hash? ${user.password_hash === newHash ? 'SIM' : 'NÃO (esperado - bcrypt gera hashes diferentes)'}`);
+    console.log(`   Hash do banco === Novo hash? ${user.passwordHash === newHash ? 'SIM' : 'NÃO (esperado - bcrypt gera hashes diferentes)'}`);
     console.log('');
 
     // 5. Testar com diferentes variações da senha
@@ -76,7 +104,7 @@ async function testLogin() {
     ];
     
     for (const variant of variations) {
-      const variantMatch = await bcrypt.compare(variant, user.password_hash);
+      const variantMatch = await bcrypt.compare(variant, user.passwordHash);
       console.log(`   "${variant}" → ${variantMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
     }
 

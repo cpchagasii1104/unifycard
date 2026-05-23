@@ -15,7 +15,7 @@ interface LoyaltyRuleRow {
   name: string;
   status: string;
   rule_type: string;
-  valueCents: string;
+  value: string; // DB column (cents)
   applies_to: string;
   applies_id: string | null;
   min_amount: string | null;
@@ -23,7 +23,7 @@ interface LoyaltyRuleRow {
   valid_from: Date | null;
   valid_to: Date | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class LoyaltyRuleRepository {
@@ -42,7 +42,7 @@ class LoyaltyRuleRepository {
       validFrom: row.valid_from,
       validTo: row.valid_to,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -56,14 +56,14 @@ class LoyaltyRuleRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
       RETURNING id, tenant_id, name, status, rule_type, value, applies_to, applies_id,
-                min_amount, max_points_per_day, valid_from, valid_to, metadata, createdAt
+               min_amount, max_points_per_day, valid_from, valid_to, metadata, created_at
       `,
       [
         tenantId,
         input.name,
         input.status || 'ACTIVE',
         input.ruleType,
-        input.value,
+        input.valueCents,
         input.appliesTo,
         input.appliesId || null,
         input.minAmount || null,
@@ -86,7 +86,7 @@ class LoyaltyRuleRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, status, rule_type, value, applies_to, applies_id,
-             min_amount, max_points_per_day, valid_from, valid_to, metadata, createdAt
+             min_amount, max_points_per_day, valid_from, valid_to, metadata, created_at
       FROM loyalty_rules
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -126,10 +126,10 @@ class LoyaltyRuleRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, status, rule_type, value, applies_to, applies_id,
-             min_amount, max_points_per_day, valid_from, valid_to, metadata, createdAt
+             min_amount, max_points_per_day, valid_from, valid_to, metadata, created_at
       FROM loyalty_rules
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -154,7 +154,7 @@ class LoyaltyRuleRepository {
       tenantId,
       `
       SELECT id, tenant_id, name, status, rule_type, value, applies_to, applies_id,
-             min_amount, max_points_per_day, valid_from, valid_to, metadata, createdAt
+             min_amount, max_points_per_day, valid_from, valid_to, metadata, created_at
       FROM loyalty_rules
       WHERE tenant_id = $1
         AND status = 'ACTIVE'
@@ -167,7 +167,7 @@ class LoyaltyRuleRepository {
           OR (applies_to = 'CATEGORY' AND applies_id = $6)
           OR (applies_to = 'CHANNEL' AND applies_id IS NULL)
         )
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, now, channel, actorId || null, productVariantId || null, categoryId || null]
     );

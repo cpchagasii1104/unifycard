@@ -133,20 +133,20 @@ export function validatePhone(phone: string): ValidationResult {
  * Normaliza tax_id (CPF/CNPJ) removendo formatação
  */
 export function normalizeTaxId(valueCents: string): string {
-  if (!value) {
+  if (!valueCents) {
     return '';
   }
-  return value.replace(/\D/g, '');
+  return valueCents.replace(/\D/g, '');
 }
 
 /**
  * Normaliza telefone removendo formatação
  */
 export function normalizePhone(valueCents: string): string {
-  if (!value) {
+  if (!valueCents) {
     return '';
   }
-  return value.replace(/\D/g, '');
+  return valueCents.replace(/\D/g, '');
 }
 
 /**

@@ -180,15 +180,18 @@ describe('Bank Invariants - Continuous Production', () => {
       const toBalanceAfter = await bankAccountService.getBalance(testTenantId, toAccount.accountId);
 
       // Reverter transação
-      await bankTransactionService.reverseTransaction(testTenantId, result.transaction.transactionId);
+      const { bankIntegrationService } = await import(
+        '../../src/modules/bank/bank-integration.service'
+      );
+      await bankIntegrationService.reverseTransaction(testTenantId, result.transaction.transactionId);
 
       // Obter saldos após reversão
       const fromBalanceAfterReversal = await bankAccountService.getBalance(testTenantId, fromAccount.accountId);
       const toBalanceAfterReversal = await bankAccountService.getBalance(testTenantId, toAccount.accountId);
 
       // Verificar que saldos retornaram exatamente ao valor anterior
-      expect(Math.abs(fromBalanceAfterReversal.balance - fromBalanceBefore.balance)).toBeLessThan(0.01);
-      expect(Math.abs(toBalanceAfterReversal.balance - toBalanceBefore.balance)).toBeLessThan(0.01);
+      expect(Math.abs(fromBalanceAfterReversal.balanceCents - fromBalanceBefore.balanceCents)).toBe(0);
+      expect(Math.abs(toBalanceAfterReversal.balanceCents - toBalanceBefore.balanceCents)).toBe(0);
     });
   });
 

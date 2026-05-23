@@ -1,8 +1,16 @@
 // backend/src/core/logging/canonical-logger.ts
 // Logger Canônico para Observabilidade e Forensics
 // 🔴 BLINDAGEM: Todos os logs canônicos incluem correlação completa
+//
+// canonicalLogger — sistema de log de AUDITORIA CANÔNICA.
+//
+// Usar para: decisões de domínio com contexto estruturado (permissões, resolução semântica).
+// NÃO usar para: logs operacionais de handlers HTTP (usar fastify.log).
+// NÃO substituir por console.log — destino e semântica de auditoria são diferentes.
 
 import type { FastifyRequest } from 'fastify';
+
+import { alertRouter } from '../alerts/alert-router';
 
 export interface CanonicalLogContext {
   requestId?: string;
@@ -25,6 +33,34 @@ export interface SecuritySignalMetadata {
 /**
  * Extrai contexto de correlação do request
  */
+/**
+ * Agrega `metric_event` em memória (INFRA-6). Carregamento tardio para não criar ciclo com observability.
+ */
+function recordHandlerMetricIfPresent(fullContext: CanonicalLogContext): void {
+  const me = fullContext.metric_event;
+  if (me == null || me === '') {
+    return;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const { ingestHandlerMetricFromContext } = require('../observability/handler-metrics.service') as {
+      ingestHandlerMetricFromContext: (ctx: Record<string, unknown>) => void;
+    };
+    ingestHandlerMetricFromContext(fullContext);
+  } catch {
+    /* nunca interferir com logging */
+  }
+}
+
+/** INFRA-6: webhooks Slack/Pager; falhas não afetam o fluxo principal. */
+function dispatchAlertsIfPresent(message: string, fullContext: CanonicalLogContext): void {
+  try {
+    alertRouter.dispatch(message, fullContext as Record<string, unknown>);
+  } catch {
+    /* nunca interferir com logging */
+  }
+}
+
 function extractCorrelationContext(req?: FastifyRequest | null): CanonicalLogContext {
   if (!req) {
     return {};
@@ -80,7 +116,8 @@ class CanonicalLogger {
       };
       fullContext = { ...fullContext, ...securityMetadata };
     }
-    
+
+    recordHandlerMetricIfPresent(fullContext);
     console.log(`[CANONICAL] ${message}`, fullContext);
   }
 
@@ -106,7 +143,9 @@ class CanonicalLogger {
       };
       fullContext = { ...fullContext, ...securityMetadata };
     }
-    
+
+    recordHandlerMetricIfPresent(fullContext);
+    dispatchAlertsIfPresent(message, fullContext);
     console.warn(`[CANONICAL] ⚠️ ${message}`, fullContext);
   }
 
@@ -132,7 +171,9 @@ class CanonicalLogger {
       };
       fullContext = { ...fullContext, ...securityMetadata };
     }
-    
+
+    recordHandlerMetricIfPresent(fullContext);
+    dispatchAlertsIfPresent(message, fullContext);
     console.error(`[CANONICAL] ❌ ${message}`, fullContext);
   }
 

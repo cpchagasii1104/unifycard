@@ -87,7 +87,7 @@ class ActorCapabilitiesService {
     }
 
     // Retornar capacidades baseadas no tipo de Actor
-    return ACTOR_CAPABILITIES_MAP[actor.actor_type] || [];
+    return ACTOR_CAPABILITIES_MAP[actor.actor_type as ActorType] || [];
   }
 
   /**

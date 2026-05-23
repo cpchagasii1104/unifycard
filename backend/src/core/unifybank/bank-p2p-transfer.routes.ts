@@ -59,7 +59,7 @@ const bankP2PTransferRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const { toUserId, amount, eventId } = parsed.data;
+    const { toUserId, amountCents, eventId } = parsed.data;
 
     // 3. Validar que não está transferindo para si mesmo
     if (fromUserId === toUserId) {
@@ -74,7 +74,7 @@ const bankP2PTransferRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await bankP2PTransferService.transferP2P(tenantId, {
         fromUserId,
         toUserId,
-        amount,
+        amountCents,
         eventId: finalEventId,
       });
 
@@ -83,8 +83,8 @@ const bankP2PTransferRoutes: FastifyPluginAsync = async (fastify) => {
         transaction: result.transaction,
         fromUserId: result.fromUserId,
         toUserId: result.toUserId,
-        fromAccountBalance: result.fromAccountBalance,
-        toAccountBalance: result.toAccountBalance,
+        fromAccountBalanceCents: result.fromAccountBalanceCents,
+        toAccountBalanceCents: result.toAccountBalanceCents,
       });
     } catch (error) {
       const err = error as Error & { statusCode?: number };

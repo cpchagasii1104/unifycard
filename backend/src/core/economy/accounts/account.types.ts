@@ -20,7 +20,7 @@ export interface Account {
   ownerId: string;
   ownerType: OwnerType;
   ownerGlobalUserId?: string | null;
-  balance: number;
+  balanceCents: number;
   currency: Currency;
   createdAt: string;
 }

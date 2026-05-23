@@ -18,12 +18,12 @@ interface PresenceRsvpRow {
   contact_id: string;
   status: string;
   visibility: string;
-  confirmedAt: Date | null;
-  cancelledAt: Date | null;
-  attendedAt: Date | null;
+  confirmed_at: Date | null;
+  cancelled_at: Date | null;
+  attended_at: Date | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PresenceRepository {
@@ -36,12 +36,12 @@ class PresenceRepository {
       contactId: row.contact_id,
       status: row.status as PresenceRsvpStatus,
       visibility: row.visibility as PresenceVisibility,
-      confirmedAt: row.confirmedAt,
-      cancelledAt: row.cancelledAt,
-      attendedAt: row.attendedAt,
+      confirmedAt: row.confirmed_at,
+      cancelledAt: row.cancelled_at,
+      attendedAt: row.attended_at,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -59,17 +59,17 @@ class PresenceRepository {
       `
       INSERT INTO presence_rsvps (
         tenant_id, context_type, context_id, contact_id, status, visibility,
-        confirmedAt, metadata
+        confirmed_at, metadata
       )
       VALUES ($1, $2, $3, $4, 'CONFIRMED', $5, $6, '{}'::jsonb)
       ON CONFLICT (tenant_id, context_type, context_id, contact_id)
       DO UPDATE SET
         status = 'CONFIRMED',
         visibility = EXCLUDED.visibility,
-        confirmedAt = $6,
-        updatedAt = NOW()
+        confirmed_at = $6,
+        updated_at = NOW()
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, visibility,
-                confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+                confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       `,
       [tenantId, contextType, contextId, contactId, visibility, now]
     );
@@ -94,11 +94,11 @@ class PresenceRepository {
       `
       UPDATE presence_rsvps
       SET status = 'CANCELLED',
-          cancelledAt = $1,
-          updatedAt = NOW()
+          cancelled_at = $1,
+          updated_at = NOW()
       WHERE tenant_id = $2 AND context_type = $3 AND context_id = $4 AND contact_id = $5
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, visibility,
-                confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+                confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       `,
       [now, tenantId, contextType, contextId, contactId]
     );
@@ -120,10 +120,10 @@ class PresenceRepository {
       `
       UPDATE presence_rsvps
       SET visibility = $1,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $2 AND id = $3
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, visibility,
-                confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+                confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       `,
       [visibility, tenantId, rsvpId]
     );
@@ -148,11 +148,11 @@ class PresenceRepository {
       `
       UPDATE presence_rsvps
       SET status = 'ATTENDED',
-          attendedAt = $1,
-          updatedAt = NOW()
+          attended_at = $1,
+          updated_at = NOW()
       WHERE tenant_id = $2 AND context_type = $3 AND context_id = $4 AND contact_id = $5
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, visibility,
-                confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+                confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       `,
       [now, tenantId, contextType, contextId, contactId]
     );
@@ -176,10 +176,10 @@ class PresenceRepository {
       `
       UPDATE presence_rsvps
       SET status = 'NO_SHOW',
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4
       RETURNING id, tenant_id, context_type, context_id, contact_id, status, visibility,
-                confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+                confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       `,
       [tenantId, contextType, contextId, contactId]
     );
@@ -201,7 +201,7 @@ class PresenceRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, status, visibility,
-             confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+             confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       FROM presence_rsvps
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4
       `,
@@ -245,10 +245,10 @@ class PresenceRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, status, visibility,
-             confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+             confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       FROM presence_rsvps
       WHERE ${conditions.join(' AND ')}
-      ORDER BY confirmedAt DESC NULLS LAST, createdAt DESC
+      ORDER BY confirmed_at DESC NULLS LAST, created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -285,10 +285,10 @@ class PresenceRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, status, visibility,
-             confirmedAt, cancelledAt, attendedAt, metadata, createdAt, updatedAt
+             confirmed_at, cancelled_at, attended_at, metadata, created_at, updated_at
       FROM presence_rsvps
       WHERE ${conditions.join(' AND ')}
-      ORDER BY confirmedAt DESC NULLS LAST, createdAt DESC
+      ORDER BY confirmed_at DESC NULLS LAST, created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -305,6 +305,7 @@ class PresenceRepository {
     confirmed: number;
     attended: number;
     noShow: number;
+    noShowRate: number;
     cancelled: number;
   }> {
     const row = await runQueryWithTenant<{
@@ -327,13 +328,16 @@ class PresenceRepository {
     );
 
     if (!row) {
-      return { confirmed: 0, attended: 0, noShow: 0, cancelled: 0 };
+      return { confirmed: 0, attended: 0, noShow: 0, noShowRate: 0, cancelled: 0 };
     }
 
+    const confirmed = parseInt(row.confirmed, 10);
+    const noShow = parseInt(row.no_show, 10);
     return {
-      confirmed: parseInt(row.confirmed, 10),
+      confirmed,
       attended: parseInt(row.attended, 10),
-      noShow: parseInt(row.no_show, 10),
+      noShow,
+      noShowRate: confirmed > 0 ? noShow / confirmed : 0,
       cancelled: parseInt(row.cancelled, 10),
     };
   }

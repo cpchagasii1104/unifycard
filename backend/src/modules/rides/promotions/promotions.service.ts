@@ -1,7 +1,7 @@
 // src/modules/rides/promotions/promotions.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 import { BadRequestError, NotFoundError } from '@core/errors';
 
 export class PromotionsService {
@@ -29,24 +29,23 @@ export class PromotionsService {
       throw new BadRequestError('Título, tipo e valor do desconto são obrigatórios.');
     }
 
-    const result = await runQueryWithTenant<any>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
       INSERT INTO rides_promotions (
         tenant_id, title, description, promo_code,
         discount_type, discount_value, max_uses,
         startsAt, expiresAt,
         min_distance_km, min_price,
         applicable_city_id, applicable_service_type_id,
-        createdAt
+        created_at
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now()
       )
       RETURNING *
       `,
-        values: [
+        [
           tenantId,
           title,
           description,
@@ -60,23 +59,21 @@ export class PromotionsService {
           min_price,
           applicable_city_id,
           applicable_service_type_id,
-        ],
+        ]
+      );
+      const result = res.rows[0];
+      if (!result) {
+        throw new Error('Failed to create promotion');
       }
-    );
-
-    if (!result) {
-      throw new Error('Failed to create promotion');
-    }
-
-    await eventBus.emit({
-      type: 'rides.promotion.created',
-      tenantId,
-      payload: {
-        promotionId: result.promotion_id,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.promotion.created',
+        tenantId,
+        payload: {
+          promotionId: result.promotion_id,
+        },
+      });
+      return result;
     });
-
-    return result;
   }
 
   // ============================================================================
@@ -155,39 +152,34 @@ export class PromotionsService {
   // 🔹 5. Registrar uso da promoção
   // ============================================================================
   async registerPromotionUse(tenantId: string, promotionId: string, rideId: string) {
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
       INSERT INTO rides_driver_promotion_progress (
         tenant_id, promotion_id, ride_id, usedAt
       )
       VALUES ($1,$2,$3,now())
       `,
-        values: [tenantId, promotionId, rideId],
-      }
-    );
+        [tenantId, promotionId, rideId]
+      );
 
-    // Incrementar contador de usos
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+      await client.query(
+        `
       UPDATE rides_promotions
       SET uses_count = uses_count + 1
       WHERE tenant_id = $1 AND promotion_id = $2
       `,
-        values: [tenantId, promotionId],
-      }
-    );
+        [tenantId, promotionId]
+      );
 
-    await eventBus.emit({
-      type: 'rides.promotion.used',
-      tenantId,
-      payload: {
-        promotionId,
-        rideId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.promotion.used',
+        tenantId,
+        payload: {
+          promotionId,
+          rideId,
+        },
+      });
     });
   }
 
@@ -206,7 +198,7 @@ export class PromotionsService {
         AND (applicable_service_type_id IS NULL OR applicable_service_type_id = $3)
         AND expiresAt > now()
         AND (max_uses IS NULL OR uses_count < max_uses)
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
         values: [tenantId, cityId, serviceTypeId],
       }

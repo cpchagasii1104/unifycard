@@ -8,21 +8,25 @@
  * Ver: ARCHITECTURAL_SOURCE_OF_TRUTH.md
  */
 
+import type { ActorTypeDb } from '../actor-type';
+
 export interface ActorRow {
   actor_id: string;
   tenant_id: string;
-  actor_type: 'user' | 'page' | 'group' | 'channel';
+  actor_type: ActorTypeDb;
   user_id: string | null;
   company_id: string | null;
   group_id: string | null;
   display_name: string;
+  /** Âncora humana (FK actors.id); ver §4.8 */
+  responsible_actor_id: string | null;
   slug: string | null;
   avatar_url: string | null;
   cover_url: string | null;
   bio: string | null;
   metadata: any;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface ActorRepositoryPort {
@@ -30,7 +34,11 @@ export interface ActorRepositoryPort {
   findByUserId(tenantId: string, userId: string): Promise<ActorRow | null>;
   findByCompanyId(tenantId: string, companyId: string): Promise<ActorRow | null>;
   findOrCreateUserActor(tenantId: string, userId: string): Promise<ActorRow>;
-  findOrCreatePageActor(tenantId: string, companyId: string): Promise<ActorRow>;
+  findOrCreatePageActor(
+    tenantId: string,
+    companyId: string,
+    responsibleActorId: string
+  ): Promise<ActorRow>;
   updateUserActorDisplayName(tenantId: string, userId: string, displayName: string): Promise<ActorRow | null>;
   update(
     tenantId: string,

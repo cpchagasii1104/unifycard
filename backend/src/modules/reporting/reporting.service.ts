@@ -14,17 +14,24 @@ import type {
   ExportType,
   ExportFormat,
 } from './reporting.types';
+import {
+  sumBankTransactionVolumeCents,
+  sumPlatformFeeFromBankSplitsCents,
+  sumBankTransactionVolumeByMonth,
+  sumBankTransactionVolumeByReferenceType,
+  sumPlatformFeeByMonthFromSplits,
+  listBankLedgerRowsForExport,
+} from './reporting-bank-aggregates';
 
 class ReportingService {
   /**
    * Calcula KPIs Financeiros Principais
-   * 🔴 BLINDAGEM: Todos os cálculos vêm do Ledger
+   * 🔴 BLINDAGEM: Agregações a partir de bank_transactions / bank_splits (SSOT), não do economy ledger (stub).
    */
   async getFinancialKPIs(
     tenantId: string,
     filters: ReportingFilters = {}
   ): Promise<FinancialKPIs> {
-    const { ledgerService } = await import('../ledger/ledger.service');
     const { payoutService } = await import('../payout/payout.service');
     const { invoiceService } = await import('../invoicing/invoice.service');
     const { escrowService } = await import('../escrow/escrow.service');
@@ -32,23 +39,11 @@ class ReportingService {
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // Último ano
     const endDate = filters.endDate || new Date();
 
-    // 1. GMV Total (soma de todos os ESCROW_HOLD)
-    const gmvEntries = await ledgerService.listEntries(tenantId, {
-      entryType: 'ESCROW_HOLD',
-      startDate,
-      endDate,
-      limit: 10000,
-    });
-    const totalGMVCents = gmvEntries.reduce((sum, e) => sum + e.amountCents, 0);
+    // 1. Volume de transações (bank_transactions no período) — proxy operacional de GMV
+    const totalGMVCents = await sumBankTransactionVolumeCents(tenantId, startDate, endDate);
 
-    // 2. Receita da Plataforma (soma de COMMISSION_FEE)
-    const commissionEntries = await ledgerService.listEntries(tenantId, {
-      entryType: 'COMMISSION_FEE',
-      startDate,
-      endDate,
-      limit: 10000,
-    });
-    const platformRevenueCents = commissionEntries.reduce((sum, e) => sum + e.amountCents, 0);
+    // 2. Receita de fee da plataforma (bank_splits.split_type = 'fee')
+    const platformRevenueCents = await sumPlatformFeeFromBankSplitsCents(tenantId, startDate, endDate);
 
     // 3. Valor em Escrow (soma de escrows não RELEASED)
     let escrowHeldCents = 0;
@@ -82,8 +77,8 @@ class ReportingService {
       endDate,
       limit: 10000,
     });
-    const invoicesIssued = allInvoices.filter((i) => i.status === 'ISSUED');
-    const invoicesPending = allInvoices.filter((i) => i.status === 'DRAFT');
+    const invoicesIssued = allInvoices.filter((i) => i.status === 'issued');
+    const invoicesPending = allInvoices.filter((i) => i.status === 'draft');
 
     const invoicesIssuedCount = invoicesIssued.length;
     const invoicesIssuedTotalCents = invoicesIssued.reduce((sum, i) => sum + i.totalCents, 0);
@@ -112,34 +107,14 @@ class ReportingService {
     tenantId: string,
     filters: ReportingFilters = {}
   ): Promise<RevenueByPeriod[]> {
-    const { ledgerService } = await import('../ledger/ledger.service');
-
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    // Buscar todas as entradas de receita (ESCROW_RELEASE)
-    const revenueEntries = await ledgerService.listEntries(tenantId, {
-      entryType: 'ESCROW_RELEASE',
-      startDate,
-      endDate,
-      limit: 10000,
-    });
-
-    // Agrupar por período (mensal)
-    const byPeriod = new Map<string, { revenueCents: number; count: number }>();
-
-    for (const entry of revenueEntries) {
-      const period = entry.timestamp.toISOString().substring(0, 7); // YYYY-MM
-      const existing = byPeriod.get(period) || { revenueCents: 0, count: 0 };
-      existing.revenueCents += entry.amountCents;
-      existing.count += 1;
-      byPeriod.set(period, existing);
-    }
-
-    return Array.from(byPeriod.entries()).map(([period, data]) => ({
-      period,
-      revenueCents: data.revenueCents,
-      transactionCount: data.count,
+    const rows = await sumBankTransactionVolumeByMonth(tenantId, startDate, endDate);
+    return rows.map((r) => ({
+      period: r.period,
+      revenueCents: r.revenueCents,
+      transactionCount: r.transactionCount,
       currency: filters.currency || 'BRL',
     }));
   }
@@ -151,34 +126,14 @@ class ReportingService {
     tenantId: string,
     filters: ReportingFilters = {}
   ): Promise<RevenueByServiceType[]> {
-    const { ledgerService } = await import('../ledger/ledger.service');
-
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    // Buscar entradas de receita
-    const revenueEntries = await ledgerService.listEntries(tenantId, {
-      entryType: 'ESCROW_RELEASE',
-      startDate,
-      endDate,
-      limit: 10000,
-    });
-
-    // Agrupar por tipo de serviço (do metadata)
-    const byServiceType = new Map<string, { revenueCents: number; count: number }>();
-
-    for (const entry of revenueEntries) {
-      const serviceType = entry.metadata?.serviceType || 'unknown';
-      const existing = byServiceType.get(serviceType) || { revenueCents: 0, count: 0 };
-      existing.revenueCents += entry.amountCents;
-      existing.count += 1;
-      byServiceType.set(serviceType, existing);
-    }
-
-    return Array.from(byServiceType.entries()).map(([serviceType, data]) => ({
-      serviceType,
-      revenueCents: data.revenueCents,
-      transactionCount: data.count,
+    const rows = await sumBankTransactionVolumeByReferenceType(tenantId, startDate, endDate);
+    return rows.map((r) => ({
+      serviceType: r.referenceType,
+      revenueCents: r.revenueCents,
+      transactionCount: r.transactionCount,
       currency: filters.currency || 'BRL',
     }));
   }
@@ -190,34 +145,14 @@ class ReportingService {
     tenantId: string,
     filters: ReportingFilters = {}
   ): Promise<PlatformCommission[]> {
-    const { ledgerService } = await import('../ledger/ledger.service');
-
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const endDate = filters.endDate || new Date();
 
-    // Buscar entradas de comissão
-    const commissionEntries = await ledgerService.listEntries(tenantId, {
-      entryType: 'COMMISSION_FEE',
-      startDate,
-      endDate,
-      limit: 10000,
-    });
-
-    // Agrupar por período
-    const byPeriod = new Map<string, { commissionCents: number; count: number }>();
-
-    for (const entry of commissionEntries) {
-      const period = entry.timestamp.toISOString().substring(0, 7); // YYYY-MM
-      const existing = byPeriod.get(period) || { commissionCents: 0, count: 0 };
-      existing.commissionCents += entry.amountCents;
-      existing.count += 1;
-      byPeriod.set(period, existing);
-    }
-
-    return Array.from(byPeriod.entries()).map(([period, data]) => ({
-      period,
-      commissionCents: data.commissionCents,
-      transactionCount: data.count,
+    const rows = await sumPlatformFeeByMonthFromSplits(tenantId, startDate, endDate);
+    return rows.map((r) => ({
+      period: r.period,
+      commissionCents: r.commissionCents,
+      transactionCount: r.transactionCount,
       currency: filters.currency || 'BRL',
     }));
   }
@@ -348,14 +283,13 @@ class ReportingService {
 
     switch (exportType) {
       case 'ledger': {
-        const { ledgerService } = await import('../ledger/ledger.service');
-        const entries = await ledgerService.listEntries(tenantId, {
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          limit: 100000,
-        });
-        data = entries;
-        filename = `ledger-export-${new Date().toISOString().split('T')[0]}`;
+        data = await listBankLedgerRowsForExport(
+          tenantId,
+          filters.startDate,
+          filters.endDate,
+          100000
+        );
+        filename = `bank-ledger-export-${new Date().toISOString().split('T')[0]}`;
         break;
       }
       case 'payouts': {

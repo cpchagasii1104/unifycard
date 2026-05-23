@@ -38,7 +38,7 @@ export interface CreateTransactionInput {
  */
 export interface TransferResult {
   transaction: Transaction;
-  fromAccountBalance: number;
-  toAccountBalance: number;
+  fromAccountBalanceCents: number;
+  toAccountBalanceCents: number;
 }
 

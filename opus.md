@@ -550,6 +550,49 @@ Sessão F3-S6b (2026-05-08): migração corretiva `ADD COLUMN created_by_tenant_
 
 ---
 
+## 7-A. Princípio: modo operante = ativação econômica contextual (Clayton, 2026-05-16)
+
+Princípio operacional adicionado por autorização explícita de Clayton durante implementação do MVP do modo operante.
+
+### Definição
+
+**Operar não é "modo trabalho" nem "modo profissional". É camada de ativação econômica contextual.**
+**Modo operante NÃO cria capability. REVELA capabilities/delegações/vínculos que o actor já possui.**
+
+### Sequência arquitetural
+
+```
+actor
+  → authority chain + capabilities + delegações + vínculos (SSOT)
+  → modo operante (filtra: o que pode ser exercido economicamente AGORA)
+  → projeção contextual (homepage, quick actions, sidebar)
+```
+
+Authority/delegação/vínculo são SSOT. Modo apenas projeta. Se delegação é revogada → contexto correspondente desaparece naturalmente. Sem cleanup, sem troca de actor.
+
+### Frase-âncora dupla (reflexo permanente)
+
+> **Modo operante reorganiza prioridade, não reorganiza soberania.**
+> **Não cria capability, revela capabilities já autorizadas.**
+
+### Implicação para implementação
+
+**v1 (MVP atual, 2026-05-16):** listas hardcoded por `(actor_type, mode)` em `actorContextConfig.ts`. Valida UX (toggle, persistência, projeção, cross-mode). Custo de erro mínimo.
+
+**v2 (NÃO implementar sem validar v1):** substitui hardcode por resolver dinâmico de capabilities/delegações. Profissão vira HINT, não fonte primária.
+
+**REGRA INSTITUCIONAL:** MVP hardcoded primeiro, validar UX, depois v2 dinâmica. Não pular para v2 sem MVP validado, mesmo com modelo conceitual mais elegante.
+
+### Quando aplicar este princípio
+
+- Toda decisão sobre quick actions, sidebar, home contextual: passa pelos 2 filtros âncora
+- Toda proposta "adicionar modo X": exige resposta "X é capability já existente ou cria autoridade nova?" — se segundo, vira frente de authority, não modo
+- Profissão é hint dentro de Operar, não eixo próprio
+
+Memória institucional permanente: `~/.claude/projects/C--unificard/memory/project_modo_operante.md`. Detalhes adicionais em `code.md §31`.
+
+---
+
 ## §8. Histórico de sessões (append-only, mais recente em cima)
 
 

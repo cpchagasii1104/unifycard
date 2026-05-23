@@ -1,14 +1,81 @@
 // backend/src/core/tenants/tenant.service.ts
+import { randomUUID } from 'crypto';
+import type { PoolClient } from 'pg';
 import { pool } from '@core/database/pool';
 import { worldService } from '../world/services/world.service';
 import { rootConfigService } from '../root-config/root-config.service';
-import type { Tenant, SetTenantRegionInput } from './tenant.types';
+import { bootstrapTenantContexts } from './tenant-context-bootstrap.service';
+import type { CreateTenantInput, Tenant, SetTenantRegionInput } from './tenant.types';
+
+type Queryable = Pick<PoolClient, 'query'>;
+
+async function queryTenantById(executor: Queryable, tenantId: string): Promise<Tenant | null> {
+  type RowWithCity = {
+    id: string;
+    name: string;
+    slug: string;
+    city_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+  };
+  type RowBase = {
+    id: string;
+    name: string;
+    slug: string;
+    created_at: Date;
+    updated_at: Date;
+  };
+
+  let result;
+  try {
+    result = await executor.query<RowWithCity>(
+      'SELECT id, name, slug, city_id, created_at, updated_at FROM tenants WHERE id = $1 LIMIT 1',
+      [tenantId]
+    );
+  } catch (e: unknown) {
+    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code: string }).code) : '';
+    const msg = e instanceof Error ? e.message : String(e);
+    if (code === '42703' && msg.includes('city_id')) {
+      result = await executor.query<RowBase & { city_id?: null }>(
+        'SELECT id, name, slug, created_at, updated_at FROM tenants WHERE id = $1 LIMIT 1',
+        [tenantId]
+      );
+    } else {
+      throw e;
+    }
+  }
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    tenantId: row.id,
+    name: row.name,
+    slug: row.slug,
+    cityId: 'city_id' in row && row.city_id != null ? row.city_id : null,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  };
+}
+
+async function assertProfessionalAuthority(executor: Queryable, tenantId: string): Promise<void> {
+  const r = await executor.query<{ permission: string }>(
+    `SELECT permission FROM tenant_contexts WHERE tenant_id = $1 AND context = 'professional' LIMIT 1`,
+    [tenantId]
+  );
+  const perm = r.rows[0]?.permission;
+  if (perm !== 'read' && perm !== 'write' && perm !== 'admin') {
+    throw new Error('TENANT_BOOTSTRAP_INVALID: context professional ausente ou permissão inválida');
+  }
+}
 
 class TenantService {
   // Note: tabela tenants NÃO usa RLS – é tabela de sistema
   async tenantExists(tenantId: string): Promise<boolean> {
-    const result = await pool.query<{ tenant_id: string }>(
-      'SELECT tenant_id FROM tenants WHERE tenant_id = $1 LIMIT 1',
+    const result = await pool.query<{ id: string }>(
+      'SELECT id FROM tenants WHERE id = $1 LIMIT 1',
       [tenantId]
     );
 
@@ -16,31 +83,52 @@ class TenantService {
   }
 
   async getTenantById(tenantId: string): Promise<Tenant | null> {
-    const result = await pool.query<{
-      tenant_id: string;
-      name: string;
-      slug: string;
-      city_id: string | null;
-      createdAt: Date;
-      updatedAt: Date;
-    }>(
-      'SELECT tenant_id, name, slug, city_id, createdAt, updatedAt FROM tenants WHERE tenant_id = $1 LIMIT 1',
-      [tenantId]
-    );
+    return queryTenantById(pool, tenantId);
+  }
 
-    const row = result.rows[0];
-    if (!row) {
-      return null;
+  /**
+   * Único ponto de criação de tenant: INSERT + bootstrap tenant_contexts na mesma transação.
+   * @param outerClient — se definido, participa da transação do chamador (sem BEGIN/COMMIT aqui).
+   */
+  async createTenant(input: CreateTenantInput, outerClient?: PoolClient): Promise<Tenant> {
+    const tenantId = input.id ?? randomUUID();
+
+    const run = async (client: PoolClient) => {
+      await client.query(
+        `INSERT INTO tenants (id, name, slug, created_at, updated_at)
+         VALUES ($1, $2, $3, now(), now())`,
+        [tenantId, input.name, input.slug]
+      );
+      await bootstrapTenantContexts(tenantId, client);
+      await assertProfessionalAuthority(client, tenantId);
+    };
+
+    if (outerClient) {
+      await run(outerClient);
+      const tenant = await queryTenantById(outerClient, tenantId);
+      if (!tenant) {
+        throw new Error('TENANT_CREATE_FAILED: tenant não visível na transação corrente');
+      }
+      return tenant;
     }
 
-    return {
-      tenantId: row.tenant_id,
-      name: row.name,
-      slug: row.slug,
-      cityId: row.city_id,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await run(client);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    const tenant = await queryTenantById(pool, tenantId);
+    if (!tenant) {
+      throw new Error('TENANT_CREATE_FAILED: tenant não encontrado após transação');
+    }
+    return tenant;
   }
 
   /**
@@ -105,17 +193,17 @@ class TenantService {
 
     // Atualizar apenas city_id no tenant (país e estado são derivados da cidade)
     const updateResult = await pool.query<{
-      tenant_id: string;
+      id: string;
       name: string;
       slug: string;
       city_id: string | null;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       `UPDATE tenants 
-       SET city_id = $1, updatedAt = now()
-       WHERE tenant_id = $2
-       RETURNING tenant_id, name, slug, city_id, createdAt, updatedAt`,
+       SET city_id = $1, updated_at = now()
+       WHERE id = $2
+       RETURNING id, name, slug, city_id, created_at, updated_at`,
       [finalCityId, tenantId]
     );
 
@@ -125,12 +213,12 @@ class TenantService {
     }
 
     return {
-      tenantId: updatedRow.tenant_id,
+      tenantId: updatedRow.id,
       name: updatedRow.name,
       slug: updatedRow.slug,
       cityId: updatedRow.city_id,
-      createdAt: updatedRow.createdAt,
-      updatedAt: updatedRow.updatedAt,
+      createdAt: updatedRow.created_at instanceof Date ? updatedRow.created_at.toISOString() : String(updatedRow.created_at),
+      updatedAt: updatedRow.updated_at instanceof Date ? updatedRow.updated_at.toISOString() : String(updatedRow.updated_at),
     };
   }
 }

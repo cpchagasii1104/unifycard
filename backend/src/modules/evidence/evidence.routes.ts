@@ -18,6 +18,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{
     Params: { contextType: string; contextId: string };
   }>('/evidence/context/:contextType/:contextId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const pack = await evidenceService.getOrCreatePack(tenantId, {
       contextType: req.params.contextType as any,
@@ -32,6 +35,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
    * Busca evidence pack por ID
    */
   fastify.get<{ Params: { packId: string } }>('/evidence/:packId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const pack = await evidenceService.getPack(tenantId, req.params.packId);
 
@@ -51,6 +57,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/evidence', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       contextType: req.query.contextType as any,
@@ -72,6 +81,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { packId: string }; Body: OpenDisputeInput }>(
     '/evidence/:packId/open-dispute',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -91,6 +103,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { packId: string }; Body: ResolveDisputeInput }>(
     '/evidence/:packId/resolve-dispute',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -111,6 +126,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
     Params: { packId: string };
     Querystring: { format?: string };
   }>('/evidence/:packId/export', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const format = (req.query.format || 'json') as 'json' | 'pdf';
 
@@ -134,6 +152,9 @@ const evidenceRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{
     Params: { contextType: string; contextId: string };
   }>('/evidence/consolidate/:contextType/:contextId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const pack = await evidenceService.consolidateEvidence(
       tenantId,

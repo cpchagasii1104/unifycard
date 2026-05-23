@@ -343,11 +343,11 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         // Buscar plano atual
         const organizerRow = await runQueryWithTenant<{
           plan: string;
-          plan_expiresAt: Date | null;
+          plan_expires_at: Date | null;
         }>(
           req.tenant.id,
           `
-          SELECT plan, plan_expiresAt
+          SELECT plan, plan_expires_at
           FROM event_organizers
           WHERE id = $1
           `,
@@ -360,8 +360,8 @@ const organizersRoutes: FastifyPluginAsync = async (fastify) => {
         return {
           plan,
           planInfo,
-          expiresAt: organizerRow?.plan_expiresAt || null,
-          isExpired: organizerRow?.plan_expiresAt ? organizerRow.plan_expiresAt < new Date() : false,
+          expiresAt: organizerRow?.plan_expires_at || null,
+          isExpired: organizerRow?.plan_expires_at ? organizerRow.plan_expires_at < new Date() : false,
         };
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar plano do organizador');
@@ -768,7 +768,7 @@ async function handleSubscriptionUpdated(fastify: any, event: Stripe.Event) {
       subscription.tenant_id,
       `
       UPDATE organizer_subscriptions
-      SET current_period_end = $1, updatedAt = now()
+      SET current_period_end = $1, updated_at = now()
       WHERE id = $2
       `,
       [new Date(currentPeriodEnd * 1000), subscription.id]

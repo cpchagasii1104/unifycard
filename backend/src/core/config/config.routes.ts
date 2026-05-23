@@ -80,7 +80,7 @@ const configRoutes: FastifyPluginAsync = async (fastify) => {
         tenantId,
         parsed.data.module,
         parsed.data.key,
-        parsed.data.value,
+        parsed.data.valueCents,
         { isSystem: parsed.data.isSystem }
       );
       return reply.status(201).send(config);

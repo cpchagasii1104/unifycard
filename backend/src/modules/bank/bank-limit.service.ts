@@ -9,6 +9,7 @@ import { bankPolicyService } from './bank-policy.service';
 import { bankLedgerRepository } from './bank-ledger.repository';
 import { bankAccountService } from './bank-account.service';
 import { getClientWithTenant } from '@core/database/pool';
+import { asMoneyCents, toMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
 import type {
   RequestLimitChangeInput,
   CurrentLimits,
@@ -20,12 +21,12 @@ import type { BankTransactionContext } from './bank-split.types';
 /**
  * Defaults de limite (usados se não houver policy)
  */
-const DEFAULT_LIMITS: Record<BankLimitType, number> = {
-  pix_out: 500000, // R$ 5.000,00 em centavos
-  transfer_out: 1000000, // R$ 10.000,00 em centavos
-  payment_out: 2000000, // R$ 20.000,00 em centavos
-  daily_out: 5000000, // R$ 50.000,00 em centavos
-  monthly_out: 100000000, // R$ 1.000.000,00 em centavos
+const DEFAULT_LIMITS: Record<BankLimitType, MoneyCents> = {
+  pix_out: asMoneyCents(500000),
+  transfer_out: asMoneyCents(1_000_000),
+  payment_out: asMoneyCents(2_000_000),
+  daily_out: asMoneyCents(5_000_000),
+  monthly_out: asMoneyCents(100_000_000),
 };
 
 /**
@@ -40,15 +41,15 @@ class BankLimitService {
   private async getDefaultLimit(
     tenantId: string,
     limitType: BankLimitType
-  ): Promise<number> {
+  ): Promise<MoneyCents> {
     // Tentar buscar da policy registry
     const policy = await bankPolicyService.getPolicy<{ defaultLimit?: number }>(
       tenantId,
       `limit.${limitType}`
     );
 
-    if (policy?.defaultLimit) {
-      return policy.defaultLimit;
+    if (policy?.defaultLimit != null) {
+      return asMoneyCents(Math.round(Number(policy.defaultLimit)));
     }
 
     // Usar default hardcoded
@@ -63,7 +64,7 @@ class BankLimitService {
     tenantId: string,
     actorId: string,
     limitType: BankLimitType
-  ): Promise<number> {
+  ): Promise<MoneyCents> {
     // Buscar último limite aplicado
     const lastApplied = await bankLimitRepository.getLastAppliedLimit(
       tenantId,
@@ -75,7 +76,6 @@ class BankLimitService {
       return lastApplied;
     }
 
-    // Se não houver limite aplicado, usar default
     return await this.getDefaultLimit(tenantId, limitType);
   }
 
@@ -103,8 +103,8 @@ class BankLimitService {
   private async requireStepUpIfNeeded(
     tenantId: string,
     userId: string,
-    requestedAmount: number,
-    currentLimit: number,
+    requestedAmountCents: MoneyCents,
+    currentLimitCents: MoneyCents,
     stepUpVerified?: boolean
   ): Promise<void> {
     // HOTFIX: Se strict mode não estiver ativo, nunca bloquear
@@ -113,8 +113,8 @@ class BankLimitService {
     }
 
     // Apenas exigir step-up se for aumento E valor > threshold
-    const isIncrease = requestedAmount > currentLimit;
-    const exceedsThreshold = requestedAmount > this.STEP_UP_THRESHOLD;
+    const isIncrease = requestedAmountCents > currentLimitCents;
+    const exceedsThreshold = requestedAmountCents > this.STEP_UP_THRESHOLD;
 
     if (!isIncrease || !exceedsThreshold) {
       return; // Não precisa step-up
@@ -142,9 +142,9 @@ class BankLimitService {
 
   /**
    * Solicita mudança de limite
-   * - Se amount < limite atual → status = applied, effectiveAt = now
-   * - Se amount > limite atual → status = pending, effectiveAt = now + 24h
-   * - Se amount > threshold → exige step-up (se credencial registrada)
+   * - Se requestedAmountCents < limite atual → status = applied, effectiveAt = now
+   * - Se requestedAmountCents > limite atual → status = pending, effectiveAt = now + 24h
+   * - Se requestedAmountCents > threshold → exige step-up (se credencial registrada)
    */
   async requestLimitChange(
     tenantId: string,
@@ -154,24 +154,27 @@ class BankLimitService {
     requestId: string;
     status: 'pending' | 'applied';
     effectiveAt: Date;
-    currentLimit: number;
-    requestedLimit: number;
+    currentLimitCents: MoneyCents;
+    requestedLimitCents: MoneyCents;
   }> {
+    const amountCentsNorm = toMoneyCents(input.amountCents);
+    const inputNorm: RequestLimitChangeInput = { ...input, amountCents: amountCentsNorm };
+
     // Buscar limite atual
     const currentLimit = await this.getCurrentLimit(
       tenantId,
-      input.actorId,
-      input.limitType
+      inputNorm.actorId,
+      inputNorm.limitType
     );
 
     // SPRINT 36.3: Verificar se step-up é necessário
     // ⚠️ HOTFIX: Step-up WebAuthn está em scaffolding; enforcement financeiro desativado até verificação criptográfica real.
     // Por padrão, não bloqueia (WEBAUTHN_STEP_UP_STRICT=false)
-    if (input.requestedByUserId) {
+    if (inputNorm.requestedByUserId) {
       await this.requireStepUpIfNeeded(
         tenantId,
-        input.requestedByUserId,
-        input.amount,
+        inputNorm.requestedByUserId,
+        amountCentsNorm,
         currentLimit,
         stepUpVerified
       );
@@ -181,12 +184,12 @@ class BankLimitService {
     let effectiveAt: Date;
     let status: 'pending' | 'applied';
 
-    // Se redução (amount < current) → aplica imediatamente
-    // Se aumento (amount > current) → cooldown de 24h
-    if (input.amount < currentLimit) {
+    // Se redução (requestedAmountCents < current) → aplica imediatamente
+    // Se aumento (requestedAmountCents > current) → cooldown de 24h
+    if (amountCentsNorm < currentLimit) {
       effectiveAt = now;
       status = 'applied';
-    } else if (input.amount > currentLimit) {
+    } else if (amountCentsNorm > currentLimit) {
       effectiveAt = new Date(now.getTime() + LIMIT_INCREASE_COOLDOWN_MS);
       status = 'pending';
     } else {
@@ -198,7 +201,7 @@ class BankLimitService {
     // Criar pedido (append-only)
     const request = await bankLimitRepository.createLimitChangeRequest(
       tenantId,
-      input,
+      inputNorm,
       effectiveAt,
       status
     );
@@ -207,8 +210,8 @@ class BankLimitService {
       requestId: request.id,
       status,
       effectiveAt: request.effectiveAt,
-      currentLimit,
-      requestedLimit: input.amount,
+      currentLimitCents: currentLimit,
+      requestedLimitCents: amountCentsNorm,
     };
   }
 
@@ -227,10 +230,16 @@ class BankLimitService {
       'monthly_out',
     ];
 
-    const limits: Record<BankLimitType, { current: number; pending: { amountCents: number; effectiveAt: Date } | null }> = {} as any;
+    const limits: Record<
+      BankLimitType,
+      { currentAmountCents: MoneyCents; pending: { requestedAmountCents: MoneyCents; effectiveAt: Date } | null }
+    > = {} as Record<
+      BankLimitType,
+      { currentAmountCents: MoneyCents; pending: { requestedAmountCents: MoneyCents; effectiveAt: Date } | null }
+    >;
 
     for (const limitType of limitTypes) {
-      const current = await this.getCurrentLimit(tenantId, actorId, limitType);
+      const currentAmountCents = await this.getCurrentLimit(tenantId, actorId, limitType);
       const pending = await bankLimitRepository.getPendingRequest(
         tenantId,
         actorId,
@@ -238,10 +247,10 @@ class BankLimitService {
       );
 
       limits[limitType] = {
-        current,
+        currentAmountCents,
         pending: pending
           ? {
-              amountCents: pending.requestedAmount,
+              requestedAmountCents: pending.requestedAmountCents,
               effectiveAt: pending.effectiveAt,
             }
           : null,
@@ -298,8 +307,8 @@ class BankLimitService {
 
     return {
       limitType,
-      currentAmount: current,
-      pendingAmount: pending?.requestedAmount || null,
+      currentAmountCents: current,
+      pendingAmountCents: pending?.requestedAmountCents ?? null,
       pendingEffectiveAt: pending?.effectiveAt || null,
     };
   }
@@ -335,8 +344,7 @@ class BankLimitService {
     actorId: string,
     limitType: BankLimitType,
     date?: Date
-  ): Promise<number> {
-    // Buscar conta do actor
+  ): Promise<MoneyCents> {
     const account = await bankAccountService.getAccountByOwner(
       tenantId,
       actorId,
@@ -345,7 +353,7 @@ class BankLimitService {
     );
 
     if (!account) {
-      return 0; // Sem conta = sem uso
+      return asMoneyCents(0);
     }
 
     // Data do dia (início e fim)
@@ -378,46 +386,42 @@ class BankLimitService {
     }
 
     if (compatibleContexts.length === 0) {
-      return 0;
+      return asMoneyCents(0);
     }
 
-    // Buscar débitos do ledger do dia
     const client = await getClientWithTenant(tenantId);
     try {
-      // Para limitType daily_out ou monthly_out, somar todos os débitos do dia
       if (limitType === 'daily_out' || limitType === 'monthly_out') {
-        const result = await client.query<{ totalCents: string }>(
+        const result = await client.query<{ outflowCents: string }>(
           `
-          SELECT COALESCE(SUM(amount), 0) as total
+          SELECT COALESCE(SUM(amount_cents), 0)::text as "outflowCents"
           FROM bank_ledger
           WHERE account_id = $1
-            AND entry_type = 'debit'
-            AND createdAt >= $2
-            AND createdAt <= $3
+            AND direction = 'debit'
+            AND created_at >= $2
+            AND created_at <= $3
           `,
           [account.accountId, startOfDay, endOfDay]
         );
 
-        return parseFloat(result.rows[0]?.total || '0');
+        return asMoneyCents(parseInt(result.rows[0]?.outflowCents || '0', 10));
       }
 
-      // Para outros tipos, filtrar por contexto no metadata da transação
-      // O contexto está em bank_transactions.metadata->>'context'
-      const result = await client.query<{ totalCents: string }>(
+      const result = await client.query<{ outflowCents: string }>(
         `
-        SELECT COALESCE(SUM(bl.amount), 0) as total
+        SELECT COALESCE(SUM(bl.amount_cents), 0)::text as "outflowCents"
         FROM bank_ledger bl
-        INNER JOIN bank_transactions bt ON bl.transaction_id = bt.transaction_id
+        INNER JOIN bank_transactions bt ON bl.transaction_id = bt.id
         WHERE bl.account_id = $1
-          AND bl.entry_type = 'debit'
-          AND bl.createdAt >= $2
-          AND bl.createdAt <= $3
+          AND bl.direction = 'debit'
+          AND bl.created_at >= $2
+          AND bl.created_at <= $3
           AND COALESCE(bt.metadata->>'context', '') = ANY($4::text[])
         `,
         [account.accountId, startOfDay, endOfDay, compatibleContexts]
       );
 
-      return parseFloat(result.rows[0]?.total || '0');
+      return asMoneyCents(parseInt(result.rows[0]?.outflowCents || '0', 10));
     } finally {
       client.release();
     }
@@ -441,7 +445,7 @@ class BankLimitService {
   async requireStepUpForHighValue(
     tenantId: string,
     userId: string,
-    amountCents: number,
+    amountCents: MoneyCents,
     stepUpVerified?: boolean
   ): Promise<void> {
     // HOTFIX: Se strict mode não estiver ativo, nunca bloquear
@@ -449,7 +453,7 @@ class BankLimitService {
       return; // Não bloquear - enforcement desativado
     }
 
-    if (amount <= this.HIGH_VALUE_THRESHOLD) {
+    if (amountCents <= this.HIGH_VALUE_THRESHOLD) {
       return; // Não precisa step-up
     }
 
@@ -476,7 +480,8 @@ class BankLimitService {
   /**
    * Valida se transação pode ser executada (enforcement)
    * Aplica pendências antes de validar
-   * 
+   *
+   * @param attemptedAmount centavos inteiros da operação (§4.7). Nome imposto pelo BankLimitPort; sem fração.
    * @throws Error com statusCode 403 se limite excedido
    */
   async validateLimit(
@@ -487,6 +492,8 @@ class BankLimitService {
     actingUserId?: string,
     stepUpVerified?: boolean
   ): Promise<void> {
+    const attemptedAmountCents = toMoneyCents(attemptedAmount);
+
     // 1. Aplicar pendências vencidas
     await this.applyPendingIfDue(tenantId, actorId);
 
@@ -497,7 +504,7 @@ class BankLimitService {
       await this.requireStepUpForHighValue(
         tenantId,
         actingUserId,
-        attemptedAmount,
+        attemptedAmountCents,
         stepUpVerified
       );
     }
@@ -509,49 +516,46 @@ class BankLimitService {
     const usedToday = await this.getDailyOutflow(tenantId, actorId, limitType);
 
     // 5. Validar se transação excede limite
-    if (usedToday + attemptedAmount > limit.currentAmount) {
-      // SPRINT 66: Log institucional com referenceId
+    if (usedToday + attemptedAmountCents > limit.currentAmountCents) {
       let referenceId: string | undefined;
       try {
         const { auditService } = await import('@core/audit/audit.service');
         const auditEvent = await auditService.record(tenantId, {
           event_type: 'BANK_LIMIT_EXCEEDED',
-          severity: 'MEDIUM',
+          severity: 'medium',
           actor_id: actorId,
           actor_type: 'user',
-          company_id: null,
+          company_id: undefined,
           source: 'bank_limit',
           context: {
             limit_type: limitType,
-            limit_amount: limit.currentAmount,
-            used_today: usedToday,
-            attempted_amount: attemptedAmount,
+            limit_amount_cents: limit.currentAmountCents,
+            used_today_cents: usedToday,
+            attempted_amount_cents: attemptedAmountCents,
             acting_user_id: actingUserId || null,
             authority_source: 'bank_limit',
           },
         });
         referenceId = auditEvent.id;
       } catch (auditErr) {
-        // Não bloquear se logging falhar
         console.warn('[BankLimit] Erro ao registrar bloqueio em auditoria:', auditErr);
       }
 
-      // SPRINT 66: Erro padronizado com payload estruturado
       const error = new Error('Limite diário atingido') as Error & {
         statusCode?: number;
         errorCode?: string;
         limitType?: string;
-        limitAmount?: number;
-        usedToday?: number;
-        attemptedAmount?: number;
+        limitAmountCents?: MoneyCents;
+        usedTodayCents?: MoneyCents;
+        attemptedAmountCents?: MoneyCents;
         referenceId?: string;
       };
       error.statusCode = 403;
       error.errorCode = 'DAILY_LIMIT_EXCEEDED';
       error.limitType = limitType;
-      error.limitAmount = limit.currentAmount;
-      error.usedToday = usedToday;
-      error.attemptedAmount = attemptedAmount;
+      error.limitAmountCents = limit.currentAmountCents;
+      error.usedTodayCents = usedToday;
+      error.attemptedAmountCents = attemptedAmountCents;
       error.referenceId = referenceId;
       throw error;
     }

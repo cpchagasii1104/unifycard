@@ -19,10 +19,11 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
       type?: 'INDUSTRIAL' | 'LOCAL' | 'ALL';
       limit?: string;
       offset?: string;
+      includeNonReady?: string;
     };
   }>('/search', async (req, reply) => {
     const tenantId = req.tenant!.id;
-    const { q, regionId, cityId, categoryId, type, limit, offset } = req.query;
+    const { q, regionId, cityId, categoryId, type, limit, offset, includeNonReady } = req.query;
 
     if (!q || q.trim().length === 0) {
       return reply.status(400).send({
@@ -37,6 +38,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
       type: type || 'ALL',
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
+      includeNonReady: includeNonReady === 'true',
     });
 
     return reply.send(result);
@@ -46,11 +48,16 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /catalog/product/:id
    * Busca produto canônico por ID
    */
-  fastify.get<{ Params: { id: string } }>('/product/:id', async (req, reply) => {
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { includeNonReady?: string };
+  }>('/product/:id', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { id } = req.params;
 
-    const product = await catalogService.findById(tenantId, id);
+    const product = await catalogService.findById(tenantId, id, {
+      includeNonReady: req.query.includeNonReady === 'true',
+    });
 
     if (!product) {
       return reply.status(404).send({

@@ -1,4 +1,6 @@
 // src/core/bank/ports/bank-account.port.ts
+import type { MoneyCents } from '@contracts/marketplace/canonical';
+
 /**
  * Port: Bank Account Service
  * 
@@ -10,7 +12,7 @@
 
 export type BankAccountOwnerType = 'user' | 'company' | 'system';
 export type BankCurrency = 'BRL' | 'USD' | 'EUR' | 'TEST';
-export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow';
+export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'platform_ops';
 
 export interface BankAccount {
   accountId: string;
@@ -18,14 +20,14 @@ export interface BankAccount {
   ownerId: string;
   ownerType: BankAccountOwnerType;
   currency: BankCurrency;
-  cachedBalance: number;
+  cachedBalanceCents: MoneyCents;
   metadata?: Record<string, any> | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface BankAccountBalance {
-  balance: number;
+  balanceCents: MoneyCents;
   currency: BankCurrency;
 }
 

@@ -5,6 +5,9 @@ import { validateCpfOrThrow, normalizeCpf } from '@utils/cpf.validator';
 import { authRateLimitService } from '@core/rate-limiting/auth-rate-limit.service';
 import { RateLimitError } from '@core/errors';
 import { z } from 'zod';
+import { GENDER_VALUES, type Gender } from '@unificard/contracts';
+
+const GENDER_ZOD_ENUM = [...GENDER_VALUES] as [Gender, Gender, ...Gender[]];
 
 // Schemas de validação
 const registerSchema = z.object({
@@ -13,7 +16,7 @@ const registerSchema = z.object({
   cpf: z.string().min(11).max(11),
   fullName: z.string().min(1).optional(),
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  gender: z.enum(['male', 'female', 'other']).optional(),
+  gender: z.enum(GENDER_ZOD_ENUM).optional(),
   referralCode: z.string().optional(),
 });
 
@@ -33,7 +36,7 @@ interface RegisterBody {
   cpf: string;
   fullName?: string;
   birthdate?: string;
-  gender?: 'male' | 'female' | 'other';
+  gender?: Gender;
   referralCode?: string;
 }
 

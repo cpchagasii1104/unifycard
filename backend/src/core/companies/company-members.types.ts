@@ -52,8 +52,8 @@ export interface CompanyMemberRow {
   role: string;
   status: string;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

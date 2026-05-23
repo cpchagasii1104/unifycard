@@ -113,7 +113,7 @@ class CareService {
       tenantId,
       careSessionId: session.careSessionId,
       isFromUser: true,
-      content: input.text,
+      content: input.text ?? '',
     });
     const userMessage = CareMessageModel.fromRow(userMessageRow);
 
@@ -131,7 +131,7 @@ class CareService {
         tenantId,
         globalUserId,
         {
-          text: input.text,
+          text: input.text ?? '',
           conversationId: session.careSessionId,
         }
       );
@@ -146,7 +146,7 @@ class CareService {
         const analysis = await orchestratorService.analyzeText(
           fastify,
           {
-            text: input.text,
+            text: input.text ?? '',
             context: {
               userId: globalUserId,
             },
@@ -179,8 +179,8 @@ class CareService {
       conversationHistory: [
         ...(session.context.conversationHistory || []),
         {
-          role: 'user',
-          content: input.text,
+          role: 'user' as const,
+          content: input.text ?? '',
           timestamp: new Date(),
         },
       ],
@@ -219,7 +219,7 @@ class CareService {
     const aiResponse = await this.generateAIResponse(
       fastify,
       session,
-      input.text,
+      input.text ?? '',
       detectedIntent,
       updatedState,
       updatedContext,
@@ -231,7 +231,7 @@ class CareService {
       tenantId,
       careSessionId: session.careSessionId,
       isFromUser: false,
-      content: aiResponse.content,
+      content: aiResponse.content ?? '',
       intent: detectedIntent,
       parameters: Object.keys(parameters).length > 0 ? parameters : null,
       aiReasoning: aiResponse.reasoning,
@@ -511,12 +511,12 @@ Gere uma resposta seguindo essas regras:
     }
 
     const session = CareModel.fromRow(sessionRow);
-    const { rows, total } = await this.repository.findMessagesBySession(tenantId, sessionId);
+    const { rows, totalCents } = await this.repository.findMessagesBySession(tenantId, sessionId);
 
     return {
       ...session,
       messages: CareMessageModel.fromRows(rows),
-      totalMessages: total,
+      totalMessages: totalCents,
     };
   }
 

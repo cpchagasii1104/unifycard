@@ -35,11 +35,11 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         const eventRow = await runQueryWithTenant<{
           id: string;
           status: string;
-          createdAt: Date;
-          updatedAt: Date;
+          created_at: Date;
+          updated_at: Date;
         }>(
           tenantId,
-          `SELECT id, status, createdAt, updatedAt FROM events WHERE id = $1 AND tenant_id = $2`,
+          `SELECT id, status, created_at, updated_at FROM events WHERE id = $1 AND tenant_id = $2`,
           [eventId, tenantId]
         );
 
@@ -57,7 +57,7 @@ const eventsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         // Estado inicial (criação)
         history.push({
           state: eventRow.status,
-          changedAt: eventRow.createdAt.toISOString(),
+          changedAt: eventRow.created_at.toISOString(),
         });
 
         // Se updatedAt for diferente de createdAt, pode haver mudança de estado

@@ -45,7 +45,7 @@ export class InsightEngine {
 
     // Filtrar apenas eventos de pagamento processado
     const paymentEvents = events.filter(
-      (e) => e.eventType === 'payment.processed' && e.amount !== undefined
+      (e) => e.eventType === 'payment.processed' && e.amountCents !== undefined
     );
 
     if (paymentEvents.length === 0) {
@@ -70,7 +70,7 @@ export class InsightEngine {
         const date = new Date(event.occurredAt);
         const weekKey = this.getWeekKey(date);
         const current = byWeek.get(weekKey) || 0;
-        byWeek.set(weekKey, current + (event.amount || 0));
+        byWeek.set(weekKey, current + (event.amountCents || 0));
       }
 
       const weeks = Array.from(byWeek.entries())
@@ -122,7 +122,7 @@ export class InsightEngine {
 
     // Filtrar apenas eventos de pagamento processado
     const paymentEvents = events.filter(
-      (e) => e.eventType === 'payment.processed' && e.amount !== undefined
+      (e) => e.eventType === 'payment.processed' && e.amountCents !== undefined
     );
 
     if (paymentEvents.length === 0) {
@@ -142,7 +142,7 @@ export class InsightEngine {
       return insights;
     }
 
-    const totalAmount = recentEvents.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const totalAmount = recentEvents.reduce((sum, e) => sum + (e.amountCents || 0), 0);
     const days = Math.max(1, Math.floor((now.getTime() - thirtyDaysAgo.getTime()) / (1000 * 60 * 60 * 24)));
     const dailyAverage = totalAmount / days;
 
@@ -182,7 +182,7 @@ export class InsightEngine {
 
     // Filtrar apenas eventos de pagamento processado
     const paymentEvents = events.filter(
-      (e) => e.eventType === 'payment.processed' && e.amount !== undefined
+      (e) => e.eventType === 'payment.processed' && e.amountCents !== undefined
     );
 
     if (paymentEvents.length === 0) {

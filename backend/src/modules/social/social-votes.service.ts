@@ -93,7 +93,10 @@ export class SocialVotesService {
 
       // FASE 11: Verificar permissões baseadas em reputação
       let companyStatus: string | undefined = undefined;
-      if (actor && actor.actor_type === 'page' && actor.company_id) {
+      if (!actor) {
+        return { success: false, message: 'Actor não encontrado' };
+      }
+      if (actor.actor_type === 'page' && actor.company_id) {
         const company = await runQueryWithTenant<{ company_status: string }>(
           tenantId,
           `
@@ -109,16 +112,14 @@ export class SocialVotesService {
         }
       }
 
-      // 🔴 BLINDAGEM: Verificar permissão via authorization.service (Core de Decisão)
-      // Decisão FINAL de autorização deve passar por authorizationService.canActAs()
-      // reputationService.getPermissions() retorna apenas MÉTRICAS/INPUT, não decisão
+      // 🔴 BLINDAGEM: permissão via authority.service (fachada modules — §4.9)
       if (userId) {
-        const { authorizationService } = await import('@core/authorization/authorization.service');
-        const auth = await authorizationService.canActAs(
-          tenantId,
-          userId,
+        const { authorityService } = await import('@modules/authority/authority.service');
+        const auth = await authorityService.canPerformAction(
           actorId,
-          'cast_vote'
+          'cast_vote',
+          undefined,
+          { tenantId, userId }
         );
         if (!auth.allowed) {
           if (actor.actor_type === 'page' && companyStatus === 'PROVISIONAL') {

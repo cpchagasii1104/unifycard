@@ -41,9 +41,9 @@ async function tenantExists(tenantId: string): Promise<boolean> {
   try {
     const result = await client.query(
       `
-        SELECT tenant_id
+        SELECT id
         FROM tenants
-        WHERE tenant_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [tenantId]

@@ -34,11 +34,11 @@ const eventsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         // Verificar se evento existe
         const eventRow = await runQueryWithTenant<{
           id: string;
-          starts_at: Date;
-          ends_at: Date;
+          datetime_start: Date | null;
+          datetime_end: Date | null;
         }>(
           tenantId,
-          `SELECT id, starts_at, ends_at FROM events WHERE id = $1 AND tenant_id = $2`,
+          `SELECT id, datetime_start, datetime_end FROM events WHERE id = $1 AND tenant_id = $2`,
           [eventId, tenantId]
         );
 

@@ -22,7 +22,7 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/my-orders', async (req, reply) => {
-    const tenantId = req.tenant.id;
+    const tenantId = req.tenant!.id;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -30,15 +30,15 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
     }
 
     // Buscar actor do usuário
-    const { getActiveActor } = await import('@core/actors/actor.helpers');
-    const actor = await getActiveActor(tenantId, userId);
+    const { resolveActiveActorFromRequest } = await import('@modules/social/actor.utils');
+    const actor = await resolveActiveActorFromRequest(req, tenantId, { allowUserFallback: true, userId });
     if (!actor) {
       return reply.status(403).send({ error: 'Actor não encontrado' });
     }
 
     const filters: MyOrdersFilters = {
-      orderType: req.query.orderType as any,
-      status: req.query.status as any,
+      orderType: req.query.orderType as MyOrdersFilters['orderType'],
+      status: req.query.status as MyOrdersFilters['status'],
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
       endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
       hasOpenDispute: req.query.hasOpenDispute === true,
@@ -56,7 +56,7 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
    * Estatísticas do My Orders Hub
    */
   fastify.get<{}>('/my-orders/stats', async (req, reply) => {
-    const tenantId = req.tenant.id;
+    const tenantId = req.tenant!.id;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -64,8 +64,8 @@ const myOrdersRoutes = async (fastify: FastifyInstance) => {
     }
 
     // Buscar actor do usuário
-    const { getActiveActor } = await import('@core/actors/actor.helpers');
-    const actor = await getActiveActor(tenantId, userId);
+    const { resolveActiveActorFromRequest } = await import('@modules/social/actor.utils');
+    const actor = await resolveActiveActorFromRequest(req, tenantId, { allowUserFallback: true, userId });
     if (!actor) {
       return reply.status(403).send({ error: 'Actor não encontrado' });
     }

@@ -93,8 +93,8 @@ const presenceRoutes = async (fastify: FastifyInstance) => {
 
     const rsvps = await presenceService.listMyPresence(tenantId, contactId, {
       status,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-      offset: offset ? parseInt(offset as string, 10) : undefined,
+      limit: limit != null ? Number(limit) : undefined,
+      offset: offset != null ? Number(offset) : undefined,
     });
 
     return reply.send({ rsvps });
@@ -119,8 +119,8 @@ const presenceRoutes = async (fastify: FastifyInstance) => {
     const rsvps = await presenceService.listPresence(tenantId, contextType, contextId, {
       visibility: 'PUBLIC', // Forçar PUBLIC
       status,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-      offset: offset ? parseInt(offset as string, 10) : undefined,
+      limit: limit != null ? Number(limit) : undefined,
+      offset: offset != null ? Number(offset) : undefined,
     });
 
     return reply.send({ rsvps });
@@ -142,7 +142,7 @@ const presenceRoutes = async (fastify: FastifyInstance) => {
     const { contextType, contextId } = req.params;
     const { validFrom, validTo, metadata } = req.body;
 
-    const actor = await resolveActiveActorFromRequest(req);
+    const actor = await resolveActiveActorFromRequest(req, tenantId);
     if (!actor) {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
@@ -156,8 +156,8 @@ const presenceRoutes = async (fastify: FastifyInstance) => {
         validTo: validTo ? new Date(validTo) : null,
         metadata,
       },
-      actor.id,
-      req.user?.id || null
+      actor.actor_id,
+      req.user?.id ?? null
     );
 
     return reply.status(201).send(token);

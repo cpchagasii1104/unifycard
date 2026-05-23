@@ -163,9 +163,9 @@ const demandRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       if (!tenantId) throw new BadRequestError('Missing tenant context');
 
       const { zoneId } = req.params;
-      const { value, reason } = req.body;
+      const { valueCents, reason } = req.body;
 
-      if (!value) throw new BadRequestError('value required');
+      if (valueCents == null) throw new BadRequestError('valueCents required');
 
       const result = await runTenantTransaction(tenantId, async (trx) => {
         const rows = await trx.query({
@@ -181,7 +181,7 @@ const demandRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             VALUES ($1, $2, $3, $4, NOW(), NULL)
             RETURNING *;
           `,
-          values: [tenantId, zoneId, value, reason ?? 'manual'],
+          values: [tenantId, zoneId, valueCents, reason ?? 'manual'],
         });
 
         return rows[0];

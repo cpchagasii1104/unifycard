@@ -15,7 +15,7 @@ interface ChatBlockRow {
   context_type: string;
   context_id: string;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class ChatBlockRepository {
@@ -28,7 +28,7 @@ class ChatBlockRepository {
       contextType: row.context_type as PresenceContextType,
       contextId: row.context_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -47,7 +47,7 @@ class ChatBlockRepository {
       )
       VALUES ($1, $2, $3, $4, $5, '{}'::jsonb)
       ON CONFLICT (tenant_id, blocker_contact_id, blocked_contact_id, context_type, context_id) DO NOTHING
-      RETURNING id, tenant_id, blocker_contact_id, blocked_contact_id, context_type, context_id, metadata, createdAt
+      RETURNING id, tenant_id, blocker_contact_id, blocked_contact_id, context_type, context_id, metadata, created_at
       `,
       [tenantId, blockerContactId, blockedContactId, contextType, contextId]
     );
@@ -57,7 +57,7 @@ class ChatBlockRepository {
       const existing = await runQueryWithTenant<ChatBlockRow>(
         tenantId,
         `
-        SELECT id, tenant_id, blocker_contact_id, blocked_contact_id, context_type, context_id, metadata, createdAt
+        SELECT id, tenant_id, blocker_contact_id, blocked_contact_id, context_type, context_id, metadata, created_at
         FROM chat_blocks
         WHERE tenant_id = $1 AND blocker_contact_id = $2 AND blocked_contact_id = $3 AND context_type = $4 AND context_id = $5
         `,

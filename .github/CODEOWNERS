@@ -106,6 +106,7 @@
 # Documentação normativa define regras institucionais
 
 /docs/01_normative/ @unificard/core-team
+/docs/ssot/ @unificard/core-team
 /docs/architecture/ @unificard/core-team
 
 # ============================================================
@@ -115,6 +116,8 @@
 
 /.github/CODEOWNERS @unificard/core-team
 /.github/PULL_REQUEST_TEMPLATE.md @unificard/core-team
+/.github/workflows/system-gates.yml @unificard/core-team
+/scripts/docs-*.mjs @unificard/core-team
 /docs/operations/checklists/ @unificard/core-team
 /docs/governance/ @unificard/core-team
 

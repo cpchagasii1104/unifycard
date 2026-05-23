@@ -34,6 +34,10 @@ export interface CheckoutIntent {
   };
   status: 'open' | 'confirmed' | 'paid' | 'invoiced';
   attributionId?: string;
+  /** Opcional: data de pagamento (uso interno/domínio). */
+  paidAt?: string;
+  /** Opcional: data de criação (uso interno/domínio). */
+  createdAt?: string;
 }
 
 

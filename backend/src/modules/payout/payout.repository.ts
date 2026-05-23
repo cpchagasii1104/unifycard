@@ -23,9 +23,9 @@ interface PayoutBatchRow {
   blocked_count: number;
   evidence_pack_id: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
-  executedAt: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  executed_at: Date | null;
 }
 
 interface PayoutOrderRow {
@@ -44,11 +44,11 @@ interface PayoutOrderRow {
   block_reason: string | null;
   execution_metadata: any;
   failure_reason: string | null;
-  executedAt: Date | null;
-  failedAt: Date | null;
+  executed_at: Date | null;
+  failed_at: Date | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PayoutRepository {
@@ -65,9 +65,9 @@ class PayoutRepository {
       blockedCount: row.blocked_count,
       evidencePackId: row.evidence_pack_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-      executedAt: row.executedAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      executedAt: row.executed_at,
     };
   }
 
@@ -88,11 +88,11 @@ class PayoutRepository {
       blockReason: row.block_reason,
       executionMetadata: row.execution_metadata || {},
       failureReason: row.failure_reason,
-      executedAt: row.executedAt,
-      failedAt: row.failedAt,
+      executedAt: row.executed_at,
+      failedAt: row.failed_at,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -103,24 +103,21 @@ class PayoutRepository {
     const { randomUUID } = await import('crypto');
     const batchId = randomUUID();
 
-    const rows = await runQueriesWithTenant(
+    const rows = await runQueriesWithTenant<PayoutBatchRow>(
       tenantId,
-      [
-        {
-          text: `
+      {
+        text: `
             INSERT INTO payout_batches (
               batch_id, tenant_id, status, evidence_pack_id, metadata
             ) VALUES (
               $1, $2, $3, $4, $5
             ) RETURNING *
           `,
-          values: [batchId, tenantId, 'PENDING', evidencePackId, JSON.stringify(metadata || {})],
-        },
-      ],
-      'payout.repository.createBatch'
+        values: [batchId, tenantId, 'PENDING', evidencePackId, JSON.stringify(metadata || {})],
+      }
     );
 
-    return this.toPayoutBatch(rows[0] as PayoutBatchRow);
+    return this.toPayoutBatch(rows[0]);
   }
 
   /**
@@ -144,7 +141,7 @@ class PayoutRepository {
     const { randomUUID } = await import('crypto');
     const orderId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PayoutOrderRow>(
       tenantId,
       {
         text: `
@@ -171,11 +168,11 @@ class PayoutRepository {
           input.evidencePackId,
           JSON.stringify(input.metadata || {}),
         ],
-      },
-      'payout.repository.createOrder'
+      }
     );
 
-    return this.toPayoutOrder(rows[0] as PayoutOrderRow);
+    if (!row) throw new Error('createOrder: INSERT did not return row');
+    return this.toPayoutOrder(row);
   }
 
   /**
@@ -194,7 +191,7 @@ class PayoutRepository {
     let paramIndex = 4;
 
     if (status === 'EXECUTED') {
-      updates.push(`executedAt = NOW()`);
+      updates.push(`executed_at = NOW()`);
       if (executionMetadata) {
         updates.push(`execution_metadata = $${paramIndex}`);
         values.push(JSON.stringify(executionMetadata));
@@ -203,7 +200,7 @@ class PayoutRepository {
     }
 
     if (status === 'FAILED') {
-      updates.push(`failedAt = NOW()`);
+      updates.push(`failed_at = NOW()`);
       if (failureReason) {
         updates.push(`failure_reason = $${paramIndex}`);
         values.push(failureReason);
@@ -217,28 +214,28 @@ class PayoutRepository {
       paramIndex++;
     }
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PayoutOrderRow>(
       tenantId,
       {
         text: `
           UPDATE payout_orders
-          SET ${updates.join(', ')}, updatedAt = NOW()
+          SET ${updates.join(', ')}, updated_at = NOW()
           WHERE tenant_id = $1 AND order_id = $2
           RETURNING *
         `,
         values,
-      },
-      'payout.repository.updateOrderStatus'
+      }
     );
 
-    return this.toPayoutOrder(rows[0] as PayoutOrderRow);
+    if (!row) throw new Error('updateOrderStatus: no row updated');
+    return this.toPayoutOrder(row);
   }
 
   /**
    * Atualiza contadores do batch
    */
   async updateBatchCounters(tenantId: string, batchId: string): Promise<PayoutBatch> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PayoutBatchRow>(
       tenantId,
       {
         text: `
@@ -249,56 +246,48 @@ class PayoutRepository {
             failed_count = (SELECT COUNT(*) FROM payout_orders WHERE batch_id = $2 AND status = 'FAILED'),
             blocked_count = (SELECT COUNT(*) FROM payout_orders WHERE batch_id = $2 AND status = 'BLOCKED'),
             total_amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM payout_orders WHERE batch_id = $2),
-            updatedAt = NOW()
+            updated_at = NOW()
           WHERE tenant_id = $1 AND batch_id = $2
           RETURNING *
         `,
         values: [tenantId, batchId],
-      },
-      'payout.repository.updateBatchCounters'
+      }
     );
 
-    return this.toPayoutBatch(rows[0] as PayoutBatchRow);
+    if (!row) throw new Error('updateBatchCounters: no row updated');
+    return this.toPayoutBatch(row);
   }
 
   /**
    * Busca payout batch por ID
    */
   async findBatchById(tenantId: string, batchId: string): Promise<PayoutBatch | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PayoutBatchRow>(
       tenantId,
       {
         text: 'SELECT * FROM payout_batches WHERE tenant_id = $1 AND batch_id = $2',
         values: [tenantId, batchId],
-      },
-      'payout.repository.findBatchById'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toPayoutBatch(rows[0] as PayoutBatchRow);
+    if (!row) return null;
+    return this.toPayoutBatch(row);
   }
 
   /**
    * Busca payout order por ID
    */
   async findOrderById(tenantId: string, orderId: string): Promise<PayoutOrder | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PayoutOrderRow>(
       tenantId,
       {
         text: 'SELECT * FROM payout_orders WHERE tenant_id = $1 AND order_id = $2',
         values: [tenantId, orderId],
-      },
-      'payout.repository.findOrderById'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toPayoutOrder(rows[0] as PayoutOrderRow);
+    if (!row) return null;
+    return this.toPayoutOrder(row);
   }
 
   /**
@@ -316,13 +305,13 @@ class PayoutRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`createdAt >= $${paramIndex}`);
+      conditions.push(`created_at >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`createdAt <= $${paramIndex}`);
+      conditions.push(`created_at <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -330,21 +319,20 @@ class PayoutRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<PayoutBatchRow>(
       tenantId,
       {
         text: `
           SELECT * FROM payout_batches
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'payout.repository.listBatches'
+      }
     );
 
-    return rows.map((row) => this.toPayoutBatch(row as PayoutBatchRow));
+    return rows.map((r) => this.toPayoutBatch(r));
   }
 
   /**
@@ -380,13 +368,13 @@ class PayoutRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`createdAt >= $${paramIndex}`);
+      conditions.push(`created_at >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`createdAt <= $${paramIndex}`);
+      conditions.push(`created_at <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -394,43 +382,41 @@ class PayoutRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<PayoutOrderRow>(
       tenantId,
       {
         text: `
           SELECT * FROM payout_orders
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'payout.repository.listOrders'
+      }
     );
 
-    return rows.map((row) => this.toPayoutOrder(row as PayoutOrderRow));
+    return rows.map((r) => this.toPayoutOrder(r));
   }
 
   /**
    * Verifica se ledger entry já foi usado em payout
    */
   async isLedgerEntryUsed(tenantId: string, ledgerEntryId: string): Promise<boolean> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<{ count: string }>(
       tenantId,
       {
         text: `
-          SELECT COUNT(*) as count
+          SELECT COUNT(*)::text as count
           FROM payout_orders
           WHERE tenant_id = $1
             AND $2 = ANY(ledger_entry_ids)
             AND status IN ('PENDING', 'READY', 'EXECUTED')
         `,
         values: [tenantId, ledgerEntryId],
-      },
-      'payout.repository.isLedgerEntryUsed'
+      }
     );
 
-    return Number(rows[0]?.count || 0) > 0;
+    return Number(row?.count || 0) > 0;
   }
 }
 

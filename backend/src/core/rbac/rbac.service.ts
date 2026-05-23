@@ -17,8 +17,8 @@ type RoleRow = {
   name: string;
   description: string | null;
   is_system_role: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 type PermissionRow = {
@@ -28,8 +28,8 @@ type PermissionRow = {
   action: string;
   description: string | null;
   is_system_permission: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 type UserRoleRow = {
@@ -37,7 +37,7 @@ type UserRoleRow = {
   tenant_id: string;
   user_id: string;
   role_id: string;
-  assignedAt: Date;
+  assigned_at: Date;
   assigned_by: string | null;
 };
 
@@ -53,8 +53,8 @@ class RBACService {
       name: row.name,
       description: row.description,
       isSystemRole: row.is_system_role,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 
@@ -66,8 +66,8 @@ class RBACService {
       action: row.action,
       description: row.description,
       isSystemPermission: row.is_system_permission,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 
@@ -410,9 +410,9 @@ class RBACService {
       [roleId]
     );
     
-    if (role && role.length > 0) {
+    if (role) {
       const { softBlockService } = await import('@core/authorization/soft-block.service');
-      softBlockService.logRbacRoleAssignment(roleId, role[0].name, {
+      softBlockService.logRbacRoleAssignment(roleId, role.name, {
         tenantId,
         userId,
         requestId: undefined, // TODO: extrair de request se disponível
@@ -424,7 +424,7 @@ class RBACService {
       `INSERT INTO user_roles (tenant_id, user_id, role_id, assigned_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (tenant_id, user_id, role_id) DO UPDATE 
-       SET assignedAt = now()
+       SET assigned_at = now()
        RETURNING *`,
       [tenantId, userId, roleId, assignedBy]
     );
@@ -438,7 +438,7 @@ class RBACService {
       tenantId: row.tenant_id,
       userId: row.user_id,
       roleId: row.role_id,
-      assignedAt: row.assignedAt,
+      assignedAt: row.assigned_at,
       assignedBy: row.assigned_by,
     };
   }

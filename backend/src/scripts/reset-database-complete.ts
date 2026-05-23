@@ -24,6 +24,24 @@ import { execSync } from 'child_process';
 // Carrega variáveis de ambiente
 dotenv.config({ path: join(process.cwd(), '.env') });
 
+interface DatabaseVersionRow {
+  version: string;
+}
+
+interface DatabaseVersion {
+  version: string;
+}
+
+// boundary: DB -> domain mapping
+function mapDatabaseVersionRowToDomain(row: DatabaseVersionRow): DatabaseVersion {
+  return {
+    version: row.version,
+  };
+}
+
+// TODO: migrate to domain mapping (controlled rollout)
+// mapper exists but is not applied in critical reset flow to avoid semantic drift.
+
 interface DatabaseConfig {
   host: string;
   port: number;
@@ -89,7 +107,7 @@ async function connectAsSuperuser(config: DatabaseConfig): Promise<Client> {
   await client.connect();
   
   // Testar conexão
-  const result = await client.query('SELECT version()');
+  const result = await client.query<{ version: string }>('SELECT version()');
   console.log(`✅ Conectado ao PostgreSQL: ${result.rows[0].version.split(' ')[0]} ${result.rows[0].version.split(' ')[1]}\n`);
   
   return client;

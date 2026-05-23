@@ -48,7 +48,7 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amountCents: data.amount,
+      amountCents: data.amountCents,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       splitTargetType: data.splitTargetType || null,
@@ -57,7 +57,7 @@ class SplitLoggerService {
     };
 
     if (this.logger) {
-      this.logger.info(logEntry, `Split executed: ${data.splitTargetType} - ${data.amount}`);
+      this.logger.info(logEntry, `Split executed: ${data.splitTargetType} - ${data.amountCents}`);
     } else {
       console.log(JSON.stringify(logEntry));
     }
@@ -71,14 +71,14 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amountCents: data.amount,
+      amountCents: data.amountCents,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       logType: 'region_credit',
     };
 
     if (this.logger) {
-      this.logger.info(logEntry, `Region credit: ${data.amount} to region ${data.regionId}`);
+      this.logger.info(logEntry, `Region credit: ${data.amountCents} to region ${data.regionId}`);
     } else {
       console.log(JSON.stringify(logEntry));
     }
@@ -92,7 +92,7 @@ class SplitLoggerService {
       timestamp: data.timestamp || new Date().toISOString(),
       module: data.module,
       regionId: data.regionId || null,
-      amountCents: data.amount,
+      amountCents: data.amountCents,
       transactionId: data.transactionId,
       tenantId: data.tenantId,
       assignmentId: data.assignmentId || null,

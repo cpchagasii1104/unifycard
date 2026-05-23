@@ -26,7 +26,7 @@ class LivePresenceService {
     }
 
     // 2. Validar check-in recente
-    const checkinRecencyHours = policyRegistry.getPolicyValue<number>('live_chat', 'checkin_recency_hours', 12);
+    const checkinRecencyHours = policyRegistry.getPolicyValue<number>('live_chat', 'checkin_recency_hours', 12) ?? 12;
     const hasRecentCheckin = await this.hasRecentCheckin(
       tenantId,
       input.contextType,
@@ -40,7 +40,7 @@ class LivePresenceService {
     }
 
     // 3. Calcular TTL
-    const ttlMinutes = policyRegistry.getPolicyValue<number>('live_chat', 'ttl_minutes', 20);
+    const ttlMinutes = policyRegistry.getPolicyValue<number>('live_chat', 'ttl_minutes', 20) ?? 20;
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + ttlMinutes);
 
@@ -90,7 +90,7 @@ class LivePresenceService {
     contactId: string
   ): Promise<LivePresence> {
     // Calcular novo expiresAt
-    const ttlMinutes = policyRegistry.getPolicyValue<number>('live_chat', 'ttl_minutes', 20);
+    const ttlMinutes = policyRegistry.getPolicyValue<number>('live_chat', 'ttl_minutes', 20) ?? 20;
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + ttlMinutes);
 
@@ -141,8 +141,9 @@ class LivePresenceService {
 
     // Verificar recency (buscar check-ins recentes)
     const checkins = await checkinRepository.listCheckins(tenantId, contextType, contextId, 100, 0);
+    const cutoffStr = cutoff.toISOString();
     const recentCheckin = checkins.find(
-      (c) => c.contactId === contactId && c.status === 'CHECKED_IN' && c.createdAt >= cutoff
+      (c) => c.contactId === contactId && c.status === 'CHECKED_IN' && (typeof c.createdAt === 'string' ? c.createdAt >= cutoffStr : new Date(c.createdAt).getTime() >= cutoff.getTime())
     );
 
     return !!recentCheckin;
@@ -151,7 +152,12 @@ class LivePresenceService {
   private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: (data.eventType as string) ?? 'LIVE_PRESENCE_EVENT',
+        severity: 'medium',
+        source: 'chat',
+        context: data,
+      });
     } catch (error) {
       console.warn('[LivePresenceService] Erro ao registrar auditoria:', error);
     }

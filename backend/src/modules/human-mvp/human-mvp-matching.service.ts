@@ -52,7 +52,7 @@ class HumanMvpMatchingService {
     }
 
     // VALIDAÇÃO 3: Context é válido
-    const allowedContexts: CategoryContext[] = ['professional', 'person', 'interest'];
+    const allowedContexts: (CategoryContext | 'person')[] = ['professional', 'person', 'interest'];
     if (!allowedContexts.includes(context)) {
       throw new Error('Context incompatível');
     }
@@ -137,7 +137,7 @@ class HumanMvpMatchingService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, createdAt
+        event_type, tenant_id, person_id, category_id, context, details, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,

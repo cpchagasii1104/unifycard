@@ -20,8 +20,8 @@ export interface PostRow {
   suggested_actions: any;
   metadata: any;
   event_id: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface SocialRepositoryPort {

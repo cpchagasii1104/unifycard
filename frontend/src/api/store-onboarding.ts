@@ -34,9 +34,10 @@ export interface StoreOnboardingResult {
 
 /**
  * Produto do catálogo disponível para importação
+ * `canonicalProductId` = registo em `canonical_products` (não é `products.id` do tenant).
  */
 export interface AvailableCatalogProduct {
-  productId: string;
+  canonicalProductId: string;
   gtin: string;
   name: string;
   brand?: string;

@@ -45,12 +45,12 @@ export class SimulationEngine {
 
     // Filtrar apenas eventos de pagamento processado
     const paymentEvents = events.filter(
-      (e) => e.eventType === 'payment.processed' && e.amount !== undefined
+      (e) => e.eventType === 'payment.processed' && e.amountCents !== undefined
     );
 
     // Calcular valor atual (lê da policy)
     const actualValue = paymentEvents.reduce((sum, event) => {
-      const amount = event.amount || 0;
+      const amount = event.amountCents || 0;
       const regionalSplit = amount * actualPercentage;
       return sum + regionalSplit;
     }, 0);
@@ -64,7 +64,7 @@ export class SimulationEngine {
         0.15 // Fallback explícito: 15% como valor padrão de simulação
       ) || 0.15;
     const simulatedValue = paymentEvents.reduce((sum, event) => {
-      const amount = event.amount || 0;
+      const amount = event.amountCents || 0;
       const regionalSplit = amount * simulatedPercentage;
       return sum + regionalSplit;
     }, 0);

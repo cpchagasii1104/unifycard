@@ -26,12 +26,12 @@ class OpportunityDispatchRepository {
       opportunityType: row.opportunity_type,
       targetActorId: row.target_actor_id,
       response: row.response || undefined,
-      dispatchedAt: row.dispatchedAt,
-      respondedAt: row.respondedAt || undefined,
-      expiresAt: row.expiresAt || undefined,
+      dispatchedAt: row.dispatched_at,
+      respondedAt: row.responded_at || undefined,
+      expiresAt: row.expires_at || undefined,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -66,7 +66,7 @@ class OpportunityDispatchRepository {
       `
       INSERT INTO opportunity_dispatches (
         tenant_id, opportunity_id, opportunity_type, target_actor_id,
-        expiresAt, metadata
+        expires_at, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
@@ -136,7 +136,7 @@ class OpportunityDispatchRepository {
 
     // 🔴 BLINDAGEM: Ordenação apenas por dispatchedAt (mais recente primeiro)
     // NUNCA por score, NUNCA por prioridade, NUNCA por educação
-    query += ` ORDER BY dispatchedAt DESC`;
+    query += ` ORDER BY dispatched_at DESC`;
 
     const rows = await runQueriesWithTenant<OpportunityDispatchRow>(tenantId, query, params);
     return rows.map(this.toOpportunityDispatch);
@@ -163,9 +163,9 @@ class OpportunityDispatchRepository {
       UPDATE opportunity_dispatches
       SET 
         response = $1,
-        respondedAt = now(),
+        responded_at = now(),
         metadata = $2,
-        updatedAt = now()
+        updated_at = now()
       WHERE dispatch_id = $3 AND tenant_id = $4
       RETURNING *
       `,

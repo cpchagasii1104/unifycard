@@ -31,7 +31,7 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
     const {
       contactId,
       paymentLinkId,
-      amount,
+      amountCents,
       currency,
       interval,
       intervalCount,
@@ -53,7 +53,7 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
       {
         contactId,
         paymentLinkId,
-        amount,
+        amountCents,
         currency,
         interval,
         intervalCount,
@@ -87,8 +87,8 @@ const subscriptionRoutes = async (fastify: FastifyInstance) => {
     if (query.contactId) filters.contactId = query.contactId;
     if (query.paymentLinkId) filters.paymentLinkId = query.paymentLinkId;
     if (query.status) filters.status = query.status;
-    if (query.limit) filters.limit = parseInt(query.limit as string, 10);
-    if (query.offset) filters.offset = parseInt(query.offset as string, 10);
+    if (query.limit != null) filters.limit = Number(query.limit);
+    if (query.offset != null) filters.offset = Number(query.offset);
 
     const subscriptions = await subscriptionService.listSubscriptions(tenantId, filters);
 

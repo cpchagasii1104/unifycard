@@ -14,6 +14,8 @@ Nenhuma decisão técnica, arquitetural ou de produto pode violar este contrato.
 
 ## 2. REGISTRO DE AUTORIDADES (SSOT)
 
+**Nota DECISION-0021:** a coluna **Localização** indica onde a verdade está materializada ou exposta hoje. Ela **não** define, sozinha, soberania institucional. A soberania vem do conjunto: SSOT declarado, writer autorizado, enforcement e impossibilidade de contradição por consumidores.
+
 | Domínio | Fonte Única de Verdade | Localização | Escritor Autorizado |
 |-------|-----------------------|-------------|---------------------|
 | Saldo | UnifyBank | `bank_accounts` + `bank_ledger` | `bankTransactionService` |
@@ -37,6 +39,7 @@ Nenhuma decisão técnica, arquitetural ou de produto pode violar este contrato.
 - Decidir estado financeiro fora do UnifyBank
 - Criar transações fora do `bank_transactions`
 - Persistir valores financeiros fora do SSOT
+- Criar mini-core clandestino para verdade já coberta por SSOT canônico
 
 ---
 

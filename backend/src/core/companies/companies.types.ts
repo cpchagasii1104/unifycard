@@ -97,6 +97,10 @@ export interface CreateCompanyInput {
   isPrimary?: boolean;
   fetchFromRevenue?: boolean; // Se true, busca dados da Receita Federal
   domains?: MarketplaceDomain[]; // Domínios de atuação (obrigatório: pelo menos 1)
+  /** Categoria de negócio (opcional, armazenada em metadata) */
+  businessCategory?: string;
+  /** Categorias de serviço (opcional, armazenada em metadata) */
+  serviceCategories?: string[];
 }
 
 export interface UpdateCompanyInput {

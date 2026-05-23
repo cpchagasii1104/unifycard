@@ -11,6 +11,7 @@ import type {
 
 import { runQueryWithTenant, runQueriesWithTenant, runTenantTransaction } from '@core/db';
 import { BadRequestError, NotFoundError } from '@core/errors';
+import { assertRideAuthority } from '../shared/ride-authority';
 
 interface NearbyDriversQuery {
   lat: string;
@@ -96,7 +97,9 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
     },
     async (req, reply) => {
       const tenantId = req.tenant?.id;
+      const userId = req.user?.id;
       if (!tenantId) throw new BadRequestError('Missing tenant context');
+      if (!userId) throw new BadRequestError('Missing user context');
 
       const {
         rideRequestId,
@@ -109,6 +112,8 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       if (!rideRequestId) {
         throw new BadRequestError('rideRequestId required');
       }
+
+      await assertRideAuthority(req, tenantId, userId, 'manage_ride', rideRequestId);
       if (!origin?.lat || !origin?.lng) {
         throw new BadRequestError('origin.lat and origin.lng required');
       }
@@ -187,6 +192,8 @@ const matchingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       if (!tenantId || !userId) throw new BadRequestError('Missing tenant or user context');
 
       const { offerId } = req.params;
+
+      await assertRideAuthority(req, tenantId, userId, 'accept_ride', offerId);
 
       const offer = await runTenantTransaction(tenantId, async (trx) => {
         // Buscar driver_id do usuário

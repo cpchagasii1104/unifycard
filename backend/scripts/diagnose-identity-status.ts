@@ -56,8 +56,9 @@ async function diagnoseIdentityStatus(tenantId?: string, userId?: string) {
         full_name: string | null;
         phone: string | null;
         metadata: any;
+        cpf: string | null;
       }>(
-        `SELECT full_name, phone, metadata FROM profiles WHERE user_id = $1 LIMIT 1`,
+        `SELECT full_name, phone, metadata, cpf FROM profiles WHERE user_id = $1 LIMIT 1`,
         [finalUserId]
       );
 
@@ -66,6 +67,7 @@ async function diagnoseIdentityStatus(tenantId?: string, userId?: string) {
         console.log(`   ✅ Perfil encontrado:`);
         console.log(`      - full_name: ${profile.full_name || '(null)'}`);
         console.log(`      - phone: ${profile.phone || '(null)'}`);
+        console.log(`      - cpf: ${profile.cpf ? profile.cpf.substring(0, 3) + '***' : '(null)'}`);
         console.log(`      - metadata: ${JSON.stringify(profile.metadata || {}, null, 8)}`);
         
         const hasFullName = !!(profile.full_name && profile.full_name.trim().length > 0);
@@ -74,16 +76,10 @@ async function diagnoseIdentityStatus(tenantId?: string, userId?: string) {
         console.log(`   ⚠️  Perfil não encontrado em profiles`);
       }
 
-      // 4. Verificar CPF (user_profiles)
-      console.log('\n2️⃣ Verificando CPF (user_profiles)...');
-      const cpfResult = await client.query<{ cpf: string | null }>(
-        `SELECT cpf FROM user_profiles WHERE user_id = $1 LIMIT 1`,
-        [finalUserId]
-      );
-
-      const cpf = cpfResult.rows[0]?.cpf;
-      console.log(`   - CPF: ${cpf ? cpf.substring(0, 3) + '***' : '(null)'}`);
+      // 4. CPF SSOT: coluna profiles.cpf (já logado acima)
+      const cpf = profile?.cpf ?? null;
       const hasCpf = !!(cpf && cpf.trim().length > 0);
+      console.log('\n2️⃣ CPF (profiles.cpf):');
       console.log(`   - hasCpf: ${hasCpf}`);
 
       // 5. Verificar birthdate (global_users via identity)
@@ -108,7 +104,7 @@ async function diagnoseIdentityStatus(tenantId?: string, userId?: string) {
       // 7. Calcular identity_status
       console.log('\n5️⃣ Cálculo de identity_status:');
       const hasFullNameCalc = !!(profile?.full_name && profile.full_name.trim().length > 0);
-      const hasCpfCalc = !!(cpf && cpf.trim().length > 0);
+      const hasCpfCalc = !!(profile?.cpf && String(profile.cpf).trim().length > 0);
       
       let hasBirthdateCalc = false;
       try {
@@ -146,7 +142,7 @@ async function diagnoseIdentityStatus(tenantId?: string, userId?: string) {
         console.log('   ⚠️  Preencher full_name em profiles');
       }
       if (!hasCpfCalc) {
-        console.log('   ⚠️  Preencher cpf em user_profiles');
+        console.log('   ⚠️  Preencher cpf em profiles');
       }
       if (!hasBirthdateCalc) {
         console.log('   ⚠️  Preencher birthdate em global_users (via identity)');

@@ -406,15 +406,15 @@ async function seedHealthTaxonomies() {
 
     // Buscar tenant_id padrão (assumindo que existe um tenant padrão)
     // Se não existir, criar ou usar o primeiro disponível
-    const tenantResult = await client.query<{ tenant_id: string }>(
-      `SELECT tenant_id FROM tenants ORDER BY created_at ASC LIMIT 1`
+    const tenantResult = await client.query<{ id: string }>(
+      `SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1`
     );
 
     if (tenantResult.rows.length === 0) {
       throw new Error('Nenhum tenant encontrado. Crie um tenant antes de executar o seed.');
     }
 
-    const tenantId = tenantResult.rows[0].tenant_id;
+    const tenantId = tenantResult.rows[0].id;
     console.log(`📦 Seedando taxonomias de saúde para tenant: ${tenantId}`);
 
     let created = 0;

@@ -38,7 +38,7 @@ class SmartMatchingService {
    */
   private normalize(valueCents: number, min: number, max: number): number {
     if (max === min) return 0.5;
-    return Math.max(0, Math.min(1, (value - min) / (max - min)));
+    return Math.max(0, Math.min(1, (valueCents - min) / (max - min)));
   }
 
   /**

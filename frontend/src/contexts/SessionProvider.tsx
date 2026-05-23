@@ -9,7 +9,12 @@ import { setBootstraping } from '../api/client';
 import { getProfile, type Profile } from '../api/profile';
 
 interface SessionContextType {
+  /** true quando utilizador não autenticado OU (autenticado e existe actor operacional) */
   sessionReady: boolean;
+  /** true após primeira resolução de bootstrap (evita loading infinito em rotas protegidas) */
+  authHydrated: boolean;
+  /** true quando existe actor selecionado — obrigatório para operação social */
+  hasValidActor: boolean;
   activeActor: AvailableActor | null;
   actors: AvailableActor[];
   setActiveActor: (actorId: string | null) => void;
@@ -22,6 +27,8 @@ const ACTOR_STORAGE_KEY = 'unificard_active_actor_id';
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionReady, setSessionReady] = useState(false);
+  const [authHydrated, setAuthHydrated] = useState(false);
+  const [hasValidActor, setHasValidActor] = useState(false);
   const [activeActor, setActiveActorState] = useState<AvailableActor | null>(null);
   const [actors, setActors] = useState<AvailableActor[]>([]);
   const [_isBootstrapping, setIsBootstrapping] = useState(false);
@@ -33,9 +40,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Ref para rastrear se o bootstrap está em andamento (para tolerar 401)
   const isBootstrappingRef = useRef(false);
   
-  // 🔴 ESTABILIDADE DE SESSÃO: Refs para garantir que sessionReady e activeActor não sejam resetados
-  // Uma vez que sessionReady = true, não pode voltar para false (exceto logout explícito)
-  const sessionReadyStableRef = useRef(false);
   // Uma vez que activeActor é definido, não pode ser resetado para null (exceto logout explícito)
   const activeActorStableRef = useRef<AvailableActor | null>(null);
 
@@ -62,7 +66,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // Resetar flags se não autenticado
       bootstrapInProgressRef.current = false;
       isBootstrappingRef.current = false;
+      setHasValidActor(false);
       setSessionReady(true);
+      setAuthHydrated(true);
       return;
     }
 
@@ -74,7 +80,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       console.log('[SessionProvider] ❌ Token ausente - bootstrap cancelado');
       bootstrapInProgressRef.current = false;
       isBootstrappingRef.current = false;
+      setHasValidActor(false);
       setSessionReady(false);
+      setAuthHydrated(true);
       return;
     }
 
@@ -108,6 +116,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         
         // 🔴 ERRO FATAL: Não marcar sessionReady - bootstrap falhou
         setSessionReady(false);
+        setHasValidActor(false);
+        setAuthHydrated(true);
         return; // Interromper bootstrap - não continuar sem tenantId
       }
     } else {
@@ -119,7 +129,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (jwtTenantId && tenantId !== jwtTenantId) {
           console.warn('[SessionProvider] ⚠️ tenantId no storage não corresponde ao JWT - corrigindo...');
           tenantId = jwtTenantId; // Usar JWT como fonte de verdade
-          setTenantId(tenantId);
+          if (tenantId) setTenantId(tenantId);
           console.log('[SessionProvider] ✅ tenantId corrigido do JWT:', tenantId);
         }
       } catch (e) {
@@ -136,6 +146,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setBootstraping(false);
       setIsBootstrapping(false);
       setSessionReady(false);
+      setHasValidActor(false);
+      setAuthHydrated(true);
       return; // Interromper bootstrap - não continuar sem tenantId válido
     }
 
@@ -159,68 +171,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setBootstraping(false);
         setIsBootstrapping(false);
         setSessionReady(false);
+        setHasValidActor(false);
+        setAuthHydrated(true);
         return; // Interromper bootstrap - não continuar sem tenantId válido
       }
 
       // ============================================
-      // FASE 2: CARREGAMENTO DE PERFIL
+      // FASE 2: CARREGAMENTO DE CONTEXTO (ACTORS) — ANTES DO PERFIL
       // ============================================
-      // 🔴 ORDEM DETERMINÍSTICA: Profile deve ser carregado ANTES de actors
-      // Profile existe independente de actors - não pode depender de actor
-      console.log('[SessionProvider] 🔄 FASE 2 (Perfil): Carregando perfil existente...');
-      
-      try {
-        const profile = await getProfile();
-        // Profile carregado com sucesso - não precisa fazer nada além de garantir que foi carregado
-        // Profile existente no backend será disponibilizado para componentes via cache/query
-        console.log('[SessionProvider] ✅ Perfil carregado:', profile.profileId);
-      } catch (err: unknown) {
-        const status =
-          typeof err === 'object' && err !== null && 'status' in err
-            ? (err as any).status
-            : undefined;
-
-        const code =
-          typeof err === 'object' && err !== null && 'code' in err
-            ? (err as any).code
-            : undefined;
-
-        // 404 = perfil não existe ainda (primeiro acesso) - estado esperado, não é erro
-        if (status === 404 || code === 'NOT_FOUND') {
-          // Não logar - é estado esperado (primeiro acesso)
-          // Continuar bootstrap - perfil será criado quando necessário
-        } else if (status === 401 || code === 'UNAUTHORIZED') {
-          // 401 durante carregamento de profile = sessão inválida
-          console.error('[SessionProvider] ❌ ERRO CRÍTICO: 401 ao carregar profile durante bootstrap');
-          console.error('[SessionProvider] 🔒 Invalidando sessão');
-
-          // INVALIDAÇÃO DE SESSÃO (OBRIGATÓRIA)
-          window.dispatchEvent(new Event('auth-changed'));
-
-          // Resetar flags de bootstrap
-          bootstrapInProgressRef.current = false;
-          isBootstrappingRef.current = false;
-          setBootstraping(false);
-          setIsBootstrapping(false);
-
-          // Resetar estado de sessão
-          setActors([]);
-          setSessionReady(false);
-          return;
-        } else {
-          // Outros erros não são críticos - perfil pode não existir ainda
-          // Apenas logar se for erro real (não 404)
-          if (import.meta.env.DEV) {
-            console.warn('[SessionProvider] ⚠️ Falha ao carregar profile durante bootstrap (não crítico):', err);
-          }
-          // Continuar bootstrap - perfil será carregado quando necessário
-        }
-      }
-
-      // ============================================
-      // FASE 3: CARREGAMENTO DE CONTEXTO (ACTORS)
-      // ============================================
-      console.log('[SessionProvider] 🔄 FASE 3 (Contexto): Carregando actors disponíveis...');
+      // ActionContext no backend exige actorId: só após esta fase
+      // localStorage['unificard_active_actor_id'] fica definido (nunca usar JWT/userId como actor).
+      console.log('[SessionProvider] 🔄 FASE 2 (Contexto): Carregando actors disponíveis...');
 
       // 1. Carregar actors disponíveis
       // IMPORTANTE: Este endpoint é OBRIGATÓRIO para definir activeActor
@@ -260,6 +221,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           // Resetar estado de sessão
           setActors([]);
           setSessionReady(false);
+          setHasValidActor(false);
+          setAuthHydrated(true);
           return;
         }
 
@@ -267,10 +230,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           '[SessionProvider] ⚠️ Falha ao carregar actors durante bootstrap (não crítico):',
           err
         );
-        // Actors são opcionais - não resetar sessionReady
-        // Continuar para marcar sessionReady = true (token + tenantId são suficientes)
         setActors([]);
         setActiveActorState(null);
+        activeActorStableRef.current = null;
+        setHasValidActor(false);
+        localStorage.removeItem(ACTOR_STORAGE_KEY);
       }
 
       // 2. Todos os actors podem postar (can_post sempre true para empresas)
@@ -282,13 +246,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       let selectedActor: AvailableActor | null = null;
 
       if (postableActors.length === 0) {
-        // Sem atores disponíveis - sessão continua válida (actors são opcionais)
-        console.warn('[SessionProvider] ⚠️ Nenhum actor disponível - sessão continua válida sem activeActor');
-        // Manter actors vazio e activeActor null
+        console.error('[Session] Nenhum actor disponível — estado inválido para operação');
         setActors([]);
         setActiveActorState(null);
-        // Sessão está pronta mesmo sem actors (token + tenantId são suficientes)
-        // Pular seleção de actor e ir direto para marcar sessionReady = true
+        activeActorStableRef.current = null;
+        setHasValidActor(false);
+        localStorage.removeItem(ACTOR_STORAGE_KEY);
         selectedActor = null;
       } else if (postableActors.length === 1) {
         // Apenas um ator - selecionar automaticamente
@@ -326,7 +289,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setActiveActorState(selectedActor);
         activeActorStableRef.current = selectedActor;
         localStorage.setItem(ACTOR_STORAGE_KEY, selectedActor.actor_id);
-        
+        setHasValidActor(true);
+
+        console.log('[Session] Actor definido:', selectedActor.actor_id);
         console.log(`[SessionProvider] ✅ activeActor definido: ${selectedActor.display_name} (${selectedActor.actor_id})`);
         
         // Disparar evento para componentes que precisam reagir
@@ -340,17 +305,57 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           postableActors: postableActors
         });
       }
-      // Se selectedActor é null E postableActors.length === 0, isso é OK (actors opcionais)
+      // ============================================
+      // FASE 3: CARREGAMENTO DE PERFIL — SOMENTE COM activeActor RESOLVIDO E PERSISTIDO
+      // ============================================
+      if (!selectedActor) {
+        console.warn('[Session] Profile bloqueado: actor ainda não carregado');
+      } else {
+        console.log('[SessionProvider] 🔄 FASE 3 (Perfil): Carregando perfil existente...');
+
+        try {
+          const profile = await getProfile();
+          console.log('[SessionProvider] ✅ Perfil carregado:', profile.profileId);
+        } catch (err: unknown) {
+          const status =
+            typeof err === 'object' && err !== null && 'status' in err
+              ? (err as any).status
+              : undefined;
+
+          const code =
+            typeof err === 'object' && err !== null && 'code' in err
+              ? (err as any).code
+              : undefined;
+
+          if (status === 404 || code === 'NOT_FOUND') {
+            // Primeiro acesso — esperado
+          } else if (status === 401 || code === 'UNAUTHORIZED') {
+            console.error('[SessionProvider] ❌ ERRO CRÍTICO: 401 ao carregar profile durante bootstrap');
+            console.error('[SessionProvider] 🔒 Invalidando sessão');
+
+            window.dispatchEvent(new Event('auth-changed'));
+
+            bootstrapInProgressRef.current = false;
+            isBootstrappingRef.current = false;
+            setBootstraping(false);
+            setIsBootstrapping(false);
+
+            setActors([]);
+            setSessionReady(false);
+            setHasValidActor(false);
+            setAuthHydrated(true);
+            return;
+          } else {
+            if (import.meta.env.DEV) {
+              console.warn('[SessionProvider] ⚠️ Falha ao carregar profile durante bootstrap (não crítico):', err);
+            }
+          }
+        }
+      }
 
       // ============================================
-      // SESSÃO PRONTA: token + tenantId + estado de actor resolvido
+      // SESSÃO OPERACIONAL: sessionReady = existe actor (autenticado)
       // ============================================
-      // REGRA CRÍTICA: sessionReady só é true quando:
-      // - token existe
-      // - tenantId existe
-      // - estado de actor resolvido (definido OU explicitamente ausente)
-      // 🔴 ESTABILIDADE: Uma vez true, não pode voltar para false
-      
       // 🔴 VALIDAÇÃO FINAL: Garantir que tenantId === jwt.payload.tenantId
       // Esta validação é redundante mas explícita para garantir consistência final
       const finalToken = getAuthToken();
@@ -410,13 +415,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return; // Interromper bootstrap - não marcar sessionReady sem tenantId válido
       }
       
-      if (!sessionReadyStableRef.current) {
-        setSessionReady(true);
-        sessionReadyStableRef.current = true;
-        console.log('[SessionProvider] ✅✅✅ sessionReady = true (bootstrap completo - token e tenantId validados)');
-      } else {
-        console.log('[SessionProvider] ✅ sessionReady já estava true (estabilidade mantida)');
-      }
+      setSessionReady(!!selectedActor);
+      console.log(
+        `[SessionProvider] ✅ sessionReady = ${!!selectedActor} (actor operacional obrigatório quando autenticado)`
+      );
     } catch (err) {
       // Erro no bootstrap é CRÍTICO - não pode marcar sessão como pronta
       console.error('[SessionProvider] ❌ ERRO CRÍTICO no bootstrap:', err);
@@ -425,9 +427,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isBootstrappingRef.current = false;
       setBootstraping(false);
       setIsBootstrapping(false);
-      // NÃO marcar sessionReady - erro no bootstrap invalida a sessão
       setSessionReady(false);
+      setHasValidActor(false);
     } finally {
+      setAuthHydrated(true);
       // Sempre desativar flags de bootstrap após tentativa
       setBootstraping(false);
       setIsBootstrapping(false);
@@ -449,11 +452,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setActiveActorState(null);
         activeActorStableRef.current = null;
         localStorage.removeItem(ACTOR_STORAGE_KEY);
+        setHasValidActor(false);
+        setSessionReady(false);
         return;
       } else if (!activeActorStableRef.current) {
         // Nunca foi definido - permitir null
         setActiveActorState(null);
         localStorage.removeItem(ACTOR_STORAGE_KEY);
+        setHasValidActor(false);
+        setSessionReady(false);
         return;
       } else {
         // 🔴 REGRA: Não permitir reset de activeActor se já foi definido e há token
@@ -471,6 +478,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveActorState(actor);
       activeActorStableRef.current = actor;
       localStorage.setItem(ACTOR_STORAGE_KEY, actorId);
+      setHasValidActor(true);
+      setSessionReady(true);
       
       // Disparar evento para componentes que precisam reagir
       window.dispatchEvent(new CustomEvent('active-actor-changed', { 
@@ -540,6 +549,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setActiveActorState(currentActor);
           activeActorStableRef.current = currentActor;
           localStorage.setItem(ACTOR_STORAGE_KEY, currentActor.actor_id);
+          setHasValidActor(true);
+          setSessionReady(true);
           
           console.log(`[SessionProvider] ✅ activeActor atualizado: ${currentActor.display_name} (${currentActor.actor_id})`);
           
@@ -556,6 +567,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             setActiveActorState(firstActor);
             activeActorStableRef.current = firstActor;
             localStorage.setItem(ACTOR_STORAGE_KEY, firstActor.actor_id);
+            setHasValidActor(true);
+            setSessionReady(true);
             console.log(`[SessionProvider] ✅ Novo activeActor selecionado: ${firstActor.display_name}`);
             
             // Disparar evento para componentes que precisam reagir
@@ -563,17 +576,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               detail: { actorId: firstActor.actor_id, actor: firstActor } 
             }));
           } else {
-            // Nenhum actor disponível - manter activeActor se houver token
             const hasToken = isAuthenticated();
             if (!hasToken) {
-              // Logout explícito - permitir limpeza
               setActiveActorState(null);
               activeActorStableRef.current = null;
               localStorage.removeItem(ACTOR_STORAGE_KEY);
+              setHasValidActor(false);
+              setSessionReady(false);
               console.warn('[SessionProvider] ⚠️ Nenhum actor disponível após refresh (sem token)');
             } else {
-              // Há token mas não há actors - manter activeActor (pode ser temporário)
-              console.warn('[SessionProvider] ⚠️ Nenhum actor disponível após refresh mas há token - mantendo activeActor');
+              setActiveActorState(null);
+              activeActorStableRef.current = null;
+              localStorage.removeItem(ACTOR_STORAGE_KEY);
+              setHasValidActor(false);
+              setSessionReady(false);
+              console.error('[Session] Nenhum actor após refresh — sessão sem operação');
             }
           }
         }
@@ -585,6 +602,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setActiveActorState(firstActor);
           activeActorStableRef.current = firstActor;
           localStorage.setItem(ACTOR_STORAGE_KEY, firstActor.actor_id);
+          setHasValidActor(true);
+          setSessionReady(true);
           console.log(`[SessionProvider] ✅ Actor selecionado automaticamente após refresh: ${firstActor.display_name}`);
           
           // Disparar evento para componentes que precisam reagir
@@ -630,13 +649,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           } else {
             console.error('[SessionProvider] ❌ tenantId ausente ou inválido no JWT');
             hasInitialBootstrappedRef.current = true;
-            setSessionReady(false); // Não marcar como pronto sem tenantId válido
+            setSessionReady(false);
+            setAuthHydrated(true);
             return;
           }
         } catch (e) {
           console.error('[SessionProvider] ❌ ERRO CRÍTICO ao extrair tenantId do JWT no useEffect inicial:', e);
           hasInitialBootstrappedRef.current = true;
-          setSessionReady(false); // Não marcar como pronto sem tenantId válido
+          setSessionReady(false);
+          setAuthHydrated(true);
           return;
         }
       }
@@ -650,24 +671,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         console.error('[SessionProvider] ❌ tenantId inválido após extração do JWT');
         hasInitialBootstrappedRef.current = true;
         setSessionReady(false);
+        setAuthHydrated(true);
       }
     } else {
       // Se não estiver autenticado, marcar sessão como pronta (sem bootstrap)
-      // Não precisa de tenantId se não há token
       hasInitialBootstrappedRef.current = true;
+      setHasValidActor(false);
       setSessionReady(true);
+      setAuthHydrated(true);
     }
   }, []); // Executar apenas uma vez na montagem
 
-  // Garantir activeActor automático quando actors são carregados
-  // 🔧 FIX: Este useEffect garante que activeActor seja sempre definido quando houver actors disponíveis
+  // Garantir activeActor automático quando actors são carregados (corrige race de batching)
   useEffect(() => {
-    // 🔧 FIX: Garantir que actors seja sempre um array antes de usar métodos de array
     const safeActors = Array.isArray(actors) ? actors : [];
-    
-    // Se sessionReady, há actors disponíveis, mas activeActor é null:
-    // selecionar automaticamente seguindo a mesma lógica do bootstrap
-    if (sessionReady && safeActors.length > 0 && !activeActor) {
+
+    if (authHydrated && safeActors.length > 0 && !activeActor) {
       let actorToSelect: AvailableActor | null = null;
       
       // Priorizar actor do tipo 'user' se houver múltiplos
@@ -690,10 +709,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       
       if (actorToSelect) {
-        // 🔴 ESTABILIDADE: Atualizar ref estável
         setActiveActorState(actorToSelect);
         activeActorStableRef.current = actorToSelect;
         localStorage.setItem(ACTOR_STORAGE_KEY, actorToSelect.actor_id);
+        setHasValidActor(true);
+        setSessionReady(true);
         console.log(`[SessionProvider] ✅ Actor selecionado automaticamente (useEffect): ${actorToSelect.display_name} (${actorToSelect.actor_id})`);
         
         // Disparar evento para componentes que precisam reagir
@@ -701,13 +721,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           detail: { actorId: actorToSelect.actor_id, actor: actorToSelect } 
         }));
       }
-    } else if (sessionReady && (!Array.isArray(actors) || actors.length === 0) && activeActor) {
-      // Se não há actors mas há activeActor, limpar
+    } else if (
+      authHydrated &&
+      (!Array.isArray(actors) || actors.length === 0) &&
+      activeActor
+    ) {
       console.warn('[SessionProvider] ⚠️ Nenhum actor disponível - limpando activeActor');
       setActiveActorState(null);
+      activeActorStableRef.current = null;
       localStorage.removeItem(ACTOR_STORAGE_KEY);
+      setHasValidActor(false);
+      setSessionReady(false);
     }
-  }, [sessionReady, actors.length, activeActor?.actor_id]); // Usar actor_id para evitar loops
+  }, [authHydrated, actors.length, activeActor?.actor_id]);
 
   // Re-bootstrap quando autenticação mudar (login/logout) ou empresa for criada/removida
   useEffect(() => {
@@ -745,7 +771,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               activeActorStableRef.current = null;
               setActors([]);
               setSessionReady(false);
-              sessionReadyStableRef.current = false;
+              setHasValidActor(false);
+              setAuthHydrated(true);
               isHandling = false;
               return;
             }
@@ -756,7 +783,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             activeActorStableRef.current = null;
             setActors([]);
             setSessionReady(false);
-            sessionReadyStableRef.current = false;
+            setHasValidActor(false);
+            setAuthHydrated(true);
             isHandling = false;
             return;
           }
@@ -776,23 +804,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           activeActorStableRef.current = null;
           setActors([]);
           setSessionReady(false);
-          sessionReadyStableRef.current = false;
+          setHasValidActor(false);
+          setAuthHydrated(true);
           isHandling = false;
         }
       } else {
         // Se não estiver autenticado, limpar estado
-        // 🔴 ESTABILIDADE: Resetar refs estáveis apenas em logout
         setActiveActorState(null);
         activeActorStableRef.current = null;
         setActors([]);
-        // Resetar sessionReady apenas se não estava estável antes
-        if (sessionReadyStableRef.current) {
-          setSessionReady(false);
-          sessionReadyStableRef.current = false;
-        } else {
-          // Não autenticado - marcar como pronto (não precisa de tenantId)
-          setSessionReady(true);
-        }
+        setHasValidActor(false);
+        setSessionReady(true);
+        setAuthHydrated(true);
         isHandling = false;
       }
     };
@@ -853,6 +876,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     <SessionContext.Provider
       value={{
         sessionReady,
+        authHydrated,
+        hasValidActor,
         activeActor,
         actors,
         setActiveActor,

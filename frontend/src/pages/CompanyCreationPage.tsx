@@ -101,7 +101,7 @@ export default function CompanyCreationPage() {
     setSubmitError(null);
 
     try {
-      const response = await apiFetchJson('/api/companies/canonical', {
+      const response = await apiFetchJson<{ company: { company_id: string } }>('/api/companies/canonical', {
         method: 'POST',
         body: JSON.stringify(formData),
       });

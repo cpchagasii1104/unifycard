@@ -12,6 +12,7 @@ import { actorEffectsService } from '@modules/social/actor-effects.service';
 import { ActorIntent } from '@modules/social/actor-intents.types';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
+import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
 import type { Service, CreateServiceInput, UpdateServiceInput } from './services.types';
 import { ServiceStatus } from './services.types';
 // 🔴 CORREÇÃO FASE 1B: Removidas referências a serviceAvailabilityRepository e AvailabilityStatus
@@ -222,9 +223,9 @@ class ServicesService {
         // 🔴 CORREÇÃO FASE 1B: Buscar disponibilidades via Unified Availability
         const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
         const availabilities = await unifiedAvailabilityService.listAvailabilities(tenantId, {
-          ownerType: 'service',
+          ownerType: AvailabilityOwnerType.SERVICE,
           ownerId: service.serviceId,
-          status: 'active', // Unified Availability usa 'active' ao invés de AvailabilityStatus.ACTIVE
+          status: UnifiedAvailabilityStatus.ACTIVE,
         });
 
         // Calcular resumo de disponibilidade

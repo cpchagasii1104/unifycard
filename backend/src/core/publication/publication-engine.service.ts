@@ -35,8 +35,8 @@ interface PublicationMetadataRow {
   referral_code: string | null;
   created_by_actor_id: string;
   created_by_actor_type: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 class PublicationEngineService {
@@ -114,13 +114,13 @@ class PublicationEngineService {
       const updates: Partial<PublicationMetadataRow> = {};
       if (input.visibility !== undefined) updates.visibility = input.visibility;
       if (input.publication_destinations !== undefined) {
-        updates.publication_destinations = JSON.stringify(input.publication_destinations);
+        (updates as Record<string, unknown>).publication_destinations = JSON.stringify(input.publication_destinations);
       }
       if (input.invitations_enabled !== undefined) {
         updates.invitations_enabled = input.invitations_enabled;
       }
       if (input.invitation_methods !== undefined) {
-        updates.invitation_methods = JSON.stringify(input.invitation_methods);
+        (updates as Record<string, unknown>).invitation_methods = JSON.stringify(input.invitation_methods);
       }
       if (input.referral_code !== undefined) updates.referral_code = input.referral_code;
 
@@ -136,7 +136,7 @@ class PublicationEngineService {
       ];
 
       const updateQuery = `UPDATE publication_metadata 
-         SET ${updateFields}, updatedAt = NOW()
+         SET ${updateFields}, updated_at = NOW()
          WHERE tenant_id = $1 AND entity_type = $2 AND entity_id = $3`;
       
       await runQueryWithTenant(tenantId, updateQuery, values);
@@ -278,8 +278,8 @@ class PublicationEngineService {
       referral_code: row.referral_code,
       created_by_actor_id: row.created_by_actor_id,
       created_by_actor_type: row.created_by_actor_type as any,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

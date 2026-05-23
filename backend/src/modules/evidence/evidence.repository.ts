@@ -16,13 +16,13 @@ interface EvidencePackRow {
   context_type: string;
   context_id: string;
   dispute_status: string;
-  openedAt: Date | null;
-  resolvedAt: Date | null;
+  opened_at: Date | null;
+  resolved_at: Date | null;
   retention_until: Date | null;
   timeline: any;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class EvidenceRepository {
@@ -33,16 +33,16 @@ class EvidenceRepository {
       contextType: row.context_type as any,
       contextId: row.context_id,
       disputeStatus: row.dispute_status as any,
-      openedAt: row.openedAt,
-      resolvedAt: row.resolvedAt,
+      openedAt: row.opened_at,
+      resolvedAt: row.resolved_at,
       retentionUntil: row.retention_until,
       timeline: Array.isArray(row.timeline) ? row.timeline.map((e: any) => ({
         ...e,
         timestamp: new Date(e.timestamp),
       })) : [],
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -66,34 +66,29 @@ class EvidenceRepository {
     const retentionUntil = new Date();
     retentionUntil.setDate(retentionUntil.getDate() + retentionDays);
 
-    const rows = await runQueriesWithTenant(
-      tenantId,
-      [
-        {
-          text: `
-            INSERT INTO evidence_packs (
-              pack_id, tenant_id, context_type, context_id,
-              dispute_status, retention_until, timeline, metadata
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8
-            ) RETURNING *
-          `,
-          values: [
-            packId,
-            tenantId,
-            input.contextType,
-            input.contextId,
-            'NONE',
-            retentionUntil,
-            JSON.stringify([]),
-            JSON.stringify({}),
-          ],
-        },
+    const row = await runQueryWithTenant<EvidencePackRow>(tenantId, {
+      text: `
+        INSERT INTO evidence_packs (
+          pack_id, tenant_id, context_type, context_id,
+          dispute_status, retention_until, timeline, metadata
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8
+        ) RETURNING *
+      `,
+      values: [
+        packId,
+        tenantId,
+        input.contextType,
+        input.contextId,
+        'NONE',
+        retentionUntil,
+        JSON.stringify([]),
+        JSON.stringify({}),
       ],
-      'evidence.repository.getOrCreatePack'
-    );
+    });
 
-    return this.toEvidencePack(rows[0] as EvidencePackRow);
+    if (!row) throw new Error('Falha ao criar evidence pack');
+    return this.toEvidencePack(row);
   }
 
   /**
@@ -104,43 +99,29 @@ class EvidenceRepository {
     contextType: string,
     contextId: string
   ): Promise<EvidencePack | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM evidence_packs
-          WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-        `,
-        values: [tenantId, contextType, contextId],
-      },
-      'evidence.repository.findByContext'
-    );
+    const row = await runQueryWithTenant<EvidencePackRow>(tenantId, {
+      text: `
+        SELECT * FROM evidence_packs
+        WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
+      `,
+      values: [tenantId, contextType, contextId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toEvidencePack(rows[0] as EvidencePackRow);
+    if (!row) return null;
+    return this.toEvidencePack(row);
   }
 
   /**
    * Busca evidence pack por ID
    */
   async findById(tenantId: string, packId: string): Promise<EvidencePack | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: 'SELECT * FROM evidence_packs WHERE tenant_id = $1 AND pack_id = $2',
-        values: [tenantId, packId],
-      },
-      'evidence.repository.findById'
-    );
+    const row = await runQueryWithTenant<EvidencePackRow>(tenantId, {
+      text: 'SELECT * FROM evidence_packs WHERE tenant_id = $1 AND pack_id = $2',
+      values: [tenantId, packId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toEvidencePack(rows[0] as EvidencePackRow);
+    if (!row) return null;
+    return this.toEvidencePack(row);
   }
 
   /**
@@ -162,21 +143,18 @@ class EvidenceRepository {
     // Ordenar por timestamp
     updatedTimeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          UPDATE evidence_packs
-          SET timeline = $3, updatedAt = NOW()
-          WHERE tenant_id = $1 AND pack_id = $2
-          RETURNING *
-        `,
-        values: [tenantId, packId, JSON.stringify(updatedTimeline)],
-      },
-      'evidence.repository.addEvent'
-    );
+    const row = await runQueryWithTenant<EvidencePackRow>(tenantId, {
+      text: `
+        UPDATE evidence_packs
+        SET timeline = $3, updated_at = NOW()
+        WHERE tenant_id = $1 AND pack_id = $2
+        RETURNING *
+      `,
+      values: [tenantId, packId, JSON.stringify(updatedTimeline)],
+    });
 
-    return this.toEvidencePack(rows[0] as EvidencePackRow);
+    if (!row) throw new Error('Falha ao atualizar evidence pack');
+    return this.toEvidencePack(row);
   }
 
   /**
@@ -194,32 +172,29 @@ class EvidenceRepository {
     let paramIndex = 4;
 
     if (openedAt !== undefined) {
-      updates.push(`openedAt = $${paramIndex}`);
+      updates.push(`opened_at = $${paramIndex}`);
       values.push(openedAt);
       paramIndex++;
     }
 
     if (resolvedAt !== undefined) {
-      updates.push(`resolvedAt = $${paramIndex}`);
+      updates.push(`resolved_at = $${paramIndex}`);
       values.push(resolvedAt);
       paramIndex++;
     }
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          UPDATE evidence_packs
-          SET ${updates.join(', ')}, updatedAt = NOW()
-          WHERE tenant_id = $1 AND pack_id = $2
-          RETURNING *
-        `,
-        values,
-      },
-      'evidence.repository.updateDisputeStatus'
-    );
+    const row = await runQueryWithTenant<EvidencePackRow>(tenantId, {
+      text: `
+        UPDATE evidence_packs
+        SET ${updates.join(', ')}, updated_at = NOW()
+        WHERE tenant_id = $1 AND pack_id = $2
+        RETURNING *
+      `,
+      values,
+    });
 
-    return this.toEvidencePack(rows[0] as EvidencePackRow);
+    if (!row) throw new Error('Falha ao atualizar status');
+    return this.toEvidencePack(row);
   }
 
   /**
@@ -251,21 +226,17 @@ class EvidenceRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM evidence_packs
-          WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `,
-        values: [...values, limit, offset],
-      },
-      'evidence.repository.list'
-    );
+    const rows = await runQueriesWithTenant<EvidencePackRow>(tenantId, {
+      text: `
+        SELECT * FROM evidence_packs
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `,
+      values: [...values, limit, offset],
+    });
 
-    return rows.map((row) => this.toEvidencePack(row as EvidencePackRow));
+    return rows.map((row) => this.toEvidencePack(row));
   }
 }
 

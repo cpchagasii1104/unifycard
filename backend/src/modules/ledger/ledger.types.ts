@@ -67,7 +67,7 @@ export interface LedgerEntryFilters {
   accountId?: string; // Buscar por debitAccountId ou creditAccountId
   contextType?: LedgerContextType;
   contextId?: string;
-  entryType?: LedgerEntryType;
+  entryType?: LedgerEntryType | 'credit' | 'debit'; // API query aceita credit/debit para filtro por lado
   startDate?: Date;
   endDate?: Date;
   limit?: number;

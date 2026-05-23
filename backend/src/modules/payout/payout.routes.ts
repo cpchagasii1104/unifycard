@@ -5,29 +5,32 @@
 import type { FastifyInstance } from 'fastify';
 import { payoutService } from './payout.service';
 import type { CreatePayoutBatchInput, ExecutePayoutManualInput, FailPayoutInput } from './payout.types';
+import { BadRequestError, ForbiddenError, UnauthorizedError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const payoutRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * Middleware: Verificar permissão para acessar payouts
-   */
-  const requirePayoutPermission = async (req: any, reply: any) => {
+  const requirePayoutPermission = async (req: any, _reply: any) => {
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id;
 
     if (!userId) {
-      return reply.status(401).send({ error: 'Não autenticado' });
+      throw new UnauthorizedError('Not authenticated');
     }
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+      const { businessAuthorizationService } = await import(
+        '@core/authorization/business-authorization.service'
+      );
       const { getActiveActor } = await import('@core/actors/actor.helpers');
-      
+
       const actor = await getActiveActor(tenantId, userId);
       if (!actor) {
-        return reply.status(403).send({ error: 'Actor não encontrado' });
+        throw new ForbiddenError('Actor not found', ErrorCode.MISSING_ACTOR);
       }
 
-      // Verificar permissão para payouts
       await businessAuthorizationService.requirePermission(
         tenantId,
         userId,
@@ -35,19 +38,19 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
         'financial:execute_payout',
         'payout'
       );
-    } catch (permError: any) {
-      return reply.status(403).send({ error: 'Sem permissão para acessar payouts' });
+    } catch (e) {
+      if (e instanceof ForbiddenError || e instanceof UnauthorizedError) throw e;
+      throw new ForbiddenError('No permission to access payouts', ErrorCode.PERMISSION_DENIED);
     }
   };
 
-  /**
-   * POST /payouts/batches
-   * Cria payout batch e gera orders
-   */
   fastify.post<{ Body: CreatePayoutBatchInput }>(
     '/payouts/batches',
     { preHandler: requirePayoutPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+      }
       const tenantId = req.tenant.id;
       const result = await payoutService.createPayoutBatch(tenantId, req.body);
 
@@ -55,10 +58,6 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  /**
-   * GET /payouts/batches
-   * Lista payout batches
-   */
   fastify.get<{
     Querystring: {
       status?: string;
@@ -68,6 +67,9 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/payouts/batches', { preHandler: requirePayoutPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+    }
     const tenantId = req.tenant.id;
     const filters = {
       status: req.query.status as any,
@@ -82,14 +84,13 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     return reply.send({ batches, totalCents: batches.length });
   });
 
-  /**
-   * GET /payouts/batches/:batchId
-   * Busca payout batch por ID
-   */
   fastify.get<{ Params: { batchId: string } }>(
     '/payouts/batches/:batchId',
     { preHandler: requirePayoutPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+      }
       const tenantId = req.tenant.id;
       const batch = await payoutService.getBatchById(tenantId, req.params.batchId);
 
@@ -97,10 +98,6 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  /**
-   * GET /payouts/orders
-   * Lista payout orders
-   */
   fastify.get<{
     Querystring: {
       batchId?: string;
@@ -113,6 +110,9 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/payouts/orders', { preHandler: requirePayoutPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+    }
     const tenantId = req.tenant.id;
     const filters = {
       batchId: req.query.batchId,
@@ -130,14 +130,13 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     return reply.send({ orders, totalCents: orders.length });
   });
 
-  /**
-   * GET /payouts/orders/:orderId
-   * Busca payout order por ID
-   */
   fastify.get<{ Params: { orderId: string } }>(
     '/payouts/orders/:orderId',
     { preHandler: requirePayoutPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+      }
       const tenantId = req.tenant.id;
       const order = await payoutService.getOrderById(tenantId, req.params.orderId);
 
@@ -145,14 +144,13 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  /**
-   * POST /payouts/orders/:orderId/execute-manual
-   * Executa payout manual (mock)
-   */
   fastify.post<{ Params: { orderId: string }; Body: ExecutePayoutManualInput }>(
     '/payouts/orders/:orderId/execute-manual',
     { preHandler: requirePayoutPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -165,14 +163,13 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  /**
-   * POST /payouts/orders/:orderId/fail
-   * Marca payout como falho
-   */
   fastify.post<{ Params: { orderId: string }; Body: FailPayoutInput }>(
     '/payouts/orders/:orderId/fail',
     { preHandler: requirePayoutPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -187,8 +184,3 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
 };
 
 export default payoutRoutes;
-
-
-
-
-

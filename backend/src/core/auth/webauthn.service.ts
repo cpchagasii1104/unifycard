@@ -133,6 +133,13 @@ class WebAuthnService {
     }
 
     // 3. Buscar challenge válido
+    if (challengeFromClient == null) {
+      return {
+        isVerified: false,
+        error: 'Challenge not found in client data',
+        errorCode: 'INVALID_ASSERTION',
+      };
+    }
     const challenge = await webauthnRepository.getValidChallenge(
       tenantId,
       input.userId,

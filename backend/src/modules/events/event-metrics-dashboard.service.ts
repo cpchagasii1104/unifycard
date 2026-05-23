@@ -119,11 +119,11 @@ export class EventMetricsDashboardService {
       metrics_with_state AS (
         SELECT 
           em.metric_type,
-          em.createdAt,
+          em.created_at,
           CASE
-            WHEN em.createdAt < et.starts_at THEN 'PRE'
-            WHEN em.createdAt >= et.starts_at AND em.createdAt <= et.ends_at THEN 'DURING'
-            WHEN em.createdAt > et.ends_at OR et.status = 'FINISHED' THEN 'POST'
+            WHEN em.created_at < et.starts_at THEN 'PRE'
+            WHEN em.created_at >= et.starts_at AND em.created_at <= et.ends_at THEN 'DURING'
+            WHEN em.created_at > et.ends_at OR et.status = 'FINISHED' THEN 'POST'
             ELSE 'UNKNOWN'
           END as state
         FROM event_metrics em

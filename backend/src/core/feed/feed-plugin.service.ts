@@ -174,7 +174,7 @@ class FeedPluginService {
       }
 
       // 3. Verificar cache
-      const cached = feedPluginCache.get(tenantId, postId, post.updatedAt);
+      const cached = feedPluginCache.get(tenantId, postId, post.updated_at);
       if (cached) {
         // 🔴 BLINDAGEM: Cache apenas retorna dados de renderização, não decisão
         results.set(postId, {
@@ -214,7 +214,7 @@ class FeedPluginService {
         ]);
 
         // 6. Armazenar no cache
-        feedPluginCache.set(tenantId, postId, post.updatedAt, dto, actions);
+        feedPluginCache.set(tenantId, postId, post.updated_at, dto, actions);
 
         // 7. Adicionar ao resultado
         results.set(postId, {
@@ -258,7 +258,7 @@ class FeedPluginService {
     tenant_id: string;
     intent: string | null;
     metadata: Record<string, any>;
-    updatedAt: Date;
+    updated_at: Date;
   }>> {
     if (postIds.length === 0) {
       return [];
@@ -271,10 +271,10 @@ class FeedPluginService {
       tenant_id: string;
       intent: string | null;
       metadata: Record<string, any>;
-      updatedAt: Date;
+      updated_at: Date;
     }>(
       `
-      SELECT post_id, tenant_id, intent, COALESCE(metadata, '{}'::jsonb) as metadata, updatedAt
+      SELECT post_id, tenant_id, intent, COALESCE(metadata, '{}'::jsonb) as metadata, updated_at
       FROM posts
       WHERE post_id = ANY($1)
       `,

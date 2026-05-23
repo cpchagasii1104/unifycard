@@ -41,8 +41,6 @@ const companyCanonicalRoutes: FastifyPluginAsync = async (fastify) => {
     '/companies/canonical',
     {
       schema: {
-        description: 'Cria Company em estado CREATED (nascimento canônico)',
-        tags: ['companies'],
         body: {
           type: 'object',
           required: ['legal_name', 'document_type', 'document_number', 'country'],
@@ -53,7 +51,9 @@ const companyCanonicalRoutes: FastifyPluginAsync = async (fastify) => {
             country: { type: 'string', minLength: 2, maxLength: 2 },
           },
         },
-      },
+        description: 'Cria Company em estado CREATED (nascimento canônico)',
+        tags: ['companies'],
+      } as Record<string, unknown>,
     },
     async (req, reply) => {
       if (!req.tenant) {
@@ -73,7 +73,13 @@ const companyCanonicalRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         // Criar Company (state=CREATED) + emitir COMPANY_CREATED
-        const company = await companyCanonicalService.createCompany(tenantId, parsed.data);
+        const company = await companyCanonicalService.createCompany(tenantId, {
+          legal_name: parsed.data.legal_name,
+          document_type: parsed.data.document_type,
+          document_number: parsed.data.document_number,
+          country: parsed.data.country,
+          tenant_id: tenantId,
+        });
 
         return reply.status(201).send({
           company: {

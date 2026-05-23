@@ -30,7 +30,7 @@ export interface Group {
   coverUrl?: string;
   rulesText?: string;
   financialPurpose?: string; // Finalidade dos recursos financeiros
-  ownerUserId: string; // global_user_id
+  ownerActorId: string; // actor_id (referência canônica a actors.id)
   isActive: boolean;
   profitBps?: number; // 0-100, percentual de lucro que o grupo recebe
   metadata?: Record<string, any>;

@@ -1,4 +1,7 @@
-# FASE 4 — UNIFICARD_PLANO_DEFINITIVO_v7.md (CI Anti-Regressão)
+# ⚠️ EXECUÇÃO DE PLANOS DESABILITADA (documentação)
+# Planos são documentos históricos e estratégicos. Não devem ser executados automaticamente.
+# Toda decisão deve seguir: docs/01_normative/SSOT_REGISTRY_UNIFICARD.md · docs/01_normative/CONTRACTS.md · STATUS_EXECUCAO_GLOBAL.md (raiz).
+# FASE 4 — nome histórico «UNIFICARD_PLANO_DEFINITIVO_v7» (CI Anti-Regressão); ficheiro na raiz é placeholder — não interpretar como plano executável.
 # Complementa .github/workflows/ssot-check.yml (regras adicionais + integridade Genesis)
 
 name: SSOT Guardian

@@ -32,8 +32,9 @@ class AlertService {
       timestamp: new Date(),
     };
 
-    // Sempre loga
-    logger[level](message, { context, alert: true });
+    // Sempre loga (critical → error para compatibilidade com Logger)
+    const logLevel = level === 'critical' ? 'error' : level;
+    logger[logLevel](message, { context, alert: true });
 
     // Envia para handlers registrados
     for (const handler of this.alertHandlers) {

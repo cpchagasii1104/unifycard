@@ -8,6 +8,7 @@ import { bankP2PTransferService } from './bank-p2p-transfer.service';
 import { bankPortsRegistry } from '@core/bank/ports-registry';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import { socialPortsRegistry } from '@core/social/ports-registry';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import type { P2PTransferResult } from './bank-p2p-transfer.service';
 
 export type DonationTargetType = 'user' | 'project' | 'group';
@@ -150,7 +151,7 @@ class DonationService {
       WHERE t.tenant_id = $1
         AND t.from_account_id = $2
         AND t.metadata->>'type' = 'donation'
-        AND t.createdAt >= $3
+        AND t.created_at >= $3
       `,
       [tenantId, userAccount.accountId, today]
     );
@@ -181,7 +182,7 @@ class DonationService {
     }
   ): Promise<string | undefined> {
     try {
-      const content = donation.message || `Doação de R$ ${donation.amount.toFixed(2)}`;
+      const content = donation.message || `Doação de R$ ${(donation.amountCents / 100).toFixed(2)}`;
       
       const socialRepository = socialPortsRegistry.getSocialRepository();
       const post = await socialRepository.create({
@@ -197,7 +198,7 @@ class DonationService {
           type: 'DONATION',
           targetType: donation.targetType,
           targetId: donation.targetId,
-          amountCents: donation.amount,
+          amountCents: donation.amountCents,
           message: donation.message,
           transactionId: donation.transactionId,
         },
@@ -227,10 +228,10 @@ class DonationService {
     tenantId: string,
     input: CreateDonationInput
   ): Promise<DonationResult> {
-    const { fromUserId, targetType, targetId, amount, message, eventId } = input;
+    const { fromUserId, targetType, targetId, amountCents, message, eventId } = input;
 
     // 1. Validações básicas
-    if (amount <= 0) {
+    if (amountCents <= 0) {
       const error = new Error('Amount must be greater than zero');
       (error as any).statusCode = 400;
       throw error;
@@ -270,7 +271,7 @@ class DonationService {
       transferResult = await bankP2PTransferService.transferP2P(tenantId, {
         fromUserId,
         toUserId: targetId,
-        amount,
+        amountCents,
         eventId: finalEventId,
       });
     } else {
@@ -282,17 +283,16 @@ class DonationService {
         currency: 'BRL',
       });
 
-      // Validar saldo
+      // Validar saldo (balance em centavos)
       const fromBalance = await bankAccount.getBalance(tenantId, fromAccount.accountId);
-      if (fromBalance.balance < amount) {
+      if (fromBalance.balanceCents < amountCents) {
         const error = new Error('Insufficient balance');
         (error as any).statusCode = 400;
         throw error;
       }
 
       // Resolver actor do doador para autoria
-      const { actorRepository } = await import('@modules/social/actor.repository');
-      const fromActor = await actorRepository.findOrCreateUserActor(tenantId, fromUserId);
+      const fromActor = await ensureUserActor(tenantId, fromUserId);
 
       // Construir autoria (ownership: doador é dono da conta origem)
       const { buildFinancialAuthorshipFromRequest } = await import('@modules/bank/financial-authorship.helper');
@@ -300,16 +300,24 @@ class DonationService {
         performedByUserId: fromUserId,
         actingForActorId: fromActor.actor_id,
         actingForAccountId: fromAccount.accountId,
-        authoritySource: 'ownership', // Doador é dono da conta origem
+        authoritySource: 'ownership',
+        permissionSnapshot: {
+          permissionKey: 'ownership',
+          allowed: true,
+          actorId: fromActor.actor_id,
+          userId: fromUserId,
+          decidedAt: new Date().toISOString(),
+        },
       });
 
       // Criar transação simples (sem split para doações - 100% para destinatário)
       const bankTransaction = bankPortsRegistry.getBankTransaction();
       const result = await bankTransaction.createSimpleTransaction(tenantId, {
         eventId: finalEventId,
+        referenceType: 'donation_transfer',
         fromAccountId: fromAccount.accountId,
         toAccountId: targetAccount.accountId,
-        amount,
+        amountCents,
         currency: 'BRL',
         transactionType: 'transfer',
         description: `Donation: ${targetType} ${targetId}`,
@@ -331,12 +339,12 @@ class DonationService {
         transaction: {
           transactionId: result.transaction.transactionId,
           eventId: finalEventId,
-          amount,
+          amountCents: result.transaction.amountCents,
           currency: 'BRL',
           createdAt: result.transaction.createdAt,
         },
-        fromAccountBalance: fromBalanceAfter.balance,
-        toAccountBalance: toBalanceAfter.balance,
+        fromAccountBalanceCents: fromBalanceAfter.balanceCents,
+        toAccountBalanceCents: toBalanceAfter.balanceCents,
         fromUserId,
         toUserId: targetId, // Para compatibilidade
       };
@@ -348,7 +356,7 @@ class DonationService {
       ? await this.createFeedEvent(tenantId, fromGlobalUserId, {
           targetType,
           targetId,
-          amount,
+          amountCents,
           message,
           transactionId: transferResult.transaction.transactionId,
         })
@@ -361,7 +369,7 @@ class DonationService {
       fromUserId,
       targetType,
       targetId,
-      amount,
+      amountCents,
       message,
       feedPostId,
       splitGroupId: undefined, // CORE não retorna splitGroupId, mas mantém compatibilidade

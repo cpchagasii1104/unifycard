@@ -1,6 +1,8 @@
 // src/config/features.ts
 // Feature flags para recursos premium/IA
 
+import { apiFetchJson } from '../api/client';
+
 export type UserPlan = 'free' | 'pro' | 'enterprise';
 
 export interface UserFeatures {
@@ -28,13 +30,8 @@ export async function getUserPlan(): Promise<UserPlan> {
     return devPlan as UserPlan;
   }
 
-  // FASE 3.6: Buscar plano real do backend
+  // FASE 3.6: Buscar plano real do backend (via apiFetch → ActionContext quando aplicável)
   try {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-    if (!apiBaseUrl) {
-      return 'free';
-    }
-    
     const token = localStorage.getItem('unificard_access_token');
     const tenantId = localStorage.getItem('unificard_tenant_id');
     
@@ -42,20 +39,11 @@ export async function getUserPlan(): Promise<UserPlan> {
       return 'free';
     }
     
-    const response = await fetch(`${apiBaseUrl}/plan`, {
+    const data = await apiFetchJson<{ ok?: boolean; data?: { plan: UserPlan } }>('/plan', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'x-tenant-id': tenantId,
-      },
     });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.ok && data.data?.plan) {
-        return data.data.plan as UserPlan;
-      }
+    if (data.ok && data.data?.plan) {
+      return data.data.plan as UserPlan;
     }
   } catch (error) {
     console.error('Erro ao buscar plano:', error);

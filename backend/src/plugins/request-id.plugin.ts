@@ -8,8 +8,8 @@ import { randomUUID } from 'crypto';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    requestId: string;
-    correlationId: string;
+    requestId?: string;
+    correlationId?: string;
   }
 }
 

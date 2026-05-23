@@ -183,7 +183,7 @@ export interface DriverLocation {
  * DriverAvailability representa estado operacional do motorista, não agenda temporal.
  * 
  * REGRAS ABSOLUTAS:
- * - is_online: estado operacional (disponível para corridas), NÃO agenda
+ * - is_online: estado operacional (aceite para dispatch de corridas), NÃO agenda
  * - dest_mode_enabled: modo de destino ativo, NÃO agenda
  * - NÃO bloqueia agenda temporal
  * - NÃO cria booking

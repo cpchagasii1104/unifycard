@@ -3,6 +3,7 @@
 import { votesRepository } from './votes.repository';
 import { groupsRepository } from './groups.repository';
 import { runTenantTransaction } from '@core/db';
+import { ensureUserActor } from '@modules/identity/actor-writer.service';
 import { toGroupVote, toGroupVoteOption } from './votes.types';
 import type {
   GroupVote,
@@ -28,6 +29,9 @@ class VotesService {
       throw new Error('Votação deve ter no máximo 20 opções');
     }
 
+    const userActor = await ensureUserActor(tenantId, userId);
+    const actorId = userActor.actor_id;
+
     // Validar: title não vazio (CHECK constraint no banco garante 3-200 chars)
     if (!input.title || input.title.trim().length < 3) {
       throw new Error('Título da votação deve ter pelo menos 3 caracteres');
@@ -49,10 +53,10 @@ class VotesService {
       const voteRows = await trx.query({
         text: `
           INSERT INTO group_votes (
-            tenant_id, group_id, created_by_user_id, title, description, status, closesAt
+            tenant_id, group_id, created_by_user_id, title, description, status, closes_at
           )
           VALUES ($1, $2, $3, $4, $5, 'open', $6)
-          RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
+          RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
         `,
         values: [
           tenantId,
@@ -76,14 +80,21 @@ class VotesService {
         title: string;
         description: string | null;
         status: string;
-        closesAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
+        closes_at: Date | null;
+        created_at: Date;
+        updated_at: Date;
       };
       const vote = toGroupVote({
-        ...voteRow,
-        createdAt: voteRow.createdAt instanceof Date ? voteRow.createdAt.toISOString() : String(voteRow.createdAt),
-        updatedAt: voteRow.updatedAt instanceof Date ? voteRow.updatedAt.toISOString() : String(voteRow.updatedAt),
+        vote_id: voteRow.vote_id,
+        tenant_id: voteRow.tenant_id,
+        group_id: voteRow.group_id,
+        created_by_user_id: voteRow.created_by_user_id,
+        title: voteRow.title,
+        description: voteRow.description,
+        status: voteRow.status,
+        closesAt: voteRow.closes_at,
+        createdAt: voteRow.created_at instanceof Date ? voteRow.created_at.toISOString() : String(voteRow.created_at),
+        updatedAt: voteRow.updated_at instanceof Date ? voteRow.updated_at.toISOString() : String(voteRow.updated_at),
       });
 
       // 2. Criar opções
@@ -95,7 +106,7 @@ class VotesService {
               vote_id, tenant_id, text, display_order
             )
             VALUES ($1, $2, $3, $4)
-            RETURNING option_id, vote_id, tenant_id, text, display_order, createdAt
+            RETURNING option_id, vote_id, tenant_id, text, display_order, created_at
           `,
           values: [vote.voteId, tenantId, input.options[i], i],
         });
@@ -107,86 +118,20 @@ class VotesService {
             tenant_id: string;
             text: string;
             display_order: number;
-            createdAt: Date;
+            created_at: Date;
           };
           createdOptions.push(toGroupVoteOption({
-            ...optionRow,
-            createdAt: optionRow.createdAt instanceof Date ? optionRow.createdAt.toISOString() : String(optionRow.createdAt),
+            option_id: optionRow.option_id,
+            vote_id: optionRow.vote_id,
+            tenant_id: optionRow.tenant_id,
+            text: optionRow.text,
+            display_order: optionRow.display_order,
+            createdAt: optionRow.created_at instanceof Date ? optionRow.created_at.toISOString() : String(optionRow.created_at),
           }));
         }
       }
 
-      // 3. Obter ou criar actor do usuário (dentro da transação)
-      let actorRows = await trx.query({
-        text: `
-          SELECT a.*
-          FROM actors a
-          WHERE a.tenant_id = $1 
-            AND a.user_id = $2
-            AND a.actor_type = 'user'
-          LIMIT 1
-        `,
-        values: [tenantId, userId],
-      });
-
-      let actor;
-      if (!actorRows || actorRows.length === 0) {
-        // Buscar nome do usuário
-        const userRows = await trx.query({
-          text: `
-            SELECT u.email, p.full_name
-            FROM users u
-            LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
-            WHERE u.user_id = $1 AND u.tenant_id = $2
-            LIMIT 1
-          `,
-          values: [userId, tenantId],
-        });
-
-        if (!userRows || userRows.length === 0) {
-          throw new Error('Usuário não encontrado');
-        }
-
-        const user = userRows[0] as {
-          email: string;
-          full_name: string | null;
-        };
-        const displayName = user.full_name || user.email.split('@')[0];
-
-        // Criar novo actor
-        const newActorRows = await trx.query({
-          text: `
-            INSERT INTO actors (
-              tenant_id, actor_type, user_id, display_name, slug
-            )
-            VALUES ($1, 'user', $2, $3, $4)
-            RETURNING actor_id, tenant_id, actor_type, user_id, display_name, slug
-          `,
-          values: [tenantId, userId, displayName, `user-${userId.substring(0, 8)}`],
-        });
-
-        if (!newActorRows || newActorRows.length === 0) {
-          throw new Error('Erro ao criar actor');
-        }
-
-        actor = newActorRows[0] as {
-          actor_id: string;
-          tenant_id: string;
-          actor_type: string;
-          user_id: string | null;
-          display_name: string;
-          slug: string;
-        };
-      } else {
-        actor = actorRows[0] as {
-          actor_id: string;
-          tenant_id: string;
-          actor_type: string;
-          user_id: string | null;
-          display_name: string;
-          slug: string;
-        };
-      }
+      // 3. Actor do usuário obtido antes da transação (ensureUserActor → actorId)
 
       // 4. Criar post no feed com intent='vote' e intent_metadata enxuto
       const intentMetadata = {
@@ -203,12 +148,12 @@ class VotesService {
             tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
           )
           VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, '{}'::jsonb, $7::jsonb)
-          RETURNING post_id, createdAt, updatedAt
+          RETURNING post_id, created_at, updated_at
         `,
         values: [
           tenantId,
           globalUserId,
-          actor.actor_id,
+          actorId,
           `Nova votação criada: ${input.title}`,
           'vote',
           JSON.stringify(intentMetadata),

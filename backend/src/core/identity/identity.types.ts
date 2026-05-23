@@ -12,8 +12,8 @@ export interface GlobalUser {
 
 export interface GlobalUserRow {
   global_user_id: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date | string;
+  updated_at: Date | string;
   full_name: string | null;
   avatar_url: string | null;
   birthdate: Date | string | null; // PostgreSQL pode retornar como string YYYY-MM-DD
@@ -52,7 +52,7 @@ export interface IdentityProfile {
     };
   };
   wallet?: {
-    balance: number;
+    balanceCents: number;
     currency: string;
     totalIn: number;
     totalOut: number;

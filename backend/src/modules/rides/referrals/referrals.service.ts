@@ -1,7 +1,7 @@
 // src/modules/rides/referrals/referrals.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import crypto from 'crypto';
 
@@ -72,7 +72,7 @@ export class ReferralsService {
       {
         text: `
       INSERT INTO rides_referral_links (
-        tenant_id, referred_user_id, referrer_driver_id, createdAt
+        tenant_id, referred_user_id, referrer_driver_id, created_at
       )
       VALUES ($1,$2,$3, now())
       ON CONFLICT (tenant_id, referred_user_id) DO NOTHING
@@ -132,29 +132,26 @@ export class ReferralsService {
 
     const reward = totalAmount * pct;
 
-    // Registrar ganho de referral
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
       INSERT INTO rides_referral_earnings (
-        tenant_id, referrer_driver_id, ride_id, amount, createdAt
+        tenant_id, referrer_driver_id, ride_id, amount, created_at
       )
       VALUES ($1,$2,$3,$4, now())
       `,
-        values: [tenantId, ref.referrer_driver_id, rideId, reward],
-      }
-    );
+        [tenantId, ref.referrer_driver_id, rideId, reward]
+      );
 
-    // Emitir evento
-    await eventBus.emit({
-      type: 'rides.referral.reward',
-      tenantId,
-      payload: {
-        driverId: ref.referrer_driver_id,
-        reward,
-        rideId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.referral.reward',
+        tenantId,
+        payload: {
+          driverId: ref.referrer_driver_id,
+          reward,
+          rideId,
+        },
+      });
     });
 
     return {
@@ -174,7 +171,7 @@ export class ReferralsService {
       SELECT *
       FROM rides_referral_earnings
       WHERE tenant_id = $1 AND referrer_driver_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
         values: [tenantId, driverId],
       }

@@ -19,8 +19,8 @@ export class CareModel {
       lastMessage: row.last_message,
       state: (row.state && typeof row.state === 'object' ? row.state : {}) as CareSessionState,
       context: (row.context && typeof row.context === 'object' ? row.context : {}) as CareSessionContext,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -54,7 +54,7 @@ export class CareMessageModel {
       intent: row.intent,
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : null,
       aiReasoning: row.ai_reasoning && typeof row.ai_reasoning === 'object' ? row.ai_reasoning : null,
-      createdAt: row.createdAt,
+      createdAt: row.created_at.toISOString(),
     };
   }
 

@@ -14,8 +14,8 @@ interface ProductOfferRow {
   id: string;
   product_id: string;
   merchant_id: string;
-  price: string;
-  active: boolean;
+  price_cents: string | number;
+  is_active: boolean;
 }
 
 /**
@@ -218,12 +218,12 @@ class DynamicPricingService {
       tenantId,
       {
         text: `
-        SELECT price
+        SELECT price_cents
         FROM product_offers
         WHERE tenant_id = $1
           AND product_id = $2
           AND location_city_id = $3
-          AND active = TRUE
+          AND is_active = TRUE
         `,
         values: [tenantId, productId, cityId],
       }
@@ -233,11 +233,14 @@ class DynamicPricingService {
       return null;
     }
 
-    const total = rows.reduce(
-      (sum, row) => sum + parseFloat(row.price),
-      0
-    );
-    return total / rows.length;
+    const totalCents = rows.reduce((sum, row) => {
+      const c =
+        typeof row.price_cents === 'number'
+          ? row.price_cents
+          : parseInt(String(row.price_cents), 10);
+      return sum + (Number.isFinite(c) ? c : 0);
+    }, 0);
+    return totalCents / rows.length / 100;
   }
 
   /**

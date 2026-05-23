@@ -9,9 +9,10 @@ import './Login.css';
 interface LoginProps {
   onLoginSuccess: () => void;
   onGoToRegister?: () => void;
+  onBackToHome?: () => void;
 }
 
-export default function Login({ onLoginSuccess, onGoToRegister }: LoginProps) {
+export default function Login({ onLoginSuccess, onGoToRegister, onBackToHome }: LoginProps) {
   const [email, setEmail] = useState('dev@unificard.local');
   const [password, setPassword] = useState('dev12345');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +69,8 @@ export default function Login({ onLoginSuccess, onGoToRegister }: LoginProps) {
         
         // 🔴 GARANTIA: tenantId válido - salvar imediatamente
         setTenantId(tenantIdToSave);
+        // Novo login: não reutilizar actor de sessão anterior (evita misturar identidades)
+        localStorage.removeItem('unificard_active_actor_id');
         console.log('[Login] ✅ TenantId extraído do JWT e salvo:', tenantIdToSave);
         
         // 🔴 PARTE 2 - ONBOARDING: Verificar se precisa de onboarding
@@ -167,6 +170,16 @@ export default function Login({ onLoginSuccess, onGoToRegister }: LoginProps) {
               className="register-link-button"
             >
               Não tem conta? Criar conta
+            </button>
+          )}
+
+          {onBackToHome && (
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className="register-link-button"
+            >
+              ← Voltar para início
             </button>
           )}
         </form>

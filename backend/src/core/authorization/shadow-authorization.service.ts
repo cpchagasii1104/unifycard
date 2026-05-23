@@ -67,7 +67,7 @@ class ShadowAuthorizationService {
       [actorId]
     );
 
-    if (!rootStatus || rootStatus.length === 0) {
+    if (!rootStatus) {
       return {
         allowed: false,
         reasonCode: 'SSOT_ROOT_NOT_FOUND',
@@ -75,11 +75,11 @@ class ShadowAuthorizationService {
       };
     }
 
-    if (rootStatus[0].status !== 'active') {
+    if (rootStatus.status !== 'active') {
       return {
         allowed: false,
         reasonCode: 'SSOT_ROOT_INACTIVE',
-        reason: `Authority root status is ${rootStatus[0].status}`,
+        reason: `Authority root status is ${rootStatus.status}`,
       };
     }
 
@@ -95,14 +95,14 @@ class ShadowAuthorizationService {
       [actorId]
     );
 
-    if (atl && atl.length > 0) {
+    if (atl) {
       // ATL nível 0 ou negativo bloqueia ações
       // ATL nível 1+ permite (níveis mais altos = mais confiança)
-      if (atl[0].atl_level <= 0) {
+      if (atl.atl_level <= 0) {
         return {
           allowed: false,
           reasonCode: 'SSOT_ATL_BLOCKED',
-          reason: `ATL level ${atl[0].atl_level} blocks action`,
+          reason: `ATL level ${atl.atl_level} blocks action`,
         };
       }
     }
@@ -110,11 +110,11 @@ class ShadowAuthorizationService {
     // 3. Verificar Economic Guardianship (se aplicável - apenas informativo)
     const guardianship = await runQueryWithTenant<{
       guardian_actor_id: string;
-      limit_amount: number;
+      limit_amount_cents: number;
       expires_at: string;
     }>(
       tenantId,
-      `SELECT guardian_actor_id, limit_amount, expires_at
+      `SELECT guardian_actor_id, limit_amount_cents, expires_at
        FROM economic_guardianship
        WHERE subject_actor_id = $1
          AND expires_at > NOW()
@@ -124,7 +124,7 @@ class ShadowAuthorizationService {
     );
 
     // Guardianship não bloqueia por si só, apenas registra se existe
-    const hasGuardianship = guardianship && guardianship.length > 0;
+    const hasGuardianship = guardianship != null;
 
     // 4. Verificar Authority Delegations
     // NOTA: delegator_actor_id = quem concede, delegate_actor_id = quem tenta agir
@@ -149,14 +149,14 @@ class ShadowAuthorizationService {
     );
 
     // Se delegação existe e scope cobre permissão, permite
-    if (delegation && delegation.length > 0) {
-      const delegationScope = delegation[0].scope;
+    if (delegation) {
+      const delegationScope = delegation.scope;
       // Verificar se scope cobre a permissão (exato ou wildcard)
       if (delegationScope === '*' || delegationScope === permissionKey || delegationScope.includes(permissionKey)) {
         return {
           allowed: true,
           reasonCode: 'SSOT_DELEGATION_ALLOWED',
-          reason: `Delegation from ${delegation[0].delegator_actor_id} covers permission`,
+          reason: `Delegation from ${delegation.delegator_actor_id} covers permission`,
         };
       }
       // Delegação existe mas não cobre - continuar para RBAC

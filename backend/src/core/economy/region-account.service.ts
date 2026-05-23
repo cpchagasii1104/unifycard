@@ -3,6 +3,7 @@
 // Serviço para resolver conta de região para splits econômicos
 // Busca regionId de tenant, usuário ou job e cria/busca conta correspondente
 
+import { accountService } from './account.service';
 import { tenantService } from '../tenants/tenant.service';
 import { worldService } from '../world/services/world.service';
 import type { FastifyBaseLogger } from 'fastify';

@@ -2,6 +2,7 @@
 // SPRINT 88: CRM CANÔNICO
 
 import type { FastifyInstance } from 'fastify';
+import type { CrmTimelineFilters, CrmTimelineEventType } from './crm.types';
 import { crmService } from './crm.service';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
 
@@ -26,11 +27,11 @@ const crmRoutes = async (fastify: FastifyInstance) => {
     const tenantId = req.tenant!.id;
     const contactId = req.params.id;
 
-    const filters: any = {};
+    const filters: CrmTimelineFilters = {};
     if (req.query.eventTypes) {
-      filters.eventTypes = Array.isArray(req.query.eventTypes)
-        ? req.query.eventTypes
-        : [req.query.eventTypes];
+      const valid: CrmTimelineEventType[] = ['ORDER_CREATED', 'ORDER_PAID', 'TICKET_PURCHASED', 'CHECKIN', 'PAYMENT_LINK_USED', 'RECEIVABLE_CREATED', 'FISCAL_DRAFT', 'FISCAL_ISSUED', 'NOTE_ADDED', 'TAG_ASSIGNED', 'TAG_REMOVED', 'CONSENT_CHANGED'];
+      const raw = Array.isArray(req.query.eventTypes) ? req.query.eventTypes : [req.query.eventTypes];
+      filters.eventTypes = raw.filter((t): t is CrmTimelineEventType => valid.includes(t as CrmTimelineEventType));
     }
     if (req.query.startDate) {
       filters.startDate = new Date(req.query.startDate);
@@ -38,12 +39,8 @@ const crmRoutes = async (fastify: FastifyInstance) => {
     if (req.query.endDate) {
       filters.endDate = new Date(req.query.endDate);
     }
-    if (req.query.limit) {
-      filters.limit = parseInt(req.query.limit as string, 10);
-    }
-    if (req.query.offset) {
-      filters.offset = parseInt(req.query.offset as string, 10);
-    }
+    if (req.query.limit != null) filters.limit = Number(req.query.limit);
+    if (req.query.offset != null) filters.offset = Number(req.query.offset);
 
     const timeline = await crmService.getTimeline(tenantId, contactId, filters);
 

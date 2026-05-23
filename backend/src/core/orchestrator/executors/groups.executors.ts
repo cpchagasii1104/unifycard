@@ -25,11 +25,12 @@ export async function handleGroupCreated(event: any): Promise<void> {
   }
 
   const { tenantId, payload } = event;
-  const { groupId, name, ownerUserId } = payload;
+  const { groupId, name, ownerActorId, ownerUserId } = payload;
+  const ownerActorForMemory = ownerActorId ?? ownerUserId;
 
   // Salvar no Memory
   await memoryService.saveContext(`group_created:${groupId}`, {
-    userId: ownerUserId,
+    userId: ownerActorForMemory,
     contextType: 'group_created',
     metadata: {
       groupId,
@@ -140,7 +141,7 @@ export async function handleGroupFundReceived(event: any): Promise<void> {
 }
 
 // Registrar handlers no EventBus (se método subscribe disponível)
-// Por enquanto, eventos são publicados via eventBus.publish() e podem ser consumidos por outros módulos
+// Por enquanto, eventos seguem pipeline outbox → worker; consumo via handlers registados no bus
 // TODO: Implementar sistema de subscribers quando necessário
 export function registerGroupEventHandlers(): void {
   // EventBus atual usa publish/subscribe pattern

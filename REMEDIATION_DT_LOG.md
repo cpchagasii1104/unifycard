@@ -4119,11 +4119,13 @@ Para Clayton validar F5 visualmente:
 
 ---
 
-## DT-PRESSURE-PUBLICATION-ENGINE-REACTIONS-USER-ID-DRIFT
+## DT-PRESSURE-PUBLICATION-ENGINE-REACTIONS-USER-ID-VIOLATION
 
 - **Status:** OPEN
-- **Severidade:** depende de quem chama `publication-engine.service.ts` em runtime — pode estar latente OU ativo conforme exercício real do engine canônico
+- **Severidade:** HIGH — **violação constitucional explícita** de §3.2 da Nomenclatura Canônica (`actor_id` é SSOT de identidade; `user_id`/`global_user_id` são proibidos como camada de identidade soberana)
+- **Reclassificação:** Originalmente registrada como `-DRIFT` (2026-05-19 manhã). Reclassificada para `-VIOLATION` quando confirmada como violação §3.2 (não drift acidental — código viola norma constitucional ratificada)
 - **Origem:** Auditoria material durante remediação de `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (2026-05-19, Fase 1 GUARDIÃO). Descoberto que `publication-engine.service.ts` (engine canônico para reactions) usa `user_id` em queries, mas schema real de `reactions` só tem `actor_id` (auditado em DT-DRIFT-SOCIAL-2.0).
+- **Base constitucional:** §3.2 Glossário Canônico Constitucional (linha 161): "Identidade Econômica → `actor_id` / `actorId` — SSOT de identidade"
 
 ### Call sites
 
@@ -4152,9 +4154,13 @@ Validação requer:
 - Verificar se há try/catch ou silent fail que esconda o erro
 - `information_schema.columns WHERE table_name = 'reactions'` para confirmar ausência absoluta de `user_id`
 
-### Vinculação com DECISION-0031
+### Vinculação com DECISION-0031 e §3.2 constitucional
 
-DECISION-0031 (Reactions polimórfico soberano, 2026-05-19) estabelece que coluna de identidade canônica em `reactions` é `actor_id` (NÃO `user_id`/`global_user_id`). `publication-engine.service.ts` está em **violação material** dessa DECISION. Frente de fix futuro deve alinhar com DECISION-0031.
+DECISION-0031 (Reactions polimórfico soberano, 2026-05-19) **ratifica formalmente** o que §3.2 já estabelece: coluna de identidade canônica em `reactions` é `actor_id`. `publication-engine.service.ts` está em **violação dupla**:
+1. **Violação §3.2 (constitucional):** usa `user_id` como camada de identidade onde §3.2 exige `actor_id`. Configura violação à PROIBIÇÃO §3.2: "Nenhum nome constitucional pode nascer 'no código primeiro' e ser ratificado depois. A ordem é: SSOT_REGISTRY → Este documento → Implementação." Engine canônico introduziu nome de identidade não-registrado no SSOT.
+2. **Violação DECISION-0031 (arquitetural):** DECISION-0031 ratifica e elenca anti-padrão #2: "usar `user_id` ou `global_user_id` em vez de `actor_id`".
+
+Frente de fix futuro deve alinhar com §3.2 + DECISION-0031 (mesmo conteúdo expresso em duas camadas normativas — constitucional + arquitetural-de-remediação).
 
 ### Resolução prevista
 
@@ -4175,3 +4181,144 @@ Frente própria backend (estimativa ≤1 sessão dedicada):
 
 - Pattern consistente com `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`: 2 serviços paralelos com drift de identidade em `reactions` (social-2.0 usa `global_user_id`; publication-engine usa `user_id`). Schema canônico (`actor_id`) só é respeitado pelo INSERT em publication-engine (linha 422, que inclui ambos `user_id` e `actor_id`).
 - Aplica heurística `feedback_runtime_soberano.md`: runtime soberano se identifica pela concentração de causalidade VALIDADA. `publication-engine.service.ts` declara-se canônico mas não está alinhado com schema real — drift contradiz declaração de soberania.
+
+---
+
+## DT-PRESSURE-REACTIONS-ENTITY-TYPE-NAMING-VIOLATION
+
+- **Status:** OPEN
+- **Severidade:** MEDIUM — violação latente de §4.37 + §3.2 PROIBIÇÃO. Não bloqueia runtime (sistema funciona), mas configura inconsistência nomenclatural constitucional permanente.
+- **Origem:** Auditoria material durante remediação de `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (2026-05-19, Fase 2/C1.5). Achado constitucional reportado por Clayton: `entity_type` em `reactions` usa vocabulário fora do enum canônico §4.37.
+- **Base constitucional:** §4.37 (Tipos de Entidade — enum canônico), §3.2 (PROIBIÇÃO de feature nascendo "no código primeiro")
+
+### Três vocabulários divergentes na codebase
+
+| Camada | Valores `entity_type` em reactions | Status |
+|---|---|---|
+| §4.37 Constituição (linhas 1467-1499) | `user`, `page`, `store`, `group`, `company`, `organization`, `system`, `bot` | SSOT formal — entidades soberanas / persona operacional |
+| `publication-engine.types.ts:7` (engine TS canônico) | `event`, `post`, `group`, `channel` | drift declarado em código |
+| Migration viva `20260530320000_social_reactions.sql:7` (DDL CHECK constraint) | `post`, `comment`, `event` | drift consolidado em runtime |
+
+Três vocabulários distintos para o mesmo conceito. Schema real (`post/comment/event`) **diverge da Constituição** E do engine canônico.
+
+### Análise material da violação
+
+§4.37 explicita (linhas 1497-1499):
+> "`entity_type` representa a natureza estrutural da entidade.
+> `actor_type` representa o papel operacional do ator dentro do sistema."
+
+E reforça (linhas 1480-1489):
+> "Entidade NÃO é autoridade soberana. Entidade NÃO pode blindar responsabilidade humana. Tipos como page, group, company, organization existem exclusivamente como persona operacional. Responsabilidade final sempre recai sobre um actor_human."
+
+Valores em uso (`post`, `comment`, `event`):
+- `post` — **conteúdo gerado** por entidade (não-entidade)
+- `comment` — **conteúdo gerado** por entidade (não-entidade)
+- `event` — domínio operacional (mais perto de entidade, mas mistura semântica)
+
+Logo: a coluna nominada `entity_type` está sendo usada como **target_type** ou **content_type** — emprestando nome constitucional fora do escopo definido em §4.37.
+
+Plus: SSOT_REGISTRY_UNIFICARD.md NÃO tem entrada para `reactions.entity_type` nem para `target_type`/`content_type`. **Configura violação §3.2 PROIBIÇÃO**: "Nenhum nome constitucional pode nascer 'no código primeiro' e ser ratificado depois. A ordem é: SSOT_REGISTRY → Este documento → Implementação." Aqui o oposto aconteceu: código materializou `entity_type` com valores não-canônicos, sem registro SSOT precedente.
+
+### Por que não corrigir nesta frente
+
+1. **Sem DDL nesta frente** — diretriz Clayton 2026-05-19: "Não DDL (decisões evitam migration)". Renomear coluna ou alterar CHECK constraint exige migration.
+2. **Cross-callers significativo** — renomear afeta `reactions`, possivelmente outras tabelas com `entity_type` (publication-engine, audit_logs, notifications), contracts TS compartilhados, e ~3 vocabulários a unificar.
+3. **Princípio "norma assintótica"** — `project_norma_assintotica.md`: runtime preservado durante convergência; toda exceção carrega prazo ou critério. Esta DT É o critério de convergência registrado.
+4. **DECISION-0031 ratifica USO ATUAL como exceção transitória** (preserva runtime) com cross-reference a esta DT.
+
+### Resolução prevista (frente futura)
+
+Sequência obrigatória conforme §3.2 PROIBIÇÃO:
+
+1. **SSOT_REGISTRY_UNIFICARD.md** — registrar formalmente conceito (provavelmente `target_type` ou `content_type` — TBD por RFC)
+2. **07_NOMENCLATURA_CANONICA.md §4.X** — adicionar enum canônico para tipos de conteúdo (separado de §4.37 entity_type que fica restrito a entidades soberanas)
+3. **RFC** documentando impacto cross-camada (DDL aditiva, mappers em borda, alinhamento publication-engine.types.ts ↔ reactions.entity_type)
+4. **DDL aditiva** — adicionar coluna nova `target_type` em `reactions`, copiar valores, deprecar `entity_type` em release subsequente
+5. **Migration coordenada** — atualizar callers (social-2.0.service.ts, publication-engine.service.ts, e qualquer tabela paralela)
+6. **DECISION nova superando DECISION-0031** parcialmente — ratifica novo vocabulário canônico
+
+Estimativa: 1-2 sessões dedicadas. NÃO crítico.
+
+### Não bloqueia
+
+- Frente atual `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` — runtime atual preservado
+- Feed funciona com `entity_type = 'post'` (valor não-canônico mas operacional)
+- Reactions polimórficas operam normalmente
+
+### Convergência institucional
+
+Pattern de "norma canônica assintótica" aplicado: sistema converge para §4.37 ao longo do tempo, mesmo que aos poucos. Violação registrada como dívida latente NÃO ratifica conviver com o drift indefinidamente — esta DT É o critério de convergência futuro.
+
+---
+
+## DT-FRONTEND-CTA-ZOMBIE
+
+- **Status:** OPEN
+- **Severidade:** LOW — código frontend aspiracional sem renderização ativa (post.cta sempre `undefined` no payload). Não quebra TS (todos os callers usam `post.cta?`). Não bloqueia UX nem runtime.
+- **Origem:** Auditoria material durante remediação de `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH` (2026-05-19, Fase 1 expandida). Reportado por Clayton como achado para registrar antes de C1.5.
+- **Categoria:** Frontend aspiracional contra backend não-materializado (espelho de DECISION-0032 — pattern PREMATURO em camada UI)
+
+### Contexto material
+
+DECISION-0032 (2026-05-19) declara `post_cta` como feature PREMATURO — tabela FANTASMA, INSERT removido do service, JOINs removidos, endpoint POST CTA action comentado. Frontend tem **código UI completo aguardando ativação**:
+
+**Callers de `post.cta` no frontend (16 arquivos, ~50 ocorrências):**
+
+| Arquivo | Tipo de uso |
+|---|---|
+| `components/social/PostCard.tsx` | Renderização principal de CTA — booking/service/payment, preço, currency, modal |
+| `components/ServicePostCard.tsx` | Componente inteiro baseado em `post.cta` — chama `confirmCTA(post.cta.cta_id)` |
+| `components/social/FeaturedToday.tsx` | Exibe preço de serviços/produtos com CTA |
+| `components/social/AuthorCard.tsx` | Categoriza posts por `cta?.cta_type` |
+| `components/social/SalesHistory.tsx` | Histórico de vendas |
+| `components/SocialFeed.tsx` | Renderização condicional service_offer |
+| `components/social/TodayForYou.tsx` | Recomendações |
+| `components/social/SocialFeed2.tsx` | Type |
+| `components/social/PostComposer.tsx`, `IntentComposer.tsx` | Composição |
+| `utils/feedScoring.ts` | Scoring algorithm |
+| `utils/trustSignals.ts` | Trust signals |
+| `api/social-2.0.ts` | Type declaration + função `confirmCTA` exportada |
+
+### Estado pós-DECISION-0032
+
+- Backend NÃO emite `cta` no payload de Post (JOIN post_cta removido)
+- Frontend `post.cta` sempre `undefined`
+- Guards `if (post.cta)` e `post.cta?` falham silenciosamente → renderização fallback
+- Função `confirmCTA(ctaId)` em `api/social-2.0.ts` continua exportada mas nunca é chamada (botão que dispara nunca renderiza)
+- Componente `ServicePostCard.tsx` nunca monta (condicional `post.intent !== 'service_offer' || !post.cta`)
+
+### Hipótese sobre origem
+
+Ecossistema CTA aspiracional em TODAS as camadas: frontend escreveu UI completa antes de backend materializar tabela. Schema confirma: `post_cta` nunca existiu em runtime ao mesmo tempo que frontend foi codificado. Frontend tem código pronto mas **nunca exercitou em runtime real** (feed quebrava por drifts em paralelo, então user nunca chegou a ver CTA renderizado).
+
+### Razão para registrar (não remover) agora
+
+1. **Coerência com DECISION-0032** — se reabrir CTA no futuro (UX + JTBD + RFC), código frontend já está pronto. Remover agora exigiria reescrever quando reabrir.
+2. **Frontend cleanup é frente própria** — não arrastar cross-layer no commit atual. Disciplina "1122 entries preservadas" + "git add específico".
+3. **Não quebra runtime** — `post.cta?` é opcional; código degrada silenciosamente.
+4. **Princípio "norma assintótica"** — preserva trabalho enquanto não há decisão de reabertura nem cleanup.
+
+### Critério de fechamento
+
+DT fecha em UM destes cenários (mutuamente exclusivos):
+
+**Cenário A — CTA reaberto (DECISION superando 0032):**
+- UX desenhado, JTBD validado, RFC aprovado, DECISION nova
+- DDL aditiva cria tabela `post_cta` ou modelo substituto canônico
+- Backend volta a emitir `cta` no payload
+- Frontend code "acorda" — DT fecha como ATIVADA
+
+**Cenário B — CTA confirmado como abandono permanente:**
+- Frente própria frontend cleanup
+- Remoção de `Post.cta` interface, função `confirmCTA`, componente `ServicePostCard`, callers em PostCard/FeaturedToday/AuthorCard/etc.
+- DT fecha como REMOVIDA
+
+### Não bloqueia
+
+- Frente atual de social-2.0.service refactor (backend)
+- Funcionamento do feed pós-fix
+- Outras frentes UX que não tocam o pattern CTA
+
+### Convergência institucional
+
+Pattern análogo a outros casos de "frontend pronto, backend não-materializado": componentes plausivelmente aspiracionais em outras features (subscriptions UI, loyalty UI, automation alerts UI). Padrão recorrente que merece taxonomia institucional própria: **frontend-zombie** = código UI completo sem backend correspondente.

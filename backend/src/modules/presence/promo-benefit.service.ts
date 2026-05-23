@@ -185,7 +185,12 @@ class PromoBenefitService {
   private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: (data.eventType as string) ?? 'PROMO_BENEFIT_EVENT',
+        severity: 'medium',
+        source: 'impact',
+        context: data,
+      });
     } catch (error) {
       console.warn('[PromoBenefitService] Erro ao registrar auditoria:', error);
     }

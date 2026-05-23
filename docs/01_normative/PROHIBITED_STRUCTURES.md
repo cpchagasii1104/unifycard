@@ -25,6 +25,21 @@ Leitura que influencia decisão é **autoridade implícita** — e é proibida.
 
 ---
 
+## MINI-CORES CLANDESTINOS (DECISION-0021)
+
+É proibido criar, em qualquer módulo, estrutura que funcione como autoridade local para verdade já soberana em outro domínio.
+
+Exemplos proibidos:
+- `rides_location`, `delivery_addresses`, `event_regions` como SSOT territorial paralelo;
+- `patient_health_flags` em módulo de saúde como SSOT humano sensível fora do profile/consentimento;
+- agenda local por módulo contradizendo Agenda Universal / Unified Availability;
+- saldo, carteira ou extrato local contradizendo Bank/ledger;
+- árvore semântica local contradizendo CONCEPT / categorias canônicas.
+
+Regra: módulo pode operar workflow, experiência, cache e projeção. Não pode redefinir a verdade compartilhada nem criar writer clandestino.
+
+---
+
 ## ESTRUTURAS FINANCEIRAS PROIBIDAS (LEGACY)
 
 As estruturas abaixo **NUNCA** podem:

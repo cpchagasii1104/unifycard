@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import { join } from 'path';
 import { pool } from '../core/database/pool';
+import { tenantService } from '../core/tenants/tenant.service';
 
 // Carrega variáveis de ambiente
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -27,6 +28,44 @@ const TENANT_NAME = 'Dev Tenant';
 const DEV_EMAIL = 'dev@unificard.local';
 const DEV_PASSWORD = 'dev12345'; // Mínimo 8 caracteres (requisito do schema)
 
+type TenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type UserRow = {
+  user_id: string;
+  email: string;
+};
+
+type TenantRecord = {
+  tenantId: string;
+  name: string;
+  slug: string;
+};
+
+type UserRecord = {
+  userId: string;
+  email: string;
+};
+
+// boundary: DB -> domain mapping
+function mapTenantRowToDomain(row: TenantRow): TenantRecord {
+  return {
+    tenantId: row.id,
+    name: row.name,
+    slug: row.slug,
+  };
+}
+
+function mapUserRowToDomain(row: UserRow): UserRecord {
+  return {
+    userId: row.user_id,
+    email: row.email,
+  };
+}
+
 /**
  * Cria ou obtém o tenant de desenvolvimento
  */
@@ -35,10 +74,9 @@ async function createOrGetDevTenant() {
 
   const client = await pool.connect();
   try {
-    // Verifica se o tenant já existe pelo slug
-    const existingResult = await client.query<{ tenant_id: string; name: string; slug: string }>({
+    const existingResult = await client.query<TenantRow>({
       text: `
-        SELECT tenant_id, name, slug
+        SELECT id, name, slug
         FROM tenants
         WHERE slug = $1
         LIMIT 1
@@ -47,35 +85,23 @@ async function createOrGetDevTenant() {
     });
 
     if (existingResult.rows.length > 0) {
-      const tenantId = existingResult.rows[0].tenant_id;
+      const existingTenant = mapTenantRowToDomain(existingResult.rows[0]!);
+      const tenantId = existingTenant.tenantId;
       console.log(`✅ Tenant "${TENANT_NAME}" já existe`);
       console.log(`   Slug: ${TENANT_SLUG}`);
       console.log(`   ID: ${tenantId}`);
       return tenantId;
     }
-
-    // Cria o tenant
-    const result = await client.query<{ tenant_id: string; name: string; slug: string }>({
-      text: `
-        INSERT INTO tenants (name, slug)
-        VALUES ($1, $2)
-        RETURNING tenant_id, name, slug
-      `,
-      values: [TENANT_NAME, TENANT_SLUG],
-    });
-
-    if (result.rows.length === 0) {
-      throw new Error('Falha ao criar tenant');
-    }
-
-    const tenantId = result.rows[0].tenant_id;
-    console.log(`✅ Tenant "${TENANT_NAME}" criado`);
-    console.log(`   Slug: ${TENANT_SLUG}`);
-    console.log(`   ID: ${tenantId}`);
-    return tenantId;
   } finally {
     client.release();
   }
+
+  const created = await tenantService.createTenant({ name: TENANT_NAME, slug: TENANT_SLUG });
+  const tenantId = created.tenantId;
+  console.log(`✅ Tenant "${TENANT_NAME}" criado`);
+  console.log(`   Slug: ${TENANT_SLUG}`);
+  console.log(`   ID: ${tenantId}`);
+  return tenantId;
 }
 
 /**
@@ -90,7 +116,7 @@ async function createOrGetDevUser(tenantId: string) {
     await client.query(`SET LOCAL app.current_tenant = '${tenantId}'`);
 
     // Verifica se o usuário já existe
-    const existingResult = await client.query<{ user_id: string; email: string }>({
+    const existingResult = await client.query<UserRow>({
       text: `
         SELECT user_id, email
         FROM users
@@ -101,8 +127,9 @@ async function createOrGetDevUser(tenantId: string) {
     });
 
     if (existingResult.rows.length > 0) {
+      const existingUser = mapUserRowToDomain(existingResult.rows[0]!);
       console.log(`✅ Usuário "${DEV_EMAIL}" já existe`);
-      console.log(`   ID: ${existingResult.rows[0].user_id}`);
+      console.log(`   ID: ${existingUser.userId}`);
       
       // Atualizar senha para garantir que está correta
       const passwordHash = await bcrypt.hash(DEV_PASSWORD, 10);
@@ -112,19 +139,19 @@ async function createOrGetDevUser(tenantId: string) {
           SET password_hash = $1, updated_at = now()
           WHERE user_id = $2
         `,
-        values: [passwordHash, existingResult.rows[0].user_id],
+        values: [passwordHash, existingUser.userId],
       });
       console.log(`   Senha atualizada para: ${DEV_PASSWORD}`);
       
       await client.query('COMMIT');
-      return existingResult.rows[0].user_id;
+      return existingUser.userId;
     }
 
     // Cria o hash da senha (mesmo método do sistema: bcrypt com salt rounds 10)
     const passwordHash = await bcrypt.hash(DEV_PASSWORD, 10);
 
     // Cria o usuário
-    const result = await client.query<{ user_id: string; email: string }>({
+    const result = await client.query<UserRow>({
       text: `
         INSERT INTO users (tenant_id, email, password_hash)
         VALUES ($1, $2, $3)
@@ -137,10 +164,12 @@ async function createOrGetDevUser(tenantId: string) {
       throw new Error('Falha ao criar usuário de desenvolvimento');
     }
 
+    const createdUser = mapUserRowToDomain(result.rows[0]!);
+
     console.log(`✅ Usuário "${DEV_EMAIL}" criado`);
-    console.log(`   ID: ${result.rows[0].user_id}`);
+    console.log(`   ID: ${createdUser.userId}`);
     await client.query('COMMIT');
-    return result.rows[0].user_id;
+    return createdUser.userId;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

@@ -31,7 +31,7 @@ export class BankAccountAdapter implements BankAccountPort {
     const balance = await realService.getBalance(tenantId, accountId);
     const account = await realService.getAccountById(tenantId, accountId);
     return {
-      balance: balance.balance,
+      balanceCents: balance.balanceCents,
       currency: account?.currency || 'BRL',
     };
   }

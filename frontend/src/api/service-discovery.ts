@@ -124,19 +124,19 @@ export async function getServiceForDiscovery(serviceId: string): Promise<Discove
     const availabilities = await listServiceAvailabilities(service.id).catch(() => []);
 
     const hasOpenAvailability = availabilities.some(
-      av => av.status === 'available' && (!av.endDate || new Date(av.endDate) > new Date())
+      av => av.status === 'active' && (!av.endDatetime || new Date(av.endDatetime) > new Date())
     );
 
     // Encontrar próxima data disponível
     const futureAvailabilities = availabilities
       .filter(av => {
-        const avStart = new Date(av.startDate);
-        return avStart > new Date() && av.status === 'available';
+        const avStart = new Date(av.startDatetime);
+        return avStart > new Date() && av.status === 'active';
       })
-      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+      .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime());
 
     const nextAvailableDate = futureAvailabilities.length > 0 
-      ? futureAvailabilities[0].startDate 
+      ? futureAvailabilities[0].startDatetime 
       : null;
 
     // Mapear Service para DiscoveredService

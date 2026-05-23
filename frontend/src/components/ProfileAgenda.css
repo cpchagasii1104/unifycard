@@ -3,6 +3,42 @@
   padding: 1.5rem;
 }
 
+/* 2026-05-15: indicador de save status para schedule declarativo */
+.profile-agenda-wrapper {
+  position: relative;
+}
+
+.profile-agenda-save-status {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 8px;
+  margin: 0 1.5rem 0.75rem 1.5rem;
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+.profile-agenda-save-status--saving {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.profile-agenda-save-status--saved {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.profile-agenda-save-status--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
 .profile-agenda h2 {
   font-size: 1.5rem;
   font-weight: bold;

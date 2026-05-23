@@ -1,11 +1,41 @@
 // backend/src/core/events/idempotency-tracker.ts
-// Sistema de tracking de idempotência para eventos críticos
+// Event-handler idempotency tracking (§4.12.1)
 
 import { runQueryWithTenant } from '@core/database/pool';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import { createHash } from 'crypto';
 
 export type IdempotencyResultStatus = 'success' | 'error' | 'skipped';
+
+/** Same (tenant, event_id, handler) with a different payload hash — fail-closed (no re-execution). */
+export class IdempotencyMismatchError extends Error {
+  readonly code = 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD';
+
+  constructor(
+    message: string,
+    public readonly details?: {
+      tenantId: string;
+      eventId: string;
+      handlerName: string;
+      existingKeyPrefix?: string;
+      newKeyPrefix?: string;
+    }
+  ) {
+    super(message);
+    this.name = 'IdempotencyMismatchError';
+    Object.setPrototypeOf(this, IdempotencyMismatchError.prototype);
+  }
+}
+
+/** Mensagem pública para resposta HTTP 409 (contrato API). */
+export const IDEMPOTENCY_MISMATCH_HTTP_MESSAGE =
+  'Request with same idempotency key but different payload';
+
+export function isIdempotencyMismatchError(
+  err: unknown
+): err is IdempotencyMismatchError {
+  return err instanceof IdempotencyMismatchError;
+}
 
 export interface IdempotencyTracking {
   id: number;
@@ -38,8 +68,9 @@ export function generateIdempotencyKey(
 }
 
 /**
- * Verifica se evento já foi processado por um handler específico
- * Retorna tracking existente se encontrado, null caso contrário
+ * Verifica se evento já foi processado por um handler específico.
+ * Retorna tracking existente se encontrado e o hash do payload coincidir; null se não houver linha.
+ * Lança {@link IdempotencyMismatchError} se já existir linha para o mesmo handler com outro payload.
  */
 export async function checkIdempotency(
   tenantId: string,
@@ -59,11 +90,11 @@ export async function checkIdempotency(
         event_type as "eventType",
         handler_name as "handlerName",
         idempotency_key as "idempotencyKey",
-        processedAt as "processedAt",
+        processed_at as "processedAt",
         result_status as "resultStatus",
         result_data as "resultData",
         error_message as "errorMessage",
-        createdAt as "createdAt"
+        created_at as "createdAt"
       FROM event_idempotency_tracking
       WHERE tenant_id = $1 AND event_id = $2 AND handler_name = $3
       LIMIT 1
@@ -71,22 +102,30 @@ export async function checkIdempotency(
     [tenantId, eventId, handlerName]
   );
   
-  if (!result || result.length === 0) {
+  if (!result) {
     return null;
   }
   
   // Verificar se idempotency key corresponde (payload não mudou)
-  const existing = result[0];
+  const existing = result;
   if (existing.idempotencyKey !== idempotencyKey) {
-    // Payload mudou - não é replay, mas pode ser tentativa de violação
-    canonicalLogger.warn(null, 'Payload mudou para evento já processado', {
+    canonicalLogger.warn(null, 'Idempotency key mismatch — fail-closed (no re-execution)', {
       tenantId,
       eventId,
       handlerName,
-      existingKey: existing.idempotencyKey,
-      newKey: idempotencyKey,
+      existingKey: existing.idempotencyKey.substring(0, 32),
+      newKey: idempotencyKey.substring(0, 32),
     });
-    return null; // Permitir processamento (mas logar warning)
+    throw new IdempotencyMismatchError(
+      'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD: same event+handler already processed with a different payload hash',
+      {
+        tenantId,
+        eventId,
+        handlerName,
+        existingKeyPrefix: existing.idempotencyKey.substring(0, 16),
+        newKeyPrefix: idempotencyKey.substring(0, 16),
+      }
+    );
   }
   
   return existing;
@@ -116,14 +155,14 @@ export async function recordIdempotencySuccess(
         idempotency_key,
         result_status,
         result_data,
-        processedAt
+        processed_at
       )
       VALUES ($1, $2, $3, $4, $5, 'success', $6, NOW())
       ON CONFLICT (tenant_id, event_id, handler_name)
       DO UPDATE SET
         result_status = 'success',
         result_data = EXCLUDED.result_data,
-        processedAt = NOW()
+        processed_at = NOW()
     `,
     [tenantId, eventId, eventType, handlerName, idempotencyKey, resultData ? JSON.stringify(resultData) : null]
   );
@@ -153,14 +192,14 @@ export async function recordIdempotencyError(
         idempotency_key,
         result_status,
         error_message,
-        processedAt
+        processed_at
       )
       VALUES ($1, $2, $3, $4, $5, 'error', $6, NOW())
       ON CONFLICT (tenant_id, event_id, handler_name)
       DO UPDATE SET
         result_status = 'error',
         error_message = EXCLUDED.error_message,
-        processedAt = NOW()
+        processed_at = NOW()
     `,
     [tenantId, eventId, eventType, handlerName, idempotencyKey, error.message]
   );
@@ -196,7 +235,7 @@ export async function recordIdempotencyReplay(
     tenantId,
     `
       UPDATE event_idempotency_tracking
-      SET processedAt = NOW()
+      SET processed_at = NOW()
       WHERE tenant_id = $1 AND event_id = $2 AND handler_name = $3
     `,
     [tenantId, eventId, handlerName]
@@ -204,7 +243,10 @@ export async function recordIdempotencyReplay(
 }
 
 /**
- * Wrapper para handlers críticos que garante idempotência
+ * Wrapper para handlers críticos que garante idempotência.
+ *
+ * Norma: docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.12.1 (formato canónico
+ * `${event_type}:${reference_id}:${handler_name}` em semântica; payload estável para hash).
  */
 export async function withIdempotency<T>(
   tenantId: string,

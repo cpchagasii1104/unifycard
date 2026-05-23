@@ -130,14 +130,11 @@ class ActorIntentsService {
       }
     }
 
-    // 5. Verificar permissões via authorization.service (Core de Decisão)
-    // Para intents que exigem permissões além de capacidades
-    // Decisão FINAL de autorização deve passar por authorizationService.canActAs()
-    // reputationService.getPermissions() retorna apenas MÉTRICAS/INPUT, não decisão
+    // 5. Verificar permissões via authority.service (fachada modules — §4.9)
     if (userId && (normalizedIntent === ActorIntent.START_VOTE || 
         normalizedIntent === ActorIntent.CREATE_PROJECT ||
         normalizedIntent === ActorIntent.SEND_CTA)) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
+      const { authorityService } = await import('@modules/authority/authority.service');
       
       let permissionKey: PermissionKey;
       if (normalizedIntent === ActorIntent.START_VOTE) {
@@ -150,11 +147,11 @@ class ActorIntentsService {
         permissionKey = 'publish_feed';
       }
 
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        userId,
+      const auth = await authorityService.canPerformAction(
         actorId,
-        permissionKey
+        permissionKey,
+        undefined,
+        { tenantId, userId }
       );
 
       if (!auth.allowed) {

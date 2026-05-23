@@ -14,15 +14,15 @@ interface LoyaltyVoucherRow {
   contact_id: string;
   status: string;
   voucher_type: string;
-  valueCents: string | null;
+  value: string | null; // DB column (cents)
   benefit_code: string | null;
-  expiresAt: Date | null;
+  expires_at: Date | null;
   created_from_ledger_id: string | null;
   used_reference_type: string | null;
   used_reference_id: string | null;
   metadata: any;
-  createdAt: Date;
-  usedAt: Date | null;
+  created_at: Date;
+  used_at: Date | null;
 }
 
 class LoyaltyVoucherRepository {
@@ -35,13 +35,13 @@ class LoyaltyVoucherRepository {
       voucherType: row.voucher_type as LoyaltyVoucherType,
       valueCents: row.value ? parseFloat(row.value) : null,
       benefitCode: row.benefit_code,
-      expiresAt: row.expiresAt,
+      expiresAt: row.expires_at,
       createdFromLedgerId: row.created_from_ledger_id,
       usedReferenceType: row.used_reference_type,
       usedReferenceId: row.used_reference_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      usedAt: row.usedAt,
+      createdAt: row.created_at.toISOString(),
+      usedAt: row.used_at,
     };
   }
 
@@ -59,18 +59,18 @@ class LoyaltyVoucherRepository {
       `
       INSERT INTO loyalty_vouchers (
         tenant_id, contact_id, status, voucher_type, value, benefit_code,
-        expiresAt, created_from_ledger_id, metadata
+        expires_at, created_from_ledger_id, metadata
       )
       VALUES ($1, $2, 'ACTIVE', $3, $4, $5, $6, $7, '{}'::jsonb)
       RETURNING id, tenant_id, contact_id, status, voucher_type, value, benefit_code,
-                expiresAt, created_from_ledger_id, used_reference_type, used_reference_id,
-                metadata, createdAt, usedAt
+                expires_at, created_from_ledger_id, used_reference_type, used_reference_id,
+                metadata, created_at, used_at
       `,
       [
         tenantId,
         contactId,
         voucherType,
-        value,
+        valueCents,
         benefitCode,
         expiresAt,
         createdFromLedgerId,
@@ -101,11 +101,11 @@ class LoyaltyVoucherRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, status, voucher_type, value, benefit_code,
-             expiresAt, created_from_ledger_id, used_reference_type, used_reference_id,
-             metadata, createdAt, usedAt
+             expires_at, created_from_ledger_id, used_reference_type, used_reference_id,
+             metadata, created_at, used_at
       FROM loyalty_vouchers
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       params
     );
@@ -118,8 +118,8 @@ class LoyaltyVoucherRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, status, voucher_type, value, benefit_code,
-             expiresAt, created_from_ledger_id, used_reference_type, used_reference_id,
-             metadata, createdAt, usedAt
+             expires_at, created_from_ledger_id, used_reference_type, used_reference_id,
+             metadata, created_at, used_at
       FROM loyalty_vouchers
       WHERE tenant_id = $1 AND id = $2
       `,

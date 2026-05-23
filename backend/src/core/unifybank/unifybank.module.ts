@@ -4,10 +4,15 @@
 import { FastifyPluginAsync } from 'fastify';
 import testCurrencyRoutes from './test-currency.routes';
 import bankP2PTransferRoutes from './bank-p2p-transfer.routes';
+import bankHttpRoutes from './bank-http.routes';
 import donationRoutes from './donation.routes';
 import transparencyRoutes from './transparency.routes';
 import userGroupAllocationRoutes from '../user-group-allocation/user-group-allocation.routes';
 import bankMetricsRoutes from '../observability/bank-metrics.routes';
+import handlerMetricsRoutes from '../observability/handler-metrics.routes';
+import outboxMetricsRoutes from '../events/outbox-metrics.routes';
+import reconciliationMetricsRoutes from '../reconciliation/reconciliation-metrics.routes';
+import sagaMetricsRoutes from '../sagas/saga-metrics.routes';
 import transparencyAdminRoutes from './transparency-admin.routes';
 import governanceRoutes from './regional-fund-governance.routes';
 import bankBalanceConsolidationRoutes from './bank-balance-consolidation.routes';
@@ -23,6 +28,9 @@ const unifybankModule: FastifyPluginAsync = async (fastify) => {
   // Rotas de doação (registradas em /bank/donate quando prefix=/bank)
   await fastify.register(donationRoutes);
   
+  // HTTP canónico do Bank (saldo + transações) — §4.7, prefix /bank
+  await fastify.register(bankHttpRoutes);
+
   // Rotas de transparência financeira (registradas em /bank quando prefix=/bank)
   // FASE 6: Transparência Financeira
   await fastify.register(transparencyRoutes);
@@ -42,6 +50,10 @@ const unifybankModule: FastifyPluginAsync = async (fastify) => {
   // Rotas de métricas (registradas em /admin/metrics quando prefix=/admin)
   // CONTINUOUS PRODUCTION: Observabilidade mínima
   await fastify.register(bankMetricsRoutes, { prefix: '/metrics' });
+  await fastify.register(handlerMetricsRoutes, { prefix: '/metrics/handlers' });
+  await fastify.register(outboxMetricsRoutes, { prefix: '/metrics/outbox' });
+  await fastify.register(reconciliationMetricsRoutes, { prefix: '/metrics/reconciliation' });
+  await fastify.register(sagaMetricsRoutes, { prefix: '/metrics/sagas' });
   
   // Rotas de balanço consolidado (registradas em /admin/finance quando prefix=/admin)
   // READ-MODEL: Balanço Financeiro Consolidado

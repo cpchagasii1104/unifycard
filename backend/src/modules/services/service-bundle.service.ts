@@ -10,6 +10,7 @@ import { serviceBookingDecisionRepository } from './service-booking-decision.rep
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
 import { serviceOrderService } from './service-order.service';
 import { servicesRepository } from './services.repository';
+import type { Service } from './services.types';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import { HttpError } from '@core/errors/http-error';
 import type { PermissionKey } from '@core/authorization/permission-keys';
@@ -20,8 +21,8 @@ import type {
   BundleBookingResult,
   ConfirmBundleInput,
   ConfirmBundleResult,
-  BundleDependencyType,
 } from './service-bundle.types';
+import { BundleDependencyType } from './service-bundle.types';
 import { BookingDecisionStatus } from './service-booking-decision.types';
 
 /**
@@ -71,13 +72,13 @@ class ServiceBundleService {
       console.warn('[ServiceBundle] Erro ao verificar rate limit (não bloqueante):', rateLimitError);
     }
 
-    // 1. Validar permissão via authorization.service (Core de Decisão)
-    const { authorizationService } = await import('@core/authorization/authorization.service');
-    const auth = await authorizationService.canActAs(
-      tenantId,
-      userId,
+    // 1. Validar permissão via authority.service (fachada modules — §4.9)
+    const { authorityService } = await import('@modules/authority/authority.service');
+    const auth = await authorityService.canPerformAction(
       input.requesterActorId,
-      'bundle:create'
+      'bundle:create',
+      undefined,
+      { tenantId, userId }
     );
     if (!auth.allowed) {
       throw HttpError.forbidden(
@@ -104,6 +105,8 @@ class ServiceBundleService {
       throw new NotFoundError('Um ou mais serviços não foram encontrados');
     }
 
+    const validServices = services.filter((s): s is Service => s !== null);
+
     // 3. Validar que todas as disponibilidades existem e pertencem aos serviços corretos via Unified Availability
     const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
     const availabilities = await Promise.all(
@@ -117,8 +120,8 @@ class ServiceBundleService {
 
     // Validar correspondência service-availability
     // 🔴 CORREÇÃO FASE 1B: Unified Availability usa ownerType='service' e ownerId=serviceId
-    for (let i = 0; i < services.length; i++) {
-      if (availabilities[i]!.ownerType !== 'service' || availabilities[i]!.ownerId !== services[i]!.serviceId) {
+    for (let i = 0; i < validServices.length; i++) {
+      if (availabilities[i]!.ownerType !== 'service' || availabilities[i]!.ownerId !== validServices[i].serviceId) {
         throw new BadRequestError(`Disponibilidade ${input.availabilityIds[i]} não pertence ao serviço ${input.serviceIds[i]}`);
       }
     }
@@ -140,10 +143,10 @@ class ServiceBundleService {
     // 3.6. Validar compatibilidade técnica (se evento estiver vinculado)
     if (input.metadata?.eventId) {
       try {
-        await this.validateBundleCompatibility(tenantId, services, input.metadata.eventId);
+        await this.validateBundleCompatibility(tenantId, validServices, input.metadata.eventId);
       } catch (compatError: any) {
         // Se a validação falhar com status BLOCKED, bloquear criação
-        if (compatError.status === 'BLOCKED') {
+        if (compatError.status === 'blocked') {
           throw new BadRequestError(
             `Incompatibilidade técnica detectada no bundle: ${compatError.message || 'Um ou mais serviços não são compatíveis com o evento'}`
           );
@@ -161,7 +164,7 @@ class ServiceBundleService {
         const contextType = input.metadata.eventId ? 'event' : 'bundle';
         const contextId = input.metadata.eventId || input.bundleId || 'new';
         // Calcular preço total do bundle
-        const totalPriceCents = services.reduce((sum, s) => sum + (s.priceCents || 0), 0);
+        const totalPriceCents = validServices.reduce((sum, s) => sum + (s.priceCents || 0), 0);
 
         const validation = await agreementService.validateAgreementForClosure(
           tenantId,
@@ -287,7 +290,7 @@ class ServiceBundleService {
       FROM service_bookings
       WHERE tenant_id = $1
         AND metadata->>'bundleId' = $2
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [tenantId, bundleId]
     );
@@ -312,14 +315,14 @@ class ServiceBundleService {
     tenantId: string,
     input: ConfirmBundleInput
   ): Promise<ConfirmBundleResult> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (§4.9)
     if (input.confirmedByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        input.confirmedByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         input.confirmedByActorId,
-        'bundle:confirm'
+        'bundle:confirm',
+        undefined,
+        { tenantId, userId: input.confirmedByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -531,7 +534,7 @@ class ServiceBundleService {
     try {
       // 1. Buscar evento
       const { eventRepository } = await import('../events/event.repository');
-      const event = await eventRepository.findById(tenantId, eventId);
+      const event = await eventRepository.getEventById(tenantId, eventId);
       if (!event) {
         return; // Se evento não existe, não valida (não bloqueia)
       }
@@ -593,7 +596,7 @@ class ServiceBundleService {
     try {
       // 1. Buscar evento
       const { eventRepository } = await import('../events/event.repository');
-      const event = await eventRepository.findById(tenantId, eventId);
+      const event = await eventRepository.getEventById(tenantId, eventId);
       if (!event) {
         return; // Se evento não existe, não valida (não bloqueia)
       }
@@ -646,19 +649,19 @@ class ServiceBundleService {
           basePriceCents: serviceData.priceCents || undefined,
         });
 
-        if (compatibilityResult.status === 'BLOCKED') {
+        if (compatibilityResult.status === 'blocked') {
           blockedServices.push(serviceData.name || service.serviceId);
-        } else if (compatibilityResult.status === 'WARNING') {
+        } else if (compatibilityResult.status === 'warning') {
           warningServices.push(serviceData.name || service.serviceId);
         }
       }
 
-      // 4. Se algum serviço estiver BLOCKED, lançar erro
+      // 4. Se algum serviço estiver blocked, lançar erro
       if (blockedServices.length > 0) {
         const error: any = new Error(
           `Serviços incompatíveis: ${blockedServices.join(', ')}`
         );
-        error.status = 'BLOCKED';
+        error.status = 'blocked';
         error.blockedServices = blockedServices;
         throw error;
       }
@@ -672,7 +675,7 @@ class ServiceBundleService {
       }
     } catch (error: any) {
       // Se for erro de compatibilidade, re-lançar
-      if (error.status === 'BLOCKED') {
+      if (error.status === 'blocked') {
         throw error;
       }
       // Outros erros são ignorados (não bloqueiam bundle)

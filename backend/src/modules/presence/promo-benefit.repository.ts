@@ -23,7 +23,7 @@ interface PromoBenefitRow {
   valid_from: Date | null;
   valid_to: Date | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 interface PromoBenefitRedemptionRow {
@@ -35,7 +35,7 @@ interface PromoBenefitRedemptionRow {
   loyalty_ledger_id: string | null;
   voucher_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class PromoBenefitRepository {
@@ -54,7 +54,7 @@ class PromoBenefitRepository {
       validFrom: row.valid_from,
       validTo: row.valid_to,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -68,7 +68,7 @@ class PromoBenefitRepository {
       loyaltyLedgerId: row.loyalty_ledger_id,
       voucherId: row.voucher_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -94,7 +94,7 @@ class PromoBenefitRepository {
       )
       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING id, tenant_id, context_type, context_id, benefit_type, benefit_value, status,
-                requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, createdAt
+                requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, created_at
       `,
       [
         tenantId,
@@ -129,13 +129,13 @@ class PromoBenefitRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, benefit_type, benefit_value, status,
-             requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, createdAt
+             requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, created_at
       FROM promo_benefits
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
         AND status = 'ACTIVE'
         AND (valid_from IS NULL OR valid_from <= $4)
         AND (valid_to IS NULL OR valid_to >= $4)
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, contextType, contextId, now]
     );
@@ -148,7 +148,7 @@ class PromoBenefitRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, benefit_type, benefit_value, status,
-             requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, createdAt
+             requires_checkin, max_redemptions, per_contact_limit, valid_from, valid_to, metadata, created_at
       FROM promo_benefits
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -194,7 +194,7 @@ class PromoBenefitRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       ON CONFLICT (tenant_id, benefit_id, contact_id) DO NOTHING
-      RETURNING id, tenant_id, benefit_id, contact_id, checkin_id, loyalty_ledger_id, voucher_id, metadata, createdAt
+      RETURNING id, tenant_id, benefit_id, contact_id, checkin_id, loyalty_ledger_id, voucher_id, metadata, created_at
       `,
       [
         tenantId,
@@ -212,7 +212,7 @@ class PromoBenefitRepository {
       const existing = await runQueryWithTenant<PromoBenefitRedemptionRow>(
         tenantId,
         `
-        SELECT id, tenant_id, benefit_id, contact_id, checkin_id, loyalty_ledger_id, voucher_id, metadata, createdAt
+        SELECT id, tenant_id, benefit_id, contact_id, checkin_id, loyalty_ledger_id, voucher_id, metadata, created_at
         FROM promo_benefit_redemptions
         WHERE tenant_id = $1 AND benefit_id = $2 AND contact_id = $3
         `,

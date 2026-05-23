@@ -157,7 +157,7 @@ class SocialChatService {
     conversationId: string
   ): Promise<Conversation> {
     // Buscar mensagens
-    const { rows, total } = await this.repository.findByConversation(tenantId, conversationId);
+    const { rows, totalCents } = await this.repository.findByConversation(tenantId, conversationId);
     const messages = SocialChatModel.fromRows(rows);
 
     // Buscar ações vinculadas às mensagens desta conversa
@@ -188,7 +188,7 @@ class SocialChatService {
     return {
       conversationId,
       messages,
-      total,
+      totalCents,
       actions,
     };
   }

@@ -25,8 +25,16 @@ export class ActorRepositoryAdapter implements ActorRepositoryPort {
     return realRepository.findOrCreateUserActor(tenantId, userId);
   }
 
-  async findOrCreatePageActor(tenantId: string, companyId: string) {
-    return realRepository.findOrCreatePageActor(tenantId, companyId);
+  async findOrCreatePageActor(
+    tenantId: string,
+    companyId: string,
+    responsibleActorId: string
+  ) {
+    return realRepository.findOrCreatePageActor(
+      tenantId,
+      companyId,
+      responsibleActorId
+    );
   }
 
   async updateUserActorDisplayName(tenantId: string, userId: string, displayName: string) {

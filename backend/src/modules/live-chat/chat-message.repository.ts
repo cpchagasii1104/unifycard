@@ -16,7 +16,7 @@ interface ChatMessageRow {
   status: string;
   client_message_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class ChatMessageRepository {
@@ -30,7 +30,7 @@ class ChatMessageRepository {
       status: row.status as ChatMessageStatus,
       clientMessageId: row.client_message_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -50,7 +50,7 @@ class ChatMessageRepository {
       )
       VALUES ($1, $2, $3, $4, 'VISIBLE', $5, '{}'::jsonb)
       ON CONFLICT (tenant_id, room_id, contact_id, client_message_id) DO NOTHING
-      RETURNING id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, createdAt
+      RETURNING id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, created_at
       `,
       [tenantId, roomId, contactId, content, clientMessageId]
     );
@@ -60,7 +60,7 @@ class ChatMessageRepository {
       const existing = await runQueryWithTenant<ChatMessageRow>(
         tenantId,
         `
-        SELECT id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, createdAt
+        SELECT id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, created_at
         FROM chat_messages
         WHERE tenant_id = $1 AND room_id = $2 AND contact_id = $3 AND client_message_id = $4
         `,
@@ -99,7 +99,7 @@ class ChatMessageRepository {
 
     // Cursor (pagination)
     if (cursor) {
-      conditions.push(`createdAt < $${paramIndex}`);
+      conditions.push(`created_at < $${paramIndex}`);
       params.push(new Date(cursor));
       paramIndex++;
     }
@@ -107,10 +107,10 @@ class ChatMessageRepository {
     const rows = await runQueriesWithTenant<ChatMessageRow>(
       tenantId,
       `
-      SELECT id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, createdAt
+      SELECT id, tenant_id, room_id, contact_id, content, status, client_message_id, metadata, created_at
       FROM chat_messages
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex}
       `,
       [...params, limit]
@@ -144,7 +144,7 @@ class ChatMessageRepository {
       `
       SELECT COUNT(*)::TEXT as count
       FROM chat_messages
-      WHERE tenant_id = $1 AND contact_id = $2 AND createdAt >= $3
+      WHERE tenant_id = $1 AND contact_id = $2 AND created_at >= $3
       `,
       [tenantId, contactId, windowStart]
     );

@@ -37,7 +37,7 @@ const socialMarketplaceRefRoutes = async (fastify: FastifyInstance) => {
         const { auditService } = await import('@core/audit/audit.service');
         await auditService.record(tenantId, {
           event_type: 'SOCIAL_MARKETPLACE_REF_CREATED',
-          severity: 'LOW',
+          severity: 'low',
           actor_id: actionContext.actorId,
           actor_type: 'user',
           source: 'social',

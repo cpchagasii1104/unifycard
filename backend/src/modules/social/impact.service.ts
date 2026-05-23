@@ -4,8 +4,8 @@
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
-export type ImpactEventType = 'LIKE' | 'SUPPORT' | 'JOIN_GROUP' | 'POST_PUBLISHED';
-export type ImpactSourceType = 'post' | 'group' | 'project' | 'system' | 'cultural_event';
+export type ImpactEventType = 'LIKE' | 'SUPPORT' | 'JOIN_GROUP' | 'POST_PUBLISHED' | 'SERVICE_PAYMENT_EXECUTED' | 'RIDE_COMPLETED' | 'PRODUCT_PURCHASED';
+export type ImpactSourceType = 'post' | 'group' | 'project' | 'system' | 'cultural_event' | 'service_payment' | 'ride' | 'marketplace';
 export type ActorType = 'user' | 'page';
 
 export interface ImpactLedgerEntry {
@@ -75,7 +75,7 @@ export class ImpactService {
           source_type, source_id, metadata
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-        RETURNING id, createdAt
+        RETURNING id, created_at
       ),
       balance_upsert AS (
         INSERT INTO impact_balances (tenant_id, actor_id, actor_type, balance)
@@ -83,14 +83,14 @@ export class ImpactService {
         ON CONFLICT (tenant_id, actor_id, actor_type)
         DO UPDATE SET
           balance = impact_balances.balance + $5,
-          updatedAt = NOW()
-        RETURNING balance, updatedAt
+          updated_at = NOW()
+        RETURNING balance, updated_at
       )
       SELECT 
         li.id as entry_id,
-        li.createdAt::text as entry_createdAt,
+        li.created_at::text as entry_createdAt,
         bu.balance as new_balance,
-        bu.updatedAt::text as balance_updatedAt
+        bu.updated_at::text as balance_updatedAt
       FROM ledger_insert li
       CROSS JOIN balance_upsert bu
       `,
@@ -163,11 +163,11 @@ export class ImpactService {
       actor_id: string;
       actor_type: string;
       balance: number;
-      updatedAt: string;
+      updated_at: string;
     }>(
       tenantId,
       `
-      SELECT tenant_id, actor_id, actor_type, balance, updatedAt
+      SELECT tenant_id, actor_id, actor_type, balance, updated_at
       FROM impact_balances
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
       LIMIT 1
@@ -192,7 +192,7 @@ export class ImpactService {
       actor_id: row.actor_id,
       actor_type: row.actor_type as ActorType,
       balance: row.balance,
-      updatedAt: row.updatedAt,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -215,16 +215,16 @@ export class ImpactService {
       source_type: string;
       source_id: string;
       metadata: any;
-      createdAt: string;
+      created_at: string;
     }>(
       tenantId,
       `
       SELECT 
         id, tenant_id, actor_id, actor_type, event_type, impact_delta,
-        source_type, source_id, metadata, createdAt
+        source_type, source_id, metadata, created_at
       FROM impact_ledger
       WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $4
       `,
       [tenantId, actorId, actorType, limit]
@@ -240,7 +240,7 @@ export class ImpactService {
       source_type: row.source_type as ImpactSourceType,
       source_id: row.source_id,
       metadata: row.metadata,
-      createdAt: row.createdAt,
+      createdAt: row.created_at,
     }));
   }
 }

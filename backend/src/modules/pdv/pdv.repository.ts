@@ -9,11 +9,11 @@ interface PdvSessionRow {
   tenant_id: string;
   actor_id: string;
   status: string;
-  openedAt: Date;
-  closedAt: Date | null;
+  opened_at: Date;
+  closed_at: Date | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PdvSessionRepository {
@@ -26,11 +26,11 @@ class PdvSessionRepository {
       tenantId: row.tenant_id,
       actorId: row.actor_id,
       status: row.status as any,
-      openedAt: row.openedAt,
-      closedAt: row.closedAt,
+      openedAt: row.opened_at,
+      closedAt: row.closed_at,
       metadata: row.metadata || null,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -48,8 +48,8 @@ class PdvSessionRepository {
         tenant_id, actor_id, status, metadata
       )
       VALUES ($1, $2, 'OPEN', $3)
-      RETURNING id, tenant_id, actor_id, status, openedAt, closedAt,
-                metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, actor_id, status, opened_at, closed_at,
+                metadata, created_at, updated_at
       `,
       [tenantId, input.actorId, JSON.stringify(input.metadata || {})]
     );
@@ -71,8 +71,8 @@ class PdvSessionRepository {
     const row = await runQueryWithTenant<PdvSessionRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, status, openedAt, closedAt,
-             metadata, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, status, opened_at, closed_at,
+             metadata, created_at, updated_at
       FROM pdv_sessions
       WHERE tenant_id = $1 AND id = $2
       LIMIT 1
@@ -93,13 +93,13 @@ class PdvSessionRepository {
     const row = await runQueryWithTenant<PdvSessionRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, status, openedAt, closedAt,
-             metadata, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, status, opened_at, closed_at,
+             metadata, created_at, updated_at
       FROM pdv_sessions
       WHERE tenant_id = $1 
         AND actor_id = $2
         AND status = 'OPEN'
-      ORDER BY openedAt DESC
+      ORDER BY opened_at DESC
       LIMIT 1
       `,
       [tenantId, actorId]
@@ -119,11 +119,11 @@ class PdvSessionRepository {
     const rows = await runQueriesWithTenant<PdvSessionRow>(
       tenantId,
       `
-      SELECT id, tenant_id, actor_id, status, openedAt, closedAt,
-             metadata, createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, status, opened_at, closed_at,
+             metadata, created_at, updated_at
       FROM pdv_sessions
       WHERE tenant_id = $1 AND actor_id = $2
-      ORDER BY openedAt DESC
+      ORDER BY opened_at DESC
       LIMIT $3
       `,
       [tenantId, actorId, limit]
@@ -145,11 +145,11 @@ class PdvSessionRepository {
       `
       UPDATE pdv_sessions
       SET status = 'CLOSED',
-          closedAt = NOW(),
+          closed_at = NOW(),
           metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
       WHERE tenant_id = $2 AND id = $3 AND status = 'OPEN'
-      RETURNING id, tenant_id, actor_id, status, openedAt, closedAt,
-                metadata, createdAt, updatedAt
+      RETURNING id, tenant_id, actor_id, status, opened_at, closed_at,
+                metadata, created_at, updated_at
       `,
       [JSON.stringify(input.metadata || {}), tenantId, sessionId]
     );

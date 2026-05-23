@@ -54,14 +54,19 @@ class PayoutService {
       const { escrowService } = await import('../escrow/escrow.service');
       const escrow = await escrowService.getEscrowAccount(tenantId, escrowId);
 
-      if (escrow.status !== 'RELEASED') {
+      if (!escrow) {
         eligible = false;
-        reasons.push(`Escrow não está RELEASED (status: ${escrow.status})`);
-      }
+        reasons.push('Escrow não encontrado');
+      } else {
+        if (escrow.status !== 'released') {
+          eligible = false;
+          reasons.push(`Escrow não está released (status: ${escrow.status})`);
+        }
 
-      if (escrow.disputeStatus === 'OPEN') {
-        eligible = false;
-        reasons.push('Disputa aberta bloqueia payout');
+        if (escrow.disputeStatus === 'open') {
+          eligible = false;
+          reasons.push('Disputa aberta bloqueia payout');
+        }
       }
     }
 
@@ -73,14 +78,13 @@ class PayoutService {
       if (!agreement) {
         eligible = false;
         reasons.push('Agreement não encontrado');
-      } else if (agreement.status !== 'FINALIZED') {
+      } else if (agreement.status !== 'finalized') {
         eligible = false;
-        reasons.push(`Agreement não está FINALIZED (status: ${agreement.status})`);
+        reasons.push(`Agreement não está finalized (status: ${agreement.status})`);
       }
     }
 
-    // 4. Validar Ledger Entries
-    const { ledgerService } = await import('../ledger/ledger.service');
+    // 4. Validar ids de linhas de ledger (bank_ledger) — unicidade de uso
     for (const entryId of ledgerEntryIds) {
       // Verificar se entry já foi usada em outro payout
       const isUsed = await payoutRepository.isLedgerEntryUsed(tenantId, entryId);
@@ -102,8 +106,10 @@ class PayoutService {
       try {
         const { escrowService } = await import('../escrow/escrow.service');
         const escrow = await escrowService.getEscrowAccount(tenantId, escrowId);
-        hasOpenDispute = escrow.disputeStatus === 'OPEN';
-        escrowStatus = escrow.status;
+        if (escrow) {
+          hasOpenDispute = escrow.disputeStatus === 'open';
+          escrowStatus = escrow.status;
+        }
       } catch (err) {
         // Ignorar erro
       }
@@ -150,16 +156,18 @@ class PayoutService {
       payoutMethod: input.payoutMethod || 'MANUAL',
     });
 
-    // 3. Buscar ledger entries elegíveis
-    const { ledgerService } = await import('../ledger/ledger.service');
-    const ledgerFilters: any = {
-      entryType: 'ESCROW_RELEASE', // Apenas releases de escrow geram payout
-      startDate: input.startDate,
-      endDate: input.endDate,
-      limit: 1000, // Limite alto para processar em batch
-    };
-
-    const ledgerEntries = await ledgerService.listEntries(tenantId, ledgerFilters);
+    // 3. Buscar linhas elegíveis no bank_ledger (créditos a contas com actor) — substitui economy ledger stub
+    const { listBankLedgerCreditLinesForPayoutWindow } = await import(
+      '../reporting/reporting-bank-aggregates'
+    );
+    const windowStart = input.startDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const windowEnd = input.endDate ?? new Date();
+    const ledgerEntries = await listBankLedgerCreditLinesForPayoutWindow(
+      tenantId,
+      windowStart,
+      windowEnd,
+      1000
+    );
 
     // 4. Agrupar por actor e gerar orders
     const orders: PayoutOrder[] = [];
@@ -188,12 +196,13 @@ class PayoutService {
       existing.amountCents += entry.amountCents;
       existing.entryIds.push(entry.entryId);
       
-      // Extrair escrowId e agreementId do metadata
-      if (entry.metadata?.escrowId) {
-        existing.escrowId = entry.metadata.escrowId;
+      // Extrair escrowId e agreementId do metadata (quando presentes)
+      const meta = entry.metadata;
+      if (meta && typeof meta.escrowId === 'string') {
+        existing.escrowId = meta.escrowId;
       }
-      if (entry.metadata?.agreementId) {
-        existing.agreementId = entry.metadata.agreementId;
+      if (meta && typeof meta.agreementId === 'string') {
+        existing.agreementId = meta.agreementId;
       }
 
       actorAmounts.set(actorId, existing);
@@ -201,6 +210,37 @@ class PayoutService {
 
     // 5. Criar orders para cada actor
     for (const [actorId, data] of actorAmounts.entries()) {
+      try {
+        const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
+        await requireFinancialRiskClearance(tenantId, {
+          actorId,
+          action: 'financial_payout',
+          amountCents: data.amountCents,
+        });
+      } catch (riskErr: unknown) {
+        const e = riskErr as Error & { statusCode?: number };
+        // Bloqueio EXPLÍCITO de autoridade: decisão tomada pelo sistema.
+        // Ref: docs/ssot/AUTHORITY_PRECEDENCE.md — ATL > KYC > GUARDA
+        const isAuthorityBlock =
+          e.statusCode === 403 ||
+          e.message === 'ACTOR_RISK_LIMIT_EXCEEDED' ||
+          e.message === 'ACTOR_RISK_BLOCKED' ||
+          e.message === 'SSOT_ROOT_INACTIVE' ||
+          e.message === 'SSOT_ATL_BLOCKED' ||
+          e.message === 'ECONOMIC_GUARDIANSHIP_LIMIT_EXCEEDED';
+
+        if (isAuthorityBlock) {
+          console.error('[PayoutBatch] Ator bloqueado por autoridade — payout não executado', {
+            actorId,
+            reason: e.message,
+            tenantId,
+          });
+          continue;
+        }
+        // Erro de infraestrutura: fail-closed — abortar ciclo.
+        throw riskErr;
+      }
+
       // Validar elegibilidade
       const eligibility = await this.validatePayoutEligibility(
         tenantId,
@@ -303,6 +343,17 @@ class PayoutService {
 
     if (order.status !== 'READY') {
       throw new BadRequestError(`Payout order deve estar READY para executar (status atual: ${order.status})`);
+    }
+
+    try {
+      const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
+      await requireFinancialRiskClearance(tenantId, {
+        actorId: order.actorId,
+        action: 'financial_payout',
+        amountCents: order.amountCents,
+      });
+    } catch {
+      throw new BadRequestError('Payout bloqueado por política de risco do beneficiário');
     }
 
     // Revalidar elegibilidade antes de executar
@@ -421,6 +472,11 @@ class PayoutService {
     if (order.batchId) {
       await payoutRepository.updateBatchCounters(tenantId, order.batchId);
     }
+
+    const { recordActorRiskEventAsync } = await import('@modules/risk-identity/risk-hooks');
+    recordActorRiskEventAsync(tenantId, order.actorId, 'payout_failed', orderId, {
+      failureReason: input.failureReason?.slice(0, 500),
+    });
 
     // Registrar no Evidence Pack
     const { evidenceService } = await import('../evidence/evidence.service');

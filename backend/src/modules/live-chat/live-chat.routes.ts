@@ -81,7 +81,7 @@ const liveChatRoutes = async (fastify: FastifyInstance) => {
   }>('/presence/:contextType/:contextId/online', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { contextType, contextId } = req.params;
-    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+    const limit = req.query.limit != null ? Number(req.query.limit) : 50;
 
     const online = await livePresenceService.listOnline(tenantId, contextType, contextId, limit);
 
@@ -128,7 +128,7 @@ const liveChatRoutes = async (fastify: FastifyInstance) => {
       roomId,
       viewerContactId,
       cursor || null,
-      limit ? parseInt(limit as string, 10) : 50
+      limit != null ? Number(limit) : 50
     );
 
     return reply.send({ messages });

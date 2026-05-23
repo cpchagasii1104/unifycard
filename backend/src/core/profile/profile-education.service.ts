@@ -4,10 +4,12 @@
 // Educação é TEMPORAL, DECLARATIVA e BASEADA EM EVENTOS APPEND-ONLY
 // NÃO decide, NÃO filtra, NÃO bloqueia, NÃO gera score
 
-import { runQueriesWithTenant } from '@core/database/pool';
+import { runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import { identityService } from '../identity/identity.service';
-import { eventBus } from '../events/event-bus';
-import type { UnificardEvent } from '../events/event-bus';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '../events/event-outbox.repository';
 import type {
   EducationProfile,
   EducationEntry,
@@ -56,37 +58,47 @@ class ProfileEducationService {
     // Gerar educationId se não fornecido
     const educationId = input.payload.educationId || `edu-${uuidv4()}`;
 
-    // Criar evento completo
-    const event: UnificardEvent = {
-      eventId: uuidv4(),
-      tenantId,
-      type: input.eventType,
-      version: 1,
-      payload: {
-        ...input.payload,
-        educationId,
-      },
-      metadata: {
-        actorId,
-        globalUserId,
-        userId,
-      },
-      createdAt: new Date(),
+    const eventType = input.eventType;
+    const payload = {
+      ...input.payload,
+      educationId,
     };
+    const metadata = {
+      actorId,
+      globalUserId,
+      userId,
+    };
+    const createdAt = new Date();
+    const eventId = outboxEventIdFromSeed(`${eventType}:${tenantId}:${educationId}`);
 
-    // Publicar evento (persiste no event_log via EventBus)
-    await eventBus.publish(event);
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId,
+        eventType,
+        eventVersion: 1,
+        payload,
+        metadata,
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
-    // Retornar evento criado
     return {
-      eventId: event.eventId,
-      tenantId: event.tenantId,
+      eventId,
+      tenantId,
       actorId,
       eventType: input.eventType,
-      payload: event.payload as any,
-      createdAt: event.createdAt,
-      version: event.version,
-      metadata: event.metadata,
+      payload: payload as any,
+      createdAt: createdAt.toISOString(),
+      version: 1,
+      metadata,
     };
   }
 
@@ -130,7 +142,7 @@ class ProfileEducationService {
       event_version: number;
       payload: any;
       metadata: any;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -140,12 +152,12 @@ class ProfileEducationService {
         event_version,
         payload,
         metadata,
-        createdAt
+        created_at
       FROM event_log
       WHERE tenant_id = $1
         AND event_type LIKE 'educacao.%'
         AND (metadata->>'actorId')::text = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, actorId]
     );
@@ -156,7 +168,7 @@ class ProfileEducationService {
       actorId,
       eventType: row.event_type as EducationEventType,
       payload: row.payload,
-      createdAt: row.createdAt,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
       version: row.event_version,
       metadata: row.metadata || {},
     }));
@@ -218,7 +230,7 @@ class ProfileEducationService {
 
       // Atualizar status para o evento mais recente
       const existingEvent = entry.events?.find(e => e.eventType === event.eventType);
-      if (!existingEvent || new Date(existingEvent.createdAt) < event.createdAt) {
+      if (!existingEvent || new Date(existingEvent.createdAt) < ((event.createdAt as unknown) instanceof Date ? (event.createdAt as unknown as Date) : new Date(event.createdAt as string))) {
         entry.currentStatus = event.eventType;
       }
 
@@ -226,7 +238,7 @@ class ProfileEducationService {
       if (entry.events) {
         entry.events.push({
           eventType: event.eventType,
-          createdAt: event.createdAt,
+          createdAt: (event.createdAt as unknown) instanceof Date ? (event.createdAt as unknown as Date).toISOString() : String(event.createdAt),
           metadata: event.metadata,
         });
       }

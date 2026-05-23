@@ -36,7 +36,9 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const tenantId = req.tenant.id;
       const actorId = req.actionContext.actorId;
-      
+      const globalUserId = req.user.id;
+      const userId = req.user.id;
+
       // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
       const actor = await actorRepository.findById(tenantId, actorId);
@@ -118,16 +120,16 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         group_id: string;
         name: string;
         is_active: boolean;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
-        SELECT group_id, name, is_active, createdAt
+        SELECT group_id, name, is_active, created_at
         FROM groups
         WHERE tenant_id = $1
           AND (owner_user_id = $2 OR owner_user_id = $3)
           AND is_active = true
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT 20
         `,
         [tenantId, userId, globalUserId]
@@ -137,7 +139,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         groupId: row.group_id,
         name: row.name,
         isActive: row.is_active,
-        createdAt: row.createdAt,
+        createdAt: row.created_at,
       }));
 
       // 4. Agenda (bookings) - próximos compromissos

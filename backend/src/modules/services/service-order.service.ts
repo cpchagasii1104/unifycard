@@ -91,6 +91,7 @@ class ServiceOrderService {
       workerActorId: input.workerActorId,
       customerActorId: input.customerActorId,
       bookingId: input.bookingId || null,
+      decisionId: input.decisionId ?? null,
       scheduledStart,
       scheduledEnd,
       estimatedDurationMinutes: input.estimatedDurationMinutes || null,
@@ -228,14 +229,14 @@ class ServiceOrderService {
     orderId: string,
     input: StartServiceOrderInput
   ): Promise<ServiceOrder> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (§4.9)
     if (input.startedByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        input.startedByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         input.startedByActorId,
-        'service_order:start'
+        'service_order:start',
+        undefined,
+        { tenantId, userId: input.startedByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -302,14 +303,14 @@ class ServiceOrderService {
     orderId: string,
     input: CompleteServiceOrderInput
   ): Promise<ServiceOrder> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (fachada modules — §4.9)
     if (input.completedByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        input.completedByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         input.completedByActorId,
-        'service_order:complete'
+        'service_order:complete',
+        undefined,
+        { tenantId, userId: input.completedByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -346,8 +347,8 @@ class ServiceOrderService {
 
           if (finalizedAgreement) {
             // Verificar se existe escrow
-            const { escrowService } = await import('../escrow/escrow.service');
-            const escrow = await escrowService.getEscrowByAgreement(tenantId, finalizedAgreement.agreementId);
+            const { escrowRepository } = await import('../escrow/escrow.repository');
+            const escrow = await escrowRepository.findByAgreement(tenantId, finalizedAgreement.agreementId);
 
             if (!escrow) {
               throw new Error(
@@ -356,16 +357,18 @@ class ServiceOrderService {
             }
 
             // Validar que milestone completed está autorizado ou pode ser autorizado
-            const milestones = await escrowService.listMilestones(tenantId, escrow.escrowId);
+            const milestones = await escrowRepository.listMilestones(tenantId, escrow.escrowId);
             const completedMilestone = milestones.find((m) => m.milestone === 'completed');
 
             if (completedMilestone && completedMilestone.status === 'pending') {
               // Autorizar milestone completed automaticamente ao completar ordem
-              await escrowService.authorizeMilestone(tenantId, escrow.escrowId, {
-                milestone: 'completed',
-                authorizedByActorId: input.completedByActorId,
-                authorizedByUserId: input.completedByUserId || null,
-              });
+              await escrowRepository.updateMilestoneStatus(
+                tenantId,
+                completedMilestone.milestoneId,
+                'AUTHORIZED',
+                input.completedByActorId,
+                undefined
+              );
             }
           }
         }
@@ -427,14 +430,14 @@ class ServiceOrderService {
     orderId: string,
     input: CancelServiceOrderInput
   ): Promise<ServiceOrder> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (§4.9)
     if (input.cancelledByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        input.cancelledByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         input.cancelledByActorId,
-        'service_order:cancel'
+        'service_order:cancel',
+        undefined,
+        { tenantId, userId: input.cancelledByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -533,6 +536,11 @@ class ServiceOrderService {
       cancelledByActorId?: string;
       cancelledByUserId?: string | null;
       cancellationReason?: string | null;
+      bookingId?: string;
+      decisionId?: string;
+      grossAmountCents?: number;
+      platformFee?: number;
+      providerNetAmount?: number;
     }
   ): Promise<void> {
     try {
@@ -540,22 +548,27 @@ class ServiceOrderService {
       await auditService.record(tenantId, {
         event_type: data.eventType,
         severity: 'medium',
-        actor_id: data.createdByActorId || data.confirmedByActorId || data.startedByActorId || data.completedByActorId || data.cancelledByActorId || null,
+        actor_id: data.createdByActorId || data.confirmedByActorId || data.startedByActorId || data.completedByActorId || data.cancelledByActorId || undefined,
         actor_type: 'user',
         source: 'automation',
         context: {
           order_id: data.orderId,
           status: data.status,
-          created_by_user_id: data.createdByUserId,
+          created_by_user_id: data.createdByUserId ?? undefined,
           confirmed_by_actor_id: data.confirmedByActorId,
-          confirmed_by_user_id: data.confirmedByUserId,
+          confirmed_by_user_id: data.confirmedByUserId ?? undefined,
           started_by_actor_id: data.startedByActorId,
-          started_by_user_id: data.startedByUserId,
+          started_by_user_id: data.startedByUserId ?? undefined,
           completed_by_actor_id: data.completedByActorId,
-          completed_by_user_id: data.completedByUserId,
+          completed_by_user_id: data.completedByUserId ?? undefined,
           cancelled_by_actor_id: data.cancelledByActorId,
-          cancelled_by_user_id: data.cancelledByUserId,
-          cancellation_reason: data.cancellationReason,
+          cancelled_by_user_id: data.cancelledByUserId ?? undefined,
+          cancellation_reason: data.cancellationReason ?? undefined,
+          ...(data.bookingId != null && { booking_id: data.bookingId }),
+          ...(data.decisionId != null && { decision_id: data.decisionId }),
+          ...(data.grossAmountCents != null && { gross_amount_cents: data.grossAmountCents }),
+          ...(data.platformFee != null && { platform_fee: data.platformFee }),
+          ...(data.providerNetAmount != null && { provider_net_amount: data.providerNetAmount }),
         },
       });
     } catch (error) {
@@ -581,15 +594,15 @@ class ServiceOrderService {
     confirmedByActorId: string,
     confirmedByUserId?: string
   ): Promise<ServiceOrder> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (§4.9)
     // Este método cria e confirma uma service order, então usa service_order:confirm
     if (confirmedByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        confirmedByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         confirmedByActorId,
-        'service_order:confirm'
+        'service_order:confirm',
+        undefined,
+        { tenantId, userId: confirmedByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -627,10 +640,15 @@ class ServiceOrderService {
       throw new Error(`Disponibilidade não encontrada: ${booking.availabilityId}`);
     }
 
+    const bookingServiceId = booking.metadata?.serviceId;
+    if (!bookingServiceId) {
+      throw new Error('Booking deve ter metadata.serviceId para criar service order');
+    }
+
     // 6. Buscar service para pegar providerActorId (actorId do service)
-    const service = await servicesRepository.findById(tenantId, booking.serviceId);
+    const service = await servicesRepository.findById(tenantId, bookingServiceId);
     if (!service) {
-      throw new Error(`Serviço não encontrado: ${booking.serviceId}`);
+      throw new Error(`Serviço não encontrado: ${bookingServiceId}`);
     }
 
     // 7. Verificar se já existe service order para este booking
@@ -707,7 +725,7 @@ class ServiceOrderService {
 
     // 10. Criar Service Order com status CONFIRMED
     const order = await serviceOrderRepository.createOrder(tenantId, {
-      serviceId: booking.serviceId,
+      serviceId: bookingServiceId,
       workerActorId: service.actorId, // providerActorId
       customerActorId: booking.requesterActorId,
       bookingId: booking.bookingId,
@@ -729,7 +747,7 @@ class ServiceOrderService {
         bookingId: booking.bookingId,
         decisionId: decision.decisionId,
         eventId: booking.metadata?.eventId || null,
-        serviceId: booking.serviceId,
+        serviceId: bookingServiceId,
         providerActorId: service.actorId,
         requesterActorId: booking.requesterActorId,
       },
@@ -751,12 +769,12 @@ class ServiceOrderService {
           'event',
           booking.metadata.eventId
         );
-        const finalizedAgreement = agreements.find((a) => a.status === 'FINALIZED');
+        const finalizedAgreement = agreements.find((a) => a.status === 'finalized');
 
         if (finalizedAgreement) {
           // Verificar se já existe escrow
-          const { escrowService } = await import('../escrow/escrow.service');
-          let escrow = await escrowService.getEscrowByAgreement(tenantId, finalizedAgreement.agreementId);
+          const { escrowRepository } = await import('../escrow/escrow.repository');
+          let escrow = await escrowRepository.findByAgreement(tenantId, finalizedAgreement.agreementId);
 
           if (!escrow) {
             // Buscar evidence pack
@@ -767,8 +785,8 @@ class ServiceOrderService {
               finalizedAgreement.agreementId
             );
 
-            // Criar escrow com milestones padrão
-            escrow = await escrowService.createEscrowFromAgreement(
+            // Criar escrow com milestones padrão via repository
+            escrow = await escrowRepository.createEscrowAccount(
               tenantId,
               {
                 agreementId: finalizedAgreement.agreementId,
@@ -779,11 +797,23 @@ class ServiceOrderService {
                   { milestone: 'completed', percentage: 50 },
                 ],
               },
-              evidencePack?.packId || null
+              evidencePack?.packId ?? null
             );
+            for (const m of [
+              { milestone: 'confirmed' as const, percentage: 30 },
+              { milestone: 'started' as const, percentage: 20 },
+              { milestone: 'completed' as const, percentage: 50 },
+            ]) {
+              await escrowRepository.createMilestone(
+                tenantId,
+                escrow.escrowId,
+                m.milestone,
+                0,
+                m.percentage
+              );
+            }
           } else if (!escrow.serviceOrderId) {
             // Atualizar escrow com serviceOrderId
-            const { escrowRepository } = await import('../escrow/escrow.repository');
             await escrowRepository.updateServiceOrderId(tenantId, escrow.escrowId, confirmedOrder.id);
           }
         }
@@ -820,7 +850,7 @@ class ServiceOrderService {
         metadata: {
           bookingId: booking.bookingId,
           decisionId: decision.decisionId,
-          serviceId: booking.serviceId,
+          serviceId: bookingServiceId,
           status: confirmedOrder.status,
         },
       });
@@ -867,7 +897,11 @@ class ServiceOrderService {
     const providerNetAmountCents = grossAmountCents - platformFeeCents;
 
     // 5. Obter conta da plataforma
-    const platformAccount = await bankAccountService.getSystemAccount(tenantId, 'fee', service.currency || 'BRL');
+    const currency: BankCurrency =
+      service.currency === 'BRL' || service.currency === 'USD' || service.currency === 'EUR' || service.currency === 'TEST'
+        ? service.currency
+        : 'BRL';
+    const platformAccount = await bankAccountService.getSystemAccount(tenantId, 'fee', currency);
     if (!platformAccount) {
       throw new Error('Conta da plataforma não encontrada');
     }
@@ -878,7 +912,7 @@ class ServiceOrderService {
       platformFeeBps: PLATFORM_FEE_BPS,
       platformFeeCents: platformFeeCents,
       providerNetAmountCents: providerNetAmountCents,
-      currency: service.currency || 'BRL',
+      currency,
       providerActorId: order.workerActorId,
       platformActorId: platformAccount.accountId,
     };
@@ -898,14 +932,14 @@ class ServiceOrderService {
     orderId: string,
     input: ConfirmFinancialTermsInput
   ): Promise<{ splits: any[] }> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
+    // 0. Validar permissão via authority.service (§4.9)
     if (input.confirmedByUserId) {
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
-        input.confirmedByUserId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         input.confirmedByActorId,
-        'financial_terms:confirm'
+        'financial_terms:confirm',
+        undefined,
+        { tenantId, userId: input.confirmedByUserId }
       );
       if (!auth.allowed) {
         throw HttpError.forbidden(
@@ -940,10 +974,14 @@ class ServiceOrderService {
     }
 
     // Obter conta do provider
+    const currencyForAccount: BankCurrency =
+      terms.currency === 'BRL' || terms.currency === 'USD' || terms.currency === 'EUR' || terms.currency === 'TEST'
+        ? terms.currency
+        : 'BRL';
     const providerAccountId = await this.resolveActorAccount(
       tenantId,
       order.workerActorId,
-      terms.currency
+      currencyForAccount
     );
 
     // 5. Criar transação fictícia para referenciar os splits
@@ -955,12 +993,21 @@ class ServiceOrderService {
     let authorship;
     if (input.confirmedByUserId && input.confirmedByActorId) {
       const { buildFinancialAuthorshipFromRequest } = await import('@modules/bank/financial-authorship.helper');
-      // Usar conta do provider como actingForAccountId (a conta afetada)
+      // Snapshot da delegação (usuário confirmou termos em nome do provider)
+      const permissionSnapshot = {
+        permissionKey: 'delegation',
+        allowed: true,
+        reason: 'User confirmed financial terms for service order',
+        actorId: input.confirmedByActorId,
+        userId: input.confirmedByUserId,
+        decidedAt: new Date().toISOString(),
+      };
       authorship = buildFinancialAuthorshipFromRequest({
         performedByUserId: input.confirmedByUserId,
         actingForActorId: input.confirmedByActorId,
         actingForAccountId: providerAccountId, // Conta do provider (afetada)
-        authoritySource: 'delegation', // Delegação via authorization service
+        authoritySource: 'delegation', // Delegação via confirmação do usuário
+        permissionSnapshot,
       });
     } else {
       // Fallback para sistema se não houver userId
@@ -978,7 +1025,7 @@ class ServiceOrderService {
       transactionId,
       serviceOrderId: orderId,
       targetAccountId: terms.platformActorId,
-      amountCents: terms.platformFeeCents / 100, // Converter centavos para reais
+      amountCents: terms.platformFeeCents,
       percentage: terms.platformFeeBps,
       splitType: 'fee',
       description: `Comissão da plataforma - Service Order #${orderId.substring(0, 8)}`,
@@ -997,7 +1044,7 @@ class ServiceOrderService {
       transactionId,
       serviceOrderId: orderId,
       targetAccountId: providerAccountId,
-      amountCents: terms.providerNetAmountCents / 100, // Converter centavos para reais
+      amountCents: terms.providerNetAmountCents,
       percentage: 100 - terms.platformFeeBps,
       splitType: 'revenue_share',
       description: `Valor líquido do prestador - Service Order #${orderId.substring(0, 8)}`,
@@ -1012,35 +1059,6 @@ class ServiceOrderService {
     });
     splits.push(providerSplit);
 
-    // 7.5. 🔴 BLINDAGEM: Registrar no Ledger
-    if (evidencePackId) {
-      try {
-        const { ledgerService } = await import('../ledger/ledger.service');
-        const splitIds = splits.map((s) => s.splitId);
-        
-        await ledgerService.recordSplitsCreated(
-          tenantId,
-          splitIds,
-          terms.grossAmountCents,
-          terms.platformFeeCents,
-          terms.providerNetAmountCents,
-          terms.currency,
-          'service_order',
-          orderId,
-          evidencePackId,
-          {
-            serviceOrderId: orderId,
-            agreementId: order.metadata?.agreementId,
-            splitIds,
-            transactionId,
-          }
-        );
-      } catch (ledgerError) {
-        // Não bloquear se registro no ledger falhar
-        console.warn('[ServiceOrder] Erro ao registrar no ledger (não bloqueante):', ledgerError);
-      }
-    }
-
     // 7. Registrar auditoria (sistema antigo)
     await this.recordAudit(tenantId, {
       eventType: 'SERVICE_ORDER_FINANCIAL_TERMS_CONFIRMED',
@@ -1048,7 +1066,7 @@ class ServiceOrderService {
       status: order.status,
       createdByActorId: input.confirmedByActorId,
       createdByUserId: input.confirmedByUserId,
-      grossAmount: terms.grossAmountCents,
+      grossAmountCents: terms.grossAmountCents,
       platformFee: terms.platformFeeCents,
       providerNetAmount: terms.providerNetAmountCents,
     });

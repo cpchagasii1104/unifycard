@@ -28,19 +28,27 @@ export interface Event {
   updatedAt: string;
 }
 
+/** Linha canónica de `events` (DDL alinhado a core + migration 20260525100000). */
 export interface EventRow {
   id: string;
   tenant_id: string;
+  actor_id: string;
+  actor_type: string;
   title: string;
   description: string | null;
-  starts_at: Date;
-  ends_at: Date;
-  city_id: string | null;
-  state_id: string | null;
-  country_id: string | null;
-  created_by_global_user_id: string;
-  createdAt: string;
-  updatedAt: string;
+  datetime_start: Date | null;
+  datetime_end: Date | null;
+  timezone: string;
+  event_type: string;
+  event_subtype: string | null;
+  status: string;
+  visibility: string;
+  ticket_price_cents: number | null;
+  max_attendees: number | null;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface EventSession {
@@ -57,10 +65,10 @@ export interface EventSessionRow {
   id: string;
   event_id: string;
   name: string;
-  starts_at: Date;
-  ends_at: Date;
-  createdAt: string;
-  updatedAt: string;
+  start_time: Date;
+  end_time: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface EventLocation {
@@ -77,8 +85,8 @@ export interface EventLocationRow {
   event_id: string;
   name: string;
   capacity: number | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface EventStaff {
@@ -96,7 +104,7 @@ export interface EventStaffRow {
   global_user_id: string;
   role: string;
   assigned_by_global_user_id: string;
-  createdAt: string;
+  created_at: Date;
 }
 
 export interface EventAttendee {
@@ -112,18 +120,7 @@ export interface EventAttendeeRow {
   event_id: string;
   global_user_id: string;
   checked_in_at: Date | null;
-  createdAt: string;
-}
-
-export interface CreateEventInput {
-  title: string;
-  description?: string | null;
-  startTime: Date;
-  endTime: Date;
-  cityId?: string | null;
-  stateId?: string | null;
-  countryId?: string | null;
-  group_id?: string; // ID do grupo para vincular o evento
+  created_at: Date;
 }
 
 export interface AddSessionInput {
@@ -186,10 +183,11 @@ export interface EventActorRow {
   can_edit: boolean;
   revenue_share_percent: number | null;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
+/** Criação legada do módulo — persiste regional/capacidade em metadata. */
 export interface CreateEventInput {
   title: string;
   description?: string | null;
@@ -201,7 +199,14 @@ export interface CreateEventInput {
   stateId?: string | null;
   countryId?: string | null;
   group_id?: string;
-  actorId?: string; // Actor que está criando o evento
+  /** Se definido, usa este actor como `events.actor_id`; senão resolve via criador global. */
+  actorId?: string;
+  /** Taxonomia do evento (≠ `visibility`). Default canónico no writer: `general`. */
+  eventType?: string;
+  /** IANA; default `UTC`. */
+  timezone?: string;
+  /** Mesclado em `events.metadata` (ex.: occupancy_model). Campos de servidor (`regional`, `created_by_global_user_id`, …) sobrescrevem chaves conflituosas após o spread. */
+  metadata?: Record<string, unknown>;
 }
 
 export interface AddActorToEventInput {

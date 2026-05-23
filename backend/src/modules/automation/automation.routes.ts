@@ -123,7 +123,7 @@ const automationRoutes = async (fastify: FastifyInstance) => {
       // Registrar auditoria
       await auditService.record(tenantId, {
         event_type: 'ALERT_STATUS_UPDATED',
-        severity: 'LOW',
+        severity: 'low',
         actor_id: actionContext.actorId,
         actor_type: 'user',
         source: 'automation',

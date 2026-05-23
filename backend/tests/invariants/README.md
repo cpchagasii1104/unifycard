@@ -20,7 +20,8 @@ tests/invariants/
 ├── tenant-invariants.test.ts    # Invariantes de tenant
 ├── rbac-invariants.test.ts      # Invariantes de RBAC
 ├── permission-invariants.test.ts # Invariantes de permissions
-└── event-invariants.test.ts     # Invariantes de eventos
+├── event-invariants.test.ts     # Invariantes de eventos
+└── financial-db-structural.test.ts  # Ledger no DB (opt-in: RUN_FINANCIAL_DB_STRUCTURAL=1 + DATABASE_URL)
 ```
 
 ## Como Executar
@@ -34,6 +35,21 @@ pnpm test:invariants
 ```bash
 pnpm test:invariants:ci
 ```
+
+### Invariantes financeiros no PostgreSQL (read-only)
+
+Validam `reference_*`, soma de splits, `target_actor_id` e `system_coverage`.
+
+- **CI (GitHub `backend-ci.yml`):** após `migrate` + `seed`, com `RUN_FINANCIAL_DB_STRUCTURAL=1` e `pnpm test:financial-db-structural:ci` (fail-fast).
+- **Local (opt-in):**
+
+```bash
+set DATABASE_URL=postgresql://...
+set RUN_FINANCIAL_DB_STRUCTURAL=1
+pnpm test:financial-db-structural:ci
+```
+
+Guards estáticos (sem DB, obrigatório no CI): `pnpm validate:regression-guards`.
 
 ## Critério de Sucesso
 

@@ -16,7 +16,7 @@ class CanonicalOrchestratorService {
         sourceModule: event.sourceModule,
         tenantId: event.tenantId,
         regionId: event.regionId || null,
-        amountCents: event.amount || null,
+        amountCents: event.amountCents ?? null,
         occurredAt: event.occurredAt,
         canonicalEventId: event.eventId,
         canonicalEventType: event.eventType,

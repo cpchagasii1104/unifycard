@@ -24,7 +24,7 @@ describe('SSOT - Single Source of Truth para Leitura de Categorias', () => {
     testTenantId2 = uuidv4();
 
     await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, createdAt, updatedAt)
+      `INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
        VALUES ($1, 'Test Tenant 1', 'test-tenant-1', NOW(), NOW()),
               ($2, 'Test Tenant 2', 'test-tenant-2', NOW(), NOW())
        ON CONFLICT (tenant_id) DO NOTHING`,

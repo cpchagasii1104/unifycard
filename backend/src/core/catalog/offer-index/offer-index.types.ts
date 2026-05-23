@@ -18,7 +18,8 @@ export interface OfferIndex {
   };
   availability: {
     inStock: boolean;
-    stockCount?: number;
+    /** Espelha product_offers.available_quantity */
+    availableQuantity?: number;
   };
   createdAt: string;
   updatedAt: string;

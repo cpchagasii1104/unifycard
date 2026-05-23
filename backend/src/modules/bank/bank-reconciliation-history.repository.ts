@@ -3,6 +3,7 @@
 // Status: READ-MODEL PURO (não CORE, não fonte de verdade, não decisório)
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { asMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
 import type { BankCurrency } from './bank-account.types';
 
 /**
@@ -11,9 +12,9 @@ import type { BankCurrency } from './bank-account.types';
 export interface ReconciliationHistoryEntry {
   reconciliationId: string;
   tenantId: string;
-  internalBalance: number;
-  externalBalance: number;
-  difference: number;
+  internalBalanceCents: number;
+  externalBalanceCents: number;
+  differenceCents: number;
   currency: string;
   filtersApplied?: Record<string, any>;
   notes?: string;
@@ -26,9 +27,9 @@ export interface ReconciliationHistoryEntry {
  * Input para criar entrada de histórico
  */
 export interface CreateReconciliationHistoryInput {
-  internalBalance: number;
-  externalBalance: number;
-  difference: number;
+  internalBalanceCents: number;
+  externalBalanceCents: number;
+  differenceCents: number;
   currency: BankCurrency;
   filtersApplied?: Record<string, any>;
   notes?: string;
@@ -79,7 +80,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -99,9 +100,9 @@ class BankReconciliationHistoryRepository {
       `,
       [
         tenantId,
-        input.internalBalance,
-        input.externalBalance,
-        input.difference,
+        input.internalBalanceCents,
+        input.externalBalanceCents,
+        input.differenceCents,
         input.currency,
         input.filtersApplied || {},
         input.notes || null,
@@ -110,6 +111,9 @@ class BankReconciliationHistoryRepository {
       ]
     );
 
+    if (!row) {
+      throw new Error('Falha ao criar entrada de histórico de reconciliação');
+    }
     return this.toReconciliationHistoryEntry(row);
   }
 
@@ -135,7 +139,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -178,18 +182,18 @@ class BankReconciliationHistoryRepository {
     }
 
     if (filters.startDate) {
-      query += ` AND createdAt >= $${paramIndex}`;
+      query += ` AND created_at >= $${paramIndex}`;
       params.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      query += ` AND createdAt <= $${paramIndex}`;
+      query += ` AND created_at <= $${paramIndex}`;
       params.push(filters.endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     if (filters.limit) {
       query += ` LIMIT $${paramIndex}`;
@@ -214,7 +218,7 @@ class BankReconciliationHistoryRepository {
       notes: string | null;
       metadata: any;
       performed_by_user_id: string | null;
-      createdAt: Date;
+      created_at: Date;
     }>(tenantId, query, params);
 
     return rows.map(row => this.toReconciliationHistoryEntry(row));
@@ -234,20 +238,20 @@ class BankReconciliationHistoryRepository {
     notes: string | null;
     metadata: any;
     performed_by_user_id: string | null;
-    createdAt: Date;
+    created_at: Date;
   }): ReconciliationHistoryEntry {
     return {
       reconciliationId: row.reconciliation_id,
       tenantId: row.tenant_id,
-      internalBalance: parseFloat(row.internal_balance),
-      externalBalance: parseFloat(row.external_balance),
-      difference: parseFloat(row.difference),
+      internalBalanceCents: asMoneyCents(Math.round(Number(row.internal_balance))),
+      externalBalanceCents: asMoneyCents(Math.round(Number(row.external_balance))),
+      differenceCents: asMoneyCents(Math.round(Number(row.difference))),
       currency: row.currency,
       filtersApplied: row.filters_applied || {},
       notes: row.notes || undefined,
       metadata: row.metadata || {},
       performedByUserId: row.performed_by_user_id || undefined,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at,
     };
   }
 }

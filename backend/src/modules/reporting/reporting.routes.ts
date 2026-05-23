@@ -11,6 +11,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
    * Middleware: Verificar permissão para acessar reporting
    */
   const requireReportingPermission = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id;
 
@@ -52,6 +55,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       currency?: string;
     };
   }>('/reporting/financial-kpis', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
@@ -76,6 +82,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       currency?: string;
     };
   }>('/reporting/revenue-by-period', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
@@ -99,6 +108,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       currency?: string;
     };
   }>('/reporting/revenue-by-service-type', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
@@ -122,6 +134,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       currency?: string;
     };
   }>('/reporting/platform-commission', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
@@ -145,6 +160,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/reporting/trust-overview', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       status: req.query.status,
@@ -168,6 +186,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/reporting/dispute-overview', { preHandler: requireReportingPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: ReportingFilters = {
       status: req.query.status,
@@ -188,6 +209,9 @@ const reportingRoutes = async (fastify: FastifyInstance) => {
     '/reporting/export',
     { preHandler: requireReportingPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const filters: ReportingFilters = {
         startDate: req.body.filters?.startDate ? new Date(req.body.filters.startDate) : undefined,

@@ -13,11 +13,12 @@ export interface TenantConfigRow {
   tenant_id: string;
   module: string;
   key: string;
-  valueCents: unknown;
+  /** Coluna do DB; mapeada para valueCents no domínio */
+  value?: unknown;
   value_type: ConfigValueType;
   is_system: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface FeatureFlagRow {
@@ -25,11 +26,11 @@ export interface FeatureFlagRow {
   tenant_id: string;
   flag_name: string;
   description: string | null;
-  isEnabled: boolean;
+  is_enabled: boolean;
   rollout_percentage: number;
   user_whitelist: string[] | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 // ---------------------

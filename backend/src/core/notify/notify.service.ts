@@ -36,11 +36,11 @@ function mapNotificationRow(row: NotificationQueueRow): Notification {
     status: row.status as NotificationStatus,
     retryCount: row.retry_count,
     maxRetries: row.max_retries,
-    scheduledAt: row.scheduledAt,
-    sentAt: row.sentAt,
+    scheduledAt: row.scheduled_at,
+    sentAt: row.sent_at,
     lastError: row.last_error,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -89,7 +89,7 @@ export class NotifyService {
         status,
         retry_count,
         max_retries,
-        scheduledAt
+        scheduled_at
       )
       VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'pending', 0, COALESCE($7, 5), COALESCE($8, now()))
       RETURNING *
@@ -214,7 +214,7 @@ export class NotifyService {
       params.push(status);
     }
 
-    query += ` ORDER BY createdAt DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<NotificationQueueRow>(
@@ -244,8 +244,8 @@ export class NotifyService {
         SELECT *
         FROM notify_queue
         WHERE status = 'pending'
-          AND scheduledAt <= now()
-        ORDER BY scheduledAt ASC
+          AND scheduled_at <= now()
+        ORDER BY scheduled_at ASC
         FOR UPDATE SKIP LOCKED
         LIMIT $1
         `,
@@ -283,7 +283,7 @@ export class NotifyService {
             `
             UPDATE notify_queue
             SET status = 'sent',
-                sentAt = now(),
+                sent_at = now(),
                 last_error = NULL
             WHERE notification_id = $1
             `,
@@ -513,7 +513,7 @@ export class NotifyService {
       SET status = 'pending',
           retry_count = 0,
           last_error = NULL,
-          scheduledAt = now()
+          scheduled_at = now()
       WHERE notification_id = $1
       `,
       [notificationId]

@@ -2,6 +2,10 @@
 // Rotas para Matching Humano
 
 import { FastifyPluginAsync } from 'fastify';
+import {
+  isSemanticResolutionError,
+  replySemanticResolutionFailure,
+} from '@core/semantic/semantic-http';
 import { matchingService } from './matching.service';
 
 const matchingRoutes: FastifyPluginAsync = async (fastify) => {
@@ -27,6 +31,9 @@ const matchingRoutes: FastifyPluginAsync = async (fastify) => {
       );
       return reply.send({ ok: true, data: result });
     } catch (error) {
+      if (isSemanticResolutionError(error)) {
+        return replySemanticResolutionFailure(reply, error);
+      }
       fastify.log.error({ err: error }, 'Erro ao buscar sugestões de matching');
       return reply.status(500).send({ 
         ok: false, 

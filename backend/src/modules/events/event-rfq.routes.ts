@@ -359,6 +359,44 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
       }
     }
   );
+  /**
+   * POST /events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept
+   * Q3 — Aceita uma proposta: cria booking + payment request pendente
+   * 🔴 BLINDAGEM: NÃO executa pagamento — apenas registra intenção
+   */
+  fastify.post<{ Params: { eventId: string; rfqId: string; quoteId: string } }>(
+    '/events/:eventId/rfqs/:rfqId/quotes/:quoteId/accept',
+    async (req, reply) => {
+      if (!req.tenant?.id) {
+        return reply.status(400).send({ error: 'Tenant é obrigatório' });
+      }
+      const tenantId = req.tenant.id;
+      const actionContext = (req as any).actionContext;
+
+      if (!actionContext?.actorId) {
+        return reply.status(400).send({ error: 'actorId é obrigatório' });
+      }
+
+      const { eventId, rfqId, quoteId } = req.params;
+
+      try {
+        const result = await eventRFQService.acceptQuote(
+          tenantId,
+          eventId,
+          rfqId,
+          quoteId,
+          actionContext.actorId,
+            (req as any).user?.userId || actionContext.actorId
+        );
+        return reply.status(201).send(result);
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(error.statusCode || 500).send({
+          error: error.message || 'Erro ao aceitar proposta',
+        });
+      }
+    }
+  );
 };
 
 export { eventRFQRoutes };

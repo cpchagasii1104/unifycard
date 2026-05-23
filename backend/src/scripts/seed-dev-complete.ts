@@ -15,6 +15,7 @@
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool } from '../core/database/pool';
+import { tenantService } from '../core/tenants/tenant.service';
 import { identityService } from '../core/identity/identity.service';
 import { actorRepository } from '../modules/social/actor.repository';
 import { configService } from '../core/config/config.service';
@@ -46,6 +47,34 @@ const DEV_TENANT_ID = 'fbe13b78-4516-493d-905a-363796aea1d1';
 const DEV_TENANT_NAME = 'UnifyCard DEV';
 const DEV_TENANT_SLUG = 'unificard-dev';
 
+type ExistingUserRow = {
+  user_id: string;
+};
+
+type ExistingUser = {
+  userId: string;
+};
+
+type RoleRow = {
+  role_id: string;
+};
+
+type RoleRecord = {
+  roleId: string;
+};
+
+function mapExistingUserRow(row: ExistingUserRow): ExistingUser {
+  return {
+    userId: row.user_id,
+  };
+}
+
+function mapRoleRow(row: RoleRow): RoleRecord {
+  return {
+    roleId: row.role_id,
+  };
+}
+
 /**
  * 1. Criar tenant DEV
  */
@@ -56,7 +85,7 @@ async function seedTenant(): Promise<void> {
   try {
     const result = await client.query(
       `
-        SELECT tenant_id FROM tenants WHERE tenant_id = $1 LIMIT 1
+        SELECT id FROM tenants WHERE id = $1 LIMIT 1
       `,
       [DEV_TENANT_ID]
     );
@@ -65,19 +94,17 @@ async function seedTenant(): Promise<void> {
       console.log('✅ Tenant DEV já existe');
       return;
     }
-
-    await client.query(
-      `
-        INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
-        VALUES ($1, $2, $3, now(), now())
-      `,
-      [DEV_TENANT_ID, DEV_TENANT_NAME, DEV_TENANT_SLUG]
-    );
-
-    console.log('✅ Tenant DEV criado');
   } finally {
     client.release();
   }
+
+  await tenantService.createTenant({
+    id: DEV_TENANT_ID,
+    name: DEV_TENANT_NAME,
+    slug: DEV_TENANT_SLUG,
+  });
+
+  console.log('✅ Tenant DEV criado');
 }
 
 /**
@@ -138,11 +165,12 @@ async function seedUser(): Promise<string> {
   const bcrypt = await import('bcrypt');
   
   // Verificar se usuário já existe
-  const existing = await runQueryWithTenant<{ user_id: string }>(
+  const existingRow = await runQueryWithTenant<ExistingUserRow>(
     DEV_TENANT_ID,
     `SELECT user_id FROM users WHERE email = $1 LIMIT 1`,
     [DEV_EMAIL.toLowerCase()]
   );
+  const existing = existingRow ? mapExistingUserRow(existingRow) : null;
 
   if (existing) {
     // Atualizar senha e marcar como teste
@@ -150,10 +178,10 @@ async function seedUser(): Promise<string> {
     await runQueryWithTenant(
       DEV_TENANT_ID,
       `UPDATE users SET password_hash = $1, is_test = true, plan = 'pro', updated_at = now() WHERE user_id = $2`,
-      [passwordHash, existing.user_id]
+      [passwordHash, existing.userId]
     );
     console.log('✅ Usuário DEV atualizado');
-    return existing.user_id;
+    return existing.userId;
   }
 
   // Criar novo usuário
@@ -171,11 +199,12 @@ async function seedUser(): Promise<string> {
   );
 
   // Atribuir role admin
-  const adminRole = await runQueryWithTenant<{ role_id: string }>(
+  const adminRoleRow = await runQueryWithTenant<RoleRow>(
     DEV_TENANT_ID,
     `SELECT role_id FROM roles WHERE name = 'admin' LIMIT 1`,
     []
   );
+  const adminRole = adminRoleRow ? mapRoleRow(adminRoleRow) : null;
   
   if (adminRole) {
     await runQueryWithTenant(
@@ -185,7 +214,7 @@ async function seedUser(): Promise<string> {
         VALUES ($1, $2, $3, $2)
         ON CONFLICT (tenant_id, user_id, role_id) DO NOTHING
       `,
-      [DEV_TENANT_ID, userId, adminRole.role_id]
+      [DEV_TENANT_ID, userId, adminRole.roleId]
     );
   }
 
@@ -198,25 +227,27 @@ async function seedUser(): Promise<string> {
  */
 async function seedIdentityAndActor(userId: string): Promise<void> {
   console.log('📦 [4/6] Verificando identidade global e actor...');
-  
+
+  await identityService.ensureGlobalUserLinked(userId, DEV_TENANT_ID);
+  const profile = await identityService.getIdentityProfile(userId, DEV_TENANT_ID);
+  if (!profile) {
+    throw new Error('getIdentityProfile falhou após ensureGlobalUserLinked');
+  }
+  console.log('✅ Identidade global criada/verificada');
+
   try {
-    // Criar identidade global se não existir
-    let profile = await identityService.getIdentityProfile(userId, DEV_TENANT_ID);
-    
-    if (!profile) {
-      await identityService.createGlobalIdentityForUser(userId, DEV_TENANT_ID);
-      profile = await identityService.getIdentityProfile(userId, DEV_TENANT_ID);
-    }
-
-    if (profile) {
-      console.log('✅ Identidade global criada/verificada');
-    }
-
-    // Criar actor se não existir
-    const actor = await actorRepository.findOrCreateUserActor(DEV_TENANT_ID, userId);
+    await actorRepository.findOrCreateUserActor(DEV_TENANT_ID, userId);
     console.log('✅ Actor criado/verificado');
-  } catch (error) {
-    console.error('⚠️  Erro ao criar identidade/actor (continuando):', error);
+  } catch (err: unknown) {
+    const code = typeof err === 'object' && err !== null && 'code' in err ? (err as { code?: string }).code : undefined;
+    // CORE_ONLY: `actors` legado (0002) não tem user_id/actor_id social — não falhar o seed.
+    if (code === '42703') {
+      console.warn(
+        '⚠️  Actor social não criado: schema atual de `actors` não expõe user_id (perfil CORE_ONLY). Identidade global já está vinculada.'
+      );
+    } else {
+      throw err;
+    }
   }
 }
 
@@ -258,10 +289,10 @@ async function seedCategories(): Promise<void> {
         DEV_TENANT_ID,
         `
           INSERT INTO categories (category_id, parent_id, name, slug, description, level, path, keywords, created_at, updated_at)
-          VALUES ($1, NULL, $2, $3, $4, 0, ARRAY[$2]::text[], ARRAY[]::text[], now(), now())
+          VALUES ($1, NULL, $2, $3, $4, 0, ARRAY[$5::text]::text[], '[]'::jsonb, now(), now())
           ON CONFLICT (category_id) DO NOTHING
         `,
-        [rootId, root.name, root.slug, root.description]
+        [rootId, root.name, root.slug, root.description, root.name]
       );
     }
     
@@ -273,9 +304,9 @@ async function seedCategories(): Promise<void> {
         `
           INSERT INTO categories (category_id, parent_id, name, slug, description, level, path, keywords, created_at, updated_at)
           VALUES 
-            ($1, $2, 'Advocacia', 'advocacia', 'Direito e advocacia', 1, ARRAY['Profissional', 'Advocacia']::text[], ARRAY[]::text[], now(), now()),
-            ($3, $2, 'Tecnologia da Informação', 'tecnologia-informacao', 'TI e desenvolvimento', 1, ARRAY['Profissional', 'Tecnologia da Informação']::text[], ARRAY[]::text[], now(), now()),
-            ($4, $2, 'Medicina', 'medicina', 'Área médica', 1, ARRAY['Profissional', 'Medicina']::text[], ARRAY[]::text[], now(), now())
+            ($1, $2, 'Advocacia', 'advocacia', 'Direito e advocacia', 1, ARRAY['Profissional', 'Advocacia']::text[], '[]'::jsonb, now(), now()),
+            ($3, $2, 'Tecnologia da Informação', 'tecnologia-informacao', 'TI e desenvolvimento', 1, ARRAY['Profissional', 'Tecnologia da Informação']::text[], '[]'::jsonb, now(), now()),
+            ($4, $2, 'Medicina', 'medicina', 'Área médica', 1, ARRAY['Profissional', 'Medicina']::text[], '[]'::jsonb, now(), now())
           ON CONFLICT (category_id) DO NOTHING
         `,
         [uuidv4(), rootIds[0], uuidv4(), uuidv4()]
@@ -289,8 +320,8 @@ async function seedCategories(): Promise<void> {
         `
           INSERT INTO categories (category_id, parent_id, name, slug, description, level, path, keywords, created_at, updated_at)
           VALUES 
-            ($1, $2, 'Família', 'familia', 'Vida familiar', 1, ARRAY['Pessoal', 'Família']::text[], ARRAY[]::text[], now(), now()),
-            ($3, $2, 'Hobbies', 'hobbies', 'Passatempos e hobbies', 1, ARRAY['Pessoal', 'Hobbies']::text[], ARRAY[]::text[], now(), now())
+            ($1, $2, 'Família', 'familia', 'Vida familiar', 1, ARRAY['Pessoal', 'Família']::text[], '[]'::jsonb, now(), now()),
+            ($3, $2, 'Hobbies', 'hobbies', 'Passatempos e hobbies', 1, ARRAY['Pessoal', 'Hobbies']::text[], '[]'::jsonb, now(), now())
           ON CONFLICT (category_id) DO NOTHING
         `,
         [uuidv4(), rootIds[1], uuidv4()]
@@ -304,8 +335,8 @@ async function seedCategories(): Promise<void> {
         `
           INSERT INTO categories (category_id, parent_id, name, slug, description, level, path, keywords, created_at, updated_at)
           VALUES 
-            ($1, $2, 'Esportes', 'esportes', 'Atividades esportivas', 1, ARRAY['Físico', 'Esportes']::text[], ARRAY[]::text[], now(), now()),
-            ($3, $2, 'Saúde', 'saude', 'Saúde e bem-estar', 1, ARRAY['Físico', 'Saúde']::text[], ARRAY[]::text[], now(), now())
+            ($1, $2, 'Esportes', 'esportes', 'Atividades esportivas', 1, ARRAY['Físico', 'Esportes']::text[], '[]'::jsonb, now(), now()),
+            ($3, $2, 'Saúde', 'saude', 'Saúde e bem-estar', 1, ARRAY['Físico', 'Saúde']::text[], '[]'::jsonb, now(), now())
           ON CONFLICT (category_id) DO NOTHING
         `,
         [uuidv4(), rootIds[2], uuidv4()]
@@ -319,8 +350,8 @@ async function seedCategories(): Promise<void> {
         `
           INSERT INTO categories (category_id, parent_id, name, slug, description, level, path, keywords, created_at, updated_at)
           VALUES 
-            ($1, $2, 'Educação Formal', 'educacao-formal', 'Cursos e educação formal', 1, ARRAY['Aprendizado', 'Educação Formal']::text[], ARRAY[]::text[], now(), now()),
-            ($3, $2, 'Habilidades', 'habilidades', 'Desenvolvimento de habilidades', 1, ARRAY['Aprendizado', 'Habilidades']::text[], ARRAY[]::text[], now(), now())
+            ($1, $2, 'Educação Formal', 'educacao-formal', 'Cursos e educação formal', 1, ARRAY['Aprendizado', 'Educação Formal']::text[], '[]'::jsonb, now(), now()),
+            ($3, $2, 'Habilidades', 'habilidades', 'Desenvolvimento de habilidades', 1, ARRAY['Aprendizado', 'Habilidades']::text[], '[]'::jsonb, now(), now())
           ON CONFLICT (category_id) DO NOTHING
         `,
         [uuidv4(), rootIds[3], uuidv4()]

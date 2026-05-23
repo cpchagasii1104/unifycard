@@ -2,7 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { CategoryContext } from '@unificard/contracts';
 import { categoriesService } from './categories.service';
-import { ssotObservabilityService } from './ssot-observability.service';
+import { ssotObservabilityUtil } from '@core/observability/ssot-observability.util';
 import {
   createCategorySchema,
   createManyCategoriesSchema,
@@ -13,6 +13,8 @@ import {
   CATEGORY_CONTEXT_VALUES,
 } from './categories.schemas';
 import type { CategoryAutocompleteResult } from './categories.types';
+import { HttpError } from '@core/errors/http-error';
+import { resolveGlobalUserId } from '@core/identity/identity.utils';
 
 const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -184,7 +186,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
    * GUARDS OBRIGATÓRIOS:
    * - context é obrigatório (querystring)
    * - tenantId é obrigatório (header X-Tenant-ID ou JWT)
-   * - countryCode é ignorado se fornecido (vem do tenant)
+   * - countryCode na query é ignorado (árvore canônica sem filtro geográfico por tenant)
    */
   fastify.get<{
     Querystring: {
@@ -208,7 +210,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       const context = req.query.context;
       if (!context) {
         // Registrar SSOT_VIOLATION
-        await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+        await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
           tenantId: req.tenant?.id || null,
           context: null,
           details: {
@@ -226,7 +228,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
       // GUARD 2: Tenant obrigatório
       if (!req.tenant || !req.tenant.id) {
         // Registrar SSOT_VIOLATION
-        await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+        await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
           tenantId: null,
           context,
           details: {
@@ -252,23 +254,23 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      // GUARD 3: CountryCode ignorado se fornecido
+      // GUARD 3: CountryCode na query é ignorado (árvore canônica não filtra por localização geográfica)
       if (req.query.countryCode !== undefined && req.query.countryCode !== null) {
         fastify.log.warn({
           route: '/categories/tree',
           tenantId,
           context,
           attemptedCountryCode: req.query.countryCode
-        }, 'SSOT_VIOLATION: countryCode fornecido via query será ignorado (vem do tenant)');
+        }, 'SSOT: countryCode na query ignorado (ontologia sem filtro por cidade/país do tenant)');
         
         // Registrar SSOT_SMELL (tentativa de violação)
-        await ssotObservabilityService.recordViolation('SSOT_SMELL', {
+        await ssotObservabilityUtil.recordViolation('SSOT_SMELL', {
           tenantId,
           context,
           details: {
             route: '/categories/tree',
             attemptedCountryCode: req.query.countryCode,
-            reason: 'countryCode fornecido via query (deve vir do tenant)',
+            reason: 'countryCode na query não aplica filtro na árvore canônica',
           },
         });
       }
@@ -505,7 +507,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
    * GUARDS OBRIGATÓRIOS:
    * - context é obrigatório (querystring)
    * - tenantId é obrigatório (header X-Tenant-ID ou JWT)
-   * - countryCode é ignorado se fornecido (vem do tenant)
+   * - countryCode na query é ignorado (árvore canônica sem filtro geográfico por tenant)
    */
   fastify.get<{
     Querystring: {
@@ -535,7 +537,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         // GUARD 1: Context obrigatório
         const context = req.query.context;
         if (!context) {
-          await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+          await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
             tenantId: req.tenant?.id || null,
             context: null,
             details: {
@@ -552,7 +554,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
 
         // GUARD 2: Tenant obrigatório
         if (!req.tenant || !req.tenant.id) {
-          await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+          await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
             tenantId: null,
             context,
             details: {
@@ -587,7 +589,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
             attemptedCountryCode: req.query.countryCode
           }, 'SSOT_VIOLATION: countryCode fornecido via query será ignorado (vem do tenant)');
           
-          await ssotObservabilityService.recordViolation('SSOT_SMELL', {
+          await ssotObservabilityUtil.recordViolation('SSOT_SMELL', {
             tenantId,
             context,
             details: {
@@ -790,9 +792,14 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         const validated = assignSkillToUserSchema.parse(req.body);
-        await categoriesService.assignSkillToUser(req.user.userId, validated);
+        const globalUserId =
+          req.user.globalUserId ?? (await resolveGlobalUserId(req.user.userId, req.tenant?.id));
+        await categoriesService.assignSkillToUser(globalUserId, validated);
         return reply.status(200).send({ success: true, message: 'Skill associada ao usuário' });
       } catch (error) {
+        if (error instanceof HttpError) {
+          return reply.status(error.statusCode).send({ ok: false, message: error.message });
+        }
         if (error instanceof Error) {
           return reply.status(400).send({ ok: false, message: error.message });
         }
@@ -871,9 +878,13 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (req, reply) => {
       try {
+        const context = req.body.context as CategoryContext | undefined;
+        if (context == null) {
+          return reply.status(400).send({ ok: false, message: 'context is required' });
+        }
         const suggestion = await categoriesService.suggestCategoryPath(
           req.body.text,
-          req.body.context,
+          context,
           req.body.countryCode
         );
         
@@ -985,16 +996,16 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
         }
         
         const result = await categoriesService.createCategoryWithAI({
-          text: validated.text,
-          context: validated.context,
-          parentId: validated.parentId,
-          countryCode: validated.countryCode,
+          text: validated.text as string,
+          context: validated.context as CategoryContext,
+          parentId: validated.parentId ?? undefined,
+          countryCode: validated.countryCode ?? undefined,
           tenantId: req.tenant.id,
           actorId,
           globalUserId: undefined, // Removido - não é mais necessário
-          inputType: validated.inputType || 'text',
-          audioUrl: validated.audioUrl,
-          audioHash: validated.audioHash,
+          inputType: (validated.inputType ?? 'text') as 'text' | 'voice' | 'transcription',
+          audioUrl: validated.audioUrl as string | undefined,
+          audioHash: validated.audioHash as string | undefined,
         });
         
         return reply.status(result.created ? 201 : 200).send({ 

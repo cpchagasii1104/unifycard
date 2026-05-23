@@ -344,14 +344,13 @@ export async function registerReadModelHandlers(): Promise<void> {
   Object.values(ActorEffect).forEach((effect: ActorEffect) => {
     const eventType = `actor.effect.${effect.toLowerCase()}`;
     
-    eventBus.registerHandler(eventType, async (event: UnificardEvent) => {
-      try {
+    eventBus.registerHandler(
+      eventType,
+      `read_model.actor_effect.${effect.toLowerCase()}`,
+      async (event: UnificardEvent) => {
         await readModelProjector.projectReadModels(effect, event);
-      } catch (error) {
-        // Não quebra fluxo principal se projeção falhar
-        console.error(`[ReadModelProjector] Erro ao projetar read models para ${effect}:`, error);
       }
-    });
+    );
   });
   
   console.log('[ReadModelProjector] Handlers de projeção de Read Models registrados');

@@ -171,7 +171,7 @@ const reportingRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.send({
           reports: result.reports,
-          totalCents: result.total,
+          totalCents: result.totalCents,
           limit,
           offset,
         });

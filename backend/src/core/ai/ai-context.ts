@@ -58,7 +58,7 @@ export interface AIContext {
     commerceScore?: number;
   };
   wallet?: {
-    balance: number;
+    balanceCents: number;
     currency: string;
     lastTransactions: Array<{
       transactionId: string;

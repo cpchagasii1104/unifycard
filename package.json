@@ -9,6 +9,19 @@
     "packages/*"
   ],
   "scripts": {
+    "detect:marketplace-dup": "node scripts/detect-marketplace-duplication.js",
+    "detect:marketplace-state": "node scripts/detect-marketplace-state.js",
+    "detect:marketplace-delegation": "node scripts/detect-marketplace-delegation.js",
+    "marketplace:refactor-status": "node scripts/marketplace-refactor-status.js",
+    "marketplace:domain-map": "node scripts/marketplace-domain-map.js",
+    "marketplace:facade-blocks": "node scripts/marketplace-facade-blocks-report.js",
+    "detect:marketplace-map-ownership": "node scripts/detect-marketplace-map-ownership.js",
+    "marketplace:architecture-guard": "node scripts/marketplace-architecture-guard.js",
+    "marketplace:dependency-graph": "node scripts/marketplace-dependency-graph.js",
+    "marketplace:architecture-report": "node scripts/marketplace-architecture-report.js",
+    "marketplace:budget": "node scripts/marketplace-responsibility-budget.js",
+    "marketplace:boundary": "node scripts/marketplace-usecase-boundary.js",
+    "marketplace:validate": "npm run marketplace:architecture-guard && npm run marketplace:dependency-graph && npm run marketplace:budget && npm run marketplace:boundary",
     "build:contracts": "npm run build -w @unificard/contracts",
     "dev:contracts": "npm run dev -w @unificard/contracts",
     "build:backend": "npm run build -w unificard-backend",
@@ -16,36 +29,49 @@
     "build:all": "npm run build:contracts && npm run build:backend && npm run build:frontend",
     "typecheck": "npm run typecheck -w @unificard/contracts && npm run typecheck -w unificard-backend && (npm run typecheck -w unificard-frontend || cd frontend && npx tsc --noEmit)",
     "validate:contracts": "npm run build:contracts && npm run typecheck -w @unificard/contracts",
-    "validate:all": "npm run validate:contracts && npm run typecheck"
+    "validate:all": "npm run validate:contracts && npm run typecheck",
+    "validate:frontend-fetch-invariant": "node scripts/check-frontend-no-direct-fetch.mjs",
+    "validate:architecture": "node scripts/validate-architectural-patterns.mjs",
+    "validate:architecture:strict": "node scripts/validate-architectural-patterns.mjs --strict",
+    "validate:architecture:baseline": "node scripts/validate-architectural-patterns.mjs --update-baseline",
+    "metrics:arch:append": "node scripts/append-architectural-metrics.mjs",
+    "test:invariants": "pnpm --filter unificard-frontend exec vitest run tests/invariants",
+    "validate:execution-order": "node scripts/validate-execution-order.mjs",
+    "validate:done-evidence": "node scripts/validate-done-evidence.mjs",
+    "validate:execution-health": "node scripts/run-global-health-check.mjs",
+    "validate:execution-guard": "node scripts/validate-execution-order.mjs && node scripts/validate-done-evidence.mjs && node scripts/run-global-health-check.mjs",
+    "docs:link": "node scripts/docs-link.mjs",
+    "docs:link:dry": "node scripts/docs-link.mjs --dry-run",
+    "docs:export": "node scripts/docs-link.mjs --export",
+    "docs:health": "node scripts/docs-health.mjs",
+    "docs:health:json": "node scripts/docs-health.mjs --json",
+    "docs:update": "node scripts/docs-link.mjs --export && node scripts/docs-health.mjs",
+    "docs:gateA:check": "node scripts/docs-gateA-check.mjs",
+    "docs:gate3:check": "node scripts/docs-gate3-check.mjs",
+    "docs:consistency:check": "node scripts/docs-consistency-check.mjs",
+    "docs:naming:check": "node scripts/docs-naming-global-check.mjs",
+    "docs:warn:report": "node scripts/docs-warn-classifier.mjs",
+    "validate:scripts:row-mapping": "node scripts/script-row-mapping-check.mjs",
+    "validate:scripts:critical-runtime-mapper": "node scripts/guard-critical-runtime-mapper-usage.mjs",
+    "docs:gates:check": "npm run docs:naming:check && node scripts/docs-consistency-check.mjs && node scripts/docs-gateA-check.mjs && node scripts/docs-gate3-check.mjs && npm run validate:scripts:critical-runtime-mapper",
+    "validate:tax-id-ledger": "node scripts/validate-tax-id-canonicality-ledger.mjs",
+    "validate:system-state": "node scripts/validate-system-state.mjs",
+    "validate:system-state:strict": "node scripts/validate-system-state.mjs --strict",
+    "identity:precheck:a1-a4": "node backend/scripts/identity-precheck-a1-a4.mjs",
+    "identity:batch1:create-identities": "npm run identity:batch1:create-identities -w unificard-backend",
+    "identity:batch2:link-actors": "npm run identity:batch2:link-actors -w unificard-backend",
+    "identity:cp5:export-a2": "npm run identity:cp5:export-a2 -w unificard-backend"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11"
+  },
+  "pnpm": {
+    "overrides": {
+      "jest-util": "29.7.0"
+    }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

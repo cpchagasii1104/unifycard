@@ -96,8 +96,8 @@ class SalesReportService {
       LEFT JOIN payment_intents pi ON o.id = pi.order_id
       LEFT JOIN payment_transactions pt ON pi.id = pt.payment_intent_id
       WHERE o.tenant_id = $1
-        AND o.createdAt >= $2
-        AND o.createdAt <= $3
+        AND o.created_at >= $2
+        AND o.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -156,7 +156,7 @@ class SalesReportService {
 
     let query = `
       SELECT
-        DATE(o.createdAt) as period,
+        DATE(o.created_at) as period,
         COUNT(DISTINCT o.id) as total_orders,
         COALESCE(SUM(pt.amount), 0) as total_amount,
         COALESCE(SUM(CASE WHEN pt.status = 'SUCCESS' THEN pt.amount ELSE 0 END), 0) as total_paid,
@@ -165,8 +165,8 @@ class SalesReportService {
       LEFT JOIN payment_intents pi ON o.id = pi.order_id
       LEFT JOIN payment_transactions pt ON pi.id = pt.payment_intent_id
       WHERE o.tenant_id = $1
-        AND o.createdAt >= $2
-        AND o.createdAt <= $3
+        AND o.created_at >= $2
+        AND o.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -186,7 +186,7 @@ class SalesReportService {
     }
 
     query += `
-      GROUP BY DATE(o.createdAt)
+      GROUP BY DATE(o.created_at)
       ORDER BY period ASC
     `;
 
@@ -230,8 +230,8 @@ class SalesReportService {
       LEFT JOIN payment_intents pi ON o.id = pi.order_id
       LEFT JOIN payment_transactions pt ON pi.id = pt.payment_intent_id
       WHERE o.tenant_id = $1
-        AND o.createdAt >= $2
-        AND o.createdAt <= $3
+        AND o.created_at >= $2
+        AND o.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -285,8 +285,8 @@ class SalesReportService {
       LEFT JOIN payment_intents pi ON o.id = pi.order_id
       LEFT JOIN payment_transactions pt ON pi.id = pt.payment_intent_id
       WHERE o.tenant_id = $1
-        AND o.createdAt >= $2
-        AND o.createdAt <= $3
+        AND o.created_at >= $2
+        AND o.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -337,15 +337,15 @@ class SalesReportService {
 
     let query = `
       SELECT
-        DATE(o.createdAt) as period,
+        DATE(o.created_at) as period,
         COUNT(DISTINCT o.id) as total_orders,
         COALESCE(SUM(CASE WHEN pt.status = 'SUCCESS' THEN pt.amount ELSE 0 END), 0) as total_amount
       FROM orders o
       LEFT JOIN payment_intents pi ON o.id = pi.order_id
       LEFT JOIN payment_transactions pt ON pi.id = pt.payment_intent_id
       WHERE o.tenant_id = $1
-        AND o.createdAt >= $2
-        AND o.createdAt <= $3
+        AND o.created_at >= $2
+        AND o.created_at <= $3
         AND pt.status = 'SUCCESS'
     `;
 
@@ -366,7 +366,7 @@ class SalesReportService {
     }
 
     query += `
-      GROUP BY DATE(o.createdAt)
+      GROUP BY DATE(o.created_at)
       ORDER BY period ASC
     `;
 

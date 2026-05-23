@@ -4,6 +4,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { userGroupAllocationService } from './user-group-allocation.service';
+import type { SetUserGroupAllocationInput } from './user-group-allocation.service';
 
 const setAllocationSchema = z.object({
   allocations: z.array(
@@ -79,10 +80,13 @@ const userGroupAllocationRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const input: SetUserGroupAllocationInput = {
+        allocations: parsed.data.allocations.map((a) => ({ groupId: a.groupId, percentage: a.percentage })),
+      };
       const allocations = await userGroupAllocationService.setUserAllocations(
         tenantId,
         userId,
-        parsed.data
+        input
       );
       
       return reply.status(200).send({

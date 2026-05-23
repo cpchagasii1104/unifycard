@@ -1,51 +1,53 @@
 // backend/src/modules/ledger/ledger.routes.ts
-// Rotas para Ledger Contábil Canônico
-// 🔴 BLINDAGEM: RBAC obrigatório (apenas FINANCE/OWNER/ADMIN)
+// Rotas HTTP: leituras passam a usar bank_ledger (SSOT). O economy ledger modular permanece stub para writes legados.
 
 import type { FastifyInstance } from 'fastify';
 import type { LedgerEntryFilters } from './ledger.types';
+import { bankLedgerRepository } from '../bank/bank-ledger.repository';
+import { listBankLedgerRowsForExport } from '../reporting/reporting-bank-aggregates';
+import { BadRequestError, ForbiddenError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
+
+type LedgerRequest = { ledgerAccessLevel?: 'full' | 'limited' };
 
 const ledgerRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * Middleware: Verificar permissão para acessar ledger
-   */
-  const requireLedgerPermission = async (req: any, reply: any) => {
-    const tenantId = req.tenant.id;
-    // ActionContext é obrigatório (V2)
+  const requireLedgerPermission = async (req: any, _reply: any) => {
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+    }
     if (!req.actionContext || !req.actionContext.actorId) {
-      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+      throw new BadRequestError('ActionContext is required', ErrorCode.VALIDATION_ERROR);
     }
 
+    const tenantId = req.tenant.id;
     const actorId = req.actionContext.actorId;
+    const userId = req.user?.id as string | undefined;
+    if (!userId) {
+      throw new BadRequestError('User required for ledger access', ErrorCode.VALIDATION_ERROR);
+    }
 
     try {
-      const { businessAuthorizationService } = await import('@core/authorization/business-authorization.service');
+      const { businessAuthorizationService } = await import(
+        '@core/authorization/business-authorization.service'
+      );
 
-      // Verificar se tem permissão para ver ledger global
       const hasPermission = await businessAuthorizationService.hasAnyPermission(
         tenantId,
-        actorId,
+        userId,
         actorId,
         ['financial:view_ledger', 'financial:view_all_ledger']
       );
 
       if (!hasPermission) {
-        // Se não tem permissão global, ainda pode ver ledger do próprio contexto
-        // (validação será feita no service)
         req.ledgerAccessLevel = 'limited';
       } else {
         req.ledgerAccessLevel = 'full';
       }
-    } catch (permError: any) {
-      // Se erro de permissão, permitir acesso limitado (será validado no service)
+    } catch {
       req.ledgerAccessLevel = 'limited';
     }
   };
 
-  /**
-   * GET /ledger/entries
-   * Lista entradas do ledger com filtros
-   */
   fastify.get<{
     Querystring: {
       accountId?: string;
@@ -58,6 +60,9 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/ledger/entries', { preHandler: requireLedgerPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
+    }
     const tenantId = req.tenant.id;
     const filters: LedgerEntryFilters = {
       accountId: req.query.accountId,
@@ -70,68 +75,83 @@ const ledgerRoutes = async (fastify: FastifyInstance) => {
       offset: req.query.offset,
     };
 
-    // Se acesso limitado, só pode ver entradas do próprio contexto
-    if (req.ledgerAccessLevel === 'limited' && !filters.contextId) {
-      return reply.status(403).send({
-        error: 'Acesso limitado. Especifique contextId para ver entradas do seu contexto.',
-      });
+    if ((req as LedgerRequest).ledgerAccessLevel === 'limited' && !filters.contextId) {
+      throw new ForbiddenError(
+        'Limited access: specify contextId to list entries for your context.',
+        ErrorCode.PERMISSION_DENIED
+      );
     }
 
-    const entries = await ledgerService.listEntries(tenantId, filters);
+    const limit = Math.min(filters.limit ?? 500, 10000);
+    const start = filters.startDate;
+    const end = filters.endDate;
 
-    return reply.send({ entries, totalCents: entries.length });
+    let rows: Array<{
+      entryId: string;
+      accountId: string;
+      transactionId: string;
+      direction: string;
+      amountCents: number;
+      createdAt: string;
+    }>;
+
+    if (filters.accountId) {
+      const bankEntries = await bankLedgerRepository.getEntriesByAccount(tenantId, filters.accountId, {
+        startDate: start,
+        endDate: end,
+        limit,
+        offset: req.query.offset ?? 0,
+      });
+      rows = bankEntries.map((e) => ({
+        entryId: e.entryId,
+        accountId: e.accountId,
+        transactionId: e.transactionId,
+        direction: e.entryType,
+        amountCents: e.amountCents,
+        createdAt: e.createdAt,
+      }));
+    } else {
+      rows = await listBankLedgerRowsForExport(tenantId, start, end, limit, undefined);
+    }
+
+    const totalCents = rows.reduce((s, r) => s + r.amountCents, 0);
+    return reply.send({ entries: rows, totalCents, source: 'bank_ledger' });
   });
 
-  /**
-   * GET /ledger/accounts/:accountId/balance
-   * Calcula saldo de uma conta
-   */
   fastify.get<{
     Params: { accountId: string };
     Querystring: { currency?: string };
   }>('/ledger/accounts/:accountId/balance', { preHandler: requireLedgerPermission }, async (req, reply) => {
-    const tenantId = req.tenant.id;
-    const currency = req.query.currency || 'BRL';
-
-    // Se acesso limitado, validar que accountId pertence ao usuário
-    if (req.ledgerAccessLevel === 'limited') {
-      // TODO: Validar que accountId pertence ao actor do usuário
-      // Por enquanto, permitir (será validado no service se necessário)
+    if (!req.tenant) {
+      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
     }
+    const tenantId = req.tenant.id;
 
-    const balance = await ledgerService.getAccountBalance(tenantId, req.params.accountId, currency);
+    const balance = await bankLedgerRepository.calculateBalance(tenantId, req.params.accountId);
 
-    return reply.send({ balance });
+    return reply.send({
+      balance: {
+        accountId: balance.accountId,
+        balanceCents: balance.balanceCents,
+        totalCreditsCents: balance.totalCreditsCents,
+        totalDebitsCents: balance.totalDebitsCents,
+        entryCount: balance.entryCount,
+        lastEntryAt: balance.lastEntryAt,
+        currency: req.query.currency || 'BRL',
+        source: 'bank_ledger',
+      },
+    });
   });
 
-  /**
-   * GET /ledger/context/:contextType/:contextId
-   * Busca extrato por contexto
-   */
   fastify.get<{
     Params: { contextType: string; contextId: string };
-  }>('/ledger/context/:contextType/:contextId', { preHandler: requireLedgerPermission }, async (req, reply) => {
-    const tenantId = req.tenant.id;
-
-    // Se acesso limitado, validar que contextId pertence ao usuário
-    if (req.ledgerAccessLevel === 'limited') {
-      // TODO: Validar que contextId pertence ao actor do usuário
-      // Por enquanto, permitir (será validado no service se necessário)
-    }
-
-    const statement = await ledgerService.getContextStatement(
-      tenantId,
-      req.params.contextType,
-      req.params.contextId
-    );
-
-    return reply.send({ statement });
+  }>('/ledger/context/:contextType/:contextId', { preHandler: requireLedgerPermission }, async (_req, reply) => {
+    return reply.status(501).send({
+      error:
+        'Extrato por contextType/contextId não está disponível no bank_ledger; use bank_transactions / reporting.',
+      source: 'bank_ledger',
+    });
   });
 };
 
 export default ledgerRoutes;
-
-
-
-
-

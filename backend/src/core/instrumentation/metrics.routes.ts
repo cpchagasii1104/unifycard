@@ -4,6 +4,7 @@
 // Expõe métricas básicas coletadas pelo plugin de instrumentação
 
 import { FastifyPluginAsync } from 'fastify';
+import { getMarketplaceStoreOnboardingMetricsSnapshot } from '@core/observability/marketplace-store-onboarding.observability';
 
 const metricsRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -18,11 +19,15 @@ const metricsRoutes: FastifyPluginAsync = async (fastify) => {
         averageLatency: 0,
         maxLatency: 0,
         minLatency: 0,
+        storeOnboarding: getMarketplaceStoreOnboardingMetricsSnapshot(),
       };
     }
 
     const metrics = fastify.calculateMetrics();
-    return metrics;
+    return {
+      ...metrics,
+      storeOnboarding: getMarketplaceStoreOnboardingMetricsSnapshot(),
+    };
   });
 };
 

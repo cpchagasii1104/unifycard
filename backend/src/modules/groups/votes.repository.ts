@@ -19,14 +19,21 @@ class VotesRepository {
     title: string;
     description: string | null;
     status: string;
-    closesAt: Date | null;
-    createdAt: Date | string;
-    updatedAt: Date | string;
+    closes_at: Date | null;
+    created_at: Date | string;
+    updated_at: Date | string;
   }): Parameters<typeof toGroupVote>[0] {
     return {
-      ...row,
-      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
-      updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+      vote_id: row.vote_id,
+      tenant_id: row.tenant_id,
+      group_id: row.group_id,
+      created_by_user_id: row.created_by_user_id,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      closesAt: row.closes_at,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     };
   }
 
@@ -36,11 +43,15 @@ class VotesRepository {
     tenant_id: string;
     text: string;
     display_order: number;
-    createdAt: Date | string;
+    created_at: Date | string;
   }): Parameters<typeof toGroupVoteOption>[0] {
     return {
-      ...row,
-      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+      option_id: row.option_id,
+      vote_id: row.vote_id,
+      tenant_id: row.tenant_id,
+      text: row.text,
+      display_order: row.display_order,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     };
   }
 
@@ -50,11 +61,15 @@ class VotesRepository {
     option_id: string;
     tenant_id: string;
     user_id: string;
-    createdAt: Date | string;
+    created_at: Date | string;
   }): Parameters<typeof toGroupVoteResponse>[0] {
     return {
-      ...row,
-      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+      response_id: row.response_id,
+      vote_id: row.vote_id,
+      option_id: row.option_id,
+      tenant_id: row.tenant_id,
+      user_id: row.user_id,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     };
   }
 
@@ -72,17 +87,17 @@ class VotesRepository {
       title: string;
       description: string | null;
       status: string;
-      closesAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
+      closes_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
       INSERT INTO group_votes (
-        tenant_id, group_id, created_by_user_id, title, description, status, closesAt
+        tenant_id, group_id, created_by_user_id, title, description, status, closes_at
       )
       VALUES ($1, $2, $3, $4, $5, 'open', $6)
-      RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
+      RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
       `,
       [
         tenantId,
@@ -115,7 +130,7 @@ class VotesRepository {
         tenant_id: string;
         text: string;
         display_order: number;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
@@ -123,7 +138,7 @@ class VotesRepository {
           vote_id, tenant_id, text, display_order
         )
         VALUES ($1, $2, $3, $4)
-        RETURNING option_id, vote_id, tenant_id, text, display_order, createdAt
+        RETURNING option_id, vote_id, tenant_id, text, display_order, created_at
         `,
         [voteId, tenantId, options[i], i]
       );
@@ -145,13 +160,13 @@ class VotesRepository {
       title: string;
       description: string | null;
       status: string;
-      closesAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
+      closes_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
-      SELECT vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
+      SELECT vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
       FROM group_votes
       WHERE vote_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -169,11 +184,11 @@ class VotesRepository {
       tenant_id: string;
       text: string;
       display_order: number;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
-      SELECT option_id, vote_id, tenant_id, text, display_order, createdAt
+      SELECT option_id, vote_id, tenant_id, text, display_order, created_at
       FROM group_vote_options
       WHERE vote_id = $1 AND tenant_id = $2
       ORDER BY display_order ASC
@@ -214,11 +229,11 @@ class VotesRepository {
       option_id: string;
       tenant_id: string;
       user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
-      SELECT response_id, vote_id, option_id, tenant_id, user_id, createdAt
+      SELECT response_id, vote_id, option_id, tenant_id, user_id, created_at
       FROM group_vote_responses
       WHERE vote_id = $1 AND tenant_id = $2 AND user_id = $3
       LIMIT 1
@@ -241,7 +256,7 @@ class VotesRepository {
       option_id: string;
       tenant_id: string;
       user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -249,7 +264,7 @@ class VotesRepository {
         vote_id, option_id, tenant_id, user_id
       )
       VALUES ($1, $2, $3, $4)
-      RETURNING response_id, vote_id, option_id, tenant_id, user_id, createdAt
+      RETURNING response_id, vote_id, option_id, tenant_id, user_id, created_at
       `,
       [voteId, optionId, tenantId, userId]
     );
@@ -267,7 +282,7 @@ class VotesRepository {
     status?: 'open' | 'closed'
   ): Promise<GroupVote[]> {
     let query = `
-      SELECT vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
+      SELECT vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
       FROM group_votes
       WHERE group_id = $1 AND tenant_id = $2
     `;
@@ -278,7 +293,7 @@ class VotesRepository {
       params.push(status);
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    query += ` ORDER BY created_at DESC`;
 
     const rows = await runQueriesWithTenant<{
       vote_id: string;
@@ -288,9 +303,9 @@ class VotesRepository {
       title: string;
       description: string | null;
       status: string;
-      closesAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
+      closes_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
     }>(tenantId, query, params);
 
     return rows.map((r) => toGroupVote(this.normalizeVoteRow(r)));
@@ -306,15 +321,15 @@ class VotesRepository {
       option_id: string;
       user_id: string;
       name: string | null;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
-      SELECT gvr.option_id, gvr.user_id, u.name, gvr.createdAt
+      SELECT gvr.option_id, gvr.user_id, u.name, gvr.created_at
       FROM group_vote_responses gvr
       LEFT JOIN users u ON u.global_user_id = gvr.user_id AND u.tenant_id = $2
       WHERE gvr.vote_id = $1 AND gvr.tenant_id = $2
-      ORDER BY gvr.option_id, gvr.createdAt
+      ORDER BY gvr.option_id, gvr.created_at
       `,
       [voteId, tenantId]
     );
@@ -323,7 +338,7 @@ class VotesRepository {
       optionId: row.option_id,
       userId: row.user_id,
       userName: row.name || null,
-      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
+      createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
     }));
   }
 
@@ -336,16 +351,16 @@ class VotesRepository {
       title: string;
       description: string | null;
       status: string;
-      closesAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
+      closes_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
       UPDATE group_votes
-      SET status = 'closed', updatedAt = now()
+      SET status = 'closed', updated_at = now()
       WHERE vote_id = $1 AND tenant_id = $2
-      RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closesAt, createdAt, updatedAt
+      RETURNING vote_id, tenant_id, group_id, created_by_user_id, title, description, status, closes_at, created_at, updated_at
       `,
       [voteId, tenantId]
     );

@@ -130,11 +130,11 @@ const assignmentRoutes: FastifyPluginAsync = async (fastify) => {
     // AUTORIDADE: gate financeiro antes de markAsCompleted (INV-FIN)
     // LIMITAÇÃO documentada: amountCents calculado no domínio (split.service), não disponível aqui
     const reviewerActor = await ensureUserActor(tenantId, reviewerUserId);
-    if (!reviewerActor?.id) {
+    if (!reviewerActor?.actor_id) {
       throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
     }
     await requireFinancialRiskClearance(tenantId, {
-      actorId: reviewerActor.id,
+      actorId: reviewerActor.actor_id,
       action: 'financial_transfer',
       // amountCents ausente: valor real calculado pelo split.service downstream
     });

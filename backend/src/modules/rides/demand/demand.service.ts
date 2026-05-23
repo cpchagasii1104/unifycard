@@ -1,12 +1,10 @@
 // src/modules/rides/demand/demand.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
-import { eventBus, EventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
 import { notifyService } from '@core/notify/notify.service';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 
 export class DemandService {
-  constructor(private eventBusInstance: EventBus = eventBus) {}
-
   // ============================================================================
   // 🔥 1. Recalcular pressão de UMA zona
   // ============================================================================
@@ -18,14 +16,16 @@ export class DemandService {
 
     const data = result?.data;
 
-    if (data.incentive_created) {
-      await this.eventBusInstance.emit({
-        type: 'rides.zone.high_demand',
-        tenantId,
-        payload: {
-          zoneId,
-          pressure: data.pressure,
-        },
+    if (data?.incentive_created) {
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: 'rides.zone.high_demand',
+          tenantId,
+          payload: {
+            zoneId,
+            pressure: data.pressure,
+          },
+        });
       });
     }
 

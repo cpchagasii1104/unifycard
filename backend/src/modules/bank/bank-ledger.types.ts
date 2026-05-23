@@ -2,6 +2,8 @@
 // SPRINT 1: FUNDAÇÃO DO UNIFY BANK
 // Tipos para ledger do Unify Bank
 
+import type { MoneyCents, PositiveMoneyCents } from '@contracts/marketplace/canonical';
+
 /**
  * Tipo de entrada no ledger (double-entry)
  */
@@ -16,9 +18,9 @@ export interface BankLedgerEntry {
   accountId: string;
   transactionId: string;
   entryType: BankLedgerEntryType;
-  amountCents: number;
-  balanceBefore: number;
-  balanceAfter: number;
+  amountCents: PositiveMoneyCents;
+  balanceBeforeCents: MoneyCents;
+  balanceAfterCents: MoneyCents;
   description?: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
@@ -29,11 +31,12 @@ export interface BankLedgerEntry {
  */
 export interface CreateBankLedgerEntryInput {
   accountId: string;
-  transactionId: string;
+  /** Se omitido ou null, grava NULL no PG (Genesis permite; evita FK falsa em testes/ad-hoc). */
+  transactionId?: string | null;
   entryType: BankLedgerEntryType;
-  amountCents: number;
-  balanceBefore: number;
-  balanceAfter: number;
+  amountCents: PositiveMoneyCents;
+  balanceBeforeCents: MoneyCents;
+  balanceAfterCents: MoneyCents;
   description?: string;
   metadata?: Record<string, any>;
   /**
@@ -61,9 +64,9 @@ export interface BankLedgerSearchOptions {
  */
 export interface BankAccountBalance {
   accountId: string;
-  balance: number; // Calculado do ledger (fonte da verdade)
-  totalCredits: number;
-  totalDebits: number;
+  balanceCents: MoneyCents;
+  totalCreditsCents: MoneyCents;
+  totalDebitsCents: MoneyCents;
   entryCount: number;
   lastEntryAt?: Date | null;
 }

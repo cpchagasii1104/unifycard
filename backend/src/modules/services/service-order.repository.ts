@@ -27,15 +27,15 @@ interface ServiceOrderRow {
   worker_notes: string | null;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  confirmedAt: Date | null;
+  confirmed_at: Date | null;
   confirmed_by_actor_id: string | null;
-  startedAt: Date | null;
-  completedAt: Date | null;
-  cancelledAt: Date | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  cancelled_at: Date | null;
   cancellation_reason: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class ServiceOrderRepository {
@@ -63,15 +63,15 @@ class ServiceOrderRepository {
       workerNotes: row.worker_notes,
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      confirmedAt: row.confirmedAt,
+      confirmedAt: row.confirmed_at,
       confirmedByActorId: row.confirmed_by_actor_id,
-      startedAt: row.startedAt,
-      completedAt: row.completedAt,
-      cancelledAt: row.cancelledAt,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      cancelledAt: row.cancelled_at,
       cancellationReason: row.cancellation_reason,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -115,9 +115,9 @@ class ServiceOrderRepository {
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
-                confirmedAt, confirmed_by_actor_id,
-                startedAt, completedAt, cancelledAt, cancellation_reason,
-                metadata, createdAt, updatedAt
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
       `,
       [
         tenantId,
@@ -160,9 +160,9 @@ class ServiceOrderRepository {
              location_address, location_latitude, location_longitude,
              description, customer_notes, worker_notes,
              created_by_actor_id, created_by_user_id,
-             confirmedAt, confirmed_by_actor_id,
-             startedAt, completedAt, cancelledAt, cancellation_reason,
-             metadata, createdAt, updatedAt
+             confirmed_at, confirmed_by_actor_id,
+             started_at, completed_at, cancelled_at, cancellation_reason,
+             metadata, created_at, updated_at
       FROM service_orders
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -237,9 +237,9 @@ class ServiceOrderRepository {
              location_address, location_latitude, location_longitude,
              description, customer_notes, worker_notes,
              created_by_actor_id, created_by_user_id,
-             confirmedAt, confirmed_by_actor_id,
-             startedAt, completedAt, cancelledAt, cancellation_reason,
-             metadata, createdAt, updatedAt
+             confirmed_at, confirmed_by_actor_id,
+             started_at, completed_at, cancelled_at, cancellation_reason,
+             metadata, created_at, updated_at
       FROM service_orders
       WHERE ${conditions.join(' AND ')}
       ORDER BY scheduled_start DESC
@@ -264,18 +264,18 @@ class ServiceOrderRepository {
       `
       UPDATE service_orders
       SET status = 'confirmed',
-          confirmedAt = NOW(),
+          confirmed_at = NOW(),
           confirmed_by_actor_id = $3,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
                 status, scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
-                confirmedAt, confirmed_by_actor_id,
-                startedAt, completedAt, cancelledAt, cancellation_reason,
-                metadata, createdAt, updatedAt
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
       `,
       [tenantId, orderId, confirmedByActorId]
     );
@@ -300,18 +300,18 @@ class ServiceOrderRepository {
       `
       UPDATE service_orders
       SET status = 'in_progress',
-          startedAt = NOW(),
+          started_at = NOW(),
           worker_notes = COALESCE($3, worker_notes),
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'confirmed'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
                 status, scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
-                confirmedAt, confirmed_by_actor_id,
-                startedAt, completedAt, cancelledAt, cancellation_reason,
-                metadata, createdAt, updatedAt
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
       `,
       [tenantId, orderId, workerNotes]
     );
@@ -336,18 +336,18 @@ class ServiceOrderRepository {
       `
       UPDATE service_orders
       SET status = 'completed',
-          completedAt = NOW(),
+          completed_at = NOW(),
           worker_notes = COALESCE($3, worker_notes),
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'in_progress'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
                 status, scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
-                confirmedAt, confirmed_by_actor_id,
-                startedAt, completedAt, cancelledAt, cancellation_reason,
-                metadata, createdAt, updatedAt
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
       `,
       [tenantId, orderId, workerNotes]
     );
@@ -372,18 +372,18 @@ class ServiceOrderRepository {
       `
       UPDATE service_orders
       SET status = 'cancelled',
-          cancelledAt = NOW(),
+          cancelled_at = NOW(),
           cancellation_reason = $3,
-          updatedAt = NOW()
+          updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status IN ('draft', 'confirmed', 'in_progress')
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
                 status, scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
-                confirmedAt, confirmed_by_actor_id,
-                startedAt, completedAt, cancelledAt, cancellation_reason,
-                metadata, createdAt, updatedAt
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
       `,
       [tenantId, orderId, cancellationReason]
     );

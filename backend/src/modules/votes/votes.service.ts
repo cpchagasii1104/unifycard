@@ -4,14 +4,7 @@
 import { votesRepository, type VoteRow, type VoteOptionRow } from './votes.repository';
 import { social2Service } from '../social/social-2.0.service';
 import { actorRepository } from '../social/actor.repository';
-
-export interface CreateVoteInput {
-  title: string;
-  description?: string;
-  options: string[];
-  startsAt?: string;
-  endsAt?: string;
-}
+import type { CreateVoteInput } from './votes.types';
 
 export interface VoteWithOptions extends VoteRow {
   options: VoteOptionRow[];
@@ -212,7 +205,7 @@ export class VotesService {
       offset?: number;
     } = {}
   ): Promise<{ votes: VoteWithOptions[]; totalCents: number }> {
-    const { rows, total } = await votesRepository.list(tenantId, options);
+    const { rows, totalCents } = await votesRepository.list(tenantId, options);
 
     const votes: VoteWithOptions[] = [];
     for (const vote of rows) {
@@ -231,7 +224,7 @@ export class VotesService {
       });
     }
 
-    return { votes, total };
+    return { votes, totalCents };
   }
 
   /**

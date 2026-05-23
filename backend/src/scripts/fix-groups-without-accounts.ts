@@ -3,12 +3,35 @@
 
 import { pool } from '../core/database/pool';
 import { groupAccountService } from '../core/economy/group-account.service';
-import { devLog } from '../utils/devLog';
+
+interface GroupRow {
+  group_id: string;
+  tenant_id: string;
+  name: string;
+}
+
+interface GroupRecord {
+  groupId: string;
+  tenantId: string;
+  name: string;
+}
+
+// boundary: DB -> domain mapping
+function mapGroupRowToDomain(row: GroupRow): GroupRecord {
+  return {
+    groupId: row.group_id,
+    tenantId: row.tenant_id,
+    name: row.name,
+  };
+}
+
+// TODO: migrate to domain mapping (controlled rollout)
+// mapper exists but is not applied in this critical maintenance flow to avoid semantic drift.
 
 async function fixGroupsWithoutAccounts() {
   console.log('🔍 Buscando grupos sem conta...');
   
-  const result = await pool.query(`
+  const result = await pool.query<GroupRow>(`
     SELECT g.group_id, g.tenant_id, g.name
     FROM groups g
     LEFT JOIN group_accounts ga ON ga.group_id = g.group_id
@@ -28,7 +51,7 @@ async function fixGroupsWithoutAccounts() {
         group.group_id
       );
       console.log(`✅ Conta criada para grupo "${group.name}": ${accountId}`);
-      devLog.success('group.account.fixed', {
+      console.log('[fix-groups-without-accounts] group.account.fixed', {
         groupId: group.group_id,
         groupName: group.name,
         accountId,
@@ -37,7 +60,7 @@ async function fixGroupsWithoutAccounts() {
       successCount++;
     } catch (err) {
       console.error(`❌ Erro ao criar conta para grupo "${group.name}":`, err);
-      devLog.error('group.account.fix_failed', {
+      console.error('[fix-groups-without-accounts] group.account.fix_failed', {
         groupId: group.group_id,
         groupName: group.name,
         tenantId: group.tenant_id,

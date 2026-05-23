@@ -61,7 +61,7 @@ const servicePaymentRequestRoutes: FastifyPluginAsync = async (fastify) => {
             serviceId: req.params.serviceId, // serviceId vem da URL
             payerActorId: parsed.data.payerActorId,
             receiverActorId: parsed.data.receiverActorId,
-            amountCents: parsed.data.amount,
+            amountCents: parsed.data.amountCents,
             currency: parsed.data.currency,
             metadata: parsed.data.metadata,
           }

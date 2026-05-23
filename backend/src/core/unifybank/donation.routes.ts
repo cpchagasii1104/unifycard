@@ -68,7 +68,7 @@ const donationRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const { targetType, targetId, amount, message, eventId } = parsed.data;
+    const { targetType, targetId, amountCents, message, eventId } = parsed.data;
 
     // 3. Validar que não está doando para si mesmo (se for user)
     if (targetType === 'user' && fromUserId === targetId) {
@@ -81,7 +81,7 @@ const donationRoutes: FastifyPluginAsync = async (fastify) => {
         fromUserId,
         targetType,
         targetId,
-        amount,
+        amountCents,
         message,
         eventId: eventId || uuidv4(),
       });
@@ -94,7 +94,7 @@ const donationRoutes: FastifyPluginAsync = async (fastify) => {
           fromUserId: result.fromUserId,
           targetType: result.targetType,
           targetId: result.targetId,
-          amountCents: result.amount,
+          amountCents: result.amountCents,
           message: result.message,
           feedPostId: result.feedPostId,
           splitGroupId: result.splitGroupId,

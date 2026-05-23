@@ -22,23 +22,23 @@ export class MemoryRepository {
     const row = await runQueryWithTenant<UserMemoryPreferenceRow>(
       data.tenantId,
       `
-      INSERT INTO user_memory_preferences (tenant_id, global_user_id, category, key, value, confidence, usage_count, last_usedAt)
+      INSERT INTO user_memory_preferences (tenant_id, global_user_id, category, key, value, confidence, usage_count, last_used_at)
       VALUES ($1, $2, $3, $4, $5, $6, 1, now())
       ON CONFLICT (tenant_id, global_user_id, category, key)
       DO UPDATE SET
         value = EXCLUDED.value,
         confidence = EXCLUDED.confidence,
         usage_count = user_memory_preferences.usage_count + 1,
-        last_usedAt = now(),
-        updatedAt = now()
-      RETURNING preference_id, tenant_id, global_user_id, category, key, value, confidence, usage_count, last_usedAt, createdAt, updatedAt
+        last_used_at = now(),
+        updated_at = now()
+      RETURNING preference_id, tenant_id, global_user_id, category, key, value AS "valueCents", confidence, usage_count, last_used_at, created_at, updated_at
       `,
       [
         data.tenantId,
         data.globalUserId,
         data.category,
         data.key,
-        JSON.stringify(data.value),
+        JSON.stringify(data.valueCents),
         data.confidence ?? 1.0,
       ]
     );
@@ -59,7 +59,7 @@ export class MemoryRepository {
     category?: string
   ): Promise<UserMemoryPreferenceRow[]> {
     let query = `
-      SELECT preference_id, tenant_id, global_user_id, category, key, value, confidence, usage_count, last_usedAt, createdAt, updatedAt
+      SELECT preference_id, tenant_id, global_user_id, category, key, value AS "valueCents", confidence, usage_count, last_used_at, created_at, updated_at
       FROM user_memory_preferences
       WHERE global_user_id = $1
     `;
@@ -71,7 +71,7 @@ export class MemoryRepository {
       params.push(category);
     }
 
-    query += ` ORDER BY last_usedAt DESC`;
+    query += ` ORDER BY last_used_at DESC`;
 
     return await runQueriesWithTenant<UserMemoryPreferenceRow>(tenantId, query, params);
   }
@@ -91,10 +91,10 @@ export class MemoryRepository {
     const row = await runQueryWithTenant<UserMemoryInteractionRow>(
       data.tenantId,
       `
-      INSERT INTO user_memory_interactions (tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interactionAt, last_interactionAt)
+      INSERT INTO user_memory_interactions (tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interaction_at, last_interaction_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 1, now(), now())
       ON CONFLICT DO NOTHING
-      RETURNING interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interactionAt, last_interactionAt, createdAt, updatedAt
+      RETURNING interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interaction_at, last_interaction_at, created_at, updated_at
       `,
       [
         data.tenantId,
@@ -112,7 +112,7 @@ export class MemoryRepository {
       const existing = await runQueryWithTenant<UserMemoryInteractionRow>(
         data.tenantId,
         `
-        SELECT interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interactionAt, last_interactionAt, createdAt, updatedAt
+        SELECT interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interaction_at, last_interaction_at, created_at, updated_at
         FROM user_memory_interactions
         WHERE global_user_id = $1 AND intent = $2 AND entity_type = $3 AND (entity_id = $4 OR (entity_id IS NULL AND $4 IS NULL))
         LIMIT 1
@@ -127,10 +127,10 @@ export class MemoryRepository {
           `
           UPDATE user_memory_interactions
           SET interaction_count = interaction_count + 1,
-              last_interactionAt = now(),
-              updatedAt = now()
+              last_interaction_at = now(),
+              updated_at = now()
           WHERE interaction_id = $1
-          RETURNING interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interactionAt, last_interactionAt, createdAt, updatedAt
+          RETURNING interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interaction_at, last_interaction_at, created_at, updated_at
           `,
           [existing.interaction_id]
         );
@@ -156,10 +156,10 @@ export class MemoryRepository {
     return await runQueriesWithTenant<UserMemoryInteractionRow>(
       tenantId,
       `
-      SELECT interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interactionAt, last_interactionAt, createdAt, updatedAt
+      SELECT interaction_id, tenant_id, global_user_id, intent, entity_type, entity_id, entity_name, parameters, interaction_count, first_interaction_at, last_interaction_at, created_at, updated_at
       FROM user_memory_interactions
       WHERE global_user_id = $1
-      ORDER BY last_interactionAt DESC
+      ORDER BY last_interaction_at DESC
       LIMIT $2
       `,
       [globalUserId, limit]
@@ -182,10 +182,10 @@ export class MemoryRepository {
     const row = await runQueryWithTenant<UserMemoryEntityRow>(
       data.tenantId,
       `
-      INSERT INTO user_memory_entities (tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interactionAt)
+      INSERT INTO user_memory_entities (tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interaction_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, now())
       ON CONFLICT DO NOTHING
-      RETURNING entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interactionAt, createdAt, updatedAt
+      RETURNING entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interaction_at, created_at, updated_at
       `,
       [
         data.tenantId,
@@ -204,7 +204,7 @@ export class MemoryRepository {
       const existing = await runQueryWithTenant<UserMemoryEntityRow>(
         data.tenantId,
         `
-        SELECT entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interactionAt, createdAt, updatedAt
+        SELECT entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interaction_at, created_at, updated_at
         FROM user_memory_entities
         WHERE global_user_id = $1 AND entity_type = $2 AND (target_global_user_id = $3 OR (target_global_user_id IS NULL AND $3 IS NULL)) AND (target_company_id = $4 OR (target_company_id IS NULL AND $4 IS NULL))
         LIMIT 1
@@ -220,10 +220,10 @@ export class MemoryRepository {
           UPDATE user_memory_entities
           SET interaction_count = interaction_count + 1,
               relevance_score = LEAST(relevance_score + 0.1, 1.0),
-              last_interactionAt = now(),
-              updatedAt = now()
+              last_interaction_at = now(),
+              updated_at = now()
           WHERE entity_id = $1
-          RETURNING entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interactionAt, createdAt, updatedAt
+          RETURNING entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interaction_at, created_at, updated_at
           `,
           [existing.entity_id]
         );
@@ -248,7 +248,7 @@ export class MemoryRepository {
     limit: number = 10
   ): Promise<UserMemoryEntityRow[]> {
     let query = `
-      SELECT entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interactionAt, createdAt, updatedAt
+      SELECT entity_id, tenant_id, global_user_id, entity_type, target_global_user_id, target_company_id, entity_name, entity_metadata, relevance_score, interaction_count, last_interaction_at, created_at, updated_at
       FROM user_memory_entities
       WHERE global_user_id = $1
     `;
@@ -263,7 +263,7 @@ export class MemoryRepository {
       params.push(limit);
     }
 
-    query += ` ORDER BY relevance_score DESC, last_interactionAt DESC LIMIT $${params.length}`;
+    query += ` ORDER BY relevance_score DESC, last_interaction_at DESC LIMIT $${params.length}`;
 
     return await runQueriesWithTenant<UserMemoryEntityRow>(tenantId, query, params);
   }
@@ -281,10 +281,10 @@ export class MemoryRepository {
     const row = await runQueryWithTenant<UserMemoryShortcutRow>(
       data.tenantId,
       `
-      INSERT INTO user_memory_shortcuts (tenant_id, global_user_id, label, intent, parameters, usage_count, last_usedAt)
+      INSERT INTO user_memory_shortcuts (tenant_id, global_user_id, label, intent, parameters, usage_count, last_used_at)
       VALUES ($1, $2, $3, $4, $5, 1, now())
       ON CONFLICT DO NOTHING
-      RETURNING shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_usedAt, createdAt, updatedAt
+      RETURNING shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_used_at, created_at, updated_at
       `,
       [
         data.tenantId,
@@ -300,7 +300,7 @@ export class MemoryRepository {
       const existing = await runQueryWithTenant<UserMemoryShortcutRow>(
         data.tenantId,
         `
-        SELECT shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_usedAt, createdAt, updatedAt
+        SELECT shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_used_at, created_at, updated_at
         FROM user_memory_shortcuts
         WHERE global_user_id = $1 AND intent = $2 AND parameters::text = $3
         LIMIT 1
@@ -315,10 +315,10 @@ export class MemoryRepository {
           `
           UPDATE user_memory_shortcuts
           SET usage_count = usage_count + 1,
-              last_usedAt = now(),
-              updatedAt = now()
+              last_used_at = now(),
+              updated_at = now()
           WHERE shortcut_id = $1
-          RETURNING shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_usedAt, createdAt, updatedAt
+          RETURNING shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_used_at, created_at, updated_at
           `,
           [existing.shortcut_id]
         );
@@ -344,10 +344,10 @@ export class MemoryRepository {
     return await runQueriesWithTenant<UserMemoryShortcutRow>(
       tenantId,
       `
-      SELECT shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_usedAt, createdAt, updatedAt
+      SELECT shortcut_id, tenant_id, global_user_id, label, intent, parameters, usage_count, last_used_at, created_at, updated_at
       FROM user_memory_shortcuts
       WHERE global_user_id = $1
-      ORDER BY usage_count DESC, last_usedAt DESC
+      ORDER BY usage_count DESC, last_used_at DESC
       LIMIT $2
       `,
       [globalUserId, limit]

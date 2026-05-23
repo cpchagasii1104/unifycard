@@ -106,10 +106,19 @@ class VenueMenuService {
     };
   }
 
-  private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
+  private async recordAudit(tenantId: string, data: Record<string, unknown>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      const eventType = (typeof data.eventType === 'string' ? data.eventType : 'MENU_EVENT');
+      const context: Record<string, unknown> = { ...data };
+      const input: import('@core/audit/audit.service').AuditEventInput = {
+        event_type: eventType,
+        severity: 'low',
+        source: 'impact',
+        context,
+      };
+      if (typeof data.actorId === 'string') input.actor_id = data.actorId;
+      await auditService.record(tenantId, input);
     } catch (error) {
       console.warn('[VenueMenuService] Erro ao registrar auditoria:', error);
     }

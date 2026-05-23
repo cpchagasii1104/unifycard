@@ -23,8 +23,8 @@ export interface RiskFlagRow {
   tenant_id: string;
   risk_level: string;
   risk_score: number;
-  last_evaluatedAt: Date;
-  createdAt: Date;
+  last_evaluated_at: Date;
+  created_at: Date;
 }
 
 

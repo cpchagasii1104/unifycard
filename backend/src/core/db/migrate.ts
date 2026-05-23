@@ -2,16 +2,16 @@
 //
 // Script de migração automático que aplica todos os arquivos SQL
 // do diretório migrations/ em ordem alfabética.
+// Convenção de nomes (novas migrations = timestamp): ver README.md na raiz do backend — secção "Convenção de nomeação de migrations".
 // Agora com controle de migrations executadas via tabela schema_migrations
 
-import dotenv from 'dotenv';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { createHash } from 'crypto';
+import { BACKEND_ROOT, loadBackendEnv } from './load-backend-env';
 
-// Carrega variáveis de ambiente ANTES de criar o pool
-dotenv.config({ path: join(process.cwd(), '.env') });
+loadBackendEnv();
 
 // Cria pool diretamente aqui para garantir que dotenv foi carregado
 const pool = new Pool({
@@ -23,12 +23,12 @@ const pool = new Pool({
 // Valida se DATABASE_URL está configurada
 if (!process.env.DATABASE_URL) {
   console.error('❌ Erro: DATABASE_URL não está configurada no arquivo .env');
-  console.error('   Por favor, defina DATABASE_URL no arquivo .env na raiz do projeto');
+  console.error(`   Defina DATABASE_URL em ${join(BACKEND_ROOT, '.env')}`);
   process.exit(1);
 }
 
-const MIGRATIONS_DIR = join(process.cwd(), 'migrations');
-const SEEDS_DIR = join(process.cwd(), 'seeds');
+const MIGRATIONS_DIR = join(BACKEND_ROOT, 'migrations');
+const SEEDS_DIR = join(BACKEND_ROOT, 'seeds');
 
 /**
  * Profiles de execução de migrations
@@ -126,6 +126,54 @@ interface MigrationFile {
 interface ExecutedMigration {
   filename: string;
   executedAt: Date;
+}
+
+/**
+ * Extrai o número da migration a partir do filename.
+ * Ex.: "0007_system_functions.sql" → 7, "0020_products_and_store_product_activations.sql" → 20.
+ * Retorna null se o filename não corresponder ao padrão /^(\d+)_/.
+ */
+function extractMigrationNumber(filename: string): number | null {
+  // §15.1 NOMENCLATURA_CANONICA: YYYYMMDDHHMMSS_description.up.sql — fora da sequência numérica 0001…
+  if (/^\d{14}_/.test(filename)) {
+    return null;
+  }
+  // YYYYMMDD_description.sql (8 dígitos) — fora da sequência numérica legada
+  if (/^\d{8}_/.test(filename)) {
+    return null;
+  }
+  const match = filename.match(/^(\d+)_/);
+  if (!match) return null;
+  return parseInt(match[1], 10);
+}
+
+/**
+ * Retorna a versão atual do schema (Lei 2 / forward-only).
+ * Se a tabela schema_version existir, retorna MAX(version).
+ * Caso contrário, deriva a versão a partir de schema_migrations (migrations 0001–0005).
+ */
+async function getCurrentSchemaVersion(client: PoolClient): Promise<number> {
+  const tableExists = await client.query<{ exists: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'schema_version'
+    ) as exists
+  `);
+  if (tableExists.rows[0]?.exists) {
+    const result = await client.query<{ v: string }>(
+      'SELECT COALESCE(MAX(version), 0)::text as v FROM schema_version'
+    );
+    return parseInt(result.rows[0]?.v ?? '0', 10);
+  }
+  const result = await client.query<{ filename: string }>(
+    'SELECT filename FROM schema_migrations'
+  );
+  let maxVer = 0;
+  for (const row of result.rows) {
+    const n = extractMigrationNumber(row.filename);
+    if (n !== null && n > maxVer) maxVer = n;
+  }
+  return maxVer;
 }
 
 /**
@@ -352,27 +400,21 @@ async function performAutoBaseline(allMigrations: MigrationFile[]): Promise<void
 }
 
 /**
- * Marca uma migration como executada
+ * Marca uma migration como executada (usa o client passado para rodar na mesma transação).
  */
 async function markMigrationAsExecuted(
+  client: PoolClient,
   filename: string,
   sql: string,
   executionTimeMs: number
 ): Promise<void> {
-  const client = await pool.connect();
-  try {
-    // Calcular checksum (opcional, para validação futura)
-    const checksum = createHash('sha256').update(sql).digest('hex').substring(0, 64);
-    
-    await client.query(
-      `INSERT INTO schema_migrations (filename, checksum, execution_time_ms)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (filename) DO NOTHING`,
-      [filename, checksum, executionTimeMs]
-    );
-  } finally {
-    client.release();
-  }
+  const checksum = createHash('sha256').update(sql).digest('hex').substring(0, 64);
+  await client.query(
+    `INSERT INTO schema_migrations (filename, checksum, execution_time_ms)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (filename) DO NOTHING`,
+    [filename, checksum, executionTimeMs]
+  );
 }
 
 /**
@@ -426,37 +468,59 @@ async function getSeedFiles(): Promise<MigrationFile[]> {
 }
 
 /**
- * Executa um arquivo SQL de migração
- * 
- * NOTA: Esta função EXECUTA o SQL da migration e marca como executada.
- * Diferente do baseline, que apenas marca sem executar.
+ * Executa um arquivo SQL de migração em transação.
+ * Respeita Lei 2 (forward-only): valida sequência via schema_version e insere nova versão após execução.
  */
 async function executeMigration(migration: MigrationFile): Promise<void> {
   const startTime = Date.now();
-  const is000 = migration.filename.startsWith('000_');
-  const prefix = is000 ? '🔧 [BOOTSTRAP]' : '📦 [EXECUTANDO]';
-  console.log(`${prefix} ${migration.filename}`);
-  
   const sql = await readFile(migration.path, 'utf-8');
-  
+
   if (!sql.trim()) {
     console.log(`⚠️  Arquivo vazio, pulando: ${migration.filename}`);
     return;
   }
 
+  const migrationNumber = extractMigrationNumber(migration.filename);
   const client = await pool.connect();
-  
+
   try {
-    // Executa o SQL completo
+    if (migrationNumber !== null) {
+      const currentVersion = await getCurrentSchemaVersion(client);
+      const expected = currentVersion + 1;
+      if (migrationNumber !== expected) {
+        throw new Error(
+          `Forward-only violation: expected migration ${expected} but got ${migrationNumber}`
+        );
+      }
+      console.log(`Running migration ${migration.filename}`);
+      console.log(`Current schema version: ${currentVersion}`);
+      console.log(`Expected: ${expected}`);
+      console.log(`Executing: ${migrationNumber}`);
+    } else {
+      console.log(`📦 [EXECUTANDO] ${migration.filename}`);
+    }
+
+    await client.query('BEGIN');
+
     await client.query(sql);
     const executionTime = Date.now() - startTime;
-    
-    // Marca como executada (com checksum e tempo de execução)
-    await markMigrationAsExecuted(migration.filename, sql, executionTime);
-    
+
+    await markMigrationAsExecuted(client, migration.filename, sql, executionTime);
+
+    if (migrationNumber !== null && migrationNumber >= 9) {
+      await client.query(
+        'INSERT INTO schema_version(version) VALUES ($1)',
+        [migrationNumber]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const is000 = migration.filename.startsWith('000_');
     const successPrefix = is000 ? '🔧 [BOOTSTRAP OK]' : '✅ [EXECUTADA]';
     console.log(`${successPrefix} ${migration.filename} (${executionTime}ms) - SQL executado com sucesso`);
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error(`❌ Erro ao executar migração ${migration.filename}:`);
     console.error(error);
     throw new Error(

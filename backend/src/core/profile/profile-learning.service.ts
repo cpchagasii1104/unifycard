@@ -6,13 +6,18 @@
 // - Progresso (beginner/intermediate/advanced) representa fase de exploração, não nível
 // - Por que isso NÃO pode virar decisão: aprendizado é autodireção, não validação
 
-import { runQueryWithTenant } from '@core/database/pool';
 import { identityService } from '../identity/identity.service';
 import type {
   LearningProfile,
   UpdateLearningProfileInput,
   LearningCategory,
 } from './profile-learning.types';
+import {
+  assertStoredProfileCategoryIdsStrict,
+  assertWritePayloadCategoryIdsOnly,
+  enrichCategoryNavigationByIds,
+  requireCategoriesWithConceptForScope,
+} from './category-navigation-bridge';
 
 class ProfileLearningService {
   /**
@@ -39,7 +44,7 @@ class ProfileLearningService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -47,9 +52,27 @@ class ProfileLearningService {
 
     const metadata = userRow.rows[0]?.metadata || {};
 
-    // Extrair dados do perfil de aprendizado
-    const learnings: LearningCategory[] = metadata.learnings || [];
     const preferences = metadata.learningPreferences || {};
+    const learningIds = assertStoredProfileCategoryIdsStrict(metadata.learnings, 'learnings');
+    const baseRows = await enrichCategoryNavigationByIds(pool, learningIds, 'learning');
+    const learnings: LearningCategory[] = baseRows.map((row) => {
+      const pref = preferences[row.categoryId] || {};
+      return {
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        categoryPath: row.categoryPath,
+        level: row.level,
+        progress: pref.progress ?? null,
+        preferences:
+          pref && (pref.details?.length || pref.notes || pref.progress != null)
+            ? {
+                progress: pref.progress,
+                details: pref.details,
+                notes: pref.notes,
+              }
+            : undefined,
+      };
+    });
 
     return {
       globalUserId,
@@ -82,7 +105,7 @@ class ProfileLearningService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -90,56 +113,61 @@ class ProfileLearningService {
 
     const currentMetadata = currentRow.rows[0]?.metadata || {};
 
-    // Buscar categorias selecionadas para montar array completo
-    let learnings: LearningCategory[] = [];
-    if (input.learnings && input.learnings.length > 0) {
-      const categoriesResult = await pool.query<{
-        category_id: string;
-        name: string;
-        path: string[];
-        level: number;
-      }>(
-        `
-        SELECT category_id, name, path, level
-        FROM categories
-        WHERE category_id = ANY($1::uuid[])
-          AND scope = 'learning'
-          AND (status IS NULL OR status = 'active' OR status = 'auto_active')
-        `,
-        [input.learnings]
-      );
+    const nextLearningIds =
+      input.learnings !== undefined
+        ? assertWritePayloadCategoryIdsOnly(input.learnings, 'learnings')
+        : assertStoredProfileCategoryIdsStrict(currentMetadata.learnings, 'learnings');
 
-      learnings = categoriesResult.rows.map((row) => ({
-        categoryId: row.category_id,
-        categoryName: row.name,
-        categoryPath: row.path,
-        level: row.level,
-      }));
+    if (nextLearningIds.length > 0) {
+      await requireCategoriesWithConceptForScope(pool, nextLearningIds, 'learning');
     }
 
-    // Atualizar metadata com novos dados
+    const nextPreferences =
+      input.preferences !== undefined ? input.preferences : currentMetadata.learningPreferences || {};
+    const nextLearningMeta =
+      input.metadata !== undefined ? input.metadata : currentMetadata.learningMetadata || {};
+
     const updatedMetadata = {
       ...currentMetadata,
-      learnings,
-      learningPreferences: input.preferences || currentMetadata.learningPreferences || {},
-      learningMetadata: input.metadata || currentMetadata.learningMetadata || {},
+      learnings: nextLearningIds,
+      learningPreferences: nextPreferences,
+      learningMetadata: nextLearningMeta,
     };
 
-    // Atualizar no banco
     await pool.query(
       `
       UPDATE global_users
-      SET metadata = $1::jsonb, updatedAt = now()
+      SET metadata = $1::jsonb, updated_at = now()
       WHERE global_user_id = $2
       `,
       [JSON.stringify(updatedMetadata), globalUserId]
     );
 
+    const baseRows = await enrichCategoryNavigationByIds(pool, nextLearningIds, 'learning');
+    const learnings: LearningCategory[] = baseRows.map((row) => {
+      const pref = nextPreferences[row.categoryId] || {};
+      return {
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        categoryPath: row.categoryPath,
+        level: row.level,
+        progress: pref.progress ?? null,
+        preferences:
+          pref && (pref.details?.length || pref.notes || pref.progress != null)
+            ? {
+                progress: pref.progress,
+                details: pref.details,
+                notes: pref.notes,
+              }
+            : undefined,
+      };
+    });
+
     return {
       globalUserId,
       learnings,
-      preferences: input.preferences || currentMetadata.learningPreferences || {},
-      metadata: input.metadata || currentMetadata.learningMetadata || {},
+      preferences: nextPreferences,
+      metadata: nextLearningMeta,
     };
   }
 }

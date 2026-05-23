@@ -2,7 +2,7 @@
 // SPRINT 86: PAYMENT LINKS
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import type { PaymentLink, CreatePaymentLinkInput, PaymentLinkPayment } from './payment-link.types';
+import type { PaymentLink, CreatePaymentLinkInput, PaymentLinkPayment, PaymentLinkPaymentStatus } from './payment-link.types';
 
 interface PaymentLinkRow {
   id: string;
@@ -11,16 +11,16 @@ interface PaymentLinkRow {
   slug: string;
   title: string;
   description: string | null;
-  amountCents: string;
+  amount: string; // DB column; map to amountCents in TS
   currency: string;
-  expiresAt: Date | null;
+  expires_at: Date | null;
   max_uses: number | null;
   uses_count: number;
   status: string;
   contact_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface PaymentLinkPaymentRow {
@@ -32,8 +32,8 @@ interface PaymentLinkPaymentRow {
   contact_id: string | null;
   status: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PaymentLinkRepository {
@@ -47,14 +47,14 @@ class PaymentLinkRepository {
       description: row.description,
       amountCents: parseFloat(row.amount),
       currency: row.currency,
-      expiresAt: row.expiresAt,
+      expiresAt: row.expires_at,
       maxUses: row.max_uses,
       usesCount: row.uses_count,
       status: row.status as any,
       contactId: row.contact_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -68,8 +68,8 @@ class PaymentLinkRepository {
       contactId: row.contact_id,
       status: row.status as any,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -115,12 +115,12 @@ class PaymentLinkRepository {
       `
       INSERT INTO payment_links (
         tenant_id, created_by_actor_id, slug, title, description,
-        amount, currency, expiresAt, max_uses, contact_id, metadata
+        amount, currency, expires_at, max_uses, contact_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expiresAt, max_uses, uses_count, status,
-                contact_id, metadata, createdAt, updatedAt
+                amount, currency, expires_at, max_uses, uses_count, status,
+                contact_id, metadata, created_at, updated_at
       `,
       [
         tenantId,
@@ -128,7 +128,7 @@ class PaymentLinkRepository {
         slug,
         input.title,
         input.description || null,
-        input.amount,
+        input.amountCents,
         input.currency || 'BRL',
         input.expiresAt || null,
         input.maxUses || null,
@@ -137,19 +137,18 @@ class PaymentLinkRepository {
       ]
     );
 
+    if (!row) {
+      throw new Error('Falha ao criar payment link');
+    }
     return this.toPaymentLink(row);
   }
-
-  /**
-   * Busca link por slug
-   */
   async getBySlug(tenantId: string, slug: string): Promise<PaymentLink | null> {
     const row = await runQueryWithTenant<PaymentLinkRow>(
       tenantId,
       `
       SELECT id, tenant_id, created_by_actor_id, slug, title, description,
-             amount, currency, expiresAt, max_uses, uses_count, status,
-             contact_id, metadata, createdAt, updatedAt
+             amount, currency, expires_at, max_uses, uses_count, status,
+             contact_id, metadata, created_at, updated_at
       FROM payment_links
       WHERE tenant_id = $1 AND slug = $2
       `,
@@ -171,8 +170,8 @@ class PaymentLinkRepository {
       tenantId,
       `
       SELECT id, tenant_id, created_by_actor_id, slug, title, description,
-             amount, currency, expiresAt, max_uses, uses_count, status,
-             contact_id, metadata, createdAt, updatedAt
+             amount, currency, expires_at, max_uses, uses_count, status,
+             contact_id, metadata, created_at, updated_at
       FROM payment_links
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -194,15 +193,18 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET uses_count = uses_count + 1, updatedAt = NOW()
+      SET uses_count = uses_count + 1, updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expiresAt, max_uses, uses_count, status,
-                contact_id, metadata, createdAt, updatedAt
+                amount, currency, expires_at, max_uses, uses_count, status,
+                contact_id, metadata, created_at, updated_at
       `,
       [tenantId, linkId]
     );
 
+    if (!row) {
+      throw new Error('Payment link não encontrado ao incrementar usos');
+    }
     return this.toPaymentLink(row);
   }
 
@@ -214,15 +216,18 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET status = 'EXPIRED', updatedAt = NOW()
+      SET status = 'EXPIRED', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'ACTIVE'
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expiresAt, max_uses, uses_count, status,
-                contact_id, metadata, createdAt, updatedAt
+                amount, currency, expires_at, max_uses, uses_count, status,
+                contact_id, metadata, created_at, updated_at
       `,
       [tenantId, linkId]
     );
 
+    if (!row) {
+      throw new Error('Payment link não encontrado ou já expirado');
+    }
     return this.toPaymentLink(row);
   }
 
@@ -234,15 +239,18 @@ class PaymentLinkRepository {
       tenantId,
       `
       UPDATE payment_links
-      SET status = 'DISABLED', updatedAt = NOW()
+      SET status = 'DISABLED', updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
       RETURNING id, tenant_id, created_by_actor_id, slug, title, description,
-                amount, currency, expiresAt, max_uses, uses_count, status,
-                contact_id, metadata, createdAt, updatedAt
+                amount, currency, expires_at, max_uses, uses_count, status,
+                contact_id, metadata, created_at, updated_at
       `,
       [tenantId, linkId]
     );
 
+    if (!row) {
+      throw new Error('Payment link não encontrado ao desabilitar');
+    }
     return this.toPaymentLink(row);
   }
 
@@ -264,11 +272,14 @@ class PaymentLinkRepository {
       VALUES ($1, $2, $3, $4, 'PENDING')
       RETURNING id, tenant_id, payment_link_id, payment_intent_id,
                 payment_transaction_id, contact_id, status, metadata,
-                createdAt, updatedAt
+                created_at, updated_at
       `,
       [tenantId, paymentLinkId, paymentIntentId, contactId || null]
     );
 
+    if (!row) {
+      throw new Error('Falha ao criar registro de pagamento via link');
+    }
     return this.toPaymentLinkPayment(row);
   }
 
@@ -281,7 +292,7 @@ class PaymentLinkRepository {
     status: PaymentLinkPaymentStatus,
     paymentTransactionId?: string
   ): Promise<PaymentLinkPayment> {
-    const updates: string[] = ['status = $3', 'updatedAt = NOW()'];
+    const updates: string[] = ['status = $3', 'updated_at = NOW()'];
     const params: any[] = [tenantId, paymentIntentId, status];
     
     if (paymentTransactionId) {
@@ -297,11 +308,14 @@ class PaymentLinkRepository {
       WHERE tenant_id = $1 AND payment_intent_id = $2
       RETURNING id, tenant_id, payment_link_id, payment_intent_id,
                 payment_transaction_id, contact_id, status, metadata,
-                createdAt, updatedAt
+                created_at, updated_at
       `,
       params
     );
 
+    if (!row) {
+      throw new Error('Pagamento via link não encontrado ao atualizar status');
+    }
     return this.toPaymentLinkPayment(row);
   }
 }

@@ -1,7 +1,7 @@
 // backend/src/contracts/marketplace/BusinessTemplate.contract.ts
 // CONTRATO PÚBLICO CONGELADO - BusinessTemplate (Arquétipo de Empresa)
 // ⚠️ READ-ONLY - NÃO QUEBRAR SEM VERSÃO NOVA
-// Versão: v2.0
+// Versão: v2.1 — removido campo legado de templates de produto (catálogo global / StoreOnboarding)
 // Data: 2026-01-XX
 // Status: CONGELADO
 
@@ -41,9 +41,10 @@ export interface BusinessTemplate {
   description: string;
   type: BusinessTemplateType;
   version: string; // v1, v2, etc.
-  categoryIds: string[]; // Categorias de produtos/serviços padrão
+  categoryIds: string[]; // Categorias de produtos/serviços padrão (legado / UI; industrial vem do catálogo global)
   allowedProductTypes: ProductType; // industrialized, own, both
-  defaultProductTemplates: string[]; // IDs de ProductTemplate
+  /** IDs de ProductTemplate canônicos (opcional — legado / importação de loja). */
+  defaultProductTemplates?: string[];
   defaultServiceTemplates: string[]; // IDs de ServiceTemplateCanonical
   operationalConfig: {
     requiresAgenda: boolean;

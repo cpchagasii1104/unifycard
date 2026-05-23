@@ -1,11 +1,6 @@
 // src/modules/economy/economic-overview.projector.ts
 // Projector para Dashboard Econômico (READ-ONLY)
-// 🔴 BLINDAGEM: Este domínio NÃO cria dinheiro, NÃO executa pagamento e NÃO decide nada
-// 🔴 BLINDAGEM: Ele apenas EXIBE o que já aconteceu
-// 🔴 BLINDAGEM: isto NÃO é banco
-// 🔴 BLINDAGEM: isto NÃO é carteira
-// 🔴 BLINDAGEM: isto NÃO é saldo
-// 🔴 BLINDAGEM: isto é apenas visualização histórica
+// FASE 5.2–5.3: agregações bank_transactions + bank_splits (SSOT); receptor via bank_accounts.actor_id (sem metadata).
 
 import { runQueriesWithTenant } from '@core/database/pool';
 import { ReadModelType } from '@core/read-models/read-model.types';
@@ -16,131 +11,125 @@ import type {
   EconomicTransaction,
 } from './economic-overview.types';
 
-/**
- * Projector para Economic Overview Read Models
- * 🔴 BLINDAGEM: Apenas visualização histórica, não cria nada
- */
+/** Valor do split em centavos (SSOT bank_splits.amount). */
+const BS_AMOUNT = 'bs.amount::numeric';
+
+/** Splits onde o actor/grupo é receptor: bank_accounts.target_account_id → actor_id (sem metadata). */
+const BS_RECEIVER_JOIN = `
+  INNER JOIN bank_accounts ba ON ba.id = bs.target_account_id AND ba.tenant_id = bs.tenant_id AND ba.actor_id = $2::uuid
+`;
+
 class EconomicOverviewProjector {
-  /**
-   * Projeta Actor Economic Overview
-   * 🔴 BLINDAGEM: Calcula agregações a partir de PAYMENT_EXECUTION, PAYMENT_SPLIT, SERVICE_PAYMENT_REQUEST
-   */
   async projectActorEconomicOverview(
     tenantId: string,
     actorId: string
   ): Promise<ActorEconomicOverview> {
-    // 🔴 BLINDAGEM: Buscar dados de PAYMENT_EXECUTION onde actor é payer ou receiver
-    const executionsAsPayer = await runQueriesWithTenant<{
-      amountCents: number;
-      currency: string;
-      executedAt: Date;
-      execution_id: string;
+    const paidRow = await runQueriesWithTenant<{ total: string }>(
+      tenantId,
+      `
+      SELECT COALESCE(SUM(bt.amount_cents), 0)::text AS total
+      FROM bank_transactions bt
+      WHERE bt.tenant_id = $1 AND bt.actor_id = $2
+      `,
+      [tenantId, actorId]
+    );
+    const totalPaid = parseFloat(paidRow[0]?.total || '0');
+
+    const recvRow = await runQueriesWithTenant<{ total: string }>(
+      tenantId,
+      `
+      SELECT COALESCE(SUM(${BS_AMOUNT}), 0)::text AS total
+      FROM bank_splits bs
+      ${BS_RECEIVER_JOIN}
+      WHERE bs.tenant_id = $1
+      `,
+      [tenantId, actorId]
+    );
+    const totalReceivedFromSplits = parseFloat(recvRow[0]?.total || '0');
+    const totalReceived = totalReceivedFromSplits;
+    const totalDistributedViaSplit = totalReceivedFromSplits;
+
+    const cntRow = await runQueriesWithTenant<{ n: string }>(
+      tenantId,
+      `
+      SELECT COUNT(DISTINCT x.tid)::text AS n FROM (
+        SELECT bt.id AS tid FROM bank_transactions bt
+        WHERE bt.tenant_id = $1 AND bt.actor_id = $2
+        UNION
+        SELECT bs.transaction_id AS tid FROM bank_splits bs
+        ${BS_RECEIVER_JOIN}
+        WHERE bs.tenant_id = $1
+      ) x
+      `,
+      [tenantId, actorId]
+    );
+    const executionsCount = parseInt(cntRow[0]?.n || '0', 10);
+
+    const payerRows = await runQueriesWithTenant<{
+      id: string;
+      amount_cents: string;
+      created_at: Date;
     }>(
       tenantId,
       `
-      SELECT 
-        amount, currency, executedAt, execution_id
-      FROM service_payment_executions
-      WHERE payer_actor_id = $1 AND tenant_id = $2
-      ORDER BY executedAt DESC
-      LIMIT 100
+      SELECT bt.id::text, bt.amount_cents::text, bt.created_at
+      FROM bank_transactions bt
+      WHERE bt.tenant_id = $1 AND bt.actor_id = $2
+      ORDER BY bt.created_at DESC
+      LIMIT 30
       `,
-      [actorId, tenantId]
+      [tenantId, actorId]
     );
 
-    const executionsAsReceiver = await runQueriesWithTenant<{
-      amountCents: number;
-      currency: string;
-      executedAt: Date;
-      execution_id: string;
-    }>(
-      tenantId,
-      `
-      SELECT 
-        amount, currency, executedAt, execution_id
-      FROM service_payment_executions
-      WHERE receiver_actor_id = $1 AND tenant_id = $2
-      ORDER BY executedAt DESC
-      LIMIT 100
-      `,
-      [actorId, tenantId]
-    );
-
-    // 🔴 BLINDAGEM: Buscar dados de PAYMENT_SPLIT onde actor é receiver
-    const splitsAsReceiver = await runQueriesWithTenant<{
-      amountCents: number;
-      currency: string;
-      executedAt: Date;
+    const splitRows = await runQueriesWithTenant<{
       split_id: string;
-      execution_id: string;
+      amt: string;
+      executed_at: Date;
+      tx_id: string;
     }>(
       tenantId,
       `
-      SELECT 
-        ps.amount, spe.currency, spe.executedAt, ps.split_id, ps.execution_id
-      FROM payment_splits ps
-      INNER JOIN service_payment_executions spe ON ps.execution_id = spe.execution_id
-      WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
-      ORDER BY spe.executedAt DESC
-      LIMIT 100
+      SELECT bs.split_id::text,
+             ${BS_AMOUNT}::text AS amt,
+             bt.created_at AS executed_at,
+             bs.transaction_id::text AS tx_id
+      FROM bank_splits bs
+      JOIN bank_transactions bt ON bt.id = bs.transaction_id AND bt.tenant_id = bs.tenant_id
+      ${BS_RECEIVER_JOIN}
+      WHERE bs.tenant_id = $1
+      ORDER BY bt.created_at DESC
+      LIMIT 30
       `,
-      [actorId, tenantId]
+      [tenantId, actorId]
     );
 
-    // Calcular totais
-    const totalPaid = executionsAsPayer.reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0);
-    const totalReceivedFromExecutions = executionsAsReceiver.reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0);
-    const totalDistributedViaSplit = splitsAsReceiver.reduce((sum, s) => sum + parseFloat(s.amount.toString()), 0);
-    const totalReceived = totalReceivedFromExecutions + totalDistributedViaSplit;
-    const executionsCount = executionsAsPayer.length + executionsAsReceiver.length;
-
-    // Construir últimas transações
     const lastTransactions: EconomicTransaction[] = [];
-    
-    // Adicionar execuções como payer
-    executionsAsPayer.slice(0, 20).forEach(e => {
+
+    payerRows.forEach((r) => {
       lastTransactions.push({
-        transactionId: e.execution_id,
+        transactionId: r.id,
         type: 'payment_execution',
-        amountCents: parseFloat(e.amount.toString()),
-        currency: e.currency,
+        amountCents: parseFloat(r.amount_cents),
+        currency: 'BRL',
         payerActorId: actorId,
-        executedAt: e.executedAt,
-        metadata: {},
+        executedAt: r.created_at,
+        metadata: { source: 'bank_transactions' },
       });
     });
 
-    // Adicionar execuções como receiver
-    executionsAsReceiver.slice(0, 20).forEach(e => {
+    splitRows.forEach((r) => {
       lastTransactions.push({
-        transactionId: e.execution_id,
-        type: 'payment_execution',
-        amountCents: parseFloat(e.amount.toString()),
-        currency: e.currency,
-        receiverActorId: actorId,
-        executedAt: e.executedAt,
-        metadata: {},
-      });
-    });
-
-    // Adicionar splits como receiver
-    splitsAsReceiver.slice(0, 20).forEach(s => {
-      lastTransactions.push({
-        transactionId: s.split_id,
+        transactionId: r.split_id,
         type: 'payment_split',
-        amountCents: parseFloat(s.amount.toString()),
-        currency: s.currency,
+        amountCents: parseFloat(r.amt),
+        currency: 'BRL',
         receiverActorId: actorId,
-        executedAt: s.executedAt,
-        metadata: { executionId: s.execution_id },
+        executedAt: r.executed_at,
+        metadata: { bankTransactionId: r.tx_id, source: 'bank_splits' },
       });
     });
 
-    // Ordenar por data (mais recente primeiro) e limitar
     lastTransactions.sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime());
-    const limitedTransactions = lastTransactions.slice(0, 20);
-
-    const currency = executionsAsPayer[0]?.currency || executionsAsReceiver[0]?.currency || splitsAsReceiver[0]?.currency || 'FIC';
 
     return {
       actorId,
@@ -149,101 +138,72 @@ class EconomicOverviewProjector {
       totalPaid,
       totalDistributedViaSplit,
       executionsCount,
-      lastTransactions: limitedTransactions,
-      currency,
+      lastTransactions: lastTransactions.slice(0, 20),
+      currency: 'BRL',
       lastUpdated: new Date(),
     };
   }
 
-  /**
-   * Projeta Group Economic Overview
-   * 🔴 BLINDAGEM: Calcula agregações a partir de PAYMENT_EXECUTION, PAYMENT_SPLIT
-   * 🔴 BLINDAGEM: Grupos não pagam, apenas recebem
-   */
   async projectGroupEconomicOverview(
     tenantId: string,
     groupId: string
   ): Promise<GroupEconomicOverview> {
-    // 🔴 BLINDAGEM: Buscar dados de PAYMENT_EXECUTION onde grupo é receiver
-    const executionsAsReceiver = await runQueriesWithTenant<{
-      amountCents: number;
-      currency: string;
-      executedAt: Date;
-      execution_id: string;
-    }>(
+    const recvRow = await runQueriesWithTenant<{ total: string }>(
       tenantId,
       `
-      SELECT 
-        amount, currency, executedAt, execution_id
-      FROM service_payment_executions
-      WHERE receiver_actor_id = $1 AND tenant_id = $2
-      ORDER BY executedAt DESC
-      LIMIT 100
+      SELECT COALESCE(SUM(${BS_AMOUNT}), 0)::text AS total
+      FROM bank_splits bs
+      ${BS_RECEIVER_JOIN}
+      WHERE bs.tenant_id = $1
       `,
-      [groupId, tenantId]
+      [tenantId, groupId]
     );
+    const totalDistributedViaSplit = parseFloat(recvRow[0]?.total || '0');
+    const totalReceived = totalDistributedViaSplit;
 
-    // 🔴 BLINDAGEM: Buscar dados de PAYMENT_SPLIT onde grupo é receiver
-    const splitsAsReceiver = await runQueriesWithTenant<{
-      amountCents: number;
-      currency: string;
-      executedAt: Date;
+    const cntRow = await runQueriesWithTenant<{ n: string }>(
+      tenantId,
+      `
+      SELECT COUNT(DISTINCT bs.transaction_id)::text AS n
+      FROM bank_splits bs
+      ${BS_RECEIVER_JOIN}
+      WHERE bs.tenant_id = $1
+      `,
+      [tenantId, groupId]
+    );
+    const executionsCount = parseInt(cntRow[0]?.n || '0', 10);
+
+    const splitList = await runQueriesWithTenant<{
       split_id: string;
-      execution_id: string;
+      amt: string;
+      executed_at: Date;
+      tx_id: string;
     }>(
       tenantId,
       `
-      SELECT 
-        ps.amount, spe.currency, spe.executedAt, ps.split_id, ps.execution_id
-      FROM payment_splits ps
-      INNER JOIN service_payment_executions spe ON ps.execution_id = spe.execution_id
-      WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
-      ORDER BY spe.executedAt DESC
-      LIMIT 100
+      SELECT bs.split_id::text,
+             ${BS_AMOUNT}::text AS amt,
+             bt.created_at AS executed_at,
+             bs.transaction_id::text AS tx_id
+      FROM bank_splits bs
+      JOIN bank_transactions bt ON bt.id = bs.transaction_id AND bt.tenant_id = bs.tenant_id
+      ${BS_RECEIVER_JOIN}
+      WHERE bs.tenant_id = $1
+      ORDER BY bt.created_at DESC
+      LIMIT 30
       `,
-      [groupId, tenantId]
+      [tenantId, groupId]
     );
 
-    // Calcular totais
-    const totalReceivedFromExecutions = executionsAsReceiver.reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0);
-    const totalDistributedViaSplit = splitsAsReceiver.reduce((sum, s) => sum + parseFloat(s.amount.toString()), 0);
-    const totalReceived = totalReceivedFromExecutions + totalDistributedViaSplit;
-    const executionsCount = executionsAsReceiver.length;
-
-    // Construir últimas transações
-    const lastTransactions: EconomicTransaction[] = [];
-    
-    // Adicionar execuções como receiver
-    executionsAsReceiver.slice(0, 20).forEach(e => {
-      lastTransactions.push({
-        transactionId: e.execution_id,
-        type: 'payment_execution',
-        amountCents: parseFloat(e.amount.toString()),
-        currency: e.currency,
-        receiverActorId: groupId,
-        executedAt: e.executedAt,
-        metadata: {},
-      });
-    });
-
-    // Adicionar splits como receiver
-    splitsAsReceiver.slice(0, 20).forEach(s => {
-      lastTransactions.push({
-        transactionId: s.split_id,
-        type: 'payment_split',
-        amountCents: parseFloat(s.amount.toString()),
-        currency: s.currency,
-        receiverActorId: groupId,
-        executedAt: s.executedAt,
-        metadata: { executionId: s.execution_id },
-      });
-    });
-
-    // Ordenar por data (mais recente primeiro) e limitar
-    lastTransactions.sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime());
-    const limitedTransactions = lastTransactions.slice(0, 20);
-
-    const currency = executionsAsReceiver[0]?.currency || splitsAsReceiver[0]?.currency || 'FIC';
+    const lastTransactions: EconomicTransaction[] = splitList.map((r) => ({
+      transactionId: r.split_id,
+      type: 'payment_split',
+      amountCents: parseFloat(r.amt),
+      currency: 'BRL',
+      receiverActorId: groupId,
+      executedAt: r.executed_at,
+      metadata: { bankTransactionId: r.tx_id, source: 'bank_splits' },
+    }));
 
     return {
       groupId,
@@ -251,28 +211,19 @@ class EconomicOverviewProjector {
       totalReceived,
       totalDistributedViaSplit,
       executionsCount,
-      lastTransactions: limitedTransactions,
-      currency,
+      lastTransactions: lastTransactions.slice(0, 20),
+      currency: 'BRL',
       lastUpdated: new Date(),
     };
   }
 
-  /**
-   * Projeta Read Model baseado no tipo
-   * 🔴 BLINDAGEM: Apenas visualização histórica, não cria nada
-   */
   async projectReadModel(
     readModelType: ReadModelType,
     event: UnificardEvent
   ): Promise<void> {
-    // 🔴 BLINDAGEM: Economic Overview Read Models são calculados sob demanda
-    // Não precisam ser persistidos, apenas calculados quando solicitados
-    // Este método existe para compatibilidade com o sistema de projeção
-    // mas não faz nada, pois os dados são calculados em tempo real
+    void readModelType;
+    void event;
   }
 }
 
 export const economicOverviewProjector = new EconomicOverviewProjector();
-
-
-

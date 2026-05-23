@@ -38,20 +38,23 @@ export function useAgreementValidation(
   }, [contextType, contextId, requiresAgreement]);
 
   const loadAgreement = async () => {
+    if (!contextType || !contextId) return;
+    const ct = contextType;
+    const cid = contextId;
     setIsLoading(true);
     setError(null);
 
     try {
       // Primeiro, buscar acordo finalizado
-      const finalized = await getFinalizedAgreementByContext(contextType, contextId);
+      const finalized = await getFinalizedAgreementByContext(ct, cid);
       
       if (finalized) {
         setAgreement(finalized);
       } else if (requiresAgreement) {
         // Se requer acordo mas não há finalizado, buscar qualquer acordo não finalizado
         const result = await listAgreements({
-          contextType,
-          contextId,
+          contextType: ct,
+          contextId: cid,
           limit: 1,
         });
 
@@ -87,12 +90,14 @@ export function useAgreementValidation(
     } else if (!isFinalized) {
       // Há acordo mas não está finalizado → bloquear
       canProceed = false;
-      const statusText = {
+      const statusText: Record<string, string> = {
         DRAFT: 'rascunho',
         PROPOSED: 'proposto',
         ACCEPTED: 'aceito',
-      }[agreement.status] || agreement.status.toLowerCase();
-      blockingReason = `Existe um acordo em negociação (status: ${statusText}). Finalize o acordo antes de criar booking ou bundle.`;
+        FINALIZED: 'finalizado',
+      };
+      const statusLabel = statusText[agreement.status] ?? (typeof agreement.status === 'string' ? agreement.status.toLowerCase() : '');
+      blockingReason = `Existe um acordo em negociação (status: ${statusLabel}). Finalize o acordo antes de criar booking ou bundle.`;
     }
   }
 

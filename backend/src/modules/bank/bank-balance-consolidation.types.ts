@@ -14,7 +14,7 @@ export interface ConsolidatedBalanceFilters {
   /**
    * Filtrar por tipo de owner
    */
-  ownerType?: 'user' | 'company' | 'system';
+  ownerType?: 'user' | 'company' | 'system' | 'escrow';
 
   /**
    * Incluir apenas contas ativas (com saldo != 0)
@@ -33,17 +33,17 @@ export interface ConsolidatedBalanceFilters {
 }
 
 /**
- * Saldo consolidado por tipo de conta
+ * Saldo consolidado por tipo de conta (centavos)
  */
 export interface BalanceByAccountType {
-  user: number;
-  company: number;
-  system: number;
+  userBalanceCents: number;
+  companyBalanceCents: number;
+  systemBalanceCents: number;
 }
 
 /**
- * Saldo consolidado por região
- * 
+ * Saldo consolidado por região (valores em centavos)
+ *
  * NOTA: Fundo regional é identificado via:
  * - Contas do sistema com owner_type='system' e owner_id correspondente a 'regional_fund'
  * - Ou via bank_splits com split_type='regional_fund' (agregado por região)
@@ -60,24 +60,23 @@ export interface BalanceByRegion {
  */
 export interface ReconciliationData {
   /**
-   * Saldo interno total (calculado do ledger)
+   * Saldo interno total (calculado do ledger), centavos
    */
-  internalBalance: number;
+  internalBalanceCents: number;
 
   /**
-   * Saldo bancário externo (INPUT MANUAL - fornecido pelo administrador)
+   * Saldo bancário externo em centavos (INPUT MANUAL)
    */
-  externalBalance?: number | null;
+  externalBalanceCents?: number | null;
 
   /**
-   * Diferença entre interno e externo
-   * Calculado apenas se externalBalance for fornecido
+   * Diferença em centavos (interno − externo) quando externo informado
    */
-  difference?: number | null;
+  differenceCents?: number | null;
 }
 
 /**
- * Saldo consolidado por moeda
+ * Saldo consolidado por moeda (valores em centavos)
  */
 export interface BalanceByCurrency {
   [currency: string]: number;
@@ -98,8 +97,8 @@ export interface AccountCountByType {
 export interface LargestAccount {
   accountId: string;
   ownerId: string;
-  ownerType: 'user' | 'company' | 'system';
-  balance: number;
+  ownerType: 'user' | 'company' | 'system' | 'escrow';
+  balanceCents: number;
   currency: string;
 }
 
@@ -109,8 +108,8 @@ export interface LargestAccount {
 export interface SmallestAccount {
   accountId: string;
   ownerId: string;
-  ownerType: 'user' | 'company' | 'system';
-  balance: number;
+  ownerType: 'user' | 'company' | 'system' | 'escrow';
+  balanceCents: number;
   currency: string;
 }
 
@@ -126,9 +125,9 @@ export interface SmallestAccount {
  */
 export interface ConsolidatedBalance {
   /**
-   * Saldo total do sistema (soma de todas as contas)
+   * Saldo total do sistema (soma de todas as contas), centavos
    */
-  totalSystemBalance: number;
+  totalSystemBalanceCents: number;
 
   /**
    * Saldo consolidado por tipo de conta
@@ -153,9 +152,9 @@ export interface ConsolidatedBalance {
   accountCountByType: AccountCountByType;
 
   /**
-   * Saldo médio por conta
+   * Saldo médio por conta (centavos)
    */
-  averageBalancePerAccount: number;
+  averageBalancePerAccountCents: number;
 
   /**
    * Maior conta (por saldo)

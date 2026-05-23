@@ -26,7 +26,7 @@ export interface Group {
   coverUrl?: string;
   rulesText?: string;
   financialPurpose?: string;
-  ownerUserId: string;
+  ownerActorId: string;
   isActive: boolean;
   profitPercentage?: number;
   metadata?: Record<string, any>;

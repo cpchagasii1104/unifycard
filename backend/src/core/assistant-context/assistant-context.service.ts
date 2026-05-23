@@ -41,7 +41,7 @@ class AssistantContextService {
 
       const feedInteractions = interactions.filter((interaction) => {
         if (interaction.entity_type !== 'feed_content') return false;
-        const lastInteraction = new Date(interaction.last_interactionAt);
+        const lastInteraction = new Date(interaction.last_interaction_at);
         return lastInteraction >= cutoffDate;
       });
 
@@ -101,8 +101,8 @@ class AssistantContextService {
       }
 
       // Calcular dias desde última interação
-      const lastInteraction = feedInteractions[0]?.last_interactionAt
-        ? new Date(feedInteractions[0].last_interactionAt)
+      const lastInteraction = feedInteractions[0]?.last_interaction_at
+        ? new Date(feedInteractions[0].last_interaction_at)
         : new Date();
       const daysSince = Math.floor(
         (Date.now() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24)

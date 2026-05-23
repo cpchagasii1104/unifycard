@@ -92,7 +92,7 @@ class LocationEnrichmentService {
         code: countryCode,
         name: 'Brasil',
       });
-      country = { id: created.id, code: created.code, name: created.name, active: true };
+      country = { id: created.id, code: created.code, name: created.name, isActive: true };
     }
 
     // Buscar ou criar estado

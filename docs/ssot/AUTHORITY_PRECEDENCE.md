@@ -22,6 +22,8 @@ Seu objetivo é:
 Este documento **NÃO cria novas regras**.
 Ele apenas define **qual regra vence quando há conflito**.
 
+Nota DECISION-0021: autoridade não é definida por pasta, rota, tabela ou acoplamento técnico. Em conflito de camadas, primeiro identifica-se quem possui jurisdição legítima sobre a verdade envolvida; depois aplica-se a precedência mais restritiva deste documento.
+
 ---
 
 ## 2. PRINCÍPIO FUNDAMENTAL

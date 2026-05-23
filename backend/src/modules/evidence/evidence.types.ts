@@ -5,7 +5,7 @@
 /**
  * Tipo de contexto do evidence pack
  */
-export type EvidenceContextType = 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread';
+export type EvidenceContextType = 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread' | 'rfq';
 
 /**
  * Status de disputa
@@ -55,7 +55,7 @@ export interface EvidenceEvent {
   actorId: string;
   userId: string | null;
   data: Record<string, any>; // Dados específicos do evento
-  source: 'chat' | 'agreement' | 'audit' | 'system'; // Origem do evento
+  source: 'chat' | 'agreement' | 'audit' | 'system' | 'ledger' | 'bypass_detection'; // Origem do evento
   sourceId: string | null; // ID da entidade origem (messageId, agreementId, etc)
 }
 

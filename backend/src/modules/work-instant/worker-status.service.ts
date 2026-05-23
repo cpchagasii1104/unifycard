@@ -107,6 +107,10 @@ class WorkerStatusService {
 
     const existing = this.presenceStore.get(key);
     
+    if (input.latitude == null || input.longitude == null) {
+      throw new Error('Latitude e longitude são obrigatórios');
+    }
+
     // Se não existe presença, criar como online
     const presence: WorkerPresence = existing || {
       userId,

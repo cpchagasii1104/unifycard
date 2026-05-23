@@ -1,5 +1,6 @@
 // src/core/economy/accounts/account.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { accountService } from '../account.service';
 import {
   createAccountSchema,
   accountIdSchema,
@@ -29,7 +30,16 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const account = await accountService.createAccount(tenantId, parsed.data);
+      const legacyOwnerType = parsed.data.ownerType;
+      const bankOwnerType =
+        legacyOwnerType === 'user' ? 'user' as const :
+        legacyOwnerType === 'platform_ops' ? 'system' as const :
+        'company' as const;
+      const account = await accountService.createAccount(tenantId, {
+        ownerId: parsed.data.ownerId,
+        ownerType: bankOwnerType,
+        currency: parsed.data.currency,
+      });
       return reply.status(201).send(account);
     } catch (error) {
       const err = error as Error & { statusCode?: number };
@@ -59,7 +69,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
       
       return {
         accountId: account.accountId,
-        balance: account.balance,
+        balanceCents: account.balanceCents,
         currency: account.currency,
         status: 'active', // Conta sempre ativa se existe
       };
@@ -77,7 +87,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
       // SEMPRE retornar 200 com payload vazio para não quebrar sidebar
       return reply.status(200).send({
         accountId: null,
-        balance: 0,
+        balanceCents: 0,
         currency: 'BRL',
         status: 'unavailable',
       });
@@ -97,7 +107,11 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const { limit, offset, ownerType } = parsed.data;
-    return accountService.listAccounts(tenantId, { limit, offset, ownerType });
+    const bankOwnerType =
+      ownerType === 'user' ? 'user' as const :
+      ownerType === 'platform_ops' ? 'system' as const :
+      ownerType ? 'company' as const : undefined;
+    return accountService.listAccounts(tenantId, { limit, offset, ownerType: bankOwnerType });
   });
 
   // GET /economy/accounts/:accountId - Buscar conta por ID
@@ -141,7 +155,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
 
     return {
       accountId: account.accountId,
-      balance: account.balance,
+      balanceCents: account.balanceCents,
       currency: account.currency,
     };
   });
@@ -166,7 +180,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'ownerType query parameter is required' });
     }
 
-    const accounts = await accountService.getAccountsByOwner(
+    const accounts = await accountService.getAccountsByOwnerWithLegacyType(
       tenantId,
       parsedParams.data.ownerId,
       ownerType

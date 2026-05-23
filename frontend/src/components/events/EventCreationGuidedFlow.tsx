@@ -173,7 +173,6 @@ export default function EventCreationGuidedFlow() {
           actor_id: activeActor.actor_id,
           actor_type: activeActor.actor_type as 'user' | 'page',
           event_type: eventType,
-          event_subtype: eventSubtype || undefined,
           visibility: visibility,
           title: 'Rascunho de evento', // Título mínimo obrigatório pelo backend
         },

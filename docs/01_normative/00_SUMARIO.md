@@ -15,6 +15,7 @@ Seção: completo. Status: IMUTÁVEL. Nenhuma outra lei pode contradizê-la.
 ### 2. Quem tem autoridade para quê?
 **Arquivo:** `AUTHORITY_LAW.md` — lei suprema de autoridade.
 **Complemento:** `08_AUTORIDADE_CANONICA.md` — como autoridade é exercida, delegada e revogada.
+**Complemento:** `AUTHORITY_ENFORCEMENT_MODEL.md` — ponte entre soberania, regra verificável e gates futuros.
 **Annexos:** `AUTHORITY_ANNEX_EVASION.md`, `AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md`, `AUTHORITY_ANNEX_TEST_OF_BREAK.md`
 
 ### 3. O que um agente de IA deve fazer antes de qualquer ação?
@@ -41,10 +42,11 @@ Seção §2.2: ordem de leitura lexical 00→99.
 **Arquivo:** `CORE_IMUTAVEL.md` — conjunto imutável não duplicável.
 **Complemento:** `CORE_VS_MODULOS_CONTRACT.md` — separação imutável CORE vs MÓDULOS.
 **Complemento:** `CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md` — diferença conceitual.
+**DECISION-0021:** CORE é jurisdição sobre verdade compartilhada, não pasta física. Soberania pode existir fora de `/core` quando SSOT/lei/contrato declara writer autorizado e enforcement.
 
 ### 7. O que está proibido estruturalmente no código?
 **Arquivo:** `PROHIBITED_STRUCTURES.md` — todas as estruturas, tabelas e padrões PROIBIDOS.
-Inclui: seção FISCALIZAÇÃO, STATUS DE GATES, e critério FAIL-OPEN.
+Inclui: mini-cores clandestinos, seção FISCALIZAÇÃO, STATUS DE GATES, e critério FAIL-OPEN.
 
 ### 8. Quais são as leis operacionais vigentes?
 **Arquivo:** `LEIS_OPERACIONAIS_UNIFICARD.md` — leis operacionais com vigência declarada.

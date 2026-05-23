@@ -13,6 +13,11 @@
  * 
  * Este arquivo contém APENAS tipos/interfaces.
  * NÃO importa serviços, banco de dados ou lógica de negócio.
+ *
+ * ⚠️ NÃO É SSOT DE LOGÍSTICA
+ * Representa pedido comercial / promessa de entrega no contrato público.
+ * NÃO define como o transporte físico ocorre (isso: UnifiedDemand + TransportPlan;
+ * ver `docs/02_decisions/RFC_UNIFIED_LOGISTICS_MODEL.md`, `RFC_LEI_LOGISTICA_UNIFICARD.md`).
  */
 export interface DeliveryOrder {
   deliveryId: string;

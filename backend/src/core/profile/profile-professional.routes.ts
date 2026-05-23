@@ -2,6 +2,7 @@
 // Rotas para perfil profissional
 
 import { FastifyPluginAsync } from 'fastify';
+import { HttpError } from '../errors/http-error';
 import { profileProfessionalService } from './profile-professional.service';
 import type { UpdateProfessionalProfileInput } from './profile-professional.types';
 
@@ -19,40 +20,29 @@ const profileProfessionalRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ error: 'Tenant não encontrado' });
     }
 
-    // 🔴 BLINDAGEM ANTI-500: NUNCA retornar 500 por dados inválidos
-    // Perfil parcial é aceitável - Golden Path preservado
     try {
       const profile = await profileProfessionalService.getProfessionalProfile(
         req.tenant.id,
-        req.user.id
+        req.user.id,
       );
-      
-      // Sempre retornar 200, mesmo se profile for null
+
       return reply.status(200).send(
-        profile || { 
-          globalUserId: '', 
-          skills: [], 
-          bio: null, 
-          availability: null 
-        }
+        profile || {
+          globalUserId: '',
+          skills: [],
+          bio: null,
+          availability: null,
+        },
       );
     } catch (error) {
-      // 🔴 CRÍTICO: Nunca responder 500
-      // Log detalhado mas retornar 200 com estrutura vazia
-      fastify.log.warn({ 
-        err: error,
-        userId: req.user.id,
-        tenantId: req.tenant.id,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined
-      }, 'Erro protegido ao buscar perfil profissional (retornando perfil vazio)');
-      
-      // Retornar 200 com estrutura vazia (não quebrar frontend)
-      return reply.status(200).send({
-        globalUserId: '',
-        skills: [],
-        bio: null,
-        availability: null
+      if (error instanceof HttpError) {
+        return reply.status(error.statusCode).send({ ok: false, message: error.message });
+      }
+      fastify.log.error({ err: error }, 'Erro ao buscar perfil profissional');
+      return reply.status(500).send({
+        ok: false,
+        message: 'Erro ao buscar perfil profissional',
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });
@@ -112,7 +102,7 @@ const profileProfessionalRoutes: FastifyPluginAsync = async (fastify) => {
             nameType: typeof ps.name,
             nameLength: ps.name?.length,
             hasSpaces: ps.name?.includes(' '),
-            nameCharCodes: ps.name ? Array.from(ps.name).map((c: string) => c.charCodeAt(0)) : [],
+            nameCharCodes: ps.name ? Array.from(ps.name).map((c: unknown) => (c as string).charCodeAt(0)) : [],
             nameBytes: ps.name ? Buffer.from(ps.name, 'utf8').toString('hex') : null
           }))
         ) || []

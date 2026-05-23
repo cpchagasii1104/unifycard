@@ -27,18 +27,18 @@ class DistributionService {
     };
 
     // Calcula cada fee
-    const platformFee = (amount * finalConfig.platformFeePercent) / 100;
-    const communityFee = (amount * finalConfig.communityFeePercent) / 100;
-    const groupFee = (amount * finalConfig.groupFeePercent) / 100;
+    const platformFee = (amountCents * finalConfig.platformFeePercent) / 100;
+    const communityFee = (amountCents * finalConfig.communityFeePercent) / 100;
+    const groupFee = (amountCents * finalConfig.groupFeePercent) / 100;
 
     // Total de fees
     const totalFees = platformFee + communityFee + groupFee;
 
     // Valor líquido que chega ao destinatário
-    const netAmount = amount - totalFees;
+    const netAmount = amountCents - totalFees;
 
     return {
-      originalAmount: amount,
+      originalAmount: amountCents,
       platformFee: Math.round(platformFee * 100) / 100, // Arredonda para 2 decimais
       communityFee: Math.round(communityFee * 100) / 100,
       groupFee: Math.round(groupFee * 100) / 100,
@@ -69,7 +69,7 @@ class DistributionService {
     amountCents: number,
     config: Partial<FeeConfig> = {}
   ): Promise<FeeCalculation> {
-    return this.calculateFees(amount, config);
+    return this.calculateFees(amountCents, config);
   }
 
   /**

@@ -11,6 +11,9 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
    * Middleware: Verificar permissão para acessar Risk Command Center
    */
   const requireRiskPermission = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     // ActionContext é obrigatório (V2)
     if (!req.actionContext || !req.actionContext.actorId) {
@@ -65,6 +68,9 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     '/risk/dashboard/overview',
     { preHandler: requireRiskPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -97,7 +103,10 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/risk/dashboard/actors', { preHandler: requireRiskPermission }, async (req, reply) => {
-      const tenantId = req.tenant.id;
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
+    const tenantId = req.tenant.id;
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
@@ -131,6 +140,9 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     '/risk/dashboard/actors/:actorId',
     { preHandler: requireRiskPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {
@@ -155,6 +167,9 @@ const riskDashboardRoutes = async (fastify: FastifyInstance) => {
     '/risk/dashboard/actors/:actorId/timeline',
     { preHandler: requireRiskPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       // ActionContext é obrigatório (V2)
       if (!req.actionContext || !req.actionContext.actorId) {

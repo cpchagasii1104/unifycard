@@ -58,13 +58,20 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória para relatório consolidado' });
+      }
 
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
+      // N3: mesmo padrão que dashboard — RBAC no preHandler + authority com userId humano
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         req.actionContext.actorId,
-        req.actionContext.actorId,
-        'view_consolidated_reports'
+        'view_consolidated_reports',
+        undefined,
+        {
+          tenantId,
+          userId: req.user.id,
+        }
       );
       if (!auth.allowed) {
         return reply.status(403).send({

@@ -20,6 +20,22 @@ export type PaymentMilestone = 'confirmed' | 'started' | 'completed';
 export type EscrowTransactionType = 'hold' | 'release' | 'refund';
 
 /**
+ * Posição financeira (Fase 2) — saldo custody no bank vs campos legacy em `escrow_accounts`.
+ */
+export interface EscrowFinancialPosition {
+  bank_custody_cents: number;
+  legacy_held_cents: number;
+  divergence_cents: number;
+  total_contract_cents: number;
+  released_cents: number;
+  refunded_cents: number;
+  /** Negócio: total − released − refunded (não substitui saldo em bank_ledger). */
+  contractual_remainder_cents: number;
+  escrow_bank_account_id: string;
+  read_source: 'bank_primary';
+}
+
+/**
  * Escrow Account
  * 
  * REGRAS:
@@ -27,6 +43,9 @@ export type EscrowTransactionType = 'hold' | 'release' | 'refund';
  * - Valores vêm exclusivamente do Agreement
  * - Liberação por marcos explícitos
  * - Disputa aberta bloqueia RELEASE
+ *
+ * Fase 2: com `ESCROW_READ_FROM_BANK`, `heldAmountCents` reflecte saldo bank (custody);
+ * `financialPosition` conserva legacy e divergência para auditoria.
  */
 export interface EscrowAccount {
   escrowId: string;
@@ -37,7 +56,7 @@ export interface EscrowAccount {
   evidencePackId: string | null; // Vinculado ao evidence pack
   totalAmountCents: number; // Valor total do acordo
   currency: string;
-  heldAmountCents: number; // Valor atualmente em hold
+  heldAmountCents: number; // Valor em hold (Fase 2: pode vir do bank quando flag activa)
   releasedAmountCents: number; // Valor já liberado
   refundedAmountCents: number; // Valor reembolsado
   status: EscrowStatus;
@@ -46,6 +65,8 @@ export interface EscrowAccount {
   metadata: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
+  /** Preenchido quando `ESCROW_READ_FROM_BANK` está activo. */
+  financialPosition?: EscrowFinancialPosition;
 }
 
 /**
@@ -126,6 +147,10 @@ export interface ReleasePaymentInput {
   releasedByActorId: string;
   releasedByUserId?: string | null;
   amountCents?: number; // Opcional: se não fornecido, usa valor do milestone
+  /**
+   * Com `ESCROW_BANK_BRIDGE=1`: conta bank de destino (UUID) para `transfer` após débito da conta escrow.
+   */
+  toBankAccountId?: string;
 }
 
 /**
@@ -136,6 +161,12 @@ export interface RefundInput {
   reason: string;
   refundedByActorId: string;
   refundedByUserId?: string | null;
+  /**
+   * Com `ESCROW_BANK_BRIDGE=1`: conta bank de destino do reembolso (ex.: wallet do pagador).
+   */
+  toBankAccountId?: string;
+  /** Opcional: idempotência de refund entre retries (recomendado em produção). */
+  idempotencyKey?: string;
 }
 
 /**

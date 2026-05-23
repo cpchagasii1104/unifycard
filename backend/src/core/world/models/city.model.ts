@@ -13,8 +13,8 @@ export class CityModel {
       nameEn: row.name_en,
       latitude: row.latitude,
       longitude: row.longitude,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

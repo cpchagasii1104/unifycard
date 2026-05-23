@@ -59,12 +59,12 @@ export interface ServicePaymentRequestRow {
   status: PaymentRequestStatus;
   amountCents: number;
   currency: string;
-  requestedAt: Date;
+  requested_at: Date;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  cancelledAt: Date | null;
-  expiredAt: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  cancelled_at: Date | null;
+  expired_at: Date | null;
 }
 
 /**

@@ -6,6 +6,7 @@
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool } from '../core/database/pool';
+import { tenantService } from '../core/tenants/tenant.service';
 import { SYSTEM_TENANT, ensureSystemTenant } from '../core/tenants/system-tenant';
 
 // Carrega variáveis de ambiente
@@ -40,18 +41,17 @@ const GOVERNMENT_TENANT_SLUG = 'government';
  * Garante que um tenant existe
  */
 async function ensureTenant(tenantId: string, name: string, slug: string): Promise<void> {
-  const result = await pool.query<{ tenant_id: string }>(
-    'SELECT tenant_id FROM tenants WHERE tenant_id = $1 LIMIT 1',
+  const result = await pool.query<{ id: string }>(
+    'SELECT id FROM tenants WHERE id = $1 LIMIT 1',
     [tenantId]
   );
 
   if (result.rows.length === 0) {
-    await pool.query(
-      `INSERT INTO tenants (tenant_id, name, slug, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT (tenant_id) DO NOTHING`,
-      [tenantId, name, slug]
-    );
+    await tenantService.createTenant({
+      id: tenantId,
+      name,
+      slug,
+    });
     console.log(`✅ Tenant criado: ${name} (${tenantId})`);
   } else {
     console.log(`ℹ️  Tenant já existe: ${name} (${tenantId})`);

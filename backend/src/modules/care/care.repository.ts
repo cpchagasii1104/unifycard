@@ -10,7 +10,7 @@ export class CareRepository {
     const row = await runQueryWithTenant<CareSessionRow>(
       tenantId,
       `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
       FROM care_sessions
       WHERE care_session_id = $1
       LIMIT 1
@@ -31,7 +31,7 @@ export class CareRepository {
     targetCompanyId?: string | null
   ): Promise<CareSessionRow | null> {
     let query = `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
       FROM care_sessions
       WHERE global_user_id = $1
     `;
@@ -48,7 +48,7 @@ export class CareRepository {
       query += ` AND target_global_user_id IS NULL AND target_company_id IS NULL`;
     }
 
-    query += ` ORDER BY updatedAt DESC LIMIT 1`;
+    query += ` ORDER BY updated_at DESC LIMIT 1`;
 
     const row = await runQueryWithTenant<CareSessionRow>(tenantId, query, params);
 
@@ -71,7 +71,7 @@ export class CareRepository {
       `
       INSERT INTO care_sessions (tenant_id, global_user_id, target_global_user_id, target_company_id, state, context)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
+      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
       `,
       [
         data.tenantId,
@@ -134,9 +134,9 @@ export class CareRepository {
       tenantId,
       `
       UPDATE care_sessions
-      SET ${updatesList.join(', ')}, updatedAt = now()
+      SET ${updatesList.join(', ')}, updated_at = now()
       WHERE care_session_id = $${paramIndex}
-      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
+      RETURNING care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
       `,
       params
     );
@@ -157,10 +157,10 @@ export class CareRepository {
     const rows = await runQueriesWithTenant<CareMessageRow>(
       tenantId,
       `
-      SELECT message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, createdAt
+      SELECT message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, created_at
       FROM care_messages
       WHERE care_session_id = $1
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       LIMIT $2 OFFSET $3
       `,
       [sessionId, limit, offset]
@@ -170,7 +170,7 @@ export class CareRepository {
     const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*)::text as "totalCents"
       FROM care_messages
       WHERE care_session_id = $1
       `,
@@ -179,7 +179,7 @@ export class CareRepository {
 
     return {
       rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 
@@ -200,7 +200,7 @@ export class CareRepository {
       `
       INSERT INTO care_messages (care_session_id, is_from_user, content, intent, parameters, ai_reasoning)
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, createdAt
+      RETURNING message_id, care_session_id, is_from_user, content, intent, parameters, ai_reasoning, created_at
       `,
       [
         data.careSessionId,
@@ -232,10 +232,10 @@ export class CareRepository {
     const rows = await runQueriesWithTenant<CareSessionRow>(
       tenantId,
       `
-      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, createdAt, updatedAt
+      SELECT care_session_id, tenant_id, global_user_id, target_global_user_id, target_company_id, last_message, state, context, created_at, updated_at
       FROM care_sessions
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT $2 OFFSET $3
       `,
       [globalUserId, limit, offset]
@@ -245,7 +245,7 @@ export class CareRepository {
     const countRow = await runQueryWithTenant<{ totalCents: string }>(
       tenantId,
       `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*)::text as "totalCents"
       FROM care_sessions
       WHERE global_user_id = $1
       `,
@@ -254,7 +254,7 @@ export class CareRepository {
 
     return {
       rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 }

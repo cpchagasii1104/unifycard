@@ -24,9 +24,13 @@
 
 import { eventService } from './event.service';
 import { eventEconomicPhaseService } from './event-economic-phase.service';
-import { eventBus } from './event-bus';
 import { BadRequestError, NotFoundError } from '@core/errors';
-import { runQueryWithTenant } from '@core/database/pool';
+import {
+  getClientWithTenant,
+  runQueryWithTenant,
+  runQueriesWithTenant,
+} from '@core/database/pool';
+import { insertEventOutboxRow } from './event-outbox.repository';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -86,15 +90,15 @@ interface CustodyRow {
   release_conditions: any;
   purpose: string;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class EventCustodyService {
   /**
    * Cria custódia SOMENTE via evento explícito
-   * 
-   * Emite: event.custody.created
+   *
+   * Enfileira `event.custody.created` na outbox (mesma TX que o INSERT); publicação efectiva via worker.
    */
   async createCustody(
     tenantId: string,
@@ -134,63 +138,77 @@ class EventCustodyService {
       throw new BadRequestError('Valor da custódia deve ser maior que zero');
     }
 
-    // 6. Criar custódia
+    // 6. Criar custódia + linha de outbox (mesma transação)
     const custodyId = uuidv4();
-    const row = await runQueryWithTenant<CustodyRow>(
-      tenantId,
-      `
-      INSERT INTO event_custody (
-        id, tenant_id, event_id, amount_cents, currency,
-        economic_owner_id, economic_owner_type,
-        release_conditions, purpose, status,
-        createdAt, updatedAt
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-      RETURNING *
-      `,
-      [
-        custodyId,
-        tenantId,
-        input.event_id,
-        input.amount_cents,
-        input.currency,
-        input.economic_owner_id,
-        input.economic_owner_type,
-        JSON.stringify(input.release_conditions),
-        input.purpose,
-        'active',
-      ]
-    );
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      try {
+        const insertResult = await client.query<CustodyRow>(
+          `
+          INSERT INTO event_custody (
+            id, tenant_id, event_id, amount_cents, currency,
+            economic_owner_id, economic_owner_type,
+            release_conditions, purpose, status,
+            created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+          RETURNING *
+          `,
+          [
+            custodyId,
+            tenantId,
+            input.event_id,
+            input.amount_cents,
+            input.currency,
+            input.economic_owner_id,
+            input.economic_owner_type,
+            JSON.stringify(input.release_conditions),
+            input.purpose,
+            'active',
+          ]
+        );
 
-    if (!row || row.length === 0) {
-      throw new Error('Falha ao criar custódia');
+        const row = insertResult.rows[0];
+        if (!row) {
+          throw new Error('Falha ao criar custódia');
+        }
+
+        const custody = this.toCustody(row);
+
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: uuidv4(),
+          eventType: 'event.custody.created',
+          eventVersion: 1,
+          payload: {
+            custody_id: custody.id,
+            event_id: input.event_id,
+            amount_cents: input.amount_cents,
+            currency: input.currency,
+            economic_owner_id: input.economic_owner_id,
+            economic_owner_type: input.economic_owner_type,
+            release_conditions: input.release_conditions,
+            purpose: input.purpose,
+          },
+          metadata: {},
+        });
+
+        await client.query('COMMIT');
+        return custody;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
+    } finally {
+      client.release();
     }
-
-    const custody = this.toCustody(row[0]);
-
-    // 7. Emitir evento canônico
-    await eventBus.publish({
-      tenantId,
-      type: 'event.custody.created',
-      payload: {
-        custody_id: custody.id,
-        event_id: input.event_id,
-        amount_cents: input.amount_cents,
-        currency: input.currency,
-        economic_owner_id: input.economic_owner_id,
-        economic_owner_type: input.economic_owner_type,
-        release_conditions: input.release_conditions,
-        purpose: input.purpose,
-      },
-    });
-
-    return custody;
   }
 
   /**
    * Reverte custódia (estorno)
-   * 
-   * Emite: event.custody.reverted
+   *
+   * Enfileira `event.custody.reverted` na outbox (mesma TX que o UPDATE); publicação efectiva via worker.
    */
   async revertCustody(
     tenantId: string,
@@ -208,38 +226,53 @@ class EventCustodyService {
       throw new BadRequestError(`Custódia não pode ser revertida (status: ${custody.status})`);
     }
 
-    // 3. Atualizar status
-    const row = await runQueryWithTenant<CustodyRow>(
-      tenantId,
-      `
-      UPDATE event_custody
-      SET status = 'reverted', updatedAt = NOW()
-      WHERE id = $1 AND tenant_id = $2
-      RETURNING *
-      `,
-      [custodyId, tenantId]
-    );
+    // 3. Atualizar status + linha de outbox (mesma transação)
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      try {
+        const updateResult = await client.query<CustodyRow>(
+          `
+          UPDATE event_custody
+          SET status = 'reverted', updated_at = NOW()
+          WHERE id = $1 AND tenant_id = $2
+          RETURNING *
+          `,
+          [custodyId, tenantId]
+        );
 
-    if (!row || row.length === 0) {
-      throw new Error('Falha ao reverter custódia');
+        const row = updateResult.rows[0];
+        if (!row) {
+          throw new Error('Falha ao reverter custódia');
+        }
+
+        const revertedCustody = this.toCustody(row);
+        const revertedAt = new Date().toISOString();
+
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: uuidv4(),
+          eventType: 'event.custody.reverted',
+          eventVersion: 1,
+          payload: {
+            custody_id: custodyId,
+            event_id: custody.event_id,
+            amount_cents: custody.amount_cents,
+            reason,
+            revertedAt,
+          },
+          metadata: {},
+        });
+
+        await client.query('COMMIT');
+        return revertedCustody;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
+    } finally {
+      client.release();
     }
-
-    const revertedCustody = this.toCustody(row[0]);
-
-    // 4. Emitir evento canônico
-    await eventBus.publish({
-      tenantId,
-      type: 'event.custody.reverted',
-      payload: {
-        custody_id: custodyId,
-        event_id: custody.event_id,
-        amount_cents: custody.amount_cents,
-        reason,
-        revertedAt: new Date().toISOString(),
-      },
-    });
-
-    return revertedCustody;
   }
 
   /**
@@ -260,11 +293,11 @@ class EventCustodyService {
       [custodyId, tenantId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.toCustody(row[0]);
+    return this.toCustody(row);
   }
 
   /**
@@ -274,24 +307,24 @@ class EventCustodyService {
     tenantId: string,
     eventId: string
   ): Promise<Custody[]> {
-    const rows = await runQueryWithTenant<CustodyRow>(
+    const rows = await runQueriesWithTenant<CustodyRow>(
       tenantId,
       `
       SELECT *
       FROM event_custody
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [eventId, tenantId]
     );
 
-    return rows.map(row => this.toCustody(row));
+    return rows.map(r => this.toCustody(r));
   }
 
   /**
    * Libera custódia após execução de pagamento
-   * 
-   * Emite: event.custody.released
+   *
+   * Enfileira `event.custody.released` na outbox (mesma TX que o UPDATE); publicação efectiva via worker.
    */
   async releaseCustody(
     tenantId: string,
@@ -309,38 +342,53 @@ class EventCustodyService {
       throw new BadRequestError(`Custódia não pode ser liberada (status: ${custody.status})`);
     }
 
-    // 3. Atualizar status
-    const row = await runQueryWithTenant<CustodyRow>(
-      tenantId,
-      `
-      UPDATE event_custody
-      SET status = 'released', updatedAt = NOW()
-      WHERE id = $1 AND tenant_id = $2
-      RETURNING *
-      `,
-      [custodyId, tenantId]
-    );
+    // 3. Atualizar status + linha de outbox (mesma transação)
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      try {
+        const updateResult = await client.query<CustodyRow>(
+          `
+          UPDATE event_custody
+          SET status = 'released', updated_at = NOW()
+          WHERE id = $1 AND tenant_id = $2
+          RETURNING *
+          `,
+          [custodyId, tenantId]
+        );
 
-    if (!row || row.length === 0) {
-      throw new Error('Falha ao liberar custódia');
+        const row = updateResult.rows[0];
+        if (!row) {
+          throw new Error('Falha ao liberar custódia');
+        }
+
+        const releasedCustody = this.toCustody(row);
+        const releasedAt = new Date().toISOString();
+
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: uuidv4(),
+          eventType: 'event.custody.released',
+          eventVersion: 1,
+          payload: {
+            custody_id: custodyId,
+            event_id: custody.event_id,
+            amount_cents: custody.amount_cents,
+            reason,
+            releasedAt,
+          },
+          metadata: {},
+        });
+
+        await client.query('COMMIT');
+        return releasedCustody;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
+    } finally {
+      client.release();
     }
-
-    const releasedCustody = this.toCustody(row[0]);
-
-    // 4. Emitir evento canônico
-    await eventBus.publish({
-      tenantId,
-      type: 'event.custody.released',
-      payload: {
-        custody_id: custodyId,
-        event_id: custody.event_id,
-        amount_cents: custody.amount_cents,
-        reason,
-        releasedAt: new Date().toISOString(),
-      },
-    });
-
-    return releasedCustody;
   }
 
   /**
@@ -364,7 +412,7 @@ class EventCustodyService {
       [tenantId, eventId]
     );
 
-    return result && result.length > 0 && parseInt(result[0].count, 10) > 0;
+    return result != null && parseInt(result.count, 10) > 0;
   }
 
   /**
@@ -388,7 +436,7 @@ class EventCustodyService {
       [tenantId, eventId]
     );
 
-    return result && result.length > 0 && parseInt(result[0].count, 10) > 0;
+    return result != null && parseInt(result.count, 10) > 0;
   }
 
   /**
@@ -406,8 +454,8 @@ class EventCustodyService {
       release_conditions: row.release_conditions as CustodyReleaseConditions,
       purpose: row.purpose,
       status: row.status as CustodyStatus,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 }

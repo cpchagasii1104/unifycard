@@ -1,0 +1,1 @@
+export { CheckoutConsumptionService } from './checkout-consumption.service';

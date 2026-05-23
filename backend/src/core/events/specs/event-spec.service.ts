@@ -33,7 +33,7 @@
 // Nenhuma delas executa ações ou cria regras de negócio.
 
 import { v4 as uuidv4 } from 'uuid';
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { BadRequestError, NotFoundError } from '@core/errors';
 import type {
   EventSpec,
@@ -55,7 +55,7 @@ interface EventSpecRow {
   answers: Record<string, any>;
   metadata: Record<string, any> | null;
   created_by: string;
-  createdAt: string;
+  created_at: Date;
 }
 
 class EventSpecService {
@@ -73,7 +73,7 @@ class EventSpecService {
       macroIntention: row.macro_intention as any,
       subflow: row.subflow as any,
       answers: row.answers,
-      createdAt: row.createdAt,
+      createdAt: row.created_at.toISOString(),
       createdBy: row.created_by,
       metadata: row.metadata || {},
     };
@@ -172,8 +172,8 @@ class EventSpecService {
     ]);
     
     let nextNumber = 1;
-    if (result.rows.length > 0 && result.rows[0].last_ticket) {
-      const lastTicket = result.rows[0].last_ticket;
+    if (result?.last_ticket) {
+      const lastTicket = result.last_ticket;
       const match = lastTicket.match(/^EVT-\d+-(\d+)$/);
       if (match) {
         nextNumber = parseInt(match[1], 10) + 1;
@@ -251,11 +251,11 @@ class EventSpecService {
       userId,
     ]);
 
-    if (result.rows.length === 0) {
+    if (!result) {
       throw new Error('Falha ao criar EventSpec');
     }
 
-    return this.toEventSpec(result.rows[0]);
+    return this.toEventSpec(result);
   }
 
   /**
@@ -270,11 +270,11 @@ class EventSpecService {
 
     const result = await runQueryWithTenant<EventSpecRow>(tenantId, query, [tenantId, specId]);
 
-    if (result.rows.length === 0) {
+    if (!result) {
       throw new NotFoundError(`EventSpec não encontrado: ${specId}`);
     }
 
-    return this.toEventSpec(result.rows[0]);
+    return this.toEventSpec(result);
   }
 
   /**
@@ -323,15 +323,15 @@ class EventSpecService {
       SELECT *
       FROM event_specs
       ${whereClause}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `;
 
     params.push(limit, offset);
 
-    const result = await runQueryWithTenant<EventSpecRow>(tenantId, sql, params);
+    const rows = await runQueriesWithTenant<EventSpecRow>(tenantId, sql, params);
 
-    return result.rows.map(row => this.toEventSpec(row));
+    return rows.map(row => this.toEventSpec(row));
   }
 
   /**
@@ -356,13 +356,13 @@ class EventSpecService {
       specId,
     ]);
 
-    if (result.rows.length === 0) {
+    if (!result) {
       throw new NotFoundError(
         `EventSpec não encontrado ou já associado a um evento: ${specId}`
       );
     }
 
-    return this.toEventSpec(result.rows[0]);
+    return this.toEventSpec(result);
   }
 
   /**
@@ -399,7 +399,7 @@ class EventSpecService {
     }
 
     // 3. Se EventSpec está associado a um Event, validar que Event está em 'draft'
-    if (currentSpec.event_id) {
+    if (currentSpec.eventId) {
       const eventQuery = `
         SELECT status
         FROM events
@@ -408,14 +408,14 @@ class EventSpecService {
       const eventResult = await runQueryWithTenant<{ status: string }>(
         tenantId,
         eventQuery,
-        [tenantId, currentSpec.event_id]
+        [tenantId, currentSpec.eventId]
       );
 
-      if (eventResult.rows.length === 0) {
-        throw new NotFoundError(`Event associado não encontrado: ${currentSpec.event_id}`);
+      if (!eventResult) {
+        throw new NotFoundError(`Event associado não encontrado: ${currentSpec.eventId}`);
       }
 
-      const eventStatus = eventResult.rows[0].status;
+      const eventStatus = eventResult.status;
       if (eventStatus !== 'draft') {
         throw new BadRequestError(
           `EventSpec só pode ser atualizado quando Event está em status 'draft'. Event atual: '${eventStatus}'`
@@ -461,11 +461,11 @@ class EventSpecService {
       ]
     );
 
-    if (result.rows.length === 0) {
+    if (!result) {
       throw new NotFoundError(`EventSpec não encontrado: ${specId}`);
     }
 
-    return this.toEventSpec(result.rows[0]);
+    return this.toEventSpec(result);
   }
 
   /**
@@ -523,11 +523,11 @@ class EventSpecService {
       ]
     );
 
-    if (result.rows.length === 0) {
+    if (!result) {
       throw new NotFoundError(`EventSpec não encontrado: ${specId}`);
     }
 
-    return this.toEventSpec(result.rows[0]);
+    return this.toEventSpec(result);
   }
 }
 

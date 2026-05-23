@@ -21,15 +21,21 @@ const errors = [];
 const migrationMap = new Map();
 const suffixMap = new Map();
 
+// Padrão: 4 dígitos + sufixo opcional (a-z) + underscore + nome_snake.sql
+const NAME_PATTERN = /^(\d{4})([a-z]?)_([a-z0-9_]+)\.sql$/;
+
 migrationFiles.forEach(file => {
-  const match = file.match(/^(\d+)([a-z]?)_/);
+  if (/^\d{14}_/.test(file) || /^\d{8}_/.test(file)) {
+    return;
+  }
+  const match = file.match(NAME_PATTERN);
   if (!match) {
-    errors.push(`❌ Formato inválido: ${file}`);
+    errors.push(`❌ Formato inválido (esperado NNNN_name.sql ou NNNNa_name.sql): ${file}`);
     hasError = true;
     return;
   }
 
-  const number = parseInt(match[1]);
+  const number = parseInt(match[1], 10);
   const suffix = match[2] || '';
 
   // Verificar numeração duplicada
@@ -54,14 +60,14 @@ migrationFiles.forEach(file => {
 // Verificar sufixos válidos (apenas para mesma posição lógica)
 if (errors.length === 0) {
   const numbersWithSuffixes = Array.from(migrationMap.keys()).filter(num => {
-    const files = migrationFiles.filter(f => f.startsWith(`${num.toString().padStart(3, '0')}`));
+    const files = migrationFiles.filter(f => f.startsWith(`${num.toString().padStart(4, '0')}`));
     return files.length > 1;
   });
 
   numbersWithSuffixes.forEach(num => {
-    const files = migrationFiles.filter(f => f.startsWith(`${num.toString().padStart(3, '0')}`));
+    const files = migrationFiles.filter(f => f.startsWith(`${num.toString().padStart(4, '0')}`));
     const suffixes = files.map(f => {
-      const match = f.match(/^\d+([a-z]?)_/);
+      const match = f.match(/^\d{4}([a-z]?)_/);
       return match ? match[1] : '';
     }).filter(s => s);
 

@@ -22,8 +22,8 @@ export interface RootConfigRow {
   timezone: string | null;
   currency: string | null;
   languages: string[];
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UpdateRootConfigInput {

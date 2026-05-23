@@ -205,8 +205,8 @@ export function sortFeedByRelevance(
   // SPRINT 66: Ordenar apenas por data (mais recente primeiro)
   // Score deve vir do backend, não calculado localmente
   return items.sort((a, b) => {
-    const dateA = getItemDate(a.item);
-    const dateB = getItemDate(b.item);
+    const dateA = getItemDate(a);
+    const dateB = getItemDate(b);
     return dateB.getTime() - dateA.getTime();
   });
 }

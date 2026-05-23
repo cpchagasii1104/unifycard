@@ -1,8 +1,8 @@
 // src/modules/rides/cities/cities.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
 import { BadRequestError, NotFoundError } from '@core/errors';
-import { eventBus, EventBus } from '@core/events/event-bus';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 
 type CityRow = {
   city_id: string;
@@ -21,8 +21,6 @@ type CityRow = {
 };
 
 export class CitiesService {
-  constructor(private eventBusInstance: EventBus = eventBus) {}
-
   // ============================================================================
   // 🔹 1. Criar uma nova cidade
   // ============================================================================
@@ -45,7 +43,6 @@ export class CitiesService {
       throw new BadRequestError('Nome e estado são obrigatórios.');
     }
 
-    // Evitar cidades duplicadas
     const exists = await runQueryWithTenant<{ exists: string }>(
       tenantId,
       {
@@ -63,22 +60,21 @@ export class CitiesService {
       throw new BadRequestError('Uma cidade com este nome já existe.');
     }
 
-    const city = await runQueryWithTenant<CityRow>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         INSERT INTO rides_cities (
           tenant_id,
           name, state, timezone,
           lat, lng,
           base_fare, min_price, price_per_km, price_per_min,
-          enabled, allows_multi_stop,
-          createdAt
+          enabled,           allows_multi_stop,
+          created_at
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
         RETURNING *
         `,
-        values: [
+        [
           tenantId,
           name,
           state,
@@ -91,36 +87,33 @@ export class CitiesService {
           price_per_min,
           isEnabled,
           allows_multi_stop,
-        ],
+        ]
+      );
+      const city = res.rows[0] as CityRow;
+      if (!city) {
+        throw new Error('Falha ao criar cidade');
       }
-    );
-
-    if (!city) {
-      throw new Error('Falha ao criar cidade');
-    }
-
-    await this.eventBusInstance.emit({
-      type: 'rides.city.created',
-      tenantId,
-      payload: {
-        cityId: city.city_id,
-        name: city.name,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.city.created',
+        tenantId,
+        payload: {
+          cityId: city.city_id,
+          name: city.name,
+        },
+      });
+      return city;
     });
-
-    return city;
   }
 
   // ============================================================================
   // 🔹 2. Atualizar uma cidade
   // ============================================================================
   async updateCity(tenantId: string, cityId: string, patch: any) {
-    await this.getCity(tenantId, cityId); // Valida que a cidade existe
+    await this.getCity(tenantId, cityId);
 
-    const updated = await runQueryWithTenant<CityRow>(
-      tenantId,
-      {
-        text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_cities
         SET
           name = COALESCE($3, name),
@@ -134,11 +127,11 @@ export class CitiesService {
           price_per_min = COALESCE($11, price_per_min),
           enabled = COALESCE($12, enabled),
           allows_multi_stop = COALESCE($13, allows_multi_stop),
-          updatedAt = now()
+          updated_at = now()
         WHERE tenant_id = $1 AND city_id = $2
         RETURNING *
         `,
-        values: [
+        [
           tenantId,
           cityId,
           patch.name,
@@ -152,23 +145,21 @@ export class CitiesService {
           patch.price_per_min,
           patch.isEnabled,
           patch.allows_multi_stop,
-        ],
+        ]
+      );
+      const updated = res.rows[0] as CityRow;
+      if (!updated) {
+        throw new Error('Falha ao atualizar cidade');
       }
-    );
-
-    if (!updated) {
-      throw new Error('Falha ao atualizar cidade');
-    }
-
-    await this.eventBusInstance.emit({
-      type: 'rides.city.updated',
-      tenantId,
-      payload: {
-        cityId,
-      },
+      await publishRideEventOutbox(client, {
+        type: 'rides.city.updated',
+        tenantId,
+        payload: {
+          cityId,
+        },
+      });
+      return updated;
     });
-
-    return updated;
   }
 
   // ============================================================================
@@ -228,21 +219,20 @@ export class CitiesService {
       throw new BadRequestError('Não é possível excluir uma cidade com zonas cadastradas.');
     }
 
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
         DELETE FROM rides_cities
         WHERE tenant_id = $1 AND city_id = $2
         `,
-        values: [tenantId, cityId],
-      }
-    );
+        [tenantId, cityId]
+      );
 
-    await this.eventBusInstance.emit({
-      type: 'rides.city.deleted',
-      tenantId,
-      payload: { cityId },
+      await publishRideEventOutbox(client, {
+        type: 'rides.city.deleted',
+        tenantId,
+        payload: { cityId },
+      });
     });
 
     return { ok: true };
@@ -250,4 +240,3 @@ export class CitiesService {
 }
 
 export const citiesService = new CitiesService();
-

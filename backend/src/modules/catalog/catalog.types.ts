@@ -11,14 +11,20 @@ export type ProductType = 'INDUSTRIAL' | 'LOCAL';
  */
 export interface CanonicalProduct {
   id: string;
-  tenantId: string;
+  /** NULL quando canónico global. */
+  tenantId: string | null;
   gtin: string; // Global Trade Item Number (único)
   name: string;
   brand?: string;
   images: string[];
   attributes: Record<string, unknown>; // JSONB
   categoryId: string;
+  conceptId?: string;
+  /** Resolução semântica vs `concepts` (SSOT); independente de fingerprint. */
+  conceptResolutionStatus?: 'unresolved' | 'auto_suggested' | 'confirmed';
   type: 'INDUSTRIAL';
+  /** Derivado de `isCanonicalProductOperationalReady` (sem persistência). */
+  operationalReady: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,8 +37,8 @@ export interface ProductOffer {
   tenantId: string;
   productId: string; // FK CanonicalProduct
   merchantId: string;
-  price: number;
-  stock?: number;
+  priceCents: number;
+  availableQuantity?: number;
   location: {
     regionId?: string;
     cityId?: string;

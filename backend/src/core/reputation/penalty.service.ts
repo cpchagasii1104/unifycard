@@ -9,8 +9,11 @@
 // - Soft-block por padrão (alerta, não bloqueio)
 // - Hard-block apenas se strict_mode=true
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '@core/events/event-outbox.repository';
 import { BadRequestError } from '@core/errors';
 import { policyRegistry } from '@core/policy/policy-registry';
 
@@ -144,11 +147,26 @@ class PenaltyService {
       );
     }
 
-    await eventBus.publish({
-      tenantId,
-      type: 'penalty.applied',
-      payload: { actorId, actorType, penaltyKey, eventId, scoreChange: config.scoreChange },
-    });
+    const metaKey = JSON.stringify(metadata ?? {});
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(
+          `penalty.applied:${tenantId}:${actorId}:${String(penaltyKey)}:${String(eventId ?? '')}:${config.scoreChange}:${metaKey}`
+        ),
+        eventType: 'penalty.applied',
+        eventVersion: 1,
+        payload: { actorId, actorType, penaltyKey, eventId, scoreChange: config.scoreChange },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
   }
 
   /**
@@ -211,7 +229,7 @@ class PenaltyService {
     await runQueryWithTenant(
       tenantId,
       `UPDATE actor_scores 
-       SET current_score = $1, updatedAt = now()
+       SET current_score = $1, updated_at = now()
        WHERE tenant_id = $2 AND actor_id = $3 AND actor_type = $4`,
       [newScore, tenantId, actorId, actorType]
     );
@@ -256,7 +274,7 @@ class PenaltyService {
     actorId: string,
     actorType: 'user' | 'page' | 'group'
   ): Promise<{ hasDebt: boolean; totalAmountCents?: number }> {
-    const result = await runQueryWithTenant<{ totalCents: string }>(
+    const result = await runQueryWithTenant<{ total: string }>(
       tenantId,
       `SELECT COALESCE(SUM(amount_cents), 0)::text as total
        FROM actor_debts
@@ -598,7 +616,7 @@ class PenaltyService {
        WHERE tenant_id = $1 
          AND actor_score_id IN (SELECT id FROM actor_scores WHERE actor_id = $2)
          AND reason IN ('BUYER_NO_SHOW', 'MULTIPLE_NO_SHOWS')
-         AND createdAt >= $3`,
+         AND created_at >= $3`,
       [tenantId, actorId, since]
     );
 

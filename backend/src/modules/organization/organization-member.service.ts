@@ -236,8 +236,8 @@ class OrganizationMemberService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'MEDIUM',
-        actor_id: data.removedByUserId || data.suspendedByUserId || data.changedByUserId || data.userId || null,
+        severity: 'medium',
+        actor_id: (data.removedByUserId || data.suspendedByUserId || data.changedByUserId || data.userId) ?? undefined,
         actor_type: 'user',
         source: 'organization',
         context: {

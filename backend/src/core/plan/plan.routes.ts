@@ -141,7 +141,7 @@ const planRoutes: FastifyPluginAsync = async (fastify) => {
         req.tenant.id,
         `
           UPDATE users
-          SET plan = $1, updatedAt = now()
+          SET plan = $1, updated_at = now()
           WHERE user_id = $2
         `,
         [plan, userRow.user_id]

@@ -12,8 +12,8 @@ interface WebAuthnCredentialRow {
   public_key: string;
   counter: string;
   friendly_name: string | null;
-  createdAt: Date;
-  last_usedAt: Date | null;
+  created_at: Date;
+  last_used_at: Date | null;
 }
 
 interface WebAuthnChallengeRow {
@@ -21,8 +21,8 @@ interface WebAuthnChallengeRow {
   tenant_id: string;
   user_id: string;
   challenge: string;
-  expiresAt: Date;
-  createdAt: Date;
+  expires_at: Date;
+  created_at: Date;
 }
 
 class WebAuthnRepository {
@@ -38,8 +38,8 @@ class WebAuthnRepository {
       publicKey: row.public_key,
       counter: parseInt(row.counter, 10),
       friendlyName: row.friendly_name,
-      createdAt: row.createdAt.toISOString(),
-      lastUsedAt: row.last_usedAt,
+      createdAt: row.created_at.toISOString(),
+      lastUsedAt: row.last_used_at,
     };
   }
 
@@ -52,8 +52,8 @@ class WebAuthnRepository {
       tenantId: row.tenant_id,
       userId: row.user_id,
       challenge: row.challenge,
-      expiresAt: row.expiresAt,
-      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expires_at,
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -68,10 +68,10 @@ class WebAuthnRepository {
       tenantId,
       `
       SELECT id, tenant_id, user_id, credential_id, public_key, counter,
-             friendly_name, createdAt, last_usedAt
+             friendly_name, created_at, last_used_at
       FROM webauthn_credentials
       WHERE tenant_id = $1 AND user_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, userId]
     );
@@ -90,7 +90,7 @@ class WebAuthnRepository {
       tenantId,
       `
       SELECT id, tenant_id, user_id, credential_id, public_key, counter,
-             friendly_name, createdAt, last_usedAt
+             friendly_name, created_at, last_used_at
       FROM webauthn_credentials
       WHERE tenant_id = $1 AND credential_id = $2
       LIMIT 1
@@ -130,9 +130,9 @@ class WebAuthnRepository {
     const row = await runQueryWithTenant<WebAuthnChallengeRow>(
       tenantId,
       `
-      INSERT INTO webauthn_challenges (tenant_id, user_id, challenge, expiresAt)
+      INSERT INTO webauthn_challenges (tenant_id, user_id, challenge, expires_at)
       VALUES ($1, $2, $3, $4)
-      RETURNING id, tenant_id, user_id, challenge, expiresAt, createdAt
+      RETURNING id, tenant_id, user_id, challenge, expires_at, created_at
       `,
       [tenantId, userId, challenge, expiresAt]
     );
@@ -155,13 +155,13 @@ class WebAuthnRepository {
     const row = await runQueryWithTenant<WebAuthnChallengeRow>(
       tenantId,
       `
-      SELECT id, tenant_id, user_id, challenge, expiresAt, createdAt
+      SELECT id, tenant_id, user_id, challenge, expires_at, created_at
       FROM webauthn_challenges
       WHERE tenant_id = $1
         AND user_id = $2
         AND challenge = $3
-        AND expiresAt > NOW()
-      ORDER BY createdAt DESC
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
       LIMIT 1
       `,
       [tenantId, userId, challenge]
@@ -199,7 +199,7 @@ class WebAuthnRepository {
       tenantId,
       `
       UPDATE webauthn_credentials
-      SET counter = $1, last_usedAt = NOW()
+      SET counter = $1, last_used_at = NOW()
       WHERE tenant_id = $2 AND credential_id = $3
       `,
       [newCounter, tenantId, credentialId]

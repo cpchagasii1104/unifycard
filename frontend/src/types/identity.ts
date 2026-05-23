@@ -1,6 +1,8 @@
 // src/types/identity.ts
 // Tipos para dados de identidade civil imutáveis
 
+import type { Gender } from '@unificard/contracts';
+
 /**
  * Dados civis imutáveis após cadastro inicial
  * Padrão: bancos, fintechs, sistemas governamentais
@@ -15,8 +17,8 @@ export interface ImmutableCivilData {
   /** Data de nascimento (YYYY-MM-DD) - imutável após cadastro */
   birthdate: string;
   
-  /** Sexo - imutável após cadastro */
-  gender: 'male' | 'female';
+  /** Gênero (vocabulário canónico) — imutável após cadastro */
+  gender: Gender;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface RegisterPayload {
   cpf: string;
   fullName: string;
   birthdate: string;
-  gender: 'male' | 'female';
+  gender: Gender;
   referralCode?: string;
 }
 

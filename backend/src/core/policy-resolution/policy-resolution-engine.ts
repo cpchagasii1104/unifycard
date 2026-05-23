@@ -39,17 +39,17 @@ export class PolicyResolutionEngine {
     }
 
     // Verificar se é um valor numérico
-    if (typeof policy.value !== 'number') {
+    if (typeof policy.valueCents !== 'number') {
       // Para valores não numéricos, retornar sem ajustes
       return {
-        originalValue: policy.value as any,
-        resolvedValue: policy.value as any,
+        originalValue: policy.valueCents as any,
+        resolvedValue: policy.valueCents as any,
         adjustments: [],
         context,
       };
     }
 
-    const originalValue = policy.value as number;
+    const originalValue = policy.valueCents as number;
     let resolvedValue = originalValue;
     const adjustments: PolicyResolution['adjustments'] = [];
 

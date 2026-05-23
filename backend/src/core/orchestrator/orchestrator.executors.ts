@@ -319,11 +319,28 @@ export async function executeRequestRide(
       };
     }
 
+    // Sem fallback de meio: decisão de vehicleType não pertence ao orchestrator (RFC_UNIFIED_LOGISTICS_MODEL; RFC_LEI_LOGISTICA_UNIFICARD).
+    const vehicleType = parameters.vehicleType;
+    if (
+      vehicleType === undefined ||
+      vehicleType === null ||
+      (typeof vehicleType === 'string' && vehicleType.trim() === '')
+    ) {
+      return {
+        ok: false,
+        module: 'rides',
+        intent: 'request_ride',
+        parameters,
+        error:
+          'vehicleType é obrigatório: deve ser enviado pelo cliente ou obtido do logistics planner (integração pendente).',
+      };
+    }
+
     // Montar payload
     const payload = {
       origin: parameters.origin,
       destination: parameters.destination,
-      vehicleType: parameters.vehicleType || 'car', // car, motorcycle, etc
+      vehicleType,
       scheduledTime: parameters.scheduledTime, // opcional para agendamento
       paymentMethod: parameters.paymentMethod,
       notes: parameters.notes,

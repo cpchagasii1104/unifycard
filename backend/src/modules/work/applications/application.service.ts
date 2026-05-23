@@ -1,8 +1,8 @@
 // backend/src/modules/work/applications/application.service.ts
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
 import { reputationService } from '@core/reputation/reputation.service'; // ⭐ NOVO
+import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 
 import type {
   JobApplication,
@@ -21,8 +21,10 @@ class ApplicationService {
       proposedRate: row.proposed_rate ? Number(row.proposed_rate) : 0,
       message: row.message ?? undefined,
       status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: new Date(row.applied_at).toISOString(),
+      updatedAt: row.responded_at
+        ? new Date(row.responded_at).toISOString()
+        : new Date(row.applied_at).toISOString(),
     };
   }
 
@@ -87,11 +89,13 @@ class ApplicationService {
 
     const application = this.toApplication(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.application.created',
-      payload: { applicationId: application.applicationId, jobId, workerId },
-    });
+      'work.application.created',
+      application.applicationId,
+      'application.service',
+      { applicationId: application.applicationId, jobId, workerId }
+    );
 
     // ⭐ REPUTAÇÃO DO WORKER QUE APLICOU
     application.workerReputation = await reputationService.getScore(
@@ -117,7 +121,7 @@ class ApplicationService {
       UPDATE job_applications
       SET
         status = COALESCE($3, status),
-        updatedAt = now()
+        responded_at = now()
       WHERE application_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -132,11 +136,13 @@ class ApplicationService {
 
     const application = this.toApplication(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.application.updated',
-      payload: { applicationId },
-    });
+      'work.application.updated',
+      applicationId,
+      `application.service:${application.updatedAt}`,
+      { applicationId }
+    );
 
     // ⭐ ADICIONA REPUTAÇÃO UNIVERSAL
     application.workerReputation = await reputationService.getScore(
@@ -187,17 +193,16 @@ class ApplicationService {
       SELECT *
       FROM job_applications
       WHERE ${whereSQL}
-      ORDER BY createdAt DESC
+      ORDER BY applied_at DESC
       LIMIT $${idx} OFFSET $${idx + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      `SELECT COUNT(*) AS total FROM job_applications WHERE ${whereSQL}`,
-      params,
-    );
+    const count = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: `SELECT COUNT(*)::text AS "totalCents" FROM job_applications WHERE ${whereSQL}`,
+      values: params,
+    });
 
     const applications = rows.map(r => this.toApplication(r));
 
@@ -212,7 +217,7 @@ class ApplicationService {
 
     return {
       applications,
-      totalCents: count ? Number(count.total) : 0,
+      totalCents: count ? Number(count.totalCents) : 0,
     };
   }
 }

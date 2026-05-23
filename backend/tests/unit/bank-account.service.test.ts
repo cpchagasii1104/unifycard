@@ -28,7 +28,7 @@ describe('BankAccountService - Unit Tests', () => {
         ownerId: mockOwnerId,
         ownerType: 'user' as const,
         currency: 'BRL' as const,
-        cachedBalance: 50,
+        cachedBalanceCents: 50,
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -36,9 +36,9 @@ describe('BankAccountService - Unit Tests', () => {
 
       const mockBalance = {
         accountId: mockAccountId,
-        balance: 100, // Diferente do cached
-        totalCredits: 150,
-        totalDebits: 50,
+        balanceCents: 100,
+        totalCreditsCents: 150,
+        totalDebitsCents: 50,
         entryCount: 5,
         lastEntryAt: new Date(),
       };
@@ -50,7 +50,7 @@ describe('BankAccountService - Unit Tests', () => {
       const result = await bankAccountService.getAccountById(mockTenantId, mockAccountId);
 
       expect(result).toBeDefined();
-      expect(result!.cachedBalance).toBe(100); // Atualizado do ledger
+      expect(result!.cachedBalanceCents).toBe(100);
       expect(bankLedgerRepository.calculateBalance).toHaveBeenCalledWith(mockTenantId, mockAccountId);
       expect(bankAccountRepository.updateCachedBalance).toHaveBeenCalledWith(
         mockTenantId,
@@ -77,7 +77,7 @@ describe('BankAccountService - Unit Tests', () => {
         ownerId: mockOwnerId,
         ownerType: 'user' as const,
         currency: 'BRL' as const,
-        cachedBalance: 0,
+        cachedBalanceCents: 0,
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -85,9 +85,9 @@ describe('BankAccountService - Unit Tests', () => {
 
       const mockBalance = {
         accountId: mockAccountId,
-        balance: 0,
-        totalCredits: 0,
-        totalDebits: 0,
+        balanceCents: 0,
+        totalCreditsCents: 0,
+        totalDebitsCents: 0,
         entryCount: 0,
         lastEntryAt: null,
       };
@@ -112,7 +112,7 @@ describe('BankAccountService - Unit Tests', () => {
         ownerId: mockOwnerId,
         ownerType: 'user' as const,
         currency: 'BRL' as const,
-        cachedBalance: 0,
+        cachedBalanceCents: 0,
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -144,7 +144,7 @@ describe('BankAccountService - Unit Tests', () => {
         ownerId: mockOwnerId,
         ownerType: 'user' as const,
         currency: 'BRL' as const,
-        cachedBalance: 100,
+        cachedBalanceCents: 100,
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -152,9 +152,9 @@ describe('BankAccountService - Unit Tests', () => {
 
       const mockBalance = {
         accountId: mockAccountId,
-        balance: 100,
-        totalCredits: 150,
-        totalDebits: 50,
+        balanceCents: 100,
+        totalCreditsCents: 150,
+        totalDebitsCents: 50,
         entryCount: 3,
         lastEntryAt: new Date(),
       };
@@ -165,7 +165,7 @@ describe('BankAccountService - Unit Tests', () => {
       const result = await bankAccountService.validateBalance(mockTenantId, mockAccountId);
 
       expect(result.isValid).toBe(true);
-      expect(result.difference).toBeLessThan(0.01);
+      expect(result.differenceCents).toBe(0);
     });
 
     it('should return isValid=false when balances differ', async () => {
@@ -175,7 +175,7 @@ describe('BankAccountService - Unit Tests', () => {
         ownerId: mockOwnerId,
         ownerType: 'user' as const,
         currency: 'BRL' as const,
-        cachedBalance: 50,
+        cachedBalanceCents: 50,
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -183,9 +183,9 @@ describe('BankAccountService - Unit Tests', () => {
 
       const mockBalance = {
         accountId: mockAccountId,
-        balance: 100,
-        totalCredits: 150,
-        totalDebits: 50,
+        balanceCents: 100,
+        totalCreditsCents: 150,
+        totalDebitsCents: 50,
         entryCount: 3,
         lastEntryAt: new Date(),
       };
@@ -196,7 +196,7 @@ describe('BankAccountService - Unit Tests', () => {
       const result = await bankAccountService.validateBalance(mockTenantId, mockAccountId);
 
       expect(result.isValid).toBe(false);
-      expect(result.difference).toBe(50);
+      expect(result.differenceCents).toBe(50);
     });
   });
 });

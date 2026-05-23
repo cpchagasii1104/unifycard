@@ -22,8 +22,8 @@ export interface CareSessionRow {
   last_message: string | null;
   state: any; // JSONB
   context: any; // JSONB
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface CareMessage {
@@ -45,7 +45,7 @@ export interface CareMessageRow {
   intent: string | null;
   parameters: any; // JSONB
   ai_reasoning: any; // JSONB
-  createdAt: string;
+  created_at: Date;
 }
 
 export interface CareSessionState {

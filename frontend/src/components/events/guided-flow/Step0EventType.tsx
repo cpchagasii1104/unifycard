@@ -106,10 +106,11 @@ export default function Step0EventType({ data, onUpdate, onComplete, isLoading }
 
     const eventType = eventTypeMap[selectedCategory]?.[selectedType] || selectedType;
 
+    const visibilityValue = selectedType === 'private' ? 'private' : 'public';
     const updatedData = {
       event_type: eventType as any,
       event_subtype: selectedSubtype,
-      visibility: selectedType === 'private' ? 'private' : 'public',
+      visibility: visibilityValue as 'group' | 'public' | 'private' | 'followers' | 'unlisted',
     };
 
     onUpdate(updatedData);

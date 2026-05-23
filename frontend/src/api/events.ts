@@ -27,6 +27,15 @@ export interface Event {
     isSoon?: boolean;
     isEnding?: boolean;
   };
+  metadata?: {
+    eventNeeds?: string[];
+    selected_services?: string[];
+    needsAssistanceEnabled?: boolean;
+    categoryId?: string;
+    stateId?: string;
+    capacity?: unknown;
+    venueInfrastructure?: unknown;
+  };
 }
 
 export interface AvailabilityPreview {

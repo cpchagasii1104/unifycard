@@ -26,12 +26,12 @@ interface InvoiceRow {
   currency: string;
   status: string;
   fiscal_metadata: any;
-  issuedAt: Date | null;
-  cancelledAt: Date | null;
+  issued_at: Date | null;
+  cancelled_at: Date | null;
   cancellation_reason: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class InvoiceRepository {
@@ -53,12 +53,12 @@ class InvoiceRepository {
       currency: row.currency,
       status: row.status as any,
       fiscalMetadata: row.fiscal_metadata || null,
-      issuedAt: row.issuedAt,
-      cancelledAt: row.cancelledAt,
+      issuedAt: row.issued_at,
+      cancelledAt: row.cancelled_at,
       cancellationReason: row.cancellation_reason,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -84,44 +84,39 @@ class InvoiceRepository {
     const { randomUUID } = await import('crypto');
     const invoiceId = randomUUID();
 
-    const rows = await runQueriesWithTenant(
-      tenantId,
-      [
-        {
-          text: `
-            INSERT INTO invoices (
-              invoice_id, tenant_id, actor_id, recipient_actor_id, invoice_type,
-              service_order_id, payout_order_id, ledger_entry_ids, evidence_pack_id,
-              items, subtotal_cents, taxes_cents, total_cents, currency,
-              fiscal_metadata, metadata
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
-            ) RETURNING *
-          `,
-          values: [
-            invoiceId,
-            tenantId,
-            input.actorId,
-            input.recipientActorId,
-            input.invoiceType,
-            input.serviceOrderId,
-            input.payoutOrderId,
-            input.ledgerEntryIds,
-            input.evidencePackId,
-            JSON.stringify(input.items),
-            input.subtotalCents,
-            input.taxesCents,
-            input.totalCents,
-            input.currency,
-            JSON.stringify(input.fiscalMetadata || {}),
-            JSON.stringify(input.metadata || {}),
-          ],
-        },
+    const row = await runQueryWithTenant<InvoiceRow>(tenantId, {
+      text: `
+        INSERT INTO invoices (
+          invoice_id, tenant_id, actor_id, recipient_actor_id, invoice_type,
+          service_order_id, payout_order_id, ledger_entry_ids, evidence_pack_id,
+          items, subtotal_cents, taxes_cents, total_cents, currency,
+          fiscal_metadata, metadata
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+        ) RETURNING *
+      `,
+      values: [
+        invoiceId,
+        tenantId,
+        input.actorId,
+        input.recipientActorId,
+        input.invoiceType,
+        input.serviceOrderId,
+        input.payoutOrderId,
+        input.ledgerEntryIds,
+        input.evidencePackId,
+        JSON.stringify(input.items),
+        input.subtotalCents,
+        input.taxesCents,
+        input.totalCents,
+        input.currency,
+        JSON.stringify(input.fiscalMetadata || {}),
+        JSON.stringify(input.metadata || {}),
       ],
-      'invoice.repository.create'
-    );
+    });
 
-    return this.toInvoice(rows[0] as InvoiceRow);
+    if (!row) throw new Error('Falha ao criar invoice');
+    return this.toInvoice(row);
   }
 
   /**
@@ -140,13 +135,13 @@ class InvoiceRepository {
     let paramIndex = 4;
 
     if (status === 'issued' && issuedAt) {
-      updates.push(`issuedAt = $${paramIndex}`);
+      updates.push(`issued_at = $${paramIndex}`);
       values.push(issuedAt);
       paramIndex++;
     }
 
     if (status === 'cancelled') {
-      updates.push(`cancelledAt = NOW()`);
+      updates.push(`cancelled_at = NOW()`);
       if (cancellationReason) {
         updates.push(`cancellation_reason = $${paramIndex}`);
         values.push(cancellationReason);
@@ -154,61 +149,44 @@ class InvoiceRepository {
       }
     }
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          UPDATE invoices
-          SET ${updates.join(', ')}, updatedAt = NOW()
-          WHERE tenant_id = $1 AND invoice_id = $2
-          RETURNING *
-        `,
-        values,
-      },
-      'invoice.repository.updateStatus'
-    );
+    const row = await runQueryWithTenant<InvoiceRow>(tenantId, {
+      text: `
+        UPDATE invoices
+        SET ${updates.join(', ')}, updated_at = NOW()
+        WHERE tenant_id = $1 AND invoice_id = $2
+        RETURNING *
+      `,
+      values,
+    });
 
-    return this.toInvoice(rows[0] as InvoiceRow);
+    if (!row) throw new Error('Invoice não encontrado');
+    return this.toInvoice(row);
   }
 
   /**
    * Busca invoice por ID
    */
   async findById(tenantId: string, invoiceId: string): Promise<Invoice | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: 'SELECT * FROM invoices WHERE tenant_id = $1 AND invoice_id = $2',
-        values: [tenantId, invoiceId],
-      },
-      'invoice.repository.findById'
-    );
+    const row = await runQueryWithTenant<InvoiceRow>(tenantId, {
+      text: 'SELECT * FROM invoices WHERE tenant_id = $1 AND invoice_id = $2',
+      values: [tenantId, invoiceId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toInvoice(rows[0] as InvoiceRow);
+    if (!row) return null;
+    return this.toInvoice(row);
   }
 
   /**
    * Busca invoice por payoutOrderId
    */
   async findByPayoutOrderId(tenantId: string, payoutOrderId: string): Promise<Invoice | null> {
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: 'SELECT * FROM invoices WHERE tenant_id = $1 AND payout_order_id = $2',
-        values: [tenantId, payoutOrderId],
-      },
-      'invoice.repository.findByPayoutOrderId'
-    );
+    const row = await runQueryWithTenant<InvoiceRow>(tenantId, {
+      text: 'SELECT * FROM invoices WHERE tenant_id = $1 AND payout_order_id = $2',
+      values: [tenantId, payoutOrderId],
+    });
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toInvoice(rows[0] as InvoiceRow);
+    if (!row) return null;
+    return this.toInvoice(row);
   }
 
   /**
@@ -256,13 +234,13 @@ class InvoiceRepository {
     }
 
     if (filters.startDate) {
-      conditions.push(`createdAt >= $${paramIndex}`);
+      conditions.push(`created_at >= $${paramIndex}`);
       values.push(filters.startDate);
       paramIndex++;
     }
 
     if (filters.endDate) {
-      conditions.push(`createdAt <= $${paramIndex}`);
+      conditions.push(`created_at <= $${paramIndex}`);
       values.push(filters.endDate);
       paramIndex++;
     }
@@ -270,21 +248,17 @@ class InvoiceRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
-          SELECT * FROM invoices
-          WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
-          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `,
-        values: [...values, limit, offset],
-      },
-      'invoice.repository.list'
-    );
+    const rows = await runQueriesWithTenant<InvoiceRow>(tenantId, {
+      text: `
+        SELECT * FROM invoices
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `,
+      values: [...values, limit, offset],
+    });
 
-    return rows.map((row) => this.toInvoice(row as InvoiceRow));
+    return rows.map((row) => this.toInvoice(row));
   }
 }
 

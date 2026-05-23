@@ -10,6 +10,28 @@ export function useProfessionalCategories(
 ) {
   const [categoryTree, setCategoryTree] = useState<CategoryTree[]>([]);
 
+  /** N0 técnico usado só na árvore de BD; não deve aparecer como grupo na UI da aba profissional. */
+  const HIDDEN_PROFESSIONAL_ROOT_SLUGS = new Set(['profissoes']);
+
+  /**
+   * Promove filhos do N0 técnico para raiz visual (mesmo nível que ex.: Saúde).
+   * Não altera dados nem API — só a árvore em memória para renderização.
+   */
+  const flattenHiddenProfessionalRoots = (roots: CategoryTree[]): CategoryTree[] => {
+    const out: CategoryTree[] = [];
+    for (const node of roots) {
+      if (node.level === 0 && HIDDEN_PROFESSIONAL_ROOT_SLUGS.has(node.slug)) {
+        const kids = node.children ?? [];
+        for (const child of kids) {
+          out.push(child);
+        }
+      } else {
+        out.push(node);
+      }
+    }
+    return out;
+  };
+
   // 🔒 FILTRO PROFISSIONAL: Filtrar categorias válidas para contexto profissional
   // REGRA CANÔNICA: scope='professional' OU scope='global' são válidos (alinhado com backend)
   // Referência: categories.repository.ts linha 887-890
@@ -19,7 +41,7 @@ export function useProfessionalCategories(
       scope === 'professional' || scope === 'global' || !scope;
 
     // Filtrar categorias (nível 0 = setores)
-    return tree
+    const roots = tree
       .filter((category) => {
         // Apenas nível 0 (setores)
         if (category.level !== 0) return false;
@@ -41,6 +63,8 @@ export function useProfessionalCategories(
               }))
           : [],
       }));
+
+    return flattenHiddenProfessionalRoots(roots);
   };
 
   const loadData = async () => {

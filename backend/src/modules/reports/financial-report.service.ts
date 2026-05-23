@@ -71,8 +71,8 @@ class FinancialReportService {
       FROM payment_transactions pt
       INNER JOIN payment_intents pi ON pt.payment_intent_id = pi.id
       WHERE pt.tenant_id = $1
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -102,8 +102,8 @@ class FinancialReportService {
       FROM payout_transactions pt
       INNER JOIN payment_intent_splits ps ON pt.payment_split_id = ps.id
       WHERE pt.tenant_id = $1
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const payoutParams: any[] = [tenantId, startDate, endDate];
@@ -130,8 +130,8 @@ class FinancialReportService {
       FROM payment_transactions pt
       WHERE pt.tenant_id = $1
         AND pt.status = 'PENDING'
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const pendingParams: any[] = [tenantId, startDate, endDate];
@@ -174,12 +174,12 @@ class FinancialReportService {
 
     let query = `
       SELECT
-        DATE(pt.createdAt) as period,
+        DATE(pt.created_at) as period,
         COALESCE(SUM(CASE WHEN pt.status = 'SUCCESS' THEN pt.amount ELSE 0 END), 0) as total_received
       FROM payment_transactions pt
       WHERE pt.tenant_id = $1
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -194,7 +194,7 @@ class FinancialReportService {
     }
 
     query += `
-      GROUP BY DATE(pt.createdAt)
+      GROUP BY DATE(pt.created_at)
       ORDER BY period ASC
     `;
 
@@ -206,14 +206,14 @@ class FinancialReportService {
     // Buscar payouts por período
     let payoutQuery = `
       SELECT
-        DATE(pt.createdAt) as period,
+        DATE(pt.created_at) as period,
         COALESCE(SUM(CASE WHEN pt.status = 'SUCCESS' THEN pt.amount ELSE 0 END), 0) as total_paid_out,
         COALESCE(SUM(CASE WHEN ps.role = 'PLATFORM' AND pt.status = 'SUCCESS' THEN ps.amount ELSE 0 END), 0) as platform_fees
       FROM payout_transactions pt
       INNER JOIN payment_intent_splits ps ON pt.payment_split_id = ps.id
       WHERE pt.tenant_id = $1
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const payoutParams: any[] = [tenantId, startDate, endDate];
@@ -224,7 +224,7 @@ class FinancialReportService {
     }
 
     payoutQuery += `
-      GROUP BY DATE(pt.createdAt)
+      GROUP BY DATE(pt.created_at)
       ORDER BY period ASC
     `;
 
@@ -283,8 +283,8 @@ class FinancialReportService {
       FROM payment_intent_splits ps
       LEFT JOIN payout_transactions pt ON ps.id = pt.payment_split_id
       WHERE ps.tenant_id = $1
-        AND ps.createdAt >= $2
-        AND ps.createdAt <= $3
+        AND ps.created_at >= $2
+        AND ps.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -330,15 +330,15 @@ class FinancialReportService {
       SELECT
         pt.payment_intent_id,
         pi.order_id,
-        pt.amount,
+        pt.amount::text AS "amountCents",
         pt.status,
         pt.error_code
       FROM payment_transactions pt
       INNER JOIN payment_intents pi ON pt.payment_intent_id = pi.id
       WHERE pt.tenant_id = $1
         AND pt.status IN ('PENDING', 'FAILED')
-        AND pt.createdAt >= $2
-        AND pt.createdAt <= $3
+        AND pt.created_at >= $2
+        AND pt.created_at <= $3
     `;
 
     const params: any[] = [tenantId, startDate, endDate];
@@ -351,7 +351,7 @@ class FinancialReportService {
     }
 
     query += `
-      ORDER BY pt.createdAt DESC
+      ORDER BY pt.created_at DESC
       LIMIT 100
     `;
 
@@ -366,7 +366,7 @@ class FinancialReportService {
     return rows.map((row) => ({
       paymentIntentId: row.payment_intent_id,
       orderId: row.order_id,
-      amountCents: parseFloat(row.amount) || 0,
+      amountCents: parseFloat(row.amountCents) || 0,
       status: row.status,
       errorCode: row.error_code || undefined,
     }));

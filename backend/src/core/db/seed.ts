@@ -5,17 +5,18 @@
 // - Role admin com todas as permissões
 // - Usuário admin@unificard.com com senha 123456
 
-import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import { join } from 'path';
 import { pool } from '../database/pool';
+import { tenantService } from '../tenants/tenant.service';
+import { BACKEND_ROOT } from './load-backend-env';
 
-// Carrega variáveis de ambiente
-dotenv.config({ path: join(process.cwd(), '.env') });
+// `pool` import já executa `loadBackendEnv()` (ver `database/pool.ts`).
 
 // Valida se DATABASE_URL está configurada
 if (!process.env.DATABASE_URL) {
   console.error('❌ Erro: DATABASE_URL não está configurada no arquivo .env');
+  console.error(`   Defina DATABASE_URL em ${join(BACKEND_ROOT, '.env')} ou no ambiente`);
   process.exit(1);
 }
 
@@ -33,9 +34,9 @@ async function createOrGetTenant() {
   // Verifica se o tenant já existe
   const client = await pool.connect();
   try {
-    const existingResult = await client.query<{ tenant_id: string; name: string; slug: string }>({
+    const existingResult = await client.query<{ id: string; name: string; slug: string }>({
       text: `
-        SELECT tenant_id, name, slug
+        SELECT id, name, slug
         FROM tenants
         WHERE slug = $1
         LIMIT 1
@@ -44,29 +45,17 @@ async function createOrGetTenant() {
     });
 
     if (existingResult.rows.length > 0) {
-      console.log(`✅ Tenant "${TENANT_NAME}" já existe (ID: ${existingResult.rows[0].tenant_id})`);
-      return existingResult.rows[0].tenant_id;
+      const tid = existingResult.rows[0].id;
+      console.log(`✅ Tenant "${TENANT_NAME}" já existe (ID: ${tid})`);
+      return tid;
     }
-
-    // Cria o tenant
-    const result = await client.query<{ tenant_id: string; name: string; slug: string }>({
-      text: `
-        INSERT INTO tenants (name, slug)
-        VALUES ($1, $2)
-        RETURNING tenant_id, name, slug
-      `,
-      values: [TENANT_NAME, TENANT_SLUG],
-    });
-
-    if (result.rows.length === 0) {
-      throw new Error('Falha ao criar tenant');
-    }
-
-    console.log(`✅ Tenant "${TENANT_NAME}" criado (ID: ${result.rows[0].tenant_id})`);
-    return result.rows[0].tenant_id;
   } finally {
     client.release();
   }
+
+  const created = await tenantService.createTenant({ name: TENANT_NAME, slug: TENANT_SLUG });
+  console.log(`✅ Tenant "${TENANT_NAME}" criado (ID: ${created.tenantId})`);
+  return created.tenantId;
 }
 
 /**

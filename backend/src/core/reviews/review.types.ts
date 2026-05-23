@@ -23,8 +23,8 @@ export interface ReviewRow {
   punctuality_rating: number | null;
   professionalism_rating: number | null;
   context: any | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 export interface Review {

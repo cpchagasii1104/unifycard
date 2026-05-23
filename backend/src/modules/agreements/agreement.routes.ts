@@ -18,6 +18,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
    * Cria um novo Agreement Draft
    */
   fastify.post<{ Body: CreateAgreementInput }>('/agreements', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id || '';
 
@@ -33,6 +36,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { agreementId: string } }>(
     '/agreements/:agreementId',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const agreement = await agreementService.getAgreement(tenantId, req.params.agreementId);
 
@@ -56,6 +62,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/agreements', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       contextType: req.query.contextType as any,
@@ -81,6 +90,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{
     Params: { contextType: string; contextId: string };
   }>('/agreements/context/:contextType/:contextId/finalized', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const agreement = await agreementService.getFinalizedAgreementByContext(
       tenantId,
@@ -102,6 +114,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.put<{ Params: { agreementId: string }; Body: UpdateAgreementInput }>(
     '/agreements/:agreementId',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -123,6 +138,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { agreementId: string }; Body: ProposeAgreementInput }>(
     '/agreements/:agreementId/propose',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -144,6 +162,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { agreementId: string }; Body: AcceptAgreementInput }>(
     '/agreements/:agreementId/accept',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -165,6 +186,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { agreementId: string }; Body: FinalizeAgreementInput }>(
     '/agreements/:agreementId/finalize',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -191,6 +215,9 @@ const agreementRoutes = async (fastify: FastifyInstance) => {
       expectedPriceCents: number;
     };
   }>('/agreements/validate-closure', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const validation = await agreementService.validateAgreementForClosure(
       tenantId,

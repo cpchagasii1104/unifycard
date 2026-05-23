@@ -87,11 +87,11 @@ export interface EventSummary {
  * 🔴 GARANTIA: apiFetchJson injeta automaticamente:
  * - Authorization (Bearer token) via getAuthToken()
  * - x-tenant-id via getTenantId()
- * - x-acting-actor-id via localStorage 'unificard_active_actor_id'
+ * - x-action-context (ActionContext V2) via localStorage 'unificard_active_actor_id' + tenant
  */
 export async function createOrAdvanceDraft(input: CreateDraftInput): Promise<{ event: any }> {
   // apiFetchJson usa apiFetch internamente, que injeta todos os headers necessários
-  const response = await apiFetchJson('/api/events/v2/create', {
+  const response = await apiFetchJson<{ event: any }>('/api/events/v2/create', {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -103,7 +103,7 @@ export async function createOrAdvanceDraft(input: CreateDraftInput): Promise<{ e
  * Declara um evento, persistindo a EventDeclaration
  */
 export async function declareEvent(eventId: string, declaration: DeclareEventInput): Promise<{ event: any }> {
-  const response = await apiFetchJson(`/api/events/${eventId}/v2/declare`, {
+  const response = await apiFetchJson<{ event: any }>(`/api/events/${eventId}/v2/declare`, {
     method: 'POST',
     body: JSON.stringify(declaration),
   });
@@ -115,7 +115,7 @@ export async function declareEvent(eventId: string, declaration: DeclareEventInp
  * Define as janelas de tempo desejadas para o evento
  */
 export async function setTimeWindows(eventId: string, input: SetTimeWindowsInput): Promise<{ event: any }> {
-  const response = await apiFetchJson(`/api/events/${eventId}/v2/time-windows`, {
+  const response = await apiFetchJson<{ event: any }>(`/api/events/${eventId}/v2/time-windows`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -128,7 +128,7 @@ export async function setTimeWindows(eventId: string, input: SetTimeWindowsInput
  * Apenas leitura, sem side-effects
  */
 export async function getEventSummary(eventId: string): Promise<{ summary: EventSummary }> {
-  const response = await apiFetchJson(`/api/events/${eventId}/v2/summary`, {
+  const response = await apiFetchJson<{ summary: EventSummary }>(`/api/events/${eventId}/v2/summary`, {
     method: 'GET',
   });
   return response;

@@ -36,3 +36,6 @@ docs/AUDITORIA_NORMATIVA_GERAL.txt
 
 # Quarentena operacional humana (NAO eh backup oficial — ver _orphans/README.md)
 _orphans/
+
+# Artefatos de sessao Claude Code (efemeros, nao versionados)
+executei*.md

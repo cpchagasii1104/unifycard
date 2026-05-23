@@ -6,6 +6,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { runQueryWithTenant } from '@core/database/pool';
+import { bankSplitRepository } from '../bank/bank-split.repository';
 
 const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -32,10 +33,10 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         // Verificar se grupo existe
         const groupRow = await runQueryWithTenant<{
           group_id: string;
-          createdAt: Date;
+          created_at: Date;
         }>(
           tenantId,
-          `SELECT group_id, createdAt FROM groups WHERE group_id = $1 AND tenant_id = $2`,
+          `SELECT group_id, created_at FROM groups WHERE group_id = $1 AND tenant_id = $2`,
           [groupId, tenantId]
         );
 
@@ -51,33 +52,14 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
         );
         const lifetimeEvents = lifetimeEventsRow ? Number(lifetimeEventsRow.count) : 0;
 
-        // Volume econômico total (soma de execuções e splits onde grupo é receiver)
-        const lifetimeEconomicVolumeRow = await runQueryWithTenant<{ totalCents: string }>(
-          tenantId,
-          `
-          SELECT COALESCE(
-            (
-              SELECT COALESCE(SUM(amount), 0)
-              FROM service_payment_executions
-              WHERE receiver_actor_id = $1 AND tenant_id = $2
-            ) +
-            (
-              SELECT COALESCE(SUM(ps.amount), 0)
-              FROM payment_splits ps
-              INNER JOIN service_payment_executions spe ON ps.execution_id = spe.execution_id
-              WHERE ps.receiver_actor_id = $1 AND ps.tenant_id = $2
-            ),
-            0
-          )::text as totalCents
-          `,
-          [groupId, tenantId]
-        );
-        const lifetimeEconomicVolume = lifetimeEconomicVolumeRow ? Number(lifetimeEconomicVolumeRow.totalCents) : 0;
+        // FASE 5.3: volume económico via domínio financeiro (splits cuja conta destino = actor do grupo)
+        const lifetimeEconomicVolume =
+          await bankSplitRepository.sumVolumeCentsForSplitsTargetingAccountActor(tenantId, groupId);
 
         return reply.send({
           lifetimeEvents,
           lifetimeEconomicVolume,
-          createdAt: groupRow.createdAt.toISOString(),
+          createdAt: groupRow.created_at.toISOString(),
         });
       } catch (error) {
         req.log.error({ err: error, groupId }, 'Erro ao buscar resumo de fechamento do grupo');

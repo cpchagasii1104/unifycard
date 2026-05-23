@@ -47,11 +47,6 @@ const EXCEPTIONS = [
   'src/scripts/',
   // Server.ts é infraestrutura
   'src/server.ts',
-  'src/server-TESTE.ts',
-  'src/server-TESTE2.ts',
-  'src/TESTE_ENTRYPOINT.ts',
-  // Dev utilities podem usar console
-  'src/utils/devLog.ts',
 ];
 
 interface Violation {

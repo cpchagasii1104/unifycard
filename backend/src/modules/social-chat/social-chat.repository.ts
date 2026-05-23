@@ -10,7 +10,7 @@ export class SocialChatRepository {
     const row = await runQueryWithTenant<ChatMessageRow>(
       tenantId,
       `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
       FROM social_chat_messages
       WHERE message_id = $1
       LIMIT 1
@@ -54,7 +54,7 @@ export class SocialChatRepository {
         metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
+      RETURNING message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
       `,
       [
         data.conversationId,
@@ -88,32 +88,30 @@ export class SocialChatRepository {
   ): Promise<{ rows: ChatMessageRow[]; totalCents: number }> {
     const { limit = 100, offset = 0 } = options;
 
-    const rows = await runQueriesWithTenant<ChatMessageRow>(
-      tenantId,
-      `
-      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, createdAt
+    const rows = await runQueriesWithTenant<ChatMessageRow>(tenantId, {
+      text: `
+      SELECT message_id, conversation_id, tenant_id, global_user_id, content, raw_content, media, intent, confidence, categories, suggested_actions, metadata, created_at
       FROM social_chat_messages
       WHERE conversation_id = $1
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       LIMIT $2 OFFSET $3
       `,
-      [conversationId, limit, offset]
-    );
+      values: [conversationId, limit, offset],
+    });
 
     // Contar total
-    const countRow = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      `
-      SELECT COUNT(*) as total
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: `
+      SELECT COUNT(*)::text as "totalCents"
       FROM social_chat_messages
       WHERE conversation_id = $1
       `,
-      [conversationId]
-    );
+      values: [conversationId],
+    });
 
     return {
       rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 }

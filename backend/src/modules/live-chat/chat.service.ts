@@ -34,7 +34,7 @@ class ChatService {
     }
 
     // 2. Rate limit
-    const msgPerMinute = policyRegistry.getPolicyValue<number>('live_chat', 'msg_per_minute', 20);
+    const msgPerMinute = policyRegistry.getPolicyValue<number>('live_chat', 'msg_per_minute', 20) ?? 20;
     const messagesInWindow = await chatMessageRepository.countMessagesInWindow(
       tenantId,
       input.contactId,
@@ -46,7 +46,7 @@ class ChatService {
     }
 
     // 3. Validar tamanho da mensagem
-    const maxLength = policyRegistry.getPolicyValue<number>('live_chat', 'max_message_length', 280);
+    const maxLength = policyRegistry.getPolicyValue<number>('live_chat', 'max_message_length', 280) ?? 280;
     if (input.content.length > maxLength) {
       throw new Error(`Mensagem muito longa (máximo ${maxLength} caracteres)`);
     }
@@ -150,7 +150,12 @@ class ChatService {
   private async recordAudit(tenantId: string, data: Record<string, any>): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: data.event_type ?? data.eventType ?? 'CHAT_ACTION',
+        severity: 'low',
+        source: 'chat',
+        context: data,
+      });
     } catch (error) {
       console.warn('[ChatService] Erro ao registrar auditoria:', error);
     }

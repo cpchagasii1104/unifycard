@@ -26,16 +26,15 @@ class SocialWorkScheduleService {
     tenantId: string,
     userId: string
   ): Promise<string | null> {
-    const result = await runQueryWithTenant<{ global_user_id: string }>(
-      tenantId,
-      `
+    const result = await runQueryWithTenant<{ global_user_id: string }>(tenantId, {
+      text: `
       SELECT global_user_id
       FROM users
       WHERE tenant_id = $1 AND user_id = $2
       LIMIT 1
       `,
-      [tenantId, userId]
-    );
+      values: [tenantId, userId],
+    });
 
     return result?.global_user_id || null;
   }

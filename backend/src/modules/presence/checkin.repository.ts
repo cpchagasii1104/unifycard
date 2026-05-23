@@ -20,7 +20,7 @@ interface CheckinRow {
   status: string;
   reference_event_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class CheckinRepository {
@@ -36,7 +36,7 @@ class CheckinRepository {
       status: row.status as CheckinStatus,
       referenceEventId: row.reference_event_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -61,7 +61,7 @@ class CheckinRepository {
       ON CONFLICT (tenant_id, context_type, context_id, contact_id, status) DO NOTHING
       ON CONFLICT (tenant_id, reference_event_id) DO NOTHING
       RETURNING id, tenant_id, context_type, context_id, contact_id, token_id,
-                checkin_type, status, reference_event_id, metadata, createdAt
+                checkin_type, status, reference_event_id, metadata, created_at
       `,
       [tenantId, contextType, contextId, contactId, checkinType, tokenId, referenceEventId]
     );
@@ -72,10 +72,10 @@ class CheckinRepository {
         tenantId,
         `
         SELECT id, tenant_id, context_type, context_id, contact_id, token_id,
-               checkin_type, status, reference_event_id, metadata, createdAt
+               checkin_type, status, reference_event_id, metadata, created_at
         FROM checkins
         WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4 AND status = 'CHECKED_IN'
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT 1
         `,
         [tenantId, contextType, contextId, contactId]
@@ -106,7 +106,7 @@ class CheckinRepository {
       )
       VALUES ($1, $2, $3, $4, 'MANUAL', 'CHECKED_OUT', '{}'::jsonb)
       RETURNING id, tenant_id, context_type, context_id, contact_id, token_id,
-                checkin_type, status, reference_event_id, metadata, createdAt
+                checkin_type, status, reference_event_id, metadata, created_at
       `,
       [tenantId, contextType, contextId, contactId]
     );
@@ -148,10 +148,10 @@ class CheckinRepository {
       tenantId,
       `
       SELECT id, tenant_id, context_type, context_id, contact_id, token_id,
-             checkin_type, status, reference_event_id, metadata, createdAt
+             checkin_type, status, reference_event_id, metadata, created_at
       FROM checkins
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $4 OFFSET $5
       `,
       [tenantId, contextType, contextId, limit, offset]

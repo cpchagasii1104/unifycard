@@ -1,5 +1,6 @@
 // src/modules/work/applications/application.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { applicationService } from './application.service';
 import { workerService } from '../workers/worker.service';
 import {
@@ -70,7 +71,7 @@ const applicationRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof applicationIdParamsSchema>;
   }>('/:applicationId', {
     preHandler: fastify.requirePermission(['work:application:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = applicationIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -79,7 +80,7 @@ const applicationRoutes: FastifyPluginAsync = async (fastify) => {
     const application = await applicationService.getById(tenantId, applicationId);
 
     if (!application) {
-      return reply.notFound('Application not found');
+      throw new NotFoundError('Application not found');
     }
 
     return application;

@@ -49,8 +49,8 @@ interface EventRSVPRow {
   guest_name: string | null;
   status: string;
   notes: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface RSVPCountRow {
@@ -101,7 +101,7 @@ class EventRSVPService {
       await runQueryWithTenant(
         tenantId,
         `UPDATE event_rsvp 
-         SET status = $1, notes = $2, updatedAt = NOW()
+         SET status = $1, notes = $2, updated_at = NOW()
          WHERE tenant_id = $3 AND event_id = $4 AND id = $5`,
         [
           input.status,
@@ -254,8 +254,8 @@ class EventRSVPService {
       guest_name: row.guest_name,
       status: row.status as RSVPStatus,
       notes: row.notes,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 }

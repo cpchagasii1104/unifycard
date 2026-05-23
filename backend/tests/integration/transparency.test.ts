@@ -134,7 +134,7 @@ describe('Transparência Financeira - Integração', () => {
       expect(p2pEntry?.type).toBe('p2p');
       expect(p2pEntry?.direction).toBe('out');
       expect(p2pEntry?.amount).toBe(50);
-      expect(p2pEntry?.balanceAfter).toBeDefined();
+      expect(p2pEntry?.balanceAfterCents).toBeDefined();
     });
 
     it('deve usar balanceAfter do ledger (não recalcular)', async () => {
@@ -167,7 +167,7 @@ describe('Transparência Financeira - Integração', () => {
         [transferResult.transaction.transactionId, testAccountId1]
       );
 
-      expect(parseFloat(ledgerEntry.rows[0]?.balance_after || '0')).toBe(entry.balanceAfter);
+      expect(parseFloat(ledgerEntry.rows[0]?.balance_after || '0')).toBe(entry.balanceAfterCents);
     });
   });
 
@@ -251,7 +251,7 @@ describe('Transparência Financeira - Integração', () => {
       // Isso é aceitável para o teste
       if (regionalFund) {
         expect(regionalFund.accountId).toBeDefined();
-        expect(regionalFund.currentBalance).toBeDefined();
+        expect(regionalFund.currentBalanceCents).toBeDefined();
         expect(regionalFund.entries.length).toBeGreaterThanOrEqual(0);
         expect(regionalFund.summary.totalIn).toBeGreaterThanOrEqual(0);
       }
@@ -303,7 +303,7 @@ describe('Transparência Financeira - Integração', () => {
       if (adminView) {
         expect(adminView.regionId).toBe(regionId);
         expect(adminView.accountId).toBeDefined();
-        expect(adminView.currentBalance).toBeDefined();
+        expect(adminView.currentBalanceCents).toBeDefined();
         expect(adminView.summary).toBeDefined();
         expect(adminView.summary.byOrigin).toBeDefined();
         expect(adminView.summary.byContext).toBeDefined();

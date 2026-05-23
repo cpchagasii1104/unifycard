@@ -37,7 +37,7 @@ export type TrustEventType =
 /**
  * Tipo de contexto do evento
  */
-export type TrustEventContextType = 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'escrow';
+export type TrustEventContextType = 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'escrow' | 'thread' | 'rfq';
 
 /**
  * Trust Profile (Perfil de Confiança)

@@ -2,6 +2,10 @@
 // Rotas para Oportunidades Suaves
 
 import { FastifyPluginAsync } from 'fastify';
+import {
+  isSemanticResolutionError,
+  replySemanticResolutionFailure,
+} from '@core/semantic/semantic-http';
 import { opportunityService } from './opportunity.service';
 
 const opportunityRoutes: FastifyPluginAsync = async (fastify) => {
@@ -28,6 +32,9 @@ const opportunityRoutes: FastifyPluginAsync = async (fastify) => {
       );
       return reply.send({ ok: true, data: result });
     } catch (error) {
+      if (isSemanticResolutionError(error)) {
+        return replySemanticResolutionFailure(reply, error);
+      }
       fastify.log.error({ err: error }, 'Erro ao buscar oportunidades contextuais');
       return reply.status(500).send({ 
         ok: false, 

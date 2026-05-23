@@ -40,11 +40,15 @@ export interface ServiceRequest {
     minTrustLevelRequired: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
     allowMultipleProviders: boolean; // Para bundle
   };
-  status: 'open' | 'dispatched' | 'accepted' | 'expired' | 'cancelled';
+  status: 'open' | 'dispatched' | 'accepted' | 'expired' | 'cancelled' | 'completed';
   createdAt: string;
   dispatchedAt?: string;
   acceptedAt?: string;
   expiredAt?: string;
   cancelledAt?: string;
+  /** Opcional: data de conclusão (uso interno/domínio). */
+  completedAt?: string;
+  /** Opcional: template de serviço (uso interno/capacity). */
+  serviceTemplateId?: string;
 }
 

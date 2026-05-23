@@ -20,12 +20,16 @@ import {
   type ActorContextProfile,
   type QuickActionDefinition,
 } from '../config/actorContextConfig';
+import { useOperatingMode } from './useOperatingMode';
+import type { OperatingMode } from '../config/operatingMode';
 
 export interface UseActorModeResult {
   /** Perfil operacional do actor ativo. PF como fallback se sem actor. */
   profile: ActorContextProfile;
   /** Quick actions resolvidas (definições prontas para render). */
   quickActions: QuickActionDefinition[];
+  /** Modo operante atual (camada de intenção dentro do actor). */
+  mode: OperatingMode;
   /** Shortcuts booleanos. */
   isUser: boolean;
   isCompany: boolean;
@@ -37,21 +41,23 @@ export interface UseActorModeResult {
 
 export function useActorMode(): UseActorModeResult {
   const { activeActor } = useSession();
+  const { mode } = useOperatingMode();
 
   return useMemo(() => {
     const actorType = activeActor?.actor_type;
     const context = actorType ? mapActorTypeToContext(actorType) : null;
-    const profile = getActorContextProfile(context);
+    const profile = getActorContextProfile(context, mode);
     const quickActions = resolveQuickActions(profile);
 
     return {
       profile,
       quickActions,
+      mode,
       isUser: actorType === 'user',
       isCompany: actorType === 'page',
       isGroup: actorType === 'group',
       isChannel: actorType === 'channel',
       hasActor: !!activeActor,
     };
-  }, [activeActor]);
+  }, [activeActor, mode]);
 }

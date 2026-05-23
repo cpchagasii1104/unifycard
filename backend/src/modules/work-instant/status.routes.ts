@@ -341,11 +341,11 @@ const statusRoutes: FastifyPluginAsync = async (fastify) => {
         // actorId = customer (quem paga), não o chamador HTTP da rota
         // LIMITAÇÃO documentada: amountCents calculado no domínio (split.service), não disponível aqui
         const customerActor = await ensureUserActor(tenantId, request.customerUserId);
-        if (!customerActor?.id) {
+        if (!customerActor?.actor_id) {
           throw Object.assign(new Error('ACTOR_ID_NOT_RESOLVED'), { statusCode: 400 });
         }
         await requireFinancialRiskClearance(tenantId, {
-          actorId: customerActor.id,
+          actorId: customerActor.actor_id,
           action: 'financial_transfer',
           // amountCents ausente: valor real calculado pelo split.service downstream
         });

@@ -10,6 +10,10 @@ import type {
   UserMemoryShortcutRow,
 } from './memory.types';
 
+function ts(d: Date | string): string {
+  return d instanceof Date ? d.toISOString() : String(d);
+}
+
 export class MemoryModel {
   static preferenceFromRow(row: UserMemoryPreferenceRow): UserMemoryPreference {
     return {
@@ -18,12 +22,12 @@ export class MemoryModel {
       globalUserId: row.global_user_id,
       category: row.category,
       key: row.key,
-      valueCents: row.value,
+      valueCents: row.valueCents,
       confidence: row.confidence,
       usageCount: row.usage_count,
-      lastUsedAt: row.last_usedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      lastUsedAt: row.last_used_at,
+      createdAt: ts(row.created_at),
+      updatedAt: ts(row.updated_at),
     };
   }
 
@@ -42,10 +46,10 @@ export class MemoryModel {
       entityName: row.entity_name,
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : {},
       interactionCount: row.interaction_count,
-      firstInteractionAt: row.first_interactionAt,
-      lastInteractionAt: row.last_interactionAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      firstInteractionAt: row.first_interaction_at,
+      lastInteractionAt: row.last_interaction_at,
+      createdAt: ts(row.created_at),
+      updatedAt: ts(row.updated_at),
     };
   }
 
@@ -65,9 +69,9 @@ export class MemoryModel {
       entityMetadata: row.entity_metadata && typeof row.entity_metadata === 'object' ? row.entity_metadata : {},
       relevanceScore: row.relevance_score,
       interactionCount: row.interaction_count,
-      lastInteractionAt: row.last_interactionAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      lastInteractionAt: row.last_interaction_at,
+      createdAt: ts(row.created_at),
+      updatedAt: ts(row.updated_at),
     };
   }
 
@@ -84,9 +88,9 @@ export class MemoryModel {
       intent: row.intent,
       parameters: row.parameters && typeof row.parameters === 'object' ? row.parameters : {},
       usageCount: row.usage_count,
-      lastUsedAt: row.last_usedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      lastUsedAt: row.last_used_at,
+      createdAt: ts(row.created_at),
+      updatedAt: ts(row.updated_at),
     };
   }
 

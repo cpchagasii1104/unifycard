@@ -11,6 +11,11 @@ import type {
   StateRow,
   CityRow,
   NeighborhoodRow,
+  CreateAddressInput,
+  Address,
+  AddressOwnerType,
+  AddressRole,
+  AddressAssignment,
 } from './location.types';
 
 class LocationRepository {
@@ -20,17 +25,18 @@ class LocationRepository {
   async findAllCountries(): Promise<Country[]> {
     const result = await pool.query<CountryRow>(
       `
-      SELECT country_id as id, code, name
+      SELECT country_id as id, iso_alpha2 AS code, name, is_active
       FROM countries
+      WHERE is_active = true
       ORDER BY name ASC
       `
     );
 
     return result.rows.map((row) => ({
-      id: row.country_id,
+      id: row.id,
       code: row.code,
       name: row.name,
-      isActive: true, // Assumir todos ativos se coluna não existir
+      isActive: row.is_active,
     }));
   }
 
@@ -40,7 +46,7 @@ class LocationRepository {
   async findCountryById(countryId: string): Promise<Country | null> {
     const result = await pool.query<CountryRow>(
       `
-      SELECT country_id as id, code, name
+      SELECT country_id as id, iso_alpha2 AS code, name, is_active
       FROM countries
       WHERE country_id = $1
       `,
@@ -56,7 +62,7 @@ class LocationRepository {
       id: row.id,
       code: row.code,
       name: row.name,
-      active: true, // Assumir ativo se coluna não existir
+      isActive: row.is_active,
     };
   }
 
@@ -66,7 +72,7 @@ class LocationRepository {
   async findStatesByCountry(countryId: string): Promise<State[]> {
     const result = await pool.query<StateRow>(
       `
-      SELECT s.state_id as id, s.country_id as countryId, s.code, s.name
+      SELECT s.state_id as id, s.country_id as countryId, s.abbreviation AS code, s.name
       FROM states s
       WHERE s.country_id = $1
       ORDER BY s.name ASC
@@ -75,8 +81,8 @@ class LocationRepository {
     );
 
     return result.rows.map((row) => ({
-      id: row.state_id,
-      countryId: row.country_id,
+      id: row.id,
+      countryId: row.countryId,
       code: row.code,
       name: row.name,
     }));
@@ -88,7 +94,7 @@ class LocationRepository {
   async findStateById(stateId: string): Promise<State | null> {
     const result = await pool.query<StateRow>(
       `
-      SELECT s.state_id as id, s.country_id as countryId, s.code, s.name
+      SELECT s.state_id as id, s.country_id as countryId, s.abbreviation AS code, s.name
       FROM states s
       WHERE s.state_id = $1
       `,
@@ -257,9 +263,9 @@ class LocationRepository {
   async findCountryByCode(code: string): Promise<Country | null> {
     const result = await pool.query<CountryRow>(
       `
-      SELECT country_id as id, code, name
+      SELECT country_id as id, iso_alpha2 AS code, name, is_active
       FROM countries
-      WHERE code = $1
+      WHERE iso_alpha2 = $1
       `,
       [code.toUpperCase()]
     );
@@ -273,7 +279,7 @@ class LocationRepository {
       id: row.id,
       code: row.code,
       name: row.name,
-      isActive: true, // Assumir ativo se coluna não existir
+      isActive: row.is_active,
     };
   }
 
@@ -283,9 +289,9 @@ class LocationRepository {
   async findStateByCode(countryId: string, code: string): Promise<State | null> {
     const result = await pool.query<StateRow>(
       `
-      SELECT s.state_id as id, s.country_id as countryId, s.code, s.name
+      SELECT s.state_id as id, s.country_id as countryId, s.abbreviation AS code, s.name
       FROM states s
-      WHERE s.country_id = $1 AND s.code = $2
+      WHERE s.country_id = $1 AND s.abbreviation = $2
       `,
       [countryId, code.toUpperCase()]
     );
@@ -302,7 +308,88 @@ class LocationRepository {
       name: row.name,
     };
   }
+
+  async createAddress(
+    data: CreateAddressInput,
+    createdByTenantId: string | null
+  ): Promise<Address> {
+    const result = await pool.query<Address>(
+      `
+      INSERT INTO addresses (
+        country_id, state_id, city_id, neighborhood_id,
+        postal_code, street, number, complement, reference,
+        source, lat, lng, is_geocoded, created_by_tenant_id
+      ) VALUES (
+        $1, $2, $3, $4,
+        $5, $6, $7, $8, $9,
+        $10, $11, $12,
+        CASE WHEN $11::numeric IS NOT NULL THEN true ELSE false END,
+        $13
+      )
+      RETURNING
+        address_id AS id,
+        country_id AS "countryId",
+        state_id AS "stateId",
+        city_id AS "cityId",
+        neighborhood_id AS "neighborhoodId",
+        postal_code AS "postalCode",
+        street, number, complement, reference,
+        source,
+        is_geocoded AS "isGeocoded",
+        lat, lng,
+        created_by_tenant_id AS "createdByTenantId",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      `,
+      [
+        data.countryId,
+        data.stateId ?? null,
+        data.cityId ?? null,
+        data.neighborhoodId ?? null,
+        data.postalCode ?? null,
+        data.street ?? null,
+        data.number ?? null,
+        data.complement ?? null,
+        data.reference ?? null,
+        data.source,
+        data.lat ?? null,
+        data.lng ?? null,
+        createdByTenantId,
+      ]
+    );
+
+    return result.rows[0] as Address;
+  }
+
+  async assignAddress(
+    addressId: string,
+    ownerType: AddressOwnerType,
+    ownerId: string,
+    role: AddressRole,
+    isPrimary: boolean = false
+  ): Promise<AddressAssignment> {
+    const result = await pool.query<AddressAssignment>(
+      `
+      INSERT INTO address_assignments (
+        owner_type, owner_id, address_id, role, is_primary
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING
+        assignment_id AS id,
+        owner_type AS "ownerType",
+        owner_id AS "ownerId",
+        address_id AS "addressId",
+        role,
+        is_primary AS "isPrimary",
+        valid_from_at AS "validFromAt",
+        valid_until_at AS "validUntilAt",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      `,
+      [ownerType, ownerId, addressId, role, isPrimary]
+    );
+
+    return result.rows[0] as AddressAssignment;
+  }
 }
 
 export const locationRepository = new LocationRepository();
-

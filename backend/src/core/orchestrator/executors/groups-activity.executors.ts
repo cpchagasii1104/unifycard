@@ -4,9 +4,11 @@ import { socialPortsRegistry } from '@core/social/ports-registry';
 import { groupsRepository } from '../../../modules/groups/groups.repository';
 import { memoryService } from '@core/memory/memory.service';
 import { runQueryWithTenant } from '@core/database/pool';
-import { devLog } from '@utils/devLog';
 import { withIdempotency } from '@core/events/idempotency-tracker';
 import { canonicalLogger } from '@core/logging/canonical-logger';
+
+/** 3.º segmento §4.12.1 — manter estável; reference_id no payload: transactionId. */
+const ON_GROUP_FUND_RECEIVED_HANDLER = 'groups.activity.onGroupFundReceived';
 
 /**
  * Handler para quando grupo recebe fundo via split
@@ -31,12 +33,12 @@ export async function onGroupFundReceived(event: any): Promise<void> {
   const { tenantId, payload } = event;
   const { groupId, amount, source, transactionId, assignmentId, jobId, workerUserId } = payload;
 
-  // 🔴 IDEMPOTÊNCIA: Garantir que replay não cria posts duplicados
+  // 🔴 IDEMPOTÊNCIA — §4.12.1: ex. group.fund.received:${transactionId}:groups.activity.onGroupFundReceived
   await withIdempotency(
     tenantId,
     event.eventId,
     event.type,
-    'groups.activity.onGroupFundReceived',
+    ON_GROUP_FUND_RECEIVED_HANDLER,
     payload,
     async () => {
 
@@ -44,7 +46,7 @@ export async function onGroupFundReceived(event: any): Promise<void> {
         // Buscar informações do grupo
         const group = await groupsRepository.findById(tenantId, groupId);
         if (!group) {
-          devLog.warn('group.impact.group_not_found', { groupId, tenantId });
+          console.warn('[groups-activity] group.impact.group_not_found', { groupId, tenantId });
           return;
         }
 
@@ -65,7 +67,7 @@ export async function onGroupFundReceived(event: any): Promise<void> {
             }
           } catch (error) {
             // Se não encontrar, usar placeholder
-            devLog.warn('group.impact.worker_name_fetch_failed', {
+            console.warn('[groups-activity] group.impact.worker_name_fetch_failed', {
               workerUserId,
               error: error instanceof Error ? error.message : String(error),
             });
@@ -113,7 +115,7 @@ export async function onGroupFundReceived(event: any): Promise<void> {
           action: 'fund_received_auto_post',
         });
 
-        devLog.success('group.impact.post_created', {
+        console.log('[groups-activity] group.impact.post_created', {
           groupId,
           groupName: group.name,
           amount,
@@ -121,7 +123,7 @@ export async function onGroupFundReceived(event: any): Promise<void> {
           tenantId,
         });
       } catch (error) {
-        devLog.error('group.impact.post_failed', {
+        console.error('[groups-activity] group.impact.post_failed', {
           groupId,
           tenantId,
           error: error instanceof Error ? error.message : String(error),

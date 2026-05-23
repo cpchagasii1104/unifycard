@@ -34,7 +34,7 @@ class HobbyRateLimitService {
         FROM category_input_audit
         WHERE actor_id = $1
           AND context = 'hobby'
-          AND createdAt >= $2
+          AND created_at >= $2
         `,
         [userId, windowStart]
       );

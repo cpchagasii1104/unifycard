@@ -39,8 +39,8 @@ export interface HealthDeclarationRow {
   section: HealthSection | null;
   payload: Record<string, any> | null;
   consent_scope: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 

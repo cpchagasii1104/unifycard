@@ -47,8 +47,8 @@ export class SocialRepositoryAdapter implements SocialRepositoryPort {
     const result = await realRepository.findFeed(tenantId, options);
     return {
       posts: result.rows,
-      totalCents: result.total,
-      hasMore: (options.offset || 0) + result.rows.length < result.total,
+      totalCents: result.totalCents,
+      hasMore: (options.offset || 0) + result.rows.length < result.totalCents,
     };
   }
 }

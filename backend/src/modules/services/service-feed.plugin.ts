@@ -239,7 +239,6 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
     // Formatar preço se existir (priceCents está em centavos)
     const priceInfo = service.priceCents
       ? {
-          amountCents: service.priceCents / 100, // Converter centavos para reais
           amountCents: service.priceCents,
           currency: service.currency || 'BRL',
         }
@@ -280,7 +279,7 @@ class ServicesFeedPlugin implements SocialFeedPlugin {
       // imageUrl e thumbnailUrl podem ser adicionados se o serviço tiver imagens
       metadata: visualMetadata,
       createdAt: service.createdAt,
-      updatedAt: service.updatedAt,
+      updatedAt: service.updatedAt ? (typeof service.updatedAt === 'string' ? new Date(service.updatedAt) : service.updatedAt) : undefined,
       // availableActions será preenchido separadamente via getAvailableActions
     };
   }

@@ -9,6 +9,7 @@ import type {
   ReleasePaymentInput,
   RefundInput,
 } from './escrow.types';
+import { escrowService } from './escrow.service';
 
 const escrowRoutes = async (fastify: FastifyInstance) => {
   /**
@@ -16,6 +17,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
    * Cria escrow account a partir de Agreement FINALIZED
    */
   fastify.post<{ Body: CreateEscrowInput }>('/escrow', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id || null;
 
@@ -48,11 +52,29 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
    * Busca escrow account por ID
    */
   fastify.get<{ Params: { escrowId: string } }>('/escrow/:escrowId', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const escrow = await escrowService.getEscrowAccount(tenantId, req.params.escrowId);
 
     return reply.send({ escrow });
   });
+
+  /**
+   * GET /escrow/:escrowId/financial-position
+   * Fase 2: posição financeira canônica via bank (custody + divergência vs legacy)
+   */
+  fastify.get<{ Params: { escrowId: string } }>(
+    '/escrow/:escrowId/financial-position',
+    async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
+      // TODO(DT-07): reativar quando getEscrowFinancialPosition existir no escrowService.
+      return reply.status(501).send({ error: 'financial-position endpoint pending service implementation' });
+    }
+  );
 
   /**
    * GET /escrow/agreement/:agreementId
@@ -61,6 +83,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { agreementId: string } }>(
     '/escrow/agreement/:agreementId',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const escrow = await escrowService.getEscrowByAgreement(tenantId, req.params.agreementId);
 
@@ -87,6 +112,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/escrow', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       agreementId: req.query.agreementId,
@@ -110,6 +138,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { escrowId: string } }>(
     '/escrow/:escrowId/milestones',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const milestones = await escrowService.listMilestones(tenantId, req.params.escrowId);
 
@@ -124,6 +155,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.get<{ Params: { escrowId: string } }>(
     '/escrow/:escrowId/transactions',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const transactions = await escrowService.listTransactions(tenantId, req.params.escrowId);
 
@@ -138,6 +172,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { escrowId: string }; Body: AuthorizeMilestoneInput }>(
     '/escrow/:escrowId/authorize-milestone',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -157,6 +194,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { escrowId: string }; Body: ReleasePaymentInput }>(
     '/escrow/:escrowId/release-payment',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -176,6 +216,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { escrowId: string }; Body: RefundInput }>(
     '/escrow/:escrowId/refund',
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -196,6 +239,9 @@ const escrowRoutes = async (fastify: FastifyInstance) => {
     Params: { escrowId: string };
     Body: { disputeStatus: 'NONE' | 'OPEN' | 'RESOLVED' };
   }>('/escrow/:escrowId/sync-dispute-status', async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const escrow = await escrowService.syncDisputeStatus(
       tenantId,

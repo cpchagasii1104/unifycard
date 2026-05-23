@@ -15,9 +15,12 @@
  */
 
 import { eventService } from './event.service';
-import { eventBus } from './event-bus';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from './event-outbox.repository';
 
 /**
  * Verifica se evento pode avançar para fase econômica
@@ -128,17 +131,32 @@ class EventEconomicPhaseService {
     }
 
     // 4. Emitir evento institucional
-    await eventBus.publish({
-      tenantId,
-      type: 'event.advance_to_economic_phase',
-      payload: {
-        event_id: input.event_id,
-        actor_id: actorId,
-        user_authorization: input.user_authorization,
-        terms_accepted: input.terms_accepted,
-        advancedAt: new Date().toISOString(),
-      },
-    });
+    const advancedAt = new Date().toISOString();
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(
+          `event.advance_to_economic_phase:${tenantId}:${input.event_id}`
+        ),
+        eventType: 'event.advance_to_economic_phase',
+        eventVersion: 1,
+        payload: {
+          event_id: input.event_id,
+          actor_id: actorId,
+          user_authorization: input.user_authorization,
+          terms_accepted: input.terms_accepted,
+          advancedAt,
+        },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
   }
 
   /**
@@ -161,7 +179,7 @@ class EventEconomicPhaseService {
       [tenantId, eventId]
     );
 
-    return result && result.length > 0 && parseInt(result[0].count, 10) > 0;
+    return result != null && parseInt(result.count, 10) > 0;
   }
 
   /**
@@ -185,7 +203,7 @@ class EventEconomicPhaseService {
       [tenantId, eventId]
     );
 
-    return result && result.length > 0 && parseInt(result[0].count, 10) > 0;
+    return result != null && parseInt(result.count, 10) > 0;
   }
 
   /**

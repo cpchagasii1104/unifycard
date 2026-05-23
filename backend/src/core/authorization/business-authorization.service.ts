@@ -8,6 +8,7 @@
 // Métodos que retornam allowed/denied NÃO DEVEM ser usados como decisão.
 // A decisão final DEVE passar por authorization.service.canActAs().
 // Este service existe apenas para compatibilidade e leitura de dados (roles).
+// Camadas e sobreposição com PermissionKey: ver AUTHORITY_LAYERS.md nesta pasta.
 
 import { ForbiddenError } from '@core/errors';
 import { OrganizationAuthorizationHelper } from '@modules/organization/organization-authorization.helper';

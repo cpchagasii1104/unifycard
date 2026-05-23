@@ -1,7 +1,7 @@
 // backend/src/core/pilot/pilot-events.repository.ts
 // SPRINT 13: Repository para eventos de observação do modo piloto
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export type PilotEventType =
   | 'first_action_executed'
@@ -57,7 +57,7 @@ class PilotEventsRepository {
       return existing;
     }
 
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       event_id: string;
       tenant_id: string;
       event_type: string;
@@ -68,7 +68,8 @@ class PilotEventsRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         INSERT INTO pilot_events (
           tenant_id, event_type, actor_id, actor_type,
           occurredAt, metadata
@@ -76,16 +77,17 @@ class PilotEventsRepository {
         VALUES ($1, $2, $3, $4, NOW(), $5)
         RETURNING *
       `,
-      [
-        tenantId,
-        input.eventType,
-        input.actorId,
-        input.actorType,
-        JSON.stringify(input.metadata || {}),
-      ]
+        values: [
+          tenantId,
+          input.eventType,
+          input.actorId,
+          input.actorType,
+          JSON.stringify(input.metadata || {}),
+        ],
+      }
     );
 
-    const row = result[0];
+    if (!row) throw new Error('create: no row returned');
     return {
       eventId: row.event_id,
       tenantId: row.tenant_id,
@@ -106,7 +108,7 @@ class PilotEventsRepository {
     actorId: string,
     eventType: PilotEventType
   ): Promise<PilotEvent | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       event_id: string;
       tenant_id: string;
       event_type: string;
@@ -117,7 +119,8 @@ class PilotEventsRepository {
       createdAt: Date;
     }>(
       tenantId,
-      `
+      {
+        text: `
         SELECT *
         FROM pilot_events
         WHERE tenant_id = $1
@@ -126,14 +129,11 @@ class PilotEventsRepository {
         ORDER BY occurredAt DESC
         LIMIT 1
       `,
-      [tenantId, actorId, eventType]
+        values: [tenantId, actorId, eventType],
+      }
     );
 
-    if (result.length === 0) {
-      return null;
-    }
-
-    const row = result[0];
+    if (!row) return null;
     return {
       eventId: row.event_id,
       tenantId: row.tenant_id,
@@ -180,7 +180,7 @@ class PilotEventsRepository {
     `;
     params.push(limit, offset);
 
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       event_id: string;
       tenant_id: string;
       event_type: string;
@@ -191,7 +191,7 @@ class PilotEventsRepository {
       createdAt: Date;
     }>(tenantId, query, params);
 
-    return result.map((row) => ({
+    return rows.map((row) => ({
       eventId: row.event_id,
       tenantId: row.tenant_id,
       eventType: row.event_type as PilotEventType,
@@ -222,13 +222,13 @@ class PilotEventsRepository {
       params.push(eventType);
     }
 
-    const result = await runQueryWithTenant<{ totalCents: string }>(
+    const result = await runQueryWithTenant<{ total: string }>(
       tenantId,
       query,
       params
     );
 
-    return parseInt(result[0].total, 10);
+    return parseInt(result?.total ?? '0', 10);
   }
 }
 

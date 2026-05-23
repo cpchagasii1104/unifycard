@@ -5,12 +5,16 @@
 import { pool } from '@core/database/pool';
 import { categoriesService } from '@core/categories/categories.service';
 import { CategoryRepository } from '@core/categories/categories.repository';
+import { assertCategoryWritableForUserSkillsStrict } from '@core/profile/category-navigation-bridge';
 import { tenantContextPermissionService } from '@core/tenants/tenant-context-permission.service';
 import type { CategoryContext } from '@unificard/contracts';
 
+/** Contexto aceito para Skill (person + canon) */
+export type HumanCategoryContext = CategoryContext | 'person';
+
 export interface CreateSkillInput {
   categoryId: string;
-  context: CategoryContext;
+  context: HumanCategoryContext;
   personId: string;
 }
 
@@ -18,7 +22,7 @@ export interface SkillCreatedEvent {
   tenantId: string;
   personId: string;
   categoryId: string;
-  context: CategoryContext;
+  context: HumanCategoryContext;
   timestamp: Date;
 }
 
@@ -48,30 +52,33 @@ class HumanMvpSkillService {
       throw new Error('Context inválido. Apenas "person" ou "professional" são permitidos');
     }
 
-    // VALIDAÇÃO 3: Tenant tem permissão de write no context
+    // VALIDAÇÃO 3: Tenant tem permissão de write no context (core aceita CategoryContext)
     const hasWriteAccess = await tenantContextPermissionService.hasWriteAccess(
       tenantId,
-      input.context
+      input.context as CategoryContext
     );
     if (!hasWriteAccess) {
       throw new Error(`CONTEXT_ACCESS_DENIED: Tenant ${tenantId} não tem permissão de escrita no context ${input.context}`);
     }
 
     // VALIDAÇÃO 4: Verificar se categoria pertence ao context correto
-    // Usar getCategoriesForTenant para validar que a categoria existe no context
-    const categories = await categoriesService.getCategoriesForTenant(tenantId, input.context);
+    // Usar getCategoriesForTenant para validar que a categoria existe no context (core usa CategoryContext)
+    const categoryContext: CategoryContext = input.context === 'person' ? 'professional' : input.context;
+    const categories = await categoriesService.getCategoriesForTenant(tenantId, categoryContext);
     const categoryExists = this.findCategoryInTree(categories, input.categoryId);
     if (!categoryExists) {
       throw new Error(`Categoria ${input.categoryId} não existe no context ${input.context}`);
     }
 
+    await assertCategoryWritableForUserSkillsStrict(pool, input.categoryId);
+
     // Criar Skill (usar tabela user_skills_categories existente)
     const result = await pool.query<{ id: string }>(
       `
-      INSERT INTO user_skills_categories (global_user_id, category_id, createdAt, updatedAt)
+      INSERT INTO user_skills_categories (global_user_id, category_id, created_at, updated_at)
       VALUES ($1, $2, NOW(), NOW())
       ON CONFLICT (global_user_id, category_id)
-      DO UPDATE SET updatedAt = NOW()
+      DO UPDATE SET updated_at = NOW()
       RETURNING id
       `,
       [globalUserId, input.categoryId]
@@ -97,7 +104,7 @@ class HumanMvpSkillService {
   private async recordSkillCreatedEvent(event: SkillCreatedEvent): Promise<void> {
     await pool.query(
       `
-      INSERT INTO human_mvp_events (event_type, tenant_id, person_id, category_id, context, details, createdAt)
+      INSERT INTO human_mvp_events (event_type, tenant_id, person_id, category_id, context, details, created_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
       [

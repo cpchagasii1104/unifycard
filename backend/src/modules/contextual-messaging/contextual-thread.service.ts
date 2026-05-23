@@ -215,14 +215,14 @@ class ContextualThreadService {
             });
 
             // Se status for DRAFT, mudar para PROPOSED
-            if (agreement.status === 'DRAFT') {
-              await agreementRepository.updateStatus(tenantId, agreement.agreementId, 'PROPOSED');
+            if (agreement.status === 'draft') {
+              await agreementRepository.updateStatus(tenantId, agreement.agreementId, 'proposed');
             }
           }
 
           // Se mensagem for confirmação, mudar status para ACCEPTED
-          if (messageType === 'confirmation' && agreement.status === 'PROPOSED') {
-            await agreementRepository.updateStatus(tenantId, agreement.agreementId, 'ACCEPTED');
+          if (messageType === 'confirmation' && agreement.status === 'proposed') {
+            await agreementRepository.updateStatus(tenantId, agreement.agreementId, 'accepted');
           }
         }
       } catch (agreementError) {

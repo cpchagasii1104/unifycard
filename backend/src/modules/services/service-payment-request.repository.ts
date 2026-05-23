@@ -25,14 +25,14 @@ class ServicePaymentRequestRepository {
       payerActorId: row.payer_actor_id,
       receiverActorId: row.receiver_actor_id,
       status: row.status as PaymentRequestStatus,
-      amountCents: parseFloat(row.amount.toString()),
+      amountCents: Number(row.amountCents),
       currency: row.currency,
-      requestedAt: row.requestedAt,
+      requestedAt: row.requested_at,
       metadata: row.metadata || {},
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      cancelledAt: row.cancelledAt,
-      expiredAt: row.expiredAt,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      cancelledAt: row.cancelled_at,
+      expiredAt: row.expired_at,
     };
   }
 
@@ -45,9 +45,9 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount, currency,
-        requestedAt, metadata, createdAt, updatedAt,
-        cancelledAt, expiredAt
+        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        requested_at, metadata, created_at, updated_at,
+        cancelled_at, expired_at
       FROM service_payment_requests
       WHERE payment_request_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -72,9 +72,9 @@ class ServicePaymentRequestRepository {
       `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount, currency,
-        requestedAt, metadata, createdAt, updatedAt,
-        cancelledAt, expiredAt
+        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        requested_at, metadata, created_at, updated_at,
+        cancelled_at, expired_at
       FROM service_payment_requests
       WHERE booking_id = $1 AND tenant_id = $2
       LIMIT 1
@@ -101,9 +101,9 @@ class ServicePaymentRequestRepository {
     let query = `
       SELECT 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount, currency,
-        requestedAt, metadata, createdAt, updatedAt,
-        cancelledAt, expiredAt
+        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        requested_at, metadata, created_at, updated_at,
+        cancelled_at, expired_at
       FROM service_payment_requests
       WHERE service_id = $1 AND tenant_id = $2
     `;
@@ -114,7 +114,7 @@ class ServicePaymentRequestRepository {
       params.push(filters.status);
     }
 
-    query += ` ORDER BY requestedAt DESC`;
+    query += ` ORDER BY requested_at DESC`;
 
     const rows = await runQueriesWithTenant<ServicePaymentRequestRow>(tenantId, query, params);
 
@@ -149,15 +149,15 @@ class ServicePaymentRequestRepository {
       `
       INSERT INTO service_payment_requests (
         tenant_id, booking_id, service_id, payer_actor_id, receiver_actor_id,
-        status, amount, currency, requestedAt, metadata
+        status, amount, currency, requested_at, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (booking_id) DO NOTHING
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount, currency,
-        requestedAt, metadata, createdAt, updatedAt,
-        cancelledAt, expiredAt
+        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        requested_at, metadata, created_at, updated_at,
+        cancelled_at, expired_at
       `,
       [
         tenantId,
@@ -217,12 +217,16 @@ class ServicePaymentRequestRepository {
       WHERE payment_request_id = $${paramIndex++} AND tenant_id = $${paramIndex++}
       RETURNING 
         payment_request_id, tenant_id, booking_id, service_id,
-        payer_actor_id, receiver_actor_id, status, amount, currency,
-        requestedAt, metadata, createdAt, updatedAt,
-        cancelledAt, expiredAt
+        payer_actor_id, receiver_actor_id, status, amount AS "amountCents", currency,
+        requested_at, metadata, created_at, updated_at,
+        cancelled_at, expired_at
       `,
       params
     );
+
+    if (!row) {
+      throw new Error('Payment request não encontrado');
+    }
 
     return this.toServicePaymentRequest(row);
   }

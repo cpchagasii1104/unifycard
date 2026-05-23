@@ -39,7 +39,7 @@ export default function GruposPage() {
   const loadGroupCategories = async () => {
     try {
       const { searchCategories } = await import('../api/categories');
-      const activeCategories = await searchCategories('', 1000, 'group');
+      const activeCategories = await searchCategories('', 1000, 'group' as import('@unificard/contracts').CategoryContext);
       setGroupCategories(activeCategories.map(cat => ({
         category_id: cat.categoryId,
         name: cat.name,

@@ -10,23 +10,28 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { sessionReady } = useSession();
-  
-  // REGRA CRÍTICA: Aguardar explicitamente sessionReady
-  // Durante bootstrap, NUNCA redirecionar para /login
-  // Isso previne loop de login quando bootstrap está em andamento
-  if (!sessionReady) {
-    // Bootstrap em andamento - aguardar sem redirecionar
+  const { authHydrated } = useSession();
+
+  // [DIAG 2026-05-19] Investigando bug / → /login mesmo com token=null tenant=null
+  // Remover após diagnóstico concluído.
+  if (typeof window !== 'undefined') {
+    console.log('[ProtectedRoute DIAG]', {
+      pathname: window.location.pathname,
+      authHydrated,
+      isAuth: isAuthenticated(),
+      tenant: getTenantId(),
+    });
+  }
+
+  // Aguardar hidratação (bootstrap terminou ou utilizador público já resolvido)
+  if (!authHydrated) {
     return null;
   }
-  
-  // Após bootstrap completo, verificar autenticação
-  // Requer token E tenantId para considerar autenticado
-  // activeActor pode ser null se não houver actors disponíveis (não é erro crítico)
+
   if (!isAuthenticated() || !getTenantId()) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 }
 

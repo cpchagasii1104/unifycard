@@ -16,22 +16,26 @@ export class SocialServiceAdapter implements SocialServicePort {
     globalUserId: string,
     input: CreatePostInput
   ): Promise<Post> {
-    const post = await realService.createPost(fastify, tenantId, globalUserId, input);
+    const moduleInput = {
+      ...input,
+      intent: input.intent ?? undefined,
+    };
+    const post = await realService.createPost(fastify, tenantId, globalUserId, moduleInput);
     // Converter Post do module para Post do port
     return {
       postId: post.postId,
       tenantId: post.tenantId,
       globalUserId: post.globalUserId,
       content: post.content,
-      type: post.type,
-      visibility: post.visibility,
+      type: post.type ?? null,
+      visibility: post.visibility ?? null,
       media: post.media,
-      intent: post.intent,
-      confidence: post.confidence,
+      intent: post.intent ?? null,
+      confidence: post.confidence ?? null,
       categories: post.categories,
       suggestedActions: post.suggestedActions,
       metadata: post.metadata,
-      eventId: post.eventId,
+      eventId: post.eventId ?? null,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
     };

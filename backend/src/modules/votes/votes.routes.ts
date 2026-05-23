@@ -3,7 +3,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { votesService } from './votes.service';
-import type { CreateVoteInput } from '../groups/votes.types';
+import type { CreateVoteInput } from './votes.types';
 import { z } from 'zod';
 
 const createVoteSchema = z.object({
@@ -53,12 +53,20 @@ const votesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ error: 'Actor não encontrado' });
       }
 
+      const input: CreateVoteInput = {
+        title: parsed.data.title,
+        options: parsed.data.options,
+        description: parsed.data.description ?? undefined,
+        startsAt: parsed.data.startsAt,
+        endsAt: parsed.data.endsAt,
+      };
+
       const vote = await votesService.createVote(
         req.tenant.id,
         req.actionContext.actorId,
         req.actionContext.actorId,
         activeActor.actor_id,
-        parsed.data as CreateVoteInput
+        input
       );
 
       return reply.status(201).send(vote);

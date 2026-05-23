@@ -157,7 +157,11 @@ class CulturalProfileService {
     input: CreateCulturalProfileInput
   ): Promise<CulturalProfile> {
     // Validar capacidades do tipo
-    const capabilities = this.getCapabilitiesByType(input.type);
+    const profileType = input.type;
+    if (!profileType) {
+      throw new Error('Tipo de perfil é obrigatório');
+    }
+    const capabilities = this.getCapabilitiesByType(profileType);
 
     // Validar se requer empresa e se foi fornecida
     if (capabilities.requires_company && !input.linked_company_id) {
@@ -236,8 +240,8 @@ class CulturalProfileService {
       linked_company_id: string | null;
       location: Record<string, any> | null;
       active: boolean;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string;
+      updated_at: string;
     }>(
       tenantId,
       `
@@ -247,7 +251,7 @@ class CulturalProfileService {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
       RETURNING id, tenant_id, owner_actor_id, owner_actor_type, type, display_name, slug,
-                description, linked_company_id, location, active, createdAt, updatedAt
+               description, linked_company_id, location, active, created_at, updated_at
       `,
       [
         tenantId,
@@ -280,8 +284,8 @@ class CulturalProfileService {
       linked_company_id: row.linked_company_id,
       location: row.location as any,
       isActive: row.active,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -305,17 +309,17 @@ class CulturalProfileService {
       linked_company_id: string | null;
       location: Record<string, any> | null;
       active: boolean;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string;
+      updated_at: string;
     }>(
       tenantId,
       `
       SELECT id, tenant_id, owner_actor_id, owner_actor_type, type, display_name, slug,
-             description, linked_company_id, location, active, createdAt, updatedAt
+             description, linked_company_id, location, active, created_at, updated_at
       FROM cultural_profiles
       WHERE tenant_id = $1 AND owner_actor_id = $2 AND owner_actor_type = $3
         AND active = true
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       [tenantId, actorId, actorType]
     );
@@ -332,8 +336,8 @@ class CulturalProfileService {
       linked_company_id: row.linked_company_id,
       location: row.location as any,
       isActive: row.active,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -356,13 +360,13 @@ class CulturalProfileService {
       linked_company_id: string | null;
       location: Record<string, any> | null;
       active: boolean;
-      createdAt: string;
-      updatedAt: string;
+      created_at: string;
+      updated_at: string;
     }>(
       tenantId,
       `
       SELECT id, tenant_id, owner_actor_id, owner_actor_type, type, display_name, slug,
-             description, linked_company_id, location, active, createdAt, updatedAt
+             description, linked_company_id, location, active, created_at, updated_at
       FROM cultural_profiles
       WHERE id = $1 AND tenant_id = $2
       LIMIT 1
@@ -387,8 +391,8 @@ class CulturalProfileService {
       linked_company_id: row.linked_company_id,
       location: row.location as any,
       isActive: row.active,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 }

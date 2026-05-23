@@ -17,6 +17,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
    * Middleware: Verificar permissão para acessar Policy Engine
    */
   const requirePolicyPermission = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id;
 
@@ -58,6 +61,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/policies', { preHandler: requirePolicyPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: PolicyFilters = {
       policyType: req.query.policyType as any,
@@ -76,6 +82,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
    * Cria uma nova política
    */
   fastify.post<{ Body: CreatePolicyInput }>('/policies', { preHandler: requirePolicyPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id || '';
 
@@ -92,6 +101,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policies/:policyId',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const policy = await policyEngineService.getPolicy(tenantId, req.params.policyId);
 
@@ -107,6 +119,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policies/:policyId/activate',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -124,6 +139,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policies/:policyId/deactivate',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
 
@@ -141,6 +159,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policies/evaluate/:actorId',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const evaluations = await policyEngineService.evaluatePoliciesForActor(tenantId, req.params.actorId);
 
@@ -161,6 +182,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/policy-decisions', { preHandler: requirePolicyPermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters: PolicyDecisionFilters = {
       policyId: req.query.policyId,
@@ -183,9 +207,12 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policy-decisions',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
-      const actorId = req.user?.actorId || '';
+      const actorId = (req.user as { actorId?: string } | undefined)?.actorId ?? '';
 
       const decision = await policyEngineService.applyPolicyDecision(
         tenantId,
@@ -206,6 +233,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policy-decisions/:decisionId',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const decision = await policyEngineService.getDecision(tenantId, req.params.decisionId);
 
@@ -221,9 +251,12 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policy-decisions/:decisionId/revoke',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || '';
-      const actorId = req.user?.actorId || '';
+      const actorId = (req.user as { actorId?: string } | undefined)?.actorId ?? '';
 
       const decision = await policyEngineService.revokeDecision(
         tenantId,
@@ -245,6 +278,9 @@ const policyRoutes = async (fastify: FastifyInstance) => {
     '/policy-decisions/actor/:actorId/active',
     { preHandler: requirePolicyPermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const decisions = await policyEngineService.getActiveDecisionsForActor(tenantId, req.params.actorId);
 

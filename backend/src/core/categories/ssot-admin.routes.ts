@@ -3,7 +3,7 @@
 // Apenas role 'admin' pode acessar
 
 import { FastifyPluginAsync } from 'fastify';
-import { ssotObservabilityService } from './ssot-observability.service';
+import { ssotObservabilityUtil } from '@core/observability/ssot-observability.util';
 
 const ssotAdminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -45,7 +45,7 @@ const ssotAdminRoutes: FastifyPluginAsync = async (fastify) => {
         options.endDate = new Date(req.query.endDate);
       }
 
-      const metrics = await ssotObservabilityService.getMetrics(options);
+      const metrics = await ssotObservabilityUtil.getMetrics(options);
 
       return reply.send({
         ok: true,

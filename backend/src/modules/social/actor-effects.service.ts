@@ -12,7 +12,11 @@ import {
   EffectEmissionResult,
 } from './actor-effects.types';
 import { ActorIntent } from './actor-intents.types';
-import { eventBus } from '@core/events/event-bus';
+import { getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '@core/events/event-outbox.repository';
 import { actorRepository } from './actor.repository';
 
 /**
@@ -146,22 +150,35 @@ class ActorEffectsService {
 
     for (const effect of expectedEffects) {
       try {
-        const { v4: uuidv4 } = await import('uuid');
-        await eventBus.publish({
-          eventId: uuidv4(),
-          tenantId,
-          type: `actor.effect.${effect.toLowerCase()}`,
-          version: 1,
-          payload: {
-            effect,
-            ...basePayload,
-          },
-          metadata: {
-            actorId: actor.actor_id,
-            actorType: actor.actor_type,
-            intent: normalizedIntent,
-          },
-        });
+        const eventType = `actor.effect.${effect.toLowerCase()}`;
+        const sourcePart = basePayload.sourceId ?? '';
+        const outboxClient = await getClientWithTenant(tenantId);
+        try {
+          await outboxClient.query('BEGIN');
+          await insertEventOutboxRow(outboxClient, {
+            tenantId,
+            eventId: outboxEventIdFromSeed(
+              `${eventType}:${tenantId}:${actor.actor_id}:${normalizedIntent}:${effect}:${sourcePart}`
+            ),
+            eventType,
+            eventVersion: 1,
+            payload: {
+              effect,
+              ...basePayload,
+            },
+            metadata: {
+              actorId: actor.actor_id,
+              actorType: actor.actor_type,
+              intent: normalizedIntent,
+            },
+          });
+          await outboxClient.query('COMMIT');
+        } catch (inner) {
+          await outboxClient.query('ROLLBACK');
+          throw inner;
+        } finally {
+          outboxClient.release();
+        }
         effectsEmitted.push(effect);
       } catch (error) {
         errors.push({

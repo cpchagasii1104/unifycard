@@ -33,7 +33,7 @@ export interface BypassDetectionEvent {
   actorId: string;
   signalType: BypassSignalType;
   severity: BypassSignalSeverity;
-  contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread';
+  contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread' | 'rfq';
   contextId: string;
   evidencePackId: string; // Obrigatório
   detectedValue?: any; // Valor detectado (ex: valor divergente, mensagem, etc.)
@@ -50,7 +50,7 @@ export interface RegisterBypassDetectionInput {
   actorId: string;
   signalType: BypassSignalType;
   severity: BypassSignalSeverity;
-  contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread';
+  contextType: 'event' | 'booking' | 'bundle' | 'service_order' | 'agreement' | 'thread' | 'rfq';
   contextId: string;
   evidencePackId: string;
   detectedValue?: any;

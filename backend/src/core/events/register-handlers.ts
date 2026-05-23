@@ -4,6 +4,7 @@
 // Isso evita circular imports e problemas de TDZ
 
 import { eventBus } from './event-bus';
+import { registerSagaCompensationHandler } from '@core/sagas/handlers/saga-compensation.handler';
 
 // ⭐ REPUTATION HANDLERS
 import { registerReputationEventHandlers } from '@core/reputation/reputation.events';
@@ -24,6 +25,9 @@ import { onGroupFundReceived } from '../orchestrator/executors/groups-activity.e
 import { registerWorkAdapters } from '../orchestrator/adapters/work.adapter';
 import { registerRidesAdapters } from '../orchestrator/adapters/rides.adapter';
 
+// ⭐ Marketplace — dispatch aceito (outbox → worker → bus canónico)
+import { registerMarketplaceDispatchAcceptedHandlers } from '@modules/marketplace/application/handlers/register-marketplace-dispatch-accepted-handlers';
+
 // ⭐ Event Feed Handlers (cria posts no feed quando eventos são criados/publicados)
 import { socialPortsRegistry } from '@core/social/ports-registry';
 
@@ -40,18 +44,24 @@ export async function registerCoreHandlers(): Promise<void> {
   // 🔥 Notify (escuta eventos do Work e outros módulos)
   registerAllNotifyHandlers(eventBus);
 
+  // 🔥 Marketplace — DispatchAcceptedEvent (fila outbox + worker)
+  registerMarketplaceDispatchAcceptedHandlers(eventBus);
+
+  // 🔥 Sagas — compensação ledger controlada em handler (INFRA-4.2; não em failSaga)
+  registerSagaCompensationHandler(eventBus);
+
   // 🔥 Orchestrator Work Handlers (escuta eventos do Work para Memory/AI)
-  eventBus.registerHandler('work.job.created', onJobCreated);
-  eventBus.registerHandler('work.assignment.completed', onAssignmentCompleted);
+  eventBus.registerHandler('work.job.created', 'orchestrator.work.job_created', onJobCreated);
+  eventBus.registerHandler('work.assignment.completed', 'orchestrator.work.assignment_completed', onAssignmentCompleted);
 
   // 🔥 Groups Handlers (escuta eventos de grupos para Memory/AI)
-  eventBus.registerHandler('group.created', handleGroupCreated);
-  eventBus.registerHandler('group.member.joined', handleGroupMemberJoined);
-  eventBus.registerHandler('group.member.left', handleGroupMemberLeft);
-  eventBus.registerHandler('group.fund.received', handleGroupFundReceived);
+  eventBus.registerHandler('group.created', 'orchestrator.groups.created', handleGroupCreated);
+  eventBus.registerHandler('group.member.joined', 'orchestrator.groups.member_joined', handleGroupMemberJoined);
+  eventBus.registerHandler('group.member.left', 'orchestrator.groups.member_left', handleGroupMemberLeft);
+  eventBus.registerHandler('group.fund.received', 'orchestrator.groups.fund_received.memory', handleGroupFundReceived);
 
   // 🔥 Groups Activity Handlers (cria auto-posts econômicos)
-  eventBus.registerHandler('group.fund.received', onGroupFundReceived);
+  eventBus.registerHandler('group.fund.received', 'orchestrator.groups.fund_received.activity', onGroupFundReceived);
 
   // 🔥 Event Feed Handlers (cria posts no feed quando eventos são criados/publicados)
   const eventFeedHandlers = socialPortsRegistry.getEventFeedHandlers();
@@ -71,7 +81,6 @@ export async function registerCoreHandlers(): Promise<void> {
 
   console.log("🔵 [DEBUG] EventBus handlers registered");
 }
-
 
 
 

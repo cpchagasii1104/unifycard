@@ -23,7 +23,7 @@ const consolidatedBalanceQuerySchema = z.object({
 
 // Schema de validação para body de reconciliação
 const reconciliationBodySchema = z.object({
-  externalBalance: z.number().min(0),
+  externalBalanceCents: z.number().int().min(0),
 });
 
 const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -120,7 +120,7 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
    * - 403: Não é admin
    * - 500: Erro inesperado
    */
-  fastify.post<{ Body: { externalBalance: number; currency?: string; notes?: string } }>('/consolidated-balance/reconciliation', {
+  fastify.post<{ Body: { externalBalanceCents: number; currency?: string; notes?: string } }>('/consolidated-balance/reconciliation', {
     preHandler: [fastify.requirePermission(['admin:view_consolidated_balance'])],
   }, async (req, reply) => {
     // 1. Verificar autenticação
@@ -137,7 +137,7 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
 
     // 2. Validar body
     const bodySchema = z.object({
-      externalBalance: z.number().min(0),
+      externalBalanceCents: z.number().int().min(0),
       currency: z.enum(['BRL', 'USD', 'EUR', 'TEST']).optional().default('BRL'),
       notes: z.string().optional(),
     });
@@ -160,13 +160,14 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       // 4. Calcular diferença
-      const difference = consolidatedBalance.reconciliation.internalBalance - parsed.data.externalBalance;
+      const differenceCents =
+        consolidatedBalance.reconciliation.internalBalanceCents - parsed.data.externalBalanceCents;
 
       // 5. Persistir no histórico (append-only)
       const historyEntry = await bankReconciliationHistoryRepository.create(tenantId, {
-        internalBalance: consolidatedBalance.reconciliation.internalBalance,
-        externalBalance: parsed.data.externalBalance,
-        difference,
+        internalBalanceCents: consolidatedBalance.reconciliation.internalBalanceCents,
+        externalBalanceCents: parsed.data.externalBalanceCents,
+        differenceCents,
         currency: parsed.data.currency,
         filtersApplied: {
           currency: parsed.data.currency,
@@ -178,7 +179,7 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
       // 6. Retornar reconciliação atualizada
       const updatedBalance = bankBalanceConsolidationService.updateReconciliation(
         consolidatedBalance,
-        parsed.data.externalBalance
+        parsed.data.externalBalanceCents
       );
 
       return reply.status(200).send({

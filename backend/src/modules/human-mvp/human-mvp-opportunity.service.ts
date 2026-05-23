@@ -45,7 +45,7 @@ class HumanMvpOpportunityService {
     }
 
     // VALIDAÇÃO 2: Context é permitido (professional, person ou interest)
-    const allowedContexts: CategoryContext[] = ['professional', 'person', 'interest'];
+    const allowedContexts: (CategoryContext | 'person')[] = ['professional', 'person', 'interest'];
     if (!allowedContexts.includes(input.context)) {
       throw new Error('Context inválido. Apenas "professional", "person" ou "interest" são permitidos');
     }
@@ -77,7 +77,7 @@ class HumanMvpOpportunityService {
     const result = await pool.query<{ id: string }>(
       `
       INSERT INTO human_mvp_opportunities (
-        tenant_id, category_id, context, origin_type, createdAt, updatedAt
+        tenant_id, category_id, context, origin_type, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, NOW(), NOW())
       RETURNING id
@@ -121,7 +121,7 @@ class HumanMvpOpportunityService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, createdAt
+        event_type, tenant_id, person_id, category_id, context, details, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,

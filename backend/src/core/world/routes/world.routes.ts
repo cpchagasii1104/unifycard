@@ -1,5 +1,6 @@
 // src/core/world/routes/world.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { worldService } from '../services/world.service';
 import {
   getStatesByCountryParamsSchema,
@@ -22,12 +23,12 @@ const worldRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { countryId: string } }>(
     '/countries/:countryId',
-    async (req, reply) => {
+    async (req) => {
       const { countryId } = req.params;
       const country = await worldService.getCountryById(countryId);
 
       if (!country) {
-        return reply.notFound('País não encontrado');
+        throw new NotFoundError('País não encontrado');
       }
 
       return country;
@@ -40,13 +41,13 @@ const worldRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { countryId: string } }>(
     '/countries/:countryId/states',
-    async (req, reply) => {
+    async (req) => {
       const { countryId } = req.params;
       
       // Validar countryId
       const country = await worldService.getCountryById(countryId);
       if (!country) {
-        return reply.notFound('País não encontrado');
+        throw new NotFoundError('País não encontrado');
       }
 
       const states = await worldService.getStatesByCountry(countryId);
@@ -60,12 +61,12 @@ const worldRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { stateId: string } }>(
     '/states/:stateId',
-    async (req, reply) => {
+    async (req) => {
       const { stateId } = req.params;
       const state = await worldService.getStateById(stateId);
 
       if (!state) {
-        return reply.notFound('Estado não encontrado');
+        throw new NotFoundError('Estado não encontrado');
       }
 
       return state;
@@ -78,13 +79,13 @@ const worldRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { stateId: string } }>(
     '/states/:stateId/cities',
-    async (req, reply) => {
+    async (req) => {
       const { stateId } = req.params;
       
       // Validar stateId
       const state = await worldService.getStateById(stateId);
       if (!state) {
-        return reply.notFound('Estado não encontrado');
+        throw new NotFoundError('Estado não encontrado');
       }
 
       const cities = await worldService.getCitiesByState(stateId);
@@ -98,12 +99,12 @@ const worldRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{ Params: { cityId: string } }>(
     '/cities/:cityId',
-    async (req, reply) => {
+    async (req) => {
       const { cityId } = req.params;
       const city = await worldService.getCityById(cityId);
 
       if (!city) {
-        return reply.notFound('Cidade não encontrada');
+        throw new NotFoundError('Cidade não encontrada');
       }
 
       return city;

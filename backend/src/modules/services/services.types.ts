@@ -84,9 +84,9 @@ export interface ServiceRow {
   city_id: string | null;
   neighborhood: string | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  activatedAt: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  activated_at: Date | null;
 }
 
 /**

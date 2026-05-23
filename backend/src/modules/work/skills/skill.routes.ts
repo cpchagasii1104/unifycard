@@ -1,5 +1,6 @@
 // src/modules/work/skills/skill.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { skillService } from './skill.service';
 import {
   createSkillSchema,
@@ -52,7 +53,7 @@ const skillRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof skillIdParamsSchema>;
   }>('/:skillId', {
     preHandler: fastify.requirePermission(['work:skill:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = skillIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -61,7 +62,7 @@ const skillRoutes: FastifyPluginAsync = async (fastify) => {
     const skill = await skillService.getById(tenantId, skillId);
 
     if (!skill) {
-      return reply.notFound('Skill not found');
+      throw new NotFoundError('Skill not found');
     }
 
     return skill;

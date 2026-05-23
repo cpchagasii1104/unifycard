@@ -109,3 +109,43 @@ export interface OrganizationMemberFilters {
   offset?: number;
 }
 
+/** Escopo de consolidação para relatórios multi-empresa (objeto resolvido pelo helper) */
+export interface ConsolidationScope {
+  unitId?: string;
+  includeChildren: boolean;
+  consolidated: boolean;
+}
+
+/** Unidade organizacional (árvore de departamentos) */
+export interface OrganizationUnit {
+  id: string;
+  tenantId: string;
+  name: string;
+  type: string;
+  parentId: string | null;
+  slug: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOrganizationUnitInput {
+  name: string;
+  type?: string;
+  parentId?: string | null;
+  slug: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateOrganizationUnitInput {
+  name?: string;
+  type?: string;
+  parentId?: string | null;
+  slug?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface OrganizationUnitTree extends OrganizationUnit {
+  children: OrganizationUnitTree[];
+}
+

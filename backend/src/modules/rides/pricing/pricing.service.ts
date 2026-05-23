@@ -1,8 +1,9 @@
 // src/modules/rides/pricing/pricing.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from "@core/db";
-import { eventBus } from "@core/events/event-bus";
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from "@core/db";
 import { BadRequestError } from "@core/errors";
+import { asMoneyCents } from "@contracts/marketplace/canonical";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 
 export class PricingService {
 
@@ -77,7 +78,7 @@ export class PricingService {
       zoneIncentive;
 
     const estimate = {
-      totalCents: Number(total.toFixed(2)),
+      totalCents: asMoneyCents(Math.round(total)),
       currency: cfg.currency,
       base_fare: cfg.base_fare,
       distance_cost: distanceCost,
@@ -92,7 +93,12 @@ export class PricingService {
   // ================================================================================
   // 🔹 2. Calcular preço FINAL (usado ao completar a corrida)
   // ================================================================================
-  async calculateFinalPrice(tenantId: string, rideId: string) {
+  /** @param options.skipEmit — omitir publish até após persistência/pagamento (fluxos de conclusão). */
+  async calculateFinalPrice(
+    tenantId: string,
+    rideId: string,
+    options?: { skipEmit?: boolean }
+  ) {
     const ride = await runQueryWithTenant<any>(
       tenantId,
       {
@@ -135,7 +141,7 @@ export class PricingService {
       cfg.time_rate_per_minute * 12;
 
     const finalPrice = {
-      totalCents: Number(total.toFixed(2)),
+      totalCents: asMoneyCents(Math.round(total)),
       currency: cfg.currency,
       base_fare: cfg.base_fare,
       distance_cost: distanceCost,
@@ -143,15 +149,18 @@ export class PricingService {
       distance_km: distanceKm,
     };
 
-    // Emitir evento
-    await eventBus.emit({
-      type: "rides.pricing.calculated",
-      tenantId,
-      payload: {
-        rideId,
-        finalPrice,
-      },
-    });
+    if (!options?.skipEmit) {
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: "rides.pricing.calculated",
+          tenantId,
+          payload: {
+            rideId,
+            finalPrice,
+          },
+        });
+      });
+    }
 
     return finalPrice;
   }
@@ -226,7 +235,7 @@ export class PricingService {
       SELECT location
       FROM rides_ride_locations
       WHERE tenant_id = $1 AND ride_id = $2
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
         values: [tenantId, rideId],
       }
@@ -403,7 +412,7 @@ export class PricingService {
     const total = baseFare + (costPerKm * distanceKm) + (costPerMin * durationMin);
     
     return {
-      totalCents: Number(total.toFixed(2)),
+      totalCents: asMoneyCents(Math.round(total)),
       currency: 'BRL',
       base_fare: baseFare,
       distance_cost: costPerKm * distanceKm,

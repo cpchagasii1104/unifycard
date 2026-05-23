@@ -1,8 +1,8 @@
 // backend/src/modules/work/jobs/job.service.ts
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
 import { reputationService } from '@core/reputation/reputation.service'; // ⭐ NOVO
+import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 
 import type {
   Job,
@@ -22,11 +22,11 @@ class JobService {
       requiredSkills: row.required_skills ?? [],
       budgetMin: row.budget_min ? Number(row.budget_min) : undefined,
       budgetMax: row.budget_max ? Number(row.budget_max) : undefined,
-      scheduledAt: row.scheduledAt ?? undefined,
+      scheduledAt: row.scheduled_at ?? undefined,
       location: row.location ?? null,
       status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: new Date(row.created_at).toISOString(),
+      updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
 
@@ -91,7 +91,7 @@ class JobService {
         required_skills,
         budget_min,
         budget_max,
-        scheduledAt,
+        scheduled_at,
         location
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,${locationExpr})
@@ -106,11 +106,13 @@ class JobService {
 
     const job = this.toJob(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.job.created',
-      payload: { jobId: job.jobId },
-    });
+      'work.job.created',
+      job.jobId,
+      'job.service',
+      { jobId: job.jobId }
+    );
 
     // ⭐ REPUTAÇÃO DO CLIENTE
     job.clientReputation = await reputationService.getScore(
@@ -139,9 +141,9 @@ class JobService {
         description = COALESCE($4, description),
         budget_min = COALESCE($5, budget_min),
         budget_max = COALESCE($6, budget_max),
-        scheduledAt = COALESCE($7, scheduledAt),
+        scheduled_at = COALESCE($7, scheduled_at),
         status = COALESCE($8, status),
-        updatedAt = now()
+        updated_at = now()
       WHERE job_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -165,11 +167,13 @@ class JobService {
 
     const job = this.toJob(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.job.updated',
-      payload: { jobId },
-    });
+      'work.job.updated',
+      jobId,
+      `job.service:${job.updatedAt}`,
+      { jobId }
+    );
 
     // ⭐ REPUTAÇÃO DO CLIENTE
     job.clientReputation = await reputationService.getScore(
@@ -251,21 +255,20 @@ class JobService {
       `
       SELECT * FROM jobs
       WHERE ${whereSQL}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${i} OFFSET $${i + 1}
       `,
       [...params, limit, offset],
     );
 
-    const totalRow = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      `
-      SELECT COUNT(*) AS total
+    const totalRow = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: `
+      SELECT COUNT(*)::text AS "totalCents"
       FROM jobs
       WHERE ${whereSQL}
       `,
-      params,
-    );
+      values: params,
+    });
 
     const jobs = rows.map(r => this.toJob(r));
 
@@ -280,7 +283,7 @@ class JobService {
 
     return {
       jobs,
-      totalCents: totalRow ? Number(totalRow.total) : 0,
+      totalCents: totalRow ? Number(totalRow.totalCents) : 0,
     };
   }
 }

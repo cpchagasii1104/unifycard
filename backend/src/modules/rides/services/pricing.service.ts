@@ -45,7 +45,7 @@ class PricingService {
         SELECT *
         FROM rides_pricing_config
         WHERE is_active = TRUE
-        ORDER BY updatedAt DESC
+        ORDER BY updated_at DESC
         LIMIT 1;
       `,
     });

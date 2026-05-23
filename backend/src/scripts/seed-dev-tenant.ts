@@ -7,6 +7,7 @@
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool } from '../core/database/pool';
+import { tenantService } from '../core/tenants/tenant.service';
 
 // Carrega variáveis de ambiente
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -38,9 +39,9 @@ async function tenantExists(tenantId: string): Promise<boolean> {
   try {
     const result = await client.query(
       `
-        SELECT tenant_id
+        SELECT id
         FROM tenants
-        WHERE tenant_id = $1
+        WHERE id = $1
         LIMIT 1
       `,
       [tenantId]
@@ -67,33 +68,16 @@ async function createDevTenant(): Promise<void> {
     return;
   }
 
-  // Inserir no banco
-  const client = await pool.connect();
-  try {
-    await client.query(
-      `
-        INSERT INTO tenants (
-          tenant_id,
-          name,
-          slug,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, now(), now())
-      `,
-      [DEV_TENANT_ID, DEV_TENANT_NAME, DEV_TENANT_SLUG]
-    );
+  await tenantService.createTenant({
+    id: DEV_TENANT_ID,
+    name: DEV_TENANT_NAME,
+    slug: DEV_TENANT_SLUG,
+  });
 
-    console.log('✅ Tenant DEV criado com sucesso');
-    console.log(`   Tenant ID: ${DEV_TENANT_ID}`);
-    console.log(`   Name: ${DEV_TENANT_NAME}`);
-    console.log(`   Slug: ${DEV_TENANT_SLUG}\n`);
-  } catch (error) {
-    console.error('❌ Erro ao criar tenant:');
-    console.error(error);
-    throw error;
-  } finally {
-    client.release();
-  }
+  console.log('✅ Tenant DEV criado com sucesso');
+  console.log(`   Tenant ID: ${DEV_TENANT_ID}`);
+  console.log(`   Name: ${DEV_TENANT_NAME}`);
+  console.log(`   Slug: ${DEV_TENANT_SLUG}\n`);
 }
 
 /**

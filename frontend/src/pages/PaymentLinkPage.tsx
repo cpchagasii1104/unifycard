@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { apiFetchPublic } from '../api/client';
 import './PaymentLinkPage.css';
 
 interface PaymentLink {
@@ -97,7 +98,7 @@ export default function PaymentLinkPage() {
         return;
       }
 
-      const response = await fetch(`/api/pay/${slug}?tenantId=${tenantId}`);
+      const response = await apiFetchPublic(`/api/pay/${slug}?tenantId=${tenantId}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Erro ao carregar link');
@@ -125,11 +126,8 @@ export default function PaymentLinkPage() {
       }
 
       setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/pay/${slug}/intent`, {
+      const response = await apiFetchPublic(`/api/pay/${slug}/intent`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           tenantId,
           contact: contact.name ? contact : undefined,
@@ -163,8 +161,8 @@ export default function PaymentLinkPage() {
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || ''}/api/pay/${slug}/status?tenantId=${tenantId}&paymentIntentId=${paymentIntent.paymentIntentId}`
+      const response = await apiFetchPublic(
+        `/api/pay/${slug}/status?tenantId=${tenantId}&paymentIntentId=${paymentIntent.paymentIntentId}`
       );
 
       if (response.ok) {
@@ -196,11 +194,8 @@ export default function PaymentLinkPage() {
       }
 
       // Executar pagamento via PaymentExecutionService
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/marketplace/payments/execute`, {
+      const response = await apiFetchPublic('/api/marketplace/payments/execute', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           paymentIntentId: paymentIntent.paymentIntentId,
           buyerActorId: link?.id, // Usar link ID como buyer temporário
@@ -323,7 +318,7 @@ export default function PaymentLinkPage() {
           </>
         ) : (
           <>
-            {selectedMethod === 'PIX' && (paymentStatus?.transaction as any)?.metadata?.pix_qr_code && (
+            {selectedMethod === 'PIX' && paymentStatus && (paymentStatus.transaction as any)?.metadata?.pix_qr_code && (
               <div className="payment-link-qrcode">
                 <h3>Escaneie o QR Code ou copie o código</h3>
                 <img
@@ -335,7 +330,7 @@ export default function PaymentLinkPage() {
                   value={(paymentStatus.transaction as any).metadata.pix_qr_code_text || ''}
                 />
                 <button onClick={() => {
-                  navigator.clipboard.writeText((paymentStatus.transaction as any)?.metadata.pix_qr_code_text);
+                  navigator.clipboard.writeText((paymentStatus.transaction as any)?.metadata?.pix_qr_code_text ?? '');
                   alert('Código copiado!');
                 }}>
                   Copiar código

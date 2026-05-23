@@ -9,7 +9,7 @@ import { pool } from '@core/database/pool';
 dotenv.config({ path: join(process.cwd(), '.env') });
 
 interface TenantRow {
-  tenant_id: string;
+  id: string;
   name: string;
   slug: string;
 }
@@ -69,7 +69,7 @@ async function printDemoInfo() {
     // 1. Buscar Tenant
     console.log('📦 TENANT:');
     const tenantResult = await client.query<TenantRow>(
-      `SELECT tenant_id, name, slug FROM tenants WHERE slug = 'cidade-nova-demo' LIMIT 1`
+      `SELECT id, name, slug FROM tenants WHERE slug = 'cidade-nova-demo' LIMIT 1`
     );
 
     if (tenantResult.rows.length === 0) {
@@ -79,7 +79,7 @@ async function printDemoInfo() {
     }
 
     const tenant = tenantResult.rows[0];
-    console.log(`   tenantId: ${tenant.tenant_id}`);
+    console.log(`   tenantId: ${tenant.id}`);
     console.log(`   name: ${tenant.name}`);
     console.log(`   slug: ${tenant.slug}\n`);
 
@@ -90,7 +90,7 @@ async function printDemoInfo() {
        FROM companies 
        WHERE tenant_id = $1 AND name = 'Cidade Nova Beauty' 
        LIMIT 1`,
-      [tenant.tenant_id]
+      [tenant.id]
     );
 
     if (companyResult.rows.length === 0) {
@@ -110,7 +110,7 @@ async function printDemoInfo() {
        FROM users 
        WHERE tenant_id = $1 AND email = 'maria.manicure@cidadenova.demo' 
        LIMIT 1`,
-      [tenant.tenant_id]
+      [tenant.id]
     );
 
     if (userResult.rows.length === 0) {
@@ -129,7 +129,7 @@ async function printDemoInfo() {
        FROM profiles 
        WHERE tenant_id = $1 AND user_id = $2 
        LIMIT 1`,
-      [tenant.tenant_id, user.user_id]
+      [tenant.id, user.user_id]
     );
 
     if (profileResult.rows.length > 0) {
@@ -145,7 +145,7 @@ async function printDemoInfo() {
        FROM workers 
        WHERE tenant_id = $1 AND user_id = $2 
        LIMIT 1`,
-      [tenant.tenant_id, user.user_id]
+      [tenant.id, user.user_id]
     );
 
     if (workerResult.rows.length > 0) {
@@ -165,7 +165,7 @@ async function printDemoInfo() {
          FROM schedules 
          WHERE tenant_id = $1 AND global_user_id = $2 
          LIMIT 1`,
-        [tenant.tenant_id, user.global_user_id]
+        [tenant.id, user.global_user_id]
       );
 
       if (scheduleResult.rows.length === 0) {

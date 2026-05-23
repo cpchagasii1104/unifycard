@@ -1,4 +1,8 @@
 // src/plugins/rbac.plugin.ts
+//
+// RBAC V2 (N3): camada de permissão por actorId + intent + scope (strings em rbac.types).
+// Não substitui o modelo actor-based canActAs / authority.service (PermissionKey + quarentena).
+// Rotas podem combinar ambos (ex.: preHandler aqui + verificação adicional com authority no handler).
 import fp from 'fastify-plugin';
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { rbacService } from '@core/rbac/rbac.service';

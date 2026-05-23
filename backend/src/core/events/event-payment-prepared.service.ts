@@ -17,12 +17,16 @@
  * - event.payment.authorized
  */
 
-import { eventService } from './event.service';
 import { eventEconomicPhaseService } from './event-economic-phase.service';
 import { eventCustodyService } from './event-custody.service';
-import { eventBus } from './event-bus';
+import { eventSplitDeclarativeService } from './event-split-declarative.service';
 import { BadRequestError, NotFoundError } from '@core/errors';
-import { runQueryWithTenant } from '@core/database/pool';
+import {
+  getClientWithTenant,
+  runQueryWithTenant,
+  runQueriesWithTenant,
+} from '@core/database/pool';
+import { insertEventOutboxRow } from './event-outbox.repository';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -69,18 +73,18 @@ interface PaymentAuthorizationRow {
   status: string;
   user_authorization: boolean;
   authorization_reason: string | null;
-  authorizedAt: string;
-  updatedAt: string;
-  revokedAt: string | null;
-  executedAt: string | null;
-  cancelledAt: string | null;
+  authorized_at: Date;
+  updated_at: Date;
+  revoked_at: Date | null;
+  executed_at: Date | null;
+  cancelled_at: Date | null;
 }
 
 class EventPaymentPreparedService {
   /**
    * Autoriza pagamento explicitamente
    * 
-   * Emite: event.payment.authorized
+   * Enfileira `event.payment.authorized` na outbox (mesma TX que o INSERT); publicação efectiva via worker.
    * 
    * NÃO executa pagamento
    * NÃO libera custódia
@@ -140,54 +144,68 @@ class EventPaymentPreparedService {
       throw new BadRequestError('Já existe autorização de pagamento ativa para este evento');
     }
 
-    // 6. Criar autorização de pagamento
+    // 6. Criar autorização + linha de outbox (mesma transação)
     const authorizationId = uuidv4();
-    const row = await runQueryWithTenant<PaymentAuthorizationRow>(
-      tenantId,
-      `
-      INSERT INTO event_payment_authorization (
-        id, tenant_id, event_id, custody_id, split_id,
-        status, user_authorization, authorization_reason,
-        authorizedAt, updatedAt
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-      RETURNING *
-      `,
-      [
-        authorizationId,
-        tenantId,
-        input.event_id,
-        input.custody_id,
-        input.split_id,
-        'authorized',
-        input.user_authorization,
-        input.authorization_reason || null,
-      ]
-    );
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+      try {
+        const insertResult = await client.query<PaymentAuthorizationRow>(
+          `
+          INSERT INTO event_payment_authorization (
+            id, tenant_id, event_id, custody_id, split_id,
+            status, user_authorization, authorization_reason,
+            authorized_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          RETURNING *
+          `,
+          [
+            authorizationId,
+            tenantId,
+            input.event_id,
+            input.custody_id,
+            input.split_id,
+            'authorized',
+            input.user_authorization,
+            input.authorization_reason || null,
+          ]
+        );
 
-    if (!row || row.length === 0) {
-      throw new Error('Falha ao autorizar pagamento');
+        const row = insertResult.rows[0];
+        if (!row) {
+          throw new Error('Falha ao autorizar pagamento');
+        }
+
+        const authorization = this.toAuthorization(row);
+
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: uuidv4(),
+          eventType: 'event.payment.authorized',
+          eventVersion: 1,
+          payload: {
+            authorization_id: authorization.id,
+            event_id: input.event_id,
+            custody_id: input.custody_id,
+            split_id: input.split_id,
+            actor_id: actorId,
+            user_authorization: input.user_authorization,
+            authorization_reason: input.authorization_reason,
+            authorizedAt: authorization.authorizedAt,
+          },
+          metadata: {},
+        });
+
+        await client.query('COMMIT');
+        return authorization;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
+    } finally {
+      client.release();
     }
-
-    const authorization = this.toAuthorization(row[0]);
-
-    // 7. Emitir evento canônico
-    await eventBus.publish({
-      tenantId,
-      type: 'event.payment.authorized',
-      payload: {
-        authorization_id: authorization.id,
-        event_id: input.event_id,
-        custody_id: input.custody_id,
-        split_id: input.split_id,
-        actor_id: actorId,
-        user_authorization: input.user_authorization,
-        authorization_reason: input.authorization_reason,
-        authorizedAt: authorization.authorizedAt,
-      },
-    });
-
-    return authorization;
   }
 
   /**
@@ -214,18 +232,18 @@ class EventPaymentPreparedService {
       tenantId,
       `
       UPDATE event_payment_authorization
-      SET status = 'revoked', revokedAt = NOW(), updatedAt = NOW()
+      SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
       WHERE id = $1 AND tenant_id = $2
       RETURNING *
       `,
       [authorizationId, tenantId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       throw new Error('Falha ao revogar autorização');
     }
 
-    return this.toAuthorization(row[0]);
+    return this.toAuthorization(row);
   }
 
   /**
@@ -246,11 +264,11 @@ class EventPaymentPreparedService {
       [authorizationId, tenantId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.toAuthorization(row[0]);
+    return this.toAuthorization(row);
   }
 
   /**
@@ -266,17 +284,17 @@ class EventPaymentPreparedService {
       SELECT *
       FROM event_payment_authorization
       WHERE event_id = $1 AND tenant_id = $2 AND status = 'authorized'
-      ORDER BY authorizedAt DESC
+      ORDER BY authorized_at DESC
       LIMIT 1
       `,
       [eventId, tenantId]
     );
 
-    if (!row || row.length === 0) {
+    if (!row) {
       return null;
     }
 
-    return this.toAuthorization(row[0]);
+    return this.toAuthorization(row);
   }
 
   /**
@@ -286,18 +304,18 @@ class EventPaymentPreparedService {
     tenantId: string,
     eventId: string
   ): Promise<PaymentAuthorization[]> {
-    const rows = await runQueryWithTenant<PaymentAuthorizationRow>(
+    const rows = await runQueriesWithTenant<PaymentAuthorizationRow>(
       tenantId,
       `
       SELECT *
       FROM event_payment_authorization
       WHERE event_id = $1 AND tenant_id = $2
-      ORDER BY authorizedAt DESC
+      ORDER BY authorized_at DESC
       `,
       [eventId, tenantId]
     );
 
-    return rows.map(row => this.toAuthorization(row[0]));
+    return rows.map(r => this.toAuthorization(r));
   }
 
   /**
@@ -313,11 +331,11 @@ class EventPaymentPreparedService {
       status: row.status as PaymentAuthorizationStatus,
       user_authorization: row.user_authorization,
       authorization_reason: row.authorization_reason || undefined,
-      authorizedAt: row.authorizedAt,
-      updatedAt: row.updatedAt,
-      revokedAt: row.revokedAt || undefined,
-      executedAt: row.executedAt || undefined,
-      cancelledAt: row.cancelledAt || undefined,
+      authorizedAt: row.authorized_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      revokedAt: row.revoked_at ? row.revoked_at.toISOString() : undefined,
+      executedAt: row.executed_at ? row.executed_at.toISOString() : undefined,
+      cancelledAt: row.cancelled_at ? row.cancelled_at.toISOString() : undefined,
     };
   }
 }

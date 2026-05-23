@@ -4,8 +4,11 @@
 import { randomUUID } from 'crypto';
 import { CompanyStatus } from '@unificard/contracts';
 import { pool } from '@core/database/pool';
+import { ensurePageActor, ensureUserActor } from '@modules/identity/actor-writer.service';
 import { isTestOverrideUser } from '../../utils/isTestOverrideUser';
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { locationRepository } from '@core/location/location.repository';
+import type { CreateAddressInput } from '@core/location/location.types';
 import type {
   Company,
   CompanyUser,
@@ -21,6 +24,33 @@ import type {
 } from './companies.types';
 
 class CompaniesService {
+  /**
+   * Lista domínios de atuação da empresa.
+   * Stub: retorna array vazio até implementação de persistência.
+   */
+  async getCompanyDomains(_companyId: string): Promise<CompanyDomain[]> {
+    return [];
+  }
+
+  /**
+   * Atualiza domínios de atuação da empresa.
+   * Stub: retorna domínios passados até implementação de persistência.
+   */
+  async updateCompanyDomains(
+    companyId: string,
+    domains: MarketplaceDomain[]
+  ): Promise<CompanyDomain[]> {
+    return domains.map((domain, i) => ({
+      companyDomainId: `stub-${companyId}-${i}`,
+      companyId,
+      domain,
+      isEnabled: true,
+      config: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
   /**
    * Busca dados do CNPJ na Receita Federal (API pública)
    * 🔴 NUNCA lança erro bloqueante - sempre retorna null em caso de falha
@@ -228,7 +258,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -263,7 +293,7 @@ class CompaniesService {
     const formattedCNPJ = normalizedCNPJ;
 
     // 🔴 CORREÇÃO: Verificar se já existe COM filtro tenant_id
-    const existing = await runQueryWithTenant<{ company_id: string }>(
+    const existingRows = await runQueriesWithTenant<{ company_id: string }>(
       finalTenantId,
       `
       SELECT company_id
@@ -274,7 +304,7 @@ class CompaniesService {
       [finalTenantId, globalUserId, formattedCNPJ]
     );
 
-    if (existing && existing.rows && existing.rows.length > 0) {
+    if (existingRows && existingRows.length > 0) {
       throw new Error('Empresa com este CNPJ já está cadastrada');
     }
 
@@ -282,7 +312,7 @@ class CompaniesService {
     const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, finalTenantId);
     if (!userId || !isTestOverrideUser(userId)) {
       // 🔴 CORREÇÃO: ANTI-FRAUDE com filtro tenant_id
-      const provisionalCount = await runQueryWithTenant<{ count: string }>(
+      const provisionalRows = await runQueriesWithTenant<{ count: string }>(
         finalTenantId,
         `
         SELECT COUNT(*) as count
@@ -294,7 +324,7 @@ class CompaniesService {
         [finalTenantId, globalUserId]
       );
 
-      const currentProvisionalCount = parseInt((provisionalCount?.rows?.[0]?.count || '0'), 10);
+      const currentProvisionalCount = parseInt((provisionalRows?.[0]?.count || '0'), 10);
       const MAX_PROVISIONAL_PER_CPF = 3;
 
       if (currentProvisionalCount >= MAX_PROVISIONAL_PER_CPF) {
@@ -386,7 +416,7 @@ class CompaniesService {
     // 🔴 CORREÇÃO: Se há empresa primária, desmarcar outras COM filtro tenant_id
     if (input.isPrimary) {
       // Primeiro, buscar company_ids do usuário neste tenant
-      const userCompanies = await runQueryWithTenant<{ company_id: string }>(
+      const userCompaniesRows = await runQueriesWithTenant<{ company_id: string }>(
         finalTenantId,
         `
         SELECT c.company_id
@@ -397,13 +427,13 @@ class CompaniesService {
         [finalTenantId, globalUserId]
       );
 
-      if (userCompanies && userCompanies.rows && userCompanies.rows.length > 0) {
-        const companyIds = userCompanies.rows.map(c => c.company_id);
+      if (userCompaniesRows && userCompaniesRows.length > 0) {
+        const companyIds = userCompaniesRows.map(c => c.company_id);
         await runQueryWithTenant(
           finalTenantId,
           `
           UPDATE company_users
-          SET is_primary = false, updatedAt = now()
+          SET is_primary = false, updated_at = NOW()
           WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid
           `,
           [companyIds, globalUserId]
@@ -427,25 +457,19 @@ class CompaniesService {
     // Criar empresa
     const companyResult = await pool.query<{
       company_id: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       `
       INSERT INTO companies (
-        tenant_id, global_user_id, cnpj, company_name, trade_name, registered_at,
-        cep, address, address_number, complement, neighborhood, city, state, country,
-        phone, email, website,
-        main_activity_code, main_activity_description, secondary_activities,
-        revenue_data, status, is_verified, company_status, metadata
+        tenant_id, global_user_id, cnpj, company_name, trade_name,
+        status, is_verified, company_status
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11, $12, $13, $14,
-        $15, $16, $17,
-        $18, $19, $20,
-        $21, $22, $23, $24, $25
+        $1, $2, $3, $4, $5,
+        $6, $7, $8
       )
-      RETURNING company_id, createdAt, updatedAt
+      RETURNING company_id, created_at, updated_at
       `,
       [
         finalTenantId,
@@ -453,46 +477,100 @@ class CompaniesService {
         formattedCNPJ,
         companyName,
         tradeName || null,
-        revenueData?.data_abertura ? new Date(revenueData.data_abertura) : null,
-        address.cep || null,
-        address.address || null,
-        address.addressNumber || null,
-        address.complement || null,
-        address.neighborhood || null,
-        address.city || null,
-        address.state || null,
-        address.country || 'BR',
-        contact.phone || null,
-        contact.email || null,
-        contact.website || null,
-        activity.mainActivityCode || null,
-        activity.mainActivityDescription || null,
-        activity.secondaryActivities ? JSON.stringify(activity.secondaryActivities) : '[]',
-        revenueData ? JSON.stringify(revenueData) : '{}',
         'active',
         isVerified, // Verificado se conseguiu buscar da Receita Federal
         companyStatus, // Status do cadastro
-        JSON.stringify(metadata), // Metadata com categorização
       ]
     );
 
     const companyId = companyResult.rows[0].company_id;
+
+    if (address.cep || address.country) {
+      let createdAddressId: string | undefined;
+
+      try {
+        const country = await locationRepository.findCountryByCode(address.country || 'BR');
+
+        if (!country) {
+          console.warn('[CompaniesService] Pais nao encontrado no catalogo de localizacao; mantendo endereco legacy:', {
+            tenantId: finalTenantId,
+            companyId,
+            countryCode: address.country || 'BR',
+          });
+        } else {
+          const addressInput: CreateAddressInput = {
+            countryId: country.id,
+            stateId: null,
+            cityId: null,
+            neighborhoodId: null,
+            postalCode: address.cep || null,
+            street: address.address || null,
+            number: address.addressNumber || null,
+            complement: address.complement || null,
+            reference: null,
+            source: 'UX_INPUT',
+            lat: null,
+            lng: null,
+          };
+
+          const createdAddress = await locationRepository.createAddress(addressInput, finalTenantId);
+          createdAddressId = createdAddress.id;
+
+          await locationRepository.assignAddress(
+            createdAddress.id,
+            'company',
+            companyId,
+            'HQ',
+            true
+          );
+
+          await runQueryWithTenant(
+            finalTenantId,
+            `
+            UPDATE companies
+            SET primary_address_id = $1
+            WHERE tenant_id = $2 AND company_id = $3
+            `,
+            [createdAddress.id, finalTenantId, companyId]
+          );
+        }
+      } catch (err) {
+        console.warn('[CompaniesService] Falha na integracao canonica de endereco (continuando com legacy):', {
+          tenantId: finalTenantId,
+          companyId,
+          addressId: createdAddressId,
+          assignmentAttempted: createdAddressId ? true : false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
     // Criar domínios da empresa (obrigatório: pelo menos 1)
     const domains = input.domains && input.domains.length > 0 
       ? input.domains 
       : ['market']; // Default: market para compatibilidade
     
-    for (const domain of domains) {
-      await pool.query(
-        `
-        INSERT INTO company_domains (company_id, domain, enabled, config)
-        VALUES ($1, $2, true, '{}'::jsonb)
-        ON CONFLICT (company_id, domain) DO UPDATE
-        SET enabled = true, updatedAt = NOW()
-        `,
-        [companyId, domain]
-      );
+    try {
+      for (const domain of domains) {
+        await pool.query(
+          `
+          INSERT INTO company_domains (company_id, domain, enabled, config)
+          VALUES ($1, $2, true, '{}'::jsonb)
+          ON CONFLICT (company_id, domain) DO UPDATE
+          SET enabled = true, updated_at = NOW()
+          `,
+          [companyId, domain]
+        );
+      }
+    } catch (err: any) {
+      if (err?.code === '42P01') {
+        console.warn('[CompaniesService] company_domains ausente; seguindo sem vinculo de dominio legacy:', {
+          tenantId: finalTenantId,
+          companyId,
+        });
+      } else {
+        throw err;
+      }
     }
 
     // Criar relacionamento usuário-empresa
@@ -529,20 +607,21 @@ class CompaniesService {
 
     const userResult = await pool.query<{
       company_user_id: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       `
       INSERT INTO company_users (
-        company_id, global_user_id, role, role_description,
+        tenant_id, company_id, global_user_id, role, role_description,
         can_manage_company, can_manage_financial, can_manage_employees,
         can_view_reports, can_manage_services,
         is_active, is_primary, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING company_user_id, createdAt, updatedAt
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING id AS company_user_id, created_at, updated_at
       `,
       [
+        finalTenantId,
         companyId,
         globalUserId,
         input.role,
@@ -572,17 +651,25 @@ class CompaniesService {
         `DELETE FROM company_users WHERE company_id = $1::uuid`,
         [companyId]
       );
-      await pool.query(
-        `DELETE FROM company_domains WHERE company_id = $1::uuid`,
-        [companyId]
-      );
+      try {
+        await pool.query(
+          `DELETE FROM company_domains WHERE company_id = $1::uuid`,
+          [companyId]
+        );
+      } catch (cleanupErr: any) {
+        if (cleanupErr?.code !== '42P01') {
+          throw cleanupErr;
+        }
+      }
       throw new Error('Não foi possível determinar tenant_id. Empresa não foi criada.');
     }
 
     try {
-      const { socialPortsRegistry } = await import('@core/social/ports-registry');
-      const actorRepository = socialPortsRegistry.getActorRepository();
-      await actorRepository.findOrCreatePageActor(finalTenantId, companyId);
+      if (!userId) {
+        throw new Error('userId é obrigatório para criar actors da empresa após o cadastro.');
+      }
+      const creatorActor = await ensureUserActor(finalTenantId, userId);
+      await ensurePageActor(finalTenantId, companyId, creatorActor.actor_id);
     } catch (err) {
       // 🔴 ROLLBACK: Se criação do actor falhar, reverter criação da empresa
       console.error('[CompaniesService] Erro ao criar actor para empresa (fazendo rollback):', err);
@@ -600,10 +687,16 @@ class CompaniesService {
       );
       
       // Deletar company_domains criados
-      await pool.query(
-        `DELETE FROM company_domains WHERE company_id = $1::uuid`,
-        [companyId]
-      );
+      try {
+        await pool.query(
+          `DELETE FROM company_domains WHERE company_id = $1::uuid`,
+          [companyId]
+        );
+      } catch (cleanupErr: any) {
+        if (cleanupErr?.code !== '42P01') {
+          throw cleanupErr;
+        }
+      }
       
       throw new Error(
         `Falha ao criar actor para empresa. Empresa não foi criada. ` +
@@ -647,8 +740,7 @@ class CompaniesService {
       `
       SELECT u.tenant_id
       FROM users u
-      INNER JOIN global_users gu ON u.user_id = gu.user_id
-      WHERE gu.global_user_id = $1::uuid
+      WHERE u.global_user_id = $1::uuid
       LIMIT 1
       `,
       [globalUserId]
@@ -685,9 +777,13 @@ class CompaniesService {
     company_status: string;
     is_verified: boolean;
     metadata: any;
-    createdAt: Date;
-    updatedAt: Date;
+    created_at?: Date;
+    updated_at?: Date;
   }): Company {
+    const createdRaw = row.created_at;
+    const updatedRaw = row.updated_at;
+    const toIso = (v: unknown) =>
+      v != null ? (v instanceof Date ? v.toISOString() : String(v)) : '';
     return {
       companyId: row.company_id,
       globalUserId: row.global_user_id,
@@ -720,8 +816,8 @@ class CompaniesService {
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
       metadata: row.metadata || undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: toIso(createdRaw),
+      updatedAt: toIso(updatedRaw),
     };
   }
 
@@ -749,7 +845,7 @@ class CompaniesService {
     const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, tenantId);
     if (userId && isTestOverrideUser(userId)) {
       // Buscar empresa sem verificar ownership (mas COM filtro tenant_id)
-      const result = await runQueryWithTenant<{
+      const rows = await runQueriesWithTenant<{
         company_id: string;
         global_user_id: string;
         cnpj: string;
@@ -769,14 +865,14 @@ class CompaniesService {
         website: string | null;
         main_activity_code: string | null;
         main_activity_description: string | null;
-        secondary_activities: any;
-        revenue_data: any;
+        secondary_activities: unknown;
+        revenue_data: unknown;
         status: string;
         company_status: string;
         is_verified: boolean;
-        metadata: any;
-        createdAt: Date;
-        updatedAt: Date;
+        metadata: unknown;
+        created_at: Date;
+        updated_at: Date;
       }>(
         tenantId,
         `
@@ -788,15 +884,15 @@ class CompaniesService {
         [tenantId, companyId]
       );
 
-      if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+      if (!rows || rows.length === 0 || !rows[0]) {
         return null;
       }
 
-      return this.mapCompanyRow(result.rows[0]);
+      return this.mapCompanyRow(rows[0]);
     }
 
     // Comportamento normal (sem override) - usa runQueryWithTenant para garantir isolamento
-    const result = await runQueryWithTenant<{
+    const rowsNormal = await runQueriesWithTenant<{
       company_id: string;
       global_user_id: string;
       cnpj: string;
@@ -816,14 +912,14 @@ class CompaniesService {
       website: string | null;
       main_activity_code: string | null;
       main_activity_description: string | null;
-      secondary_activities: any;
-      revenue_data: any;
+      secondary_activities: unknown;
+      revenue_data: unknown;
       status: string;
       company_status: string;
       is_verified: boolean;
-      metadata: any;
-      createdAt: Date;
-      updatedAt: Date;
+      metadata: unknown;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -835,11 +931,11 @@ class CompaniesService {
       [tenantId, companyId, globalUserId]
     );
 
-    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+    if (!rowsNormal || rowsNormal.length === 0 || !rowsNormal[0]) {
       return null;
     }
 
-    return this.mapCompanyRow(result.rows[0]);
+    return this.mapCompanyRow(rowsNormal[0]);
   }
 
   /**
@@ -847,7 +943,7 @@ class CompaniesService {
    */
   private async resolveUserIdFromGlobalUserId(globalUserId: string, tenantId?: string): Promise<string | null> {
     if (tenantId) {
-      const user = await runQueryWithTenant<{ user_id: string }>(
+      const userRows = await runQueriesWithTenant<{ user_id: string }>(
         tenantId,
         `
         SELECT user_id FROM users
@@ -856,7 +952,7 @@ class CompaniesService {
         `,
         [globalUserId]
       );
-      return user?.rows?.[0]?.user_id || null;
+      return userRows?.[0]?.user_id ?? null;
     }
     
     const user = await pool.query<{ user_id: string }>(
@@ -878,7 +974,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -900,11 +996,14 @@ class CompaniesService {
       throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para listCompanies');
     }
 
+    const toIso = (v: unknown) =>
+      v != null ? (v instanceof Date ? v.toISOString() : String(v)) : '';
+
     // OVERRIDE DE TESTE: Verificar se é usuário de teste
     const userId = await this.resolveUserIdFromGlobalUserId(globalUserId, finalTenantId);
     if (userId && isTestOverrideUser(userId)) {
       // 🔴 CORREÇÃO: Retornar TODAS as empresas (sem filtro de ownership, mas COM filtro tenant_id)
-      const allCompaniesResult = await runQueryWithTenant<{
+      const allCompaniesRows = await runQueriesWithTenant<{
       company_id: string;
       global_user_id: string;
       cnpj: string;
@@ -924,14 +1023,14 @@ class CompaniesService {
       website: string | null;
       main_activity_code: string | null;
       main_activity_description: string | null;
-      secondary_activities: any;
-      revenue_data: any;
+      secondary_activities: unknown;
+      revenue_data: unknown;
       status: string;
       company_status: string;
       is_verified: boolean;
-      metadata: any;
-      createdAt: Date;
-      updatedAt: Date;
+      metadata: unknown;
+      created_at: Date;
+      updated_at: Date;
       company_user_id: string;
       role: string;
       role_description: string | null;
@@ -942,14 +1041,15 @@ class CompaniesService {
       can_manage_services: boolean;
       is_active: boolean;
       is_primary: boolean;
-      cu_metadata: any;
-      cu_createdAt: Date;
-      cu_updatedAt: Date;
+      cu_metadata: unknown;
+      cu_created_at: Date;
+      cu_updated_at: Date | null;
     }>(
+      finalTenantId,
       `
-      SELECT 
+      SELECT
         c.*,
-        cu.company_user_id,
+        cu.id AS company_user_id,
         cu.role,
         cu.role_description,
         cu.can_manage_company,
@@ -960,56 +1060,56 @@ class CompaniesService {
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
-        cu.createdAt as cu_createdAt,
-        cu.updatedAt as cu_updatedAt
+        cu.created_at as cu_created_at,
+        cu.updated_at as cu_updated_at
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
       WHERE c.tenant_id = $1
-      ORDER BY c.createdAt DESC
+      ORDER BY c.created_at DESC
       `,
       [finalTenantId]
     );
     
-    return (allCompaniesResult?.rows || []).map(row => ({
+    return (allCompaniesRows ?? []).map(row => ({
       companyId: row.company_id,
       globalUserId: row.global_user_id,
       cnpj: row.cnpj,
       companyName: row.company_name,
-      tradeName: row.trade_name || undefined,
-      registrationDate: row.registered_at?.toISOString().split('T')[0],
+      tradeName: row.trade_name ?? undefined,
+      registrationDate: row.registered_at?.toISOString().split('T')[0] ?? undefined,
       address: {
-        cep: row.cep || undefined,
-        address: row.address || undefined,
-        addressNumber: row.address_number || undefined,
-        complement: row.complement || undefined,
-        neighborhood: row.neighborhood || undefined,
-        city: row.city || undefined,
-        state: row.state || undefined,
-        country: row.country || undefined,
+        cep: row.cep ?? undefined,
+        address: row.address ?? undefined,
+        addressNumber: row.address_number ?? undefined,
+        complement: row.complement ?? undefined,
+        neighborhood: row.neighborhood ?? undefined,
+        city: row.city ?? undefined,
+        state: row.state ?? undefined,
+        country: row.country ?? undefined,
       },
       contact: {
-        phone: row.phone || undefined,
-        email: row.email || undefined,
-        website: row.website || undefined,
+        phone: row.phone ?? undefined,
+        email: row.email ?? undefined,
+        website: row.website ?? undefined,
       },
       activity: {
-        mainActivityCode: row.main_activity_code || undefined,
-        mainActivityDescription: row.main_activity_description || undefined,
-        secondaryActivities: row.secondary_activities || [],
+        mainActivityCode: row.main_activity_code ?? undefined,
+        mainActivityDescription: row.main_activity_description ?? undefined,
+        secondaryActivities: row.secondary_activities ?? [],
       },
-      revenueData: row.revenue_data || undefined,
+      revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
-      metadata: row.metadata || undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      metadata: row.metadata ?? undefined,
+      createdAt: toIso(row.created_at),
+      updatedAt: toIso(row.updated_at),
       userRole: {
         companyUserId: row.company_user_id,
         companyId: row.company_id,
         globalUserId: row.global_user_id,
         role: row.role as CompanyUser['role'],
-        roleDescription: row.role_description || undefined,
+        roleDescription: row.role_description ?? undefined,
         permissions: {
           canManageCompany: row.can_manage_company,
           canManageFinancial: row.can_manage_financial,
@@ -1019,15 +1119,15 @@ class CompaniesService {
         },
         isActive: row.is_active,
         isPrimary: row.is_primary,
-        metadata: row.cu_metadata || undefined,
-        createdAt: row.cu_createdAt,
-        updatedAt: row.cu_updatedAt,
+        metadata: row.cu_metadata ?? undefined,
+        createdAt: row.cu_created_at != null ? (row.cu_created_at instanceof Date ? row.cu_created_at.toISOString() : String(row.cu_created_at)) : '',
+        updatedAt: row.cu_updated_at != null ? (row.cu_updated_at instanceof Date ? row.cu_updated_at.toISOString() : String(row.cu_updated_at)) : '',
       },
-    }));
+    } as Company & { userRole: CompanyUser }));
     }
 
     // 🔴 CORREÇÃO: Comportamento normal (sem override) COM filtro tenant_id
-    const result = await runQueryWithTenant<{
+    const resultRows = await runQueriesWithTenant<{
       company_id: string;
       global_user_id: string;
       cnpj: string;
@@ -1047,14 +1147,14 @@ class CompaniesService {
       website: string | null;
       main_activity_code: string | null;
       main_activity_description: string | null;
-      secondary_activities: any;
-      revenue_data: any;
+      secondary_activities: unknown;
+      revenue_data: unknown;
       status: string;
       company_status: string;
       is_verified: boolean;
-      metadata: any;
-      createdAt: Date;
-      updatedAt: Date;
+      metadata: unknown;
+      created_at: Date;
+      updated_at: Date;
       company_user_id: string;
       role: string;
       role_description: string | null;
@@ -1065,15 +1165,15 @@ class CompaniesService {
       can_manage_services: boolean;
       is_active: boolean;
       is_primary: boolean;
-      cu_metadata: any;
-      cu_createdAt: Date;
-      cu_updatedAt: Date;
+      cu_metadata: unknown;
+      cu_created_at: Date;
+      cu_updated_at: Date | null;
     }>(
       finalTenantId,
       `
-      SELECT 
+      SELECT
         c.*,
-        cu.company_user_id,
+        cu.id AS company_user_id,
         cu.role,
         cu.role_description,
         cu.can_manage_company,
@@ -1084,56 +1184,56 @@ class CompaniesService {
         cu.is_active,
         cu.is_primary,
         cu.metadata as cu_metadata,
-        cu.createdAt as cu_createdAt,
-        cu.updatedAt as cu_updatedAt
+        cu.created_at as cu_created_at,
+        cu.updated_at as cu_updated_at
       FROM companies c
       LEFT JOIN company_users cu ON c.company_id = cu.company_id AND cu.is_active = true
       WHERE c.tenant_id = $1 AND c.global_user_id = $2::uuid
-      ORDER BY c.createdAt DESC
+      ORDER BY c.created_at DESC
       `,
       [finalTenantId, globalUserId]
     );
 
-    return result.rows.map(row => ({
+    return resultRows.map(row => ({
       companyId: row.company_id,
       globalUserId: row.global_user_id,
       cnpj: row.cnpj,
       companyName: row.company_name,
-      tradeName: row.trade_name || undefined,
-      registrationDate: row.registered_at?.toISOString().split('T')[0],
+      tradeName: row.trade_name ?? undefined,
+      registrationDate: row.registered_at?.toISOString().split('T')[0] ?? undefined,
       address: {
-        cep: row.cep || undefined,
-        address: row.address || undefined,
-        addressNumber: row.address_number || undefined,
-        complement: row.complement || undefined,
-        neighborhood: row.neighborhood || undefined,
-        city: row.city || undefined,
-        state: row.state || undefined,
-        country: row.country || undefined,
+        cep: row.cep ?? undefined,
+        address: row.address ?? undefined,
+        addressNumber: row.address_number ?? undefined,
+        complement: row.complement ?? undefined,
+        neighborhood: row.neighborhood ?? undefined,
+        city: row.city ?? undefined,
+        state: row.state ?? undefined,
+        country: row.country ?? undefined,
       },
       contact: {
-        phone: row.phone || undefined,
-        email: row.email || undefined,
-        website: row.website || undefined,
+        phone: row.phone ?? undefined,
+        email: row.email ?? undefined,
+        website: row.website ?? undefined,
       },
       activity: {
-        mainActivityCode: row.main_activity_code || undefined,
-        mainActivityDescription: row.main_activity_description || undefined,
-        secondaryActivities: row.secondary_activities || [],
+        mainActivityCode: row.main_activity_code ?? undefined,
+        mainActivityDescription: row.main_activity_description ?? undefined,
+        secondaryActivities: row.secondary_activities ?? [],
       },
-      revenueData: row.revenue_data || undefined,
+      revenueData: row.revenue_data ?? undefined,
       status: row.status as Company['status'],
       companyStatus: (row.company_status || 'PROVISIONAL') as Company['companyStatus'],
       isVerified: row.is_verified,
-      metadata: row.metadata || undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      metadata: row.metadata ?? undefined,
+      createdAt: toIso(row.created_at),
+      updatedAt: toIso(row.updated_at),
       userRole: {
         companyUserId: row.company_user_id,
         companyId: row.company_id,
         globalUserId: row.global_user_id,
         role: row.role as CompanyUser['role'],
-        roleDescription: row.role_description || undefined,
+        roleDescription: row.role_description ?? undefined,
         permissions: {
           canManageCompany: row.can_manage_company,
           canManageFinancial: row.can_manage_financial,
@@ -1143,11 +1243,11 @@ class CompaniesService {
         },
         isActive: row.is_active,
         isPrimary: row.is_primary,
-        metadata: row.cu_metadata || undefined,
-        createdAt: row.cu_createdAt,
-        updatedAt: row.cu_updatedAt,
+        metadata: row.cu_metadata ?? undefined,
+        createdAt: row.cu_created_at != null ? (row.cu_created_at instanceof Date ? row.cu_created_at.toISOString() : String(row.cu_created_at)) : '',
+        updatedAt: row.cu_updated_at != null ? (row.cu_updated_at instanceof Date ? row.cu_updated_at.toISOString() : String(row.cu_updated_at)) : '',
       },
-    }));
+    } as Company & { userRole: CompanyUser }));
   }
 
   /**
@@ -1157,10 +1257,11 @@ class CompaniesService {
   async updateCompany(
     companyId: string,
     globalUserId: string,
-    input: UpdateCompanyInput
+    input: UpdateCompanyInput,
+    tenantId?: string
   ): Promise<Company> {
-    // 🔴 CRÍTICO: Resolver tenantId
-    const finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+    // 🔴 CRÍTICO: Resolver tenantId (preferir o explícito do contexto/JWT)
+    const finalTenantId = tenantId ?? (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
     if (!finalTenantId) {
       throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompany');
     }
@@ -1259,7 +1360,7 @@ class CompaniesService {
       return existing;
     }
 
-    updates.push(`updatedAt = now()`);
+    updates.push(`updated_at = NOW()`);
     values.push(companyId, globalUserId, finalTenantId);
 
     await runQueryWithTenant(
@@ -1287,7 +1388,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -1312,7 +1413,7 @@ class CompaniesService {
     }
 
     // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       company_user_id: string;
       company_id: string;
       global_user_id: string;
@@ -1325,16 +1426,32 @@ class CompaniesService {
       can_manage_services: boolean;
       is_active: boolean;
       is_primary: boolean;
-      metadata: any;
-      createdAt: Date;
-      updatedAt: Date;
+      metadata: unknown;
+      created_at: Date;
+      updated_at: Date;
     }>(
       finalTenantId,
       `
-      SELECT cu.*
+      SELECT
+        cu.id AS company_user_id,
+        cu.tenant_id,
+        cu.company_id,
+        cu.global_user_id,
+        cu.role,
+        cu.role_description,
+        cu.can_manage_company,
+        cu.can_manage_financial,
+        cu.can_manage_employees,
+        cu.can_view_reports,
+        cu.can_manage_services,
+        cu.is_active,
+        cu.is_primary,
+        cu.metadata,
+        cu.created_at,
+        cu.updated_at
       FROM company_users cu
       INNER JOIN companies c ON cu.company_id = c.company_id
-      WHERE cu.company_user_id = $1::uuid 
+      WHERE cu.id = $1::uuid
         AND cu.global_user_id = $2::uuid
         AND c.tenant_id = $3
       LIMIT 1
@@ -1342,11 +1459,15 @@ class CompaniesService {
       [companyUserId, globalUserId, finalTenantId]
     );
 
-    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+    if (!rows || rows.length === 0 || !rows[0]) {
       return null;
     }
 
-    const row = result.rows[0];
+    const toIso = (v: unknown) =>
+      v != null ? (v instanceof Date ? v.toISOString() : String(v)) : '';
+
+    const row = rows[0];
+    const r = row as Record<string, unknown>;
     return {
       companyUserId: row.company_user_id,
       companyId: row.company_id,
@@ -1363,8 +1484,8 @@ class CompaniesService {
       isActive: row.is_active,
       isPrimary: row.is_primary,
       metadata: row.metadata || undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: toIso(r.created_at),
+      updatedAt: toIso(r.updated_at),
     };
   }
 
@@ -1380,7 +1501,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -1457,7 +1578,7 @@ class CompaniesService {
       // 🔴 CORREÇÃO: Se está marcando como primária, desmarcar outras COM filtro tenant_id
       if (input.isPrimary) {
         // Buscar company_ids do usuário neste tenant
-        const userCompanies = await runQueryWithTenant<{ company_id: string }>(
+        const userCompaniesRows = await runQueriesWithTenant<{ company_id: string }>(
           finalTenantId,
           `
           SELECT c.company_id
@@ -1468,14 +1589,14 @@ class CompaniesService {
           [finalTenantId, globalUserId]
         );
 
-        if (userCompanies && userCompanies.rows && userCompanies.rows.length > 0) {
-          const companyIds = userCompanies.rows.map(c => c.company_id);
+        if (userCompaniesRows && userCompaniesRows.length > 0) {
+          const companyIds = userCompaniesRows.map(c => c.company_id);
           await runQueryWithTenant(
             finalTenantId,
             `
             UPDATE company_users
-            SET is_primary = false, updatedAt = now()
-            WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid AND company_user_id != $3::uuid
+            SET is_primary = false, updated_at = NOW()
+            WHERE company_id = ANY($1::uuid[]) AND global_user_id = $2::uuid AND id != $3::uuid
             `,
             [companyIds, globalUserId, companyUserId]
           );
@@ -1494,7 +1615,7 @@ class CompaniesService {
       return existing;
     }
 
-    updates.push(`updatedAt = now()`);
+    updates.push(`updated_at = NOW()`);
     values.push(companyUserId, globalUserId, finalTenantId);
 
     // 🔴 CORREÇÃO: UPDATE COM filtro tenant_id via JOIN
@@ -1505,7 +1626,7 @@ class CompaniesService {
       SET ${updates.join(', ')}
       FROM companies c
       WHERE cu.company_id = c.company_id
-        AND cu.company_user_id = $${paramIdx}::uuid 
+        AND cu.id = $${paramIdx}::uuid 
         AND cu.global_user_id = $${paramIdx + 1}::uuid
         AND c.tenant_id = $${paramIdx + 2}
       `,
@@ -1529,7 +1650,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -1597,11 +1718,11 @@ class CompaniesService {
       finalTenantId,
       `
       UPDATE companies
-      SET status = 'inactive', updatedAt = now()
+      SET status = 'inactive', updated_at = NOW()
       WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
       `,
       [finalTenantId, companyId, globalUserId]
-    );
+    ) as { rowCount: number | null };
 
     return result.rowCount !== null && result.rowCount > 0;
   }
@@ -1626,7 +1747,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -1686,9 +1807,7 @@ class CompaniesService {
 
     // 🔴 CORREÇÃO: Inserir documento no banco COM validação de tenant_id via JOIN
     // Nota: company_documents não tem tenant_id direto, então validamos via companies
-    const result = await runQueryWithTenant<{
-      document_id: string;
-    }>(
+    const docRows = await runQueriesWithTenant<{ document_id: string }>(
       finalTenantId,
       `
       INSERT INTO company_documents (
@@ -1713,7 +1832,7 @@ class CompaniesService {
         file_path = EXCLUDED.file_path,
         file_size = EXCLUDED.file_size,
         mime_type = EXCLUDED.mime_type,
-        updatedAt = now()
+        updated_at = NOW()
       RETURNING document_id
       `,
       [
@@ -1728,12 +1847,12 @@ class CompaniesService {
       ]
     );
 
-    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0]) {
+    if (!docRows || docRows.length === 0 || !docRows[0]) {
       throw new Error('Erro ao salvar documento');
     }
 
     // 🔴 AUDITORIA: Registrar log do upload
-    const documentId = result.rows[0].document_id;
+    const documentId = docRows[0].document_id;
     console.log('[CompaniesService] 📄 Upload de documento:', {
       documentId,
       companyId,
@@ -1746,11 +1865,11 @@ class CompaniesService {
     });
 
     // 🔴 CORREÇÃO: Atualizar status da empresa para 'PROVISIONAL' COM filtro tenant_id
-    const statusUpdate = await runQueryWithTenant<{ company_status: string }>(
+    const statusUpdateRows = await runQueriesWithTenant<{ company_status: string }>(
       finalTenantId,
       `
       UPDATE companies
-      SET company_status = 'PROVISIONAL', updatedAt = now()
+      SET company_status = 'PROVISIONAL', updated_at = NOW()
       WHERE tenant_id = $1 AND company_id = $2::uuid AND global_user_id = $3::uuid
         AND company_status != 'VERIFIED'
       RETURNING company_status
@@ -1759,12 +1878,12 @@ class CompaniesService {
     );
 
     // 🔴 AUDITORIA: Log de mudança de status
-    if (statusUpdate && statusUpdate.rows && statusUpdate.rows.length > 0 && statusUpdate.rows[0]) {
+    if (statusUpdateRows && statusUpdateRows.length > 0 && statusUpdateRows[0]) {
       console.log('[CompaniesService] 📊 Status da empresa alterado:', {
         companyId,
         globalUserId,
         oldStatus: company.companyStatus,
-        newStatus: statusUpdate.rows[0].company_status,
+        newStatus: statusUpdateRows[0].company_status,
         reason: 'upload_document',
         timestamp: new Date().toISOString(),
       });
@@ -1774,7 +1893,7 @@ class CompaniesService {
     const updatedCompany = await this.getCompanyById(companyId, globalUserId, finalTenantId);
     
     return {
-      documentId: result.rows[0].document_id,
+      documentId: docRows[0].document_id,
       companyStatus: updatedCompany?.companyStatus || 'PROVISIONAL',
       fileName: uniqueFilename,
     };
@@ -1801,7 +1920,7 @@ class CompaniesService {
     // 🔴 CRÍTICO: Resolver tenantId se não fornecido
     let finalTenantId = tenantId;
     if (!finalTenantId) {
-      finalTenantId = await this.resolveTenantIdFromGlobalUserId(globalUserId);
+      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
       if (!finalTenantId) {
         console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
           globalUserId,
@@ -1832,7 +1951,7 @@ class CompaniesService {
     }
 
     // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
-    const result = await runQueryWithTenant<{
+    const docListRows = await runQueriesWithTenant<{
       document_id: string;
       document_type: string;
       file_name: string;
@@ -1840,8 +1959,8 @@ class CompaniesService {
       file_size: number;
       mime_type: string;
       status: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       finalTenantId,
       `
@@ -1853,19 +1972,19 @@ class CompaniesService {
         cd.file_size,
         cd.mime_type,
         cd.status,
-        cd.createdAt,
-        cd.updatedAt
+        cd.created_at,
+        cd.updated_at
       FROM company_documents cd
       INNER JOIN companies c ON cd.company_id = c.company_id
       WHERE cd.company_id = $1::uuid 
         AND cd.global_user_id = $2::uuid
         AND c.tenant_id = $3
-      ORDER BY cd.createdAt DESC
+      ORDER BY cd.created_at DESC
       `,
       [companyId, globalUserId, finalTenantId]
     );
 
-    return result.rows.map(row => ({
+    return docListRows.map(row => ({
       documentId: row.document_id,
       documentType: row.document_type,
       fileName: row.file_name,
@@ -1873,8 +1992,8 @@ class CompaniesService {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -1908,8 +2027,8 @@ class CompaniesService {
       file_size: number;
       mime_type: string;
       status: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       `
       SELECT 
@@ -1924,12 +2043,12 @@ class CompaniesService {
         cd.file_size,
         cd.mime_type,
         cd.status,
-        cd.createdAt,
-        cd.updatedAt
+        cd.created_at,
+        cd.updated_at
       FROM company_documents cd
       INNER JOIN companies c ON cd.company_id = c.company_id
       WHERE cd.status = 'pending'
-      ORDER BY cd.createdAt ASC
+      ORDER BY cd.created_at ASC
       `,
       []
     );
@@ -1946,8 +2065,8 @@ class CompaniesService {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -2005,7 +2124,7 @@ class CompaniesService {
       SET 
         status = $1,
         metadata = $2::jsonb,
-        updatedAt = now()
+        updated_at = NOW()
       WHERE document_id = $3::uuid
       `,
       [status, JSON.stringify(updatedMetadata), documentId]
@@ -2016,7 +2135,7 @@ class CompaniesService {
       await pool.query(
         `
         UPDATE companies
-        SET company_status = 'VERIFIED', is_verified = true, updatedAt = now()
+        SET company_status = 'VERIFIED', is_verified = true, updated_at = NOW()
         WHERE company_id = $1::uuid
         `,
         [doc.company_id]
@@ -2089,14 +2208,14 @@ class CompaniesService {
     const result = await pool.query<{
       company_id: string;
       company_status: string;
-      updatedAt: Date;
+      updated_at: Date;
     }>(
       `
       UPDATE companies
       SET 
         company_status = 'VERIFIED',
         is_verified = true,
-        updatedAt = now(),
+        updated_at = NOW(),
         metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
           'validation_method', 'ADMIN_OVERRIDE',
           'validated_by', 'SYSTEM_ADMIN',
@@ -2104,7 +2223,7 @@ class CompaniesService {
           'admin_global_user_id', $2::uuid
         )
       WHERE company_id = $1::uuid
-      RETURNING company_id, company_status, updatedAt
+      RETURNING company_id, company_status, updated_at
       `,
       [companyId, adminGlobalUserId]
     );
@@ -2144,5 +2263,3 @@ class CompaniesService {
 }
 
 export const companiesService = new CompaniesService();
-
-

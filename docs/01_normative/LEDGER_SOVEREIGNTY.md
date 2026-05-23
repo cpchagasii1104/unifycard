@@ -8,6 +8,18 @@ O único ledger financeiro soberano do sistema UnifiCard é:
 
 - Tabela: bank_ledger
 
+## DECISION-0021 — SOBERANIA FORA DE `/core`
+
+`bank_ledger` é o caso canônico de soberania institucional que pode residir fora do diretório físico `/core`.
+
+Sua autoridade não deriva da pasta. Deriva de:
+- SSOT declarado;
+- writer autorizado;
+- enforcement arquitetural;
+- impossibilidade de módulos consumidores contradizerem saldo/ledger.
+
+Assim, `modules/bank` pode ser o domínio executor soberano do ledger sem transformar todo Bank em "core físico" nem permitir que outros módulos criem ledgers paralelos.
+
 ## DEFINIÇÕES
 
 - bank_ledger:

@@ -75,7 +75,7 @@ class PixService {
 
     // Criar charge no provider
     const providerResult = await provider.createCharge({
-      amountCents: input.amount,
+      amountCents: input.amountCents,
       description: `Pagamento ${input.paymentIntentId}`,
       expiresInMinutes: input.expiresInMinutes || 30,
       payerTaxId: input.payerTaxId,
@@ -184,9 +184,13 @@ class PixService {
   ): Promise<void> {
     try {
       const { auditService } = await import('@core/audit/audit.service');
-      await auditService.record(tenantId, data);
+      await auditService.record(tenantId, {
+        event_type: data.eventType ?? data.event_type ?? 'PIX_ACTION',
+        severity: 'low',
+        source: 'payments',
+        context: data,
+      });
     } catch (error) {
-      // Não bloquear se auditoria falhar
       console.warn('[PixService] Erro ao registrar auditoria:', error);
     }
   }

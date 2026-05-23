@@ -60,6 +60,8 @@
 
 **Regra:** `backend/README.md`, `ARQUITETURA_*.md`, notas de migração, planos (`UNIFICARD_PLANO_*`) e comentários longos em código **não redefinem** SSOT nem regras de centavos; podem citar DDL e rotas, mas **devem remeter** a este par para norma.
 
+**DECISION-0021 — Jurisdição e soberania:** este registry declara autoridade por domínio. A localização física do código ou tabela não define soberania por si só. Soberania exige writer autorizado, enforcement e impossibilidade de contradição por consumidores. `modules_import`, rotas registradas e `app.builder` são sinais técnicos, não prova de autoridade institucional.
+
 **Runtime (dados):** autoridade contábil de dinheiro = **`bank_ledger`** + **`bank_transactions`** (secções 5.2–5.5). Colunas como `b2b_order_items.unit_price_cents`, `b2b_payment_intents.amount_cents` ou `quoted_price` em procurement são **comercial, snapshot ou intenção** — não substituem o ledger.
 
 **Regra de ouro (precisão executável):** **decisão contábil e estado financeiro persistente** só existem no Bank (ledger / transações canónicas). **Validações locais, cálculos derivados e regras de aplicação** são permitidos desde que **não** criem saldo paralelo, persistência financeira como verdade primária nem segundo ledger. O sistema pode **calcular** valor fora do Bank; só o Bank **define** o que é dinheiro movimentado.

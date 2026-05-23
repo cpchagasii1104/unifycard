@@ -8,15 +8,17 @@ import { setAuthToken, setTenantId } from '../config/auth';
 import { maskCPF, validateCPF } from '../utils/cpf';
 import { validateFullName, validateBirthdate } from '../utils/validation';
 import { normalizeFullName } from '../utils/nameNormalizer';
+import { isGender, type Gender } from '@unificard/contracts';
 import InfoTooltip from './ui/InfoTooltip';
 import './Register.css';
 
 interface RegisterProps {
   onRegisterSuccess: () => void;
   onBackToLogin: () => void;
+  onBackToHome?: () => void;
 }
 
-export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterProps) {
+export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHome }: RegisterProps) {
   // Dados de autenticação
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +40,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
   const [birthdate, setBirthdate] = useState('');
   const [birthdateError, setBirthdateError] = useState<string | null>(null);
   const [userAge, setUserAge] = useState<number | undefined>(undefined);
-  const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [gender, setGender] = useState<Gender | ''>('');
   const [genderError, setGenderError] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -215,9 +217,9 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
     }
     setUserAge(birthValidation.age);
 
-    // Validar Sexo
-    if (!gender || (gender !== 'male' && gender !== 'female')) {
-      setGenderError('Selecione o sexo');
+    // Validar gênero (vocabulário canónico)
+    if (!gender || !isGender(gender)) {
+      setGenderError('Selecione o gênero');
       setIsLoading(false);
       return;
     }
@@ -514,7 +516,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
             <div className="form-group">
               <label htmlFor="gender" className="register-label">
                 <span className="register-label-inline">
-                  Sexo <span className="required">*</span>
+                  Gênero <span className="required">*</span>
                   <span className="info-trigger">
                     <InfoTooltip
                       content="Este dado não poderá ser alterado após o cadastro."
@@ -527,12 +529,13 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
                 id="gender"
                 value={gender}
                 onChange={(e) => {
-                  setGender(e.target.value as 'male' | 'female');
+                  const v = e.target.value;
+                  setGender(v === '' ? '' : (v as Gender));
                   setGenderError(null);
                 }}
                 onBlur={() => {
                   if (!gender) {
-                    setGenderError('Selecione o sexo');
+                    setGenderError('Selecione o gênero');
                   }
                 }}
                 required
@@ -541,6 +544,9 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
                 <option value="">Selecione</option>
                 <option value="male">Masculino</option>
                 <option value="female">Feminino</option>
+                <option value="non_binary">Não-binário</option>
+                <option value="other">Outro</option>
+                <option value="prefer_not_to_say">Prefiro não informar</option>
               </select>
               {genderError && <span className="field-error">{genderError}</span>}
               {!genderError && gender && (
@@ -624,6 +630,16 @@ export default function Register({ onRegisterSuccess, onBackToLogin }: RegisterP
           >
             Voltar para login
           </button>
+
+          {onBackToHome && (
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className="back-to-login-button"
+            >
+              ← Voltar para início
+            </button>
+          )}
         </form>
       </div>
     </div>

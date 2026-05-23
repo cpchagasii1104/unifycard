@@ -11,6 +11,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
    * Middleware: Verificar permissão para acessar invoices
    */
   const requireInvoicePermission = async (req: any, reply: any) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const userId = req.user?.id;
 
@@ -48,6 +51,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
     '/invoices/from-payout/:payoutOrderId',
     { preHandler: requireInvoicePermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const invoice = await invoiceService.createInvoiceFromPayout(
         tenantId,
@@ -67,6 +73,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
     '/invoices/:invoiceId',
     { preHandler: requireInvoicePermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const invoice = await invoiceService.getInvoiceById(tenantId, req.params.invoiceId);
 
@@ -92,6 +101,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
       offset?: number;
     };
   }>('/invoices', { preHandler: requireInvoicePermission }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'tenant required' });
+    }
     const tenantId = req.tenant.id;
     const filters = {
       actorId: req.query.actorId,
@@ -119,6 +131,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
     '/invoices/:invoiceId/issue',
     { preHandler: requireInvoicePermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 
@@ -139,6 +154,9 @@ const invoiceRoutes = async (fastify: FastifyInstance) => {
     '/invoices/:invoiceId/cancel',
     { preHandler: requireInvoicePermission },
     async (req, reply) => {
+      if (!req.tenant) {
+        return reply.status(400).send({ error: 'tenant required' });
+      }
       const tenantId = req.tenant.id;
       const userId = req.user?.id || null;
 

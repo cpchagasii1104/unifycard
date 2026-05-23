@@ -33,7 +33,9 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
 
       const tenantId = req.tenant.id;
       const actorId = req.actionContext.actorId;
-      
+      const globalUserId = req.user!.id;
+      const userId = req.user!.id;
+
       // Buscar actor do ActionContext
       const actorRepository = socialPortsRegistry.getActorRepository();
       const actor = await actorRepository.findById(tenantId, actorId);
@@ -123,7 +125,7 @@ const impactOverviewRoutes: FastifyPluginAsync = async (fastify) => {
 
       // 3. Valores bloqueados (pagamentos pendentes + bookings pendentes com valor estimado)
       // Pagamentos pendentes
-      const moneyLockedPaymentsRow = await runQueryWithTenant<{ totalCents: string }>(
+      const moneyLockedPaymentsRow = await runQueryWithTenant<{ total: string }>(
         tenantId,
         `
         SELECT COALESCE(SUM(amount), 0)::text as total

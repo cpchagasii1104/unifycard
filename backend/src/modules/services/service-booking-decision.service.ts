@@ -9,11 +9,15 @@
 // Nenhuma ligação com pagamento
 // Nenhuma ligação com educação ou aprendizado
 
+import { createHash } from 'crypto';
+import { getClientWithTenant } from '@core/database/pool';
+import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { serviceBookingDecisionRepository } from './service-booking-decision.repository';
 // 🔴 CORREÇÃO FASE 1B: Removida referência a serviceBookingRepository
 // Toda lógica temporal agora usa unifiedAvailabilityService
 import { servicesRepository } from './services.repository';
 import { actorRepository } from '@modules/social/actor.repository';
+import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
 import { HttpError } from '@core/errors/http-error';
 import type {
@@ -21,6 +25,23 @@ import type {
   CreateServiceBookingDecisionInput,
 } from './service-booking-decision.types';
 import { BookingDecisionStatus } from './service-booking-decision.types';
+
+/** `event_outbox.event_id` estável por decisão + tipo de effect — alinhado a service-payment-request / EVENT_OUTBOX_E_ENTREGA_CANONICO.md §3 */
+function deterministicServiceBookingDecisionOutboxEventId(
+  effectType: string,
+  tenantId: string,
+  decisionId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`${effectType}:${tenantId}:${decisionId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 class ServiceBookingDecisionService {
   /**
@@ -34,13 +55,13 @@ class ServiceBookingDecisionService {
     userId: string,
     input: CreateServiceBookingDecisionInput
   ): Promise<ServiceBookingDecision> {
-    // 0. Validar permissão via authorization.service (Core de Decisão)
-    const { authorizationService } = await import('@core/authorization/authorization.service');
-    const auth = await authorizationService.canActAs(
-      tenantId,
-      userId,
+    // 0. Validar permissão via authority.service (fachada modules — §4.9)
+    const { authorityService } = await import('@modules/authority/authority.service');
+    const auth = await authorityService.canPerformAction(
       input.decidedByActorId,
-      'manage_bookings'
+      'manage_bookings',
+      undefined,
+      { tenantId, userId }
     );
     if (!auth.allowed) {
       throw HttpError.forbidden(
@@ -117,7 +138,7 @@ class ServiceBookingDecisionService {
         message,
         metadata: {
           bookingId: booking.bookingId,
-          serviceId: booking.serviceId,
+          serviceId,
           decisionId: decision.decisionId,
           status: input.status,
         },
@@ -139,53 +160,63 @@ class ServiceBookingDecisionService {
           decisionId: decision.decisionId,
           status: input.status,
           reason: input.reason || null,
-          serviceId: booking.serviceId,
+          serviceId,
         },
       });
     } catch (auditError) {
       console.error('Erro ao registrar log de auditoria para decisão de booking:', auditError);
     }
 
-    // 🔴 BLINDAGEM: Emitir effects ao criar decisão
+    // 🔴 BLINDAGEM: Enfileirar effect na outbox (pós-commit do INSERT da decisão)
     // Effect é consequência sistêmica, não decisão humana
-    // Decisão é humana explícita, nunca automática
     try {
-      const { eventBus } = await import('@core/events/event-bus');
-      const { v4: uuidv4 } = await import('uuid');
-      const { ActorEffect } = await import('@modules/social/actor-effects.types');
-      
-      const effectType = input.status === BookingDecisionStatus.ACCEPTED
-        ? ActorEffect.SERVICE_BOOKING_ACCEPTED
-        : ActorEffect.SERVICE_BOOKING_REJECTED;
-      
-      await eventBus.publish({
-        eventId: uuidv4(),
-        tenantId,
-        type: effectType,
-        version: 1,
-        payload: {
-          actorId: input.decidedByActorId,
-          actorType: decidedByActor.actor_type as any,
-          intent: 'DECIDE_BOOKING',
-          sourceId: decision.decisionId,
-          sourceType: 'service_booking_decision',
-          metadata: {
-            bookingId: booking.bookingId,
-            serviceId: service.serviceId,
-            status: decision.status,
-            reason: decision.reason,
+      const effectType =
+        input.status === BookingDecisionStatus.ACCEPTED
+          ? ActorEffect.SERVICE_BOOKING_ACCEPTED
+          : ActorEffect.SERVICE_BOOKING_REJECTED;
+
+      const outboxClient = await getClientWithTenant(tenantId);
+      try {
+        await outboxClient.query('BEGIN');
+        await insertEventOutboxRow(outboxClient, {
+          tenantId,
+          eventId: deterministicServiceBookingDecisionOutboxEventId(
+            effectType,
+            tenantId,
+            decision.decisionId
+          ),
+          eventType: effectType,
+          eventVersion: 1,
+          payload: {
+            actorId: input.decidedByActorId,
+            actorType: decidedByActor.actor_type as any,
+            intent: 'DECIDE_BOOKING',
+            sourceId: decision.decisionId,
+            sourceType: 'service_booking_decision',
+            metadata: {
+              bookingId: booking.bookingId,
+              serviceId: service.serviceId,
+              status: decision.status,
+              reason: decision.reason,
+            },
           },
-        },
-        metadata: {
-          userId: userId,
-          serviceId: service.serviceId,
-          bookingId: booking.bookingId,
-          decisionId: decision.decisionId,
-        },
-      });
+          metadata: {
+            userId: userId,
+            serviceId: service.serviceId,
+            bookingId: booking.bookingId,
+            decisionId: decision.decisionId,
+          },
+        });
+        await outboxClient.query('COMMIT');
+      } catch (outboxErr) {
+        await outboxClient.query('ROLLBACK');
+        throw outboxErr;
+      } finally {
+        outboxClient.release();
+      }
     } catch (error) {
-      // Não quebra criação se effect falhar
-      console.error('Erro ao emitir effects ao criar decisão (não crítico):', error);
+      // Não quebra criação se enfileiramento falhar
+      console.error('Erro ao enfileirar effect ao criar decisão (não crítico):', error);
     }
 
     return decision;

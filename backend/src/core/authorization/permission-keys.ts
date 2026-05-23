@@ -4,9 +4,9 @@
 // ⚠️ DOCUMENTO CONSTITUCIONAL - NÃO MODIFICAR SEM ATUALIZAR O MAPA
 //
 // Fonte de verdade: MAPA_CANONICO_PERMISSIONS_v1.md
-// Versão do mapa: v1.5
+// Versão do mapa: v1.6
 // Data do mapa: 12 de Janeiro de 2026 (v1.0), XX de Janeiro de 2026 (v1.1), XX de Janeiro de 2026 (v1.2), XX de Janeiro de 2026 (v1.3), XX de Janeiro de 2026 (v1.4), XX de Janeiro de 2026 (v1.5)
-// Status: v1.5 (Hardening de Permissões Administrativas)
+// Status: v1.6 (canonical_products:create)
 //
 // REGRA ABSOLUTA:
 // - Este enum DEVE conter EXATAMENTE as permissions do mapa
@@ -15,10 +15,10 @@
 // - Qualquer divergência é erro arquitetural estrutural
 
 /**
- * Permission Keys v1.5
+ * Permission Keys v1.6
  * 
  * Derivado de MAPA_CANONICO_PERMISSIONS_v1.md
- * Total: 61 permissions
+ * Total: 62 permissions
  * 
  * Distribuição por domínio:
  * - feed: 2 permissions
@@ -30,7 +30,7 @@
  * - companies: 2 permissions
  * - votes: 2 permissions
  * - institutional: 5 permissions (1 original + 4 novas: admin:view_regional_fund, admin:view_consolidated_balance, admin:view_fund_reports, admin:view_audit_logs)
- * - marketplace: 13 permissions (10 originais + 3 novas: MARKETPLACE_STORE_CREATE, MARKETPLACE_STORE_VIEW, MY_ORDERS_VIEW)
+ * - marketplace: 14 permissions (10 originais + 4 novas: MARKETPLACE_STORE_CREATE, MARKETPLACE_STORE_VIEW, MY_ORDERS_VIEW, canonical_products:create)
  * - reports: 3 permissions (1 original + 2 novas: reports:view_operational, dashboard:view)
  */
 export type PermissionKey =
@@ -115,6 +115,7 @@ export type PermissionKey =
   | 'MARKETPLACE_STORE_CREATE'
   | 'MARKETPLACE_STORE_VIEW'
   | 'MY_ORDERS_VIEW'
+  | 'canonical_products:create'
   
   // REPORTS (Reports)
   | 'view_consolidated_reports'
@@ -198,20 +199,21 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   'admin:view_fund_reports': null, // atribuição manual apenas
   'admin:view_audit_logs': null, // atribuição manual apenas
   
-  // MARKETPLACE
-  marketplace_manage_catalog: null, // ownership suficiente
-  marketplace_manage_products: null, // ownership suficiente
-  marketplace_manage_inventory: null, // ownership suficiente
-  marketplace_manage_orders: null, // ownership suficiente
+  // MARKETPLACE — capabilities via `actor_registry.capabilities_json` (enforcement em `authorization.service`)
+  marketplace_manage_catalog: 'can_manage_marketplace',
+  marketplace_manage_products: 'can_manage_marketplace',
+  marketplace_manage_inventory: 'can_manage_marketplace',
+  marketplace_manage_orders: 'can_manage_marketplace',
   marketplace_execute_payments: 'can_hold_assets',
-  marketplace_manage_splits: null, // ownership suficiente
+  marketplace_manage_splits: 'can_manage_marketplace',
   marketplace_execute_payouts: 'can_hold_assets',
-  marketplace_pdv_sell: null, // ownership suficiente
-  marketplace_pdv_manage_customers: null, // ownership suficiente
-  marketplace_pdv_view_customers: null, // ownership suficiente
-  MARKETPLACE_STORE_CREATE: null, // ownership suficiente
-  MARKETPLACE_STORE_VIEW: null, // ownership suficiente
-  MY_ORDERS_VIEW: null, // ownership suficiente
+  marketplace_pdv_sell: 'can_manage_marketplace',
+  marketplace_pdv_manage_customers: 'can_manage_marketplace',
+  marketplace_pdv_view_customers: 'can_manage_marketplace',
+  MARKETPLACE_STORE_CREATE: 'can_manage_marketplace',
+  MARKETPLACE_STORE_VIEW: 'can_manage_marketplace',
+  MY_ORDERS_VIEW: 'can_manage_marketplace',
+  'canonical_products:create': 'can_manage_marketplace',
   
   // REPORTS
   view_consolidated_reports: null, // atribuição manual apenas
@@ -232,10 +234,49 @@ export function isValidPermissionKey(key: string): key is PermissionKey {
 /**
  * Lista todas as permissions válidas
  * 
- * @returns Array com todas as permissions do mapa v1.5
+ * @returns Array com todas as permissions do mapa v1.6
  */
 export function getAllPermissionKeys(): PermissionKey[] {
   return Object.keys(PERMISSION_CAPABILITIES) as PermissionKey[];
 }
 
+/**
+ * Permissões cujo prefixo / chave exige entrada não-nula em {@link PERMISSION_CAPABILITIES}
+ * (falha de boot se o mapa estiver `null` — evita incidente em produção por esquecimento).
+ */
+function permissionRequiresRegistryCapabilityDeclaration(permission: PermissionKey): boolean {
+  if (permission.startsWith('marketplace_')) {
+    return true;
+  }
+  if (permission.startsWith('MARKETPLACE_')) {
+    return true;
+  }
+  if (permission === 'canonical_products:create') {
+    return true;
+  }
+  return false;
+}
 
+const REGISTRY_CAPABILITY_KEY = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * Boot-time: prefixos sensíveis marketplace devem ter capability string mapeada e chave canónica.
+ */
+export function assertSensitivePermissionsHaveCapabilityMapping(): void {
+  for (const permission of getAllPermissionKeys()) {
+    if (!permissionRequiresRegistryCapabilityDeclaration(permission)) {
+      continue;
+    }
+    const cap = PERMISSION_CAPABILITIES[permission];
+    if (cap === null || cap === undefined || cap === '') {
+      throw new Error(
+        `[AUTH CONFIG ERROR] Permission "${permission}" exige capability mapeada (governança marketplace) mas PERMISSION_CAPABILITIES está vazia ou null`
+      );
+    }
+    if (!REGISTRY_CAPABILITY_KEY.test(cap)) {
+      throw new Error(
+        `[AUTH CONFIG ERROR] Permission "${permission}" → capability "${cap}" com formato inválido (esperado snake_case)`
+      );
+    }
+  }
+}

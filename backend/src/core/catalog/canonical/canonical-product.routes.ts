@@ -17,10 +17,12 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
       brand?: string;
       limit?: string;
       offset?: string;
+      /** Backoffice: incluir INDUSTRIAL ainda não READY */
+      includeNonReady?: string;
     };
   }>('/search', async (req, reply) => {
     const tenantId = req.tenant!.id;
-    const { q, categoryId, brand, limit, offset } = req.query;
+    const { q, categoryId, brand, limit, offset, includeNonReady } = req.query;
 
     if (!q || q.trim().length === 0) {
       return reply.status(400).send({
@@ -33,6 +35,7 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
       brand,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
+      includeNonReady: includeNonReady === 'true',
     });
 
     return reply.send(result);
@@ -42,11 +45,16 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /catalog/products/:id
    * Busca produto canônico por ID
    */
-  fastify.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { includeNonReady?: string };
+  }>('/:id', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { id } = req.params;
 
-    const product = await canonicalProductService.findById(tenantId, id);
+    const product = await canonicalProductService.findById(tenantId, id, {
+      includeNonReady: req.query.includeNonReady === 'true',
+    });
 
     if (!product) {
       return reply.status(404).send({
@@ -61,11 +69,16 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /catalog/products/gtin/:gtin
    * Busca produto canônico por GTIN
    */
-  fastify.get<{ Params: { gtin: string } }>('/gtin/:gtin', async (req, reply) => {
+  fastify.get<{
+    Params: { gtin: string };
+    Querystring: { includeNonReady?: string };
+  }>('/gtin/:gtin', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { gtin } = req.params;
 
-    const product = await canonicalProductService.findByGTIN(tenantId, gtin);
+    const product = await canonicalProductService.findByGTIN(tenantId, gtin, {
+      includeNonReady: req.query.includeNonReady === 'true',
+    });
 
     if (!product) {
       return reply.status(404).send({
@@ -85,11 +98,12 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
     Querystring: {
       limit?: string;
       offset?: string;
+      includeNonReady?: string;
     };
   }>('/category/:categoryId', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { categoryId } = req.params;
-    const { limit, offset } = req.query;
+    const { limit, offset, includeNonReady } = req.query;
 
     const result = await canonicalProductService.findByCategory(
       tenantId,
@@ -97,6 +111,7 @@ const canonicalProductRoutes: FastifyPluginAsync = async (fastify) => {
       {
         limit: limit ? parseInt(limit, 10) : undefined,
         offset: offset ? parseInt(offset, 10) : undefined,
+        includeNonReady: includeNonReady === 'true',
       }
     );
 

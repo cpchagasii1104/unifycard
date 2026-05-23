@@ -9,6 +9,7 @@ export interface SalesReportFilters {
   // SPRINT 51: Multi-empresa e consolidação
   organizationUnitId?: string;
   consolidated?: boolean; // Se true, inclui dados de unidades filhas
+  scopeActorIds?: string[];
 }
 
 export interface SalesByPeriod {

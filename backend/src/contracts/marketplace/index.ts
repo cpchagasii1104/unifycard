@@ -1,6 +1,9 @@
 // backend/src/contracts/marketplace/index.ts
 // CONTRATOS PÚBLICOS DO MARKETPLACE - Barrel Export
 // ⚠️ READ-ONLY - NÃO QUEBRAR SEM VERSÃO NOVA
+//
+// Fluxos novos: preferir `./canonical` (tipos v2 + asRateBps / asMoneyAmountCents — §07).
+// Este ficheiro mantém v1 congelado por compatibilidade; evitar novos usos sem mapper v1↔v2.
 
 export type { Order } from './Order.contract';
 export type { CheckoutIntent } from './CheckoutIntent.contract';
@@ -50,6 +53,8 @@ export type { PluginDefinition, PluginExecution, PluginCategory, PluginHook } fr
 export type { ServiceEvaluation, EvaluationAggregate } from './ServiceEvaluation.contract';
 export type { ProductTemplate, ProductTemplateType } from './ProductTemplate.contract';
 export type { ServiceTemplateCanonical } from './ServiceTemplateCanonical.contract';
+export type { ServiceBooking } from './ServiceBooking.contract';
+export type { ServiceOffering } from './ServiceOffering.contract';
 export type {
   ServiceResource,
   ServiceResourceType,
@@ -104,4 +109,33 @@ export type {
   RealOperationMetrics,
   OperationalRiskLevel,
 } from './PricingAssistanceReport.contract';
+
+// --- v2 + primitivos canónicos (07_NOMENCLATURA_CANONICA) — não altera contratos v1 congelados ---
+export type {
+  Iso4217CurrencyCode,
+  MoneyAmountCents,
+  RateBps,
+  CanonicalMonetaryOrRate,
+  AsRateBpsOptions,
+} from './_canonical/money.types';
+export {
+  asIso4217CurrencyCode,
+  parseIso4217FromUnknown,
+  asMoneyAmountCents,
+  parseMoneyAmountFromUnknown,
+  asRateBps,
+  parseRateBpsFromUnknown,
+  moneyBranch,
+  rateBranch,
+} from './_canonical/money.types';
+export type { RegionalActivationRuleV2 } from './RegionalActivationRule.v2.contract';
+export type { B2BCommercialContractV2 } from './B2BCommercialContract.v2.contract';
+export type { RegionalImpactMetricsV2 } from './RegionalImpactMetrics.v2.contract';
+export type { CheckoutIntentV2 } from './CheckoutIntent.v2.contract';
+export type {
+  SLAContractV2,
+  SlaPenaltyV2,
+  SlaPenaltyRedirect,
+} from './SLAContract.v2.contract';
+export type { EconomicEventV2, EconomicEventTypeV2 } from './EconomicEvent.v2.contract';
 

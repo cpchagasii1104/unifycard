@@ -1,8 +1,15 @@
 // backend/src/modules/bank/bank-ledger.repository.ts
 // SPRINT 1: FUNDAÇÃO DO UNIFY BANK
 // Repository para ledger do Unify Bank (append-only)
+// Alinhado ao schema Genesis 0003: id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
 
-import { getClientWithTenant } from '@core/database/pool';
+import type { PoolClient } from 'pg';
+import { getClientWithTenant, pool } from '@core/database/pool';
+import {
+  asMoneyCents,
+  toNonNegativeMoneyCents,
+  toPositiveMoneyCents,
+} from '@contracts/marketplace/canonical';
 import type {
   BankLedgerEntry,
   CreateBankLedgerEntryInput,
@@ -11,125 +18,72 @@ import type {
 } from './bank-ledger.types';
 import type { FinancialAuthorshipContext } from './financial-authorship.types';
 
+/** Row conforme tabela bank_ledger no Genesis (0003) */
 interface BankLedgerRow {
-  entry_id: string;
+  id: string;
   tenant_id: string;
   account_id: string;
-  transaction_id: string;
-  entry_type: string;
-  amountCents: string;
-  balance_before: string;
-  balance_after: string;
-  description: string | null;
-  metadata: any;
-  createdAt: Date;
+  transaction_id: string | null;
+  direction: string;
+  amount_cents: number;
+  purpose: string | null;
+  justification: string | null;
+  created_at: Date;
 }
 
 class BankLedgerRepository {
-  /**
-   * Converte row do banco para objeto BankLedgerEntry
-   */
   private toLedgerEntry(row: BankLedgerRow): BankLedgerEntry {
     return {
-      entryId: row.entry_id,
+      entryId: row.id,
       tenantId: row.tenant_id,
       accountId: row.account_id,
-      transactionId: row.transaction_id,
-      entryType: row.entry_type as 'credit' | 'debit',
-      amountCents: parseFloat(row.amount),
-      balanceBefore: parseFloat(row.balance_before),
-      balanceAfter: parseFloat(row.balance_after),
-      description: row.description,
-      metadata: row.metadata,
-      createdAt: row.createdAt.toISOString(),
+      transactionId: row.transaction_id ?? '',
+      entryType: row.direction as 'credit' | 'debit',
+      amountCents: toPositiveMoneyCents(Number(row.amount_cents)),
+      balanceBeforeCents: asMoneyCents(0),
+      balanceAfterCents: asMoneyCents(0),
+      description: row.justification,
+      metadata: null,
+      createdAt: row.created_at.toISOString(),
     };
   }
 
   /**
-   * Cria uma entrada no ledger (append-only)
-   * 
-   * REGRA ARQUITETURAL: Ledger é imutável.
-   * Esta é a única operação de escrita permitida.
-   * 
-   * 🔴 HARD FAIL: authorship é obrigatório (exceto jobs internos/system com authoritySource='system')
+   * Cria uma entrada no ledger (append-only).
+   * Genesis: apenas tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification.
    */
   async createEntry(
     tenantId: string,
-    input: CreateBankLedgerEntryInput
+    input: CreateBankLedgerEntryInput,
+    client?: PoolClient
   ): Promise<BankLedgerEntry> {
     const {
       accountId,
       transactionId,
       entryType,
-      amount,
-      balanceBefore,
-      balanceAfter,
-      description,
-      metadata,
+      amountCents: amountCentsInput,
       authorship,
     } = input;
 
-    // 🔴 HARD FAIL: Autoria obrigatória (REGRA INQUEBRÁVEL)
     if (!authorship) {
       throw new Error('Financial authorship is mandatory. Missing authorship context.');
     }
 
-    return this.createEntryWithAuthorship(tenantId, input, authorship);
-  }
+    const amountCents = toPositiveMoneyCents(amountCentsInput);
 
-  /**
-   * Cria entrada no ledger com autoria (método interno)
-   */
-  private async createEntryWithAuthorship(
-    tenantId: string,
-    input: CreateBankLedgerEntryInput,
-    authorship: FinancialAuthorshipContext
-  ): Promise<BankLedgerEntry> {
-    const {
-      accountId,
-      transactionId,
-      entryType,
-      amount,
-      balanceBefore,
-      balanceAfter,
-      description,
-      metadata,
-    } = input;
-
-    const client = await getClientWithTenant(tenantId);
+    const clientToUse = client ?? (await getClientWithTenant(tenantId));
+    const ownClient = !client;
 
     try {
-      const result = await client.query<BankLedgerRow>(
+      const result = await clientToUse.query<BankLedgerRow>(
         `
         INSERT INTO bank_ledger (
-          tenant_id, account_id, transaction_id, entry_type,
-          amount, balance_before, balance_after,
-          description, metadata,
-          performed_by_user_id, acting_for_actor_id, acting_for_account_id,
-          authority_source, permission_snapshot, policy_snapshot
+          tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-        RETURNING entry_id, tenant_id, account_id, transaction_id, entry_type,
-                  amount, balance_before, balance_after,
-                  description, metadata, createdAt
+        VALUES ($1, $2, $3, $4, $5, 'execution', NULL)
+        RETURNING id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
         `,
-        [
-          tenantId,
-          accountId,
-          transactionId,
-          entryType,
-          amount,
-          balanceBefore,
-          balanceAfter,
-          description || null,
-          metadata ? JSON.stringify(metadata) : null,
-          authorship.performedByUserId,
-          authorship.actingForActorId,
-          authorship.actingForAccountId || null,
-          authorship.authoritySource,
-          authorship.permissionSnapshot ? JSON.stringify(authorship.permissionSnapshot) : null,
-          authorship.policySnapshot ? JSON.stringify(authorship.policySnapshot) : null,
-        ]
+        [tenantId, accountId, transactionId ?? null, entryType, Number(amountCents)]
       );
 
       if (result.rows.length === 0) {
@@ -138,16 +92,12 @@ class BankLedgerRepository {
 
       return this.toLedgerEntry(result.rows[0]);
     } finally {
-      client.release();
+      if (ownClient) {
+        clientToUse.release();
+      }
     }
   }
 
-  /**
-   * Busca entradas do ledger de uma conta
-   * 
-   * 🔴 GARANTIA CANÔNICA: Cross-tenant leakage prevention
-   * - SEMPRE filtra por tenant_id para prevenir vazamento entre tenants
-   */
   async getEntriesByAccount(
     tenantId: string,
     accountId: string,
@@ -165,35 +115,33 @@ class BankLedgerRepository {
 
     try {
       let query = `
-        SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
-               amount, balance_before, balance_after,
-               description, metadata, createdAt
+        SELECT id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
       `;
 
-      const params: any[] = [tenantId, accountId];
+      const params: unknown[] = [tenantId, accountId];
       let paramIndex = 3;
 
       if (entryType) {
-        query += ` AND entry_type = $${paramIndex}`;
+        query += ` AND direction = $${paramIndex}`;
         params.push(entryType);
         paramIndex++;
       }
 
       if (startDate) {
-        query += ` AND createdAt >= $${paramIndex}`;
+        query += ` AND created_at >= $${paramIndex}`;
         params.push(startDate);
         paramIndex++;
       }
 
       if (endDate) {
-        query += ` AND createdAt <= $${paramIndex}`;
+        query += ` AND created_at <= $${paramIndex}`;
         params.push(endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(limit, offset);
 
       const result = await client.query<BankLedgerRow>(query, params);
@@ -204,12 +152,6 @@ class BankLedgerRepository {
     }
   }
 
-  /**
-   * Busca entradas por transação
-   * 
-   * 🔴 GARANTIA CANÔNICA: Cross-tenant leakage prevention
-   * - SEMPRE filtra por tenant_id para prevenir vazamento entre tenants
-   */
   async getEntriesByTransaction(
     tenantId: string,
     transactionId: string
@@ -219,12 +161,10 @@ class BankLedgerRepository {
     try {
       const result = await client.query<BankLedgerRow>(
         `
-        SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
-               amount, balance_before, balance_after,
-               description, metadata, createdAt
+        SELECT id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
         FROM bank_ledger
         WHERE tenant_id = $1 AND transaction_id = $2
-        ORDER BY entry_type DESC, createdAt ASC
+        ORDER BY direction DESC, created_at ASC
         `,
         [tenantId, transactionId]
       );
@@ -236,41 +176,38 @@ class BankLedgerRepository {
   }
 
   /**
-   * Calcula saldo da conta a partir do ledger (FONTE DA VERDADE)
-   * 
-   * REGRA ARQUITETURAL: Saldo é SEMPRE calculado do ledger.
-   * cached_balance é apenas cache para performance.
-   * 
-   * 🔴 GARANTIA CANÔNICA: Cross-tenant leakage prevention
-   * - SEMPRE filtra por tenant_id para prevenir vazamento entre tenants
+   * Calcula saldo da conta a partir do ledger.
+   * @param client - Quando informado, usa a mesma conexão (mesma transação); não faz release.
    */
   async calculateBalance(
     tenantId: string,
-    accountId: string
+    accountId: string,
+    client?: PoolClient
   ): Promise<BankAccountBalance> {
-    const client = await getClientWithTenant(tenantId);
+    const clientToUse = client ?? (await getClientWithTenant(tenantId));
+    const ownClient = !client;
 
     try {
-      const result = await client.query<{
-        balance: string;
-        total_credits: string;
-        total_debits: string;
+      const result = await clientToUse.query<{
+        balance_cents: string;
+        total_credits_cents: string;
+        total_debits_cents: string;
         entry_count: string;
-        last_entryAt: Date | null;
+        last_entry_at: Date | null;
       }>(
         `
-        SELECT 
+        SELECT
           COALESCE(SUM(
-            CASE 
-              WHEN entry_type = 'credit' THEN amount
-              WHEN entry_type = 'debit' THEN -amount
+            CASE
+              WHEN direction = 'credit' THEN amount_cents
+              WHEN direction = 'debit' THEN -amount_cents
               ELSE 0
             END
-          ), 0) as balance,
-          COALESCE(SUM(CASE WHEN entry_type = 'credit' THEN amount ELSE 0 END), 0) as total_credits,
-          COALESCE(SUM(CASE WHEN entry_type = 'debit' THEN amount ELSE 0 END), 0) as total_debits,
+          ), 0)::bigint as balance_cents,
+          COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_cents ELSE 0 END), 0)::bigint as total_credits_cents,
+          COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount_cents ELSE 0 END), 0)::bigint as total_debits_cents,
           COUNT(*)::bigint as entry_count,
-          MAX(createdAt) as last_entryAt
+          MAX(created_at) as last_entry_at
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
         `,
@@ -280,9 +217,9 @@ class BankLedgerRepository {
       if (result.rows.length === 0) {
         return {
           accountId,
-          balance: 0,
-          totalCredits: 0,
-          totalDebits: 0,
+          balanceCents: asMoneyCents(0),
+          totalCreditsCents: asMoneyCents(0),
+          totalDebitsCents: asMoneyCents(0),
           entryCount: 0,
           lastEntryAt: null,
         };
@@ -292,23 +229,85 @@ class BankLedgerRepository {
 
       return {
         accountId,
-        balance: parseFloat(row.balance),
-        totalCredits: parseFloat(row.total_credits),
-        totalDebits: parseFloat(row.total_debits),
+        balanceCents: asMoneyCents(Number(row.balance_cents)),
+        totalCreditsCents: toNonNegativeMoneyCents(Number(row.total_credits_cents)),
+        totalDebitsCents: toNonNegativeMoneyCents(Number(row.total_debits_cents)),
         entryCount: parseInt(row.entry_count, 10),
-        lastEntryAt: row.last_entryAt,
+        lastEntryAt: row.last_entry_at,
       };
     } finally {
-      client.release();
+      if (ownClient) {
+        clientToUse.release();
+      }
     }
   }
 
   /**
-   * Busca última entrada do ledger de uma conta
-   * 
-   * 🔴 GARANTIA CANÔNICA: Cross-tenant leakage prevention
-   * - SEMPRE filtra por tenant_id para prevenir vazamento entre tenants
+   * Reversão financeira: conta de crédito única para a transação (fallback quando counterpart ausente).
+   * SQL do SSOT de lançamentos permanece no módulo Bank.
    */
+  async getCreditAccountIdForReversalLedgerFallback(
+    tenantId: string,
+    transactionId: string,
+    client: PoolClient
+  ): Promise<string> {
+    const result = await client.query<{ account_id: string }>(
+      `
+      SELECT account_id FROM bank_ledger
+      WHERE tenant_id = $1 AND transaction_id = $2 AND direction = 'credit'
+      `,
+      [tenantId, transactionId]
+    );
+    if (result.rows.length === 0) {
+      throw new Error('REVERSAL_COUNTERPART_UNKNOWN_MIGRATE_0052');
+    }
+    if (result.rows.length !== 1) {
+      throw new Error('REVERSAL_AMBIGUOUS_COUNTERPART');
+    }
+    return result.rows[0].account_id;
+  }
+
+  /**
+   * Inserção de débito em manutenção/backfill (mesma transação SQL que o caller).
+   * Não substitui createEntry (autoria obrigatória no runtime).
+   */
+  async insertMaintenanceLedgerDebit(
+    client: PoolClient,
+    tenantId: string,
+    accountId: string,
+    transactionId: string,
+    amountCents: number,
+    justification: string
+  ): Promise<void> {
+    await client.query(
+      `
+      INSERT INTO bank_ledger (
+        tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification
+      )
+      VALUES ($1, $2, $3, 'debit', $4, 'execution', $5)
+      `,
+      [tenantId, accountId, transactionId, amountCents, justification]
+    );
+  }
+
+  /**
+   * Totais globais de débito/crédito no ledger (smoke / scripts de verificação).
+   */
+  async sumGlobalDebitCreditTotals(): Promise<{ debit: string; credit: string }> {
+    const r = await pool.query<{ d: string; c: string }>(
+      `
+      SELECT
+        SUM(CASE WHEN direction = 'debit' THEN amount_cents ELSE 0 END)::text AS d,
+        SUM(CASE WHEN direction = 'credit' THEN amount_cents ELSE 0 END)::text AS c
+      FROM bank_ledger
+      `
+    );
+    return {
+      debit: r.rows[0]?.d ?? '0',
+      credit: r.rows[0]?.c ?? '0',
+    };
+  }
+
   async getLastEntry(
     tenantId: string,
     accountId: string
@@ -318,12 +317,10 @@ class BankLedgerRepository {
     try {
       const result = await client.query<BankLedgerRow>(
         `
-        SELECT entry_id, tenant_id, account_id, transaction_id, entry_type,
-               amount, balance_before, balance_after,
-               description, metadata, createdAt
+        SELECT id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
         FROM bank_ledger
         WHERE tenant_id = $1 AND account_id = $2
-        ORDER BY createdAt DESC, entry_id DESC
+        ORDER BY created_at DESC, id DESC
         LIMIT 1
         `,
         [tenantId, accountId]
@@ -338,16 +335,44 @@ class BankLedgerRepository {
       client.release();
     }
   }
+
+  /** Leitura SSOT por id de linha do bank_ledger (substitui economy ledger stub em invoicing/reporting). */
+  async getEntryById(tenantId: string, entryId: string): Promise<BankLedgerEntry | null> {
+    const client = await getClientWithTenant(tenantId);
+    try {
+      const result = await client.query<BankLedgerRow>(
+        `
+        SELECT id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification, created_at
+        FROM bank_ledger
+        WHERE tenant_id = $1 AND id = $2
+        LIMIT 1
+        `,
+        [tenantId, entryId]
+      );
+      if (result.rows.length === 0) {
+        return null;
+      }
+      return this.toLedgerEntry(result.rows[0]);
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export const bankLedgerRepository = new BankLedgerRepository();
 
-
-
-
-
-
-
-
-
-
+/**
+ * Leitura de saldo consistente dentro de uma transação ativa.
+ * Obrigatório passar client (transação já iniciada). Não abre nova conexão.
+ * Usado para eliminar race conditions em operações financeiras.
+ */
+export async function getAccountBalanceConsistent(
+  tenantId: string,
+  accountId: string,
+  client: PoolClient
+): Promise<BankAccountBalance> {
+  if (!client) {
+    throw new Error('getAccountBalanceConsistent requires an active transaction client');
+  }
+  return bankLedgerRepository.calculateBalance(tenantId, accountId, client);
+}

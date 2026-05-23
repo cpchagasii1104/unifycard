@@ -61,12 +61,12 @@ export interface OpportunityDispatchRow {
   opportunity_type: OpportunityType;
   target_actor_id: string;
   response: DispatchResponse | null;
-  dispatchedAt: Date;
-  respondedAt: Date | null;
-  expiresAt: Date | null;
+  dispatched_at: Date;
+  responded_at: Date | null;
+  expires_at: Date | null;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

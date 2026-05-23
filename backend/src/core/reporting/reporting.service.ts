@@ -144,13 +144,13 @@ class ReportingService {
     }
 
     // Validar comentário obrigatório ao encerrar
-    if ((input.status === 'RESOLVED' || input.status === 'DISMISSED') && !input.comment) {
+    if ((input.status === 'resolved' || input.status === 'dismissed') && !input.comment) {
       throw new Error('Comentário é obrigatório ao encerrar uma denúncia');
     }
 
     // Determinar resolvedAt
     const resolvedAt =
-      input.status === 'RESOLVED' || input.status === 'DISMISSED' ? new Date() : undefined;
+      input.status === 'resolved' || input.status === 'dismissed' ? new Date() : undefined;
 
     // Atualizar status
     const updatedReport = await reportingRepository.updateReportStatus(
@@ -178,7 +178,7 @@ class ReportingService {
     });
 
     // Se encerrado, recalcular risk score
-    if (input.status === 'RESOLVED' || input.status === 'DISMISSED') {
+    if (input.status === 'resolved' || input.status === 'dismissed') {
       await riskScoringEngine.updateRiskFlag(
         tenantId,
         report.target_type,

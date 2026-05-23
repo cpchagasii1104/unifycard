@@ -2,11 +2,12 @@
 // Serviço de direcionamento inteligente baseado no Raio-X do CORE
 
 import type { CompleteProfile } from '@core/core.service';
+import type { Gender } from '@unificard/contracts';
 
 export interface TargetingFilters {
   demographics?: {
     age_range?: [number, number];
-    gender?: ('male' | 'female' | 'other')[];
+    gender?: Gender[];
   };
   lifestyle?: {
     drinks?: boolean;

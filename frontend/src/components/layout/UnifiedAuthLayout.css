@@ -17,9 +17,9 @@
 .ual-main {
   flex: 1;
   padding: 1.5rem 2rem 2.5rem 2rem;
-  max-width: 1200px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
 }
 
 /* Tablet — sidebar compacta 72px */

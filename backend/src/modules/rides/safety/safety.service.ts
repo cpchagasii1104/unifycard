@@ -1,8 +1,8 @@
 // src/modules/rides/safety/safety.service.ts
 
 import { randomUUID } from "crypto";
-import { runQueryWithTenant, runQueriesWithTenant } from "@core/db";
-import { eventBus } from "@core/events/event-bus";
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from "@core/db";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 import { BadRequestError, NotFoundError } from "@core/errors";
 import { notifyService } from "@core/notify/notify.service";
 
@@ -12,7 +12,7 @@ interface EmergencyContactRow {
   user_id: string;
   name: string;
   phone: string;
-  createdAt: Date;
+  created_at: Date;
 }
 
 export class SafetyService {
@@ -29,7 +29,7 @@ export class SafetyService {
     const row = await runQueryWithTenant<EmergencyContactRow>(tenantId, {
       text: `
         INSERT INTO rides_emergency_contacts (
-          tenant_id, user_id, name, phone, createdAt
+          tenant_id, user_id, name, phone, created_at
         )
         VALUES ($1, $2, $3, $4, now())
         RETURNING *
@@ -53,7 +53,7 @@ export class SafetyService {
         SELECT *
         FROM rides_emergency_contacts
         WHERE tenant_id = $1 AND user_id = $2
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
       `,
       values: [tenantId, userId],
     });
@@ -116,24 +116,33 @@ export class SafetyService {
       userId
     );
 
-    // Criar alerta interno para painel de segurança
-    const alert = await runQueryWithTenant<{ alert_id: string }>(tenantId, {
-      text: `
+    const alert = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const alertRes = await client.query(
+        `
         INSERT INTO rides_safety_alerts (
           tenant_id, ride_id, triggered_by_user_id,
-          createdAt
+          created_at
         )
         VALUES ($1, $2, $3, now())
         RETURNING alert_id
       `,
-      values: [tenantId, rideId, userId],
+        [tenantId, rideId, userId]
+      );
+      const a = alertRes.rows[0];
+      if (!a) {
+        throw new Error("Failed to create safety alert");
+      }
+      await publishRideEventOutbox(client, {
+        type: "rides.safety.sos_triggered",
+        tenantId,
+        payload: {
+          rideId,
+          triggeredBy: userId,
+        },
+      });
+      return a;
     });
 
-    if (!alert) {
-      throw new Error("Failed to create safety alert");
-    }
-
-    // Enviar notificações
     for (const c of contacts) {
       await notifyService.send({
         tenantId,
@@ -148,16 +157,6 @@ export class SafetyService {
       });
     }
 
-    // Eventos internos
-    await eventBus.emit({
-      type: "rides.safety.sos_triggered",
-      tenantId,
-      payload: {
-        rideId,
-        triggeredBy: userId,
-      },
-    });
-
     return { ok: true, alertId: alert.alert_id };
   }
 
@@ -167,21 +166,13 @@ export class SafetyService {
   async shareRide(tenantId: string, rideId: string, userId: string) {
     const token = randomUUID();
 
-    const row = await runQueryWithTenant<{
-      share_id: string;
-      tenant_id: string;
-      ride_id: string;
-      user_id: string;
-      share_token: string;
-      share_url: string;
-      expiresAt: Date;
-      createdAt: Date;
-    }>(tenantId, {
-      text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const shareRes = await client.query(
+        `
         INSERT INTO rides_ride_shares (
           tenant_id, ride_id, user_id,
           share_token, share_url,
-          expiresAt, createdAt
+          expiresAt, created_at
         )
         VALUES (
           $1, $2, $3,
@@ -192,24 +183,23 @@ export class SafetyService {
         )
         RETURNING *
       `,
-      values: [tenantId, rideId, userId, token],
+        [tenantId, rideId, userId, token]
+      );
+      const row = shareRes.rows[0];
+      if (!row) {
+        throw new Error("Failed to create ride share");
+      }
+      await publishRideEventOutbox(client, {
+        type: "rides.ride.shared",
+        tenantId,
+        payload: {
+          rideId,
+          userId,
+          token,
+        },
+      });
+      return row;
     });
-
-    if (!row) {
-      throw new Error("Failed to create ride share");
-    }
-
-    await eventBus.emit({
-      type: "rides.ride.shared",
-      tenantId,
-      payload: {
-        rideId,
-        userId,
-        token,
-      },
-    });
-
-    return row;
   }
 
   // ============================================================================
@@ -231,43 +221,34 @@ export class SafetyService {
 
     if (!ride) throw new NotFoundError("Corrida não encontrada.");
 
-    const dispute = await runQueryWithTenant<{
-      dispute_id: string;
-      tenant_id: string;
-      ride_id: string;
-      opened_by_user_id: string;
-      reason: string;
-      details: any;
-      status: string;
-      createdAt: Date;
-    }>(tenantId, {
-      text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const disputeRes = await client.query(
+        `
         INSERT INTO rides_disputes (
           tenant_id, ride_id, opened_by_user_id,
           reason, details, status,
-          createdAt
+          created_at
         )
         VALUES ($1, $2, $3, $4, $5, 'open', now())
         RETURNING *
       `,
-      values: [tenantId, rideId, userId, reason, details || {}],
+        [tenantId, rideId, userId, reason, details || {}]
+      );
+      const dispute = disputeRes.rows[0];
+      if (!dispute) {
+        throw new Error("Failed to create dispute");
+      }
+      await publishRideEventOutbox(client, {
+        type: "rides.dispute.opened",
+        tenantId,
+        payload: {
+          rideId,
+          userId,
+          reason,
+        },
+      });
+      return dispute;
     });
-
-    if (!dispute) {
-      throw new Error("Failed to create dispute");
-    }
-
-    await eventBus.emit({
-      type: "rides.dispute.opened",
-      tenantId,
-      payload: {
-        rideId,
-        userId,
-        reason,
-      },
-    });
-
-    return dispute;
   }
 
   // ============================================================================
@@ -282,13 +263,13 @@ export class SafetyService {
       share_token: string;
       share_url: string;
       expiresAt: Date;
-      createdAt: Date;
+      created_at: Date;
     }>(tenantId, {
       text: `
         SELECT *
         FROM rides_ride_shares
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
       `,
       values: [tenantId, rideId],
     });
@@ -306,14 +287,14 @@ export class SafetyService {
       reason: string;
       details: any;
       status: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(tenantId, {
       text: `
         SELECT *
         FROM rides_disputes
         WHERE tenant_id = $1 AND ride_id = $2
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
       `,
       values: [tenantId, rideId],
     });

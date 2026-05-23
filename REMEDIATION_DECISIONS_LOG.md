@@ -3053,8 +3053,9 @@ Plano em fases F1-F6 detalhado em `PLANO_FEED_RAIO_GEOGRAFICO_2026_05_19.md`. Ca
 ## DECISION-0031 — Reactions como tabela polimórfica soberana
 
 - **Data:** 2026-05-19
-- **Tipo:** arquitetural — ratificação de schema canônico
+- **Tipo:** arquitetural — ratificação de schema canônico + remediação constitucional
 - **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão remediação `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`)
+- **Base constitucional:** §3.2 (Glossário Canônico — `actor_id` SSOT), §4.4 (Chaves — PK `id`, FK `<entidade>_id`), §4.37 (Tipos de Entidade — ver nota de violação latente abaixo)
 
 ### Princípio
 
@@ -3062,10 +3063,10 @@ A tabela `reactions` é **soberanamente polimórfica**. Schema canônico vigente
 
 ```sql
 reactions (
-  id           UUID PRIMARY KEY,
+  id           UUID PRIMARY KEY,        -- §4.4 PK canônica
   tenant_id    UUID NOT NULL,
-  actor_id     UUID NOT NULL,
-  entity_type  TEXT NOT NULL,  -- 'post' | 'comment' | 'event' | ...
+  actor_id     UUID NOT NULL,           -- §3.2 SSOT de identidade
+  entity_type  TEXT NOT NULL,           -- 'post' | 'comment' | 'event' (ver nota §4.37 abaixo)
   entity_id    UUID NOT NULL,
   reaction_type TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -3076,9 +3077,25 @@ Toda query/INSERT/UPDATE/DELETE em `reactions` DEVE usar `(entity_type, entity_i
 
 ### Anti-padrões formalmente proibidos
 
-1. **FK direta tipo-específica** — adicionar `reactions.post_id`, `reactions.comment_id`, `reactions.event_id` duplicando `entity_id`. Cria caminhos paralelos de identificação e fragmenta polimorfismo.
-2. **Coluna de identidade não-canônica** — usar `user_id` ou `global_user_id` em vez de `actor_id`. Schema só conhece `actor_id` (alinhamento com modelo "Actor como unidade operacional soberana", memória 2026-05-15). Outras camadas de identidade são derivadas, não soberanas.
-3. **Tabelas espelho** — criar `post_reactions`, `comment_reactions`, `event_reactions` separadas. Inflar N tabelas para N tipos é exatamente o que polimorfismo evita.
+1. **FK direta tipo-específica** — adicionar `reactions.post_id`, `reactions.comment_id`, `reactions.event_id` duplicando `entity_id`. Cria caminhos paralelos de identificação e fragmenta polimorfismo. **Viola §4.4** (FK redundante quando já existe `entity_id`).
+2. **Coluna de identidade não-canônica** — usar `user_id` ou `global_user_id` em vez de `actor_id`. **Viola §3.2** (Glossário Canônico Constitucional: "Identidade Econômica → `actor_id` / `actorId` — SSOT de identidade"). Schema só conhece `actor_id` (alinhamento com modelo "Actor como unidade operacional soberana", memória 2026-05-15). Outras camadas de identidade são derivadas, não soberanas.
+3. **Chave primária não-canônica** — usar `reaction_id` como PK em vez de `id`. **Viola §4.4** ("Chave primária: `id`. ❌ `usr_id`, ❌ `user_id_id`"). Padrão: SQL alias preserva contrato externo (`SELECT id AS reaction_id`) sem violar PK canônica do schema.
+4. **Tabelas espelho** — criar `post_reactions`, `comment_reactions`, `event_reactions` separadas. Inflar N tabelas para N tipos é exatamente o que polimorfismo evita.
+
+### Nota: violação latente §4.37 (entity_type enum)
+
+§4.37 da Nomenclatura Canônica define enum constitucional `entity_type` com valores: `'user'`, `'page'`, `'store'`, `'group'`, `'company'`, `'organization'`, `'system'`, `'bot'` — todos **entidades soberanas/persona operacional** (linhas 1467-1499). §4.37 explicita: "`entity_type` representa a natureza estrutural da entidade. `actor_type` representa o papel operacional do ator dentro do sistema."
+
+Schema atual de `reactions` (migration viva `20260530320000_social_reactions.sql:7`) usa:
+```sql
+CHECK (entity_type IN ('post','comment','event'))
+```
+
+Valores `'post'`, `'comment'`, `'event'` são **tipos de conteúdo/domínio**, NÃO entidades soberanas. **Configura violação §4.37**: nome canônico `entity_type` emprestado fora do escopo constitucional. Plus: 3 vocabulários divergentes na codebase (constituição §4.37 vs `publication-engine.types.ts:7` que declara `event/post/group/channel` vs DDL live `post/comment/event`).
+
+Esta DECISION-0031 **ratifica USO ATUAL como exceção transitória** (princípio "norma assintótica" — `project_norma_assintotica.md`): runtime preservado enquanto convergência não é executável (renomeação exige DDL aditiva + migration coordenada cross-callers, fora do escopo desta frente).
+
+Frente futura para alinhamento §4.37: ver `DT-PRESSURE-REACTIONS-ENTITY-TYPE-NAMING-VIOLATION` (2026-05-19). Nomenclatura semanticamente correta seria `target_type` ou `content_type` (não-`entity_type`), o que exige formalização SSOT_REGISTRY → §4.X antes de implementar (regra §3.2 PROIBIÇÃO: "Nenhum nome constitucional pode nascer 'no código primeiro' e ser ratificado depois").
 
 ### Caso material que motivou ratificação
 
@@ -3159,6 +3176,133 @@ Aplicação consistente com `DT-MODULE-SUBSCRIPTIONS-FANTASMA`, `DT-MODULE-VENUE
 
 - DECISION-0041 (PREMATURO — features sem ecossistema runtime de suporte são removidas)
 - Memória `project_norma_assintotica.md` (sistema converge para schema canônico; toda exceção carrega prazo ou critério de convergência)
+
+#### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0033 — post_media como modelo legacy substituído por posts.media_ids
+
+- **Data:** 2026-05-19
+- **Tipo:** arquitetural — ratificação de modelo canônico (coluna-array embedded) + remoção de modelo legacy (tabela-N)
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão remediação `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`)
+- **Base constitucional:** §4.3 (snake_case + arrays UUID padrão SSOT), §4.4 (PK `id`, FK `<entidade>_id`)
+
+### Princípio
+
+Mídia em posts é modelada via **coluna-array embedded**:
+
+```sql
+posts (
+  id            UUID PRIMARY KEY,    -- §4.4 PK canônica
+  ...,
+  media_ids     UUID[],              -- §4.3 snake_case + array UUID
+  ...
+)
+```
+
+NÃO via tabela-N `post_media`. Modelo histórico de tabela-N foi **substituído** em migration posterior por modelo embedded.
+
+### Estado material
+
+`backend/migrations_archive/0040_social_actors_extension.sql:36-49` criava tabela `post_media(id, tenant_id, post_id, media_type, url, thumbnail_url, file_size, mime_type, metadata, display_order, created_at)`. **Nenhuma migration viva** em `backend/migrations/` recria a tabela. Modelo foi superado pela coluna `posts.media_ids UUID[]` (schema real auditado em DT-DRIFT-SOCIAL-2.0).
+
+`social-2.0.service.ts:780-785` ainda fazia `UPDATE post_media SET post_id = $1, display_order = $2 WHERE media_id = $3` — código órfão atuando contra tabela inexistente. Causa raiz idêntica à de `post_cta` (DECISION-0032) e `posts.global_user_id` (DT-DRIFT-SOCIAL-2.0): refator de schema parcialmente concluído, código legado preservado sem alinhamento.
+
+### Anti-padrões formalmente proibidos
+
+1. **UPDATE/INSERT/SELECT em `post_media`** — tabela FANTASMA; toda operação retorna erro ou 0 rows.
+2. **Modelagem de mídia em tabela-N paralela** — adicionar `media_attachments`, `post_attachments`, etc. para "estender" `media_ids`. Quebra atomicidade (post + mídia deveriam ser uma só escrita).
+3. **Recriar `post_media`** sem RFC explícito e DECISION superando esta — modelo embedded é canônico até prova material em contrário.
+
+### Estado pós-aplicação
+
+- `social-2.0.service.ts:780-785`: bloco `UPDATE post_media` removido com comentário arqueológico (DECISION-0033)
+- `createPost` modificado para incluir `media_ids` diretamente no INSERT posts (atomicidade)
+- **NÃO recriar** tabela `post_media` via migration
+
+### Modelo canônico de createPost (pós-aplicação)
+
+```sql
+INSERT INTO posts (
+  id, tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata
+)
+VALUES (
+  DEFAULT, $1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb
+)
+RETURNING id AS post_id, created_at, updated_at;
+```
+
+Alias `id AS post_id` preserva contrato externo (frontend tem 65 callers de `post.post_id`) sem violar §4.4 PK canônica.
+
+### Convergência institucional
+
+- Pattern consistente com migração schema-evolution: tabela-N substituída por coluna-array embedded quando atomicidade > flexibilidade de extensão.
+- Diferente de DECISION-0032/0034 (PREMATURO): aqui o modelo canônico EXISTE (coluna `media_ids`), só o código não convergiu. Não é "feature aspiracional" — é "legacy code atrás do schema vigente".
+
+#### Supera
+
+- Modelo legacy `post_media(id, post_id, media_type, url, ...)` de `migrations_archive/0040_social_actors_extension.sql`
+
+#### Estende
+
+- §4.3 (Nomenclatura Canônica: snake_case + arrays UUID padrão SSOT)
+- §4.4 (Nomenclatura Canônica: PK `id`, FK `<entidade>_id`)
+
+#### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0034 — post_projects como feature não-materializada (PREMATURO)
+
+- **Data:** 2026-05-19
+- **Tipo:** arquitetural — aplicação de DECISION-0041 PREMATURO
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-19, sessão remediação `DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`)
+- **Base constitucional:** §3.2 (PROIBIÇÃO de feature nascendo "no código primeiro" sem SSOT_REGISTRY)
+
+### Princípio
+
+A feature "projetos vinculados a posts" (`post_projects`) é **pendente de maturação produto**. Não há:
+- Tabela `post_projects` materializada em runtime (FANTASMA — CREATE TABLE só em `migrations_archive/0844_social_purpose_targeting.sql:195`, nenhuma migration viva)
+- Substituto canônico (diferente de `post_media` que tem `posts.media_ids`)
+- Caller frontend de `post.project` ou `post.budget_cents`/`post.deadline`
+- JTBD claro (qual problema o vínculo "post → project com budget+deadline" resolve no contexto operacional?)
+
+Plus: o INSERT em `social-2.0.service.ts:794-807` está protegido por try/catch com `console.error('Erro ao criar projeto (não crítico):', err)` — o próprio dev sabia que o INSERT era frágil/aspiracional.
+
+Aplicar pattern **DECISION-0041 PREMATURO**: feature aspiracional sem ecossistema runtime + sem JTBD validado deve ser **removida** (não comentada), até produto materializar a necessidade.
+
+### Estado pós-aplicação
+
+- `social-2.0.service.ts:789-812`: bloco INSERT post_projects removido com comentário arqueológico curto referindo DECISION-0034
+- Path semântico de `intent === 'project'` preservado no contrato (frontend pode continuar criando posts com `intent='project'`), mas SEM persistir budget/deadline em tabela paralela. Metadata pode carregar campos via `intent_metadata` (jsonb) se necessário.
+- **NÃO criar** tabela `post_projects` via migration
+
+### Critério de reabertura
+
+Reabrir feature exige:
+1. UX desenhado e validado (componente que mostra "projeto com orçamento R$ X até DD/MM")
+2. JTBD claro (qual problema operacional o projeto vinculado resolve?)
+3. Decisão sobre **modelo canônico**: (a) tabela-N `projects` linkada via `posts.project_id`? (b) campos diretos em `posts` (budget_cents/deadline)? (c) jsonb em `posts.intent_metadata`?
+4. Formalização SSOT_REGISTRY + §4.X em Nomenclatura Canônica antes de qualquer DDL
+5. Nova DECISION explícita revertendo PREMATURO
+
+### Convergência institucional
+
+Aplicação consistente com DECISION-0032 (post_cta) e família `DT-MODULE-*-FANTASMA`. Diferencia-se de DECISION-0033 (post_media) porque NÃO há modelo substituto canônico para post_projects — é feature totalmente PREMATURO, não legacy substituído.
+
+#### Supera
+
+(nenhuma — DECISION inédita aplicando pattern DECISION-0041 a `post_projects`)
+
+#### Estende
+
+- DECISION-0041 (PREMATURO — features sem ecossistema runtime de suporte são removidas)
+- §3.2 (PROIBIÇÃO de feature nascer "no código primeiro" — convergência reversa: feature já no código sem registro SSOT vira PREMATURO)
 
 #### Superada por
 

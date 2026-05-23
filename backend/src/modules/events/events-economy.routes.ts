@@ -34,10 +34,10 @@ const eventsEconomyRoutes: FastifyPluginAsync = async (fastify) => {
         const eventRow = await runQueryWithTenant<{
           id: string;
           ticket_price_cents: number | null;
-          max_capacity: number | null;
+          max_attendees: number | null;
         }>(
           tenantId,
-          `SELECT id, ticket_price_cents, max_capacity FROM events WHERE id = $1 AND tenant_id = $2`,
+          `SELECT id, ticket_price_cents, max_attendees FROM events WHERE id = $1 AND tenant_id = $2`,
           [eventId, tenantId]
         );
 

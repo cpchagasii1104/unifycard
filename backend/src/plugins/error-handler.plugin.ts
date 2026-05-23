@@ -1,22 +1,69 @@
 // src/plugins/error-handler.plugin.ts
-// 🔴 BLINDAGEM: Sem vazamento de stack em produção
+// §9.5 NOMENCLATURA_CANONICA — envelope { error, meta }
 import fp from 'fastify-plugin';
-import { FastifyPluginAsync, FastifyError } from 'fastify';
+import { randomUUID } from 'crypto';
+import { FastifyPluginAsync, FastifyError, FastifyRequest } from 'fastify';
 import { AppError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
+import {
+  IdempotencyMismatchError,
+  IDEMPOTENCY_MISMATCH_HTTP_MESSAGE,
+} from '@core/events/idempotency-tracker';
+import { buildCanonicalHttpErrorPayload } from '@core/http/canonical-http-error';
 
 /**
  * Error Handler Plugin
  *
  * Responsabilidade:
  *  - Logar erros com requestId
- *  - Padronizar resposta de erro
+ *  - Resposta §9.5: { error: { code, message, details?, help? }, meta: { requestId, timestamp } }
  *  - Não vazar stack trace em produção
+ *  - 404 de rota inexistente: setNotFoundHandler → mesmo envelope (não usa o basic404 do Fastify)
  */
 const errorHandlerPluginImpl: FastifyPluginAsync = async (fastify) => {
+  fastify.setNotFoundHandler((request: FastifyRequest, reply) => {
+    const ridRaw = (request as any).requestId ?? request.id;
+    const requestId =
+      typeof ridRaw === 'string' && ridRaw.trim() !== '' ? ridRaw : randomUUID();
+    const message = `Route ${request.method} ${request.url} not found`;
+    request.log.info(
+      { url: request.url, method: request.method, requestId },
+      message
+    );
+    return reply.status(404).send(
+      buildCanonicalHttpErrorPayload(ErrorCode.ROUTE_NOT_FOUND, message, requestId)
+    );
+  });
+
   fastify.setErrorHandler((error: FastifyError, request, reply) => {
-    const requestId = (request as any).requestId || (request.id as string);
+    const ridRaw = (request as any).requestId ?? request.id;
+    const requestId =
+      typeof ridRaw === 'string' && ridRaw.trim() !== '' ? ridRaw : randomUUID();
     const correlationId = (request.headers['x-correlation-id'] as string) || requestId;
+
+    if (error instanceof IdempotencyMismatchError) {
+      fastify.log.warn(
+        {
+          err: error,
+          url: request.url,
+          method: request.method,
+          requestId,
+          correlationId,
+          tenantId: (request as any).tenant?.id,
+          userId: (request as any).user?.id,
+        },
+        'Idempotency mismatch (409)'
+      );
+      return reply
+        .status(409)
+        .send(
+          buildCanonicalHttpErrorPayload(
+            error.code,
+            IDEMPOTENCY_MISMATCH_HTTP_MESSAGE,
+            requestId
+          )
+        );
+    }
 
     fastify.log.error({
       err: error,
@@ -31,50 +78,51 @@ const errorHandlerPluginImpl: FastifyPluginAsync = async (fastify) => {
     const statusCode = error.statusCode ?? 500;
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Padronizar resposta de erro
-    // 🔴 FORMATO PADRÃO: { code, message, requestId? }
-    const errorCode = error instanceof AppError 
-      ? error.code 
-      : (error as any).code || ErrorCode.INTERNAL_ERROR;
-    
-    const safeMessage = error instanceof AppError
-      ? error.getSafeMessage()
-      : (statusCode >= 500 && isProduction 
-          ? 'Erro interno do servidor' 
-          : error.message);
+    const errorCode =
+      error instanceof AppError
+        ? error.code
+        : (error as any).code || ErrorCode.INTERNAL_ERROR;
 
-    const errorResponse: any = {
-      code: errorCode,
-      message: safeMessage,
-    };
+    const safeMessage =
+      error instanceof AppError
+        ? error.getSafeMessage()
+        : statusCode >= 500 && isProduction
+          ? 'Internal server error'
+          : error.message;
 
-    // Adicionar requestId para rastreabilidade
-    if (requestId) {
-      errorResponse.requestId = requestId;
+    const details: Record<string, unknown> = {};
+
+    if (error instanceof AppError && error.details) {
+      Object.assign(details, error.details);
     }
 
-    // Adicionar informações específicas para rate limit
     if (error instanceof AppError && error.statusCode === 429) {
       const rateLimitError = error as any;
       if (rateLimitError.resetAt) {
-        errorResponse.resetAt = rateLimitError.resetAt.toISOString();
+        details.resetAt = rateLimitError.resetAt.toISOString();
       }
       if (rateLimitError.remaining !== undefined) {
-        errorResponse.remaining = rateLimitError.remaining;
+        details.remaining = rateLimitError.remaining;
       }
     }
 
-    // Em desenvolvimento, incluir stack trace e detalhes
     if (!isProduction) {
       if (error.stack) {
-        errorResponse.stack = error.stack;
+        details.stack = error.stack;
       }
       if ((error as any).details) {
-        errorResponse.details = (error as any).details;
+        details.domain = (error as any).details;
       }
     }
 
-    reply.status(statusCode).send(errorResponse);
+    const payload = buildCanonicalHttpErrorPayload(
+      errorCode,
+      safeMessage,
+      requestId,
+      Object.keys(details).length > 0 ? { details } : undefined
+    );
+
+    reply.status(statusCode).send(payload);
   });
 };
 

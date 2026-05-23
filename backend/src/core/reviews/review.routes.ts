@@ -1,5 +1,6 @@
 // src/core/reviews/review.routes.ts
 import { FastifyPluginAsync } from 'fastify';
+import { NotFoundError } from '@core/errors';
 import { reviewService } from './review.service';
 import {
   createReviewSchema,
@@ -59,7 +60,7 @@ const reviewRoutes: FastifyPluginAsync = async (fastify) => {
     Params: z.infer<typeof reviewIdParamsSchema>;
   }>('/:reviewId', {
     preHandler: fastify.requirePermission(['reviews:read']),
-  }, async (req, reply) => {
+  }, async (req) => {
     // Validação manual com Zod
     const params = reviewIdParamsSchema.parse(req.params);
     const tenantId = req.tenant!.id;
@@ -68,7 +69,7 @@ const reviewRoutes: FastifyPluginAsync = async (fastify) => {
     const review = await reviewService.getById(tenantId, reviewId);
 
     if (!review) {
-      return reply.notFound('Review not found');
+      throw new NotFoundError('Review not found');
     }
 
     return review;

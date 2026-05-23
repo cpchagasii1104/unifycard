@@ -4,6 +4,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { webauthnService } from './webauthn.service';
+import type { VerifyAssertionInput } from './webauthn.types';
 import { authRateLimitService } from '@core/rate-limiting/auth-rate-limit.service';
 import { RateLimitError } from '@core/errors';
 import { z } from 'zod';
@@ -181,7 +182,22 @@ const webauthnRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const input = parsed.data;
+    const { userId, credentialId, authenticatorData, clientDataJSON, signature, userHandle } = parsed.data;
+    if (!userId || !credentialId || !authenticatorData || !clientDataJSON || !signature) {
+      return reply.status(400).send({
+        error: 'Invalid request body',
+        message: 'Missing required fields for WebAuthn verification',
+      });
+    }
+
+    const input: VerifyAssertionInput = {
+      userId,
+      credentialId,
+      authenticatorData,
+      clientDataJSON,
+      signature,
+      ...(userHandle !== undefined && { userHandle }),
+    };
 
     // 🔴 RATE LIMITING: Verificar limite antes de processar
     try {
@@ -189,7 +205,7 @@ const webauthnRoutes: FastifyPluginAsync = async (fastify) => {
         'auth.webauthn.verify',
         req,
         tenantId,
-        input.userId
+        userId
       );
 
       if (!rateLimitCheck.allowed) {
@@ -198,7 +214,7 @@ const webauthnRoutes: FastifyPluginAsync = async (fastify) => {
           route: '/auth/webauthn/verify',
           ip: authRateLimitService.extractClientIp(req),
           tenantId,
-          userId: input.userId,
+          userId,
           reason: rateLimitCheck.reason,
           limit: rateLimitCheck.limit,
           resetAt: rateLimitCheck.resetAt.toISOString(),

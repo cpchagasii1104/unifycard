@@ -58,11 +58,11 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         status: string;
         starts_at: Date;
         ends_at: Date;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
-        SELECT id, title, status, starts_at, ends_at, createdAt
+        SELECT id, title, status, starts_at, ends_at, created_at
         FROM events
         WHERE tenant_id = $1
           AND created_by_global_user_id = $2
@@ -70,7 +70,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
             status = 'draft'
             OR (status = 'published' AND ends_at < now() AND status != 'completed' AND status != 'archived')
           )
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT 20
         `,
         [tenantId, globalUserId]
@@ -83,7 +83,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         status: row.status,
         startTime: row.starts_at.toISOString(),
         endTime: row.ends_at.toISOString(),
-        createdAt: row.createdAt.toISOString(),
+        createdAt: row.created_at.toISOString(),
       }));
 
       // 2. Grupos pendentes (inativos ou sem finalidade financeira se tem intenção financeira)
@@ -93,7 +93,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         is_active: boolean;
         has_financial_intent: boolean;
         financial_purpose: string | null;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
@@ -103,7 +103,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
           is_active, 
           COALESCE((metadata->>'hasFinancialIntent')::boolean, false) as has_financial_intent,
           financial_purpose,
-          createdAt
+          created_at
         FROM groups
         WHERE tenant_id = $1
           AND (owner_user_id = $2 OR owner_user_id = $3)
@@ -114,7 +114,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
               AND (financial_purpose IS NULL OR financial_purpose = '')
             )
           )
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT 20
         `,
         [tenantId, userId, globalUserId]
@@ -126,7 +126,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         type: 'group',
         status: row.is_active ? 'active' : 'inactive',
         needsFinancialPurpose: row.has_financial_intent && (!row.financial_purpose || row.financial_purpose === ''),
-        createdAt: row.createdAt.toISOString(),
+        createdAt: row.created_at.toISOString(),
       }));
 
       // 3. Serviços com solicitações pendentes (bookings em status 'requested')
@@ -135,7 +135,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         title: string;
         status: string;
         booking_count: number;
-        createdAt: Date;
+        created_at: Date;
       }>(
         tenantId,
         `
@@ -144,15 +144,15 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
           s.title,
           s.status,
           COUNT(b.booking_id) as booking_count,
-          MAX(s.createdAt) as createdAt
+          MAX(s.created_at) as created_at
         FROM services s
         INNER JOIN availability a ON a.owner_type = 'service' AND a.owner_id = s.service_id
         INNER JOIN bookings b ON b.availability_id = a.availability_id AND b.status = 'requested'
         WHERE s.tenant_id = $1
           AND s.owner_actor_id = $2
-        GROUP BY s.service_id, s.title, s.status, s.createdAt
+        GROUP BY s.service_id, s.title, s.status, s.created_at
         HAVING COUNT(b.booking_id) > 0
-        ORDER BY MAX(s.createdAt) DESC
+        ORDER BY MAX(s.created_at) DESC
         LIMIT 20
         `,
         [tenantId, actor.actor_id]
@@ -164,7 +164,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         type: 'service',
         status: row.status,
         pendingBookingsCount: Number(row.booking_count),
-        createdAt: row.createdAt.toISOString(),
+        createdAt: row.created_at.toISOString(),
       }));
 
       // 4. Pagamentos aguardando confirmação (payment_requests com status 'pending')
@@ -201,7 +201,7 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         id: row.payment_request_id,
         type: 'payment',
         status: row.status,
-        amountCents: parseFloat(row.amount.toString()),
+        amountCents: row.amountCents,
         currency: row.currency,
         serviceId: row.service_id,
         bookingId: row.booking_id,

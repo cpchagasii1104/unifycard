@@ -14,6 +14,14 @@ export class CategoryModel {
 
     const path = this.normalizePath(row.path, row.level, row.slug);
 
+    const meta = row.metadata;
+    const metadata =
+      meta &&
+      typeof meta === 'object' &&
+      !Array.isArray(meta)
+        ? (meta as Record<string, unknown>)
+        : undefined;
+
     return {
       categoryId: row.category_id,
       parentId: row.parent_id,
@@ -25,14 +33,16 @@ export class CategoryModel {
       keywords: this.normalizeKeywords(row.keywords),
       countryCode: row.country_code || null,
       scope: row.scope,
+      domainType: row.domain_type ?? 'SERVICE',
       status: row.status ?? 'active',
       requiresReview: row.requires_review ?? false,
       createdByAI: row.created_by_ai ?? false,
       approvedBy: row.approved_by ?? null,
-      approvedAt: row.approvedAt ?? null,
+      approvedAt: this.normalizeDate(row.approved_at ?? (row as { approvedAt?: Date | null }).approvedAt),
       rejectionReason: row.rejection_reason ?? null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      metadata,
+      createdAt: this.isoTimestamp(row.created_at ?? (row as { createdAt?: string }).createdAt),
+      updatedAt: this.isoTimestamp(row.updated_at ?? (row as { updatedAt?: string }).updatedAt),
     };
   }
 
@@ -52,11 +62,12 @@ export class CategoryModel {
     if (category.path !== undefined) row.path = category.path;
     if (category.keywords !== undefined) row.keywords = category.keywords;
     if (category.countryCode !== undefined) row.country_code = category.countryCode;
+    if (category.domainType !== undefined) row.domain_type = category.domainType;
     if (category.status !== undefined) row.status = category.status;
     if (category.requiresReview !== undefined) row.requires_review = category.requiresReview;
     if (category.createdByAI !== undefined) row.created_by_ai = category.createdByAI;
     if (category.approvedBy !== undefined) row.approved_by = category.approvedBy;
-    if (category.approvedAt !== undefined) row.approvedAt = category.approvedAt;
+    if (category.approvedAt !== undefined) row.approved_at = category.approvedAt;
     if (category.rejectionReason !== undefined) row.rejection_reason = category.rejectionReason;
 
     return row;
@@ -117,6 +128,20 @@ export class CategoryModel {
     }
 
     return [];
+  }
+
+  private static isoTimestamp(v: unknown): string {
+    if (v == null || v === '') return '';
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'string') return v;
+    return String(v);
+  }
+
+  private static normalizeDate(v: unknown): Date | null {
+    if (v == null || v === '') return null;
+    if (v instanceof Date) return v;
+    const d = new Date(v as string | number);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 }
 

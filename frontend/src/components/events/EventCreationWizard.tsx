@@ -21,6 +21,13 @@ import * as Pages from './wizard/pages';
 import './EventCreationWizard.css';
 
 /**
+ * Dados compartilhados entre as páginas do wizard (steps).
+ * Cada step pode ler/escrever campos via onUpdate(Partial<WizardData>).
+ * Tipagem permissiva para compatibilidade com steps que acessam data.foundation, data.birthday_profile, etc.
+ */
+export type WizardData = Record<string, any>;
+
+/**
  * EventCreationWizard - Orquestrador Genérico de Páginas
  * 
  * 🔴 REGRA DE OURO:

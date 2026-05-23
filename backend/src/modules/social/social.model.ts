@@ -2,6 +2,10 @@
 import type { Post, PostRow, MediaItem, SuggestedAction, ServiceInfo } from './social.types';
 
 export class SocialModel {
+  private static tsIso(v: string | Date): string {
+    return v instanceof Date ? v.toISOString() : String(v);
+  }
+
   static fromRow(row: PostRow): Post {
     const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
     
@@ -41,8 +45,8 @@ export class SocialModel {
       eventId: row.event_id || undefined,
       serviceInfo,
       isServicePost,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: this.tsIso(row.created_at),
+      updatedAt: this.tsIso(row.updated_at),
     };
   }
 

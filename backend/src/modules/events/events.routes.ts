@@ -6,7 +6,6 @@ import { eventMetricsService } from './event-metrics.service';
 import { eventStateService } from './event-state.service';
 import { eventMetricsDashboardService } from './event-metrics-dashboard.service';
 import { eventOrganizerMetricsService } from './event-organizer-metrics.service';
-import { eventsMultiActorService } from './events-multi-actor.service';
 import { createEventSchema, addSessionSchema, assignStaffSchema, checkInSchema } from './events.schemas';
 import type { CreateEventInput } from './events.types';
 import organizersModule from './organizers/organizers.module';

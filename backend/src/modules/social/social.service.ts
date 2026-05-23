@@ -135,7 +135,7 @@ class SocialService {
    * Busca feed de posts
    */
   async getFeed(tenantId: string, options: FeedOptions = {}): Promise<FeedResult> {
-    const { rows, total } = await this.repository.findFeed(tenantId, {
+    const { rows, totalCents } = await this.repository.findFeed(tenantId, {
       limit: options.limit,
       offset: options.offset,
       categoryId: options.categoryId,
@@ -146,11 +146,11 @@ class SocialService {
     });
 
     const posts = SocialModel.fromRows(rows);
-    const hasMore = (options.offset || 0) + posts.length < total;
+    const hasMore = (options.offset || 0) + posts.length < totalCents;
 
     return {
       posts,
-      total,
+      totalCents,
       hasMore,
     };
   }

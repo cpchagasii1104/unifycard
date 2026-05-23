@@ -27,8 +27,8 @@ interface EscrowAccountRow {
   current_milestone: string | null;
   dispute_status: string;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface PaymentMilestoneRow {
@@ -38,13 +38,13 @@ interface PaymentMilestoneRow {
   amount_cents: number;
   percentage: number;
   status: string;
-  authorizedAt: Date | null;
-  releasedAt: Date | null;
+  authorized_at: Date | null;
+  released_at: Date | null;
   authorized_by_actor_id: string | null;
   released_by_actor_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface EscrowTransactionRow {
@@ -56,11 +56,11 @@ interface EscrowTransactionRow {
   currency: string;
   status: string;
   initiated_by_actor_id: string;
-  completedAt: Date | null;
+  completed_at: Date | null;
   failure_reason: string | null;
   bank_transaction_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class EscrowRepository {
@@ -81,8 +81,8 @@ class EscrowRepository {
       currentMilestone: row.current_milestone as any,
       disputeStatus: row.dispute_status as any,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -94,13 +94,13 @@ class EscrowRepository {
       amountCents: row.amount_cents,
       percentage: Number(row.percentage),
       status: row.status as any,
-      authorizedAt: row.authorizedAt,
-      releasedAt: row.releasedAt,
+      authorizedAt: row.authorized_at,
+      releasedAt: row.released_at,
       authorizedByActorId: row.authorized_by_actor_id,
       releasedByActorId: row.released_by_actor_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -114,11 +114,11 @@ class EscrowRepository {
       currency: row.currency,
       status: row.status as any,
       initiatedByActorId: row.initiated_by_actor_id,
-      completedAt: row.completedAt,
+      completedAt: row.completed_at,
       failureReason: row.failure_reason,
       bankTransactionId: row.bank_transaction_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -133,11 +133,10 @@ class EscrowRepository {
     const { randomUUID } = await import('crypto');
     const escrowId = randomUUID();
 
-    const rows = await runQueriesWithTenant(
+    const rows = await runQueriesWithTenant<EscrowAccountRow>(
       tenantId,
-      [
-        {
-          text: `
+      {
+        text: `
             INSERT INTO escrow_accounts (
               escrow_id, tenant_id, agreement_id, service_order_id, bundle_id,
               evidence_pack_id, total_amount_cents, currency, status, dispute_status
@@ -145,24 +144,22 @@ class EscrowRepository {
               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
             ) RETURNING *
           `,
-          values: [
-            escrowId,
-            tenantId,
-            input.agreementId,
-            input.serviceOrderId || null,
-            input.bundleId || null,
-            evidencePackId,
-            0, // Será atualizado com valor do agreement
-            'BRL',
-            'pending',
-            'none',
-          ],
-        },
-      ],
-      'escrow.repository.createEscrowAccount'
+        values: [
+          escrowId,
+          tenantId,
+          input.agreementId,
+          input.serviceOrderId || null,
+          input.bundleId || null,
+          evidencePackId,
+          0,
+          'BRL',
+          'pending',
+          'none',
+        ],
+      }
     );
 
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    return this.toEscrowAccount(rows[0]);
   }
 
   /**
@@ -174,21 +171,20 @@ class EscrowRepository {
     totalAmountCents: number,
     currency: string
   ): Promise<EscrowAccount> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: `
           UPDATE escrow_accounts
-          SET total_amount_cents = $3, currency = $4, updatedAt = NOW()
+          SET total_amount_cents = $3, currency = $4, updated_at = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
         values: [tenantId, escrowId, totalAmountCents, currency],
-      },
-      'escrow.repository.updateTotalAmount'
+      }
     );
 
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    return row ? this.toEscrowAccount(row) : (null as unknown as EscrowAccount);
   }
 
   /**
@@ -204,7 +200,7 @@ class EscrowRepository {
     const { randomUUID } = await import('crypto');
     const milestoneId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PaymentMilestoneRow>(
       tenantId,
       {
         text: `
@@ -215,63 +211,56 @@ class EscrowRepository {
           ) RETURNING *
         `,
         values: [milestoneId, escrowId, milestone, amountCents, percentage, 'PENDING'],
-      },
-      'escrow.repository.createMilestone'
+      }
     );
 
-    return this.toPaymentMilestone(rows[0] as PaymentMilestoneRow);
+    if (!row) throw new Error('createMilestone: INSERT did not return row');
+    return this.toPaymentMilestone(row);
   }
 
   /**
    * Busca escrow account por ID
    */
   async findById(tenantId: string, escrowId: string): Promise<EscrowAccount | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: 'SELECT * FROM escrow_accounts WHERE tenant_id = $1 AND escrow_id = $2',
         values: [tenantId, escrowId],
-      },
-      'escrow.repository.findById'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    if (!row) return null;
+    return this.toEscrowAccount(row);
   }
 
   /**
    * Busca escrow account por agreement
    */
   async findByAgreement(tenantId: string, agreementId: string): Promise<EscrowAccount | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: `
           SELECT * FROM escrow_accounts
           WHERE tenant_id = $1 AND agreement_id = $2
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT 1
         `,
         values: [tenantId, agreementId],
-      },
-      'escrow.repository.findByAgreement'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
+    if (!row) return null;
 
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    return this.toEscrowAccount(row);
   }
 
   /**
    * Lista milestones de um escrow
    */
   async listMilestones(tenantId: string, escrowId: string): Promise<PaymentMilestoneRecord[]> {
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<PaymentMilestoneRow>(
       tenantId,
       {
         text: `
@@ -281,11 +270,10 @@ class EscrowRepository {
           ORDER BY pm.milestone
         `,
         values: [tenantId, escrowId],
-      },
-      'escrow.repository.listMilestones'
+      }
     );
 
-    return rows.map((row) => this.toPaymentMilestone(row as PaymentMilestoneRow));
+    return rows.map((r) => this.toPaymentMilestone(r));
   }
 
   /**
@@ -302,34 +290,34 @@ class EscrowRepository {
     const values: any[] = [tenantId, milestoneId, status];
     let paramIndex = 4;
 
-    if (status === 'AUTHORIZED' && authorizedByActorId) {
-      updates.push(`authorizedAt = NOW()`, `authorized_by_actor_id = $${paramIndex}`);
+    if (status === 'authorized' && authorizedByActorId) {
+      updates.push(`authorized_at = NOW()`, `authorized_by_actor_id = $${paramIndex}`);
       values.push(authorizedByActorId);
       paramIndex++;
     }
 
     if (status === 'released' && releasedByActorId) {
-      updates.push(`releasedAt = NOW()`, `released_by_actor_id = $${paramIndex}`);
+      updates.push(`released_at = NOW()`, `released_by_actor_id = $${paramIndex}`);
       values.push(releasedByActorId);
       paramIndex++;
     }
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PaymentMilestoneRow>(
       tenantId,
       {
         text: `
           UPDATE payment_milestones
-          SET ${updates.join(', ')}, updatedAt = NOW()
+          SET ${updates.join(', ')}, updated_at = NOW()
           WHERE milestone_id = $2
             AND escrow_id IN (SELECT escrow_id FROM escrow_accounts WHERE tenant_id = $1)
           RETURNING *
         `,
         values,
-      },
-      'escrow.repository.updateMilestoneStatus'
+      }
     );
 
-    return this.toPaymentMilestone(rows[0] as PaymentMilestoneRow);
+    if (!row) throw new Error('updateMilestoneStatus: no row updated');
+    return this.toPaymentMilestone(row);
   }
 
   /**
@@ -379,21 +367,41 @@ class EscrowRepository {
       paramIndex++;
     }
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: `
           UPDATE escrow_accounts
-          SET ${updates.join(', ')}, updatedAt = NOW()
+          SET ${updates.join(', ')}, updated_at = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
         values,
-      },
-      'escrow.repository.updateEscrowStatus'
+      }
     );
 
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    if (!row) throw new Error('updateEscrowStatus: no row updated');
+    return this.toEscrowAccount(row);
+  }
+
+  /**
+   * Busca linha append-only por PK (ex.: idempotência escrow_operation_id).
+   */
+  async findTransactionById(tenantId: string, transactionId: string): Promise<EscrowTransaction | null> {
+    const row = await runQueryWithTenant<EscrowTransactionRow>(
+      tenantId,
+      {
+        text: `
+          SELECT et.*
+          FROM escrow_transactions et
+          INNER JOIN escrow_accounts ea ON et.escrow_id = ea.escrow_id
+          WHERE ea.tenant_id = $1 AND et.transaction_id = $2
+          LIMIT 1
+        `,
+        values: [tenantId, transactionId],
+      }
+    );
+    return row ? this.toEscrowTransaction(row) : null;
   }
 
   /**
@@ -406,20 +414,42 @@ class EscrowRepository {
     transactionType: string,
     amountCents: number,
     currency: string,
-    initiatedByActorId: string
+    initiatedByActorId: string,
+    bankTransactionIdOrOpts?:
+      | string
+      | null
+      | {
+          transactionId?: string;
+          bankTransactionId?: string | null;
+          initialStatus?: string;
+        },
+    opts?: {
+      transactionId?: string;
+      bankTransactionId?: string | null;
+      initialStatus?: string;
+    }
   ): Promise<EscrowTransaction> {
     const { randomUUID } = await import('crypto');
-    const transactionId = randomUUID();
+    const normalizedOpts =
+      typeof bankTransactionIdOrOpts === 'object' && bankTransactionIdOrOpts !== null
+        ? bankTransactionIdOrOpts
+        : opts;
+    const transactionId = normalizedOpts?.transactionId ?? randomUUID();
+    const bankTxId =
+      typeof bankTransactionIdOrOpts === 'string'
+        ? bankTransactionIdOrOpts
+        : normalizedOpts?.bankTransactionId ?? null;
+    const status = normalizedOpts?.initialStatus ?? 'PENDING';
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowTransactionRow>(
       tenantId,
       {
         text: `
           INSERT INTO escrow_transactions (
             transaction_id, escrow_id, milestone_id, transaction_type,
-            amount_cents, currency, status, initiated_by_actor_id
+            amount_cents, currency, status, initiated_by_actor_id, bank_transaction_id
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
           ) RETURNING *
         `,
         values: [
@@ -429,35 +459,35 @@ class EscrowRepository {
           transactionType,
           amountCents,
           currency,
-          'PENDING',
+          status,
           initiatedByActorId,
+          bankTxId,
         ],
-      },
-      'escrow.repository.createTransaction'
+      }
     );
 
-    return this.toEscrowTransaction(rows[0] as EscrowTransactionRow);
+    if (!row) throw new Error('createTransaction: INSERT did not return row');
+    return this.toEscrowTransaction(row);
   }
 
   /**
    * Lista transações de um escrow
    */
   async listTransactions(tenantId: string, escrowId: string): Promise<EscrowTransaction[]> {
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<EscrowTransactionRow>(
       tenantId,
       {
         text: `
           SELECT et.* FROM escrow_transactions et
           INNER JOIN escrow_accounts ea ON et.escrow_id = ea.escrow_id
           WHERE ea.tenant_id = $1 AND et.escrow_id = $2
-          ORDER BY et.createdAt DESC
+          ORDER BY et.created_at DESC
         `,
         values: [tenantId, escrowId],
-      },
-      'escrow.repository.listTransactions'
+      }
     );
 
-    return rows.map((row) => this.toEscrowTransaction(row as EscrowTransactionRow));
+    return rows.map((r) => this.toEscrowTransaction(r));
   }
 
   /**
@@ -468,21 +498,21 @@ class EscrowRepository {
     escrowId: string,
     serviceOrderId: string | null
   ): Promise<EscrowAccount> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: `
           UPDATE escrow_accounts
-          SET service_order_id = $3, updatedAt = NOW()
+          SET service_order_id = $3, updated_at = NOW()
           WHERE tenant_id = $1 AND escrow_id = $2
           RETURNING *
         `,
         values: [tenantId, escrowId, serviceOrderId],
-      },
-      'escrow.repository.updateServiceOrderId'
+      }
     );
 
-    return this.toEscrowAccount(rows[0] as EscrowAccountRow);
+    if (!row) throw new Error('updateServiceOrderId: no row updated');
+    return this.toEscrowAccount(row);
   }
 
   /**
@@ -526,21 +556,20 @@ class EscrowRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<EscrowAccountRow>(
       tenantId,
       {
         text: `
           SELECT * FROM escrow_accounts
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'escrow.repository.list'
+      }
     );
 
-    return rows.map((row) => this.toEscrowAccount(row as EscrowAccountRow));
+    return rows.map((r) => this.toEscrowAccount(r));
   }
 }
 

@@ -1,8 +1,8 @@
 // backend/src/modules/work/assignments/assignment.service.ts
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
 import { reviewService } from '@core/reviews/review.service';
+import { insertWorkEventOutbox } from '../work-event-outbox.helper';
 
 import { splitEngineService } from '@core/economy/split.service';
 import { splitLoggerService } from '@core/logging/split-logger.service';
@@ -26,8 +26,8 @@ class AssignmentService {
       paymentType: row.payment_type,
       status: row.status,
       paymentTransactionId: row.payment_transaction_id ?? undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: new Date(row.created_at).toISOString(),
+      updatedAt: new Date(row.updated_at).toISOString(),
     };
   }
 
@@ -79,11 +79,13 @@ class AssignmentService {
 
     const assignment = this.toAssignment(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.assignment.created',
-      payload: { assignmentId: assignment.assignmentId, jobId },
-    });
+      'work.assignment.created',
+      assignment.assignmentId,
+      'assignment.service',
+      { assignmentId: assignment.assignmentId, jobId }
+    );
 
     return assignment;
   }
@@ -102,7 +104,7 @@ class AssignmentService {
       UPDATE job_assignments
       SET
         status = COALESCE($3, status),
-        updatedAt = now()
+        updated_at = now()
       WHERE assignment_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -117,11 +119,13 @@ class AssignmentService {
 
     const assignment = this.toAssignment(row);
 
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.assignment.updated',
-      payload: { assignmentId },
-    });
+      'work.assignment.updated',
+      assignmentId,
+      `assignment.service:${assignment.updatedAt}`,
+      { assignmentId }
+    );
 
     return assignment;
   }
@@ -165,13 +169,13 @@ class AssignmentService {
       SELECT *
       FROM job_assignments
       WHERE ${whereSQL}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${idx} OFFSET $${idx + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ totalCents: string }>(
+    const countRow = await runQueryWithTenant<{ total: string }>(
       tenantId,
       `SELECT COUNT(*) AS total FROM job_assignments WHERE ${whereSQL}`,
       params,
@@ -179,7 +183,7 @@ class AssignmentService {
 
     return {
       assignments: rows.map(r => this.toAssignment(r)),
-      totalCents: count ? Number(count.total) : 0,
+      totalCents: countRow ? Number(countRow.total) : 0,
     };
   }
 
@@ -207,7 +211,7 @@ class AssignmentService {
       tenantId,
       `
       UPDATE job_assignments
-      SET status = 'completed', updatedAt = now()
+      SET status = 'completed', updated_at = now()
       WHERE assignment_id = $2 AND tenant_id = $1
       RETURNING *
       `,
@@ -227,6 +231,10 @@ class AssignmentService {
     //    → usando accountService / transactionService EXISTENTES
     // ========================================================
     if (assignment.agreedRate > 0) {
+      const { accountService } = await import('@core/economy/account.service');
+      const { regionAccountService } = await import('@core/economy/region-account.service');
+      const { groupAccountService } = await import('@core/economy/group-account.service');
+
       // 2.1) Descobre o userId do worker a partir do worker_id
       const workerRow = await runQueryWithTenant<{ user_id: string }>(
         tenantId,
@@ -346,7 +354,7 @@ class AssignmentService {
           // Tentar obter regionId do tenant
           const tenant = await runQueryWithTenant<{ city_id: string | null }>(
             tenantId,
-            'SELECT city_id FROM tenants WHERE tenant_id = $1',
+            'SELECT city_id FROM tenants WHERE id = $1',
             [tenantId]
           );
           // Por enquanto, usar 'unknown' - pode ser melhorado para buscar stateId
@@ -380,7 +388,7 @@ class AssignmentService {
           tenantId,
           `
           UPDATE job_assignments
-          SET payment_transaction_id = $3, updatedAt = now()
+          SET payment_transaction_id = $3, updated_at = now()
           WHERE tenant_id = $1 AND assignment_id = $2
           RETURNING *
           `,
@@ -393,10 +401,12 @@ class AssignmentService {
       }
 
       // 2.7) Evento de pagamento concluído (com splits)
-      await eventBus.publish({
+      await insertWorkEventOutbox(
         tenantId,
-        type: 'work.assignment.paid',
-        payload: {
+        'work.assignment.paid',
+        assignment.assignmentId,
+        `paid:${mainTransactionId ?? 'none'}`,
+        {
           assignmentId: assignment.assignmentId,
           jobId: assignment.jobId,
           workerId: assignment.workerId,
@@ -408,12 +418,12 @@ class AssignmentService {
             totalAmount: splitResult.totalAmount,
             splits: splitResult.splits.map((s) => ({
               targetType: s.rule.targetType,
-              amountCents: s.amount,
+              amountCents: s.amountCents,
               transactionId: s.transactionId || null,
             })),
           },
-        },
-      });
+        }
+      );
     }
 
     // ========================================================
@@ -442,11 +452,13 @@ class AssignmentService {
     // ========================================================
     // 4) Evento Work: assignment completed
     // ========================================================
-    await eventBus.publish({
+    await insertWorkEventOutbox(
       tenantId,
-      type: 'work.assignment.completed',
-      payload: { assignmentId },
-    });
+      'work.assignment.completed',
+      assignmentId,
+      `completed:${assignment.updatedAt}`,
+      { assignmentId }
+    );
 
     return assignment;
   }

@@ -11,6 +11,33 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+type ProfileAddressRow = {
+  profile_id: string;
+  full_name: string | null;
+  phone: string | null;
+  metadata: any;
+  updated_at: Date;
+};
+
+type ProfileAddressRecord = {
+  profileId: string;
+  fullName: string | null;
+  phone: string | null;
+  metadata: any;
+  updatedAt: Date;
+};
+
+// boundary: DB -> domain mapping
+function mapProfileAddressRowToDomain(row: ProfileAddressRow): ProfileAddressRecord {
+  return {
+    profileId: row.profile_id,
+    fullName: row.full_name,
+    phone: row.phone,
+    metadata: row.metadata,
+    updatedAt: row.updated_at,
+  };
+}
+
 async function checkProfileAddress(tenantId: string, userId: string) {
   console.log('='.repeat(80));
   console.log('🔬 VERIFICANDO ENDEREÇO NO METADATA DO PROFILE');
@@ -23,13 +50,7 @@ async function checkProfileAddress(tenantId: string, userId: string) {
   
   try {
     // Buscar profile com metadata completo
-    const result = await client.query<{
-      profile_id: string;
-      full_name: string | null;
-      phone: string | null;
-      metadata: any;
-      updated_at: Date;
-    }>(
+    const result = await client.query<ProfileAddressRow>(
       `
       SELECT 
         profile_id,
@@ -50,13 +71,13 @@ async function checkProfileAddress(tenantId: string, userId: string) {
       return;
     }
 
-    const profile = result.rows[0];
+    const profile = mapProfileAddressRowToDomain(result.rows[0]!);
     
     console.log('📊 DADOS DO PROFILE:');
-    console.log(`   Profile ID: ${profile.profile_id}`);
-    console.log(`   Full Name: ${profile.full_name || '(null)'}`);
+    console.log(`   Profile ID: ${profile.profileId}`);
+    console.log(`   Full Name: ${profile.fullName || '(null)'}`);
     console.log(`   Phone: ${profile.phone || '(null)'}`);
-    console.log(`   Updated At: ${profile.updated_at}`);
+    console.log(`   Updated At: ${profile.updatedAt}`);
     console.log('');
     
     console.log('📋 METADATA COMPLETO:');

@@ -84,7 +84,7 @@ function translateWorkEvent(event: UnificardEvent): CanonicalEvent | null {
       tenantId: event.tenantId,
       regionId,
       userId,
-      amount,
+      amountCents: amount ?? 0,
       currency: payload?.currency || metadata?.currency || 'BRL',
       occurredAt: event.createdAt.toISOString(),
       metadata: {
@@ -153,7 +153,7 @@ export async function registerWorkAdapters(): Promise<void> {
 
   for (const eventType of workEventTypes) {
     try {
-      eventBus.registerHandler(eventType, handleWorkEvent);
+      eventBus.registerHandler(eventType, `canonical.work_adapter.${eventType}`, handleWorkEvent);
     } catch (error) {
       console.warn(`[WorkAdapter] Erro ao registrar handler para ${eventType}:`, error);
     }

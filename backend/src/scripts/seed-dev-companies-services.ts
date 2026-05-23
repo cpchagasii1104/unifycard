@@ -10,8 +10,10 @@
 import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool, runQueryWithTenant } from '../core/database/pool';
-import { actorRepository } from '../modules/social/actor.repository';
+import { socialPortsRegistry } from '../core/social/ports-registry';
+import { actorRepositoryAdapter } from '../modules/social/adapters';
 import { identityService } from '../core/identity/identity.service';
+import { ensurePageActor, ensureUserActor } from '../modules/identity/actor-writer.service';
 import { v4 as uuidv4 } from 'uuid';
 import 'tsconfig-paths/register';
 
@@ -191,36 +193,49 @@ async function createPageActor(
     [tenantId, displayName]
   );
 
-  if (existing.rows.length > 0) {
-    return existing.rows[0].actor_id;
+  if (existing) {
+    return existing.actor_id;
   }
 
-  // Criar identidade global se necessário
   const globalUser = await identityService.createGlobalIdentityForUser(userId, tenantId);
 
-  // Criar actor do tipo "page"
-  const actorId = uuidv4();
+  const cnpj = `SEED${uuidv4().replace(/-/g, '').slice(0, 11)}`;
+  const companyRow = await runQueryWithTenant<{ company_id: string }>(
+    tenantId,
+    `
+      INSERT INTO companies (
+        tenant_id, company_name, trade_name, cnpj, global_user_id, status, company_status
+      )
+      VALUES ($1, $2, $3, $4, $5, 'active', 'ACTIVE')
+      RETURNING company_id
+    `,
+    [tenantId, name, displayName, cnpj, globalUser.globalUserId]
+  );
+  if (!companyRow?.company_id) {
+    throw new Error(`Falha ao criar company para seed: ${displayName}`);
+  }
+
+  const humanActor = await ensureUserActor(tenantId, userId);
+  const pageActor = await ensurePageActor(tenantId, companyRow.company_id, humanActor.actor_id);
+
   await runQueryWithTenant(
     tenantId,
     `
-      INSERT INTO actors (
-        actor_id, tenant_id, user_id, global_user_id,
-        actor_type, display_name, slug, metadata, created_at, updated_at
-      )
-      VALUES ($1, $2, $3, $4, 'page', $5, $6, $7::jsonb, NOW(), NOW())
+      UPDATE actors
+      SET slug = $3,
+          metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+          updated_at = now()
+      WHERE tenant_id = $1 AND actor_id = $2
     `,
     [
-      actorId,
       tenantId,
-      userId,
-      globalUser.globalUserId,
-      displayName,
+      pageActor.actor_id,
       name.toLowerCase().replace(/\s+/g, '-'),
       JSON.stringify({ seed_dev: true, company_name: name }),
     ]
   );
 
-  return actorId;
+  return pageActor.actor_id;
 }
 
 /**
@@ -243,7 +258,7 @@ async function createService(
     [tenantId, actorId, service.name]
   );
 
-  if (existing.rows.length > 0) {
+  if (existing) {
     return; // Já existe
   }
 
@@ -278,6 +293,7 @@ async function createService(
  * Seed companies e serviços
  */
 async function seedCompaniesAndServices(): Promise<void> {
+  socialPortsRegistry.setActorRepository(actorRepositoryAdapter);
   console.log('📦 P1: Seed DEV - Criando companies e serviços...\n');
 
   // 1. Buscar usuário DEV

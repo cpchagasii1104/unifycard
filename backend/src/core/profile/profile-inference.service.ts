@@ -15,6 +15,21 @@
 // - Sugestões são baseadas em direção, não em validação de nível
 
 import { CategoryContext } from '@unificard/contracts';
+import {
+  createSemanticResolutionCache,
+  resolveConceptFromCategoryCached,
+  resolveConceptFromSlugCached,
+  type SemanticResolutionCache,
+} from '@core/semantic/semantic.adapter';
+import {
+  getRelatedConcepts,
+  getCategoryRow,
+  type ConceptRelation,
+  type GraphRelationType,
+} from '@core/semantic/graph.adapter';
+import { SemanticResolutionError } from '@core/semantic/semantic.errors';
+import { upsertTenantMetrics } from '@core/semantic/semantic-metrics.repository';
+import { resolveSemanticPolicy, type SemanticPolicy } from '@core/semantic/semantic.policy';
 import { profilePhysicalService } from './profile-physical.service';
 import { profileLearningService } from './profile-learning.service';
 import { profileProfessionalService } from './profile-professional.service';
@@ -23,78 +38,199 @@ import type {
   UserProfileSnapshot,
   InferenceSuggestion,
   InferenceResult,
-  CategoryAffinity,
 } from './profile-inference.types';
 
+type SemanticFallbackReason =
+  | 'missing_concept'
+  | 'no_graph_or_slug'
+  | 'hierarchy_gap'
+  | 'mismatch';
+
+type SemanticInferenceContext = {
+  resolutionCache: SemanticResolutionCache;
+  graphCache: Map<string, ConceptRelation[]>;
+  /** Política efetiva (env + opcional override por tenant) para esta geração. */
+  policy: SemanticPolicy;
+  decisionStats: {
+    graphSuccess: number;
+    slugFallback: number;
+    graphMissing: number;
+  };
+  fallbackCounts: {
+    affinityPhysical: number;
+    affinityLearning: number;
+    findCategoryBySlug: number;
+  };
+  fallbackByReason: Partial<Record<SemanticFallbackReason, number>>;
+};
+
 class ProfileInferenceService {
+  private createSemanticInferenceContext(policy: SemanticPolicy): SemanticInferenceContext {
+    return {
+      resolutionCache: createSemanticResolutionCache(),
+      graphCache: new Map(),
+      policy,
+      decisionStats: {
+        graphSuccess: 0,
+        slugFallback: 0,
+        graphMissing: 0,
+      },
+      fallbackCounts: {
+        affinityPhysical: 0,
+        affinityLearning: 0,
+        findCategoryBySlug: 0,
+      },
+      fallbackByReason: {},
+    };
+  }
+
+  private async getRelatedConceptsCached(
+    ctx: SemanticInferenceContext,
+    conceptId: string,
+    relationTypes: GraphRelationType[],
+  ): Promise<ConceptRelation[]> {
+    const key = `${conceptId}::${[...relationTypes].sort().join(',')}`;
+    const hit = ctx.graphCache.get(key);
+    if (hit) {
+      return hit;
+    }
+    const rows = await getRelatedConcepts(conceptId, { relationTypes });
+    ctx.graphCache.set(key, rows);
+    return rows;
+  }
+
+  private bumpFallback(
+    ctx: SemanticInferenceContext,
+    bucket: keyof SemanticInferenceContext['fallbackCounts'],
+    reason: SemanticFallbackReason,
+    detail: string,
+  ): void {
+    ctx.fallbackCounts[bucket] += 1;
+    ctx.fallbackByReason[reason] = (ctx.fallbackByReason[reason] ?? 0) + 1;
+    console.log(`[semantic] DECISION=fallback reason=${reason} bucket=${bucket} ${detail}`);
+  }
+
+  private logSemanticFallbackSummary(
+    ctx: SemanticInferenceContext,
+    tenantId: string,
+  ): void {
+    const { affinityPhysical, affinityLearning, findCategoryBySlug } = ctx.fallbackCounts;
+    const total = affinityPhysical + affinityLearning + findCategoryBySlug;
+    console.log(
+      `[semantic] FALLBACK_STATS tenant=${tenantId} total=${total} affinity.physical=${affinityPhysical} affinity.learning=${affinityLearning} findCategoryBySlug=${findCategoryBySlug} byReason=${JSON.stringify(ctx.fallbackByReason)}`,
+    );
+  }
+
+  private logSemanticDecisionStats(ctx: SemanticInferenceContext, tenantId: string): void {
+    const g = ctx.decisionStats.graphSuccess;
+    const s = ctx.decisionStats.slugFallback;
+    const m = ctx.decisionStats.graphMissing;
+    const t = g + s;
+    const pg = t > 0 ? ((g / t) * 100).toFixed(1) : '0.0';
+    const ps = t > 0 ? ((s / t) * 100).toFixed(1) : '0.0';
+    console.log(
+      `[semantic] DECISION_STATS tenant=${tenantId} graph_success=${g} (${pg}%) slug_fallback=${s} (${ps}%) graph_missing_events=${m} total_resolved=${t}`,
+    );
+  }
+
   /**
-   * Mapeamento de afinidade entre categorias de diferentes contextos
-   * Baseado em semântica, não IDs diretos
+   * Se slug fallback está proibido pela política, falha explícita (Lei 7 / operações).
+   * Quando há concept_id mas o grafo não resolveu, incrementa graphMissing.
    */
-  private categoryAffinities: CategoryAffinity[] = [
-    // Criatividade & Expressão
-    {
-      physicalCategory: 'criar-expressar',
-      learningCategories: ['fotografia-aprendizado', 'desenho-ilustracao', 'escrita-criativa', 'video-aprendizado', 'design-aprendizado'],
-      professionalCategories: ['fotografo', 'designer', 'escritor', 'editor-video'],
-    },
-    {
-      physicalCategory: 'fotografia',
-      learningCategories: ['fotografia-aprendizado'],
-      professionalCategories: ['fotografo'],
-    },
-    {
-      physicalCategory: 'desenho',
-      learningCategories: ['desenho-ilustracao'],
-      professionalCategories: ['designer', 'ilustrador'],
-    },
-    {
-      physicalCategory: 'video',
-      learningCategories: ['video-aprendizado', 'edicao-video-aprendizado'],
-      professionalCategories: ['editor-video', 'produtor-audiovisual'],
-    },
-    {
-      physicalCategory: 'escrita',
-      learningCategories: ['escrita-criativa', 'escrita-profissional'],
-      professionalCategories: ['escritor', 'redator'],
-    },
-    {
-      physicalCategory: 'musica',
-      learningCategories: ['musica-aprendizado', 'teoria-musical'],
-      professionalCategories: ['musico', 'produtor-musical'],
-    },
-    
-    // Tecnologia
-    {
-      physicalCategory: 'tecnologia',
-      learningCategories: ['programacao', 'desenvolvimento-web-aprendizado', 'inteligencia-artificial'],
-      professionalCategories: ['desenvolvedor-backend', 'desenvolvedor-frontend', 'desenvolvedor-fullstack'],
-    },
-    {
-      physicalCategory: 'jogos',
-      learningCategories: ['games-aprendizado', 'desenvolvimento-jogos'],
-      professionalCategories: ['desenvolvedor-jogos', 'game-designer'],
-    },
-    
-    // Gastronomia
-    {
-      physicalCategory: 'cozinhar-comer-bem',
-      learningCategories: ['culinaria-aprendizado', 'confeitaria-aprendizado'],
-      professionalCategories: ['chef', 'confeiteiro', 'cozinheiro'],
-    },
-    
-    // Bem-Estar
-    {
-      physicalCategory: 'se-movimentar',
-      learningCategories: ['atividade-fisica-aprendizado', 'treinamento-fisico'],
-      professionalCategories: ['personal-trainer', 'educador-fisico'],
-    },
-    {
-      physicalCategory: 'cuidar-de-si',
-      learningCategories: ['saude-mental-aprendizado', 'nutricao-aprendizado'],
-      professionalCategories: ['nutricionista', 'psicologo'],
-    },
-  ];
+  private assertSlugFallbackAllowed(
+    policy: SemanticPolicy,
+    ctx: SemanticInferenceContext,
+    tenantId: string,
+    traceLabel: string,
+    fromConceptId: string | null,
+    categoryContext: CategoryContext,
+    candidates: string[],
+    relationTypesExpected: GraphRelationType[] | undefined,
+  ): void {
+    if (fromConceptId) {
+      ctx.decisionStats.graphMissing += 1;
+    }
+    if (!policy.allowSlugFallback) {
+      console.error(
+        `[semantic][ERROR] missing graph relation trace=${traceLabel} tenant=${tenantId} fromConceptId=${fromConceptId ?? 'null'} candidates=${candidates.slice(0, 5).join(',')}`,
+      );
+      throw new SemanticResolutionError({
+        type: 'MISSING_GRAPH_RELATION',
+        context: {
+          fromConceptId,
+          attemptedTarget: {
+            trace: traceLabel,
+            tenantId,
+            categoryContext,
+            slugCandidates: candidates,
+            relationTypesExpected,
+          },
+        },
+      });
+    }
+  }
+
+  /**
+   * Candidatos de slug para fallback (path do mais específico ao raiz + extras + nome normalizado).
+   */
+  private buildSlugCandidates(path: string[], name: string, extraSlugs: string[] = []): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const push = (raw: string) => {
+      const t = raw?.trim();
+      if (!t || seen.has(t)) {
+        return;
+      }
+      seen.add(t);
+      out.push(t);
+    };
+    for (const s of [...path].reverse()) {
+      push(s);
+    }
+    for (const s of extraSlugs) {
+      push(s);
+    }
+    const fromName = name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+    if (fromName) {
+      push(fromName);
+    }
+    return out;
+  }
+
+  private async resolveTargetBySlugCandidates(
+    ctx: SemanticInferenceContext,
+    tenantId: string,
+    context: CategoryContext,
+    candidates: string[],
+    traceLabel: string,
+    policy: SemanticPolicy,
+  ): Promise<{ categoryId: string; name: string; path: string[] } | null> {
+    if (!policy.allowSlugFallback) {
+      return null;
+    }
+    for (const slug of candidates) {
+      const row = await this.findCategoryBySlug(ctx, tenantId, slug, context);
+      if (row) {
+        const msg = `slug_fallback trace=${traceLabel} matched_slug=${slug} tenant=${tenantId}`;
+        if (policy.logFallbackAsError) {
+          console.error(`[semantic][ERROR] fallback used ${msg}`);
+        } else {
+          console.warn(`[semantic][WARN] fallback used ${msg}`);
+        }
+        console.log(`[semantic] DECISION=slug_fallback ${traceLabel} matched_slug=${slug}`);
+        ctx.decisionStats.slugFallback += 1;
+        return row;
+      }
+    }
+    return null;
+  }
 
   /**
    * Busca snapshot completo do perfil do usuário
@@ -104,9 +240,9 @@ class ProfileInferenceService {
     userId: string
   ): Promise<UserProfileSnapshot> {
     const [physical, learning, professional] = await Promise.all([
-      profilePhysicalService.getPhysicalProfile(tenantId, userId).catch(() => null),
-      profileLearningService.getLearningProfile(tenantId, userId).catch(() => null),
-      profileProfessionalService.getProfessionalProfile(tenantId, userId).catch(() => null),
+      profilePhysicalService.getPhysicalProfile(tenantId, userId),
+      profileLearningService.getLearningProfile(tenantId, userId),
+      profileProfessionalService.getProfessionalProfile(tenantId, userId),
     ]);
 
     return {
@@ -181,6 +317,8 @@ class ProfileInferenceService {
     tenantId: string,
     userId: string
   ): Promise<InferenceSuggestion[]> {
+    const policy = await resolveSemanticPolicy({ tenantId });
+    const ctx = this.createSemanticInferenceContext(policy);
     const snapshot = await this.getUserProfileSnapshot(tenantId, userId);
     const suggestions: InferenceSuggestion[] = [];
 
@@ -189,32 +327,28 @@ class ProfileInferenceService {
       const physicalInterests = snapshot.physical.interests;
       
       for (const interest of physicalInterests) {
-        // Buscar afinidade
-        const affinity = this.findAffinityByPhysical(interest.categoryPath, interest.categoryName);
-        
-        if (affinity && affinity.learningCategories.length > 0) {
-          // Buscar categoria de aprendizado relacionada
-          const { categoriesService } = await import('../categories/categories.service');
-          const learningCategory = await this.findCategoryBySlug(
-            affinity.learningCategories[0],
-            'learning'
-          );
-          
-          if (learningCategory) {
-            suggestions.push({
-              id: `physical_to_learning_${interest.categoryId}`,
-              type: 'physical_to_learning',
-              title: 'Quer aprender mais sobre isso?',
-              message: `Você gosta de "${interest.categoryName}". Que tal explorar isso como aprendizado?`,
-              actionLabel: 'Ver temas de aprendizado',
-              categoryId: learningCategory.categoryId,
-              categoryName: learningCategory.name,
-              categoryPath: learningCategory.path,
-              priority: 7,
-              dismissible: true,
-            });
-            break; // Uma sugestão por vez
-          }
+        const { target: learningCategory } = await this.resolvePhysicalToLearningTarget(
+          ctx,
+          tenantId,
+          interest.categoryId,
+          interest.categoryPath,
+          interest.categoryName,
+        );
+
+        if (learningCategory) {
+          suggestions.push({
+            id: `physical_to_learning_${interest.categoryId}`,
+            type: 'physical_to_learning',
+            title: 'Quer aprender mais sobre isso?',
+            message: `Você gosta de "${interest.categoryName}". Que tal explorar isso como aprendizado?`,
+            actionLabel: 'Ver temas de aprendizado',
+            categoryId: learningCategory.categoryId,
+            categoryName: learningCategory.name,
+            categoryPath: learningCategory.path,
+            priority: 7,
+            dismissible: true,
+          });
+          break; // Uma sugestão por vez
         }
       }
     }
@@ -232,32 +366,30 @@ class ProfileInferenceService {
       
       if (advancedLearnings.length > 0) {
         const learning = advancedLearnings[0];
-        const affinity = this.findAffinityByLearning(learning.categoryPath, learning.categoryName);
-        
-        if (affinity && affinity.professionalCategories.length > 0) {
-          const { categoriesService } = await import('../categories/categories.service');
-          const professionalCategory = await this.findCategoryBySlug(
-            affinity.professionalCategories[0],
-            'professional'
-          );
-          
-          if (professionalCategory) {
-            // 🔴 BLINDAGEM: Mensagem não menciona "nível" como capacidade
-            // Usa "fase" ou "direção" para enfatizar interesse, não validação
-            const phaseLabel = learning.progress === 'intermediate' ? 'praticando' : 'aprofundando';
-            suggestions.push({
-              id: `learning_to_professional_${learning.categoryId}`,
-              type: 'learning_to_professional',
-              title: 'Você já pensou em usar isso profissionalmente?',
-              message: `Você está ${phaseLabel} "${learning.categoryName}". Que tal considerar isso como profissão?`,
-              actionLabel: 'Ver profissões relacionadas',
-              categoryId: professionalCategory.categoryId,
-              categoryName: professionalCategory.name,
-              categoryPath: professionalCategory.path,
-              priority: 8,
-              dismissible: true,
-            });
-          }
+
+        const { target: professionalCategory } = await this.resolveLearningToProfessionalTarget(
+          ctx,
+          tenantId,
+          learning.categoryId,
+          learning.categoryPath,
+          learning.categoryName,
+        );
+
+        if (professionalCategory) {
+          // 🔴 BLINDAGEM: Mensagem não menciona "nível" como capacidade
+          const phaseLabel = learning.progress === 'intermediate' ? 'praticando' : 'aprofundando';
+          suggestions.push({
+            id: `learning_to_professional_${learning.categoryId}`,
+            type: 'learning_to_professional',
+            title: 'Você já pensou em usar isso profissionalmente?',
+            message: `Você está ${phaseLabel} "${learning.categoryName}". Que tal considerar isso como profissão?`,
+            actionLabel: 'Ver profissões relacionadas',
+            categoryId: professionalCategory.categoryId,
+            categoryName: professionalCategory.name,
+            categoryPath: professionalCategory.path,
+            priority: 8,
+            dismissible: true,
+          });
         }
       }
     }
@@ -277,6 +409,17 @@ class ProfileInferenceService {
 
     // REGRA D: Aprendizado Estagnado (verificar se não foi atualizado há muito tempo)
     // Por enquanto, não implementamos detecção de tempo, mas a estrutura está pronta
+
+    this.logSemanticFallbackSummary(ctx, tenantId);
+    this.logSemanticDecisionStats(ctx, tenantId);
+
+    void upsertTenantMetrics(tenantId, {
+      graphSuccess: ctx.decisionStats.graphSuccess,
+      slugFallback: ctx.decisionStats.slugFallback,
+      graphMissing: ctx.decisionStats.graphMissing,
+    }).catch((err) => {
+      console.error('[semantic] tenant_semantic_metrics upsert failed', err);
+    });
 
     return suggestions.sort((a, b) => b.priority - a.priority);
   }
@@ -309,63 +452,303 @@ class ProfileInferenceService {
   }
 
   /**
-   * Busca afinidade por categoria física
+   * Físico → aprendizado: graph (enables) → fallback por candidatos de slug (path / categoria / nome).
    */
-  private findAffinityByPhysical(path: string[], name: string): CategoryAffinity | null {
-    // Buscar por slug no path ou nome
-    const searchTerms = [
-      ...path.map(p => p.toLowerCase()),
-      name.toLowerCase(),
-    ];
+  private async resolvePhysicalToLearningTarget(
+    ctx: SemanticInferenceContext,
+    tenantId: string,
+    interestCategoryId: string,
+    path: string[],
+    name: string,
+  ): Promise<{
+    target: { categoryId: string; name: string; path: string[] } | null;
+  }> {
+    const interestSem = await resolveConceptFromCategoryCached(
+      interestCategoryId,
+      ctx.resolutionCache,
+    );
 
-    for (const term of searchTerms) {
-      const affinity = this.categoryAffinities.find(
-        (a) => a.physicalCategory.toLowerCase().includes(term) || 
-               term.includes(a.physicalCategory.toLowerCase())
+    const interestRow = await getCategoryRow(interestCategoryId);
+    const extraSlugs = interestRow?.slug ? [interestRow.slug] : [];
+    const candidates = this.buildSlugCandidates(path, name, extraSlugs);
+
+    if (interestSem.conceptId) {
+      const edges = await this.getRelatedConceptsCached(ctx, interestSem.conceptId, [
+        'enables',
+      ]);
+      for (const e of edges) {
+        const row = await getCategoryRow(e.toCategoryId);
+        if (row && row.conceptId === e.relatedConceptId) {
+          console.log(
+            `[semantic][INFO] graph decision physical→learning from_concept=${interestSem.conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
+          );
+          ctx.decisionStats.graphSuccess += 1;
+          return {
+            target: {
+              categoryId: row.categoryId,
+              name: row.name,
+              path: row.path,
+            },
+          };
+        }
+      }
+
+      this.assertSlugFallbackAllowed(
+        ctx.policy,
+        ctx,
+        tenantId,
+        'physical→learning',
+        interestSem.conceptId,
+        'learning',
+        candidates,
+        ['enables'],
       );
-      if (affinity) return affinity;
+      const lc = await this.resolveTargetBySlugCandidates(
+        ctx,
+        tenantId,
+        'learning',
+        candidates,
+        'physical→learning',
+        ctx.policy,
+      );
+      if (lc) {
+        return { target: lc };
+      }
+
+      this.bumpFallback(
+        ctx,
+        'affinityPhysical',
+        'no_graph_or_slug',
+        `interestCategoryId=${interestCategoryId} concept_id=${interestSem.conceptId}`,
+      );
+      return { target: null };
     }
 
-    return null;
+    this.bumpFallback(
+      ctx,
+      'affinityPhysical',
+      'missing_concept',
+      `interestCategoryId=${interestCategoryId} slug fallback`,
+    );
+    this.assertSlugFallbackAllowed(
+      ctx.policy,
+      ctx,
+      tenantId,
+      'physical→learning (no concept)',
+      null,
+      'learning',
+      candidates,
+      undefined,
+    );
+    const lc = await this.resolveTargetBySlugCandidates(
+      ctx,
+      tenantId,
+      'learning',
+      candidates,
+      'physical→learning (no concept)',
+      ctx.policy,
+    );
+    return { target: lc };
   }
 
   /**
-   * Busca afinidade por categoria de aprendizado
+   * Aprendizado → profissional: graph (evolves_to) → fallback por candidatos de slug.
    */
-  private findAffinityByLearning(path: string[], name: string): CategoryAffinity | null {
-    const searchTerms = [
-      ...path.map(p => p.toLowerCase()),
-      name.toLowerCase(),
-    ];
+  private async resolveLearningToProfessionalTarget(
+    ctx: SemanticInferenceContext,
+    tenantId: string,
+    learningCategoryId: string,
+    path: string[],
+    name: string,
+  ): Promise<{
+    target: { categoryId: string; name: string; path: string[] } | null;
+  }> {
+    const learnSem = await resolveConceptFromCategoryCached(
+      learningCategoryId,
+      ctx.resolutionCache,
+    );
 
-    for (const term of searchTerms) {
-      const affinity = this.categoryAffinities.find(
-        (a) => a.learningCategories.some(
-          (lc) => lc.toLowerCase().includes(term) || term.includes(lc.toLowerCase())
-        )
+    const learnRow = await getCategoryRow(learningCategoryId);
+    const extraSlugs = learnRow?.slug ? [learnRow.slug] : [];
+    const candidates = this.buildSlugCandidates(path, name, extraSlugs);
+
+    if (learnSem.conceptId) {
+      const edges = await this.getRelatedConceptsCached(ctx, learnSem.conceptId, [
+        'evolves_to',
+      ]);
+      for (const e of edges) {
+        const row = await getCategoryRow(e.toCategoryId);
+        if (row && row.conceptId === e.relatedConceptId) {
+          console.log(
+            `[semantic][INFO] graph decision learning→professional from_concept=${learnSem.conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
+          );
+          ctx.decisionStats.graphSuccess += 1;
+          return {
+            target: {
+              categoryId: row.categoryId,
+              name: row.name,
+              path: row.path,
+            },
+          };
+        }
+      }
+
+      this.assertSlugFallbackAllowed(
+        ctx.policy,
+        ctx,
+        tenantId,
+        'learning→professional',
+        learnSem.conceptId,
+        'professional',
+        candidates,
+        ['evolves_to'],
       );
-      if (affinity) return affinity;
+      const pc = await this.resolveTargetBySlugCandidates(
+        ctx,
+        tenantId,
+        'professional',
+        candidates,
+        'learning→professional',
+        ctx.policy,
+      );
+      if (pc) {
+        return { target: pc };
+      }
+
+      this.bumpFallback(
+        ctx,
+        'affinityLearning',
+        'no_graph_or_slug',
+        `learningCategoryId=${learningCategoryId} concept_id=${learnSem.conceptId}`,
+      );
+      return { target: null };
     }
 
-    return null;
+    this.bumpFallback(
+      ctx,
+      'affinityLearning',
+      'missing_concept',
+      `learningCategoryId=${learningCategoryId} slug fallback`,
+    );
+    this.assertSlugFallbackAllowed(
+      ctx.policy,
+      ctx,
+      tenantId,
+      'learning→professional (no concept)',
+      null,
+      'professional',
+      candidates,
+      undefined,
+    );
+    const pc = await this.resolveTargetBySlugCandidates(
+      ctx,
+      tenantId,
+      'professional',
+      candidates,
+      'learning→professional (no concept)',
+      ctx.policy,
+    );
+    return { target: pc };
   }
 
   /**
-   * Busca categoria por slug e contexto
+   * Resolve categoria alvo por slug global (UNIQUE em categories); fallback findBySlug legado alinhado ao repositório.
    */
   private async findCategoryBySlug(
+    ctx: SemanticInferenceContext,
+    _tenantId: string,
     slug: string,
-    context: CategoryContext
+    context: CategoryContext,
   ): Promise<{ categoryId: string; name: string; path: string[] } | null> {
     try {
       const { CategoryRepository } = await import('../categories/categories.repository');
       const repository = new CategoryRepository();
-      
-      // Buscar por slug no repository (sem countryCode para buscar global)
-      const category = await repository.findBySlug(slug, undefined);
-      
-      if (!category) {
+
+      const slugResolution = await resolveConceptFromSlugCached(slug, ctx.resolutionCache);
+
+      if (slugResolution.conceptId && slugResolution.categoryId) {
+        const row = await repository.findById(slugResolution.categoryId);
+        if (row) {
+          console.log(
+            `[semantic] DECISION=concept_id findCategoryBySlug context=${context} concept_id=${slugResolution.conceptId} category_id=${row.category_id} slug=${slug} source=global_slug`,
+          );
+          return {
+            categoryId: row.category_id,
+            name: row.name,
+            path: row.path || [],
+          };
+        }
+        this.bumpFallback(
+          ctx,
+          'findCategoryBySlug',
+          'hierarchy_gap',
+          `slug=${slug} slugResolution has concept_id but findById empty category_id=${slugResolution.categoryId}`,
+        );
         return null;
+      }
+
+      if (slugResolution.categoryId) {
+        let row = await repository.findById(slugResolution.categoryId);
+        if (!row) {
+          row = await repository.findBySlug(slug, undefined);
+        }
+        if (row) {
+          const sem = await resolveConceptFromCategoryCached(row.category_id, ctx.resolutionCache);
+          if (sem.conceptId) {
+            console.log(
+              `[semantic] DECISION=concept_id findCategoryBySlug context=${context} concept_id=${sem.conceptId} category_id=${row.category_id} slug=${slug} source=global_slug`,
+            );
+          } else {
+            this.bumpFallback(
+              ctx,
+              'findCategoryBySlug',
+              'missing_concept',
+              `slug=${slug} source=global_slug category_id=${row.category_id} (concept_id null)`,
+            );
+          }
+          return {
+            categoryId: row.category_id,
+            name: row.name,
+            path: row.path || [],
+          };
+        }
+      }
+
+      const category = await repository.findBySlug(slug, undefined);
+      if (!category) {
+        this.bumpFallback(
+          ctx,
+          'findCategoryBySlug',
+          'missing_concept',
+          `slug=${slug} no row (global or legacy)`,
+        );
+        return null;
+      }
+
+      if (slugResolution.categoryId && slugResolution.categoryId !== category.category_id) {
+        console.warn(
+          `[semantic] findCategoryBySlug MISMATCH resolution_row=${slugResolution.categoryId} legacy_row=${category.category_id} slug=${slug}`,
+        );
+        this.bumpFallback(
+          ctx,
+          'findCategoryBySlug',
+          'mismatch',
+          `slug=${slug} resolution_row=${slugResolution.categoryId} legacy_row=${category.category_id}`,
+        );
+      }
+
+      const semantic = await resolveConceptFromCategoryCached(category.category_id, ctx.resolutionCache);
+      if (semantic.conceptId) {
+        console.log(
+          `[semantic] DECISION=concept_id findCategoryBySlug context=${context} concept_id=${semantic.conceptId} category_id=${category.category_id} slug=${slug} source=legacy_findBySlug`,
+        );
+      } else {
+        this.bumpFallback(
+          ctx,
+          'findCategoryBySlug',
+          'missing_concept',
+          `slug=${slug} source=legacy_findBySlug category_id=${category.category_id} (concept_id null)`,
+        );
       }
 
       return {
@@ -404,7 +787,7 @@ class ProfileInferenceService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -430,7 +813,7 @@ class ProfileInferenceService {
     await pool.query(
       `
       UPDATE global_users
-      SET metadata = $1::jsonb, updatedAt = now()
+      SET metadata = $1::jsonb, updated_at = now()
       WHERE global_user_id = $2
       `,
       [JSON.stringify(updatedMetadata), globalUserId]
@@ -459,7 +842,7 @@ class ProfileInferenceService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [globalUserId]

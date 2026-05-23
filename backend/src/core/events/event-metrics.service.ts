@@ -61,7 +61,7 @@ class EventMetricsService {
         `
         SELECT COUNT(*)::text as count
         FROM events
-        WHERE tenant_id = $1 AND createdAt >= $2
+        WHERE tenant_id = $1 AND created_at >= $2
         `,
         [tenantId, since]
       ),
@@ -70,7 +70,7 @@ class EventMetricsService {
         `
         SELECT COUNT(*)::text as count
         FROM events
-        WHERE tenant_id = $1 AND status = 'published' AND updatedAt >= $2
+        WHERE tenant_id = $1 AND status = 'published' AND updated_at >= $2
         `,
         [tenantId, since]
       ),
@@ -82,7 +82,7 @@ class EventMetricsService {
         WHERE tenant_id = $1 
           AND status = 'published' 
           AND ticket_price_cents > 0
-          AND updatedAt >= $2
+          AND updated_at >= $2
         `,
         [tenantId, since]
       ),
@@ -91,7 +91,7 @@ class EventMetricsService {
         `
         SELECT COUNT(*)::text as count
         FROM event_attendees
-        WHERE tenant_id = $1 AND createdAt >= $2
+        WHERE tenant_id = $1 AND created_at >= $2
         `,
         [tenantId, since]
       ),

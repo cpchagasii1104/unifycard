@@ -14,6 +14,14 @@ Este documento define o **CORE IMUTÁVEL do UnifiCard**.
 O CORE é o conjunto de estruturas **únicas, não duplicáveis, não reinterpretáveis
 e não substituíveis** que sustentam todo o sistema.
 
+### DECISION-0021 — Jurisdição, não pasta
+
+Para evitar ambiguidade institucional, "CORE" neste documento significa **jurisdição sobre verdade compartilhada**, não apenas localização física em `backend/src/core` ou em qualquer diretório chamado `/core`.
+
+Uma verdade é core quando sua divergência entre módulos criaria realidade paralela. A soberania dessa verdade exige writer autorizado, enforcement e impossibilidade de contradição por consumidores. Essa soberania pode ser implementada fora de `/core` quando declarada por SSOT, lei ou contrato canônico.
+
+Exemplo normativo: `bank_ledger` reside no domínio Bank e continua soberano sobre saldo/ledger financeiro. Sua autoridade vem do SSOT, não da pasta.
+
 ❗ O CORE:
 
 - NÃO evolui por versões

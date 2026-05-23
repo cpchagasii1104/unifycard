@@ -7,16 +7,15 @@ export class SocialRepository {
    * Busca post por ID
    */
   async findById(tenantId: string, postId: string): Promise<PostRow | null> {
-    const row = await runQueryWithTenant<PostRow>(
-      tenantId,
-      `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
+    const row = await runQueryWithTenant<PostRow>(tenantId, {
+      text: `
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
       FROM posts
       WHERE post_id = $1
       LIMIT 1
       `,
-      [postId]
-    );
+      values: [postId],
+    });
 
     return row || null;
   }
@@ -40,9 +39,8 @@ export class SocialRepository {
     createdByUserId?: string; // CONTINUOUS PRODUCTION: Audit field
     createdAsActorId?: string; // CONTINUOUS PRODUCTION: Audit field
   }): Promise<PostRow> {
-    const row = await runQueryWithTenant<PostRow>(
-      data.tenantId,
-      `
+    const row = await runQueryWithTenant<PostRow>(data.tenantId, {
+      text: `
       INSERT INTO posts (
         tenant_id,
         global_user_id,
@@ -58,9 +56,9 @@ export class SocialRepository {
         event_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
+      RETURNING post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
       `,
-      [
+      values: [
         data.tenantId,
         data.globalUserId,
         data.content,
@@ -77,8 +75,8 @@ export class SocialRepository {
           ...(data.createdAsActorId && { created_as_actor_id: data.createdAsActorId }),
         }),
         data.eventId || null,
-      ]
-    );
+      ],
+    });
 
     if (!row) {
       throw new Error('Falha ao criar post');
@@ -115,7 +113,7 @@ export class SocialRepository {
     } = options;
 
     let query = `
-      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, createdAt, updatedAt
+      SELECT post_id, tenant_id, global_user_id, content, type, visibility, media, intent, confidence, categories, suggested_actions, metadata, event_id, created_at, updated_at
       FROM posts
       WHERE tenant_id = $1
     `;
@@ -148,24 +146,24 @@ export class SocialRepository {
     }
 
     if (startDate) {
-      query += ` AND createdAt >= $${paramIndex}`;
+      query += ` AND created_at >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND createdAt <= $${paramIndex}`;
+      query += ` AND created_at <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += ` ORDER BY createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
-    const rows = await runQueriesWithTenant<PostRow>(tenantId, query, params);
+    const rows = await runQueriesWithTenant<PostRow>(tenantId, { text: query, values: params });
 
     // Contar total
-    let countQuery = `SELECT COUNT(*) as total FROM posts WHERE tenant_id = $1`;
+    let countQuery = `SELECT COUNT(*)::text as "totalCents" FROM posts WHERE tenant_id = $1`;
     const countParams: any[] = [tenantId];
     let countParamIndex = 2;
 
@@ -194,26 +192,25 @@ export class SocialRepository {
     }
 
     if (startDate) {
-      countQuery += ` AND createdAt >= $${countParamIndex}`;
+      countQuery += ` AND created_at >= $${countParamIndex}`;
       countParams.push(startDate);
       countParamIndex++;
     }
 
     if (endDate) {
-      countQuery += ` AND createdAt <= $${countParamIndex}`;
+      countQuery += ` AND created_at <= $${countParamIndex}`;
       countParams.push(endDate);
       countParamIndex++;
     }
 
-    const countRow = await runQueryWithTenant<{ totalCents: string }>(
-      tenantId,
-      countQuery,
-      countParams
-    );
+    const countRow = await runQueryWithTenant<{ totalCents: string }>(tenantId, {
+      text: countQuery,
+      values: countParams,
+    });
 
     return {
       rows,
-      totalCents: countRow ? Number(countRow.total) : 0,
+      totalCents: countRow ? Number(countRow.totalCents) : 0,
     };
   }
 
@@ -221,15 +218,14 @@ export class SocialRepository {
    * Atualiza metadata de um post
    */
   async updateMetadata(tenantId: string, postId: string, metadata: any): Promise<void> {
-    await runQueryWithTenant(
-      tenantId,
-      `
+    await runQueryWithTenant(tenantId, {
+      text: `
       UPDATE posts
-      SET metadata = $1, updatedAt = now()
+      SET metadata = $1, updated_at = now()
       WHERE post_id = $2
       `,
-      [JSON.stringify(metadata), postId]
-    );
+      values: [JSON.stringify(metadata), postId],
+    });
   }
 }
 

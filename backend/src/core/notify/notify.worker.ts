@@ -10,10 +10,10 @@ const notifyService = new NotifyService();
 
 async function getAllTenantsWithQueue(): Promise<string[]> {
   // Simples: pega todos tenants. Em prod, dá pra otimizar.
-  const result = await pool.query<{ tenant_id: string }>(
-    'SELECT tenant_id FROM tenants'
+  const result = await pool.query<{ id: string }>(
+    'SELECT id FROM tenants'
   );
-  return result.rows.map(r => r.tenant_id);
+  return result.rows.map(r => r.id);
 }
 
 export async function runNotifyWorkerOnce(): Promise<void> {

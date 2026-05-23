@@ -2,7 +2,7 @@
 // Utilitário centralizado para verificar override de teste
 // REGRA: Esta é a ÚNICA porta de override no sistema
 
-import { isTestOverrideUser as checkOverride } from '../config/testOverrideUsers';
+import { isTestOverrideUser as checkOverride } from '../config/test-override-users';
 
 /**
  * Verifica se um usuário tem acesso total (override de teste)

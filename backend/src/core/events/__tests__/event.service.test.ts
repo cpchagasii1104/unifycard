@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/glo
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '@core/database/pool';
 import { eventService } from '../event.service';
-import { accountService } from '../../economy/accounts/account.service';
+import { accountService } from '../../economy/account.service';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import type { CreateEventInput } from '../event.types';
 
@@ -31,14 +31,14 @@ describe('EventService', () => {
     testGlobalUserId = uuidv4();
 
     await pool.query(
-      `INSERT INTO global_users (global_user_id, full_name, createdAt)
+      `INSERT INTO global_users (global_user_id, full_name, created_at)
        VALUES ($1, 'Test User Events', now())
        ON CONFLICT (global_user_id) DO NOTHING`,
       [testGlobalUserId]
     );
 
     await pool.query(
-      `INSERT INTO users (user_id, tenant_id, email, global_user_id, createdAt)
+      `INSERT INTO users (user_id, tenant_id, email, global_user_id, created_at)
        VALUES ($1, $2, 'test@events.com', $3, now())
        ON CONFLICT (user_id) DO NOTHING`,
       [testUserId, testTenantId, testGlobalUserId]
@@ -48,8 +48,7 @@ describe('EventService', () => {
     const actorRepository = socialPortsRegistry.getActorRepository();
     const actor = await actorRepository.findOrCreateUserActor(
       testTenantId,
-      testUserId,
-      testGlobalUserId
+      testUserId
     );
     testActorId = actor.actor_id;
 
@@ -75,14 +74,14 @@ describe('EventService', () => {
   describe('createEvent', () => {
     it('deve criar evento gratuito como draft', async () => {
       const input: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Event Free',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(), // Amanhã
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
-        ticket_price_cents: null,
+        ticketPriceCents: null,
       };
 
       const event = await eventService.createEvent(testTenantId, input);
@@ -90,37 +89,37 @@ describe('EventService', () => {
       expect(event).toBeDefined();
       expect(event.id).toBeDefined();
       expect(event.status).toBe('draft');
-      expect(event.ticket_price_cents).toBeNull();
-      expect(event.actor_id).toBe(testActorId);
+      expect(event.ticketPriceCents).toBeNull();
+      expect(event.actorId).toBe(testActorId);
     });
 
     it('deve criar evento pago como draft', async () => {
       const input: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Event Paid',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
-        ticket_price_cents: 5000, // R$ 50,00
+        ticketPriceCents: 5000, // R$ 50,00
       };
 
       const event = await eventService.createEvent(testTenantId, input);
 
       expect(event).toBeDefined();
       expect(event.status).toBe('draft');
-      expect(event.ticket_price_cents).toBe(5000);
+      expect(event.ticketPriceCents).toBe(5000);
     });
 
     it('deve validar Actor × EventType', async () => {
       const input: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'page', // Page não pode criar 'social'
-        event_type: 'social',
+        actorId: testActorId,
+        actorType: 'page',
+        eventType: 'social',
         title: 'Test Event Invalid',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
       };
 
@@ -135,28 +134,28 @@ describe('EventService', () => {
     beforeEach(async () => {
       // Criar evento gratuito
       const freeInput: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Free Event',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
-        ticket_price_cents: null,
+        ticketPriceCents: null,
       };
       const freeEvent = await eventService.createEvent(testTenantId, freeInput);
       freeEventId = freeEvent.id;
 
       // Criar evento pago
       const paidInput: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Paid Event',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
-        ticket_price_cents: 5000,
+        ticketPriceCents: 5000,
       };
       const paidEvent = await eventService.createEvent(testTenantId, paidInput);
       paidEventId = paidEvent.id;
@@ -197,12 +196,12 @@ describe('EventService', () => {
   describe('cancelEvent', () => {
     it('deve cancelar evento publicado', async () => {
       const input: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Event Cancel',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
       };
 
@@ -216,12 +215,12 @@ describe('EventService', () => {
 
     it('deve bloquear cancelamento se não for o criador', async () => {
       const input: CreateEventInput = {
-        actor_id: testActorId,
-        actor_type: 'user',
-        event_type: 'cultural',
+        actorId: testActorId,
+        actorType: 'user',
+        eventType: 'cultural',
         title: 'Test Event Cancel',
-        datetime_start: new Date(Date.now() + 86400000).toISOString(),
-        datetime_end: new Date(Date.now() + 90000000).toISOString(),
+        datetimeStart: new Date(Date.now() + 86400000).toISOString(),
+        datetimeEnd: new Date(Date.now() + 90000000).toISOString(),
         visibility: 'public',
       };
 

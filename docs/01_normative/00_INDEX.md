@@ -42,6 +42,7 @@ marcado abaixo.
 | AUTHORITY_ANNEX_EVASION.md | CANÔNICO · VIGENTE | Autoridade | Define evasão tentativa evasão no sistema |
 | AUTHORITY_ANNEX_IRREVERSIBLE_ACTIONS.md | CANÔNICO · VIGENTE | Autoridade | Catálogo constitucional ações irreversíveis |
 | AUTHORITY_ANNEX_TEST_OF_BREAK.md | CANÔNICO · VIGENTE | Autoridade | Teste constitucional falsificação do sistema |
+| AUTHORITY_ENFORCEMENT_MODEL.md | NORMATIVO · VIGENTE | Autoridade | Modelo de enforcement de soberania, mini-cores e gates futuros |
 | AUTHORITY_LAW.md | CANÔNICO · VIGENTE | Lei | Lei suprema de autoridade do sistema |
 | BANK_DOMAIN_RULES.md | CANÔNICO · VIGENTE | Core | Regras domínio Bank reforçam Lei Coerência |
 | BANK_SEMANTICS.md | CANÔNICO · VIGENTE | Core | Semântica institucional UnifyBank SSOT financeiro |
@@ -62,16 +63,16 @@ marcado abaixo.
 | CORE_CATEGORY_CONTRACT.md | CORE | Core | Contrato fundacional sistema de categorias |
 | CORE_CATEGORY_VALIDATION_MATRIX.md | CANÔNICO · VIGENTE | Core | Critérios validação categorias profissionais core |
 | CORE_ESTORNOS_FINANCEIROS_CANONICO.md | CANÔNICO · VIGENTE | Core | CORE de estornos financeiros canônico imutável |
-| CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md | CANÔNICO · VIGENTE | Core | Diferença CORE EXECUTÁVEL vs CONCEITUAL |
+| CORE_EXECUTAVEL_VS_CORE_CONCEITUAL.md | CANÔNICO · VIGENTE | Core | Diferença CORE EXECUTÁVEL vs CONCEITUAL; DECISION-0021: core jurisdicional |
 | CORE_FINANCIAL_CONTRACT.md | CORE | Core | Contrato fundacional governança financeira |
 | CORE_IDENTITY_AND_ACTORS_CONTRACT.md | CORE | Core | Contrato fundacional identidade atores |
-| CORE_IMUTAVEL.md | CORE | Core | Core imutável conjunto estruturas único não duplicável |
+| CORE_IMUTAVEL.md | CORE | Core | Core imutável como jurisdição de verdade compartilhada |
 | CORE_OBSERVABILITY_CONTRACT.md | CORE | Core | Contrato fundacional observabilidade UnifiCard |
 | CORE_PERMISSOES_FINANCEIRAS_CANONICO.md | CANÔNICO · VIGENTE | Core | CORE de permissões financeiras canônico imutável |
 | CORE_SPLIT_PAGAMENTO_CANONICO.md | CANÔNICO · VIGENTE | Core | Core split pagamento canônico imutável |
 | CORE_TEMPORAL_CONTRACT.md | CORE | Core | Contrato fundacional governança temporal |
 | CORE_TEMPORAL_HARDENING_CONTRACT.md | CANÔNICO · VIGENTE | Core | Hardening institucional CORE temporal |
-| CORE_VS_MODULOS_CONTRACT.md | CANÔNICO · VIGENTE | Contrato | Separação imutável entre CORE e MÓDULOS |
+| CORE_VS_MODULOS_CONTRACT.md | CANÔNICO · VIGENTE | Contrato | Separação CORE/MÓDULOS por jurisdição, autoridade e SSOT |
 | DECLARACAO_PRONTIDAO_INSTITUCIONAL_UNIFICARD.md | NON-NORMATIVE | Governança | Declara sistema base concluído pronto operação |
 | DEFINICAO_DE_PRODUTO.MD | NON-NORMATIVE | Ontologia | Documento mestre de referência do conceito de produto |
 | DOCUMENTO_INSTITUCIONAL_CANONICO.md | CANÔNICO · VIGENTE | Governança | Documento institucional identidade governança |
@@ -111,7 +112,7 @@ marcado abaixo.
 | POLITICA_ATIVACAO_ECONOMICA_UNIFICARD.md | CANÔNICO · VIGENTE | Governança | Política ativação econômica quem ligar dinheiro |
 | PROCESSAMENTO_GAPS_CANONICO.md | CANÔNICO · VIGENTE | Arquivo | Processamento canônico GAPS backend frontend |
 | PROCESSO_OFICIAL_EVOLUCAO_UNIFICARD.md | CANÔNICO · VIGENTE | Governança | Processo oficial evolução sistema muda sem quebra |
-| PROHIBITED_STRUCTURES.md | NORMATIVO · VINCULANTE | Governança | Estruturas tabelas padrões PROIBIDOS como SSOT |
+| PROHIBITED_STRUCTURES.md | NORMATIVO · VINCULANTE | Governança | Estruturas, mini-cores e padrões PROIBIDOS como SSOT |
 | READ_MODELS_CONTRATO.md | CANÔNICO · VIGENTE | Contrato | Contrato técnico read models projection layer |
 | REGIME_OBSERVACAO_POS_MVP.md | APROVADO · VINCULANTE | Governança | Regime observação pós MVP período inicial |
 | REGRA_CANONICA_CRIACAO_DE_CONTEXT.md | NORMATIVO · VINCULANTE | Governança | Regra canônica criação context CategoryContext |
@@ -121,7 +122,7 @@ marcado abaixo.
 | SSOT_CONTRACT.md | CANÔNICO · VIGENTE | SSOT | Contrato estabelece Fontes Únicas Verdade |
 | SSOT_EXCLUSIVE_BANK_RULE.md | CANÔNICO · VIGENTE | SSOT | UnifyBank ÚNICA fonte verdade financeira |
 | SSOT_PREFLIGHT.md | CANÔNICO · OBRIGATÓRIO | SSOT | Verificações obrigatórias pré-execução alterações |
-| SSOT_REGISTRY_UNIFICARD.md | CANÔNICO · VIGENTE | SSOT | Registry completo dinheiro centavos ledger |
+| SSOT_REGISTRY_UNIFICARD.md | CANÔNICO · VIGENTE | SSOT | Registry completo de autoridade por domínio, dinheiro, centavos e ledger |
 | taxonomia_ocupacoes_v2.md | CANÔNICO · VIGENTE | Nomenclatura | Taxonomia canônica ocupações UnifiCard v2.2 |
 | USER_PROFILE_CONTRACT.md | CANÔNICO · VIGENTE | Contrato | Contrato canônico perfil usuário impede anticore |
 | VOCABULARIO_CANONICO_UNIFICARD.md | CANÔNICO · VIGENTE | Nomenclatura | Vocabulário canônico UnifiCard documento normativo |

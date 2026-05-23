@@ -1,7 +1,7 @@
 // backend/src/core/pilot/pilot-hypotheses.repository.ts
 // SPRINT 16: Repository para hipóteses de interpretação humana
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface PilotHypothesis {
   hypothesisId: string;
@@ -29,7 +29,7 @@ class PilotHypothesesRepository {
       tenant_id: string;
       content: string;
       created_by_user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
@@ -42,13 +42,13 @@ class PilotHypothesesRepository {
       [tenantId, input.content.trim(), createdByUserId]
     );
 
-    const row = result[0];
+    if (!result) throw new Error('create: INSERT did not return row');
     return {
-      hypothesisId: row.hypothesis_id,
-      tenantId: row.tenant_id,
-      content: row.content,
-      createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt,
+      hypothesisId: result.hypothesis_id,
+      tenantId: result.tenant_id,
+      content: result.content,
+      createdByUserId: result.created_by_user_id,
+      createdAt: result.created_at,
     };
   }
 
@@ -65,31 +65,31 @@ class PilotHypothesesRepository {
     const limit = options?.limit || 100;
     const offset = options?.offset || 0;
 
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       hypothesis_id: string;
       tenant_id: string;
       content: string;
       created_by_user_id: string;
-      createdAt: Date;
+      created_at: Date;
     }>(
       tenantId,
       `
         SELECT *
         FROM pilot_hypotheses
         WHERE tenant_id = $1
-        ORDER BY createdAt DESC
+        ORDER BY created_at DESC
         LIMIT $2
         OFFSET $3
       `,
       [tenantId, limit, offset]
     );
 
-    return result.map((row) => ({
+    return rows.map((row) => ({
       hypothesisId: row.hypothesis_id,
       tenantId: row.tenant_id,
       content: row.content,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt,
+      createdAt: row.created_at,
     }));
   }
 
@@ -111,7 +111,7 @@ class PilotHypothesesRepository {
       [tenantId, hypothesisId]
     );
 
-    return parseInt(result[0]?.count || '0', 10) > 0;
+    return parseInt(result?.count ?? '0', 10) > 0;
   }
 }
 

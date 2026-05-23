@@ -43,10 +43,10 @@ class HumanMvpActivityExecutionService {
       person_id: string;
       category_id: string;
       context: CategoryContext;
-      executedAt: Date | null;
+      executed_at: Date | null;
     }>(
       `
-      SELECT id, tenant_id, opportunity_id, person_id, category_id, context, executedAt
+      SELECT id, tenant_id, opportunity_id, person_id, category_id, context, executed_at
       FROM human_mvp_event_instances
       WHERE id = $1
         AND tenant_id = $2
@@ -62,13 +62,13 @@ class HumanMvpActivityExecutionService {
     const eventInstance = eventInstanceResult.rows[0];
 
     // VALIDAÇÃO 2: EventInstance ainda não foi executado
-    if (eventInstance.executedAt !== null) {
+    if (eventInstance.executed_at !== null) {
       throw new Error('EventInstance já foi executado');
     }
 
     // VALIDAÇÃO 3: Context é válido
     const context = eventInstance.context;
-    const allowedContexts: CategoryContext[] = ['professional', 'person', 'interest'];
+    const allowedContexts: (CategoryContext | 'person')[] = ['professional', 'person', 'interest'];
     if (!allowedContexts.includes(context)) {
       throw new Error('Context inválido');
     }
@@ -87,10 +87,10 @@ class HumanMvpActivityExecutionService {
     const result = await pool.query<{ id: string }>(
       `
       UPDATE human_mvp_event_instances
-      SET executedAt = $1, updatedAt = NOW()
+      SET executed_at = $1, updated_at = NOW()
       WHERE id = $2
         AND tenant_id = $3
-        AND executedAt IS NULL
+        AND executed_at IS NULL
       RETURNING id
       `,
       [executedAt, input.eventInstanceId, tenantId]
@@ -125,7 +125,7 @@ class HumanMvpActivityExecutionService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, createdAt
+        event_type, tenant_id, person_id, category_id, context, details, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,

@@ -22,6 +22,7 @@ export function registerWorkNotifyHandlers(eventBus: EventBus) {
   // ============================================================
   eventBus.registerHandler(
     'work.application.created',
+    'notify.work.application_created',
     async (event: UnificardEvent) => {
       // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
       if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
@@ -59,6 +60,7 @@ export function registerWorkNotifyHandlers(eventBus: EventBus) {
   // ============================================================
   eventBus.registerHandler(
     'work.assignment.created',
+    'notify.work.assignment_created',
     async (event: UnificardEvent) => {
       // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
       if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
@@ -96,6 +98,7 @@ export function registerWorkNotifyHandlers(eventBus: EventBus) {
   // ============================================================
   eventBus.registerHandler(
     'work.assignment.completed',
+    'notify.work.assignment_completed',
     async (event: UnificardEvent) => {
       // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
       if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
@@ -152,6 +155,7 @@ export function registerWorkNotifyHandlers(eventBus: EventBus) {
   // ============================================================
   eventBus.registerHandler(
     'work.assignment.paid',
+    'notify.work.assignment_paid',
     async (event: UnificardEvent) => {
       // 🔴 GUARD CANÔNICO: Validar tenantId antes de processar
       if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {

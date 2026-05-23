@@ -28,7 +28,7 @@ export interface ReportEventRow {
   actor_id: string | null;
   event_type: string;
   metadata: Record<string, any> | null;
-  createdAt: Date;
+  created_at: Date;
 }
 
 

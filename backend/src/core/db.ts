@@ -16,7 +16,7 @@ import {
   pool,
   runQueriesWithTenant as rawRunQueriesWithTenant,
 } from '@core/database/pool';
-import type { QueryResultRow } from 'pg';
+import type { PoolClient, QueryResultRow } from 'pg';
 
 export interface QueryConfig {
   text: string;
@@ -125,6 +125,28 @@ export async function runTenantTransaction<T = any>(
 }
 
 /**
+ * Transação tenant com `PoolClient` nativo — para `insertEventOutboxRow` e outros usos que exigem `pg` client.
+ */
+export async function runTenantTransactionWithClient<T = any>(
+  tenantId: string,
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
+    const out = await fn(client);
+    await client.query('COMMIT');
+    return out;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Transação de sistema — sem tenant.
  *
  * Permitido apenas para:
@@ -165,6 +187,7 @@ const db = {
   runQueryWithTenant,
   runQueriesWithTenant,
   runTenantTransaction,
+  runTenantTransactionWithClient,
   runSystemTransaction,
 };
 

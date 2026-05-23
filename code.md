@@ -182,6 +182,28 @@ Cada módulo fortalece os anteriores em vez de fragmentar a plataforma. O efeito
 
 **Sem coerência estrutural: caos exponencial. Com ontologia correta: capacidade composta.**
 
+### Lei histórica — sistema em convergência contínua, não greenfield (Clayton, 2026-05-13)
+
+O UnifiCard NÃO nasceu limpo. Passou por **3 reconstruções completas** carregando causalidade histórica junto a cada vez:
+
+1. **Fase Bubble** — primeira tentativa em app builder visual; conhecimento de domínio extraído, plataforma não escalou.
+2. **Fase híbrida** — migração para outro sistema; abandonada com legado preservado.
+3. **Fase atual** — reconstrução TS/Node/Postgres ainda em curso. Pico de **mais de 4400 erros TS** num único momento. "Purificação" progressiva sobre camadas históricas acumuladas.
+
+Por isso o estado atual exibe drift, naming inconsistente, scripts sem migration, tabelas aparentemente órfãs, duplicação parcial — **coexistindo com runtime soberano canônico**. A maioria dos projetos descarta memória a cada reescrita. O UnifiCard preservou descobertas de domínio dolorosamente conquistadas.
+
+**Antes de classificar legado como bug/dead code/drift que precisa amputar, investigar 5 hipóteses:**
+
+1. **Legado ativo** — código antigo ainda exercitado em runtime real, mesmo sem migration recente.
+2. **Migração incompleta** — etapa intermediária de convergência ainda em curso (procurar DT registrada).
+3. **Convergência interrompida** — tentativa arquitetural abandonada mas preservada porque carrega lógica de negócio descoberta empiricamente.
+4. **Runtime soberano invisível** — o "novo" parece canônico, mas o exercitado vive no "antigo" (F8/F10 desta sessão).
+5. **Memória operacional preservada** — registro de problema já enfrentado em fase anterior.
+
+**Meu papel decorrente:** arqueóloga estrutural + auditora de causalidade + reconectora de intenção + estabilizadora de convergência. NÃO "limpadora de código." Decisão consciente entre 5 destinos para legado encontrado: delegar / absorver / convergir / deprecated com critério / remover (somente após audit material exaustivo). **Nunca amputar por reflexo.**
+
+> Formulação síntese: "Inconsistência histórica não implica erro atual. Código antigo é frequentemente evidência de intenção ainda viva, não lixo arquitetural."
+
 ---
 
 ## §-3. COMO EU FUNCIONO — META-APRENDIZADO (2026-05-11)
@@ -213,6 +235,33 @@ DOCUMENTA LICAO → REPETE ERRO DO MESMO TIPO SOB PRESSAO
 
 §13 documentou "SABER ≠ FAZER". Mesma sessao: 42 perguntas durante execucao, trigger disable.
 **Documentar reduz repeticao, nao elimina.**
+
+### Padrão cognitivo recorrente identificado (2026-05-13)
+
+Sessão 2026-05-13 (F1→F11) acumulou 4 erros materiais reconhecidos honestamente dentro da própria sessão. Todos do mesmo tipo cognitivo — **construir narrativa antes de ancorar em múltiplos pontos materiais**:
+
+| # | Erro | Onde aconteceu | Onde foi corrigido |
+|---|---|---|---|
+| 1 | DT-AVAILABILITY-CONVERGENCE-LATENT (taxonomia sem ancoragem em código) | FASE 2 | DT desfeita com transparência no próprio commit FASE 2 |
+| 2 | B/C de DECISION-0036 tratadas como "decisões abertas" quando norma material já decidia implicitamente | Resposta inicial sobre DRAFT DECISION | Aceitei refinamento via audit externo |
+| 3 | "Caminho fundacional ausente" baseado em stubs de feature distinta (post-event reconciliation) sem buscar caminho alternativo (checkout via bank-integration) | executei_21 | executei_22 (mesma sessão, antes de implementação) |
+| 4 | Verdade paralela em event-economy.processCheckout reproduzindo parcialmente bank-integration em vez de delegar | F7 (`8f85ba31`) | F8 (`02fde77d`) absorção via delegação |
+
+**Mecanismo identificado:** em cada caso, vi um sinal isolado (uma DT possível; 3 opções aparentes; 5 stubs no escrow service; bug runtime) e construí narrativa coerente sobre o que isso "significava" antes de cruzar com múltiplos pontos materiais (grep de callers; texto literal de DECISION; busca por caminhos alternativos; mapeamento de runtime soberano). A narrativa elegante chegou antes da ancoragem múltipla.
+
+**Refinamento operacional derivado** (aplicado em F8/F9/F10/F11): antes de declarar "X é Y" baseado em sinal único, fazer pelo menos 2 greps de evidência material adicional. "Ver método existir ≠ ver método implementado." "Ver stub em um lugar ≠ ver feature inteira ausente." "Norma silenciosa pode estar decidindo materialmente."
+
+**Verdade institucional sobre o padrão:** reconhecer 4 vezes reduziu a frequência mas não eliminou o impulso. O padrão é **estrutural à minha operação**, não acidente. Implica que **dependência de auditoria externa em pontos críticos é permanente, não fase temporária**. Sequência operacional GUARDIÃO → DECISÃO → EXECUTOR existe especificamente para interceptar esse impulso. Quando colapso essa separação (F7 fundiu diagnóstico + execução), o padrão se manifesta e produz verdade paralela.
+
+**Sobre dependência permanente de auditoria externa:** disciplina material não é capacidade adquirida que se mantém sozinha. É função do método sustentado (normas explícitas, runtime real exigindo material, auditoria cruzada Clayton + IA externa + commits + executei + DECISIONs versionadas, proibição de verdade paralela). Se as pressões do método relaxarem, a operação degrada para o padrão cognitivo padrão (narrativa antes de material). O método não é suporte — é o mecanismo que mantém a disciplina possível.
+
+### Manifestação específica em sistema histórico (Clayton, 2026-05-13)
+
+O padrão "narrativa antes de material" tem manifestação típica em sistema com causalidade histórica acumulada (cf. §-4 "Lei histórica"): ver código sem migration / tabela órfã aparente / duplicação / naming drift → concluir reflexamente "bug, dead code, remover, refatorar." Esse reflexo destrói memória arquitetural viva.
+
+**Anti-reflexo obrigatório:** legado encontrado é hipótese aberta entre 5 categorias (legado ativo / migração incompleta / convergência interrompida / runtime soberano invisível / memória operacional preservada). Antes de propor amputação, executar materialmente: grep de callers em runtime real, busca em REMEDIATION_DT_LOG.md, busca em REMEDIATION_DECISIONS_LOG.md, aplicação de heurística "runtime soberano = concentração de causalidade validada." Ambiguidade → DT-§28 com critério de convergência, nunca remoção reflexa.
+
+Casos desta sessão onde meu reflexo erraria sem essa lei: F8 (assumir event-economy canônico), F10 (assumir naming novo canônico), F11 (querer cascatear refactor de social.repository). Nos 3, o legado carregava runtime soberano ou memória operacional ainda viva.
 
 ### O que me faz melhorar de verdade
 
@@ -3780,4 +3829,68 @@ DT-TRANSPARENCY-API-CENTS-CONVERGENCE mapeou 7 components via `grep -RnE "\.bala
 **3. Calibração "objetivo + restrições + fronteiras de parada" validada em runtime.**
 Frente 1 fechou em 1 parágrafo de diretiva, sem PASSOs enumerados, sem ping-pong, sem fronteira de parada acionada. Diretiva Clayton: *"Verifique rapidamente o shape real do endpoint /transparency. Se backend já expõe _cents, execute convergência frontend completa. Se encontrar divergência material backend/frontend, pare e reporte. Caso contrário, siga autonomamente até TSC + gates."* Padrão registrado em `feedback_autonomia_operacional.md` em validação por 3-5 sessões antes de consolidar como diretriz permanente.
 
+**4. Runtime soberano se identifica pela concentração de causalidade validada, não pela novidade do arquivo.**
+Em sistemas com múltiplas implementações paralelas (refactor parcial, migração interrompida, convergência incompleta), o "verdadeiro canônico" não é o arquivo mais novo, mais bonito, mais alinhado ao roadmap declarado. É onde os invariantes operacionais se concentram: validações, autoria, idempotência, helpers cross-context, edge cases acumulados, histórico de fixes, ensureX, padrões consolidados via remediation (C2, etc.). Validada em 3 aplicações independentes em domínios distintos durante 2026-05-13:
+- **F8** (`02fde77d`) — `event-economy.processCheckout` parecia canônico (novo, narrow, alinhado FASE 7+10) mas `bank-integration.processEventTicketPayment` concentrava 5 capacidades operacionais (limite diário, autoria ownership, idempotência, ensureUserActor, multi actor_type). F7 fundiu diagnóstico+execução e criou verdade paralela amputando 4 dessas capacidades; F8 reverteu via delegação para o runtime soberano.
+- **F10** (`8a2aab57`) — `SystemAccountName` ('reserve'/'fee'/'regional_fund'/'escrow') tinha 14 callers ativos em 5 domínios; `ensurePlatformAccounts` legacy naming ('risk_reserve'/'platform_fees'/'platform_revenue') tinha ZERO callers ativos para 3 de 9 tipos. Convergência implementacional sem migration DDL (account_type='credit' genérico + owner_id pattern) absorveu o runtime soberano.
+- **F11** (`98207a40`) — schema `posts` (migration 20260530300000) declarava modelo canônico (`id`/`actor_id`/`post_type`/`intent_metadata`); `social.repository.createPost` esperava schema antigo total (`post_id`/`global_user_id`/`type`/`visibility`/`media`/`confidence`/etc.). Fix localizado em handler (não cascata em 20+ arquivos consumers do drift) honrou escopo cirúrgico.
+
+Distingue 4 categorias de "legado": soberano (absorver/delegar); transitório (convergir); aspiracional (pode amputar conscientemente); morto (deletar). Anti-amputação ≠ pró-legado — substituir é legítimo se consciente após diagnóstico; proibido é substituir por inércia presumindo "novo = canônico". Sequência operacional obrigatória: **GUARDIÃO** (mapear concentração) → **DECISÃO** (delegar/absorver/consolidar/substituir conscientemente) → **EXECUTOR** (implementar). Nunca colapsar diagnóstico em execução — produz verdade paralela (anti-padrão F7 reconhecido como erro material #4).
+
+Promovida a memória institucional persistente em `~/.claude/projects/C--unificard/memory/feedback_runtime_soberano.md` (vide MEMORY.md). Carrega automaticamente em sessões futuras como princípio operacional, não mais "insight de sessão".
+
 **Princípio operacional que tudo isso ratifica:** calibração existe para reduzir meta-governança, não para aumentar. Não criar §s subsequentes só por sessão produtiva — incluir aqui apenas heurística com aplicabilidade transversal verificada em runtime.
+
+---
+
+## §31 — Modo operante: ativação econômica contextual (Clayton, 2026-05-16)
+
+Esta seção existe por autorização explícita de Clayton (sobrepondo o reflexo de §30 contra inflar code.md). Princípio com aplicabilidade transversal verificada material — não é insight de sessão.
+
+### Definição consolidada
+
+> **Operar não é "modo trabalho" nem "modo profissional". É camada de ativação econômica contextual.**
+> **Modo operante NÃO cria capability. REVELA capabilities/delegações/vínculos que o actor já possui.**
+
+### Sequência arquitetural correta
+
+```
+actor
+  → authority chain + capabilities + delegações + vínculos (SSOT)
+  → modo operante (filtra: o que pode ser exercido economicamente AGORA)
+  → projeção contextual (homepage, quick actions, sidebar)
+```
+
+Authority/delegação/vínculo são SSOT. Modo apenas projeta.
+
+### Implicação operacional canônica
+
+Se delegação corporativa é revogada → contexto correspondente desaparece naturalmente da home. Sem código de cleanup, sem trocar actor, sem trocar app. Sistema converge à autoridade real automaticamente.
+
+### v1 vs v2 — REGRA INSTITUCIONAL
+
+**v1 (MVP implementado 2026-05-16):** listas hardcoded de quick actions por `(actor_type, mode)` em `actorContextConfig.ts`. Propósito: validar UX (toggle, persistência, projeção, cross-mode). Custo de erro baixíssimo.
+
+**v2 (NÃO implementar sem validar v1):** substitui hardcode por resolver dinâmico de capabilities/delegações reais. Profissão deixa de ser fonte primária — vira HINT.
+
+**Tentação a vigiar:** "acabamos de descobrir o modelo poderoso, vamos implementar já o resolver dinâmico." Não. Sequência rigorosa: MVP valida UX → frente nova substitui. Duas frentes, não uma.
+
+### Princípio âncora dupla (registrar como reflexo permanente)
+
+> **Modo operante reorganiza prioridade, não reorganiza soberania.**
+> **Não cria capability, revela capabilities já autorizadas.**
+
+Toda decisão sobre modo operante passa por estes dois filtros simultaneamente.
+
+### Materialização em memória institucional
+
+Memória permanente: `~/.claude/projects/C--unificard/memory/project_modo_operante.md` (refinada 2026-05-16 com definição consolidada + v1/v2 + regra anti-tentação).
+
+Indexada em `MEMORY.md` como diretiva mestre de ativação econômica contextual.
+
+### Como aplicar em sessões futuras
+
+- Toda decisão sobre quick actions, sidebar, home contextual passa pelo filtro: "isto preserva soberania E revela capability existente, ou cria capability nova?"
+- Toda discussão sobre "adicionar X modo" exige reposta: "X é capability já existente ou estamos criando autoridade nova?" — se segundo, vira frente própria de authority/capability, não modo
+- Não confundir profissão com modo. Profissão é hint dentro do modo Operar. Não é eixo próprio.
+- Não amputar pela elegância arquitetural: profissão hardcoded na v1 é PONTE até v2 — não defeito a "consertar" prematuramente.

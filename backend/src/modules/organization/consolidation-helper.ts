@@ -2,7 +2,7 @@
 // SPRINT 51: Helper para resolução de escopo de consolidação
 
 import { organizationUnitService } from './organization-unit.service';
-import { authorizationService } from '@core/authorization/authorization.service';
+import { authorityService } from '@modules/authority/authority.service';
 import type { ConsolidationScope } from './organization.types';
 
 /**
@@ -38,11 +38,11 @@ export async function resolveConsolidationScope(
   }
 
   // 3. Verificar permissão de consolidação
-  const authResult = await authorizationService.canActAs(
-    tenantId,
-    userId,
+  const authResult = await authorityService.canPerformAction(
     actorId,
-    'view_consolidated_reports'
+    'view_consolidated_reports',
+    undefined,
+    { tenantId, userId }
   );
 
   // 4. Se não tem permissão, forçar escopo para própria unidade

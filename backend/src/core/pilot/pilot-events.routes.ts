@@ -18,7 +18,7 @@ const pilotEventsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    const tenantId = req.tenantId;
+    const tenantId = req.tenant!.id;
     if (!tenantId) {
       return reply.status(400).send({ error: 'Tenant ID não encontrado' });
     }
@@ -63,7 +63,7 @@ const pilotEventsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    const tenantId = req.tenantId;
+    const tenantId = req.tenant!.id;
     if (!tenantId) {
       return reply.status(400).send({ error: 'Tenant ID não encontrado' });
     }
@@ -104,7 +104,7 @@ const pilotEventsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(401).send({ error: 'Não autenticado' });
     }
 
-    const tenantId = req.tenantId;
+    const tenantId = req.tenant!.id;
     if (!tenantId) {
       return reply.status(400).send({ error: 'Tenant ID não encontrado' });
     }

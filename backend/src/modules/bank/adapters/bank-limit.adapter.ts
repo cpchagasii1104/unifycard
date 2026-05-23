@@ -6,9 +6,14 @@
  */
 
 import type { BankLimitPort } from '@core/bank/ports';
+import { toMoneyCents } from '@contracts/marketplace/canonical';
 import { bankLimitService as realService } from '../bank-limit.service';
 
 export class BankLimitAdapter implements BankLimitPort {
+  /**
+   * Fronteira do módulo: `attemptedAmount` segue o nome do BankLimitPort, mas o valor
+   * é sempre normalizado para centavos inteiros (§4.7) antes do serviço.
+   */
   async validateLimit(
     tenantId: string,
     actorId: string,
@@ -17,7 +22,15 @@ export class BankLimitAdapter implements BankLimitPort {
     actingUserId?: string,
     stepUpVerified?: boolean
   ): Promise<void> {
-    return realService.validateLimit(tenantId, actorId, limitType, attemptedAmount, actingUserId, stepUpVerified);
+    const attemptedAmountCents = toMoneyCents(attemptedAmount);
+    return realService.validateLimit(
+      tenantId,
+      actorId,
+      limitType,
+      attemptedAmountCents,
+      actingUserId,
+      stepUpVerified
+    );
   }
 }
 

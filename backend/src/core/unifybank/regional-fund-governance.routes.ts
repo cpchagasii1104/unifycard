@@ -91,11 +91,15 @@ const governanceRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      // 6. Criar proposta
+      // 6. Criar proposta (garantir amountCents obrigatório)
+      const { amountCents, ...rest } = input;
+      if (amountCents === undefined) {
+        return reply.status(400).send({ error: 'amountCents is required' });
+      }
       const proposal = await regionalFundGovernanceService.createProposal(
         tenantId,
         globalUserId,
-        input
+        { ...rest, amountCents }
       );
 
       return reply.status(201).send({
@@ -256,7 +260,7 @@ const governanceRoutes: FastifyPluginAsync = async (fastify) => {
           tenantId,
           proposalId,
           globalUserId,
-          parsed.data.vote
+          parsed.data.vote === 'YES' ? 'yes' : 'no'
         );
 
         return reply.status(200).send({

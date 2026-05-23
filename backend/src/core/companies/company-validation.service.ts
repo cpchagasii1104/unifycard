@@ -97,7 +97,11 @@ class CompanyValidationService {
     };
 
     // Assinar JWT
-    const qrCodePayload = jwt.sign(payload, JWT_SECRET, {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required for company validation');
+    }
+    const qrCodePayload = jwt.sign(payload, secret, {
       expiresIn: VALIDATION_TOKEN_EXPIRES_IN,
     });
 
@@ -224,7 +228,7 @@ class CompanyValidationService {
     );
 
     const dailyLimit = 20; // Limite diário por funcionário
-    if (validationsToday && validationsToday[0].count >= dailyLimit) {
+    if (validationsToday && validationsToday.count >= dailyLimit) {
       throw new Error(`Limite diário de validações atingido (${dailyLimit})`);
     }
 
@@ -265,7 +269,7 @@ class CompanyValidationService {
           UPDATE companies
           SET company_status = 'VERIFIED',
               verifiedAt = $1,
-              updatedAt = NOW()
+              updated_at = NOW()
           WHERE company_id = $2
         `,
         values: [validatedAt, input.company_id],

@@ -1,6 +1,9 @@
 // backend/src/core/reviews/review.service.ts
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '@core/events/event-outbox.repository';
 import { resolveGlobalUserId } from '@core/identity/identity.utils';
 import type {
   ReviewRow,
@@ -10,6 +13,10 @@ import type {
 } from './review.types';
 
 class ReviewService {
+  private tsIso(v: string | Date): string {
+    return v instanceof Date ? v.toISOString() : String(v);
+  }
+
   private toReview(row: ReviewRow): Review {
     return {
       reviewId: row.review_id,
@@ -25,15 +32,15 @@ class ReviewService {
       punctualityRating: row.punctuality_rating ?? undefined,
       professionalismRating: row.professionalism_rating ?? undefined,
       context: (row.context ?? undefined) as any,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: this.tsIso(row.created_at),
+      updatedAt: this.tsIso(row.updated_at),
     };
   }
 
   async getById(tenantId: string, reviewId: string): Promise<Review | null> {
     const row = await runQueryWithTenant<ReviewRow>(
       tenantId,
-      `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt FROM reviews WHERE review_id = $1`,
+      `SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at FROM reviews WHERE review_id = $1`,
       [reviewId],
     );
     return row ? this.toReview(row) : null;
@@ -91,21 +98,33 @@ class ReviewService {
     const review = this.toReview(row);
 
     // Evento genérico de review criada (transversal)
-    await eventBus.publish({
-      tenantId,
-      type: 'core.review.created',
-      payload: {
-        reviewId: review.reviewId,
-        entityType: review.entityType,
-        entityId: review.entityId,
-        authorUserId: review.authorUserId,
-        rating: review.rating,
-        qualityRating: review.qualityRating,
-        punctualityRating: review.punctualityRating,
-        professionalismRating: review.professionalismRating,
-        sourceModule,
-      },
-    });
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(`core.review.created:${tenantId}:${review.reviewId}`),
+        eventType: 'core.review.created',
+        eventVersion: 1,
+        payload: {
+          reviewId: review.reviewId,
+          entityType: review.entityType,
+          entityId: review.entityId,
+          authorUserId: review.authorUserId,
+          rating: review.rating,
+          qualityRating: review.qualityRating,
+          punctualityRating: review.punctualityRating,
+          professionalismRating: review.professionalismRating,
+          sourceModule,
+        },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
     return review;
   }
@@ -144,18 +163,18 @@ class ReviewService {
     const rows = await runQueriesWithTenant<ReviewRow>(
       tenantId,
       `
-      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, createdAt, updatedAt
+      SELECT review_id, tenant_id, entity_type, entity_id, author_user_id, author_global_user_id, source_module, rating, comment, quality_rating, punctuality_rating, professionalism_rating, context, created_at, updated_at
       FROM reviews
       WHERE ${whereSQL}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${i} OFFSET $${i + 1}
       `,
       [...params, limit, offset],
     );
 
-    const count = await runQueryWithTenant<{ totalCents: string }>(
+    const count = await runQueryWithTenant<{ total: string }>(
       tenantId,
-      `SELECT COUNT(*) AS total FROM reviews WHERE ${whereSQL}`,
+      `SELECT COUNT(*)::text AS total FROM reviews WHERE ${whereSQL}`,
       params,
     );
 

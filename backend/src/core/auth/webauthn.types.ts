@@ -54,7 +54,7 @@ export interface VerifyAssertionInput {
 export interface VerifyResult {
   isVerified: boolean;
   error?: string;
-  errorCode?: 'WEBAUTHN_NOT_REGISTERED' | 'INVALID_ASSERTION' | 'CHALLENGE_EXPIRED' | 'CHALLENGE_NOT_FOUND';
+  errorCode?: 'WEBAUTHN_NOT_REGISTERED' | 'INVALID_ASSERTION' | 'CHALLENGE_EXPIRED' | 'CHALLENGE_NOT_FOUND' | 'WEBAUTHN_VERIFY_NOT_IMPLEMENTED';
 }
 
 

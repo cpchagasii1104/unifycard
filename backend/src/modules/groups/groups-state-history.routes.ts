@@ -30,11 +30,11 @@ const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         const groupRow = await runQueryWithTenant<{
           group_id: string;
           is_active: boolean;
-          createdAt: Date;
-          updatedAt: Date;
+          created_at: Date;
+          updated_at: Date;
         }>(
           tenantId,
-          `SELECT group_id, is_active, createdAt, updatedAt FROM groups WHERE group_id = $1 AND tenant_id = $2`,
+          `SELECT group_id, is_active, created_at, updated_at FROM groups WHERE group_id = $1 AND tenant_id = $2`,
           [groupId, tenantId]
         );
 
@@ -51,7 +51,7 @@ const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         // Estado inicial (criação)
         history.push({
           state: groupRow.is_active ? 'active' : 'inactive',
-          changedAt: groupRow.createdAt.toISOString(),
+          changedAt: groupRow.created_at.toISOString(),
         });
 
         // Se updatedAt for diferente de createdAt, pode haver mudança de estado

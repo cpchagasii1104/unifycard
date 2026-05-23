@@ -24,6 +24,10 @@ export interface ServiceOrder {
   };
   channel: 'online';
   createdAt: string;
+  /** Opcional: request de serviço associado (uso interno/domínio). */
+  requestId?: string;
+  /** Opcional: status da ordem de serviço (uso interno/domínio). */
+  status?: string;
 }
 
 

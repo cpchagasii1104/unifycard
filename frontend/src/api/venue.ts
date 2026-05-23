@@ -126,6 +126,7 @@ export async function payTabOrder(
   status: string;
   paymentMethod: string;
   pixQrCode: string | null;
+  earnedPoints?: number;
 }> {
   return await apiFetchJson(`/t/${qrToken}/orders/${orderId}/pay`, {
     method: 'POST',

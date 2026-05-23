@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueriesWithTenant } from '@core/database/pool';
 import { canonicalLogger } from '@core/logging/canonical-logger';
+import { upsertHandlerFailure } from './event-handler-failure.repository';
 
 // ⚠️ NÃO IMPORTAR HANDLERS AQUI - isso causa circular import + TDZ
 // Handlers são registrados em register-handlers.ts e chamados no bootstrap
@@ -25,38 +26,55 @@ export type DomainEvent<TPayload = EventPayload, TType extends string = string> 
 
 type EventHandler = (event: UnificardEvent) => Promise<void> | void;
 
+type HandlerEntry = { handlerKey: string; handler: EventHandler };
+
 /**
  * EventBus simples e robusto:
  * - Persistência antes dos handlers (garante idempotência real)
- * - Handlers registrados em memória para alto desempenho
- * - Módulos transversais plugam handlers de forma centralizada
+ * - Handlers com handler_key estável (retry por chave, nunca republicar o evento inteiro)
  */
 export class EventBus {
-  private handlers = new Map<string, EventHandler[]>();
+  private handlersByType = new Map<string, HandlerEntry[]>();
+  private registryByKey = new Map<string, { eventType: string; handler: EventHandler }>();
 
   /**
-   * Registra um handler para um tipo de evento específico
+   * Regista handler com chave globalmente única (obrigatória para rastreio e retry).
    */
-  registerHandler(eventType: string, handler: EventHandler): void {
-    const list = this.handlers.get(eventType) ?? [];
-    list.push(handler);
-    this.handlers.set(eventType, list);
+  registerHandler(eventType: string, handlerKey: string, handler: EventHandler): void {
+    if (this.registryByKey.has(handlerKey)) {
+      throw new Error(`Duplicate handler_key: ${handlerKey}`);
+    }
+    this.registryByKey.set(handlerKey, { eventType, handler });
+    const list = this.handlersByType.get(eventType) ?? [];
+    list.push({ handlerKey, handler });
+    this.handlersByType.set(eventType, list);
   }
 
-  subscribe(eventType: string, handler: EventHandler): void {
-    this.registerHandler(eventType, handler);
+  subscribe(eventType: string, handlerKey: string, handler: EventHandler): void {
+    this.registerHandler(eventType, handlerKey, handler);
+  }
+
+  /**
+   * Apenas para worker de retry: invoca um único handler. NUNCA chama publish.
+   */
+  async invokeHandlerOnly(handlerKey: string, event: UnificardEvent): Promise<void> {
+    const reg = this.registryByKey.get(handlerKey);
+    if (!reg) {
+      throw new Error(`Unknown handler_key: ${handlerKey}`);
+    }
+    if (reg.eventType !== event.type) {
+      throw new Error(
+        `handler_key/event_type mismatch: ${handlerKey} expects ${reg.eventType}, got ${event.type}`
+      );
+    }
+    await reg.handler(event);
   }
 
   /**
    * Publica um evento:
    * 1. Valida tenantId (fail-fast)
    * 2. Persiste no event_log (idempotência via conflict)
-   * 3. Executa handlers registrados
-   * 
-   * 🔴 GARANTIA CANÔNICA: Event & Async Context Safety
-   * - tenantId é obrigatório e validado antes de qualquer processamento
-   * - Nenhum evento executa fora de tenant válido
-   * - Fail-fast se evento crítico vier sem contexto
+   * 3. Executa handlers registrados (cada um isolado; falha → event_handler_failures)
    */
   async publish(
     event: Omit<UnificardEvent, 'eventId' | 'createdAt' | 'version'> & {
@@ -64,11 +82,10 @@ export class EventBus {
       version?: number;
     }
   ): Promise<void> {
-    // 🔴 GUARD CANÔNICO: Validar tenantId antes de qualquer processamento
     if (!event.tenantId || typeof event.tenantId !== 'string' || event.tenantId.trim() === '') {
       const error = new Error(
         `EVENT_CONTEXT_SAFETY_VIOLATION: tenantId is required and must be a non-empty string. ` +
-        `Event type: ${event.type}, EventId: ${event.eventId || 'N/A'}`
+          `Event type: ${event.type}, EventId: ${event.eventId || 'N/A'}`
       ) as Error & { statusCode?: number };
       error.statusCode = 400;
       canonicalLogger.error(null, 'Evento rejeitado: tenantId ausente ou inválido', {
@@ -86,60 +103,98 @@ export class EventBus {
       version: event.version ?? 1,
     };
 
-    // 🔴 LOG CANÔNICO: Evento publicado com contexto válido
     canonicalLogger.info(null, 'Publicando evento', {
       eventType: fullEvent.type,
       eventId: fullEvent.eventId,
       tenantId: fullEvent.tenantId,
     });
 
-    // ============================================================
-    // 1) Persistência antes do processamento (garante idempotência)
-    // ============================================================
-    await runQueryWithTenant(
-      fullEvent.tenantId,
-      `
+    let shouldRunHandlers = true;
+    try {
+      const inserted = await runQueriesWithTenant<{ event_id: string }>(
+        fullEvent.tenantId,
+        `
         INSERT INTO event_log (event_id, tenant_id, event_type, event_version, payload, metadata)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (event_id) DO NOTHING
+        RETURNING event_id
       `,
-      [
-        fullEvent.eventId,
-        fullEvent.tenantId,
-        fullEvent.type,
-        fullEvent.version,
-        fullEvent.payload,
-        fullEvent.metadata ?? {},
-      ]
-    );
+        [
+          fullEvent.eventId,
+          fullEvent.tenantId,
+          fullEvent.type,
+          fullEvent.version,
+          fullEvent.payload,
+          fullEvent.metadata ?? {},
+        ]
+      );
+      shouldRunHandlers = inserted.length > 0;
+    } catch (err: unknown) {
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err ? (err as { code?: string }).code : undefined;
+      if (code === '42P01') {
+        canonicalLogger.warn(null, 'event_log ausente — evento não persistido (dev / perfil CORE_ONLY)', {
+          eventType: fullEvent.type,
+          eventId: fullEvent.eventId,
+        });
+        shouldRunHandlers = true;
+      } else {
+        throw err;
+      }
+    }
 
-    // ============================================================
-    // 2) Executar handlers registrados
-    // ============================================================
-    const handlers = this.handlers.get(fullEvent.type) ?? [];
+    if (!shouldRunHandlers) {
+      canonicalLogger.info(null, 'Evento idempotente — handlers ignorados (event_log já existia)', {
+        eventType: fullEvent.type,
+        eventId: fullEvent.eventId,
+      });
+      return;
+    }
 
-    for (const handler of handlers) {
+    const handlers = this.handlersByType.get(fullEvent.type) ?? [];
+
+    for (const { handlerKey, handler } of handlers) {
       try {
         await handler(fullEvent);
       } catch (error) {
-        canonicalLogger.error(
-          null,
-          `Handler error for "${fullEvent.type}"`,
-          {
-            eventId: fullEvent.eventId,
+        const errMsg = error instanceof Error ? error.message : String(error);
+        canonicalLogger.error(null, `Handler error for "${fullEvent.type}"`, {
+          eventId: fullEvent.eventId,
+          tenantId: fullEvent.tenantId,
+          handlerKey,
+          error: errMsg,
+          timestamp: new Date().toISOString(),
+        });
+        try {
+          const recorded = await upsertHandlerFailure({
             tenantId: fullEvent.tenantId,
-            error: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString(),
+            eventId: fullEvent.eventId,
+            eventType: fullEvent.type,
+            handlerKey,
+            errorMessage: errMsg,
+          });
+          if (recorded) {
+            canonicalLogger.error(null, 'handler_failure_created', {
+              metric_event: 'handler_failure_created',
+              tenantId: fullEvent.tenantId,
+              eventId: fullEvent.eventId,
+              eventType: fullEvent.type,
+              handlerKey,
+              attempts: recorded.attempts,
+              handlerFailureStatus: recorded.status,
+            });
           }
-        );
+        } catch (persistErr) {
+          canonicalLogger.error(null, 'Falha ao persistir event_handler_failures', {
+            handlerKey,
+            eventId: fullEvent.eventId,
+            error: persistErr instanceof Error ? persistErr.message : String(persistErr),
+          });
+        }
       }
     }
   }
 
-  /**
-   * Alias semântico para publish — mantém compatibilidade
-   * com chamadas antigas que usam `eventBus.emit(...)`.
-   */
   async emit(
     event: Omit<UnificardEvent, 'eventId' | 'createdAt' | 'version'> & {
       eventId?: string;
@@ -151,7 +206,3 @@ export class EventBus {
 }
 
 export const eventBus = new EventBus();
-
-// ⚠️ REGISTRO DE HANDLERS FOI MOVIDO PARA register-handlers.ts
-// Isso evita circular imports e problemas de TDZ (Temporal Dead Zone)
-// Os handlers são registrados no bootstrap (server.ts) DEPOIS de tudo estar inicializado

@@ -35,16 +35,14 @@ class InvoiceService {
 
     // 2. Verificar se já existe invoice para este payout
     const existing = await invoiceRepository.findByPayoutOrderId(tenantId, payoutOrderId);
-    if (existing && existing.status !== 'CANCELLED') {
+    if (existing && existing.status !== 'cancelled') {
       throw new ConflictError('Já existe invoice para este payout');
     }
 
-    // 3. Buscar ledger entries para calcular valores
-    const { ledgerService } = await import('../ledger/ledger.service');
+    // 3. Buscar entradas no bank_ledger (SSOT) para calcular valores
+    const { bankLedgerRepository } = await import('../bank/bank-ledger.repository');
     const ledgerEntries = await Promise.all(
-      payoutOrder.ledgerEntryIds.map((entryId) =>
-        ledgerService.getEntryById(tenantId, entryId).catch(() => null)
-      )
+      payoutOrder.ledgerEntryIds.map((entryId) => bankLedgerRepository.getEntryById(tenantId, entryId))
     );
 
     const validEntries = ledgerEntries.filter((e) => e !== null) as any[];
@@ -65,7 +63,7 @@ class InvoiceService {
       const itemId = entry.entryId.substring(0, 8);
       items.push({
         itemId,
-        description: `Serviço - ${entry.entryType}`,
+        description: `Serviço - ${entry.entryType} (bank_ledger)`,
         quantity: 1,
         unitPriceCents: entry.amountCents,
         totalCents: entry.amountCents,
@@ -109,7 +107,7 @@ class InvoiceService {
     let actorId: string;
     let recipientActorId: string;
 
-    if (input.invoiceType === 'SERVICE_PROVIDER') {
+    if (input.invoiceType === 'service_provider') {
       actorId = payoutOrder.actorId; // Provider
       recipientActorId = 'system:platform'; // Plataforma
     } else {
@@ -200,14 +198,14 @@ class InvoiceService {
       throw new NotFoundError('Invoice não encontrado');
     }
 
-    if (invoice.status !== 'DRAFT') {
+    if (invoice.status !== 'draft') {
       throw new BadRequestError(`Invoice deve estar DRAFT para emitir (status atual: ${invoice.status})`);
     }
 
     const issued = await invoiceRepository.updateStatus(
       tenantId,
       invoiceId,
-      'ISSUED',
+      'issued',
       input.issuedAt || new Date()
     );
 
@@ -255,14 +253,14 @@ class InvoiceService {
       throw new NotFoundError('Invoice não encontrado');
     }
 
-    if (invoice.status === 'ISSUED') {
+    if (invoice.status === 'issued') {
       throw new BadRequestError('Invoice emitido não pode ser cancelado');
     }
 
     const cancelled = await invoiceRepository.updateStatus(
       tenantId,
       invoiceId,
-      'CANCELLED',
+      'cancelled',
       null,
       new Date(),
       input.cancellationReason

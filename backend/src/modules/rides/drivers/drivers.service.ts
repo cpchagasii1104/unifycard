@@ -1,10 +1,37 @@
 // src/modules/rides/drivers/drivers.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from "@core/db";
-import { eventBus } from "@core/events/event-bus";
+import type { PoolClient } from "pg";
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from "@core/db";
 import { BadRequestError, NotFoundError, ForbiddenError } from "@core/errors";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 
 export class DriversService {
+  private async suspendDriverInClient(
+    client: PoolClient,
+    tenantId: string,
+    driverId: string,
+    reason: string
+  ) {
+    const res = await client.query(
+      `
+        UPDATE rides_drivers
+        SET status = 'suspended', updated_at = now()
+        WHERE tenant_id = $1 AND driver_id = $2
+        RETURNING *
+      `,
+      [tenantId, driverId]
+    );
+    const updated = res.rows[0];
+    if (!updated) {
+      throw new NotFoundError("Motorista não encontrado.");
+    }
+    await publishRideEventOutbox(client, {
+      type: "rides.driver.suspended",
+      tenantId,
+      payload: { driverId, reason },
+    });
+    return updated;
+  }
 
   // ============================================================================
   // 🔹 1. Criar motorista (status = pending)
@@ -21,29 +48,30 @@ export class DriversService {
 
     if (exists) throw new BadRequestError("Usuário já é motorista.");
 
-    const driver = await runQueryWithTenant<any>(tenantId, {
-      text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         INSERT INTO rides_drivers (
           tenant_id, user_id,
           status, level,
-          createdAt
+          created_at
         )
         VALUES ($1,$2,'pending','bronze',now())
         RETURNING *
       `,
-      values: [tenantId, userId],
+        [tenantId, userId]
+      );
+      const driver = res.rows[0];
+      await publishRideEventOutbox(client, {
+        type: "rides.driver.created",
+        tenantId,
+        payload: {
+          driverId: driver?.driver_id,
+          userId,
+        },
+      });
+      return driver;
     });
-
-    await eventBus.emit({
-      type: "rides.driver.created",
-      tenantId,
-      payload: {
-        driverId: driver?.driver_id,
-        userId,
-      },
-    });
-
-    return driver;
   }
 
   // ============================================================================
@@ -56,12 +84,13 @@ export class DriversService {
       throw new BadRequestError("Tipo de documento inválido.");
     }
 
-    await runQueryWithTenant(tenantId, {
-      text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
         INSERT INTO rides_driver_documents (
           tenant_id, driver_id, type,
           number, expiresAt, file_url, extra,
-          createdAt
+          created_at
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7, now())
         ON CONFLICT (tenant_id, driver_id, type)
@@ -70,15 +99,16 @@ export class DriversService {
           expiresAt = EXCLUDED.expiresAt,
           file_url = EXCLUDED.file_url,
           extra = EXCLUDED.extra,
-          updatedAt = now()
+          updated_at = now()
       `,
-      values: [tenantId, driverId, type, number, expiresAt, fileUrl, extra || {}],
-    });
+        [tenantId, driverId, type, number, expiresAt, fileUrl, extra || {}]
+      );
 
-    await eventBus.emit({
-      type: "rides.driver.document_uploaded",
-      tenantId,
-      payload: { driverId, type },
+      await publishRideEventOutbox(client, {
+        type: "rides.driver.document_uploaded",
+        tenantId,
+        payload: { driverId, type },
+      });
     });
 
     return { ok: true };
@@ -110,46 +140,36 @@ export class DriversService {
       }
     }
 
-    const updated = await runQueryWithTenant<any>(tenantId, {
-      text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_drivers
-        SET status = 'approved', updatedAt = now()
+        SET status = 'approved', updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
-      values: [tenantId, driverId],
+        [tenantId, driverId]
+      );
+      const updated = res.rows[0];
+      if (!updated) {
+        throw new NotFoundError("Motorista não encontrado.");
+      }
+      await publishRideEventOutbox(client, {
+        type: "rides.driver.approved",
+        tenantId,
+        payload: { driverId },
+      });
+      return updated;
     });
-
-    await eventBus.emit({
-      type: "rides.driver.approved",
-      tenantId,
-      payload: { driverId },
-    });
-
-    return updated;
   }
 
   // ============================================================================
   // 🔹 4. Suspender motorista
   // ============================================================================
   async suspendDriver(tenantId: string, driverId: string, reason: string) {
-    const updated = await runQueryWithTenant<any>(tenantId, {
-      text: `
-        UPDATE rides_drivers
-        SET status = 'suspended', updatedAt = now()
-        WHERE tenant_id = $1 AND driver_id = $2
-        RETURNING *
-      `,
-      values: [tenantId, driverId],
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      return this.suspendDriverInClient(client, tenantId, driverId, reason);
     });
-
-    await eventBus.emit({
-      type: "rides.driver.suspended",
-      tenantId,
-      payload: { driverId, reason },
-    });
-
-    return updated;
   }
 
   // ============================================================================
@@ -170,16 +190,18 @@ export class DriversService {
     );
 
     for (const doc of expired) {
-      await this.suspendDriver(
-        tenantId,
-        doc.driver_id,
-        `Documento vencido: ${doc.type}`
-      );
-
-      await eventBus.emit({
-        type: "rides.driver.documents.expired",
-        tenantId,
-        payload: { driverId: doc.driver_id, type: doc.type },
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await this.suspendDriverInClient(
+          client,
+          tenantId,
+          doc.driver_id,
+          `Documento vencido: ${doc.type}`
+        );
+        await publishRideEventOutbox(client, {
+          type: "rides.driver.documents.expired",
+          tenantId,
+          payload: { driverId: doc.driver_id, type: doc.type },
+        });
       });
     }
 
@@ -228,7 +250,7 @@ export class DriversService {
           ) AS total_rides
         FROM rides_drivers d
         WHERE d.tenant_id = $1
-        ORDER BY d.createdAt DESC
+        ORDER BY d.created_at DESC
       `,
       values: [tenantId],
     });
@@ -242,7 +264,7 @@ export class DriversService {
           status = COALESCE($3, status),
           level = COALESCE($4, level),
           active_vehicle_id = COALESCE($5, active_vehicle_id),
-          updatedAt = now()
+          updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
@@ -267,4 +289,3 @@ export class DriversService {
 }
 
 export const driversService = new DriversService();
-

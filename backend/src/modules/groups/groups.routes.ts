@@ -121,7 +121,7 @@ async function requireGroupOwnerOrPermission(
     const group = await groupsService.getGroup(tenantId, groupId);
     if (group) {
       // ActionContext é obrigatório (V2)
-      const isOwner = group.ownerUserId === req.actionContext.actorId;
+      const isOwner = group.ownerActorId === req.actionContext.actorId;
       
       if (isOwner) {
         /**
@@ -136,7 +136,7 @@ async function requireGroupOwnerOrPermission(
           actorId,
           userId: userIdForCheck,
           groupId,
-          ownerUserId: group.ownerUserId,
+          ownerActorId: group.ownerActorId,
           permission,
           action: 'group_owner_bypass',
         }, 'Group owner access granted (bypass RBAC)');

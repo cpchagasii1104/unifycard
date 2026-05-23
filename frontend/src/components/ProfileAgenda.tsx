@@ -3,7 +3,7 @@
 // Agenda unificada por ACTOR ATIVO
 // 🔴 REGRA: Agenda pertence ao activeActor, não à pessoa física/jurídica
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import {
   listAvailabilities,
@@ -18,7 +18,7 @@ import {
   type AvailabilityConflict,
   type AvailabilityOwnerType,
 } from '../api/availability';
-import type { AvailabilitySchedule } from '../api/categories';
+import { updateProfessionalProfile, type AvailabilitySchedule } from '../api/categories';
 import { useProfileAgendaState } from '../hooks/useProfileAgendaState';
 import { useProfileAgendaLogic } from '../hooks/useProfileAgendaLogic';
 import ProfileAgendaForm from './ProfileAgendaForm';
@@ -131,24 +131,55 @@ export default function ProfileAgenda() {
     }
   };
 
-  // 🔴 CORE TEMPORAL: Handler para mudanças no schedule (INPUT DECLARATIVO)
-  // Schedule é apenas INPUT declarativo - NÃO é salvo em availability.metadata
-  // A persistência real de availability ocorre via Core canônico (sem schedule em metadata)
-  const handleScheduleChange = async (newSchedule: AvailabilitySchedule) => {
+  // 🔴 CORE TEMPORAL: schedule é INPUT DECLARATIVO. Persistência respeitando
+  // AGENDA_UNIVERSAL_CONTRACT:
+  //   - Schedule do profissional persiste em professional_profile.availability
+  //     (preferências declaradas — NÃO é verdade temporal)
+  //   - Verdade temporal continua exclusivamente em unified_availability
+  //     (criada via Core canônico em frente futura "confirmar e ativar")
+  //
+  // 2026-05-15: implementada persistência de schedule via updateProfessionalProfile
+  // com debounce (evita save a cada toggle do user).
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleScheduleChange = useCallback(async (newSchedule: AvailabilitySchedule) => {
     if (!activeActor) {
       setError('Actor não encontrado');
       return;
     }
 
-    // 🔴 CORE TEMPORAL: Apenas atualizar estado local
-    // NÃO criar/atualizar availability com schedule em metadata
-    // Schedule é INPUT DECLARATIVO, não verdade temporal
+    // Atualizar estado local imediatamente (UX responsiva)
     setSchedule(newSchedule);
-    
-    // 🔴 NOTA: A persistência real de availability deve ocorrer via Core canônico
-    // quando o usuário confirmar/ativar horários específicos, não aqui
-    // Este componente apenas coleta INPUT declarativo de preferências
-  };
+
+    // Apenas user actor (PF) persiste schedule profissional — pages têm agenda
+    // própria via outro caminho. Schedule é dimensão da PESSOA, não da empresa.
+    if (activeActor.actor_type !== 'user') return;
+
+    // Debounce: salvar 700ms após última mudança
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus('saving');
+
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await updateProfessionalProfile({ availability: newSchedule });
+        setSaveStatus('saved');
+        // Voltar para 'idle' depois de 2s
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch (err) {
+        console.error('[ProfileAgenda] Erro ao salvar schedule:', err);
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
+    }, 700);
+  }, [activeActor, setSchedule, setError]);
+
+  // Limpar timer ao desmontar
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
 
   // 🔴 REGRA: Sem activeActor, não renderizar agenda
@@ -194,22 +225,36 @@ export default function ProfileAgenda() {
   const isEmpty = availabilities.length === 0 && Object.keys(schedule).length === 0;
 
   return (
-    <ProfileAgendaForm
-      activeActor={activeActor}
-      availabilities={availabilities}
-      bookings={bookings}
-      participantsMap={participantsMap}
-      schedule={schedule}
-      isEmpty={isEmpty}
-      formatDate={formatDate}
-      getStatusLabel={getStatusLabel}
-      getStatusColor={getStatusColor}
-      handleScheduleChange={handleScheduleChange}
-      onContextChange={(dayKey, slotIndex, context) => {
-        // 🔴 UX TEMPORAL CANÔNICO: Metadata de contexto será persistida junto com availability
-        // Este callback permite rastrear mudanças de contexto para persistência futura
-        // Por enquanto, apenas armazenamos localmente (será persistido quando schedule for salvo)
-      }}
-    />
+    <div className="profile-agenda-wrapper">
+      {/* Indicador de save status (schedule declarativo). Discreto. */}
+      {saveStatus !== 'idle' && (
+        <div
+          className={`profile-agenda-save-status profile-agenda-save-status--${saveStatus}`}
+          role="status"
+          aria-live="polite"
+        >
+          {saveStatus === 'saving' && '💾 Salvando preferências…'}
+          {saveStatus === 'saved' && '✓ Preferências salvas'}
+          {saveStatus === 'error' && '⚠️ Erro ao salvar — tente novamente'}
+        </div>
+      )}
+      <ProfileAgendaForm
+        activeActor={activeActor}
+        availabilities={availabilities}
+        bookings={bookings}
+        participantsMap={participantsMap}
+        schedule={schedule}
+        isEmpty={isEmpty}
+        formatDate={formatDate}
+        getStatusLabel={getStatusLabel}
+        getStatusColor={getStatusColor}
+        handleScheduleChange={handleScheduleChange}
+        onContextChange={(dayKey, slotIndex, context) => {
+          // 🔴 UX TEMPORAL CANÔNICO: Metadata de contexto será persistida junto com availability
+          // Este callback permite rastrear mudanças de contexto para persistência futura
+          // Por enquanto, apenas armazenamos localmente (será persistido quando schedule for salvo)
+        }}
+      />
+    </div>
   );
 }

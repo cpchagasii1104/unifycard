@@ -25,6 +25,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       const category = req.query.category as any;
       const validCategories = ['general', 'vision', 'dental', 'medications', 'mobility', 'mental', 'other'];
       
@@ -37,10 +38,10 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
 
       // TODO: DOMÍNIO ESPECIAL -> categories (core) - Substituir profileHealthTaxonomyRepository por categoriesService
       const taxonomies = category
-        ? await profileHealthTaxonomyRepository.findByCategory(req.tenant.id, category)
+        ? await profileHealthTaxonomyRepository.findByCategory(tenantId, category)
         : await Promise.all(
             validCategories.map((cat) =>
-              profileHealthTaxonomyRepository.findByCategory(req.tenant.id, cat as any)
+              profileHealthTaxonomyRepository.findByCategory(tenantId, cat as any)
             )
           ).then((results) => results.flat());
 
@@ -69,22 +70,23 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       const actorUtils = socialPortsRegistry.getActorUtils();
-      const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
+      const currentActor = await actorUtils.resolveActiveActorFromRequest(req, tenantId, {
         allowUserFallback: true,
         userId: req.actionContext.actorId,
       });
 
       const category = req.query.category as any;
       const facts = category
-        ? await profileHealthFactsRepository.findByCategory(req.tenant.id, currentActor.actor_id, category)
-        : await profileHealthFactsRepository.findByActorId(req.tenant.id, currentActor.actor_id);
+        ? await profileHealthFactsRepository.findByCategory(tenantId, currentActor.actor_id, category)
+        : await profileHealthFactsRepository.findByActorId(tenantId, currentActor.actor_id);
 
       // Enriquecer com informações da taxonomia
       // TODO: DOMÍNIO ESPECIAL -> categories (core) - Substituir profileHealthTaxonomyRepository por categoriesService
       const enrichedFacts = await Promise.all(
         facts.map(async (fact) => {
-          const taxonomy = await profileHealthTaxonomyRepository.findById(req.tenant.id, fact.taxonomyId);
+          const taxonomy = await profileHealthTaxonomyRepository.findById(tenantId, fact.taxonomyId);
           return {
             ...fact,
             taxonomy: taxonomy || null,
@@ -126,6 +128,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
@@ -135,7 +138,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       }
       actorId = actionContext.actorId;
 
-      const fact = await profileHealthFactsRepository.upsert(req.tenant.id, actorId, {
+      const fact = await profileHealthFactsRepository.upsert(tenantId, actorId, {
         taxonomyId: req.body.taxonomyId,
         valueText: req.body.valueText,
         valueNumber: req.body.valueNumber,
@@ -146,10 +149,10 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Enriquecer com taxonomia
       // TODO: DOMÍNIO ESPECIAL -> categories (core) - Substituir profileHealthTaxonomyRepository por categoriesService
-      const taxonomy = await profileHealthTaxonomyRepository.findById(req.tenant.id, fact.taxonomyId);
+      const taxonomy = await profileHealthTaxonomyRepository.findById(tenantId, fact.taxonomyId);
 
       fastify.log.info({
-        tenantId: req.tenant.id,
+        tenantId,
         actorId: actorId,
         factId: fact.factId,
         taxonomyId: fact.taxonomyId,
@@ -186,6 +189,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
@@ -195,10 +199,10 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       }
       actorId = actionContext.actorId;
 
-      await profileHealthFactsRepository.delete(req.tenant.id, actorId, req.params.id);
+      await profileHealthFactsRepository.delete(tenantId, actorId, req.params.id);
 
       fastify.log.info({
-        tenantId: req.tenant.id,
+        tenantId,
         actorId: actorId,
         factId: req.params.id,
       }, 'DELETE /profile/health/facts/:id - Sucesso');
@@ -228,8 +232,9 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       const actorUtils = socialPortsRegistry.getActorUtils();
-      const currentActor = await actorUtils.resolveActiveActorFromRequest(req, req.tenant.id, {
+      const currentActor = await actorUtils.resolveActiveActorFromRequest(req, tenantId, {
         allowUserFallback: true,
         userId: req.actionContext.actorId,
       });
@@ -239,13 +244,13 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       const sectionFilter = section && validSections.includes(section) ? (section as any) : undefined;
 
       const declarations = await profileHealthService.getDeclarations(
-        req.tenant.id,
+        tenantId,
         currentActor.actor_id,
         sectionFilter
       );
 
       fastify.log.info({
-        tenantId: req.tenant.id,
+        tenantId,
         actorId: currentActor.actor_id,
         count: declarations.length,
       }, 'GET /profile/health/declarations - Sucesso');
@@ -276,6 +281,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
@@ -294,10 +300,10 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const declaration = await profileHealthService.createDeclaration(req.tenant.id, actorId, input);
+      const declaration = await profileHealthService.createDeclaration(tenantId, actorId, input);
 
       fastify.log.info({
-        tenantId: req.tenant.id,
+        tenantId,
         actorId: actorId,
         declarationId: declaration.id,
       }, 'POST /profile/health/declarations - Sucesso');
@@ -327,6 +333,7 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
+      const tenantId = req.tenant.id;
       let actorId: string;
       const actionContext = (req as any).actionContext;
 
@@ -336,10 +343,10 @@ const profileHealthRoutes: FastifyPluginAsync = async (fastify) => {
       }
       actorId = actionContext.actorId;
 
-      await profileHealthService.deleteDeclaration(req.tenant.id, actorId, req.params.id);
+      await profileHealthService.deleteDeclaration(tenantId, actorId, req.params.id);
 
       fastify.log.info({
-        tenantId: req.tenant.id,
+        tenantId,
         actorId: actorId,
         declarationId: req.params.id,
       }, 'DELETE /profile/health/declarations/:id - Sucesso');

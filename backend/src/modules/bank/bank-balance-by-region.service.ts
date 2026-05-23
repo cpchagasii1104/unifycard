@@ -141,7 +141,7 @@ class BankBalanceByRegionService {
         regionName,
         accountId: row.account_id,
         currency: currency ?? 'BRL',
-        balance: balance.balance,
+        balance: balance.balanceCents,
         lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
         transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
       });
@@ -235,7 +235,7 @@ class BankBalanceByRegionService {
       regionName,
       accountId: row.account_id,
       currency,
-      balance: balance.balance,
+      balance: balance.balanceCents,
       lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
       transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
     };
@@ -322,25 +322,25 @@ class BankBalanceByRegionService {
     let totalDebits = 0;
 
     for (const tx of transactions) {
-      const amount = parseFloat(tx.amount);
+      const amountCents = parseInt(tx.amountCents, 10);
       const isCredit = tx.to_account_id === fund.accountId;
 
       if (isCredit) {
-        totalCredits += amount;
+        totalCredits += amountCents;
         entries.push({
           transactionId: tx.transaction_id,
           type: 'credit',
-          amount,
+          amountCents,
           description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
           createdAt: tx.createdAt.toISOString(),
           metadata: tx.metadata,
         });
       } else {
-        totalDebits += amount;
+        totalDebits += amountCents;
         entries.push({
           transactionId: tx.transaction_id,
           type: 'debit',
-          amount,
+          amountCents,
           description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
           createdAt: tx.createdAt.toISOString(),
           metadata: tx.metadata,

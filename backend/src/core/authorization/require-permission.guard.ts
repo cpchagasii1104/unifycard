@@ -3,7 +3,6 @@
 // Guard específico para verificação de permissões em rotas
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { authorizationService } from './authorization.service';
 import type { PermissionKey } from './permission-keys';
 import { PERMISSION_CAPABILITIES, isValidPermissionKey } from './permission-keys';
 
@@ -46,6 +45,13 @@ export function requirePermission(
     const tenantId = req.tenant.id;
     // ActionContext é obrigatório (V2) - usar apenas actorId
     const actorId = actionContext.actorId;
+    const userId = (req as { user?: { id?: string } }).user?.id;
+    if (!userId) {
+      return reply.status(401).send({
+        error: 'Authentication required',
+        hint: 'Permission guard requires an authenticated user (req.user.id)',
+      });
+    }
 
     // Verificar capability requerida pelo mapa canônico
     const requiredCapability = PERMISSION_CAPABILITIES[permissionKey];
@@ -66,12 +72,17 @@ export function requirePermission(
       }
     }
 
-    // Verificar permissão específica (ownership/delegação)
-    const authResult = await authorizationService.canActAs(
-      tenantId,
+    // Permissão canónica + quarentena §4.8.4: delegar na fachada modules (N3)
+    const { authorityService } = await import('@modules/authority/authority.service');
+    const authResult = await authorityService.canPerformAction(
       actorId,
-      actorId,
-      permissionKey
+      permissionKey,
+      undefined,
+      {
+        tenantId,
+        userId,
+        scope: actionContext.scope,
+      }
     );
 
     if (!authResult.allowed) {

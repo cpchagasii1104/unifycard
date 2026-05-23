@@ -2,6 +2,8 @@
 // SPRINT 36.3: BANK SAFETY LAYER - WebAuthn Step-Up Utility
 // Util para step-up authentication via WebAuthn/Passkeys
 
+import { apiFetch } from '../api/client';
+
 /**
  * ⚠️ SCAFFOLDING: Este fluxo exige credencial WebAuthn registrada para enforcement real.
  * Se não houver credencial, retorna erro explícito.
@@ -16,19 +18,19 @@ export interface StepUpResult {
 
 /**
  * Inicia step-up authentication via WebAuthn
- * 
+ *
  * Fluxo:
  * 1. Solicita challenge do backend
  * 2. Usa navigator.credentials.get() para obter assertion
  * 3. Envia assertion para backend para verificação
- * 
+ *
  * ⚠️ Se não houver credencial registrada, retorna erro explícito.
  * ⚠️ Se usuário cancelar, retorna erro explícito.
  * ⚠️ Não finge sucesso.
  */
 export async function startStepUp(
   userId: string,
-  apiBaseUrl: string = 'http://localhost:3000'
+  _apiBaseUrl: string = 'http://localhost:3000'
 ): Promise<StepUpResult> {
   try {
     // 1. Verificar suporte do browser
@@ -40,21 +42,16 @@ export async function startStepUp(
       };
     }
 
-    // 2. Solicitar challenge do backend
-    const challengeResponse = await fetch(`${apiBaseUrl}/api/auth/webauthn/challenge`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-        'x-tenant-id': localStorage.getItem('tenantId') || '',
-      },
-      body: JSON.stringify({ userId }),
-    });
-
-    if (!challengeResponse.ok) {
-      const errorData = await challengeResponse.json();
-      
-      if (errorData.errorCode === 'WEBAUTHN_NOT_REGISTERED') {
+    // 2. Solicitar challenge do backend (apiFetch → tenant + ActionContext)
+    let challengeData: { challenge: string };
+    try {
+      const challengeResponse = await apiFetch('/api/auth/webauthn/challenge', {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+      challengeData = await challengeResponse.json();
+    } catch (e: any) {
+      if (e?.errorCode === 'WEBAUTHN_NOT_REGISTERED') {
         return {
           verified: false,
           error: 'Credencial WebAuthn não registrada',
@@ -62,14 +59,13 @@ export async function startStepUp(
         };
       }
 
+      const msg = e?.message || 'Erro ao criar challenge';
       return {
         verified: false,
-        error: errorData.error || 'Erro ao criar challenge',
+        error: msg,
         errorCode: 'UNKNOWN_ERROR',
       };
     }
-
-    const challengeData = await challengeResponse.json();
 
     // 3. Obter assertion do authenticator
     const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
@@ -129,30 +125,23 @@ export async function startStepUp(
     };
 
     // 5. Enviar assertion para backend para verificação
-    const verifyResponse = await fetch(`${apiBaseUrl}/api/auth/webauthn/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-        'x-tenant-id': localStorage.getItem('tenantId') || '',
-      },
-      body: JSON.stringify(assertionData),
-    });
+    try {
+      const verifyResponse = await apiFetch('/api/auth/webauthn/verify', {
+        method: 'POST',
+        body: JSON.stringify(assertionData),
+      });
+      const verifyData = await verifyResponse.json();
 
-    if (!verifyResponse.ok) {
-      const errorData = await verifyResponse.json();
+      return {
+        verified: verifyData.verified === true,
+      };
+    } catch (e: any) {
       return {
         verified: false,
-        error: errorData.error || 'Erro ao verificar assertion',
-        errorCode: errorData.errorCode || 'UNKNOWN_ERROR',
+        error: e?.message || 'Erro ao verificar assertion',
+        errorCode: e?.errorCode || 'UNKNOWN_ERROR',
       };
     }
-
-    const verifyData = await verifyResponse.json();
-
-    return {
-      verified: verifyData.verified === true,
-    };
   } catch (error: any) {
     console.error('[WebAuthn] Erro no step-up:', error);
     return {
@@ -168,21 +157,12 @@ export async function startStepUp(
  */
 export async function checkWebAuthnStatus(
   userId: string,
-  apiBaseUrl: string = 'http://localhost:3000'
+  _apiBaseUrl: string = 'http://localhost:3000'
 ): Promise<{ hasCredential: boolean }> {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/webauthn/status/${userId}`, {
+    const response = await apiFetch(`/api/auth/webauthn/status/${userId}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-        'x-tenant-id': localStorage.getItem('tenantId') || '',
-      },
     });
-
-    if (!response.ok) {
-      return { hasCredential: false };
-    }
-
     const data = await response.json();
     return { hasCredential: data.hasCredential === true };
   } catch (error) {
@@ -190,10 +170,3 @@ export async function checkWebAuthnStatus(
     return { hasCredential: false };
   }
 }
-
-
-
-
-
-
-

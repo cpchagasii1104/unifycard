@@ -83,11 +83,16 @@ class InstantService {
     }
 
     // 2. Buscar workers online dessa categoria
+    if (input.latitude == null || input.longitude == null) {
+      throw new Error('Latitude e longitude são obrigatórios para busca de workers online');
+    }
+    const latitude = input.latitude;
+    const longitude = input.longitude;
     const workersMatched = await this.findOnlineWorkersByCategory(
       tenantId,
       input.categoryId,
-      input.latitude,
-      input.longitude
+      latitude,
+      longitude
     );
 
     if (workersMatched.length === 0) {
@@ -114,12 +119,12 @@ class InstantService {
       tenantId,
       customerUserId,
       categoryId: input.categoryId,
-      latitude: input.latitude,
-      longitude: input.longitude,
+      latitude,
+      longitude,
       description: input.description,
       status: 'pending',
       tempJobId: tempJob.jobId,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // Expira em 5 minutos
       metadata: {
         source: 'instant_mode',

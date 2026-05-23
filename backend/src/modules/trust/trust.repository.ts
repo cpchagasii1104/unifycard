@@ -12,6 +12,24 @@ import type {
   TrustEventFilters,
 } from './trust.types';
 
+// Colunas explícitas — nunca SELECT *
+const TRUST_PROFILE_COLS = `
+  profile_id, tenant_id, actor_id, current_score, risk_level,
+  total_events, positive_events, negative_events,
+  last_event_at, last_updated_at, created_at
+`.trim();
+
+const TRUST_EVENT_COLS = `
+  event_id, tenant_id, actor_id, event_type, severity,
+  score_impact, context_type, context_id, evidence_pack_id,
+  metadata, created_at
+`.trim();
+
+const TRUST_SNAPSHOT_COLS = `
+  snapshot_id, tenant_id, actor_id, score, risk_level,
+  triggered_by_event_id, metadata, created_at
+`.trim();
+
 interface TrustProfileRow {
   profile_id: string;
   tenant_id: string;
@@ -21,9 +39,9 @@ interface TrustProfileRow {
   total_events: number;
   positive_events: number;
   negative_events: number;
-  last_eventAt: Date | null;
-  last_updatedAt: Date;
-  createdAt: Date;
+  last_event_at: Date | null;
+  last_updated_at: Date;
+  created_at: Date;
 }
 
 interface TrustEventRow {
@@ -37,7 +55,7 @@ interface TrustEventRow {
   context_id: string;
   evidence_pack_id: string;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 interface TrustScoreSnapshotRow {
@@ -48,7 +66,7 @@ interface TrustScoreSnapshotRow {
   risk_level: string;
   triggered_by_event_id: string | null;
   metadata: any;
-  createdAt: Date;
+  created_at: Date;
 }
 
 class TrustRepository {
@@ -62,9 +80,9 @@ class TrustRepository {
       totalEvents: row.total_events,
       positiveEvents: row.positive_events,
       negativeEvents: row.negative_events,
-      lastEventAt: row.last_eventAt,
-      lastUpdatedAt: row.last_updatedAt,
-      createdAt: row.createdAt.toISOString(),
+      lastEventAt: row.last_event_at,
+      lastupdatedAt: row.last_updated_at instanceof Date ? row.last_updated_at.toISOString() : String(row.last_updated_at),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -80,7 +98,7 @@ class TrustRepository {
       contextId: row.context_id,
       evidencePackId: row.evidence_pack_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -93,70 +111,50 @@ class TrustRepository {
       riskLevel: row.risk_level as any,
       triggeredByEventId: row.triggered_by_event_id,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
     };
   }
 
-  /**
-   * Cria ou obtém trust profile para um actor
-   */
   async getOrCreateProfile(tenantId: string, actorId: string): Promise<TrustProfile> {
-    // Tentar buscar profile existente
     const existing = await this.findByActor(tenantId, actorId);
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
-    // Criar novo profile com score inicial neutro (70)
     const { randomUUID } = await import('crypto');
     const profileId = randomUUID();
 
-    const rows = await runQueriesWithTenant(
-      tenantId,
-      [
-        {
-          text: `
-            INSERT INTO trust_profiles (
-              profile_id, tenant_id, actor_id, current_score, risk_level
-            ) VALUES (
-              $1, $2, $3, $4, $5
-            ) RETURNING *
-          `,
-          values: [profileId, tenantId, actorId, 70, 'MEDIUM'],
-        },
-      ],
-      'trust.repository.getOrCreateProfile'
-    );
-
-    return this.toTrustProfile(rows[0] as TrustProfileRow);
-  }
-
-  /**
-   * Busca trust profile por actor
-   */
-  async findByActor(tenantId: string, actorId: string): Promise<TrustProfile | null> {
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<TrustProfileRow>(
       tenantId,
       {
         text: `
-          SELECT * FROM trust_profiles
+          INSERT INTO trust_profiles (
+            profile_id, tenant_id, actor_id, current_score, risk_level
+          ) VALUES ($1, $2, $3, $4, $5)
+          RETURNING ${TRUST_PROFILE_COLS}
+        `,
+        values: [profileId, tenantId, actorId, 70, 'MEDIUM'],
+      }
+    );
+
+    return this.toTrustProfile(rows[0]);
+  }
+
+  async findByActor(tenantId: string, actorId: string): Promise<TrustProfile | null> {
+    const row = await runQueryWithTenant<TrustProfileRow>(
+      tenantId,
+      {
+        text: `
+          SELECT ${TRUST_PROFILE_COLS}
+          FROM trust_profiles
           WHERE tenant_id = $1 AND actor_id = $2
         `,
         values: [tenantId, actorId],
-      },
-      'trust.repository.findByActor'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toTrustProfile(rows[0] as TrustProfileRow);
+    if (!row) return null;
+    return this.toTrustProfile(row);
   }
 
-  /**
-   * Atualiza score e risk level do profile
-   */
   async updateScore(
     tenantId: string,
     actorId: string,
@@ -164,46 +162,46 @@ class TrustRepository {
     riskLevel: string,
     isPositive: boolean
   ): Promise<TrustProfile> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<TrustProfileRow>(
       tenantId,
       {
         text: `
           UPDATE trust_profiles
-          SET 
+          SET
             current_score = $3,
             risk_level = $4,
             total_events = total_events + 1,
             ${isPositive ? 'positive_events = positive_events + 1' : 'negative_events = negative_events + 1'},
-            last_eventAt = NOW(),
-            last_updatedAt = NOW()
+            last_event_at = NOW(),
+            last_updated_at = NOW()
           WHERE tenant_id = $1 AND actor_id = $2
-          RETURNING *
+          RETURNING ${TRUST_PROFILE_COLS}
         `,
         values: [tenantId, actorId, newScore, riskLevel],
-      },
-      'trust.repository.updateScore'
+      }
     );
 
-    return this.toTrustProfile(rows[0] as TrustProfileRow);
+    if (!row) throw new Error('updateScore: no row updated');
+    return this.toTrustProfile(row);
   }
 
-  /**
-   * Cria trust event (append-only)
-   */
-  async createEvent(tenantId: string, input: RegisterTrustEventInput, scoreImpact: number): Promise<TrustEvent> {
+  async createEvent(
+    tenantId: string,
+    input: RegisterTrustEventInput,
+    scoreImpact: number
+  ): Promise<TrustEvent> {
     const { randomUUID } = await import('crypto');
     const eventId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<TrustEventRow>(
       tenantId,
       {
         text: `
           INSERT INTO trust_events (
             event_id, tenant_id, actor_id, event_type, severity,
             score_impact, context_type, context_id, evidence_pack_id, metadata
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-          ) RETURNING *
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING ${TRUST_EVENT_COLS}
         `,
         values: [
           eventId,
@@ -217,16 +215,13 @@ class TrustRepository {
           input.evidencePackId,
           JSON.stringify(input.metadata || {}),
         ],
-      },
-      'trust.repository.createEvent'
+      }
     );
 
-    return this.toTrustEvent(rows[0] as TrustEventRow);
+    if (!row) throw new Error('createEvent: INSERT did not return row');
+    return this.toTrustEvent(row);
   }
 
-  /**
-   * Cria score snapshot (append-only)
-   */
   async createSnapshot(
     tenantId: string,
     actorId: string,
@@ -237,158 +232,111 @@ class TrustRepository {
     const { randomUUID } = await import('crypto');
     const snapshotId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<TrustScoreSnapshotRow>(
       tenantId,
       {
         text: `
           INSERT INTO trust_score_snapshots (
             snapshot_id, tenant_id, actor_id, score, risk_level,
             triggered_by_event_id
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6
-          ) RETURNING *
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING ${TRUST_SNAPSHOT_COLS}
         `,
         values: [snapshotId, tenantId, actorId, score, riskLevel, triggeredByEventId],
-      },
-      'trust.repository.createSnapshot'
+      }
     );
 
-    return this.toTrustScoreSnapshot(rows[0] as TrustScoreSnapshotRow);
+    if (!row) throw new Error('createSnapshot: INSERT did not return row');
+    return this.toTrustScoreSnapshot(row);
   }
 
-  /**
-   * Lista trust events com filtros
-   */
-  async listEvents(tenantId: string, filters: TrustEventFilters = {}): Promise<TrustEvent[]> {
+  async listEvents(
+    tenantId: string,
+    filters: TrustEventFilters = {}
+  ): Promise<TrustEvent[]> {
     const conditions: string[] = ['tenant_id = $1'];
     const values: any[] = [tenantId];
     let paramIndex = 2;
 
-    if (filters.actorId) {
-      conditions.push(`actor_id = $${paramIndex}`);
-      values.push(filters.actorId);
-      paramIndex++;
-    }
-
-    if (filters.eventType) {
-      conditions.push(`event_type = $${paramIndex}`);
-      values.push(filters.eventType);
-      paramIndex++;
-    }
-
-    if (filters.severity) {
-      conditions.push(`severity = $${paramIndex}`);
-      values.push(filters.severity);
-      paramIndex++;
-    }
-
-    if (filters.contextType) {
-      conditions.push(`context_type = $${paramIndex}`);
-      values.push(filters.contextType);
-      paramIndex++;
-    }
-
-    if (filters.contextId) {
-      conditions.push(`context_id = $${paramIndex}`);
-      values.push(filters.contextId);
-      paramIndex++;
-    }
+    if (filters.actorId) { conditions.push(`actor_id = $${paramIndex}`); values.push(filters.actorId); paramIndex++; }
+    if (filters.eventType) { conditions.push(`event_type = $${paramIndex}`); values.push(filters.eventType); paramIndex++; }
+    if (filters.severity) { conditions.push(`severity = $${paramIndex}`); values.push(filters.severity); paramIndex++; }
+    if (filters.contextType) { conditions.push(`context_type = $${paramIndex}`); values.push(filters.contextType); paramIndex++; }
+    if (filters.contextId) { conditions.push(`context_id = $${paramIndex}`); values.push(filters.contextId); paramIndex++; }
 
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<TrustEventRow>(
       tenantId,
       {
         text: `
-          SELECT * FROM trust_events
+          SELECT ${TRUST_EVENT_COLS}
+          FROM trust_events
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'trust.repository.listEvents'
+      }
     );
 
-    return rows.map((row) => this.toTrustEvent(row as TrustEventRow));
+    return rows.map((r) => this.toTrustEvent(r));
   }
 
-  /**
-   * Lista trust profiles com filtros
-   */
-  async listProfiles(tenantId: string, filters: TrustProfileFilters = {}): Promise<TrustProfile[]> {
+  async listProfiles(
+    tenantId: string,
+    filters: TrustProfileFilters = {}
+  ): Promise<TrustProfile[]> {
     const conditions: string[] = ['tenant_id = $1'];
     const values: any[] = [tenantId];
     let paramIndex = 2;
 
-    if (filters.actorId) {
-      conditions.push(`actor_id = $${paramIndex}`);
-      values.push(filters.actorId);
-      paramIndex++;
-    }
-
-    if (filters.riskLevel) {
-      conditions.push(`risk_level = $${paramIndex}`);
-      values.push(filters.riskLevel);
-      paramIndex++;
-    }
-
-    if (filters.minScore !== undefined) {
-      conditions.push(`current_score >= $${paramIndex}`);
-      values.push(filters.minScore);
-      paramIndex++;
-    }
-
-    if (filters.maxScore !== undefined) {
-      conditions.push(`current_score <= $${paramIndex}`);
-      values.push(filters.maxScore);
-      paramIndex++;
-    }
+    if (filters.actorId) { conditions.push(`actor_id = $${paramIndex}`); values.push(filters.actorId); paramIndex++; }
+    if (filters.riskLevel) { conditions.push(`risk_level = $${paramIndex}`); values.push(filters.riskLevel); paramIndex++; }
+    if (filters.minScore !== undefined) { conditions.push(`current_score >= $${paramIndex}`); values.push(filters.minScore); paramIndex++; }
+    if (filters.maxScore !== undefined) { conditions.push(`current_score <= $${paramIndex}`); values.push(filters.maxScore); paramIndex++; }
 
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<TrustProfileRow>(
       tenantId,
       {
         text: `
-          SELECT * FROM trust_profiles
+          SELECT ${TRUST_PROFILE_COLS}
+          FROM trust_profiles
           WHERE ${conditions.join(' AND ')}
           ORDER BY current_score DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'trust.repository.listProfiles'
+      }
     );
 
-    return rows.map((row) => this.toTrustProfile(row as TrustProfileRow));
+    return rows.map((r) => this.toTrustProfile(r));
   }
 
-  /**
-   * Lista score snapshots de um actor
-   */
   async listSnapshots(
     tenantId: string,
     actorId: string,
     limit: number = 100
   ): Promise<TrustScoreSnapshot[]> {
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<TrustScoreSnapshotRow>(
       tenantId,
       {
         text: `
-          SELECT * FROM trust_score_snapshots
+          SELECT ${TRUST_SNAPSHOT_COLS}
+          FROM trust_score_snapshots
           WHERE tenant_id = $1 AND actor_id = $2
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $3
         `,
         values: [tenantId, actorId, limit],
-      },
-      'trust.repository.listSnapshots'
+      }
     );
 
-    return rows.map((row) => this.toTrustScoreSnapshot(row as TrustScoreSnapshotRow));
+    return rows.map((r) => this.toTrustScoreSnapshot(r));
   }
 }
 

@@ -14,6 +14,13 @@ const actionContextPluginImpl: FastifyPluginAsync = async (fastify) => {
       return; // Deixar auth plugin tratar
     }
 
+    // Bootstrap de sessão: listar actors disponíveis sem actor ainda no cliente.
+    // Handler usa req.user.id (user_id) — ver social-2.0.routes GET /actors/available.
+    const rawPath = req.url.split('?')[0];
+    if (req.method === 'GET' && rawPath.endsWith('/social/actors/available')) {
+      return;
+    }
+
     await actionContextMiddleware(req, reply);
   });
 };

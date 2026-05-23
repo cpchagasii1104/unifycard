@@ -8,6 +8,7 @@ const canonicalProductModule: FastifyPluginAsync = async (fastify) => {
   await fastify.register(canonicalProductRoutes);
 };
 
+export { canonicalProductModule };
 export default canonicalProductModule;
 
 

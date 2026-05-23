@@ -12,6 +12,9 @@ import { humanMvpEventInstanceService } from './human-mvp-event-instance.service
 import { humanMvpActivityExecutionService } from './human-mvp-activity-execution.service';
 import type { CategoryContext } from '@unificard/contracts';
 
+/** Contexto de categoria aceito na API Human MVP (inclui 'person' além do canon) */
+export type HumanCategoryContext = CategoryContext | 'person';
+
 const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /human-mvp/skills
@@ -48,14 +51,14 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         // GUARD: Tenant obrigatório
-        if (!(req as any).tenant) {
+        if (!req.tenant) {
           return reply.status(401).send({
             ok: false,
             error: 'TENANT_REQUIRED',
           });
         }
 
-        const tenantId = (req as any).tenant.id;
+        const tenantId = req.tenant.id;
 
         // GUARD: ActionContext obrigatório (V2)
         if (!req.actionContext || !req.actionContext.actorId) {
@@ -69,12 +72,12 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
         // Resolver globalUserId a partir do actorId (temporário, até services migrarem para actorId)
         const { socialPortsRegistry } = await import('@core/social/ports-registry');
         const actorRepository = socialPortsRegistry.getActorRepository();
-        const actor = await actorRepository.findById(req.tenant.id, req.actionContext.actorId);
+        const actor = await actorRepository.findById(tenantId, req.actionContext.actorId);
         if (!actor || !actor.user_id) {
           return reply.status(404).send({ ok: false, message: 'Actor não encontrado ou não é do tipo user' });
         }
         const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-        const globalUserId = await resolveGlobalUserId(actor.user_id, req.tenant.id);
+        const globalUserId = await resolveGlobalUserId(actor.user_id, tenantId);
 
         // Validar input
         const { categoryId, context, personId } = req.body;
@@ -87,8 +90,8 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        // Validar context permitido
-        if (context !== 'person' && context !== 'professional') {
+        // Validar context permitido (person e professional aceitos neste endpoint)
+        if ((context as string) !== 'person' && (context as string) !== 'professional') {
           return reply.status(400).send({
             ok: false,
             error: 'INVALID_CONTEXT',
@@ -96,9 +99,9 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        // Criar Skill
+        // Criar Skill (context pode ser 'person' ou 'professional')
         const result = await humanMvpSkillService.createSkill(
-          { categoryId, context, personId },
+          { categoryId, context: context as HumanCategoryContext, personId },
           tenantId,
           globalUserId
         );
@@ -190,14 +193,14 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         // GUARD: Tenant obrigatório
-        if (!(req as any).tenant) {
+        if (!req.tenant) {
           return reply.status(401).send({
             ok: false,
             error: 'TENANT_REQUIRED',
           });
         }
 
-        const tenantId = (req as any).tenant.id;
+        const tenantId = req.tenant.id;
 
         // Validar input
         const { skillId, personId } = req.body;
@@ -275,7 +278,7 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Body: {
       categoryId: string;
-      context: CategoryContext;
+      context: HumanCategoryContext;
       originType: 'person' | 'system' | 'government';
     };
   }>(
@@ -296,14 +299,14 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         // GUARD: Tenant obrigatório
-        if (!(req as any).tenant) {
+        if (!req.tenant) {
           return reply.status(401).send({
             ok: false,
             error: 'TENANT_REQUIRED',
           });
         }
 
-        const tenantId = (req as any).tenant.id;
+        const tenantId = req.tenant.id;
 
         // Validar input
         const { categoryId, context, originType } = req.body;
@@ -317,8 +320,8 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Validar context permitido
-        const allowedContexts: CategoryContext[] = ['professional', 'person', 'interest'];
-        if (!allowedContexts.includes(context)) {
+        const allowedContexts: HumanCategoryContext[] = ['professional', 'person', 'interest'];
+        if (!allowedContexts.includes(context as HumanCategoryContext)) {
           return reply.status(400).send({
             ok: false,
             error: 'INVALID_CONTEXT',
@@ -336,9 +339,9 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        // Publicar Opportunity
+        // Publicar Opportunity (context pode ser person; core aceita CategoryContext)
         const result = await humanMvpOpportunityService.publishOpportunity(
-          { categoryId, context, originType },
+          { categoryId, context: context as CategoryContext, originType },
           tenantId
         );
 
@@ -439,14 +442,14 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         // GUARD: Tenant obrigatório
-        if (!(req as any).tenant) {
+        if (!req.tenant) {
           return reply.status(401).send({
             ok: false,
             error: 'TENANT_REQUIRED',
           });
         }
 
-        const tenantId = (req as any).tenant.id;
+        const tenantId = req.tenant.id;
         const { matchFoundEventId, matchedPersonId, scheduledAt } = req.body;
 
         // VALIDAÇÃO: Campos obrigatórios
@@ -557,14 +560,14 @@ const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         // GUARD: Tenant obrigatório
-        if (!(req as any).tenant) {
+        if (!req.tenant) {
           return reply.status(401).send({
             ok: false,
             error: 'TENANT_REQUIRED',
           });
         }
 
-        const tenantId = (req as any).tenant.id;
+        const tenantId = req.tenant.id;
         const { eventInstanceId } = req.body;
 
         // VALIDAÇÃO: Campo obrigatório

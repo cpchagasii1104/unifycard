@@ -76,13 +76,15 @@ export default function ProviderConsole() {
   const [dispatchStatuses, setDispatchStatuses] = useState<Map<string, DispatchStatus>>(new Map());
   const [processingDispatch, setProcessingDispatch] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
+  const [evaluationWindows, setEvaluationWindows] = useState<Map<string, any>>(new Map());
+  const [evaluations, setEvaluations] = useState<Map<string, any>>(new Map());
 
   // Verificar saúde do backend
   useEffect(() => {
     const checkHealth = async () => {
       try {
         const health = await checkBackendHealth();
-        setBackendOnline(health.status === 'ok');
+        setBackendOnline(health?.status === 'ok');
       } catch (err) {
         setBackendOnline(false);
       }
@@ -142,8 +144,11 @@ export default function ProviderConsole() {
           Promise.all(evaluationPromises),
         ]);
 
-        const windowsMap = new Map(windows.map((w: any) => [w.requestId, w.window]).filter(([_, w]: [string, any]) => w));
-        const evalsMap = new Map(evals.map((e: any) => [e.requestId, e.evaluations]));
+        const windowsEntries = windows
+          .map((w: any) => [w.requestId, w.window] as [string, any])
+          .filter(([, w]) => w != null);
+        const windowsMap = new Map<string, any>(windowsEntries);
+        const evalsMap = new Map<string, any>(evals.map((e: any) => [e.requestId, e.evaluations] as [string, any]));
 
         setEvaluationWindows(windowsMap);
         setEvaluations(evalsMap);

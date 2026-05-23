@@ -1,7 +1,7 @@
 // src/modules/rides/location/location.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from "@core/db";
-import { eventBus } from "@core/events/event-bus";
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from "@core/db";
+import { publishRideEventOutbox } from "../shared/publish-ride-event";
 import { BadRequestError, NotFoundError } from "@core/errors";
 import { availabilityService } from "../availability/availability.service";
 import { zonesService } from "../zones/zones.service";
@@ -29,13 +29,11 @@ export class LocationService {
       throw new BadRequestError("Motorista está offline.");
     }
 
-    // Atualizar posição geográfica
-    await runQueryWithTenant(
-      tenantId,
-      {
-        text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
       INSERT INTO rides_driver_locations (
-        tenant_id, driver_id, location, updatedAt
+        tenant_id, driver_id, location, updated_at
       )
       VALUES (
         $1, $2,
@@ -45,21 +43,20 @@ export class LocationService {
       ON CONFLICT (tenant_id, driver_id)
       DO UPDATE SET 
         location = EXCLUDED.location,
-        updatedAt = now()
+        updated_at = now()
       `,
-        values: [tenantId, driverId, lat, lng],
-      }
-    );
+        [tenantId, driverId, lat, lng]
+      );
 
-    // Emitir evento básico
-    await eventBus.emit({
-      type: "rides.driver.location.updated",
-      tenantId,
-      payload: {
-        driverId,
-        lat,
-        lng,
-      },
+      await publishRideEventOutbox(client, {
+        type: "rides.driver.location.updated",
+        tenantId,
+        payload: {
+          driverId,
+          lat,
+          lng,
+        },
+      });
     });
 
     // ------------------------------------------------------------
@@ -68,13 +65,15 @@ export class LocationService {
     const zone = await zonesService.findZoneByPoint(tenantId, lat, lng);
 
     if (zone) {
-      await eventBus.emit({
-        type: "rides.driver.zone.changed",
-        tenantId,
-        payload: {
-          driverId,
-          zoneId: zone.zone_id,
-        },
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: "rides.driver.zone.changed",
+          tenantId,
+          payload: {
+            driverId,
+            zoneId: zone.zone_id,
+          },
+        });
       });
     }
 
@@ -102,13 +101,15 @@ export class LocationService {
     );
 
     if (city) {
-      await eventBus.emit({
-        type: "rides.driver.city.changed",
-        tenantId,
-        payload: {
-          driverId,
-          cityId: city.city_id,
-        },
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: "rides.driver.city.changed",
+          tenantId,
+          payload: {
+            driverId,
+            cityId: city.city_id,
+          },
+        });
       });
     }
 
@@ -132,14 +133,16 @@ export class LocationService {
       // Forçar offline
       await availabilityService.goOffline(tenantId, driverId);
 
-      await eventBus.emit({
-        type: "rides.driver.forced_break",
-        tenantId,
-        payload: {
-          driverId,
-          reason: limitStateRow?.state.reason,
-          forcedBreakUntil: limitStateRow?.state.forced_break_until,
-        },
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: "rides.driver.forced_break",
+          tenantId,
+          payload: {
+            driverId,
+            reason: limitStateRow?.state.reason,
+            forcedBreakUntil: limitStateRow?.state.forced_break_until,
+          },
+        });
       });
 
       return {
@@ -175,14 +178,16 @@ export class LocationService {
         // ZONA QUENTE → sugira ao motorista
         suggestions = await demandService.suggestBetterZone(tenantId, driverId);
 
-        await eventBus.emit({
-          type: "rides.zone.hotspot",
-          tenantId,
-          payload: {
-            driverId,
-            zoneId: zone.zone_id,
-            pressure: pressureData.pressure,
-          },
+        await runTenantTransactionWithClient(tenantId, async (client) => {
+          await publishRideEventOutbox(client, {
+            type: "rides.zone.hotspot",
+            tenantId,
+            payload: {
+              driverId,
+              zoneId: zone.zone_id,
+              pressure: pressureData.pressure,
+            },
+          });
         });
       }
     }
@@ -201,14 +206,14 @@ export class LocationService {
   // 🔹 2. Última localização do motorista (para matching)
   // ================================================================================
   async getDriverLocation(tenantId: string, driverId: string) {
-    const row = await runQueryWithTenant<{ lat: number; lng: number; updatedAt: Date }>(
+    const row = await runQueryWithTenant<{ lat: number; lng: number; updated_at: Date }>(
       tenantId,
       {
         text: `
       SELECT 
         ST_Y(location::geometry) AS lat,
         ST_X(location::geometry) AS lng,
-        updatedAt
+        updated_at
       FROM rides_driver_locations
       WHERE tenant_id = $1 AND driver_id = $2
       `,
@@ -218,7 +223,7 @@ export class LocationService {
 
     if (!row) throw new NotFoundError("Localização não encontrada.");
 
-    return row;
+    return { lat: row.lat, lng: row.lng, updatedAt: row.updated_at };
   }
 
   async updateLocation(input: { tenantId: string; driverId: string; lat: number; lng: number }) {

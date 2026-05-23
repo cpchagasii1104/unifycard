@@ -21,24 +21,24 @@ console.log('🔵 STEP 5: dotenv.config() done');
 
 // Teste 2: Plugins (comentar um por vez se travar)
 console.log('🔵 STEP 6: Importing plugins...');
-import tenantPlugin from './plugins/tenant.plugin';
+import { tenantPlugin } from './plugins/tenant.plugin';
 console.log('🔵 STEP 7: tenantPlugin imported');
 
 import authPlugin from '@core/auth/auth.plugin';
 console.log('🔵 STEP 8: authPlugin imported');
 
-import errorHandlerPlugin from './plugins/error-handler.plugin';
+import { errorHandlerPlugin } from './plugins/error-handler.plugin';
 console.log('🔵 STEP 9: errorHandlerPlugin imported');
 
-import rbacPlugin from './plugins/rbac.plugin';
+import { rbacPlugin } from './plugins/rbac.plugin';
 console.log('🔵 STEP 10: rbacPlugin imported');
 
 // Teste 3: Módulos públicos
 console.log('🔵 STEP 11: Importing public modules...');
-import authModule from './core/auth/auth.module';
+import { authModule } from './core/auth/auth.module';
 console.log('🔵 STEP 12: authModule imported');
 
-import healthModule from './core/health/health.module';
+import { healthModule } from './core/health/health.module';
 console.log('🔵 STEP 13: healthModule imported');
 
 // Teste 4: Módulos protegidos - Core
@@ -61,14 +61,11 @@ console.log('🔵 STEP 19: reviewModule imported');
 import reputationModule from './core/reputation/reputation.module';
 console.log('🔵 STEP 20: reputationModule imported');
 
-import coreModule from './core/core.module';
+import { coreModule } from './core/core.module';
 console.log('🔵 STEP 21: coreModule imported');
 
 import dashboardModule from './core/dashboard/dashboard.module';
 console.log('🔵 STEP 22: dashboardModule imported');
-
-import fundModule from './core/economy/fund/fund.module';
-console.log('🔵 STEP 23: fundModule imported');
 
 import categoriesModule from './core/categories/categories.module';
 console.log('🔵 STEP 24: categoriesModule imported');
@@ -76,7 +73,7 @@ console.log('🔵 STEP 24: categoriesModule imported');
 import profileModule from './core/profile/profile.module';
 console.log('🔵 STEP 25: profileModule imported');
 
-import companiesModule from './core/companies/companies.module';
+import { companiesModule } from './core/companies/companies.module';
 console.log('🔵 STEP 26: companiesModule imported');
 
 import referralModule from './core/referral/referral.module';

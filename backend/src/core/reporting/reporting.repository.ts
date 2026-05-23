@@ -20,7 +20,7 @@ class ReportingRepository {
       INSERT INTO reports (
         id, reporter_user_id, target_type, target_id, module, tenant_id,
         reason_code, description, status, severity, risk_score,
-        createdAt, updatedAt
+        created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
@@ -74,7 +74,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE tenant_id = $1 AND reporter_user_id = $2
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $3 OFFSET $4
       `,
       [tenantId, reporterUserId, limit, offset]
@@ -148,7 +148,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE ${whereClause}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       params
@@ -156,7 +156,7 @@ class ReportingRepository {
 
     return {
       reports: result.rows.map((row) => this.toReport(row)),
-      total,
+      totalCents: total,
     };
   }
 
@@ -174,7 +174,7 @@ class ReportingRepository {
     const result = await pool.query<ReportRow>(
       `
       UPDATE reports
-      SET status = $1, updatedAt = $2, resolvedAt = $3
+      SET status = $1, updated_at = $2, resolved_at = $3
       WHERE id = $4 AND tenant_id = $5
       RETURNING *
       `,
@@ -198,7 +198,7 @@ class ReportingRepository {
     const result = await pool.query<ReportEventRow>(
       `
       INSERT INTO report_events (
-        id, report_id, actor_type, actor_id, event_type, metadata, createdAt
+        id, report_id, actor_type, actor_id, event_type, metadata, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
@@ -226,7 +226,7 @@ class ReportingRepository {
       SELECT *
       FROM report_events
       WHERE report_id = $1
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [reportId]
     );
@@ -258,7 +258,7 @@ class ReportingRepository {
       SELECT *
       FROM reports
       WHERE ${whereClause}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `,
       params
     );
@@ -287,7 +287,7 @@ class ReportingRepository {
       const result = await pool.query<RiskFlagRow>(
         `
         UPDATE risk_flags
-        SET risk_level = $1, risk_score = $2, last_evaluatedAt = $3
+        SET risk_level = $1, risk_score = $2, last_evaluated_at = $3
         WHERE id = $4
         RETURNING *
         `,
@@ -303,7 +303,7 @@ class ReportingRepository {
       `
       INSERT INTO risk_flags (
         id, target_type, target_id, module, tenant_id,
-        risk_level, risk_score, last_evaluatedAt, createdAt
+        risk_level, risk_score, last_evaluated_at, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
@@ -363,9 +363,9 @@ class ReportingRepository {
       status: row.status as any,
       severity: row.severity as any,
       risk_score: row.risk_score || undefined,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      resolvedAt: row.resolvedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resolvedAt: row.resolved_at || undefined,
     };
   }
 
@@ -377,7 +377,7 @@ class ReportingRepository {
       actor_id: row.actor_id || undefined,
       event_type: row.event_type as any,
       metadata: row.metadata || undefined,
-      createdAt: row.createdAt,
+      createdAt: row.created_at,
     };
   }
 
@@ -390,8 +390,8 @@ class ReportingRepository {
       tenant_id: row.tenant_id,
       risk_level: row.risk_level as any,
       risk_score: row.risk_score,
-      last_evaluatedAt: row.last_evaluatedAt,
-      createdAt: row.createdAt,
+      last_evaluatedAt: row.last_evaluated_at,
+      createdAt: row.created_at,
     };
   }
 }

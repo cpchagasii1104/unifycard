@@ -12,12 +12,19 @@ export class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
   public readonly isProduction: boolean;
+  public readonly details?: Record<string, unknown>;
 
-  constructor(statusCode: number, message: string, code?: string) {
+  constructor(
+    statusCode: number,
+    message: string,
+    code?: string,
+    details?: Record<string, unknown>
+  ) {
     super(message);
 
     this.statusCode = statusCode;
     this.code = code || ErrorCode.INTERNAL_ERROR;
+    this.details = details;
     this.isProduction = process.env.NODE_ENV === 'production';
 
     // Ajusta o nome do erro para o nome da classe

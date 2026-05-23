@@ -25,7 +25,7 @@ class EventLogSource implements CanonicalEventSource {
     try {
       // Construir query baseada em filtros
       let query = `
-        SELECT event_id, tenant_id, event_type, event_version, payload, metadata, createdAt
+        SELECT event_id, tenant_id, event_type, event_version, payload, metadata, created_at
         FROM event_log
         WHERE tenant_id = $1
       `;
@@ -49,19 +49,19 @@ class EventLogSource implements CanonicalEventSource {
 
       // Filtro por data de início
       if (filters.startDate) {
-        query += ` AND createdAt >= $${paramIndex}`;
+        query += ` AND created_at >= $${paramIndex}`;
         params.push(filters.startDate);
         paramIndex++;
       }
 
       // Filtro por data de fim
       if (filters.endDate) {
-        query += ` AND createdAt <= $${paramIndex}`;
+        query += ` AND created_at <= $${paramIndex}`;
         params.push(filters.endDate);
         paramIndex++;
       }
 
-      query += ` ORDER BY createdAt ASC`;
+      query += ` ORDER BY created_at ASC`;
 
       const result = await client.query<{
         event_id: string;
@@ -70,7 +70,7 @@ class EventLogSource implements CanonicalEventSource {
         event_version: number;
         payload: any;
         metadata: any;
-        createdAt: Date;
+        created_at: Date;
       }>(query, params);
 
       // Converter eventos do event_log para CanonicalEvent
@@ -85,7 +85,7 @@ class EventLogSource implements CanonicalEventSource {
           version: row.event_version,
           payload: row.payload,
           metadata: row.metadata || {},
-          createdAt: row.createdAt,
+          createdAt: row.created_at,
         };
 
         // Traduzir para CanonicalEvent
@@ -98,10 +98,10 @@ class EventLogSource implements CanonicalEventSource {
           if (filters.userId && canonicalEvent.userId !== filters.userId) {
             continue;
           }
-          if (filters.minAmount !== undefined && (canonicalEvent.amount || 0) < filters.minAmount) {
+          if (filters.minAmount !== undefined && (canonicalEvent.amountCents || 0) < filters.minAmount) {
             continue;
           }
-          if (filters.maxAmount !== undefined && (canonicalEvent.amount || 0) > filters.maxAmount) {
+          if (filters.maxAmount !== undefined && (canonicalEvent.amountCents || 0) > filters.maxAmount) {
             continue;
           }
 

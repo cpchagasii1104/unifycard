@@ -106,7 +106,7 @@ class BankSplitEngineService {
    * 
    * @param tenantId - ID do tenant
    * @param context - Contexto da transação
-   * @param totalAmount - Valor total da transação
+   * @param totalAmountCents - Valor total em centavos (inteiro)
    * @param currency - Moeda
    * @param revenueShareAccountId - Conta para revenue share (organizer, worker, etc)
    * @param fromUserId - User ID para calcular referral e group allocation
@@ -115,12 +115,20 @@ class BankSplitEngineService {
   async calculateSplits(
     tenantId: string,
     context: BankTransactionContext,
-    totalAmount: number,
+    totalAmountCents: number,
     currency: BankCurrency,
     revenueShareAccountId?: string, // Para organizer, worker, etc
     fromUserId?: string, // Para calcular referral e group allocation
     metadata?: SplitPolicyMetadata // Metadata para resolução hierárquica de policies
   ): Promise<BankSplitCalculation> {
+    if (!Number.isInteger(totalAmountCents) || totalAmountCents < 0) {
+      throw new Error('totalAmountCents deve ser inteiro ≥ 0');
+    }
+    const total = totalAmountCents;
+    if (total === 0) {
+      return { totalAmountCents: 0, splits: [] };
+    }
+
     const config = await this.getSplitConfig(tenantId, context, metadata);
     const splits: Array<{
       splitType: BankSplitType;
@@ -130,16 +138,14 @@ class BankSplitEngineService {
       metadata?: Record<string, any>;
     }> = [];
 
-    let totalCalculated = 0;
-    let profitAmount = totalAmount; // Profit = total após deduzir fees
+    let profitAmountCents = total;
 
-    // 1. Aplicar splits padrão do contexto (fees primeiro)
+    // 1. Splits do contexto (fees + revenue)
     for (const rule of config) {
-      const amount = totalAmount * rule.percentage;
+      const lineCents = Math.round(total * rule.percentage);
       let targetAccountId: string;
 
       if (rule.targetAccountName) {
-        // Conta do sistema
         const systemAccount = await bankAccountService.getSystemAccount(
           tenantId,
           rule.targetAccountName,
@@ -150,148 +156,149 @@ class BankSplitEngineService {
         }
         targetAccountId = systemAccount.accountId;
       } else if (rule.targetAccountId) {
-        // Conta específica fornecida
         targetAccountId = rule.targetAccountId;
       } else if (revenueShareAccountId) {
-        // Revenue share (organizer, worker, etc)
         targetAccountId = revenueShareAccountId;
       } else {
         throw new Error(`Target account not specified for split type ${rule.splitType}`);
       }
 
-      // Deduzir fees do profit
       if (rule.splitType === 'fee') {
-        profitAmount -= amount;
+        profitAmountCents -= lineCents;
       }
 
-      splits.push({
-        splitType: rule.splitType,
-        targetAccountId,
-        amountCents: Math.round(amount * 100) / 100,
-        percentage: rule.percentage,
-        metadata: rule.splitType === 'revenue_share' && revenueShareAccountId ? { revenueShareAccountId } : undefined,
-      });
-
-      totalCalculated += amount;
+      if (lineCents > 0) {
+        splits.push({
+          splitType: rule.splitType,
+          targetAccountId,
+          amountCents: lineCents,
+          percentage: rule.percentage,
+          metadata: rule.splitType === 'revenue_share' && revenueShareAccountId ? { revenueShareAccountId } : undefined,
+        });
+      }
     }
 
-    // 2. Aplicar referral split (se válido, sobre profit)
-    if (fromUserId && profitAmount > 0) {
+    // 2. Referral sobre profit (centavos inteiros)
+    if (fromUserId && profitAmountCents > 0) {
       const referrerUserId = await getActiveReferral(tenantId, fromUserId);
-      
+
       if (referrerUserId) {
-        // Calcular split de referral sobre profit
-        const referralAmount = profitAmount * REFERRAL_PERCENTAGE;
-        
-        // Resolver conta do referrer
+        const referralCents = Math.round(profitAmountCents * REFERRAL_PERCENTAGE);
         const referrerAccount = await bankAccountService.getAccountByOwner(
           tenantId,
           referrerUserId,
           'user',
           currency
         );
-        
-        if (referrerAccount) {
+
+        if (referrerAccount && referralCents > 0) {
           splits.push({
             splitType: 'referral',
             targetAccountId: referrerAccount.accountId,
-            amountCents: Math.round(referralAmount * 100) / 100,
+            amountCents: referralCents,
             percentage: REFERRAL_PERCENTAGE,
             metadata: { referrerUserId, referredUserId: fromUserId, allocationType: 'referral' },
           });
-          
-          totalCalculated += referralAmount;
-          profitAmount -= referralAmount; // Deduzir do profit restante
+          profitAmountCents -= referralCents;
         }
       }
     }
 
-    // 3. Aplicar group allocation (sobre remainder após referral)
-    if (fromUserId && profitAmount > 0) {
+    // 3. Group allocation (percentuais 0–100 sobre profit restante)
+    if (fromUserId && profitAmountCents > 0) {
       const allocations = await userGroupAllocationRepository.findByUserId(tenantId, fromUserId);
-      
+
       if (allocations.length > 0) {
-        let groupAllocationTotal = 0;
-        
+        let groupAllocationTotalCents = 0;
+
         for (const alloc of allocations) {
-          const groupAmount = profitAmount * (alloc.percentage / 100);
-          
-          // Resolver conta do grupo
+          const groupCents = Math.round(profitAmountCents * (alloc.percentage / 100));
           const groupAccount = await bankAccountService.getAccountByOwner(
             tenantId,
             alloc.groupId,
-            'company', // Grupos usam ownerType 'company'
+            'company',
             currency
           );
-          
-          if (groupAccount) {
+
+          if (groupAccount && groupCents > 0) {
             splits.push({
-              splitType: 'revenue_share', // Groups recebem como revenue_share
+              splitType: 'revenue_share',
               targetAccountId: groupAccount.accountId,
-              amountCents: Math.round(groupAmount * 100) / 100,
+              amountCents: groupCents,
               percentage: alloc.percentage / 100,
               metadata: { groupId: alloc.groupId, allocationType: 'user_group_allocation' },
             });
-            
-            totalCalculated += groupAmount;
-            groupAllocationTotal += groupAmount;
+            groupAllocationTotalCents += groupCents;
           }
         }
-        
-        profitAmount -= groupAllocationTotal;
+
+        profitAmountCents -= groupAllocationTotalCents;
       }
     }
 
-    // 4. Enviar remainder para Regional Fund
-    if (profitAmount > 0.01) {
+    // 4. Remanescente → regional_fund
+    // Só dispara se há remanescente REAL após aplicar todos os splits anteriores.
+    // Contextos com rules totalizando 100% (event_ticket: 70+3+10+17) já alocam tudo;
+    // step 4 redundante criaria split duplo de regional_fund e quebraria invariante total=sumSplits.
+    const currentSumCents = splits.reduce((s, x) => s + x.amountCents, 0);
+    const remainderToAllocateCents = total - currentSumCents;
+    if (remainderToAllocateCents > 0) {
       const regionalFundAccount = await bankAccountService.getSystemAccount(
         tenantId,
         'regional_fund',
         currency
       );
-      
+
       if (regionalFundAccount) {
-        const remainderPercentage = (profitAmount / totalAmount) * 100;
+        const remainderFraction = total > 0 ? remainderToAllocateCents / total : 0;
         splits.push({
           splitType: 'regional_fund',
           targetAccountId: regionalFundAccount.accountId,
-          amountCents: Math.round(profitAmount * 100) / 100,
-          percentage: remainderPercentage / 100,
+          amountCents: remainderToAllocateCents,
+          percentage: remainderFraction,
           metadata: { allocationType: 'remainder' },
         });
-        
-        totalCalculated += profitAmount;
       }
     }
 
-    // Ajustar diferença por arredondamento no primeiro split (revenue_share se existir)
-    const difference = totalAmount - totalCalculated;
-    if (Math.abs(difference) > 0.01) {
-      const revenueShareIndex = splits.findIndex((s) => s.splitType === 'revenue_share');
-      if (revenueShareIndex >= 0) {
-        splits[revenueShareIndex].amount += difference;
-        splits[revenueShareIndex].amount = Math.round(splits[revenueShareIndex].amount * 100) / 100;
-      } else {
-        // Fallback: ajustar o primeiro split
-        splits[0].amount += difference;
-        splits[0].amount = Math.round(splits[0].amount * 100) / 100;
+    const sumCents = splits.reduce((s, x) => s + x.amountCents, 0);
+    let driftCents = total - sumCents;
+    if (driftCents !== 0) {
+      if (splits.length === 0) {
+        throw new Error('Split engine: total > 0 mas nenhuma linha de split gerada');
       }
+      const revenueShareIndex = splits.findIndex((s) => s.splitType === 'revenue_share');
+      const idx = revenueShareIndex >= 0 ? revenueShareIndex : 0;
+      splits[idx].amountCents += driftCents;
+      if (splits[idx].amountCents <= 0) {
+        throw new Error('Split engine: ajuste de arredondamento produziu linha não positiva');
+      }
+      driftCents = total - splits.reduce((s, x) => s + x.amountCents, 0);
+    }
+
+    if (splits.some((s) => s.amountCents <= 0)) {
+      throw new Error('Split engine: linha com amountCents não positivo após alocação');
     }
 
     return {
-      totalAmount,
-      splits,
-      remainder: Math.abs(difference) > 0.01 ? difference : undefined,
+      totalAmountCents: total,
+      splits: splits.map((s) => ({
+        splitType: s.splitType,
+        targetAccountId: s.targetAccountId,
+        amountCents: s.amountCents,
+        percentage: s.percentage,
+        metadata: s.metadata,
+      })),
+      remainderCents: driftCents !== 0 ? Math.abs(driftCents) : undefined,
     };
   }
 
   /**
-   * Valida que a soma dos splits é igual ao total
+   * Valida que a soma dos splits (centavos) é exatamente o total canónico.
    */
   validateSplitCalculation(calculation: BankSplitCalculation): boolean {
-    const total = calculation.splits.reduce((sum, split) => sum + split.amount, 0);
-    const difference = Math.abs(calculation.totalAmount - total);
-    return difference < 0.01; // Tolerância de 1 centavo
+    const sum = calculation.splits.reduce((acc, split) => acc + split.amountCents, 0);
+    return sum === calculation.totalAmountCents;
   }
 }
 

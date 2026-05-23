@@ -12,6 +12,7 @@ export interface SetDestinationModeInput {
   destinationLat?: number | null;
   destinationLng?: number | null;
   deadline?: Date | null;
+  /** Contador operacional (coluna legada `destination_slots_remaining`), não vaga de calendário. */
   slotsRemaining?: number | null;
 }
 

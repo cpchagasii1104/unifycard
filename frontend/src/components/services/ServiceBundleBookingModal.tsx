@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { getService } from '../../api/services';
-import { getServiceAvailabilities } from '../../api/service-availability';
+import { listServiceAvailabilities } from '../../api/service-availability';
 import { getEvent } from '../../api/events';
 import { createBundleBookings, type CreateBundleBookingInput, BundleDependencyType } from '../../api/service-bundles';
 import { showToast } from '../common/Toast';
@@ -79,7 +79,7 @@ export default function ServiceBundleBookingModal({
       // Carregar disponibilidades de cada serviço
       const availabilitiesData: Record<string, ServiceAvailability[]> = {};
       for (const service of servicesData) {
-        const avails = await getServiceAvailabilities(service.id);
+        const avails = await listServiceAvailabilities(service.id);
         availabilitiesData[service.id] = avails;
       }
       setAvailabilities(availabilitiesData);

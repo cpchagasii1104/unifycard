@@ -59,10 +59,10 @@ export interface SocialInboxItemRow {
   source_id: string;
   status: InboxItemStatus;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  readAt: Date | null;
-  archivedAt: Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
+  read_at: Date | null;
+  archived_at: Date | null;
 }
 
 /**

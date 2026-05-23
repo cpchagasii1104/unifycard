@@ -23,11 +23,11 @@ interface PolicyRuleRow {
   conditions: any;
   actions: any;
   is_active: boolean;
-  activatedAt: Date | null;
+  activated_at: Date | null;
   activated_by_user_id: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface PolicyDecisionRow {
@@ -42,14 +42,14 @@ interface PolicyDecisionRow {
   applied_by_user_id: string;
   applied_by_actor_id: string;
   evidence_pack_id: string | null;
-  expiresAt: Date | null;
-  revokedAt: Date | null;
+  expires_at: Date | null;
+  revoked_at: Date | null;
   revoked_by_user_id: string | null;
   revoked_by_actor_id: string | null;
   revocation_reason: string | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class PolicyRepository {
@@ -64,11 +64,11 @@ class PolicyRepository {
       conditions: row.conditions,
       actions: row.actions,
       isActive: row.is_active,
-      activatedAt: row.activatedAt,
+      activatedAt: row.activated_at,
       activatedByUserId: row.activated_by_user_id,
       metadata: row.metadata,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -85,14 +85,14 @@ class PolicyRepository {
       appliedByUserId: row.applied_by_user_id,
       appliedByActorId: row.applied_by_actor_id,
       evidencePackId: row.evidence_pack_id,
-      expiresAt: row.expiresAt,
-      revokedAt: row.revokedAt,
+      expiresAt: row.expires_at,
+      revokedAt: row.revoked_at,
       revokedByUserId: row.revoked_by_user_id,
       revokedByActorId: row.revoked_by_actor_id,
       revocationReason: row.revocation_reason,
       metadata: row.metadata,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -103,7 +103,7 @@ class PolicyRepository {
     const { randomUUID } = await import('crypto');
     const policyId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyRuleRow>(
       tenantId,
       {
         text: `
@@ -126,18 +126,18 @@ class PolicyRepository {
           false,
           JSON.stringify(input.metadata || {}),
         ],
-      },
-      'policy.repository.createPolicy'
+      }
     );
 
-    return this.toPolicyRule(rows[0] as PolicyRuleRow);
+    if (!row) throw new Error('createPolicy: INSERT did not return row');
+    return this.toPolicyRule(row);
   }
 
   /**
    * Busca política por ID
    */
   async findById(tenantId: string, policyId: string): Promise<PolicyRule | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyRuleRow>(
       tenantId,
       {
         text: `
@@ -145,15 +145,11 @@ class PolicyRepository {
           WHERE tenant_id = $1 AND policy_id = $2
         `,
         values: [tenantId, policyId],
-      },
-      'policy.repository.findById'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toPolicyRule(rows[0] as PolicyRuleRow);
+    if (!row) return null;
+    return this.toPolicyRule(row);
   }
 
   /**
@@ -179,21 +175,20 @@ class PolicyRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<PolicyRuleRow>(
       tenantId,
       {
         text: `
           SELECT * FROM policy_rules
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'policy.repository.listPolicies'
+      }
     );
 
-    return rows.map((row) => this.toPolicyRule(row as PolicyRuleRow));
+    return rows.map((r) => this.toPolicyRule(r));
   }
 
   /**
@@ -212,7 +207,7 @@ class PolicyRepository {
     }
 
     // Incrementar versão e ativar
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyRuleRow>(
       tenantId,
       {
         text: `
@@ -220,46 +215,44 @@ class PolicyRepository {
           SET
             version = version + 1,
             is_active = true,
-            activatedAt = NOW(),
+            activated_at = NOW(),
             activated_by_user_id = $3,
-            updatedAt = NOW()
+            updated_at = NOW()
           WHERE tenant_id = $1 AND policy_id = $2
           RETURNING *
         `,
         values: [tenantId, policyId, userId],
-      },
-      'policy.repository.activatePolicy'
+      }
     );
 
-    return this.toPolicyRule(rows[0] as PolicyRuleRow);
+    if (!row) throw new Error('activatePolicy: no row updated');
+    return this.toPolicyRule(row);
   }
 
   /**
    * Desativa uma política
    */
   async deactivatePolicy(tenantId: string, policyId: string): Promise<PolicyRule> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyRuleRow>(
       tenantId,
       {
         text: `
           UPDATE policy_rules
           SET
             is_active = false,
-            updatedAt = NOW()
+            updated_at = NOW()
           WHERE tenant_id = $1 AND policy_id = $2
           RETURNING *
         `,
         values: [tenantId, policyId],
-      },
-      'policy.repository.deactivatePolicy'
+      }
     );
 
-    if (rows.length === 0) {
+    if (!row) {
       const { NotFoundError } = await import('@core/errors');
       throw new NotFoundError('Política não encontrada');
     }
-
-    return this.toPolicyRule(rows[0] as PolicyRuleRow);
+    return this.toPolicyRule(row);
   }
 
   /**
@@ -287,14 +280,14 @@ class PolicyRepository {
     const { randomUUID } = await import('crypto');
     const decisionId = randomUUID();
 
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyDecisionRow>(
       tenantId,
       {
         text: `
           INSERT INTO policy_decisions (
             decision_id, tenant_id, policy_id, policy_version, actor_id,
             status, applied_actions, reason, applied_by_user_id, applied_by_actor_id,
-            evidence_pack_id, expiresAt, metadata
+            evidence_pack_id, expires_at, metadata
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
           ) RETURNING *
@@ -314,18 +307,18 @@ class PolicyRepository {
           input.expiresAt || null,
           JSON.stringify(input.metadata || {}),
         ],
-      },
-      'policy.repository.createDecision'
+      }
     );
 
-    return this.toPolicyDecision(rows[0] as PolicyDecisionRow);
+    if (!row) throw new Error('createDecision: INSERT did not return row');
+    return this.toPolicyDecision(row);
   }
 
   /**
    * Busca decisão por ID
    */
   async findDecisionById(tenantId: string, decisionId: string): Promise<PolicyDecision | null> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyDecisionRow>(
       tenantId,
       {
         text: `
@@ -333,15 +326,11 @@ class PolicyRepository {
           WHERE tenant_id = $1 AND decision_id = $2
         `,
         values: [tenantId, decisionId],
-      },
-      'policy.repository.findDecisionById'
+      }
     );
 
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return this.toPolicyDecision(rows[0] as PolicyDecisionRow);
+    if (!row) return null;
+    return this.toPolicyDecision(row);
   }
 
   /**
@@ -376,21 +365,20 @@ class PolicyRepository {
     const limit = filters.limit || 100;
     const offset = filters.offset || 0;
 
-    const rows = await runQueryWithTenant(
+    const rows = await runQueriesWithTenant<PolicyDecisionRow>(
       tenantId,
       {
         text: `
           SELECT * FROM policy_decisions
           WHERE ${conditions.join(' AND ')}
-          ORDER BY createdAt DESC
+          ORDER BY created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `,
         values: [...values, limit, offset],
-      },
-      'policy.repository.listDecisions'
+      }
     );
 
-    return rows.map((row) => this.toPolicyDecision(row as PolicyDecisionRow));
+    return rows.map((r) => this.toPolicyDecision(r));
   }
 
   /**
@@ -403,32 +391,30 @@ class PolicyRepository {
     revokedByActorId: string,
     revocationReason: string
   ): Promise<PolicyDecision> {
-    const rows = await runQueryWithTenant(
+    const row = await runQueryWithTenant<PolicyDecisionRow>(
       tenantId,
       {
         text: `
           UPDATE policy_decisions
           SET
             status = 'REVOKED',
-            revokedAt = NOW(),
+            revoked_at = NOW(),
             revoked_by_user_id = $3,
             revoked_by_actor_id = $4,
             revocation_reason = $5,
-            updatedAt = NOW()
+            updated_at = NOW()
           WHERE tenant_id = $1 AND decision_id = $2 AND status = 'ACTIVE'
           RETURNING *
         `,
         values: [tenantId, decisionId, revokedByUserId, revokedByActorId, revocationReason],
-      },
-      'policy.repository.revokeDecision'
+      }
     );
 
-    if (rows.length === 0) {
+    if (!row) {
       const { NotFoundError } = await import('@core/errors');
       throw new NotFoundError('Decisão não encontrada ou já revogada');
     }
-
-    return this.toPolicyDecision(rows[0] as PolicyDecisionRow);
+    return this.toPolicyDecision(row);
   }
 
   /**

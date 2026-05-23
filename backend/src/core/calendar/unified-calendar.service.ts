@@ -106,8 +106,8 @@ class UnifiedCalendarService {
         status,
         capacity,
         metadata,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       FROM availability
       WHERE tenant_id = $1
         AND status = 'active'
@@ -146,8 +146,8 @@ class UnifiedCalendarService {
           ownerId: row.owner_id,
           capacity: row.capacity,
         },
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
       };
     });
   }
@@ -171,8 +171,8 @@ class UnifiedCalendarService {
         timezone,
         status,
         metadata,
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       FROM events
       WHERE tenant_id = $1
         AND status IN ('published', 'draft')
@@ -220,8 +220,8 @@ class UnifiedCalendarService {
       metadata: {
         ...row.metadata,
       },
-      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt),
-      updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(row.updatedAt),
+      createdAt: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+      updatedAt: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
     }));
   }
 }

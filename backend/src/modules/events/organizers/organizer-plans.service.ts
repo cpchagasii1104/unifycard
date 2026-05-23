@@ -119,11 +119,11 @@ export class OrganizerPlansService {
     // Buscar plano do organizador
     const organizerRow = await runQueryWithTenant<{
       plan: string;
-      plan_expiresAt: Date | null;
+      plan_expires_at: Date | null;
     }>(
       tenantId,
       `
-      SELECT plan, plan_expiresAt
+      SELECT plan, plan_expires_at
       FROM event_organizers
       WHERE id = $1
       `,
@@ -135,7 +135,7 @@ export class OrganizerPlansService {
     }
 
     // Verificar se plano expirou
-    if (organizerRow.plan_expiresAt && organizerRow.plan_expiresAt < new Date()) {
+    if (organizerRow.plan_expires_at && organizerRow.plan_expires_at < new Date()) {
       return { allowed: false, reason: 'Plano expirado' };
     }
 
@@ -157,8 +157,8 @@ export class OrganizerPlansService {
       SELECT COUNT(*) as count
       FROM events
       WHERE organizer_id = $1
-        AND createdAt >= $2
-        AND createdAt <= $3
+        AND created_at >= $2
+        AND created_at <= $3
       `,
       [organizerId, monthStart, monthEnd]
     );

@@ -53,7 +53,7 @@ class ActorDelegationRepository {
       tenantId,
       `
         UPDATE actor_delegations
-        SET status = 'revoked', revokedAt = NOW()
+        SET status = 'revoked', revoked_at = NOW()
         WHERE tenant_id = $1
           AND user_actor_id = $2
           AND institutional_actor_id = $3
@@ -69,17 +69,17 @@ class ActorDelegationRepository {
       institutional_actor_id: string;
       scopes_json: any;
       is_transitive: boolean;
-      expiresAt: Date | null;
+      expires_at: Date | null;
       status: string;
-      createdAt: Date;
-      updatedAt: Date;
-      revokedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      revoked_at: Date | null;
     }>(
       tenantId,
       `
         INSERT INTO actor_delegations (
           tenant_id, user_actor_id, institutional_actor_id,
-          scopes_json, is_transitive, expiresAt, status
+          scopes_json, is_transitive, expires_at, status
         )
         VALUES ($1, $2, $3, $4, $5, $6, 'active')
         RETURNING *
@@ -102,11 +102,11 @@ class ActorDelegationRepository {
       institutionalActorId: row.institutional_actor_id,
       scopes: row.scopes_json || [],
       isTransitive: row.is_transitive,
-      expiresAt: row.expiresAt || undefined,
+      expiresAt: row.expires_at || undefined,
       status: row.status as 'active' | 'revoked' | 'expired',
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      revokedAt: row.revokedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      revokedAt: row.revoked_at || undefined,
     };
   }
 
@@ -124,11 +124,11 @@ class ActorDelegationRepository {
       institutional_actor_id: string;
       scopes_json: any;
       is_transitive: boolean;
-      expiresAt: Date | null;
+      expires_at: Date | null;
       status: string;
-      createdAt: Date;
-      updatedAt: Date;
-      revokedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      revoked_at: Date | null;
     }>(
       tenantId,
       `
@@ -137,8 +137,8 @@ class ActorDelegationRepository {
         WHERE tenant_id = $1
           AND user_actor_id = $2
           AND status = 'active'
-          AND (expiresAt IS NULL OR expiresAt > NOW())
-        ORDER BY createdAt DESC
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY created_at DESC
       `,
       [tenantId, userActorId]
     ));
@@ -150,11 +150,11 @@ class ActorDelegationRepository {
       institutionalActorId: row.institutional_actor_id,
       scopes: row.scopes_json || [],
       isTransitive: row.is_transitive,
-      expiresAt: row.expiresAt || undefined,
+      expiresAt: row.expires_at || undefined,
       status: row.status as 'active' | 'revoked' | 'expired',
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      revokedAt: row.revokedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      revokedAt: row.revoked_at || undefined,
     }));
   }
 
@@ -171,7 +171,7 @@ class ActorDelegationRepository {
       tenantId,
       `
         UPDATE actor_delegations
-        SET status = 'revoked', revokedAt = NOW()
+        SET status = 'revoked', revoked_at = NOW()
         WHERE tenant_id = $1 AND delegation_id = $2 AND status = 'active'
         RETURNING delegation_id
       `,

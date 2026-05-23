@@ -12,17 +12,15 @@ interface OfferIndexRow {
   merchant_id: string;
   location_region_id: string | null;
   location_city_id: string | null;
-  price: string;
-  stock: number | null;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  price_cents: string | number;
+  available_quantity: number | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
 }
 
-interface MerchantLocationRow {
-  merchant_id: string;
-  lat: number;
-  lng: number;
+function rowDateIso(d: Date | string): string {
+  return d instanceof Date ? d.toISOString() : String(d);
 }
 
 /**
@@ -56,11 +54,13 @@ class OfferIndexService {
             longitude: 0,
           },
       availability: {
-        inStock: row.active && (row.stock === null || row.stock > 0),
-        stockCount: row.stock || undefined,
+        inStock:
+          row.is_active &&
+          (row.available_quantity === null || row.available_quantity > 0),
+        availableQuantity: row.available_quantity ?? undefined,
       },
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: rowDateIso(row.created_at),
+      updatedAt: rowDateIso(row.updated_at),
     };
   }
 
@@ -80,20 +80,18 @@ class OfferIndexService {
   ): Promise<OfferSearchResult> {
     const { productId, cityId, radiusKm, centerLat, centerLng } = filters;
 
-    // Buscar ofertas do produto
     let query = `
-      SELECT id, tenant_id, product_id, merchant_id, 
-             location_region_id, location_city_id, price, stock, active,
-             createdAt, updatedAt
+      SELECT id, tenant_id, product_id, merchant_id,
+             location_region_id, location_city_id, price_cents, available_quantity, is_active,
+             created_at, updated_at
       FROM product_offers
       WHERE tenant_id = $1
         AND product_id = $2
-        AND active = TRUE
+        AND is_active = TRUE
     `;
 
-    const params: any[] = [tenantId, productId];
+    const params: unknown[] = [tenantId, productId];
 
-    // Filtrar por cidade se fornecido
     if (cityId) {
       query += ` AND location_city_id = $${params.length + 1}`;
       params.push(cityId);
@@ -107,15 +105,11 @@ class OfferIndexService {
       }
     );
 
-    // Obter localizações dos merchants
-    // Usar localização da cidade como proxy (merchant está na cidade)
     const offers: OfferIndex[] = [];
 
     for (const row of rows) {
       let location: { lat: number; lng: number } | undefined;
 
-      // Tentar obter localização da cidade
-      // Usar PostGIS para extrair lat/lng do POINT
       if (row.location_city_id) {
         const cityLocation = await runQueryWithTenant<{
           lat: number | null;
@@ -124,7 +118,7 @@ class OfferIndexService {
           tenantId,
           {
             text: `
-            SELECT 
+            SELECT
               ST_Y(center::geometry) AS lat,
               ST_X(center::geometry) AS lng
             FROM rides_cities
@@ -144,13 +138,10 @@ class OfferIndexService {
         }
       }
 
-      // Se não encontrou localização, usar valores padrão (0,0)
-      // Isso indica que a localização precisa ser configurada
       const offer = await this.toOfferIndex(row, location);
       offers.push(offer);
     }
 
-    // Filtrar por raio se fornecido
     let filteredOffers = offers;
     if (radiusKm && centerLat && centerLng) {
       filteredOffers = offers.filter((offer) => {
@@ -163,7 +154,6 @@ class OfferIndexService {
         return distance <= radiusKm;
       });
 
-      // Ordenar por proximidade
       filteredOffers.sort((a, b) => {
         const distA = this.calculateDistance(
           centerLat,
@@ -180,7 +170,6 @@ class OfferIndexService {
         return distA - distB;
       });
     } else if (cityId) {
-      // Se não há raio, mas há cidade, ordenar por disponibilidade (em estoque primeiro)
       filteredOffers.sort((a, b) => {
         if (a.availability.inStock && !b.availability.inStock) return -1;
         if (!a.availability.inStock && b.availability.inStock) return 1;
@@ -200,22 +189,34 @@ class OfferIndexService {
       },
     };
 
-    // Log estruturado de busca (observação)
     await this.logSearch(tenantId, filters, result);
 
     return result;
   }
 
   /**
-   * Calcula distância em km entre dois pontos (Haversine)
+   * Alias semântico: mesma lógica que {@link search} (produto + cidade / raio).
    */
+  searchByLocation(
+    tenantId: string,
+    filters: {
+      productId: string;
+      cityId?: string;
+      radiusKm?: number;
+      centerLat?: number;
+      centerLng?: number;
+    }
+  ): Promise<OfferSearchResult> {
+    return this.search(tenantId, filters);
+  }
+
   private calculateDistance(
     lat1: number,
     lng1: number,
     lat2: number,
     lng2: number
   ): number {
-    const R = 6371; // Raio da Terra em km
+    const R = 6371;
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);
 
@@ -230,16 +231,10 @@ class OfferIndexService {
     return R * c;
   }
 
-  /**
-   * Converte graus para radianos
-   */
   private toRad(degrees: number): number {
     return (degrees * Math.PI) / 180;
   }
 
-  /**
-   * Busca ofertas por merchant
-   */
   async findByMerchant(
     tenantId: string,
     merchantId: string,
@@ -252,23 +247,23 @@ class OfferIndexService {
     const { productId, limit = 50, offset = 0 } = options || {};
 
     let query = `
-      SELECT id, tenant_id, product_id, merchant_id, 
-             location_region_id, location_city_id, price, stock, active,
-             createdAt, updatedAt
+      SELECT id, tenant_id, product_id, merchant_id,
+             location_region_id, location_city_id, price_cents, available_quantity, is_active,
+             created_at, updated_at
       FROM product_offers
       WHERE tenant_id = $1
         AND merchant_id = $2
-        AND active = TRUE
+        AND is_active = TRUE
     `;
 
-    const params: any[] = [tenantId, merchantId];
+    const params: unknown[] = [tenantId, merchantId];
 
     if (productId) {
       query += ` AND product_id = $${params.length + 1}`;
       params.push(productId);
     }
 
-    query += ` ORDER BY createdAt DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const rows = await runQueriesWithTenant<OfferIndexRow>(
@@ -294,9 +289,6 @@ class OfferIndexService {
     };
   }
 
-  /**
-   * Log estruturado de busca (observação)
-   */
   private async logSearch(
     tenantId: string,
     filters: {
@@ -308,7 +300,6 @@ class OfferIndexService {
     },
     result: OfferSearchResult
   ): Promise<void> {
-    // Log estruturado no console
     console.log(
       JSON.stringify({
         module: 'offer-index',
@@ -316,12 +307,11 @@ class OfferIndexService {
         tenantId,
         filters,
         resultsCount: result.offers.length,
-        totalResults: result.total,
+        totalResults: result.totalCents,
         timestamp: new Date().toISOString(),
       })
     );
 
-    // Registrar no Decision Log (observação)
     try {
       await decisionLogService.createObservation(
         'economy',
@@ -336,13 +326,12 @@ class OfferIndexService {
             productId: filters.productId,
             filters,
             resultsCount: result.offers.length,
-            totalResults: result.total,
+            totalResults: result.totalCents,
             merchants: result.offers.map((o) => o.merchantId),
           },
         }
       );
     } catch (error) {
-      // Não falhar silenciosamente - log o erro
       console.error(
         '[OfferIndexService] Erro ao registrar busca no Decision Log:',
         error
@@ -352,6 +341,3 @@ class OfferIndexService {
 }
 
 export const offerIndexService = new OfferIndexService();
-
-
-

@@ -33,6 +33,13 @@ export interface GroupVoteResponse {
   createdAt: string;
 }
 
+/**
+ * Input para criar votação no contexto de grupo (POST /api/groups/:groupId/votes).
+ * Contrato distinto do módulo votes (CreateVoteInput em votes/votes.types.ts):
+ * - usa closesAt (grupo); o módulo votes usa startsAt/endsAt
+ * - regras de grupo: título 3–200 chars, 2–20 opções
+ * Manter este tipo aqui; não unificar com votes/votes.types sem decisão de domínio.
+ */
 export interface CreateVoteInput {
   title: string;
   description?: string | null;

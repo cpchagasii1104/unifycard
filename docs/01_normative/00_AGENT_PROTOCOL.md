@@ -270,6 +270,7 @@ Antes de criar/editar migrations, tabelas, SSOT, serviços de domínio semântic
 | Verificação | Exigência |
 |-------------|-----------|
 | Pilar afetado | Identificar (ex.: identidade, semântica, financeiro, temporal) |
+| Jurisdição / autoridade (DECISION-0021) | Responder: **quem tem autoridade legítima sobre esta verdade?** Pasta, import, rota, tabela ou `app.builder` não bastam para provar soberania |
 | SSOT | Confirmar qual SSOT governa o pilar (financeiro vs semântico são distintos) |
 | Estrutura existente | Verificar se já há tabela/contrato normativo; **não** duplicar |
 | Risco de duplicação de verdade | Proibir segunda fonte primária para o mesmo fato |
@@ -287,6 +288,7 @@ As proibições abaixo **reforçam** `PROHIBITED_STRUCTURES.md`, `LEIS_OPERACION
 
 - Criar **novas tabelas** sem contrato ou RFC normativo explícito
 - Criar **SSOT paralelo** (ledger, CONCEPT, agenda, identidade)
+- Criar **mini-core clandestino** em módulo para verdade já soberana (DECISION-0021)
 - Persistir **dado derivado como fonte primária** quando já existir SSOT canónico
 - **Misturar** em um mesmo artefato sem fronteira: identidade do ator, semântica (CONCEPT), contexto de uso (CONTEXT), inferência (GRAPH) — cada camada tem papel definido na ontologia
 - **Inferir significado** fora do pipeline **CONCEPT** / governança de conceito

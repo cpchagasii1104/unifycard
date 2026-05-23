@@ -18,8 +18,8 @@ export interface WorkerRow {
   response_time_avg_minutes: number | null;
   is_active: boolean;
   is_verified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SkillRow {
@@ -28,8 +28,7 @@ export interface SkillRow {
   name: string;
   category: string | null;
   description: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
 }
 
 export interface JobRow {
@@ -42,10 +41,10 @@ export interface JobRow {
   location: unknown | null; // GEOGRAPHY(POINT)
   budget_min: string | null;
   budget_max: string | null;
-  scheduledAt: Date | null;
+  scheduled_at: Date | null;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface JobApplicationRow {
@@ -56,8 +55,8 @@ export interface JobApplicationRow {
   proposed_rate: string | null;
   message: string | null;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  applied_at: string;
+  responded_at: string | null;
 }
 
 export interface JobAssignmentRow {
@@ -70,8 +69,8 @@ export interface JobAssignmentRow {
   payment_type: string;
   status: string;
   payment_transaction_id: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================

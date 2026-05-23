@@ -1,55 +1,82 @@
 // backend/src/modules/events/event.repository.ts
-// SPRINT 76: Repository para events
+// SPRINT 76: Repository para events — alinhado ao DDL canónico (actor_id → actors.id).
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
-import type { Event, EventFilters } from './event.types';
+import type { Event, EventFilters, EventStatus } from './event.types';
 
 interface EventRow {
   id: string;
   tenant_id: string;
-  organizer_actor_id: string;
+  actor_id: string;
+  actor_type: string;
+  event_type: string;
+  event_subtype: string | null;
   title: string;
   description: string | null;
-  location_actor_id: string | null;
-  startAt: Date;
-  endAt: Date;
+  datetime_start: Date | null;
+  datetime_end: Date | null;
+  timezone: string;
   status: string;
-  publishedAt: Date | null;
-  published_by_actor_id: string | null;
-  closedAt: Date | null;
-  cancelledAt: Date | null;
-  cancelled_by_actor_id: string | null;
-  cancellation_reason: string | null;
-  created_by_actor_id: string;
-  created_by_user_id: string | null;
-  metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  visibility: string;
+  ticket_price_cents: string | number | null;
+  max_attendees: number | null;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function dbStatusToSprint76(s: string): EventStatus {
+  const v = (s || 'draft').toLowerCase();
+  if (v === 'draft') return 'DRAFT';
+  if (v === 'published' || v === 'declared' || v === 'active') return 'PUBLISHED';
+  if (v === 'cancelled') return 'CANCELLED';
+  if (v === 'ended') return 'CLOSED';
+  return 'DRAFT';
+}
+
+function sprint76StatusToDb(s: EventStatus): string {
+  switch (s) {
+    case 'DRAFT':
+      return 'draft';
+    case 'PUBLISHED':
+      return 'published';
+    case 'CANCELLED':
+      return 'cancelled';
+    case 'CLOSED':
+      return 'ended';
+    default:
+      return 'draft';
+  }
 }
 
 class EventRepository {
   private toEvent(row: EventRow): Event {
+    const meta = (row.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<
+      string,
+      unknown
+    >;
     return {
       id: row.id,
       tenantId: row.tenant_id,
-      organizerActorId: row.organizer_actor_id,
+      organizerActorId: row.actor_id,
       title: row.title,
       description: row.description,
-      locationActorId: row.location_actor_id,
-      startAt: row.startAt,
-      endAt: row.endAt,
-      status: row.status as any,
-      publishedAt: row.publishedAt,
-      publishedByActorId: row.published_by_actor_id,
-      closedAt: row.closedAt,
-      cancelledAt: row.cancelledAt,
-      cancelledByActorId: row.cancelled_by_actor_id,
-      cancellationReason: row.cancellation_reason,
-      createdByActorId: row.created_by_actor_id,
-      createdByUserId: row.created_by_user_id,
-      metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      locationActorId: (meta.location_actor_id as string) || null,
+      startAt: row.datetime_start ?? new Date(0),
+      endAt: row.datetime_end ?? new Date(0),
+      status: dbStatusToSprint76(row.status),
+      publishedAt: meta.published_at ? new Date(meta.published_at as string) : null,
+      publishedByActorId: (meta.published_by_actor_id as string) || null,
+      closedAt: meta.closed_at ? new Date(meta.closed_at as string) : null,
+      cancelledAt: meta.cancelled_at ? new Date(meta.cancelled_at as string) : null,
+      cancelledByActorId: (meta.cancelled_by_actor_id as string) || null,
+      cancellationReason: (meta.cancellation_reason as string) || null,
+      createdByActorId: (meta.created_by_actor_id as string) || row.actor_id,
+      createdByUserId: (meta.created_by_user_id as string) || null,
+      metadata: meta,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -57,6 +84,9 @@ class EventRepository {
     tenantId: string,
     input: {
       organizerActorId: string;
+      organizerActorType?: string;
+      eventType?: string;
+      eventSubtype?: string | null;
       title: string;
       description: string | null;
       locationActorId: string | null;
@@ -65,36 +95,62 @@ class EventRepository {
       createdByActorId: string;
       createdByUserId: string | null;
       metadata: Record<string, any>;
+      visibility?: string;
+      timezone?: string;
     }
   ): Promise<Event> {
+    const actorType = input.organizerActorType || 'user';
+    const eventType = (input.eventType && String(input.eventType).trim()) || 'general';
+    const visibility = input.visibility || 'public';
+    const timezone = (input.timezone && String(input.timezone).trim()) || 'UTC';
+
+    const meta: Record<string, unknown> = { ...(input.metadata || {}) };
+    if (input.locationActorId) {
+      meta.location_actor_id = input.locationActorId;
+    }
+    meta.created_by_actor_id = input.createdByActorId;
+    if (input.createdByUserId) {
+      meta.created_by_user_id = input.createdByUserId;
+    }
+
     const row = await runQueryWithTenant<EventRow>(
       tenantId,
       `
       INSERT INTO events (
-        tenant_id, organizer_actor_id, title, description,
-        location_actor_id, startAt, endAt, status,
-        created_by_actor_id, created_by_user_id, metadata
+        tenant_id,
+        actor_id,
+        actor_type,
+        event_type,
+        event_subtype,
+        title,
+        description,
+        datetime_start,
+        datetime_end,
+        timezone,
+        status,
+        visibility,
+        metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-      RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, startAt, endAt, status,
-                publishedAt, published_by_actor_id,
-                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                created_by_actor_id, created_by_user_id, metadata,
-                createdAt, updatedAt
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
+      RETURNING id, tenant_id, actor_id, actor_type, event_type, event_subtype,
+                title, description, datetime_start, datetime_end, timezone,
+                status, visibility, ticket_price_cents, max_attendees, currency,
+                metadata, created_at, updated_at
       `,
       [
         tenantId,
         input.organizerActorId,
+        actorType,
+        eventType,
+        input.eventSubtype ?? null,
         input.title,
         input.description,
-        input.locationActorId,
         input.startAt,
         input.endAt,
-        'DRAFT',
-        input.createdByActorId,
-        input.createdByUserId,
-        JSON.stringify(input.metadata),
+        timezone,
+        'draft',
+        visibility,
+        JSON.stringify(meta),
       ]
     );
 
@@ -109,12 +165,10 @@ class EventRepository {
     const rows = await runQueriesWithTenant<EventRow>(
       tenantId,
       `
-      SELECT id, tenant_id, organizer_actor_id, title, description,
-             location_actor_id, startAt, endAt, status,
-             publishedAt, published_by_actor_id,
-             closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
-             created_by_actor_id, created_by_user_id, metadata,
-             createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, actor_type, event_type, event_subtype,
+             title, description, datetime_start, datetime_end, timezone,
+             status, visibility, ticket_price_cents, max_attendees, currency,
+             metadata, created_at, updated_at
       FROM events
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -130,37 +184,37 @@ class EventRepository {
 
   async listEvents(tenantId: string, filters: EventFilters = {}): Promise<Event[]> {
     const conditions: string[] = ['tenant_id = $1'];
-    const params: any[] = [tenantId];
+    const params: unknown[] = [tenantId];
     let paramIndex = 2;
 
     if (filters.organizerActorId) {
-      conditions.push(`organizer_actor_id = $${paramIndex}`);
+      conditions.push(`actor_id = $${paramIndex}`);
       params.push(filters.organizerActorId);
       paramIndex++;
     }
 
     if (filters.locationActorId) {
-      conditions.push(`location_actor_id = $${paramIndex}`);
+      conditions.push(`metadata->>'location_actor_id' = $${paramIndex}`);
       params.push(filters.locationActorId);
       paramIndex++;
     }
 
     if (filters.status) {
       conditions.push(`status = $${paramIndex}`);
-      params.push(filters.status);
+      params.push(sprint76StatusToDb(filters.status));
       paramIndex++;
     }
 
     if (filters.startAtFrom) {
       const dateFrom = filters.startAtFrom instanceof Date ? filters.startAtFrom : new Date(filters.startAtFrom);
-      conditions.push(`startAt >= $${paramIndex}`);
+      conditions.push(`datetime_start >= $${paramIndex}`);
       params.push(dateFrom);
       paramIndex++;
     }
 
     if (filters.startAtTo) {
       const dateTo = filters.startAtTo instanceof Date ? filters.startAtTo : new Date(filters.startAtTo);
-      conditions.push(`startAt <= $${paramIndex}`);
+      conditions.push(`datetime_start <= $${paramIndex}`);
       params.push(dateTo);
       paramIndex++;
     }
@@ -171,15 +225,13 @@ class EventRepository {
     const rows = await runQueriesWithTenant<EventRow>(
       tenantId,
       `
-      SELECT id, tenant_id, organizer_actor_id, title, description,
-             location_actor_id, startAt, endAt, status,
-             publishedAt, published_by_actor_id,
-             closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
-             created_by_actor_id, created_by_user_id, metadata,
-             createdAt, updatedAt
+      SELECT id, tenant_id, actor_id, actor_type, event_type, event_subtype,
+             title, description, datetime_start, datetime_end, timezone,
+             status, visibility, ticket_price_cents, max_attendees, currency,
+             metadata, created_at, updated_at
       FROM events
       WHERE ${conditions.join(' AND ')}
-      ORDER BY startAt ASC
+      ORDER BY datetime_start ASC NULLS LAST
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -187,78 +239,6 @@ class EventRepository {
 
     return rows.map((row) => this.toEvent(row));
   }
-
-  async publishEvent(
-    tenantId: string,
-    eventId: string,
-    publishedByActorId: string
-  ): Promise<Event> {
-    const row = await runQueryWithTenant<EventRow>(
-      tenantId,
-      `
-      UPDATE events
-      SET status = 'PUBLISHED',
-          publishedAt = NOW(),
-          published_by_actor_id = $3,
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'DRAFT'
-      RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, startAt, endAt, status,
-                publishedAt, published_by_actor_id,
-                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                created_by_actor_id, created_by_user_id, metadata,
-                createdAt, updatedAt
-      `,
-      [tenantId, eventId, publishedByActorId]
-    );
-
-    if (!row) {
-      throw new Error('Evento não encontrado ou não está em DRAFT');
-    }
-
-    return this.toEvent(row);
-  }
-
-  async cancelEvent(
-    tenantId: string,
-    eventId: string,
-    cancelledByActorId: string,
-    cancellationReason: string | null
-  ): Promise<Event> {
-    const row = await runQueryWithTenant<EventRow>(
-      tenantId,
-      `
-      UPDATE events
-      SET status = 'CANCELLED',
-          cancelledAt = NOW(),
-          cancelled_by_actor_id = $3,
-          cancellation_reason = $4,
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status IN ('DRAFT', 'PUBLISHED')
-      RETURNING id, tenant_id, organizer_actor_id, title, description,
-                location_actor_id, startAt, endAt, status,
-                publishedAt, published_by_actor_id,
-                closedAt, cancelledAt, cancelled_by_actor_id, cancellation_reason,
-                created_by_actor_id, created_by_user_id, metadata,
-                createdAt, updatedAt
-      `,
-      [tenantId, eventId, cancelledByActorId, cancellationReason]
-    );
-
-    if (!row) {
-      throw new Error('Evento não encontrado ou não pode ser cancelado');
-    }
-
-    return this.toEvent(row);
-  }
 }
 
 export const eventRepository = new EventRepository();
-
-
-
-
-
-
-
-

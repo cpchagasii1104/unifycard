@@ -184,7 +184,7 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const result = await companiesService.createCompany(req.user.globalUserId, parsed.data as CreateCompanyInput);
+      const result = await companiesService.createCompany(req.user.globalUserId, parsed.data as CreateCompanyInput, req.tenant?.id);
       return reply.status(201).send(result);
     } catch (error) {
       fastify.log.error({ err: error }, 'Erro ao criar empresa');
@@ -260,7 +260,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       const company = await companiesService.updateCompany(
         req.params.companyId,
         req.user.globalUserId,
-        parsed.data as UpdateCompanyInput
+        parsed.data as UpdateCompanyInput,
+        req.tenant?.id
       );
       return company;
     } catch (error) {
@@ -808,7 +809,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const auditModule = await import('@core/audit/audit.service');
-      const severity = req.query.severity;
+      const severityParam = req.query.severity as string | undefined;
+      const severity = severityParam ? (severityParam.toLowerCase() as 'low' | 'medium' | 'high' | 'critical') : undefined;
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
 
       const alerts = await auditModule.auditService.getUnresolvedAlerts(

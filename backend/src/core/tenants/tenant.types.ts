@@ -14,3 +14,10 @@ export interface SetTenantRegionInput {
   cityId?: string | null;
 }
 
+/** Único contrato de criação de tenant (INSERT estrito + bootstrap tenant_contexts na mesma transação). */
+export interface CreateTenantInput {
+  id?: string;
+  name: string;
+  slug: string;
+}
+

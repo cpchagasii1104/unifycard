@@ -74,11 +74,11 @@ interface DriverDocumentRow {
   file_size_bytes: number | null;
   file_mime_type: string | null;
   status: string;
-  expiresAt: Date | null;
+  expires_at: Date | null;
   is_current: boolean;
-  uploadedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  uploaded_at: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface VehicleDocumentRow {
@@ -90,11 +90,73 @@ interface VehicleDocumentRow {
   file_size_bytes: number | null;
   file_mime_type: string | null;
   status: string;
-  expiresAt: Date | null;
+  expires_at: Date | null;
   is_current: boolean;
-  uploadedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  uploaded_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function mapDriverDocumentToResponse(row: DriverDocumentRow) {
+  return {
+    document_id: row.document_id,
+    driver_id: row.driver_id,
+    document_type: row.document_type,
+    file_url: row.file_url,
+    file_name: row.file_name,
+    file_size_bytes: row.file_size_bytes,
+    file_mime_type: row.file_mime_type,
+    status: row.status,
+    expiresAt: row.expires_at,
+    is_current: row.is_current,
+    uploadedAt: row.uploaded_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapVehicleDocumentToResponse(row: VehicleDocumentRow) {
+  return {
+    document_id: row.document_id,
+    vehicle_id: row.vehicle_id,
+    document_type: row.document_type,
+    file_url: row.file_url,
+    file_name: row.file_name,
+    file_size_bytes: row.file_size_bytes,
+    file_mime_type: row.file_mime_type,
+    status: row.status,
+    expiresAt: row.expires_at,
+    is_current: row.is_current,
+    uploadedAt: row.uploaded_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+interface DriverVehicleStatusPatchRow {
+  document_id: string;
+  driver_id?: string;
+  vehicle_id?: string;
+  document_type: string;
+  status: string;
+  verified_at: Date | null;
+  rejected_reason: string | null;
+  rejection_code: string | null;
+  updated_at: Date;
+}
+
+function mapDocumentStatusPatchToResponse(row: DriverVehicleStatusPatchRow) {
+  return {
+    document_id: row.document_id,
+    ...(row.driver_id !== undefined ? { driver_id: row.driver_id } : {}),
+    ...(row.vehicle_id !== undefined ? { vehicle_id: row.vehicle_id } : {}),
+    document_type: row.document_type,
+    status: row.status,
+    verifiedAt: row.verified_at,
+    rejected_reason: row.rejected_reason,
+    rejection_code: row.rejection_code,
+    updatedAt: row.updated_at,
+  };
 }
 
 const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -124,14 +186,14 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
             file_size_bytes,
             file_mime_type,
             status,
-            expiresAt,
+            expires_at,
             is_current,
-            uploadedAt,
-            createdAt,
-            updatedAt
+            uploaded_at,
+            created_at,
+            updated_at
           FROM rides_driver_documents
           WHERE driver_id = $1
-          ORDER BY uploadedAt DESC;
+          ORDER BY uploaded_at DESC;
         `,
         values: [driverId],
       });
@@ -192,7 +254,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         await trx.query({
           text: `
             UPDATE rides_driver_documents
-            SET is_current = false, updatedAt = now()
+            SET is_current = false, updated_at = now()
             WHERE driver_id = $1
               AND document_type = $2
               AND is_current = true;
@@ -211,7 +273,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               extracted_data,
-              expiresAt,
+              expires_at,
               status,
               is_current
             )
@@ -231,11 +293,11 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               status,
-              expiresAt,
+              expires_at,
               is_current,
-              uploadedAt,
-              createdAt,
-              updatedAt;
+              uploaded_at,
+              created_at,
+              updated_at;
           `,
           values: [
             tenantId,
@@ -260,7 +322,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
       }
 
       reply.code(201);
-      return document;
+      return mapDriverDocumentToResponse(document);
     }
   );
 
@@ -290,19 +352,19 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
             file_size_bytes,
             file_mime_type,
             status,
-            expiresAt,
+            expires_at,
             is_current,
-            uploadedAt,
-            createdAt,
-            updatedAt
+            uploaded_at,
+            created_at,
+            updated_at
           FROM rides_vehicle_documents
           WHERE vehicle_id = $1
-          ORDER BY uploadedAt DESC;
+          ORDER BY uploaded_at DESC;
         `,
         values: [vehicleId],
       });
 
-      return reply.send(rows);
+      return reply.send(rows.map(mapVehicleDocumentToResponse));
     }
   );
 
@@ -358,7 +420,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         await trx.query({
           text: `
             UPDATE rides_vehicle_documents
-            SET is_current = false, updatedAt = now()
+            SET is_current = false, updated_at = now()
             WHERE vehicle_id = $1
               AND document_type = $2
               AND is_current = true;
@@ -377,7 +439,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               extracted_data,
-              expiresAt,
+              expires_at,
               status,
               is_current
             )
@@ -397,11 +459,11 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
               file_size_bytes,
               file_mime_type,
               status,
-              expiresAt,
+              expires_at,
               is_current,
-              uploadedAt,
-              createdAt,
-              updatedAt;
+              uploaded_at,
+              created_at,
+              updated_at;
           `,
           values: [
             tenantId,
@@ -426,7 +488,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
       }
 
       reply.code(201);
-      return document;
+      return mapVehicleDocumentToResponse(document);
     }
   );
 
@@ -460,37 +522,28 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         throw new BadRequestError('Invalid status value');
       }
 
-      const rows = await runQueriesWithTenant<{
-        document_id: string;
-        driver_id: string;
-        document_type: string;
-        status: string;
-        verifiedAt: Date | null;
-        rejected_reason: string | null;
-        rejection_code: string | null;
-        updatedAt: Date;
-      }>(tenantId, {
+      const rows = await runQueriesWithTenant<DriverVehicleStatusPatchRow>(tenantId, {
         text: `
           UPDATE rides_driver_documents
           SET
             status = $2,
-            verifiedAt = CASE 
+            verified_at = CASE 
               WHEN $2 IN ('approved', 'rejected') THEN now()
-              ELSE verifiedAt
+              ELSE verified_at
             END,
             rejected_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE rejected_reason END,
             rejection_code = CASE WHEN $2 = 'rejected' THEN $4 ELSE rejection_code END,
-            updatedAt = now()
+            updated_at = now()
           WHERE document_id = $1
           RETURNING
             document_id,
             driver_id,
             document_type,
             status,
-            verifiedAt,
+            verified_at,
             rejected_reason,
             rejection_code,
-            updatedAt;
+            updated_at;
         `,
         values: [documentId, normalized, rejectedReason ?? null, rejectionCode ?? null],
       });
@@ -499,7 +552,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         throw new NotFoundError('Driver document not found');
       }
 
-      return reply.send(rows[0]);
+      return reply.send(mapDocumentStatusPatchToResponse(rows[0]));
     }
   );
 
@@ -533,37 +586,28 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         throw new BadRequestError('Invalid status value');
       }
 
-      const rows = await runQueriesWithTenant<{
-        document_id: string;
-        vehicle_id: string;
-        document_type: string;
-        status: string;
-        verifiedAt: Date | null;
-        rejected_reason: string | null;
-        rejection_code: string | null;
-        updatedAt: Date;
-      }>(tenantId, {
+      const rows = await runQueriesWithTenant<DriverVehicleStatusPatchRow>(tenantId, {
         text: `
           UPDATE rides_vehicle_documents
           SET
             status = $2,
-            verifiedAt = CASE 
+            verified_at = CASE 
               WHEN $2 IN ('approved', 'rejected') THEN now()
-              ELSE verifiedAt
+              ELSE verified_at
             END,
             rejected_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE rejected_reason END,
             rejection_code = CASE WHEN $2 = 'rejected' THEN $4 ELSE rejection_code END,
-            updatedAt = now()
+            updated_at = now()
           WHERE document_id = $1
           RETURNING
             document_id,
             vehicle_id,
             document_type,
             status,
-            verifiedAt,
+            verified_at,
             rejected_reason,
             rejection_code,
-            updatedAt;
+            updated_at;
         `,
         values: [documentId, normalized, rejectedReason ?? null, rejectionCode ?? null],
       });
@@ -572,7 +616,7 @@ const vehicleComplianceRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
         throw new NotFoundError('Vehicle document not found');
       }
 
-      return reply.send(rows[0]);
+      return reply.send(mapDocumentStatusPatchToResponse(rows[0]));
     }
   );
 };

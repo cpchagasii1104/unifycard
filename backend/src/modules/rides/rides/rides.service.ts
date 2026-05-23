@@ -1,13 +1,13 @@
 // src/modules/rides/rides/rides.service.ts
 // SPRINT 4: INTEGRATED WITH UNIFY BANK
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
-import { eventBus } from '@core/events/event-bus';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@core/errors';
 import { pricingService } from '../pricing/pricing.service';
 import { distributionService } from '../distribution/distribution.service';
 import { reviewService } from '@core/reviews/review.service';
 import { bankIntegrationService } from '../../bank/bank-integration.service';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 
 interface RideRequestRow {
   request_id: string;
@@ -71,15 +71,15 @@ export class RidesService {
       throw new BadRequestError('Request ainda não foi aceita por um motorista.');
     }
 
-    // Criar ride
-    const ride = await runQueryWithTenant<RideRow>(tenantId, {
-      text: `
+    const ride = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         INSERT INTO rides_rides (
           tenant_id, request_id, passenger_user_id,
           driver_id, service_type_id,
           passenger_count,
           origin, destination, stops,
-          status, createdAt
+          status, created_at
         )
         VALUES (
           $1, $2, $3,
@@ -90,32 +90,32 @@ export class RidesService {
         )
         RETURNING *
       `,
-      values: [
+        [
+          tenantId,
+          requestId,
+          req.passenger_user_id,
+          driverId,
+          req.service_type_id,
+          req.passenger_count,
+          req.origin,
+          req.destination,
+          req.stops,
+        ]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to create ride');
+      }
+      await publishRideEventOutbox(client, {
+        type: 'rides.ride.driver_assigned',
         tenantId,
-        requestId,
-        req.passenger_user_id,
-        driverId,
-        req.service_type_id,
-        req.passenger_count,
-        req.origin,
-        req.destination,
-        req.stops,
-      ],
-    });
-
-    if (!ride) {
-      throw new Error('Failed to create ride');
-    }
-
-    // Emitir evento
-    await eventBus.emit({
-      type: 'rides.ride.driver_assigned',
-      tenantId,
-      payload: {
-        rideId: ride.ride_id,
-        requestId,
-        driverId,
-      },
+        payload: {
+          rideId: row.ride_id,
+          requestId,
+          driverId,
+        },
+      });
+      return row;
     });
 
     return ride;
@@ -127,28 +127,30 @@ export class RidesService {
   async markDriverArrived(tenantId: string, rideId: string) {
     const ride = await this.getRide(tenantId, rideId);
 
-    const updated = await runQueryWithTenant<RideRow>(tenantId, {
-      text: `
+    const updated = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_rides
         SET status = 'driver_arrived',
             driver_arrivedAt = now(),
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
-      values: [tenantId, rideId],
-    });
-
-    if (!updated) {
-      throw new Error('Failed to update ride status');
-    }
-
-    await eventBus.emit({
-      type: 'rides.ride.driver_arrived',
-      tenantId,
-      payload: {
-        rideId,
-      },
+        [tenantId, rideId]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to update ride status');
+      }
+      await publishRideEventOutbox(client, {
+        type: 'rides.ride.driver_arrived',
+        tenantId,
+        payload: {
+          rideId,
+        },
+      });
+      return row;
     });
 
     return updated;
@@ -164,28 +166,30 @@ export class RidesService {
       throw new BadRequestError('Corrida ainda não está pronta para iniciar.');
     }
 
-    const updated = await runQueryWithTenant<RideRow>(tenantId, {
-      text: `
+    const updated = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_rides
         SET status = 'in_progress',
             startedAt = now(),
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
-      values: [tenantId, rideId],
-    });
-
-    if (!updated) {
-      throw new Error('Failed to start ride');
-    }
-
-    await eventBus.emit({
-      type: 'rides.ride.started',
-      tenantId,
-      payload: {
-        rideId,
-      },
+        [tenantId, rideId]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to start ride');
+      }
+      await publishRideEventOutbox(client, {
+        type: 'rides.ride.started',
+        tenantId,
+        payload: {
+          rideId,
+        },
+      });
+      return row;
     });
 
     return updated;
@@ -201,50 +205,48 @@ export class RidesService {
       throw new BadRequestError('Corrida não está em andamento.');
     }
 
-    // Calcular preço final
-    const price = await pricingService.calculateFinalPrice(tenantId, rideId);
+    // Calcular preço final (sem emit até após estado + pagamento)
+    const price = await pricingService.calculateFinalPrice(tenantId, rideId, {
+      skipEmit: true,
+    });
 
-    const updated = await runQueryWithTenant<RideRow>(tenantId, {
-      text: `
+    const updated = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_rides
         SET status = 'completed',
             completedAt = now(),
             final_price = $3,
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
-      values: [tenantId, rideId, price.total],
+        [tenantId, rideId, price.totalCents]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to complete ride');
+      }
+      await publishRideEventOutbox(client, {
+        type: 'rides.pricing.calculated',
+        tenantId,
+        payload: {
+          rideId,
+          finalPrice: price,
+        },
+      });
+      await publishRideEventOutbox(client, {
+        type: 'rides.ride.completed',
+        tenantId,
+        payload: {
+          rideId,
+          finalPrice: price.totalCents,
+        },
+      });
+      return row;
     });
 
-    if (!updated) {
-      throw new Error('Failed to complete ride');
-    }
-
-    await eventBus.emit({
-      type: 'rides.ride.completed',
-      tenantId,
-      payload: {
-        rideId,
-        finalPrice: price.total,
-      },
-    });
-
-    // Processar pagamento (Economy + Distribution)
-    await distributionService.processRidePayment(
-      tenantId,
-      updated,
-      price
-    );
-
-    // Emitir evento de pagamento concluído
-    await eventBus.emit({
-      type: 'rides.ride.paid',
-      tenantId,
-      payload: {
-        rideId,
-      },
-    });
+    await distributionService.processRidePayment(tenantId, updated, price);
 
     return {
       ride: updated,
@@ -288,33 +290,35 @@ export class RidesService {
       }
     }
 
-    const updated = await runQueryWithTenant<RideRow>(tenantId, {
-      text: `
+    const updated = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const res = await client.query(
+        `
         UPDATE rides_rides
         SET status = 'cancelled',
             cancel_reason = $3,
             cancelled_by = $4,
             cancelledAt = now(),
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND ride_id = $2
         RETURNING *
       `,
-      values: [tenantId, rideId, reason, cancelledBy],
-    });
-
-    if (!updated) {
-      throw new Error('Failed to cancel ride');
-    }
-
-    await eventBus.emit({
-      type: 'rides.ride.cancelled',
-      tenantId,
-      payload: {
-        rideId,
-        reason,
-        cancelledBy,
-        bankTransactionReversed: !!bankTransactionId,
-      },
+        [tenantId, rideId, reason, cancelledBy]
+      );
+      const row = res.rows[0];
+      if (!row) {
+        throw new Error('Failed to cancel ride');
+      }
+      await publishRideEventOutbox(client, {
+        type: 'rides.ride.cancelled',
+        tenantId,
+        payload: {
+          rideId,
+          reason,
+          cancelledBy,
+          bankTransactionReversed: !!bankTransactionId,
+        },
+      });
+      return row;
     });
 
     return updated;
@@ -329,7 +333,7 @@ export class RidesService {
         UPDATE rides_ride_stops
         SET status = 'completed',
             completedAt = now(),
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND ride_id = $2 AND stop_order = $3
         RETURNING *
       `,
@@ -350,7 +354,7 @@ export class RidesService {
     await runQueryWithTenant(tenantId, {
       text: `
         INSERT INTO rides_ride_locations (
-          tenant_id, ride_id, location, createdAt
+          tenant_id, ride_id, location, created_at
         )
         VALUES (
           $1, $2,

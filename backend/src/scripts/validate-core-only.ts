@@ -248,7 +248,7 @@ async function main() {
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('');
 
-    const { total, latentMigrations } = await checkMigrations();
+    const { totalCents: total, latentMigrations } = await checkMigrations();
 
     if (latentMigrations.length > 0) {
       console.error(`❌ FALHA: ${latentMigrations.length} migration(s) latente(s) executada(s):`);

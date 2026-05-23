@@ -1,19 +1,24 @@
 // src/modules/rides/availability/availability.service.ts
-// 🔴 LEGADO — Usa estrutura temporal paralela.
-// 🔴 NÃO USAR EM NOVO CÓDIGO.
-// 🔴 Migrar para unified-availability.service.ts
-// 
-// rides_driver_availability (is_online, dest_mode_enabled) representa:
-// - Estado operacional do motorista (disponível para corridas)
-// - NÃO bloqueia agenda temporal
-// - NÃO cria booking
-// - NÃO interfere em Unified Availability
-// 
-// Este é estado operacional, não agenda. A verdade temporal está em Unified Availability.
+//
+/**
+ * ⚠️ ESTADO OPERACIONAL — NÃO É SSOT TEMPORAL
+ * Este serviço NÃO representa agenda.
+ * NÃO pode ser usado para:
+ * - booking
+ * - disponibilidade temporal canônica
+ * - conflitos de agenda
+ */
+//
+// TODO: integrar com unified-availability.service
+//
+// 🔴 LEGADO — estrutura paralela ao tempo canónico; não usar em fluxo novo sem revisão explícita.
+//
+// `rides_driver_availability` (`is_online`, `destination_mode_*`): flags operacionais para dispatch
+// de corridas (motorista em operação para novas corridas), sem semântica de agenda nem SSOT temporal.
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/db';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
 import { ForbiddenError, NotFoundError } from '@core/errors';
-import { eventBus, EventBus } from '@core/events/event-bus';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 
 type DriverRow = {
   driver_id: string;
@@ -26,14 +31,17 @@ type LimitState = {
   reason?: string | null;
 };
 
-// 🔴 FASE 2: is_online é estado operacional, não agenda temporal
+/** `is_online` = estado operacional (aceite para dispatch), não agenda nem disponibilidade canónica. */
 type AvailabilityRow = {
   is_online: boolean;
 };
 
+/**
+ * Manipula apenas sessão operacional, localização de trabalho e flags de dispatch no domínio rides.
+ * Não cria booking, não resolve sobreposição de agenda e não define disponibilidade global/canónica.
+ */
 export class AvailabilityService {
-  constructor(private eventBusInstance: EventBus = eventBus) {}
-
+  /** Inicia sessão operacional e marca `is_online` para dispatch; não cria booking nem bloqueia agenda. */
   async goOnline(tenantId: string, driverId: string, lat: number, lng: number) {
     const driver = await runQueryWithTenant<DriverRow>(tenantId, {
       text: `
@@ -68,41 +76,41 @@ export class AvailabilityService {
       );
     }
 
-    const session = await runQueryWithTenant<{ session_id: string }>(
-      tenantId,
-      {
-        text: `
+    const out = await runTenantTransactionWithClient(tenantId, async (client) => {
+      const sessionRes = await client.query(
+        `
           INSERT INTO rides_driver_sessions (
             tenant_id, driver_id, vehicle_id, city_id,
             startedAt, is_forced_break
           )
           VALUES ($1, $2, $3, null, now(), false)
           ON CONFLICT (driver_id) WHERE endedAt IS NULL
-          DO UPDATE SET updatedAt = now()
+          DO UPDATE SET updated_at = now()
           RETURNING session_id
         `,
-        values: [tenantId, driverId, driver.active_vehicle_id],
-      }
-    );
+        [tenantId, driverId, driver.active_vehicle_id]
+      );
+      const session = sessionRes.rows[0];
 
-    const availability = await runQueryWithTenant(tenantId, {
-      text: `
+      const availabilityRes = await client.query(
+        `
         INSERT INTO rides_driver_availability (
           tenant_id, driver_id, is_online, destination_mode_enabled,
-          createdAt, updatedAt
+          updated_at
         )
-        VALUES ($1,$2,true,false,now(),now())
+        VALUES ($1,$2,true,false,now())
         ON CONFLICT (tenant_id, driver_id)
-        DO UPDATE SET is_online = true, updatedAt = now()
+        DO UPDATE SET is_online = true, updated_at = now()
         RETURNING *
       `,
-      values: [tenantId, driverId],
-    });
+        [tenantId, driverId]
+      );
+      const availability = availabilityRes.rows[0];
 
-    await runQueryWithTenant(tenantId, {
-      text: `
+      await client.query(
+        `
         INSERT INTO rides_driver_locations (
-          tenant_id, driver_id, location, updatedAt
+          tenant_id, driver_id, location, updated_at
         )
         VALUES (
           $1,$2,
@@ -112,54 +120,61 @@ export class AvailabilityService {
         ON CONFLICT (tenant_id, driver_id)
         DO UPDATE SET
           location = EXCLUDED.location,
-          updatedAt = now()
+          updated_at = now()
       `,
-      values: [tenantId, driverId, lat, lng],
-    });
+        [tenantId, driverId, lat, lng]
+      );
 
-    await this.eventBusInstance.emit({
-      type: 'rides.driver.online',
-      tenantId,
-      payload: { driverId },
+      await publishRideEventOutbox(client, {
+        type: 'rides.driver.online',
+        tenantId,
+        payload: { driverId },
+      });
+
+      return { session, availability };
     });
 
     return {
       ok: true,
-      sessionId: session?.session_id,
+      sessionId: out.session?.session_id,
       limit: state,
-      availability,
+      availability: out.availability,
     };
   }
 
+  /** Termina sessão operacional e `is_online`; não altera reservas em unified-availability. */
   async goOffline(tenantId: string, driverId: string) {
-    await runQueryWithTenant(tenantId, {
-      text: `
+    await runTenantTransactionWithClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE rides_driver_sessions
-        SET endedAt = now(), updatedAt = now()
+        SET endedAt = now(), updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2 AND endedAt IS NULL
       `,
-      values: [tenantId, driverId],
-    });
+        [tenantId, driverId]
+      );
 
-    await runQueryWithTenant(tenantId, {
-      text: `
+      await client.query(
+        `
         UPDATE rides_driver_availability
-        SET is_online = false, updatedAt = now()
+        SET is_online = false, updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
-      values: [tenantId, driverId],
-    });
+        [tenantId, driverId]
+      );
 
-    await this.eventBusInstance.emit({
-      type: 'rides.driver.offline',
-      tenantId,
-      payload: { driverId },
+      await publishRideEventOutbox(client, {
+        type: 'rides.driver.offline',
+        tenantId,
+        payload: { driverId },
+      });
     });
 
     return { ok: true };
   }
 
+  /** Indica se o motorista está em operação para dispatch (flag), não disponibilidade canónica de agenda. */
   async isOnline(tenantId: string, driverId: string) {
     const row = await runQueryWithTenant<AvailabilityRow>(tenantId, {
       text: `
@@ -173,40 +188,45 @@ export class AvailabilityService {
     return !!row?.is_online;
   }
 
+  /** Preferência operacional de destino para matching/dispatch; não é janela temporal de agenda. */
   async setDestinationMode(
     tenantId: string,
     driverId: string,
     enabled: boolean,
     dest?: { lat?: number; lng?: number }
   ) {
-    const result = await runQueryWithTenant(tenantId, {
-      text: `
+    return runTenantTransactionWithClient(tenantId, async (client) => {
+      const resultRes = await client.query(
+        `
         UPDATE rides_driver_availability
         SET destination_mode_enabled = $3,
             destination_mode_lat = CASE WHEN $3 THEN $4 ELSE NULL END,
             destination_mode_lng = CASE WHEN $3 THEN $5 ELSE NULL END,
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2
         RETURNING *
       `,
-      values: [
+        [
+          tenantId,
+          driverId,
+          enabled,
+          enabled ? dest?.lat : null,
+          enabled ? dest?.lng : null,
+        ]
+      );
+      const result = resultRes.rows[0];
+
+      await publishRideEventOutbox(client, {
+        type: 'rides.driver.destination_mode',
         tenantId,
-        driverId,
-        enabled,
-        enabled ? dest?.lat : null,
-        enabled ? dest?.lng : null,
-      ],
-    });
+        payload: { driverId, enabled },
+      });
 
-    await this.eventBusInstance.emit({
-      type: 'rides.driver.destination_mode',
-      tenantId,
-      payload: { driverId, enabled },
+      return result;
     });
-
-    return result;
   }
 
+  /** Acumula tempo de condução na sessão operacional (limites de jornada), não agenda de serviços. */
   async incrementDrivingTime(
     tenantId: string,
     driverId: string,
@@ -218,7 +238,7 @@ export class AvailabilityService {
       text: `
         UPDATE rides_driver_sessions
         SET driving_time_minutes = driving_time_minutes + $3,
-            updatedAt = now()
+            updated_at = now()
         WHERE tenant_id = $1 AND driver_id = $2 AND endedAt IS NULL
       `,
       values: [tenantId, driverId, minutes],
@@ -235,17 +255,20 @@ export class AvailabilityService {
     if (!limitState?.state?.can_drive) {
       await this.goOffline(tenantId, driverId);
 
-      await this.eventBusInstance.emit({
-        type: 'rides.driver.forced_break',
-        tenantId,
-        payload: {
-          driverId,
-          reason: limitState?.state?.reason,
-        },
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await publishRideEventOutbox(client, {
+          type: 'rides.driver.forced_break',
+          tenantId,
+          payload: {
+            driverId,
+            reason: limitState?.state?.reason,
+          },
+        });
       });
     }
   }
 
+  /** Agrega estado operacional persistido (sessão, flags, destinos operacionais); não é visão de agenda. */
   async getStatus(tenantId: string, driverId: string) {
     const availability = await runQueryWithTenant<any>(tenantId, {
       text: `
@@ -286,5 +309,3 @@ export class AvailabilityService {
 }
 
 export const availabilityService = new AvailabilityService();
-
-

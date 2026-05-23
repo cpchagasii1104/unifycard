@@ -26,6 +26,8 @@ export enum ErrorCode {
   // 404 - Not Found
   NOT_FOUND = 'NOT_FOUND',
   RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
+  /** Rota HTTP não registada (setNotFoundHandler §9.5) */
+  ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
   
   // 409 - Conflict
   CONFLICT = 'CONFLICT',
@@ -75,6 +77,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   // 404
   NOT_FOUND: 'Recurso não encontrado',
   RESOURCE_NOT_FOUND: 'Recurso não encontrado',
+  ROUTE_NOT_FOUND: 'Rota não encontrada',
   
   // 409
   CONFLICT: 'Conflito',

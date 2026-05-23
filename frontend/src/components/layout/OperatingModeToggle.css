@@ -1,0 +1,64 @@
+/* OperatingModeToggle — pill segmentado no header
+   Princípio: dois estados sempre visíveis (clareza), o ativo destacado.
+   Não esconde nada, apenas reorganiza prioridade contextual. */
+
+.om-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.om-toggle-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #991b1b;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  font-weight: 700;
+}
+
+.om-toggle-option:hover {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.om-toggle-option.om-inactive {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.om-toggle-option.om-active {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #166534;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.16);
+}
+
+.om-toggle-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.om-toggle-label {
+  white-space: nowrap;
+}
+
+/* Compact em telas menores — só ícone */
+@media (max-width: 900px) {
+  .om-toggle-label {
+    display: none;
+  }
+  .om-toggle-option {
+    padding: 0.4rem 0.6rem;
+  }
+}

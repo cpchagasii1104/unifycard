@@ -19,6 +19,20 @@ Este contrato existe para impedir:
 DEFINIÇÕES FUNDAMENTAIS
 ==================================================
 
+DECISION-0021 — CRITÉRIO DE JURISDIÇÃO DO CORE
+
+Este contrato deve ser lido à luz da DECISION-0021:
+
+- CORE não é sinônimo de diretório físico `/core`.
+- CORE é jurisdição sobre verdades compartilhadas que não podem divergir entre módulos.
+- Soberania canônica pode existir fora de `/core` quando um SSOT, lei ou contrato declarar writer autorizado, enforcement e impossibilidade de contradição.
+- Import graph, pasta, rota registrada, tabela existente ou `app.builder` provam acoplamento/vida técnica, não autoridade institucional.
+- A pergunta obrigatória antes de classificar algo como core ou módulo é: **quem tem autoridade legítima sobre esta verdade?**
+
+Consequência: módulos podem conter operação grande e até writer soberano reconhecido para um domínio específico (ex.: Bank/ledger), mas não podem criar mini-core clandestino nem verdade paralela para identidade, dinheiro, tempo, território, semântica, consentimento ou qualquer SSOT já definido.
+
+--------------------------------------------------
+
 CORE (IMUTÁVEL)
 
 O CORE é o conjunto de sistemas que:
@@ -34,8 +48,8 @@ O CORE:
 - centraliza verdade
 - é dependência obrigatória de tudo
 
-Se algo pertence ao CORE, todo o resto se conecta a ele.
-Nunca o contrário.
+Se uma verdade pertence à jurisdição do CORE, todo o resto se conecta à autoridade reconhecida para essa verdade.
+Nunca o contrário. Essa autoridade pode estar fisicamente em `/core` ou em módulo expressamente autorizado por SSOT/lei/contrato.
 
 
 --------------------------------------------------
@@ -50,10 +64,10 @@ Um módulo é tudo que:
 - não cria regras universais
 
 Módulos:
-- não definem verdade
+- não definem verdade soberana fora de autoridade reconhecida
 - não decidem comportamento global
 - não criam atalhos
-- não mantêm estado concorrente ao core
+- não mantêm estado concorrente ao core ou ao SSOT soberano de outro domínio
 
 
 ==================================================

@@ -41,6 +41,7 @@ export type BusinessAuditAction =
   | 'trust_event_registered'
   | 'trust_score_updated'
   | 'trust_action_blocked'
+  | 'trust_action_warning'
   | 'bypass_detected'
   | 'off_platform_attempt'
   | 'ledger_entry_created'

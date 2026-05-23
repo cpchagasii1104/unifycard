@@ -14,26 +14,26 @@ interface SubscriptionRow {
   tenant_id: string;
   contact_id: string;
   payment_link_id: string;
-  amountCents: string;
+  amount: string; // DB column; map to amountCents in TS
   currency: string;
   interval: string;
   interval_count: number;
   day_of_month: number | null;
-  next_runAt: Date;
+  next_run_at: Date;
   status: string;
   max_failures: number;
   failure_count: number;
-  last_runAt: Date | null;
-  last_successAt: Date | null;
-  last_failureAt: Date | null;
+  last_run_at: Date | null;
+  last_success_at: Date | null;
+  last_failure_at: Date | null;
   last_payment_intent_id: string | null;
   last_error_code: string | null;
   last_error_message: string | null;
   metadata: any;
   created_by_actor_id: string;
   created_by_user_id: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class SubscriptionRepository {
@@ -48,21 +48,21 @@ class SubscriptionRepository {
       interval: row.interval as any,
       intervalCount: row.interval_count,
       dayOfMonth: row.day_of_month,
-      nextRunAt: row.next_runAt,
+      nextRunAt: row.next_run_at,
       status: row.status as SubscriptionStatus,
       maxFailures: row.max_failures,
       failureCount: row.failure_count,
-      lastRunAt: row.last_runAt,
-      lastSuccessAt: row.last_successAt,
-      lastFailureAt: row.last_failureAt,
+      lastRunAt: row.last_run_at,
+      lastSuccessAt: row.last_success_at,
+      lastFailureAt: row.last_failure_at,
       lastPaymentIntentId: row.last_payment_intent_id,
       lastErrorCode: row.last_error_code,
       lastErrorMessage: row.last_error_message,
       metadata: row.metadata || {},
       createdByActorId: row.created_by_actor_id,
       createdByUserId: row.created_by_user_id,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -77,24 +77,24 @@ class SubscriptionRepository {
       `
       INSERT INTO subscriptions (
         tenant_id, contact_id, payment_link_id, amount, currency,
-        interval, interval_count, day_of_month, next_runAt,
+        interval, interval_count, day_of_month, next_run_at,
         status, max_failures, failure_count, metadata,
         created_by_actor_id, created_by_user_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15)
       RETURNING id, tenant_id, contact_id, payment_link_id, amount, currency,
-                interval, interval_count, day_of_month, next_runAt,
+                interval, interval_count, day_of_month, next_run_at,
                 status, max_failures, failure_count,
-                last_runAt, last_successAt, last_failureAt,
+                last_run_at, last_success_at, last_failure_at,
                 last_payment_intent_id, last_error_code, last_error_message,
                 metadata, created_by_actor_id, created_by_user_id,
-                createdAt, updatedAt
+                created_at, updated_at
       `,
       [
         tenantId,
         input.contactId,
         input.paymentLinkId,
-        input.amount,
+        input.amountCents,
         input.currency || 'BRL',
         input.interval,
         input.intervalCount || 1,
@@ -121,12 +121,12 @@ class SubscriptionRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, payment_link_id, amount, currency,
-             interval, interval_count, day_of_month, next_runAt,
+             interval, interval_count, day_of_month, next_run_at,
              status, max_failures, failure_count,
-             last_runAt, last_successAt, last_failureAt,
+             last_run_at, last_success_at, last_failure_at,
              last_payment_intent_id, last_error_code, last_error_message,
              metadata, created_by_actor_id, created_by_user_id,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM subscriptions
       WHERE tenant_id = $1 AND id = $2
       `,
@@ -166,15 +166,15 @@ class SubscriptionRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, payment_link_id, amount, currency,
-             interval, interval_count, day_of_month, next_runAt,
+             interval, interval_count, day_of_month, next_run_at,
              status, max_failures, failure_count,
-             last_runAt, last_successAt, last_failureAt,
+             last_run_at, last_success_at, last_failure_at,
              last_payment_intent_id, last_error_code, last_error_message,
              metadata, created_by_actor_id, created_by_user_id,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM subscriptions
       WHERE ${conditions.join(' AND ')}
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
       [...params, limit, offset]
@@ -188,17 +188,17 @@ class SubscriptionRepository {
       tenantId,
       `
       SELECT id, tenant_id, contact_id, payment_link_id, amount, currency,
-             interval, interval_count, day_of_month, next_runAt,
+             interval, interval_count, day_of_month, next_run_at,
              status, max_failures, failure_count,
-             last_runAt, last_successAt, last_failureAt,
+             last_run_at, last_success_at, last_failure_at,
              last_payment_intent_id, last_error_code, last_error_message,
              metadata, created_by_actor_id, created_by_user_id,
-             createdAt, updatedAt
+             created_at, updated_at
       FROM subscriptions
       WHERE tenant_id = $1
         AND status = 'ACTIVE'
-        AND next_runAt <= NOW()
-      ORDER BY next_runAt ASC
+        AND next_run_at <= NOW()
+      ORDER BY next_run_at ASC
       LIMIT $2
       `,
       [tenantId, limit]
@@ -224,7 +224,7 @@ class SubscriptionRepository {
       tenantId,
       `
       UPDATE subscriptions
-      SET next_runAt = $1
+      SET next_run_at = $1
       WHERE tenant_id = $2 AND id = $3
       `,
       [nextRunAt, tenantId, subscriptionId]
@@ -236,7 +236,7 @@ class SubscriptionRepository {
       tenantId,
       `
       UPDATE subscriptions
-      SET last_runAt = NOW(),
+      SET last_run_at = NOW(),
           last_payment_intent_id = $1
       WHERE tenant_id = $2 AND id = $3
       `,
@@ -249,7 +249,7 @@ class SubscriptionRepository {
       tenantId,
       `
       UPDATE subscriptions
-      SET last_successAt = NOW(),
+      SET last_success_at = NOW(),
           failure_count = 0,
           last_error_code = NULL,
           last_error_message = NULL
@@ -269,7 +269,7 @@ class SubscriptionRepository {
       tenantId,
       `
       UPDATE subscriptions
-      SET last_failureAt = NOW(),
+      SET last_failure_at = NOW(),
           failure_count = failure_count + 1,
           last_error_code = $1,
           last_error_message = $2

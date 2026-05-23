@@ -9,7 +9,7 @@ import type { CategoryContext } from '@unificard/contracts';
 export interface CreateServiceOfferInput {
   skillId: string;
   personId: string;
-  context: CategoryContext; // OBRIGATÓRIO: context deve ser explícito
+  context?: CategoryContext; // Opcional: default 'professional' (ServiceOffer é sempre professional)
 }
 
 export interface ServiceOfferCreatedEvent {
@@ -59,11 +59,8 @@ class HumanMvpServiceOfferService {
       throw new Error('Skill não pertence à pessoa especificada');
     }
 
-    // VALIDAÇÃO 3: Context é obrigatório e deve ser fornecido explicitamente
-    if (!input.context) {
-      throw new Error('context é obrigatório');
-    }
-    const context: CategoryContext = input.context;
+    // VALIDAÇÃO 3: Context (default professional para ServiceOffer)
+    const context: CategoryContext = input.context ?? 'professional';
 
     // VALIDAÇÃO 4: Tenant tem permissão de write no context professional
     const hasWriteAccess = await tenantContextPermissionService.hasWriteAccess(
@@ -78,7 +75,7 @@ class HumanMvpServiceOfferService {
     const result = await pool.query<{ id: string }>(
       `
       INSERT INTO human_mvp_service_offers (
-        tenant_id, person_id, skill_id, category_id, context, createdAt, updatedAt
+        tenant_id, person_id, skill_id, category_id, context, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING id
@@ -108,7 +105,7 @@ class HumanMvpServiceOfferService {
     await pool.query(
       `
       INSERT INTO human_mvp_events (
-        event_type, tenant_id, person_id, category_id, context, details, createdAt
+        event_type, tenant_id, person_id, category_id, context, details, created_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,

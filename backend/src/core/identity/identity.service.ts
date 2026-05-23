@@ -19,6 +19,7 @@
 // src/core/identity/identity.service.ts
 import { pool } from '@core/database/pool';
 import { runQueryWithTenant } from '@core/database/pool';
+import { normalizeCpf, validateCpf } from '@utils/cpf.validator';
 import { reputationService } from '@core/reputation/reputation.service';
 import { residenceService } from '@core/residence/residence.service';
 import type {
@@ -29,6 +30,14 @@ import type {
 } from './identity.types';
 
 class IdentityService {
+  private isSeedBirthdate(value: Date | string | null | undefined): boolean {
+    if (!value) return false;
+    if (value instanceof Date) {
+      return value.getUTCFullYear() === 1990 && value.getUTCMonth() === 0 && value.getUTCDate() === 1;
+    }
+    return String(value).substring(0, 10) === '1990-01-01';
+  }
+
   private toGlobalUser(row: GlobalUserRow): GlobalUser {
     // 🔴 CRÍTICO: Garantir que birthdate seja tratado corretamente
     // PostgreSQL DATE retorna como string YYYY-MM-DD ou como Date
@@ -68,12 +77,247 @@ class IdentityService {
 
     return {
       globalUserId: row.global_user_id,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : String(row.created_at),
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : String(row.updated_at),
       fullName: row.full_name,
       avatarUrl: row.avatar_url,
       birthdate,
       metadata: row.metadata || {},
+    };
+  }
+
+  /**
+   * CPF sintético único por (tenant, user) — não passa em validateCpf (proposital),
+   * evita colisão com CPFs reais e satisfaz UNIQUE(global_users.cpf).
+   */
+  private syntheticCpfForUser(tenantId: string, userId: string): string {
+    return `syn:${tenantId}:${userId}`;
+  }
+
+  /**
+   * Garante que `users.global_user_id` aponta para `global_users`.
+   * - Se já houver vínculo: devolve a identidade global.
+   * - Se houver CPF válido em `profiles`: faz UPSERT em `global_users` (mesma regra do register).
+   * - Caso contrário: cria `global_users` com CPF sintético e atualiza `users`.
+   */
+  async ensureGlobalUserLinked(userId: string, tenantId: string): Promise<GlobalUser> {
+    const local = await runQueryWithTenant<{
+      id: string;
+      user_id: string;
+      global_user_id: string | null;
+      email: string;
+    }>(
+      tenantId,
+      `
+        SELECT id, user_id, global_user_id, email
+        FROM users
+        WHERE id = $1 OR user_id = $1
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!local) {
+      throw new Error(`Usuário local não encontrado: ${userId} (tenant: ${tenantId})`);
+    }
+
+    const canonicalUserId = local.id;
+
+    if (local.global_user_id) {
+      return this.getGlobalIdentity(local.global_user_id);
+    }
+
+    const profileRow = await runQueryWithTenant<{ cpf: string | null }>(
+      tenantId,
+      `SELECT cpf FROM profiles WHERE user_id = $1 LIMIT 1`,
+      [canonicalUserId]
+    );
+
+    let cpfForInsert: string;
+    const rawCpf = profileRow?.cpf?.trim();
+    if (rawCpf) {
+      const normalized = normalizeCpf(rawCpf);
+      if (normalized.length === 11 && validateCpf(normalized)) {
+        cpfForInsert = normalized;
+      } else {
+        cpfForInsert = this.syntheticCpfForUser(tenantId, canonicalUserId);
+      }
+    } else {
+      cpfForInsert = this.syntheticCpfForUser(tenantId, canonicalUserId);
+    }
+
+    const metadata =
+      cpfForInsert === this.syntheticCpfForUser(tenantId, canonicalUserId)
+        ? { synthetic: true, source: 'ensureGlobalUserLinked' as const }
+        : { source: 'ensureGlobalUserLinked' as const };
+
+    const insertResult = await pool.query<{ global_user_id: string }>(
+      `
+      INSERT INTO global_users (cpf, full_name, avatar_url, birthdate, metadata)
+      VALUES ($1, $2, NULL, NULL, $3::jsonb)
+      ON CONFLICT (cpf)
+      DO UPDATE SET cpf = EXCLUDED.cpf
+      RETURNING global_user_id
+      `,
+      [cpfForInsert, null, JSON.stringify(metadata)]
+    );
+
+    const globalUserId = insertResult.rows[0]?.global_user_id;
+    if (!globalUserId) {
+      throw new Error('Falha ao criar ou resolver global_users para o usuário local');
+    }
+
+    await runQueryWithTenant(
+      tenantId,
+      `
+        UPDATE users
+        SET global_user_id = $1,
+            updated_at = now()
+        WHERE id = $2
+      `,
+      [globalUserId, canonicalUserId]
+    );
+
+    return this.getGlobalIdentity(globalUserId);
+  }
+
+  /**
+   * Para cada `users` sem `global_user_id`, executa {@link ensureGlobalUserLinked}.
+   */
+  async backfillMissingGlobalUserLinks(): Promise<{ fixed: number; errors: string[] }> {
+    const result = await pool.query<{ id: string; tenant_id: string }>(
+      `SELECT id, tenant_id FROM users WHERE global_user_id IS NULL`
+    );
+    const errors: string[] = [];
+    let fixed = 0;
+    for (const row of result.rows) {
+      try {
+        await this.ensureGlobalUserLinked(row.id, row.tenant_id);
+        fixed += 1;
+      } catch (e) {
+        errors.push(
+          `user ${row.id} tenant ${row.tenant_id}: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    return { fixed, errors };
+  }
+
+  /**
+   * tax_id exigido por `identities` (11 caracteres para tipo cpf).
+   */
+  private taxIdForIdentityFromGlobalUser(
+    globalUserId: string,
+    cpfFromDb: string | null
+  ): string {
+    const normalized = (cpfFromDb || '').replace(/\D/g, '');
+    if (normalized.length === 11) {
+      return normalized;
+    }
+    const d = globalUserId.replace(/\D/g, '');
+    return d.length >= 11 ? d.slice(0, 11) : d.padEnd(11, '0');
+  }
+
+  /**
+   * Batch / jobs (reconciliação): garante linha em `identities` para um GU.
+   * Delega na mesma implementação que `ensureCanonicalActorChain` — não duplicar INSERT/tax_id.
+   */
+  async ensureIdentityRowForGlobalUserId(globalUserId: string): Promise<void> {
+    await this.ensureIdentityRowForGlobalUser(globalUserId);
+  }
+
+  /**
+   * Garante linha em `identities` para satisfazer FK `actors.global_user_id → identities(global_user_id)`.
+   */
+  private async ensureIdentityRowForGlobalUser(globalUserId: string): Promise<void> {
+    const exists = await pool.query(`SELECT 1 FROM identities WHERE global_user_id = $1 LIMIT 1`, [
+      globalUserId,
+    ]);
+    if (exists.rows.length > 0) {
+      return;
+    }
+    const gu = await pool.query<{ cpf: string }>(
+      `SELECT cpf FROM global_users WHERE global_user_id = $1 LIMIT 1`,
+      [globalUserId]
+    );
+    const taxId = this.taxIdForIdentityFromGlobalUser(
+      globalUserId,
+      gu.rows[0]?.cpf ?? null
+    );
+    await pool.query(
+      `
+      INSERT INTO identities (global_user_id, tax_id, tax_id_type, kyc_status, kyc_level)
+      VALUES ($1::uuid, $2, 'cpf', 'pending', 'none')
+      ON CONFLICT (global_user_id) DO NOTHING
+      `,
+      [globalUserId, taxId]
+    );
+  }
+
+  /**
+   * Garante `actors` no schema Genesis (id = users.id, actor_human, FK identities).
+   */
+  private async ensureGenesisActorForUser(
+    tenantId: string,
+    canonicalUserId: string,
+    globalUserId: string,
+    displayLabel: string
+  ): Promise<void> {
+    const ext = canonicalUserId;
+    await runQueryWithTenant(
+      tenantId,
+      `
+      INSERT INTO actors (id, tenant_id, actor_type, external_id, display_name, global_user_id)
+      VALUES ($1::uuid, $2, 'actor_human', $5, $3, $4::uuid)
+      ON CONFLICT (id) DO UPDATE SET
+        global_user_id = COALESCE(actors.global_user_id, EXCLUDED.global_user_id),
+        display_name = EXCLUDED.display_name
+      `,
+      [canonicalUserId, tenantId, displayLabel, globalUserId, ext]
+    );
+  }
+
+  /**
+   * Cadeia canónica (único caminho de serviço): `global_users` + `users.global_user_id`
+   * → `identities` → `actors` (Genesis: actor id = user id, actor_human).
+   * Usar em E2E, jobs e integrações que precisam de actor físico sem SQL nos scripts.
+   */
+  async ensureCanonicalActorChain(
+    userId: string,
+    tenantId: string
+  ): Promise<{ userId: string; globalUserId: string; actorId: string }> {
+    const globalUser = await this.ensureGlobalUserLinked(userId, tenantId);
+    const local = await runQueryWithTenant<{ id: string; email: string }>(
+      tenantId,
+      `
+      SELECT id, email
+      FROM users
+      WHERE id = $1 OR user_id = $1
+      LIMIT 1
+      `,
+      [userId]
+    );
+    if (!local) {
+      throw new Error(`ensureCanonicalActorChain: utilizador não encontrado: ${userId}`);
+    }
+    await this.ensureIdentityRowForGlobalUser(globalUser.globalUserId);
+    const label = (local.email && local.email.trim()) || `user ${local.id}`;
+    await this.ensureGenesisActorForUser(
+      tenantId,
+      local.id,
+      globalUser.globalUserId,
+      label
+    );
+    return {
+      userId: local.id,
+      globalUserId: globalUser.globalUserId,
+      actorId: local.id,
     };
   }
 
@@ -85,10 +329,7 @@ class IdentityService {
     userId: string,
     tenantId: string
   ): Promise<GlobalUser> {
-    throw new Error(
-      'DEPRECATED: Global identity must be created at register time with CPF. ' +
-      'createGlobalIdentityForUser is incompatible with Gate 0 schema.'
-    );
+    return this.ensureGlobalUserLinked(userId, tenantId);
   }
 
   /**
@@ -120,7 +361,7 @@ class IdentityService {
     // 🔴 CORREÇÃO: Buscar registro único (global_user_id é PRIMARY KEY)
     const result = await pool.query<GlobalUserRow>(
       `
-        SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata
+        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata
         FROM global_users
         WHERE global_user_id = $1
       `,
@@ -136,7 +377,10 @@ class IdentityService {
       globalUserId: result.rows[0].global_user_id,
       fullName: result.rows[0].full_name,
       birthdate: result.rows[0].birthdate,
-      updatedAt: result.rows[0].updatedAt,
+      updatedAt:
+        result.rows[0].updated_at instanceof Date
+          ? result.rows[0].updated_at.toISOString()
+          : String(result.rows[0].updated_at),
       recordCount,
     });
 
@@ -176,7 +420,7 @@ class IdentityService {
         [globalUserId, tenantId]
       );
       
-      if (!userResult || userResult.length === 0) {
+      if (!userResult) {
         throw new Error(`Usuário não encontrado para global_user_id: ${globalUserId} no tenant: ${tenantId}`);
       }
       
@@ -190,7 +434,10 @@ class IdentityService {
     
     // 🔴 CORREÇÃO CRÍTICA: Só bloquear alteração se birthdate JÁ FOI PREENCHIDO (não é null/undefined)
     // REGRA: Permitir salvar birthdate pela primeira vez, mesmo após onboarding, se ainda for null
-    const birthdateAlreadyExists = existingGlobalUser?.birthdate !== null && existingGlobalUser?.birthdate !== undefined;
+    const birthdateAlreadyExists =
+      existingGlobalUser?.birthdate !== null &&
+      existingGlobalUser?.birthdate !== undefined &&
+      !this.isSeedBirthdate(existingGlobalUser.birthdate);
 
     if (birthdateAlreadyExists && updates.birthdate !== undefined && updates.birthdate !== null && !canEditBirthdate) {
       console.log('[IdentityService] 🔒 Ignorando tentativa de alteração de birthdate (dado imutável após onboarding):', {
@@ -327,7 +574,7 @@ class IdentityService {
       return existing;
     }
 
-    updateFields.push(`updatedAt = now()`);
+    updateFields.push(`updated_at = now()`);
     
     // 🔴 CRÍTICO: Log antes de construir SQL
     console.log('[IdentityService] Construindo SQL UPDATE:', {
@@ -385,6 +632,11 @@ class IdentityService {
     // Reconstruir campos com placeholders sequenciais ($1, $2, $3...)
     for (let i = 0; i < updateFields.length; i++) {
       const field = updateFields[i];
+      // Timestamp server-side: sem placeholder
+      if (field.includes('now()')) {
+        updateFieldsWithPlaceholders.push(field.trim());
+        continue;
+      }
       const fieldName = field.split('=')[0].trim();
       const fieldValue = values[i];
       
@@ -419,7 +671,7 @@ class IdentityService {
     // 🔴 CRÍTICO: Buscar ANTES do UPDATE para comparar
     // 🔴 CORREÇÃO: ORDER BY updatedAt DESC para garantir registro mais recente
     const beforeUpdate = await pool.query<GlobalUserRow>(
-      `SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updatedAt DESC LIMIT 1`,
+      `SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata FROM global_users WHERE global_user_id = $1 ORDER BY updated_at DESC LIMIT 1`,
       [globalUserId]
     );
     console.log('[IdentityService] 🔍 ANTES UPDATE - Estado atual no banco:', {
@@ -427,14 +679,14 @@ class IdentityService {
       exists: beforeUpdate.rows.length > 0,
       currentFullName: beforeUpdate.rows[0]?.full_name,
       currentBirthdate: beforeUpdate.rows[0]?.birthdate,
-      currentUpdatedAt: beforeUpdate.rows[0]?.updatedAt,
+      currentUpdatedAt: beforeUpdate.rows[0]?.updated_at,
     });
     
     const sqlQuery = `
       UPDATE global_users
       SET ${updateFieldsWithPlaceholders.join(', ')}
       WHERE global_user_id = $${updateValues.length}
-      RETURNING global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+      RETURNING global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
     `;
     
     console.log('[IdentityService] 🔍 DIAGNÓSTICO: Executando UPDATE', {
@@ -506,10 +758,10 @@ class IdentityService {
     // 🔴 INSTRUMENTAÇÃO: Logar txid no GET após UPDATE
     const verifyResult = await pool.query<GlobalUserRow & { txid: string }>(
       `
-        SELECT global_user_id, createdAt, updatedAt, full_name, avatar_url, birthdate, metadata, txid_current() as txid
+        SELECT global_user_id, created_at, updated_at, full_name, avatar_url, birthdate, metadata, txid_current() as txid
         FROM global_users
         WHERE global_user_id = $1
-        ORDER BY updatedAt DESC
+        ORDER BY updated_at DESC
         LIMIT 1
       `,
       [globalUserId]
@@ -537,7 +789,10 @@ class IdentityService {
       globalUserId: savedData.global_user_id,
       fullName: savedData.full_name,
       birthdate: savedData.birthdate,
-      updatedAt: savedData.updatedAt,
+      updatedAt:
+        savedData.updated_at instanceof Date
+          ? savedData.updated_at.toISOString()
+          : String(savedData.updated_at),
       matches: savedData.global_user_id === globalUserId,
     });
     console.log('[IdentityService] 🔍 COMPARAÇÃO ANTES vs DEPOIS:', {
@@ -545,12 +800,12 @@ class IdentityService {
       afterFullName: savedData.full_name,
       beforeBirthdate: beforeUpdate.rows[0]?.birthdate,
       afterBirthdate: savedData.birthdate,
-      beforeUpdatedAt: beforeUpdate.rows[0]?.updatedAt,
-      afterUpdatedAt: savedData.updatedAt,
+      beforeUpdatedAt: beforeUpdate.rows[0]?.updated_at,
+      afterUpdatedAt: savedData.updated_at,
       changed: (
         beforeUpdate.rows[0]?.full_name !== savedData.full_name ||
         beforeUpdate.rows[0]?.birthdate?.toString() !== savedData.birthdate?.toString() ||
-        beforeUpdate.rows[0]?.updatedAt?.getTime() !== savedData.updatedAt?.getTime()
+        beforeUpdate.rows[0]?.updated_at != null && savedData.updated_at != null && ((beforeUpdate.rows[0].updated_at as unknown) instanceof Date ? (beforeUpdate.rows[0].updated_at as unknown as Date).getTime() : new Date(beforeUpdate.rows[0].updated_at as unknown as string).getTime()) !== (typeof savedData.updated_at === 'string' ? new Date(savedData.updated_at).getTime() : (savedData.updated_at as unknown as Date).getTime())
       ),
     });
     
@@ -633,12 +888,12 @@ class IdentityService {
       id: string;
       tenant_id: string;
       email: string;
-      createdAt: Date;
+      created_at: Date;
       global_user_id: string | null;
     }>(
       tenantId,
       `
-        SELECT id, tenant_id, email, createdAt, global_user_id
+        SELECT id, tenant_id, email, created_at, global_user_id
         FROM users
         WHERE id = $1
         LIMIT 1
@@ -699,6 +954,7 @@ class IdentityService {
     if (globalUser.globalUserId) {
       try {
         // Buscar todas as contas do global_user_id
+        const { accountService } = await import('@core/economy/account.service');
         const accounts = await accountService.getAccountsByGlobalUserId(globalUser.globalUserId);
         
         if (accounts.length > 0) {
@@ -706,6 +962,7 @@ class IdentityService {
           const primaryAccount = accounts.find(acc => acc.currency === 'BRL') || accounts[0];
           
           // Buscar últimas transações
+          const { transactionService } = await import('@core/economy/transaction.service');
           const transactions = await transactionService.getTransactionsByGlobalUserId(
             globalUser.globalUserId,
             { limit: 5 }
@@ -715,25 +972,23 @@ class IdentityService {
           let totalIn = 0;
           let totalOut = 0;
           const lastTransactions = transactions.slice(0, 5).map(tx => {
-            const isCredit = tx.toGlobalUserId === globalUser.globalUserId;
-            const amount = tx.amount;
-            
+            const isCredit = primaryAccount && tx.toAccountId === primaryAccount.accountId;
+            const amountCents = tx.amountCents;
             if (isCredit) {
-              totalIn += amount;
+              totalIn += amountCents;
             } else {
-              totalOut += amount;
+              totalOut += amountCents;
             }
-
             return {
               transactionId: tx.transactionId,
               type: isCredit ? 'credit' as const : 'debit' as const,
-              amount,
+              amountCents,
               createdAt: tx.createdAt,
             };
           });
 
           wallet = {
-            balance: primaryAccount.balance,
+            balanceCents: primaryAccount.balanceCents,
             currency: primaryAccount.currency,
             totalIn,
             totalOut,
@@ -785,7 +1040,7 @@ class IdentityService {
         userId: localUser.id,
         tenantId: localUser.tenant_id,
         email: localUser.email,
-        createdAt: localUser.createdAt,
+        createdAt: localUser.created_at instanceof Date ? localUser.created_at.toISOString() : String(localUser.created_at),
       },
       reputation,
       wallet,
@@ -795,6 +1050,5 @@ class IdentityService {
 }
 
 export const identityService = new IdentityService();
-
 
 

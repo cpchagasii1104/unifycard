@@ -2,7 +2,6 @@
 // Serviço de código de indicação/afiliado geral para usuários
 
 import { runQueryWithTenant } from '@core/database/pool';
-import { devLog } from '@utils/devLog';
 import crypto from 'crypto';
 
 class ReferralService {
@@ -183,7 +182,7 @@ class ReferralService {
         throw new Error(`Tabela user_referral_links não existe. Execute migration 030_referrals.sql primeiro.`);
       }
       // Outros erros podem ser ignorados (ex: constraint violation)
-      devLog.warn('referral.link_error', {
+      console.warn('[referral.service] referral.link_error', {
         error: errorMessage,
       });
     }
@@ -217,7 +216,7 @@ class ReferralService {
         );
       }
       
-      devLog.success('referral.created', {
+      console.log('[referral.service] referral.created', {
         referrerUserId: referrer.id,
         referredUserId: newUserId,
         referralCode,
@@ -225,7 +224,7 @@ class ReferralService {
         endsAt,
       });
     } catch (err) {
-      devLog.warn('referral.error', {
+      console.warn('[referral.service] referral.error', {
         error: err instanceof Error ? err.message : String(err),
         referrerUserId: referrer.id,
         referredUserId: newUserId,

@@ -12,6 +12,18 @@ Esta separação existe para:
 - evitar conflitos entre módulos,
 - impedir que agentes (humanos ou IA) reinventem partes do sistema.
 
+DECISION-0021 acrescenta uma terceira leitura obrigatória:
+
+- CORE JURISDICIONAL / AUTORIDADE SOBERANA
+
+CORE JURISDICIONAL não é uma pasta. É a autoridade reconhecida sobre uma verdade compartilhada. Um componente pode ser soberano mesmo fora de `/core` físico quando houver writer autorizado, enforcement e proibição de contradição por consumidores.
+
+Portanto:
+- localização física não define soberania;
+- `modules_import` mede acoplamento técnico, não autoridade institucional;
+- `app.builder` prova que algo está vivo, não que é SSOT;
+- módulo não pode criar mini-core clandestino para verdade já soberana.
+
 
 ================================================================
 1. DEFINIÇÕES

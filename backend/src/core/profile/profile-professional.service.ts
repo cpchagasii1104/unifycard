@@ -3,7 +3,9 @@
 
 import { runQueryWithTenant } from '@core/database/pool';
 import { categoriesService } from '../categories/categories.service';
+import { HttpError } from '../errors/http-error';
 import { identityService } from '../identity/identity.service';
+import { resolveProfessionalSkillCategoriesStrict } from './category-navigation-bridge';
 import type {
   ProfessionalProfile,
   ProfessionalSkill,
@@ -35,7 +37,7 @@ class ProfileProfessionalService {
       SELECT metadata
       FROM global_users
       WHERE global_user_id = $1
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [globalUserId]
@@ -65,7 +67,7 @@ class ProfileProfessionalService {
         COALESCE(usc.visit_price, NULL) as visit_price
       FROM user_skills_categories usc
       WHERE usc.global_user_id = $1
-      ORDER BY usc.updatedAt DESC
+      ORDER BY usc.updated_at DESC
       `,
       [globalUserId]
     );
@@ -93,7 +95,7 @@ class ProfileProfessionalService {
         is_active
       FROM predefined_services
       WHERE global_user_id = $1 AND is_active = true
-      ORDER BY createdAt ASC
+      ORDER BY created_at ASC
       `,
       [globalUserId]
     );
@@ -122,100 +124,66 @@ class ProfileProfessionalService {
       [globalUserId]
     );
 
-    // 🔴 BLINDAGEM: Buscar informações das categorias com tratamento de erro individual
-    // NUNCA usar Promise.all aqui - uma categoria inválida não pode quebrar todo o perfil
     const skills: ProfessionalSkill[] = [];
 
     for (const row of skillsRows.rows) {
-      // Validar que category_id existe
       if (!row.category_id) {
-        console.warn('[ProfileProfessional] Skill sem category_id ignorada:', row);
-        continue;
+        throw HttpError.badRequest(
+          'Perfil profissional: registro em user_skills_categories sem category_id (dados corruptos).',
+        );
+      }
+    }
+
+    const skillCategoryIds = skillsRows.rows.map((r) => r.category_id);
+    const categoryById =
+      skillCategoryIds.length > 0
+        ? await resolveProfessionalSkillCategoriesStrict(pool, skillCategoryIds)
+        : new Map();
+
+    for (const row of skillsRows.rows) {
+      const cid = row.category_id as string;
+      const category = categoryById.get(cid);
+      if (!category) {
+        throw HttpError.internal('Perfil profissional: categoria ausente após validação estrita.');
       }
 
-      try {
-        // Buscar categoria (pode retornar null se não existir ou status inválido)
-        const category = await categoriesService.getCategoryById(row.category_id);
+      const predefinedServices = predefinedServicesRows.rows
+        .filter((ps) => ps.category_id === cid)
+        .map((ps) => ({
+          serviceId: ps.service_id,
+          name: ps.name,
+          description: ps.description || undefined,
+          basePrice: Number(ps.base_price),
+          discountPercentage: ps.discount_percentage ? Number(ps.discount_percentage) : undefined,
+          finalPrice: Number(ps.final_price),
+          isActive: ps.is_active,
+        }));
 
-        // Se categoria não existe ou é inválida, ignorar esta skill
-        if (!category) {
-          console.warn('[ProfileProfessional] Categoria inválida ignorada:', {
-            category_id: row.category_id,
-            skill_level: row.skill_level,
-          });
-          continue;
-        }
-        
-        // 🔴 VALIDAÇÃO: Verificar scope profissional (apenas categorias profissionais ou globais)
-        if (category.scope !== 'professional' && category.scope !== 'global') {
-          console.warn('[ProfileProfessional] Categoria com scope inválido ignorada:', {
-            category_id: row.category_id,
-            category_name: category.name,
-            scope: category.scope,
-          });
-          continue;
-        }
-        
-        // 🔴 VALIDAÇÃO: Verificar level <= 2
-        if (category.level > 2) {
-          console.warn('[ProfileProfessional] Categoria com level > 2 ignorada:', {
-            category_id: row.category_id,
-            category_name: category.name,
-            level: category.level,
-          });
-          continue;
-        }
+      const comboRulesForSkill = comboDiscountRulesRows.rows
+        .filter((rule) => rule.category_id === cid)
+        .map((rule) => ({
+          ruleId: rule.rule_id,
+          minServices: rule.min_services,
+          discountPercentage: Number(rule.discount_percentage),
+          description: rule.description || undefined,
+          isActive: rule.is_active,
+        }));
 
-        // Processar serviços pré-definidos para esta categoria
-        const predefinedServices = predefinedServicesRows.rows
-          .filter(ps => ps.category_id === row.category_id)
-          .map(ps => ({
-            serviceId: ps.service_id,
-            name: ps.name,
-            description: ps.description || undefined,
-            basePrice: Number(ps.base_price),
-            discountPercentage: ps.discount_percentage ? Number(ps.discount_percentage) : undefined,
-            finalPrice: Number(ps.final_price),
-            isActive: ps.is_active,
-          }));
-
-        // Processar regras de desconto para esta categoria
-        const comboDiscountRules = comboDiscountRulesRows.rows
-          .filter(rule => rule.category_id === row.category_id)
-          .map(rule => ({
-            ruleId: rule.rule_id,
-            minServices: rule.min_services,
-            discountPercentage: Number(rule.discount_percentage),
-            description: rule.description || undefined,
-            isActive: rule.is_active,
-          }));
-
-        // Adicionar skill válida
-        skills.push({
-          categoryId: row.category_id,
-          categoryName: category.name,
-          categoryPath: category.path || [],
-          skillLevel: row.skill_level,
-          yearsExperience: row.years_experience || 0,
-          hourlyRate: row.hourly_rate ? Number(row.hourly_rate) : null,
-          pricingType: (row.pricing_type || 'hourly') as 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote',
-          serviceType: (row.service_type === 'product' ? 'product' : 'service') as 'service' | 'product',
-          chargeVisit: row.charge_visit || false,
-          visitPrice: row.visit_price ? Number(row.visit_price) : null,
-          predefinedServices: predefinedServices.length > 0 ? predefinedServices : undefined,
-          comboDiscountRules: comboDiscountRules.length > 0 ? comboDiscountRules : undefined,
-          isVerified: false, // Por enquanto sempre false, pode ser implementado depois
-        });
-      } catch (error) {
-        // 🔴 CRÍTICO: Nunca lançar erro por categoria inválida
-        // Log apenas em dev/warn, ignorar silenciosamente
-        console.warn('[ProfileProfessional] Erro ao processar categoria (ignorada):', {
-          category_id: row.category_id,
-          skill_level: row.skill_level,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        continue;
-      }
+      skills.push({
+        categoryId: cid,
+        categoryName: category.name,
+        categoryPath: category.path,
+        skillLevel: row.skill_level,
+        yearsExperience: row.years_experience || 0,
+        hourlyRate: row.hourly_rate ? Number(row.hourly_rate) : null,
+        pricingType: (row.pricing_type || 'hourly') as 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote',
+        serviceType: (row.service_type === 'product' ? 'product' : 'service') as 'service' | 'product',
+        chargeVisit: row.charge_visit || false,
+        visitPrice: row.visit_price ? Number(row.visit_price) : null,
+        predefinedServices: predefinedServices.length > 0 ? predefinedServices : undefined,
+        comboDiscountRules: comboRulesForSkill.length > 0 ? comboRulesForSkill : undefined,
+        isVerified: false,
+      });
     }
 
     // Buscar dados do worker (se existir)
@@ -229,7 +197,7 @@ class ProfileProfessionalService {
       SELECT bio, availability
       FROM workers
       WHERE tenant_id = $1 AND user_id = $2
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [tenantId, userId]
@@ -294,22 +262,6 @@ class ProfileProfessionalService {
 
       // Inserir novas skills com valores por profissão
       for (const skill of input.skills) {
-        // 🔴 VALIDAÇÃO: Verificar se categoria existe e tem scope profissional
-        const category = await categoriesService.getCategoryById(skill.categoryId);
-        if (!category) {
-          throw new Error(`Categoria não encontrada: ${skill.categoryId}`);
-        }
-        
-        // 🔴 VALIDAÇÃO: Verificar scope profissional
-        if (category.scope !== 'professional' && category.scope !== 'global') {
-          throw new Error(`Categoria deve ter scope profissional. Categoria "${category.name}" tem scope "${category.scope}"`);
-        }
-        
-        // 🔴 VALIDAÇÃO: Verificar level <= 2
-        if (category.level > 2) {
-          throw new Error(`Categoria deve ter level máximo 2. Categoria "${category.name}" tem level ${category.level}`);
-        }
-        
         await categoriesService.assignSkillToUser(globalUserId, {
           categoryId: skill.categoryId,
           skillLevel: skill.skillLevel || 0,
@@ -362,7 +314,7 @@ class ProfileProfessionalService {
           await pool.query(
             `
             UPDATE user_skills_categories
-            SET ${updates.join(', ')}, updatedAt = now()
+            SET ${updates.join(', ')}, updated_at = now()
             WHERE global_user_id = $${paramIdx} AND category_id = $${paramIdx + 1}
             `,
             values
@@ -435,7 +387,7 @@ class ProfileProfessionalService {
                     base_price = $3,
                     discount_percentage = $4,
                     is_active = COALESCE($5, true),
-                    updatedAt = now()
+                    updated_at = now()
                   WHERE service_id = $6
                   `,
                   [
@@ -570,7 +522,7 @@ class ProfileProfessionalService {
             await pool.query(
               `
               UPDATE predefined_services
-              SET is_active = false, updatedAt = now()
+              SET is_active = false, updated_at = now()
               WHERE service_id = ANY($1)
               `,
               [Array.from(existingIds)]
@@ -603,7 +555,7 @@ class ProfileProfessionalService {
                   discount_percentage = $2,
                   description = $3,
                   is_active = COALESCE($4, true),
-                  updatedAt = now()
+                  updated_at = now()
                 WHERE rule_id = $5
                 `,
                 [
@@ -641,7 +593,7 @@ class ProfileProfessionalService {
             await pool.query(
               `
               UPDATE combo_discount_rules
-              SET is_active = false, updatedAt = now()
+              SET is_active = false, updated_at = now()
               WHERE rule_id = ANY($1)
               `,
               [Array.from(existingRuleIds)]
@@ -660,7 +612,7 @@ class ProfileProfessionalService {
       SELECT worker_id
       FROM workers
       WHERE tenant_id = $1 AND user_id = $2
-      ORDER BY updatedAt DESC
+      ORDER BY updated_at DESC
       LIMIT 1
       `,
       [tenantId, userId]
@@ -714,7 +666,7 @@ class ProfileProfessionalService {
             WHEN $2 IS NULL THEN availability 
             ELSE $2::jsonb 
           END,
-          updatedAt = now()
+          updated_at = now()
         WHERE tenant_id = $3 AND user_id = $4
         `,
         [

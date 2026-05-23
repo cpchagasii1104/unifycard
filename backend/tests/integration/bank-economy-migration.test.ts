@@ -220,7 +220,7 @@ describe('Bank Economy Migration - Continuous Production', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumBefore = totalBefore.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Processar pagamentos via Bank
       await eventsPaymentService.processEventPayment({
@@ -247,7 +247,7 @@ describe('Bank Economy Migration - Continuous Production', () => {
           bankLedgerRepository.calculateBalance(testTenantId, acc.accountId)
         )
       );
-      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balance, 0);
+      const sumAfter = totalAfter.reduce((sum, balance) => sum + balance.balanceCents, 0);
 
       // Total deve ser igual (dinheiro não é criado nem destruído)
       expect(Math.abs(sumBefore - sumAfter)).toBeLessThan(0.01);

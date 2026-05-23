@@ -99,7 +99,7 @@ class AgreementService {
     const agreement = await this.getAgreement(tenantId, agreementId);
 
     // Não pode atualizar se já estiver ACCEPTED ou FINALIZED
-    if (agreement.status === 'ACCEPTED' || agreement.status === 'FINALIZED') {
+    if (agreement.status === 'accepted' || agreement.status === 'finalized') {
       throw new ConflictError('Não é possível atualizar um acordo já aceito ou finalizado');
     }
 
@@ -134,11 +134,11 @@ class AgreementService {
   ): Promise<Agreement> {
     const agreement = await this.getAgreement(tenantId, agreementId);
 
-    if (agreement.status !== 'DRAFT') {
+    if (agreement.status !== 'draft') {
       throw new ConflictError('Apenas acordos em DRAFT podem ser propostos');
     }
 
-    const updated = await agreementRepository.updateStatus(tenantId, agreementId, 'PROPOSED');
+    const updated = await agreementRepository.updateStatus(tenantId, agreementId, 'proposed');
 
     // Registrar audit log
     await recordBusinessAuditSafely(tenantId, {
@@ -168,7 +168,7 @@ class AgreementService {
   ): Promise<Agreement> {
     const agreement = await this.getAgreement(tenantId, agreementId);
 
-    if (agreement.status !== 'PROPOSED') {
+    if (agreement.status !== 'proposed') {
       throw new ConflictError('Apenas acordos em PROPOSED podem ser aceitos');
     }
 
@@ -180,7 +180,7 @@ class AgreementService {
       throw new BadRequestError('Apenas os participantes do acordo podem aceitá-lo');
     }
 
-    const updated = await agreementRepository.updateStatus(tenantId, agreementId, 'ACCEPTED');
+    const updated = await agreementRepository.updateStatus(tenantId, agreementId, 'accepted');
 
     // Registrar audit log
     await recordBusinessAuditSafely(tenantId, {
@@ -211,7 +211,7 @@ class AgreementService {
   ): Promise<Agreement> {
     const agreement = await this.getAgreement(tenantId, agreementId);
 
-    if (agreement.status !== 'ACCEPTED') {
+    if (agreement.status !== 'accepted') {
       throw new ConflictError('Apenas acordos em ACCEPTED podem ser finalizados');
     }
 
@@ -226,7 +226,7 @@ class AgreementService {
     const updated = await agreementRepository.updateStatus(
       tenantId,
       agreementId,
-      'FINALIZED',
+      'finalized',
       input.actorId
     );
 

@@ -10,6 +10,7 @@ import type {
 } from 'fastify';
 
 import { BadRequestError } from '@core/errors';
+import { assertRideAuthority } from '../shared/ride-authority';
 import { rideRequestsService } from './ride-requests.service';
 
 interface CreateRequestBody {
@@ -44,6 +45,8 @@ const rideRequestsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       const userId = req.user?.id;
       if (!tenantId || !userId) throw new BadRequestError('Missing tenant or user context');
 
+      await assertRideAuthority(req, tenantId, userId, 'request_ride');
+
       const result = await rideRequestsService.createRequest(tenantId, userId, req.body);
 
       reply.code(201);
@@ -65,6 +68,8 @@ const rideRequestsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       if (!tenantId || !userId) throw new BadRequestError('Missing tenant or user context');
 
       const { requestId } = req.params;
+
+      await assertRideAuthority(req, tenantId, userId, 'accept_ride', requestId);
       
       // Buscar driver_id do usuário
       const { driversService } = await import('../drivers/drivers.service');
@@ -93,6 +98,9 @@ const rideRequestsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       if (!tenantId || !userId) throw new BadRequestError('Missing tenant or user context');
 
       const { requestId } = req.params;
+
+      await assertRideAuthority(req, tenantId, userId, 'request_ride', requestId);
+
       const result = await rideRequestsService.cancelRequest(tenantId, requestId, userId);
       return result;
     }

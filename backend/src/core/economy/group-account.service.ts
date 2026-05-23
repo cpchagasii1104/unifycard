@@ -3,6 +3,7 @@
 // Serviço para resolver contas de grupos do usuário para splits econômicos
 // Busca grupos do usuário e cria/busca contas correspondentes
 
+import { accountService } from './account.service';
 import { groupsRepository } from '../../modules/groups/groups.repository';
 import type { FastifyBaseLogger } from 'fastify';
 

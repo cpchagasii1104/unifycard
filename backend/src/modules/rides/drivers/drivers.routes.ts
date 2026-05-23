@@ -58,7 +58,15 @@ const driversRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
       const { driverId } = req.params;
 
-      const driver = await runQueryWithTenant<any>(tenantId, {
+      const row = await runQueryWithTenant<{
+        driver_id: string;
+        user_id: string;
+        status: string;
+        level: string;
+        active_vehicle_id: string | null;
+        created_at: Date;
+        updated_at: Date;
+      }>(tenantId, {
         text: `
           SELECT
             driver_id,
@@ -66,19 +74,27 @@ const driversRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             status,
             level,
             active_vehicle_id,
-            createdAt,
-            updatedAt
+            created_at,
+            updated_at
           FROM rides_drivers
           WHERE tenant_id = $1 AND driver_id = $2;
         `,
         values: [tenantId, driverId],
       });
 
-      if (!driver) {
+      if (!row) {
         throw new NotFoundError('Driver not found');
       }
 
-      return driver;
+      return {
+        driver_id: row.driver_id,
+        user_id: row.user_id,
+        status: row.status,
+        level: row.level,
+        active_vehicle_id: row.active_vehicle_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
     }
   );
 
@@ -123,25 +139,29 @@ const driversRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         throw new BadRequestError('isAvailable must be boolean');
       }
 
-      const availability = await runQueryWithTenant<{
+      const row = await runQueryWithTenant<{
         driver_id: string;
         is_available: boolean;
-        updatedAt: Date;
+        updated_at: Date;
       }>(tenantId, {
         text: `
           UPDATE rides_driver_availability
-          SET is_available = $3, updatedAt = NOW()
+          SET is_available = $3, updated_at = NOW()
           WHERE tenant_id = $1 AND driver_id = $2
-          RETURNING driver_id, is_available, updatedAt;
+          RETURNING driver_id, is_available, updated_at;
         `,
         values: [tenantId, driverId, isAvailable],
       });
 
-      if (!availability) {
+      if (!row) {
         throw new NotFoundError('Driver availability not found');
       }
 
-      return availability;
+      return {
+        driver_id: row.driver_id,
+        is_available: row.is_available,
+        updatedAt: row.updated_at,
+      };
     }
   );
 };

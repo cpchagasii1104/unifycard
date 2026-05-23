@@ -37,9 +37,13 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
           supportedIntents: plugin.supportedIntents,
         })),
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -97,9 +101,13 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
           updatedAt: dto.updatedAt,
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -146,9 +154,13 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
           note: 'Ações são apenas declaração. Execução deve ser feita pelo domínio correspondente.',
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 
@@ -194,9 +206,13 @@ const feedPluginRoutes: FastifyPluginAsync = async (fastify) => {
           reason: resolution.reason,
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: error.message });
+      }
       fastify.log.error(error);
-      return reply.status(500).send({ error: error.message });
+      return reply.status(500).send({ error: String(error) });
     }
   });
 

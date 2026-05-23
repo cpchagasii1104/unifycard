@@ -1,6 +1,6 @@
 // src/core/config/config.service.ts
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import {
   ConfigValue,
   ConfigValueType,
@@ -11,51 +11,58 @@ import {
   ConfigSetOptions,
   FeatureFlagUpsertInput,
 } from './config.types';
-import { eventBus } from '@core/events/event-bus';
+import {
+  insertEventOutboxRow,
+  outboxEventIdFromSeed,
+} from '@core/events/event-outbox.repository';
 import * as crypto from 'crypto';
 
 function inferValueType(valueCents: ConfigValue): ConfigValueType {
-  if (typeof value === 'string') return 'string';
-  if (typeof value === 'number') return 'number';
-  if (typeof value === 'boolean') return 'boolean';
+  if (typeof valueCents === 'string') return 'string';
+  if (typeof valueCents === 'number') return 'number';
+  if (typeof valueCents === 'boolean') return 'boolean';
   return 'json';
 }
 
 function mapConfigRow(row: TenantConfigRow): TenantConfig {
-  let value = row.value as ConfigValue;
+  let valueCents = row.value as ConfigValue;
 
   if (row.value_type === 'json' && typeof row.value === 'string') {
     try {
-      value = JSON.parse(row.value as string);
+      valueCents = JSON.parse(row.value as string);
     } catch {
-      value = row.value as ConfigValue;
+      valueCents = row.value as ConfigValue;
     }
   }
 
+  const created = row.created_at;
+  const updated = row.updated_at;
   return {
     configId: row.config_id,
     tenantId: row.tenant_id,
     module: row.module,
     key: row.key,
-    value,
+    valueCents,
     valueType: row.value_type,
     isSystem: row.is_system,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: created instanceof Date ? created.toISOString() : String(created ?? ''),
+    updatedAt: updated instanceof Date ? updated.toISOString() : String(updated ?? ''),
   };
 }
 
 function mapFeatureFlagRow(row: FeatureFlagRow): FeatureFlag {
+  const created = row.created_at;
+  const updated = row.updated_at;
   return {
     flagId: row.flag_id,
     tenantId: row.tenant_id,
     flagName: row.flag_name,
     description: row.description,
-    isEnabled: row.isEnabled,
+    isEnabled: row.is_enabled,
     rolloutPercentage: row.rollout_percentage,
     userWhitelist: row.user_whitelist ?? [],
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: created instanceof Date ? created.toISOString() : String(created ?? ''),
+    updatedAt: updated instanceof Date ? updated.toISOString() : String(updated ?? ''),
   };
 }
 
@@ -72,7 +79,7 @@ class ConfigService {
     const row = await runQueryWithTenant<TenantConfigRow>(
       tenantId,
       `
-      SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
+      SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
       FROM tenant_configs
       WHERE module = $1 AND key = $2
       LIMIT 1
@@ -90,7 +97,7 @@ class ConfigService {
     key: string
   ): Promise<T | null> {
     const cfg = await this.getConfig(tenantId, module, key);
-    return (cfg?.value as T) ?? null;
+    return (cfg?.valueCents as T) ?? null;
   }
 
   async getConfigValueOrDefault<T extends ConfigValue = ConfigValue>(
@@ -100,10 +107,10 @@ class ConfigService {
     defaultValue: T
   ): Promise<T> {
     const cfg = await this.getConfig(tenantId, module, key);
-    if (cfg == null || cfg.value === undefined || cfg.value === null) {
+    if (cfg == null || cfg.valueCents === undefined || cfg.valueCents === null) {
       return defaultValue;
     }
-    return cfg.value as T;
+    return cfg.valueCents as T;
   }
 
   async setConfig(
@@ -113,10 +120,10 @@ class ConfigService {
     valueCents: ConfigValue,
     options: ConfigSetOptions = {}
   ): Promise<TenantConfig> {
-    const valueType = inferValueType(value);
+    const valueType = inferValueType(valueCents);
     const isSystem = options.isSystem ?? false;
 
-    const jsonValue = valueType === 'json' ? JSON.stringify(value) : value;
+    const jsonValue = valueType === 'json' ? JSON.stringify(valueCents) : valueCents;
 
     const existing = await this.getConfig(tenantId, module, key);
 
@@ -130,8 +137,8 @@ class ConfigService {
         value = EXCLUDED.value,
         value_type = EXCLUDED.value_type,
         is_system = EXCLUDED.is_system,
-        updatedAt = now()
-      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
+        updated_at = now()
+      RETURNING config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
       `,
       [tenantId, module, key, jsonValue, valueType, isSystem]
     );
@@ -142,16 +149,30 @@ class ConfigService {
 
     const config = mapConfigRow(row);
 
-    await eventBus.publish({
-      type: 'config.changed',
-      tenantId,
-      payload: {
-        module,
-        key,
-        oldValue: existing?.value ?? null,
-        newValue: config.value,
-      },
-    });
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(
+          `config.changed:${tenantId}:${module}:${key}:${config.updatedAt}`
+        ),
+        eventType: 'config.changed',
+        eventVersion: 1,
+        payload: {
+          module,
+          key,
+          oldValue: existing?.valueCents ?? null,
+          newValue: config.valueCents,
+        },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
     return config;
   }
@@ -170,11 +191,23 @@ class ConfigService {
       [module, key]
     );
 
-    await eventBus.publish({
-      type: 'config.deleted',
-      tenantId,
-      payload: { module, key, oldValue: existing.value },
-    });
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(`config.deleted:${tenantId}:${module}:${key}`),
+        eventType: 'config.deleted',
+        eventVersion: 1,
+        payload: { module, key, oldValue: existing.valueCents },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
     return true;
   }
@@ -190,7 +223,7 @@ class ConfigService {
 
     if (module) {
       query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
         FROM tenant_configs
         WHERE module = $1
         ORDER BY module, key
@@ -199,7 +232,7 @@ class ConfigService {
       params = [module, limit, offset];
     } else {
       query = `
-        SELECT config_id, tenant_id, module, key, value, value_type, is_system, createdAt, updatedAt
+        SELECT config_id, tenant_id, module, key, value, value_type, is_system, created_at, updated_at
         FROM tenant_configs
         ORDER BY module, key
         LIMIT $1 OFFSET $2
@@ -222,8 +255,8 @@ class ConfigService {
     const row = await runQueryWithTenant<FeatureFlagRow>(
       tenantId,
       `
-      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
-             rollout_percentage, user_whitelist, createdAt, updatedAt
+      SELECT flag_id, tenant_id, flag_name, description, is_enabled,
+             rollout_percentage, user_whitelist, created_at, updated_at
       FROM feature_flags
       WHERE flag_name = $1
       LIMIT 1
@@ -251,19 +284,19 @@ class ConfigService {
       tenantId,
       `
       INSERT INTO feature_flags (
-        tenant_id, flag_name, description, enabled,
+        tenant_id, flag_name, description, is_enabled,
         rollout_percentage, user_whitelist
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (tenant_id, flag_name)
       DO UPDATE SET
         description = EXCLUDED.description,
-        enabled = EXCLUDED.enabled,
+        is_enabled = EXCLUDED.is_enabled,
         rollout_percentage = EXCLUDED.rollout_percentage,
         user_whitelist = EXCLUDED.user_whitelist,
-        updatedAt = now()
-      RETURNING flag_id, tenant_id, flag_name, description, enabled as isEnabled,
-                rollout_percentage, user_whitelist, createdAt, updatedAt
+        updated_at = now()
+      RETURNING flag_id, tenant_id, flag_name, description, is_enabled,
+                rollout_percentage, user_whitelist, created_at, updated_at
       `,
       [tenantId, flagName, description, enabled, rolloutPercentage, userWhitelist]
     );
@@ -274,15 +307,29 @@ class ConfigService {
 
     const flag = mapFeatureFlagRow(row);
 
-    await eventBus.publish({
-      type: 'feature_flag.changed',
-      tenantId,
-      payload: {
-        flagName,
-        old: existing ?? null,
-        current: flag,
-      },
-    });
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(
+          `feature_flag.changed:${tenantId}:${flagName}:${flag.updatedAt}`
+        ),
+        eventType: 'feature_flag.changed',
+        eventVersion: 1,
+        payload: {
+          flagName,
+          old: existing ?? null,
+          current: flag,
+        },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
     return flag;
   }
@@ -300,11 +347,23 @@ class ConfigService {
       [flagName]
     );
 
-    await eventBus.publish({
-      type: 'feature_flag.deleted',
-      tenantId,
-      payload: { flagName, old: existing },
-    });
+    const outboxClient = await getClientWithTenant(tenantId);
+    try {
+      await outboxClient.query('BEGIN');
+      await insertEventOutboxRow(outboxClient, {
+        tenantId,
+        eventId: outboxEventIdFromSeed(`feature_flag.deleted:${tenantId}:${flagName}`),
+        eventType: 'feature_flag.deleted',
+        eventVersion: 1,
+        payload: { flagName, old: existing },
+      });
+      await outboxClient.query('COMMIT');
+    } catch (err) {
+      await outboxClient.query('ROLLBACK');
+      throw err;
+    } finally {
+      outboxClient.release();
+    }
 
     return true;
   }
@@ -317,8 +376,8 @@ class ConfigService {
     const rows = await runQueriesWithTenant<FeatureFlagRow>(
       tenantId,
       `
-      SELECT flag_id, tenant_id, flag_name, description, enabled as isEnabled,
-             rollout_percentage, user_whitelist, createdAt, updatedAt
+      SELECT flag_id, tenant_id, flag_name, description, is_enabled,
+             rollout_percentage, user_whitelist, created_at, updated_at
       FROM feature_flags
       ORDER BY flag_name
       LIMIT $1 OFFSET $2

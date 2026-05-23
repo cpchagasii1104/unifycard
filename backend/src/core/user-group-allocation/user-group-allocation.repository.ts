@@ -1,7 +1,7 @@
 // backend/src/core/user-group-allocation/user-group-allocation.repository.ts
 // CONTINUOUS PRODUCTION: Repository para alocação de grupos do usuário
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface UserGroupAllocation {
   allocationId: string;
@@ -29,45 +29,39 @@ class UserGroupAllocationRepository {
     userId: string
   ): Promise<UserGroupAllocation[]> {
     try {
-      const result = await runQueryWithTenant<{
+      const rows = await runQueriesWithTenant<{
         allocation_id: string;
         tenant_id: string;
         user_id: string;
         group_id: string;
         percentage_bps: string;
-        createdAt: Date;
-        updatedAt: Date;
-      }>(
-        tenantId,
-        `
+        created_at: Date;
+        updated_at: Date;
+      }>(tenantId, {
+        text: `
           SELECT 
             allocation_id,
             tenant_id,
             user_id,
             group_id,
             percentage_bps,
-            createdAt,
-            updatedAt
+            created_at,
+            updated_at
           FROM user_group_allocations
           WHERE tenant_id = $1 AND user_id = $2
-          ORDER BY createdAt ASC
+          ORDER BY created_at ASC
         `,
-        [tenantId, userId]
-      );
+        values: [tenantId, userId],
+      });
 
-      // Garantir que sempre retornamos um array válido
-      if (!Array.isArray(result)) {
-        return [];
-      }
-
-      return result.map((row) => ({
+      return rows.map((row) => ({
         allocationId: row.allocation_id,
         tenantId: row.tenant_id,
         userId: row.user_id,
         groupId: row.group_id,
         percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
       }));
     } catch (error) {
       // Em caso de erro (ex: tabela não existe, query falha), retornar array vazio
@@ -90,8 +84,8 @@ class UserGroupAllocationRepository {
       user_id: string;
       group_id: string;
       percentage_bps: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -101,8 +95,8 @@ class UserGroupAllocationRepository {
           user_id,
           group_id,
           percentage_bps,
-          createdAt,
-          updatedAt
+          created_at,
+          updated_at
         FROM user_group_allocations
         WHERE tenant_id = $1 AND user_id = $2 AND group_id = $3
         LIMIT 1
@@ -110,19 +104,19 @@ class UserGroupAllocationRepository {
       [tenantId, userId, groupId]
     );
 
-    if (!result || result.length === 0) {
+    if (!result) {
       return null;
     }
 
-    const row = result[0];
+    const row = result;
     return {
       allocationId: row.allocation_id,
       tenantId: row.tenant_id,
       userId: row.user_id,
       groupId: row.group_id,
       percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -139,8 +133,8 @@ class UserGroupAllocationRepository {
       user_id: string;
       group_id: string;
       percentage_bps: string;
-      createdAt: Date;
-      updatedAt: Date;
+      created_at: Date;
+      updated_at: Date;
     }>(
       tenantId,
       `
@@ -151,28 +145,29 @@ class UserGroupAllocationRepository {
         ON CONFLICT (tenant_id, user_id, group_id)
         DO UPDATE SET
           percentage_bps = EXCLUDED.percentage_bps,
-          updatedAt = NOW()
+          updated_at = NOW()
         RETURNING 
           allocation_id,
           tenant_id,
           user_id,
           group_id,
           percentage_bps,
-          createdAt,
-          updatedAt
+          created_at,
+          updated_at
       `,
       [tenantId, input.userId, input.groupId, Math.round(input.percentage * 100)] // Converter para bps
     );
 
-    const row = result[0];
+    const row = result;
+    if (!row) throw new Error('Falha ao upsert alocação');
     return {
       allocationId: row.allocation_id,
       tenantId: row.tenant_id,
       userId: row.user_id,
       groupId: row.group_id,
       percentage: parseFloat(row.percentage_bps) / 100, // Converter de bps para decimal
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -194,7 +189,7 @@ class UserGroupAllocationRepository {
       [tenantId, userId, groupId]
     );
 
-    return result.length > 0;
+    return result != null;
   }
 
   /**
@@ -204,17 +199,19 @@ class UserGroupAllocationRepository {
     tenantId: string,
     userId: string
   ): Promise<number> {
-    const result = await runQueryWithTenant<{ count: string }>(
+    const rows = await runQueriesWithTenant<{ allocation_id: string }>(
       tenantId,
-      `
+      {
+        text: `
         DELETE FROM user_group_allocations
         WHERE tenant_id = $1 AND user_id = $2
         RETURNING allocation_id
       `,
-      [tenantId, userId]
+        values: [tenantId, userId],
+      }
     );
 
-    return result.length;
+    return rows.length;
   }
 
   /**
@@ -234,7 +231,7 @@ class UserGroupAllocationRepository {
       [tenantId, userId]
     );
 
-    return parseInt(result[0]?.count || '0', 10);
+    return parseInt(result?.count ?? '0', 10);
   }
 }
 

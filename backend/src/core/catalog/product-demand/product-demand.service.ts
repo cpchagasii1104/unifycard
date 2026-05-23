@@ -172,7 +172,7 @@ class ProductDemandService {
         FROM product_offers
         WHERE tenant_id = $1
           AND location_city_id = $2
-          AND active = TRUE
+          AND is_active = TRUE
         `,
         values: [tenantId, cityId],
       }

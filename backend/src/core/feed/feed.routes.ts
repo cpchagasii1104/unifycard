@@ -2,6 +2,10 @@
 // Rotas para Feed Contextual
 
 import { FastifyPluginAsync } from 'fastify';
+import {
+  isSemanticResolutionError,
+  replySemanticResolutionFailure,
+} from '@core/semantic/semantic-http';
 import { feedService } from './feed.service';
 import { resolveGlobalUserId } from '../identity/identity.utils';
 import { runQueryWithTenant } from '../database/pool';
@@ -29,6 +33,9 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
       );
       return reply.send({ ok: true, data: feed });
     } catch (error) {
+      if (isSemanticResolutionError(error)) {
+        return replySemanticResolutionFailure(reply, error);
+      }
       fastify.log.error({ err: error }, 'Erro ao buscar feed contextual');
       return reply.status(500).send({ 
         ok: false, 
@@ -107,7 +114,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
    * HEURÍSTICA ATUAL (temporária):
    * - Feed: posts das últimas 24h (visibilidade pública)
    * - Grupos: grupos com atividade recente (últimos 7 dias)
-   * - Eventos: eventos próximos (próximos 7 dias, status PUBLISHED/ONGOING)
+   * - Eventos: eventos próximos (próximos 7 dias, status published/active)
    * - Serviços: ofertas de serviço recentes (últimos 7 dias)
    * 
    * TODO: Substituir por sistema de "lidos/não lidos" quando implementado
@@ -134,7 +141,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM posts
         WHERE tenant_id = $1
-          AND createdAt >= $2
+          AND created_at >= $2
           AND visibility = 'PUBLIC'
         `,
         [tenantId, oneDayAgo]
@@ -151,7 +158,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND metadata->>'groupId' IS NOT NULL
-          AND createdAt >= $2
+          AND created_at >= $2
         `,
         [tenantId, sevenDaysAgo]
       );
@@ -166,9 +173,10 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         SELECT COUNT(*)::int as count
         FROM events
         WHERE tenant_id = $1
-          AND status IN ('published', 'ongoing')
-          AND starts_at >= NOW()
-          AND starts_at <= $2
+          AND status IN ('published', 'active')
+          AND datetime_start IS NOT NULL
+          AND datetime_start >= NOW()
+          AND datetime_start <= $2
         `,
         [tenantId, sevenDaysFromNow]
       );
@@ -181,7 +189,7 @@ const feedRoutes: FastifyPluginAsync = async (fastify) => {
         FROM posts
         WHERE tenant_id = $1
           AND intent = 'service_offer'
-          AND createdAt >= $2
+          AND created_at >= $2
         `,
         [tenantId, sevenDaysAgo]
       );

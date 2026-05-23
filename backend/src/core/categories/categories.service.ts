@@ -12,8 +12,7 @@ import { cboMatcherService } from './cbo-matcher.service';
 import { categoryInputAuditService } from './category-input-audit.service';
 import { categoryInputGateService } from './category-input-gate.service';
 import { tenantService } from '@core/tenants/tenant.service';
-import { worldService } from '@core/world/services/world.service';
-import { ssotObservabilityService } from './ssot-observability.service';
+import { ssotObservabilityUtil } from '@core/observability/ssot-observability.util';
 import { tenantContextPermissionService } from '@core/tenants/tenant-context-permission.service';
 import type {
   Category,
@@ -27,6 +26,8 @@ import type {
   CategoryClassification,
   CategoryAutocompleteResult,
 } from './categories.types';
+import { HttpError } from '@core/errors/http-error';
+import { assertCategoryWritableForUserSkillsStrict } from '@core/profile/category-navigation-bridge';
 
 class CategoriesService {
   private repository = new CategoryRepository();
@@ -158,6 +159,8 @@ class CategoriesService {
       validateAdmin?: boolean;
       context?: CategoryContext;
       skipGate?: boolean; // Para criação interna (grupos/subgrupos), pular gate
+      source?: string; // Origem (ex: 'script') para auditoria
+      allowActive?: boolean; // Criar categoria já como active (scripts)
     }
   ): Promise<Category> {
     // VALIDAÇÃO OBRIGATÓRIA: name deve ser string não vazia
@@ -423,7 +426,7 @@ class CategoriesService {
   ): Promise<CategoryTree[]> {
     // GUARD: tenantId obrigatório
     if (!tenantId) {
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: context || null,
         details: {
@@ -436,7 +439,7 @@ class CategoriesService {
 
     // GUARD: context obrigatório
     if (!context) {
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId,
         context: null,
         details: {
@@ -447,8 +450,10 @@ class CategoriesService {
       throw new Error('SSOT_VIOLATION: context is mandatory for category reads');
     }
 
-// Resolver countryCode a partir do tenant (NUNCA de parâmetros externos)
-let countryCode: string | null = null;
+// Ontologia (N0→N1→N2): leitura canônica não filtra por cidade/tenant geográfico.
+// `country_code` em `categories` é metadado da taxonomia quando existir, não âncora via `tenants.city_id`.
+// Não consultar `cities`/world aqui — evita query ilegal (ex.: coluna city_id inexistente) e SSOT paralelo.
+const countryCode: string | null = null;
 
 const tenant = await tenantService.getTenantById(tenantId);
 
@@ -457,14 +462,6 @@ if (!tenant) {
   err.statusCode = 401;
   err.status = 401;
   throw err;
-}
-
-// Resolver countryCode é opcional
-if (tenant.cityId) {
-  const cityPath = await worldService.getCityFullPath(tenant.cityId);
-  if (cityPath) {
-    countryCode = cityPath.country.code;
-  }
 }
 
 // 🔴 ADR: Validação de permissão de contexto
@@ -551,7 +548,7 @@ if (!hasReadAccess) {
     // KILL SWITCH: Se ENFORCE_CANONICAL_ONLY estiver ativo, bloquear método legado
     if (process.env.ENFORCE_CANONICAL_ONLY === 'true') {
       // Registrar SSOT_VIOLATION (kill switch ativo)
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: context || null,
         details: {
@@ -574,7 +571,7 @@ if (!hasReadAccess) {
 
     // WARNING: Método legado em uso
     // Registrar LEGACY_CALL (tentativa de uso de método legado)
-    await ssotObservabilityService.recordViolation('LEGACY_CALL', {
+    await ssotObservabilityUtil.recordViolation('LEGACY_CALL', {
       tenantId: null,
       context: context || null,
       details: {
@@ -772,8 +769,8 @@ if (!hasReadAccess) {
    * Busca filhos de uma categoria
    * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
    */
-  async getChildren(categoryId: string, countryCode?: string | null): Promise<Category[]> {
-    const rows = await this.repository.findChildren(categoryId, countryCode);
+  async getChildren(categoryId: string, countryCode?: string | null, context: CategoryContext = 'professional'): Promise<Category[]> {
+    const rows = await this.repository.findChildren(categoryId, context, countryCode);
     return CategoryModel.fromRows(rows);
   }
 
@@ -799,7 +796,7 @@ if (!hasReadAccess) {
   ): Promise<Category[]> {
     // GUARD: tenantId obrigatório
     if (!tenantId) {
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId: null,
         context: context || null,
         details: {
@@ -812,7 +809,7 @@ if (!hasReadAccess) {
 
     // GUARD: context obrigatório
     if (!context) {
-      await ssotObservabilityService.recordViolation('SSOT_VIOLATION', {
+      await ssotObservabilityUtil.recordViolation('SSOT_VIOLATION', {
         tenantId,
         context: null,
         details: {
@@ -913,13 +910,13 @@ if (!hasReadAccess) {
       categoryId: cat.categoryId,
       name: cat.name,
       slug: cat.slug,
-      description: cat.description || null,
-      parentId: cat.parentId || null,
+      description: cat.description ?? null,
+      parentId: cat.parentId ?? null,
       level: cat.level,
       path: cat.path || [],
       keywords: cat.keywords || [],
-      countryCode: cat.countryCode || null,
-      scope: cat.scope || null,
+      countryCode: cat.countryCode ?? null,
+      scope: cat.scope ?? undefined,
       createdAt: cat.createdAt,
       updatedAt: cat.updatedAt,
     }));
@@ -1227,22 +1224,12 @@ if (!hasReadAccess) {
     globalUserId: string,
     input: AssignSkillToUserInput
   ): Promise<void> {
-    // VALIDAÇÃO: categoryId é obrigatório
     if (!input.categoryId) {
-      throw new Error('categoryId é obrigatório');
-    }
-    
-    // Verificar se categoria existe e tem scope profissional
-    const category = await this.getCategoryById(input.categoryId);
-    if (!category) {
-      throw new Error('Categoria não encontrada');
-    }
-    if (category.scope !== 'professional') {
-      throw new Error('Categoria deve ter scope profissional');
+      throw HttpError.badRequest('categoryId é obrigatório');
     }
 
-    // Upsert skill
-    const { pool } = await import('@core/database/pool');
+    await assertCategoryWritableForUserSkillsStrict(pool, input.categoryId);
+
     await pool.query(
       `
       INSERT INTO user_skills_categories (global_user_id, category_id, skill_level, years_experience, hourly_rate, pricing_type)
@@ -1253,7 +1240,7 @@ if (!hasReadAccess) {
         years_experience = EXCLUDED.years_experience,
         hourly_rate = EXCLUDED.hourly_rate,
         pricing_type = COALESCE(EXCLUDED.pricing_type, user_skills_categories.pricing_type),
-        updatedAt = now()
+        updated_at = now()
       `,
       [globalUserId, input.categoryId, input.skillLevel ?? 0, input.yearsExperience ?? 0, input.hourlyRate ?? null, (input as any).pricingType || 'hourly']
     );
@@ -1771,7 +1758,7 @@ Responda em JSON com:
             tenantId,
             userId: globalUserId,
             validateAdmin: false,
-            context: context, // context já é CategoryContext, não precisa de cast
+            context: context as CategoryContext,
             skipGate: true, // Grupos são criados internamente, não precisam do gate completo
           }
         );
@@ -1852,7 +1839,7 @@ Responda em JSON com:
             tenantId,
             userId: globalUserId,
             validateAdmin: false,
-            context: context, // context já é CategoryContext, não precisa de cast
+            context: context as CategoryContext,
             skipGate: true, // Subgrupos são criados internamente
           }
         );
@@ -1890,7 +1877,7 @@ Responda em JSON com:
             tenantId,
             userId: globalUserId,
             validateAdmin: false,
-            context: context, // context já é CategoryContext, não precisa de cast
+            context: context as CategoryContext,
             skipGate: true, // Subgrupos são criados internamente
           }
         );
@@ -2575,7 +2562,7 @@ Responda em JSON com:
       // Usar update direto no banco
       await pool.query(
         `UPDATE categories 
-         SET status = $1, requires_review = $2, updatedAt = NOW()
+         SET status = $1, requires_review = $2, updated_at = NOW()
          WHERE category_id = $3`,
         ['pending_review', true, pendingCategory.categoryId]
       );
@@ -2914,7 +2901,8 @@ Responda em JSON com:
       SET status = 'active',
           requires_review = false,
           approved_by = $1,
-          approvedAt = now()
+          approved_at = now(),
+          updated_at = now()
       WHERE category_id = $2
       `,
       [approvedByUserId, categoryId]
@@ -2964,7 +2952,8 @@ Responda em JSON com:
       UPDATE categories
       SET status = 'rejected',
           requires_review = false,
-          rejection_reason = $1
+          rejection_reason = $1,
+          updated_at = now()
       WHERE category_id = $2
       `,
       [reason, categoryId]
@@ -2987,11 +2976,11 @@ Responda em JSON com:
       SELECT 
         category_id, parent_id, name, slug, description, level, path,
         COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code,
-        status, requires_review, created_by_ai, approved_by, approvedAt, rejection_reason,
-        createdAt, updatedAt
+        status, requires_review, created_by_ai, approved_by, approved_at, rejection_reason,
+        created_at, updated_at
       FROM categories
       WHERE status = 'pending' AND requires_review = true
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       `
     );
 

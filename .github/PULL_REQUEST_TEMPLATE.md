@@ -112,6 +112,21 @@ Consulte: [`docs/audit/SYSTEM-CANONICAL-INVARIANTS.md`](../../docs/audit/SYSTEM-
   - Qualquer operação financeira usa `@core/bank/**` ou `@modules/bank/**`
   - Nenhum código financeiro fora do domínio Bank
 
+### Marketplace / pedido / PDV / adapters (se este PR toca nisto)
+
+Marque **apenas** se alterou `backend/src/modules/marketplace/**`, `backend/src/modules/pdv/**`, rotas de pedido PDV ou adapters de checkout.
+
+**Protocolo:** [`docs/04_audit/MARKETPLACE_ORDER_BOUNDARIES_AUDIT_GATE.md`](../docs/04_audit/MARKETPLACE_ORDER_BOUNDARIES_AUDIT_GATE.md)
+
+- [ ] Nenhuma criação de pedido fora de `order.service` (ou método transacional explícito do mesmo domínio)
+- [ ] Nenhuma mutação de estoque fora do fluxo transacional (reserva + item)
+- [ ] Variante resolvida explicitamente (não `variants[0]` sem regra)
+- [ ] Idempotência com retorno consistente em retries (sem `DO NOTHING` silencioso)
+- [ ] Compatibilidade de API preservada ou adapter documentado
+- [ ] Nenhum efeito económico relevante (cobrança, ledger, saldo) fora dos fluxos oficiais
+
+---
+
 ### Verificações Automáticas
 
 Este PR será automaticamente verificado por:

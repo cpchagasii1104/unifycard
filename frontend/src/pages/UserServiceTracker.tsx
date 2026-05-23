@@ -43,7 +43,7 @@ export default function UserServiceTracker() {
     const checkHealth = async () => {
       try {
         const health = await checkBackendHealth();
-        setBackendOnline(health.status === 'ok');
+        setBackendOnline(health?.status === 'ok');
       } catch (err) {
         setBackendOnline(false);
       }

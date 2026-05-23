@@ -34,11 +34,12 @@ function validateEventContext(event: UnificardEvent, handlerName: string): void 
 }
 
 export function registerRidesNotifyHandlers(eventBus: EventBus) {
-  const toString = (valueCents: unknown) => String(value ?? '');
+  const toString = (valueCents: unknown) => String(valueCents ?? '');
 
   // Quando uma nova solicitação de corrida é criada
   eventBus.subscribe(
     'rides.ride_request.created',
+    'notify.rides.ride_request_created',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.ride_request.created notify handler');
       const { tenantId } = event;
@@ -64,6 +65,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Motorista atribuído à corrida
   eventBus.subscribe(
     'rides.ride.driver_assigned',
+    'notify.rides.driver_assigned',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.ride.driver_assigned notify handler');
       const { tenantId } = event;
@@ -90,6 +92,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Corrida iniciada
   eventBus.subscribe(
     'rides.ride.started',
+    'notify.rides.ride_started',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.ride.started notify handler');
       const { tenantId } = event;
@@ -115,6 +118,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Corrida concluída
   eventBus.subscribe(
     'rides.ride.completed',
+    'notify.rides.ride_completed',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.ride.completed notify handler');
       const { tenantId } = event;
@@ -145,6 +149,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Corrida cancelada
   eventBus.subscribe(
     'rides.ride.cancelled',
+    'notify.rides.ride_cancelled',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.ride.cancelled notify handler');
       const { tenantId } = event;
@@ -171,6 +176,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Motorista entrou em pausa forçada (limite 12h)
   eventBus.subscribe(
     'rides.driver.forced_break',
+    'notify.rides.driver_forced_break',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.driver.forced_break notify handler');
       const { tenantId } = event;
@@ -196,6 +202,7 @@ export function registerRidesNotifyHandlers(eventBus: EventBus) {
   // Zona com alta demanda
   eventBus.subscribe(
     'rides.zone.high_demand',
+    'notify.rides.zone_high_demand',
     async (event: UnificardEvent) => {
       validateEventContext(event, 'rides.zone.high_demand notify handler');
       const { tenantId } = event;

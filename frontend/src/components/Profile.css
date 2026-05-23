@@ -380,3 +380,20 @@
   }
 }
 
+/* Aba Profissional: menos padding no main (só quando o painel está montado) */
+.profile-content:has(> .profile-professional) {
+  padding: 0.75rem 1.25rem 1rem;
+}
+
+@media (max-width: 768px) {
+  .profile-content:has(> .profile-professional) {
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-content:has(> .profile-professional) {
+    padding: 0.45rem 0.5rem 0.5rem;
+  }
+}
+

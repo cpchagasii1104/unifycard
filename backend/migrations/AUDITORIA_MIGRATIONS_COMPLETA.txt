@@ -1,0 +1,1352 @@
+================================================================================
+MIGRATION: 0001_extensions.sql
+================================================================================
+-- ============================================================
+-- GENESIS 0001: EXTENSÕES
+-- ============================================================
+-- Rebase Constitucional UnifiCard
+-- Data: 2026-02-11
+-- MODO: Constitucional Rígido (sem IF NOT EXISTS)
+
+CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION "pgcrypto";
+
+
+
+================================================================================
+MIGRATION: 0002_identity.sql
+================================================================================
+-- ============================================================
+-- GENESIS 0002: IDENTITY
+-- ============================================================
+-- SSOT: actors (actor_id)
+-- MODO: Constitucional Rígido
+-- HARD MODE: UNIQUE(tenant_id, id) para permitir FK composta
+-- ============================================================
+
+BEGIN;
+
+-- Tenants (multi-tenancy)
+CREATE TABLE tenants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Actors (SSOT de identidade econômica)
+CREATE TABLE actors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('person', 'company', 'system')),
+  external_id TEXT,
+  display_name TEXT NOT NULL,
+  cpf_cnpj TEXT,
+  kyc_status TEXT NOT NULL DEFAULT 'pending' CHECK (kyc_status IN ('pending', 'verified', 'rejected')),
+  kyc_verified_at TIMESTAMPTZ,
+  kyc_limit_cents BIGINT DEFAULT 500000, -- 5000 BRL
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(tenant_id, external_id),
+  -- HARD MODE: Constraint técnica para FK composta cross-tenant
+  -- Necessária para garantir isolamento multi-tenant estrutural em referências
+  CONSTRAINT actors_tenant_id_id_unique UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX idx_actors_tenant ON actors(tenant_id);
+CREATE INDEX idx_actors_cpf_cnpj ON actors(cpf_cnpj);
+-- HARD MODE: Índice composto para performance da FK composta
+CREATE INDEX idx_actors_tenant_id_id ON actors(tenant_id, id);
+
+-- ATL (Anti-Terrorism/Laundering)
+-- 
+-- DECISÃO ARQUITETURAL: Bloqueio atual apenas (sem histórico)
+--
+-- atl_blocked_actors registra apenas o estado atual de bloqueio.
+-- UNIQUE(actor_id) garante que um actor só pode estar bloqueado uma vez.
+--
+-- Se histórico de bloqueios for necessário no futuro:
+--   - Remover UNIQUE(actor_id)
+--   - Adicionar coluna blocked_until TIMESTAMPTZ
+--   - Implementar lógica de expiração de bloqueio
+--
+-- Por ora, mantemos modelo simples: bloqueio atual apenas.
+--
+-- HARD MODE: FK composta cross-tenant para garantir isolamento
+CREATE TABLE atl_blocked_actors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  actor_id UUID NOT NULL, -- Removido UNIQUE e REFERENCES direto
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  blocked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  blocked_reason TEXT NOT NULL,
+  blocked_by UUID,
+  -- HARD MODE: UNIQUE composta para permitir FK composta
+  CONSTRAINT atl_blocked_actors_actor_unique UNIQUE (actor_id),
+  -- HARD MODE: FK composta: proteção estrutural cross-tenant
+  -- Garante que actor_id pertence ao mesmo tenant_id
+  CONSTRAINT fk_atl_blocked_actors_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id)
+);
+
+CREATE INDEX idx_atl_blocked_actor ON atl_blocked_actors(actor_id);
+-- HARD MODE: Índice composto para performance da FK composta
+CREATE INDEX idx_atl_blocked_actors_tenant_actor ON atl_blocked_actors(tenant_id, actor_id);
+
+COMMIT;
+
+
+
+
+================================================================================
+MIGRATION: 0003_bank_core.sql
+================================================================================
+-- ============================================================
+-- GENESIS 0003: BANK CORE (SSOT FINANCEIRO)
+-- ============================================================
+-- SSOT: bank_accounts, bank_transactions, bank_ledger, bank_splits
+-- MODO: Constitucional Rígido
+-- HARD MODE: FK composta cross-tenant completa + índices otimizados
+-- ============================================================
+--
+-- POLÍTICA DE ON DELETE:
+-- Todas as FKs usam comportamento padrão (NO ACTION / RESTRICT).
+-- Isso significa que deleções são bloqueadas se houver referências.
+-- Decisão arquitetural: Proteção estrutural contra deleção acidental.
+-- Se deleção em cascata for necessária no futuro, definir explicitamente.
+-- ============================================================
+
+BEGIN;
+
+-- ============================================================
+-- ENUMs
+-- ============================================================
+
+CREATE TYPE credit_status AS ENUM ('active', 'inactive', 'expired', 'orphan');
+
+CREATE TYPE transfer_purpose AS ENUM (
+  'donation', 'reallocation', 'refund', 'split', 'execution',
+  'settlement', 'expiration', 'initial_credit', 'group_allocation',
+  'escrow_hold', 'escrow_release'
+);
+
+-- HARD MODE+: Padronização de direction como ENUM (consistência de domínio)
+CREATE TYPE ledger_direction AS ENUM ('credit', 'debit');
+
+-- ============================================================
+-- TABELAS PRINCIPAIS
+-- ============================================================
+--
+-- DECISÃO ARQUITETURAL: owner_id polimórfico
+--
+-- bank_accounts possui:
+--   - actor_id UUID (FK para actors, quando aplicável)
+--   - owner_type TEXT ('actor', 'system', 'escrow')
+--   - owner_id TEXT (identificador polimórfico)
+--
+-- Esta é uma decisão consciente de flexibilidade:
+--   - owner_type = 'actor' → owner_id pode ser diferente de actor_id
+--     (permite casos especiais onde owner não é o actor principal)
+--   - owner_type = 'system' → owner_id identifica sistema interno
+--   - owner_type = 'escrow' → owner_id identifica escrow específico
+--
+-- Não há constraint que force owner_id = actor_id quando owner_type = 'actor'.
+-- Isso é intencional para permitir modelagem flexível.
+-- Se coerência rígida for necessária, implementar via trigger.
+--
+
+CREATE TABLE bank_accounts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_id UUID, -- Removido REFERENCES direto
+  owner_type TEXT NOT NULL CHECK (owner_type IN ('actor', 'system', 'escrow')),
+  owner_id TEXT NOT NULL,
+  account_type TEXT NOT NULL DEFAULT 'credit',
+  credit_status credit_status DEFAULT 'active',
+  last_activity_at TIMESTAMPTZ DEFAULT now(),
+  inactive_since TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(tenant_id, owner_type, owner_id),
+  -- HARD MODE: Constraint técnica para FK composta cross-tenant
+  -- Necessária para garantir isolamento multi-tenant estrutural
+  CONSTRAINT bank_accounts_tenant_id_id_unique UNIQUE (tenant_id, id),
+  -- HARD MODE+: Consistência semântica: conta do tipo 'actor' deve ter actor_id
+  -- Se owner_type != 'actor', actor_id DEVE ser NULL (sem ambiguidade)
+  --
+  -- DECISÃO ARQUITETURAL: Rigidez constitucional
+  -- Este CHECK é extremamente rígido: proíbe actor_id em contas não-actor.
+  -- Isso elimina ambiguidade semântica, mas pode limitar evolução futura
+  -- (ex: contas escrow vinculadas a actors para auditoria).
+  --
+  -- Se flexibilidade futura for necessária, alterar para:
+  --   (owner_type = 'actor' AND actor_id IS NOT NULL) OR (owner_type != 'actor')
+  -- Isso permite actor_id em contas não-actor, mas mantém obrigatoriedade quando owner_type = 'actor'.
+  --
+  CONSTRAINT bank_accounts_actor_consistency CHECK (
+    (owner_type = 'actor' AND actor_id IS NOT NULL)
+    OR (owner_type != 'actor' AND actor_id IS NULL)
+  ),
+  -- FK composta: proteção estrutural cross-tenant (actor)
+  CONSTRAINT fk_bank_accounts_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id)
+);
+
+CREATE INDEX idx_bank_accounts_tenant ON bank_accounts(tenant_id);
+CREATE INDEX idx_bank_accounts_actor ON bank_accounts(actor_id);
+CREATE INDEX idx_bank_accounts_status ON bank_accounts(credit_status);
+-- HARD MODE: Índice composto para performance da FK composta
+CREATE INDEX idx_bank_accounts_tenant_id_id ON bank_accounts(tenant_id, id);
+-- HARD MODE: Índice composto para performance da FK composta (actor)
+CREATE INDEX idx_bank_accounts_tenant_actor ON bank_accounts(tenant_id, actor_id);
+-- HARD MODE+: Índice para consultas por tenant + tipo de owner
+CREATE INDEX idx_bank_accounts_tenant_owner_type ON bank_accounts(tenant_id, owner_type);
+-- HARD MODE++: Garantir unicidade estrutural da conta system
+CREATE UNIQUE INDEX uq_bank_accounts_one_system_per_tenant
+ON bank_accounts (tenant_id)
+WHERE owner_type = 'system';
+
+-- HARD MODE: FK composta cross-tenant completa
+-- Garante que account_id pertence ao mesmo tenant_id
+CREATE TABLE bank_transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_id UUID NOT NULL, -- Removido REFERENCES direto
+  account_id UUID NOT NULL, -- Removido REFERENCES direto
+  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+  purpose transfer_purpose NOT NULL,
+  justification TEXT,
+  requires_justification BOOLEAN DEFAULT true,
+  reference_type TEXT,
+  reference_id UUID,
+  internal_completed_at TIMESTAMPTZ,
+  external_settled_at TIMESTAMPTZ,
+  external_partner TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- FK composta: proteção estrutural cross-tenant
+  CONSTRAINT fk_bank_transactions_account 
+    FOREIGN KEY (tenant_id, account_id) 
+    REFERENCES bank_accounts(tenant_id, id),
+  -- FK composta: proteção estrutural cross-tenant (actor)
+  CONSTRAINT fk_bank_transactions_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id),
+  -- HARD MODE: UNIQUE composta para permitir FK composta em bank_ledger e bank_splits
+  CONSTRAINT bank_transactions_tenant_id_id_unique UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX idx_bank_transactions_tenant ON bank_transactions(tenant_id);
+CREATE INDEX idx_bank_transactions_actor ON bank_transactions(actor_id);
+CREATE INDEX idx_bank_transactions_account ON bank_transactions(account_id);
+CREATE INDEX idx_bank_transactions_purpose ON bank_transactions(purpose);
+CREATE INDEX idx_bank_transactions_created ON bank_transactions(created_at);
+-- HARD MODE: Índice composto para performance da FK composta
+CREATE INDEX idx_bank_transactions_tenant_id_id ON bank_transactions(tenant_id, id);
+-- HARD MODE: Índice composto para performance da FK composta (account)
+CREATE INDEX idx_bank_transactions_tenant_account ON bank_transactions(tenant_id, account_id);
+-- HARD MODE: Índice composto para performance da FK composta (actor)
+CREATE INDEX idx_bank_transactions_tenant_actor ON bank_transactions(tenant_id, actor_id);
+
+-- ============================================================
+-- BANK LEDGER (Append-Only SSOT)
+-- ============================================================
+--
+-- DECISÃO ARQUITETURAL: Ledger sem balance_after
+--
+-- bank_ledger é append-only puro:
+--   - Não armazena balance_after calculado
+--   - Saldo é calculado on-demand via SUM(direction, amount_cents)
+--   - Não há constraint de saldo não-negativo no banco
+--
+-- Justificativa:
+--   - Append-only é mais seguro contra drift
+--   - Evita necessidade de UPDATE em cada INSERT
+--   - Regras financeiras (ex: saldo mínimo) são aplicação, não banco
+--   - Performance: INSERT simples, sem cálculo de saldo
+--
+-- Se blindagem hard de saldo for necessária no futuro:
+--   - Adicionar balance_after BIGINT
+--   - Adicionar CHECK (balance_after >= 0)
+--   - Implementar trigger que calcula balance_after antes de INSERT
+--
+-- Por ora, mantemos append-only puro.
+--
+
+-- HARD MODE: FK composta cross-tenant completa (account_id + transaction_id)
+--
+-- DECISÃO ARQUITETURAL: transaction_id é opcional (pode ser NULL)
+--
+-- Ledger é append-only e pode registrar movimentações que não vêm de
+-- bank_transactions (ex: ajustes manuais, correções, inicializações).
+-- Se transaction_id for NULL, a FK composta não valida (comportamento padrão).
+-- Isso é intencional: permite flexibilidade no registro de movimentações.
+--
+-- Se vinculação obrigatória a transaction for necessária:
+--   - Alterar para: transaction_id UUID NOT NULL
+--   - Garantir que todas as inserções tenham transaction_id válido
+--
+CREATE TABLE bank_ledger (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  account_id UUID NOT NULL, -- Removido REFERENCES direto
+  transaction_id UUID, -- Removido REFERENCES direto (opcional por design)
+  direction ledger_direction NOT NULL,  -- HARD MODE+: Padronizado como ENUM
+  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+  purpose transfer_purpose,
+  justification TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- FK composta: proteção estrutural cross-tenant (account)
+  CONSTRAINT fk_bank_ledger_account 
+    FOREIGN KEY (tenant_id, account_id) 
+    REFERENCES bank_accounts(tenant_id, id),
+  -- HARD MODE: FK composta: proteção estrutural cross-tenant (transaction)
+  -- Garante que transaction_id pertence ao mesmo tenant_id
+  CONSTRAINT fk_bank_ledger_transaction
+    FOREIGN KEY (tenant_id, transaction_id)
+    REFERENCES bank_transactions(tenant_id, id)
+);
+
+CREATE INDEX idx_bank_ledger_account ON bank_ledger(account_id);
+CREATE INDEX idx_bank_ledger_transaction ON bank_ledger(transaction_id);
+CREATE INDEX idx_bank_ledger_created ON bank_ledger(created_at);
+-- HARD MODE: Índices compostos para performance das FKs compostas
+CREATE INDEX idx_bank_ledger_tenant_account ON bank_ledger(tenant_id, account_id);
+CREATE INDEX idx_bank_ledger_tenant_transaction ON bank_ledger(tenant_id, transaction_id);
+-- HARD MODE+: Índice para queries por tenant + timeline
+CREATE INDEX idx_bank_ledger_tenant_created ON bank_ledger(tenant_id, created_at);
+
+-- HARD MODE: FK composta cross-tenant completa (transaction_id + actors)
+CREATE TABLE bank_splits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  transaction_id UUID NOT NULL, -- Removido REFERENCES direto
+  source_actor_id UUID NOT NULL, -- Removido REFERENCES direto
+  target_actor_id UUID NOT NULL, -- Removido REFERENCES direto
+  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+  split_type TEXT NOT NULL,
+  percentage_bps INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- FK composta: proteção estrutural cross-tenant (transaction)
+  CONSTRAINT fk_bank_splits_transaction
+    FOREIGN KEY (tenant_id, transaction_id)
+    REFERENCES bank_transactions(tenant_id, id),
+  -- HARD MODE: FK composta: proteção estrutural cross-tenant (source_actor)
+  -- Garante que source_actor_id pertence ao mesmo tenant_id
+  CONSTRAINT fk_bank_splits_source_actor
+    FOREIGN KEY (tenant_id, source_actor_id)
+    REFERENCES actors(tenant_id, id),
+  -- HARD MODE: FK composta: proteção estrutural cross-tenant (target_actor)
+  -- Garante que target_actor_id pertence ao mesmo tenant_id
+  CONSTRAINT fk_bank_splits_target_actor
+    FOREIGN KEY (tenant_id, target_actor_id)
+    REFERENCES actors(tenant_id, id),
+  -- HARD MODE+: Proíbe split para o mesmo ator
+  CONSTRAINT bank_splits_no_self_split
+    CHECK (source_actor_id != target_actor_id),
+  -- HARD MODE++: percentuais válidos (se informados)
+  CONSTRAINT bank_splits_percentage_valid
+    CHECK (
+      percentage_bps IS NULL
+      OR (percentage_bps > 0 AND percentage_bps <= 10000)
+    )
+);
+
+CREATE INDEX idx_bank_splits_transaction ON bank_splits(transaction_id);
+CREATE INDEX idx_bank_splits_source ON bank_splits(source_actor_id);
+CREATE INDEX idx_bank_splits_target ON bank_splits(target_actor_id);
+-- HARD MODE: Índices compostos para performance das FKs compostas
+CREATE INDEX idx_bank_splits_tenant_transaction ON bank_splits(tenant_id, transaction_id);
+CREATE INDEX idx_bank_splits_tenant_source ON bank_splits(tenant_id, source_actor_id);
+CREATE INDEX idx_bank_splits_tenant_target ON bank_splits(tenant_id, target_actor_id);
+
+-- ============================================================
+-- VIEW: System Coverage
+-- ============================================================
+--
+-- HARD MODE: Join defensivo com tenant_id explícito
+-- Mesmo que FK composta já garanta isolamento, reforçamos na view
+-- para clareza estrutural e performance de query
+--
+-- NOTA DE ESCALA (Dia 2):
+-- Esta view executa dois subqueries correlacionados independentes por INSERT,
+-- cada um varrendo bank_accounts + bank_ledger para o tenant.
+-- Em baixa escala: irrelevante. Em alta escala: candidato a
+-- materialized view ou contador incremental particionado por tenant.
+--
+
+CREATE OR REPLACE VIEW system_coverage AS
+SELECT 
+  t.id as tenant_id,
+  COALESCE((
+    SELECT SUM(CASE WHEN bl.direction = 'credit' THEN bl.amount_cents ELSE -bl.amount_cents END)
+    FROM bank_accounts ba
+    JOIN bank_ledger bl 
+      ON bl.account_id = ba.id
+     AND bl.tenant_id = ba.tenant_id  -- HARD MODE: Join defensivo explícito
+    WHERE ba.tenant_id = t.id AND ba.owner_type = 'system'
+  ), 0) as execution_capacity_cents,
+  COALESCE((
+    SELECT SUM(CASE WHEN bl.direction = 'credit' THEN bl.amount_cents ELSE -bl.amount_cents END)
+    FROM bank_accounts ba
+    JOIN bank_ledger bl 
+      ON bl.account_id = ba.id
+     AND bl.tenant_id = ba.tenant_id  -- HARD MODE: Join defensivo explícito
+    WHERE ba.tenant_id = t.id AND ba.owner_type != 'system'
+  ), 0) as total_credits_cents
+FROM tenants t;
+
+-- ============================================================
+-- TRIGGER: Coverage Check + Auditoria Real
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION check_coverage_before_credit()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+  v_coverage_bps INTEGER;
+  v_owner_type TEXT;
+  v_capacity BIGINT;
+  v_credits BIGINT;
+  v_system_account_id UUID;
+  v_max_bps INTEGER;
+BEGIN
+  IF NEW.direction != 'credit' THEN RETURN NEW; END IF;
+  
+  -- HARD MODE: Filtro explícito por tenant_id para consistência arquitetural
+  SELECT ba.owner_type INTO v_owner_type 
+  FROM bank_accounts ba 
+  WHERE ba.id = NEW.account_id
+    AND ba.tenant_id = NEW.tenant_id;  -- HARD MODE: Filtro defensivo explícito
+
+  IF v_owner_type = 'system' THEN RETURN NEW; END IF;
+  
+  -- HARD MODE++: Lock transacional no fundo de execução
+  -- Serializa validação por tenant (evita race condition crítica)
+  -- Escopo: apenas a conta 'system' do tenant, não o ledger inteiro
+  --
+  -- NOTA: ORDER BY created_at LIMIT 1 é redundante dado o partial unique index
+  -- uq_bank_accounts_one_system_per_tenant (garante no máximo 1 row system/tenant).
+  -- Mantido intencionalmente como defesa estrutural: se o índice for removido
+  -- no futuro, o comportamento do trigger permanece correto e determinístico.
+  -- Custo: zero. Risco de remover: silencioso.
+  SELECT ba.id
+  INTO v_system_account_id
+  FROM bank_accounts ba
+  WHERE ba.tenant_id = NEW.tenant_id
+   AND ba.owner_type = 'system'
+  ORDER BY ba.created_at
+  LIMIT 1
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'SYSTEM_ACCOUNT_NOT_FOUND: %', NEW.tenant_id
+    USING ERRCODE = 'P0001';
+  END IF;
+  
+  -- HARD MODE++: COALESCE defensivo para edge case de tenant sem histórico
+  SELECT COALESCE(execution_capacity_cents, 0),
+         COALESCE(total_credits_cents, 0)
+  INTO v_capacity, v_credits
+  FROM system_coverage 
+  WHERE tenant_id = NEW.tenant_id;
+  
+  -- HARD MODE++: Inclui o crédito que está sendo inserido (validação prospectiva)
+  -- Valida o estado REAL após o commit, não o estado atual
+  v_credits := v_credits + NEW.amount_cents;
+  
+  IF v_capacity > 0 THEN
+    v_coverage_bps := CEIL((v_credits::numeric * 10000) / v_capacity);
+  ELSE
+    v_coverage_bps := 10000;
+  END IF;
+  
+  -- HARD MODE++: Governança híbrida (default institucional + override por tenant)
+  -- Usa regra da tabela execution_fund_rules se existir, senão usa default institucional
+  --
+  -- NOTA DE MECANISMO (blindagem constitucional):
+  -- SELECT INTO sem row encontrada NÃO executa a expressão (* 100).
+  -- A variável v_max_bps permanece no estado inicial (NULL).
+  -- Como max_percentage_of_reserve é NOT NULL, o único caso real de NULL
+  -- aqui é NOT FOUND (tenant sem regra configurada).
+  -- O check explícito abaixo documenta essa intenção, não apenas o resultado.
+  SELECT max_percentage_of_reserve * 100
+  INTO v_max_bps
+  FROM execution_fund_rules
+  WHERE tenant_id = NEW.tenant_id;
+
+  IF NOT FOUND OR v_max_bps IS NULL THEN
+    v_max_bps := 8000; -- Default institucional (80%)
+  END IF;
+  
+  IF v_coverage_bps >= v_max_bps THEN
+    RAISE EXCEPTION 'COVERAGE_EXCEEDED: % bps cobertura (limite: % bps)', 
+      v_coverage_bps, v_max_bps
+      USING ERRCODE = 'P0001';
+  END IF;
+  
+  -- AUDITORIA REAL: Registra verificação aprovada.
+  -- Tentativas bloqueadas não chegam aqui: RAISE EXCEPTION acima aborta a TX
+  -- e reverte qualquer INSERT anterior, incluindo este.
+  INSERT INTO coverage_audit_log (
+    tenant_id, coverage_bps, execution_capacity_cents, 
+    total_credits_cents
+  ) VALUES (
+    NEW.tenant_id, v_coverage_bps, v_capacity, 
+    v_credits
+  );
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_coverage
+  BEFORE INSERT ON bank_ledger
+  FOR EACH ROW EXECUTE FUNCTION check_coverage_before_credit();
+
+-- ============================================================
+-- TRIGGER: Consistência Monetária de Splits
+-- ============================================================
+--
+-- HARD MODE++: Blindagem contra inconsistência intra-transação
+-- Garante que a soma dos splits não exceda o valor da transação
+--
+
+CREATE OR REPLACE FUNCTION validate_split_consistency()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+  v_transaction_amount BIGINT;
+  v_splits_sum BIGINT;
+BEGIN
+  -- Lock na transação para serializar validação
+  SELECT amount_cents
+  INTO v_transaction_amount
+  FROM bank_transactions
+  WHERE tenant_id = NEW.tenant_id
+   AND id = NEW.transaction_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'TRANSACTION_NOT_FOUND: %', NEW.transaction_id
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Soma todos os splits exceto o atual (em caso de UPDATE)
+  SELECT COALESCE(SUM(amount_cents), 0)
+  INTO v_splits_sum
+  FROM bank_splits
+  WHERE tenant_id = NEW.tenant_id
+   AND transaction_id = NEW.transaction_id
+   AND (TG_OP <> 'UPDATE' OR id <> NEW.id);
+
+  -- Adiciona o valor atual explicitamente
+  v_splits_sum := v_splits_sum + NEW.amount_cents;
+
+  IF v_splits_sum > v_transaction_amount THEN
+    RAISE EXCEPTION 'SPLIT_AMOUNT_EXCEEDED: Soma dos splits (%) excede valor da transação (%)',
+      v_splits_sum, v_transaction_amount
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validate_split_consistency
+  BEFORE INSERT OR UPDATE ON bank_splits
+  FOR EACH ROW EXECUTE FUNCTION validate_split_consistency();
+
+-- ============================================================
+-- ATL CHECK
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION check_atl_before_transaction()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM atl_blocked_actors 
+    WHERE actor_id = NEW.actor_id
+      AND tenant_id = NEW.tenant_id  -- HARD MODE: Filtro defensivo explícito
+  ) THEN
+    RAISE EXCEPTION 'ATL_BLOCKED' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_atl
+  BEFORE INSERT ON bank_transactions
+  FOR EACH ROW EXECUTE FUNCTION check_atl_before_transaction();
+
+-- ============================================================
+-- PURPOSE VALIDATION
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION validate_transfer_purpose()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  IF NEW.purpose IS NULL THEN
+    RAISE EXCEPTION 'MISSING_PURPOSE' USING ERRCODE = 'P0001';
+  END IF;
+  
+  IF NEW.requires_justification = true 
+     AND NEW.purpose IN ('reallocation', 'refund', 'execution')
+     AND (NEW.justification IS NULL OR LENGTH(TRIM(NEW.justification)) < 10) THEN
+    RAISE EXCEPTION 'MISSING_JUSTIFICATION' USING ERRCODE = 'P0001';
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validate_purpose
+  BEFORE INSERT ON bank_transactions
+  FOR EACH ROW EXECUTE FUNCTION validate_transfer_purpose();
+
+-- ============================================================
+-- UPDATE ACTIVITY
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION update_account_activity()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  UPDATE bank_accounts 
+  SET last_activity_at = now(),
+      inactive_since = NULL,
+      credit_status = 'active'
+  WHERE id = NEW.account_id 
+    AND tenant_id = NEW.tenant_id  -- HARD MODE: Filtro defensivo explícito
+    AND owner_type != 'system';
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_activity
+  AFTER INSERT ON bank_ledger
+  FOR EACH ROW EXECUTE FUNCTION update_account_activity();
+
+-- ============================================================
+-- AUX TABLES
+-- ============================================================
+
+CREATE TABLE execution_fund_rules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) UNIQUE,
+  max_percentage_of_reserve INTEGER NOT NULL DEFAULT 20,
+  allowed_uses TEXT[] NOT NULL DEFAULT ARRAY['execution','stabilization','collective_impact'],
+  prohibited_uses TEXT[] NOT NULL DEFAULT ARRAY['distribution','profit','operations'],
+  requires_committee_approval_above_cents BIGINT DEFAULT 1000000,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
+-- EXECUTION FUND MOVEMENTS
+-- ============================================================
+--
+-- DECISÃO ARQUITETURAL: Movimentos desacoplados de transactions
+--
+-- execution_fund_movements registra movimentações do fundo de execução
+-- que podem ou não estar vinculadas a uma bank_transaction específica.
+--
+-- Design consciente:
+--   - source_account_id é opcional (pode ser movimento sem origem específica)
+--   - Não há transaction_id (movimento pode ser administrativo, não transacional)
+--   - Permite registro de movimentações como:
+--     * Expiração de créditos (não gera transaction)
+--     * Recuperação de órfãos (não gera transaction)
+--     * Execução administrativa (pode gerar transaction depois)
+--
+-- Se vinculação obrigatória a transaction for necessária no futuro:
+--   - Adicionar transaction_id UUID
+--   - Adicionar FK composta para bank_transactions
+--
+-- Por ora, mantemos desacoplado por design.
+--
+
+-- HARD MODE: FK composta cross-tenant (opcional, então pode ser NULL)
+CREATE TABLE execution_fund_movements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  movement_type TEXT NOT NULL CHECK (
+    movement_type IN ('credit_expiration','orphan_recovery','execution','stabilization')
+  ),
+  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+  source_account_id UUID, -- Removido REFERENCES direto
+  source_description TEXT,
+  approved_by_user_id UUID,
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- FK composta: proteção estrutural cross-tenant (apenas se source_account_id não for NULL)
+  CONSTRAINT fk_execution_fund_movements_account 
+    FOREIGN KEY (tenant_id, source_account_id) 
+    REFERENCES bank_accounts(tenant_id, id),
+  -- HARD MODE++: Rastreabilidade obrigatória baseada em tipo de movimento
+  -- Garante que movimentos sem source_account_id tenham rastreabilidade alternativa
+  CONSTRAINT execution_fund_movements_traceability
+    CHECK (
+      -- Caso 1: Tem source_account_id (rastreado via conta)
+      (source_account_id IS NOT NULL)
+      -- Caso 2: Não tem source_account, mas é tipo administrativo com descrição obrigatória
+      OR (
+        source_account_id IS NULL
+        AND movement_type IN ('credit_expiration', 'orphan_recovery')
+        AND source_description IS NOT NULL
+        AND LENGTH(TRIM(source_description)) >= 20
+      )
+      -- Caso 3: Execução ou estabilização requer aprovação explícita
+      OR (
+        movement_type IN ('execution', 'stabilization')
+        AND approved_by_user_id IS NOT NULL
+        AND approved_at IS NOT NULL
+      )
+    )
+);
+
+CREATE INDEX idx_execution_fund_movements_tenant 
+  ON execution_fund_movements(tenant_id);
+-- HARD MODE: Índice composto para performance da FK composta (account)
+-- Cobre todos os casos, incluindo NULLs (útil para queries gerais)
+CREATE INDEX idx_execution_fund_movements_tenant_account
+  ON execution_fund_movements(tenant_id, source_account_id);
+-- HARD MODE+: Índice parcial para evitar bloat quando source_account_id é NULL
+-- Otimizado para queries que filtram apenas registros com source_account_id não-nulo
+-- Redundância controlada: ambos os índices servem propósitos diferentes
+CREATE INDEX idx_execution_fund_movements_tenant_account_not_null
+  ON execution_fund_movements(tenant_id, source_account_id)
+  WHERE source_account_id IS NOT NULL;
+
+-- ============================================================
+-- AUDITORIA DE COBERTURA
+-- ============================================================
+--
+-- HARD MODE++: Auditoria real de todas as verificações de cobertura aprovadas.
+--
+-- Registra APENAS verificações que passaram na validação.
+-- Tentativas bloqueadas não são persistidas: o RAISE EXCEPTION no trigger
+-- aborta a transação inteira e reverte qualquer INSERT anterior.
+--
+-- Portanto, todo registro nesta tabela representa uma operação aprovada.
+-- Não há coluna operation_blocked pois ela seria semanticamente morta
+-- (nunca poderia ser true dentro de uma transação que chegou ao INSERT).
+-- Se auditoria de bloqueios for necessária no futuro, requer mecanismo
+-- fora da transação (ex: tabela de log assíncrona ou outbox pattern).
+--
+
+CREATE TABLE coverage_audit_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  coverage_bps INTEGER NOT NULL,
+  execution_capacity_cents BIGINT NOT NULL,
+  total_credits_cents BIGINT NOT NULL
+);
+
+CREATE INDEX idx_coverage_audit_tenant 
+  ON coverage_audit_log(tenant_id);
+-- HARD MODE+: Índice para auditoria temporal por tenant
+CREATE INDEX idx_coverage_audit_tenant_checked
+  ON coverage_audit_log(tenant_id, checked_at DESC);
+
+-- ============================================================
+-- AUX FUNCTIONS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION mark_inactive_accounts() 
+RETURNS INTEGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE v_count INTEGER;
+BEGIN
+  UPDATE bank_accounts
+  SET credit_status = 'inactive',
+      inactive_since = now()
+  WHERE credit_status = 'active'
+    AND owner_type != 'system'
+    AND last_activity_at < now() - interval '12 months';
+    
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION expire_old_credits() 
+RETURNS INTEGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE v_count INTEGER;
+BEGIN
+  -- CORRIGIDO: credit_id → credit_status
+  UPDATE bank_accounts
+  SET credit_status = 'expired',
+      expires_at = now()
+  WHERE credit_status = 'inactive'
+    AND inactive_since < now() - interval '12 months'
+    AND owner_type != 'system';
+    
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMIT;
+
+
+================================================================================
+MIGRATION: 0004_marketplace.sql
+================================================================================
+-- ============================================================
+-- GENESIS 0004: MARKETPLACE
+-- ============================================================
+-- Domínio: payments, orders, intents (pré-financeiro)
+-- MODO: Constitucional Rígido
+
+BEGIN;
+
+-- Payment Intents (pré-financeiro, NÃO decide dinheiro)
+CREATE TABLE payment_intents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_id UUID NOT NULL,
+  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')),
+  intent_type TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_payment_intents_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id),
+  CONSTRAINT payment_intents_tenant_id_id_unique UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX idx_payment_intents_tenant ON payment_intents(tenant_id);
+CREATE INDEX idx_payment_intents_actor ON payment_intents(actor_id);
+CREATE INDEX idx_payment_intents_status ON payment_intents(status);
+CREATE INDEX idx_payment_intents_tenant_actor ON payment_intents(tenant_id, actor_id);
+CREATE INDEX idx_payment_intents_tenant_id_id ON payment_intents(tenant_id, id);
+
+-- Orders
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  buyer_actor_id UUID NOT NULL,
+  seller_actor_id UUID NOT NULL,
+  total_cents BIGINT NOT NULL CHECK (total_cents > 0),
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_orders_buyer
+    FOREIGN KEY (tenant_id, buyer_actor_id)
+    REFERENCES actors(tenant_id, id),
+  CONSTRAINT fk_orders_seller
+    FOREIGN KEY (tenant_id, seller_actor_id)
+    REFERENCES actors(tenant_id, id),
+  CONSTRAINT orders_tenant_id_id_unique UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX idx_orders_tenant ON orders(tenant_id);
+CREATE INDEX idx_orders_buyer ON orders(buyer_actor_id);
+CREATE INDEX idx_orders_seller ON orders(seller_actor_id);
+CREATE INDEX idx_orders_tenant_buyer ON orders(tenant_id, buyer_actor_id);
+CREATE INDEX idx_orders_tenant_seller ON orders(tenant_id, seller_actor_id);
+CREATE INDEX idx_orders_tenant_id_id ON orders(tenant_id, id);
+
+-- UnifyCard Transactions (log operacional, NÃO decide saldo)
+CREATE TABLE unifycard_transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_id UUID NOT NULL,
+  bank_transaction_id UUID,
+  external_id TEXT,
+  operation_type TEXT NOT NULL CHECK (operation_type IN ('capture', 'authorization', 'settlement', 'void')),
+  amount_cents BIGINT NOT NULL,
+  status TEXT NOT NULL,
+  external_partner TEXT,
+  raw_response JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_unifycard_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id),
+  CONSTRAINT fk_unifycard_bank_transaction
+    FOREIGN KEY (tenant_id, bank_transaction_id)
+    REFERENCES bank_transactions(tenant_id, id)
+);
+
+CREATE INDEX idx_unifycard_tenant ON unifycard_transactions(tenant_id);
+CREATE INDEX idx_unifycard_bank_tx ON unifycard_transactions(bank_transaction_id);
+CREATE INDEX idx_unifycard_tenant_actor ON unifycard_transactions(tenant_id, actor_id);
+CREATE INDEX idx_unifycard_tenant_bank_tx ON unifycard_transactions(tenant_id, bank_transaction_id);
+
+COMMIT;
+
+
+
+================================================================================
+MIGRATION: 0005_events.sql
+================================================================================
+-- ============================================================
+-- GENESIS 0005: EVENTS & RISK
+-- ============================================================
+-- MODO: Constitucional Rígido
+
+BEGIN;
+
+-- ============================================================
+-- AI CONSTITUTIONAL LIMITS
+-- ============================================================
+
+CREATE TABLE ai_constitutional_limits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  limit_type TEXT NOT NULL UNIQUE CHECK (limit_type IN (
+    'operations_per_hour', 'operations_per_day', 'blast_radius_pct',
+    'max_amount_per_operation_cents', 'max_total_amount_per_hour_cents'
+  )),
+  limit_value BIGINT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  kill_switch BOOLEAN NOT NULL DEFAULT false,
+  kill_switch_activated_at TIMESTAMPTZ,
+  kill_switch_activated_by TEXT,
+  kill_switch_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Limites padrão
+INSERT INTO ai_constitutional_limits (limit_type, limit_value) VALUES
+  ('operations_per_hour', 100),
+  ('operations_per_day', 1000),
+  ('blast_radius_pct', 1),
+  ('max_amount_per_operation_cents', 100000),
+  ('max_total_amount_per_hour_cents', 1000000);
+
+-- AI Operations Log
+CREATE TABLE ai_operations_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  ai_instance_id TEXT NOT NULL,
+  ai_model TEXT,
+  operation_type TEXT NOT NULL,
+  affected_actors_count INTEGER DEFAULT 0,
+  amount_cents BIGINT DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  blocked_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_operations_instance ON ai_operations_log(ai_instance_id);
+CREATE INDEX idx_ai_operations_created ON ai_operations_log(created_at);
+
+-- ============================================================
+-- EVASION PATTERNS (Fragmentation Detection)
+-- ============================================================
+
+CREATE TYPE evasion_pattern_type AS ENUM (
+  'fragmentation', 'persona_rotation', 'cluster_suspicious',
+  'automation_abuse', 'chain_delegation', 'timing_manipulation'
+);
+
+CREATE TABLE evasion_patterns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  actor_id UUID NOT NULL,
+  pattern_type evasion_pattern_type NOT NULL,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  evidence JSONB NOT NULL,
+  confidence_score INTEGER,
+  is_confirmed BOOLEAN DEFAULT false,
+  confirmed_at TIMESTAMPTZ,
+  confirmed_by UUID,
+  false_positive BOOLEAN DEFAULT false,
+  CONSTRAINT fk_evasion_patterns_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors(tenant_id, id)
+);
+
+CREATE INDEX idx_evasion_patterns_actor ON evasion_patterns(actor_id);
+CREATE INDEX idx_evasion_patterns_type ON evasion_patterns(pattern_type);
+CREATE INDEX idx_evasion_patterns_tenant_actor ON evasion_patterns(tenant_id, actor_id);
+
+-- Fragmentation Detection Function
+CREATE OR REPLACE FUNCTION detect_fragmentation(
+  p_actor_id UUID,
+  p_window_hours INTEGER DEFAULT 24,
+  p_threshold_count INTEGER DEFAULT 10,
+  p_small_amount_threshold_cents INTEGER DEFAULT 10000
+) RETURNS TABLE(is_suspicious BOOLEAN, transaction_count INTEGER, total_amount_cents BIGINT, evidence JSONB)
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+  v_count INTEGER;
+  v_total BIGINT;
+  v_tenant_id UUID;
+BEGIN
+  SELECT tenant_id INTO v_tenant_id FROM actors WHERE id = p_actor_id;
+  
+  SELECT COUNT(*), COALESCE(SUM(amount_cents), 0) INTO v_count, v_total
+  FROM bank_transactions bt
+  JOIN bank_accounts ba ON ba.id = bt.account_id
+  WHERE ba.actor_id = p_actor_id
+    AND bt.created_at > now() - (p_window_hours || ' hours')::interval
+    AND bt.amount_cents < p_small_amount_threshold_cents;
+  
+  IF v_count >= p_threshold_count THEN
+    INSERT INTO evasion_patterns (tenant_id, actor_id, pattern_type, evidence, confidence_score)
+    VALUES (v_tenant_id, p_actor_id, 'fragmentation',
+      jsonb_build_object('count', v_count, 'total_cents', v_total),
+      LEAST((v_count::NUMERIC / (p_threshold_count * 2) * 10000)::INTEGER, 10000));
+    
+    RETURN QUERY SELECT true, v_count, v_total, jsonb_build_object('pattern', 'fragmentation', 'count', v_count);
+  ELSE
+    RETURN QUERY SELECT false, v_count, v_total, NULL::JSONB;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMIT;
+
+
+
+
+
+
+================================================================================
+MIGRATION: 0006_forward_only_lock.sql
+================================================================================
+-- ================================================
+-- 0006_forward_only_lock.sql
+-- Lei 2: Regime Forward-Only
+-- Proíbe downgrade, reexecução e execução fora de ordem.
+-- ================================================
+-- HARD MODE: Modo Constitucional Rígido (sem IF NOT EXISTS)
+-- Contrato: Banco sempre provisionado do zero
+-- ================================================
+
+BEGIN;
+
+-- 1. Criação da autoridade única de versão
+-- HARD MODE: Removido IF NOT EXISTS - modo constitucional rígido
+-- Se tabela existir, migration deve falhar explicitamente
+
+CREATE TABLE schema_version (
+    version INTEGER PRIMARY KEY,
+    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT schema_version_positive CHECK (version > 0)
+);
+
+-- 2. Inserção da versão atual (Genesis + 0006)
+
+INSERT INTO schema_version (version)
+VALUES (6);
+
+-- 3. Função de proteção estrutural
+
+CREATE OR REPLACE FUNCTION enforce_forward_only()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    current_max INTEGER;
+BEGIN
+    SELECT MAX(version) INTO current_max FROM schema_version;
+
+    -- Bloqueia reexecução ou versão fora da sequência
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.version <> current_max + 1 THEN
+            RAISE EXCEPTION
+            'Forward-only violation: expected version %, got %',
+            current_max + 1,
+            NEW.version;
+        END IF;
+    END IF;
+
+    -- Bloqueia qualquer UPDATE
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION
+        'Forward-only violation: UPDATE not allowed on schema_version';
+    END IF;
+
+    -- Bloqueia qualquer DELETE
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION
+        'Forward-only violation: DELETE not allowed on schema_version';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. Trigger de proteção
+
+CREATE TRIGGER schema_version_forward_only
+BEFORE INSERT OR UPDATE OR DELETE
+ON schema_version
+FOR EACH ROW
+EXECUTE FUNCTION enforce_forward_only();
+
+COMMIT;
+
+-- ================================================
+-- Fim da Lei 2
+-- ================================================
+
+
+================================================================================
+MIGRATION: 0007_system_functions.sql
+================================================================================
+-- ============================================================
+-- 0007_system_functions.sql
+-- Funções auxiliares sistêmicas reutilizáveis
+-- Pré-requisito para qualquer migration que use triggers de updated_at
+-- MODO: Constitucional Rígido
+-- HARD MODE: Sem IF NOT EXISTS
+-- ============================================================
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMIT;
+
+BEGIN;
+
+CREATE TRIGGER trg_tenants_updated_at
+  BEFORE UPDATE ON tenants
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_actors_updated_at
+  BEFORE UPDATE ON actors
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+INSERT INTO schema_version (version) VALUES (7);
+
+COMMIT;
+
+-- ============================================================
+-- FIM DA MIGRATION 0007
+-- ============================================================
+
+
+================================================================================
+MIGRATION: 0008_profiles.sql
+================================================================================
+-- ============================================================
+-- 0008_profiles.sql
+-- Pilar dominante: IDENTIDADE (read model de visualização)
+-- Contrato superior: CORE_IMUTAVEL.md
+-- Contrato específico: USER_PROFILE_CONTRACT.md
+-- Identidade operacional: (tenant_id, actor_id)
+-- MODO: Constitucional Rígido
+-- HARD MODE: Sem IF NOT EXISTS
+-- PK: Composta (tenant_id, actor_id) — sem surrogate
+-- PRÉ-REQUISITO: set_updated_at() declarada em migration anterior (0007_system_functions.sql)
+--
+-- VIOLAÇÕES QUE INVALIDAM ESTA TABELA:
+-- - Adicionar campo que influencia comportamento (flags, scores, tiers)
+-- - Adicionar estrutura financeira (_cents, _bps)
+-- - Adicionar CPF ou dados sensíveis de identidade
+-- - Adicionar phone ou qualquer dado de contato
+-- - Adicionar categorias sem evento versionado
+-- - Usar como fonte de verdade para decisões
+-- - Criar FK de outro domínio referenciando esta tabela
+-- ============================================================
+
+BEGIN;
+
+CREATE TABLE profiles (
+  tenant_id UUID NOT NULL,
+  actor_id  UUID NOT NULL,
+
+  -- NULL permitido: profile pode existir antes da projeção completa
+  full_name VARCHAR(255),
+
+  -- metadata puramente observacional
+  -- NÃO pode conter permissões, scores, tiers ou flags decisórias
+  metadata JSONB NOT NULL DEFAULT '{}',
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT pk_profiles
+    PRIMARY KEY (tenant_id, actor_id),
+
+  CONSTRAINT fk_profiles_actor
+    FOREIGN KEY (tenant_id, actor_id)
+    REFERENCES actors (tenant_id, id)
+);
+
+CREATE TRIGGER trg_profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+COMMIT;
+
+BEGIN;
+
+INSERT INTO schema_version (version) VALUES (8);
+
+COMMIT;
+
+-- ============================================================
+-- FIM DA MIGRATION 0008
+-- Se esta tabela começar a governar comportamento,
+-- esta migration deve ser considerada inválida.
+-- ============================================================
+
+
+================================================================================
+MIGRATION: 0009_create_identities.sql
+================================================================================
+-- 0009_create_identities.sql
+-- Criação da tabela de identidade global canônica
+
+CREATE TABLE IF NOT EXISTS identities (
+    global_user_id UUID PRIMARY KEY,
+
+    tax_id TEXT NOT NULL,
+    tax_id_type TEXT NOT NULL CHECK (tax_id_type IN ('cpf', 'cnpj')),
+
+    kyc_status TEXT NOT NULL CHECK (kyc_status IN ('pending','approved','rejected')),
+    kyc_level TEXT NOT NULL CHECK (kyc_level IN ('none','basic','complete')),
+
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+
+    CHECK (
+        (tax_id_type = 'cpf' AND length(tax_id) = 11)
+        OR
+        (tax_id_type = 'cnpj' AND length(tax_id) = 14)
+    )
+);
+
+-- Trigger padrão de updated_at
+CREATE TRIGGER trg_identities_updated_at
+BEFORE UPDATE ON identities
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+
+================================================================================
+MIGRATION: 0010_migrate_identity_from_actors.sql
+================================================================================
+-- 0010_migrate_identity_from_actors.sql
+-- Migração dos dados atuais para identities
+
+INSERT INTO identities (
+    global_user_id,
+    tax_id,
+    tax_id_type,
+    kyc_status,
+    kyc_level
+)
+SELECT
+    global_user_id,
+    cpf_cnpj,
+    CASE
+        WHEN length(cpf_cnpj) = 11 THEN 'cpf'
+        ELSE 'cnpj'
+    END,
+    CASE
+        WHEN kyc_status = 'verified' THEN 'approved'
+        WHEN kyc_status = 'pending' THEN 'pending'
+        WHEN kyc_status = 'rejected' THEN 'rejected'
+        ELSE 'pending'
+    END,
+    'none'
+FROM actors
+WHERE cpf_cnpj IS NOT NULL
+ON CONFLICT (global_user_id) DO NOTHING;
+
+-- Remover colunas que não pertencem mais a actors
+ALTER TABLE actors DROP COLUMN IF EXISTS cpf_cnpj;
+ALTER TABLE actors DROP COLUMN IF EXISTS kyc_status;
+
+-- Criar FK para identidade global
+ALTER TABLE actors
+ADD CONSTRAINT fk_actor_identity
+FOREIGN KEY (global_user_id)
+REFERENCES identities(global_user_id);
+
+-- Constraint: actor_human exige identidade
+ALTER TABLE actors
+ADD CONSTRAINT chk_actor_requires_identity
+CHECK (
+    actor_type != 'actor_human'
+    OR global_user_id IS NOT NULL
+);
+
+
+================================================================================
+MIGRATION: 0011_add_financial_idempotency.sql
+================================================================================
+-- 0011_add_financial_idempotency.sql
+-- Idempotência obrigatória para operações financeiras
+
+ALTER TABLE bank_transactions
+ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255);
+
+ALTER TABLE payment_intents
+ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255);
+
+-- Índices únicos
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bank_transactions_idempotency
+ON bank_transactions (idempotency_key)
+WHERE idempotency_key IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_intents_idempotency
+ON payment_intents (idempotency_key)
+WHERE idempotency_key IS NOT NULL;
+
+
+================================================================================
+MIGRATION: 0012_unify_actor_and_kyc_ontology.sql
+================================================================================
+-- 0012_unify_actor_and_kyc_ontology.sql
+-- Unificação ontológica de actor_type e KYC
+
+-- Normalizar actor_type
+UPDATE actors
+SET actor_type = 'actor_human'
+WHERE actor_type IN ('person','user');
+
+UPDATE actors
+SET actor_type = 'actor_organizational'
+WHERE actor_type IN ('company','page');
+
+-- Atualizar constraint do actor_type
+ALTER TABLE actors DROP CONSTRAINT IF EXISTS actors_actor_type_check;
+
+ALTER TABLE actors
+ADD CONSTRAINT actors_actor_type_check
+CHECK (actor_type IN ('actor_human','actor_organizational','actor_system'));
+
+-- Garantir KYC canônico
+UPDATE identities
+SET kyc_status = 'approved'
+WHERE kyc_status = 'verified';
+
+-- Remover valores não canônicos
+UPDATE identities
+SET kyc_status = 'pending'
+WHERE kyc_status NOT IN ('pending','approved','rejected');
+
+

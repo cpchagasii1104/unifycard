@@ -10,6 +10,24 @@ import type {
   CreateReservationInput,
 } from './occupancy.types';
 
+// Colunas explícitas — nunca SELECT *
+const OCCUPANCY_MODEL_COLS = `
+  id,
+  event_id,
+  tenant_id,
+  occupancy_type,
+  total_capacity,
+  requires_reservation,
+  reservation_price_cents,
+  reservation_currency,
+  no_show_penalty_cents,
+  no_show_penalty_currency,
+  auto_cancel_after_minutes,
+  config,
+  created_at,
+  updated_at
+`.trim();
+
 interface OccupancyModelRow {
   id: string;
   event_id: string;
@@ -23,8 +41,8 @@ interface OccupancyModelRow {
   no_show_penalty_currency: string;
   auto_cancel_after_minutes: number | null;
   config: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface ReservationRow {
@@ -43,8 +61,8 @@ interface ReservationRow {
   checked_in_at: Date | null;
   no_show_time: Date | null;
   metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export class OccupancyService {
@@ -59,7 +77,8 @@ export class OccupancyService {
     const existing = await runQueryWithTenant<OccupancyModelRow>(
       tenantId,
       `
-      SELECT * FROM event_occupancy_models
+      SELECT ${OCCUPANCY_MODEL_COLS}
+      FROM event_occupancy_models
       WHERE event_id = $1
       LIMIT 1
       `,
@@ -82,9 +101,9 @@ export class OccupancyService {
           no_show_penalty_currency = COALESCE($8, 'BRL'),
           auto_cancel_after_minutes = $9,
           config = $10::jsonb,
-          updatedAt = now()
+          updated_at = now()
         WHERE id = $11
-        RETURNING *
+        RETURNING ${OCCUPANCY_MODEL_COLS}
         `,
         [
           input.occupancy_type,
@@ -130,7 +149,7 @@ export class OccupancyService {
           auto_cancel_after_minutes, config
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-        RETURNING *
+        RETURNING ${OCCUPANCY_MODEL_COLS}
         `,
         [
           input.event_id,
@@ -165,7 +184,8 @@ export class OccupancyService {
     const row = await runQueryWithTenant<OccupancyModelRow>(
       tenantId,
       `
-      SELECT * FROM event_occupancy_models
+      SELECT ${OCCUPANCY_MODEL_COLS}
+      FROM event_occupancy_models
       WHERE event_id = $1
       LIMIT 1
       `,
@@ -211,7 +231,12 @@ export class OccupancyService {
         status, reservation_price_cents, reservation_currency
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9)
-      RETURNING *
+      RETURNING
+        id, event_id, tenant_id, occupancy_model_id, global_user_id,
+        resource_type, resource_id, resource_name, status,
+        reservation_price_cents, reservation_currency,
+        transaction_id, checked_in_at, no_show_time, metadata,
+        created_at, updated_at
       `,
       [
         input.event_id,
@@ -308,8 +333,8 @@ export class OccupancyService {
       no_show_penalty_currency: row.no_show_penalty_currency,
       auto_cancel_after_minutes: row.auto_cancel_after_minutes,
       config: row.config,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -330,40 +355,10 @@ export class OccupancyService {
       checked_in_at: row.checked_in_at,
       no_show_time: row.no_show_time,
       metadata: row.metadata || {},
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 }
 
 export const occupancyService = new OccupancyService();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

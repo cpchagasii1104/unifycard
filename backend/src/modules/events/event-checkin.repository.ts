@@ -8,14 +8,14 @@ interface EventCheckInRow {
   id: string;
   tenant_id: string;
   ticket_sale_id: string;
-  checked_inAt: Date;
+  checked_in_at: Date;
   checked_in_by_actor_id: string;
   checked_in_by_user_id: string | null;
-  checked_outAt: Date | null;
+  checked_out_at: Date | null;
   checked_out_by_actor_id: string | null;
   checked_out_by_user_id: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 class EventCheckInRepository {
@@ -24,14 +24,14 @@ class EventCheckInRepository {
       id: row.id,
       tenantId: row.tenant_id,
       ticketSaleId: row.ticket_sale_id,
-      checkedInAt: row.checked_inAt,
+      checkedInAt: row.checked_in_at,
       checkedInByActorId: row.checked_in_by_actor_id,
       checkedInByUserId: row.checked_in_by_user_id,
-      checkedOutAt: row.checked_outAt,
+      checkedOutAt: row.checked_out_at,
       checkedOutByActorId: row.checked_out_by_actor_id,
       checkedOutByUserId: row.checked_out_by_user_id,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     };
   }
 
@@ -50,9 +50,9 @@ class EventCheckInRepository {
         tenant_id, ticket_sale_id, checked_in_by_actor_id, checked_in_by_user_id
       )
       VALUES ($1, $2, $3, $4)
-      RETURNING id, tenant_id, ticket_sale_id, checked_inAt, checked_in_by_actor_id, checked_in_by_user_id,
-                checked_outAt, checked_out_by_actor_id, checked_out_by_user_id,
-                createdAt, updatedAt
+      RETURNING id, tenant_id, ticket_sale_id, checked_in_at, checked_in_by_actor_id, checked_in_by_user_id,
+                checked_out_at, checked_out_by_actor_id, checked_out_by_user_id,
+                created_at, updated_at
       `,
       [
         tenantId,
@@ -73,9 +73,9 @@ class EventCheckInRepository {
     const rows = await runQueriesWithTenant<EventCheckInRow>(
       tenantId,
       `
-      SELECT id, tenant_id, ticket_sale_id, checked_inAt, checked_in_by_actor_id, checked_in_by_user_id,
-             checked_outAt, checked_out_by_actor_id, checked_out_by_user_id,
-             createdAt, updatedAt
+      SELECT id, tenant_id, ticket_sale_id, checked_in_at, checked_in_by_actor_id, checked_in_by_user_id,
+             checked_out_at, checked_out_by_actor_id, checked_out_by_user_id,
+             created_at, updated_at
       FROM event_checkins
       WHERE tenant_id = $1 AND ticket_sale_id = $2
       LIMIT 1
@@ -100,14 +100,14 @@ class EventCheckInRepository {
       tenantId,
       `
       UPDATE event_checkins
-      SET checked_outAt = NOW(),
+      SET checked_out_at = NOW(),
           checked_out_by_actor_id = $3,
           checked_out_by_user_id = $4,
-          updatedAt = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND checked_outAt IS NULL
-      RETURNING id, tenant_id, ticket_sale_id, checked_inAt, checked_in_by_actor_id, checked_in_by_user_id,
-                checked_outAt, checked_out_by_actor_id, checked_out_by_user_id,
-                createdAt, updatedAt
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND checked_out_at IS NULL
+      RETURNING id, tenant_id, ticket_sale_id, checked_in_at, checked_in_by_actor_id, checked_in_by_user_id,
+                checked_out_at, checked_out_by_actor_id, checked_out_by_user_id,
+                created_at, updated_at
       `,
       [tenantId, checkInId, checkedOutByActorId, checkedOutByUserId]
     );
@@ -121,11 +121,4 @@ class EventCheckInRepository {
 }
 
 export const eventCheckInRepository = new EventCheckInRepository();
-
-
-
-
-
-
-
 

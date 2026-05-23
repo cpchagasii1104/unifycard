@@ -2,7 +2,7 @@
 // SPRINT 26: Memória Institucional Declarativa
 // Repository para declarações de aprendizado institucional
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface InstitutionalMemoryDeclaration {
   declarationId: string;
@@ -37,9 +37,9 @@ class InstitutionalMemoryRepository {
       author_user_id: string;
       context: string;
       version: number;
-      createdAt: Date;
-      updatedAt: Date;
-      deletedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      deleted_at: Date | null;
     }>(
       tenantId,
       `
@@ -57,17 +57,17 @@ class InstitutionalMemoryRepository {
       ]
     );
 
-    const row = result[0];
+    if (!result) throw new Error('create: INSERT did not return row');
     return {
-      declarationId: row.declaration_id,
-      tenantId: row.tenant_id,
-      content: row.content,
-      authorUserId: row.author_user_id,
-      context: row.context,
-      version: row.version,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      deletedAt: row.deletedAt || undefined,
+      declarationId: result.declaration_id,
+      tenantId: result.tenant_id,
+      content: result.content,
+      authorUserId: result.author_user_id,
+      context: result.context,
+      version: result.version,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+      deletedAt: result.deleted_at || undefined,
     };
   }
 
@@ -89,7 +89,7 @@ class InstitutionalMemoryRepository {
       SELECT *
       FROM institutional_memory_declarations
       WHERE tenant_id = $1
-        AND deletedAt IS NULL
+        AND deleted_at IS NULL
     `;
     const params: any[] = [tenantId];
 
@@ -99,34 +99,34 @@ class InstitutionalMemoryRepository {
     }
 
     query += `
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
     params.push(limit, offset);
 
-    const result = await runQueryWithTenant<{
+    const rows = await runQueriesWithTenant<{
       declaration_id: string;
       tenant_id: string;
       content: string;
       author_user_id: string;
       context: string;
       version: number;
-      createdAt: Date;
-      updatedAt: Date;
-      deletedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      deleted_at: Date | null;
     }>(tenantId, query, params);
 
-    return result.map((row) => ({
+    return rows.map((row) => ({
       declarationId: row.declaration_id,
       tenantId: row.tenant_id,
       content: row.content,
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      deletedAt: row.deletedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      deletedAt: row.deleted_at || undefined,
     }));
   }
 
@@ -144,36 +144,37 @@ class InstitutionalMemoryRepository {
       throw new Error('Declaração não encontrada');
     }
 
-    // Criar nova versão
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       declaration_id: string;
       tenant_id: string;
       content: string;
       author_user_id: string;
       context: string;
       version: number;
-      createdAt: Date;
-      updatedAt: Date;
-      deletedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      deleted_at: Date | null;
     }>(
       tenantId,
-      `
+      {
+        text: `
         INSERT INTO institutional_memory_declarations (
           tenant_id, content, author_user_id, context, version
         )
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `,
-      [
-        tenantId,
-        newContent,
-        current.authorUserId,
-        current.context,
-        current.version + 1,
-      ]
+        values: [
+          tenantId,
+          newContent,
+          current.authorUserId,
+          current.context,
+          current.version + 1,
+        ],
+      }
     );
 
-    const row = result[0];
+    if (!row) throw new Error('updateVersion: INSERT did not return row');
     return {
       declarationId: row.declaration_id,
       tenantId: row.tenant_id,
@@ -181,9 +182,9 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      deletedAt: row.deletedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      deletedAt: row.deleted_at || undefined,
     };
   }
 
@@ -194,20 +195,22 @@ class InstitutionalMemoryRepository {
     tenantId: string,
     declarationId: string
   ): Promise<boolean> {
-    const result = await runQueryWithTenant<{ count: number }>(
+    const row = await runQueryWithTenant<{ declaration_id: string }>(
       tenantId,
-      `
+      {
+        text: `
         UPDATE institutional_memory_declarations
-        SET deletedAt = NOW()
+        SET deleted_at = NOW()
         WHERE tenant_id = $1
           AND declaration_id = $2
-          AND deletedAt IS NULL
-        RETURNING 1
+          AND deleted_at IS NULL
+        RETURNING declaration_id
       `,
-      [tenantId, declarationId]
+        values: [tenantId, declarationId],
+      }
     );
 
-    return result.length > 0;
+    return row != null;
   }
 
   /**
@@ -217,34 +220,32 @@ class InstitutionalMemoryRepository {
     tenantId: string,
     declarationId: string
   ): Promise<InstitutionalMemoryDeclaration | null> {
-    const result = await runQueryWithTenant<{
+    const row = await runQueryWithTenant<{
       declaration_id: string;
       tenant_id: string;
       content: string;
       author_user_id: string;
       context: string;
       version: number;
-      createdAt: Date;
-      updatedAt: Date;
-      deletedAt: Date | null;
+      created_at: Date;
+      updated_at: Date;
+      deleted_at: Date | null;
     }>(
       tenantId,
-      `
+      {
+        text: `
         SELECT *
         FROM institutional_memory_declarations
         WHERE tenant_id = $1
           AND declaration_id = $2
-          AND deletedAt IS NULL
+          AND deleted_at IS NULL
         LIMIT 1
       `,
-      [tenantId, declarationId]
+        values: [tenantId, declarationId],
+      }
     );
 
-    if (result.length === 0) {
-      return null;
-    }
-
-    const row = result[0];
+    if (!row) return null;
     return {
       declarationId: row.declaration_id,
       tenantId: row.tenant_id,
@@ -252,9 +253,9 @@ class InstitutionalMemoryRepository {
       authorUserId: row.author_user_id,
       context: row.context,
       version: row.version,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      deletedAt: row.deletedAt || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      deletedAt: row.deleted_at || undefined,
     };
   }
 }

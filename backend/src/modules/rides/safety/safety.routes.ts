@@ -9,9 +9,9 @@ import type {
   FastifyReply
 } from 'fastify';
 
-import { runQueryWithTenant, runQueriesWithTenant, runTenantTransaction } from '@core/db';
+import { runQueryWithTenant, runQueriesWithTenant, runTenantTransactionWithClient } from '@core/db';
 import { BadRequestError, NotFoundError } from '@core/errors';
-import { eventBus } from '@core/events/event-bus';
+import { publishRideEventOutbox } from '../shared/publish-ride-event';
 import { notifyService } from '@core/notify/notify.service';
 
 interface CreateContactBody {
@@ -55,7 +55,7 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
       const contacts = await runQueriesWithTenant<any>(tenantId, {
         text: `
-          SELECT contact_id, user_id, name, phone, createdAt
+          SELECT contact_id, user_id, name, phone, created_at
           FROM rides_emergency_contacts
           WHERE tenant_id = $1 AND user_id = $2;
         `,
@@ -82,9 +82,9 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       const { name, phone } = req.body;
       if (!name || !phone) throw new BadRequestError('name and phone required');
 
-      const contact = await runTenantTransaction(tenantId, async (trx) => {
-        const rows = await trx.query({
-          text: `
+      const contact = await runTenantTransactionWithClient(tenantId, async (client) => {
+        const { rows } = await client.query(
+          `
             INSERT INTO rides_emergency_contacts (
               tenant_id,
               user_id,
@@ -94,8 +94,8 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             VALUES ($1, $2, $3, $4)
             RETURNING *;
           `,
-          values: [tenantId, userId, name, phone],
-        });
+          [tenantId, userId, name, phone]
+        );
 
         return rows[0];
       });
@@ -135,9 +135,9 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
       if (!ride) throw new NotFoundError('Ride not found');
 
-      // registrar evento
-      await runQueryWithTenant(tenantId, {
-        text: `
+      await runTenantTransactionWithClient(tenantId, async (client) => {
+        await client.query(
+          `
           INSERT INTO rides_ride_events (ride_id, event_type, payload, occurredAt)
           VALUES ($1, 'sos_triggered', jsonb_build_object(
             'lat', $2,
@@ -147,20 +147,20 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             'message', $6
           ), NOW());
         `,
-        values: [rideId, lat, lng, type, userId, message ?? null],
-      });
+          [rideId, lat, lng, type, userId, message ?? null]
+        );
 
-      // emit event
-      await eventBus.emit({
-        type: 'rides.safety.sos_triggered',
-        tenantId,
-        payload: {
-          rideId,
-          senderUserId: userId,
-          senderType: type,
-          lat,
-          lng,
-        },
+        await publishRideEventOutbox(client, {
+          type: 'rides.safety.sos_triggered',
+          tenantId,
+          payload: {
+            rideId,
+            senderUserId: userId,
+            senderType: type,
+            lat,
+            lng,
+          },
+        });
       });
 
       // notificar contatos de emergência
@@ -226,24 +226,22 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         throw new BadRequestError('rideId and contactIds required');
       }
 
-      const result = await runTenantTransaction(tenantId, async (trx) => {
-        // valida ride
-        const rideRows = await trx.query({
-          text: `
+      const result = await runTenantTransactionWithClient(tenantId, async (client) => {
+        const { rows: rideRows } = await client.query(
+          `
             SELECT ride_id
             FROM rides_rides
             WHERE tenant_id = $1 AND ride_id = $2;
           `,
-          values: [tenantId, rideId],
-        });
+          [tenantId, rideId]
+        );
 
         const ride = rideRows[0];
         if (!ride) throw new NotFoundError('Ride not found');
 
-        // inserir shares
         for (const contactId of contactIds) {
-          await trx.query({
-            text: `
+          await client.query(
+            `
               INSERT INTO rides_ride_shares (
                 tenant_id,
                 ride_id,
@@ -252,18 +250,17 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
               )
               VALUES ($1, $2, $3, NOW());
             `,
-            values: [tenantId, rideId, contactId],
-          });
+            [tenantId, rideId, contactId]
+          );
 
-          // enviar notificação
-          const contactRows = await trx.query({
-            text: `
+          const { rows: contactRows } = await client.query(
+            `
               SELECT phone
               FROM rides_emergency_contacts
               WHERE tenant_id = $1 AND contact_id = $2
             `,
-            values: [tenantId, contactId],
-          });
+            [tenantId, contactId]
+          );
 
           const phone = contactRows[0]?.phone;
           if (phone) {
@@ -280,6 +277,16 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             });
           }
         }
+
+        await publishRideEventOutbox(client, {
+          type: 'rides.ride.shared',
+          tenantId,
+          payload: {
+            rideId,
+            userId,
+            contactIds,
+          },
+        });
 
         return { rideId, sharedWith: contactIds.length };
       });
@@ -305,35 +312,35 @@ const safetyRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
       if (!rideId || !type) throw new BadRequestError('rideId and type required');
 
-      const incident = await runTenantTransaction(tenantId, async (trx) => {
-        const rows = await trx.query({
-          text: `
+      const incident = await runTenantTransactionWithClient(tenantId, async (client) => {
+        const { rows } = await client.query(
+          `
             INSERT INTO rides_disputes (
               tenant_id,
               ride_id,
               reported_by_user_id,
               type,
               description,
-              createdAt
+              created_at
             )
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING *;
           `,
-          values: [tenantId, rideId, userId, type, description ?? null],
+          [tenantId, rideId, userId, type, description ?? null]
+        );
+
+        const row = rows[0];
+        await publishRideEventOutbox(client, {
+          type: 'rides.safety.incident_reported',
+          tenantId,
+          payload: {
+            rideId,
+            incidentId: row.dispute_id,
+            type,
+          },
         });
 
-        return rows[0];
-      });
-
-      // evento reputação/risco
-      await eventBus.emit({
-        type: 'rides.safety.incident_reported',
-        tenantId,
-        payload: {
-          rideId,
-          incidentId: incident.dispute_id,
-          type,
-        },
+        return row;
       });
 
       reply.code(201);

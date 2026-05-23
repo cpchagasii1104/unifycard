@@ -5,12 +5,10 @@ import type { FastifyInstance } from 'fastify';
 import { pixService } from './pix.service';
 import { pixWebhookEventRepository } from './pix-webhook.repository';
 import { mockPixProvider } from './pix-provider.mock';
+import { BadRequestError, InternalServerError, NotFoundError } from '@core/errors';
+import { ErrorCode } from '@core/errors/error-codes';
 
 const pixRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * GET /payments/pix/:paymentIntentId
-   * Consulta status do charge PIX
-   */
   fastify.get<{ Params: { paymentIntentId: string } }>('/payments/pix/:paymentIntentId', async (req, reply) => {
     const tenantId = req.tenant!.id;
     const { paymentIntentId } = req.params;
@@ -18,7 +16,7 @@ const pixRoutes = async (fastify: FastifyInstance) => {
     const charge = await pixService.getChargeByIntent(tenantId, paymentIntentId);
 
     if (!charge) {
-      return reply.status(404).send({ error: 'PixCharge não encontrado' });
+      throw new NotFoundError('PIX charge not found');
     }
 
     return reply.send({
@@ -27,7 +25,7 @@ const pixRoutes = async (fastify: FastifyInstance) => {
       qrCodeText: charge.payloadSnapshot.qrCodeText,
       expiresAt: charge.expiresAt.toISOString(),
       paidAt: charge.paidAt?.toISOString() || null,
-      amountCents: charge.amount,
+      amountCents: charge.amountCents,
       currency: charge.currency,
     });
   });
@@ -35,36 +33,28 @@ const pixRoutes = async (fastify: FastifyInstance) => {
 
 export default pixRoutes;
 
-/**
- * Webhook PIX (rota pública)
- * POST /webhooks/pix/:provider
- */
 export const pixWebhookRoutes = async (fastify: FastifyInstance) => {
   fastify.post<{ Params: { provider: string }; Body: any }>('/webhooks/pix/:provider', async (req, reply) => {
     const provider = req.params.provider;
-    const payload = req.body;
+    const payload = req.body as {
+      tenant_id?: string;
+      metadata?: { tenant_id?: string };
+      [key: string]: unknown;
+    };
 
-    // SPRINT 85: Por enquanto, usar mock provider
-    // Futuro: resolver provider baseado em provider param
     const pixProvider = mockPixProvider;
 
-    // 1. Parse webhook
     const webhookEvent = pixProvider.parseWebhook(payload);
     if (!webhookEvent) {
-      return reply.status(400).send({ error: 'Webhook payload inválido' });
+      throw new BadRequestError('Invalid webhook payload', ErrorCode.INVALID_INPUT);
     }
 
-    // 2. Buscar tenant (futuro: resolver via provider_charge_id ou metadata)
-    // Por enquanto, assumir que payload tem tenant_id ou buscar via charge
     let tenantId: string | undefined = payload.tenant_id || payload.metadata?.tenant_id;
-    
+
     if (!tenantId) {
-      // Tentar buscar via provider_charge_id
-      // Por enquanto, retornar erro (futuro: implementar lookup)
-      return reply.status(400).send({ error: 'Tenant ID não encontrado no payload' });
+      throw new BadRequestError('Tenant ID not found in payload', ErrorCode.MISSING_TENANT);
     }
 
-    // 3. Criar webhook event (idempotência)
     const webhookEventRecord = await pixWebhookEventRepository.createEvent(
       tenantId,
       provider,
@@ -72,12 +62,10 @@ export const pixWebhookRoutes = async (fastify: FastifyInstance) => {
       payload
     );
 
-    // 4. Se já processado, retornar sucesso (idempotência)
     if (webhookEventRecord.status === 'PROCESSED' || webhookEventRecord.status === 'DUPLICATE') {
       return reply.send({ success: true, message: 'Evento já processado' });
     }
 
-    // 5. Buscar charge
     const charge = await pixService.getChargeByProviderChargeId(
       tenantId,
       provider,
@@ -90,28 +78,23 @@ export const pixWebhookRoutes = async (fastify: FastifyInstance) => {
         webhookEventRecord.id,
         `Charge não encontrado: ${webhookEvent.chargeId}`
       );
-      return reply.status(404).send({ error: 'Charge não encontrado' });
+      throw new NotFoundError('Charge not found');
     }
 
-    // 6. Se evento é charge.paid, marcar como pago
     if (webhookEvent.eventType === 'charge.paid') {
       try {
-        // Marcar charge como pago
         const paidCharge = await pixService.markAsPaid(
           tenantId,
           charge.id,
           webhookEvent.paidAt || new Date()
         );
 
-        // Marcar webhook como processado
         await pixWebhookEventRepository.markAsProcessed(
           tenantId,
           webhookEventRecord.id,
           paidCharge.id
         );
 
-        // Marcar pagamento como SUCCESS
-        // SPRINT 87: Integração com subscriptions acontece dentro de markPixPaymentAsSuccess
         const { paymentExecutionService } = await import('../marketplace/payment-execution.service');
         await paymentExecutionService.markPixPaymentAsSuccess(
           tenantId,
@@ -126,15 +109,12 @@ export const pixWebhookRoutes = async (fastify: FastifyInstance) => {
           webhookEventRecord.id,
           error.message || 'Erro ao processar webhook'
         );
-        return reply.status(500).send({ error: 'Erro ao processar webhook' });
+        throw new InternalServerError('Failed to process webhook');
       }
     }
 
-    // 7. Outros tipos de evento (expired, cancelled)
     await pixWebhookEventRepository.markAsProcessed(tenantId, webhookEventRecord.id);
 
     return reply.send({ success: true });
   });
 };
-
-

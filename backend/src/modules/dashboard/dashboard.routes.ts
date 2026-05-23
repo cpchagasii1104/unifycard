@@ -20,6 +20,10 @@ function resolveActorId(req: any): string {
 
 const dashboardRoutes = async (fastify: FastifyInstance) => {
   /**
+   * Ordem de autorização (N3): 1) preHandler `fastify.requirePermission` = RBAC V2 (actor+intent+scope);
+   * 2) onde aplicável, `authorityService.canPerformAction` = PermissionKey + quarentena + canActAs (userId humano).
+   */
+  /**
    * GET /dashboard/overview
    * Visão geral do dashboard (hoje + mês + canais + estoque)
    */
@@ -54,13 +58,19 @@ const dashboardRoutes = async (fastify: FastifyInstance) => {
       if (!req.actionContext || !req.actionContext.actorId) {
         return reply.status(400).send({ error: 'ActionContext obrigatório' });
       }
+      if (!req.user?.id) {
+        return reply.status(401).send({ error: 'Autenticação obrigatória para relatório consolidado' });
+      }
 
-      const { authorizationService } = await import('@core/authorization/authorization.service');
-      const auth = await authorizationService.canActAs(
-        tenantId,
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
         req.actionContext.actorId,
-        req.actionContext.actorId,
-        'view_consolidated_reports'
+        'view_consolidated_reports',
+        undefined,
+        {
+          tenantId,
+          userId: req.user.id,
+        }
       );
       if (!auth.allowed) {
         return reply.status(403).send({
