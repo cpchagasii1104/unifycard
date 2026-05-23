@@ -4322,3 +4322,88 @@ DT fecha em UM destes cenários (mutuamente exclusivos):
 ### Convergência institucional
 
 Pattern análogo a outros casos de "frontend pronto, backend não-materializado": componentes plausivelmente aspiracionais em outras features (subscriptions UI, loyalty UI, automation alerts UI). Padrão recorrente que merece taxonomia institucional própria: **frontend-zombie** = código UI completo sem backend correspondente.
+
+---
+
+## DT-GATE-DOCSTRING-FALSE-POSITIVE
+
+- **Status:** DEFERRED
+- **Origem:** Sessão pós-marco-zero 2026-05-23 — análise do PR-3 (rides) durante aplicação de DECISION-0044/0045
+- **Vinculada a:** DECISION-0044 (princípio operacional — classificação quádrupla), DECISION-0045 (caso rides natureza 4)
+
+### Contexto
+
+A regra `NO_DIRECT_BANK_TABLE_ACCESS` em `scripts/validate-architectural-patterns.mjs` usa regex literal `/\b(bank_ledger|bank_transactions|bank_accounts)\b/` para detectar acesso a tabelas SSOT bancárias fora do boundary autorizado (`allowPath`).
+
+O regex captura **toda menção textual** das palavras `bank_ledger`/`bank_transactions`/`bank_accounts`, sem distinguir entre:
+
+- (a) acesso SQL real (SELECT/INSERT/UPDATE/JOIN/etc.) — violação material a ser tratada;
+- (b) menção em comentário JSDoc/docstring que ALERTA sobre o SSOT correto — alinhamento exemplar com a régua, falsamente marcado como violação.
+
+### Evidência material
+
+8 das 30 violações `critical_total` atuais (2026-05-23) caem na categoria (b): docstring documental em 4 arquivos do módulo rides (`analytics/analytics.routes.ts`, `distribution/distribution.controller.ts`, `distribution/distribution.routes.ts`, `distribution/distribution.service.ts`) que declara literalmente "a verdade financeira está em `bank_ledger` e `bank_transactions`, NÃO aqui" — código alinhado com a régua, gate o marca como violação.
+
+Verificado: zero queries SQL sobre `bank_*` nos 4 arquivos. Documentação correta penalizada pelo detector.
+
+### Risco
+
+- **Curto prazo (baixo):** `critical_total` infla com falsos-positivos documentais, dificultando leitura do indicador.
+- **Médio prazo (médio):** dev/IA futura pode tentar "consertar" a violação editando o comentário para não mencionar nomes literais — degrada documentação operacional explícita. Ou pode alargar `allowPath` para o caminho, abrindo curinga em substrato sensível.
+- **Longo prazo (médio):** padrão pode se repetir em outros módulos cujo cabeçalho declara honestamente "verdade está em outro lugar". Penaliza documentação clara.
+
+### Mitigação atual
+
+- DECISION-0045 (esta sessão) registra os 8 casos atuais como falso-positivo documental, não-ação justificada.
+- Os comentários permanecem como estão (documentação operacional preservada).
+
+### Resolução prevista
+
+Melhorias possíveis ao gate, em fatia futura de higiene:
+
+1. **Ignorar ocorrências dentro de comentários JSDoc/inline** — regex multilinha que detecta `/* ... */` e `//` e exclui o conteúdo deles do scan. Forma mais limpa, sem precisar de allowlist por arquivo.
+2. **Ignorar ocorrências dentro de string literals** — análogo, detectar `'...'` e `"..."` e excluir.
+3. **Adicionar `// arch:allow` como denyLine na regra** `NO_DIRECT_BANK_TABLE_ACCESS` — opção mais conservadora (precisa anotação manual por linha). Desencorajada pelo desenho original da regra (sem `denyLine` proposital — vide `validate-architectural-patterns.mjs` linhas 102-109).
+4. **Refinar pattern** para exigir token SQL adjacente (`FROM`, `JOIN`, `INTO`, `UPDATE`, `DELETE FROM`) — reduz falso-positivo mas não cobre 100%.
+
+Prioridade: BAIXA. Não bloqueante. Fica registrado como melhoria de tooling, não bug.
+
+---
+
+## DT-HELPERS-DUAL-IMPLEMENTATION-DRIFT
+
+- **Status:** DEFERRED
+- **Origem:** Sessão pós-marco-zero 2026-05-23 — sub-achado durante análise do PR-1 (leitura de `bank-transaction-read.repository.ts`)
+- **Vinculada a:** DECISION-0044 (menção do sub-achado), princípio "norma assintótica" (`project_norma_assintotica`)
+
+### Contexto
+
+Existem **duas implementações em paralelo** dos helpers de query com tenant:
+
+1. `backend/src/core/db.ts:58` (`runQueryWithTenant`) e linha 77 (`runQueriesWithTenant`)
+2. `backend/src/core/database/pool.ts:168` (`runQueryWithTenant`) e linha 217 (`runQueriesWithTenant`)
+
+Ambas as versões fazem essencialmente o mesmo trabalho (abrir client, set_config `app.current_tenant`, executar query, sanitizar params, release). Existem em paths distintos com pequenas diferenças (a versão `pool.ts` tem sanitização de `undefined → null` explícita, redação de logs em produção).
+
+**Uso atual observado:**
+
+- `bank-transaction-read.repository.ts`, `bank-reporting.repository.ts` (criado no PR-1) importam de `@core/database/pool` — versão pool.ts.
+- 4 arquivos de `modules/rides/*` importam de `@core/db` — versão db.ts.
+- Distribuição entre os dois paths não-uniforme no codebase.
+
+### Risco
+
+- **Curto prazo (baixo):** ambas funcionam, não bloqueiam runtime.
+- **Médio prazo (médio):** "duas verdades paralelas" no nível infraestrutural viola a régua de SSOT único aplicada a si mesma. Correções de bugs precisam ser feitas em duplicata; refactor de uma pode esquecer a outra; novos desenvolvedores escolhem aleatoriamente entre as duas.
+- **Longo prazo (médio):** drift cumulativo — as duas implementações divergem semanticamente ao longo do tempo, e o sistema passa a depender de diferenças sutis sem documentação.
+
+### Mitigação atual
+
+- DT registrada (esta entrada) para visibilidade.
+- DECISION-0044 menciona o caso como sub-achado consciente, não-bloqueante para o trabalho de boundary do bank.
+
+### Resolução prevista
+
+Frente de higiene de infra: unificar em uma única implementação canônica (provavelmente `pool.ts`, que parece mais recente e completa), deprecar a versão `db.ts` com período de transição, e atualizar imports do codebase via search-and-replace controlado.
+
+Prioridade: BAIXA. Não bloqueante. Fica registrado como melhoria estrutural, fatia futura.

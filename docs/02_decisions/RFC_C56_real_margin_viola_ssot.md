@@ -246,3 +246,24 @@ filtrada via `bank_transactions.order_id`.
 *Gerado em: 2026-04-23*  
 *Violação: C56 — CRITICAL, VIOLA_SSOT*  
 *Ref: REMEDIATION_DECISIONS_LOG_APPEND.md §C56*
+
+---
+
+## 11. FECHAMENTO (2026-05-23)
+
+**Estado:** CONFIRMADO — RFC C56 cumpriu seu objetivo. `real-margin.service.ts` usa `bank_ledger` como SSOT por decisão consciente (Passos 1-3 executados em 2026-04-23 nos commits citados: `5c93766b`, `17ac88ac`, `02266c4b`).
+
+**Sobre as 9 menções remanescentes a `bank_*` no arquivo:**
+
+As 9 ocorrências de `bank_transactions`/`bank_ledger`/`bank_accounts` detectadas pelo gate `validate-architectural-patterns --strict` (regra `NO_DIRECT_BANK_TABLE_ACCESS`) correspondem a **UMA única query CTE** com 3 CTEs paralelos (`ledger_revenue`, `ledger_fees`, `ledger_payouts`), cruzando com `order_items`/`orders` via FK explícita `bank_transactions.order_id → orders.id` (adicionada nesta RFC, Passo 1).
+
+Em 2026-05-23, no contexto do PR-2 do esforço pós-marco-zero (sessão de boundary do bank), Clayton avaliou as opções de mover essa query para `modules/bank/bank-reporting.repository.ts` e **recusou todas as alternativas**:
+
+- Mover query inteira: inverteria boundary (bank fazendo JOIN com marketplace);
+- Separar em queries paralelas + correlação em memória/segunda query: multiplicaria round-trips, mudaria comportamento de performance em ordem de grandeza no relatório sobre 10k+ orders.
+
+**Decisão registrada como não-ação documentada em `DECISION-0045`** (`REMEDIATION_DECISIONS_LOG.md`), aplicando o princípio de `DECISION-0044`: "performance é comportamento; cross-domain justificado por FK explícita do schema é violação textual sem culpa material".
+
+**Resumo:** boundary mantido por justificativa material; SSOT financeiro preservado conforme objetivo original desta RFC. Esta RFC permanece como referência arqueológica do trabalho de 2026-04-23.
+
+*Addendum: 2026-05-23 — fechamento confirmado.*

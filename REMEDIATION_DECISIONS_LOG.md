@@ -3307,3 +3307,173 @@ Aplicação consistente com DECISION-0032 (post_cta) e família `DT-MODULE-*-FAN
 #### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0044 — `critical_total` é resultado, não meta: classificação quádrupla das violações de boundary do bank
+
+- **Data:** 2026-05-23
+- **Tipo:** arquitetural — princípio operacional vinculante para PRs de boundary
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-23, sessão pós-PR-1 / PR-2 / PR-3)
+- **Pattern:** posterior à validação — formalizada após PR-1 (commit `a672e071`, 47→30) atravessar refactor real e PR-2/PR-3 revelarem que o resto da dívida não é refactor.
+
+### Princípio
+
+O número `critical_total` reportado pelo gate `validate-architectural-patterns --strict` (regra `NO_DIRECT_BANK_TABLE_ACCESS`) **NÃO é meta de PR.** É **resultado** do que cabe refactor real. O objetivo é sistema saudável, não número menor. Reduzir o número nunca justifica piorar performance ou inverter boundary.
+
+### Classificação quádrupla das violações de boundary
+
+Toda violação `NO_DIRECT_BANK_TABLE_ACCESS` classifica-se em uma das quatro naturezas:
+
+1. **Leitura pura movível** → refactor real. Operador faz query agregada sobre `bank_*` que pode ser delegada a repositório no boundary `modules/bank/` sem mudar comportamento. **Exemplo:** PR-1 (`reporting-bank-aggregates.ts` → `bank-reporting.repository.ts`, commit `a672e071`, 17 violações zeradas, comportamento idêntico preservado).
+
+2. **Cross-domain justificado por FK explícita do schema** → não-ação documentada. Query única (típica CTE) que cruza `bank_*` com tabelas de outro domínio via relação declarada no schema (ex.: FK `bank_transactions.order_id → orders.id`). Separar inverte o boundary (substrato soberano passa a fazer JOIN com superfície) ou multiplica round-trips (perda de performance em relatórios). **Exemplo:** PR-2 (`real-margin.service.ts`, 9 violações, ver DECISION-0045).
+
+3. **Script de teste legítimo dev-only** → não-ação registrada. Script E2E que precisa tocar tabelas SSOT diretamente para validar invariantes do próprio substrato, com fail-fast em produção/staging. **Exemplo:** `e2e-incentive-bank-checklist.ts` (9 violações no baseline).
+
+4. **Docstring/comentário documental apontando para o SSOT correto** → falso-positivo. Comentário JSDoc que cita nomes de tabelas `bank_*` para AVISAR que a verdade financeira mora lá (não no arquivo onde o comentário está). Gate confunde menção textual com acesso SQL. **Exemplo:** PR-3 (rides — `analytics.routes.ts`, `distribution.controller.ts`, `distribution.routes.ts`, `distribution.service.ts`, 8 violações, ver DECISION-0045).
+
+### "Performance é comportamento"
+
+Refactor que muda número de round-trips ao banco viola "comportamento idêntico" mesmo que o output seja igual. Uma query CTE única transformada em N queries separadas correlacionadas em memória/segunda query muda **comportamento de performance em ordem de grandeza** para relatórios sobre 10k+ rows. Mesmo output, latência diferente, é mudança comportamental. Critério "mover sem mudar comportamento" — vinculante para PRs de boundary — inclui performance.
+
+### Restrições explícitas (derivadas do princípio)
+
+- **Substrato soberano (`bank_*`) NUNCA faz JOIN com tabelas de superfície** (orders, order_items, etc.) dentro do `modules/bank/`. Boundary é unidirecional: superfícies giram ao redor do substrato, não o contrário.
+- **Allowlist no gate** (`allowPath` em `validate-architectural-patterns.mjs`) NÃO deve alargar para incluir `scripts/` genericamente — abrir curinga em substrato sensível. Não-ação registrada via DECISION é a forma certa de absorver caso legítimo.
+- **Fachada de re-export** (camada intermediária no operador que apenas repassa chamadas ao bank) NÃO é solução — esvazia gate sem endireitar arquitetura. PR-1 usou movimento real (opção β), não fachada (α).
+- **Sequência de execução obrigatória em refactor real (natureza 1):** criar repositório novo → adicionar ao barrel → religar consumidores (estáticos + dinâmicos) → SÓ ENTÃO apagar arquivo origem. Validação com 5 critérios: `tsc --noEmit` exit 0, grep órfão zero (crítico contra fail silencioso de import dinâmico no money), 4 gates verdes, `critical_total` reduzido pela quantidade movida, sem erro intermediário.
+
+### Consequências esperadas
+
+- **Curto prazo:** PR-2 e PR-3 fechados como não-ação documentada (DECISION-0045). Dívida real candidata a refactor cai para ~4 violações (PR-4: `regional-fund/invoicing/saga` — a avaliar fresco com a mesma classificação).
+- **Médio prazo:** próximas fatias de boundary aplicam a classificação quádrupla antes de presumir refactor. Documentação substitui a tentação de "abater número".
+- **Longo prazo:** `critical_total` estabiliza num número diferente de zero, com cada violação restante justificada por DECISION explícita. Sistema saudável.
+
+### Responsável
+
+Clayton (decisão soberana após PR-2 e PR-3 revelarem que "mecânico no molde do PR-1" não se aplica universalmente). Auditoria material conduzida por Claude Code. Pattern de "DECISION posterior à validação" preservado (formalizada após casos materializarem o princípio).
+
+### Validação prévia
+
+- PR-1 executado e validado: commit `a672e071`, 4 gates verdes, `tsc` limpo, `critical_total 47→30`, comportamento idêntico em 4 consumidores (incluindo import dinâmico do `payout`).
+- PR-2 (`real-margin.service.ts`) analisado: query CTE única cross-domain `bank_*` × `orders/order_items` via FK `bank_transactions.order_id`, RFC C56 já havia endireitado o SSOT em 2026-04-23. Não-ação aplicada (ver DECISION-0045).
+- PR-3 (rides, 4 arquivos) analisado: 8 violações todas em docstring JSDoc apontando para `bank_ledger`/`bank_transactions` como SSOT. Zero queries SQL sobre `bank_*` nos 4 arquivos. Falso-positivo declarado pelo próprio código (ver DECISION-0045).
+
+### Vinculadas
+
+- DT registrada nesta sessão: `DT-GATE-DOCSTRING-FALSE-POSITIVE` (melhoria proposta do gate para distinguir comentário de SQL real); `DT-HELPERS-DUAL-IMPLEMENTATION-DRIFT` (sub-achado de infra).
+
+#### Supera
+
+(nenhuma — princípio operacional novo, formaliza pattern emergente)
+
+#### Estende
+
+- DECISION-0024 (`bank_ledger` como SSOT financeiro único): princípio operacional aplica a forma de proteger esse SSOT no boundary.
+
+#### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0045 — Aplicação de DECISION-0044 aos casos `real-margin` (natureza 2) e `rides` (natureza 4)
+
+- **Data:** 2026-05-23
+- **Tipo:** falso_positivo + desvio_baseline justificado (aplicação concreta da classificação quádrupla)
+- **Status:** APROVADA por Clayton (autorização explícita 2026-05-23, mesma sessão da DECISION-0044)
+- **Vinculada a:** DECISION-0044 (princípio quádruplo), `RFC_C56_real_margin_viola_ssot.md` (fechamento — ver addendum), `f2fcac59` (commit pré-marco-zero com baseline atual)
+
+### Caso 1: `backend/src/modules/marketplace/real-margin.service.ts` — 9 violações — natureza (2)
+
+**Classificação:** cross-domain justificado por FK explícita do schema.
+
+**Material:**
+
+- Arquivo se declara `READ-ONLY` no cabeçalho (linha 2: `SPRINT 61: MARGEM REAL POR PRODUTO / CANAL / FILIAL (READ-ONLY)` + bloco de regras "Nenhuma mutação de estado / NÃO recalcula split / NÃO recalcula preço / NÃO inferir custo / Apenas consolida dados existentes / Nenhuma persistência").
+- Único método que toca SQL é `getMarginByVariant`; `getMarginByActor` e `getMarginByChannel` são wrappers que chamam ele e agregam em memória.
+- A query é **UMA query CTE única** (linhas 73-160) com 3 CTEs paralelos sobre `bank_*` (`ledger_revenue`, `ledger_fees`, `ledger_payouts`, cada um agregando por `bt.order_id` filtrando por `bank_accounts.account_type` distinto) seguida de JOIN final com `order_items`/`orders` para correlacionar por `oi.order_id = o.id`.
+- A correlação `bank_transactions.order_id → orders.id` é **FK explícita declarada no schema** (adicionada em migração específica conforme RFC C56). Não é vazamento acidental de boundary — é a relação que o próprio banco declara como legítima.
+- As 9 menções de `bank_*` detectadas pelo gate são as 9 ocorrências literais (3 nomes de tabela × 3 CTEs) dentro da MESMA query SQL.
+- Service já usa `bank_ledger` como SSOT financeiro por decisão consciente — RFC C56 (`docs/02_decisions/RFC_C56_real_margin_viola_ssot.md`, 2026-04-23) endireitou o arquivo: removeu derivação de `metadata.priceSnapshot.finalPrice`, adicionou coluna `order_id` em `bank_transactions`, reescreveu cálculo baseado em ledger.
+
+**Cálculo de margem em memória NÃO viola régua "saldo só `bank_ledger` é verdade".** Margem é derivação contábil sobre valores já agregados pelo ledger (receita − fees − holding cost); não há "ledger de margem" para tirar. Regex do gate `NO_MANUAL_MONEY_CALCULATION` também não marca (variáveis `grossRevenue`/`platformFees`/`netMargin`, não literais `amount`/`balance`).
+
+**Opções consideradas e recusadas:**
+
+- **(a) Mover query inteira (incluindo `order_items`+`orders`) para `bank-reporting.repository.ts`** — recusada: substrato soberano (`bank_*`) passa a fazer JOIN com tabelas de superfície (marketplace). Inverte boundary, pior que a violação original.
+- **(b) Separar em 3 métodos no `bank-reporting` retornando mapas por `order_id`; correlação no marketplace via segunda query** — recusada: 3-4 round-trips em relatório sobre 10k+ orders versus 1 query CTE única atual. Performance é comportamento (DECISION-0044); muda performance em ordem de grandeza.
+- **(c) 1 método no `bank-reporting` com `CASE WHEN account_type` retornando agregado por `order_id`; correlação no marketplace via segunda query** — recusada: 2 round-trips versus 1, mesma natureza do trade-off (b) em escala menor.
+
+**Decisão:** **(d) NÃO-AÇÃO documentada.** As 9 violações permanecem no `critical_total` do gate. O cross-domain é legítimo pela FK + RFC C56 confirmou SSOT correto. Forçar separação criaria problema (performance ou boundary invertido) para resolver não-problema (violação textual com justificativa material).
+
+**Saldo:** 9/30 violações de `critical_total` ficam classificadas como dívida controlada legítima (natureza 2).
+
+### Caso 2: `backend/src/modules/rides/*` — 8 violações em 4 arquivos — natureza (4)
+
+**Classificação:** falso-positivo documental (docstring que aponta para SSOT correto).
+
+**Arquivos e linhas detectadas:**
+
+- `analytics/analytics.routes.ts:9, :10`
+- `distribution/distribution.controller.ts:7, :8`
+- `distribution/distribution.routes.ts:9, :10`
+- `distribution/distribution.service.ts:8, :9`
+
+**Material:** os 4 arquivos têm **o mesmo docstring JSDoc no topo** (copiado verbatim):
+
+```
+⚠️ PROJEÇÃO FINANCEIRA — NÃO É SSOT (`rides_ride_distributions`)
+Estes dados NÃO representam dinheiro real.
+A verdade financeira está em:
+- bank_ledger
+- bank_transactions
+
+NÃO usar para:
+- saldo
+- reconciliação
+- decisão financeira
+```
+
+As 8 menções de `bank_*` detectadas pelo gate são as 8 ocorrências literais das palavras `bank_ledger` e `bank_transactions` **dentro desse docstring** (2 menções × 4 arquivos).
+
+**Verificado material:** ZERO queries SQL sobre `bank_*` nos 4 arquivos; ZERO JOINs; ZERO escrita. As queries reais desses arquivos tocam `rides_drivers`, `rides_rides`, `rides_ride_distributions` (domínio rides puro). Quando precisam de operação financeira, delegam ao `bankIntegrationService` (boundary correto).
+
+Os 4 arquivos **estão alinhados com a régua de forma exemplar** — declaram, no próprio cabeçalho, que a verdade financeira mora em `bank_ledger`/`bank_transactions` e não neles. É documentação operacional que protege futuros mantenedores. Regex do gate (`/\b(bank_ledger|bank_transactions|bank_accounts)\b/`) captura a string literal sem distinguir comentário de SQL.
+
+**Opções consideradas e recusadas:**
+
+- Editar comentários trocando `bank_ledger` por "SSOT financeiro" — recusada: degrada documentação operacional explícita; o nome literal é o que torna o comentário acionável.
+- Alargar `allowPath` no gate para `modules/rides/` — recusada: abre curinga em substrato sensível (vide DECISION-0044). Outros arquivos em `rides/` poderiam introduzir acesso real futuro sem ser detectado.
+
+**Decisão:** **NÃO-AÇÃO** (falso-positivo do gate). As 8 violações permanecem no `critical_total`. Melhoria proposta do gate registrada como `DT-GATE-DOCSTRING-FALSE-POSITIVE` em `REMEDIATION_DT_LOG.md` (distinguir menção em comentário/string de acesso SQL real — fatia futura de higiene do detector, não bloqueante).
+
+**Saldo:** 8/30 violações de `critical_total` ficam classificadas como falso-positivo documental (natureza 4).
+
+### Saldo agregado do `critical_total` após DECISION-0044 + 0045
+
+| Origem | Violações | Natureza | Tratamento |
+|---|---|---|---|
+| `reporting-bank-aggregates.ts` | (-17, já zeradas) | (1) leitura pura movível | Refactor real PR-1, commit `a672e071` |
+| `real-margin.service.ts` | 9 | (2) cross-domain via FK | Não-ação documentada (este caso 1) |
+| `rides/*` (4 arquivos) | 8 | (4) docstring documental | Não-ação documentada (este caso 2) |
+| `e2e-incentive-bank-checklist.ts` | 9 | (3) script de teste dev-only | Não-ação registrada (decisão prévia 2026-05-23) |
+| `regional-fund/invoicing/saga` (PR-4) | ~4 | a classificar | A avaliar fresco em fatia separada |
+
+Das 30 violações atuais, **26 já estão classificadas com justificativa material**. Restam ~4 (PR-4) a avaliar com a lente quádrupla antes de decidir refactor ou não-ação.
+
+#### Supera
+
+(nenhuma — aplicação concreta de DECISION-0044)
+
+#### Vinculadas
+
+- DECISION-0044 (princípio quádruplo)
+- RFC C56 (fechada em paralelo via addendum em `docs/02_decisions/RFC_C56_real_margin_viola_ssot.md`)
+- `DT-GATE-DOCSTRING-FALSE-POSITIVE` (proposta de melhoria do gate)
+- Commit `a672e071` (PR-1 — natureza 1, comprovação do refactor real)
+
+#### Superada por
+
+(preencher quando superada)
