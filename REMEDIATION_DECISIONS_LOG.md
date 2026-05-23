@@ -3463,6 +3463,43 @@ Os 4 arquivos **estão alinhados com a régua de forma exemplar** — declaram, 
 
 Das 30 violações atuais, **26 já estão classificadas com justificativa material**. Restam ~4 (PR-4) a avaliar com a lente quádrupla antes de decidir refactor ou não-ação.
 
+### Apêndice (2026-05-23 — pós-PR-4 e PR-5)
+
+Após classificação fresca dos 4 arquivos restantes (PR-4) e execução do refactor da saga (PR-5), as 4 violações do PR-4 distribuíram-se assim:
+
+#### Caso 3: `marketplace/regional-fund.service.ts` — 2 violações — natureza (4)
+
+- **Linhas 113 e 128:** comentários JSDoc dentro do método `topUpRegionalFundBankFromReserve`, explicando idempotência (`uniq em bank_transactions`) e schema Genesis (`bank_transactions.reference_id é UUID`).
+- **Material:** arquivo já usa o boundary correto (importa `bankAccountRepository`, `bankAccountService`, `bankTransactionService`, `buildSystemAuthorship` do bank). Operação financeira passa pelo balcão; as 2 menções são documentação operacional sobre a interação com o substrato.
+- **Decisão:** NÃO-AÇÃO. Mesma família do rides (Caso 2) — docstring documental que cita nome literal da tabela para clareza operacional.
+
+#### Caso 4: `invoicing/invoice.service.ts` — 1 violação — natureza (4)
+
+- **Linha 66:** string literal `` `Serviço - ${entry.entryType} (bank_ledger)` `` na descrição do `InvoiceItem` (texto humano que aparece no documento da fatura, identificando a fonte canônica para o usuário).
+- **Material:** arquivo já importa `bankLedgerRepository` e usa `getEntryById` para buscar entradas (boundary correto). A única menção `bank_ledger` está em texto descritivo de UX/contábil, não em acesso.
+- **Decisão:** NÃO-AÇÃO. Variante de natureza (4) — string literal documental como parte do conteúdo gerado, não acesso ao substrato.
+
+#### Caso 5: `core/sagas/handlers/saga-compensation.handler.ts` — 1 violação — natureza (1) → REFACTOR REAL ✓
+
+- **Linha 125 (pré-PR-5):** `SELECT internal_completed_at FROM bank_transactions WHERE tenant_id=? AND id=? LIMIT 1` — query real verificando se transação foi liquidada antes de delegar compensação (`compensateTransaction` em `@modules/bank/ledger-compensation.service`).
+- **Classificação:** leitura pura movível. Único candidato a refactor real do PR-4. Sem cross-domain via FK, sem CTE complexa, sem import dinâmico, sem cálculo de dinheiro — exatamente o tipo de fatia que o template do PR-1 trata bem.
+- **Execução:** PR-5 (commit `a15639d0`, 2026-05-23). Adicionado método `getInternalCompletedAtById` em `BankTransactionReadRepository` (vizinho semântico — leitura por id em `bank_transactions`); SELECT inline substituído por chamada ao método. Comportamento idêntico (mesma query, mesma semântica de skip quando `internal_completed_at` null). 5 critérios verdes: `tsc --noEmit` exit 0, grep órfão zero, 4 gates verdes, `critical_total 30→29`, import unused `runQueryWithTenant` limpo de quebra.
+
+### Saldo agregado final (pós-PR-1 + PR-5)
+
+| Origem | Violações | Natureza | Tratamento |
+|---|---|---|---|
+| `reporting-bank-aggregates.ts` | (-17, zeradas) | (1) leitura pura movível | Refactor real PR-1, commit `a672e071` |
+| `saga-compensation.handler.ts:125` | (-1, zerada) | (1) leitura pura movível | Refactor real PR-5, commit `a15639d0` |
+| `real-margin.service.ts` | 9 | (2) cross-domain via FK | Não-ação documentada (Caso 1) |
+| `rides/*` (4 arquivos) | 8 | (4) docstring documental | Não-ação documentada (Caso 2) |
+| `e2e-incentive-bank-checklist.ts` | 9 | (3) script de teste dev-only | Não-ação registrada (sessão 2026-05-23) |
+| `regional-fund.service.ts` | 2 | (4) docstring documental | Não-ação documentada (Caso 3) |
+| `invoice.service.ts` | 1 | (4) string descritiva | Não-ação documentada (Caso 4) |
+| **TOTAL atual** | **29** | **todas classificadas** | **dívida integralmente tratada** |
+
+`critical_total = 29`, e **cada uma das 29 violações restantes tem decisão registrada** (via DECISION-0045 cobre 20; registro prévio do E2E cobre as outras 9). O número parou de ser lista pendente — virou inventário compreendido. Higiene futura possível via `DT-GATE-DOCSTRING-FALSE-POSITIVE` (refinar gate para distinguir comentário/string literal de SQL real reduziria os 11 falso-positivos de natureza (4) sem alterar código).
+
 #### Supera
 
 (nenhuma — aplicação concreta de DECISION-0044)
@@ -3472,7 +3509,8 @@ Das 30 violações atuais, **26 já estão classificadas com justificativa mater
 - DECISION-0044 (princípio quádruplo)
 - RFC C56 (fechada em paralelo via addendum em `docs/02_decisions/RFC_C56_real_margin_viola_ssot.md`)
 - `DT-GATE-DOCSTRING-FALSE-POSITIVE` (proposta de melhoria do gate)
-- Commit `a672e071` (PR-1 — natureza 1, comprovação do refactor real)
+- Commit `a672e071` (PR-1 — natureza 1, comprovação inicial do refactor real)
+- Commit `a15639d0` (PR-5 — natureza 1, segundo refactor real fechando a fatia de boundary do money)
 
 #### Superada por
 
