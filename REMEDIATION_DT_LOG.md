@@ -4463,3 +4463,50 @@ Suítes E2E que criam dados marcados (`metadata.test`) sem mecanismo de cleanup 
 ### Fechamento
 
 Cleanup executado em 2026-05-24. Suíte C52 limpa. DT fecha CLOSED. Próxima fatia (reconciliation ampliada) ocorre em universo limpo.
+
+---
+
+## DT-RECONCILIATION-WORKER-COLUMN-MISMATCH
+
+- **Status:** OPEN
+- **Origem:** Sessão 2026-05-24 — capturado nos logs durante validação do boot da Fatia 2 (commit `c149ede4`)
+- **Vinculada a:** — (bug pré-existente independente da Fatia 2)
+
+### Contexto
+
+`backend/src/workers/reconciliation-worker.ts:12-17` executa query periódica (interval 30s):
+
+```ts
+SELECT pi.id, pi.tenant_id
+FROM payment_intents pi
+LEFT JOIN bank_settlements bs ON bs.tenant_id = pi.tenant_id
+WHERE pi.status = 'completed' AND bs.id IS NULL
+```
+
+A coluna real em `payment_intents` é **`payment_status`**, não `status`. PostgreSQL retorna erro `42703 — coluna pi.status não existe`. Worker captura no `catch` e loga `[ReconciliationWorker] Cycle error: error: coluna pi.status não existe` a cada ciclo de 30s.
+
+Esse worker é separado do engine canônico (`modules/reconciliation/reconciliation-engine.service.ts`). O engine roda com sucesso (confirmado pela Fatia 2: 96 runs em `reconciliation_runs` no boot). O worker é uma camada complementar de checagens periódicas de integridade que falha silenciosamente nesta query.
+
+### Risco
+
+- **Curto prazo (baixo):** ruído de log a cada 30s; não corrompe dado nem afeta runtime do engine principal.
+- **Médio prazo (médio):** a checagem `INTENT_WITHOUT_SETTLEMENT` do worker NUNCA roda — significa que se houver intent `completed` sem settlement em produção, esse worker não detecta. Blind spot complementar ao que a Fatia 2 cobriu (a Fatia 2 cobre `settled` × `bank_ledger.credits`; este worker tentava cobrir `completed` × `bank_settlements`).
+- **Longo prazo (médio):** poluição de log dificulta diagnóstico de erros reais.
+
+### Mitigação atual
+
+Nenhuma — bug pré-existente, anterior ao marco zero. Engine canônico (que a Fatia 2 ampliou) roda em paralelo e não é afetado.
+
+### Resolução prevista
+
+Fatia futura pequena (provavelmente sub-fatia da próxima sessão de reconciliation):
+- Trocar `pi.status` por `pi.payment_status` na query da linha 13.
+- Confirmar o valor canônico: provavelmente `IN ('captured', 'settled')` em vez de `= 'completed'` (que não existe no enum `payment_status_check` do CHECK constraint — vide `payment_intents_payment_status_check`).
+- Validar via mesmo critério da Fatia 2: boot + grep + DB check pós-edit, sem novas discrepâncias inesperadas.
+
+Risco mínimo, baixa prioridade. Não bloqueante para nenhuma frente ativa.
+
+### Não bloqueia
+
+- Fatia 2 (reconciliation ampliada) — confirmado em validação: engine roda 96x, vigia novo detecta 0 discrepâncias, worker faz ruído apartado em loop sem afetar.
+- Qualquer outra frente.
