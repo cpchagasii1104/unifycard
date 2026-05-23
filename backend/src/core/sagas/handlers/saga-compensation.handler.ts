@@ -1,11 +1,12 @@
 // INFRA-4.2 — order.saga.failed → compensação ledger controlada (handler único; failSaga não executa ledger).
 
-import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
+import { getClientWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow, outboxEventIdFromSeed } from '@core/events/event-outbox.repository';
 import type { EventBus, UnificardEvent } from '@core/events/event-bus';
 import { checkIdempotency, recordIdempotencySuccess } from '@core/events/idempotency-tracker';
 import { canonicalLogger } from '@core/logging/canonical-logger';
 import { compensateTransaction } from '@modules/bank/ledger-compensation.service';
+import { bankTransactionReadRepository } from '@modules/bank/bank-transaction-read.repository';
 import {
   getByOrderId,
   lockSagaForUpdate,
@@ -120,13 +121,11 @@ export async function handleOrderSagaFailedCompensation(event: UnificardEvent): 
 
   // SSOT de liquidação em `bank_transactions`: `internal_completed_at` (não há coluna `status` na tabela).
   // Equivale semanticamente a “transação completed” no domínio; alinhado a `compensateTransaction`.
-  const txRow = await runQueryWithTenant<{ internal_completed_at: Date | null }>(
+  const internalCompletedAt = await bankTransactionReadRepository.getInternalCompletedAtById(
     tenantId,
-    `SELECT internal_completed_at FROM bank_transactions
-     WHERE tenant_id = $1::uuid AND id = $2::uuid LIMIT 1`,
-    [tenantId, originalTransactionId]
+    originalTransactionId
   );
-  if (!txRow || txRow.internal_completed_at == null) {
+  if (internalCompletedAt == null) {
     emitSkipped(tenantId, 'original_transaction_not_settled');
     return;
   }

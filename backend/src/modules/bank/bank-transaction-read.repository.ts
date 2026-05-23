@@ -194,6 +194,23 @@ class BankTransactionReadRepository {
       createdAt: r.created_at,
     }));
   }
+
+  /**
+   * Timestamp de liquidação interna por id de transação.
+   * Retorna null se transação não existe ou ainda não foi liquidada.
+   */
+  async getInternalCompletedAtById(
+    tenantId: string,
+    transactionId: string
+  ): Promise<Date | null> {
+    const row = await runQueryWithTenant<{ internal_completed_at: Date | null }>(
+      tenantId,
+      `SELECT internal_completed_at FROM bank_transactions
+       WHERE tenant_id = $1::uuid AND id = $2::uuid LIMIT 1`,
+      [tenantId, transactionId]
+    );
+    return row?.internal_completed_at ?? null;
+  }
 }
 
 export const bankTransactionReadRepository = new BankTransactionReadRepository();
