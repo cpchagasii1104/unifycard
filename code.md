@@ -1,6 +1,6 @@
 # CODE.MD - Memória de Sessão Epistêmica
 
-**Data**: 2026-05-07 (atualizado 2026-05-12 — §20/§21; atualizado 2026-05-13 — §22 reconciliação, §-5 AGENT PROTOCOL obrigatório, §-4 visão fundacional, §23 como pensar antes de codar, §24 camadas N0/N1/N2/CATEGORIES/CONCEPT)
+**Data**: 2026-05-07 (atualizado 2026-05-12 — §20/§21; atualizado 2026-05-13 — §22 reconciliação, §-5 AGENT PROTOCOL obrigatório, §-4 visão fundacional, §23 como pensar antes de codar, §24 camadas N0/N1/N2/CATEGORIES/CONCEPT; atualizado 2026-05-24 — §-3 sub-seção "Lições da retomada pós-marco-zero" com 5 lições materiais para próxima IA não re-descobrir)
 **Branch**: rescue-structural
 **Protocolo**: Auditoria forense com evidência material
 
@@ -285,6 +285,24 @@ Vou sempre precisar de auditoria externa em pontos criticos.
 1. **Curadoria periodica do code.md** — a cada 5-10 sessoes, consolidar, remover redundancia
 2. **Consulta obrigatoria no inicio** — ler §-3, §-2, §0 e historico relevante antes de agir
 3. **Auditoria externa em decisoes grandes** — executei.md passado para Opus 1-2x por sessao
+
+### Lições da retomada pós-marco-zero (2026-05-22 a 2026-05-24)
+
+Cinco lições materiais consolidadas em 3 sessões de retomada pós-bola-de-neve git (10 commits acima do marco zero `39ea7062`). Para próxima IA não re-descobrir.
+
+1. **Não-agir como resposta certa em dívida classificada** — quando violação está no baseline + correção introduziria curinga em substrato sensível (money/authority/actor), default = não-ação documentada. Reconhecer quando não-agir é a resposta certa é parte da disciplina; forçar ação cosmética cria risco onde não há. Padrão da retomada: cada coisa que parecia grave, examinada de perto, era menos grave do que o rótulo sugeria. Origem: fatia E2E `e2e-incentive-bank-checklist` 2026-05-23. Aplicado em DECISION-0045 (caso E2E natureza 3).
+
+2. **Ampliar vigilância no money inclui universo HOJE, não só ideal** — antes de propor cruzamento/garantia novo em substrato sensível, simular o que ele MARCARIA hoje (fixtures, legacy, transições) e desenhar a distinção sinal × ruído na MESMA fatia. Senão a cura vira novo ruído. Princípio: "vigia novo precisa nascer sabendo o que ignorar legítimamente, não só o que detectar." Origem: proposta de reconciliation ampliada 2026-05-23 — Clayton segurou ao notar que o cruzamento gritaria sobre a fixture C52 toda inicialização. A fatia que parecia "adicionar uma query" virou "cruzamento + distinção fixture × real + política de detecção real".
+
+3. **Template de refactor de boundary no money** — sequência obrigatória (criar/religar ANTES de apagar) + 5 critérios de validação (tsc exit 0; grep órfão zero; 4 gates verdes; critical_total reduzido pela quantidade movida; sem erro intermediário). Crítico: grep visual contra imports dinâmicos por string (`await import('path')`) — `tsc` NÃO pega quebra de string. Imports dinâmicos em código de money exigem confirmação visual pós-edit. Origem: PR-1 commit `a672e071` 2026-05-23 (movimento `reporting-bank-aggregates` → `bank-reporting.repository`, com import dinâmico no `payout.service.ts` como risco crítico mitigado por essa salvaguarda).
+
+4. **Performance é comportamento + FK explícita justifica cross-domain** — antes de classificar fatia como "refactor mecânico", checar (a) se é query CTE única que separar = penalty real em ordem de grandeza para relatórios sobre 10k+ rows e (b) se cruza domínios via FK declarada no schema (cross-domain justificado pela FK, não vazamento acidental). Se sim + SSOT correto via RFC anterior → default = não-ação documentada, não refactor. Substrato soberano (bank_*) NUNCA faz JOIN com tabelas de superfície dentro de modules/bank/ — boundary é unidirecional. Origem: PR-2 (`real-margin.service.ts`) 2026-05-23, recusa das opções a/b/c. Formalizado em DECISION-0044 como princípio operacional vinculante.
+
+5. **Consultar DECISIONS_LOG e DT_LOG antes de abrir frente nova** — antes de abrir DT/decisão sobre tema material (money/authority/actor/payment), grep no log canônico por termo do tema. Se já há DECISION soberana, reenquadrar como "execução pendente da DECISION-XXXX", não decisão nova. Duplicação de numeração no log = séries paralelas históricas, ler o TÍTULO de cada uma — não tratar como ruído sintático. Origem: 2026-05-24 — DT-PAYMENT-RESOLVER aberta sem consultar; a DECISION-0032 sobre o mesmo tema (`payment_status` canônico = lowercase) existia desde 2026-05-12 com plano em 4 fases declarado, e tinha sido vista durante a sessão das DECISIONs 0044/0045 mas processada como duplicação de numeração a evitar (`### DECISION-0032` linha 1904 vs `## DECISION-0032` linha 3135) em vez de sinal sobre o tema. Re-investigação refez mapa que já existia. O `tsc` (após Edit do tipo soberano) virou o detector que revelou que o drift estava em 4 sítios não mapeados — execução da Fase 1 pendente há 12 dias finalmente feita em commit `933fbf1a`.
+
+**Princípio condensado das 5 lições:** nem toda violação que o gate aponta exige ação; quando exige, antes de propor, consultar se já foi decidido (DECISIONS_LOG/DT_LOG) e simular o que o universo de runtime atual apresentará para a mudança. Disciplina: pequeno, material, fatia por fatia, contra decisão registrada (não re-descoberta). O `tsc` é aliado contra drift residual quando o tipo soberano alinha com o banco — fechar a porta com o tipo é mais valioso do que consertar instâncias.
+
+**Detalhe operacional registrado em paralelo na memória privada do Claude Code** (`.claude/projects/C--unificard/memory/feedback_*.md`) com âncoras explícitas para grep futuro.
 
 ---
 

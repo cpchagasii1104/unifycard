@@ -1,3 +1,69 @@
+## 2026-05-22 a 2026-05-24 — SESSÃO: Retomada pós-bola-de-neve git — marco zero fixado, dívida money tratada, Fase 1 da DECISION-0032 executada (10 commits funcionais + docs)
+
+**Branch:** `rescue-structural`
+**HEAD inicial (pré-marco-zero):** `f2fcac59` | **HEAD final:** `933fbf1a`
+
+**Contexto inicial:** Clayton retomou a sessão após semanas de confusão de git (working tree pesadamente sujo, 1256 itens em delta vs HEAD). Backup do disco descomprimido de ZIP perdeu symlinks pnpm (Windows). Suspeita inicial de "problema no models" precisava ser validada antes de qualquer ação.
+
+**Sequência operacional (10 commits, do mais antigo ao mais recente):**
+
+- `39ea7062` **marco-zero**: estado real do disco aceito como ponto-zero da retomada. Após validação read-only confirmar `pnpm install` OK + DB conecta + `tsc` exit 0 (descartando hipótese "problema no models") + boot listening em :3000 + reconciliation rodando em ~20 tenants (`discrepanciesFound=0`). Disco congelado integralmente sem triagem por decisão do operador ("o disco é a verdade"). Histórico anterior preservado intacto abaixo, ignorado daqui pra frente.
+
+- `a672e071` **PR-1 refactor(bank)**: leituras agregadas de `bank_*` movidas de `modules/reporting/reporting-bank-aggregates.ts` para `modules/bank/bank-reporting.repository.ts` (boundary §4.6). Convergência real — opção β (mover de verdade, sem fachada). 4 consumidores religados (estáticos + import dinâmico do payout — risco crítico de fail silencioso mitigado por grep órfão). `critical_total 47 → 30`.
+
+- `12e5c974` **docs(remediation) DECISION-0044 + 0045**: princípio operacional "`critical_total` não é meta, é resultado" + classificação quádrupla das violações de boundary (refactor real, cross-domain via FK, script de teste, docstring documental) + casos concretos do real-margin (natureza 2, cross-domain via FK explícita + RFC C56) e rides (natureza 4, docstring documental). Addendum de fechamento na RFC C56. DTs registradas: `DT-GATE-DOCSTRING-FALSE-POSITIVE` e `DT-HELPERS-DUAL-IMPLEMENTATION-DRIFT`.
+
+- `a15639d0` **PR-5 refactor(bank)**: `SELECT internal_completed_at FROM bank_transactions` movido de `core/sagas/handlers/saga-compensation.handler.ts:125` para método `getInternalCompletedAtById` em `bank-transaction-read.repository.ts` (boundary §4.6). Natureza 1 da DECISION-0044. `critical_total 30 → 29`.
+
+- `3eb9e3dc` **docs(remediation) apêndice DECISION-0045**: registro dos casos do PR-4 (regional-fund × 2 + invoice × 1 — natureza 4 docstring/string descritiva) e PR-5 (saga-compensation — natureza 1 refactor real). Saldo agregado final: 29 violações, todas classificadas com decisão registrada.
+
+- `62efc478` **docs(remediation) DT-FIXTURE-C52-CLEANUP CLOSED**: cleanup atômico em `unificard_dev` de 6 fixtures E2E pareadas (intent + order) da suíte C52, todas órfãs (zero dependências em FKs). `DELETE 6 payment_intents + DELETE 6 orders = 12 rows`. Cleanup executado com autorização explícita após mapeamento prévio de dependências (primeira operação destrutiva da retomada). ReleaseWorker para de barulhar sobre intent `e691e226` settled sem credit.
+
+- `c149ede4` **feat(reconciliation) Fatia 2**: cruzamento `payment_intents.payment_status='settled' × bank_ledger.credits` via FK `bank_transactions.order_id → orders.id` adicionado a `runReconciliation()` em `modules/reconciliation/reconciliation-engine.service.ts`. Tipo novo `'settled_intent_without_credit'` em `LedgerReconciliationDiscrepancyType`. Materializa garantia "auditoria end-to-end" do diagrama soberano. Universo dev limpo (pós-C52) confirmado pelo próprio vigia novo: 96 reconciliation_runs persistidos, 0 discrepâncias `settled_intent_without_credit`. Fecha a DT institucional descoberta no início da sessão.
+
+- `07fbb394` **docs(remediation) DT-RECONCILIATION-WORKER-COLUMN-MISMATCH**: sub-achado durante validação da Fatia 2 — `workers/reconciliation-worker.ts:13` usa `pi.status` (coluna inexistente; é `payment_status`). Bug pré-existente, registrado como DT.
+
+- `26fd1034` **refactor(reconciliation) remove reconciliation-worker**: DELETE de `workers/reconciliation-worker.ts` após leitura dirigida confirmar (a) era soberania duplicada da engine canônica, (b) nunca cumpriu nenhuma das 3 verificações em runtime (try/catch externo matava o ciclo na primeira query buggada), (c) caso material já coberto pela engine canônica desde Fatia 2, (d) `checkLedgerIntegrity` continua usada por outros 2 consumidores. Diff verdadeiro (limpa duplicação morta), não destrutivo. **DESCOBERTA NOVA durante leitura: `payment-event-resolver.ts:179/259` grava `'completed'`/`'payment_received'` (fora do CHECK constraint).** DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES aberta (severidade ALTA).
+
+- `933fbf1a` **refactor(payment) Fase 1 DECISION-0032**: execução da Fase 1 da DECISION-0032 (decidida 2026-05-12 mas executada apenas em schema; callers ficaram no papel por 12 dias). 7 arquivos: tipo `PaymentIntentStatus` do Writer B alinhado aos 11 valores canônicos do CHECK; 2 UPDATEs removidos no resolver (`'completed'`/`'payment_received'`); 3 callers convergidos (`'created'`→`'pending'` em governance-funding × 2 + reversal `'completed'`→`'reversed'` semântica); `@ts-expect-error` no branch PIX dormente (preserva comportamento, abre DT-RESOLVER-PIX-BRANCH-DEAD); `@deprecated` em Writer A (`marketplace/payment-intent.types.ts`).
+
+**Modo predominante:** EXECUTOR cirúrgico ancorado em decisão soberana. Cada refactor com 5 critérios obrigatórios: `tsc --noEmit` exit 0; grep órfão zero; 4 gates verdes; `critical_total` evolução esperada; boot limpo sem regressão.
+
+**Decisões soberanas registradas:**
+- **DECISION-0044** — princípio operacional: critical_total é resultado, não meta; classificação quádrupla das violações de boundary; "performance é comportamento"; substrato soberano nunca faz JOIN com superfície.
+- **DECISION-0045** — aplicação concreta a real-margin (natureza 2 via FK), rides (natureza 4 docstring), e apêndice cobrindo PR-4/PR-5.
+- **DECISION-0032 (2026-05-12)** — RE-ATIVADA por consulta tardia: Fase 1 (Writer B + 5 callers + deprecação Writer A) executada em `933fbf1a` após descoberta de que a decisão já existia há 12 dias e não tinha sido aplicada aos callers.
+
+**DTs movidas (CLOSED):**
+- DT-FIXTURE-C52-CLEANUP, DT-RECONCILIATION-WORKER-COLUMN-MISMATCH, DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES.
+
+**DTs novas abertas (backlog):**
+- DT-GATE-DOCSTRING-FALSE-POSITIVE (DEFERRED), DT-HELPERS-DUAL-IMPLEMENTATION-DRIFT (DEFERRED), DT-RESOLVER-PIX-BRANCH-DEAD (OPEN, ALTA), DT-DECISION-0032-FASE-1-PARTIAL-EXECUTION (OPEN, MEDIUM — backlog de ~10 fatias da DECISION-0032).
+
+**Lições de método registradas em memória de Claude Code (privada `.claude/projects/...`; promoção para code.md pendente):**
+1. **Não-agir como resposta certa** em dívida classificada — quando violação está no baseline + correção introduz curinga em substrato sensível, default = não-ação documentada.
+2. **Ampliar vigilância inclui universo HOJE** — antes de adicionar cruzamento/garantia novo em substrato sensível, simular o que ele marcaria hoje (fixtures, legacy, transições) e desenhar distinção sinal × ruído na MESMA fatia.
+3. **Template de refactor de boundary no money** — sequência obrigatória (criar/religar ANTES de apagar) + 5 critérios de validação; grep visual contra imports dinâmicos é crítico (tsc não pega string órfã).
+4. **Performance é comportamento + FK explícita justifica cross-domain** — antes de classificar como "refactor mecânico", checar query CTE única (separar = penalty real) e FK declarada (cross-domain justificado, não vazamento).
+5. **Consultar DECISIONS_LOG e DT_LOG antes de abrir frente** — duplicação de numeração no log = séries paralelas históricas, ler o título de cada uma. Se já há DECISION soberana, executar não re-decidir. (Origem desta lição: a Fase 1 da DECISION-0032 foi re-investigada do zero apesar de existir há 12 dias.)
+
+**Validação ao longo da sessão:** TSC backend = 0 em todos os checkpoints; 4 gates institucionais PASS em cada commit funcional; `critical_total` evolução: 47 → 30 (PR-1) → 29 (PR-5) → 29 (estável após Fase 1, que mexeu em paths já no allowPath).
+
+**Estado material ao fim da sessão:**
+- Sistema vivo, são (compila, sobe, conecta DB, reconciliation rodando)
+- Dívida money tratada: 18 corrigidas por refactor real (PR-1 + PR-5), 29 documentadas (DECISION-0044/0045), 6 fixtures E2E apagadas, Fase 1 da DECISION-0032 executada (3 funcionalidades silenciosamente quebradas voltaram a funcionar: governance funding, commitment worker, reversal intent)
+- Backlog explícito da DECISION-0032 (~10 fatias futuras) registrado em `DT-DECISION-0032-FASE-1-PARTIAL-EXECUTION` para próxima sessão não re-descobrir
+- Próxima fatia prioritária: **DT-RESOLVER-PIX-BRANCH-DEAD** (destrave do branch PIX dormente — bug ativo em produção se PIX for usado; exige decisão de produto + leitura do fluxo PIX completo)
+
+**Frentes NÃO abertas (escopo fechado por disciplina):**
+- 10 tipos UPPERCASE residuais (Fatias futuras da DECISION-0032)
+- Mapper de fronteira em `modules/gateway/` (Fase 3 da DECISION-0032)
+- Frontend convergente (Fase 4 da DECISION-0032)
+- `payment_transactions`/`payment_milestones` CHECK lowercase (Fase 2 da DECISION-0032)
+- Sub-achado SlaMonitorWorker (mesmo padrão do reconciliation-worker apagado — backlog)
+
+---
+
 ## 2026-05-14 (continuação 3) — SESSÃO: Fase 1 humana ATIVADA + 3 bugs convergidos cirurgicamente (3 commits funcionais)
 
 **Branch:** `rescue-structural`

@@ -52,6 +52,14 @@ Bloqueador 3-C operacional resolvido — 4 callers concluídos (dc7aebdd mais re
 | Atualização 2026-05-11 [6] | C40 FIXED — system_coverage.*_cents VIEW NUMERIC→BIGINT via DECISION-0030 (commit 2337f577) |
 | Atualização 2026-05-12 | Q3-E2E v2 APROVADO 11/11 — fundação econômica provada. Bug corrigido: bank-transaction.service debit query omitia actor_id |
 | Atualização 2026-05-12 [2] | C36 FIXED — 30 CHECK constraints adicionadas (migration 20260530535000); 7 ENUM já protegidas; 3 tabelas diferidas com DT |
+| Atualização 2026-05-22 | Marco zero pós-bola-de-neve git fixado (commit `39ea7062`) — sistema vivo confirmado: compila (tsc exit 0), sobe (:3000), DB conecta, reconciliation discrepanciesFound=0; 4 gates verdes; backup integrado como ponto-zero da retomada |
+| Atualização 2026-05-23 [1] | PR-1 FIXED — refactor de boundary §4.6 em `reporting-bank-aggregates` movido para `bank-reporting.repository` (`a672e071`); critical_total 47→30 |
+| Atualização 2026-05-23 [2] | DECISION-0044 + DECISION-0045 registradas — princípio "critical_total é resultado, não meta" + classificação quádrupla das violações de boundary + casos concretos (real-margin natureza 2, rides natureza 4) (`12e5c974`) |
+| Atualização 2026-05-23 [3] | PR-5 FIXED — `SELECT internal_completed_at FROM bank_transactions` em saga-compensation movido para `bank-transaction-read.repository` (`a15639d0`); critical_total 30→29 |
+| Atualização 2026-05-23 [4] | DT-FIXTURE-C52-CLEANUP CLOSED — cleanup atômico de 6 fixtures E2E pareadas (intent+order) órfãs em `unificard_dev` (`62efc478`); ReleaseWorker silenciado |
+| Atualização 2026-05-23 [5] | Fatia 2 reconciliation ampliada FIXED — cruzamento `payment_intents.settled × bank_ledger.credits` via FK order_id (`c149ede4`); materializa garantia "auditoria end-to-end"; 96 runs verificados sem falso-positivo em dev |
+| Atualização 2026-05-23 [6] | DT-RECONCILIATION-WORKER-COLUMN-MISMATCH OPEN→CLOSED — `workers/reconciliation-worker.ts` apagado por soberania duplicada da engine canônica (`26fd1034`); descoberta lateral: DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES aberta (bug ativo: resolver gravava `'completed'`/`'payment_received'` fora do CHECK) |
+| Atualização 2026-05-24 | DECISION-0032 Fase 1 EXECUTED — execução tardia da decisão de 2026-05-12 (vocabulário canônico lowercase em payment_status): tipo Writer B alinhado + 5 callers convergidos + Writer A UPPERCASE @deprecated (`933fbf1a`); DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES CLOSED; DT-RESOLVER-PIX-BRANCH-DEAD aberta (severidade ALTA); DT-DECISION-0032-FASE-1-PARTIAL-EXECUTION aberta (backlog ~10 fatias futuras) |
 
 ### 2026-04-30 — G2 PIPELINE E2E PASS
 
