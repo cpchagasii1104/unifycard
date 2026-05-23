@@ -131,7 +131,9 @@ async function markReferenceExternallySettled(
 }
 
 /**
- * Release: settled → completed. Transfere seller_pending → seller_available via bankTransactionService.
+ * Release: transfere seller_pending → seller_available via bankTransactionService (estado lógico permanece 'settled').
+ * Rastreio do release em metadata.seller_release_reference. Sem transição de status — convergente com migration
+ * 20260530503000_payment_intents_normalize_status (mapping 'completed' → 'settled', §4.11 da Nomenclatura Canônica).
  * Idempotente: só executa se intent.status === 'settled'.
  * @param client - Quando informado, a transferência roda na mesma transação.
  */
@@ -176,8 +178,7 @@ export async function releaseSettledPaymentIntent(
   await updatePaymentIntentMetadata(tenantId, intent.id, {
     seller_release_reference: intent.referenceId,
   });
-  await updatePaymentIntentStatus(tenantId, intent.id, 'completed');
-  console.log('PAYMENT_INTENT_COMPLETED');
+  console.log('PAYMENT_INTENT_RELEASED');
 }
 
 /**
@@ -193,6 +194,11 @@ export async function resolvePaymentEvent(event: PaymentEvent): Promise<void> {
       console.warn('PAYMENT_INTENT_NOT_FOUND');
       return;
     }
+    // DT-RESOLVER-PIX-BRANCH-DEAD: 'created' não existe no enum canônico desde a migration
+    // 20260530503000_payment_intents_normalize_status (mapping legado: 'CREATED' → 'pending').
+    // Comparação atual mantém branch dormente por design — destrave do fluxo PIX exige decisão
+    // de produto sobre o estado inicial real e fica em fatia própria. Ver DECISION-0032 Fase 1.
+    // @ts-expect-error -- DT-RESOLVER-PIX-BRANCH-DEAD: literal 'created' fora do enum canônico; preserva comportamento dormente
     if (intent.status !== 'created') {
       console.warn('PAYMENT_INTENT_ALREADY_PROCESSED');
       return;
@@ -256,7 +262,8 @@ export async function resolvePaymentEvent(event: PaymentEvent): Promise<void> {
       reference_type: 'bank_transaction',
       reference_id: pixTransfer.transactionId,
     });
-    await updatePaymentIntentStatus(tenantId, intent.id, 'payment_received');
+    // Convergente com migration 20260530503000 (Nomenclatura Canônica §4.11):
+    // 'payment_received' não existe no enum; intent vai direto para 'escrowed', marcos em metadata.
     await updatePaymentIntentMetadata(tenantId, intent.id, {
       escrow_transaction_reference: event.reference_id,
       gateway_event_type: event.type,

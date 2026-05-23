@@ -1,9 +1,18 @@
 // backend/src/modules/marketplace/payment-intent.types.ts
 // SPRINT 39.1: MARKETPLACE EXECUÇÃO - Payment Intent
 // Tipos para intenções de pagamento
+//
+// @deprecated DECISION-0032 (2026-05-12) — vocabulário UPPERCASE não é canônico.
+// O tipo soberano de payment_status é `PaymentIntentStatus` em
+// `modules/payments/payment-intent-repository.ts` (lowercase, 11 valores do CHECK constraint).
+// `marketplace/payment-intent.service.ts` já marcado `@deprecated parcial — C52 Passo 4`.
+// Este arquivo permanece para callers legados não migrados; convergência total é fatia futura
+// (Fase 1 da DECISION-0032, item "marcar Writer A como deprecated" — agora completo neste header).
 
 /**
- * Status do payment intent
+ * @deprecated DECISION-0032 — usar `PaymentIntentStatus` de `@modules/payments/payment-intent-repository`.
+ * Vocabulário UPPERCASE não é canônico (§4.11/§19.8 da Nomenclatura Canônica).
+ * Os valores válidos são lowercase conforme CHECK constraint da tabela payment_intents.
  */
 export type PaymentIntentStatus = 'CREATED' | 'AUTHORIZED' | 'FAILED' | 'CANCELLED';
 

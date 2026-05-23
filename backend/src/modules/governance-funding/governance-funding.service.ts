@@ -51,7 +51,9 @@ export async function executeFunding(params: ExecuteFundingParams): Promise<void
       actorId: null,
       amountCents,
       currency,
-      status: 'created',
+      // DECISION-0032 Fase 1 — vocabulário canônico do enum payment_intents.payment_status (11 valores
+      // do CHECK; mapping 'CREATED' → 'pending' na migration 20260530503000_payment_intents_normalize_status).
+      status: 'pending',
       metadata: {
         source: 'governance_funding',
         proposal_id: proposalId,

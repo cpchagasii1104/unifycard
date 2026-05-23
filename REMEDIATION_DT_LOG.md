@@ -4516,11 +4516,21 @@ Risco mínimo, baixa prioridade. Não bloqueante para nenhuma frente ativa.
 
 ## DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES
 
-- **Status:** OPEN
-- **Severidade:** ALTA (bug ativo no fluxo de pagamento; corrupção silenciosa de estado em produção quando release sucede)
-- **Origem:** Sessão 2026-05-24 — descoberto durante leitura dirigida para o DELETE do `reconciliation-worker.ts`. A insistência de Clayton em nomenclatura levantou o caso oculto.
-- **Vinculada a:** — (descoberta nova, bug ativo independente do worker apagado)
-- **Prioridade na fila:** **PRÓXIMA FATIA** — bug ativo no money, não higiene. Não urgente no sentido "para tudo agora" (não dispara em dev hoje), mas prioritário como próximo trabalho real.
+- **Status:** CLOSED (2026-05-24 — executada como Fase 1 da DECISION-0032)
+- **Severidade:** ALTA (era bug ativo no fluxo de pagamento; corrupção silenciosa de estado em produção quando release sucedesse — resolvido)
+- **Origem:** Sessão 2026-05-24 — descoberto durante leitura dirigida para o DELETE do `reconciliation-worker.ts`.
+- **Vinculada a:** **DECISION-0032** (Payment status canônico = lowercase, 2026-05-12). Esta DT é **execução de Fase 1 pendente** da DECISION-0032, não decisão nova. Quando aberta, a decisão soberana sobre o vocabulário (`'created'`/`'payment_received'`/`'completed'` fora do enum canônico; 11 valores válidos) já existia há 12 dias e não havia sido aplicada aos callers. **Lição de método:** consultar `REMEDIATION_DECISIONS_LOG.md` por termo do tema antes de abrir DT — se já há DECISION sobre o assunto, registrar como "execução pendente da DECISION-XXXX" em vez de DT nova.
+- **Resolução (2026-05-24):** Aplicada convergência da Fase 1 da DECISION-0032 em 5 sítios + deprecação do Writer A UPPERCASE:
+  - `payment-event-resolver.ts:179` (UPDATE `'completed'`) — UPDATE removido; estado lógico permanece `'settled'` (mapping migration: `'completed' → 'settled'`); rastro do release em `metadata.seller_release_reference`.
+  - `payment-event-resolver.ts:259` (UPDATE `'payment_received'`) — UPDATE removido; intent vai direto para `'escrowed'` na linha seguinte (marco efêmero sem propósito persistente).
+  - `payment-event-resolver.ts:197` (comparação `'created'`) — mantida literal com `@ts-expect-error` linkando `DT-RESOLVER-PIX-BRANCH-DEAD`; comportamento dormente preservado.
+  - `governance-funding/governance-funding.service.ts:54` (`status: 'created'`) → `status: 'pending'`.
+  - `workers/governance-funding-commitment-worker.ts:100` (`status: 'created'`) → `status: 'pending'`.
+  - `reversal/reversal.service.ts:72` (`status: 'completed'`) → `status: 'reversed'` (decisão Clayton 2026-05-24: convergência semântica, não literal — o intent documenta reversal já executado; `'reversed'` está nos 11 canônicos e bate com o significado; `'settled'` da migration era mapping para legacy data genérico, não para este caso).
+  - `modules/payments/payment-intent-repository.ts:9-23` (tipo `PaymentIntentStatus` Writer B) — alinhado aos 11 valores canônicos do CHECK; tipo passa a dizer a verdade do banco.
+  - `modules/marketplace/payment-intent.types.ts` (tipo `PaymentIntentStatus` Writer A UPPERCASE) — marcado `@deprecated` referenciando DECISION-0032; completa a deprecação iniciada em `payment-intent.service.ts:1` (`@deprecated parcial — C52 Passo 4`).
+- **Validação:** `tsc --noEmit` exit 0 (era o detector — após Edit do tipo soberano, capturou os 4 sítios drift que a investigação inicial não pegou); grep órfão em writes de payment_status retorna zero; 4 gates verdes; `critical_total=29` inalterado; boot limpo (zero novos erros; `Server listening` confirmado; engine canônica de reconciliation continua rodando).
+- **Fechamento:** Bug ativo eliminado. Em produção, releases bem-sucedidos não vão mais bater em CHECK violation; intents progridem ao estado final canônico; governance funding e commitment worker passam a criar intents com sucesso (antes sempre falhavam com `markFundingFailed` mascarando o drift); reversal intent documenta corretamente o estado da reversão.
 
 ### Contexto
 
@@ -4583,3 +4593,134 @@ Opções iniciais (a confirmar com fluxo na mão):
 - Runtime em dev hoje — sem fixtures settled.
 
 **Bloqueia em produção** quando o primeiro release bem-sucedido acontecer.
+
+*Atualização 2026-05-24:* FECHADA. Resolução acima. Bloqueio em produção eliminado.
+
+---
+
+## DT-RESOLVER-PIX-BRANCH-DEAD
+
+- **Status:** OPEN
+- **Severidade:** ALTA (se PIX é usado em produção, o handler `PIX_PAYMENT_CONFIRMED` nunca processa um pagamento — dropped silenciosamente)
+- **Origem:** Sessão 2026-05-24 — descoberto durante a leitura dirigida do `payment-event-resolver.ts` para a Fase 1 da DECISION-0032 e capturado pelo `tsc` após alinhamento do tipo `PaymentIntentStatus`.
+- **Vinculada a:** DECISION-0032 Fase 1 (descoberta lateral durante execução), `DT-PAYMENT-RESOLVER-INVALID-STATUS-VALUES` (CLOSED 2026-05-24).
+
+### Contexto
+
+`backend/src/modules/gateway/payment-event-resolver.ts:197` faz:
+
+```ts
+if (intent.status !== 'created') {
+  console.warn('PAYMENT_INTENT_ALREADY_PROCESSED');
+  return;
+}
+```
+
+`'created'` **não existe** no enum canônico de `payment_intents.payment_status` (CHECK constraint nos 11 valores `'pending'/'authorized'/.../'expired'`). A migration `20260530503000_payment_intents_normalize_status` mapeou `'CREATED' → 'pending'` em 2026-05-12. Intents nascem com `'pending'` (default no Writer B canônico `createPaymentIntent`).
+
+Em runtime, `intent.status === 'pending'`. A comparação `'pending' !== 'created'` retorna **sempre true**. Função sempre retorna com warn `PAYMENT_INTENT_ALREADY_PROCESSED`. **O branch `PIX_PAYMENT_CONFIRMED` nunca processa um pagamento.**
+
+### Mitigação atual
+
+`@ts-expect-error` aplicado na linha de comparação para que o `tsc` compile sem destravar o branch. Comportamento dormente preservado. Não há risco em dev (sem fixtures). Em produção, dropped silenciosamente como sempre foi.
+
+### Por que não destravar agora (decisão de escopo Clayton 2026-05-24)
+
+Destravar (trocar `'created'` por `'pending'`) é **mudança de comportamento real**: fluxo PIX dormente passa a executar pela primeira vez. Exige fatia própria com:
+1. Leitura do fluxo PIX completo (quem cria payment_intents via PIX, com qual estado, qual o volume em produção).
+2. Verificação de consumidores que dependem da semântica atual (se algum, eles podem assumir que esse branch nunca roda).
+3. Decisão de produto sobre o estado inicial real (`'pending'` ou outro) e a transição esperada após processamento.
+4. Validação em dev com fixture de evento PIX simulado.
+
+Misturar destrave-de-fluxo com convergência-de-nomenclatura na mesma fatia (Fase 1) embaçaria o que é seguro e o que precisa de olhar específico.
+
+### Risco
+
+- **Curto prazo:** zero em dev (sem fixtures PIX); em produção depende de tráfego.
+- **Médio prazo:** se PIX é canal usado em produção, **pagamentos PIX confirmados nunca chegam ao escrow** — silenciosamente perdidos. Bug grave latente.
+- **Longo prazo:** acúmulo de evidência de inconsistência (PIX externo confirma, sistema interno não processa).
+
+### Sub-achado de namespace (não-bloqueante)
+
+Existe um **segundo** tipo `PaymentIntentStatus` em `modules/marketplace/payment-intent.types.ts:8` (UPPERCASE: `'CREATED'|'AUTHORIZED'|'FAILED'|'CANCELLED'`) — drift completo com a Nomenclatura Canônica §4.11. Marcado `@deprecated` nesta sessão (commit Fase 1) mas ainda existe. A fatia de destrave do PIX provavelmente precisa investigar qual tipo cada caller importa antes de mexer.
+
+### Resolução prevista
+
+Fatia separada (próxima na fila após Fase 1 da DECISION-0032). Começa pela leitura dirigida do fluxo PIX, depois decisão de produto, depois EXECUTOR com validação fresh.
+
+---
+
+## DT-DECISION-0032-FASE-1-PARTIAL-EXECUTION
+
+- **Status:** OPEN — backlog de execução das fases pendentes da DECISION-0032
+- **Severidade:** MEDIUM (não bloqueia runtime hoje, mas a 0032 está parcialmente executada há 12 dias; tipos UPPERCASE residuais continuam armadilhas para drift acidental futuro)
+- **Origem:** Sessão 2026-05-24 — durante a execução de Fase 1 (Writer B convergência), foi confirmado que apenas a migration de schema rodou em 2026-05-12; as Fases 1 (resto), 2, 3 e 4 da DECISION-0032 ficaram majoritariamente no papel.
+- **Vinculada a:** DECISION-0032 (Payment status canônico = lowercase, 2026-05-12).
+- **Princípio orientador:** **lição de método** — toda nova frente em payment_*/bank_*/auth_* DEVE consultar `REMEDIATION_DECISIONS_LOG.md` e `REMEDIATION_DT_LOG.md` por termo antes de abrir DT/decisão. Se já há registro soberano, executar conforme decidido em vez de re-investigar/re-decidir.
+
+### Estado atual da DECISION-0032 pós-Fase 1 (2026-05-24)
+
+**Executado:**
+
+- ✅ Migration de schema (`20260530502000`, `20260530503000`, `20260530505000`).
+- ✅ Fase 1 — Writer B (`payment-intent-repository.ts`) convergente + 5 callers (resolver × 2 sítios + governance-funding × 2 + reversal) + Writer A UPPERCASE marcado `@deprecated` (`marketplace/payment-intent.types.ts`).
+
+**Pendente (backlog):**
+
+#### Tipos UPPERCASE residuais (10 tipos)
+
+A DECISION-0032 lista 15 tipos UPPERCASE como violação da Nomenclatura Canônica §4.11/§6/§19.8. Após Fase 1, 10 ainda em drift:
+
+| Arquivo | Tipo | Valores UPPERCASE |
+|---|---|---|
+| `marketplace/payment-intent.types.ts:56` | `PaymentTransactionStatus` | `'PENDING'\|'SUCCESS'\|'FAILED'` |
+| `marketplace/payout.types.ts:8` | `PayoutTransactionStatus` | `'PENDING'\|'SUCCESS'\|'FAILED'` |
+| `marketplace/event-settlement.types.ts:7` | `EventSettlementStatus` | `'PENDING'\|'SETTLED'` |
+| `marketplace/settlement.types.ts:12` | `SettlementStatus` | `'PENDING'\|'SETTLED'\|'FAILED'` |
+| `marketplace/unifycard.types.ts:7` | `UnifyCardTransactionStatus` | `'AUTHORIZED'\|'CAPTURED'\|'SETTLED'\|'FAILED'` |
+| `marketplace/accounts-receivable.types.ts:7` | `AccountsReceivableStatus` | `'PENDING'\|'RECEIVED'\|'CANCELLED'\|'EXPIRED'` |
+| `payments/payment-link.types.ts:7` | `PaymentLinkStatus` | `'ACTIVE'\|'EXPIRED'\|'DISABLED'` |
+| `payments/payment-link.types.ts:12` | `PaymentLinkPaymentStatus` | `'PENDING'\|'SUCCESS'\|'FAILED'\|'CANCELLED'` |
+| `payments/pix-provider.interface.ts:21` | `PixChargeStatus` | `'CREATED'\|'PAID'\|'EXPIRED'\|'CANCELLED'` (cuidado: PIX externa pode ter contrato fixo do provider) |
+| `marketplace/payment-intent.types.ts:8` | `PaymentIntentStatus` UPPERCASE (já @deprecated) | `'CREATED'\|'AUTHORIZED'\|'FAILED'\|'CANCELLED'` |
+
+Cada um vira fatia própria (mecânica similar ao que foi feito na Fase 1: alinhar tipo + grep órfão + tsc captura callers).
+
+#### Fase 2 — payment_transactions e payment_milestones
+
+- `payment_transactions.status` — CHECK lowercase foi revertido em `20260530536000` para destravar runtime. Após convergência dos tipos UPPERCASE associados, reaplicar CHECK lowercase ratificado pela DECISION-0032.
+- `payment_milestones.status` — verificar estado atual + normalizar lowercase nos INSERTs/UPDATEs.
+
+#### Fase 3 — Mapper de fronteira
+
+- Criar mapper formal em `backend/src/modules/gateway/` que converte casing/vocabulário de gateways externos (Stripe, MercadoPago, PIX provider) para vocabulário canônico interno.
+- Confinar `ExternalPaymentStatus` (`marketplace/external-payment-provider.types.ts:4` — `'pending'\|'succeeded'\|'failed'\|'canceled'`, vocabulário Stripe) à camada de gateway. Domínio interno nunca recebe payload bruto de provider.
+
+#### Fase 4 — Frontend
+
+- Alinhar `frontend/src/api/escrow.ts`, `frontend/src/api/pdv.ts`, `frontend/src/pages/PaymentLinkPage.tsx` e adjacentes ao casing lowercase do backend.
+
+#### Sub-achados de workers buggados (mesma família do reconciliation-worker apagado em `26fd1034`)
+
+- `SlaMonitorWorker` — boot pós-Fase 1 mostrou `[SlaMonitorWorker] Cycle error: error: coluna "status" não existe`. Mesmo padrão do `reconciliation-worker.ts:13` que foi apagado (usa `pi.status` em vez de `pi.payment_status`). Investigar se é dead code/duplicado da engine canônica ou se precisa de fix.
+- Provavelmente outros workers com padrão similar. Auditoria de workers `*-worker.ts` que tocam `payment_*` recomendada como fatia auxiliar.
+
+### Resolução prevista
+
+Cada item acima vira fatia separada quando dor material puxar (não por antecipação). A ordem natural sugerida:
+1. **Destravar branch PIX dormente** (DT-RESOLVER-PIX-BRANCH-DEAD) — bug grave latente.
+2. **Auditar workers buggados** (sub-achado SlaMonitorWorker + outros) — limpeza do mesmo padrão já resolvido para reconciliation-worker.
+3. **Convergir 10 tipos UPPERCASE residuais** — mecânico, fatia por fatia.
+4. **Fase 3 (mapper de fronteira)** — quando aparecer primeiro contato com novo gateway que precise normalização.
+5. **Fase 2 (payment_transactions/milestones CHECK)** — quando convergência de tipos chegar lá.
+6. **Fase 4 (frontend)** — pode ser incremental conforme telas forem tocadas.
+
+### Não bloqueia
+
+- Runtime atual (post-Fase 1) — `critical_total` estável em 29; 4 gates verdes; tsc limpo.
+- Engine canônica de reconciliation (Fatia 2 anterior) — segue rodando.
+- Quaisquer outras frentes não-payment.
+
+### Lição de método registrada (memória)
+
+`feedback_consultar_log_antes_de_abrir_frente.md` — antes de abrir DT/decisão sobre tema material, grep no DECISIONS_LOG e DT_LOG por termo do tema (`payment_status`, `bank_ledger`, etc.). Duplicação de numeração no log = sinal de séries paralelas — ler o título de cada uma. Se já há DECISION/DT, alinhar plano a ela; não re-investigar.

@@ -97,7 +97,11 @@ async function runGovernanceFundingCommitmentCycle(): Promise<void> {
           actorId: null,
           amountCents: c.amountCents,
           currency: c.currency,
-          status: 'created',
+          // DECISION-0032 Fase 1 — vocabulário canônico (mapping 'CREATED' → 'pending' na migration
+          // 20260530503000_payment_intents_normalize_status). Antes deste fix o INSERT violava CHECK
+          // constraint e o intent nunca era criado, embora o bank_transaction.transfer já tivesse commitado
+          // (linha 92 do worker) — escrow hold ficava órfão sem rastro de intent.
+          status: 'pending',
           metadata: {
             source: 'governance_funding',
             proposal_id: c.proposalId,

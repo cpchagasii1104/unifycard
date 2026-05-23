@@ -69,7 +69,12 @@ async function recordReversalPaymentIntent(
       actorId: rev.actorId,
       amountCents: rev.amountCents,
       currency,
-      status: 'completed',
+      // DECISION-0032 Fase 1 + Clayton 2026-05-24 — convergência semântica, não literal.
+      // O intent documenta um reversal já executado; o canônico correto é 'reversed' (presente
+      // nos 11 valores válidos do CHECK), não 'settled' (mapping genérico da migration que valeria
+      // para legacy data de payment_intent geral, não para o intent que registra a reversão).
+      // Princípio: o nome tem que dizer a verdade do que a coisa é, não só passar no CHECK.
+      status: 'reversed',
       metadata: {
         kind: 'financial_reversal_pipeline',
         reversal_id: rev.id,

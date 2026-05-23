@@ -5,14 +5,23 @@ import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant, pool } from '@core/database/pool';
 import { checkRateLimit } from '@modules/rate-limit/financial-rate-limit-guard';
 
-/** Status lógico do Payment Intent */
+/**
+ * Status lógico do Payment Intent — espelho do CHECK constraint da tabela payment_intents.
+ * Vocabulário canônico definido em 07_NOMENCLATURA_CANONICA §4.11 e materializado pela migration
+ * 20260530503000_payment_intents_normalize_status (mapping legado: 'CREATED'→'pending', 'completed'→'settled').
+ */
 export type PaymentIntentStatus =
-  | 'created'
-  | 'payment_received'
+  | 'pending'
+  | 'authorized'
+  | 'captured'
   | 'escrowed'
   | 'settled'
-  | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'cancelled'
+  | 'reversed'
+  | 'partially_refunded'
+  | 'disputed'
+  | 'expired';
 
 export interface PaymentIntent {
   id: string;
