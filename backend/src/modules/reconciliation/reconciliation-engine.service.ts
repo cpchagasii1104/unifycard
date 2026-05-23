@@ -155,6 +155,37 @@ export async function runReconciliation(tenantId: string): Promise<Reconciliatio
       }
     }
 
+    // Cruzamento payment_intents.settled × bank_ledger.credits via FK order_id (DT institucional 2026-05-23).
+    // Detecta caso material: intent declarado liquidado sem o credit correspondente no ledger — falha silenciosa
+    // de pipeline que a reconciliation atual não cobria. Puro SELECT: relata discrepância, não move dinheiro.
+    const settledIntentsRes = await client.query<{ intent_id: string; amount_cents: string }>(
+      `SELECT pi.id::text AS intent_id, pi.amount_cents::text
+       FROM payment_intents pi
+       WHERE pi.tenant_id = $1
+         AND pi.payment_status = 'settled'
+         AND pi.order_id IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM bank_transactions bt
+           INNER JOIN bank_ledger bl ON bl.transaction_id = bt.id AND bl.tenant_id = bt.tenant_id
+           WHERE bt.tenant_id = pi.tenant_id
+             AND bt.order_id = pi.order_id
+             AND bl.direction = 'credit'
+             AND bl.amount_cents > 0
+         )`,
+      [tenantId]
+    );
+
+    for (const intent of settledIntentsRes.rows) {
+      const amount = Number(intent.amount_cents);
+      discs.push({
+        type: 'settled_intent_without_credit',
+        referenceId: intent.intent_id,
+        expectedValueCents: amount,
+        actualValueCents: 0,
+        differenceCents: amount,
+      });
+    }
+
     const runInsert = await client.query<{ id: string; started_at: Date }>(
       `INSERT INTO reconciliation_runs (tenant_id, status, metadata, discrepancies_found)
        VALUES ($1, 'running', $2::jsonb, 0)

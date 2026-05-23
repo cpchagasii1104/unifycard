@@ -12,7 +12,8 @@ export type LedgerReconciliationDiscrepancyType =
   | 'ledger_mismatch'
   | 'account_mismatch'
   | 'orphan_transaction'
-  | 'orphan_ledger_entry';
+  | 'orphan_ledger_entry'
+  | 'settled_intent_without_credit';
 
 export interface ReconciliationRunRow {
   id: string;
