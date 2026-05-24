@@ -16,7 +16,8 @@ export interface PostWithActor {
   post_id: string;
   tenant_id: string;
   actor_id: string | null;
-  global_user_id: string;
+  /** @deprecated Coluna não existe em posts (schema canônico usa actor_id). Campo será removido quando createPost (Fatia B) convergir; getFeed/getActorPosts já não preenchem. */
+  global_user_id?: string;
   content: string;
   media: any[];
   intent?: 'personal' | 'friends' | 'booking' | 'service_offer' | 'product_offer' | 'project' | 'vote' | 'event';
@@ -1085,20 +1086,22 @@ export class Social2Service {
     cursor: string | undefined,
     limit: number
   ): Promise<{ comments: CommentResponse[]; next_cursor: string | null; has_more: boolean }> {
+    // Query convergida com schema canônico (DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH).
+    // DECISION-0033: alias `id AS comment_id`/`id AS actor_id` preserva contrato externo.
+    // Pivot duplo via users (LEFT JOIN users → actors via global_user_id) eliminado:
+    // comments.actor_id é FK direta para actors.id (schema 20260530330000).
     let query = `
-      SELECT 
-        c.comment_id,
+      SELECT
+        c.id AS comment_id,
         c.post_id,
-        c.global_user_id,
         c.content,
         c.parent_comment_id,
         c.created_at,
-        a.actor_id,
+        a.id AS actor_id,
         a.display_name,
         a.avatar_url
       FROM comments c
-      LEFT JOIN users u ON u.global_user_id = c.global_user_id AND u.tenant_id = $1
-      LEFT JOIN actors a ON a.user_id = u.user_id AND a.tenant_id = $1
+      LEFT JOIN actors a ON a.id = c.actor_id AND a.tenant_id = $1
       WHERE c.post_id = $2 AND c.tenant_id = $1 AND c.is_deleted = false
     `;
 
@@ -1107,7 +1110,7 @@ export class Social2Service {
 
     if (cursor) {
       // Cursor pagination: buscar comentários criados após o cursor (para ordem ASC)
-      query += ` AND c.created_at > (SELECT created_at FROM comments WHERE comment_id = $${paramIndex} AND tenant_id = $1)`;
+      query += ` AND c.created_at > (SELECT created_at FROM comments WHERE id = $${paramIndex} AND tenant_id = $1)`;
       params.push(cursor);
       paramIndex++;
     }
@@ -1121,7 +1124,6 @@ export class Social2Service {
     const comments = (hasMore ? rows.slice(0, limit) : rows).map((row) => ({
       comment_id: row.comment_id,
       post_id: row.post_id,
-      global_user_id: row.global_user_id,
       content: row.content,
       parent_comment_id: row.parent_comment_id,
       createdAt: tsIso(row.created_at),
@@ -1153,22 +1155,25 @@ export class Social2Service {
     actorId: string,
     limit: number
   ): Promise<PostWithActor[]> {
+    // Query convergida com schema canônico (DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH).
+    // Mesmas DECISIONs do getFeed: 0031 (reactions polimórfico), 0032-social (post_cta removido),
+    // 0033 (alias id AS post_id). #4 media: opção (c) — array vazio até DT-FEED-MEDIA-HIDRATATION
+    // resolver hidratação. Sem subquery user_reaction (já hardcoded null aqui).
     const rows = await runQueriesWithTenant<any>(
       tenantId,
       `
-      SELECT 
-        p.post_id,
+      SELECT
+        p.id AS post_id,
         p.tenant_id,
         p.actor_id,
-        p.global_user_id,
         p.content,
-        p.media,
+        '[]'::jsonb AS media,
         p.intent,
         NULL::jsonb as intent_metadata,
         NULL::jsonb as targeting,
         p.created_at,
         p.updated_at,
-        COALESCE(a.actor_id, NULL::uuid) as actor_actor_id,
+        COALESCE(a.id, NULL::uuid) as actor_actor_id,
         a.actor_type,
         a.display_name,
         a.avatar_url,
@@ -1176,25 +1181,18 @@ export class Social2Service {
         COALESCE((
           SELECT COUNT(*)::int
           FROM reactions r
-          WHERE r.post_id = p.post_id
+          WHERE r.entity_type = 'post' AND r.entity_id = p.id
         ), 0) as reactions_count,
         COALESCE((
           SELECT COUNT(*)::int
           FROM comments c
-          WHERE c.post_id = p.post_id AND c.is_deleted = false
+          WHERE c.post_id = p.id AND c.is_deleted = false
         ), 0) as comments_count,
         null as user_reaction,
-        cta.cta_id,
-        cta.cta_type,
-        cta.target_actor_id,
-        cta.target_group_id,
-        cta.price,
-        cta.currency,
         NULL::text as group_name,
         0::bigint AS total_impact_cents
       FROM posts p
-      LEFT JOIN actors a ON p.actor_id = a.actor_id
-      LEFT JOIN post_cta cta ON cta.post_id = p.post_id AND cta.is_active = true
+      LEFT JOIN actors a ON p.actor_id = a.id
       -- FASE 3.6: groups table não existe ainda, então group_name é NULL por enquanto
       WHERE p.tenant_id = $1 AND p.actor_id = $2
       ORDER BY p.created_at DESC
@@ -1216,7 +1214,6 @@ export class Social2Service {
       post_id: row.post_id,
       tenant_id: row.tenant_id,
       actor_id: row.actor_id,
-      global_user_id: row.global_user_id,
       content: row.content,
       media: row.media || [],
       intent: row.intent || 'personal',
@@ -1242,16 +1239,7 @@ export class Social2Service {
       reactions_count: row.reactions_count || 0,
       comments_count: row.comments_count || 0,
       user_reaction: row.user_reaction || null,
-      cta: row.cta_id
-        ? {
-            cta_id: row.cta_id,
-            cta_type: row.cta_type,
-            target_actor_id: row.target_actor_id,
-            target_group_id: row.target_group_id,
-            price: row.price ? parseFloat(row.price.toString()) : null,
-            currency: row.currency || 'BRL',
-          }
-        : undefined,
+      // cta removido — DECISION-0032-social (post_cta PREMATURO)
       social_impact: row.group_name && parseInt(row.total_impact_cents.toString(), 10) > 0
         ? {
             group_name: row.group_name,

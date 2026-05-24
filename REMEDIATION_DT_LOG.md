@@ -4751,6 +4751,11 @@ UX de mídia ausente até frente futura. Não bloqueia operação econômica nem
 2. **(b) Expor `media_ids` nus + endpoint de hidratação separado.** Service retorna `media_ids: UUID[]`; frontend chama endpoint de mídia conforme renderiza. Frontend muda (`Post.media` → `Post.media_ids`) — afeta `PostCard`, `GrupoDetailPage` (~10-30 LOC). Sem tabela canônica = endpoint precisa de outra fonte de URL.
 3. **(c) Manter status quo + DT viva até feature ter dor real.** Atual.
 
+### Casos adicionais cobertos pela opção (c)
+
+- `Social2Service.getFeed` (commit `0c478dec`, 2026-05-24) — origem da DT.
+- `Social2Service.getActorPosts` (commit Fatia C, 2026-05-24) — mesmo padrão `'[]'::jsonb AS media`, mesma query-irmã do getFeed. Sem caller frontend que renderize mídia desta rota; quando hidratação for materializada (opção a ou b), os dois métodos convergem juntos.
+
 ### Critério de reabertura
 
 Reabrir feature exige: (i) JTBD real (uploads sendo feitos em produção / posts perdendo valor por falta de mídia); (ii) decisão sobre modelo canônico (tabela vs URL stack externa vs CDN provider); (iii) formalização SSOT_REGISTRY antes de qualquer DDL.
