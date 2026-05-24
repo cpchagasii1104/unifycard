@@ -737,7 +737,14 @@ export class Social2Service {
     metadata.created_by_user_id = createdByUserId || userId;
     metadata.created_as_actor_id = createdAsActorId || actor.actor_id;
 
-    // Cria post com intent, intent_metadata, targeting e metadata
+    // INSERT canônico convergido (DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH).
+    // DECISION-0033: mídia embedded via posts.media_ids UUID[] (sem tabela paralela post_media);
+    //   alias `id AS post_id` preserva contrato externo (frontend espera Post.post_id).
+    // global_user_id removido da coluna list (coluna não existe em posts; identidade soberana
+    //   é actor_id por §3.2 / DECISION-0031).
+    // Parâmetro globalUserId continua na signature por compatibilidade com 6 callers internos
+    //   (rota + 5 services/scripts) — refator de signature é fatia D futura
+    //   (DT-CREATEPOST-SIGNATURE-DUAL-USERID).
     const post = await runQueryWithTenant<{
       post_id: string;
       created_at: string | Date;
@@ -746,16 +753,16 @@ export class Social2Service {
       tenantId,
       `
       INSERT INTO posts (
-        tenant_id, global_user_id, actor_id, content, media, intent, intent_metadata, targeting, metadata
+        tenant_id, actor_id, content, media_ids, intent, intent_metadata, targeting, metadata
       )
-      VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, $6::jsonb, $7::jsonb, $8::jsonb)
-      RETURNING post_id, created_at, updated_at
+      VALUES ($1, $2, $3, $4::uuid[], $5, $6::jsonb, $7::jsonb, $8::jsonb)
+      RETURNING id AS post_id, created_at, updated_at
       `,
       [
         tenantId,
-        globalUserId,
         actor.actor_id,
         content,
+        mediaIds,
         intent || 'personal',
         JSON.stringify(intentMetadata || {}),
         JSON.stringify(targeting || {}),
@@ -771,88 +778,15 @@ export class Social2Service {
     // Após validação, TypeScript sabe que post não é undefined
     const safePost = post;
 
-    // Associa mídia se houver
-    if (mediaIds.length > 0) {
-      for (let i = 0; i < mediaIds.length; i++) {
-        await runQueryWithTenant(
-          tenantId,
-          `
-          UPDATE post_media
-          SET post_id = $1, display_order = $2
-          WHERE media_id = $3 AND tenant_id = $4
-          `,
-          [safePost.post_id, i, mediaIds[i], tenantId]
-        );
-      }
-    }
+    // post_media (UPDATE) removido — DECISION-0033: mídia já gravada no INSERT acima via
+    // posts.media_ids UUID[]; tabela post_media é FANTASMA (modelo legacy substituído).
 
-    // Cria projeto se intent = 'project'
-    if (intent === 'project' && intentMetadata?.group_id) {
-      try {
-        await runQueryWithTenant(
-          tenantId,
-          `
-          INSERT INTO post_projects (
-            post_id, tenant_id, group_id, budget_cents, deadline, status
-          )
-          VALUES ($1, $2, $3, $4, $5, 'active')
-          `,
-          [
-            safePost.post_id,
-            tenantId,
-            intentMetadata.group_id,
-            intentMetadata.budget_cents ? parseInt(intentMetadata.budget_cents.toString(), 10) : null,
-            intentMetadata.deadline ? new Date(intentMetadata.deadline) : null,
-          ]
-        );
-      } catch (err) {
-        console.error('Erro ao criar projeto (não crítico):', err);
-        // Não quebra criação do post
-      }
-    }
+    // post_projects (INSERT) removido — DECISION-0034: post_projects PREMATURO (feature
+    // aspiracional sem ecossistema runtime; tabela não materializada em migrations vivas).
 
-    // Cria CTA se fornecido
-    let createdCta = undefined;
-    if (cta) {
-      const ctaRow = await runQueryWithTenant<{
-        cta_id: string;
-        cta_type: string;
-        target_actor_id: string | null;
-        target_group_id: string | null;
-        price: number | null;
-        currency: string;
-      }>(
-        tenantId,
-        `
-        INSERT INTO post_cta (
-          tenant_id, post_id, cta_type, target_actor_id, target_group_id, price, currency, metadata
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING cta_id, cta_type, target_actor_id, target_group_id, price, currency
-        `,
-        [
-          tenantId,
-          safePost.post_id,
-          cta.type,
-          cta.target_actor_id || null,
-          cta.target_group_id || null,
-          cta.price || null,
-          cta.currency || 'BRL',
-          JSON.stringify(cta.metadata || {}),
-        ]
-      );
-
-      if (ctaRow) {
-        createdCta = {
-          cta_id: ctaRow.cta_id,
-          cta_type: ctaRow.cta_type as 'booking' | 'service' | 'payment',
-          target_actor_id: ctaRow.target_actor_id,
-          target_group_id: ctaRow.target_group_id,
-          price: ctaRow.price ? parseFloat(ctaRow.price.toString()) : null,
-          currency: ctaRow.currency,
-        };
-      }
-    }
+    // post_cta (INSERT + variável createdCta) removido — DECISION-0032-social: post_cta
+    // PREMATURO (tabela fantasma; campo `cta` do return permanece undefined, frontend tolera
+    // via optional chaining `post.cta?.X`).
 
     // 🔴 BLINDAGEM: Emitir effects centralizadamente
     // Effects são consequências sistêmicas, não decisões humanas
@@ -910,7 +844,6 @@ export class Social2Service {
       post_id: safePost.post_id,
       tenant_id: tenantId,
       actor_id: actor.actor_id,
-      global_user_id: globalUserId,
       content,
       media: [],
       intent: intent || 'personal',
@@ -928,7 +861,7 @@ export class Social2Service {
       reactions_count: 0,
       comments_count: 0,
       user_reaction: null,
-      cta: createdCta,
+      // cta omitido — DECISION-0032-social (post_cta PREMATURO); tipo PostWithActor.cta? é opcional
     };
   }
 

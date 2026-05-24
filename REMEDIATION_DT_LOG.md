@@ -4755,6 +4755,54 @@ UX de mídia ausente até frente futura. Não bloqueia operação econômica nem
 
 - `Social2Service.getFeed` (commit `0c478dec`, 2026-05-24) — origem da DT.
 - `Social2Service.getActorPosts` (commit Fatia C, 2026-05-24) — mesmo padrão `'[]'::jsonb AS media`, mesma query-irmã do getFeed. Sem caller frontend que renderize mídia desta rota; quando hidratação for materializada (opção a ou b), os dois métodos convergem juntos.
+- `Social2Service.createPost` (commit Fatia B, 2026-05-24) — INSERT grava `media_ids UUID[]` direto (passa `mediaIds` array recebido no input); return `media: []` hardcoded até hidratação ser decidida.
+
+---
+
+## DT-CREATEPOST-SIGNATURE-DUAL-USERID
+
+- **Status:** OPEN
+- **Severidade:** HIGH — bug latente confirmado em runtime: rota `social-2.0.routes.ts:240-243` passa `req.actionContext.actorId` DUAS VEZES (como `userId` e `globalUserId`); quando body não traz `actor_id`, `createPost` cai no caminho `else { actor = await ensureUserActor(tenantId, userId); }` (linha 690) e `ensureUserActor` busca `users WHERE user_id = $1` com um actor_id (não user_id) → "Usuário não encontrado" HTTP 500. Toda tentativa de criar post via UI sem actor_id explícito quebra.
+- **Origem:** Fatia B 2026-05-24 — grep de superfície revelou que `Social2Service.createPost` tem 6 callers internos (rota + scripts/seed-dev-groups + modules/events + modules/groups + modules/votes ×3), todos com lógica própria de `userId` vs `globalUserId`. A signature atual mistura `userId: string` (arg 2), `globalUserId: string` (arg 3), `actorId?: string` (arg 5) — confusão estrutural. Bug da rota confirmado pelo stack do smoke (`actor.repository.ts:95`).
+- **Vinculada a:** DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH (CLOSED via fatia getFeed `0c478dec`); fatia B convergiu o corpo do método (DECISIONs 0031/0032-social/0033/0034) sem tocar a signature.
+
+### Contexto material
+
+Signature atual de `Social2Service.createPost(tenantId, userId, globalUserId, content, actorId, mediaIds, intent?, intentMetadata?, targeting?, cta?, groupId?, createdByUserId?, createdAsActorId?)` — 13 params, 3 deles relacionados a identidade (userId/globalUserId/actorId).
+
+**6 callers materiais identificados:**
+1. `social-2.0.routes.ts:240` — passa `req.actionContext.actorId` em arg 2 (userId) E arg 3 (globalUserId) — **mesmo valor nos dois slots, ambos com nome errado** (é actorId disfarçado). Caminho `else` (linha 690) explode quando `actor_id` não vem no body.
+2. `scripts/seed-dev-groups.ts:289` — `ownerPublicId` + `ownerPublicGlobalId` (separados, valores diferentes).
+3. `scripts/seed-dev-groups.ts:313` — `ownerPrivateId` + `ownerPrivateGlobalId`.
+4. `modules/events/events.service.ts:348` — `userResult.user_id` + `createdByGlobalUserId`.
+5. `modules/groups/groups.service.ts:272` — `ownerUserId` + `userResult.global_user_id`.
+6. `modules/votes/votes.service.ts:57, 113, 259` — 3 callers, todos com `userId` + `globalUserId` separados.
+
+Refator de signature exige auditoria caller-por-caller (cada um usa userId/globalUserId para algo diferente: validação de membership, audit log, fallback de ensureUserActor, etc.) — não é mecânico.
+
+### Risco
+
+- **Criar post via UI sem actor_id no body** → HTTP 500 toda vez (bug ativo).
+- **Workaround atual:** frontend precisa passar `actor_id` no body (caminho `if (actorId)` da linha 670 funciona; verificado pelo smoke da fatia B que passou desse gate). Mas isso é tolerância, não correção — frontends que não passam `actor_id` quebram.
+- Plus: gate de authority `Actor has capability but user lacks access (no ownership or delegation)` confirma que o dev user não tem ownership setada sobre o actor `751a4fe0...` no schema atual — outro caminho de bloqueio adjacente, fora desta DT, mas relacionado (signature dual confunde quem é dono do quê).
+
+### Resolução prevista (fatia D futura, auditoria caller-por-caller)
+
+1. Auditar caller-por-caller (6 sítios) — para cada, identificar o que `userId` e `globalUserId` representam e se ambos são necessários.
+2. Decidir signature canônica: `createPost(tenantId, actorId, content, ...)` (4 params core + opcionais) — `actorId` resolve identidade soberana (DECISION-0031 §3.2: `actor_id` é SSOT).
+3. Para cada caller, refatorar a chamada: rota passa `actionContext.actorId` direto; services/scripts resolvem `actorId` via `ensureUserActor(tenantId, userId)` *antes* de chamar `createPost` (não delegam essa resolução ao método).
+4. Remover params órfãos da signature (`userId`, `globalUserId`, `createdByUserId`, `createdAsActorId` — todos derivados de actorId ou redundantes para o INSERT canônico).
+5. Smoke material por caller: criar post via cada caminho (rota HTTP + cada script/service interno) com SELECT confirmatório, igual molde A1/A2.
+
+### Não bloqueia
+
+- Caminho `if (actorId)` da linha 670 funciona (INSERT canônico da fatia B grava certo quando actor_id vem no body) — verificado materialmente.
+- Posts já existentes (do seed) continuam funcionando no feed.
+- Não bloqueia A1, A2, Fatia C — todas independentes.
+
+### Bug adjacente (HIGH) — para fatia D investigar junto
+
+`authorityService.canPerformAction(actorId, 'publish_feed', ...)` rejeita o dev user com mensagem "Actor has capability but user lacks access (no ownership or delegation)" — mesmo o dev user sendo dono do actor `751a4fe0...` (criado via `seed:dev:actor`). Falta tabela de ownership/delegation populada para o dev user. Esse gate impede o POST mesmo com signature corrigida; investigar como parte da auditoria caller-por-caller (provavelmente exige seed adicional de ownership ou ajuste no resolve de capability).
 
 ### Critério de reabertura
 
