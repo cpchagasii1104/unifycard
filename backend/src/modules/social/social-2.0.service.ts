@@ -97,7 +97,8 @@ export interface ReactionResponse {
 export interface CommentResponse {
   comment_id: string;
   post_id: string;
-  global_user_id: string;
+  /** @deprecated Coluna não existe em comments (schema canônico usa actor_id). Campo será removido quando getComments (Fatia C) convergir; createComment já não preenche. */
+  global_user_id?: string;
   content: string;
   parent_comment_id: string | null;
   createdAt: string;
@@ -1026,10 +1027,13 @@ export class Social2Service {
   async createComment(
     tenantId: string,
     postId: string,
-    globalUserId: string,
+    actorId: string,
     content: string,
     parentCommentId: string | undefined
   ): Promise<CommentResponse> {
+    // Schema canônico (20260530330000_social_comments.sql): comments(id, tenant_id,
+    // actor_id, post_id, parent_comment_id, content, ...). DECISION-0033: alias canônico
+    // `id AS comment_id` preserva contrato externo. global_user_id não existe na tabela.
     const comment = await runQueryWithTenant<{
       comment_id: string;
       created_at: string | Date;
@@ -1037,28 +1041,24 @@ export class Social2Service {
       tenantId,
       `
       INSERT INTO comments (
-        tenant_id, post_id, global_user_id, content, parent_comment_id
+        tenant_id, post_id, actor_id, content, parent_comment_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING comment_id, created_at
+      RETURNING id AS comment_id, created_at
       `,
-      [tenantId, postId, globalUserId, content, parentCommentId || null]
+      [tenantId, postId, actorId, content, parentCommentId || null]
     );
 
     if (!comment) {
       throw new Error('Erro ao criar comentário');
     }
 
-    const localUid = await getLocalUserIdByGlobalUserId(tenantId, globalUserId);
-    let actor = null;
-    if (localUid) {
-      actor = await ensureUserActor(tenantId, localUid);
-    }
+    // Hidrata actor pelo actorId direto (sem pivot via users/global_user_id).
+    const actor = await actorRepository.findById(tenantId, actorId);
 
     return {
       comment_id: comment.comment_id,
       post_id: postId,
-      global_user_id: globalUserId,
       content,
       parent_comment_id: parentCommentId || null,
       createdAt: tsIso(comment.created_at),
@@ -1269,13 +1269,15 @@ export class Social2Service {
     followerActorId: string,
     targetActorId: string
   ): Promise<{ success: boolean; is_following: boolean }> {
-    // Verifica se já está seguindo
+    // Schema canônico (20260530310000_social_follows.sql): follows(id, tenant_id,
+    // follower_actor_id, followed_actor_id, created_at). Alias `id AS follow_id`
+    // preserva contrato externo (DECISION-0033).
     const existing = await runQueryWithTenant<{ follow_id: string }>(
       tenantId,
       `
-      SELECT follow_id
+      SELECT id AS follow_id
       FROM follows
-      WHERE actor_id = $1 AND follower_actor_id = $2
+      WHERE followed_actor_id = $1 AND follower_actor_id = $2
       LIMIT 1
       `,
       [targetActorId, followerActorId]
@@ -1285,11 +1287,10 @@ export class Social2Service {
       return { success: true, is_following: true };
     }
 
-    // Cria follow
     await runQueryWithTenant(
       tenantId,
       `
-      INSERT INTO follows (tenant_id, actor_id, follower_actor_id)
+      INSERT INTO follows (tenant_id, followed_actor_id, follower_actor_id)
       VALUES ($1, $2, $3)
       `,
       [tenantId, targetActorId, followerActorId]
@@ -1310,7 +1311,7 @@ export class Social2Service {
       tenantId,
       `
       DELETE FROM follows
-      WHERE actor_id = $1 AND follower_actor_id = $2
+      WHERE followed_actor_id = $1 AND follower_actor_id = $2
       `,
       [targetActorId, followerActorId]
     );
@@ -1329,9 +1330,9 @@ export class Social2Service {
     const result = await runQueryWithTenant<{ follow_id: string }>(
       tenantId,
       `
-      SELECT follow_id
+      SELECT id AS follow_id
       FROM follows
-      WHERE actor_id = $1 AND follower_actor_id = $2
+      WHERE followed_actor_id = $1 AND follower_actor_id = $2
       LIMIT 1
       `,
       [targetActorId, followerActorId]
@@ -1353,11 +1354,11 @@ export class Social2Service {
     }>(
       tenantId,
       `
-      SELECT 
+      SELECT
         COALESCE((
           SELECT COUNT(*)::int
           FROM follows f
-          WHERE f.actor_id = $1
+          WHERE f.followed_actor_id = $1
         ), 0) as followers_count,
         COALESCE((
           SELECT COUNT(*)::int
