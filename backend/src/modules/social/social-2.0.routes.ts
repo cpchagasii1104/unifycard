@@ -292,18 +292,15 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const validated = reactionSchema.parse(req.body);
-      
-      // Buscar actor ativo (pode ser empresa se estiver atuando como empresa)
-      const actorId = req.query.actor_id || undefined;
-      const actorType = req.query.actor_type as 'user' | 'page' | undefined;
-      
+
+      // ActionContext.actorId é a identidade soberana da escrita (DECISION-0031 §3.2).
+      // Query params actor_id/actor_type opcionais foram removidos: o caller já tem
+      // actorId resolvido via plugin de ActionContext.
       const reaction = await social2Service.toggleReaction(
         req.tenant.id,
         req.params.id,
         req.actionContext.actorId,
-        validated.reaction_type,
-        actorId,
-        actorType
+        validated.reaction_type
       );
 
       return reply.send(reaction);

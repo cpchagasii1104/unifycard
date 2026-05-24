@@ -937,32 +937,31 @@ export class Social2Service {
   async toggleReaction(
     tenantId: string,
     postId: string,
-    globalUserId: string,
-    reactionType: string,
-    actorId?: string,
-    actorType?: 'user' | 'page'
+    actorId: string,
+    reactionType: string
   ): Promise<ReactionResponse> {
-    // Verifica se já existe
+    // Schema canônico (DECISION-0031): reactions é polimórfica via entity_type/entity_id/actor_id.
+    // Padrão alias (DECISION-0033): `id AS reaction_id` preserva contrato externo.
     const existing = await runQueryWithTenant<{
       reaction_id: string;
       reaction_type: string;
     }>(
       tenantId,
       `
-      SELECT reaction_id, reaction_type
+      SELECT id AS reaction_id, reaction_type
       FROM reactions
-      WHERE post_id = $1 AND global_user_id = $2
+      WHERE entity_type = 'post' AND entity_id = $1 AND actor_id = $2
       LIMIT 1
       `,
-      [postId, globalUserId]
+      [postId, actorId]
     );
 
     if (existing) {
       if (existing.reaction_type === reactionType) {
-        // Remove reação se for a mesma
+        // Toggle off: remove reação do mesmo tipo
         await runQueryWithTenant(
           tenantId,
-          `DELETE FROM reactions WHERE reaction_id = $1`,
+          `DELETE FROM reactions WHERE id = $1`,
           [existing.reaction_id]
         );
         return {
@@ -972,7 +971,7 @@ export class Social2Service {
           is_new: false,
         };
       } else {
-        // Atualiza tipo
+        // Troca tipo
         const updated = await runQueryWithTenant<{
           reaction_id: string;
           created_at: string | Date;
@@ -981,8 +980,8 @@ export class Social2Service {
           `
           UPDATE reactions
           SET reaction_type = $1
-          WHERE reaction_id = $2
-          RETURNING reaction_id, created_at
+          WHERE id = $2
+          RETURNING id AS reaction_id, created_at
           `,
           [reactionType, existing.reaction_id]
         );
@@ -995,18 +994,18 @@ export class Social2Service {
       }
     }
 
-    // Cria nova reação
+    // Nova reação
     const newReaction = await runQueryWithTenant<{
       reaction_id: string;
       created_at: string | Date;
     }>(
       tenantId,
       `
-      INSERT INTO reactions (tenant_id, post_id, global_user_id, reaction_type)
-      VALUES ($1, $2, $3, $4)
-      RETURNING reaction_id, created_at
+      INSERT INTO reactions (tenant_id, actor_id, entity_type, entity_id, reaction_type)
+      VALUES ($1, $2, 'post', $3, $4)
+      RETURNING id AS reaction_id, created_at
       `,
-      [tenantId, postId, globalUserId, reactionType]
+      [tenantId, actorId, postId, reactionType]
     );
 
     if (!newReaction) {
