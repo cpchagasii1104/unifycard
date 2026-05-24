@@ -1,3 +1,70 @@
+## 2026-05-24 — SESSÃO: Módulo social inteiro destravado em runtime real (6 commits funcionais + 1 doc) — Fatia getFeed + A1 + A2 + B + C + D
+
+**Branch:** `rescue-structural`
+**HEAD inicial:** `b46bfaf8` | **HEAD final:** `9414c0db`
+
+**Contexto inicial:** Clayton retomou após o registro institucional da retomada pós-marco-zero (`b46bfaf8`). Tela `/social` mostrava "Erro ao buscar feed". Hipótese inicial: regressão da janela de 18h perdida entre backup e bola-de-neve git. Auditoria arqueológica (git log, reflog, stash, fsck --lost-found) **refutou a hipótese** — nada se perdeu. O erro era DT pré-existente registrada em 19/05 (`DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH`, CRITICAL) que ninguém tinha executado.
+
+**Descoberta material que mudou a dimensão da frente:** as 4 DECISIONs arquiteturais necessárias (0031 reactions polimórfico, 0032-social post_cta PREMATURO, 0033 alias `id AS X_id` + media_ids embedded, 0034 post_projects PREMATURO) **já estavam tomadas no mesmo dia 19/05 da DT**. A DT estimou "2-4 sessões dedicadas" antes de saber que as decisões existiam. Cruzamento dos 7 drifts originais com as DECISIONs revelou: **todos mecânicos, destino canônico já decidido**. Frente virou execução em escala, não refator arquitetural — aplicação da lição #5 da retomada anterior ("consultar log antes de abrir frente").
+
+**Sequência operacional (6 commits funcionais, do mais antigo ao mais recente):**
+
+- `0c478dec` **fix(feed) DT-DRIFT-SOCIAL-2.0 CLOSED**: 9 drifts mecânicos no getFeed + 2 descobertos pelo runtime (drifts #10/#11 em `groups.group_id` e `groups.visibility`, que a leitura estática não pegou). Aplicou DECISIONs 0031/0032-social/0033. Smoke runtime: HTTP 500 → HTTP 200 com 5 posts hidratados. **Lição material: "ver vence deduzir"** levado a runtime — cobrir 9 drifts por leitura cuidadosa do schema passou tsc e gates limpos, mas a tela continuou quebrada até a curl real expor os 2 drifts adicionais via stack do PostgreSQL. Sem o smoke real, a "solução" não destravaria a tela. DTs novas abertas: `DT-FEED-MEDIA-HIDRATATION-PENDING` (opção c — `'[]'::jsonb AS media` até hidratação real ser decidida; 3 caminhos documentados), `DT-PRESSURE-GROUPS-VISIBILITY-FANTASMA` (`groups.visibility` é coluna aspiracional sem materialização).
+
+- `b4200afd` **fix(reactions) Fatia A1 — toggleReaction**: convergência polimórfica DECISION-0031 (4 SQLs: SELECT/DELETE/UPDATE/INSERT) + rename signature `globalUserId → actorId` + remoção de 2 params órfãos da signature. **Primeira prova material de ESCRITA com SELECT confirmatório no banco** — 3 ramificações exercitadas via runtime (INSERT/DELETE-toggle-off/UPDATE), cada uma com SELECT direto provando gravação canônica (`entity_type='post'`, `actor_id` correto, `reaction_type` correto). HTTP 200 sozinho não prova gravação correta. **Lição material que virou memória persistente** (`feedback_grep_callers_antes_de_mexer_em_signature.md`): "Não usado no corpo" ≠ "não passado por caller". A1 removeu params órfãos sem grep prévio dos callers e **acertou por sorte** (único caller backend era o que eu já estava editando) — reconhecimento honesto registrado, lição internalizada para A2/B/C/D como protocolo. Sub-achado lateral: drift zod↔CHECK em `reaction_type` (zod aceita `haha/wow/sad/angry`, CHECK aceita `support/celebrate/insightful`; interseção: `like/love`).
+
+- `05470985` **fix(social) Fatia A2 — 5 métodos em 1 fatia**: createComment (ESCRITA, signature `globalUserId → actorId` análoga à A1, eliminação do pivot duplo LEFT JOIN users→actors via global_user_id por JOIN direto contra `c.actor_id`) + followActor + unfollowActor + isFollowing + getActorCounts (drift SQL `follows.actor_id → follows.followed_actor_id`). **Disciplina A1 aplicada como protocolo ANTES dos Edits** (não retroativamente): grep dos callers de cada um dos 5 métodos + grep contrato JSON `global_user_id` no frontend (descobriu zero callers reais — remoção limpa do campo no return). Prova material por endpoint (curl + SELECT direto no banco): createComment INSERT, followActor INSERT, unfollowActor DELETE, re-follow INSERT, cross-check via SQL direto para isFollowing/getActorCounts. **Pendência aberta**: HTTP composto via `GET /social/actors/:id` ficou bloqueado por `getActorPosts` (ainda original) — registrada para Fatia C destravar.
+
+- `720946a3` **fix(social) Fatia C — 2 leituras + pendência A2 fechada**: getActorPosts (10 drifts mecânicos, query-irmã do getFeed pré-fix) + getComments (4 drifts + eliminação de pivot duplo via users). Aplicou molde do getFeed às leituras. **Prova HTTP ponta-a-ponta da rota composta**: `GET /social/actors/joao` retornou HTTP 200 com 4 posts, counts canônicos, isFollowing — fechou pendência da A2. `GET /social/posts/.../comments` HTTP 200 com actor aninhado via JOIN direto (sem pivot users). Sub-achado lateral material: **frontend `api/social.ts:133` declara `getComments` como `NOT_IMPLEMENTED` ("DT-PRESSURE-COMMENTS-FANTASMA pendente") quando o endpoint backend EXISTE há tempos** — drift institucional do outro lado, categoria nova "assumed-fantasma" (inverso do drift de schema), backlog frontend.
+
+- `5241c1e9` **fix(social) Fatia B — createPost cirúrgica**: convergência do corpo (INSERT canônico `media_ids` direto + RETURNING alias + remoção dos 3 blocos PREMATURO: post_media UPDATE, post_projects INSERT, post_cta INSERT + `createdCta` no return). **Decisão arquitetural sob disciplina**: grep de superfície revelou que createPost tem **6 callers internos** (não 1 como nas fatias anteriores), todos passando `userId`+`globalUserId` separados. Renomear signature deslocaria args em 6 sítios — exatamente o que a memória de A1 manda evitar. Opção autorizada: cirúrgica (corpo convergido, signature intacta), refator de signature empurrado para Fatia D futura. DT-CREATEPOST-SIGNATURE-DUAL-USERID aberta. Prova material parcial: **INSERT canônico via tsx + cross-check no feed** (SQL direto porque HTTP bateu em 2 bloqueios fora do escopo SQL — signature dual da rota + gate de authority).
+
+- `9414c0db` **fix(social) Fatia D — destrava createPost via UI**: 1 arquivo, 1 linha (`social-2.0.routes.ts:242`: `req.actionContext.actorId` → `req.user.id`). **Micro-auditoria prévia dedicada** (read-only) reconciliou os 3 serviços de authority no disco (core `canActAs`, módulo `canPerformAction` fachada §4.9, reputação `canPerformAction` homônimo) e provou que: (a) `posts.global_user_id` **nunca existiu em DDL** — drift puro; (b) `req.user.id` é canônico, sempre presente quando a rota é alcançada; (c) o slot `globalUserId` (arg 3) virou **inerte pós-Fatia B** — zero usos materiais no corpo do método; (d) **o bug de authority não era independente** — era o mesmo bug do slot dual em outra camada (canActAs step 1 ownership `actor.user_id === userId` falhava porque rota passava actorId no slot user_id). Smoke runtime ambos os caminhos (com e sem `actor_id` no body) → HTTP 201 em ambos, SELECT confirmatório canônico, cross-check em feed + perfil + counts. **Hipótese "ownership/delegation ausente para dev user" REFUTADA materialmente** — dev actor sempre teve `actor.user_id` correto e `actor_registry.capabilities_json.can_publish_feed: true`. Authority/registry/seed intocados. DT atualizada: severidade HIGH → LOW, escopo encolhido de "refator em 7 arquivos com auditoria caller-por-caller" para "remover 1 param comprovadamente morto — ~6-7 LOC find/replace" (Tempo 2 dedicado, quando dor humana exigir).
+
+**Modo predominante:** EXECUTOR cirúrgico fatia-por-fatia ancorado em DECISIONs soberanas pré-existentes. Disciplina interna progressiva: getFeed sem grep prévio dos callers (descoberta acidental no commit body); A1 sem grep prévio (acertou por sorte, lição registrada em memória persistente); A2/B/C/D com grep prévio aplicado como protocolo (não exceção).
+
+**DECISIONs aplicadas (todas pré-existentes de 2026-05-19, dia da DT original):**
+- DECISION-0031 — reactions polimórfica (`entity_type`/`entity_id`/`actor_id`); receita explícita de SELECT/INSERT/UPDATE/DELETE
+- DECISION-0032-social — `post_cta` PREMATURO (REMOVER LEFT JOIN + 6 campos + bloco INSERT)
+- DECISION-0033 — `posts.media_ids UUID[]` embedded + **padrão alias canônico `id AS post_id`** (preserva contrato externo dos 65 callers frontend de `post.post_id`)
+- DECISION-0034 — `post_projects` PREMATURO (REMOVER bloco INSERT)
+
+Pagamos zero decisão arquitetural nova. Toda a sessão foi **execução de decisão soberana já registrada**.
+
+**DTs movimentadas:**
+- **CLOSED:** DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH (era CRITICAL, fechada em `0c478dec` com 11 drifts convergidos)
+- **NOVAS OPEN com escopo concreto:**
+  - DT-FEED-MEDIA-HIDRATATION-PENDING (opção c documentada; 3 caminhos de resolução; cobertura ampliada para getFeed/getActorPosts/createPost em commits subsequentes)
+  - DT-PRESSURE-GROUPS-VISIBILITY-FANTASMA (descoberta pelo runtime; coluna aspiracional sem materialização)
+  - DT-CREATEPOST-SIGNATURE-DUAL-USERID (aberta na Fatia B, **atualizada e rebaixada na Fatia D** — escopo encolhido após bug runtime resolvido)
+
+**Lições materiais novas registradas:**
+1. **Ver vence deduzir, levado ao runtime** — leitura estática + tsc + gates verdes não basta para escrita: HTTP 500 do PostgreSQL é o detector final. Aplicado retroativamente na fatia getFeed; depois aplicado preditivamente em A1/A2/B/C/D via SELECT confirmatório direto no banco para cada escrita.
+2. **Grep callers antes de mexer em signature** (memória persistente `feedback_grep_callers_antes_de_mexer_em_signature.md`) — "Não usado no corpo" ≠ "Não passado por caller". A1 acertou por sorte; A2/B/C/D aplicaram como protocolo.
+3. **"Mesmo bug em camadas diferentes da cadeia" como categoria diagnóstica** — Fatia D provou que o gate de authority NÃO era bug independente, era o bug do slot dual da rota observado em outra camada. Hipótese de "ownership ausente" refutada com evidência material. Categoria nova: antes de classificar dois sintomas como bugs independentes, mapear a cadeia para ver se compartilham origem.
+4. **"Assumed-fantasma" como inverso do drift de schema** — frontend declara endpoint backend como FANTASMA (`api/social.ts:133` `NOT_IMPLEMENTED: getComments`) quando o endpoint EXISTE há tempos. Drift institucional do outro lado da cadeia, categoria nova para grep futuro.
+5. **Decisão arquitetural pode estar tomada há dias e ninguém ter executado** — repetição do padrão da Fase 1 da DECISION-0032 (12 dias de atraso). Aqui as 4 DECISIONs do social estavam tomadas no mesmo dia da DT que disse "2-4 sessões dedicadas" — a DT foi escrita antes de saber que as decisões existiam. Lição #5 da retomada anterior (consultar log) virou padrão estrutural confirmado em 2 frentes consecutivas (payment + social).
+
+**Validação ao longo da sessão:** tsc backend = 0 em todos os checkpoints; bank-ledger §4.6 OK em todos (fatia toda fora do escopo `bank_*`); migrations 304 em todos; architectural Total 20 baseline em todos (REGRA 2/3/4 categoria profile, pré-existente); `critical_total` bank inalterado. Prova material via runtime real em cada fatia (subir backend + curl + SELECT confirmatório no banco).
+
+**Estado social ao fim da sessão — toda interação humana funcional ponta a ponta em runtime real:**
+- ✅ Ver feed (`getFeed`)
+- ✅ Curtir / descurtir / trocar reação (`toggleReaction`, 3 ramificações)
+- ✅ Comentar (`createComment`)
+- ✅ Seguir / deixar de seguir / re-seguir (`follow*`)
+- ✅ Contadores + isFollowing (`getActorCounts`/`isFollowing`)
+- ✅ Ver perfil de outro actor (`/social/actors/:id` — rota composta)
+- ✅ Ler comentários (`getComments` backend; frontend ainda stub `NOT_IMPLEMENTED`)
+- ✅ Criar post via UI (`createPost`, 2 caminhos da rota provados via HTTP)
+
+**Frentes NÃO abertas (escopo fechado por disciplina):**
+- Refator de signature de `createPost` (Tempo 2 da DT-CREATEPOST-SIGNATURE-DUAL-USERID — remover `globalUserId` morto + auditoria caller-por-caller se quiser ir além)
+- Frontend stub `getComments` NOT_IMPLEMENTED (escopo frontend, categoria assumed-fantasma)
+- Drift zod↔CHECK em `reaction_type` (decisão de domínio: qual conjunto canônico)
+- Auditoria de outras queries em outros módulos do social (`social.service.ts` legacy, etc.)
+
+---
+
 ## 2026-05-22 a 2026-05-24 — SESSÃO: Retomada pós-bola-de-neve git — marco zero fixado, dívida money tratada, Fase 1 da DECISION-0032 executada (10 commits funcionais + docs)
 
 **Branch:** `rescue-structural`
