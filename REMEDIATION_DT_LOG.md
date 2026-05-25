@@ -45,6 +45,110 @@ Status values:
 
 ---
 
+## DT-SCHEMA-DRIFT-CLUSTER-5-TABLES — OPEN
+
+- **Status:** OPEN 2026-05-25 (diagnóstico consolidado; sem correção nesta entrada)
+- **Origem:** Achados materiais durante a sessão do dia 2026-05-25 (Fatia A1 RBAC, Frente B empresa, Frente C KYC, E2Es transversais). 4 das 5 tabelas apareceram como erro pré-existente "não-bloqueante" durante exercício de runtime; a 5ª (`company_documents`) apareceu como erro HTTP 500 explícito ("relação company_documents não existe") na Prova 1 da Fatia A1 ao exercitar `GET /companies/admin/documents/pending`.
+- **Classe:** DT-D (drift de schema — código vivo referencia tabela ausente no banco)
+- **Vinculada a:** `feedback_archive_nao_e_ssot.md` (auditoria contextual antes de restaurar do archive); `feedback_consultar_log_antes_de_abrir_frente.md` (cluster classificado, não tratado individualmente)
+
+### Contexto
+
+5 tabelas referenciadas pelo código backend que **NÃO EXISTEM no banco** (`unificard_dev`, confirmado por `to_regclass` retornando null para todas as 5 em uma única query consolidada). **TODAS as 5 possuem migration ESCRITA no `backend/migrations_archive/`** (numeração sequencial antiga 0046–0922, formato pré-reorganização timestamped `20260530XXX_*.sql`). Nenhuma das 5 tem migration `CREATE TABLE` no diretório vigente `backend/migrations/`.
+
+Padrão: feature semi-nascida — migration foi escrita historicamente, archive preservou, mas nunca foi aplicada (ou foi aplicada e dropada em alguma resetagem). Análogo ao caso da `300_add_actor_rbac_functions.sql` que motivou a Fatia A1 desta mesma sessão (perdida em rebase, restaurada cirurgicamente após auditoria contextual).
+
+Nenhuma das 5 é bloqueante hoje em **runtime médio** (4 estão protegidas por try/catch defensivo; 1 só quebra se a rota administrativa específica for chamada). O risco é (a) cognitivo — credibilidade institucional ferida quando dev/auditor exercita o caminho e vê o erro; (b) latente — `company_documents` (DRIFT) quebra HTTP 500 em rota admin se exercitada; (c) reservado — qualquer auditor ou ferramenta automatizada que faça `\d` no schema vai detectar a discrepância código↔banco.
+
+### Evidência por tabela
+
+#### 1. `company_documents`
+
+- **Ausência no banco:** confirmada (`to_regclass('public.company_documents') = null`).
+- **Referências no código:** 1 arquivo, múltiplas escritas/leituras.
+  - `backend/src/core/companies/companies.service.ts`:
+    - L1691 `INSERT INTO company_documents (...)` em `uploadCompanyDocument`
+    - L1834 `SELECT ... FROM company_documents cd INNER JOIN companies` em `listCompanyDocuments`
+    - L1905 `SELECT ... FROM company_documents cd ...` em `listPendingDocuments`
+- **Tratamento:** **SEM try/catch defensivo**. Chamadas via `runQueriesWithTenant` direto. Caller é HTTP: `POST /companies/:companyId/documents` (L390 de companies.routes.ts), `GET /companies/:companyId/documents` (L468), `GET /companies/admin/documents/pending` (L556) — todas com `preHandler: requireRole(['admin','owner'])` no caso admin.
+- **Migration histórica no archive:** `backend/migrations_archive/0046_company_status_and_documents.sql` (sequencial antiga, não-aplicada ao banco vigente).
+- **Severidade:** **DRIFT** — código assume que existe e **quebraria HTTP 500 se o caminho fosse exercitado**. Comprovado materialmente: Prova 1 da Fatia A1 (commit `33c49a46`) registrou "Pós-A1: HTTP 500 com 'relação company_documents não existe'" — o RBAC destravou, o próximo bug é exatamente esse drift.
+- **Caminhos que quebrariam:** feature INTEIRA de upload de documentos da empresa (rotas `/documents` admin e do próprio user).
+
+#### 2. `business_audit_logs`
+
+- **Ausência no banco:** confirmada.
+- **Referências no código:** 2 arquivos.
+  - `backend/src/modules/business-audit/business-audit.repository.ts`: L47 `INSERT INTO business_audit_logs (...)` (método `create`); L81 `SELECT ... FROM business_audit_logs` (método de leitura).
+  - `backend/src/core/rate-limiting/business-rate-limit.service.ts`: L85 `SELECT COUNT(*) FROM business_audit_logs WHERE tenant_id=$1 AND actor_id=$2` (dentro de try L79).
+- **Tratamento:** caller principal é `recordBusinessAuditSafely` em `business-audit.helpers.ts:25` — wrapper try/catch externo "não-bloqueante". O caller do caller (`service-booking-decision.service.ts:153` via `acceptQuote`) também loga "Erro ao criar log de auditoria (não bloqueante)" — visto rodando no E2E financeiro (validate-pipeline-e2e-transversal.ts).
+- **Migration histórica no archive:** `backend/migrations_archive/0922_business_audit_logs.sql`.
+- **Severidade:** **ÓRFÃO** — código vivo (caminho RFQ→Quote→Accept o exercita), mas SEMPRE em try/catch externo via wrapper `Safely`. Degrada silencioso. Audit perdido sem impacto runtime.
+
+#### 3. `company_domains`
+
+- **Ausência no banco:** confirmada.
+- **Referências no código:** 2 arquivos.
+  - `backend/src/core/companies/companies.service.ts`: L539 `INSERT INTO company_domains (...) ON CONFLICT (company_id, domain) DO UPDATE` em `createCompany`; L638 `DELETE FROM company_domains WHERE company_id=$1` em rollback de `createCompany` e em `deleteCompany` (L689).
+  - `backend/src/scripts/validate-pipeline-e2e-company.ts`: cleanup do E2E faz `DELETE FROM company_domains ...` com `.catch(() => {})` — defensivo.
+- **Tratamento:** try/catch explícito captura `err.code === '42P01'` (tabela não existe) com log padronizado: "company_domains ausente; seguindo sem vinculo de dominio legacy" — comportamento documentado, visto no E2E company.
+- **Migration histórica no archive:** `backend/migrations_archive/0404_company_domains.sql`.
+- **Severidade:** **ÓRFÃO** — defensive 42P01 handling em todos os call sites. Tratamento explícito, não acidental. Vínculo de domínio "legacy" mencionado no warn sugere feature parcialmente deprecada.
+
+#### 4. `company_opportunity_preferences`
+
+- **Ausência no banco:** confirmada.
+- **Referências no código:** 1 arquivo.
+  - `backend/src/core/companies/companies.service.ts`: L708 `INSERT INTO company_opportunity_preferences (company_id, tenant_id, receive_rfqs, receive_dispatches, matching_enabled) VALUES ($1::uuid, $2::uuid, false, false, false)` dentro de try (L705) em `createCompany`.
+- **Tratamento:** try/catch interno. Caller (rota POST `/companies`) loga "Erro ao criar preferências de oportunidade (não bloqueante)" — visto no E2E company.
+- **Migration histórica no archive:** `backend/migrations_archive/0078_company_opportunity_preferences.sql`.
+- **Severidade:** **ÓRFÃO** — try/catch explícito, sem impacto runtime. Preferências de oportunidade nascem sempre vazias na ausência da tabela (feature de matching desligada por default no design).
+
+#### 5. `referral_codes`
+
+- **Ausência no banco:** confirmada.
+- **Referências no código:** 2 arquivos (+ 1 script avulso).
+  - `backend/src/modules/marketplace/referral.repository.ts:50` `INSERT INTO referral_codes (...)` (SPRINT 74); L77 `SELECT ... FROM referral_codes WHERE tenant_id=$1 AND code=$2 AND is_active=true LIMIT 1`.
+  - `backend/src/scripts/validate-pipeline-e2e-company.ts`: cleanup com `.catch(() => {})` — defensivo (foi exatamente onde a anomalia "DELETE em referral_codes — relação não existe" apareceu durante cleanup do C1).
+  - `backend/run-migration-073.js`: script avulso (provavelmente para aplicar a 0073 manualmente; não-aplicado).
+- **Tratamento:** caller é `referralService.getOrCreateReferralCode`, chamado no `auth.service.register` L457 dentro de try/catch (L456-471) que loga "ERRO ao gerar código de indicação" como ERROR mas NÃO falha o registro. Comentário do código: "Será gerado na primeira vez que o usuário acessar o perfil" — implica RETRY lazy. Visto rodando durante C1.
+- **Migration histórica no archive:** `backend/migrations_archive/0073_referral_codes.sql` + script `run-migration-073.js`.
+- **Severidade:** **ÓRFÃO** com sinal de **PLANEJADO interrompido**: existência do `run-migration-073.js` na raiz do backend sugere tentativa de aplicação manual abandonada. Caller tolera ausência (registro não falha), mas a feature de referral é semanticamente importante (incentivos econômicos do projeto). Pode merecer auditoria contextual prioritária — não no escopo desta DT.
+
+### Síntese do cluster
+
+| # | Tabela                              | Refs (arq.) | Tratamento                     | Archive  | Severidade | Bloqueia hoje? |
+|---|-------------------------------------|-------------|--------------------------------|----------|------------|----------------|
+| 1 | company_documents                   | 1           | NENHUM                         | 0046     | **DRIFT**  | Sim, se rota admin chamada |
+| 2 | business_audit_logs                 | 2           | try/catch externo (Safely)     | 0922     | ÓRFÃO      | Não (degrada) |
+| 3 | company_domains                     | 2 (+E2E)    | catch 42P01 explícito          | 0404     | ÓRFÃO      | Não (degrada) |
+| 4 | company_opportunity_preferences     | 1           | try/catch interno              | 0078     | ÓRFÃO      | Não (degrada) |
+| 5 | referral_codes                      | 2 (+script) | try/catch externo + retry lazy | 0073 (+`run-migration-073.js`) | ÓRFÃO/PLANEJADO híbrido | Não (degrada) |
+
+**Observação chave:** TODAS as 5 têm migration ESCRITA no archive — não são features nunca planejadas. São features **planejadas, escritas, e nunca convergidas para o banco vigente**. Provável legado da reorganização das migrations para o formato timestamped `20260530XXX_*.sql`.
+
+Nenhuma classe **MORTO** (todas as referências vêm de caminhos de código que ainda são exercitados). Nenhuma classe **LEGADO CANCELADO** explícito (nenhuma evidência de feature removida com sobras textuais).
+
+### Critério de destrave por classe
+
+- **DRIFT (company_documents):** prioridade mais alta. Decidir: (a) auditoria contextual do `0046_company_status_and_documents.sql` archive + restauração cirúrgica (padrão A1); (b) remover o caminho HTTP /documents e a feature inteira (decisão de produto); (c) deferir conscientemente até pressão material (humano querendo subir documento). Não-decidir é manter o risco latente.
+- **ÓRFÃOs (4):** prioridade média/baixa. Para CADA uma, decidir: (a) restaurar do archive (após auditoria contextual `feedback_archive_nao_e_ssot.md`: a feature ainda faz sentido? mudou de design? há substituto?); (b) remover o caminho do código (declarar a feature fora de escopo, eliminar a referência defensiva); (c) manter o estado atual conscientemente (degradação aceita registrada — esta DT).
+- **`referral_codes` especificamente:** auditar `run-migration-073.js` (existência sugere convergência interrompida); avaliar se a feature de referral é prioridade do roteiro.
+
+### Nota institucional
+
+Esta DT é **diagnóstico consolidado**, não plano de correção. O escopo aqui é registrar o terreno classificado para que decisões futuras tenham evidência material — não decidir agora. A correção de cada tabela exige `feedback_archive_nao_e_ssot.md` (auditoria por função/tabela, não por migration inteira) + decisão arquitetural sobre cada feature.
+
+**Por que cluster e não 5 DTs separadas:** as 5 compartilham origem (reorganização de migrations), padrão (archive ↔ código vigente), e classe diagnóstica (PLANEJADO+ÓRFÃO majoritariamente). Tratar isoladamente fragmentaria a análise; agrupar revela o padrão estrutural.
+
+**Risco:** cognitivo (credibilidade institucional ferida ao exercitar caminhos), latente (DRIFT quebra HTTP 500 se exercitado), reservado (auditoria de schema vai sempre flagar).
+
+**Mitigação atual:** 4 das 5 protegidas por try/catch defensivo; 1 (`company_documents`) exposta — rotas admin de documentos não são exercitadas em runtime médio do dev.
+
+**Resolução prevista:** abrir frente individual por tabela conforme dor material aparecer (humano tentar subir documento → C-DOCS; auditor demandar log de negócio → C-AUDIT; etc.). Não tratar em lote sem decisão arquitetural por feature.
+
+---
+
 ## DT-RBAC-ACTOR-HAS-ANY-ROLE-LOST-IN-REBASE — CLOSED
 
 - **Status:** CLOSED 2026-05-25 (aberta e fechada no mesmo commit — registro institucional de bug pré-existente descoberto + restaurado em uma fatia)
