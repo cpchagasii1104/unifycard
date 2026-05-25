@@ -45,6 +45,82 @@ Status values:
 
 ---
 
+## DT-RBAC-ACTOR-HAS-ANY-ROLE-LOST-IN-REBASE — CLOSED
+
+- **Status:** CLOSED 2026-05-25 (aberta e fechada no mesmo commit — registro institucional de bug pré-existente descoberto + restaurado em uma fatia)
+- **Origem:** Fatia 1 IDENTIDADE (commit `ebd6054d`, 2026-05-25) → tentativa de prova material de `adminOverrideToVerified` via HTTP falhou em `função actor_has_any_role(unknown, unknown, text[]) não existe` (Postgres 42883). Investigação read-only (auditoria A1) revelou perda acidental em rebase pós-`8f71fa34`.
+- **Classe:** DT-L (legado não convergido — perda silenciosa em rebase histórico, sem registro institucional anterior)
+- **Vinculada a:** `backend/migrations/300_add_actor_rbac_functions.sql` (commit `8f71fa34`, 2026-02-08, perdido em rebase); `backend/src/core/rbac/rbac.service.ts:208` (caller único); `backend/src/plugins/rbac.plugin.ts:205` (decorator `requireRole`); `RBAC_V2_CONTRACT.md §6.2`; `feedback_archive_nao_e_ssot.md`.
+
+### Causa
+
+A função SQL `actor_has_any_role(uuid, uuid, text[])` foi originalmente definida em `300_add_actor_rbac_functions.sql` (commit `8f71fa34` "feat(migrations): add actor-based RBAC helper functions (RBAC V2)"). A migration foi **perdida acidentalmente** nos rebases subsequentes — `[REBASE-02]` (bee2d606), `[REBASE-03]` (70579227), `[REBASE-04]` (05fee6f3), e o `marco-zero` `39ea7062` ("estado real do disco aceito como ponto-zero da retomada"). Nunca foi recriada por nenhuma migration posterior (grep exaustivo em `backend/migrations/` confirma zero referências fora da migration 300 perdida). `pg_proc` confirmou ausência no banco vivo.
+
+Bug ATIVO desde o rebase, sem registro institucional anterior. Não havia DT, não havia DECISION mencionando o desaparecimento. **Pura perda acidental sem rastreamento.**
+
+### Alcance descoberto
+
+**11 callsites de `fastify.requireRole(...)` em 6 arquivos** dependiam dessa função e estavam em HTTP 500 hard quando exercitados:
+
+| Arquivo:linha | Rota | Roles |
+|---|---|---|
+| `companies.routes.ts:557` | GET `/companies/admin/documents/pending` | admin/owner |
+| `companies.routes.ts:577` | POST `/companies/admin/documents/:id/status` | admin/owner |
+| `companies.routes.ts:641` | POST `/companies/:id/admin/override-verified` | admin/owner |
+| `categories/ssot-admin.routes.ts:22` | rota SSOT admin | admin |
+| `categories/categories.routes.ts:52, 134` | 2 rotas categories admin | admin |
+| `catalog/category-review.routes.ts:17, 53, 93` | 3 rotas catalog review admin | admin |
+| `unifybank/test-currency.routes.ts:46, 124` | 2 rotas test-currency | admin |
+
+Bug afetava ecossistema admin de catálogo + categorias + companies + test, não só a rota admin override que iluminou o achado.
+
+### Fronteira respeitada (`actor_has_permission` NÃO tocada)
+
+A função-irmã `actor_has_permission(uuid, uuid, text, text)` permanece em fail-closed (`RETURN FALSE`) por **decisão deliberada**:
+- Migration `20260422000100_actor_has_permission_fail_closed.sql` (24h após o stub fail-open `20260421010000_*.sql`).
+- Comentário literal: "Remediação: C47 (DECISION-0013). Ref: AUTHORITY_PRECEDENCE.md §4.4 — IA não cria autoridade; ausência de política = bloqueio. FASE 6 substituirá esta função pela implementação real (RBAC + policy engine)."
+- Ratificação institucional registrada em `SYSTEM_REMEDIATION_STATUS.md:137` (C47 FIXED via fail-closed) e linha 370 ("DECISION-0013 registrada formalizando as descobertas") — apesar do texto literal da DECISION-0013 não estar mais presente no `REMEDIATION_DECISIONS_LOG.md` (possivelmente reorganizado em revisão posterior), a ratificação é histórica.
+- Tocar essa função seria desfazer decisão consciente. **40+ callsites de `requirePermission`/`requireAnyPermission` em `work-instant`, `work`, `dashboard`, `bank-balance-consolidation`, `transparency-admin` continuam em DENY silencioso por decisão.** Frente FASE 6 trata; fora do escopo de A1.
+
+### Disciplina aplicada (lição registrada)
+
+`feedback_archive_nao_e_ssot.md` aplicada na divisão: ANTES de restaurar a migration 300 inteira, auditou-se materialmente se o archive é canônico vigente para CADA função. Resultado: canônico para `actor_has_any_role` (zero substituto posterior), NÃO canônico para `actor_has_permission` (substituída por decisão consciente). **Restaurar a migration 300 inteira teria desfeito C47/DECISION-0013 inadvertidamente.** Restauração cirúrgica respeita a fronteira.
+
+Pattern para frentes futuras: archive perdido em rebase pode coexistir, na mesma migration, com partes canônicas vigentes e partes superadas por decisão. Auditoria por função (não por migration inteira) é a disciplina correta.
+
+### Resolução
+
+Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada em 2026-05-25 (commit pendente):
+- `CREATE OR REPLACE FUNCTION public.actor_has_any_role(uuid, uuid, text[]) RETURNS BOOLEAN` — corpo IDÊNTICO ao da migration 300 perdida (EXISTS com JOIN `actors → user_roles → roles WHERE r.name = ANY(p_role_names)`); SECURITY DEFINER; idempotente via `CREATE OR REPLACE`.
+- COMMENT cita restauração datada e a perda em rebase.
+- Cabeçalho documenta: causa (perda acidental), norma vigente (`RBAC_V2_CONTRACT.md §6.2`), disciplina aplicada (`feedback_archive_nao_e_ssot.md`), fronteira (`actor_has_permission` intocada por C47/DECISION-0013).
+
+### Validação
+
+- `tsc --noEmit` exit 0.
+- 4 gates verdes: bank-ledger §4.6 OK; actor-writer §4.8.1 OK; regression-guards OK (incl. integridade de 305 migrations); architectural Total 20 = baseline.
+- `critical_total` inalterado (20 = 20).
+- Boot limpo.
+- `pg_proc` pós-migration: `actor_has_any_role(p_tenant_id uuid, p_actor_id uuid, p_role_names text[]) → boolean` PRESENTE; `actor_has_permission(p_tenant_id uuid, p_actor_id uuid, p_resource text, p_action text) → boolean` corpo `RETURN FALSE` PRESERVADO.
+
+### Prova material
+
+**Prova 1 — rota requireRole destravada** (`GET /companies/admin/documents/pending`):
+- Pré-A1: HTTP 500 com `função actor_has_any_role(unknown, unknown, text[]) não existe`.
+- Pós-A1: HTTP 500 com `relação "company_documents" não existe` — **erro mudou de categoria** (RBAC → schema-drift `company_documents` ausente). `requireRole` ATRAVESSOU; o próximo bug é outro schema-drift pré-existente, fora do escopo de A1.
+
+**Prova 2 — fronteira A1↔A2 confirmada** (`POST /companies/:id/admin/override-verified`):
+- Pré-A1: HTTP 500 com `função actor_has_any_role` não existe (parava no preHandler RBAC).
+- Pós-A1: HTTP 400 com `coluna "metadata" não existe` — atravessou requireRole + ActionContext middleware + §8 03_IDENTITY_CANONICA (Fatia 1) + entrou no service, falhou em `companies.metadata` (DT-COMPANIES-METADATA-COLUMN-MISSING já registrada, escopo da Fatia A2 separada). **Confirma que A1 endereçou só RBAC; o caminho admin override pós-Fatia 1 + pós-A1 agora chega ao Bug 2 exatamente onde a auditoria previu.**
+
+### Não bloqueia / o que fica em aberto
+
+- 40+ callsites de `requirePermission`/`requireAnyPermission` continuam em DENY silencioso (decisão C47/DECISION-0013, FASE 6 futura).
+- `company_documents` ausente (descoberto na Prova 1) — pode ser bug pré-existente novo a registrar, fora de A1.
+- Bug 2 (`companies.metadata` ausente) — Fatia A2 separada (DT-COMPANIES-METADATA-COLUMN-MISSING OPEN; decisão Opção A ADD COLUMN vs Opção B refactor para substrato canônico pendente; leitura prévia de `EMPRESA_NASCIMENTO_CANONICO.md` necessária).
+
+---
+
 ## DT-bank-cachedBalanceCents-naming-heterogeneity
 
 - **Status:** OPEN
