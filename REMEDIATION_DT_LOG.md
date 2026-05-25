@@ -2104,11 +2104,32 @@ Qualquer descongelamento dos 16 satellites exige simultaneamente:
 ## RENOMEAÇÃO — DT-COMPANIES-METADATA-COLUMN-MISSING → DT-ONBOARDING-METADATA-STORAGE-DECISION
 
 - **Origem:** Auditoria material 2026-05-16 (sprint de priorização)
-- **Status:** OPEN — **reclassificada de BLOQUEIA_PRODUTO para BLOQUEIA_FRENTE**
+- **Status:** ~~OPEN~~ **RESOLVED 2026-05-25 — Opção 4 (actors.metadata do page actor)**
 - **Razão material:** ALTER TABLE companies ADD metadata seria 5min DDL, mas substrato canônico EXISTE: `tenants.company_type_id` (uuid FK), `company_types` (7 rows com defaults), `actors.metadata` (jsonb), `actors.company_id`, `company_users.metadata` (jsonb). Service `companies.service.ts:444-455` pula o caminho canônico e descarta onboarding state silenciosamente.
 - **Decisão arquitetural disfarçada:** entre 4 caminhos (ALTER TABLE / tabela dedicada / convergir para company_types+tenants / mover para actors.metadata)
 - **DT original preservada** em sua localização (linhas 1168-1216) com nota de redirect.
-- **Critério de destrave:** primeiro caso real de empresa criada onde onboarding state desejado seja recuperado em sessão posterior (pressão material que justifique decidir entre 4 opções).
+- **Critério de destrave:** ~~primeiro caso real de empresa criada onde onboarding state desejado seja recuperado em sessão posterior (pressão material que justifique decidir entre 4 opções)~~
+
+### Resolução — Fatia A2 (2026-05-25)
+
+**Decisão: Opção 4 — `actors.metadata` do page actor da empresa (EMPRESA_NASCIMENTO_CANONICO §1/§7/§8)**
+
+Empresa é registro institucional inerte. Estado operacional (onboarding, validação) vive no Actor que age, não em companies.
+
+**Vetores fechados:**
+- `createCompany`: metadata de onboarding (`businessCategory`, `serviceCategories`) gravada no page actor sob namespace `onboarding` via `jsonb_build_object('onboarding', ...)`. Guard `Object.keys(metadata).length > 0` — só grava se há dados. Dentro do try/rollback existente.
+- `adminOverrideToVerified`: audit de validação (4 chaves: `validation_method`, `validated_by`, `validatedAt`, `admin_global_user_id`) gravado no page actor sob namespace `validation`. UPDATE companies recebe apenas `company_status`, `is_verified`, `updated_at` (campos institucionais existentes). Fail-loud `COMPANY_HAS_NO_PAGE_ACTOR` se empresa órfã.
+
+**Fora de escopo (frente separada se houver pressão material):**
+- `updateCompany`: passe-through arbitrário de metadata — não tem semântica de onboarding/validação definida; problema distinto se houver.
+
+**Coluna `companies.metadata`:** inexistente e permanecerá assim. Correto pela norma.
+
+**Prova material (2026-05-25):**
+- `actors WHERE actor_id='9333d0d4'`: `metadata->'validation'` com 4 chaves (validation_method, validated_by, validatedAt, admin_global_user_id) ✅
+- `companies WHERE company_id='90621f4e'`: `company_status=VERIFIED, is_verified=true` ✅
+- Nova company `90feae4a` com `businessCategory=service`: page actor `metadata->'onboarding'` = `{"business_category":"service","service_categories":["consultoria","tecnologia"]}` ✅
+- `information_schema.columns WHERE table_name='companies' AND column_name='metadata'`: 0 rows (coluna não existe) ✅
 
 
 ## AUDITORIA MATERIAL — Ordenação B (4 DTs restantes)

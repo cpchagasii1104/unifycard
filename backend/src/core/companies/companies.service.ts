@@ -651,7 +651,22 @@ class CompaniesService {
         throw new Error('userId é obrigatório para criar actors da empresa após o cadastro.');
       }
       const creatorActor = await ensureUserActor(finalTenantId, userId);
-      await ensurePageActor(finalTenantId, companyId, creatorActor.actor_id);
+      const pageActor = await ensurePageActor(finalTenantId, companyId, creatorActor.actor_id);
+
+      // EMPRESA_NASCIMENTO_CANONICO: estado de onboarding vive no Actor (que age), NÃO em companies
+      // (registro institucional inerte — §1/§4/§7/§8). Opção 4 da DT-ONBOARDING-METADATA-STORAGE-DECISION.
+      // Namespace `onboarding` isola do vocabulário pré-existente em actors.metadata (bio/category/company_name).
+      // Dentro do try → rollback existente cobre se este UPDATE falhar.
+      if (Object.keys(metadata).length > 0) {
+        await runQueryWithTenant(
+          finalTenantId,
+          `UPDATE actors
+             SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('onboarding', $2::jsonb),
+                 updated_at = NOW()
+           WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
+          [pageActor.actor_id, JSON.stringify(metadata), finalTenantId]
+        );
+      }
     } catch (err) {
       // 🔴 ROLLBACK: Se criação do actor falhar, reverter criação da empresa
       console.error('[CompaniesService] Erro ao criar actor para empresa (fazendo rollback):', err);
@@ -2049,7 +2064,10 @@ class CompaniesService {
       throw new Error('Empresa não encontrada');
     }
 
-    // Atualizar status para VERIFIED
+    // EMPRESA_NASCIMENTO_CANONICO §1/§7: estado/validação vivem no Actor (que age), não em companies
+    // (registro institucional inerte). companies recebe SÓ campos institucionais que existem
+    // (company_status, is_verified, updated_at). O audit de validação vai para actors.metadata.validation
+    // do PAGE actor da empresa (Opção 4 da DT-ONBOARDING-METADATA-STORAGE-DECISION).
     const result = await pool.query<{
       company_id: string;
       company_status: string;
@@ -2057,25 +2075,47 @@ class CompaniesService {
     }>(
       `
       UPDATE companies
-      SET 
+      SET
         company_status = 'VERIFIED',
         is_verified = true,
-        updated_at = NOW(),
-        metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
-          'validation_method', 'ADMIN_OVERRIDE',
-          'validated_by', 'SYSTEM_ADMIN',
-          'validatedAt', now(),
-          'admin_global_user_id', $2::uuid
-        )
+        updated_at = NOW()
       WHERE company_id = $1::uuid
       RETURNING company_id, company_status, updated_at
       `,
-      [companyId, adminGlobalUserId]
+      [companyId]
     );
 
     if (result.rows.length === 0) {
       throw new Error('Erro ao atualizar status da empresa');
     }
+
+    // Resolve PAGE actor da empresa para gravar audit de validação (§8 03_IDENTITY_CANONICA:
+    // resolução SEMPRE com tenant_id explícito). Fail-loud se empresa órfã (sem page actor):
+    // estado degradado pré-§4.8.2 merece visibilidade, não silêncio.
+    const pageActorRow = await runQueryWithTenant<{ actor_id: string }>(
+      finalTenantId,
+      `SELECT actor_id FROM actors
+        WHERE tenant_id = $1::uuid AND company_id = $2::uuid AND actor_type = 'page'
+        LIMIT 1`,
+      [finalTenantId, companyId]
+    );
+    if (!pageActorRow) {
+      throw new Error(`COMPANY_HAS_NO_PAGE_ACTOR: company ${companyId} não possui page actor (estado degradado pré-§4.8.2). Audit de validação não foi gravado.`);
+    }
+
+    await runQueryWithTenant(
+      finalTenantId,
+      `UPDATE actors
+         SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('validation', jsonb_build_object(
+               'validation_method', 'ADMIN_OVERRIDE',
+               'validated_by', 'SYSTEM_ADMIN',
+               'validatedAt', NOW(),
+               'admin_global_user_id', $2::uuid
+             )),
+             updated_at = NOW()
+       WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
+      [pageActorRow.actor_id, adminGlobalUserId, finalTenantId]
+    );
 
     // Retornar empresa atualizada
     return await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId) as Company;
