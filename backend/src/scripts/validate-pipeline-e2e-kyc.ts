@@ -1,5 +1,5 @@
 /**
- * E2E TRANSVERSAL DE KYC (Frente C — 3 camadas conectadas em sequência única)
+ * E2E TRANSVERSAL DE KYC + circuito monetário mínimo (Frente C completa)
  *
  * Encadeia ponta a ponta:
  *   1. Cadastro PF via authService.register (Fatia C1 cria identity pending/none)
@@ -8,26 +8,38 @@
  *   4. Review approved: reviewIdentityValidation (transacional) → request approved +
  *      identities.kyc_status='approved' + kyc_level=target (timestamps coincidem)
  *   5. Gate DEPOIS: evaluateFinancialSensitiveAction (MESMO actor) → allow KYC_OK
+ *   6. (Etapa 6 — adicionada após menor-E2E recomendado pelo mapa do circuito
+ *      mínimo): TRANSFER REAL no MESMO actor aprovado. Conta PF criada,
+ *      saldo mintado via SYSTEM, gate chamado dentro do transfer (passa
+ *      KYC_OK), entries no bank_ledger persistidos, Σ(débitos)=Σ(créditos).
+ *      Encerra a cadeia: KYC_PENDING → KYC_OK → AUTHORITY_ALLOW →
+ *      TRANSFER_EXECUTED → LEDGER_PERSISTED, no MESMO actor.
  *
- * A PROVA DE OURO: passo 2 BLOCK → passo 5 ALLOW, mesmo actor, gate intocado.
- * Materializa "cadastro CRIA EXISTÊNCIA / KYC APROVA CAPACIDADE / authority
- * LIBERA EXECUÇÃO" das 3 camadas.
+ * A PROVA DE OURO original (passo 2 BLOCK → passo 5 ALLOW) permanece.
  *
- * ESCOPO LIMITADO ao fluxo de validação de pessoa. NÃO executa transfer real
- * (provar que o gate PASSA basta; transação financeira é outro pipeline já
- * coberto pelo validate-pipeline-e2e-transversal.ts financeiro).
- * Arquivo separado por disciplina (seeds ortogonais — KYC humano precisa só
- * de tenant + admin; financeiro precisa de bank accounts + mint + services).
+ * ESCOPO DA ETAPA 6 (travado): transfer puro entre conta de user (origem)
+ * e conta de sistema (sink temporário). NÃO toca: split engine,
+ * createExecution, RFQ/quote/booking, event_outbox SERVICE_PAYMENT_EXECUTED,
+ * settlement, payout. Apenas o verbo bancário mínimo (transfer + ledger).
  *
  * Simétrico a validate-pipeline-e2e-company.ts (G2 Etapa 2 — E2E de empresa).
  */
 import dotenv from 'dotenv';
 import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 import { pool } from '../core/database/pool';
 import { authService } from '../core/auth/auth.service';
 import { authorityDecisionService } from '../core/compliance/authority-decision.service';
 import { identityValidationService } from '../core/identity/identity-validation.service';
+import { bankAccountService } from '../modules/bank/bank-account.service';
+import { bankAccountRepository } from '../modules/bank/bank-account.repository';
+import { bankTransactionService } from '../modules/bank/bank-transaction.service';
+import { bankLedgerRepository } from '../modules/bank/bank-ledger.repository';
+import {
+  buildFinancialAuthorshipFromRequest,
+  buildSystemAuthorship,
+} from '../modules/bank/financial-authorship.helper';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -91,44 +103,97 @@ const E2E_CPF_2 = generateValidCpf((RUN_TAG + 13_579) % 1_000_000_000);
 type CleanupState = {
   userIds: string[];
   globalUserIds: string[];
+  /** IDs de bank_transactions criadas pela Etapa 6 (seed + transfer real). */
+  bankTransactionIds: string[];
+  /** IDs de bank_accounts criadas (ou reusadas) — pf account, sink temporário. */
+  bankAccountIds: string[];
 };
+
+/**
+ * resolveConceptUuid — copiado verbatim do validate-pipeline-e2e-transversal.ts
+ * (concept_id é FK obrigatória em bank_transactions; resolvido por slug+domain
+ * via concepts table).
+ */
+async function resolveConceptUuid(slug: string, domain: string): Promise<string> {
+  const row = await pool.query<{ concept_id: string }>(
+    `SELECT concept_id FROM concepts WHERE domain = $1 AND slug = $2 LIMIT 1`,
+    [domain, slug],
+  );
+  if (!row.rows[0]) throw new Error(`CONCEPT_NOT_FOUND: slug='${slug}' domain='${domain}'`);
+  return row.rows[0].concept_id;
+}
 
 async function cleanup(state: CleanupState): Promise<void> {
   console.log('\n=== Limpeza ===');
-  const { userIds, globalUserIds } = state;
-  try {
-    if (globalUserIds.length > 0) {
-      await pool.query(
-        `DELETE FROM identity_validation_requests WHERE global_user_id = ANY($1::uuid[])`,
-        [globalUserIds],
-      );
-      console.log(`  ✓ identity_validation_requests por global_user_id (${globalUserIds.length})`);
+  const { userIds, globalUserIds, bankTransactionIds, bankAccountIds } = state;
+  // (A) BANK LEFTOVER ESPERADO E DOCUMENTADO:
+  //     bank_ledger é APPEND-ONLY por design (triggers bank_ledger_no_delete +
+  //     bank_ledger_no_update). bank_transactions e bank_accounts ficam órfãs
+  //     porque o ledger as referencia (FK). Não há "delete" institucionalmente
+  //     permitido para fixtures financeiras — característica imutável do SSOT
+  //     monetário. Cleanup desta fatia NÃO tenta DELETE em bank_ledger /
+  //     bank_transactions / bank_accounts; aceita leftover consistente com o
+  //     E2E financeiro existente (validate-pipeline-e2e-transversal.ts) que
+  //     também não limpa fixtures financeiras.
+  if (bankAccountIds.length > 0 || bankTransactionIds.length > 0) {
+    console.log(
+      `  ℹ  bank leftover esperado (append-only): ` +
+        `bank_accounts=${bankAccountIds.length}, bank_transactions=${bankTransactionIds.length}, ` +
+        `ledger entries persistem.`,
+    );
+  }
+
+  // (B) Frente C cleanup — DELETE individuais com try/catch por instrução
+  //     (FK do bank impede cleanup do actor PF; identity-side e users-side
+  //     podem ser limpos). Os erros são reportados mas não interrompem o
+  //     restante das limpezas.
+  const tryDelete = async (label: string, sql: string, params: unknown[]) => {
+    try {
+      const res = await pool.query(sql, params);
+      console.log(`  ✓ ${label} (${res.rowCount ?? 0})`);
+    } catch (e) {
+      console.warn(`  ⚠  ${label}: ${e instanceof Error ? e.message : String(e)}`);
     }
-    if (userIds.length > 0) {
-      await pool.query(
-        `DELETE FROM actors WHERE tenant_id = $1::uuid AND user_id = ANY($2::uuid[]) AND actor_type = 'user'`,
-        [TENANT_ID, userIds],
-      );
-      await pool
-        .query(`DELETE FROM user_profiles WHERE user_id = ANY($1::uuid[])`, [userIds])
-        .catch(() => {});
-      await pool.query(`DELETE FROM profiles WHERE user_id = ANY($1::uuid[])`, [userIds]).catch(() => {});
-      await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
-      console.log(`  ✓ user + relations (${userIds.length})`);
-    }
-    if (globalUserIds.length > 0) {
-      await pool.query(
-        `DELETE FROM identities WHERE global_user_id = ANY($1::uuid[])`,
-        [globalUserIds],
-      );
-      await pool.query(
-        `DELETE FROM global_users WHERE global_user_id = ANY($1::uuid[])`,
-        [globalUserIds],
-      );
-      console.log(`  ✓ identity + global_user (${globalUserIds.length})`);
-    }
-  } catch (e) {
-    console.warn('  ⚠️  Cleanup parcial — erro:', e instanceof Error ? e.message : String(e));
+  };
+
+  if (globalUserIds.length > 0) {
+    await tryDelete(
+      'identity_validation_requests',
+      `DELETE FROM identity_validation_requests WHERE global_user_id = ANY($1::uuid[])`,
+      [globalUserIds],
+    );
+  }
+  if (userIds.length > 0) {
+    // actors do PF têm bank_account (FK bank_accounts.actor_id) — DELETE pode
+    // falhar; relatamos e seguimos.
+    await tryDelete(
+      'actors (PF) — pode falhar se bank_account referencia',
+      `DELETE FROM actors WHERE tenant_id = $1::uuid AND user_id = ANY($2::uuid[]) AND actor_type = 'user'`,
+      [TENANT_ID, userIds],
+    );
+    await tryDelete(
+      'user_profiles',
+      `DELETE FROM user_profiles WHERE user_id = ANY($1::uuid[])`,
+      [userIds],
+    );
+    await tryDelete(
+      'profiles',
+      `DELETE FROM profiles WHERE user_id = ANY($1::uuid[])`,
+      [userIds],
+    );
+    await tryDelete('users', `DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
+  }
+  if (globalUserIds.length > 0) {
+    await tryDelete(
+      'identities',
+      `DELETE FROM identities WHERE global_user_id = ANY($1::uuid[])`,
+      [globalUserIds],
+    );
+    await tryDelete(
+      'global_users',
+      `DELETE FROM global_users WHERE global_user_id = ANY($1::uuid[])`,
+      [globalUserIds],
+    );
   }
 }
 
@@ -157,7 +222,12 @@ async function main(): Promise<void> {
     socialPortsRegistry.setEventFeedHandlers(eventFeedHandlersAdapter);
   }
 
-  const cleanupState: CleanupState = { userIds: [], globalUserIds: [] };
+  const cleanupState: CleanupState = {
+    userIds: [],
+    globalUserIds: [],
+    bankTransactionIds: [],
+    bankAccountIds: [],
+  };
 
   try {
     console.log('=== Modo A — Fluxo causal (3 camadas conectadas) ===');
@@ -369,6 +439,259 @@ async function main(): Promise<void> {
     );
 
     // ============================================================
+    // ETAPA 6 — Circuito monetário mínimo: transfer REAL no MESMO actor aprovado
+    // ============================================================
+    // O MESMO actor que estava bloqueado em A2 (KYC_PENDING) e foi aprovado em
+    // A4 agora executa uma transferência real. O gate é chamado DENTRO do
+    // bankTransactionService.transfer (bank-transaction.service.ts L362-379)
+    // ANTES dos INSERTs no ledger; deve passar (KYC_OK:approved).
+    // Escopo travado: transfer puro PF→sink, sem split/outbox/createExecution/RFQ.
+    console.log('\n=== Etapa 6 — Circuito monetário mínimo (transfer real após KYC) ===');
+
+    // 6.1 Conta do PF aprovado (idempotente).
+    console.log('--- 6.1: criar conta do PF aprovado ---');
+    const pfAccount = await bankAccountService.getOrCreateAccount(TENANT_ID, {
+      ownerId: userId,
+      ownerType: 'user',
+      currency: 'BRL',
+    });
+    cleanupState.bankAccountIds.push(pfAccount.accountId);
+    assertOk('A6.1: bank_account criada para PF (ownerType=user)', {
+      ok: !!pfAccount.accountId && pfAccount.ownerType === 'user',
+      reason: 'conta PF não criada corretamente',
+      detail: pfAccount,
+    });
+
+    // 6.2 Garantir conta SYSTEM reserve (mesmo padrão do E2E financeiro
+    //     L141-148). NÃO captura no cleanup — pode pré-existir do dia.
+    console.log('--- 6.2: garantir system reserve account ---');
+    let sysReserve = await bankAccountService.getSystemAccount(TENANT_ID, 'reserve');
+    if (!sysReserve) {
+      await bankAccountRepository.createAccount(TENANT_ID, {
+        ownerId: 'system:reserve:' + TENANT_ID,
+        ownerType: 'system',
+        accountType: 'credit',
+        currency: 'BRL',
+      });
+      sysReserve = await bankAccountService.getSystemAccount(TENANT_ID, 'reserve');
+    }
+    if (!sysReserve) {
+      throw new Error('SYSTEM_RESERVE_ACCOUNT_NOT_FOUND');
+    }
+
+    // 6.2b Mint na system reserve para garantir capacidade
+    //      (idempotente via eventId fixo — mesma estratégia do E2E financeiro
+    //       L153-168). O caller usa concept slug 'system-reserve-credit'
+    //       em 'financeiro-payout'.
+    const conceptId = await resolveConceptUuid('system-reserve-credit', 'financeiro-payout');
+    const mintEventId = '00000000-0000-0000-0000-000000000001';
+    try {
+      const mintResult = await bankTransactionService.createSimpleTransaction(TENANT_ID, {
+        eventId: mintEventId,
+        referenceType: 'e2e_kyc_unlock_mint',
+        toAccountId: sysReserve.accountId,
+        amountCents: 100_000_000, // R$ 1M (capacidade ampla; cleanup limpa)
+        currency: 'BRL',
+        transactionType: 'deposit',
+        description: 'E2E KYC unlock — mint system reserve capacity',
+        concept_id: conceptId,
+        authorship: buildSystemAuthorship({
+          actingForAccountId: sysReserve.accountId,
+          actingForActorId: actorId,
+        }),
+      });
+      cleanupState.bankTransactionIds.push(mintResult.transaction.transactionId);
+    } catch (e: any) {
+      if (!/duplicate|unique|already exists|event_id/i.test(String(e?.message || ''))) {
+        throw e;
+      }
+      // Idempotência: mint já existia, segue.
+    }
+
+    // 6.3 Seed: SYSTEM → PF (skipRiskGate=true porque from=system; gate NÃO
+    //     chamado aqui — esse é seed, não a prova de destrave). treasurySource
+    //     obrigatório (treasury isolation).
+    console.log('--- 6.3: seed saldo SYSTEM → PF (skipRiskGate, treasury:simulation) ---');
+    const seedAmountCents = 100_000; // R$ 1.000 — saldo inicial do PF
+    const seedEventId = uuidv4();
+    const seedResult = await bankTransactionService.transfer(TENANT_ID, {
+      eventId: seedEventId,
+      fromAccountId: sysReserve.accountId,
+      toAccountId: pfAccount.accountId,
+      amountCents: seedAmountCents,
+      currency: 'BRL',
+      transactionType: 'transfer',
+      referenceType: 'e2e_kyc_unlock_seed',
+      referenceId: userId,
+      description: 'E2E KYC unlock — seed PF initial balance',
+      treasurySource: 'treasury:simulation',
+      concept_id: conceptId,
+      authorship: buildSystemAuthorship({
+        actingForAccountId: sysReserve.accountId,
+        actingForActorId: actorId,
+      }),
+    });
+    cleanupState.bankTransactionIds.push(seedResult.transactionId);
+
+    // 6.4 Criar conta SINK temporária (system; aceita recepção sem treasury
+    //     check, pois treasury isolation só aplica from=system).
+    console.log('--- 6.4: criar conta SINK temporária ---');
+    const sinkOwnerId = `system:e2e-kyc-sink:${RUN_TAG}`;
+    const sinkAccount = await bankAccountRepository.createAccount(TENANT_ID, {
+      ownerId: sinkOwnerId,
+      ownerType: 'system',
+      accountType: 'credit',
+      currency: 'BRL',
+    });
+    cleanupState.bankAccountIds.push(sinkAccount.accountId);
+
+    // 6.5 TRANSFER REAL — PF aprovado faz transfer (skipRiskGate=false porque
+    //     from=user; gate `requireFinancialRiskClearance` é chamado dentro
+    //     do transfer ANTES dos INSERTs, e deve passar KYC_OK:approved).
+    console.log('--- 6.5: TRANSFER REAL — PF aprovado → SINK (gate chamado para PF) ---');
+    const realAmountCents = 1000; // R$ 10
+    const realEventId = uuidv4();
+    const realReferenceId = uuidv4();
+    const realDescription = 'E2E KYC unlock — PF aprovado executa transfer real';
+    const transferResult = await bankTransactionService.transfer(TENANT_ID, {
+      eventId: realEventId,
+      fromAccountId: pfAccount.accountId,
+      toAccountId: sinkAccount.accountId,
+      amountCents: realAmountCents,
+      currency: 'BRL',
+      transactionType: 'transfer',
+      referenceType: 'e2e_kyc_unlock',
+      referenceId: realReferenceId,
+      description: realDescription,
+      concept_id: conceptId,
+      authorship: buildFinancialAuthorshipFromRequest({
+        performedByUserId: userId,
+        actingForActorId: actorId,
+        actingForAccountId: pfAccount.accountId,
+        authoritySource: 'ownership',
+        permissionSnapshot: {
+          permissionKey: 'ownership',
+          allowed: true,
+          actorId,
+          userId,
+          decidedAt: new Date().toISOString(),
+        },
+      }),
+    });
+    cleanupState.bankTransactionIds.push(transferResult.transactionId);
+    assertOk('A6.5: transfer executado pelo PF aprovado, transactionId presente', {
+      ok:
+        !!transferResult.transactionId &&
+        transferResult.amountCents === realAmountCents &&
+        transferResult.fromAccountId === pfAccount.accountId &&
+        transferResult.toAccountId === sinkAccount.accountId,
+      reason: 'transferResult incompleto ou divergente',
+      detail: transferResult,
+    });
+
+    // 6.6 SELECT bank_ledger entries — 2 rows (1 debit no PF + 1 credit no sink).
+    console.log('--- 6.6: SELECT bank_ledger entries ---');
+    const ledgerRows = await pool.query<{
+      id: string;
+      account_id: string;
+      transaction_id: string;
+      direction: string;
+      amount_cents: string;
+      created_at: Date;
+    }>(
+      `SELECT id::text, account_id::text, transaction_id::text, direction,
+              amount_cents::text, created_at
+         FROM bank_ledger
+        WHERE transaction_id = $1::uuid
+        ORDER BY direction DESC, created_at ASC`,
+      [transferResult.transactionId],
+    );
+    const debitEntry = ledgerRows.rows.find((r) => r.direction === 'debit');
+    const creditEntry = ledgerRows.rows.find((r) => r.direction === 'credit');
+    assertOk(
+      'A6.6: bank_ledger contém 2 entries (1 debit no PF + 1 credit no sink), amount_cents=1000 cada, sem órfãs',
+      {
+        ok:
+          ledgerRows.rows.length === 2 &&
+          !!debitEntry &&
+          !!creditEntry &&
+          debitEntry.account_id === pfAccount.accountId &&
+          creditEntry.account_id === sinkAccount.accountId &&
+          debitEntry.amount_cents === String(realAmountCents) &&
+          creditEntry.amount_cents === String(realAmountCents) &&
+          ledgerRows.rows.every((r) => r.transaction_id === transferResult.transactionId),
+        reason: 'entries no ledger não correspondem ao esperado',
+        detail: ledgerRows.rows,
+      },
+    );
+
+    // 6.7 Σ(débitos) = Σ(créditos) no bank_ledger desta transação.
+    console.log('--- 6.7: Σ(débitos) = Σ(créditos) (conservação de valor) ---');
+    const sums = await pool.query<{ sum_debit: string; sum_credit: string }>(
+      `SELECT
+         COALESCE(SUM(amount_cents) FILTER (WHERE direction='debit'), 0)::text  AS sum_debit,
+         COALESCE(SUM(amount_cents) FILTER (WHERE direction='credit'), 0)::text AS sum_credit
+       FROM bank_ledger
+       WHERE transaction_id = $1::uuid`,
+      [transferResult.transactionId],
+    );
+    const sumDebit = sums.rows[0]?.sum_debit;
+    const sumCredit = sums.rows[0]?.sum_credit;
+    assertOk(
+      'A6.7: Σ(débitos) = Σ(créditos) = amountCents desta transação (conservação de valor no ledger)',
+      {
+        ok: sumDebit === sumCredit && sumDebit === String(realAmountCents),
+        reason: 'somatórias não batem',
+        detail: { sumDebit, sumCredit, expected: realAmountCents },
+      },
+    );
+
+    // 6.8 calculateBalance: PF (decresceu por 1000) e SINK (cresceu por 1000).
+    console.log('--- 6.8: calculateBalance — PF reduziu, SINK aumentou ---');
+    const pfBalanceAfter = await bankLedgerRepository.calculateBalance(TENANT_ID, pfAccount.accountId);
+    const sinkBalanceAfter = await bankLedgerRepository.calculateBalance(TENANT_ID, sinkAccount.accountId);
+    assertOk(
+      'A6.8: PF balance = seed - transfer; SINK balance = +transfer (saldos coerentes com ledger)',
+      {
+        ok:
+          pfBalanceAfter.balanceCents === seedAmountCents - realAmountCents &&
+          sinkBalanceAfter.balanceCents === realAmountCents,
+        reason: 'saldos divergem do esperado',
+        detail: {
+          pf: pfBalanceAfter.balanceCents,
+          sink: sinkBalanceAfter.balanceCents,
+          expected: {
+            pf: seedAmountCents - realAmountCents,
+            sink: realAmountCents,
+          },
+        },
+      },
+    );
+
+    // 6.9 Cadeia causal completa.
+    assertOk(
+      'A6.9 — CADEIA CAUSAL COMPLETA: KYC_PENDING (A2) → KYC_OK (A5) → AUTHORITY_ALLOW → TRANSFER_EXECUTED → LEDGER_PERSISTED, MESMO actor',
+      {
+        ok:
+          gateBeforeDecision === 'block' &&
+          gateAfterDecision === 'allow' &&
+          !!transferResult.transactionId &&
+          ledgerRows.rows.length === 2 &&
+          sumDebit === sumCredit,
+        reason: 'cadeia causal incompleta',
+        detail: {
+          actorId,
+          gate_a2: gateBeforeDecision,
+          gate_a5: gateAfterDecision,
+          transfer_id: transferResult.transactionId,
+          ledger_entries: ledgerRows.rows.length,
+          sum_debit: sumDebit,
+          sum_credit: sumCredit,
+        },
+      },
+    );
+
+    // ============================================================
     // MODO B — falsificações
     // ============================================================
     console.log('\n=== Modo B — Falsificacao ativa ===');
@@ -445,13 +768,13 @@ async function main(): Promise<void> {
 
     const divider = '======================================================';
     console.log(`\n${divider}`);
-    console.log('E2E TRANSVERSAL KYC :: PASS');
-    console.log('  Modo A causal: 5 etapas + PROVA DE OURO (block → allow)');
+    console.log('E2E TRANSVERSAL KYC + CIRCUITO MONETARIO MINIMO :: PASS');
+    console.log('  Modo A causal: 5 etapas + PROVA DE OURO + Etapa 6 (transfer real)');
     console.log('  Modo B falsificacoes: 3 rejeitadas');
-    console.log('  As 3 camadas conectadas em runtime real:');
-    console.log('    cadastro CRIOU      (C1: identity pending nasce)');
-    console.log('    KYC      APROVOU    (C2: workflow → approved)');
-    console.log('    authority LIBEROU   (gate intocado: block → allow)');
+    console.log('  Cadeia causal completa, MESMO actor:');
+    console.log('    KYC_PENDING (A2) → KYC_OK (A5) → AUTHORITY_ALLOW');
+    console.log('                    → TRANSFER_EXECUTED → LEDGER_PERSISTED (A6)');
+    console.log('  Σ(débitos) = Σ(créditos) confirmado no bank_ledger.');
     console.log(`${divider}\n`);
   } finally {
     await cleanup(cleanupState);
