@@ -4761,10 +4761,51 @@ UX de mídia ausente até frente futura. Não bloqueia operação econômica nem
 
 ## DT-CREATEPOST-SIGNATURE-DUAL-USERID
 
-- **Status:** OPEN (escopo reduzido pela Fatia D — bug runtime corrigido; sobra apenas remoção do param morto)
-- **Severidade:** LOW (originalmente HIGH; rebaixada pela Fatia D após bug runtime corrigido)
+- **Status:** CLOSED 2026-05-25 (Fatia E — param morto removido, 8 callers convergidos, prova material confirmou audit fields no slot correto)
+- **Severidade:** N/A (CLOSED — era LOW após Fatia D corrigir bug runtime; resíduo cosmético-arquitetural eliminado pela Fatia E)
 - **Origem:** Fatia B 2026-05-24 — grep de superfície revelou que `Social2Service.createPost` tem 6 callers internos (rota + scripts/seed-dev-groups + modules/events + modules/groups + modules/votes ×3), todos com lógica própria de `userId` vs `globalUserId`. A signature atual mistura `userId: string` (arg 2), `globalUserId: string` (arg 3), `actorId?: string` (arg 5) — confusão estrutural. Bug da rota confirmado pelo stack do smoke (`actor.repository.ts:95`).
 - **Vinculada a:** DT-DRIFT-SOCIAL-2.0-SERVICE-SCHEMA-MISMATCH (CLOSED via fatia getFeed `0c478dec`); fatia B convergiu o corpo do método (DECISIONs 0031/0032-social/0033/0034) sem tocar a signature.
+
+### Fechamento Fatia E (2026-05-25 — remoção do param morto + convergência dos callers)
+
+**Execução:** removido `globalUserId: string` do slot 3 da signature de `Social2Service.createPost` (`social-2.0.service.ts:640`) + comentário arqueológico das linhas 745-747 deletado + **8 chamadas convergidas em 5 arquivos** (DT original subcontou para 6 — auditoria de superfície da Fatia E descobriu 8 chamadas reais):
+
+1. `modules/social/social-2.0.routes.ts:243` — removeu `req.actionContext.actorId` (resquício inerte da Fatia D no slot 3).
+2. `scripts/seed-dev-groups.ts:292` — removeu `ownerPublicGlobalId`.
+3. `scripts/seed-dev-groups.ts:316` — removeu `ownerPrivateGlobalId`.
+4. `modules/votes/votes.service.ts:60` — removeu `globalUserId`.
+5. `modules/votes/votes.service.ts:116` — removeu `globalUserId`.
+6. `modules/votes/votes.service.ts:262` — removeu `globalUserId`.
+7. `modules/groups/groups.service.ts:275` — removeu `userResult.global_user_id`.
+8. `modules/events/events.service.ts:351` — removeu `createdByGlobalUserId`.
+
+Em cada um, args 4..N descem para slots 3..(N-1) da nova signature. Tipos batem em 1:1 — mas tsc não pega deslocamento intra-tipo (regra crítica do prompt), daí a prova material reforçada abaixo.
+
+**Validação — 5 critérios passaram:**
+- `tsc --noEmit` exit 0 (signature 12 params, antes 13).
+- Grep órfão zero: nenhum `globalUserId` em chamada de `social2Service.createPost`; nenhum uso do param no corpo do método. As 5 ocorrências restantes de `globalUserId` em `social-2.0.service.ts` (L123/147/149/157/236) são do método **distinto** `createPostInGroup`, fora do escopo — não tocadas.
+- 4 gates verdes (bank-ledger §4.6 OK, actor-writer §4.8.1 OK, regression-guards OK, architectural Total 20 = baseline inalterado; todas as 20 violações em `core/profile/`/`human-mvp/` — zero em arquivos tocados).
+- `critical_total` inalterado (20 = 20).
+- Boot limpo (backend subiu sem erros; só 401 esperado em rota auth-required).
+
+**Prova material reforçada — 2 caminhos da rota (caller #1, o de maior risco com 13→12 args):**
+- D-1 (com `actor_id` no body): `POST /social/posts` → HTTP 201, post `bf517e13-7037-4f09-ac97-5e415ed9f5fd` gravado.
+- D-2 (sem `actor_id` no body — ramo `ensureUserActor`): `POST /social/posts` → HTTP 201, post `4b600ce6-3f84-4e1f-bc1d-e9705bc94f9f` gravado.
+- SELECT confirmatório em ambos:
+  - `actor_id` = `751a4fe0-2f33-4053-bfa8-3dcad39b3b30` (canônico, dev actor).
+  - **`metadata.created_by_user_id` = `beb7b5e4-2d22-4782-83c9-6e006da53713`** (user_id correto — slot de audit NÃO escorregou para o slot de actor_id após o deslocamento).
+  - `metadata.created_as_actor_id` = `751a4fe0-...` (actor_id correto).
+  - `intent`, `intent_metadata`, `media_ids` consistentes com payload.
+- Cross-check no feed (`GET /social/feed?actor_type=user`): ambos posts da Fatia E aparecem no topo, ao lado dos D-1/D-2 da Fatia D (24/05) e do post `9ea4929d...` da Fatia B SQL.
+
+**Razão pela qual `userId` (slot 2) ficou:** materialmente vivo em 4 sítios do corpo de `createPost` (`ensureUserActor(tenantId, userId)` L690 no caminho else; `validateIntent(..., userId)` L704; `canPerformAction(..., { tenantId, userId })` L721; `metadata.created_by_user_id = createdByUserId || userId` L737 como fallback). Não é dívida — é uso legítimo. Refator mais profundo (derivar `userId` de `actor.user_id` em cascata) continua possível em frente futura mas **não justificável agora**.
+
+**Outros `createPost` no codebase (não afetados):** `socialService.createPost` legacy (`social.service.ts:22`), `SocialServicePort.createPost` (porta hexagonal) — assinaturas distintas, fora do escopo da DT.
+
+**Lições materiais:**
+1. DT original subcontou callers: 6 declarados, 8 reais. Grep de superfície completo é não-opcional, mesmo quando a DT lista os sítios — auditoria fresca pode descobrir mais.
+2. Remover slot intermediário desloca silenciosamente os subsequentes. tsc só pega quando os tipos divergem; deslocamento intra-tipo passa. Prova material em ESCRITA tem que verificar o **campo crítico** (`metadata.created_by_user_id` aqui), não só HTTP 201.
+3. Param "morto" pode ser **deteção tardia**: a Fatia B convergiu o INSERT canonicamente em 2026-05-24 e o slot virou inerte; a DT da época mediu "morto" como observação, não como execução. Tempo entre detecção e remoção: 1 dia.
 
 ### Atualização Fatia D (2026-05-24, A-convergente cirúrgica)
 

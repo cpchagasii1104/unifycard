@@ -289,7 +289,6 @@ async function seedPosts(
     await social2Service.createPost(
       DEV_TENANT_ID,
       ownerPublicId,
-      ownerPublicGlobalId,
       'Este é um post de teste no grupo público!',
       ownerPublicActorId,
       [],
@@ -313,7 +312,6 @@ async function seedPosts(
     await social2Service.createPost(
       DEV_TENANT_ID,
       ownerPrivateId,
-      ownerPrivateGlobalId,
       'Este é um post de teste no grupo privado!',
       ownerPrivateActorId,
       [],

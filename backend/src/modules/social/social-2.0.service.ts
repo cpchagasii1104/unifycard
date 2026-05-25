@@ -637,7 +637,6 @@ export class Social2Service {
   async createPost(
     tenantId: string,
     userId: string,
-    globalUserId: string,
     content: string,
     actorId: string | undefined,
     mediaIds: string[],
@@ -742,9 +741,6 @@ export class Social2Service {
     //   alias `id AS post_id` preserva contrato externo (frontend espera Post.post_id).
     // global_user_id removido da coluna list (coluna não existe em posts; identidade soberana
     //   é actor_id por §3.2 / DECISION-0031).
-    // Parâmetro globalUserId continua na signature por compatibilidade com 6 callers internos
-    //   (rota + 5 services/scripts) — refator de signature é fatia D futura
-    //   (DT-CREATEPOST-SIGNATURE-DUAL-USERID).
     const post = await runQueryWithTenant<{
       post_id: string;
       created_at: string | Date;

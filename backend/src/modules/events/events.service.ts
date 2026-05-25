@@ -348,7 +348,6 @@ class EventsService {
               await social2Service.createPost(
                 tenantId,
                 userResult.user_id,
-                createdByGlobalUserId,
                 `🎉 Novo evento: ${input.title}${input.description ? `\n\n${input.description}` : ''}`,
                 actor.actor_id,
                 [],

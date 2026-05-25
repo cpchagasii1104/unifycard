@@ -272,7 +272,6 @@ class GroupsService {
           await social2Service.createPost(
             tenantId,
             ownerUserId,
-            userResult.global_user_id,
             `📢 Novo grupo criado: ${group.name}`,
             actor.actor_id, // Actor do criador
             [], // Sem mídia

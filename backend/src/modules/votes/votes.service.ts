@@ -57,7 +57,6 @@ export class VotesService {
         await social2Service.createPost(
           tenantId,
           userId,
-          globalUserId,
           `Nova votação criada: ${input.title}`,
           actorId,
           [],
@@ -113,7 +112,6 @@ export class VotesService {
       await social2Service.createPost(
         tenantId,
         userId,
-        globalUserId,
         `🗳️ Votação aberta: ${vote.title}`,
         actorId,
         [],
@@ -259,7 +257,6 @@ export class VotesService {
       await social2Service.createPost(
         tenantId,
         userId,
-        globalUserId,
         `✅ Votação encerrada: ${vote.title}`,
         actorId,
         [],

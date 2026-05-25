@@ -240,7 +240,6 @@ const social2Routes: FastifyPluginAsync = async (fastify) => {
       const post = await social2Service.createPost(
         req.tenant.id,
         req.user.id,
-        req.actionContext.actorId,
         validated.content,
         validated.actor_id,
         validated.media_ids || [],
