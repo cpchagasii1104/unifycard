@@ -1,3 +1,42 @@
+## 2026-05-25 — G2 Etapa 2: E2E transversal de empresa (cadastro → empresa → submit → review) criado e passando
+
+**Branch:** `rescue-structural`
+**HEAD pré-G2:** `8f32838e` (higiene documental) | **HEAD pós-G2 Etapa 2:** (este commit)
+
+**Contexto:** Veredito da G2 Etapa 1 (RFC §8 — carregar estado + validar dependências) foi **convergência**: cada peça do fluxo de nascimento de empresa atravessa hoje (Fatia 1 IDENTIDADE + Fatia A1 RBAC + Fatia A2 onboarding/validation em actors.metadata + Frente B workflow company_validation_requests). Faltava o teste que prova o conjunto em sequência. Decisão arquitetural: arquivo separado (seeds ortogonais ao E2E financeiro existente — financeiro precisa de pesos: identities/authority_roots/bank accounts/mint; empresa precisa só de tenant + admin).
+
+**Entregue (1 commit funcional):**
+
+- **Script novo** `backend/src/scripts/validate-pipeline-e2e-company.ts` — espelha o estilo Modo A (causal) / Modo B (falsificações) do `validate-pipeline-e2e-transversal.ts` financeiro. Roda contra o caminho canônico em-processo (sem HTTP overhead): `authService.register` + `companiesService.createCompany` + `companiesService.submitForValidation` + `companiesService.reviewCompanyValidation`. Cleanup explícito por ID no `finally` (banco volta intacto ao estado pré-teste, zero leftovers). Cada run usa CPF/CNPJ/email isolados por `Date.now()`.
+
+- **Modo A — fluxo causal (4 etapas, cada uma com SELECT confirmatório):**
+  - Etapa 1 (cadastro PF via `authService.register`): A1a global_users gravado com CPF; A1b users com tenant_id + global_user_id + email canônicos; A1c actor PF criado via `ensureUserActor` (actor_type='user', user_id ligado).
+  - Etapa 2 (`createCompany`): A2a companies PROVISIONAL/is_verified=false; A2b page actor com `responsible_actor_id = actor PF do cadastro` (âncora humana §4.8.2 confirmada — mesmo actor percorre cadastro → empresa).
+  - Etapa 3 (`submitForValidation`): A3a request `pending` com `submitted_by_user_id = users.id do cadastro` (continuidade ponta a ponta).
+  - Etapa 4 (`reviewCompanyValidation` approved transacional): A4a request `approved` + `reviewed_by_user_id = admin` + `decision_reason`; A4b companies `VERIFIED` + `is_verified=true`; A4c `actors.metadata.validation` do page actor com os 6 campos canônicos (`STRUCTURED_REVIEW`, `ADMIN_REVIEW`, `validated_at` snake_case, `reviewer_user_id`, `request_id`, `decision_reason`); **A4d os 3 timestamps coincidem** (`request.reviewed_at = companies.updated_at = actor.validated_at`) — **prova de atomicidade da mesma transação**.
+
+- **Modo B — falsificações (runtime deve rejeitar):**
+  - B1 submit em company já VERIFIED → `COMPANY_NOT_IN_PROVISIONAL` ✓
+  - B2 segundo submit com pending existente → `COMPANY_HAS_PENDING_VALIDATION` ✓
+  - B3 review de `requestId` inexistente → `VALIDATION_REQUEST_NOT_REVIEWABLE` ✓
+  - B4 approve em company com page actor deletado → `COMPANY_HAS_NO_PAGE_ACTOR` ✓ + **B4-prova**: SELECT confirma ROLLBACK efetivo (request continuou `pending`, companies continuou `PROVISIONAL/false`).
+
+**Caveats materiais (não-bloqueantes, registrar):**
+- Durante `createCompany`: anomalias pré-existentes loggadas como não-bloqueantes pelo próprio service: `company_domains` ausente (warning), `company_opportunity_preferences` ausente (erro tratado). Pré-existentes ao G2; fora do escopo.
+- O E2E em-processo NÃO exercita HTTP (`requireRole`, `x-action-context`, `x-tenant-id`, JWT). A prova HTTP completa dos endpoints foi feita na Frente B (commit `7bf451ef`); o E2E em-processo prova o atravessamento causal das peças, não a casca de transporte.
+- `business_audit_logs` ausente (DT já registrada em sessão anterior) — não impacta este E2E.
+
+**5 critérios:** `tsc --noEmit` exit 0; script roda PASS (Modo A 4 etapas + Modo B 4 falsificações + B4-prova); limpeza efetiva (4 SELECTs confirmaram zero leftover rows com prefixos `E2E Test Co%` / `e2e-company-%@e2e.internal` / `E2E Company Test%`); 4 gates verdes (`validate:architecture:strict` `critical_new=0 critical_total=29`; `docs:gates:check` exit 0); boot não-aplicável (script standalone).
+
+**Estado pós-G2 Etapa 2:** as 4 fatias do dia (Fatia 1 IDENTIDADE + Fatia A1 RBAC + Fatia A2 onboarding/validation + Frente B workflow) provam-se convergentes em uma sequência única encadeada — não isoladas. O nascimento de empresa atravessa de ponta a ponta com atomicidade transacional confirmada e ROLLBACK exercitado.
+
+**Frentes NÃO abertas (escopo fechado por disciplina):**
+- Estender o E2E para gate financeiro (empresa publica serviço → RFQ → pagamento). Exigiria seed de `identities`/`authority_roots` (pesos do pipeline financeiro). Pipeline ortogonal já coberto por `validate-pipeline-e2e-transversal.ts`.
+- HTTP-level E2E (subir backend + JWT + ActionContext + requireRole). Casca de transporte já provada na Frente B.
+- Investigar `business_audit_logs`/`company_opportunity_preferences`/`company_domains` ausentes — pré-existentes, registrados como DTs em sessões anteriores.
+
+---
+
 ## 2026-05-25 — SESSÃO Frente B: fluxo submissão→análise→decisão para formalização (existe e é queryável)
 
 **Branch:** `rescue-structural`
