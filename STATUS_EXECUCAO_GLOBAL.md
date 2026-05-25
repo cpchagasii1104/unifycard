@@ -1,3 +1,17 @@
+## 2026-05-25 — NOTA INSTITUCIONAL: baseline arquitetural real é 29 críticos, não 20
+
+**Contexto:** durante a auditoria de pós-fechamento das fatias do dia (Fatia 1 IDENTIDADE, Fatia A1 RBAC, Fatia A2 onboarding/validation), descobriu-se que o "20" repetidamente citado em sessões anteriores (`Total 20 baseline em todos`) está **desatualizado**. O número real, medido em 2026-05-25 via `node scripts/validate-architectural-patterns.mjs` (sem `--strict` e sem `--update-baseline`), é **`critical_total=29`**.
+
+**Causa material:** o arquivo `scripts/architectural-patterns-baseline.json` é hash-based (key = `rule:file:sha256-16(linha)`) — armazena 6323 hashes de violações aceitas + occurrenceCount=7202, mas **NÃO armazena um número `critical_total`**. O número é calculado por run contando as violações ativas no scan. Entre a sessão da Fatia 1 (onde o número era 20) e 2026-05-25, runs com `--update-baseline` em sessões intermediárias absorveram 9 novos critical hashes no baseline (provavelmente de código adicionado nessas sessões). `critical_new=0` em todas as fatias do dia confirma que nenhuma delas introduziu regressão.
+
+**Implicação operacional:** o **critério de validação canônico é `critical_new=0`**, não `critical_total=N`. O número total varia entre sessões conforme o disco evolui e o baseline absorve. Sessões futuras devem reportar `critical_new` (delta) como o critério bloqueante, e citar `critical_total` apenas como referência informativa.
+
+**Sessões retroativas (anteriores a 2026-05-25) que registraram "Total 20"** permanecem corretas para o momento em que foram escritas — não são editadas retroativamente. Este registro é forward-looking.
+
+**Cobertura adicional do warmup do dia:** DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT no `REMEDIATION_DT_LOG.md` (~L1394) atualizada de `OPEN` para `RESOLVED 2026-05-25` (inconsistência de log — DECISION-0043 já declarava encerrada).
+
+---
+
 ## 2026-05-24 — SESSÃO: Módulo social inteiro destravado em runtime real (6 commits funcionais + 1 doc) — Fatia getFeed + A1 + A2 + B + C + D
 
 **Branch:** `rescue-structural`

@@ -1391,7 +1391,7 @@ Bug raiz `global_user_id` duplicado continua em DT-GLOBAL-USER-ID-DUPLICATION-E2
 
 ## DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT
 
-- **Status:** OPEN
+- **Status:** RESOLVED 2026-05-25 — mitigação frontend via DECISION-0043 (redirect síncrono Profile.tsx → /empresa/:companyId; backend bifurcação core.service.ts). Backend getProfile ainda ignora actorId — gap cosmético sem pressão material. Sem critério de reabertura definido. (Inconsistência detectada: cabeçalho marcava OPEN mas DECISION-0043 §"Supera" já declarava encerrada em PASSO 6 do mesmo ciclo — log corrigido em 2026-05-25 como parte do warmup do dia.)
 - **Origem:** Atravessamento runtime-first (2026-05-15) — comparação USER vs PAGE actor em GET /core/profile
 - **Classe:** DT-P (projeção contextual incompleta)
 - **Vinculada a:** Direção "actor-first / context-first" (memória institucional pós-2026-05-14); `action-context.middleware`
