@@ -1053,6 +1053,143 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // ============================================================
+  // FRENTE C Fatia C2 (2026-05-25): workflow submit→review→approve para KYC
+  //   Tabela: identity_validation_requests (migration 20260530553000)
+  //   Service: identity-validation.service.ts (novo módulo — identity.service
+  //            é legado pré-Gate-0 CONGELADO, não pode ser expandido)
+  //   Convergência sobre padrão da Frente B (companies submit→review).
+  //
+  // Decisão de escopo de tenant (veredito Etapa 1): workflow GLOBAL, sem
+  //   tenant_id na tabela, sem RLS — consistente com identities. submitted_by
+  //   e reviewed_by carregam tenant do operador (auditoria) via FK users.
+  // ============================================================
+
+  /**
+   * POST /identity/submit-validation
+   * Cria pedido de validação de KYC (status='pending') para a identity do user
+   * logado OU de um globalUserId arbitrário (caminho admin).
+   *
+   * Evolução prevista: liberar para o próprio user submeter SUA identity
+   * (gate fino futuro: subject = req.user.global_user_id derivado, sem
+   * precisar de admin). Por ora requireRole(['admin']) consistente com
+   * Frente B (companies). requireRole resolve autoridade SISTÊMICA no
+   * tenant, NÃO autoridade sobre ESTE recurso — autoridade contextual
+   * por pessoa vive na própria identity (PK = global_user_id), não em
+   * roles.name. Não promover 'owner' (ou equivalente) para role global
+   * sem decisão arquitetural.
+   */
+  fastify.post<{
+    Body: {
+      globalUserId: string;
+      targetKycLevel?: 'basic' | 'complete';
+      notes?: string;
+    };
+  }>('/submit-validation', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    const { globalUserId, targetKycLevel, notes } = req.body ?? ({} as any);
+    if (!globalUserId || typeof globalUserId !== 'string') {
+      return reply.status(400).send({ ok: false, message: 'Body.globalUserId é obrigatório' });
+    }
+    const level = targetKycLevel ?? 'basic';
+    if (level !== 'basic' && level !== 'complete') {
+      return reply.status(400).send({
+        ok: false,
+        message: "Body.targetKycLevel deve ser 'basic' ou 'complete' (default 'basic')",
+      });
+    }
+
+    try {
+      const { identityValidationService } = await import('@core/identity/identity-validation.service');
+      const result = await identityValidationService.submitIdentityValidation(
+        globalUserId,
+        req.user.id,
+        level,
+        notes,
+      );
+      fastify.log.info({
+        requestId: result.id,
+        globalUserId: result.globalUserId,
+        submittedByUserId: result.submittedByUserId,
+        targetKycLevel: result.targetKycLevel,
+      }, '📝 Frente C2: pedido de validação de identidade criado');
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao submeter identidade para validação');
+      const message = error instanceof Error ? error.message : 'Erro ao submeter identidade para validação';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * GET /identity/admin/validation-queue
+   * Lista pedidos de validação de identidade; query.status opcional filtra por estado.
+   */
+  fastify.get<{
+    Querystring: { status?: string };
+  }>('/admin/validation-queue', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    try {
+      const { identityValidationService } = await import('@core/identity/identity-validation.service');
+      const queue = await identityValidationService.getIdentityValidationQueue(req.query.status);
+      return reply.send({ ok: true, data: queue });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao listar fila de validação de identidade');
+      const message = error instanceof Error ? error.message : 'Erro ao listar fila de validação de identidade';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * PATCH /identity/admin/validation-requests/:requestId/review
+   * Admin decide pending → approved/rejected. Atômico (UPDATE request +
+   * UPDATE identities numa única transação).
+   */
+  fastify.patch<{
+    Params: { requestId: string };
+    Body: { decision: 'approved' | 'rejected'; reason?: string };
+  }>('/admin/validation-requests/:requestId/review', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    const { decision, reason } = req.body ?? ({} as { decision?: 'approved' | 'rejected'; reason?: string });
+    if (decision !== 'approved' && decision !== 'rejected') {
+      return reply.status(400).send({
+        ok: false,
+        message: "Body.decision deve ser 'approved' ou 'rejected'",
+      });
+    }
+
+    try {
+      const { identityValidationService } = await import('@core/identity/identity-validation.service');
+      const result = await identityValidationService.reviewIdentityValidation(
+        req.params.requestId,
+        decision,
+        reason,
+        req.user.id,
+      );
+      fastify.log.info({
+        requestId: result.id,
+        globalUserId: result.globalUserId,
+        decision: result.status,
+        targetKycLevel: result.targetKycLevel,
+        reviewerUserId: result.reviewedByUserId,
+      }, `✅ Frente C2: validação de identidade ${result.status}`);
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao revisar pedido de validação de identidade');
+      const message = error instanceof Error ? error.message : 'Erro ao revisar pedido de validação de identidade';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
   // Registrar rotas de residence como sub-rotas
   // A rota GET /identity/residence está definida em residence.routes.ts
   await fastify.register(residenceRoutes, { prefix: '/residence' });

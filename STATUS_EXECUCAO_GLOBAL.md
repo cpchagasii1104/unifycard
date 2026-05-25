@@ -1,3 +1,84 @@
+## 2026-05-25 — Frente C completa: 3 camadas conectadas (cadastro CRIA → KYC APROVA → authority LIBERA)
+
+**Branch:** `rescue-structural`
+**HEAD pré-C2:** `24d85c6d` (Fatia C1) | **HEAD pós-C2:** (este commit)
+
+**Contexto:** Veredito da Frente C Etapa 1 (terreno KYC) classificou identity workflow como CONVERGÊNCIA (substrato pronto, falta o fluxo). C1 eliminou a descontinuidade `/auth/register ↔ identities`. C2 (esta fatia) entrega o workflow `submit→review→approve` espelhando a Frente B (companies), adaptado à diferença estrutural fundamental: **identities é GLOBAL** (PK só global_user_id; sem tenant_id; sem RLS) — kyc_status é atributo da PESSOA, não da pessoa-no-tenant.
+
+**Veredito de escopo de tenant (registrado antes da migration):** tabela `identity_validation_requests` GLOBAL, sem tenant_id, sem RLS — consistente com identities. `submitted_by_user_id` e `reviewed_by_user_id` (FKs `users`) carregam o tenant do operador apenas para auditoria. 1 request por pessoa (não por pessoa-tenant). Acesso controlado por `requireRole(['admin'])` na camada HTTP. Nota institucional: segmentar KYC por tenant é decisão arquitetural que afetaria TAMBÉM identities — não fatia isolada.
+
+**Entregue (1 commit funcional):**
+
+- **Migration** `20260530553000_create_identity_validation_requests.sql`: tabela GLOBAL (status pending/under_review/approved/rejected; target_kyc_level basic/complete; FKs `global_user_id → identities(global_user_id) ON DELETE CASCADE`, `submitted_by_user_id → users(id)` NOT NULL, `reviewed_by_user_id → users(id)` nullable). UNIQUE parcial `(global_user_id) WHERE status='pending'` impede 2 pendings simultâneos. SEM RLS (consistente com identities). NÃO toca identities além do FK reverso, NÃO mexe nos vocabulários paralelos (`actors.kyc_*` mortas, `contacts.kyc_status` fiscal).
+
+- **Service novo** `backend/src/core/identity/identity-validation.service.ts` (arquivo separado — `identity.service.ts` é legado pré-Gate-0 CONGELADO, não pode ser expandido):
+  - `submitIdentityValidation(globalUserId, submittedByUserId, targetKycLevel, notes?)`: guard identity existe + `kyc_status='pending'` (rejected exige decisão arquitetural; approved não faz sentido — fail-loud). Captura UNIQUE-23505 e relança como `IDENTITY_HAS_PENDING_VALIDATION` (mensagem clara, sem vazar constraint cru).
+  - `reviewIdentityValidation(requestId, decision, reason?, reviewerUserId)`: **transacional** via `pool.connect()`/`BEGIN`/`COMMIT`/`ROLLBACK` no MESMO client. (1) UPDATE request com guard `status='pending'`. (2) Se approved: UPDATE identities `kyc_status='approved', kyc_level=target`. Se rejected: UPDATE identities `kyc_status='rejected'` (kyc_level preservado). `COMMIT` no fim; `ROLLBACK` em qualquer erro. NÃO usa `set_config('app.current_tenant')` — tabela global sem RLS (consciente).
+  - `getIdentityValidationQueue(status?)`: JOIN identities + global_users (nome + CPF + KYC atual) + whitelist de status + ORDER BY submitted_at DESC.
+
+- **Routes em `identity.routes.ts` (3 endpoints):** `POST /identity/submit-validation`, `GET /identity/admin/validation-queue`, `PATCH /identity/admin/validation-requests/:requestId/review`. Todos com `preHandler: [fastify.requireRole(['admin'])]`. Comentário institucional no `submit` repete a distinção autoridade sistêmica vs contextual (mesma da Frente B): `requireRole` resolve autoridade SISTÊMICA no tenant, NÃO sobre ESTE recurso. Evolução prevista (próprio user submetendo SUA identity) anotada.
+
+**Prova material (runtime real — HTTP + SELECT + gate):**
+
+Setup: cadastro PF via `/auth/register` (Fatia C1 cria identity pending/none).
+- userId=e3f4d03a-..., globalUserId=90d669f1-..., actor PF=f96c5ef2-...
+- identity nasceu: `kyc_status='pending', kyc_level='none'` ✅ (C1 confirmado)
+
+Modo A — fluxo causal:
+1. POST `/identity/submit-validation` (admin) → request `pending`, `submitted_by_user_id=admin`, `target_kyc_level='basic'` ✅
+2. GET `/identity/admin/validation-queue?status=pending` → row com JOIN identities + global_users (nome, CPF, KYC atual) ✅
+3. PATCH `/identity/admin/validation-requests/:id/review` `decision='approved'` → request `approved` + `reviewed_by_user_id=admin` + `decision_reason='C2 OK basic'` ✅
+4. SELECT identities pós-approved: `kyc_status='approved', kyc_level='basic'` ✅
+5. **Atomicidade transacional confirmada**: `request.reviewed_at = identities.updated_at` (timestamps_match=`t` no SELECT comparativo) — mesma transação.
+
+**A PROVA DE OURO — gate destrava após approved (3 camadas conectadas ponta a ponta):**
+
+`authorityDecisionService.evaluateFinancialSensitiveAction(tenant, {actorId: PF_novo, action:'transfer', amountCents:100, currency:'BRL'})`:
+
+```
+GATE_DECISION = allow
+GATE_REASON   = AUTHORITY_CHAIN_CLEAR
+GATE_LAYERS:
+  ATL    skip  AUTHORITY_ROOT_NOT_CONFIGURED_FOR_ACTOR:PERMISSIVE
+  KYC    pass  KYC_OK:approved      ← CAMADA DESTRAVOU
+  GUARDA skip  NO_ACTIVE_GUARDIANSHIP
+  GUARDA pass  RISK_AND_LIMITS_OK
+  REST   pass  PRECEDENCE_COMPLETE
+```
+
+Antes do C2 (visto na prova do C1): `reason=KYC_PENDING_BLOCKS_FINANCIAL` (block).
+Depois do C2: `decision=allow` (`KYC_OK:approved` na layer KYC).
+
+**As 3 camadas conectadas ponta a ponta em runtime real:**
+- cadastro CRIOU EXISTÊNCIA (Fatia C1 — `/auth/register` cria identity pending/none)
+- KYC APROVOU CAPACIDADE (Fatia C2, esta — workflow muda `kyc_status` para approved)
+- authority LIBEROU EXECUÇÃO (gate intocado em `authority-decision.service` retorna allow / KYC_OK)
+
+Modo B — falsificações rejeitadas:
+- B1: submit em identity já approved → `IDENTITY_ALREADY_APPROVED` ✅
+- B2: segundo submit com pending existente → `IDENTITY_HAS_PENDING_VALIDATION` (UNIQUE parcial) ✅
+- B3: review de requestId inexistente → `VALIDATION_REQUEST_NOT_REVIEWABLE` ✅
+
+**5 critérios:** `tsc --noEmit` exit 0; sem grep órfão; 4 gates verdes (`validate:architecture:strict` `critical_new=0 critical_total=29` preservado; `docs:gates:check` exit 0); boot limpo (subiu, /health 200, hot-reload sem regressão); prova material via HTTP+SELECT+gate+falsificações acima.
+
+**Limpeza:** 2 PFs criados (e relations: identity, actor, profile, user_profile, global_user, validation_requests) deletados. SELECT confirmou zero leftovers em 5 tabelas.
+
+**Estado pós-C2 (Frente C COMPLETA):**
+- Workflow `submit→review→approve` para KYC humano EXISTE e é queryável.
+- As 3 camadas (cadastro / KYC / authority) conectadas em sequência única encadeada e provadas em runtime real (gate destrava após approved).
+- `identities` permanece global (consistente com a soberania da pessoa) — `kyc_status` é atributo da pessoa, decidido pela última request aprovada.
+- Gate `authority-decision` permanece intocado por desenho (3 valores do CHECK preservados: pending/approved/rejected).
+- E2E financeiro existente continua funcional (faz UPSERT manual em identities para forçar approved/complete no seed — override consciente).
+
+**Frentes NÃO abertas (escopo fechado por disciplina):**
+- Resubmit após rejected (exige decisão arquitetural — pode reaproveitar mesma row UNIQUE ou criar nova com ON CONFLICT). Fora do escopo da fatia.
+- Convergência dos 3 vocabulários KYC (`identities` vs `actors.kyc_*` mortas vs `contacts.kyc_status` marketplace). Frentes separadas (veredito C Etapa 1).
+- Self-service (próprio user submetendo SUA identity, sem admin) — gate fino contextual, decisão arquitetural futura.
+- HTTP-level E2E transversal (cadastro → KYC → operação financeira) — pode ser próxima fatia análoga a G2 Etapa 2 (E2E de empresa).
+- `identity.service.ts` legado pré-Gate-0 permanece CONGELADO — Fatia C2 criou módulo separado.
+
+---
+
 ## 2026-05-25 — Fatia C1: /auth/register cria identity pending/none — descontinuidade cadastro↔gate eliminada na raiz
 
 **Branch:** `rescue-structural`
