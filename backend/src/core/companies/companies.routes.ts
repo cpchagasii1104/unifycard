@@ -833,6 +833,126 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   });
+
+  // ============================================================
+  // FRENTE B (2026-05-25): fluxo submissão→análise→decisão estruturado
+  //   Tabela: company_validation_requests (migration 20260530552000)
+  //   Service: submitForValidation / reviewCompanyValidation / getValidationQueue
+  //   Convergência sobre padrão de modules/disputes/financial-dispute-repository.ts
+  // ============================================================
+
+  /**
+   * POST /companies/:companyId/submit-validation
+   * Cria pedido de validação (status='pending') para uma empresa PROVISIONAL.
+   *
+   * Evolução prevista: liberar submit para manager/merchant + gate contextual
+   * company_users.role='owner' AND company_id=alvo. requireRole resolve autoridade
+   * SISTÊMICA no tenant, NÃO autoridade sobre ESTE recurso — autoridade contextual
+   * por empresa vive em company_users, não em roles.name. Não promover 'owner'
+   * para role global sem decisão arquitetural.
+   */
+  fastify.post<{
+    Params: { companyId: string };
+    Body: { notes?: string };
+  }>('/:companyId/submit-validation', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+
+    try {
+      const result = await companiesService.submitForValidation(
+        req.params.companyId,
+        req.tenant.id,
+        req.user.id,
+        req.body?.notes
+      );
+      fastify.log.info({
+        requestId: result.id,
+        companyId: result.companyId,
+        submittedByUserId: result.submittedByUserId,
+      }, '📝 Frente B: pedido de validação criado');
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao submeter empresa para validação');
+      const message = error instanceof Error ? error.message : 'Erro ao submeter empresa para validação';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * GET /companies/admin/validation-queue
+   * Lista pedidos de validação do tenant; query.status opcional filtra por estado.
+   */
+  fastify.get<{
+    Querystring: { status?: string };
+  }>('/admin/validation-queue', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    try {
+      const queue = await companiesService.getValidationQueue(req.tenant.id, req.query.status);
+      return reply.send({ ok: true, data: queue });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao listar fila de validação');
+      const message = error instanceof Error ? error.message : 'Erro ao listar fila de validação';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
+
+  /**
+   * PATCH /companies/admin/validation-requests/:requestId/review
+   * Admin decide pending → approved/rejected. Path approved é atômico
+   * (request + companies + actors.metadata.validation em uma transação).
+   */
+  fastify.patch<{
+    Params: { requestId: string };
+    Body: { decision: 'approved' | 'rejected'; reason?: string };
+  }>('/admin/validation-requests/:requestId/review', {
+    preHandler: [fastify.requireRole(['admin'])],
+  }, async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    }
+    const { decision, reason } = req.body ?? ({} as { decision?: 'approved' | 'rejected'; reason?: string });
+    if (decision !== 'approved' && decision !== 'rejected') {
+      return reply.status(400).send({
+        ok: false,
+        message: "Body.decision deve ser 'approved' ou 'rejected'",
+      });
+    }
+
+    try {
+      const result = await companiesService.reviewCompanyValidation(
+        req.params.requestId,
+        decision,
+        reason,
+        req.user.id,
+        req.tenant.id
+      );
+      fastify.log.info({
+        requestId: result.id,
+        companyId: result.companyId,
+        decision: result.status,
+        reviewerUserId: result.reviewedByUserId,
+        method: 'STRUCTURED_REVIEW',
+      }, `✅ Frente B: validação ${result.status}`);
+      return reply.send({ ok: true, data: result });
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Erro ao revisar pedido de validação');
+      const message = error instanceof Error ? error.message : 'Erro ao revisar pedido de validação';
+      return reply.status(400).send({ ok: false, message });
+    }
+  });
 };
 
 export { companiesRoutes };

@@ -1,3 +1,45 @@
+## 2026-05-25 — SESSÃO Frente B: fluxo submissão→análise→decisão para formalização (existe e é queryável)
+
+**Branch:** `rescue-structural`
+**HEAD inicial do dia:** `3df299f4` | **HEAD final do dia (pós-Frente B):** (este commit)
+**Hashes do dia (cronologia):** `ebd6054d` (Fatia 1) → `33c49a46` (Fatia A1) → `a6b07516` (raio-x) → `dd8aebe9` (Fatia A2) → `20b5d233` (baseline 29) → (este commit, Frente B).
+
+**Contexto:** Raio-x junta universal (`docs/04_audit/2026-05-25-raio-x-junta-universal.md`) registrou em §5(b) como **NÃO EXISTE / construir**: "fluxo de submissão→análise→decisão para formalização". `company_validations` é carimbo imutável (FASE 12, sem `status`/`reviewer`/`submitted_at`); A2 fechou o vetor de gravação de audit ad-hoc em `actors.metadata.validation` mas não dá fila queryável. Convergência sobre padrão `submit→analyze→approve` que já existe em orders/disputes/subscriptions — disputes escolhido como referência (`modules/disputes/financial-dispute-repository.ts`).
+
+**Entregue (1 commit funcional):**
+
+- **Migration** `20260530552000_create_company_validation_requests.sql`: tabela nova `company_validation_requests` (status pending/under_review/approved/rejected; FKs `tenant_id`/`company_id`/`submitted_by_user_id`/`reviewed_by_user_id` — `submitted_by_user_id` NOT NULL, `reviewed_by_user_id` nullable). Índice parcial UNIQUE `(company_id) WHERE status='pending'` impede 2 pendings simultâneos. RLS + FORCE com `tenant_isolation` (padrão das vizinhas `bank_limit_change_requests`). NÃO toca `company_validations` (carimbo) nem `companies.company_status` (ghost APPROVED). NÃO toca KYC humano (`identities`).
+
+- **Service `companies.service.ts` (3 métodos novos):**
+  - `submitForValidation(companyId, tenantId, userId, notes?)`: guard `company_status='PROVISIONAL'` → INSERT. Captura UNIQUE-23505 e relança como `COMPANY_HAS_PENDING_VALIDATION` (mensagem clara, sem vazar erro cru de constraint).
+  - `reviewCompanyValidation(requestId, decision, reason?, reviewerUserId, tenantId)`: **3 escritas em transação atômica** via `pool.connect()`/`BEGIN`/`COMMIT` no MESMO client (1) UPDATE request com guard `status='pending'`; (2) UPDATE companies → VERIFIED/`is_verified=true` com **WHERE tenant_id explícito (§8)**; (3) UPDATE `actors.metadata.validation` namespace do page actor — `validation_method='STRUCTURED_REVIEW'` (distingue do `ADMIN_OVERRIDE` do `adminOverrideToVerified`), `reviewer_user_id`, `request_id`, `decision_reason`, `validated_at`. Fail-loud `COMPANY_HAS_NO_PAGE_ACTOR` dentro da transação → ROLLBACK (ou tudo grava ou nada grava). RLS local via `set_config('app.current_tenant', $1, true)`.
+  - `getValidationQueue(tenantId, status?)`: lista com JOIN `companies` (incluindo `company_name`/`cnpj`) e WHERE tenant explícito em ambas as queries (com/sem filtro de status); whitelist de `status`.
+
+- **Routes `companies.routes.ts` (3 endpoints):** `POST /companies/:companyId/submit-validation`, `GET /companies/admin/validation-queue`, `PATCH /companies/admin/validation-requests/:requestId/review` — todos com `preHandler: [fastify.requireRole(['admin'])]`. Comentário institucional no `submit` registra a distinção: **`requireRole` resolve autoridade SISTÊMICA no tenant, NÃO autoridade sobre ESTE recurso**; autoridade contextual por empresa vive em `company_users`, não em `roles.name`. Evolução prevista (manager/merchant/owner com gate contextual) fica anotada — não promover `owner` para role global sem decisão arquitetural.
+
+- **Renomeação cosmética coerente:** `actors.metadata.validation.validatedAt` (camelCase) → `validated_at` (snake_case) tanto no método novo `reviewCompanyValidation` quanto no irmão `adminOverrideToVerified` (mesmo namespace, mesmo actor). Alinha com vizinhos (`validation_method`, `validated_by`, `reviewer_user_id`, `request_id`, `decision_reason`).
+
+**Prova material (runtime real, todos no banco `unificard_dev`):**
+
+1. `POST /:companyId/submit-validation` em company PROVISIONAL → row `pending` criada com `submitted_by_user_id = users.id` (admin).
+2. `GET /admin/validation-queue?status=pending` → lista a row com `company_name` + `cnpj` (JOIN companies).
+3. 2º `submit` enquanto pending existe → HTTP 400 `COMPANY_HAS_PENDING_VALIDATION` (mensagem clara, não vaza constraint cru).
+4. `PATCH /admin/validation-requests/:id/review` `decision='approved'` → request `approved` + `reviewed_by_user_id` + `decision_reason` + `reviewed_at`; companies `VERIFIED`/`is_verified=t`; `actors.metadata.validation` populado com `validation_method='STRUCTURED_REVIEW'`, `validated_by='ADMIN_REVIEW'`, `validated_at`, `reviewer_user_id`, `request_id`, `decision_reason`. **Os 3 timestamps coincidem** (mesma transação).
+5. `submit` na mesma company após approved (agora VERIFIED) → HTTP 400 `COMPANY_NOT_IN_PROVISIONAL: company_status atual = 'VERIFIED'`.
+
+**Atomicidade exercitada por acidente material:** primeiro PATCH falhou no Step 5 da transação (`não foi possível determinar o tipo de dados do parâmetro $5` — postgres não infere tipo em `jsonb_build_object(..., $5)`). ROLLBACK natural revelado por SELECT direto: request continuou `pending`, companies continuou `PROVISIONAL/false`, actor.metadata.validation continuou `null`. Fix mínimo (`$5::text`) aplicado e re-exercitado com sucesso. **A prova de atomicidade ficou material e gratuita**: erro forçado no último passo desfez os anteriores. Lição corolária: cast explícito em parâmetros dentro de `jsonb_build_object` (postgres não infere tipo lá).
+
+**5 critérios:** `tsc --noEmit` exit 0; grep órfão limpo (`validatedAt` removido do escopo da Frente B; `company-validation.service.ts` é outro fluxo — FASE 12 presencial — fora do escopo); 4 gates (`docs:gates:check`) verdes + `validate:architecture:strict` reportou `critical_new=0 warning_new=2 critical_total=29` (baseline 29 preservado; 2 WARNINGs novos em `marketplace-inventory.routes.ts` são fora do escopo desta Frente); boot limpo (subiu, /health 200, hot-reload do fix limpo); prova material via HTTP+SELECT acima.
+
+**Estado pós-Frente B:** raio-x §5(b) "fluxo submissão→análise→decisão" sai de **NÃO EXISTE** para **EXISTE e é queryável**. Workflow estruturado complementa o carimbo imutável do `company_validations` (FASE 12). Authority sistêmica via `requireRole` documentada como **não-suficiente** para autoridade contextual — gate contextual fica como evolução futura sem violar a soberania de `company_users`.
+
+**Frentes NÃO abertas (escopo fechado por disciplina):**
+- Gate contextual `company_users.role='owner' AND company_id=alvo` no submit (Tempo 2, quando dor humana exigir).
+- KYC humano (`identities`) — raio-x §5(b) menciona, mas é frente paralela; só com pressão material.
+- `companies.company_status` ghost `APPROVED` sem semântica permanece intocado (decisão de domínio).
+
+---
+
 ## 2026-05-25 — NOTA INSTITUCIONAL: baseline arquitetural real é 29 críticos, não 20
 
 **Contexto:** durante a auditoria de pós-fechamento das fatias do dia (Fatia 1 IDENTIDADE, Fatia A1 RBAC, Fatia A2 onboarding/validation), descobriu-se que o "20" repetidamente citado em sessões anteriores (`Total 20 baseline em todos`) está **desatualizado**. O número real, medido em 2026-05-25 via `node scripts/validate-architectural-patterns.mjs` (sem `--strict` e sem `--update-baseline`), é **`critical_total=29`**.

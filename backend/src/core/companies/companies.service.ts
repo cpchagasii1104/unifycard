@@ -2109,7 +2109,7 @@ class CompaniesService {
          SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('validation', jsonb_build_object(
                'validation_method', 'ADMIN_OVERRIDE',
                'validated_by', 'SYSTEM_ADMIN',
-               'validatedAt', NOW(),
+               'validated_at', NOW(),
                'admin_global_user_id', $2::uuid
              )),
              updated_at = NOW()
@@ -2119,6 +2119,297 @@ class CompaniesService {
 
     // Retornar empresa atualizada
     return await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId) as Company;
+  }
+
+  // ============================================================
+  // FRENTE B (2026-05-25): fluxo submissão→análise→decisão estruturado
+  // Tabela: company_validation_requests (migration 20260530552000)
+  // Convergência sobre padrão de modules/disputes/financial-dispute-repository.ts
+  // ============================================================
+
+  /**
+   * submitForValidation: cria pedido de validação da empresa (status='pending').
+   * Guard: company precisa estar em company_status='PROVISIONAL' (não revalidar VERIFIED).
+   * UNIQUE parcial barra duplicidade — tratamos o erro de constraint para mensagem clara.
+   * §8: tenant explícito; userId é users.id (req.user.id = users.id, alias em auth.plugin.ts).
+   */
+  async submitForValidation(
+    companyId: string,
+    tenantId: string,
+    userId: string,
+    notes?: string
+  ): Promise<{
+    id: string;
+    companyId: string;
+    submittedByUserId: string;
+    submittedAt: string;
+    status: string;
+  }> {
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para submitForValidation (§8 03_IDENTITY_CANONICA)');
+    }
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('submitForValidation: userId é obrigatório (req.user.id = users.id)');
+    }
+
+    // Guard: company precisa existir no tenant E estar em PROVISIONAL.
+    const companyRow = await runQueryWithTenant<{ company_status: string }>(
+      tenantId,
+      `SELECT company_status FROM companies WHERE tenant_id = $1::uuid AND company_id = $2::uuid LIMIT 1`,
+      [tenantId, companyId]
+    );
+    if (!companyRow) {
+      throw new Error(`COMPANY_NOT_FOUND: company ${companyId} não encontrada no tenant ${tenantId}`);
+    }
+    if (companyRow.company_status !== 'PROVISIONAL') {
+      throw new Error(`COMPANY_NOT_IN_PROVISIONAL: company_status atual = '${companyRow.company_status}'. Submit só faz sentido para empresas PROVISIONAL.`);
+    }
+
+    try {
+      const row = await runQueryWithTenant<{
+        id: string;
+        company_id: string;
+        submitted_by_user_id: string;
+        submitted_at: Date;
+        status: string;
+      }>(
+        tenantId,
+        `INSERT INTO company_validation_requests
+           (tenant_id, company_id, submitted_by_user_id, submission_notes)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4)
+         RETURNING id, company_id, submitted_by_user_id, submitted_at, status`,
+        [tenantId, companyId, userId, notes ?? null]
+      );
+      if (!row) throw new Error('submitForValidation: insert falhou (sem RETURNING)');
+      return {
+        id: row.id,
+        companyId: row.company_id,
+        submittedByUserId: row.submitted_by_user_id,
+        submittedAt: row.submitted_at.toISOString(),
+        status: row.status,
+      };
+    } catch (err: any) {
+      // 23505 = unique_violation no Postgres. Captura a partial unique e dá mensagem clara
+      // em vez de vazar o erro cru de constraint.
+      if (err && (err.code === '23505' || /uq_company_validation_requests_pending/.test(String(err.message || '')))) {
+        throw new Error(`COMPANY_HAS_PENDING_VALIDATION: company ${companyId} já tem um pedido de validação pending. Aguarde a revisão ou cancele o pedido existente antes de submeter novo.`);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * reviewCompanyValidation: admin decide pending → approved/rejected.
+   *
+   * Atomicidade: o caminho approved encadeia 3 escritas (UPDATE request → UPDATE companies →
+   * UPDATE actors.metadata.validation). Tudo dentro de BEGIN/COMMIT no MESMO client; qualquer
+   * falha (inclusive o fail-loud COMPANY_HAS_NO_PAGE_ACTOR) força ROLLBACK — ou tudo grava,
+   * ou nada grava. RLS continua ativa via set_config('app.current_tenant', ..., true) local.
+   *
+   * §8: tenant explícito em TODOS os WHEREs (inclusive UPDATE companies).
+   */
+  async reviewCompanyValidation(
+    requestId: string,
+    decision: 'approved' | 'rejected',
+    reason: string | undefined,
+    reviewerUserId: string,
+    tenantId: string
+  ): Promise<{
+    id: string;
+    companyId: string;
+    status: string;
+    reviewedAt: string | null;
+    reviewedByUserId: string | null;
+    decisionReason: string | null;
+  }> {
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para reviewCompanyValidation (§8 03_IDENTITY_CANONICA)');
+    }
+    if (!reviewerUserId || typeof reviewerUserId !== 'string' || reviewerUserId.trim() === '') {
+      throw new Error('reviewCompanyValidation: reviewerUserId é obrigatório (req.user.id = users.id)');
+    }
+    if (decision !== 'approved' && decision !== 'rejected') {
+      throw new Error(`reviewCompanyValidation: decision inválida '${decision}' — esperado 'approved' ou 'rejected'`);
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // RLS local à transação. `set_config(..., true)` = scope LOCAL (vale até COMMIT/ROLLBACK).
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenantId]);
+
+      // 1) UPDATE da request (transição pending→approved|rejected). RETURNING para encadear.
+      const requestResult = await client.query<{
+        id: string;
+        company_id: string;
+        status: string;
+        reviewed_at: Date | null;
+        reviewed_by_user_id: string | null;
+        decision_reason: string | null;
+      }>(
+        `UPDATE company_validation_requests
+            SET status = $3,
+                reviewed_at = NOW(),
+                reviewed_by_user_id = $4::uuid,
+                decision_reason = $5,
+                updated_at = NOW()
+          WHERE tenant_id = $1::uuid AND id = $2::uuid AND status = 'pending'
+          RETURNING id, company_id, status, reviewed_at, reviewed_by_user_id, decision_reason`,
+        [tenantId, requestId, decision, reviewerUserId, reason ?? null]
+      );
+      const updatedRequest = requestResult.rows[0];
+      if (!updatedRequest) {
+        throw new Error(`VALIDATION_REQUEST_NOT_REVIEWABLE: request ${requestId} não encontrado, fora do tenant, ou não está em status='pending'.`);
+      }
+
+      // 2) Se rejected: nada mais a escrever — COMMIT e retorna.
+      if (decision === 'rejected') {
+        await client.query('COMMIT');
+        return {
+          id: updatedRequest.id,
+          companyId: updatedRequest.company_id,
+          status: updatedRequest.status,
+          reviewedAt: updatedRequest.reviewed_at ? updatedRequest.reviewed_at.toISOString() : null,
+          reviewedByUserId: updatedRequest.reviewed_by_user_id,
+          decisionReason: updatedRequest.decision_reason,
+        };
+      }
+
+      // 3) approved: PROVISIONAL → VERIFIED em companies. WHERE com tenant_id explícito (§8).
+      const companyUpdate = await client.query<{ company_id: string; company_status: string }>(
+        `UPDATE companies
+            SET company_status = 'VERIFIED', is_verified = true, updated_at = NOW()
+          WHERE tenant_id = $1::uuid AND company_id = $2::uuid
+          RETURNING company_id, company_status`,
+        [tenantId, updatedRequest.company_id]
+      );
+      if (companyUpdate.rows.length === 0) {
+        throw new Error(`COMPANY_NOT_FOUND_ON_APPROVE: company ${updatedRequest.company_id} desapareceu entre request e approve (race?).`);
+      }
+
+      // 4) Resolve PAGE actor para audit (Fatia A2: tenant explícito, fail-loud).
+      const pageActorResult = await client.query<{ actor_id: string }>(
+        `SELECT actor_id FROM actors
+          WHERE tenant_id = $1::uuid AND company_id = $2::uuid AND actor_type = 'page'
+          LIMIT 1`,
+        [tenantId, updatedRequest.company_id]
+      );
+      const pageActorRow = pageActorResult.rows[0];
+      if (!pageActorRow) {
+        // Fail-loud DENTRO da transação: o catch força ROLLBACK, então a request NÃO fica
+        // approved e companies NÃO fica VERIFIED se o audit não puder ser gravado.
+        throw new Error(`COMPANY_HAS_NO_PAGE_ACTOR: company ${updatedRequest.company_id} não possui page actor (estado degradado pré-§4.8.2). Audit de validação não foi gravado.`);
+      }
+
+      // 5) Audit no namespace 'validation' do page actor. 'STRUCTURED_REVIEW' distingue do
+      //    'ADMIN_OVERRIDE' direto (adminOverrideToVerified). Naming snake_case alinha com vizinhos.
+      await client.query(
+        `UPDATE actors
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('validation', jsonb_build_object(
+                  'validation_method', 'STRUCTURED_REVIEW',
+                  'validated_by', 'ADMIN_REVIEW',
+                  'validated_at', NOW(),
+                  'reviewer_user_id', $2::uuid,
+                  'request_id', $4::uuid,
+                  'decision_reason', $5::text
+                )),
+                updated_at = NOW()
+          WHERE actor_id = $1::uuid AND tenant_id = $3::uuid`,
+        [pageActorRow.actor_id, reviewerUserId, tenantId, updatedRequest.id, reason ?? null]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        id: updatedRequest.id,
+        companyId: updatedRequest.company_id,
+        status: updatedRequest.status,
+        reviewedAt: updatedRequest.reviewed_at ? updatedRequest.reviewed_at.toISOString() : null,
+        reviewedByUserId: updatedRequest.reviewed_by_user_id,
+        decisionReason: updatedRequest.decision_reason,
+      };
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackErr) {
+        // ROLLBACK falhou (conexão já perdida) — deixa o erro original propagar.
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * getValidationQueue: lista requests do tenant, opcionalmente filtrados por status.
+   * JOIN com companies para entregar contexto institucional na listagem (cnpj, nome).
+   */
+  async getValidationQueue(
+    tenantId: string,
+    status?: string
+  ): Promise<Array<{
+    id: string;
+    companyId: string;
+    companyName: string;
+    cnpj: string | null;
+    submittedByUserId: string;
+    submittedAt: string;
+    submissionNotes: string | null;
+    status: string;
+    reviewedAt: string | null;
+    reviewedByUserId: string | null;
+    decisionReason: string | null;
+  }>> {
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para getValidationQueue (§8 03_IDENTITY_CANONICA)');
+    }
+    const allowedStatus = ['pending', 'under_review', 'approved', 'rejected'];
+    if (status !== undefined && !allowedStatus.includes(status)) {
+      throw new Error(`getValidationQueue: status inválido '${status}' — esperado um de ${allowedStatus.join(',')}`);
+    }
+
+    const rows = await pool.query<{
+      id: string;
+      company_id: string;
+      company_name: string;
+      cnpj: string | null;
+      submitted_by_user_id: string;
+      submitted_at: Date;
+      submission_notes: string | null;
+      status: string;
+      reviewed_at: Date | null;
+      reviewed_by_user_id: string | null;
+      decision_reason: string | null;
+    }>(
+      status
+        ? `SELECT r.id, r.company_id, c.company_name, c.cnpj, r.submitted_by_user_id, r.submitted_at,
+                  r.submission_notes, r.status, r.reviewed_at, r.reviewed_by_user_id, r.decision_reason
+             FROM company_validation_requests r
+             JOIN companies c ON c.company_id = r.company_id AND c.tenant_id = r.tenant_id
+            WHERE r.tenant_id = $1::uuid AND r.status = $2
+            ORDER BY r.submitted_at DESC`
+        : `SELECT r.id, r.company_id, c.company_name, c.cnpj, r.submitted_by_user_id, r.submitted_at,
+                  r.submission_notes, r.status, r.reviewed_at, r.reviewed_by_user_id, r.decision_reason
+             FROM company_validation_requests r
+             JOIN companies c ON c.company_id = r.company_id AND c.tenant_id = r.tenant_id
+            WHERE r.tenant_id = $1::uuid
+            ORDER BY r.submitted_at DESC`,
+      status ? [tenantId, status] : [tenantId]
+    );
+
+    return rows.rows.map((row) => ({
+      id: row.id,
+      companyId: row.company_id,
+      companyName: row.company_name,
+      cnpj: row.cnpj,
+      submittedByUserId: row.submitted_by_user_id,
+      submittedAt: row.submitted_at.toISOString(),
+      submissionNotes: row.submission_notes,
+      status: row.status,
+      reviewedAt: row.reviewed_at ? row.reviewed_at.toISOString() : null,
+      reviewedByUserId: row.reviewed_by_user_id,
+      decisionReason: row.decision_reason,
+    }));
   }
 
   /**
