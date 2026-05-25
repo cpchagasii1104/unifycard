@@ -255,30 +255,12 @@ class CompaniesService {
     input: CreateCompanyInput,
     tenantId?: string
   ): Promise<{ company: Company; companyUser: CompanyUser }> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          operation: 'createCompany',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para createCompany');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    // Produto não resolve identidade (AUTHORITY_PRECEDENCE §4.5). Caller (rota) deve passar req.tenant?.id.
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para createCompany (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        tenantId: finalTenantId,
-        operation: 'createCompany',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para createCompany');
-    }
+    const finalTenantId = tenantId;
 
     // 🔴 Normalizar CNPJ defensivamente: remover formatação (pontos, barras, hífens)
     const normalizedCNPJ = input.cnpj.replace(/\D/g, '');
@@ -723,29 +705,13 @@ class CompaniesService {
 
     // Buscar empresa completa
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
-    const companyUser = await this.getCompanyUserById(userResult.rows[0].company_user_id, globalUserId);
+    const companyUser = await this.getCompanyUserById(userResult.rows[0].company_user_id, globalUserId, finalTenantId);
 
     if (!company || !companyUser) {
       throw new Error('Erro ao criar empresa');
     }
 
     return { company, companyUser };
-  }
-
-  /**
-   * Resolve tenant_id a partir de global_user_id
-   */
-  private async resolveTenantIdFromGlobalUserId(globalUserId: string): Promise<string | null> {
-    const result = await pool.query<{ tenant_id: string }>(
-      `
-      SELECT u.tenant_id
-      FROM users u
-      WHERE u.global_user_id = $1::uuid
-      LIMIT 1
-      `,
-      [globalUserId]
-    );
-    return result.rows[0]?.tenant_id || null;
   }
 
   /**
@@ -971,30 +937,11 @@ class CompaniesService {
    * OVERRIDE: Se for usuário de teste, retorna todas as empresas
    */
   async listCompanies(globalUserId: string, tenantId?: string): Promise<Array<Company & { userRole: CompanyUser }>> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          operation: 'listCompanies',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanies');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanies (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        tenantId: finalTenantId,
-        operation: 'listCompanies',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para listCompanies');
-    }
+    const finalTenantId = tenantId;
 
     const toIso = (v: unknown) =>
       v != null ? (v instanceof Date ? v.toISOString() : String(v)) : '';
@@ -1260,11 +1207,11 @@ class CompaniesService {
     input: UpdateCompanyInput,
     tenantId?: string
   ): Promise<Company> {
-    // 🔴 CRÍTICO: Resolver tenantId (preferir o explícito do contexto/JWT)
-    const finalTenantId = tenantId ?? (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-    if (!finalTenantId) {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompany');
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompany (§8 03_IDENTITY_CANONICA)');
     }
+    const finalTenantId = tenantId;
 
     // 🔴 Verificar se empresa está validada - CNPJ não pode ser editado
     const existing = await this.getCompanyById(companyId, globalUserId, finalTenantId);
@@ -1385,32 +1332,11 @@ class CompaniesService {
    * Busca relacionamento usuário-empresa por ID
    */
   async getCompanyUserById(companyUserId: string, globalUserId: string, tenantId?: string): Promise<CompanyUser | null> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          companyUserId,
-          operation: 'getCompanyUserById',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para getCompanyUserById');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para getCompanyUserById (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        companyUserId,
-        tenantId: finalTenantId,
-        operation: 'getCompanyUserById',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para getCompanyUserById');
-    }
+    const finalTenantId = tenantId;
 
     // 🔴 CORREÇÃO: Query COM filtro tenant_id via JOIN com companies
     const rows = await runQueriesWithTenant<{
@@ -1498,32 +1424,11 @@ class CompaniesService {
     input: UpdateCompanyUserInput,
     tenantId?: string
   ): Promise<CompanyUser> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          companyUserId,
-          operation: 'updateCompanyUser',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompanyUser');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para updateCompanyUser (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        companyUserId,
-        tenantId: finalTenantId,
-        operation: 'updateCompanyUser',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para updateCompanyUser');
-    }
+    const finalTenantId = tenantId;
     const updates: string[] = [];
     const values: any[] = [];
     let paramIdx = 1;
@@ -1647,32 +1552,11 @@ class CompaniesService {
    * Permite remoção mesmo se company_status for APPROVED, desde que não haja transações
    */
   async deleteCompany(companyId: string, globalUserId: string, tenantId?: string): Promise<boolean> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          companyId,
-          operation: 'deleteCompany',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para deleteCompany');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para deleteCompany (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        companyId,
-        tenantId: finalTenantId,
-        operation: 'deleteCompany',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para deleteCompany');
-    }
+    const finalTenantId = tenantId;
 
     // Verificar se empresa existe e pertence ao usuário
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
@@ -1744,32 +1628,11 @@ class CompaniesService {
     userIp?: string,
     tenantId?: string
   ): Promise<{ documentId: string; companyStatus: string; fileName: string }> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          companyId,
-          operation: 'uploadCompanyDocument',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para uploadCompanyDocument');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para uploadCompanyDocument (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        companyId,
-        tenantId: finalTenantId,
-        operation: 'uploadCompanyDocument',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para uploadCompanyDocument');
-    }
+    const finalTenantId = tenantId;
 
     // Verificar se empresa existe e pertence ao usuário
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
@@ -1917,32 +1780,11 @@ class CompaniesService {
     createdAt: Date;
     updatedAt: Date;
   }>> {
-    // 🔴 CRÍTICO: Resolver tenantId se não fornecido
-    let finalTenantId = tenantId;
-    if (!finalTenantId) {
-      finalTenantId = (await this.resolveTenantIdFromGlobalUserId(globalUserId)) ?? undefined;
-      if (!finalTenantId) {
-        console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: Não foi possível resolver tenantId para globalUserId', {
-          globalUserId,
-          companyId,
-          operation: 'listCompanyDocuments',
-          timestamp: new Date().toISOString(),
-        });
-        throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanyDocuments');
-      }
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para listCompanyDocuments (§8 03_IDENTITY_CANONICA)');
     }
-
-    // 🔴 CRÍTICO: Validar tenantId antes de qualquer query
-    if (!finalTenantId || typeof finalTenantId !== 'string' || finalTenantId.trim() === '') {
-      console.error('[CompaniesService] ❌ GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido', {
-        globalUserId,
-        companyId,
-        tenantId: finalTenantId,
-        operation: 'listCompanyDocuments',
-        timestamp: new Date().toISOString(),
-      });
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId inválido para listCompanyDocuments');
-    }
+    const finalTenantId = tenantId;
 
     // Verificar se empresa existe e pertence ao usuário
     const company = await this.getCompanyById(companyId, globalUserId, finalTenantId);
@@ -2190,13 +2032,16 @@ class CompaniesService {
    */
   async adminOverrideToVerified(
     companyId: string,
-    adminGlobalUserId: string
+    adminGlobalUserId: string,
+    tenantId: string
   ): Promise<Company> {
-    // 🔴 CRÍTICO: Resolver tenantId
-    const finalTenantId = await this.resolveTenantIdFromGlobalUserId(adminGlobalUserId);
-    if (!finalTenantId) {
-      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para adminOverrideToVerified');
+    // §8 03_IDENTITY_CANONICA: tenant é input explícito da operação (sem fallback / sem LIMIT 1).
+    // Para admin operando sobre company-alvo, tenant é o do contexto da requisição (req.tenant?.id),
+    // NÃO derivado do globalUserId do admin (que poderia ser duplicado entre tenants).
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para adminOverrideToVerified (§8 03_IDENTITY_CANONICA)');
     }
+    const finalTenantId = tenantId;
     
     // Buscar empresa
     const company = await this.getCompanyById(companyId, adminGlobalUserId, finalTenantId);

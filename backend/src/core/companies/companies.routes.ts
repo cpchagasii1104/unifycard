@@ -283,7 +283,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const deleted = await companiesService.deleteCompany(
         req.params.companyId,
-        req.user.globalUserId
+        req.user.globalUserId,
+        req.tenant?.id
       );
       if (!deleted) {
         return reply.status(404).send({ error: 'Empresa não encontrada' });
@@ -334,7 +335,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
         const companyUser = await companiesService.updateCompanyUser(
           req.params.companyUserId,
           req.user.globalUserId,
-          parsed.data
+          parsed.data,
+          req.tenant?.id
         );
         return companyUser;
       } catch (error) {
@@ -429,7 +431,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
           size: buffer.length,
         },
         'cnpj_receita',
-        userIp
+        userIp,
+        req.tenant?.id
       );
 
       // 🔴 Salvar arquivo com nome único (UUID) retornado pelo service
@@ -471,7 +474,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       const { companyId } = req.params;
       const documents = await companiesService.listCompanyDocuments(
         companyId,
-        req.user.globalUserId
+        req.user.globalUserId,
+        req.tenant?.id
       );
 
       return reply.send({ ok: true, data: documents });
@@ -506,9 +510,10 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
         // Buscar documento (já valida companyId + globalUserId)
         const documents = await companiesService.listCompanyDocuments(
           companyId,
-          req.user.globalUserId
+          req.user.globalUserId,
+          req.tenant?.id
         );
-        
+
         const document = documents.find(d => d.documentId === documentId);
         if (!document) {
           return reply.status(404).send({ ok: false, message: 'Documento não encontrado' });
@@ -644,7 +649,8 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
       
       const company = await companiesService.adminOverrideToVerified(
         companyId,
-        req.user.globalUserId
+        req.user.globalUserId,
+        req.tenant?.id as string
       );
 
       fastify.log.warn({

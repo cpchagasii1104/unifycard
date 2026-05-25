@@ -1090,11 +1090,61 @@ Mesmo padrão: aguarda pressão humana para investigar.
 
 ## DT-GLOBAL-USER-ID-DUPLICATION-E2E
 
-- **Status:** OPEN
+- **Status:** PARTIALLY_RESOLVED 2026-05-25 — vetor em `companies.service` ELIMINADO (Fatia 1 identidade); dados duplicados em E2E persistem (escopo separado, sem path de escrita vulnerável remanescente em companies); migração ampla para fachada `authority.service` continua aberta como frente posterior.
 - **Origem:** Atravessamento HTTP real do fluxo de criação de empresa (2026-05-15) — descoberta via SQL direto durante diagnóstico de divergência de tenant
-- **Classe:** DT-D (dados — duplicação semântica em E2E que vaza para runtime de produção via path compartilhado)
-- **Vinculada a:** `resolveTenantIdFromGlobalUserId` em `companies.service.ts`; `/auth/register` (provável fonte do reuso); fix cirúrgica de `companies.routes.ts:187` (essa fix isola o sintoma mas não trata a causa raiz)
-- **Convergência prevista:** quando outro fluxo cross-tenant pressionar runtime humano e revelar comportamento errático similar (ownership entre tenants, autoridade compartilhada, ledger cross-tenant)
+- **Classe:** DT-D (dados — duplicação semântica em E2E que vazava para runtime de produção via path compartilhado; path em companies fechado em 2026-05-25)
+- **Vinculada a:** ~~`resolveTenantIdFromGlobalUserId` em `companies.service.ts`~~ **REMOVIDA 2026-05-25 (Fatia 1)**; `/auth/register` (provável fonte do reuso); fix cirúrgica de `companies.routes.ts:187` (essa fix isolou um sintoma; Fatia 1 eliminou a raiz no domínio companies)
+- **Convergência prevista:** convergência ampla (auth/identity/resolver canônico) continua emergindo por pressão material — Fatia 1 fechou o domínio companies seguindo o pattern de execução normativa direta
+
+### Fechamento parcial Fatia 1 — companies (2026-05-25)
+
+**Diagnóstico normativo (não era decisão arquitetural pendente):**
+
+A função `resolveTenantIdFromGlobalUserId` (companies.service.ts:738) violava simultaneamente:
+- **`03_IDENTITY_CANONICA.md §8`** — "inferir tenant é proibido"; "resolver identidade pelo primeiro resultado é proibido"; "se tenant_id não estiver disponível, a decisão é inválida por definição". A função fazia `SELECT u.tenant_id FROM users u WHERE u.global_user_id = $1 LIMIT 1` — sem tenant input, sem ORDER BY, retornando "primeiro resultado" quando global_user_id duplicado.
+- **`08_AUTORIDADE_CANONICA.md §10.1`** — `users.user_id/tenant_id/global_user_id` "NÃO criam autoridade, APENAS rastreiam atuação". Função-produto usava global_user_id como decisor de tenant — usurpava soberania da identidade.
+- **`AUTHORITY_LAW.md §1.4 + §3`** — persona nunca é soberana; responsabilidade econômica única. Resolver tenant por "primeiro match" fragmentava responsabilidade.
+- **`docs/ssot/AUTHORITY_PRECEDENCE.md §4.5`** — "Produto é sempre a camada mais fraca. Qualquer regra de produto que conflite com camadas superiores é inválida por definição." `companies.service` é código de produto resolvendo identidade — inválido por definição.
+- **`IDENTITY_SSOT_PRECEDENCE.md`** — fallback inseguro (LIMIT 1) cria risco de "segunda verdade" entre actors/identities/companies/tenant.
+
+As hipóteses originais ("decisão arquitetural sobre semântica de global_user_id for formalizada") foram **superadas pela leitura da norma vigente**: a semântica já estava formalizada desde 03_IDENTITY_CANONICA §2 ("global_user_id é único no sistema; não pode ser duplicado") + §5 ("identidade por tenant é proibido"). Padrão "executar o já-decidido" (DECISION-0031/0032 do social).
+
+**Execução (Variante C — tenant explícito):**
+
+10 sítios alterados em `companies.service.ts` + 6 sítios em `companies.routes.ts` + remoção da função-violadora:
+
+| Sítio | Mudança |
+|---|---|
+| `companies.service.ts:738` (def) | Função `resolveTenantIdFromGlobalUserId` **REMOVIDA** |
+| 9 métodos (`createCompany`, `listCompanies`, `updateCompany`, `getCompanyUserById`, `updateCompanyUser`, `deleteCompany`, `uploadCompanyDocument`, `listCompanyDocuments`, `adminOverrideToVerified`) | Substituídos os blocos `let finalTenantId = tenantId; if (!finalTenantId) { ...resolveTenantIdFromGlobalUserId... }` + bloco de validação dupla por: `if (!tenantId \|\| trim() === '') throw §8` + `const finalTenantId = tenantId;`. `adminOverrideToVerified` ganhou parâmetro `tenantId: string` obrigatório na signature |
+| `companies.routes.ts` | 5 chamadas internas que omitiam `req.tenant?.id` ajustadas (`deleteCompany`, `updateCompanyUser`, `uploadCompanyDocument`, `listCompanyDocuments` ×2); `adminOverrideToVerified` chamada com `req.tenant?.id as string` |
+| `companies.service.ts:708` | Chamada interna `getCompanyUserById(..., globalUserId)` ajustada para passar `finalTenantId` (sub-bug colateral exposto pela §8 nova) |
+
+**Validação (5 critérios passaram):**
+- `tsc --noEmit` exit 0.
+- Grep órfão: zero referências a `resolveTenantIdFromGlobalUserId` em `backend/src/`.
+- 4 gates verdes: bank-ledger §4.6 OK; actor-writer §4.8.1 OK; regression-guards OK; architectural Total 20 = baseline inalterado.
+- `critical_total` inalterado (20 = 20).
+- Boot limpo.
+
+**Prova material (4 cenários — ESCRITAS):**
+- D-1 (CREATE via rota): `POST /companies` → HTTP 201, company `90621f4e-99a7-434e-9cee-2a89aae9859f` gravada. SELECT confirmou `tenant_id = fbe13b78-4516-493d-905a-363796aea1d1` (DO CONTEXTO `req.tenant?.id`, NÃO inferido por LIMIT 1).
+- D-2 (UPDATE via rota): `PUT /companies/:id` → HTTP 200, `tradeName` alterado, `tenant_id` preservado.
+- D-3 (adminOverrideToVerified COM tenant, via smoke tsx direto): atravessou o gate §8 com sucesso; falhou em bug **pré-existente e separado** (`coluna 'metadata' não existe` em companies — DT-COMPANIES-METADATA-COLUMN-MISSING, escopo distinto). Caminho de identidade não é mais vetor.
+- D-4 (adminOverrideToVerified SEM tenant, via smoke tsx direto): `THROW §8 esperado: GLOBAL_USER_ID_TENANT_SAFETY_VIOLATION: tenantId é obrigatório para adminOverrideToVerified (§8 03_IDENTITY_CANONICA)` — defensa em runtime confirmada.
+
+**O que esta fatia FECHOU:**
+- Domínio `companies` inteiro convergido. Toda escrita exige tenant explícito por contrato de tipo + defensa em runtime. Função LIMIT 1 não existe mais no código.
+
+**O que NÃO foi tocado (frentes posteriores):**
+- Migração ampla para fachada `authority.service` como resolver canônico de identidade.
+- Dados duplicados em E2E (`global_user_id` repetido em 23 tenants) — escopo de saneamento de fixtures, não de código de produto. Sem path de escrita vulnerável remanescente em companies; outros domínios precisam ser auditados quando emergir pressão (mesma régua das Hipóteses originais 1, 3).
+- Auth recovery via global_user_id / bank cross-tenant / profile merge — não auditados, mantêm "vulneráveis" até demanda material.
+
+**Lições materiais:**
+1. **Norma vence "hipótese arquitetural pendente"**: as 4 hipóteses da DT original (`/auth/register` enforcement, CPF aleatorizado, deprecation da função, UNIQUE constraint) foram superadas pela leitura de §5+§8 — `global_user_id` é único por definição; deprecation da função foi feita executando, não decidindo.
+2. **Verificação cruzada de norma antes de execução**: V1/V3 bateram literal; V2 bateu em substância mas a numeração inicial (`§4.9.X`) não correspondia ao disco — citação corrigida para `08_AUTORIDADE_CANONICA §10.1` + `AUTHORITY_LAW §1.4/§3`. Lição: sempre ler norma direto do disco, não confiar em referência por número.
+3. **§8 expôs sub-bug colateral**: a chamada interna em `createCompany:708` (`getCompanyUserById` sem tenant) só apareceu em runtime após a primeira execução pós-Fatia. Fechado na mesma sessão. Disciplina: rodar prova material logo após edit estrutural para flush de sub-bugs internos.
 
 ### Contexto
 
