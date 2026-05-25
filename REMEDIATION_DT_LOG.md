@@ -90,7 +90,7 @@ Pattern para frentes futuras: archive perdido em rebase pode coexistir, na mesma
 
 ### Resolução
 
-Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada em 2026-05-25 (commit pendente):
+Migration forward-only `20260530551000_restore_actor_has_any_role.sql` aplicada em 2026-05-25 (commit `33c49a46`):
 - `CREATE OR REPLACE FUNCTION public.actor_has_any_role(uuid, uuid, text[]) RETURNS BOOLEAN` — corpo IDÊNTICO ao da migration 300 perdida (EXISTS com JOIN `actors → user_roles → roles WHERE r.name = ANY(p_role_names)`); SECURITY DEFINER; idempotente via `CREATE OR REPLACE`.
 - COMMENT cita restauração datada e a perda em rebase.
 - Cabeçalho documenta: causa (perda acidental), norma vigente (`RBAC_V2_CONTRACT.md §6.2`), disciplina aplicada (`feedback_archive_nao_e_ssot.md`), fronteira (`actor_has_permission` intocada por C47/DECISION-0013).
@@ -1391,7 +1391,7 @@ Bug raiz `global_user_id` duplicado continua em DT-GLOBAL-USER-ID-DUPLICATION-E2
 
 ## DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT
 
-- **Status:** RESOLVED 2026-05-25 — mitigação frontend via DECISION-0043 (redirect síncrono Profile.tsx → /empresa/:companyId; backend bifurcação core.service.ts). Backend getProfile ainda ignora actorId — gap cosmético sem pressão material. Sem critério de reabertura definido. (Inconsistência detectada: cabeçalho marcava OPEN mas DECISION-0043 §"Supera" já declarava encerrada em PASSO 6 do mesmo ciclo — log corrigido em 2026-05-25 como parte do warmup do dia.)
+- **Status:** RESOLVED 2026-05-25 — mitigação frontend via DECISION-0043 (redirect síncrono Profile.tsx → /empresa/:companyId; backend bifurcação core.service.ts). Backend getProfile ainda ignora actorId — gap cosmético sem pressão material. Sem critério de reabertura definido. (Inconsistência detectada: cabeçalho marcava OPEN mas DECISION-0043 §"Supera" já declarava encerrada em PASSO 6 do mesmo ciclo — log corrigido em 2026-05-25 como parte do warmup do dia, commit `20b5d233`.)
 - **Origem:** Atravessamento runtime-first (2026-05-15) — comparação USER vs PAGE actor em GET /core/profile
 - **Classe:** DT-P (projeção contextual incompleta)
 - **Vinculada a:** Direção "actor-first / context-first" (memória institucional pós-2026-05-14); `action-context.middleware`
@@ -2104,7 +2104,7 @@ Qualquer descongelamento dos 16 satellites exige simultaneamente:
 ## RENOMEAÇÃO — DT-COMPANIES-METADATA-COLUMN-MISSING → DT-ONBOARDING-METADATA-STORAGE-DECISION
 
 - **Origem:** Auditoria material 2026-05-16 (sprint de priorização)
-- **Status:** ~~OPEN~~ **RESOLVED 2026-05-25 — Opção 4 (actors.metadata do page actor)**
+- **Status:** ~~OPEN~~ **RESOLVED 2026-05-25 (commit `dd8aebe9`) — Opção 4 (actors.metadata do page actor)**
 - **Razão material:** ALTER TABLE companies ADD metadata seria 5min DDL, mas substrato canônico EXISTE: `tenants.company_type_id` (uuid FK), `company_types` (7 rows com defaults), `actors.metadata` (jsonb), `actors.company_id`, `company_users.metadata` (jsonb). Service `companies.service.ts:444-455` pula o caminho canônico e descarta onboarding state silenciosamente.
 - **Decisão arquitetural disfarçada:** entre 4 caminhos (ALTER TABLE / tabela dedicada / convergir para company_types+tenants / mover para actors.metadata)
 - **DT original preservada** em sua localização (linhas 1168-1216) com nota de redirect.

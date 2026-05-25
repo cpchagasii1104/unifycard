@@ -1,7 +1,7 @@
 ## 2026-05-25 — SESSÃO Frente B: fluxo submissão→análise→decisão para formalização (existe e é queryável)
 
 **Branch:** `rescue-structural`
-**HEAD inicial do dia:** `3df299f4` | **HEAD final do dia (pós-Frente B):** (este commit)
+**HEAD inicial do dia:** `3df299f4` | **HEAD final do dia (pós-Frente B):** `7bf451ef`
 **Hashes do dia (cronologia):** `ebd6054d` (Fatia 1) → `33c49a46` (Fatia A1) → `a6b07516` (raio-x) → `dd8aebe9` (Fatia A2) → `20b5d233` (baseline 29) → (este commit, Frente B).
 
 **Contexto:** Raio-x junta universal (`docs/04_audit/2026-05-25-raio-x-junta-universal.md`) registrou em §5(b) como **NÃO EXISTE / construir**: "fluxo de submissão→análise→decisão para formalização". `company_validations` é carimbo imutável (FASE 12, sem `status`/`reviewer`/`submitted_at`); A2 fechou o vetor de gravação de audit ad-hoc em `actors.metadata.validation` mas não dá fila queryável. Convergência sobre padrão `submit→analyze→approve` que já existe em orders/disputes/subscriptions — disputes escolhido como referência (`modules/disputes/financial-dispute-repository.ts`).
