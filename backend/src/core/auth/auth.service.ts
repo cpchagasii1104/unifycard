@@ -523,6 +523,21 @@ class AuthService {
       console.warn('[register] ensureUserActor falhou — será retentado no próximo acesso:', actorError);
     }
 
+    // 🔴 FATIA C1 (2026-05-25): Criar identity pending/none para o globalUserId.
+    // Decisão das 3 camadas: cadastro CRIA EXISTÊNCIA (identity nasce pending/none aqui),
+    // KYC APROVA CAPACIDADE (workflow separado — Fatia C2), authority LIBERA EXECUÇÃO
+    // (gate em authority-decision.service permanece intocado: pending continua bloqueando).
+    // Elimina a descontinuidade /auth/register ↔ identities: identity nasce com row,
+    // não mais ausente até alguém criar manualmente.
+    // Idempotente (ON CONFLICT DO NOTHING). Best-effort com log — mesmo padrão de
+    // ensureUserActor acima (retentado no próximo acesso se falhar aqui).
+    try {
+      const { identityService } = await import('@core/identity/identity.service');
+      await identityService.ensureIdentityRowForGlobalUserId(globalUserId);
+    } catch (identityError) {
+      console.warn('[register] ensureIdentityRowForGlobalUserId falhou — será retentado no próximo acesso:', identityError);
+    }
+
     // 🔴 PARTE 2 - ONBOARDING: Usuário recém-criado sempre precisa de onboarding
     const requiresOnboarding = true;
 

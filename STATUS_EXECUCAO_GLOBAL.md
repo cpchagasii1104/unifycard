@@ -1,3 +1,46 @@
+## 2026-05-25 — Fatia C1: /auth/register cria identity pending/none — descontinuidade cadastro↔gate eliminada na raiz
+
+**Branch:** `rescue-structural`
+**HEAD pré-C1:** `bca8ffb7` (G2 Etapa 2) | **HEAD pós-C1:** (este commit)
+
+**Contexto:** Veredito da Frente C Etapa 1 (terreno KYC) registrou descontinuidade material: `/auth/register` criava `global_users` + `users` + actor PF via `ensureUserActor`, mas **NÃO criava `identities`**. Em strict mode (default em produção), todo cadastro novo entrava completamente bloqueado no gate financeiro (`authority-decision.service.evaluateKycLayer` → `IDENTITY_NOT_LINKED:STRICT → IDENTITY_REQUIRED_STRICT_MODE`). Identity só era criada via `ensureCanonicalActorChain` chamada apenas por scripts E2E.
+
+**Decisão Clayton (regra das 3 camadas):** cadastro CRIA EXISTÊNCIA, KYC APROVA CAPACIDADE, authority LIBERA EXECUÇÃO. Opção 1 das 3 disponíveis no veredito da Etapa 1: cadastro passa a criar identity pending/none automaticamente; workflow de aprovação vira fatia separada (C2); gate `authority-decision` permanece intocado (pending continua bloqueando).
+
+**Entregue (1 commit cirúrgico):**
+
+- **Edit único** em `backend/src/core/auth/auth.service.ts` (~L526-538): chamada a `identityService.ensureIdentityRowForGlobalUserId(globalUserId)` imediatamente após o `ensureUserActor` (mesmo padrão de criticidade — try/catch best-effort com warn; retentado no próximo acesso se falhar). Idempotente via `ON CONFLICT DO NOTHING` no INSERT do `identity.service.ts:255`. Comentário institucional registra a regra das 3 camadas e o vínculo com a Fatia C2 (workflow separado).
+
+- **Padrão de criticidade:** seguiu literalmente o já-existente do `ensureUserActor` (L518-524) — best-effort com `console.warn`, sem `throw`. NÃO inventou criticidade nova. Justificativa: idempotência via `ON CONFLICT` torna seguro retentar; falhas pontuais não devem invalidar o cadastro inteiro.
+
+**Prova material (cadastro PF novo via HTTP `/auth/register`):**
+
+Setup: CPF `74666884467` (gerado válido), email `c1-test-1779746668844@e2e.internal`. Response do register: `userId=db3d928b-...`, `tenantId=3eccb4ea-...` (criado auto), `globalUserId=50f48df9-...` (do JWT).
+
+- **SELECT global_users:** 1 row, cpf=74666884467, full_name='C1 Test User' ✅
+- **SELECT users:** 1 row, tenant_id + global_user_id ligados, email correto ✅
+- **SELECT actors:** 1 row, actor_type='user', user_id=db3d928b-... (via `ensureUserActor`) ✅
+- **SELECT identities (NOVO — prova C1):** 1 row, `global_user_id=50f48df9-...`, `tax_id=74666884467`, `tax_id_type=cpf`, `kyc_status=pending`, `kyc_level=none` ✅
+- **Gate ainda bloqueia (esperado):** `authorityDecisionService.evaluateFinancialSensitiveAction(tenant, {actorId, action:'transfer', amountCents:100, currency:'BRL'})` retornou `reason=KYC_PENDING_BLOCKS_FINANCIAL`, `layers=[ATL skip, KYC block (KYC_PENDING)]`. Identity existe + status=pending → bloqueio correto. Authority permanece intocada.
+- **Idempotência:** `ensureIdentityRowForGlobalUserId` chamado 2x no mesmo `globalUserId` → no-throw em ambas, `count_before=1`, `count_after=1` (ON CONFLICT DO NOTHING).
+
+**5 critérios:** `tsc --noEmit` exit 0; sem grep órfão (escopo pequeno); 4 gates verdes (`validate:architecture:strict` `critical_new=0 critical_total=29`; `docs:gates:check` exit 0); boot limpo (subiu, /health 200, hot-reload sem regressão); prova material via HTTP+SELECTs+gate+idempotência acima.
+
+**Limpeza:** usuário de teste C1 + identity + global_user + actor + tenant deletados após prova material. SELECT confirmou zero leftovers em 5 tabelas (actors, users, identities, global_users, tenants).
+
+**Estado pós-C1:**
+- A descontinuidade `/auth/register ↔ identities` está ELIMINADA NA RAIZ.
+- Todo cadastro PF a partir daqui nasce com identity row em `identities` (kyc_status=pending, kyc_level=none).
+- Comportamento do gate financeiro INALTERADO (continua bloqueando pending, como antes — mas agora com row explícita, não ausência).
+- E2E financeiro existente continua funcional: ainda usa `INSERT ... ON CONFLICT DO UPDATE` para forçar `kyc_status='approved'/'complete'` no seed (override consciente do estado default pending/none do C1).
+
+**Frentes NÃO abertas:**
+- Fatia C2 (workflow `identity_validation_requests` — submit→review→approve análogo à Frente B). Fica para próxima fatia.
+- Convergência dos 3 vocabulários KYC (`identities` vs `actors.kyc_*` mortas vs `contacts.kyc_status` marketplace). Veredito Etapa 1 confirmou: não bloqueia C; frentes separadas.
+- Authority gate (`authority-decision.service`) permanece intocado por desenho.
+
+---
+
 ## 2026-05-25 — G2 Etapa 2: E2E transversal de empresa (cadastro → empresa → submit → review) criado e passando
 
 **Branch:** `rescue-structural`
