@@ -1,3 +1,51 @@
+## 2026-05-25 — E2E transversal de KYC: as 3 camadas provadas em sequência única encadeada (gate block→allow)
+
+**Branch:** `rescue-structural`
+**HEAD pré-E2E-KYC:** `e961da7f` (Fatia C2) | **HEAD pós-E2E-KYC:** (este commit)
+
+**Contexto:** Frente C fechada (C1 `24d85c6d` + C2 `e961da7f`) provou cada peça em isolado. Esta fatia entrega o E2E que **encadeia as 3 camadas em sequência única** num único script de prova — simétrico ao G2 Etapa 2 (E2E de empresa, commit `bca8ffb7`). Arquivo separado por disciplina (seeds ortogonais — KYC humano precisa só de tenant + admin; financeiro precisa de bank accounts + mint + services).
+
+**Entregue (1 commit funcional):**
+
+- **Script novo** `backend/src/scripts/validate-pipeline-e2e-kyc.ts` — espelha o estilo Modo A causal / Modo B falsificações dos demais E2E (financeiro + empresa). Roda contra o caminho canônico em-processo (sem HTTP overhead): `authService.register` + `authorityDecisionService.evaluateFinancialSensitiveAction` + `identityValidationService.{submitIdentityValidation, reviewIdentityValidation}`. Cleanup explícito por ID no `finally` (banco volta intacto, zero leftovers).
+
+- **Modo A — fluxo causal (5 etapas + PROVA DE OURO):**
+  - Etapa 1 (cadastro PF via `authService.register`): SELECT confirma cadeia completa global_user + actor PF + identity pending/none (Fatia C1).
+  - **Etapa 2 (gate ANTES — linha de base): identity pending → BLOCK** `decision=block, KYC layer reason=KYC_PENDING, top reason=KYC_PENDING_BLOCKS_FINANCIAL`.
+  - Etapa 3 (submit `targetKycLevel='complete'`): SELECT confirma request `pending` com `submitted_by=admin`, `global_user_id=PF`, `target_kyc_level=complete`.
+  - Etapa 4 (review approved transacional): SELECT confirma request `approved` + identities `kyc_status=approved`/`kyc_level=complete` + **timestamps coincidem** (`request.reviewed_at = identities.updated_at` — mesma transação BEGIN/COMMIT).
+  - **Etapa 5 (gate DEPOIS, MESMO actor, gate intocado): ALLOW** `decision=allow, KYC layer outcome=pass reason=KYC_OK:approved`.
+  - **A6 PROVA DE OURO:** `gate_before=block` → `gate_after=allow` no MESMO actor, sem mexer no gate. Materializa em runtime as 3 camadas conectadas ponta a ponta:
+    - cadastro CRIOU (identity pending nasce — C1)
+    - KYC APROVOU (workflow muda → approved — C2)
+    - authority LIBEROU (gate intocado: block → allow)
+
+- **Modo B — 3 falsificações rejeitadas:**
+  - B1: submit em identity já approved → `IDENTITY_ALREADY_APPROVED` ✓
+  - B2: segundo submit com pending existente → `IDENTITY_HAS_PENDING_VALIDATION` (UNIQUE parcial) ✓
+  - B3: review de `requestId` inexistente → `VALIDATION_REQUEST_NOT_REVIEWABLE` ✓
+
+**Caveats materiais (não-bloqueantes):**
+- O E2E em-processo NÃO exercita HTTP (preHandler `requireRole`, `x-action-context`, JWT). A prova HTTP completa dos endpoints C2 foi feita no commit `e961da7f` (Fatia C2); o E2E em-processo prova o atravessamento causal das peças.
+- NÃO executa transfer real após o gate liberar. Provar que o gate PASSA basta — transação financeira efetiva é outro pipeline já coberto pelo `validate-pipeline-e2e-transversal.ts` (financeiro).
+- Pequeno atrito durante criação: tipo `FinancialRiskAction` exige string `'financial_transfer'` (não `'transfer'`); `FinancialSensitiveActionInput` não aceita `currency` no input (só `action` + `amountCents`). Ajustes mecânicos no script.
+
+**5 critérios:** `tsc --noEmit` exit 0 (após 2 ajustes de tipo no escopo do script novo); script PASS (Modo A 5 etapas + A6 PROVA DE OURO + Modo B 3 rejeições + cleanup zero leftovers); 4 gates verdes (`validate:architecture:strict` `critical_new=0 critical_total=29` preservado; `docs:gates:check` exit 0); boot N/A (script standalone).
+
+**Limpeza:** 2 PFs criados (e relations: identity, actor, profile, user_profile, global_user, validation_requests) deletados. SELECT por LIKE no full_name='E2E KYC Test%' e email='e2e-kyc-%' confirmou zero leftovers em 4 tabelas.
+
+**Estado pós-E2E KYC:**
+- As 3 camadas da Frente C (C1 cadastro + C2 KYC + authority preservada) provadas em SEQUÊNCIA ÚNICA ENCADEADA, não mais em isolado.
+- Prova de ouro materializada em script reproduzível: `gate_before=block → gate_after=allow` no mesmo actor após o workflow aprovar.
+- Simetria com G2 Etapa 2 (E2E de empresa) estabelecida — 2 E2Es transversais ortogonais cobrem nascimento de empresa e nascimento de pessoa (até o gate).
+
+**Frentes NÃO abertas:**
+- Estender o E2E para executar transfer real após gate liberar — pipeline financeiro ortogonal (já coberto pelo E2E financeiro existente).
+- E2E HTTP-level (subir backend + JWT + ActionContext + requireRole) — casca de transporte já provada no commit C2 (`e961da7f`).
+- Resubmit após rejected, self-service do user, convergência dos 3 vocabulários KYC — fatias separadas conforme veredito C Etapa 1.
+
+---
+
 ## 2026-05-25 — Frente C completa: 3 camadas conectadas (cadastro CRIA → KYC APROVA → authority LIBERA)
 
 **Branch:** `rescue-structural`
