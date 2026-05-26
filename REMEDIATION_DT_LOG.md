@@ -5312,7 +5312,12 @@ Reabrir feature exige: (i) JTBD real (uploads sendo feitos em produção / posts
 
 ## DT-RECONCILE-SCRIPTS-ALLOWPATH
 
-- **Status:** OPEN
+- **Status:** CLOSED (fix aplicado em scripts/validate-architectural-patterns.mjs — scripts E2E saem do baseline como classe semântica, não como exceção caso-a-caso)
+- **Severidade resolvida:** LOW
+- **Resolução 2026-05-26 (após Camada 1 atomicidade):** allowPath da regra `NO_DIRECT_BANK_TABLE_ACCESS` estendido com padrão estreito `scripts\/(validate-pipeline-e2e-|e2e-)[^\/]+\.(ts|tsx|js|jsx)$`. Cobre os 3 únicos arquivos com refs reais (não-comentário) a bank_* em scripts/: `e2e-incentive-bank-checklist.ts`, `validate-pipeline-e2e-kyc.ts`, `validate-pipeline-e2e-transversal.ts`. Outros scripts (seeds, validações, checadores) permanecem sob vigilância — qualquer ref real a bank_* dispara CRITICAL new. Negative test confirmou: arquivo temporário em `backend/src/modules/feed/` com `bank_ledger` foi detectado (critical_new=1, exit 1, gate bloqueia). Impacto: 41 entradas órfãs removidas do baseline; critical_total 73→20; critical_new=0 preservado. Sinal do gate restaurado antes da F1.
+
+### Histórico (manter para auditoria)
+
 - **Severidade:** LOW (cosmético — gera ruído no baseline, não bloqueia runtime nem compromete causalidade financeira)
 - **Origem:** Higiene documental 2026-05-25, após sessão completa do dia (Frente B / E2E transversal / OUTBOX_ATOMICITY_HARDENING / Caminho 2 reconciliation / Etapa 6 E2E financeiro). Auditoria do crescimento do baseline (`scripts/security/check-architectural-patterns-baseline.json`) detectou que 19 entradas novas absorvidas hoje (`8f32838e` → atual) são todas em `backend/src/scripts/validate-pipeline-e2e-*.ts` — arquivos de E2E que legitimamente exercitam o circuito financeiro completo (insert direto em `bank_ledger`, query direta em `bank_transactions`, etc.) com objetivo de **provar invariantes**, não de violar substrato.
 - **Vinculada a:** `DT-OUTBOX-ATOMICITY` (RESOLVED `8afeec9a`), `DT-CONSERVATION-OBSERVABILITY` (OPEN `c94eebe2`), gate `scripts/security/check-architectural-patterns.ts` (regra `NO_DIRECT_BANK_TABLE_ACCESS`).

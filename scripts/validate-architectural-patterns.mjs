@@ -104,8 +104,15 @@ const RULES = [
     description: 'Referência a tabelas SSOT bancárias fora do domínio autorizado',
     pattern: /\b(bank_ledger|bank_transactions|bank_accounts)\b/,
     // Bank vive em modules/bank mas também em core/unifybank, reconciliação e observabilidade.
+    //
+    // DT-RECONCILE-SCRIPTS-ALLOWPATH: scripts E2E/probes (validate-pipeline-e2e-*.ts
+    // e e2e-*.ts) referenciam bank_* tabelas LEGITIMAMENTE para provar invariantes
+    // materiais (Σ(débito)=Σ(crédito), atomicidade transacional, presença→ausência
+    // em rollback). Padrão de nome restrito: apenas arquivos com esses prefixos sob
+    // backend/src/scripts/. Outros scripts (seeds, validações, checadores)
+    // permanecem sob vigilância — refs reais a bank_* viram CRITICAL new.
     allowPath:
-      /\/(modules\/(bank|ledger|reconciliation|treasury|economy|observability|gateway|audit|payments|payout|escrow)|core\/(unifybank|reconciliation|observability|events\/event-economy)|workers\/)/i,
+      /\/(modules\/(bank|ledger|reconciliation|treasury|economy|observability|gateway|audit|payments|payout|escrow)|core\/(unifybank|reconciliation|observability|events\/event-economy)|workers\/|scripts\/(validate-pipeline-e2e-|e2e-)[^\/]+\.(ts|tsx|js|jsx)$)/i,
   },
   {
     name: 'NO_MANUAL_MONEY_CALCULATION',
