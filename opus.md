@@ -1238,3 +1238,35 @@ institucional sendo enforced, não um bug a corrigir.
 **Lição:** invariantes econômicos reais devem sobreviver à pressão de execução, smoke
 tests e conveniência operacional. Quando smoke financeiro falha por invariante de
 runtime, hipótese-padrão é "invariante está certo, smoke estava errado", não o contrário.
+
+---
+
+## DECISION-0047 — Economic Policy Engine como camada canônica de DECISÃO de split (2026-05-26)
+
+PE-1 substrate. 5 tabelas (`economic_policies` + `economic_policy_lines` +
+`access_pass_products` + `actor_access_passes` + `economic_policy_resolution_logs`) +
+resolver puro determinístico + 15 E2E verdes.
+
+**Princípio operacional:** policy é resolução, não cálculo inline. Toda regra de split
+econômico de qualquer transação passa a ser:
+
+1. **Resolução** — `economicPolicyEngineService.resolveEconomicPolicy(input)` retorna
+   policy + lines + access pass aplicado por specificity DESC → priority DESC →
+   effective_from DESC. Fail-closed em AMBIGUITY / NOT_FOUND.
+2. **Cálculo** — `calculatePolicySplits(amountCents, lines)`: BPS integer (sem float).
+   Drift de arredondamento absorvido pela primeira linha `revenue_share`. Sem
+   revenue_share = fail-closed `DRIFT_NO_REVENUE_SHARE`.
+3. **Persistência** — `bank_splits` continua soberano (DECISION-0044, CORE_SPLIT).
+   Engine entrega `CalculatedEconomicSplit[]`; caller traduz em INSERT.
+4. **Audit** — `economic_policy_resolution_logs` registra CADA chamada (inclusive
+   fails) com input + policy + splits + pass.
+
+**O que NÃO está plugado ainda:**
+
+- `service-payment-execution` continua com split hardcoded (`DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION`, frente PE-3).
+- Não há admin panel / CRUD (`DT-ECONOMIC-POLICY-ADMIN-PANEL`, frente PE-2).
+- `bank_policies` legacy permanece dormente (`DT-POLICY-ENGINE-LEGACY-DEPRECATION`, frente PE-4).
+
+**Regra operacional permanente:** qualquer fluxo econômico NOVO deve usar o engine. O
+caller chama `resolveEconomicPolicy(...)` na transação financeira; se policy ausente,
+falha fail-closed (não cair em hardcoded). Inserir policy no DB > cálculo inline.

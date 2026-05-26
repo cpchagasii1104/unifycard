@@ -5898,3 +5898,129 @@ Frente futura: regra adicional em `validate-architectural-patterns.mjs` que flag
 
 - DECISION-0046 + documentação suprem o "como deveria ser" para revisão humana.
 - Fluxos novos (D-money) já seguem o canônico por construção.
+
+---
+
+## DT-POLICY-ENGINE-LEGACY-DEPRECATION
+
+- **Status:** OPEN (MEDIUM — deprecação formal de `bank_policies` como fonte de policy)
+- **Origem:** PE-1 substrate 2026-05-26 + DECISION-0047. `economic_policies` (+ lines) é declarado canônico como camada de DECISÃO de policy. `bank_policies` (citada em CORE_SPLIT_PAGAMENTO_CANONICO §2.1) permanece como legado dormente e NÃO foi removida nesta fatia.
+
+### O que ainda existe
+
+- Tabela `bank_policies` no DB (status real precisa ser auditado em PE-2).
+- Eventual código referenciando `bank_policies` (não confirmado nesta fatia — read-only de PE-1 não auditou callers).
+
+### Por que não fazer agora
+
+PE-1 entrega APENAS substrato (tabelas + types + repository + resolver). Plugar o engine no fluxo financeiro real (substituir o split hardcoded em `service-payment-execution`) é frente PE-3. Auditar/migrar callers legacy de `bank_policies` é frente PE-2/PE-4 — depende de inventário completo de uso e plano de migração de dados se houver instâncias vivas.
+
+### Resolução prevista
+
+1. Audit completo: `bank_policies` está vazia/preenchida? Quais callers? Convergência ou abandono?
+2. Se vazia: marcar `bank_policies` como deprecated em comentário de schema; CORE_SPLIT atualizado.
+3. Se preenchida: plano de migração de instâncias para `economic_policies` (1:1 ou re-modelagem).
+4. PE-3 elimina último caller; PE-4 droppa tabela após gate verde por X dias.
+
+### Não bloqueia
+
+- PE-1 não muda nada do fluxo financeiro vivo — só introduz substrato.
+- `bank_splits` / `bank_ledger` (PERSISTÊNCIA) permanecem soberanos por DECISION-0044 + CORE_SPLIT_PAGAMENTO_CANONICO.
+
+---
+
+## DT-ECONOMIC-POLICY-ADMIN-PANEL
+
+- **Status:** OPEN (HIGH — sem CRUD/UI/handler de admin, policies só nascem via seed direto no DB ou via repository TS)
+- **Origem:** PE-1 substrate 2026-05-26. Tabelas + types + repository + resolver foram entregues. Mas:
+  - NÃO há endpoint REST/Fastify para criar/editar/listar/desativar policy.
+  - NÃO há UI admin para configurar splits.
+  - NÃO há schema validation pública (Zod/Ajv) para input de policy.
+
+### O que NÃO existe ainda
+
+- `POST /admin/economic-policies` (criar policy + lines em transação atômica com validações de produto).
+- `GET /admin/economic-policies` (listar por contexto).
+- `POST /admin/economic-policies/:id/deactivate` (`status='deprecated'`).
+- `POST /admin/access-pass-products` (catálogo).
+- `POST /admin/actor-access-passes` (instância manual — venda automática é frente posterior).
+- Schema Zod completo + validação de invariantes (Σbps = 10000 quando todas linhas são bps; vigência válida; pelo menos uma line; etc.).
+
+### Por que não fazer agora
+
+PE-1 é fundação. Sem o resolver funcional + tabelas materializadas + audit trail, qualquer admin panel seria construído sobre substrato instável. O E2E provou que o resolver é determinístico e o substrato é íntegro — agora PE-2 pode construir CRUD com confiança.
+
+### Resolução prevista
+
+Frente PE-2 (planejada): admin handlers + Zod schemas + UI panel + permissões (somente roles `platform_admin`/`tenant_admin` podem editar). Validação de invariantes em camada de service ANTES do INSERT.
+
+### Não bloqueia
+
+- PE-1 sozinho não plugou o engine em nenhum fluxo financeiro vivo (PE-3 fará isso). Antes disso, policies podem ser inseridas via seed durante testes/desenvolvimento. Produção ainda usa split hardcoded.
+
+---
+
+## DT-CATEGORY-AS-POLICY-SELECTOR
+
+- **Status:** OPEN (LOW — limitação conhecida do modelo `categories` global como seletor em `economic_policies` tenant-bound)
+- **Origem:** PE-1 substrate 2026-05-26. Migration `20260530560000` declarou `category_id UUID REFERENCES categories(category_id) ON DELETE SET NULL` para permitir policy por categoria.
+
+### O que está OK
+
+- FK declarada e funcional (E2E T4/T15 provam).
+- Specificity considera category_id como seletor — policy com categoria vence policy sem categoria no mesmo contexto.
+
+### O que merece atenção futura
+
+`categories` é tabela GLOBAL (sem `tenant_id`). Significa que o `category_id` numa policy de tenant X **pode** referenciar categoria criada por tenant Y (porque categorias são compartilhadas). Isso é PROPOSITAL para taxonomias globais (medicina, advocacia, etc.), mas pode confundir auditoria multi-tenant — policy de tenant X aparenta "depender" de objeto fora do seu escopo.
+
+Não é violação — é consequência do modelo de categorias globais. PE-2/PE-3 devem:
+
+1. Documentar no UI admin que category_id se refere à taxonomia global.
+2. Se houver categories tenant-scoped no futuro, adicionar coluna `category_scope` na policy (`global` | `tenant`) para desambiguar.
+
+### Resolução prevista
+
+Cosmética — documentação no admin panel (PE-2). Não exige mudança de schema enquanto categorias seguirem o modelo global.
+
+### Não bloqueia
+
+- Resolver funciona corretamente hoje. FK garante integridade referencial.
+- ON DELETE SET NULL impede categoria apagada de quebrar policy (vira NULL, perde specificity, mas não falha).
+
+---
+
+## DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION
+
+- **Status:** OPEN (HIGH — engine existe mas service_execution continua usando split hardcoded; até plug, engine é "casa vazia")
+- **Origem:** PE-1 substrate 2026-05-26 + auditoria pré-PE-1 (raio-x do split financeiro). `service-payment-execution.repository.ts` insere `bank_splits` com destinos hardcoded (escrow_payments → actor_wallet + platform_fees + ...). PE-1 entregou o engine; PE-3 fará o plug.
+
+### O que NÃO existe ainda
+
+- Caller em `service-payment-execution` que chame `economicPolicyEngineService.resolveEconomicPolicy(input)` para obter as `lines` e calcular splits via `calculatePolicySplits(amountCents, lines)`.
+- Mapper de `CalculatedEconomicSplit` → `bank_splits` row (destination_type → bank_account ID).
+- Fail-closed em service_execution: se policy não resolve (`POLICY_NOT_FOUND` / `POLICY_AMBIGUITY`), pagamento NÃO pode prosseguir.
+- Transactional safety: resolver + cálculo + insert de bank_splits devem ser na MESMA transação do insert de payment_intent / bank_transaction.
+
+### Por que não fazer agora
+
+PE-1 estabelece a base canônica. Plugar em service_execution exige:
+1. Decidir a primeira policy COMMISSION_SPLIT para Camada 1 (revenue_share=97% + platform_fee=3%? configurável?).
+2. Seedar a policy default em produção.
+3. Adicionar fallback institucional: se policy ausente para um contexto novo, fail-closed (não cair em hardcoded).
+4. Atualizar D-money release (`releaseFundsToActorWalletForOrder`) para LER os splits persistidos em `bank_splits` (que agora virão do engine), em vez de calcular inline.
+
+Isso é trabalho de planejamento + decisão de produto (qual policy default) — não cabe em PE-1.
+
+### Resolução prevista
+
+PE-3 (planejada):
+1. Seed canônico de `economic_policies` para Camada 1 (`module_context='service_execution'`, `vertical='services'`, `pricing_model='fixed'`, `settlement_flow='escrow'`).
+2. Refactor `service-payment-execution.repository.ts` para chamar resolver + cálculo na transação.
+3. Atualizar `service-order.service.ts.releaseFundsToActorWalletForOrder` para LER `bank_splits` (e não calcular inline).
+4. E2E que prove: pagamento sem policy correspondente FALHA fail-closed.
+5. Atualizar CORE_SPLIT_PAGAMENTO_CANONICO declarando que `economic_policies` é a CONFIGURAÇÃO canônica.
+
+### Não bloqueia
+
+- PE-1 não muda nada em produção. Engine existe mas é silente até ser chamado por service_execution. Fluxo financeiro vivo permanece soberano por bank_splits/bank_ledger.

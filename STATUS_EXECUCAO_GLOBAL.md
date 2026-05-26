@@ -5763,3 +5763,44 @@ NÃO executado nesta sessão (limites institucionais permanentes):
 ### Modo
 
 Piloto automático concluiu ciclo natural. Próximas frentes todas exigem decisão humana (causalidade financeira / DECISION inédita / DDL / UX). AGUARDANDO_AUTORIZACAO para validação visual WelcomePage OU escolha de próxima frente.
+
+---
+
+## Sessão 2026-05-26 — PE-1 Economic Policy Engine substrate
+
+### Entregue
+
+1. **5 migrations aplicadas em DB live** (`20260530560000..564000`):
+   - `economic_policies` (header + 11 seletores + tipo + vigência)
+   - `economic_policy_lines` (linhas com BPS integer OR fixed_amount_cents)
+   - `access_pass_products` (catálogo: duration + price + commission_override_bps)
+   - `actor_access_passes` (instâncias compradas com vigência)
+   - `economic_policy_resolution_logs` (audit append-only)
+2. **TS canônico**: `backend/src/modules/economy/policy-engine/economic-policy.types.ts` (mirror exato de schema; sem float; discriminated unions).
+3. **Repository**: `economic-policy.repository.ts` (create + findEligible + findLines + findActivePasses + insertResolutionLog).
+4. **Resolver puro**: `economic-policy-engine.service.ts` (`resolveEconomicPolicy` + `applyAccessPassOverride` + `calculatePolicySplits`).
+5. **E2E** `validate-pipeline-e2e-economic-policy-engine.ts` — **15 testes verdes** (T1 contexto resolve; T2 city>region; T3 region>country; T4 category>vertical; T5 priority desempata; T6 AMBIGUITY; T7 vigência; T8 BPS integer; T9 drift; T10 invariante; T11 pass override; T12 pass expirado; T13 ZERO_FEE; T14 NOT_FOUND; T15 category seletor).
+6. **DECISION-0047** redigida (Economic Policy Engine como camada canônica de DECISÃO de split).
+7. **DTs registradas**: `DT-POLICY-ENGINE-LEGACY-DEPRECATION`, `DT-ECONOMIC-POLICY-ADMIN-PANEL`, `DT-CATEGORY-AS-POLICY-SELECTOR`, `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION`.
+8. **Docs normativas atualizadas**: `CORE_SPLIT_PAGAMENTO_CANONICO.md` (camadas DECISÃO×PERSISTÊNCIA), `BANK_SEMANTICS.md` (seção do engine).
+
+### Gates pós-PE-1 (antes do commit)
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | (rodar antes do commit) |
+| validate:bank-ledger-boundaries | (rodar antes do commit) |
+| validate:regression-guards | (rodar antes do commit) |
+| validate-architectural-patterns --strict | (rodar antes do commit) |
+| E2E PE-1 (15 testes) | TODOS verdes |
+
+### O que PE-1 NÃO entrega (frentes posteriores rastreadas em DT)
+
+- Admin panel / CRUD de policies — `DT-ECONOMIC-POLICY-ADMIN-PANEL` (PE-2).
+- Plug em `service-payment-execution` — `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION` (PE-3).
+- Deprecação formal de `bank_policies` legacy — `DT-POLICY-ENGINE-LEGACY-DEPRECATION` (PE-4).
+
+### Modo
+
+PE-1 fechado. Engine canônico existe + audit trail + fail-closed + 15 E2E verdes. Substrato pronto para PE-2 (admin) e PE-3 (plug em service_execution). Aguardando decisão Clayton sobre próxima frente.

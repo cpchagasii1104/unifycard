@@ -61,13 +61,14 @@ Cada pagamento recebido no sistema é dividido em:
 | **Ledger** | `bank_ledger` | Fonte única de verdade de saldo | CORE |
 | **Transação** | `bank_transactions` | Movimentação financeira | CORE |
 | **Conta** | `bank_accounts` | Contas financeiras | CORE |
-| **Policy** | `bank_policies` | Configuração de regras de split | CONFIGURAÇÃO |
+| **Policy (engine)** | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` + `economic_policy_resolution_logs` | Configuração + resolução de regras de split (Economic Policy Engine) | CONFIGURAÇÃO (canônica desde DECISION-0047, 2026-05-26) |
+| **Policy (legado)** | `bank_policies` | Antiga configuração de regras de split | LEGADO (deprecação rastreada em `DT-POLICY-ENGINE-LEGACY-DEPRECATION`) |
 
 ### 2.2 Regra Absoluta
 
 **Toda distribuição financeira passa por `bank_splits`.**  
 **Todo saldo é calculado de `bank_ledger`.**  
-**Toda política é armazenada em `bank_policies`.**  
+**Toda política é resolvida pelo Economic Policy Engine (`economic_policies` + `economic_policy_lines`) — ver DECISION-0047.**  
 
 Não há exceções.  
 Não há representações alternativas.  
@@ -78,8 +79,20 @@ Não há "atalhos técnicos".
 - `payment_splits` (legado, não deve ser usado)
 - `payment_intent_splits` (read-model, não é verdade)
 - `split_configuration` (legado, não deve ser usado)
-- Cálculos inline em services (proibido)
+- `bank_policies` (legado — substituído pelo Economic Policy Engine via DECISION-0047; deprecação rastreada em `DT-POLICY-ENGINE-LEGACY-DEPRECATION`)
+- Cálculos inline em services (proibido — toda decisão de policy passa por `economicPolicyEngineService.resolveEconomicPolicy(...)`)
 - Lógica de split em módulos externos (proibido)
+
+### 2.4 Camadas DECISÃO × PERSISTÊNCIA (DECISION-0047)
+
+| Camada | Responsabilidade | Tabelas |
+|--------|------------------|---------|
+| **DECISÃO** | Quais splits aplicar a este contexto (regra, %, destino, vigência, pass override) | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` |
+| **CÁLCULO** | Aritmética determinística BPS integer (sem float, drift para revenue_share) | função pura `economicPolicyEngineService.calculatePolicySplits()` |
+| **PERSISTÊNCIA** | Registro do split realizado + movimentação ledger | `bank_splits` + `bank_transactions` + `bank_ledger` |
+| **AUDIT** | Trilha append-only de cada resolução do engine | `economic_policy_resolution_logs` |
+
+Persistência (CORE) continua soberana em `bank_*`. Decisão é canônica em `economic_policies` (PE-1).
 
 ---
 

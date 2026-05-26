@@ -121,6 +121,38 @@ como carteira canônica de qualquer actor econômico no UnifiCard.
 
 ---
 
+## Camada de DECISÃO de policy: Economic Policy Engine (2026-05-26)
+
+A partir de DECISION-0047 (PE-1 substrate), a CONFIGURAÇÃO de regras
+de split de qualquer transação econômica é resolvida pelo Economic
+Policy Engine:
+
+- **Tabelas**: `economic_policies`, `economic_policy_lines`,
+  `access_pass_products`, `actor_access_passes`,
+  `economic_policy_resolution_logs`.
+- **Resolver canônico**:
+  `economicPolicyEngineService.resolveEconomicPolicy(input)`.
+- **Cálculo**: `calculatePolicySplits(amountCents, lines)` — BPS
+  integer (sem float). Drift de arredondamento absorvido pela
+  primeira linha `revenue_share`.
+- **Access pass override**: produto pode substituir `bps` da linha
+  `platform_fee` durante a vigência (`commission_override_bps`).
+- **Fail-closed**: AMBIGUITY / NOT_FOUND / DRIFT_NO_REVENUE_SHARE /
+  CALCULATION_INVALID nunca são silenciados.
+
+A PERSISTÊNCIA continua soberana em `bank_splits` + `bank_ledger` +
+`bank_transactions`. O resolver entrega `CalculatedEconomicSplit[]`
+para o caller traduzir em INSERTs na camada CORE.
+
+O plug do engine em `service-payment-execution` é frente PE-3
+(rastreada em `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION`). Até lá,
+fluxos vivos continuam com split hardcoded.
+
+`bank_policies` legacy permanece dormente; deprecação rastreada em
+`DT-POLICY-ENGINE-LEGACY-DEPRECATION`.
+
+---
+
 ## 🔗 Referencias
 <!-- AUTO-GENERATED-START -->
 ### Referencia

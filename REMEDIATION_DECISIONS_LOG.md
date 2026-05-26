@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0028 (2026-05-11) |
+| Última entrada | DECISION-0047 (2026-05-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -3589,6 +3589,112 @@ Reusar qualquer um dos três nomes criaria duas verdades com o mesmo termo (sald
 Commits:
 - `adcbc039` — D-money entrega o saldo em `actor_wallet`.
 - `b62ab6b9` — Statement endpoint com saldo + origem rastreável.
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0047 — Economic Policy Engine como camada canônica de DECISÃO de split
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (PE-1 substrate — antes do plug em service_execution)
+**Decisor:** Clayton (decisão de produto + arquitetura)
+**Commits âncora:** PE-1 substrate (este commit) — 5 migrations + types + repository + resolver puro + E2E
+
+### Decisão
+
+A configuração de **policy econômica** (regras de split por contexto, fees, regional fund, access pass, ZERO_FEE, RCA etc.) sai do espaço hardcoded espalhado em services individuais e passa a ser **resolvida por engine único** sobre tabelas dedicadas. O engine é função pura sobre o contexto da transação; a persistência financeira continua sendo `bank_splits` / `bank_ledger`.
+
+### O que isso significa concretamente
+
+1. **Camada de DECISÃO ≠ camada de PERSISTÊNCIA.** `economic_policies` + `economic_policy_lines` armazenam a CONFIGURAÇÃO de regras (qual % vai para revenue_share, fee, regional fund, etc.). `bank_splits` continua sendo a PERSISTÊNCIA canônica do split realizado (DECISION-0044 / CORE_SPLIT_PAGAMENTO_CANONICO permanecem soberanos sobre a persistência).
+2. **Resolver determinístico.** `economicPolicyEngineService.resolveEconomicPolicy(input)` retorna a policy aplicável a um contexto (tenant + modulo + vertical/actor_type/serviceType/pricingModel/settlementFlow/country/region/city/categoryId/channel/campaignId), via algoritmo de specificity DESC → priority DESC → effective_from DESC. Empate real no topo = `POLICY_AMBIGUITY` (fail-closed). Nenhuma elegível = `POLICY_NOT_FOUND` (fail-closed).
+3. **BPS integer determinístico.** `calculatePolicySplits(amountCents, lines)` usa `Math.floor((amountCents * bps) / 10000)` (sem float, sem NUMERIC). Drift de arredondamento absorvido pela primeira linha `revenue_share`. Se nenhuma revenue_share existir e houver drift, erro `DRIFT_NO_REVENUE_SHARE` (fail-closed).
+4. **Access pass override.** `access_pass_products` + `actor_access_passes` permitem comprar passes que SOBRESCREVEM o `bps` da linha `platform_fee` durante a vigência. Outras linhas (regional_fund, reserve, referral, group_allocation, rca_commission) não são alteradas por pass — mudança requer policy nova.
+5. **Append-only audit.** `economic_policy_resolution_logs` registra cada chamada ao resolver (resolved/ambiguous/not_found/error) com snapshot do input + policy + splits + pass aplicado. Permite reproduzir a decisão mesmo que a policy mude depois.
+6. **RLS por tenant.** Todas as 5 tabelas têm RLS via `current_setting('app.current_tenant')`. Não há leitura cross-tenant.
+7. **NÃO toca bank_ledger ainda.** PE-1 entrega APENAS o substrato. O plug em `service_execution` (substituir o split hardcoded `escrow_payments → actor_wallet/platform_fees/...` por chamada ao engine) é frente PE-3 separada. PE-2 será admin/CRUD; PE-3 será o plug.
+
+### Tabelas materializadas (5 migrations)
+
+| Tabela                                  | Papel                                                                                           | Status |
+|-----------------------------------------|-------------------------------------------------------------------------------------------------|--------|
+| `economic_policies`                     | Header da policy: seletores + tipo (COMMISSION_SPLIT/ACCESS_PASS/HYBRID/ZERO_FEE/CONTRACTUAL) + vigência | CORE — CONFIGURAÇÃO |
+| `economic_policy_lines`                 | Linhas da policy: line_type × destination_type × bps OR fixed_amount_cents                      | CORE — CONFIGURAÇÃO |
+| `access_pass_products`                  | Catálogo de access passes vendáveis (duration, price, commission_override_bps)                  | CORE — CONFIGURAÇÃO |
+| `actor_access_passes`                   | Instâncias compradas por actor (starts_at/ends_at/status)                                       | CORE — INSTÂNCIA    |
+| `economic_policy_resolution_logs`       | Trilha append-only de cada resolução do engine                                                  | CORE — AUDITORIA    |
+
+### Relação com `bank_policies` legacy
+
+`bank_policies` (citada em CORE_SPLIT_PAGAMENTO_CANONICO §2.1 como "CONFIGURAÇÃO" para regras de split) NÃO foi removida nesta fatia. Ela permanece em estado dormente e é tratada como legado. O engine canônico de policy a partir de PE-1 é o `economic_policies` (+ lines), pelos seguintes motivos:
+
+1. Vocabulário institucional já incorpora vocabulário cross-domain (`actor_type`, `vertical`, `categoryId`, `channel`, `campaignId`) que `bank_policies` não cobre.
+2. Discriminated union `policy_type` permite ACCESS_PASS / HYBRID / ZERO_FEE / CONTRACTUAL como variantes formais — `bank_policies` legado não tem essa semântica.
+3. Append-only audit (`economic_policy_resolution_logs`) é integral ao engine; `bank_policies` não tem essa contraparte.
+
+A deprecação formal de `bank_policies` é DT pendente (`DT-POLICY-ENGINE-LEGACY-DEPRECATION`) — não bloqueia PE-1.
+
+### Vocabulário formalizado
+
+#### `policy_type`
+
+| Valor               | Semântica                                                                                          |
+|---------------------|----------------------------------------------------------------------------------------------------|
+| `COMMISSION_SPLIT`  | Distribuição clássica (revenue_share + platform_fee ± fund ± reserve)                              |
+| `ACCESS_PASS`       | Policy especial associada a pass de actor                                                          |
+| `HYBRID`            | Combinação de split + pass + outras camadas                                                        |
+| `ZERO_FEE`          | 100% revenue_share (campanha promocional, gratuidade institucional)                                |
+| `CONTRACTUAL`       | Policy individual negociada (contratos específicos, parceiros estratégicos)                        |
+
+#### `line_type`
+
+| Valor               | Destino canônico típico (line.destination_type)                                                    |
+|---------------------|----------------------------------------------------------------------------------------------------|
+| `revenue_share`     | `receiver_actor` / `actor_wallet`                                                                  |
+| `platform_fee`      | `platform_fees`                                                                                    |
+| `regional_fund`     | `regional_fund`                                                                                    |
+| `reserve`           | `risk_reserve`                                                                                     |
+| `referral`          | `referrer_actor_wallet`                                                                            |
+| `group_allocation`  | `group_wallet`                                                                                     |
+| `rca_commission`    | `rca_actor_wallet`                                                                                 |
+| `custom`            | qualquer destino válido (custom requer justificativa documentada)                                  |
+
+### Provas materiais (commit PE-1)
+
+1. **Migrations aplicadas em DB live:**
+   - `20260530560000_create_economic_policies.sql`
+   - `20260530561000_create_economic_policy_lines.sql`
+   - `20260530562000_create_access_pass_products.sql`
+   - `20260530563000_create_actor_access_passes.sql`
+   - `20260530564000_create_economic_policy_resolution_logs.sql`
+2. **Types TS** em `backend/src/modules/economy/policy-engine/economic-policy.types.ts` (mirror exato das migrations; sem float; bps `number 0..10000`; amount_cents `number` inteiro).
+3. **Repository** em `economic-policy.repository.ts` (createPolicy/createPolicyLine/createAccessPassProduct/createActorAccessPass/findEligiblePolicies/findPolicyLines/findActiveAccessPasses/insertResolutionLog).
+4. **Resolver puro** em `economic-policy-engine.service.ts` (resolveEconomicPolicy + applyAccessPassOverride + calculatePolicySplits).
+5. **E2E** `validate-pipeline-e2e-economic-policy-engine.ts` — 15 testes verdes (T1: contexto resolve; T2: city > region; T3: region > country; T4: category > vertical; T5: priority desempata; T6: AMBIGUITY; T7: vigência respeitada; T8: BPS integer; T9: drift to revenue_share; T10: invariante soma; T11: pass zera platform_fee; T12: pass expirado não altera; T13: ZERO_FEE; T14: NOT_FOUND; T15: category seletor).
+
+### Enforcement
+
+1. **Documental:** este DECISION-0047 + DTs atrelados.
+2. **Tipo:** Discriminated union `EconomicPolicyType` + `EconomicPolicyLineType` + `EconomicPolicyDestinationType` em TS.
+3. **CHECK constraints:** policy_type / status / line_type / destination_type / bps range / starts_at < ends_at / effective_until > effective_from.
+4. **RLS:** todas as 5 tabelas isoladas por tenant via `app.current_tenant`.
+5. **Resolver fail-closed:** AMBIGUITY / NOT_FOUND / DRIFT_NO_REVENUE_SHARE / CALCULATION_INVALID — nunca silenciar.
+6. **Audit trail:** `economic_policy_resolution_logs` grava CADA resolução (resolvido/ambíguo/não-encontrado).
+
+### Supera
+
+(nenhuma — nova decisão canonical; introduz camada nova de DECISÃO)
+
+### Vinculadas
+
+- `DT-POLICY-ENGINE-LEGACY-DEPRECATION` (OPEN) — `bank_policies` permanece como legado dormente.
+- `DT-ECONOMIC-POLICY-ADMIN-PANEL` (OPEN) — CRUD/UI de policies é PE-2.
+- `DT-CATEGORY-AS-POLICY-SELECTOR` (OPEN) — `categories` é global (sem tenant_id); usar como seletor em policy tenant-bound exige modelagem complementar.
+- `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION` (OPEN) — substituir split hardcoded em `service-payment-execution` é frente PE-3.
+- `DT-CAMADA1-FEE-SPLIT` (OPEN) — Camada 1 ainda não separa fee; PE-3 cobrirá.
 
 ### Superada por
 
