@@ -972,6 +972,210 @@ async function main(): Promise<void> {
   );
 
   // ============================================================
+  // ETAPA B7.b \u2014 ATOMICIDADE DO INTENT NO createExecution REAL
+  // ============================================================
+  // B7 prova ROLLBACK de bank+outbox com cliente compartilhado SIMULADO.
+  // B7.b prova ROLLBACK do payment_intent (Camada 1) no caminho REAL:
+  // chama createExecution passando client externo do TESTE; o caller
+  // (teste) controla a tx; faz ROLLBACK; demonstra aus\u00eancia das 4
+  // tabelas (payment_intents, bank_ledger, bank_transactions, event_outbox).
+  //
+  // Regra de validade: presen\u00e7a DENTRO da tx + aus\u00eancia AP\u00d3S rollback.
+  // SELECT-zero sozinho seria prova vazia.
+  //
+  // Pattern existingClient agora aplicado ao createExecution (converg\u00eancia
+  // arquitetural com bankTransactionService, processServicePaymentExecution
+  // Canonical, servicePaymentExecutionRepository.create, createPaymentIntent
+  // WithClient). Permite teste controlar a tx por fora SEM seam em produ\u00e7\u00e3o.
+  console.log("\n=== Etapa B7.b \u2014 ATOMICIDADE DO INTENT NO createExecution REAL ===");
+
+  // Gerar paymentRequest novo via cadeia j\u00e1 validada (A1\u2013A3).
+  // service_payment_executions tem UNIQUE em payment_request_id; logo
+  // n\u00e3o podemos reusar o paymentRequestId da A5 (que j\u00e1 comitou execu\u00e7\u00e3o).
+  const rfqB7b = await eventRFQService.createRFQ(
+    TENANT_ID, seed.buyer.actorId,
+    { eventId: seed.eventId, items: [{ type: "service", id: seed.serviceId }], criteria: {} },
+    seed.buyer.user_id
+  );
+  const quoteB7b = await eventRFQService.createQuote(
+    TENANT_ID, seed.eventId, seed.provider.actorId,
+    { rfqId: rfqB7b.rfq.rfqId, serviceId: seed.serviceId, priceCents: 30000, currency: "BRL" },
+    seed.provider.user_id
+  );
+  const acceptedB7b = await eventRFQService.acceptQuote(
+    TENANT_ID, seed.eventId, rfqB7b.rfq.rfqId, quoteB7b.quoteId,
+    seed.buyer.actorId, seed.buyer.user_id
+  );
+  const paymentRequestIdB7b = acceptedB7b.paymentRequestId;
+
+  // Client EXTERNO controlado pelo teste \u2014 getClientWithTenant garante
+  // o set_config('app.current_tenant') exigido pelas RLS policies.
+  const externalClient = await getClientWithTenant(TENANT_ID);
+  let b7bExecution: any = null;
+  let b7bCallThrew: Error | null = null;
+  let b7bRollbackLine = "";
+
+  // SETUP: BEGIN no client externo (a tx pertence ao teste).
+  await externalClient.query('BEGIN');
+
+  try {
+    // CHAMADA REAL do createExecution em MODO CONVIDADO \u2014 passa o
+    // externalClient como existingClient (4\u00ba parametro).
+    const ret = await servicePaymentExecutionService.createExecution(
+      TENANT_ID, seed.buyer.user_id,
+      {
+        paymentRequestId: paymentRequestIdB7b,
+        splits: [{ receiverActorId: seed.provider.actorId, amountCents: 30000, percentage: 100 }],
+      },
+      externalClient
+    );
+    b7bExecution = ret.execution;
+
+    assertOk("B7.b.0 \u2014 createExecution real no modo convidado retornou execution", {
+      ok: !!b7bExecution?.executionId,
+      reason: "createExecution n\u00e3o retornou execution v\u00e1lido",
+      detail: { executionId: b7bExecution?.executionId, splits_len: ret.splits.length },
+    });
+
+    // ===== PROVA DE PRESEN\u00c7A \u2014 DENTRO da tx, ANTES do rollback =====
+    // Queries usam o MESMO externalClient para enxergar as escritas
+    // uncommitted da mesma transa\u00e7\u00e3o.
+
+    const intentPresence = await externalClient.query<{ c: string; status: string | null }>(
+      `SELECT count(*)::text AS c, MAX(payment_status) AS status
+         FROM payment_intents
+        WHERE tenant_id = $1 AND reference_id = $2`,
+      [TENANT_ID, paymentRequestIdB7b]
+    );
+    assertOk("B7.b.1 \u2014 PRESEN\u00c7A: payment_intent existe DENTRO da tx + status='escrowed'", {
+      ok: intentPresence.rows[0]?.c === "1" && intentPresence.rows[0]?.status === "escrowed",
+      reason: "payment_intent n\u00e3o foi criado dentro da tx (caminho real)",
+      detail: intentPresence.rows[0],
+    });
+
+    const ledgerPresence = await externalClient.query<{ c: string; sum_debit: string; sum_credit: string }>(
+      `SELECT count(*)::text AS c,
+              COALESCE(SUM(CASE WHEN direction='debit'  THEN amount_cents ELSE 0 END),0)::text AS sum_debit,
+              COALESCE(SUM(CASE WHEN direction='credit' THEN amount_cents ELSE 0 END),0)::text AS sum_credit
+         FROM bank_ledger
+        WHERE transaction_id IN (
+          SELECT id FROM bank_transactions
+           WHERE tenant_id = $1 AND reference_type = 'service_execution'
+             AND reference_id = $2
+        )`,
+      [TENANT_ID, paymentRequestIdB7b]
+    );
+    assertOk("B7.b.2 \u2014 PRESEN\u00c7A: bank_ledger tem entries DENTRO da tx + \u03a3(d\u00e9bito)=\u03a3(cr\u00e9dito)", {
+      ok:
+        parseInt(ledgerPresence.rows[0]?.c ?? "0", 10) >= 2 &&
+        ledgerPresence.rows[0]?.sum_debit === ledgerPresence.rows[0]?.sum_credit &&
+        ledgerPresence.rows[0]?.sum_debit === "30000",
+      reason: "bank_ledger n\u00e3o tem entries esperadas dentro da tx",
+      detail: ledgerPresence.rows[0],
+    });
+
+    const txPresence = await externalClient.query<{ c: string }>(
+      `SELECT count(*)::text AS c FROM bank_transactions
+        WHERE tenant_id = $1 AND reference_type = 'service_execution'
+          AND reference_id = $2`,
+      [TENANT_ID, paymentRequestIdB7b]
+    );
+    assertOk("B7.b.3 \u2014 PRESEN\u00c7A: bank_transactions tem 1 row DENTRO da tx", {
+      ok: txPresence.rows[0]?.c === "1",
+      reason: "bank_transactions row n\u00e3o criada dentro da tx",
+      detail: txPresence.rows[0],
+    });
+
+    const outboxEventIdB7b = deterministicServicePaymentExecutedOutboxEventId(
+      TENANT_ID, b7bExecution.executionId
+    );
+    const outboxPresence = await externalClient.query<{ c: string }>(
+      `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+      [outboxEventIdB7b]
+    );
+    assertOk("B7.b.4 \u2014 PRESEN\u00c7A: event_outbox tem SERVICE_PAYMENT_EXECUTED DENTRO da tx", {
+      ok: outboxPresence.rows[0]?.c === "1",
+      reason: "event_outbox row n\u00e3o criada dentro da tx",
+      detail: outboxPresence.rows[0],
+    });
+
+    // ROLLBACK FOR\u00c7ADO PELO TESTE \u2014 equivale a "tx do caller aborta".
+    b7bRollbackLine = "B7.b ROLLBACK at validate-pipeline-e2e-transversal.ts (esta linha)";
+    await externalClient.query('ROLLBACK');
+  } catch (e) {
+    b7bCallThrew = e as Error;
+    try { await externalClient.query('ROLLBACK'); } catch (_rb) {}
+  } finally {
+    externalClient.release();
+  }
+
+  // ===== PROVA DE AUS\u00caNCIA \u2014 client NOVO, AP\u00d3S o rollback =====
+  // Queries usam pool.query (cliente fresco) que NUNCA viu a tx que
+  // foi rolled back.
+
+  const intentAfter = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM payment_intents
+      WHERE tenant_id = $1 AND reference_id = $2`,
+    [TENANT_ID, paymentRequestIdB7b]
+  );
+  assertOk("B7.b.5 \u2014 AUS\u00caNCIA p\u00f3s-rollback: 0 payment_intents para este reference_id", {
+    ok: intentAfter.rows[0]?.c === "0",
+    reason: "payment_intent persistiu apesar do ROLLBACK do client externo \u2014 atomicidade do intent quebrada",
+    detail: intentAfter.rows[0],
+  });
+
+  const ledgerAfter = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger
+      WHERE transaction_id IN (
+        SELECT id FROM bank_transactions
+         WHERE tenant_id = $1 AND reference_type = 'service_execution'
+           AND reference_id = $2
+      )`,
+    [TENANT_ID, paymentRequestIdB7b]
+  );
+  assertOk("B7.b.6 \u2014 AUS\u00caNCIA p\u00f3s-rollback: 0 bank_ledger entries", {
+    ok: ledgerAfter.rows[0]?.c === "0",
+    reason: "bank_ledger entries persistiram apesar do ROLLBACK",
+    detail: ledgerAfter.rows[0],
+  });
+
+  const txAfter = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_transactions
+      WHERE tenant_id = $1 AND reference_type = 'service_execution'
+        AND reference_id = $2`,
+    [TENANT_ID, paymentRequestIdB7b]
+  );
+  assertOk("B7.b.7 \u2014 AUS\u00caNCIA p\u00f3s-rollback: 0 bank_transactions", {
+    ok: txAfter.rows[0]?.c === "0",
+    reason: "bank_transactions persistiu apesar do ROLLBACK",
+    detail: txAfter.rows[0],
+  });
+
+  const outboxEventIdAfter = b7bExecution
+    ? deterministicServicePaymentExecutedOutboxEventId(TENANT_ID, b7bExecution.executionId)
+    : "00000000-0000-0000-0000-000000000000";
+  const outboxAfter = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+    [outboxEventIdAfter]
+  );
+  assertOk("B7.b.8 \u2014 AUS\u00caNCIA p\u00f3s-rollback: 0 event_outbox para esta execu\u00e7\u00e3o", {
+    ok: outboxAfter.rows[0]?.c === "0",
+    reason: "event_outbox persistiu apesar do ROLLBACK",
+    detail: outboxAfter.rows[0],
+  });
+
+  assertOk(
+    "B7.b.9 \u2014 ATOMICIDADE DO INTENT NO createExecution REAL provada materialmente: " +
+      "presen\u00e7a DENTRO da tx (4 tabelas) + aus\u00eancia AP\u00d3S rollback (4 tabelas). " +
+      "Intent converge com bank+outbox no rollback. Camada 1 n\u00e3o-atomicidade \u00e9 IMPOSS\u00cdVEL.",
+    {
+      ok: b7bCallThrew === null,
+      reason: "createExecution lan\u00e7ou erro inesperado em modo convidado",
+      detail: { threw: b7bCallThrew?.message ?? null },
+    }
+  );
+
+  // ============================================================
   // ETAPA B8 \u2014 Caminho 2: reconciliation DETECTA janelas B+C de
   //            observabilidade (payout/settlement transferidos com
   //            status \u00f3rf\u00e3o). Detec\u00e7\u00e3o pura \u2014 reconciliation N\u00c3O

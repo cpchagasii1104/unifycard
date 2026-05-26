@@ -5,6 +5,7 @@
 // 🔴 BLINDAGEM: Execução é explícita, nunca automática
 // 🔴 CRÍTICO: Toda execução cria transação no Unify Bank
 
+import type { PoolClient } from 'pg';
 import { createHash } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getClientWithTenant } from '@core/database/pool';
@@ -58,7 +59,27 @@ class ServicePaymentExecutionService {
   async createExecution(
     tenantId: string,
     userId: string,
-    input: CreateServicePaymentExecutionInput
+    input: CreateServicePaymentExecutionInput,
+    /**
+     * Pattern existingClient (convergência arquitetural — espelha
+     * bankTransactionService.createTransactionWithExplicitSplitLines
+     * L262-263, bankIntegrationService.processServicePaymentExecutionCanonical
+     * L474, servicePaymentExecutionRepository.create L193,
+     * createPaymentIntentWithClient).
+     *
+     * - Modo DONO (sem existingClient): comportamento inalterado.
+     *   Auto-cria client via getClientWithTenant, faz BEGIN/COMMIT/
+     *   ROLLBACK/release internamente.
+     * - Modo CONVIDADO (com existingClient): tx pertence ao caller.
+     *   NÃO faz BEGIN, NÃO COMMIT, NÃO ROLLBACK, NÃO release.
+     *   As 4 escritas (bank + execution + intent + outbox) continuam
+     *   no MESMO client. Atomicidade material — a tx do caller decide
+     *   se as 4 persistem ou são descartadas.
+     *
+     * Habilita prova de rollback do payment_intent escrowed no caminho
+     * REAL (B7.b em validate-pipeline-e2e-transversal.ts).
+     */
+    existingClient?: PoolClient
   ): Promise<{ execution: ServicePaymentExecution; splits: PaymentSplit[] }> {
     // 🔴 BLINDAGEM: Validar que paymentRequestId foi fornecido
     if (!input.paymentRequestId) {
@@ -134,7 +155,8 @@ class ServicePaymentExecutionService {
     // outbox DEVE quebrar a transação inteira. DT-OUTBOX-ATOMICITY
     // RESOLVED via este caminho.
     // ============================================================
-    const client = await getClientWithTenant(tenantId);
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
+    const ownClient = !existingClient;
     let execution: ServicePaymentExecution;
     let bankSplitsForOutbox: Array<{
       splitId: string;
@@ -144,7 +166,9 @@ class ServicePaymentExecutionService {
     }>;
 
     try {
-      await client.query('BEGIN');
+      if (ownClient) {
+        await client.query('BEGIN');
+      }
 
       // 1) BANK — escreve bank_transactions + bank_ledger entries + bank_splits
       //    NO MESMO client. Retorna splits agregados (splitId + receiverActorId
@@ -279,16 +303,26 @@ class ServicePaymentExecutionService {
       }
 
       // COMMIT único — ou tudo grava, ou nada grava.
-      await client.query('COMMIT');
-    } catch (error) {
-      try {
-        await client.query('ROLLBACK');
-      } catch (_rollbackErr) {
-        // ROLLBACK falhou (conexão perdida) — propaga erro original.
+      // Modo CONVIDADO: NÃO commitamos — a tx é do caller.
+      if (ownClient) {
+        await client.query('COMMIT');
       }
+    } catch (error) {
+      if (ownClient) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (_rollbackErr) {
+          // ROLLBACK falhou (conexão perdida) — propaga erro original.
+        }
+      }
+      // Modo CONVIDADO: NÃO rollbackamos — a tx é do caller. O caller
+      // observa o throw e decide se ROLLBACK ou outras escritas seguem.
       throw error;
     } finally {
-      client.release();
+      if (ownClient) {
+        client.release();
+      }
+      // Modo CONVIDADO: NÃO release — o client pertence ao caller.
     }
 
     // Após COMMIT atômico — leitura derivada para devolver PaymentSplit[] no
