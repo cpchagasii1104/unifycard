@@ -1303,3 +1303,38 @@ porque o sistema é dev/virgem, sem produção a preservar.
 **Regra mestre permanente:** "Quem decide regra (`economic_policy_engine`) ≠ quem
 materializa dinheiro (`bank-transaction.service`). Dois cérebros só prestam em ficção
 científica; em sistema financeiro é autópsia antecipada." — Clayton 2026-05-26.
+
+---
+
+## PE-3 — service_execution agora usa economic_policy_engine (2026-05-26)
+
+Plug entregue. Cliente paga valor BRUTO; engine resolve policy; Bank materializa
+splits canônicos numa única transação; `actor_wallet` recebe APENAS revenue_share
+via D-money.
+
+**Cadeia material:**
+
+```
+createExecution (input.splits AUSENTE)
+  → economicPolicyEngineService.resolveEconomicPolicy(serviceExecution context)
+     ↳ fail-closed em POLICY_NOT_FOUND / POLICY_AMBIGUITY
+  → calculatePolicySplits(amountCents, lines)
+     ↳ BPS integer, drift→revenue_share[0]
+  → resolveSplitDestinationFromPolicy (mapeia destination_type → bankAccount)
+     ↳ FAIL_CLOSED em referral/group/channel/custom/regional_fund (frente PE-4+)
+  → processServicePaymentExecutionCanonical com splitRecipients heterogêneos
+  → createTransactionWithExplicitSplitLines (1 tx, N splits, N ledger entries)
+  → payment_intent.metadata.splits FILTRADO para APENAS releaseToActorWallet=true
+  → audit metadata: policyId, policyCode, policyVersion, calculatedSplits, etc.
+```
+
+**D-money:** lê `metadata.splits` (só revenue_share), move para `actor_wallet`.
+Validação anti-vazamento: `sumSplits > totalAmountCents` falha. `actor_wallet` jamais
+recebe mais que o pago.
+
+**Legacy preservado:** caller que passa `input.splits=[100%]` continua funcionando
+(E2Es existentes não regridem). T9 do PE-3 prova.
+
+**Regra operacional permanente:** "actor_wallet recebe APENAS o líquido pertencente
+ao actor. Fee, reserve, regional_fund, referral, channel, group — TUDO vai para
+destinos próprios na hora da execução, NUNCA passam pelo actor_wallet do prestador."

@@ -5754,10 +5754,14 @@ Frente própria que decide: rota, autoridade, janela, bridge com `financial_disp
 
 ---
 
-## DT-CAMADA1-FEE-SPLIT
+## DT-CAMADA1-FEE-SPLIT (RESOLVED por PE-3)
 
-- **Status:** OPEN (LOW — sem regra de fee explícita hoje; D-money move 100% dos splits ao receiver)
-- **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_5: D-money NÃO inventa regra de fee da plataforma. Atualmente os splits gravados em `payment_intent.metadata.splits` no createExecution (Camada 1 entrada, commit `62771db9`) contêm APENAS o receiver — 100% do valor vai para o(s) prestador(es).
+- **Status:** RESOLVED (2026-05-26 — substrato pronto via DECISION-0048 + PE-3)
+- **Resolução material:** PE-3 plugou `economicPolicyEngineService` em `service-payment-execution.service.createExecution`. Quando `input.splits` é ausente, service_execution agora resolve policy via `economic_policy_engine` (fail-closed em POLICY_NOT_FOUND/POLICY_AMBIGUITY). Splits resultantes materializados em UMA bank_transaction: `revenue_share` → `escrow_payments` (D-money libera depois para `actor_wallet`); `platform_fee` → conta system `platform_fees`; `reserve` → conta system `risk_reserve`. `payment_intent.metadata.splits` guarda APENAS `revenue_share` (D-money não vaza fee para `actor_wallet`).
+- **Provas:** E2E `validate-pipeline-e2e-policy-engine-service-execution.ts` — T2 (split 97/3 correto), T3 (D-money move só revenue_share), T4 (multi-line 90/5/5 com 3 destinos), T5 (drift→revenue_share), T9 (legacy path preservado).
+- **Resíduo:** regra de fee REAL (97/3 ou outra) ainda exige decisão de produto + seed de policy canônica em produção. PE-3 entregou apenas o MECANISMO; o conteúdo da policy é frente própria. Documentado em comentário institucional no `service-payment-execution.service.ts` header.
+- **Histórico (origem):** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_5: D-money NÃO inventa regra de fee da plataforma. Atualmente os splits gravados em `payment_intent.metadata.splits` no createExecution (Camada 1 entrada, commit `62771db9`) contêm APENAS o receiver — 100% do valor vai para o(s) prestador(es).
+- **Original (antes do PE-3):**
 
 ### Estado atual
 
@@ -5958,10 +5962,20 @@ Frente PE-2 (planejada): admin handlers + Zod schemas + UI panel + permissões (
 
 ---
 
-## DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION
+## DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION (CLOSED por PE-3)
 
-- **Status:** OPEN (HIGH — engine existe mas service_execution continua usando split hardcoded; até plug, engine é "casa vazia")
-- **Origem:** PE-1 substrate 2026-05-26 + auditoria pré-PE-1 (raio-x do split financeiro). `service-payment-execution.repository.ts` insere `bank_splits` com destinos hardcoded (escrow_payments → actor_wallet + platform_fees + ...). PE-1 entregou o engine; PE-3 fará o plug.
+- **Status:** CLOSED (2026-05-26 — plug entregue via PE-3)
+- **O que foi feito:**
+  - `service-payment-execution.service.createExecution` agora chama `economicPolicyEngineService.resolveEconomicPolicy` quando `input.splits` é ausente. Fail-closed em POLICY_NOT_FOUND/POLICY_AMBIGUITY (T1/T6 do E2E provam).
+  - Helper `resolveSplitDestinationFromPolicy` mapeia `EconomicPolicyDestinationType` → bank account real: `receiver_actor`/`actor_wallet` → `escrow_payments`; `platform_fees` → conta system `platform_fees`; `risk_reserve` → conta system `risk_reserve`; `escrow_payments` → escrow direto.
+  - `processServicePaymentExecutionCanonical` (bank-integration) estendido com `destinationAccountId?` + `splitType?` por split (mantém backward compat: ausência → escrow + revenue_share).
+  - `payment_intent.metadata.splits` filtrado para APENAS splits com `releaseToActorWallet=true` (= revenue_share em escrow). D-money continua iterando metadata sem mudança de lógica — só vê splits que devem ser liberados.
+  - D-money: validação anti-vazamento `sumSplits > totalAmountCents` (substituiu `!==`). Garante que `actor_wallet` nunca recebe mais que o pago.
+  - `payment_intent.metadata` ganha audit trail PE-3: `policyId`, `policyCode`, `policyVersion`, `grossAmountCents`, `calculatedSplits[]`, `appliedAccessPassId`.
+  - Caminho LEGACY (caller passa `input.splits` explícitos) preservado para E2Es existentes — T9 do PE-3 prova.
+  - 3 line_types não suportados no MVP (`referral`, `group_allocation`, `channel_commission`, `custom`, `regional_fund`) fail-closed em `resolveSplitDestinationFromPolicy` com `POLICY_DESTINATION_UNSUPPORTED`. Frente PE-4+ habilita.
+- **E2E:** `validate-pipeline-e2e-policy-engine-service-execution.ts` (T1-T9, 9 cenários, 28 asserções). PASS.
+- **Histórico (origem):**
 
 ### O que NÃO existe ainda
 
@@ -6033,3 +6047,21 @@ PE-3 (planejada):
   4. Migration DROP TABLE.
 - **Prazo:** sem urgência — `bank_policies` está dormente sob COMMENT e guardrail impede uso novo.
 - **Não bloqueia:** PE-2/PE-3 podem prosseguir; `bank-limit.service` continua funcional via `getPolicy<T>()` preservado.
+
+---
+
+## DT-PE3-LINE-TYPES-FAIL-CLOSED
+
+- **Status:** OPEN (LOW — line types fora do MVP de PE-3 fazem fail-closed)
+- **Origem:** PE-3 substrate 2026-05-26. `resolveSplitDestinationFromPolicy` em `service-payment-execution.service.ts` suporta 4 papéis canônicos: `receiver_actor`/`actor_wallet`/`escrow_payments` (→ escrow), `platform_fees` (→ system), `risk_reserve` (→ system).
+- **O que faz fail-closed (POLICY_DESTINATION_UNSUPPORTED) hoje:**
+  - `referral` / `referrer_actor_wallet` — exige resolver do actor referrer
+  - `group_allocation` / `group_wallet` — exige resolver do group actor
+  - `channel_commission` / `channel_actor_wallet` — exige resolver do canal/afiliado
+  - `regional_fund` — exige region context (country/state/city) no PolicyResolutionInput + integração com `ensureRegionalFundBankAccountForRegion`
+  - `custom` — exige resolução por `destination_key`
+- **Por que não fazer agora:** cada destino dessa lista exige resolver dedicado (lookup de actor por referral chain, group memberships, channel ownership, region inference). Frente própria PE-4+.
+- **Não bloqueia:**
+  - Policy que use APENAS os 4 papéis suportados funciona ponta a ponta.
+  - Policy que use destino não suportado falha explicitamente em `service-payment-execution.service.createExecution` com mensagem clara (POLICY_DESTINATION_UNSUPPORTED + lista dos suportados).
+  - Substrato PE-1 (resolver puro + cálculo) continua agnóstico — qualquer destino do enum funciona nele.

@@ -16,7 +16,14 @@ import { actorRepository } from '@modules/social/actor.repository';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
 import { bankIntegrationService } from '../bank/bank-integration.service';
+import { bankAccountService } from '../bank/bank-account.service';
 import { createPaymentIntentWithClient } from '@modules/payments/payment-intent-repository';
+import { economicPolicyEngineService } from '@modules/economy/policy-engine/economic-policy-engine.service';
+import type {
+  CalculatedEconomicSplit,
+  EconomicPolicyLineType,
+  EconomicPolicyDestinationType,
+} from '@modules/economy/policy-engine/economic-policy.types';
 import type {
   ServicePaymentExecution,
   PaymentSplit,
@@ -24,6 +31,132 @@ import type {
   CreatePaymentSplitInput,
 } from './service-payment-execution.types';
 import { PaymentRequestStatus } from './service-payment-request.types';
+
+/**
+ * PE-3 (DECISION-0048, 2026-05-26): mapeamento canônico de
+ * `EconomicPolicyDestinationType` → bank `splitType` (universo BankSplitType).
+ *
+ * MVP suporta 4 papéis principais; outros line types (referral / group /
+ * channel / custom) ficam FAIL-CLOSED enquanto não houver resolver dedicado
+ * (frente PE-4+). Policy que exija destinos não-suportados quebra com
+ * mensagem explícita no resolver de destinos.
+ */
+const SUPPORTED_DESTINATION_TYPES: ReadonlySet<EconomicPolicyDestinationType> = new Set([
+  'receiver_actor',
+  'actor_wallet',
+  'platform_fees',
+  'risk_reserve',
+  'escrow_payments',
+] as const);
+// regional_fund NÃO está no MVP de PE-3 porque ensurePlatformAccounts não cria
+// account system `regional_fund` (apenas `ensureRegionalFundBankAccountForRegion`
+// por região com FK país/estado/cidade). Frente PE-4+ resolverá quando integrar
+// region context no PolicyResolutionInput.
+
+type ResolvedSplitDestination = {
+  destinationAccountId: string;
+  splitType: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+  /**
+   * Indica se este split deve ser repassado depois para `actor_wallet` via
+   * D-money (`releaseFundsToActorWalletForOrder`). Apenas `revenue_share`
+   * em `escrow_payments` recebe `true`; demais splits já caem nos destinos
+   * finais (system accounts) e NÃO são tocados pelo D-money.
+   */
+  releaseToActorWallet: boolean;
+  /**
+   * receiverActorId só faz sentido em revenue_share (worker). Para system
+   * destinations (platform_fee, regional_fund, reserve) vem como ''.
+   */
+  receiverActorId: string;
+};
+
+/**
+ * Resolve destino canônico de cada `CalculatedEconomicSplit` para
+ * (bankAccountId + splitType + releaseToActorWallet). Fail-closed em
+ * destination_types não suportados no MVP de PE-3 (DECISION-0048).
+ *
+ * IMPORTANTE: ensurePlatformAccounts deve ter sido chamado antes para o
+ * tenant — `processServicePaymentExecutionCanonical` faz isso na entrada.
+ */
+async function resolveSplitDestinationFromPolicy(
+  tenantId: string,
+  receiverActorId: string,
+  calcSplit: CalculatedEconomicSplit,
+  currency: 'BRL'
+): Promise<ResolvedSplitDestination> {
+  if (!SUPPORTED_DESTINATION_TYPES.has(calcSplit.destinationType)) {
+    throw new BadRequestError(
+      `POLICY_DESTINATION_UNSUPPORTED: destination_type='${calcSplit.destinationType}' ` +
+        `não suportado no MVP de PE-3 (DECISION-0048). Suportados: ${[...SUPPORTED_DESTINATION_TYPES].join(', ')}. ` +
+        `Frente futura habilita referral / group_allocation / channel_commission / custom.`
+    );
+  }
+
+  // revenue_share / receiver_actor / actor_wallet → escrow_payments
+  // (D-money libera depois para actor_wallet do worker).
+  if (
+    calcSplit.destinationType === 'receiver_actor' ||
+    calcSplit.destinationType === 'actor_wallet' ||
+    calcSplit.destinationType === 'escrow_payments'
+  ) {
+    const escrow = await bankAccountService.getPlatformLifecycleAccount(
+      tenantId,
+      'escrow_payments',
+      currency
+    );
+    if (!escrow) {
+      throw new Error(
+        'PE-3: conta escrow_payments do tenant não encontrada — ensurePlatformAccounts esperado'
+      );
+    }
+    return {
+      destinationAccountId: escrow.accountId,
+      splitType: calcSplit.destinationType === 'escrow_payments' ? 'escrow' : 'revenue_share',
+      releaseToActorWallet: calcSplit.destinationType !== 'escrow_payments',
+      receiverActorId,
+    };
+  }
+
+  // platform_fees → conta system platform_fees do tenant.
+  if (calcSplit.destinationType === 'platform_fees') {
+    const acc = await bankAccountService.getPlatformLifecycleAccount(
+      tenantId,
+      'platform_fees',
+      currency
+    );
+    if (!acc) {
+      throw new Error('PE-3: conta system platform_fees do tenant não encontrada');
+    }
+    return {
+      destinationAccountId: acc.accountId,
+      splitType: 'fee',
+      releaseToActorWallet: false,
+      receiverActorId: '',
+    };
+  }
+
+  // risk_reserve → conta system risk_reserve do tenant.
+  if (calcSplit.destinationType === 'risk_reserve') {
+    const acc = await bankAccountService.getPlatformLifecycleAccount(
+      tenantId,
+      'risk_reserve',
+      currency
+    );
+    if (!acc) {
+      throw new Error('PE-3: conta system risk_reserve do tenant não encontrada');
+    }
+    return {
+      destinationAccountId: acc.accountId,
+      splitType: 'reserve',
+      releaseToActorWallet: false,
+      receiverActorId: '',
+    };
+  }
+
+  throw new Error(
+    `PE-3: destination_type não tratado mesmo após filtro de SUPPORTED — bug: ${calcSplit.destinationType}`
+  );
+}
 
 function deterministicServicePaymentExecutedOutboxEventId(tenantId: string, executionId: string): string {
   const hash = createHash('sha256')
@@ -115,32 +248,138 @@ class ServicePaymentExecutionService {
 
     const payerUserId = payerActor.user_id;
 
-    const splitRecipients =
-      input.splits && input.splits.length > 0
-        ? input.splits.map((s) => ({
-            receiverActorId: s.receiverActorId,
-            amountCents: s.amountCents,
-            percentage: s.percentage ?? null,
-          }))
-        : [
-            {
-              receiverActorId: paymentRequest.receiverActorId,
-              amountCents: paymentRequest.amountCents,
-              percentage: 100 as number | null,
-            },
-          ];
+    // ============================================================
+    // PE-3 (2026-05-26 — DECISION-0048) — RESOLUÇÃO DE POLICY
+    // ============================================================
+    // Dois caminhos:
+    //
+    // (1) LEGACY — caller passa `input.splits` explícitos. Cada split vai
+    //     para escrow_payments como revenue_share (compat com E2Es e
+    //     fluxos pré-PE-3). Path mantido até cutover completo.
+    //
+    // (2) CANÔNICO — caller NÃO passa `input.splits`. service_execution
+    //     resolve `economic_policy_engine`, calcula splits via BPS integer
+    //     e mapeia cada destination_type para a bank_account correta:
+    //       revenue_share/receiver_actor → escrow_payments (D-money libera)
+    //       platform_fee                → conta system platform_fees
+    //       regional_fund               → conta system regional_fund
+    //       reserve / risk_reserve      → conta system risk_reserve
+    //       escrow_payments             → escrow_payments direto
+    //     FAIL-CLOSED em POLICY_NOT_FOUND / POLICY_AMBIGUITY / destino
+    //     não suportado (referral / group_allocation / channel_commission
+    //     / custom — frente PE-4+).
+    //
+    // metadata.splits do payment_intent guarda APENAS os splits que devem
+    // ser liberados depois para actor_wallet via D-money — i.e., apenas
+    // revenue_share em escrow_payments. Demais splits caem nos destinos
+    // finais (system accounts) na MESMA bank_transaction e NÃO são
+    // tocados pelo D-money.
+    // ============================================================
+    type LocalSplitRecipient = {
+      receiverActorId: string;
+      amountCents: number;
+      percentage: number | null;
+      destinationAccountId?: string;
+      splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
+      lineType?: EconomicPolicyLineType;
+      releaseToActorWallet: boolean;
+    };
+
+    let splitRecipients: LocalSplitRecipient[];
+    let policyAuditMetadata: Record<string, any> = {};
+
+    if (input.splits && input.splits.length > 0) {
+      // LEGACY: splits explícitos do caller (E2E/teste antigo).
+      // Todos vão para escrow_payments + splitType='revenue_share' por
+      // padrão (omissão de destinationAccountId/splitType no envio ao
+      // bank força fallback compat).
+      splitRecipients = input.splits.map((s) => ({
+        receiverActorId: s.receiverActorId,
+        amountCents: s.amountCents,
+        percentage: s.percentage ?? null,
+        releaseToActorWallet: true,
+      }));
+    } else {
+      // PE-3 CANÔNICO: resolver policy + calcular + mapear.
+      await bankAccountService.ensurePlatformAccounts(tenantId, 'BRL');
+
+      const policyResult = await economicPolicyEngineService.resolveEconomicPolicy({
+        tenantId,
+        moduleContext: 'service_execution',
+        vertical: 'services',
+        actorId: paymentRequest.receiverActorId,
+        actorType: receiverActor.actor_type,
+        pricingModel: 'fixed',
+        settlementFlow: 'fixed_price_escrow',
+        transactionTime: new Date(),
+      });
+
+      if (policyResult.status !== 'resolved') {
+        throw new BadRequestError(
+          `POLICY_${policyResult.errorCode ?? policyResult.status.toUpperCase()}: ` +
+            `${policyResult.errorMessage ?? 'service_execution fail-closed (sem policy aplicável)'}`
+        );
+      }
+
+      const calc = economicPolicyEngineService.calculatePolicySplits(
+        paymentRequest.amountCents,
+        policyResult.lines
+      );
+
+      splitRecipients = [];
+      for (const calcSplit of calc.splits) {
+        // Descartar splits que arredondaram para 0 (bps muito pequeno *
+        // amount pequeno). O bank rejeita amount=0 por linha; o drift já
+        // foi corretamente absorvido por revenue_share[0] no
+        // calculatePolicySplits do PE-1.
+        if (calcSplit.amountCents === 0) continue;
+        const dest = await resolveSplitDestinationFromPolicy(
+          tenantId,
+          paymentRequest.receiverActorId,
+          calcSplit,
+          'BRL'
+        );
+        splitRecipients.push({
+          receiverActorId: dest.receiverActorId,
+          amountCents: calcSplit.amountCents,
+          percentage: null,
+          destinationAccountId: dest.destinationAccountId,
+          splitType: dest.splitType,
+          lineType: calcSplit.lineType,
+          releaseToActorWallet: dest.releaseToActorWallet,
+        });
+      }
+
+      policyAuditMetadata = {
+        policyId: policyResult.policy!.id,
+        policyCode: policyResult.policy!.policyCode,
+        policyVersion: policyResult.policy!.version,
+        appliedAccessPassId: policyResult.appliedAccessPass?.id ?? null,
+        grossAmountCents: paymentRequest.amountCents,
+        calculatedSplits: calc.splits.map((s) => ({
+          lineType: s.lineType,
+          destinationType: s.destinationType,
+          bps: s.bps,
+          amountCents: s.amountCents,
+        })),
+      };
+    }
 
     const splitsSum = splitRecipients.reduce((sum, s) => sum + s.amountCents, 0);
-    if (Math.abs(splitsSum - paymentRequest.amountCents) > 0.01) {
+    if (splitsSum !== paymentRequest.amountCents) {
       throw new BadRequestError(
         `Soma dos splits (${splitsSum}) deve ser igual ao amountCents (${paymentRequest.amountCents})`
       );
     }
 
+    // Validar receiverActorId apenas quando fornecido — system splits
+    // (platform_fee, regional_fund, reserve) usam '' como receiverActorId.
     for (const r of splitRecipients) {
-      const a = await actorRepository.findById(tenantId, r.receiverActorId);
-      if (!a) {
-        throw new BadRequestError(`Actor receptor do split não encontrado: ${r.receiverActorId}`);
+      if (r.receiverActorId) {
+        const a = await actorRepository.findById(tenantId, r.receiverActorId);
+        if (!a) {
+          throw new BadRequestError(`Actor receptor do split não encontrado: ${r.receiverActorId}`);
+        }
       }
     }
 
@@ -173,7 +412,9 @@ class ServicePaymentExecutionService {
       // 1) BANK — escreve bank_transactions + bank_ledger entries + bank_splits
       //    NO MESMO client. Retorna splits agregados (splitId + receiverActorId
       //    + amountCents + percentage) prontos para emissão do outbox sem
-      //    releitura de banco.
+      //    releitura de banco. PE-3: splitRecipients agora carrega
+      //    destinationAccountId/splitType opcionais — bank respeita ambos
+      //    quando fornecidos.
       const bankResult = await bankIntegrationService.processServicePaymentExecutionCanonical(
         tenantId,
         {
@@ -183,7 +424,13 @@ class ServicePaymentExecutionService {
           payerActorId: paymentRequest.payerActorId,
           amountCents: paymentRequest.amountCents,
           currency: 'BRL',
-          splitRecipients,
+          splitRecipients: splitRecipients.map((r) => ({
+            receiverActorId: r.receiverActorId,
+            amountCents: r.amountCents,
+            percentage: r.percentage,
+            destinationAccountId: r.destinationAccountId,
+            splitType: r.splitType,
+          })),
           metadata: {
             paymentRequestId: paymentRequest.paymentRequestId,
             bookingId: paymentRequest.bookingId,
@@ -225,6 +472,29 @@ class ServicePaymentExecutionService {
       //    referenceId = paymentRequestId é UNIQUE no payment_request (1
       //    request por booking), logo a constraint protege contra criação
       //    duplicada de intent para a mesma execução.
+      // PE-3 (DECISION-0048): metadata.splits guarda APENAS os splits que
+      // devem ser repassados ao actor_wallet pelo D-money (= linhas com
+      // releaseToActorWallet=true, i.e. revenue_share em escrow_payments).
+      // Splits direct-to-system (platform_fee, regional_fund, reserve) já
+      // caíram nos destinos finais na MESMA bank_transaction e NÃO são
+      // tocados pelo D-money — não vão em metadata.splits.
+      //
+      // Compat legacy: quando input.splits foi fornecido, todos têm
+      // releaseToActorWallet=true → comportamento inalterado para fluxos
+      // antigos.
+      const releaseSplits = bankSplitsForOutbox
+        .map((bankSplit, idx) => ({
+          bankSplit,
+          releaseToActorWallet: splitRecipients[idx]!.releaseToActorWallet,
+        }))
+        .filter(({ releaseToActorWallet }) => releaseToActorWallet)
+        .map(({ bankSplit }) => ({
+          splitId: bankSplit.splitId,
+          receiverActorId: bankSplit.receiverActorId,
+          amountCents: bankSplit.amountCents,
+          percentage: bankSplit.percentage,
+        }));
+
       await createPaymentIntentWithClient(client, tenantId, {
         referenceId: paymentRequest.paymentRequestId,
         gateway: 'unify_bank',
@@ -241,12 +511,9 @@ class ServicePaymentExecutionService {
           serviceId: paymentRequest.serviceId,
           receiverActorId: paymentRequest.receiverActorId,
           bankTransactionId,
-          splits: bankSplitsForOutbox.map((s) => ({
-            splitId: s.splitId,
-            receiverActorId: s.receiverActorId,
-            amountCents: s.amountCents,
-            percentage: s.percentage,
-          })),
+          splits: releaseSplits,
+          // PE-3 audit trail
+          ...policyAuditMetadata,
         },
       });
 

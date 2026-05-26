@@ -103,7 +103,8 @@ Não há "atalhos técnicos".
 2. `economic_policy_engine` **NÃO importa, NÃO escreve** em `bank_ledger`/`bank_splits`/`bank_transactions`. Guardrail material via `validate-architectural-patterns.mjs` (regra `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE`).
 3. Novos fluxos econômicos usam BPS integer via `economic_policy_engine` + `createTransactionWithExplicitSplitLines`. Hardcoded percentual em fluxo novo é violação.
 4. Fail-closed: `POLICY_NOT_FOUND` / `POLICY_AMBIGUITY` em fluxo novo **bloqueia pagamento**. Sem fallback hardcoded.
-5. `bankSplitEngineService` permanece calculador para fluxos legacy (event_ticket / ride / p2p / group / service_booking) com defaults hardcoded — sem fonte alternativa de policy. Cutover é frente PE-3+.
+5. `bankSplitEngineService` permanece calculador para fluxos legacy (event_ticket / ride / p2p / group) com defaults hardcoded — sem fonte alternativa de policy. Cutover gradual.
+6. **`service_execution` plugado em PE-3 (2026-05-26):** `service-payment-execution.service.createExecution` resolve policy quando `input.splits` ausente. `actor_wallet` recebe APENAS revenue_share via D-money. Fee/reserve/etc. caem nos destinos finais na execução, NUNCA passam por `actor_wallet`.
 
 ---
 

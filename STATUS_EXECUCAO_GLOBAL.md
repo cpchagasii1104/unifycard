@@ -5861,3 +5861,71 @@ Clayton (Modo GUARDIÃO ARQUITETURAL) precisou: ambiente dev/virgem, sem produç
 ### Modo
 
 Convergência fechada. Arquitetura sem cicatrizes — um único cérebro de policy + um único executor financeiro. Pronto para PE-3 (plug em service_execution com fail-closed institucional).
+
+---
+
+## Sessão 2026-05-26 — PE-3: service_execution USA economic_policy_engine
+
+### Contexto
+
+Convergência fechada via DECISION-0048. Próximo passo institucional: plugar `economic_policy_engine` em `service-payment-execution.service.createExecution` para que cliente pague valor BRUTO e Bank materialize splits canônicos ANTES de qualquer dinheiro chegar à `actor_wallet`.
+
+### Entregue
+
+1. **Helper de mapeamento** `resolveSplitDestinationFromPolicy` em `service-payment-execution.service.ts`:
+   - `receiver_actor` / `actor_wallet` → `escrow_payments` (espera D-money) + splitType `revenue_share` + releaseToActorWallet=true
+   - `platform_fees` → conta system `platform_fees` + splitType `fee` + releaseToActorWallet=false
+   - `risk_reserve` → conta system `risk_reserve` + splitType `reserve` + releaseToActorWallet=false
+   - `escrow_payments` → escrow direto + splitType `escrow` + releaseToActorWallet=false
+   - FAIL_CLOSED para `referral` / `group_allocation` / `channel_commission` / `custom` / `regional_fund` (frente PE-4+)
+2. **`processServicePaymentExecutionCanonical` estendido** — `splitRecipients` aceita `destinationAccountId?` + `splitType?`. Backward compat preservado (ausência → escrow + revenue_share).
+3. **`service-payment-execution.service.createExecution`** plugado:
+   - Se `input.splits` ausente: resolve policy via `economicPolicyEngineService` → `calculatePolicySplits` → mapeia destinos
+   - Fail-closed: `POLICY_NOT_FOUND` / `POLICY_AMBIGUITY` → throw + nada gravado
+   - `payment_intent.metadata.splits` filtrado para APENAS `releaseToActorWallet=true` (= revenue_share)
+   - Audit metadata gravada: `policyId`, `policyCode`, `policyVersion`, `grossAmountCents`, `calculatedSplits[]`, `appliedAccessPassId`
+   - Filtro `amountCents > 0` antes do bank (descarta splits zerados por drift de bps pequeno)
+4. **D-money: validação anti-vazamento.** `if (sumSplits > totalAmountCents)` substitui `!==` (sumSplits agora pode ser < amount em fluxo PE-3 porque metadata.splits só carrega revenue_share). Garante actor_wallet ≤ bruto.
+5. **E2E `validate-pipeline-e2e-policy-engine-service-execution.ts`** — 9 cenários, 28 asserções, todos verdes:
+   - T1: sem policy → POLICY_NOT_FOUND fail-closed (nem intent nem split gravados)
+   - T2: policy 9700/3 → 2 bank_splits canônicos + metadata.splits só revenue_share + audit metadata
+   - T3: D-money libera EXATAMENTE 9700 para actor_wallet; platform_fees NÃO recebe nada
+   - T4: multi-line (9000+500+500) → 3 splits canônicos; D-money continua só revenue_share
+   - T5: drift de arredondamento absorvido por revenue_share (amount=333, policy 97/3 → 324+9)
+   - T6: 2 policies idênticas → POLICY_AMBIGUITY fail-closed
+   - T7: rollback atômico (ROLLBACK manual em existingClient) → nada persiste
+   - T8: service-payment-execution NÃO importa bank-policy.service; importa economic_policy_engine
+   - T9: legacy `input.splits=[100%]` preserva fluxo antigo (compat E2Es existentes)
+
+### Gates pós-PE-3 (pré-commit)
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | GATE OK |
+| validate:bank-ledger-boundaries | GATE OK |
+| validate:regression-guards | financial + sql-lint + migrations (320) OK |
+| validate-architectural-patterns --strict | critical_new=0, warning_new=0 |
+| E2E PE-1 (15 testes) | PASS |
+| E2E PE-3 (9 cenários / 28 asserções) | PASS |
+
+### DTs
+
+- `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION` → CLOSED (plug entregue)
+- `DT-CAMADA1-FEE-SPLIT` → RESOLVED (mecanismo pronto; conteúdo da policy fica como frente de produto)
+- `DT-PE3-LINE-TYPES-FAIL-CLOSED` (nova, OPEN LOW) — referral/group/channel/custom/regional_fund line_types fazem fail-closed; resolver dedicado em PE-4+
+
+### Modo
+
+PE-3 fechado. Fluxo material:
+```
+cliente paga valor BRUTO
+→ economic_policy_engine.resolveEconomicPolicy() — fail-closed se ausente/ambígua
+→ calculatePolicySplits() — BPS integer
+→ resolveSplitDestinationFromPolicy() — mapeia destino canônico
+→ bank-transaction.service.createTransactionWithExplicitSplitLines — 1 tx, N splits, N entries no ledger
+→ payment_intent.metadata.splits = APENAS revenue_share
+→ D-money releaseFundsToActorWalletForOrder() move SÓ revenue_share para actor_wallet
+→ actor_wallet recebe LÍQUIDO; fee/reserve já caíram nos destinos finais
+```
+Próximo passo institucional: decidir e seedar policy default canônica para Camada 1 (fora do escopo desta fatia).

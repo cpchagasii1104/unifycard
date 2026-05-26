@@ -177,6 +177,43 @@ duplicidade:
 
 ---
 
+## PE-3 — service_execution canônico (2026-05-26)
+
+A partir desta fatia, `service-payment-execution.service.createExecution`
+resolve policy via `economic_policy_engine` quando `input.splits` é
+ausente. Fluxo:
+
+1. `economicPolicyEngineService.resolveEconomicPolicy({moduleContext:'service_execution', vertical:'services', pricingModel:'fixed', settlementFlow:'fixed_price_escrow', actorId, actorType, transactionTime})` — fail-closed em `POLICY_NOT_FOUND`/`POLICY_AMBIGUITY`.
+2. `calculatePolicySplits(grossAmountCents, lines)` — BPS integer.
+3. `resolveSplitDestinationFromPolicy` (helper local) mapeia cada
+   `destination_type` para `bank_account` real:
+   - `receiver_actor`/`actor_wallet` → `escrow_payments` (D-money libera para `actor_wallet`)
+   - `platform_fees` → conta system `platform_fees`
+   - `risk_reserve` → conta system `risk_reserve`
+   - `escrow_payments` → escrow direto
+   - `referral`/`group_allocation`/`channel_commission`/`custom`/`regional_fund` → FAIL_CLOSED no MVP (frente PE-4+)
+4. `processServicePaymentExecutionCanonical` recebe `splitRecipients`
+   heterogêneos (com `destinationAccountId` + `splitType` resolvidos)
+   e persiste 1 `bank_transaction` + N `bank_splits` + N entries no
+   `bank_ledger` na MESMA transação.
+5. `payment_intent.metadata.splits` carrega APENAS os splits com
+   `releaseToActorWallet=true` (= revenue_share). Demais splits (fee,
+   reserve) já caíram nos destinos finais — D-money NÃO os toca.
+6. Audit metadata: `policyId`, `policyCode`, `policyVersion`,
+   `grossAmountCents`, `calculatedSplits[]`, `appliedAccessPassId`.
+
+**Invariante material:** `actor_wallet` RECEBE EXCLUSIVAMENTE
+`revenue_share`. Fee/reserve/fund/etc. NUNCA passam pelo `actor_wallet`
+do prestador. D-money tem guarda anti-vazamento (`sumSplits >
+totalAmountCents` falha).
+
+**Caminho LEGACY preservado:** caller que passa `input.splits=[100%]`
+continua funcionando (E2Es antigos que dependem desse contrato não
+regridem). Caminho LEGACY força destino `escrow_payments` para todos
+os splits + splitType `revenue_share` (sem audit metadata de policy).
+
+---
+
 ## 🔗 Referencias
 <!-- AUTO-GENERATED-START -->
 ### Referencia

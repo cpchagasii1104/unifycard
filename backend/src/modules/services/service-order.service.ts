@@ -1013,9 +1013,18 @@ class ServiceOrderService {
         });
         sumSplits += s.amountCents;
       }
-      if (sumSplits !== totalAmountCents) {
+      // PE-3 (DECISION-0048): metadata.splits agora carrega APENAS revenue_share
+      // (splits que devem ser repassados ao actor_wallet). Demais splits (fee,
+      // regional_fund, reserve, etc.) já caíram nos destinos finais na hora da
+      // execução e NÃO entram em metadata.splits.
+      //
+      // Logo: soma(metadata.splits) <= payment_intent.amount_cents (NUNCA igual
+      // num fluxo PE-3 com fee>0). Validação anti-vazamento: bloquear se a
+      // soma EXCEDER o valor bruto — actor_wallet jamais pode receber mais que
+      // o pago. Compat preservado para legacy onde sum == amount.
+      if (sumSplits > totalAmountCents) {
         throw new Error(
-          `releaseFundsToActorWalletForOrder: soma dos splits (${sumSplits}) ≠ payment_intent.amount_cents (${totalAmountCents})`
+          `releaseFundsToActorWalletForOrder: soma dos splits (${sumSplits}) > payment_intent.amount_cents (${totalAmountCents}) — vazamento bloqueado`
         );
       }
 

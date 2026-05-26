@@ -447,6 +447,20 @@ class BankIntegrationService {
 
   /**
    * Execução de pagamento de serviço: uma bank_transaction + bank_splits explícitos por execução.
+   *
+   * PE-3 (2026-05-26 — DECISION-0048): `splitRecipients` agora aceita `destinationAccountId`
+   * e `splitType` opcionais. Quando ausentes, força destino `escrow_payments` + splitType
+   * `'revenue_share'` (compat legacy). Quando fornecidos pelo caller (resolver de policy),
+   * permite splits heterogêneos no MESMO bank_transaction:
+   *   - revenue_share → escrow_payments (espera D-money liberar para actor_wallet)
+   *   - platform_fee  → platform_fees system
+   *   - regional_fund → regional_fund system account
+   *   - reserve       → risk_reserve system
+   *   - etc.
+   *
+   * Atomicidade: todos os splits (heterogêneos ou não) entram na MESMA transação SQL
+   * via `createTransactionWithExplicitSplitLines` — bank_ledger continua double-entry
+   * (debit do payer + N credits nos destinos = total bruto).
    */
   async processServicePaymentExecutionCanonical(
     tenantId: string,
@@ -461,6 +475,10 @@ class BankIntegrationService {
         receiverActorId: string;
         amountCents: number;
         percentage?: number | null;
+        /** PE-3: destino do split. Quando ausente, força escrow_payments (compat legacy). */
+        destinationAccountId?: string;
+        /** PE-3: tipo do split. Quando ausente, força 'revenue_share' (compat legacy). */
+        splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
       }>;
       metadata?: Record<string, any>;
     },
@@ -569,21 +587,27 @@ class BankIntegrationService {
       amountCents: number;
       percentage?: number | null;
       receiverActorId: string;
+      splitType?: 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'revenue_share' | 'referral';
     }> = [];
     for (const r of splitRecipients) {
-      // Validar que o receiverActorId existe (preserva a checagem que
-      // resolveBankAccountForServiceActor fazia implicitamente via
-      // actorRepository.findById). Erro idêntico em formato.
-      const { actorRepository } = await import('@modules/social/actor.repository');
-      const actor = await actorRepository.findById(tenantId, r.receiverActorId);
-      if (!actor) {
-        throw new Error(`Actor not found: ${r.receiverActorId}`);
+      // Validar receiverActorId APENAS quando fornecido (system splits — fee,
+      // regional_fund, reserve — não têm actor receptor; receiverActorId vem
+      // como '' do caller PE-3).
+      if (r.receiverActorId) {
+        const { actorRepository } = await import('@modules/social/actor.repository');
+        const actor = await actorRepository.findById(tenantId, r.receiverActorId);
+        if (!actor) {
+          throw new Error(`Actor not found: ${r.receiverActorId}`);
+        }
       }
       splitLines.push({
-        targetAccountId: escrowAccountId, // <- ÚNICA ESCROW; tracking via metadata
+        // PE-3: destinationAccountId quando fornecido pelo resolver de policy;
+        // senão escrow_payments (compat legacy quando caller passa input.splits).
+        targetAccountId: r.destinationAccountId ?? escrowAccountId,
         amountCents: parsePositiveMoneyToCents(r.amountCents, 'splitRecipients[].amountCents'),
         percentage: r.percentage,
         receiverActorId: r.receiverActorId,
+        splitType: r.splitType ?? 'revenue_share',
       });
     }
 
