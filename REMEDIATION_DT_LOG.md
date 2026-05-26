@@ -5349,3 +5349,94 @@ Reabrir feature exige: (i) JTBD real (uploads sendo feitos em produção / posts
 - Gate de patterns funciona (critical_new=0 em todos os commits do dia).
 - Todos os E2E executam normalmente; baseline atualiza por `--update-baseline` controlado.
 - Circuito financeiro está provado fim-a-fim (Etapa 6) com triple defense + atomicidade transacional intacta.
+
+---
+
+## DT-RELEASE-WORKER-IDEMPOTENCY
+
+- **Status:** CLOSED (R1 — risco aparente, neutralizado por defesa em camada inferior)
+- **Severidade:** N/A (sem risco material após verificação)
+- **Origem:** Auditoria 2026-05-26 do E2E workers async, Etapa 1 (Passo 1 dimensionamento). Leitura inicial do `release-worker.ts` observou que `releaseSettledPaymentIntent` não altera o status do `payment_intent` após o release (continua `'settled'`) e que `claimSettledPaymentIntents` re-pega intents settled em cada ciclo (10s). Hipótese levantada [G2]: o release-worker poderia creditar `seller_available` duas vezes para o mesmo settlement (double-spend silencioso). Pergunta material levada ao Passo 1: provar ou refutar.
+- **Vinculada a:** `DT-OUTBOX-ATOMICITY` (RESOLVED `8afeec9a` — mesma família de problemas de idempotência em pipeline financeiro).
+
+### Veredito: R1 (FALSO POSITIVO)
+
+A "idempotência fraca" do release-worker é **compensada pela idempotência forte do `bankTransactionService.transfer`** quando o `referenceId` é estável. Após leitura material, o caminho do double-spend hipotético está **fechado em camada inferior** — sem necessidade de UNIQUE adicional, sem mudança de status, sem alteração de worker.
+
+### Evidência material por leitura (3 elos)
+
+**Elo 1 — referenceId é ESTÁVEL no release (`backend/src/modules/gateway/payment-event-resolver.ts:163-177`):**
+
+```ts
+await bankTransactionService.transfer(tenantId, {
+  eventId: uuidv4(),                  // ← NOVO a cada execução (não é a defesa)
+  fromAccountId: sellerPendingAccount.accountId,
+  toAccountId: sellerAvailableAccount.accountId,
+  amountCents: intent.amountCents,
+  currency: intent.currency as BankCurrency,
+  transactionType: 'transfer',
+  description: `Seller release: ${intent.referenceId}`,
+  metadata: undefined,
+  referenceType: 'seller_release',    // ← ESTÁVEL
+  referenceId: intent.referenceId,    // ← ESTÁVEL (vem do intent; imutável no domínio)
+  treasurySource: 'treasury:settlement',
+  concept_id: 'seller-funds-release',
+  authorship,
+}, client);
+```
+
+**Elo 2 — defesa do transfer ataca exatamente (tenant_id, reference_type, reference_id) (`backend/src/modules/bank/bank-transaction.service.ts:271-325`):**
+
+- L272-275: `pg_advisory_xact_lock(hashtext(tenant_id), hashtext(refType||refId))` — serializa concorrentes na mesma `(tenant, refType, refId)` durante a transação.
+- L279-284: `SELECT id, account_id FROM bank_transactions WHERE tenant_id=$1 AND reference_type=$2 AND reference_id=$3 LIMIT 1 FOR UPDATE`.
+- L285-323: se a row já existe, **retorna a transação existente sem inserir**, hidrata `bank_ledger` da row antiga, emite `transaction_idempotent_return` em `logFinancialEvent` (observabilidade).
+
+**Elo 3 — claim do release-worker (`backend/src/modules/payments/payment-intent-repository.ts:217-231`):**
+
+```sql
+SELECT ...
+FROM payment_intents
+WHERE payment_status = 'settled'
+ORDER BY created_at ASC
+LIMIT $2
+FOR UPDATE SKIP LOCKED
+```
+
+O claim de fato re-pega o mesmo intent em ciclos sucessivos (não filtra por `metadata.seller_release_reference`). **Esse é o "risco aparente"** que motivou o [G2]. Mas o ciclo subsequente, ao chamar `releaseSettledPaymentIntent`, executa o `transfer` com **a mesma (tenant_id, 'seller_release', intent.referenceId)** — onde a defesa do Elo 2 atua.
+
+### Cenários cobertos pela defesa
+
+| Cenário | O que acontece | Resultado |
+|---|---|---|
+| Worker re-claim em ciclo seguinte (mesma instância, 10s depois) | `transfer` faz `SELECT FOR UPDATE`, encontra a row antiga, retorna `transactionId` existente, **não insere bank_transactions nem bank_ledger** | NO-OP — `transaction_idempotent_return` emitido |
+| Duas instâncias do worker rodando em paralelo (race) | Instância 1 adquire `pg_advisory_xact_lock`; instância 2 bloqueia até commit/rollback da 1; depois encontra a row existente e retorna NO-OP | Serialização cross-process; ZERO double-spend |
+| Worker morre entre `transfer.COMMIT` e `updatePaymentIntentMetadata` | Próximo ciclo re-claim, transfer NO-OP (row já existe), `updatePaymentIntentMetadata` re-executa (idempotente — sobrescreve mesma chave) | Convergente |
+| `intent.referenceId` nulo/vazio | `transfer` lança `BANK_REFERENCE_REQUIRED` (L258-260) | Falha rápida observável, sem double-spend |
+
+### Por que NÃO foi necessário harness
+
+A leitura pura dos três elos é suficiente — não há ambiguidade sobre o que acontece. O `referenceId` é estável (linha 173, literal `intent.referenceId`), a defesa do `transfer` ataca (refType, refId) (linha 281, literal `reference_type=$2 AND reference_id=$3`), e o retorno idempotente é mecânico (linha 285-323, retorna sem inserir). Construir harness apenas reproduziria o que já está provado por inspeção. Disciplina cirúrgica: leitura > harness quando a leitura é definitiva.
+
+### Mecanismo de defesa identificado (resumo formal)
+
+A idempotência do release-worker é **delegada à camada de transfer**, não enforçada no worker. Padrão arquitetural: o worker trata a fila como _at-least-once_ (re-claim aceito); a defesa material vive em `bankTransactionService.transfer` via `(tenant_id, reference_type, reference_id)` UNIQUE-by-behavior (não UNIQUE-by-constraint, mas funcionalmente equivalente porque o advisory lock + SELECT FOR UPDATE + return-existing implementa a invariante).
+
+Diretriz arquitetural implícita (e correta): **idempotência financeira NÃO depende do worker — depende da reference estável + defesa do transfer**. Mesmo padrão usado por:
+- `payout-worker.ts:62-63` — `referenceType='seller_payout', referenceId=payout.id` (estável)
+- `bank-settlement-worker.ts:85-86` — `referenceType='bank_settlement', referenceId=settlement.id` (estável)
+- `releaseSettledPaymentIntent` — `referenceType='seller_release', referenceId=intent.referenceId` (estável)
+
+### Sinal de telemetria que confirma a invariante em produção
+
+`logFinancialEvent` com `financial_event='transaction_idempotent_return'` é emitido **sempre que** o transfer detecta row existente. Se o release-worker estiver re-executando, esse evento aparecerá nos logs financeiros — observável, não silencioso.
+
+### Não bloqueia / não exige ação
+
+- Sem correção necessária: a defesa atua.
+- Sem UNIQUE adicional: o lock advisory + SELECT FOR UPDATE substitui constraint formal.
+- Sem mudança de status: o status `'settled'` permanecer pós-release é projeto consciente (rastreio em metadata + idempotência delegada).
+- E2E feliz do release-worker (próxima fatia) pode prosseguir sem preocupação com double-spend.
+
+### Observação adjacente (NÃO escopo)
+
+A propriedade "idempotência delegada à reference estável + defesa do transfer" é a invariante real do sistema financeiro do UnifiCard. Vale documentar em DECISION canônica futura — pattern transversal aos 4 workers. Mas isso é direção, não fatia.
