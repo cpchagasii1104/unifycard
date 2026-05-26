@@ -1,6 +1,8 @@
 // backend/src/modules/services/service-order.service.ts
 // SPRINT 68: SERVICE ORDERS + AGENDA CANÔNICA
 
+import { createHash } from 'crypto';
+import type { PoolClient } from 'pg';
 import { serviceOrderRepository } from './service-order.repository';
 // 🔴 CORREÇÃO FASE 1B: Toda lógica temporal agora usa unifiedAvailabilityService
 import { serviceBookingDecisionRepository } from './service-booking-decision.repository';
@@ -10,6 +12,7 @@ import { bankAccountService } from '@modules/bank/bank-account.service';
 import { bankSplitRepository } from '@modules/bank/bank-split.repository';
 import { bankTransactionService } from '@modules/bank/bank-transaction.service';
 import { getClientWithTenant } from '@core/database/pool';
+import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { HttpError } from '@core/errors/http-error';
 import type { PermissionKey } from '@core/authorization/permission-keys';
 import type { BankCurrency } from '@modules/bank/bank-account.types';
@@ -26,8 +29,45 @@ import type {
 } from './service-order.types';
 
 /**
+ * F1 (Camada 1 saída — 2026-05-26):
+ *   Janela default de confirmação do buyer pós-conclusão do prestador.
+ *   Configurável via env `CAMADA1_BUYER_CONFIRMATION_WINDOW_DAYS` (padrão 7).
+ *   Vetada para 0 ou negativo (regra econômica: buyer DEVE ter janela
+ *   real para confirmar antes do release).
+ */
+function resolveBuyerConfirmationWindowDays(): number {
+  const raw = process.env.CAMADA1_BUYER_CONFIRMATION_WINDOW_DAYS;
+  const parsed = raw != null && raw !== '' ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 7;
+}
+
+/**
+ * F1 — event_id determinístico do outbox para SERVICE_ORDER_PENDING_BUYER_
+ * CONFIRMATION. Pattern espelhado de service-payment-execution.service.ts:26-36
+ * (deterministicServicePaymentExecutedOutboxEventId). Garante idempotência via
+ * ON CONFLICT (event_id) DO NOTHING do event_outbox.
+ */
+function deterministicServiceOrderPendingOutboxEventId(
+  tenantId: string,
+  orderId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`SERVICE_ORDER_PENDING_BUYER_CONFIRMATION:${tenantId}:${orderId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
  * Service para Ordens de Serviço
- * 
+ *
  * ⚠️ REGRAS ARQUITETURAIS:
  * - Append-only: status muda, mas registros não desaparecem
  * - Status declarativos
@@ -296,12 +336,28 @@ class ServiceOrderService {
   }
 
   /**
-   * Completa ordem de serviço (IN_PROGRESS → COMPLETED)
+   * Completa ordem de serviço.
+   *
+   * BIFURCAÇÃO POR settlement_flow (decisão Clayton F1 — 2026-05-26):
+   *
+   *   - `fixed_price_escrow` (Camada 1):
+   *       in_progress → SELLER_PENDING + carimba buyer_confirmation_deadline_at
+   *       (now()+7d configurável) + release_eligible_at. Atômico com INSERT
+   *       no event_outbox (SERVICE_ORDER_PENDING_BUYER_CONFIRMATION).
+   *       NÃO MOVE DINHEIRO — dinheiro permanece em escrow_payments.
+   *
+   *   - `none` ou qualquer outro fluxo (comportamento legado):
+   *       in_progress → COMPLETED, sem campos F1, sem outbox F1.
+   *
+   * @param existingClient Pattern existingClient (convergência arquitetural —
+   *   espelha createExecution após commit 1352d9da). Modo CONVIDADO permite
+   *   teste/caller controlar a tx por fora (B7.b análogo).
    */
   async completeOrder(
     tenantId: string,
     orderId: string,
-    input: CompleteServiceOrderInput
+    input: CompleteServiceOrderInput,
+    existingClient?: PoolClient
   ): Promise<ServiceOrder> {
     // 0. Validar permissão via authority.service (fachada modules — §4.9)
     if (input.completedByUserId) {
@@ -382,19 +438,104 @@ class ServiceOrderService {
       }
     }
 
-    // 2. Completar ordem
-    const completedOrder = await serviceOrderRepository.completeOrder(
-      tenantId,
-      orderId,
-      input.workerNotes || null
-    );
+    // 2. Completar ordem — BIFURCA POR settlement_flow (F1 Camada 1).
+    let completedOrder: ServiceOrder;
+    if (order.settlementFlow === 'fixed_price_escrow') {
+      // ============================================================
+      // CAMINHO F1 — fixed_price_escrow → seller_pending + outbox atômico
+      // ============================================================
+      // Atomicidade: UPDATE service_orders + INSERT event_outbox JUNTOS
+      // ou ROLLBACK juntos. Pattern existingClient (8afeec9a/1352d9da).
+      const windowDays = resolveBuyerConfirmationWindowDays();
+      const now = new Date();
+      const deadlineAt = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+      // Hoje release_eligible_at = deadline_at (D2 caminho lento). Quando
+      // D2 caminho rápido (buyer confirma cedo) chegar, este campo pode
+      // ser antecipado por buyer_confirmed_completion_at.
+      const releaseEligibleAt = deadlineAt;
+
+      const client = existingClient ?? (await getClientWithTenant(tenantId));
+      const ownClient = !existingClient;
+      try {
+        if (ownClient) {
+          await client.query('BEGIN');
+        }
+
+        completedOrder = await serviceOrderRepository.markAsSellerPending(
+          tenantId,
+          orderId,
+          deadlineAt,
+          releaseEligibleAt,
+          input.workerNotes ?? null,
+          client
+        );
+
+        // Outbox atômico — event_id determinístico (idempotência via
+        // ON CONFLICT DO NOTHING do event_outbox).
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: deterministicServiceOrderPendingOutboxEventId(tenantId, orderId),
+          eventType: 'SERVICE_ORDER_PENDING_BUYER_CONFIRMATION',
+          eventVersion: 1,
+          payload: {
+            orderId,
+            serviceId: completedOrder.serviceId,
+            workerActorId: completedOrder.workerActorId,
+            customerActorId: completedOrder.customerActorId,
+            bookingId: completedOrder.bookingId,
+            settlementFlow: completedOrder.settlementFlow,
+            buyerConfirmationDeadlineAt: deadlineAt.toISOString(),
+            releaseEligibleAt: releaseEligibleAt.toISOString(),
+            providerCompletedAt: completedOrder.completedAt
+              ? completedOrder.completedAt.toISOString()
+              : null,
+          },
+          metadata: {
+            completedByActorId: input.completedByActorId,
+            completedByUserId: input.completedByUserId ?? null,
+            confirmationWindowDays: windowDays,
+          },
+        });
+
+        if (ownClient) {
+          await client.query('COMMIT');
+        }
+      } catch (error) {
+        if (ownClient) {
+          try {
+            await client.query('ROLLBACK');
+          } catch (_rollbackErr) {
+            // ROLLBACK falhou (conexão perdida) — propaga erro original.
+          }
+        }
+        throw error;
+      } finally {
+        if (ownClient) {
+          client.release();
+        }
+      }
+    } else {
+      // ============================================================
+      // CAMINHO LEGADO — settlement_flow='none' (ou outro): COMPLETED
+      // ============================================================
+      // Comportamento original preservado. Nenhum campo F1 carimbado,
+      // nenhum outbox F1 emitido.
+      completedOrder = await serviceOrderRepository.completeOrder(
+        tenantId,
+        orderId,
+        input.workerNotes || null
+      );
+    }
 
     // 3. 🔴 CORREÇÃO FASE 1B: Removida atualização de calendar event (agenda paralela não existe mais)
     // Status da ordem é gerenciado apenas em service_orders, não em agenda paralela
 
     // 4. Registrar auditoria (sistema antigo)
     await this.recordAudit(tenantId, {
-      eventType: 'SERVICE_ORDER_COMPLETED',
+      eventType:
+        completedOrder.status === 'seller_pending'
+          ? 'SERVICE_ORDER_PENDING_BUYER_CONFIRMATION'
+          : 'SERVICE_ORDER_COMPLETED',
       orderId: completedOrder.id,
       status: completedOrder.status,
       completedByActorId: input.completedByActorId,

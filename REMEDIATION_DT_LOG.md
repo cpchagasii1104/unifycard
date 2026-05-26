@@ -5543,3 +5543,101 @@ Com a entrada correta, o pipeline da Camada 1 destrava:
 - Marketplace continua funcionando (caminho `executePayment` intacto).
 - Tenants antigos com saldo em conta default do receiver mantêm o saldo onde está (sem migração forçada de dados).
 - A próxima fatia pode prosseguir; a base econômica está correta.
+
+---
+
+## DT-DOUBLE-ESCROW-PLANES
+
+- **Status:** OPEN (rastreamento; F1 explicitamente NÃO resolve)
+- **Severidade:** MEDIUM (planos paralelos não-bloqueantes; reconciliação futura, decisão Clayton K2 = Opção 1)
+- **Origem:** Sessão Camada 1 F1 (2026-05-26). Auditoria do `completeOrder` revelou que dois mecanismos de "escrow" coexistem sem cross-talk:
+  - **Plano A — Bank/Camada 1:** conta system `escrow_payments` em `bank_accounts`, alimentada pelo `createExecution` refatorado (commit `62771db9`). Dinheiro real em `bank_ledger`; tracking via `payment_intent.metadata.splits[*].receiverActorId`.
+  - **Plano B — Agreement/Marketplace:** tabela `escrow_accounts` ligada a `agreements` finalizados, com milestones discretos (`payment_milestones` enum 'confirmed'|'started'|'completed'). Hoje só consultado pelo bloco L332-383 do `completeOrder` (autorização aspiracional de milestone 'completed'); não toca `bank_ledger` na trajetória de F1.
+
+### Evidência material
+
+| Cross-talk | Resultado |
+|---|---|
+| `createExecution` → `escrowRepository`? | NÃO (grep "escrowRepository" em `backend/src/modules/bank/` = 0) |
+| `completeOrder` → `payment_intents`/`escrow_payments`? | NÃO (grep "payment_intent" em `service-order.service.ts` = 0) |
+
+### Decisão F1 (K2 = Opção 1)
+
+A F1 **ignora** completamente o Plano B. O bloco `if (order.bookingId)` no `service-order.service.ts:332-383` permanece inalterado (apenas autoriza milestone 'completed' em escrow_accounts se houver agreement — comportamento legado). A F1 atua apenas no Plano A via `settlement_flow='fixed_price_escrow'`.
+
+### Riscos rastreados (NÃO bloqueiam F1)
+
+- Tenants com agreement+escrow_account ativo veem ambos os planos coexistirem; nenhum reconciliador cruza.
+- Se ambos forem usados no mesmo tenant para o mesmo serviço, o tracking financeiro fica em **dois lugares** (escrow_payments no Plano A, payment_milestones no Plano B). Auditoria precisa olhar os dois para somar.
+- Documentação institucional deve registrar que Plano B é **legado em deprecação eventual** — sem caller real além do `completeOrder` (auditoria não confirmou outros callers; verificar antes de deprecação).
+
+### Resolução prevista (não nesta fatia)
+
+1. **Opção 1 (atual — decidida):** convivência paralela. Documentar, monitorar uso real de escrow_accounts em produção. Se ficar zero ou só transitório, deprecar Plano B em frente própria.
+2. **Opção 2 (convergência futura):** fazer `escrowRepository` projetar `escrow_payments` (Plano A vira fonte, Plano B vira view derivada). Frente grande; só justificável se compliance exigir milestones discretos.
+3. **Opção 3 (deprecação Plano B):** se o `completeOrder` for o único caller, marcar o bloco L332-383 como dead-code e remover em fatia separada.
+
+### Não bloqueia
+
+- F1 funciona materialmente (E2E `validate-pipeline-e2e-camada1-f1.ts` 21/21 verdes).
+- Plano B continua funcionando para callers legados, se houver.
+- `bank_ledger` permanece a fonte canônica de dinheiro real.
+
+---
+
+## DT-SERVICE-ORDER-AUTHORITY
+
+- **Status:** OPEN (gap material; F1 não introduziu, herda do código legado)
+- **Severidade:** MEDIUM (gate genérico existe mas não cruza com `order.workerActorId`)
+- **Origem:** Sessão Camada 1 F1 (2026-05-26). Auditoria de `completeOrder` (`service-order.service.ts:307-319`) revelou que a autoridade depende **apenas** do gate genérico `authorityService.canPerformAction(actorId, 'service_order:complete', ...)`. NÃO há cruzamento explícito com `order.workerActorId === input.completedByActorId`.
+
+### Implicação
+
+Se a permissão `service_order:complete` for garanteada a múltiplos `actor_types` (ex.: `admin` pode completar qualquer ordem por design operacional), o gate genérico não impede um actor com a permissão de marcar uma ordem **alheia** como completed em nome do worker original. Isso pode ser projeto consciente (admin override) ou gap silencioso.
+
+### O que a F1 NÃO fez
+
+- Não corrigiu — fora do escopo.
+- Não removeu o gate.
+- O E2E F1 passa `completedByUserId: undefined` para pular o gate (caminho documentado pelo `if (input.completedByUserId)` em L307); o teste exercita a bifurcação de `settlement_flow` sem testar autoridade.
+
+### Resolução prevista (fatia própria)
+
+1. Confirmar a definição da permission-key `service_order:complete` (`backend/src/core/authorization/permission-keys.ts` + `business-permissions.types.ts`).
+2. Decidir: a) reforço explícito (`if (order.workerActorId !== input.completedByActorId && !isAdmin(...)) throw forbidden`); ou b) confirmar que admin override é desejado e documentar como projeto.
+3. Atualizar ou criar regra fina específica para `service_order:complete`.
+
+### Não bloqueia
+
+- F1 funciona com ou sem o gate fino.
+- Routes externas em produção SEMPRE passam `completedByUserId` (`service-order.routes.ts:206`), então o gate genérico continua atuando em rotas reais.
+- Em ambiente de teste/admin, é trivial pular o gate — mesmo padrão antes da F1.
+
+---
+
+## DT-SERVICES-PRICING-TYPE-DRIFT
+
+- **Status:** OPEN (drift histórico; F1 não consome este campo)
+- **Severidade:** LOW (não-bloqueante; F1 usa `settlement_flow` próprio em `service_orders` como discriminador)
+- **Origem:** Sessão Camada 1 F1 (2026-05-26). Auditoria do banco vivo (`unificard_dev`) e do código revelou:
+  - `services.pricing_type` é `VARCHAR(50) NULLABLE` SEM CHECK constraint ativo no banco.
+  - Diferentes pontos no código usam vocabulários distintos: TS type aceita `'hourly' | 'daily' | 'weekly' | 'monthly' | 'fixed' | 'quote'`; defaults reais em rotas variam ('quote' em alguns, vazio em outros).
+  - Banco atual tem 0 rows com `pricing_type='fixed'` e 0 com `'quote'` — único service cadastrado tem `pricing_type=NULL`.
+  - Não há helper canônico `isFixedPrice(...)` nem `pricing_type` normalization layer.
+
+### Decisão Clayton K1 atualizado (2026-05-26)
+
+F1 **NÃO** usa `services.pricing_type` como discriminador primário. O discriminador autoritativo é `service_orders.settlement_flow` (NOT NULL DEFAULT 'none' CHECK ('none'|'fixed_price_escrow')) materializado pela migration `20260530555000_create_service_orders_substrate_with_f1.sql`. Isso isola a F1 do drift do `pricing_type` legado.
+
+### Resolução prevista (fatia futura, não bloqueante)
+
+1. Adicionar CHECK constraint em `services.pricing_type` consolidando o enum canônico.
+2. Migration de normalização (uppercase → lowercase, NULL → default).
+3. Helper canônico `pricingTypeFromService(service): CanonicalPricingType` que normaliza na entrada.
+4. Decidir convergência: `settlement_flow` da `service_orders` é derivado do `pricing_type` do `services` no momento da criação, OU é independente (decisão de produto separada)?
+
+### Não bloqueia
+
+- F1 não depende de `pricing_type` (usa `settlement_flow` próprio).
+- E2E F1 21/21 verdes sem tocar `pricing_type`.
+- Marketplace continua funcionando.

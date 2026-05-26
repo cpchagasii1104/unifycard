@@ -1,3 +1,57 @@
+## 2026-05-26 — Camada 1 saída F1: prestador conclui fixed_price_escrow → seller_pending + outbox atômico (zero movimento financeiro)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `4a0c6223` (DT-RECONCILE-SCRIPTS-ALLOWPATH CLOSED) | **HEAD pós:** (este commit)
+
+**Contexto:** Pré-fatia 0 da Camada 1 saída revelou que (a) `service_orders` NÃO EXISTIA no banco vivo apesar de todo o módulo `services/service-order.*.ts` operar sobre ela, (b) `services.pricing_type` está incoerente sem CHECK ativo, (c) há dois "escrows" paralelos (bank `escrow_payments` e module `escrow_accounts`/`payment_milestones`) que não se cruzam no caminho do `completeOrder`. Decisões Clayton: K0=materializar service_orders agora; K1=settlement_flow próprio em service_orders, NÃO pricing_type; K2=Opção 1 (F1 ignora escrow_accounts/milestones, DT registra).
+
+**Entregue (1 commit funcional + 3 DTs + E2E novo):**
+
+- **Migration ativa** `backend/migrations/20260530555000_create_service_orders_substrate_with_f1.sql`:
+  - service_order_status enum lowercase ('draft','confirmed','in_progress','completed','seller_pending','cancelled').
+  - service_orders com FKs canônicas (tenants/services/actors) + nullable booking_id (FK omitida porque `service_bookings` não existe; tabela viva é `bookings`).
+  - Campos F1 desde nascimento: `settlement_flow` TEXT NOT NULL DEFAULT 'none' CHECK ('none'|'fixed_price_escrow'); `buyer_confirmation_deadline_at`, `buyer_confirmed_completion_at`, `release_eligible_at`, `disputed_at`, `dispute_id` (TIMESTAMPTZ/UUID NULL).
+  - 8 índices + trigger updated_at + RLS pattern `app.current_tenant` (alinha service_payment_executions).
+
+- **`service-order.types.ts`**: status enum + `ServiceOrderSettlementFlow` type; 6 novos campos em `ServiceOrder`.
+
+- **`service-order.repository.ts`**: `ServiceOrderRow` + `toServiceOrder` incluem campos F1; SELECT/RETURNING atualizado em todos os métodos; novo método `markAsSellerPending(tenantId, orderId, deadlineAt, releaseEligibleAt, workerNotes, executingClient?)` (pattern existingClient idêntico ao OUTBOX_ATOMICITY_HARDENING `8afeec9a`).
+
+- **`service-order.service.ts`**: `completeOrder` agora aceita `existingClient?: PoolClient` e BIFURCA por `order.settlementFlow`:
+  - `'fixed_price_escrow'`: abre tx (ou usa caller), `markAsSellerPending` + `insertEventOutboxRow` com event_id determinístico SHA-256 `SERVICE_ORDER_PENDING_BUYER_CONFIRMATION:tenant:order`, COMMIT. Janela configurável via `CAMADA1_BUYER_CONFIRMATION_WINDOW_DAYS` (default 7).
+  - `'none'`: comportamento original (status='completed', sem campos F1).
+  - `recordAudit` emite `SERVICE_ORDER_PENDING_BUYER_CONFIRMATION` quando status='seller_pending'; `SERVICE_ORDER_COMPLETED` caso contrário.
+
+- **E2E novo** `backend/src/scripts/validate-pipeline-e2e-camada1-f1.ts` (21 asserts):
+  - TEST 1 (fixed_price_escrow): status=seller_pending; deadline=now+7d±1min; release_eligible_at=deadline; disputed_at/buyer_confirmed_completion_at NULL; outbox tem 1 row SERVICE_ORDER_PENDING_BUYER_CONFIRMATION; bank_ledger/escrow_payments inalterados.
+  - TEST 2 (none): status=completed; deadline=NULL; release_eligible_at=NULL; NENHUM outbox F1.
+  - TEST 3 (atomicidade): client externo + BEGIN + completeOrder(..., externalClient) + presença DENTRO da tx + ROLLBACK + ausência APÓS rollback nas 2 tabelas (service_orders + event_outbox). Provado análogo ao B7.b.
+  - TEST 4 (idempotência): 2ª chamada lança "ordem não está em in_progress" sem duplicar evento.
+  - FINAL: bank_ledger e escrow_payments TOTALMENTE inalterados em todo o E2E.
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E F1 PASS (21/21); E2E transversal preservado (A1-A12 + B6/B7/B7.b/B8 PASS); 4 gates verdes; arch patterns `critical_new=0` strict (E2E novo dentro do allowPath estendido pelo `4a0c6223`); migration aplicada e schema verificado via `\d service_orders` no dev DB.
+
+**3 DTs registradas:**
+
+- `DT-DOUBLE-ESCROW-PLANES` OPEN (rastreamento — Plano A bank vs Plano B agreement; convivência paralela decidida; deprecação eventual de Plano B em frente futura se uso real for zero).
+- `DT-SERVICE-ORDER-AUTHORITY` OPEN (gate genérico `service_order:complete` não cruza com `order.workerActorId`; gap herdado, F1 não introduziu).
+- `DT-SERVICES-PRICING-TYPE-DRIFT` OPEN (LOW — `services.pricing_type` sem CHECK ativo + valores incoerentes no código; F1 isola usando `settlement_flow` próprio em `service_orders`).
+
+**O que NÃO mudou (escopo travado):**
+- Zero movimento financeiro (bank_ledger/escrow_payments/payment_intents/payout_requests/bank_settlements intactos).
+- Workers (release/payout/bank-settlement/settlement) inalterados.
+- Marketplace `executePayment` intacto.
+- Simulador `paymentExecutionService.*` intocado.
+- Bloco escrow_accounts/milestones em `completeOrder` (L332-383) intocado (legado preservado).
+- Authority service intocado.
+- Gate 1, identidade, RBAC.
+
+**Próxima fatia natural (D2 caminho rápido):**
+- Endpoint `POST /service-orders/:id/confirm-completion` para o buyer marcar `buyer_confirmed_completion_at` (antecipa `release_eligible_at`).
+- Worker de release lendo `service_orders` WHERE status='seller_pending' AND release_eligible_at <= now() AND disputed_at IS NULL — mas isso ainda exige resolver a ponte service_order ↔ payment_intent escrowed (vínculo via `booking_id` se houver) antes de mover dinheiro.
+
+---
+
 ## 2026-05-26 — Camada 1 entrada: createExecution credita escrow_payments + payment_intent escrowed (Cenário Y fechado)
 
 **Branch:** `rescue-structural`

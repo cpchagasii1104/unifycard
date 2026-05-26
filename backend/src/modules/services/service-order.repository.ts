@@ -1,10 +1,12 @@
 // backend/src/modules/services/service-order.repository.ts
 // SPRINT 68: Repository para service_orders
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {
   ServiceOrder,
   ServiceOrderFilters,
+  ServiceOrderSettlementFlow,
 } from './service-order.types';
 
 interface ServiceOrderRow {
@@ -16,6 +18,13 @@ interface ServiceOrderRow {
   booking_id: string | null;
   decision_id: string | null;
   status: string;
+  // F1 (Camada 1 saída) — 2026-05-26
+  settlement_flow: string;
+  buyer_confirmation_deadline_at: Date | null;
+  buyer_confirmed_completion_at: Date | null;
+  release_eligible_at: Date | null;
+  disputed_at: Date | null;
+  dispute_id: string | null;
   scheduled_start: Date;
   scheduled_end: Date | null;
   estimated_duration_minutes: number | null;
@@ -69,6 +78,13 @@ class ServiceOrderRepository {
       completedAt: row.completed_at,
       cancelledAt: row.cancelled_at,
       cancellationReason: row.cancellation_reason,
+      // F1 (Camada 1 saída) — 2026-05-26
+      settlementFlow: row.settlement_flow as ServiceOrderSettlementFlow,
+      buyerConfirmationDeadlineAt: row.buyer_confirmation_deadline_at,
+      buyerConfirmedCompletionAt: row.buyer_confirmed_completion_at,
+      releaseEligibleAt: row.release_eligible_at,
+      disputedAt: row.disputed_at,
+      disputeId: row.dispute_id,
       metadata: row.metadata || {},
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
@@ -111,7 +127,11 @@ class ServiceOrderRepository {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-                status, scheduled_start, scheduled_end, estimated_duration_minutes,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
@@ -156,7 +176,11 @@ class ServiceOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-             status, scheduled_start, scheduled_end, estimated_duration_minutes,
+             status,
+             settlement_flow,
+             buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+             release_eligible_at, disputed_at, dispute_id,
+             scheduled_start, scheduled_end, estimated_duration_minutes,
              location_address, location_latitude, location_longitude,
              description, customer_notes, worker_notes,
              created_by_actor_id, created_by_user_id,
@@ -233,7 +257,11 @@ class ServiceOrderRepository {
       tenantId,
       `
       SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-             status, scheduled_start, scheduled_end, estimated_duration_minutes,
+             status,
+             settlement_flow,
+             buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+             release_eligible_at, disputed_at, dispute_id,
+             scheduled_start, scheduled_end, estimated_duration_minutes,
              location_address, location_latitude, location_longitude,
              description, customer_notes, worker_notes,
              created_by_actor_id, created_by_user_id,
@@ -269,7 +297,11 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-                status, scheduled_start, scheduled_end, estimated_duration_minutes,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
@@ -305,7 +337,11 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'confirmed'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-                status, scheduled_start, scheduled_end, estimated_duration_minutes,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
@@ -341,7 +377,11 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status = 'in_progress'
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-                status, scheduled_start, scheduled_end, estimated_duration_minutes,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
@@ -354,6 +394,73 @@ class ServiceOrderRepository {
 
     if (!row) {
       throw new Error('Ordem não encontrada ou não está em IN_PROGRESS');
+    }
+
+    return this.toServiceOrder(row);
+  }
+
+  /**
+   * F1 (Camada 1 saída — 2026-05-26): in_progress → seller_pending.
+   *
+   * Aplicável quando a service order tem settlement_flow='fixed_price_escrow'.
+   * O service layer decide o caminho; o repository só executa o UPDATE
+   * atômico carimbando os campos F1.
+   *
+   * Atomicidade: aceita PoolClient externo (pattern existingClient —
+   * espelha service-payment-execution.service.ts:createExecution após
+   * commit 1352d9da e bank-transaction.service.ts:262-269). O caller
+   * orquestra BEGIN/COMMIT/ROLLBACK + INSERT event_outbox na mesma tx.
+   *
+   * Quando executingClient ausente: usa runQueryWithTenant (tx própria —
+   * caminho legado preservado para retrocompatibilidade).
+   *
+   * NÃO TOCA DINHEIRO. Só estado + carimbos.
+   */
+  async markAsSellerPending(
+    tenantId: string,
+    orderId: string,
+    deadlineAt: Date,
+    releaseEligibleAt: Date,
+    workerNotes: string | null,
+    executingClient?: PoolClient
+  ): Promise<ServiceOrder> {
+    const sql = `
+      UPDATE service_orders
+      SET status = 'seller_pending',
+          completed_at = NOW(),
+          buyer_confirmation_deadline_at = $3,
+          release_eligible_at = $4,
+          worker_notes = COALESCE($5, worker_notes),
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2 AND status = 'in_progress'
+        AND settlement_flow = 'fixed_price_escrow'
+      RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
+                location_address, location_latitude, location_longitude,
+                description, customer_notes, worker_notes,
+                created_by_actor_id, created_by_user_id,
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
+    `;
+    const params = [tenantId, orderId, deadlineAt, releaseEligibleAt, workerNotes];
+
+    let row: ServiceOrderRow | undefined;
+    if (executingClient) {
+      const result = await executingClient.query<ServiceOrderRow>(sql, params);
+      row = result.rows[0];
+    } else {
+      row = await runQueryWithTenant<ServiceOrderRow>(tenantId, sql, params);
+    }
+
+    if (!row) {
+      throw new Error(
+        'markAsSellerPending: ordem não está em in_progress + fixed_price_escrow, ou já foi processada'
+      );
     }
 
     return this.toServiceOrder(row);
@@ -377,7 +484,11 @@ class ServiceOrderRepository {
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2 AND status IN ('draft', 'confirmed', 'in_progress')
       RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
-                status, scheduled_start, scheduled_end, estimated_duration_minutes,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
                 location_address, location_latitude, location_longitude,
                 description, customer_notes, worker_notes,
                 created_by_actor_id, created_by_user_id,
