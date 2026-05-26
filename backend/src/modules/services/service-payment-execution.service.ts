@@ -15,6 +15,7 @@ import { actorRepository } from '@modules/social/actor.repository';
 import { ActorEffect } from '@modules/social/actor-effects.types';
 import { BadRequestError } from '@core/errors';
 import { bankIntegrationService } from '../bank/bank-integration.service';
+import { createPaymentIntentWithClient } from '@modules/payments/payment-intent-repository';
 import type {
   ServicePaymentExecution,
   PaymentSplit,
@@ -183,8 +184,50 @@ class ServicePaymentExecutionService {
         client
       );
 
-      // 3) OUTBOX — INSERTs event_outbox no MESMO client. Atomicidade
-      //    completa: bank + execution + outbox commitam ou rollback juntos.
+      // 3) PAYMENT INTENT — INSERT payment_intents status='escrowed' no MESMO
+      //    client. Fecha o vínculo execução↔intent que destrava a Camada 1.
+      //
+      //    CAMADA 1 — ENTRADA EM ESCROW (Decisão Clayton D1'/D1''/D1'''):
+      //    sem este intent, o settlement-worker NÃO tem fila para consumir
+      //    e o dinheiro recém-creditado em escrow_payments fica preso. O par
+      //    (crédito escrow + intent escrowed) acontece JUNTO ou nenhum
+      //    acontece — atomicidade preservada pela mesma transação BEGIN/COMMIT.
+      //
+      //    Rastreabilidade do escrow agregado (D1''): metadata carrega
+      //    receiverActorId, executionId, splits agregados — suficiente para
+      //    o release alimentar seller_pending por receiver na próxima fatia.
+      //
+      //    UNIQUE (tenant_id, reference_id) em payment_intents: o
+      //    referenceId = paymentRequestId é UNIQUE no payment_request (1
+      //    request por booking), logo a constraint protege contra criação
+      //    duplicada de intent para a mesma execução.
+      await createPaymentIntentWithClient(client, tenantId, {
+        referenceId: paymentRequest.paymentRequestId,
+        gateway: 'unify_bank',
+        actorId: paymentRequest.payerActorId,
+        amountCents: paymentRequest.amountCents,
+        currency: paymentRequest.currency,
+        status: 'escrowed',
+        source: 'service_execution',
+        intentType: 'payment',
+        metadata: {
+          executionId: execution.executionId,
+          paymentRequestId: paymentRequest.paymentRequestId,
+          bookingId: paymentRequest.bookingId,
+          serviceId: paymentRequest.serviceId,
+          receiverActorId: paymentRequest.receiverActorId,
+          bankTransactionId,
+          splits: bankSplitsForOutbox.map((s) => ({
+            splitId: s.splitId,
+            receiverActorId: s.receiverActorId,
+            amountCents: s.amountCents,
+            percentage: s.percentage,
+          })),
+        },
+      });
+
+      // 4) OUTBOX — INSERTs event_outbox no MESMO client. Atomicidade
+      //    completa: bank + execution + intent + outbox commitam ou rollback juntos.
       await insertEventOutboxRow(client, {
         tenantId,
         eventId: deterministicServicePaymentExecutedOutboxEventId(tenantId, execution.executionId),

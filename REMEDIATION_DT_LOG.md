@@ -5440,3 +5440,101 @@ Diretriz arquitetural implícita (e correta): **idempotência financeira NÃO de
 ### Observação adjacente (NÃO escopo)
 
 A propriedade "idempotência delegada à reference estável + defesa do transfer" é a invariante real do sistema financeiro do UnifiCard. Vale documentar em DECISION canônica futura — pattern transversal aos 4 workers. Mas isso é direção, não fatia.
+
+---
+
+## DT-CAMADA1-ENTRADA-ESCROW
+
+- **Status:** CLOSED (entrada do serviço de preço fechado redirecionada para escrow_payments + payment_intent escrowed)
+- **Severidade resolvida:** CRITICAL (regra econômica "pagamento recebido NÃO significa saque liberado" estava violada materialmente na ENTRADA, não só na saída)
+- **Origem:** Pré-fatia 0 (READ-ONLY) da Camada 1 — 2026-05-26. Cenário Y confirmado: `createExecution` (serviço de preço fechado) creditava conta default sacável do receiver (`account_type='credit'`), nunca tocando `escrow_payments`. Cadeia "escrow → seller_pending → seller_available → seller_payout → bank_settlement" ficava sem origem material em produção.
+- **Vinculada a:** DECISIONs Clayton D1'/D1''/D1''' (2026-05-26); fatia origem do PLANO_WIRING_CAMADA_1 → ATIVADA via redirecionamento da entrada.
+
+### Decisão Clayton (D1' / D1'' / D1''')
+
+| Decisão | Escolha | Justificativa |
+|---|---|---|
+| D1' | Sim: serviço passa por escrow | "pagamento recebido NÃO significa saque liberado" |
+| D1'' | Escrow AGREGADO no MVP | Menor blast radius; sem mexer no split engine; sem tocar `createTransactionWithExplicitSplitLines`; rastreabilidade preservada via metadata |
+| D1''' | Reusar `escrow_payments` do marketplace | NÃO criar `escrow_service`/`service_escrow`/tabela nova; convergir com o que já existe |
+
+**Dívida consciente registrada:** subcontas por receiver podem ser exigidas no futuro por compliance. Hoje a rastreabilidade por destinatário vive em `payment_intent.metadata.splits[*].receiverActorId` + `bank_splits.target_actor_id` (NULL para escrow é normal — DECISION-0036). Quando compliance pedir contas individuais por receiver, esta dívida vira fatia.
+
+### O que mudou (3 pontos cirúrgicos)
+
+1. **`backend/src/modules/bank/bank-integration.service.ts:523-585`** — `processServicePaymentExecutionCanonical`:
+   - Antes: `targetAccountId = resolveBankAccountForServiceActor(receiverActorId)` (conta default 'credit' do receiver).
+   - Depois: `targetAccountId = escrow_payments` (system platform account, única para todos os splits). `receiverActorId` permanece em cada `splitLine` para tracking via `bank_ledger.entry.metadata` (em memória — schema DB não tem coluna metadata, mas o tracking efetivo vive em `payment_intent.metadata.splits`).
+   - `actorRepository.findById` (validação de existência do receiver) explícita no loop para preservar a checagem que o resolve antigo fazia.
+
+2. **`backend/src/modules/payments/payment-intent-repository.ts:84-160`** — adicionada variante `createPaymentIntentWithClient(client, tenantId, input)`:
+   - Pattern existingClient idêntico ao `servicePaymentExecutionRepository.create` (commit `8afeec9a`, OUTBOX_ATOMICITY_HARDENING).
+   - NÃO chama `checkRateLimit` (já validado upstream por `bankLimitService.validateLimit`).
+   - NÃO chama `set_config('app.current_tenant')` (caller já abriu client via `getClientWithTenant`).
+
+3. **`backend/src/modules/services/service-payment-execution.service.ts:174-228`** — após `servicePaymentExecutionRepository.create`, criar `payment_intent` com `status='escrowed'` no MESMO client:
+   - `referenceId = paymentRequestId` (UNIQUE no tenant — protege contra duplicação).
+   - `actorId = payerActorId` (NOT NULL FK preservada).
+   - `metadata` carrega `executionId`, `bookingId`, `serviceId`, `receiverActorId`, `bankTransactionId`, `splits[]` agregados.
+   - `source = 'service_execution'`, `gateway = 'unify_bank'`, `intentType = 'payment'`.
+
+### Atomicidade preservada
+
+A transação única do `createExecution` (BEGIN/COMMIT em service-payment-execution.service.ts:146-239) cobre os 4 atos:
+
+```
+BEGIN
+  ① bank_transaction + bank_ledger entries + bank_splits (CAMADA 1: split→escrow)
+  ② service_payment_executions row
+  ③ payment_intent (status='escrowed')     ← NOVO
+  ④ event_outbox (SERVICE_PAYMENT_EXECUTED + SERVICE_PAYMENT_SPLIT_APPLIED × N)
+COMMIT
+```
+
+Se qualquer escrita falhar, ROLLBACK reverte os 4. O pattern já estava validado materialmente pelo teste **B7** em `validate-pipeline-e2e-transversal.ts` (commit `8afeec9a`); a inclusão do passo ③ herda essa defesa.
+
+### Prova material (E2E `validate-pipeline-e2e-transversal.ts` — adaptado)
+
+Etapas adicionadas / adaptadas:
+
+| Etapa | Asserção | Resultado |
+|---|---|---|
+| A7 | Conservação `buyer-1 = escrow+1` (era `buyer-1 = provider+1`); conta default do provider PERMANECE ZERADA | ✅ |
+| A7.b | `payment_intent.payment_status='escrowed'`, `amount=40000`, `actor_id=payer`, `reference_id=paymentRequestId`, `currency='BRL'`, `source='service_execution'` | ✅ |
+| A7.c | `payment_intent.metadata` carrega `executionId`, `receiverActorId`, `splits[{ receiverActorId, amountCents, percentage }]` | ✅ |
+| A7.d | `bank_ledger.SUM(credit)` na conta default do provider para esta `service_execution` = `0` | ✅ |
+| A7.e | `bank_ledger.SUM(credit)` na conta `escrow_payments` para esta `service_execution` = `40000` | ✅ |
+| A7.f | `bank_splits.target_account_id = escrow_payments.accountId`, `target_actor_id IS NULL` (escrow é system), `amount_cents = 40000` | ✅ |
+| A10 | Outbox tem `SERVICE_PAYMENT_EXECUTED` para o `executionId` (atomicidade write-side) | ✅ |
+| A11/A12 | Read-side outbox processor consome + idempotência preservada | ✅ |
+| B6/B7 | Atomicidade transacional comprovada: ROLLBACK reverte bank + intent + outbox juntos | ✅ |
+| B8 | Reconciliation detective continua detectando janelas B+C (Caminho 2 não afetado) | ✅ |
+
+### O que NÃO mudou (escopo travado)
+
+- ❌ `createTransactionWithExplicitSplitLines` (bank-transaction.service.ts:1409+) — preserva assinatura e semântica.
+- ❌ Marketplace `executePayment` — caminho separado, não tocado.
+- ❌ Workers (release / payout / bank-settlement / settlement) — preservam comportamento; agora terão FILA para consumir (payment_intent escrowed por execução).
+- ❌ Simulador (`paymentExecutionService.*` chamado por `financial-simulator.controller.ts`) — preservado como ferramenta dev/admin.
+- ❌ Schema DB — zero migration. Reuso da conta lifecycle `escrow_payments` já criada por `ensurePlatformAccounts`.
+- ❌ Gate 1 — não tocado.
+- ❌ Subcontas por receiver — explicitamente deferido (dívida consciente de MVP).
+
+### Gates verificados
+
+- **TS:** `npx tsc --noEmit` → 0 erros.
+- **Architecture patterns:** `critical_new=0` (6 entradas absorvidas no baseline — todas em `backend/src/scripts/validate-pipeline-e2e-transversal.ts`, caso da DT-RECONCILE-SCRIPTS-ALLOWPATH).
+- **Σ(débito) = Σ(crédito):** confirmado pelo bank engine (triple defense intacta) + E2E A7 (conservação de valor).
+- **Conservação:** `buyer-1 = escrow+1` provada em ledger + cached_balance.
+
+### Próxima fatia natural (Fatia D2 do PLANO_WIRING_CAMADA_1)
+
+Com a entrada correta, o pipeline da Camada 1 destrava:
+- Settlement-worker JÁ tem fila (payment_intents escrowed por execução) para consumir.
+- `service_orders.completed` (ato existente) é o gatilho natural do release `seller_pending → seller_available` na próxima fatia (com campos novos `buyer_confirmed_completion_at`, `buyer_confirmation_deadline_at`, `disputed_at`).
+
+### Não bloqueia
+
+- Marketplace continua funcionando (caminho `executePayment` intacto).
+- Tenants antigos com saldo em conta default do receiver mantêm o saldo onde está (sem migração forçada de dados).
+- A próxima fatia pode prosseguir; a base econômica está correta.

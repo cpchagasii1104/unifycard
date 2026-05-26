@@ -110,6 +110,52 @@ export async function createPaymentIntent(
   return toIntent(row);
 }
 
+/**
+ * Variante que aceita PoolClient externo (já em transação BEGIN).
+ *
+ * Camada 1 — entrada do serviço de preço fechado: o payment_intent
+ * escrowed precisa nascer na MESMA transação que escreve bank_ledger
+ * (crédito em escrow_payments). Pattern existingClient idêntico ao
+ * servicePaymentExecutionRepository.create / bankTransactionService.transfer
+ * (OUTBOX_ATOMICITY_HARDENING, commit `8afeec9a`).
+ *
+ * Diferenças vs createPaymentIntent:
+ *   - NÃO chama checkRateLimit: o caller (createExecution) já validou limite
+ *     financeiro via bankLimitService.validateLimit ANTES de abrir a transação;
+ *     uma segunda checagem aqui só duplicaria custo sem ganho material.
+ *   - NÃO chama set_config('app.current_tenant'): o caller já abriu o client
+ *     via getClientWithTenant que aplica o set_config.
+ *   - tenant_id é passado explicitamente (mesmo padrão de runQueryWithTenant).
+ */
+export async function createPaymentIntentWithClient(
+  client: PoolClient,
+  tenantId: string,
+  input: CreatePaymentIntentInput
+): Promise<PaymentIntent> {
+  const status = input.status ?? 'pending';
+  const result = await client.query<PaymentIntentRow>(
+    `INSERT INTO payment_intents (
+       tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata, source, intent_type
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)
+     RETURNING id, tenant_id, reference_id, gateway, actor_id, amount_cents, currency, payment_status, metadata, source, intent_type, created_at, updated_at`,
+    [
+      tenantId,
+      input.referenceId,
+      input.gateway,
+      input.actorId ?? null,
+      input.amountCents,
+      input.currency,
+      status,
+      JSON.stringify(input.metadata ?? {}),
+      input.source ?? null,
+      input.intentType ?? 'payment',
+    ]
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('createPaymentIntentWithClient: insert failed');
+  return toIntent(row);
+}
+
 export async function getPaymentIntentByReference(
   tenantId: string,
   referenceId: string

@@ -320,8 +320,22 @@ async function main(): Promise<void> {
   });
 
   // A4: capturar saldos ANTES do pagamento
+  // CAMADA 1 \u2014 entrada em escrow: o dinheiro do servi\u00e7o de pre\u00e7o fechado
+  // DEVE entrar em escrow_payments (custodia system), N\u00c3O na conta default
+  // do provider. A invariante de conserva\u00e7\u00e3o muda de "buyer-1 = provider+1"
+  // para "buyer-1 = escrow+1"; conta default do provider permanece zerada
+  // at\u00e9 que a fatia de sa\u00edda (D2: conclus\u00e3o\u2192seller_pending\u2192confirma/timeout
+  // \u2192seller_available) seja implementada.
+  await bankAccountService.ensurePlatformAccounts(TENANT_ID, "BRL");
+  const escrowAccountForCheck = await bankAccountService.getPlatformLifecycleAccount(
+    TENANT_ID, "escrow_payments", "BRL"
+  );
+  if (!escrowAccountForCheck) {
+    throw new Error("E2E setup: conta escrow_payments do tenant n\u00e3o encontrada");
+  }
   const balBuyerBefore    = (await bankAccountService.getBalance(TENANT_ID, seed.buyerAccount.accountId)).balanceCents;
   const balProviderBefore = (await bankAccountService.getBalance(TENANT_ID, seed.providerAccount.accountId)).balanceCents;
+  const balEscrowBefore   = (await bankAccountService.getBalance(TENANT_ID, escrowAccountForCheck.accountId)).balanceCents;
 
   // A5: executar pagamento via agregador canonico
   const exec = await servicePaymentExecutionService.createExecution(
@@ -338,12 +352,131 @@ async function main(): Promise<void> {
   // A6: capturar saldos DEPOIS do pagamento
   const balBuyerAfter    = (await bankAccountService.getBalance(TENANT_ID, seed.buyerAccount.accountId)).balanceCents;
   const balProviderAfter = (await bankAccountService.getBalance(TENANT_ID, seed.providerAccount.accountId)).balanceCents;
+  const balEscrowAfter   = (await bankAccountService.getBalance(TENANT_ID, escrowAccountForCheck.accountId)).balanceCents;
 
-  // A7: invariante de conservacao de valor (dupla entrada obrigatoria)
-  assertOk("A7: Conservacao de valor \u2014 dupla entrada consistente", {
-    ok: (balBuyerBefore - balBuyerAfter) === 40000 && (balProviderAfter - balProviderBefore) === 40000,
-    reason: "Valor nao conservado",
-    detail: { balBuyerBefore, balBuyerAfter, balProviderBefore, balProviderAfter },
+  // A7: invariante de conserva\u00e7\u00e3o de valor \u2014 CAMADA 1 (entrada em escrow).
+  // Buyer-1 = Escrow+1; conta default do provider PERMANECE ZERADA (regra
+  // economica: "pagamento recebido N\u00c3O significa saque liberado").
+  assertOk("A7: Conservacao de valor \u2014 buyer\u21921 = escrow+1 (Camada 1 entrada)", {
+    ok:
+      (balBuyerBefore - balBuyerAfter) === 40000 &&
+      (balEscrowAfter - balEscrowBefore) === 40000 &&
+      (balProviderAfter - balProviderBefore) === 0,
+    reason:
+      "Camada 1: dinheiro deve ir para escrow_payments (NAO para conta default do provider)",
+    detail: {
+      balBuyerBefore, balBuyerAfter,
+      balProviderBefore, balProviderAfter,
+      balEscrowBefore, balEscrowAfter,
+    },
+  });
+
+  // A7.b: payment_intent nasce com status='escrowed' referenciando o paymentRequestId.
+  // Sem isso o settlement-worker n\u00e3o tem fila para consumir e o dinheiro fica preso.
+  const intentRow = await pool.query<{
+    id: string; payment_status: string; amount_cents: string; actor_id: string;
+    reference_id: string; currency: string; source: string | null; metadata: any;
+  }>(
+    `SELECT id::text, payment_status, amount_cents::text, actor_id::text,
+            reference_id, currency, source, metadata
+       FROM payment_intents
+      WHERE tenant_id = $1 AND reference_id = $2 LIMIT 1`,
+    [TENANT_ID, accepted.paymentRequestId]
+  );
+  const intent = intentRow.rows[0];
+  assertOk("A7.b: payment_intent criado com status='escrowed' (Camada 1)", {
+    ok:
+      !!intent &&
+      intent.payment_status === "escrowed" &&
+      intent.amount_cents === "40000" &&
+      intent.actor_id === seed.buyer.actorId &&
+      intent.reference_id === accepted.paymentRequestId &&
+      intent.currency === "BRL" &&
+      intent.source === "service_execution",
+    reason: "payment_intent ausente ou incompleto",
+    detail: intent,
+  });
+  assertOk("A7.c: payment_intent.metadata carrega rastreabilidade do escrow agregado", {
+    ok:
+      !!intent &&
+      intent.metadata?.executionId === exec.execution.executionId &&
+      intent.metadata?.receiverActorId === seed.provider.actorId &&
+      Array.isArray(intent.metadata?.splits) &&
+      intent.metadata.splits.length === 1 &&
+      intent.metadata.splits[0]?.receiverActorId === seed.provider.actorId &&
+      intent.metadata.splits[0]?.amountCents === 40000,
+    reason: "metadata do payment_intent n\u00e3o preserva tracking por receiver",
+    detail: intent?.metadata,
+  });
+
+  // A7.d: nenhum cr\u00e9dito foi para conta sac\u00e1vel/gen\u00e9rica do provider.
+  // Confirma\u00e7\u00e3o vis-\u00e0-vis o ledger (n\u00e3o s\u00f3 cached_balance):
+  // SUM(amount_cents) WHERE account_id = providerAccount = 0 para esta tx.
+  const providerLedgerRows = await pool.query<{ c: string }>(
+    `SELECT COALESCE(SUM(amount_cents),0)::text AS c
+       FROM bank_ledger
+      WHERE tenant_id = $1 AND account_id = $2::uuid AND direction = 'credit'
+        AND transaction_id IN (
+          SELECT id FROM bank_transactions
+           WHERE tenant_id = $1 AND reference_type = 'service_execution'
+             AND reference_id = $3
+        )`,
+    [TENANT_ID, seed.providerAccount.accountId, accepted.paymentRequestId]
+  );
+  assertOk("A7.d: zero cr\u00e9dito em conta default do provider para esta execu\u00e7\u00e3o", {
+    ok: providerLedgerRows.rows[0]?.c === "0",
+    reason: "conta default do provider recebeu cr\u00e9dito (regra Camada 1 violada)",
+    detail: providerLedgerRows.rows[0],
+  });
+
+  // A7.e: cr\u00e9dito foi para escrow_payments via ledger (prova material adicional
+  // vinda da fonte de verdade \u2014 ledger \u2014 n\u00e3o apenas do cached_balance).
+  const escrowLedgerRows = await pool.query<{ c: string }>(
+    `SELECT COALESCE(SUM(amount_cents),0)::text AS c
+       FROM bank_ledger
+      WHERE tenant_id = $1 AND account_id = $2::uuid AND direction = 'credit'
+        AND transaction_id IN (
+          SELECT id FROM bank_transactions
+           WHERE tenant_id = $1 AND reference_type = 'service_execution'
+             AND reference_id = $3
+        )`,
+    [TENANT_ID, escrowAccountForCheck.accountId, accepted.paymentRequestId]
+  );
+  assertOk("A7.e: 40000 creditados em escrow_payments via bank_ledger", {
+    ok: escrowLedgerRows.rows[0]?.c === "40000",
+    reason: "cr\u00e9dito em escrow_payments n\u00e3o bate com amountCents",
+    detail: escrowLedgerRows.rows[0],
+  });
+
+  // A7.f: bank_splits aponta para escrow_payments (target_account_id) e total
+  // bate com o amount. Schema material: bank_splits N\u00c3O tem coluna metadata
+  // no DB (apenas id, tenant_id, transaction_id, source_actor_id,
+  // target_actor_id, amount_cents, split_type, percentage, created_at,
+  // target_account_id) \u2014 a rastreabilidade por receiver da Camada 1 vive em
+  // payment_intent.metadata.splits[*].receiverActorId (j\u00e1 provado em A7.c),
+  // n\u00e3o em bank_splits. target_actor_id \u00e9 NULL para escrow (system, sem actor)
+  // \u2014 comportamento esperado de resolveTargetActorIdOptional (DECISION-0036).
+  const splitsRow = await pool.query<{
+    target_account_id: string; target_actor_id: string | null; amount_cents: string;
+  }>(
+    `SELECT bs.target_account_id::text,
+            bs.target_actor_id::text,
+            bs.amount_cents::text
+       FROM bank_splits bs
+       INNER JOIN bank_transactions bt ON bt.id = bs.transaction_id
+      WHERE bs.tenant_id = $1
+        AND bt.reference_type = 'service_execution'
+        AND bt.reference_id = $2`,
+    [TENANT_ID, accepted.paymentRequestId]
+  );
+  assertOk("A7.f: bank_splits.target_account_id = escrow_payments (rastreabilidade via payment_intent.metadata)", {
+    ok:
+      splitsRow.rows.length === 1 &&
+      splitsRow.rows[0]!.target_account_id === escrowAccountForCheck.accountId &&
+      splitsRow.rows[0]!.target_actor_id === null && // escrow \u00e9 system, sem actor
+      splitsRow.rows[0]!.amount_cents === "40000",
+    reason: "bank_splits n\u00e3o reflete escrow agregado conforme esperado",
+    detail: splitsRow.rows,
   });
 
   // A8: concept_id garantido por NOT NULL no banco — prova composta com A5+A7

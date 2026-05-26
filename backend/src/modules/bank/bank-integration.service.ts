@@ -521,6 +521,49 @@ class BankIntegrationService {
     }
 
     const fromAccountId = await resolveUserAccount(tenantId, payerUserId, currency);
+
+    // ============================================================
+    // CAMADA 1 — ENTRADA EM ESCROW (Decisão Clayton D1', D1'', D1''')
+    // ============================================================
+    // Pagamento de serviço de preço fechado credita custódia ÚNICA
+    // (escrow_payments, owner=system) — NÃO a conta sacável do receiver.
+    //
+    // Regra econômica: "pagamento recebido NÃO significa saque liberado".
+    //
+    // Modelo MVP — escrow AGREGADO (D1''):
+    //   - Todos os splitLines apontam para a MESMA conta escrow_payments.
+    //   - Rastreabilidade por receiver preservada via metadata em
+    //     bank_ledger.metadata.receiverActorId (bank-transaction.service.ts
+    //     L1607-1610) + bank_splits.metadata.receiverActorId
+    //     (idem L1630-1633).
+    //   - bank_splits.target_account_id = escrow_payments (mesma para
+    //     todas as linhas); target_actor_id resolve para NULL (escrow é
+    //     system, sem actor associado — comportamento normal de
+    //     resolveTargetActorIdOptional em bank-split.repository.ts:40-57).
+    //
+    // Dívida consciente registrada: subcontas por receiver podem ser
+    // exigidas no futuro por compliance. Ver DT-CAMADA1-ENTRADA-ESCROW.
+    //
+    // Convergência com marketplace (D1'''): mesma conta system
+    // escrow_payments do executePayment (payment-execution.service.ts
+    // L404-408). NÃO duplicar custódia; reusar a já existente.
+    //
+    // ensurePlatformAccounts garante que escrow_payments exista no tenant.
+    // ============================================================
+    await bankAccountService.ensurePlatformAccounts(tenantId, currency);
+    const escrowAccount = await bankAccountService.getPlatformLifecycleAccount(
+      tenantId,
+      'escrow_payments',
+      currency
+    );
+    if (!escrowAccount) {
+      throw new Error(
+        'CAMADA_1_ENTRY: conta escrow_payments do tenant não encontrada — ' +
+          'ensurePlatformAccounts deveria ter criado. Verificar bootstrap do tenant.'
+      );
+    }
+    const escrowAccountId = escrowAccount.accountId;
+
     const splitLines: Array<{
       targetAccountId: string;
       amountCents: number;
@@ -528,13 +571,16 @@ class BankIntegrationService {
       receiverActorId: string;
     }> = [];
     for (const r of splitRecipients) {
-      const targetAccountId = await this.resolveBankAccountForServiceActor(
-        tenantId,
-        r.receiverActorId,
-        currency
-      );
+      // Validar que o receiverActorId existe (preserva a checagem que
+      // resolveBankAccountForServiceActor fazia implicitamente via
+      // actorRepository.findById). Erro idêntico em formato.
+      const { actorRepository } = await import('@modules/social/actor.repository');
+      const actor = await actorRepository.findById(tenantId, r.receiverActorId);
+      if (!actor) {
+        throw new Error(`Actor not found: ${r.receiverActorId}`);
+      }
       splitLines.push({
-        targetAccountId,
+        targetAccountId: escrowAccountId, // <- ÚNICA ESCROW; tracking via metadata
         amountCents: parsePositiveMoneyToCents(r.amountCents, 'splitRecipients[].amountCents'),
         percentage: r.percentage,
         receiverActorId: r.receiverActorId,
