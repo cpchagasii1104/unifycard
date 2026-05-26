@@ -596,6 +596,30 @@ Memória institucional permanente: `~/.claude/projects/C--unificard/memory/proje
 ## §8. Histórico de sessões (append-only, mais recente em cima)
 
 
+### 2026-05-26 — Camada 1 fixed_price_escrow fechada (F1/D2/D-money/Statement/Canonicalização)
+
+**Sequência da Camada 1:**
+- F1 (`db47798d`) — `service_orders` materializada + `seller_pending` no enum + flow `fixed_price_escrow`. Estado-only.
+- D2 (`40afc3f1`) — `seller_pending → release_approved` via buyer-confirm OU timeout. Estado-only.
+- D-money (`adcbc039`) — release financeiro real `escrow_payments → actor_wallet`. Atomicidade + idempotência provadas. ZERO `seller_available/user_wallet/credit` como destino.
+- Statement (`b62ab6b9`) — `GET /identity/wallet/actor-statement` com saldo (bank_ledger SSOT) + origem rastreável (serviceOrderId/paymentRequestId/paymentIntentId/payerActorId).
+- Canonicalização (esta entrada) — DECISION-0046 fixa `actor_wallet` como carteira canônica de qualquer actor econômico.
+
+**REGRA CANÔNICA (DECISION-0046, vinculante para módulos futuros):**
+
+> Para qualquer módulo futuro que precise creditar saldo de actor (PF, empresa, prestador, motorista, entregador, vendedor, bar, restaurante, fornecedor, organizador de evento, ou qualquer entidade econômica) — o destino canônico é `bank_accounts.account_type='actor_wallet'`. NÃO criar wallet paralela. NÃO reusar `user_wallet`/`seller_available`/`credit` para esse papel.
+
+**Como instanciar:** `bankAccountService.ensureActorWalletAccount(tenantId, actorId, currency?)`. Idempotente, composite `owner_id='${actorId}:actor_wallet'`, actor_id preenchido por constraint.
+
+**Saldo:** SEMPRE via `bankAccountService.getBalance` → `bank_ledger`. Nunca derivar, calcular paralelo, cachear como verdade.
+
+**Read-model:** `modules/wallet/actor-wallet-statement.service.ts` ou `GET /identity/wallet/actor-statement`.
+
+**Vinculados:** DECISION-0046 (canonical); DT-ACTOR-WALLET-PAYOUT-WIRING (saque externo é frente posterior); DT-CAMADA1-FEE-SPLIT (fee de plataforma deve ser materializado na ENTRADA via bank_splits); DT-CANONICAL-WALLET-GUARD-PENDING (enforcement automático é frente futura — hoje é documental + tipo TS + CHECK constraint).
+
+**HEAD:** `b62ab6b9` (avança após commit desta canonicalização).
+
+
 ### 2026-05-11 — Bank Genesis Wave COMPLETO + C15 FIXED
 
 **Descoberta ao retomar:** Bank Genesis Wave (beta.1.c a beta.5) ja havia sido aplicado em sessao anterior nao documentada em opus.md. TS compila limpo (0 erros). Stash Bank Genesis ja aplicado.

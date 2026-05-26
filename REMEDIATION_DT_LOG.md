@@ -5826,7 +5826,7 @@ Quando frente F-Payout-Wallet chegar, decidir:
 
 ## DT-ACTOR-WALLET-VISIBILITY
 
-- **Status:** OPEN (LOW — superfície UI completa exige frente de produto)
+- **Status:** CLOSED (read-model canônico publicado via rota dedicada — commit `b62ab6b9`; superfície UI de frontend permanece como frente de produto separada)
 - **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_6: garantir que `actor_wallet` apareça em APIs existentes de wallet, mas SEM refactor de frontend.
 
 ### Verificação no E2E D-money (T10)
@@ -5848,3 +5848,53 @@ Se o frontend ou o sistema downstream NÃO listar `actor_wallet`:
 
 - D-money funciona materialmente; superfície UI é frente de produto separada.
 - Operadores/admin podem consultar `actor_wallet` direto via DB ou rotas Bank de busca por actor.
+
+---
+
+## DT-ACTOR-WALLET-CANONICALIZATION
+
+- **Status:** CLOSED (2026-05-26) — `actor_wallet` declarado canônico via DECISION-0046; documentação normativa atualizada (`BANK_SEMANTICS.md`); read-model `actor-wallet-statement` registra contrato.
+- **Origem:** canonicalização documental pós D-money/statement (commits `adcbc039`, `b62ab6b9`). Eliminou ambiguidade entre `actor_wallet` (canônico), `user_wallet` (legado dormente), `seller_available` (lifecycle agregado SYSTEM) e `credit` (default genérico) como destino de recebíveis.
+
+### O que foi documentado
+
+1. `docs/01_normative/BANK_SEMANTICS.md` — seção "Account types canônicos por papel econômico" detalha papel de cada `account_type`, regras inegociáveis de `actor_wallet` e regra forte para novos fluxos.
+2. `REMEDIATION_DECISIONS_LOG.md` — DECISION-0046 formal.
+3. `opus.md` — memória operacional atualizada com regra "destino canônico de qualquer crédito de actor = `actor_wallet`".
+4. `STATUS_EXECUCAO_GLOBAL.md` — entrada da fatia.
+
+### Não bloqueia
+
+- Migrações futuras herdam o vocabulário.
+- Auditoria automática via `validate:architecture --strict` continua válida (não há regra dedicada para impedir reuso de `user_wallet`/`seller_available`/`credit` como destino — DT-CANONICAL-WALLET-GUARD-PENDING registra que a guarda automática é frente futura).
+
+---
+
+## DT-CANONICAL-WALLET-GUARD-PENDING
+
+- **Status:** OPEN (LOW — enforcement automatizado de canonicidade do wallet é frente futura)
+- **Origem:** Canonicalização 2026-05-26. DECISION-0046 fixou `actor_wallet` como destino canônico de recebíveis, mas o enforcement hoje é apenas:
+  - Documental (BANK_SEMANTICS.md, DECISION-0046).
+  - Tipo TS (BankAccountType inclui actor_wallet com JSDoc explícito).
+  - Migration CHECK constraint (admite o valor).
+  - Allowlist arquitetural (`scripts/validate-architectural-patterns.mjs` admite `modules/wallet`).
+
+### O que NÃO existe ainda
+
+- Gate automático que impeça novo INSERT em `bank_accounts` com `account_type='user_wallet'`, `'seller_available'` ou `'credit'` em contexto de recebíveis de actor (release de serviço, payout interno, etc.).
+- Lint que detecte chamadas a `getOrCreateAccount(...ownerType='user'|'company'...)` sem `accountType='actor_wallet'` em service/handler novos.
+
+### Por que não fazer agora
+
+Criar lint específico para "credit não pode ser destino de release" exige modelar o que é "release context" sem falso-positivo (a conta `credit` é legitimamente o default para usos não-canônicos). A guarda automática precisaria casar com convenção semântica de método/handler — não é trivial e fora do escopo da canonicalização documental.
+
+### Resolução prevista
+
+Frente futura: regra adicional em `validate-architectural-patterns.mjs` que flague:
+- `account_type='credit'` como destino em contexto de `transfer` com `referenceType=*release*`.
+- Caller chamando `getOrCreateAccount(...)` quando deveria chamar `ensureActorWalletAccount(...)`.
+
+### Não bloqueia
+
+- DECISION-0046 + documentação suprem o "como deveria ser" para revisão humana.
+- Fluxos novos (D-money) já seguem o canônico por construção.

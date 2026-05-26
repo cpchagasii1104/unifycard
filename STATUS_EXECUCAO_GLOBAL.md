@@ -1,3 +1,40 @@
+## 2026-05-26 — Canonicalização documental: `actor_wallet` declarada carteira canônica do actor (DECISION-0046)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `b62ab6b9` (wallet statement) | **HEAD pós:** (este commit)
+
+**Contexto:** Após D-money (`adcbc039`) entregar saldo em `actor_wallet` e statement (`b62ab6b9`) expor saldo+origem, a frente de canonicalização eleva `actor_wallet` ao status de **nome canônico vinculante** para qualquer fluxo futuro que precise creditar saldo de actor (PF, empresa, prestador, motorista, entregador, vendedor, bar, restaurante, fornecedor, organizador de evento — qualquer actor econômico).
+
+Esta é fatia **documental e de governança**, sem mudança de lógica financeira.
+
+**Entregue:**
+
+- **DECISION-0046** (REMEDIATION_DECISIONS_LOG.md): `actor_wallet` é a carteira canônica de qualquer actor econômico. Bank é SSOT (saldo via bank_ledger). Único caminho de criação canônica: `bankAccountService.ensureActorWalletAccount`. Vocabulário formalizado distinguindo `actor_wallet` (canônico) de `user_wallet`/`seller_available`/`credit`/`seller_pending`/`seller_payout` (legado/dormente/system-agregado).
+
+- **`docs/01_normative/BANK_SEMANTICS.md`** atualizado com seção nova "Account types canônicos por papel econômico". Detalha papel de cada `account_type`, regras inegociáveis de `actor_wallet` (Bank=SSOT, saldo via bank_ledger, NÃO é receita/payout/bank_settlement/user_wallet/seller_available/credit), tabela de tipos e regra forte para novos fluxos.
+
+- **`opus.md`** memória operacional atualizada com entrada da sessão e regra canônica vinculante para módulos futuros.
+
+- **DTs atualizadas:**
+  - `DT-ACTOR-WALLET-VISIBILITY` → CLOSED (read-model `actor-wallet-statement` resolve a visibilidade material; superfície UI permanece frente de produto separada).
+  - `DT-ACTOR-WALLET-CANONICALIZATION` → CLOSED (canonicalização documental concluída).
+  - `DT-CANONICAL-WALLET-GUARD-PENDING` → OPEN (LOW; enforcement automático contra reuso de user_wallet/seller_available/credit como destino de recebíveis é frente futura).
+
+**O que NÃO mudou:**
+- Zero alteração de código de produção (apenas docs + DECISION + DTs + memória).
+- Zero migration.
+- Bank, services, modules/wallet, identity.routes, scripts E2E intocados.
+- Lógica D-money preservada.
+
+**Prova de canonicidade:**
+- grep `actor_wallet` em backend/src: aparece em bank-account.service, bank-account.types, bank-account.repository, payment-intent-repository, service-order.service, service-order.types, actor-wallet-statement.service, identity.routes, E2E D-money + E2E statement.
+- grep `user_wallet`/`seller_available`/`credit` como **destino** em fluxos novos: zero (T7 do E2E D-money provou materialmente que dinheiro não vai para essas contas).
+- BANK_SEMANTICS.md agora referencia DECISION-0046 explicitamente.
+
+**Próxima frente natural:** F-Payout-Wallet (saque externo a partir de `actor_wallet` com gates KYC/capability/cooldown). DECISION-0046 fixa que essa frente sai de `actor_wallet`.
+
+---
+
 ## 2026-05-26 — Camada 1 D-money: release financeiro escrow → actor_wallet (dinheiro real lastreado pela ledger)
 
 **Branch:** `rescue-structural`

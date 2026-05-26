@@ -3515,3 +3515,81 @@ Após classificação fresca dos 4 arquivos restantes (PR-4) e execução do ref
 #### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0046 — `actor_wallet` como carteira canônica de qualquer actor econômico
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (canonicalização pós D-money / wallet statement)
+**Decisor:** Clayton (decisão de produto + arquitetura)
+**Commits âncora:** `adcbc039` (D-money entrega o saldo) + `b62ab6b9` (statement com origem rastreável)
+
+### Decisão
+
+O `account_type = 'actor_wallet'` (em `bank_accounts`) é a **carteira interna canônica** de qualquer actor econômico do UnifiCard — pessoa física, empresa, prestador, motorista, entregador, vendedor, bar, restaurante, fornecedor, organizador de evento e qualquer outra entidade econômica que receba saldo dentro do sistema.
+
+Decorrências obrigatórias:
+
+1. **Bank é SSOT.** A carteira é uma row em `bank_accounts` com `account_type='actor_wallet'`. Saldo emerge EXCLUSIVAMENTE de `bank_ledger`. Não há ledger paralelo, conta espelhada ou cache de verdade.
+2. **Único nome canônico.** Para qualquer fluxo futuro que precise creditar saldo de actor, o destino é `actor_wallet`. Reusar `user_wallet` (legado dormente), `seller_available` (lifecycle system agregado), ou `credit` (conta default genérica) para esse papel é violação de canonicidade.
+3. **Criação canônica única.** `bankAccountService.ensureActorWalletAccount(tenantId, actorId, currency?)` é o caminho único. Composite `owner_id = '${actorId}:actor_wallet'`, `owner_type='actor'`, `actor_id` preenchido (constraint `bank_accounts_actor_required_for_actor_owner`).
+4. **Não é receita.** `platform_revenue`/`platform_fees` são canais distintos.
+5. **Não é payout externo.** Saque para banco real fica para frente posterior; origem desse fluxo SERÁ a `actor_wallet` (DT-ACTOR-WALLET-PAYOUT-WIRING).
+6. **Não é bank_settlement.** Movimento para banco externo é frente posterior.
+
+### Contexto material que motivou a decisão
+
+Auditoria pré-D-money (sessão 2026-05-26) revelou conflito semântico entre:
+
+- `bank_accounts.account_type='seller_available'` — conta SYSTEM tenant-única, agregada, do plano Bank antigo (lifecycle seller_pending → seller_available → seller_payout do release-worker legado).
+- `service_orders.status='release_approved'` — estado operacional pós D2 (estado-only, sem mover dinheiro).
+- `user_wallet` — declarado no enum mas com 0 instâncias actor-owned em produção (DT-PIPELINE-WIRING-GAP confirmou: lifecycle accounts NUNCA foram criadas por actor; só system).
+
+Reusar qualquer um dos três nomes criaria duas verdades com o mesmo termo (saldo financeiro real vs estado operacional, ou agregado system vs individual). A escolha de nome novo `actor_wallet` (decisão K_wallet_1 = Opção D) resolveu pela raiz, e foi materializada por:
+
+- Migration `20260530557000_extend_bank_accounts_actor_wallet.sql` (CHECK + `actor_wallet`).
+- Service `ensureActorWalletAccount` + `getActorWalletAccount` (bank-account.service.ts).
+- Repository (`createAccount`) reconhecendo composite `:actor_wallet` por `actors.id` direto.
+- D-money commit `adcbc039` move escrow_payments → actor_wallet via `reference_type='fixed_price_release_to_actor_wallet'`.
+- Read-model commit `b62ab6b9` expõe saldo+origem (`GET /identity/wallet/actor-statement`).
+
+### Vocabulário formalizado
+
+| account_type        | Papel                                                | Status canônico   |
+|---------------------|------------------------------------------------------|-------------------|
+| `actor_wallet`      | Carteira interna do actor (recebíveis de qualquer módulo)| **CANÔNICO**  |
+| `escrow_payments`   | Custódia do pagamento até release                    | canônico (system) |
+| `platform_revenue`  | Receita da plataforma                                | canônico (system) |
+| `platform_fees`     | Fees da plataforma                                   | canônico (system) |
+| `user_wallet`       | -                                                    | legado/dormente   |
+| `seller_pending`/`seller_available`/`seller_payout` | -                | legado/agregado   |
+| `credit`            | Conta default genérica (sem semântica de recebíveis) | legado            |
+
+### Enforcement
+
+1. Documental: `docs/01_normative/BANK_SEMANTICS.md` (atualizado nesta sessão) declara o papel canônico de `actor_wallet` e o status legado/dormente dos demais.
+2. Tipo: `BankAccountType` em `bank-account.types.ts` inclui `actor_wallet` com JSDoc explícito.
+3. CHECK constraint: migration `20260530557000` admite `'actor_wallet'`.
+4. Criação canônica: `bankAccountService.ensureActorWalletAccount` — método único para garantir a conta.
+5. Read-model: `modules/wallet/actor-wallet-statement.service.ts` (módulo dedicado, allowPath em `validate-architectural-patterns.mjs`).
+6. Gates: `validate:architecture --strict` mantém `critical_new=0`. Qualquer SELECT/INSERT em `bank_*` fora de `modules/bank|wallet|...` permanece bloqueado.
+
+### Supera
+
+(nenhuma — nova decisão canonical; não substitui DECISION anterior)
+
+### Vinculadas
+
+- `DT-ACTOR-WALLET-PAYOUT-WIRING` (OPEN) — saque externo a partir de `actor_wallet` é frente posterior.
+- `DT-CAMADA1-FEE-SPLIT` (OPEN) — Camada 1 ainda não separa fee da plataforma na entrada.
+- `DT-ACTOR-WALLET-VISIBILITY` — pode ser fechada após `b62ab6b9` (read-model statement disponível por rota canônica).
+- `DT-PIPELINE-WIRING-GAP` (OPEN) — os 3 elos de wiring de payout/settlement legados permanecem registrados; D-money decidiu pular o plano antigo e ir direto para `actor_wallet`.
+
+Commits:
+- `adcbc039` — D-money entrega o saldo em `actor_wallet`.
+- `b62ab6b9` — Statement endpoint com saldo + origem rastreável.
+
+### Superada por
+
+(preencher quando superada)
