@@ -1270,3 +1270,36 @@ econômico de qualquer transação passa a ser:
 **Regra operacional permanente:** qualquer fluxo econômico NOVO deve usar o engine. O
 caller chama `resolveEconomicPolicy(...)` na transação financeira; se policy ausente,
 falha fail-closed (não cair em hardcoded). Inserir policy no DB > cálculo inline.
+
+---
+
+## DECISION-0048 — Convergência policy engine (2026-05-26)
+
+DECISION-0047 amplificou escopo sem auditar estruturas vivas. DECISION-0048 corrige
+(append; sem retroagir) e estabelece **convergência sem coexistência permanente** —
+porque o sistema é dev/virgem, sem produção a preservar.
+
+**Camadas separadas materialmente:**
+
+1. **DECISÃO (resolução)** — `economic_policies` + `economic_policy_engine`. Canônico ÚNICO.
+2. **CÁLCULO** — `economicPolicyEngineService.calculatePolicySplits()` (BPS integer, sem float).
+3. **EXECUÇÃO (materialização)** — `bank-transaction.service` (único orquestrador).
+4. **PERSISTÊNCIA (SSOT)** — `bank_transactions` + `bank_splits` + `bank_ledger` (irreversível).
+
+**Mudanças materiais:**
+
+- `bank-policy.service.resolveSplitPolicy` / `setPolicy` REMOVIDOS.
+- `bank_policies` HARD-DEPRECATED (COMMENT'd; preservada apenas porque `bank-limit.service` usa `getPolicy<T>()` para limites).
+- `bankSplitEngineService` permanece calculador legacy (event_ticket / ride / p2p / group / service_booking) com defaults hardcoded — SEM fonte alternativa de policy. Cutover em PE-3+.
+- `rca_commission` → `channel_commission` (RCA é jargão; canal é genérico).
+- `category_id` como seletor de policy: PERMITIDO (norma §9.3 atualizada). Categoria seleciona policy; não calcula split.
+
+**Invariantes inegociáveis (guardrails CRITICAL automatizados):**
+
+1. PE engine NÃO importa `bank-ledger`/`bank-transaction.service`/`bank-split-engine`/`bank-split.repository`.
+2. Imports novos de `bank-policy.service` proibidos fora da allowlist (próprio + `bank-limit.service`).
+3. Literal `rca_commission`/`rca_actor_wallet` proibido em código.
+
+**Regra mestre permanente:** "Quem decide regra (`economic_policy_engine`) ≠ quem
+materializa dinheiro (`bank-transaction.service`). Dois cérebros só prestam em ficção
+científica; em sistema financeiro é autópsia antecipada." — Clayton 2026-05-26.

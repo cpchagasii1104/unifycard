@@ -191,6 +191,39 @@ const RULES = [
     onlyPath: /backend[\/\\]src[\/\\]/i,
     experimental: true,
   },
+
+  // ─── DECISION-0048 — Convergência policy engine (2026-05-26) ───────────
+  // 3 guardrails que impedem reaparição da duplicidade que motivou
+  // DECISION-0048. Severidade CRITICAL — bloqueiam strict.
+
+  {
+    name: 'NO_LEGACY_BANK_POLICY_SERVICE_IMPORT',
+    severity: 'CRITICAL',
+    description:
+      'Import de bank-policy.service fora da allowlist (DECISION-0048). Para policy de split/decisão econômica, usar economic_policy_engine.',
+    pattern: /from\s+['"`][^'"`]*bank-policy\.service['"`]/,
+    // Allowlist: o próprio bank-policy.service.ts + bank-limit.service.ts
+    // (uso legítimo de getPolicy<T>() para limites operacionais — não split).
+    allowPath: /\/modules\/bank\/bank-(policy|limit)\.service\.ts$/,
+  },
+
+  {
+    name: 'NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE',
+    severity: 'CRITICAL',
+    description:
+      'PE engine NÃO pode importar executor financeiro do Bank (DECISION-0048). Resolve policy, não materializa dinheiro.',
+    pattern:
+      /from\s+['"`][^'"`]*(bank-ledger|bank-transaction\.service|bank-split-engine\.service|bank-split\.repository)['"`]/,
+    onlyPath: /modules[\/\\]economy[\/\\]policy-engine[\/\\]/,
+  },
+
+  {
+    name: 'NO_RCA_COMMISSION_LITERAL',
+    severity: 'CRITICAL',
+    description:
+      'Literal "rca_commission"/"rca_actor_wallet" foi renomeado para "channel_*" (DECISION-0048). RCA fica em metadata, não em line_type estrutural.',
+    pattern: /\b(rca_commission|rca_actor_wallet)\b/,
+  },
 ];
 
 function walk(dir, files = []) {

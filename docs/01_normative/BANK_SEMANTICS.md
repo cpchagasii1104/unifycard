@@ -121,11 +121,12 @@ como carteira canônica de qualquer actor econômico no UnifiCard.
 
 ---
 
-## Camada de DECISÃO de policy: Economic Policy Engine (2026-05-26)
+## Camada de DECISÃO de policy: Economic Policy Engine (DECISION-0047 + DECISION-0048, 2026-05-26)
 
-A partir de DECISION-0047 (PE-1 substrate), a CONFIGURAÇÃO de regras
-de split de qualquer transação econômica é resolvida pelo Economic
-Policy Engine:
+A partir de DECISION-0047 (PE-1 substrate) **reduzida e precisada por DECISION-0048**
+(convergência sem coexistência permanente), a CONFIGURAÇÃO de regras de split de
+qualquer transação econômica NOVA é resolvida pelo Economic Policy Engine. `bank_policies`
+foi hard-deprecated e `bank-policy.service.resolveSplitPolicy` foi REMOVIDO.
 
 - **Tabelas**: `economic_policies`, `economic_policy_lines`,
   `access_pass_products`, `actor_access_passes`,
@@ -146,10 +147,33 @@ para o caller traduzir em INSERTs na camada CORE.
 
 O plug do engine em `service-payment-execution` é frente PE-3
 (rastreada em `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION`). Até lá,
-fluxos vivos continuam com split hardcoded.
+fluxos novos como Camada 1 fixed-price-escrow continuam com 100%
+receiver (DT-CAMADA1-FEE-SPLIT).
 
-`bank_policies` legacy permanece dormente; deprecação rastreada em
-`DT-POLICY-ENGINE-LEGACY-DEPRECATION`.
+`bank_policies` foi hard-deprecated (DECISION-0048) via migration
+`20260530566000_deprecate_bank_policies_table.sql`. Tabela NÃO foi
+dropada porque `bank-limit.service.bankPolicyService.getPolicy<T>()`
+ainda lê para configurar limites operacionais — uso distinto de
+policy de split. Remoção física rastreada em
+`DT-BANK-POLICIES-PHYSICAL-REMOVAL`.
+
+`bankSplitEngineService` permanece como calculador para fluxos legacy
+(event_ticket / ride_payment / p2p_transfer / group_contribution /
+service_booking) com defaults hardcoded por contexto — SEM fonte
+alternativa de policy. Cutover gradual para `economic_policy_engine`
+em frente PE-3+.
+
+3 guardrails CRITICAL adicionados em
+`scripts/validate-architectural-patterns.mjs` impedem reaparição da
+duplicidade:
+
+1. `NO_LEGACY_BANK_POLICY_SERVICE_IMPORT` — bloqueia novo import de
+   `bank-policy.service` fora da allowlist.
+2. `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE` — bloqueia
+   `modules/economy/policy-engine/**` importar executor financeiro.
+3. `NO_RCA_COMMISSION_LITERAL` — bloqueia reaparição de
+   `rca_commission` / `rca_actor_wallet` (renomeados para `channel_*`
+   em DECISION-0048).
 
 ---
 

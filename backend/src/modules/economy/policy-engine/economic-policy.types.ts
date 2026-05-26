@@ -22,7 +22,7 @@ export type EconomicPolicyLineType =
   | 'reserve'
   | 'referral'
   | 'group_allocation'
-  | 'rca_commission'
+  | 'channel_commission' // canal genérico (afiliado, RCA, parceiro, marketplace externo)
   | 'custom';
 
 export type EconomicPolicyDestinationType =
@@ -34,7 +34,7 @@ export type EconomicPolicyDestinationType =
   | 'risk_reserve'
   | 'referrer_actor_wallet'
   | 'group_wallet'
-  | 'rca_actor_wallet'
+  | 'channel_actor_wallet' // wallet do canal (afiliado, RCA, parceiro)
   | 'escrow_payments'
   | 'custom';
 

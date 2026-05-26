@@ -24,7 +24,9 @@ import {
 } from '@core/financial/transfer-limits';
 import { lockAccount, unlockAccount } from '@core/financial/account-locks';
 import { recordFinancialAudit } from '@core/observability/financial-audit';
-import type { SplitPolicyMetadata } from './bank-policy.service';
+// DECISION-0048: SplitPolicyMetadata removido (bank-policy.service não é
+// mais fonte de policy de split). bankSplitEngineService.calculateSplits
+// usa apenas context + defaults hardcoded até cutover PE-3+.
 import type { FinancialAuthorshipContext } from './financial-authorship.types';
 import { asMoneyCents, toPositiveMoneyCents } from '@contracts/marketplace/canonical';
 import type {
@@ -1254,26 +1256,18 @@ class BankTransactionService {
         throw e;
       }
 
-      const splitMetadata: SplitPolicyMetadata | undefined = metadata ? {
-        cityId: metadata.cityId,
-        state: metadata.state,
-        regionId: metadata.regionId,
-        country: metadata.country,
-        category: metadata.category,
-        cnpj: metadata.cnpj,
-        storeId: metadata.storeId,
-        channel: metadata.channel,
-        campaignId: metadata.campaignId,
-      } : undefined;
-
+      // DECISION-0048: metadata da transação não é mais propagada a
+      // bankSplitEngineService (resolveSplitPolicy removido). Policy
+      // varia por contexto via defaults hardcoded. Fluxos com policy
+      // por cityId/cnpj/canal usam economic_policy_engine direto e
+      // createTransactionWithExplicitSplitLines.
       const splitCalculation = await bankSplitEngineService.calculateSplits(
         tenantId,
         context,
         amountCents,
         currency,
         revenueShareAccountId,
-        fromUserId,
-        splitMetadata
+        fromUserId
       );
 
       if (!bankSplitEngineService.validateSplitCalculation(splitCalculation)) {

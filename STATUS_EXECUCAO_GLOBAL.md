@@ -5804,3 +5804,60 @@ Piloto automático concluiu ciclo natural. Próximas frentes todas exigem decis�
 ### Modo
 
 PE-1 fechado. Engine canônico existe + audit trail + fail-closed + 15 E2E verdes. Substrato pronto para PE-2 (admin) e PE-3 (plug em service_execution). Aguardando decisão Clayton sobre próxima frente.
+
+---
+
+## Sessão 2026-05-26 — DECISION-0048 / Convergência Policy Engine
+
+### Contexto
+
+Auditoria pós-PE-1 (Modo REANCORAGEM) identificou duplicidade material: PE-1 sobrepunha papel do `bankSplitEngineService` + `bankPolicyService` + `bank_policies` (engine canônico até então per CORE_SPLIT §3.4 + §5.1). DECISION-0047 tinha amplificado escopo sem auditar estruturas vivas.
+
+Clayton (Modo GUARDIÃO ARQUITETURAL) precisou: ambiente dev/virgem, sem produção real. NÃO coexistência permanente. Convergência AGORA.
+
+### Entregue
+
+1. **2 migrations corretivas** aplicadas:
+   - `20260530565000_rename_rca_to_channel_commission.sql` — CHECK constraints `rca_commission` → `channel_commission`, `rca_actor_wallet` → `channel_actor_wallet`.
+   - `20260530566000_deprecate_bank_policies_table.sql` — `COMMENT ON TABLE` hard-deprecating.
+2. **`bank-policy.service.ts` reduzido** a apenas `getPolicy<T>()` (para `bank-limit.service`). REMOVIDOS: `resolveSplitPolicy`, `setPolicy`, tipos `SplitPolicyRule`/`SplitPolicy`/`SplitPolicyMetadata`.
+3. **`bank-split-engine.service.ts` purgado** de `bankPolicyService.resolveSplitPolicy`. Engine permanece como calculador legacy backward compat (defaults hardcoded por contexto). Cutover gradual em PE-3+.
+4. **`bank-transaction.service.ts`** — removido import `SplitPolicyMetadata` + construção `splitMetadata` + propagação para engine.
+5. **`economic-policy.types.ts`** — `rca_commission` → `channel_commission`; `rca_actor_wallet` → `channel_actor_wallet`.
+6. **3 guardrails CRITICAL** em `scripts/validate-architectural-patterns.mjs`:
+   - `NO_LEGACY_BANK_POLICY_SERVICE_IMPORT`
+   - `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE`
+   - `NO_RCA_COMMISSION_LITERAL`
+7. **DECISION-0048** redigida (convergência sem coexistência permanente).
+8. **DTs atualizadas:**
+   - `DT-POLICY-ENGINE-LEGACY-DEPRECATION` → RESOLVED por DECISION-0048
+   - `DT-CATEGORY-AS-POLICY-SELECTOR` → RESOLVED por DECISION-0048 (norma §9.3 atualizada)
+   - `DT-PE1-EXECUTOR-GUARDRAIL` CLOSED (guardrail R2)
+   - `DT-RCA-COMMISSION-VOCABULARIO` CLOSED (renomeação)
+   - `DT-BANK-POLICIES-PHYSICAL-REMOVAL` (nova, OPEN — remoção depende de bank-limit migrar)
+9. **Docs normativas atualizadas:** `CORE_SPLIT_PAGAMENTO_CANONICO.md` (§2.1, §2.3, §2.4, §9.3), `BANK_SEMANTICS.md` (seção PE-1 reescrita).
+10. **E2E PE-1: 15/15 verdes** mesmo após renomeação.
+
+### Gates pós-convergência
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | (a rodar pré-commit) |
+| validate:actor-writer-boundaries | (a rodar) |
+| validate:bank-ledger-boundaries | (a rodar) |
+| validate:regression-guards | (a rodar) |
+| validate-architectural-patterns --strict | critical_new=0 (3 guardrails novos não disparam contra código atual) |
+| E2E PE-1 (15 testes) | TODOS verdes |
+
+### Provas materiais
+
+- **PE-1 não criou ledger/split paralelo:** grep `bank-ledger`/`bank-transaction.service`/`bank-split.repository` em `modules/economy/policy-engine/**` retorna ZERO hits.
+- **bank_ledger continua SSOT:** zero mudanças em `bank-ledger.repository`.
+- **bank_splits continua destino canônico:** zero mudanças em `bank-split.repository`.
+- **bank_policies não é fonte ativa:** `resolveSplitPolicy`/`setPolicy` REMOVIDOS; tabela COMMENT'd; único caller restante (`bank-limit.service`) usa `getPolicy<T>()` para limites, não split.
+- **rca_commission/rca_actor_wallet eliminados:** grep retorna ZERO hits em `backend/src/**/*.ts`.
+- **Nenhum fluxo financeiro real alterado:** `bank-transaction.service.createTransactionWithSplit` continua materializando event_ticket / p2p / etc; D-money continua igual.
+
+### Modo
+
+Convergência fechada. Arquitetura sem cicatrizes — um único cérebro de policy + um único executor financeiro. Pronto para PE-3 (plug em service_execution com fail-closed institucional).

@@ -57,12 +57,14 @@ Cada pagamento recebido no sistema é dividido em:
 
 | Estrutura | Tabela | Responsabilidade | Status |
 |-----------|--------|-----------------|--------|
-| **Split** | `bank_splits` | Persistência canônica de splits | CORE |
+| **Split (persistência)** | `bank_splits` | Persistência canônica de split materializado | CORE |
 | **Ledger** | `bank_ledger` | Fonte única de verdade de saldo | CORE |
 | **Transação** | `bank_transactions` | Movimentação financeira | CORE |
 | **Conta** | `bank_accounts` | Contas financeiras | CORE |
-| **Policy (engine)** | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` + `economic_policy_resolution_logs` | Configuração + resolução de regras de split (Economic Policy Engine) | CONFIGURAÇÃO (canônica desde DECISION-0047, 2026-05-26) |
-| **Policy (legado)** | `bank_policies` | Antiga configuração de regras de split | LEGADO (deprecação rastreada em `DT-POLICY-ENGINE-LEGACY-DEPRECATION`) |
+| **Executor financeiro** | `bank-transaction.service` (`createTransactionWithSplit` / `createTransactionWithExplicitSplitLines`) | Único orquestrador que materializa dinheiro | CORE |
+| **Policy (decisão/cálculo)** | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` + `economic_policy_resolution_logs` + `economicPolicyEngineService` | Resolvedor canônico ÚNICO de policy econômica + cálculo BPS integer | CONFIGURAÇÃO (canônica desde DECISION-0047 + DECISION-0048, 2026-05-26) |
+| **Calculador legacy (cutover gradual)** | `bankSplitEngineService.calculateSplits()` | Defaults hardcoded por contexto para event_ticket / ride / p2p / group / service_booking até cutover PE-3+ | SUBORDINADO (sem fonte alternativa de policy desde DECISION-0048) |
+| **Policy hard-deprecated** | `bank_policies` | Chave-valor JSONB; `resolveSplitPolicy`/`setPolicy` removidos (DECISION-0048); apenas `getPolicy<T>()` preservado para `bank-limit.service` | HARD-DEPRECATED (remoção física rastreada em `DT-BANK-POLICIES-PHYSICAL-REMOVAL`) |
 
 ### 2.2 Regra Absoluta
 
@@ -79,20 +81,29 @@ Não há "atalhos técnicos".
 - `payment_splits` (legado, não deve ser usado)
 - `payment_intent_splits` (read-model, não é verdade)
 - `split_configuration` (legado, não deve ser usado)
-- `bank_policies` (legado — substituído pelo Economic Policy Engine via DECISION-0047; deprecação rastreada em `DT-POLICY-ENGINE-LEGACY-DEPRECATION`)
-- Cálculos inline em services (proibido — toda decisão de policy passa por `economicPolicyEngineService.resolveEconomicPolicy(...)`)
+- `bank_policies` (hard-deprecated — `resolveSplitPolicy`/`setPolicy` REMOVIDOS via DECISION-0048; tabela COMMENT'd; preservada APENAS porque `bank-limit.service` lê limites operacionais via `getPolicy<T>()`; remoção física rastreada em `DT-BANK-POLICIES-PHYSICAL-REMOVAL`)
+- Cálculos inline em services (proibido — toda decisão de policy passa por `economicPolicyEngineService.resolveEconomicPolicy(...)` em fluxos novos)
 - Lógica de split em módulos externos (proibido)
+- Hardcoded percentual em fluxo novo (proibido — fail-closed institucional via DECISION-0048)
 
-### 2.4 Camadas DECISÃO × PERSISTÊNCIA (DECISION-0047)
+### 2.4 Camadas DECISÃO × EXECUÇÃO × PERSISTÊNCIA (DECISION-0047 + DECISION-0048)
 
-| Camada | Responsabilidade | Tabelas |
-|--------|------------------|---------|
-| **DECISÃO** | Quais splits aplicar a este contexto (regra, %, destino, vigência, pass override) | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` |
-| **CÁLCULO** | Aritmética determinística BPS integer (sem float, drift para revenue_share) | função pura `economicPolicyEngineService.calculatePolicySplits()` |
-| **PERSISTÊNCIA** | Registro do split realizado + movimentação ledger | `bank_splits` + `bank_transactions` + `bank_ledger` |
-| **AUDIT** | Trilha append-only de cada resolução do engine | `economic_policy_resolution_logs` |
+| Camada | Responsabilidade | Componentes canônicos |
+|--------|------------------|----------------------|
+| **DECISÃO** (resolução de regra) | Quais splits aplicar a este contexto (regra, %, destino, vigência, pass override) | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` + `economicPolicyEngineService.resolveEconomicPolicy()` |
+| **CÁLCULO** (aritmética determinística) | BPS integer (sem float), drift para `revenue_share[0]`, fail-closed em ambiguidade | `economicPolicyEngineService.calculatePolicySplits()` |
+| **EXECUÇÃO** (materialização monetária) | Orquestrador único que escreve `bank_transactions` + `bank_splits` + `bank_ledger` na mesma transação | `bank-transaction.service` (`createTransactionWithSplit` / `createTransactionWithExplicitSplitLines`) |
+| **PERSISTÊNCIA** (SSOT) | Registro irreversível append-only | `bank_transactions` + `bank_splits` + `bank_ledger` |
+| **DESTINOS** | Contas que recebem | `bank_accounts` — `actor_wallet` (DECISION-0046) + system accounts |
+| **AUDIT** | Trilha append-only de cada resolução de policy | `economic_policy_resolution_logs` |
 
-Persistência (CORE) continua soberana em `bank_*`. Decisão é canônica em `economic_policies` (PE-1).
+**Princípios inegociáveis (DECISION-0048):**
+
+1. DECISÃO e EXECUÇÃO são camadas **separadas**. `economic_policy_engine` resolve regra; `bank-transaction.service` materializa.
+2. `economic_policy_engine` **NÃO importa, NÃO escreve** em `bank_ledger`/`bank_splits`/`bank_transactions`. Guardrail material via `validate-architectural-patterns.mjs` (regra `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE`).
+3. Novos fluxos econômicos usam BPS integer via `economic_policy_engine` + `createTransactionWithExplicitSplitLines`. Hardcoded percentual em fluxo novo é violação.
+4. Fail-closed: `POLICY_NOT_FOUND` / `POLICY_AMBIGUITY` em fluxo novo **bloqueia pagamento**. Sem fallback hardcoded.
+5. `bankSplitEngineService` permanece calculador para fluxos legacy (event_ticket / ride / p2p / group / service_booking) com defaults hardcoded — sem fonte alternativa de policy. Cutover é frente PE-3+.
 
 ---
 
@@ -454,23 +465,31 @@ A resolução usa metadata para construir chaves hierárquicas.
 - Paraná: `split.service_booking.parana` → fee 3%
 - São Paulo: `split.service_booking.sao_paulo` → fee 5%
 
-### 9.3 ⚠️ Variação por Categoria — DEPRECATED
+### 9.3 Variação por Categoria — ATUALIZADO por DECISION-0048
 
-**Status**: ⚠️ **DEPRECATED — NÃO USAR**
+**Status**: ✅ **PERMITIDA como seletor de policy** (não como calculador de split)
 
-**Motivo**: Variação de split por categoria viola `Category_System_Contract_UnifiCard.md` e `Decision_Safety_and_Containment_Contract.md`.
+**Norma anterior (2025 pré-DECISION-0048):** "Categorias são descritivas e NÃO influenciam preço, split ou impacto financeiro" — vetava qualquer uso de categoria em split.
 
-**Regra Absoluta**:  
-**Categorias são descritivas e NÃO influenciam preço, split ou impacto financeiro.**
+**Norma atual (DECISION-0048, 2026-05-26):** categorias continuam **descritivas** para identidade do produto/serviço (CONCEPT continua identidade canônica), MAS **podem selecionar policy econômica** quando houver `economic_policy` ativa, versionada, auditável e vigente.
 
-**Alternativa Permitida**:
-- Use `metadata.productType` ou `metadata.serviceType` se necessário para variação por tipo de produto/serviço
-- Esses campos são neutros e não violam contratos canônicos
-- Exemplo: `split.service_booking.{productType}` (não `{category}`)
+**Distinção crítica:**
 
-**Histórico**:
-- Esta seção foi marcada como DEPRECATED em conformidade com blindagem institucional de categorias
-- Código existente já marca `category` como DEPRECATED em `bank-policy.service.ts`
+- ✅ Categoria **seleciona** policy (via `category_id` como seletor de specificity em `economic_policies`).
+- ❌ Categoria **NÃO calcula** split sozinha. Cálculo é exclusivo do `economic_policy_engine` (BPS integer) e materialização do UnifyBank (`bank_splits`/`bank_ledger`).
+- ❌ Categoria **NÃO substitui** CONCEPT como identidade semântica do produto.
+
+**Requisitos para usar category_id como seletor:**
+
+1. `economic_policy` deve existir, estar `status='active'`, versionada, com vigência (`effective_from`/`effective_until`) cobrindo a transação.
+2. Specificity natural: policy com `category_id` específico vence policy sem categoria no mesmo contexto.
+3. Auditoria via `economic_policy_resolution_logs` registra qual policy + qual categoria foram aplicadas em cada transação.
+4. `categories` permanece tabela GLOBAL (sem `tenant_id`); FK em `economic_policies.category_id` com `ON DELETE SET NULL` previne policy quebrada se categoria for apagada.
+
+**Histórico:**
+
+- `bank-policy.service.ts:30` (legado) tinha `category` marcada como DEPRECATED — REMOVIDO junto com `resolveSplitPolicy` via DECISION-0048.
+- Esta § foi reescrita por DECISION-0048 reconhecendo que o veto anterior era apropriado para o modelo chave-valor antigo (onde categoria viraria fator escondido no string da chave), mas é desnecessário no modelo relacional do `economic_policies` onde categoria é coluna explícita, auditável e nunca calcula sozinha.
 
 ### 9.3 Variação por Loja
 

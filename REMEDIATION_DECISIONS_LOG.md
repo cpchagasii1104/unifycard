@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0047 (2026-05-26) |
+| Última entrada | DECISION-0048 (2026-05-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -3695,6 +3695,81 @@ A deprecação formal de `bank_policies` é DT pendente (`DT-POLICY-ENGINE-LEGAC
 - `DT-CATEGORY-AS-POLICY-SELECTOR` (OPEN) — `categories` é global (sem tenant_id); usar como seletor em policy tenant-bound exige modelagem complementar.
 - `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION` (OPEN) — substituir split hardcoded em `service-payment-execution` é frente PE-3.
 - `DT-CAMADA1-FEE-SPLIT` (OPEN) — Camada 1 ainda não separa fee; PE-3 cobrirá.
+
+### Superada por
+
+DECISION-0048 (2026-05-26) reduz o escopo desta decisão. `economic_policies` permanece canônica APENAS para resolução/configuração de policy econômica — NUNCA para materialização financeira. Materialização permanece exclusiva do UnifyBank (`bank_splits` + `bank_ledger` + `bank_transactions` via `bank-transaction.service`). Esta DECISION-0047 não é revogada — é precisada.
+
+---
+
+## DECISION-0048 — Convergência policy engine: economic_policies é resolução, UnifyBank é materialização (sem coexistência permanente)
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (convergência pós-PE-1, ambiente dev/virgem)
+**Decisor:** Clayton (decisão arquitetural)
+**Precisa:** DECISION-0047 (escopo reduzido)
+**Commits âncora:** (a preencher no commit desta fatia)
+
+### Decisão
+
+`economic_policies` / `economic_policy_engine` são **canônicos** para resolução e configuração de política econômica. Eles **NÃO são ledger, NÃO são split materializado e NÃO substituem `bank_ledger`, `bank_transactions`, `bank_splits` nem o executor financeiro do UnifyBank**. Toda política resolvida deve ser materializada pelo Bank.
+
+`bank_policies` / `bank-policy.service.resolveSplitPolicy` **deixam de ser fonte ativa para fluxos econômicos**. Como o sistema não possui legado produtivo (ambiente dev/virgem; 0 rows em `bank_policies`; sem transações reais de usuários), a estratégia é **convergir agora**, sem coexistência permanente nem cicatriz arquitetural.
+
+### Camadas formalizadas
+
+| Camada | Componentes canônicos | Estado |
+|--------|----------------------|--------|
+| **DECISÃO** (resolução de regra) | `economic_policies` + `economic_policy_lines` + `access_pass_products` + `actor_access_passes` + `economic_policy_resolution_logs` + `economicPolicyEngineService` | CANÔNICA ÚNICA |
+| **CÁLCULO** (BPS integer determinístico) | `economicPolicyEngineService.calculatePolicySplits()` (sem float) | CANÔNICA ÚNICA |
+| **EXECUÇÃO** (materialização monetária) | `bank-transaction.service` (`createTransactionWithSplit` / `createTransactionWithExplicitSplitLines`) | CANÔNICA ÚNICA |
+| **PERSISTÊNCIA** (SSOT) | `bank_transactions` + `bank_splits` + `bank_ledger` | IRREVERSÍVEL (LEDGER_SOVEREIGNTY) |
+| **DESTINOS** | `bank_accounts` — `actor_wallet` (DECISION-0046) + system (`platform_fees`, `platform_revenue`, `regional_fund`, `risk_reserve`, `escrow_payments`, `clearing`, `bank_settlement`) | CANÔNICA |
+| **CÁLCULO LEGACY** (cutover gradual) | `bankSplitEngineService.calculateSplits()` — só defaults hardcoded (sem fonte alternativa de policy) | SUBORDINADO; eventual cutover em PE-3+ |
+
+### O que mudou materialmente (esta fatia)
+
+1. **`bank-policy.service.resolveSplitPolicy()` REMOVIDO.** Não existe mais path de leitura de policy de split fora do `economic_policy_engine`.
+2. **`bank-policy.service.setPolicy()` REMOVIDO.** Não existe mais write-API para `bank_policies` como policy registry de split.
+3. **Tipos `SplitPolicyRule` / `SplitPolicy` / `SplitPolicyMetadata` REMOVIDOS.**
+4. **`bank-policy.service.getPolicy<T>()` PRESERVADO** apenas porque `bank-limit.service` consulta para configurar limites operacionais (defaultLimit) — uso distinto de policy econômica.
+5. **`bank_policies` (tabela) HARD-DEPRECATED** via migration `20260530566000_deprecate_bank_policies_table.sql` + `COMMENT ON TABLE`. NÃO dropada porque `getPolicy<T>()` ainda lê para `bank-limit.service`. Remoção física rastreada em `DT-BANK-POLICIES-PHYSICAL-REMOVAL`.
+6. **`bankSplitEngineService.calculateSplits()` PERMANECE** como calculador para event_ticket / ride_payment / p2p_transfer / group_contribution / service_booking — mas SEM fonte alternativa de policy (`resolveSplitPolicy` removido). Usa apenas defaults hardcoded por contexto. **Cutover para `economic_policy_engine` é frente PE-3+.**
+7. **`rca_commission` → `channel_commission`** em `EconomicPolicyLineType`. `rca_actor_wallet` → `channel_actor_wallet` em `EconomicPolicyDestinationType`. Sigla "RCA" (Representante Comercial Autônomo) é jargão brasileiro estreito; canal genérico cobre afiliado / parceiro / RCA / marketplace externo. Identidade do canal específico fica em `metadata.channelKind` ou `destination_key`. Migration corretiva `20260530565000_rename_rca_to_channel_commission.sql` aplicou ALTER nas CHECK constraints.
+8. **`category_id` como seletor de policy: MANTIDO.** Norma atualizada: categorias continuam descritivas para identidade de produto/serviço, mas **podem selecionar** policy econômica quando houver `economic_policy` ativa, versionada, auditável e vigente. Categoria **NÃO calcula split sozinha**; **só seleciona policy**. Materialização financeira continua exclusiva do UnifyBank. Vide §9.3 atualizada em CORE_SPLIT_PAGAMENTO_CANONICO.md.
+9. **3 guardrails CRITICAL adicionados** em `scripts/validate-architectural-patterns.mjs`:
+   - `NO_LEGACY_BANK_POLICY_SERVICE_IMPORT` — impede novo import de `bank-policy.service` fora da allowlist (próprio arquivo + `bank-limit.service`).
+   - `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE` — impede `modules/economy/policy-engine/**` importar `bank-ledger` / `bank-transaction.service` / `bank-split-engine` / `bank-split.repository`. Garante materialmente que PE engine nunca vire executor financeiro.
+   - `NO_RCA_COMMISSION_LITERAL` — impede reaparição de `rca_commission` / `rca_actor_wallet` em código.
+
+### Invariantes inegociáveis (DECISION-0048)
+
+1. **PE engine NÃO importa executor financeiro do Bank.** Guardrail material via `validate-architectural-patterns.mjs`.
+2. **PE engine NÃO escreve em `bank_ledger` / `bank_splits` / `bank_transactions`.** Apenas em `economic_policy_resolution_logs` (audit puro, sem impacto monetário).
+3. **`bank-transaction.service` permanece o único orquestrador que materializa dinheiro.**
+4. **Novos fluxos econômicos DEVEM usar BPS integer** via `economic_policy_engine` + `createTransactionWithExplicitSplitLines`. Hardcoded percentual em fluxo novo é violação.
+5. **Fail-closed institucional:** quando policy é exigida e `economic_policy_engine` retorna `POLICY_NOT_FOUND` / `POLICY_AMBIGUITY`, fluxo financeiro NÃO procede. Nada de fallback hardcoded em fluxos novos.
+6. **`actor_wallet` permanece destino canônico de saldo líquido do actor** (DECISION-0046).
+
+### O que NÃO foi feito nesta fatia (rastreado em DT)
+
+- **PE-3: plug em `service-payment-execution`** — ainda hardcoded 100% receiver. `DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION` permanece OPEN.
+- **PE-legacy: cutover de event_ticket / ride / p2p / group para `economic_policy_engine`** — `bankSplitEngineService` permanece para esses contextos com defaults hardcoded.
+- **Remoção física de `bank_policies`** — depende de `bank-limit.service` migrar para tabela dedicada de limites. `DT-BANK-POLICIES-PHYSICAL-REMOVAL` OPEN.
+- **DT-CAMADA1-FEE-SPLIT** permanece OPEN — split material de fee/regional/etc na Camada 1 é frente PE-3.
+
+### Vinculadas
+
+- DECISION-0044 (bank-ledger boundaries)
+- DECISION-0046 (actor_wallet canônico)
+- DECISION-0047 (substrato PE-1 — escopo reduzido por esta)
+- DT-POLICY-ENGINE-COEXISTENCE-PE1 (RESOLVED por esta — vide DT renomeada)
+- DT-PE1-EXECUTOR-GUARDRAIL (CLOSED por esta — guardrails adicionados)
+- DT-RCA-COMMISSION-VOCABULARIO (CLOSED por esta — renomeado para channel_commission)
+- DT-CATEGORY-AS-POLICY-SELECTOR (RESOLVED por esta — norma atualizada em §9.3)
+- DT-BANK-POLICIES-PHYSICAL-REMOVAL (nova, OPEN — remoção depende de bank-limit migrar)
+- DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION (permanece OPEN — PE-3)
+- DT-CAMADA1-FEE-SPLIT (permanece OPEN — PE-3)
 
 ### Superada por
 

@@ -5901,31 +5901,18 @@ Frente futura: regra adicional em `validate-architectural-patterns.mjs` que flag
 
 ---
 
-## DT-POLICY-ENGINE-LEGACY-DEPRECATION
+## DT-POLICY-ENGINE-LEGACY-DEPRECATION (RESOLVED por DECISION-0048)
 
-- **Status:** OPEN (MEDIUM — deprecação formal de `bank_policies` como fonte de policy)
-- **Origem:** PE-1 substrate 2026-05-26 + DECISION-0047. `economic_policies` (+ lines) é declarado canônico como camada de DECISÃO de policy. `bank_policies` (citada em CORE_SPLIT_PAGAMENTO_CANONICO §2.1) permanece como legado dormente e NÃO foi removida nesta fatia.
-
-### O que ainda existe
-
-- Tabela `bank_policies` no DB (status real precisa ser auditado em PE-2).
-- Eventual código referenciando `bank_policies` (não confirmado nesta fatia — read-only de PE-1 não auditou callers).
-
-### Por que não fazer agora
-
-PE-1 entrega APENAS substrato (tabelas + types + repository + resolver). Plugar o engine no fluxo financeiro real (substituir o split hardcoded em `service-payment-execution`) é frente PE-3. Auditar/migrar callers legacy de `bank_policies` é frente PE-2/PE-4 — depende de inventário completo de uso e plano de migração de dados se houver instâncias vivas.
-
-### Resolução prevista
-
-1. Audit completo: `bank_policies` está vazia/preenchida? Quais callers? Convergência ou abandono?
-2. Se vazia: marcar `bank_policies` como deprecated em comentário de schema; CORE_SPLIT atualizado.
-3. Se preenchida: plano de migração de instâncias para `economic_policies` (1:1 ou re-modelagem).
-4. PE-3 elimina último caller; PE-4 droppa tabela após gate verde por X dias.
-
-### Não bloqueia
-
-- PE-1 não muda nada do fluxo financeiro vivo — só introduz substrato.
-- `bank_splits` / `bank_ledger` (PERSISTÊNCIA) permanecem soberanos por DECISION-0044 + CORE_SPLIT_PAGAMENTO_CANONICO.
+- **Status:** RESOLVED (2026-05-26)
+- **Origem:** PE-1 substrate 2026-05-26 + DECISION-0047. Esta DT registrava o gap de "deprecação formal de `bank_policies` como fonte de policy" enquanto previa coexistência permanente.
+- **Resolução:** DECISION-0048 (2026-05-26) — convergência imediata (sem coexistência permanente porque sistema é dev/virgem, sem produção real a preservar):
+  - `bank-policy.service.resolveSplitPolicy()` REMOVIDO.
+  - `bank-policy.service.setPolicy()` REMOVIDO.
+  - Tipos `SplitPolicyRule` / `SplitPolicy` / `SplitPolicyMetadata` REMOVIDOS.
+  - `bank-policy.service.getPolicy<T>()` preservado APENAS para `bank-limit.service` (limites operacionais — uso distinto de policy de split).
+  - `bank_policies` (tabela) HARD-DEPRECATED via migration `20260530566000_deprecate_bank_policies_table.sql` (COMMENT institucional; sem DROP por causa do uso em limites).
+  - Guardrail `NO_LEGACY_BANK_POLICY_SERVICE_IMPORT` em `validate-architectural-patterns.mjs` impede novo import fora da allowlist.
+- **Remoção física** (DROP TABLE) rastreada em `DT-BANK-POLICIES-PHYSICAL-REMOVAL` (depende de `bank-limit.service` migrar para tabela dedicada).
 
 ---
 
@@ -5960,33 +5947,14 @@ Frente PE-2 (planejada): admin handlers + Zod schemas + UI panel + permissões (
 
 ---
 
-## DT-CATEGORY-AS-POLICY-SELECTOR
+## DT-CATEGORY-AS-POLICY-SELECTOR (RESOLVED por DECISION-0048)
 
-- **Status:** OPEN (LOW — limitação conhecida do modelo `categories` global como seletor em `economic_policies` tenant-bound)
-- **Origem:** PE-1 substrate 2026-05-26. Migration `20260530560000` declarou `category_id UUID REFERENCES categories(category_id) ON DELETE SET NULL` para permitir policy por categoria.
-
-### O que está OK
-
-- FK declarada e funcional (E2E T4/T15 provam).
-- Specificity considera category_id como seletor — policy com categoria vence policy sem categoria no mesmo contexto.
-
-### O que merece atenção futura
-
-`categories` é tabela GLOBAL (sem `tenant_id`). Significa que o `category_id` numa policy de tenant X **pode** referenciar categoria criada por tenant Y (porque categorias são compartilhadas). Isso é PROPOSITAL para taxonomias globais (medicina, advocacia, etc.), mas pode confundir auditoria multi-tenant — policy de tenant X aparenta "depender" de objeto fora do seu escopo.
-
-Não é violação — é consequência do modelo de categorias globais. PE-2/PE-3 devem:
-
-1. Documentar no UI admin que category_id se refere à taxonomia global.
-2. Se houver categories tenant-scoped no futuro, adicionar coluna `category_scope` na policy (`global` | `tenant`) para desambiguar.
-
-### Resolução prevista
-
-Cosmética — documentação no admin panel (PE-2). Não exige mudança de schema enquanto categorias seguirem o modelo global.
-
-### Não bloqueia
-
-- Resolver funciona corretamente hoje. FK garante integridade referencial.
-- ON DELETE SET NULL impede categoria apagada de quebrar policy (vira NULL, perde specificity, mas não falha).
+- **Status:** RESOLVED (2026-05-26)
+- **Origem:** PE-1 substrate 2026-05-26 — habilitou `category_id` como seletor de specificity em `economic_policies`. Confronto identificado: `bank-policy.service.ts:30` (legado) tinha marcado category como DEPRECATED com nota "viola Category_System_Contract"; CORE_SPLIT_PAGAMENTO_CANONICO §9.3 tinha texto absoluto "categorias NÃO influenciam preço/split/impacto financeiro".
+- **Resolução institucional (DECISION-0048):** norma atualizada em CORE_SPLIT §9.3. Categorias permanecem descritivas para identidade do produto/serviço, MAS **podem selecionar** policy econômica quando houver `economic_policy` ativa, versionada, auditável e vigente. Categoria **NÃO calcula split sozinha**; **só seleciona policy**. Materialização financeira continua exclusiva do UnifyBank via `bank_splits`/`bank_ledger`.
+- **Aspecto técnico:** `categories` é tabela GLOBAL (sem `tenant_id`). Policy de tenant X pode referenciar categoria criada globalmente — isso é PROPOSITAL para taxonomias globais (medicina, advocacia, etc.). Não é violação.
+- **Resolução de schema:** FK `ON DELETE SET NULL` em `economic_policies.category_id` previne policy quebrada se categoria for apagada. `bank-policy.service.ts:30` (legacy DEPRECATED tag) foi removido junto com `resolveSplitPolicy`.
+- **E2E:** T4 e T15 permanecem verdes — provam que categoria específica vence vertical geral, e que policy vertical-only vence quando categoria ausente.
 
 ---
 
@@ -6024,3 +5992,44 @@ PE-3 (planejada):
 ### Não bloqueia
 
 - PE-1 não muda nada em produção. Engine existe mas é silente até ser chamado por service_execution. Fluxo financeiro vivo permanece soberano por bank_splits/bank_ledger.
+
+---
+
+## DT-PE1-EXECUTOR-GUARDRAIL (CLOSED por DECISION-0048)
+
+- **Status:** CLOSED (2026-05-26)
+- **Origem:** PE-1 + DECISION-0048 convergência 2026-05-26. Pendência: enforcement automático que impeça `economic_policy_engine` de virar executor financeiro por refactor descuidado futuro.
+- **O que foi feito:** Regra `NO_BANK_EXECUTOR_IMPORT_IN_POLICY_ENGINE` (severidade CRITICAL) adicionada em `scripts/validate-architectural-patterns.mjs`:
+  - Pattern: `from ['"`].*?(bank-ledger|bank-transaction\.service|bank-split-engine\.service|bank-split\.repository)['"`]`
+  - Restrição: `onlyPath` = `modules/economy/policy-engine/`
+  - Comportamento: qualquer import de executor financeiro do Bank em código sob `policy-engine/**` vira `critical_new` e quebra `--strict`.
+- **Prova:** rodar `grep` direto no diretório retornou 0 hits — PE-1 atualmente não importa nenhum executor. Guardrail captura violação futura.
+- **Complementar:** PE-1 também tem invariante institucional documentada em DECISION-0048: NÃO escreve em `bank_ledger`/`bank_splits`/`bank_transactions`. Único side effect é INSERT em `economic_policy_resolution_logs` (audit puro).
+
+---
+
+## DT-RCA-COMMISSION-VOCABULARIO (CLOSED por DECISION-0048)
+
+- **Status:** CLOSED (2026-05-26)
+- **Origem:** PE-1 substrate 2026-05-26 introduziu `rca_commission` em `EconomicPolicyLineType` e `rca_actor_wallet` em `EconomicPolicyDestinationType` sem decisão Clayton e sem ancoragem normativa anterior. Termo "RCA" (Representante Comercial Autônomo) é jargão brasileiro estreito demais para line_type estrutural.
+- **O que foi feito (DECISION-0048):**
+  - Migration `20260530565000_rename_rca_to_channel_commission.sql` aplicou ALTER TABLE em `economic_policy_lines` substituindo `rca_commission` → `channel_commission` (line_type) e `rca_actor_wallet` → `channel_actor_wallet` (destination_type) nas CHECK constraints. Sem backfill (0 rows).
+  - `economic-policy.types.ts` atualizado.
+  - Repository PE-1 reflete via tipos.
+  - E2E permanece verde (não usava o valor — só vocabulário).
+  - Guardrail `NO_RCA_COMMISSION_LITERAL` (CRITICAL) em `validate-architectural-patterns.mjs` impede reaparição em código.
+- **Rationale:** canal genérico cobre afiliado / parceiro / RCA / influencer / marketplace externo. Identidade do canal específico (RCA, afiliado X, etc.) fica em `metadata.channelKind` ou `destination_key`, NÃO em line_type/destination_type estrutural.
+
+---
+
+## DT-BANK-POLICIES-PHYSICAL-REMOVAL
+
+- **Status:** OPEN (LOW — remoção física da tabela `bank_policies`)
+- **Origem:** DECISION-0048 (2026-05-26). `bank_policies` foi hard-deprecated (COMMENT ON TABLE; sem fonte ativa de policy de split). Mas NÃO foi dropada porque `bank-limit.service.bankPolicyService.getPolicy<T>()` ainda lê para configurar limites operacionais (defaultLimit) — uso distinto de policy econômica.
+- **O que falta para dropar:**
+  1. Definir tabela dedicada para limites operacionais (`bank_limits_config` ou equivalente).
+  2. Migrar a leitura em `bank-limit.service.ts` para a tabela nova.
+  3. Backfill se houver dados em `bank_policies` (hoje 0 rows).
+  4. Migration DROP TABLE.
+- **Prazo:** sem urgência — `bank_policies` está dormente sob COMMENT e guardrail impede uso novo.
+- **Não bloqueia:** PE-2/PE-3 podem prosseguir; `bank-limit.service` continua funcional via `getPolicy<T>()` preservado.

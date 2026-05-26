@@ -6,7 +6,6 @@
 import { bankAccountService } from './bank-account.service';
 import { getActiveReferral } from '@core/referral/referral-helper.service';
 import { userGroupAllocationRepository } from '@core/user-group-allocation/user-group-allocation.repository';
-import { bankPolicyService, type SplitPolicyRule, type SplitPolicyMetadata } from './bank-policy.service';
 import type {
   BankTransactionContext,
   BankSplitCalculation,
@@ -14,6 +13,11 @@ import type {
   SystemAccountName,
 } from './bank-split.types';
 import type { BankCurrency } from './bank-account.types';
+
+// DECISION-0048 (2026-05-26): bank-policy.service NÃO é mais fonte de
+// policy de split. Engine usa apenas defaults hardcoded por contexto
+// até cutover completo de event_ticket/ride/p2p/group para
+// economic_policy_engine (PE-3+). NÃO reintroduzir resolveSplitPolicy.
 
 // Percentual fixo de referral (5%)
 const REFERRAL_PERCENTAGE = 0.05;
@@ -27,32 +31,16 @@ interface SplitRule {
 
 class BankSplitEngineService {
   /**
-   * Obtém configuração de splits para um contexto
-   * Usa Policy Registry se disponível, senão usa defaults hardcoded (backward compatible)
-   * 
-   * @param tenantId - ID do tenant
-   * @param context - Contexto da transação
-   * @param metadata - Metadata opcional para resolução hierárquica de policies
+   * Defaults hardcoded por contexto (backward compat até cutover PE-3+).
+   *
+   * DECISION-0048: bankPolicyService.resolveSplitPolicy foi REMOVIDO.
+   * Fluxos novos (Camada 1 fixed-price-escrow e além) devem usar
+   * economic_policy_engine + createTransactionWithExplicitSplitLines.
+   * Esta função permanece apenas para event_ticket / ride_payment /
+   * p2p_transfer / group_contribution / service_booking enquanto não
+   * migrados.
    */
-  private async getSplitConfig(
-    tenantId: string,
-    context: BankTransactionContext,
-    metadata?: SplitPolicyMetadata
-  ): Promise<SplitRule[]> {
-    // Tentar buscar do Policy Registry (com resolução hierárquica se metadata fornecido)
-    const policy = await bankPolicyService.resolveSplitPolicy(tenantId, context, metadata);
-    
-    if (policy && policy.splits) {
-      // Converter policy rules para SplitRule
-      return policy.splits.map((rule: SplitPolicyRule) => ({
-        splitType: rule.splitType,
-        percentage: rule.percentage,
-        targetAccountName: rule.targetAccountName,
-        targetAccountId: rule.targetAccountId,
-      }));
-    }
-
-    // Fallback: defaults hardcoded (backward compatible)
+  private getSplitConfig(context: BankTransactionContext): SplitRule[] {
     switch (context) {
       case 'service_booking':
         // Service booking: 3% fee, 97% para worker/service provider
@@ -110,7 +98,6 @@ class BankSplitEngineService {
    * @param currency - Moeda
    * @param revenueShareAccountId - Conta para revenue share (organizer, worker, etc)
    * @param fromUserId - User ID para calcular referral e group allocation
-   * @param metadata - Metadata opcional para resolução hierárquica de split policies
    */
   async calculateSplits(
     tenantId: string,
@@ -118,8 +105,7 @@ class BankSplitEngineService {
     totalAmountCents: number,
     currency: BankCurrency,
     revenueShareAccountId?: string, // Para organizer, worker, etc
-    fromUserId?: string, // Para calcular referral e group allocation
-    metadata?: SplitPolicyMetadata // Metadata para resolução hierárquica de policies
+    fromUserId?: string // Para calcular referral e group allocation
   ): Promise<BankSplitCalculation> {
     if (!Number.isInteger(totalAmountCents) || totalAmountCents < 0) {
       throw new Error('totalAmountCents deve ser inteiro ≥ 0');
@@ -129,7 +115,7 @@ class BankSplitEngineService {
       return { totalAmountCents: 0, splits: [] };
     }
 
-    const config = await this.getSplitConfig(tenantId, context, metadata);
+    const config = this.getSplitConfig(context);
     const splits: Array<{
       splitType: BankSplitType;
       targetAccountId: string;
