@@ -467,6 +467,129 @@ class ServiceOrderRepository {
   }
 
   /**
+   * D2 (Camada 1 saída — 2026-05-26): seller_pending → release_approved.
+   *
+   * Significado: "serviço APROVADO para futura liberação financeira" —
+   * NÃO "fundos liberados". NÃO confundir com bank-account account_type=
+   * 'seller_available' (saldo financeiro real lastreado pela ledger do Bank).
+   *
+   * Single SQL atômico carrega TODA a regra D2 nos WHEREs:
+   *   - status='seller_pending'
+   *   - settlement_flow='fixed_price_escrow'
+   *   - disputed_at IS NULL (disputa bloqueia)
+   *   - (buyerConfirmedAt fornecido OU release_eligible_at <= NOW())
+   *
+   * buyerConfirmedAt:
+   *   - Quando preenchido (caller = buyer confirma): carimba
+   *     buyer_confirmed_completion_at = $3 + ignora release_eligible_at.
+   *   - Quando NULL (caller = timeout): exige release_eligible_at <= NOW()
+   *     e mantém buyer_confirmed_completion_at NULL.
+   *
+   * Idempotência por estado: 2ª chamada com status já = release_approved
+   * retorna rows=0 → método lança erro previsível. ON CONFLICT do outbox
+   * (caller upstream) garante zero duplicação de eventos.
+   *
+   * NÃO TOCA DINHEIRO. Estado-only.
+   */
+  async approveServiceOrderRelease(
+    tenantId: string,
+    orderId: string,
+    buyerConfirmedAt: Date | null,
+    executingClient?: PoolClient
+  ): Promise<ServiceOrder> {
+    const sql = `
+      UPDATE service_orders
+      SET status = 'release_approved',
+          buyer_confirmed_completion_at = COALESCE($3, buyer_confirmed_completion_at),
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND id = $2
+        AND status = 'seller_pending'
+        AND settlement_flow = 'fixed_price_escrow'
+        AND disputed_at IS NULL
+        AND (
+          $3::timestamptz IS NOT NULL
+          OR (release_eligible_at IS NOT NULL AND release_eligible_at <= NOW())
+        )
+      RETURNING id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+                status,
+                settlement_flow,
+                buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+                release_eligible_at, disputed_at, dispute_id,
+                scheduled_start, scheduled_end, estimated_duration_minutes,
+                location_address, location_latitude, location_longitude,
+                description, customer_notes, worker_notes,
+                created_by_actor_id, created_by_user_id,
+                confirmed_at, confirmed_by_actor_id,
+                started_at, completed_at, cancelled_at, cancellation_reason,
+                metadata, created_at, updated_at
+    `;
+    const params = [tenantId, orderId, buyerConfirmedAt];
+
+    let row: ServiceOrderRow | undefined;
+    if (executingClient) {
+      const result = await executingClient.query<ServiceOrderRow>(sql, params);
+      row = result.rows[0];
+    } else {
+      row = await runQueryWithTenant<ServiceOrderRow>(tenantId, sql, params);
+    }
+
+    if (!row) {
+      throw new Error(
+        'approveServiceOrderRelease: ordem não atende as condições D2 ' +
+          '(status≠seller_pending, flow≠fixed_price_escrow, disputed_at preenchido, ' +
+          'sem buyer confirm e release_eligible_at no futuro, ou já foi processada).'
+      );
+    }
+    return this.toServiceOrder(row);
+  }
+
+  /**
+   * D2 — listagem para o caller "timeout" (worker/script). Lista
+   * service_orders elegíveis a approve-por-timeout (sem buyer confirm).
+   *
+   * Condições: status='seller_pending' + flow='fixed_price_escrow' +
+   * disputed_at IS NULL + release_eligible_at <= NOW().
+   *
+   * Pure SELECT (NÃO consome com FOR UPDATE — o atomicidade individual
+   * vem do UPDATE filtrado em releaseToSellerAvailable). Caller pode
+   * processar serialmente; race entre buyer e timeout sobre mesma row
+   * é resolvido pela cláusula WHERE do UPDATE atômico.
+   */
+  async listExpiredSellerPending(
+    tenantId: string,
+    limit: number
+  ): Promise<ServiceOrder[]> {
+    const rows = await runQueriesWithTenant<ServiceOrderRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, service_id, worker_actor_id, customer_actor_id, booking_id, decision_id,
+             status,
+             settlement_flow,
+             buyer_confirmation_deadline_at, buyer_confirmed_completion_at,
+             release_eligible_at, disputed_at, dispute_id,
+             scheduled_start, scheduled_end, estimated_duration_minutes,
+             location_address, location_latitude, location_longitude,
+             description, customer_notes, worker_notes,
+             created_by_actor_id, created_by_user_id,
+             confirmed_at, confirmed_by_actor_id,
+             started_at, completed_at, cancelled_at, cancellation_reason,
+             metadata, created_at, updated_at
+      FROM service_orders
+      WHERE tenant_id = $1
+        AND status = 'seller_pending'
+        AND settlement_flow = 'fixed_price_escrow'
+        AND disputed_at IS NULL
+        AND release_eligible_at IS NOT NULL
+        AND release_eligible_at <= NOW()
+      ORDER BY release_eligible_at ASC
+      LIMIT $2
+      `,
+      [tenantId, limit]
+    );
+    return rows.map((row) => this.toServiceOrder(row));
+  }
+
+  /**
    * Atualiza status para CANCELLED
    */
   async cancelOrder(

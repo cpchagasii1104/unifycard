@@ -1,3 +1,71 @@
+## 2026-05-26 — Camada 1 saída D2: seller_pending → release_approved via buyer-confirm OU timeout (estado-only)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `db47798d` (F1) | **HEAD pós:** (este commit)
+
+**Contexto:** Após F1 (commit `db47798d`) introduzir `seller_pending` em `service_orders.status`, a frente D2 fecha o ciclo de estado da Camada 1 saída: prestador concluiu → buyer confirma OU prazo vence (com disputa bloqueando) → ordem fica APROVADA para futura liberação financeira.
+
+**Decisão semântica decisiva (Clayton/ChatGPT 2026-05-26):** o status operacional é `release_approved`, NÃO `seller_available`. Razão: `bank_accounts.account_type='seller_available'` já significa saldo financeiro real (Plano Bank); usar a mesma palavra em `service_orders.status` sem mover dinheiro criaria duas verdades com o mesmo nome. `release_approved` = "serviço APROVADO para futura liberação financeira"; NÃO "fundos liberados". Documentado em DT-D2-WIRING-MONEY-PENDING.
+
+**Entregue (1 commit + 3 DTs + 1 E2E novo):**
+
+- **Migration ativa** `backend/migrations/20260530556000_extend_service_order_status_release_approved.sql`:
+  - `ALTER TYPE service_order_status ADD VALUE IF NOT EXISTS 'release_approved' AFTER 'seller_pending'`.
+  - COMMENT ON TYPE documenta a distinção entre plano operacional (`release_approved`) e plano Bank (`seller_available`).
+  - DB local alinhado via `ALTER TYPE ... RENAME VALUE` (a tentativa local prévia havia usado `seller_available`).
+
+- **`service-order.types.ts`**: enum `ServiceOrderStatus` inclui `'release_approved'` + comentário canônico distinguindo dos dois planos.
+
+- **`service-order.repository.ts`**:
+  - Novo método `approveServiceOrderRelease(tenantId, orderId, buyerConfirmedAt, executingClient?)` — single SQL com TODA a regra D2 no WHERE composto (status, flow, disputed_at, buyer OR timeout). Pattern existingClient. NÃO toca dinheiro.
+  - Novo método `listExpiredSellerPending` para o caller "timeout" (sem FOR UPDATE — atomicidade individual no UPDATE filtrado).
+
+- **`service-order.service.ts`**:
+  - `deterministicServiceOrderReleaseApprovedOutboxEventId` (SHA-256 estável por orderId).
+  - `private async approveServiceOrderRelease(...)` — método interno unificado para os 2 callers. UPDATE + outbox atômicos via existingClient.
+  - `async confirmBuyerCompletion(...)` — Caller A. Valida `order.customerActorId === buyerActorId` (reforço explícito da autoridade fina, complementa gate genérico).
+  - `async approveExpiredServiceOrderReleases(...)` — Caller B. Varre expirados, libera cada um com transação própria; falha individual não interrompe batch.
+  - Outbox emit `event_type='SERVICE_ORDER_RELEASE_APPROVED'` (significado: "ordem APROVADA para futura liberação financeira").
+
+- **Rota nova** `POST /service-orders/:id/buyer-confirm` (service-order.routes.ts:212-244) — `actionContext.actorId` é o buyer; serviço valida que bate com `order.customerActorId`.
+
+- **Script CLI** `backend/src/scripts/release-expired-service-orders.ts` — chama `approveExpiredServiceOrderReleases(tenantId, 100)`. Standalone, sem worker periódico (DT-D2-TIMEOUT-WORKER-PENDING registra que cadência operacional é fatia separada).
+
+- **E2E novo** `backend/src/scripts/validate-pipeline-e2e-camada1-d2.ts` (22 asserts, todos verdes):
+  - T1 Buyer confirma → `release_approved` + `buyer_confirmed_completion_at` preenchido + outbox 1 row.
+  - T2 Buyer errado (≠ customerActorId) → THROW autoridade fina; estado intacto.
+  - T3 Timeout → `release_approved` + `buyer_confirmed_completion_at` NULL + outbox 1 row.
+  - T4 Disputa preenchida bloqueia AMBOS os caminhos (buyer-confirm THROW; timeout NÃO inclui no batch).
+  - T5 Antes do prazo (`release_eligible_at > NOW()`) → timeout NÃO inclui.
+  - T6 Atomicidade: cliente externo + BEGIN + buyer-confirm em modo convidado + presença DENTRO + ROLLBACK + ausência APÓS (service_orders + event_outbox revertidos juntos).
+  - T7 Idempotência: 2ª chamada THROW "seller_pending" + outbox tem EXATAMENTE 1 row.
+  - FINAL: `bank_ledger`, `bank_transactions`, escrow_payments TOTALMENTE inalterados em todo o E2E (snapshot antes/depois bate).
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E D2 PASS (22/22); E2E F1 preservado (21/21); E2E transversal preservado (B6/B7/B7.b/B8 PASS); 4 gates verdes; `critical_new=0` strict.
+
+**3 DTs registradas:**
+
+- `DT-D2-WIRING-MONEY-PENDING` OPEN (MEDIUM — vocabulário canônico estabelecido distinguindo dois planos; dinheiro fica em escrow_payments após D2; frente D-money posterior responsável por mover).
+- `DT-D2-TIMEOUT-WORKER-PENDING` OPEN (LOW — script CLI existe; worker periódico é fatia operacional separada).
+- `DT-SERVICE-ORDER-DISPUTE-OPENING` OPEN (MEDIUM — D2 LÊ `disputed_at` mas não há rota para abrir disputa em `service_orders`; bridge com `financial_disputes` é frente própria).
+
+**O que NÃO mudou (escopo travado):**
+- ZERO movimento financeiro (bank_ledger / bank_transactions / escrow_payments TOTALMENTE inalterados — snapshot pré/pós no E2E).
+- Workers (release/payout/bank-settlement/settlement) inalterados.
+- Marketplace `executePayment` intacto.
+- Simulador `paymentExecutionService.*` intocado.
+- `business_audit_action='funds_released'` PROIBIDO (semântica falsa em D2).
+- Plano agreement/milestone (`escrow_accounts`) intocado.
+- Gate 1 / identidade / RBAC.
+
+**Próxima frente natural (D-money):**
+- Decidir ponto canônico que move dinheiro `escrow_payments → seller_available` (Plano Bank).
+- Handler de outbox que consome `SERVICE_ORDER_RELEASE_APPROVED` ou worker periódico que varre `service_orders.status='release_approved'`.
+- Resolver DT-PIPELINE-WIRING-GAP elo 1 (`escrow → seller_pending` account do Bank).
+- Idempotência cruzada com referenceType/referenceId estável por orderId.
+
+---
+
 ## 2026-05-26 — Camada 1 saída F1: prestador conclui fixed_price_escrow → seller_pending + outbox atômico (zero movimento financeiro)
 
 **Branch:** `rescue-structural`

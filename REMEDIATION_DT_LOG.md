@@ -5641,3 +5641,113 @@ F1 **NÃO** usa `services.pricing_type` como discriminador primário. O discrimi
 - F1 não depende de `pricing_type` (usa `settlement_flow` próprio).
 - E2E F1 21/21 verdes sem tocar `pricing_type`.
 - Marketplace continua funcionando.
+
+---
+
+## DT-D2-WIRING-MONEY-PENDING
+
+- **Status:** OPEN (rastreamento; D2 é estado-only; release financeiro real é frente futura)
+- **Severidade:** MEDIUM (sem dinheiro movido, mas dois "seller_available" coexistem em planos diferentes)
+- **Origem:** Camada 1 saída — fatia D2, 2026-05-26. Decisão Clayton/ChatGPT: `service_orders.status='release_approved'` (NÃO `'seller_available'`) para distinguir do `bank_accounts.account_type='seller_available'` (saldo financeiro real lastreado pela ledger do Bank).
+
+### Vocabulário canônico estabelecido por D2
+
+| Termo | Plano | Significado |
+|---|---|---|
+| `bank_accounts.account_type='seller_available'` | Bank lifecycle (Plano 1) | **Saldo financeiro real** — montante disponível para payout, conta system criada por `ensurePlatformAccounts`, lastreado pela ledger do Bank. |
+| `service_orders.status='release_approved'` | service_orders (Plano 2) | **Aprovação operacional** — serviço aprovado para futura liberação financeira, NÃO "fundos liberados". Estado-only. Nenhum movimento financeiro. |
+| `service_orders.status='seller_pending'` | service_orders (Plano 2) | Estado intermediário pós-conclusão pelo prestador (F1, commit `db47798d`). |
+
+### O que D2 fez
+
+- `service_orders.status='release_approved'` ativado por: (a) confirmação explícita do buyer (`POST /service-orders/:id/buyer-confirm`); ou (b) timeout `release_eligible_at <= NOW()` via script `release-expired-service-orders.ts`, **se** `disputed_at IS NULL`.
+- INSERT atômico no `event_outbox` com `event_type='SERVICE_ORDER_RELEASE_APPROVED'` (idempotência via event_id determinístico SHA-256).
+- Dinheiro **permanece em escrow_payments** após D2. Nenhum `bank_transaction` ou ledger entry é criado.
+
+### O que D2 NÃO fez (escopo travado)
+
+- ❌ NÃO move dinheiro de `escrow_payments` para conta `seller_available` (Plano 1).
+- ❌ NÃO toca ledger do Bank, `bank_transactions`, `bank-account` (Plano 1).
+- ❌ NÃO usa `business_audit_action='funds_released'` (vocabulário existente em `business-audit.types.ts:38` + migration archived `0926`) — D2 não libera fundos, então usar esse termo seria auditoria semanticamente falsa.
+- ❌ NÃO cria payout, NÃO cria bank_settlement.
+- ❌ NÃO reconcilia plano Bank (Plano 1) com plano agreement/milestone (Plano B do DT-DOUBLE-ESCROW-PLANES).
+
+### Próxima frente (D-money — separada)
+
+A frente financeira posterior deve:
+1. Decidir o ponto canônico que move dinheiro de `escrow_payments` para a conta system `seller_available` (Plano 1).
+2. Consumir o evento outbox `SERVICE_ORDER_RELEASE_APPROVED` como gatilho (handler de outbox) OU ler `service_orders.status='release_approved'` periodicamente (worker).
+3. Resolver DT-PIPELINE-WIRING-GAP elo 1 (`escrow → seller_pending` account do Bank nunca creditado em produção).
+4. Considerar idempotência cruzada: handler deve verificar se já moveu antes (referenceType/referenceId estável por orderId).
+
+Até essa frente chegar, dinheiro fica em `escrow_payments` mesmo após `service_orders.status='release_approved'`. **Não é dead-money**: é dinheiro custodial à espera da fatia financeira.
+
+### Não bloqueia
+
+- D2 funciona materialmente (E2E `validate-pipeline-e2e-camada1-d2.ts` 22/22 verdes).
+- F1 preservado (E2E F1 21/21 verdes).
+- Transversal preservado (B6/B7/B7.b/B8 PASS).
+- Plano Bank (release-worker, payout-worker, bank-settlement-worker) continua dormindo em produção (DT-PIPELINE-WIRING-GAP). Convivência consciente até frente D-money chegar.
+
+---
+
+## DT-D2-TIMEOUT-WORKER-PENDING
+
+- **Status:** OPEN (script CLI existe; worker periódico fica para fatia operacional)
+- **Severidade:** LOW (não-bloqueante; operadores podem rodar via cron/CI manualmente)
+- **Origem:** D2, 2026-05-26. O caminho "timeout" da D2 está implementado como **função pública** (`serviceOrderService.approveExpiredServiceOrderReleases`) + **script CLI standalone** (`backend/src/scripts/release-expired-service-orders.ts`). NÃO há worker periódico registrado em BOOT.ts.
+
+### Razões
+
+1. Decidir cadência (a cada minuto? a cada hora?) é decisão operacional — não bate com o escopo D2 (estado-only + correção semântica).
+2. Registrar worker periódico em BOOT.ts inflaria o commit. Operadores podem chamar o script via cron / CI / runbook manual conforme a cadência decidida em produção.
+3. Padrão consistente com outros scripts ad-hoc do codebase (`validate-pipeline-e2e-*.ts`).
+
+### Resolução prevista (fatia operacional separada)
+
+1. Decidir cadência (lock service / cron / worker setInterval).
+2. Registrar em BOOT.ts (similar a `payout-worker`/`bank-settlement-worker`).
+3. Adicionar métricas / financial_event logs por execução.
+4. Reaproveitar pattern claim com FOR UPDATE SKIP LOCKED (igual `claimNextRequestedPayouts`) se desejar concorrência segura entre múltiplas instâncias.
+
+### Não bloqueia
+
+- O script CLI roda standalone e foi exercitado pelo E2E D2 (`approveExpiredServiceOrderReleases` chamada direta via service).
+- A função `serviceOrderService.approveExpiredServiceOrderReleases` é estável e idempotente (cada batch usa transações próprias).
+
+---
+
+## DT-SERVICE-ORDER-DISPUTE-OPENING
+
+- **Status:** OPEN (D2 LÊ `disputed_at` mas não escreve)
+- **Severidade:** MEDIUM (sem rota para abrir disputa em `service_orders`; D2 confia em escrita externa)
+- **Origem:** D2, 2026-05-26. D2 **LÊ** `service_orders.disputed_at` como bloqueio (release rejeitado se `disputed_at IS NOT NULL`), mas NÃO oferece rota nem service para ESCREVER esse campo.
+
+### Estado atual
+
+- `financial_disputes` (tabela + repository + controller `POST /financial/disputes`) existe e referencia `paymentIntentId`, **não** `service_order_id`. Logo, abrir disputa em `service_orders` exigiria:
+  - (a) Bridge: criar uma `financial_disputes` row + escrever `service_orders.disputed_at` + `service_orders.dispute_id` (FK livre, sem constraint hoje).
+  - (b) Tabela própria: `service_order_disputes` paralela.
+  - (c) Estender `financial_disputes` com `service_order_id` opcional.
+- Decisão de produto pendente. D2 só LÊ a flag — não decide design da abertura.
+
+### O que D2 fez
+
+- Cláusula `disputed_at IS NULL` em todos os WHEREs de release (buyer-confirm + timeout).
+- E2E D2 T4 prova que ambos os caminhos rejeitam disputa preenchida via INSERT direto.
+
+### O que D2 NÃO fez
+
+- Não cria rota `POST /service-orders/:id/open-dispute`.
+- Não decide quem pode abrir disputa (buyer? worker? admin?).
+- Não decide janela temporal (até quando pode abrir disputa após seller_pending?).
+- Não decide rollback após resolução de disputa (`disputed_at` volta a NULL? ou é append-only com `resolved_at` separado?).
+
+### Resolução prevista (frente F-Disputa separada)
+
+Frente própria que decide: rota, autoridade, janela, bridge com `financial_disputes`, fluxo de resolução. Não cabe em D2 (estado-only com escopo travado).
+
+### Não bloqueia
+
+- D2 funciona com disputa testada via INSERT direto no E2E.
+- Operadores em produção podem hoje fazer UPDATE manual em `service_orders.disputed_at` se necessário — release bloqueado automaticamente.

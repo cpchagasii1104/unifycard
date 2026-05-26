@@ -212,6 +212,41 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
   );
 
   /**
+   * POST /service-orders/:id/buyer-confirm
+   * D2 (Camada 1 saída — 2026-05-26): buyer confirma conclusão →
+   *   seller_pending → release_approved (estado-only, sem mover dinheiro).
+   *
+   * Significado: "serviço APROVADO para futura liberação financeira" —
+   * NÃO "fundos liberados". NÃO confundir com bank-account account_type=
+   * 'seller_available' (saldo financeiro real, plano Bank).
+   *
+   * Validações na service layer:
+   *   - actionContext.actorId === order.customerActorId.
+   *   - status='seller_pending', flow='fixed_price_escrow', disputed_at IS NULL.
+   * Dinheiro permanece em escrow_payments — release financeiro real
+   * é frente própria (DT-D2-WIRING-MONEY-PENDING).
+   */
+  fastify.post<{ Params: { id: string } }>(
+    '/service-orders/:id/buyer-confirm',
+    async (req, reply) => {
+      const tenantId = req.tenant!.id;
+      const { id } = req.params;
+      const actionContext = (req as any).actionContext;
+
+      if (!actionContext || !actionContext.actorId) {
+        return reply.status(400).send({ error: 'ActionContext.actorId é obrigatório' });
+      }
+
+      const order = await serviceOrderService.confirmBuyerCompletion(tenantId, id, {
+        buyerActorId: actionContext.actorId,
+        buyerUserId: actionContext.actorId,
+      });
+
+      return order;
+    }
+  );
+
+  /**
    * POST /service-orders/:id/cancel
    * Cancela ordem de serviço
    */

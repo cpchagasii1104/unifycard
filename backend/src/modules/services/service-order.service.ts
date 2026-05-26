@@ -66,6 +66,33 @@ function deterministicServiceOrderPendingOutboxEventId(
 }
 
 /**
+ * D2 (Camada 1 saída — 2026-05-26) — event_id determinístico para
+ * SERVICE_ORDER_RELEASE_APPROVED. Mesmo pattern do F1 — garante
+ * idempotência via ON CONFLICT (event_id) DO NOTHING do event_outbox.
+ *
+ * Único event_id por orderId (não depende do caller: buyer confirm e
+ * timeout emitem o MESMO event_id, então duas chamadas reusam a chave).
+ *
+ * Semântica do evento: "ordem APROVADA para futura liberação financeira"
+ * — NÃO "fundos liberados". Frente financeira futura é responsável
+ * por mover dinheiro de escrow_payments para seller_available (Bank).
+ */
+function deterministicServiceOrderReleaseApprovedOutboxEventId(
+  tenantId: string,
+  orderId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`SERVICE_ORDER_RELEASE_APPROVED:${tenantId}:${orderId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
  * Service para Ordens de Serviço
  *
  * ⚠️ REGRAS ARQUITETURAIS:
@@ -561,6 +588,211 @@ class ServiceOrderService {
     }
 
     return completedOrder;
+  }
+
+  /**
+   * D2 (Camada 1 saída — 2026-05-26) — Método interno UNIFICADO de
+   * APROVAÇÃO seller_pending → release_approved. Single source of truth
+   * para os 2 callers (buyer confirma + timeout) — evita duplicação.
+   *
+   * Semântica: ordem fica APROVADA para futura liberação financeira.
+   * NÃO MOVE DINHEIRO. Estado-only. Dinheiro permanece em escrow_payments
+   * até frente própria de release financeiro mover para seller_available
+   * (conta do Bank) lastreado pela ledger. Ver DT-D2-WIRING-MONEY-PENDING.
+   *
+   * Atomicidade: UPDATE service_orders + INSERT event_outbox JUNTOS via
+   * pattern existingClient (espelha F1 / db47798d).
+   *
+   * Idempotência tripla:
+   *   1. SQL WHERE status='seller_pending' (2ª chamada não bate).
+   *   2. event_id determinístico SHA-256 (ON CONFLICT DO NOTHING).
+   *   3. Caller decide eligibilidade ANTES de chamar (releaseEligibleAt
+   *      OR buyerConfirmedAt).
+   */
+  private async approveServiceOrderRelease(
+    tenantId: string,
+    orderId: string,
+    buyerConfirmedAt: Date | null,
+    existingClient?: PoolClient
+  ): Promise<ServiceOrder> {
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
+    const ownClient = !existingClient;
+    try {
+      if (ownClient) {
+        await client.query('BEGIN');
+      }
+
+      const approved = await serviceOrderRepository.approveServiceOrderRelease(
+        tenantId,
+        orderId,
+        buyerConfirmedAt,
+        client
+      );
+
+      // Outbox atômico — event_id determinístico (idempotência via ON
+      // CONFLICT DO NOTHING). Único event_id por orderId — buyer confirm
+      // e timeout reusam a mesma chave (não duplicam).
+      //
+      // Significado do evento SERVICE_ORDER_RELEASE_APPROVED:
+      //   "ordem foi APROVADA para futura liberação financeira" — NÃO
+      //   "fundos liberados". Dinheiro permanece em escrow_payments.
+      await insertEventOutboxRow(client, {
+        tenantId,
+        eventId: deterministicServiceOrderReleaseApprovedOutboxEventId(tenantId, orderId),
+        eventType: 'SERVICE_ORDER_RELEASE_APPROVED',
+        eventVersion: 1,
+        payload: {
+          orderId,
+          serviceId: approved.serviceId,
+          workerActorId: approved.workerActorId,
+          customerActorId: approved.customerActorId,
+          bookingId: approved.bookingId,
+          settlementFlow: approved.settlementFlow,
+          approvalTrigger: buyerConfirmedAt ? 'buyer_confirmation' : 'timeout',
+          buyerConfirmedCompletionAt: approved.buyerConfirmedCompletionAt
+            ? approved.buyerConfirmedCompletionAt.toISOString()
+            : null,
+          releaseEligibleAt: approved.releaseEligibleAt
+            ? approved.releaseEligibleAt.toISOString()
+            : null,
+        },
+        metadata: {
+          buyerConfirmedAt: buyerConfirmedAt ? buyerConfirmedAt.toISOString() : null,
+        },
+      });
+
+      if (ownClient) {
+        await client.query('COMMIT');
+      }
+      return approved;
+    } catch (error) {
+      if (ownClient) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (_rollbackErr) {
+          // ROLLBACK falhou (conexão perdida) — propaga erro original.
+        }
+      }
+      throw error;
+    } finally {
+      if (ownClient) {
+        client.release();
+      }
+    }
+  }
+
+  /**
+   * D2 — Caller A: buyer confirma conclusão.
+   *
+   * Pré-condições verificadas neste service:
+   *   1. order existe + status='seller_pending'.
+   *   2. buyerActorId === order.customerActorId (autoridade fina —
+   *      reforço explícito do gap herdado em DT-SERVICE-ORDER-AUTHORITY).
+   *   3. Autoridade canônica via authorityService.canPerformAction
+   *      service_order:confirm_completion (se buyerUserId fornecido).
+   *
+   * Após validações, delega para internalReleaseToSellerAvailable
+   * com buyerConfirmedAt = NOW (que carimba buyer_confirmed_
+   * completion_at e libera ignorando release_eligible_at).
+   */
+  async confirmBuyerCompletion(
+    tenantId: string,
+    orderId: string,
+    input: { buyerActorId: string; buyerUserId?: string },
+    existingClient?: PoolClient
+  ): Promise<ServiceOrder> {
+    // 0. Autoridade canônica (gate genérico). Mesmo padrão do completeOrder.
+    if (input.buyerUserId) {
+      const { authorityService } = await import('@modules/authority/authority.service');
+      const auth = await authorityService.canPerformAction(
+        input.buyerActorId,
+        'service_order:confirm_completion' as any,
+        undefined,
+        { tenantId, userId: input.buyerUserId }
+      );
+      if (!auth.allowed) {
+        throw HttpError.forbidden(
+          auth.reason || 'Você não tem permissão para confirmar conclusão de ordem de serviço'
+        );
+      }
+    }
+
+    // 1. Buscar order
+    const order = await serviceOrderRepository.getOrderById(tenantId, orderId);
+    if (!order) {
+      throw new Error(`Ordem não encontrada: ${orderId}`);
+    }
+
+    // 2. Autoridade fina: buyer deve ser o customer da order (reforço
+    //    explícito — o gate genérico não cruza com customerActorId).
+    if (order.customerActorId !== input.buyerActorId) {
+      throw HttpError.forbidden(
+        'Apenas o comprador da ordem pode confirmar a conclusão'
+      );
+    }
+
+    // 3. Pré-checagens declarativas (mensagens claras). O UPDATE atômico
+    //    do repository tem as mesmas guardas em SQL — esta camada antecipa
+    //    o erro com mensagem específica.
+    if (order.status !== 'seller_pending') {
+      throw new Error(
+        `Ordem não está em seller_pending (status atual: ${order.status})`
+      );
+    }
+    if (order.settlementFlow !== 'fixed_price_escrow') {
+      throw new Error(
+        'Confirmação de buyer só se aplica a fluxo fixed_price_escrow'
+      );
+    }
+    if (order.disputedAt !== null) {
+      throw new Error('Ordem está em disputa — release bloqueado');
+    }
+
+    return this.approveServiceOrderRelease(
+      tenantId,
+      orderId,
+      new Date(),
+      existingClient
+    );
+  }
+
+  /**
+   * D2 — Caller B: timeout. Varre service_orders elegíveis (status=
+   * seller_pending + flow=fixed_price_escrow + disputed_at IS NULL +
+   * release_eligible_at <= NOW()), APROVA cada uma para release_approved.
+   *
+   * NÃO MOVE DINHEIRO. Estado-only — ordem fica APROVADA para futura
+   * liberação financeira. Frente financeira posterior é responsável
+   * por mover dinheiro de escrow_payments.
+   *
+   * Chamável standalone (script CLI release-expired-service-orders.ts;
+   * futuro worker periódico — DT-D2-TIMEOUT-WORKER-PENDING).
+   *
+   * Cada approve usa sua própria transação (modo dono em
+   * approveServiceOrderRelease). Falha individual NÃO interrompe
+   * o batch — registra e continua.
+   */
+  async approveExpiredServiceOrderReleases(
+    tenantId: string,
+    limit = 100
+  ): Promise<{ approved: string[]; failed: Array<{ orderId: string; error: string }> }> {
+    const candidates = await serviceOrderRepository.listExpiredSellerPending(tenantId, limit);
+    const approved: string[] = [];
+    const failed: Array<{ orderId: string; error: string }> = [];
+
+    for (const order of candidates) {
+      try {
+        await this.approveServiceOrderRelease(tenantId, order.id, null);
+        approved.push(order.id);
+      } catch (err) {
+        failed.push({
+          orderId: order.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return { approved, failed };
   }
 
   /**

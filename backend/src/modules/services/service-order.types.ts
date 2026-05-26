@@ -4,11 +4,21 @@
 /**
  * Status da ordem de serviço
  *
- * `seller_pending` (2026-05-26 — F1 Camada 1 saída): prestador concluiu
- * serviço fixed_price_escrow; dinheiro permanece em escrow_payments até
- * buyer confirmar OU timeout do buyer_confirmation_deadline_at OU disputa
- * resolvida. Não move dinheiro nesta transição; só carimba estado e
- * deadlines.
+ * `seller_pending` (F1 — db47798d): prestador concluiu serviço
+ * fixed_price_escrow; dinheiro permanece em escrow_payments aguardando
+ * buyer confirmar OU timeout OU disputa resolvida.
+ *
+ * `release_approved` (D2 — 2026-05-26): estado-only alcançado por
+ * confirmação explícita do buyer OU por timeout do
+ * release_eligible_at, SE disputed_at IS NULL. Significa "serviço
+ * APROVADO para futura liberação financeira" — NÃO "fundos liberados".
+ * NÃO move dinheiro; release financeiro real fica em frente própria
+ * (DT-D2-WIRING-MONEY-PENDING).
+ *
+ * IMPORTANTE — NÃO CONFUNDIR com `bank-account account_type=
+ * 'seller_available'` (saldo financeiro real lastreado pela ledger do Bank,
+ * Plano Bank). `release_approved` é APROVAÇÃO operacional no Plano
+ * service_orders; `seller_available` é saldo financeiro real.
  */
 export type ServiceOrderStatus =
   | 'draft'
@@ -16,6 +26,7 @@ export type ServiceOrderStatus =
   | 'in_progress'
   | 'completed'
   | 'seller_pending'
+  | 'release_approved'
   | 'cancelled';
 
 /**
