@@ -1,3 +1,65 @@
+## 2026-05-25 — OUTBOX_ATOMICITY_HARDENING (Opção A): client injetado costura bank+execution+outbox; DT-OUTBOX-ATOMICITY RESOLVED
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `74a86f21` (furo provado) | **HEAD pós:** (este commit)
+
+**Contexto:** Furo provado em `74a86f21`: outbox NÃO atômico com ledger (bank commitava num client; outbox abria outro; catch externo "não crítico" engolia falhas; sem sweep). Dimensionamento mostrou A2 (cirurgia moderada com pattern `existingClient?` já existente em `transfer` L202 do MESMO arquivo do bank; blast radius 1 caller). Esta fatia corrige o furo na raiz pela Opção A — transactional outbox via client injetado. Serviço orquestra 1 transação; bank permanece ignorante do evento; client é encanamento técnico, não semântica.
+
+**Entregue (1 commit funcional):**
+
+- **`bank-transaction.service.ts:1409`** `createTransactionWithExplicitSplitLines`: assinatura adicionou `existingClient?: PoolClient` (param 3, opcional). Pattern `ownClient = !existingClient` + `if (ownClient) BEGIN/COMMIT/ROLLBACK/release` replicado verbatim de `transfer` L262-269 do mesmo arquivo. Quando client é injetado, o método NÃO faz BEGIN/COMMIT/release nem ROLLBACK no catch — propaga o throw para o caller (o serviço orquestrador) fazer o ROLLBACK de tudo.
+
+- **`service-payment-execution.repository.ts:176`** `create`: assinatura adicionou `executingClient?: PoolClient` (param 9, opcional). Bifurca: se presente, `executingClient.query(sql, params)` (participa da transação externa); senão `runQueryWithTenant` (transação própria, retrocompatível).
+
+- **`bank-integration.service.ts:450`** `processServicePaymentExecutionCanonical`: assinatura adicionou `existingClient?: PoolClient` (param 3); propaga para `createTransactionWithExplicitSplitLines`. Os READS de validação (validateLimit, resolveAccount, concept_id) continuam fora da transação — são consultas sobre estado já comitado. Retorno aumentado: agora retorna `{ transactionId, splits: Array<{ splitId, receiverActorId, amountCents, percentage }> }` — splits agregados (match por índice entre `splitLines` local e `result.splits` do bank) prontos para emissão de outbox sem releitura de banco.
+
+- **`service-payment-execution.service.ts:57`** `createExecution`: refactor para 1 transação atômica:
+  - Validações (guards, splits sum, findById dos actors) ficam ANTES do BEGIN.
+  - `const client = await getClientWithTenant(tenantId); try { await client.query('BEGIN');`
+  - (1) `bankIntegrationService.processServicePaymentExecutionCanonical(..., client)` — bank no MESMO client; retorna `{ transactionId, splits }`.
+  - (2) `servicePaymentExecutionRepository.create(..., client)` — execution row no MESMO client.
+  - (3) `insertEventOutboxRow(client, ...)` × (1 + N splits) — outbox no MESMO client.
+  - `await client.query('COMMIT');` único.
+  - `} catch { await client.query('ROLLBACK'); throw; } finally { client.release(); }`
+  - **Catch externo "não crítico" (L222-225 pré-fatia) REMOVIDO** — agora a falha do outbox quebra a transação inteira. Esse é o ponto: outbox e ledger viram inseparáveis.
+  - Após COMMIT: `findSplitsByExecutionId` lê de fora da transação para retornar PaymentSplit[] (contrato externo preservado).
+
+**Etapa B7 — ATOMICIDADE NOVA PROVADA (B6 invertido):**
+
+Cenário controlado no E2E (`validate-pipeline-e2e-transversal.ts` Etapa B7), com client compartilhado:
+1. `BEGIN`; bank com `existingClient` injetado (`bankTransactionService.transfer(..., sharedClient)`); `insertEventOutboxRow(sharedClient, ...)`; `throw new Error('B7_INVERTED_FORCED_FAILURE_BEFORE_COMMIT')`; catch → `ROLLBACK`.
+2. Provas:
+   - B7.1 ✓ caller RECEBE ERRO (não mais sucesso silencioso).
+   - B7.2 ✓ ROLLBACK desfez `bank_ledger` (0 entries para `transactionId` retornado pelo transfer).
+   - B7.3 ✓ ROLLBACK desfez `bank_transactions` (0 rows para a `reference_id`).
+   - B7.4 ✓ ROLLBACK desfez `event_outbox` (0 rows para o `eventId` deterministic, **apesar do INSERT ter sido executado pré-throw**).
+   - B7.5 ✓ ATOMICIDADE PROVADA: bank + outbox ROLLBACK juntos. **"Dinheiro sem evento" IMPOSSÍVEL.**
+
+**E2E completo (PASS):**
+- Modo A causal (RFQ → execution → ledger → outbox → processor) ✓
+- Modo A read-side (A11/A12 do commit anterior — processor consume + idempotência writer) ✓
+- Modo B falsificações (B1/B2/B3/B5) ✓
+- Modo B6 (cenário pré-fatia, transfer puro sem outbox — preservado como histórico) ✓
+- Modo B7 (atomicidade nova provada) ✓
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E PASS (Modo A causal + A11/A12 + Modo B + B6 + B7); 4 gates verdes pós `--update-baseline` (5 SELECTs novos do B7 absorvidos pelo precedente; `critical_new=0` preservado; `critical_total=42 → 47`); boot N/A; backend morto (não foi necessário subir backend — testes via service direto in-process).
+
+**DT atualizada:** `REMEDIATION_DT_LOG.md` — DT-OUTBOX-ATOMICITY **OPEN → RESOLVED**. Histórico da abertura preservado para arqueologia. Opções B (sweep) e C (trigger SQL) registradas como alternativas históricas e recusadas (Opção A é cirurgia mínima com pattern existente).
+
+**Estado pós-fatia (semântica institucional):**
+- Bank permanece IGNORANTE do evento — só recebe `existingClient?` (encanamento técnico, sem semântica). NÃO sabe que SERVICE_PAYMENT_EXECUTED será gravado depois.
+- Service orquestra: decide o que entra na transação única (bank + execution + outbox). Decide o BEGIN/COMMIT.
+- Outbox permanece event writer: só recebe client e faz INSERT. Não conhece a transação maior.
+- Fronteira de domínios preservada. Pattern "Unit of Work com transactional boundary controlado pelo serviço" — não pela infraestrutura.
+
+**Frentes NÃO abertas (escopo travado mantido):**
+- Sweep periódico (Opção B): registrada como alternativa histórica, recusada por Opção A ser cirurgia mínima sem latência.
+- Trigger SQL (Opção C): idem.
+- Aplicar mesmo pattern a OUTROS pontos de outbox (modules/marketplace/orders, payouts, etc.): fatias separadas se houver pressão material — esta fatia trata só o caminho `createExecution` (o único exercitado pelo B6 e pelo E2E financeiro).
+- Workers async (settlement/payout) — fora do escopo.
+
+---
+
 ## 2026-05-25 — Caminho longo Fase 1: rede do read-side do outbox + furo de atomicidade PROVADO (DT-OUTBOX-ATOMICITY OPEN)
 
 **Branch:** `rescue-structural`

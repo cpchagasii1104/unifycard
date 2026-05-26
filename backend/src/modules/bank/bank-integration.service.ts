@@ -3,6 +3,7 @@
 // Serviço de integração entre módulos e Unify Bank
 
 import { v4 as uuidv4 } from 'uuid';
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant } from '@core/database/pool';
 import { asMoneyCents, toPositiveMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
 import { parsePositiveMoneyToCents } from './bank-http-money';
@@ -462,8 +463,29 @@ class BankIntegrationService {
         percentage?: number | null;
       }>;
       metadata?: Record<string, any>;
-    }
-  ): Promise<{ transactionId: string }> {
+    },
+    /**
+     * OUTBOX_ATOMICITY_HARDENING (Opção A): aceita client externo já com
+     * BEGIN aberto. Propaga para createTransactionWithExplicitSplitLines
+     * (a única ESCRITA do método). Os READS de validação (validateLimit,
+     * resolveAccount, concept_id) continuam fora da transação — são
+     * consultas sobre estado já comitado e não precisam do client da tx.
+     */
+    existingClient?: PoolClient
+  ): Promise<{
+    transactionId: string;
+    /**
+     * Splits agregados (matching splitLines × bank result) prontos para
+     * emissão de SERVICE_PAYMENT_SPLIT_APPLIED no outbox, sem releitura
+     * de banco — campos exatos que o caller (createExecution) precisa.
+     */
+    splits: Array<{
+      splitId: string;
+      receiverActorId: string;
+      amountCents: number;
+      percentage: number | null;
+    }>;
+  }> {
     const {
       paymentRequestId,
       executionId,
@@ -546,21 +568,40 @@ class BankIntegrationService {
       throw new Error('CONCEPT_NOT_FOUND: ride-payment em financeiro-payment nao encontrado');
     }
 
-    const result = await bankTransactionService.createTransactionWithExplicitSplitLines(tenantId, {
-      referenceType: 'service_execution',
-      referenceId: paymentRequestId,
-      fromAccountId,
-      payerActorId,
-      amountCents,
-      currency,
-      splitLines,
-      description: `Service payment request ${paymentRequestId}`,
-      metadata: { ...metadata, executionId, paymentRequestId },
-      concept_id: conceptRow.concept_id,
-      authorship,
-    });
+    const result = await bankTransactionService.createTransactionWithExplicitSplitLines(
+      tenantId,
+      {
+        referenceType: 'service_execution',
+        referenceId: paymentRequestId,
+        fromAccountId,
+        payerActorId,
+        amountCents,
+        currency,
+        splitLines,
+        description: `Service payment request ${paymentRequestId}`,
+        metadata: { ...metadata, executionId, paymentRequestId },
+        concept_id: conceptRow.concept_id,
+        authorship,
+      },
+      existingClient
+    );
 
-    return { transactionId: result.transaction.transactionId };
+    // OUTBOX_ATOMICITY_HARDENING: agregar splits no formato que createExecution
+    // precisa para emitir SERVICE_PAYMENT_SPLIT_APPLIED (splitId vem do bank;
+    // receiverActorId vem do splitLines local, posição por posição). Match por
+    // índice é seguro porque o bank itera splitLines na ordem fornecida
+    // (bank-transaction.service.ts L1572 LOOP `for (const line of splitLines)`).
+    const splits = result.splits.map((bankSplit, idx) => ({
+      splitId: bankSplit.splitId,
+      receiverActorId: splitLines[idx]!.receiverActorId,
+      amountCents: bankSplit.amountCents,
+      percentage: bankSplit.percentage ?? null,
+    }));
+
+    return {
+      transactionId: result.transaction.transactionId,
+      splits,
+    };
   }
 
   /**

@@ -4,6 +4,7 @@
 // 🔴 BLINDAGEM: Split NÃO pode existir sem execution
 // 🔴 BLINDAGEM: Soma dos splits = amount da execution
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant } from '@core/database/pool';
 import { bankSplitRepository } from '@modules/bank/bank-split.repository';
 import type {
@@ -181,7 +182,15 @@ class ServicePaymentExecutionRepository {
     amountCents: number,
     currency: string,
     bankTransactionId?: string,
-    executionId?: string
+    executionId?: string,
+    /**
+     * OUTBOX_ATOMICITY_HARDENING (Opção A): aceita client externo já com
+     * BEGIN aberto. Quando informado, usa client.query (participa da
+     * transação maior orquestrada pelo serviço). Quando ausente, usa
+     * runQueryWithTenant (transação própria) — comportamento original
+     * preservado, retrocompatível.
+     */
+    executingClient?: PoolClient
   ): Promise<ServicePaymentExecution> {
     if (!paymentRequestId) {
       throw new Error('paymentRequestId é obrigatório para criar execução');
@@ -190,31 +199,38 @@ class ServicePaymentExecutionRepository {
       throw new Error('amountCents deve ser maior que zero');
     }
 
-    const row = await runQueryWithTenant<ServicePaymentExecutionRow>(
-      tenantId,
-      `
+    const sql = `
       INSERT INTO service_payment_executions (
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
         amount, currency, executed_at, metadata
       )
       VALUES (COALESCE($9::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (payment_request_id) DO NOTHING
-      RETURNING 
+      RETURNING
         execution_id, tenant_id, payment_request_id, payer_actor_id, receiver_actor_id,
         amount AS "amountCents", currency, executed_at as "executedAt", metadata, created_at, updated_at
-      `,
-      [
-        tenantId,
-        paymentRequestId,
-        payerActorId,
-        receiverActorId,
-        amountCents,
-        currency,
-        new Date(),
-        JSON.stringify({ bankTransactionId: bankTransactionId || null }),
-        executionId ?? null,
-      ]
-    );
+      `;
+    const params: unknown[] = [
+      tenantId,
+      paymentRequestId,
+      payerActorId,
+      receiverActorId,
+      amountCents,
+      currency,
+      new Date(),
+      JSON.stringify({ bankTransactionId: bankTransactionId || null }),
+      executionId ?? null,
+    ];
+
+    let row: ServicePaymentExecutionRow | undefined;
+    if (executingClient) {
+      // Participa da transação externa — client já tem BEGIN aberto.
+      const res = await executingClient.query<ServicePaymentExecutionRow>(sql, params);
+      row = res.rows[0];
+    } else {
+      // Transação própria via runQueryWithTenant (caminho retrocompatível).
+      row = await runQueryWithTenant<ServicePaymentExecutionRow>(tenantId, sql, params);
+    }
 
     if (!row) {
       // Conflito: já existe uma execução para este payment request

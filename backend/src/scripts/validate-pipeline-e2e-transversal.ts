@@ -681,17 +681,170 @@ async function main(): Promise<void> {
       ok: true,
       detail:
         "Verificado por leitura: L222 `} catch (error) {` \u2192 L224 console.error \u2192 L225 `}` sem throw. " +
-        "Caller recebe sucesso. Grep por 'outbox.*sweep|orphan.*execution|recovery.*outbox' = No files found.",
+        "Caller recebe sucesso. Grep por 'outbox.*sweep|orphan.*execution|recovery.*outbox' = No files found.\n" +
+        "NOTA: B6 demonstra o cen\u00e1rio pr\u00e9-fatia OUTBOX_ATOMICITY_HARDENING (transfer puro sem outbox = dinheiro sem evento). " +
+        "Esse caminho espec\u00edfico (bank direto sem outbox) N\u00c3O \u00e9 o caminho do createExecution \u2014 que agora est\u00e1 costurado (Etapa B7 abaixo prova).",
+    }
+  );
+
+  // ============================================================
+  // ETAPA B7 \u2014 ATOMICIDADE NOVA PROVADA (B6 invertido p\u00f3s-hardening)
+  // ============================================================
+  // OUTBOX_ATOMICITY_HARDENING (Op\u00e7\u00e3o A) costurou bank+execution+outbox em
+  // uma \u00fanica transa\u00e7\u00e3o no createExecution. B7 prova materialmente o OPOSTO
+  // do furo: se algo falhar DENTRO da transa\u00e7\u00e3o costurada, ROLLBACK desfaz
+  // bank_ledger + bank_transactions + event_outbox JUNTOS, e o caller recebe
+  // ERRO (n\u00e3o mais sucesso silencioso).
+  //
+  // Reprodu\u00e7\u00e3o: simulamos a costura manualmente (client compartilhado entre
+  // bank + outbox) e for\u00e7amos uma falha ENTRE eles. ROLLBACK desfaz tudo \u2014
+  // pattern equivalente ao que ocorreria se algo falhasse dentro do
+  // createExecution refatorado.
+  console.log("\n=== Etapa B7 \u2014 ATOMICIDADE NOVA PROVADA (post-hardening) ===");
+
+  const simExecutionIdB7 = uuidv4();
+  const simEventIdB7 = deterministicServicePaymentExecutedOutboxEventId(TENANT_ID, simExecutionIdB7);
+  const b7ReferenceId = simExecutionIdB7;
+
+  const sharedClient = await getClientWithTenant(TENANT_ID);
+  let b7TransferResult: any = null;
+  let b7CaughtError: Error | null = null;
+  let b7OutboxInsertOk = false;
+
+  try {
+    await sharedClient.query('BEGIN');
+
+    // 1) Bank com existingClient injetado (transfer\u00eancia real participa da
+    //    transa\u00e7\u00e3o maior; n\u00e3o comita por si).
+    b7TransferResult = await bankTransactionService.transfer(
+      TENANT_ID,
+      {
+        eventId: uuidv4(),
+        fromAccountId: seed.buyerAccount.accountId,
+        toAccountId: seed.providerAccount.accountId,
+        amountCents: 2500,
+        currency: "BRL",
+        transactionType: "transfer",
+        referenceType: "g2_b7_inverted_atomic",
+        referenceId: b7ReferenceId,
+        description: "B7 invertido: tx-costurada com bank+outbox + falha forcada antes de COMMIT",
+        concept_id: conceptServiceBookingPaymentId,
+        authorship: buildFinancialAuthorshipFromRequest({
+          performedByUserId: seed.buyer.user_id,
+          actingForActorId: seed.buyer.actorId,
+          actingForAccountId: seed.buyerAccount.accountId,
+          authoritySource: "ownership",
+          permissionSnapshot: {
+            permissionKey: "ownership",
+            allowed: true,
+            actorId: seed.buyer.actorId,
+            userId: seed.buyer.user_id,
+            decidedAt: new Date().toISOString(),
+          },
+        }),
+      },
+      sharedClient,
+    );
+
+    // 2) Outbox no MESMO client (ainda n\u00e3o-commitado).
+    await insertEventOutboxRow(sharedClient, {
+      tenantId: TENANT_ID,
+      eventId: simEventIdB7,
+      eventType: "SERVICE_PAYMENT_EXECUTED",
+      eventVersion: 1,
+      payload: { b7: true, executionId: simExecutionIdB7 } as any,
+      metadata: { b7_inverted: true, executionId: simExecutionIdB7 } as any,
+    });
+    b7OutboxInsertOk = true;
+
+    // 3) Falha for\u00e7ada ANTES do COMMIT \u2014 equivale a "algo falha entre as
+    //    escritas e o COMMIT" no createExecution refatorado.
+    throw new Error("B7_INVERTED_FORCED_FAILURE_BEFORE_COMMIT");
+  } catch (e) {
+    // 4) ROLLBACK propagado \u2014 desfaz bank E outbox (mesma transa\u00e7\u00e3o).
+    try {
+      await sharedClient.query('ROLLBACK');
+    } catch (_rb) {
+      // ignore rollback errors
+    }
+    b7CaughtError = e as Error;
+  } finally {
+    sharedClient.release();
+  }
+
+  // PROVAS:
+
+  assertOk("B7.1 \u2014 caller RECEBE ERRO (n\u00e3o mais sucesso silencioso)", {
+    ok: b7CaughtError !== null && /B7_INVERTED_FORCED_FAILURE/.test(b7CaughtError.message),
+    reason: "caller n\u00e3o recebeu o erro for\u00e7ado \u2014 atomicidade quebrada",
+    detail: { caughtError: b7CaughtError?.message ?? null, b7OutboxInsertOk },
+  });
+
+  // ROLLBACK desfez bank_ledger (entries do transfer n\u00e3o existem)
+  const b7LedgerCount = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [b7TransferResult?.transactionId ?? "00000000-0000-0000-0000-000000000000"]
+  );
+  assertOk("B7.2 \u2014 ROLLBACK desfez bank_ledger (0 entries para a tx)", {
+    ok: b7LedgerCount.rows[0]?.c === "0",
+    reason: "ROLLBACK n\u00e3o desfez as ledger entries \u2014 atomicidade quebrada",
+    detail: { transaction_id: b7TransferResult?.transactionId, count: b7LedgerCount.rows[0]?.c },
+  });
+
+  // ROLLBACK desfez bank_transactions
+  const b7TxCount = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_transactions
+       WHERE tenant_id = $1::uuid AND reference_type = 'g2_b7_inverted_atomic' AND reference_id = $2`,
+    [TENANT_ID, b7ReferenceId]
+  );
+  assertOk("B7.3 \u2014 ROLLBACK desfez bank_transactions (0 rows para a reference)", {
+    ok: b7TxCount.rows[0]?.c === "0",
+    reason: "ROLLBACK n\u00e3o desfez bank_transactions \u2014 atomicidade quebrada",
+    detail: { reference_id: b7ReferenceId, count: b7TxCount.rows[0]?.c },
+  });
+
+  // ROLLBACK desfez event_outbox (a row foi INSERTed antes do throw, mas
+  // ROLLBACK reverteu)
+  const b7OutboxCount = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+    [simEventIdB7]
+  );
+  assertOk("B7.4 \u2014 ROLLBACK desfez event_outbox (0 rows para o eventId), apesar do INSERT pr\u00e9-throw", {
+    ok: b7OutboxCount.rows[0]?.c === "0",
+    reason: "ROLLBACK n\u00e3o desfez event_outbox \u2014 atomicidade quebrada",
+    detail: {
+      event_id: simEventIdB7,
+      count: b7OutboxCount.rows[0]?.c,
+      outboxInsertWasExecuted: b7OutboxInsertOk,
+    },
+  });
+
+  assertOk(
+    "B7.5 \u2014 ATOMICIDADE NOVA PROVADA: bank + outbox ROLLBACK juntos; ou os dois gravam, ou nenhum. 'dinheiro sem evento' IMPOSS\u00cdVEL.",
+    {
+      ok:
+        b7CaughtError !== null &&
+        b7LedgerCount.rows[0]?.c === "0" &&
+        b7TxCount.rows[0]?.c === "0" &&
+        b7OutboxCount.rows[0]?.c === "0",
+      reason: "atomicidade nova n\u00e3o foi confirmada por todas as 4 provas",
+      detail: {
+        caller_error: b7CaughtError?.message,
+        ledger_count: b7LedgerCount.rows[0]?.c,
+        tx_count: b7TxCount.rows[0]?.c,
+        outbox_count: b7OutboxCount.rows[0]?.c,
+      },
     }
   );
 
   console.log("\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  console.log("G2 PIPELINE E2E :: PASS (estendido \u2014 A11/A12 + B6 furo do outbox)");
+  console.log("G2 PIPELINE E2E :: PASS (estendido \u2014 A11/A12 + B6 furo + B7 atomicidade)");
   console.log("  Modo A causal: OK (RFQ \u2192 execution \u2192 ledger \u2192 outbox \u2192 processor)");
   console.log("  Modo A read-side: A11 processor consume + A12 writer idempotente");
   console.log("  Modo B falsificacoes: TODAS rejeitadas pelo runtime");
-  console.log("  Modo B6: FURO DO OUTBOX provado materialmente (dinheiro sem evento)");
-  console.log("           \u2192 DT-OUTBOX-ATOMICITY (REMEDIATION_DT_LOG.md)");
+  console.log("  Modo B6: cenario pre-fatia (transfer puro sem outbox = dinheiro sem evento)");
+  console.log("  Modo B7: ATOMICIDADE NOVA \u2014 ROLLBACK desfaz bank+outbox juntos");
+  console.log("           DT-OUTBOX-ATOMICITY RESOLVED via Op\u00e7\u00e3o A (client injetado)");
   console.log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
 }
 

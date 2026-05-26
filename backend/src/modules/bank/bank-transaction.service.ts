@@ -1426,7 +1426,15 @@ class BankTransactionService {
       metadata?: Record<string, any>;
       concept_id: string;
       authorship: FinancialAuthorshipContext;
-    }
+    },
+    /**
+     * OUTBOX_ATOMICITY_HARDENING (Opção A): aceita client externo já com
+     * BEGIN aberto. Quando informado, NÃO faz BEGIN/COMMIT/release — o caller
+     * controla o ciclo de vida e o COMMIT acontece junto com as outras
+     * escritas da mesma transação (execution row + outbox).
+     * Pattern replicado de `transfer` L262-269 (mesmo arquivo).
+     */
+    existingClient?: PoolClient
   ): Promise<{
     transaction: BankTransaction;
     splits: BankSplit[];
@@ -1459,9 +1467,12 @@ class BankTransactionService {
     // C66: aceita slug ou UUID (fail-closed em concept-resolver)
     concept_id = await resolveConceptId(input.concept_id);
 
-    const client = await getClientWithTenant(tenantId);
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
+    const ownClient = !existingClient;
     try {
-      await client.query('BEGIN');
+      if (ownClient) {
+        await client.query('BEGIN');
+      }
 
       const dup = await client.query<{ id: string }>(
         `SELECT id FROM bank_transactions WHERE tenant_id = $1 AND reference_type = $2 AND reference_id = $3 LIMIT 1`,
@@ -1469,7 +1480,9 @@ class BankTransactionService {
       );
       if (dup.rows.length > 0) {
         const txId = dup.rows[0].id;
-        await client.query('COMMIT');
+        if (ownClient) {
+          await client.query('COMMIT');
+        }
         const splits = await bankSplitRepository.getSplitsByTransaction(tenantId, txId);
         const transaction = await this.getTransactionById(tenantId, txId);
         if (!transaction) {
@@ -1480,7 +1493,9 @@ class BankTransactionService {
 
       const fromAccount = await bankAccountRepository.getAccountById(tenantId, fromAccountId);
       if (!fromAccount || fromAccount.currency !== currency) {
-        await client.query('ROLLBACK');
+        if (ownClient) {
+          await client.query('ROLLBACK');
+        }
         throw new Error('From account not found or currency mismatch');
       }
 
@@ -1495,7 +1510,9 @@ class BankTransactionService {
           });
         }
       } catch (e) {
-        await client.query('ROLLBACK');
+        if (ownClient) {
+          await client.query('ROLLBACK');
+        }
         throw e;
       }
 
@@ -1627,7 +1644,9 @@ class BankTransactionService {
       );
       const splitTotal = parseInt(sumR.rows[0]?.s || '0', 10);
       if (splitTotal !== amountCents) {
-        await client.query('ROLLBACK');
+        if (ownClient) {
+          await client.query('ROLLBACK');
+        }
         throw new Error(
           `Split validation failed: transactionAmountCents ${amountCents} vs splitsSumCents ${splitTotal}`
         );
@@ -1637,18 +1656,28 @@ class BankTransactionService {
         `UPDATE bank_transactions SET internal_completed_at = NOW() WHERE id = $1`,
         [txId]
       );
-      await client.query('COMMIT');
+      if (ownClient) {
+        await client.query('COMMIT');
+      }
 
       return { transaction, splits, ledgerEntries };
     } catch (e) {
-      try {
-        await client.query('ROLLBACK');
-      } catch {
-        /* ignore */
+      if (ownClient) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          /* ignore */
+        }
       }
+      // OUTBOX_ATOMICITY_HARDENING: quando client é externo (!ownClient),
+      // NÃO fazemos ROLLBACK aqui — o caller (serviço orquestrador) é dono da
+      // transação e fará o ROLLBACK de tudo (bank + execution + outbox)
+      // quando receber o throw.
       throw e;
     } finally {
-      client.release();
+      if (ownClient) {
+        client.release();
+      }
     }
   }
 

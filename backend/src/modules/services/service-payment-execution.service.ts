@@ -124,105 +124,137 @@ class ServicePaymentExecutionService {
 
     const executionId = uuidv4();
 
-    const { transactionId: bankTransactionId } =
-      await bankIntegrationService.processServicePaymentExecutionCanonical(tenantId, {
-        paymentRequestId: paymentRequest.paymentRequestId,
-        executionId,
-        payerUserId,
-        payerActorId: paymentRequest.payerActorId,
-        amountCents: paymentRequest.amountCents,
-        currency: 'BRL',
-        splitRecipients,
-        metadata: {
+    // ============================================================
+    // OUTBOX_ATOMICITY_HARDENING (Opção A) — 1 transação cobrindo
+    // bank + execution row + outbox. Eliminação do "dinheiro sem
+    // evento": se qualquer escrita falhar, ROLLBACK reverte tudo.
+    // O catch externo antigo (L222-225 pré-fatia) que engolia falhas
+    // de outbox como "não crítico" foi REMOVIDO — agora a falha do
+    // outbox DEVE quebrar a transação inteira. DT-OUTBOX-ATOMICITY
+    // RESOLVED via este caminho.
+    // ============================================================
+    const client = await getClientWithTenant(tenantId);
+    let execution: ServicePaymentExecution;
+    let bankSplitsForOutbox: Array<{
+      splitId: string;
+      receiverActorId: string;
+      amountCents: number;
+      percentage: number | null;
+    }>;
+
+    try {
+      await client.query('BEGIN');
+
+      // 1) BANK — escreve bank_transactions + bank_ledger entries + bank_splits
+      //    NO MESMO client. Retorna splits agregados (splitId + receiverActorId
+      //    + amountCents + percentage) prontos para emissão do outbox sem
+      //    releitura de banco.
+      const bankResult = await bankIntegrationService.processServicePaymentExecutionCanonical(
+        tenantId,
+        {
           paymentRequestId: paymentRequest.paymentRequestId,
-          bookingId: paymentRequest.bookingId,
-          serviceId: paymentRequest.serviceId,
+          executionId,
+          payerUserId,
+          payerActorId: paymentRequest.payerActorId,
+          amountCents: paymentRequest.amountCents,
+          currency: 'BRL',
+          splitRecipients,
+          metadata: {
+            paymentRequestId: paymentRequest.paymentRequestId,
+            bookingId: paymentRequest.bookingId,
+            serviceId: paymentRequest.serviceId,
+          },
+        },
+        client
+      );
+      const bankTransactionId = bankResult.transactionId;
+      bankSplitsForOutbox = bankResult.splits;
+
+      // 2) EXECUTION row — INSERT service_payment_executions no MESMO client.
+      execution = await servicePaymentExecutionRepository.create(
+        tenantId,
+        paymentRequest.paymentRequestId,
+        paymentRequest.payerActorId,
+        paymentRequest.receiverActorId,
+        paymentRequest.amountCents,
+        paymentRequest.currency,
+        bankTransactionId,
+        executionId,
+        client
+      );
+
+      // 3) OUTBOX — INSERTs event_outbox no MESMO client. Atomicidade
+      //    completa: bank + execution + outbox commitam ou rollback juntos.
+      await insertEventOutboxRow(client, {
+        tenantId,
+        eventId: deterministicServicePaymentExecutedOutboxEventId(tenantId, execution.executionId),
+        eventType: ActorEffect.SERVICE_PAYMENT_EXECUTED,
+        eventVersion: 1,
+        payload: {
+          actorId: paymentRequest.payerActorId,
+          actorType: payerActor.actor_type as any,
+          intent: 'EXECUTE_PAYMENT',
+          sourceId: execution.executionId,
+          sourceType: 'service_payment_execution',
+          metadata: {
+            paymentRequestId: paymentRequest.paymentRequestId,
+            amountCents: execution.amountCents,
+            currency: execution.currency,
+            splitsCount: bankSplitsForOutbox.length,
+          },
+        },
+        metadata: {
+          userId: userId,
+          paymentRequestId: paymentRequest.paymentRequestId,
+          executionId: execution.executionId,
         },
       });
-
-    const execution = await servicePaymentExecutionRepository.create(
-      tenantId,
-      paymentRequest.paymentRequestId,
-      paymentRequest.payerActorId,
-      paymentRequest.receiverActorId,
-      paymentRequest.amountCents,
-      paymentRequest.currency,
-      bankTransactionId,
-      executionId
-    );
-
-    const splits = await servicePaymentExecutionRepository.findSplitsByExecutionId(
-      tenantId,
-      execution.executionId
-    );
-
-    // 🔴 BLINDAGEM: Enfileirar effects na outbox (pós-commit de execução + splits)
-    // Effect é consequência sistêmica, não decisão humana
-    // Execução é explícita, nunca automática
-    try {
-      const outboxClient = await getClientWithTenant(tenantId);
-      try {
-        await outboxClient.query('BEGIN');
-        await insertEventOutboxRow(outboxClient, {
+      for (const split of bankSplitsForOutbox) {
+        await insertEventOutboxRow(client, {
           tenantId,
-          eventId: deterministicServicePaymentExecutedOutboxEventId(tenantId, execution.executionId),
-          eventType: ActorEffect.SERVICE_PAYMENT_EXECUTED,
+          eventId: deterministicServicePaymentSplitAppliedOutboxEventId(tenantId, split.splitId),
+          eventType: ActorEffect.SERVICE_PAYMENT_SPLIT_APPLIED,
           eventVersion: 1,
           payload: {
-            actorId: paymentRequest.payerActorId,
-            actorType: payerActor.actor_type as any,
+            actorId: split.receiverActorId,
+            actorType: 'user' as any, // Será resolvido pelo effect handler
             intent: 'EXECUTE_PAYMENT',
-            sourceId: execution.executionId,
-            sourceType: 'service_payment_execution',
+            sourceId: split.splitId,
+            sourceType: 'payment_split',
             metadata: {
-              paymentRequestId: paymentRequest.paymentRequestId,
-              amountCents: execution.amountCents,
-              currency: execution.currency,
-              splitsCount: splits.length,
+              executionId: execution.executionId,
+              amountCents: split.amountCents,
+              percentage: split.percentage,
             },
           },
           metadata: {
             userId: userId,
-            paymentRequestId: paymentRequest.paymentRequestId,
             executionId: execution.executionId,
+            splitId: split.splitId,
           },
         });
-        for (const split of splits) {
-          await insertEventOutboxRow(outboxClient, {
-            tenantId,
-            eventId: deterministicServicePaymentSplitAppliedOutboxEventId(tenantId, split.splitId),
-            eventType: ActorEffect.SERVICE_PAYMENT_SPLIT_APPLIED,
-            eventVersion: 1,
-            payload: {
-              actorId: split.receiverActorId,
-              actorType: 'user' as any, // Será resolvido pelo effect handler
-              intent: 'EXECUTE_PAYMENT',
-              sourceId: split.splitId,
-              sourceType: 'payment_split',
-              metadata: {
-                executionId: execution.executionId,
-                amountCents: split.amountCents,
-                percentage: split.percentage,
-              },
-            },
-            metadata: {
-              userId: userId,
-              executionId: execution.executionId,
-              splitId: split.splitId,
-            },
-          });
-        }
-        await outboxClient.query('COMMIT');
-      } catch (outboxErr) {
-        await outboxClient.query('ROLLBACK');
-        throw outboxErr;
-      } finally {
-        outboxClient.release();
       }
+
+      // COMMIT único — ou tudo grava, ou nada grava.
+      await client.query('COMMIT');
     } catch (error) {
-      // Não quebra criação se enfileiramento falhar
-      console.error('Erro ao enfileirar effects ao criar execução (não crítico):', error);
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackErr) {
+        // ROLLBACK falhou (conexão perdida) — propaga erro original.
+      }
+      throw error;
+    } finally {
+      client.release();
     }
+
+    // Após COMMIT atômico — leitura derivada para devolver PaymentSplit[] no
+    // formato esperado pelo contrato externo do método. bank_splits já está
+    // comitado; findSplitsByExecutionId lê de fora da transação com segurança.
+    const splits = await servicePaymentExecutionRepository.findSplitsByExecutionId(
+      tenantId,
+      execution.executionId
+    );
 
     return { execution, splits };
   }

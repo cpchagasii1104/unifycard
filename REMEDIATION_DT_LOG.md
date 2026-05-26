@@ -45,9 +45,23 @@ Status values:
 
 ---
 
-## DT-OUTBOX-ATOMICITY — OPEN
+## DT-OUTBOX-ATOMICITY — RESOLVED
 
-- **Status:** OPEN 2026-05-25 (furo arquitetural reproduzível; correção fica para fatia separada OUTBOX_ATOMICITY_HARDENING)
+- **Status:** ~~OPEN 2026-05-25~~ **RESOLVED 2026-05-25** (Opção A — transactional outbox via client injetado; corrigido neste mesmo dia em fatia subsequente; furo provado E correção provada pelo MESMO E2E `validate-pipeline-e2e-transversal.ts`)
+- **Resolução:** OUTBOX_ATOMICITY_HARDENING — costura bank+execution+outbox numa única transação via `existingClient?: PoolClient` propagado pelo serviço orquestrador. Pattern replicado de `bank-transaction.service.ts:202` (`transfer` existingClient). Catch externo "não crítico" (L222-225 pré-fatia) REMOVIDO — agora a falha do outbox quebra a transação inteira (ROLLBACK).
+- **Commit de resolução:** (este commit)
+- **Prova material da correção:** Etapa B7 do E2E (`validate-pipeline-e2e-transversal.ts`) — cenário controlado com client compartilhado entre bank+outbox + falha forçada antes do COMMIT. SELECTs confirmam: bank_ledger=0, bank_transactions=0, event_outbox=0 (ROLLBACK desfez tudo), caller recebe erro. Estado "dinheiro sem evento" tornou-se IMPOSSÍVEL no caminho do createExecution.
+- **Arquivos tocados:**
+  - `backend/src/modules/bank/bank-transaction.service.ts` (createTransactionWithExplicitSplitLines: +existingClient?: PoolClient; pattern ownClient L1462-1652)
+  - `backend/src/modules/services/service-payment-execution.repository.ts` (create: +executingClient?: PoolClient; bifurca client.query vs runQueryWithTenant)
+  - `backend/src/modules/bank/bank-integration.service.ts` (processServicePaymentExecutionCanonical: +existingClient?; retorno aumentado com splits agregados {splitId, receiverActorId, amountCents, percentage})
+  - `backend/src/modules/services/service-payment-execution.service.ts` (createExecution: 1 BEGIN/COMMIT no service; bank+execution+outbox no mesmo client; catch L222-225 REMOVIDO)
+- **Blast radius da assinatura:** 0 callers afetados. `existingClient?` é opcional; os outros callers de `createTransactionWithExplicitSplitLines` (bank-integration.service.ts:952 ride_payment + 2 scripts) passam `undefined` e mantêm comportamento original (transação interna).
+- **Opções B (sweep) e C (trigger SQL) registradas e RECUSADAS:** A é cirurgia mínima com pattern existente, sem novo mecanismo, sem latência. B e C ficam disponíveis na entrada original abaixo como alternativas históricas.
+
+### Histórico da abertura (preservado para arqueologia)
+
+- **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit 74a86f21). O mapa anterior já apontava o gap; B6 reproduz materialmente.
 - **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit desta fatia). O mapa anterior já apontava o gap; B6 reproduz materialmente.
 - **Classe:** DT-A (atomicidade transacional ausente entre componentes que deveriam ser atômicos)
 - **Vinculada a:** `backend/src/modules/services/service-payment-execution.service.ts` L162-225 (catch externo do bloco do outbox); `backend/src/modules/bank/bank-transaction.service.ts:1389` (COMMIT do ledger num client distinto); `backend/src/core/events/event-outbox.repository.ts:15-41` (writer ON CONFLICT DO NOTHING)
