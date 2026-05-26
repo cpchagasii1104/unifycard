@@ -112,7 +112,7 @@ const RULES = [
     // backend/src/scripts/. Outros scripts (seeds, validações, checadores)
     // permanecem sob vigilância — refs reais a bank_* viram CRITICAL new.
     allowPath:
-      /\/(modules\/(bank|ledger|reconciliation|treasury|economy|observability|gateway|audit|payments|payout|escrow)|core\/(unifybank|reconciliation|observability|events\/event-economy)|workers\/|scripts\/(validate-pipeline-e2e-|e2e-)[^\/]+\.(ts|tsx|js|jsx)$)/i,
+      /\/(modules\/(bank|ledger|reconciliation|treasury|economy|observability|gateway|audit|payments|payout|escrow|wallet)|core\/(unifybank|reconciliation|observability|events\/event-economy)|workers\/|scripts\/(validate-pipeline-e2e-|e2e-)[^\/]+\.(ts|tsx|js|jsx)$)/i,
   },
   {
     name: 'NO_MANUAL_MONEY_CALCULATION',

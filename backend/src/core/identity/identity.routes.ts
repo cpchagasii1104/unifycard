@@ -740,6 +740,43 @@ const identityRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /identity/wallet/actor-statement
+   *
+   * Camada 1 — extrato da actor_wallet do actor logado (2026-05-26).
+   *
+   * Retorna saldo + entries com origem rastreável (D-money:
+   * service_order/payment_request/payment_intent/payer). Saldo SEMPRE
+   * vem da ledger via bankAccountService.getBalance (Bank é SSOT).
+   *
+   * Isolamento: actorId fixo = actionContext.actorId. Nenhum query
+   * param expõe actor alheio.
+   */
+  fastify.get<{ Querystring: { limit?: string } }>('/wallet/actor-statement', async (req, reply) => {
+    if (!req.user) {
+      return reply.status(401).send({ error: 'Não autenticado' });
+    }
+    if (!req.actionContext || !req.actionContext.actorId) {
+      return reply.status(400).send({ error: 'ActionContext obrigatório' });
+    }
+    if (!req.tenant) {
+      return reply.status(400).send({ error: 'Tenant não encontrado' });
+    }
+
+    const limitParam = req.query?.limit ? Number(req.query.limit) : 100;
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 100;
+
+    const { actorWalletStatementService } = await import(
+      '@modules/wallet/actor-wallet-statement.service'
+    );
+    const statement = await actorWalletStatementService.getActorWalletStatement(
+      req.tenant.id,
+      req.actionContext.actorId,
+      limit
+    );
+    return statement;
+  });
+
+  /**
    * GET /identity/wallet
    * Retorna informações da wallet do usuário autenticado baseada em global_user_id
    */
