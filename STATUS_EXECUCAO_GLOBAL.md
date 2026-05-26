@@ -1,3 +1,59 @@
+## 2026-05-25 — Caminho 2: reconciliation detecta janelas payout/settlement (S4→S3) + alinha CHECK ao enum (drift c149ede4 fechado)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `8afeec9a` (OUTBOX_ATOMICITY_HARDENING) | **HEAD pós:** (este commit)
+
+**Contexto:** Mapa do circuito longo (sessão anterior) classificou as janelas B (payout-worker) e C (bank-settlement-worker) como S4-silencioso — dinheiro fluiu mas status na fila ficou órfão (`processing`), sem detecção pela reconciliation atual nem recovery automático. Decisão arquitetural: Caminho 2 (detectar ANTES de endurecer). Reconciliation continua DETECTIVA (zero UPDATE em filas, zero movimento de dinheiro) — só amplia o que enxerga. Endurecimento de worker / recovery automático ficam como decisão futura governada pela frequência que a detecção medir em produção.
+
+**Achado lateral material durante a fatia:** drift histórico CHECK ↔ enum. `reconciliation_ledger_discrepancies.discrepancy_type` tinha CHECK com 4 valores; enum TS já tinha 5 desde c149ede4 (Fatia 2, `settled_intent_without_credit` adicionado SEM migration do CHECK). Em produção, se a Fatia 2 detectasse esse caso, o INSERT falharia com erro 23514 (constraint violation). Gap nunca exposto porque o E2E financeiro original não exercita esse caminho. Esta fatia ALINHA CHECK ↔ enum em UMA migration — fecha o gap histórico de quebra.
+
+**Entregue (1 commit funcional):**
+
+- **Migration nova** `backend/migrations/20260530554000_extend_reconciliation_ledger_discrepancies_types.sql`: DROP + ADD do `reconciliation_ledger_discrepancies_type_check` com 7 valores. Diretriz: CHECK fica como defesa em profundidade (NÃO removido); enum TS é fonte semântica. Comentário institucional na migration documenta o drift histórico.
+
+- **`reconciliation.repository.ts:11-19`** enum estendido: `+ 'payout_transferred_status_not_completed' + 'settlement_transferred_status_not_sent'`.
+
+- **`reconciliation-engine.service.ts:189-237`** 2 SELECTs novos cruzando `bank_transactions` × `payout_requests` / `bank_settlements` (com `bt.reference_type='seller_payout'`/`'bank_settlement'`, `bt.reference_id=fila.id::text`, fila.status != terminal). Para cada match, push de `DiscRow` com `differenceCents: 0` (não é divergência de saldo, é de observabilidade). Padrão LITERAL do que já existia — mesmo INSERT em `reconciliation_ledger_discrepancies` no loop final.
+
+- **Etapa B8 no E2E** `validate-pipeline-e2e-transversal.ts` provando materialmente:
+  - Setup janela B: INSERT payout_request status='processing' + transfer real referenceType='seller_payout' (= o write do bank que processPayout faria).
+  - Setup janela C: INSERT bank_settlement status='processing' (com FK payout_id) + transfer real referenceType='bank_settlement'.
+  - Snapshot do estado ANTES da reconciliation (status + ledger count).
+  - `runReconciliation(TENANT_ID)` → 8 discrepâncias gravadas no run.
+  - B8.1 ✅ `payout_transferred_status_not_completed` gravada com `payoutId`, `differenceCents=0`.
+  - B8.2 ✅ `settlement_transferred_status_not_sent` gravada com `settlementId`, `differenceCents=0`.
+  - B8.3 ✅ **DETECÇÃO PURA**: status das filas INALTERADO após reconciliation (ainda 'processing').
+  - B8.4 ✅ **DETECÇÃO PURA**: `bank_ledger` INALTERADO (entries dos transfers persistem; zero escrita financeira).
+  - B8.5 ✅ Caminho 2 confirmado: janelas B+C deixam de ser silenciosas (S4 → S3-detectado).
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E PASS (Modo A causal + A11/A12 + Modo B + B6 + B7 + B8); 4 gates verdes pós `--update-baseline` (2 SELECTs novos do B8 absorvidos pelo precedente; `critical_new=0` preservado; `critical_total=47 → 53`); migration aplicada com CHECK de 7 valores confirmado via `pg_get_constraintdef`; backend N/A (script standalone).
+
+**Logs financial_event capturados em runtime:**
+```
+reconciliation_run_started     runId=fabb59af...
+reconciliation_discrepancy_detected type=payout_transferred_status_not_completed × 5
+reconciliation_discrepancy_detected type=settlement_transferred_status_not_sent × 4
+reconciliation_run_completed   discrepanciesFound=8 status=completed
+```
+
+(5 e 4 ocorrências em vez de 1 cada porque B8 acumulou setup divergente em runs anteriores do E2E — a reconciliation pega todos. Comportamento esperado: detecção sem corretivo.)
+
+**DT atualizada — `REMEDIATION_DT_LOG.md`:**
+- **DT-CONSERVATION-OBSERVABILITY** registrada como OPEN (parcialmente endereçada: S4 → S3-detectado). Documenta as 2 janelas materiais, mitigação atual (detecção), achado lateral (drift histórico do CHECK fechado), e 3 opções futuras de correção (D endurecimento de worker via pattern OUTBOX_ATOMICITY_HARDENING; E sweep periódico; F manual runbook expandido) SEM decidir. Critério de destrave: reconciliation roda em produção por tempo suficiente para medir frequência das janelas B/C; se >0 ocorrências, abrir frente OUTBOX_ATOMICITY_HARDENING aplicada aos workers.
+
+**Diretriz institucional preservada:**
+- Reconciliation continua DETECTIVA — SELECT + INSERT em reconciliation_*. ZERO UPDATE em filas, ZERO movimento financeiro. Confirmado materialmente em B8.3 e B8.4.
+- Workers payout/bank_settlement NÃO TOCADOS. Continuam com o comportamento atual; recovery manual via `reprocessSettlement` (runbook).
+- CHECK do DB mantido como defesa em profundidade (NÃO removido em favor de "enum como SSOT único").
+- Pattern OUTBOX_ATOMICITY_HARDENING (commit `8afeec9a`) fica disponível para ser aplicado a workers se a frequência medida justificar — fatia futura.
+
+**Frentes NÃO abertas (escopo travado mantido):**
+- Endurecimento de workers payout/bank_settlement (Opção D): fatia futura.
+- Sweep periódico de recovery automático (Opção E): NÃO recomendado a menos que worker hardening não seja viável.
+- Aplicar pattern OUTBOX_ATOMICITY_HARDENING a outros pontos do projeto (orders, payouts não-marketplace): fatias separadas se houver pressão material.
+
+---
+
 ## 2026-05-25 — OUTBOX_ATOMICITY_HARDENING (Opção A): client injetado costura bank+execution+outbox; DT-OUTBOX-ATOMICITY RESOLVED
 
 **Branch:** `rescue-structural`

@@ -45,6 +45,62 @@ Status values:
 
 ---
 
+## DT-CONSERVATION-OBSERVABILITY — OPEN (parcialmente endereçada: S4 → S3-detectado)
+
+- **Status:** OPEN 2026-05-25 — janelas B/C de divergência de observabilidade entre transfer (bank) e UPDATE de status nas filas (payout_requests, bank_settlements). Detecção AGORA EXISTE (S3-detectado); endurecimento de worker / recovery automático permanecem decisão futura.
+- **Origem:** Auditoria conservation execução↔settlement (sessão 2026-05-25). Mapa do circuito longo registrou que execução é atômica (pós-OUTBOX_ATOMICITY_HARDENING) mas a cadeia ASYNC pós-execução (settlement-worker → payout-worker → bank-settlement-worker) tem janelas onde transfer commitou mas status da fila não foi atualizado.
+- **Classe:** DT-O (observabilidade — dinheiro não some, status órfão)
+
+### Janelas materiais identificadas
+
+- **Janela B — payout-worker** (workers/payout-worker.ts:82-95):
+  Entre L84 `processPayout(payout)` (COMMIT do transfer no bank) e L85 `updatePayoutStatus('completed')` (transação separada). Se processo morre nessa janela, bank_ledger tem o débito (seller_available - amount) + crédito (seller_payout + amount). payout_requests.status fica 'processing'. claimNextRequestedPayouts filtra só status='requested', logo NÃO retoma. Sem sweep automático.
+
+- **Janela C — bank-settlement-worker** (workers/bank-settlement-worker.ts:44-107):
+  Entre efeito 1 (`bankTransactionService.transfer` em withIdempotency, L76-93) e efeito 2 (`updateSettlementStatus('sent')` em withIdempotency, L96-106). Cada um é transação separada. Se processo morre entre os dois, transfer commitado mas status fica 'processing'. listPendingSettlements filtra só status='pending', logo NÃO retoma — só `reprocessSettlement` MANUAL (runbook).
+
+### Mitigação atual (Caminho 2 — DETECTAR antes de endurecer)
+
+Esta fatia adicionou DOIS tipos de discrepância à reconciliation:
+- `payout_transferred_status_not_completed` — detecta janela B
+- `settlement_transferred_status_not_sent` — detecta janela C
+
+`runReconciliation` (modules/reconciliation/reconciliation-engine.service.ts) AGORA executa 2 SELECTs novos que cruzam `bank_transactions` (com `reference_type` correspondente) × `payout_requests` / `bank_settlements` (com status != terminal). As discrepâncias são GRAVADAS em `reconciliation_ledger_discrepancies` com diff=0 (não é divergência de saldo, é de observabilidade).
+
+**Detecção pura:** reconciliation NÃO altera status, NÃO move dinheiro. SELECT + INSERT em reconciliation_*. Confirmado por B8.3 e B8.4 do E2E:
+- payout_requests.status permanece 'processing' após runReconciliation
+- bank_settlements.status permanece 'processing' após runReconciliation
+- bank_ledger inalterado (entries dos transfers persistem)
+
+### Achado lateral: drift histórico do CHECK constraint (corrigido nesta fatia)
+
+`reconciliation_ledger_discrepancies.discrepancy_type` tinha CHECK com APENAS 4 valores (ledger_mismatch, account_mismatch, orphan_transaction, orphan_ledger_entry), mas o enum TS já tinha 5 desde c149ede4 (`settled_intent_without_credit` em Fatia 2 — sem migration correspondente do CHECK). Em produção, se a Fatia 2 detectasse esse caso, o INSERT falharia com erro 23514. Gap nunca exposto porque o E2E financeiro não exercita o caminho (não cria intent settled sem credit).
+
+Migration nova `20260530554000_extend_reconciliation_ledger_discrepancies_types.sql` alinha CHECK ↔ enum em UMA operação (DROP + ADD com 7 valores). Diretriz institucional: CHECK fica como defesa em profundidade; enum TS é fonte semântica. NÃO removido.
+
+### Status atual: S3-detectado (era S4-silencioso)
+
+**Detecção:** ✅ reconciliation cobre as 2 janelas via SELECT cross-tabela.
+**Visibilidade:** ✅ discrepâncias gravadas em reconciliation_ledger_discrepancies + logs financial_event (`reconciliation_discrepancy_detected`).
+**Correção automática:** ❌ NÃO. Decisão futura, governada pela frequência que a detecção medir.
+
+### Opções futuras (não decididas)
+
+- **Opção D — Endurecimento de worker (atomicidade transfer + status):**
+  Aplicar pattern OUTBOX_ATOMICITY_HARDENING (Opção A do commit `8afeec9a`) aos workers payout/bank-settlement. Mover updatePayoutStatus / updateSettlementStatus para o MESMO client da transação do transfer. Equivalente ao que foi feito no createExecution. Custo: refactor cirúrgico por worker, pattern existingClient já estabelecido. Recomendado SE a detecção medir frequência > limiar.
+
+- **Opção E — Sweep periódico de recovery:**
+  Job que cruza `reconciliation_ledger_discrepancies` recentes (tipos B/C) e dispara compensação automática (UPDATE status para 'completed'/'sent' se transfer já existe). Custo: novo mecanismo, latência, complexidade de idempotência cross-job. NÃO recomendado a menos que worker hardening não seja viável.
+
+- **Opção F — Manual runbook expandido:**
+  Documentar processo manual para resolver discrepâncias B/C. Custo: operação humana recorrente. NÃO escalável.
+
+### Critério de destrave (próxima fatia)
+
+Reconciliation roda em produção por tempo suficiente para medir frequência das janelas B/C. Se >0 ocorrências detectadas materialmente em produção, abrir frente OUTBOX_ATOMICITY_HARDENING aplicada aos workers (Opção D).
+
+---
+
 ## DT-OUTBOX-ATOMICITY — RESOLVED
 
 - **Status:** ~~OPEN 2026-05-25~~ **RESOLVED 2026-05-25** (Opção A — transactional outbox via client injetado; corrigido neste mesmo dia em fatia subsequente; furo provado E correção provada pelo MESMO E2E `validate-pipeline-e2e-transversal.ts`)

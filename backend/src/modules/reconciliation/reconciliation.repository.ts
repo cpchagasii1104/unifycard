@@ -13,7 +13,12 @@ export type LedgerReconciliationDiscrepancyType =
   | 'account_mismatch'
   | 'orphan_transaction'
   | 'orphan_ledger_entry'
-  | 'settled_intent_without_credit';
+  | 'settled_intent_without_credit'
+  // Caminho 2 (detectar antes de endurecer) — janelas async entre transfer
+  // (bank) e UPDATE de status (filas). Detecção pura, sem corretivo automático.
+  // Referência: DT-CONSERVATION-OBSERVABILITY (REMEDIATION_DT_LOG.md).
+  | 'payout_transferred_status_not_completed'
+  | 'settlement_transferred_status_not_sent';
 
 export interface ReconciliationRunRow {
   id: string;

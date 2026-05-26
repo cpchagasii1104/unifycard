@@ -22,6 +22,7 @@ import { servicePaymentExecutionService } from "../modules/services/service-paym
 import { servicePaymentRequestService } from "../modules/services/service-payment-request.service";
 import { processEventOutboxCycle } from "../core/events/event-outbox.processor";
 import { insertEventOutboxRow } from "../core/events/event-outbox.repository";
+import { runReconciliation } from "../modules/reconciliation/reconciliation-engine.service";
 import { createHash } from "crypto";
 
 dotenv.config({ path: join(process.cwd(), ".env") });
@@ -837,14 +838,282 @@ async function main(): Promise<void> {
     }
   );
 
+  // ============================================================
+  // ETAPA B8 \u2014 Caminho 2: reconciliation DETECTA janelas B+C de
+  //            observabilidade (payout/settlement transferidos com
+  //            status \u00f3rf\u00e3o). Detec\u00e7\u00e3o pura \u2014 reconciliation N\u00c3O
+  //            corrige; s\u00f3 reporta.
+  // ============================================================
+  // Janela B: payout-worker processPayout COMMIT do transfer; processo
+  // morre antes de updatePayoutStatus('completed'). bank_ledger tem o
+  // dinheiro; payout_requests.status fica 'processing'. Pr\u00f3ximo cycle
+  // do worker s\u00f3 pega 'requested' \u2014 payout fica \u00f3rf\u00e3o.
+  // Janela C: bank-settlement-worker entre efeito 1 (transfer) e
+  // efeito 2 (mark_sent). Status fica 'processing'.
+  //
+  // Reproducao SEM rodar o worker: criar manualmente o estado
+  // divergente (INSERT row + transfer real), rodar runReconciliation,
+  // confirmar que a discrep\u00e2ncia foi GRAVADA em
+  // reconciliation_ledger_discrepancies. N\u00c3O altera status (deve
+  // permanecer 'processing' ap\u00f3s reconciliation \u2014 detec\u00e7\u00e3o pura).
+  console.log("\n=== Etapa B8 \u2014 Caminho 2: reconciliation DETECTA janelas B+C ===");
+
+  // ---- Setup janela B (payout) ----
+  // INSERT payout_request com status='processing' (= claim feito, transfer
+  // executado, updatePayoutStatus N\u00c3O rodou).
+  const payoutInsertB = await pool.query<{ id: string }>(
+    `INSERT INTO payout_requests (tenant_id, actor_id, amount_cents, currency, status)
+     VALUES ($1, $2, $3, 'BRL', 'processing')
+     RETURNING id::text`,
+    [TENANT_ID, seed.buyer.actorId, 4321]
+  );
+  const payoutIdB = payoutInsertB.rows[0]!.id;
+
+  // Transfer REAL com referenceType='seller_payout', referenceId=payoutId
+  // (== o write do bank que processPayout faria).
+  const payoutTransfer = await bankTransactionService.transfer(TENANT_ID, {
+    eventId: uuidv4(),
+    fromAccountId: seed.buyerAccount.accountId,
+    toAccountId: seed.providerAccount.accountId,
+    amountCents: 4321,
+    currency: "BRL",
+    transactionType: "transfer",
+    referenceType: "seller_payout",
+    referenceId: payoutIdB,
+    description: "B8 janela B: transfer payout sem updatePayoutStatus",
+    concept_id: conceptServiceBookingPaymentId,
+    authorship: buildFinancialAuthorshipFromRequest({
+      performedByUserId: seed.buyer.user_id,
+      actingForActorId: seed.buyer.actorId,
+      actingForAccountId: seed.buyerAccount.accountId,
+      authoritySource: "ownership",
+      permissionSnapshot: {
+        permissionKey: "ownership",
+        allowed: true,
+        actorId: seed.buyer.actorId,
+        userId: seed.buyer.user_id,
+        decidedAt: new Date().toISOString(),
+      },
+    }),
+  });
+
+  // ---- Setup janela C (bank_settlement) ----
+  // payout_request necess\u00e1rio para FK; criamos um separado (n\u00e3o-divergente)
+  // s\u00f3 para satisfazer a FK do bank_settlement.
+  const payoutForFkRes = await pool.query<{ id: string }>(
+    `INSERT INTO payout_requests (tenant_id, actor_id, amount_cents, currency, status)
+     VALUES ($1, $2, $3, 'BRL', 'completed')
+     RETURNING id::text`,
+    [TENANT_ID, seed.buyer.actorId, 5432]
+  );
+  const payoutIdForFk = payoutForFkRes.rows[0]!.id;
+
+  // INSERT bank_settlement com status='processing' (entre efeito 1 e 2).
+  const settlementInsert = await pool.query<{ id: string }>(
+    `INSERT INTO bank_settlements (tenant_id, payout_id, amount_cents, currency, status)
+     VALUES ($1, $2::uuid, $3, 'BRL', 'processing')
+     RETURNING id::text`,
+    [TENANT_ID, payoutIdForFk, 5432]
+  );
+  const settlementIdC = settlementInsert.rows[0]!.id;
+
+  const settlementTransfer = await bankTransactionService.transfer(TENANT_ID, {
+    eventId: uuidv4(),
+    fromAccountId: seed.buyerAccount.accountId,
+    toAccountId: seed.providerAccount.accountId,
+    amountCents: 5432,
+    currency: "BRL",
+    transactionType: "transfer",
+    referenceType: "bank_settlement",
+    referenceId: settlementIdC,
+    description: "B8 janela C: transfer bank_settlement sem mark_sent",
+    concept_id: conceptServiceBookingPaymentId,
+    authorship: buildFinancialAuthorshipFromRequest({
+      performedByUserId: seed.buyer.user_id,
+      actingForActorId: seed.buyer.actorId,
+      actingForAccountId: seed.buyerAccount.accountId,
+      authoritySource: "ownership",
+      permissionSnapshot: {
+        permissionKey: "ownership",
+        allowed: true,
+        actorId: seed.buyer.actorId,
+        userId: seed.buyer.user_id,
+        decidedAt: new Date().toISOString(),
+      },
+    }),
+  });
+
+  // ---- Snapshot do estado ANTES da reconciliation (controle) ----
+  const payoutStatusBefore = await pool.query<{ status: string }>(
+    `SELECT status FROM payout_requests WHERE id = $1::uuid`,
+    [payoutIdB]
+  );
+  const settlementStatusBefore = await pool.query<{ status: string }>(
+    `SELECT status FROM bank_settlements WHERE id = $1::uuid`,
+    [settlementIdC]
+  );
+  const ledgerCountB_Before = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [payoutTransfer.transactionId]
+  );
+  const ledgerCountC_Before = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [settlementTransfer.transactionId]
+  );
+
+  // ---- Rodar reconciliation ----
+  const reconRes = await runReconciliation(TENANT_ID);
+  console.log(
+    `  \u2139  runReconciliation: runId=${reconRes.runId} discrepanciesFound=${reconRes.discrepanciesFound}`
+  );
+
+  // ---- PROVAS ----
+
+  // B8.1: discrep\u00e2ncia janela B foi gravada com o referenceId correto
+  const payoutDiscRow = await pool.query<{
+    type: string;
+    reference_id: string;
+    expected_value_cents: string | null;
+    actual_value_cents: string | null;
+    difference_cents: string;
+  }>(
+    `SELECT discrepancy_type AS type, reference_id,
+            expected_value_cents::text, actual_value_cents::text, difference_cents::text
+       FROM reconciliation_ledger_discrepancies
+      WHERE tenant_id = $1::uuid
+        AND discrepancy_type = 'payout_transferred_status_not_completed'
+        AND reference_id = $2
+        AND reconciliation_run_id = $3::uuid
+      LIMIT 1`,
+    [TENANT_ID, payoutIdB, reconRes.runId]
+  );
+  assertOk(
+    "B8.1 \u2014 janela B detectada: 'payout_transferred_status_not_completed' gravada com payoutId",
+    {
+      ok:
+        payoutDiscRow.rows.length === 1 &&
+        payoutDiscRow.rows[0]!.expected_value_cents === "4321" &&
+        payoutDiscRow.rows[0]!.actual_value_cents === "4321" &&
+        payoutDiscRow.rows[0]!.difference_cents === "0",
+      reason: "discrep\u00e2ncia da janela B N\u00c3O foi gravada como esperado",
+      detail: payoutDiscRow.rows[0],
+    }
+  );
+
+  // B8.2: discrep\u00e2ncia janela C foi gravada
+  const settlementDiscRow = await pool.query<{
+    type: string;
+    reference_id: string;
+    expected_value_cents: string | null;
+    actual_value_cents: string | null;
+    difference_cents: string;
+  }>(
+    `SELECT discrepancy_type AS type, reference_id,
+            expected_value_cents::text, actual_value_cents::text, difference_cents::text
+       FROM reconciliation_ledger_discrepancies
+      WHERE tenant_id = $1::uuid
+        AND discrepancy_type = 'settlement_transferred_status_not_sent'
+        AND reference_id = $2
+        AND reconciliation_run_id = $3::uuid
+      LIMIT 1`,
+    [TENANT_ID, settlementIdC, reconRes.runId]
+  );
+  assertOk(
+    "B8.2 \u2014 janela C detectada: 'settlement_transferred_status_not_sent' gravada com settlementId",
+    {
+      ok:
+        settlementDiscRow.rows.length === 1 &&
+        settlementDiscRow.rows[0]!.expected_value_cents === "5432" &&
+        settlementDiscRow.rows[0]!.actual_value_cents === "5432" &&
+        settlementDiscRow.rows[0]!.difference_cents === "0",
+      reason: "discrep\u00e2ncia da janela C N\u00c3O foi gravada como esperado",
+      detail: settlementDiscRow.rows[0],
+    }
+  );
+
+  // B8.3 \u2014 DETEC\u00c7\u00c3O PURA: reconciliation N\u00c3O mexeu no status (continua
+  // 'processing' em ambas as filas).
+  const payoutStatusAfter = await pool.query<{ status: string }>(
+    `SELECT status FROM payout_requests WHERE id = $1::uuid`,
+    [payoutIdB]
+  );
+  const settlementStatusAfter = await pool.query<{ status: string }>(
+    `SELECT status FROM bank_settlements WHERE id = $1::uuid`,
+    [settlementIdC]
+  );
+  assertOk(
+    "B8.3 \u2014 detec\u00e7\u00e3o pura: status das filas INALTERADO ap\u00f3s reconciliation (ainda 'processing')",
+    {
+      ok:
+        payoutStatusAfter.rows[0]?.status === "processing" &&
+        settlementStatusAfter.rows[0]?.status === "processing" &&
+        payoutStatusBefore.rows[0]?.status === payoutStatusAfter.rows[0]?.status &&
+        settlementStatusBefore.rows[0]?.status === settlementStatusAfter.rows[0]?.status,
+      reason: "reconciliation alterou status \u2014 DEVERIA ser puro SELECT (n\u00e3o corretiva)",
+      detail: {
+        payout_before: payoutStatusBefore.rows[0]?.status,
+        payout_after: payoutStatusAfter.rows[0]?.status,
+        settlement_before: settlementStatusBefore.rows[0]?.status,
+        settlement_after: settlementStatusAfter.rows[0]?.status,
+      },
+    }
+  );
+
+  // B8.4 \u2014 DETEC\u00c7\u00c3O PURA: reconciliation N\u00c3O mexeu no ledger
+  // (entries dos transfers permanecem; nenhuma escrita financeira nova).
+  const ledgerCountB_After = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [payoutTransfer.transactionId]
+  );
+  const ledgerCountC_After = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [settlementTransfer.transactionId]
+  );
+  assertOk(
+    "B8.4 \u2014 detec\u00e7\u00e3o pura: bank_ledger INALTERADO (entries persistem; reconciliation N\u00c3O move dinheiro)",
+    {
+      ok:
+        ledgerCountB_Before.rows[0]?.c === ledgerCountB_After.rows[0]?.c &&
+        ledgerCountC_Before.rows[0]?.c === ledgerCountC_After.rows[0]?.c &&
+        ledgerCountB_After.rows[0]?.c === "2" &&
+        ledgerCountC_After.rows[0]?.c === "2",
+      reason: "reconciliation alterou bank_ledger \u2014 DEVERIA ser puro SELECT",
+      detail: {
+        payout_ledger_before: ledgerCountB_Before.rows[0]?.c,
+        payout_ledger_after: ledgerCountB_After.rows[0]?.c,
+        settlement_ledger_before: ledgerCountC_Before.rows[0]?.c,
+        settlement_ledger_after: ledgerCountC_After.rows[0]?.c,
+      },
+    }
+  );
+
+  assertOk(
+    "B8.5 \u2014 Caminho 2 confirmado: janelas B+C deixam de ser silenciosas (S4 \u2192 S3-detectado). Recovery/endurecimento de worker permanece decis\u00e3o futura.",
+    {
+      ok:
+        payoutDiscRow.rows.length === 1 &&
+        settlementDiscRow.rows.length === 1 &&
+        payoutStatusAfter.rows[0]?.status === "processing" &&
+        settlementStatusAfter.rows[0]?.status === "processing",
+      reason: "Caminho 2 n\u00e3o foi confirmado pelas 4 provas",
+      detail: {
+        payout_discrepancy: payoutDiscRow.rows[0]?.reference_id,
+        settlement_discrepancy: settlementDiscRow.rows[0]?.reference_id,
+        run_id: reconRes.runId,
+      },
+    }
+  );
+
   console.log("\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  console.log("G2 PIPELINE E2E :: PASS (estendido \u2014 A11/A12 + B6 furo + B7 atomicidade)");
+  console.log("G2 PIPELINE E2E :: PASS (estendido \u2014 A11/A12 + B6 furo + B7 atomicidade + B8 detec\u00e7\u00e3o S4\u2192S3)");
   console.log("  Modo A causal: OK (RFQ \u2192 execution \u2192 ledger \u2192 outbox \u2192 processor)");
   console.log("  Modo A read-side: A11 processor consume + A12 writer idempotente");
   console.log("  Modo B falsificacoes: TODAS rejeitadas pelo runtime");
   console.log("  Modo B6: cenario pre-fatia (transfer puro sem outbox = dinheiro sem evento)");
   console.log("  Modo B7: ATOMICIDADE NOVA \u2014 ROLLBACK desfaz bank+outbox juntos");
   console.log("           DT-OUTBOX-ATOMICITY RESOLVED via Op\u00e7\u00e3o A (client injetado)");
+  console.log("  Modo B8: reconciliation DETECTA janelas B (payout) e C (bank_settlement)");
+  console.log("           DT-CONSERVATION-OBSERVABILITY: S4 (silencioso) \u2192 S3 (detectado)");
   console.log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
 }
 

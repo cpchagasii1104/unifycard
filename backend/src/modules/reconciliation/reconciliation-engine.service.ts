@@ -186,6 +186,79 @@ export async function runReconciliation(tenantId: string): Promise<Reconciliatio
       });
     }
 
+    // Caminho 2 — Checagem B: payout_requests transferido mas status não-completed.
+    // Janela material: payout-worker (workers/payout-worker.ts:82-95) executa
+    // processPayout (transfer COMMITED no bank, referenceType='seller_payout')
+    // ANTES de updatePayoutStatus('completed') em transação separada. Se o
+    // processo morre entre os dois, transfer aconteceu mas status fica
+    // 'processing' (claim só pega 'requested', logo NÃO retoma). Detecção pura:
+    // listar payout_requests com transfer bank correspondente mas status !=
+    // 'completed' (= dinheiro saiu, status órfão). Reconciliation NÃO corrige —
+    // só reporta. Recovery/endurecimento de worker é decisão futura governada
+    // pela frequência que esta detecção medir.
+    const payoutDiscRes = await client.query<{
+      payout_id: string;
+      pr_status: string;
+      amount_cents: string;
+    }>(
+      `SELECT pr.id::text AS payout_id, pr.status AS pr_status, pr.amount_cents::text
+         FROM payout_requests pr
+         INNER JOIN bank_transactions bt
+           ON bt.tenant_id = pr.tenant_id
+          AND bt.reference_type = 'seller_payout'
+          AND bt.reference_id = pr.id::text
+        WHERE pr.tenant_id = $1
+          AND pr.status != 'completed'`,
+      [tenantId]
+    );
+
+    for (const row of payoutDiscRes.rows) {
+      const amount = Number(row.amount_cents);
+      discs.push({
+        type: 'payout_transferred_status_not_completed',
+        referenceId: row.payout_id,
+        expectedValueCents: amount,
+        actualValueCents: amount, // dinheiro fluiu; status ficou para trás
+        differenceCents: 0, // não é divergência de saldo, é de observabilidade
+      });
+    }
+
+    // Caminho 2 — Checagem C: bank_settlements transferido mas status não-sent.
+    // Janela material: bank-settlement-worker (workers/bank-settlement-worker.ts:44-107)
+    // executa executeSettlementEffects com 2 efeitos isolados via withIdempotency:
+    // efeito 1 (transfer seller_payout → bank_settlement, referenceType=
+    // 'bank_settlement') e efeito 2 (updateSettlementStatus('sent')). Cada um
+    // é uma transação separada. Se o processo morre entre eles, transfer
+    // commitado mas status fica 'processing'. listPendingSettlements filtra só
+    // status='pending', logo NÃO retoma — só reprocessSettlement MANUAL
+    // (runbook). Detecção pura aqui torna o caso visível sem ação automática.
+    const settlementDiscRes = await client.query<{
+      settlement_id: string;
+      bs_status: string;
+      amount_cents: string;
+    }>(
+      `SELECT bs.id::text AS settlement_id, bs.status AS bs_status, bs.amount_cents::text
+         FROM bank_settlements bs
+         INNER JOIN bank_transactions bt
+           ON bt.tenant_id = bs.tenant_id
+          AND bt.reference_type = 'bank_settlement'
+          AND bt.reference_id = bs.id::text
+        WHERE bs.tenant_id = $1
+          AND bs.status != 'sent'`,
+      [tenantId]
+    );
+
+    for (const row of settlementDiscRes.rows) {
+      const amount = Number(row.amount_cents);
+      discs.push({
+        type: 'settlement_transferred_status_not_sent',
+        referenceId: row.settlement_id,
+        expectedValueCents: amount,
+        actualValueCents: amount, // dinheiro fluiu; status ficou para trás
+        differenceCents: 0, // não é divergência de saldo, é de observabilidade
+      });
+    }
+
     const runInsert = await client.query<{ id: string; started_at: Date }>(
       `INSERT INTO reconciliation_runs (tenant_id, status, metadata, discrepancies_found)
        VALUES ($1, 'running', $2::jsonb, 0)
