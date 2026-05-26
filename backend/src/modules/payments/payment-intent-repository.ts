@@ -21,7 +21,16 @@ export type PaymentIntentStatus =
   | 'reversed'
   | 'partially_refunded'
   | 'disputed'
-  | 'expired';
+  | 'expired'
+  /**
+   * released_to_actor_wallet (Camada 1 D-money — 2026-05-26):
+   * Estado terminal pós-D-money. Dinheiro saiu de escrow_payments e
+   * entrou em actor_wallet do(s) receiver(s). Distinto de 'settled'
+   * propositalmente — release-worker antigo consome 'settled' e está
+   * dormente em produção (DT-PIPELINE-WIRING-GAP); D-money NÃO acorda
+   * esse caminho legado.
+   */
+  | 'released_to_actor_wallet';
 
 export interface PaymentIntent {
   id: string;

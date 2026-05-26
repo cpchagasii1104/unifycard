@@ -1,3 +1,70 @@
+## 2026-05-26 — Camada 1 D-money: release financeiro escrow → actor_wallet (dinheiro real lastreado pela ledger)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `40afc3f1` (D2) | **HEAD pós:** (este commit)
+
+**Contexto:** Após F1 (`db47798d` — estado seller_pending) e D2 (`40afc3f1` — estado release_approved), a frente D-money fecha o ciclo da Camada 1 movendo o dinheiro real de `escrow_payments` para `actor_wallet` do(s) receiver(s). Decisões Clayton K_wallet_1 a K_wallet_7 fixaram: **account_type novo `actor_wallet`** (não reusar seller_available agregado nem user_wallet dormente), 100% para receiver (sem fee separado nesta fatia — DT-CAMADA1-FEE-SPLIT), saque externo fica para frente posterior (DT-ACTOR-WALLET-PAYOUT-WIRING).
+
+**Significado material:** `actor_wallet` é a carteira interna do actor (PF, empresa, ou outro actor econômico) dentro do UnifyBank. Lastreada por bank_ledger. Recebe valores LIBERADOS após aprovação D2. NÃO é receita da plataforma. NÃO é payout externo. NÃO é bank_settlement.
+
+**Entregue (1 commit + 3 DTs + E2E + 3 migrations):**
+
+- **3 migrations sequenciais:**
+  - `20260530557000_extend_bank_accounts_actor_wallet.sql` — adiciona `'actor_wallet'` ao CHECK `bank_accounts_account_type_check`.
+  - `20260530558000_extend_payment_intents_released_to_actor_wallet.sql` — adiciona `'released_to_actor_wallet'` ao CHECK `payment_intents_payment_status_check`. **Distinto de `'settled'`** propositalmente para NÃO acordar o `release-worker` antigo (DT-PIPELINE-WIRING-GAP).
+  - `20260530559000_extend_service_order_status_funds_released.sql` — adiciona `'funds_released'` ao enum `service_order_status` após `release_approved`.
+
+- **`bank-account.types.ts`**: `'actor_wallet'` no BankAccountType.
+- **`payment-intent-repository.ts`**: `'released_to_actor_wallet'` no PaymentIntentStatus.
+- **`service-order.types.ts`**: `'funds_released'` no ServiceOrderStatus.
+
+- **`bank-account.service.ts`**: novos métodos canônicos:
+  - `ensureActorWalletAccount(tenantId, actorId, currency)` — idempotente; composite `${actorId}:actor_wallet`.
+  - `getActorWalletAccount(tenantId, actorId, currency)` — busca sem criar.
+
+- **`bank-account.repository.ts`**: `createAccount` reconhece composite `:actor_wallet` resolvendo `actor_id` direto via `actors.id` (não via `user_id`).
+
+- **`service-order.service.ts`**: novo método `releaseFundsToActorWalletForOrder(tenantId, orderId, existingClient?)`. Orquestra UPDATE service_order (status='funds_released') → resolve booking_id → service_payment_request → payment_intent → valida metadata.splits fail-closed → transfer escrow_payments → actor_wallet POR split → UPDATE payment_intent (status='released_to_actor_wallet') → INSERT event_outbox `SERVICE_ORDER_FUNDS_RELEASED_TO_ACTOR_WALLET`. Tudo atômico via pattern existingClient. Idempotência tripla: SQL WHERE estado + reference_type/reference_id estável + ON CONFLICT outbox.
+
+- **E2E novo** `validate-pipeline-e2e-camada1-dmoney.ts` (27 asserts, todos verdes):
+  - T1 caminho feliz: 30000 saem de escrow, entram em actor_wallet do receiver; service_order=funds_released; payment_intent=released_to_actor_wallet; outbox 1 row; ledger Σdéb=Σcred.
+  - T2 retry: 2ª chamada lança; wallet/escrow/outbox INALTERADOS.
+  - T3 disputa preenchida bloqueia.
+  - T4 status≠release_approved bloqueia.
+  - T5 booking_id NULL bloqueia.
+  - T6 metadata.splits inválido bloqueia; escrow intacto.
+  - T7 receiver actor_type='user': D-money cria actor_wallet (NÃO user_wallet, seller_*, credit).
+  - T8 atomicidade: client externo + BEGIN + ROLLBACK reverte service_order, payment_intent, ledger E outbox JUNTOS.
+  - T9 release-worker antigo NÃO acordado: payment_intent fica em 'released_to_actor_wallet' (não 'settled'); zero `reference_type='seller_release'` criados.
+  - T10 actor_wallet visível em listagens por actor_id.
+  - FINAL: ledger Σdéb=Σcred global em todas as D-money tx.
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E D-money 27/27 verdes; E2E F1 21/21 preservado; E2E D2 22/22 preservado; 4 gates verdes; `critical_new=0` strict.
+
+**3 DTs registradas:**
+
+- `DT-CAMADA1-FEE-SPLIT` OPEN (LOW): Camada 1 entrada não separa fee da plataforma; 100% dos splits vão ao receiver. Quando regra de fee for definida, deve ser materializada via `bank_splits` na ENTRADA (createExecution), NÃO via cálculo no release.
+- `DT-ACTOR-WALLET-PAYOUT-WIRING` OPEN (MEDIUM): saque externo a partir de actor_wallet é frente posterior. payout-worker legado continua dormindo. Saldo em actor_wallet cresce até frente F-Payout-Wallet.
+- `DT-ACTOR-WALLET-VISIBILITY` OPEN (LOW): T10 do E2E confirma actor_wallet aparece via `bank_accounts WHERE actor_id`. Superfície UI completa exige frente de produto separada se downstream estiver acoplado a user_id direto.
+
+**O que NÃO mudou (escopo travado):**
+- NÃO usa seller_available como destino.
+- NÃO usa user_wallet como destino.
+- NÃO usa 'credit' como destino.
+- NÃO usa payment_status='settled' (NÃO acorda release-worker antigo).
+- NÃO criou payout, bank_settlement, payout_request.
+- NÃO tocou bank_ledger fora do módulo Bank.
+- NÃO tocou marketplace, simulador, agreement/milestone.
+- Receita da plataforma (platform_fees/platform_revenue) inalterada.
+
+**Próxima frente natural (F-Payout-Wallet):**
+- Rota seller solicita saque a partir de actor_wallet.
+- Gates: KYC, capability, conta bancária verificada, cooldown.
+- Worker novo OU adaptação do payout-worker para origem actor_wallet.
+- Integração PIX/TED real OU continuar simulado.
+
+---
+
 ## 2026-05-26 — Camada 1 saída D2: seller_pending → release_approved via buyer-confirm OU timeout (estado-only)
 
 **Branch:** `rescue-structural`

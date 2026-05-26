@@ -235,6 +235,71 @@ class BankAccountService {
   }
 
   /**
+   * D-money (Camada 1 — 2026-05-26): Garante a `actor_wallet` do actor.
+   *
+   * Carteira interna do actor (PF, empresa, ou outro actor econômico)
+   * dentro do UnifyBank. Idempotente: se já existe, retorna; senão cria.
+   * owner_type='actor' + actor_id NOT NULL (constraint
+   * bank_accounts_actor_required_for_actor_owner).
+   *
+   * owner_id composite: `${actorId}:actor_wallet` — bate com pattern
+   * UNIQUE (tenant_id, owner_type, owner_id) e mantém actor_wallet
+   * distinta de qualquer outra conta do mesmo actor.
+   *
+   * Significado: saldo de custódia interna do actor — recebe fundos
+   * liberados por D-money após service_order ser aprovada (D2). NÃO
+   * é receita da plataforma. NÃO é payout externo.
+   *
+   * NÃO toca bank_ledger. Apenas garante a existência da conta.
+   */
+  async ensureActorWalletAccount(
+    tenantId: string,
+    actorId: string,
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount> {
+    if (!actorId) {
+      throw new Error('ensureActorWalletAccount: actorId obrigatório');
+    }
+    const compositeOwnerId = `${actorId}:actor_wallet`;
+    const existing = await bankAccountRepository.getAccountByOwnerAndType(
+      tenantId,
+      compositeOwnerId,
+      'user', // tradução para DB owner_type='actor' via toDbOwnerType
+      'actor_wallet',
+      currency
+    );
+    if (existing) {
+      return existing;
+    }
+    // Cria a conta canônica.
+    return bankAccountRepository.createAccount(tenantId, {
+      ownerId: compositeOwnerId,
+      ownerType: 'user', // toDbOwnerType('user') → 'actor' no DB
+      accountType: 'actor_wallet',
+      currency,
+    });
+  }
+
+  /**
+   * D-money — busca actor_wallet do actor sem criar. Retorna null se
+   * não existe.
+   */
+  async getActorWalletAccount(
+    tenantId: string,
+    actorId: string,
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount | null> {
+    const compositeOwnerId = `${actorId}:actor_wallet`;
+    return bankAccountRepository.getAccountByOwnerAndType(
+      tenantId,
+      compositeOwnerId,
+      'user',
+      'actor_wallet',
+      currency
+    );
+  }
+
+  /**
    * Busca conta de lifecycle da plataforma (sistema) por account_type.
    * Ex.: escrow_payments, clearing, bank_settlement.
    */

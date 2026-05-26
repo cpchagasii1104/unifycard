@@ -36,7 +36,16 @@ export type BankAccountType =
   | 'clearing'
   | 'bank_settlement'
   | 'adjustment'
-  | 'risk_reserve';
+  | 'risk_reserve'
+  /**
+   * actor_wallet (Camada 1 D-money — 2026-05-26, decisão Clayton K_wallet_1
+   * = Opção D):
+   * Carteira interna do actor (PF, empresa, ou outro actor econômico)
+   * dentro do UnifyBank. Lastreada exclusivamente por bank_ledger. Recebe
+   * valores LIBERADOS de serviços/vendas após aprovação D2; NÃO é receita
+   * da plataforma, NÃO é payout externo, NÃO é bank_settlement.
+   */
+  | 'actor_wallet';
 
 /**
  * Conta do Unify Bank

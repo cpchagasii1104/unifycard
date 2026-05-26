@@ -27,6 +27,13 @@ export type ServiceOrderStatus =
   | 'completed'
   | 'seller_pending'
   | 'release_approved'
+  /**
+   * funds_released (Camada 1 D-money — 2026-05-26): estado terminal
+   * APÓS D-money mover dinheiro de escrow_payments → actor_wallet do(s)
+   * receiver(s). Saque para banco externo é frente posterior
+   * (DT-ACTOR-WALLET-PAYOUT-WIRING).
+   */
+  | 'funds_released'
   | 'cancelled';
 
 /**

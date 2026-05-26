@@ -238,20 +238,34 @@ class BankAccountRepository {
       actorId = null;
     } else if (dbOwnerType === 'actor') {
       if (ownerType === 'user') {
-        // owner_id pode ser `${userUuid}:user_wallet` (lifecycle) ou legado `userUuid`.
-        const userUuid = ownerId.endsWith(':user_wallet')
-          ? ownerId.slice(0, -':user_wallet'.length)
-          : ownerId;
-        // bank_accounts.actor_id → FK actors(id); social layer expõe actor_id (= id após 0064)
-        const actorRow = await runQueryWithTenant<{ id: string }>(
-          tenantId,
-          `SELECT id FROM actors
-           WHERE tenant_id = $1 AND user_id = $2::uuid
-             AND actor_type IN ('user', 'person', 'actor_human')
-           LIMIT 1`,
-          [tenantId, userUuid]
-        );
-        actorId = actorRow?.id ?? null;
+        // D-money (Camada 1 — 2026-05-26): composite `${actorId}:actor_wallet`
+        // resolve actor por id direto (não por user_id). Para os demais
+        // composites do plano legado (`${userId}:user_wallet`), resolve via
+        // actors.user_id como sempre.
+        if (ownerId.endsWith(':actor_wallet')) {
+          const actorIdFromComposite = ownerId.slice(0, -':actor_wallet'.length);
+          const actorRow = await runQueryWithTenant<{ id: string }>(
+            tenantId,
+            `SELECT id FROM actors WHERE tenant_id = $1 AND id = $2::uuid LIMIT 1`,
+            [tenantId, actorIdFromComposite]
+          );
+          actorId = actorRow?.id ?? null;
+        } else {
+          // owner_id pode ser `${userUuid}:user_wallet` (lifecycle) ou legado `userUuid`.
+          const userUuid = ownerId.endsWith(':user_wallet')
+            ? ownerId.slice(0, -':user_wallet'.length)
+            : ownerId;
+          // bank_accounts.actor_id → FK actors(id); social layer expõe actor_id (= id após 0064)
+          const actorRow = await runQueryWithTenant<{ id: string }>(
+            tenantId,
+            `SELECT id FROM actors
+             WHERE tenant_id = $1 AND user_id = $2::uuid
+               AND actor_type IN ('user', 'person', 'actor_human')
+             LIMIT 1`,
+            [tenantId, userUuid]
+          );
+          actorId = actorRow?.id ?? null;
+        }
       } else if (ownerType === 'company') {
         // 2026-05-18 fix DT-PRESSURE-BANK-ACCOUNT-COMPANY-OWNER-FK-VIOLATION:
         // Resolve actor_id via JOIN — padrão clonado do bloco 'user' acima.

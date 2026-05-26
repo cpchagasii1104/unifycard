@@ -93,6 +93,48 @@ function deterministicServiceOrderReleaseApprovedOutboxEventId(
 }
 
 /**
+ * D-money (Camada 1 — 2026-05-26) — eventId determinístico do transfer
+ * escrow_payments → actor_wallet POR SPLIT. Garante idempotência financeira
+ * cross-retry mesmo em caminho excepcional (idempotência delegada do transfer
+ * já protege; este eventId é defesa adicional).
+ */
+function deterministicReleaseTransferEventId(
+  tenantId: string,
+  orderId: string,
+  splitId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`FIXED_PRICE_RELEASE_TO_ACTOR_WALLET:${tenantId}:${orderId}:${splitId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * D-money — eventId determinístico do outbox SERVICE_ORDER_FUNDS_RELEASED_TO_
+ * ACTOR_WALLET. Pattern espelho do F1/D2. Único event_id por orderId —
+ * idempotência via ON CONFLICT (event_id) DO NOTHING.
+ */
+function deterministicReleaseFundsOutboxEventId(
+  tenantId: string,
+  orderId: string
+): string {
+  const hash = createHash('sha256')
+    .update(`SERVICE_ORDER_FUNDS_RELEASED_TO_ACTOR_WALLET:${tenantId}:${orderId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
  * Service para Ordens de Serviço
  *
  * ⚠️ REGRAS ARQUITETURAIS:
@@ -793,6 +835,326 @@ class ServiceOrderService {
     }
 
     return { approved, failed };
+  }
+
+  /**
+   * D-money (Camada 1 saída — 2026-05-26, decisão Clayton K_wallet_1 = Opção D)
+   *
+   * Move o dinheiro custodiado em escrow_payments para a actor_wallet
+   * do(s) receiver(s) do split, fechando o ciclo da Camada 1:
+   *
+   *   release_approved (D2) → funds_released (D-money).
+   *
+   * Transição atômica (uma única transação) cobrindo:
+   *   1. UPDATE service_orders SET status='funds_released'
+   *      WHERE status='release_approved' AND settlement_flow=
+   *      'fixed_price_escrow' AND disputed_at IS NULL
+   *      AND booking_id IS NOT NULL.
+   *   2. Resolve service_payment_request via booking_id.
+   *   3. Resolve payment_intent via reference_id=payment_request_id +
+   *      source='service_execution'. Valida payment_status='escrowed'.
+   *   4. Valida metadata.splits fail-closed (array, splitId,
+   *      receiverActorId, amountCents, soma=intent.amount_cents).
+   *   5. Para cada split:
+   *      - ensureActorWalletAccount(receiverActorId).
+   *      - transfer(escrow_payments → actor_wallet, amountCents,
+   *        referenceType='fixed_price_release_to_actor_wallet',
+   *        referenceId=`${orderId}:${splitId}`).
+   *        Idempotência financeira delegada (DT-RELEASE-WORKER-
+   *        IDEMPOTENCY R1 / commit 39abbd5d).
+   *   6. UPDATE payment_intent.payment_status='released_to_actor_wallet'.
+   *   7. INSERT event_outbox SERVICE_ORDER_FUNDS_RELEASED_TO_ACTOR_WALLET
+   *      (event_id determinístico SHA-256 — idempotente).
+   *
+   * NÃO toca: payout_requests, bank_settlements, seller_*, user_wallet,
+   * release-worker antigo, escrow_accounts/payment_milestones (Plano B).
+   */
+  async releaseFundsToActorWalletForOrder(
+    tenantId: string,
+    orderId: string,
+    existingClient?: PoolClient
+  ): Promise<{
+    orderId: string;
+    paymentIntentId: string;
+    paymentRequestId: string;
+    totalAmountCents: number;
+    splits: Array<{
+      splitId: string;
+      receiverActorId: string;
+      amountCents: number;
+      bankTransactionId: string;
+      toAccountId: string;
+    }>;
+  }> {
+    const client = existingClient ?? (await getClientWithTenant(tenantId));
+    const ownClient = !existingClient;
+    try {
+      if (ownClient) {
+        await client.query('BEGIN');
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // 1. UPDATE service_orders → funds_released (idempotência por estado)
+      // ────────────────────────────────────────────────────────────
+      const orderResult = await client.query<{
+        id: string;
+        booking_id: string | null;
+        worker_actor_id: string;
+        customer_actor_id: string;
+      }>(
+        `UPDATE service_orders
+         SET status = 'funds_released', updated_at = NOW()
+         WHERE tenant_id = $1::uuid AND id = $2::uuid
+           AND status = 'release_approved'
+           AND settlement_flow = 'fixed_price_escrow'
+           AND disputed_at IS NULL
+           AND booking_id IS NOT NULL
+         RETURNING id::text, booking_id::text, worker_actor_id::text, customer_actor_id::text`,
+        [tenantId, orderId]
+      );
+      const orderRow = orderResult.rows[0];
+      if (!orderRow) {
+        throw new Error(
+          'releaseFundsToActorWalletForOrder: ordem não atende as condições D-money ' +
+            '(status≠release_approved, flow≠fixed_price_escrow, disputed_at preenchido, ' +
+            'booking_id NULL, ou já foi processada).'
+        );
+      }
+      const bookingId = orderRow.booking_id!;
+
+      // ────────────────────────────────────────────────────────────
+      // 2. Resolve service_payment_request via booking_id
+      // ────────────────────────────────────────────────────────────
+      const requestResult = await client.query<{ payment_request_id: string; amount: string }>(
+        `SELECT payment_request_id::text, amount::text
+           FROM service_payment_requests
+          WHERE tenant_id = $1::uuid AND booking_id = $2::uuid LIMIT 1`,
+        [tenantId, bookingId]
+      );
+      const requestRow = requestResult.rows[0];
+      if (!requestRow) {
+        throw new Error(
+          `releaseFundsToActorWalletForOrder: service_payment_request não encontrada para booking ${bookingId}`
+        );
+      }
+      const paymentRequestId = requestRow.payment_request_id;
+
+      // ────────────────────────────────────────────────────────────
+      // 3. Resolve payment_intent — source='service_execution' +
+      //    reference_id=paymentRequestId + payment_status='escrowed'
+      // ────────────────────────────────────────────────────────────
+      const intentResult = await client.query<{
+        id: string;
+        amount_cents: string;
+        currency: string;
+        payment_status: string;
+        source: string | null;
+        metadata: any;
+      }>(
+        `SELECT id::text, amount_cents::text, currency, payment_status, source, metadata
+           FROM payment_intents
+          WHERE tenant_id = $1::uuid AND reference_id = $2 LIMIT 1`,
+        [tenantId, paymentRequestId]
+      );
+      const intentRow = intentResult.rows[0];
+      if (!intentRow) {
+        throw new Error(
+          `releaseFundsToActorWalletForOrder: payment_intent não encontrado para reference ${paymentRequestId}`
+        );
+      }
+      if (intentRow.source !== 'service_execution') {
+        throw new Error(
+          `releaseFundsToActorWalletForOrder: payment_intent.source='${intentRow.source}' ≠ 'service_execution'`
+        );
+      }
+      if (intentRow.payment_status !== 'escrowed') {
+        throw new Error(
+          `releaseFundsToActorWalletForOrder: payment_intent.payment_status='${intentRow.payment_status}' ≠ 'escrowed' (já liberado?)`
+        );
+      }
+      const intentId = intentRow.id;
+      const totalAmountCents = parseInt(intentRow.amount_cents, 10);
+      const currency = intentRow.currency as 'BRL';
+
+      // ────────────────────────────────────────────────────────────
+      // 4. Valida metadata.splits FAIL-CLOSED
+      // ────────────────────────────────────────────────────────────
+      const meta =
+        typeof intentRow.metadata === 'string'
+          ? JSON.parse(intentRow.metadata)
+          : intentRow.metadata;
+      const splitsRaw = meta?.splits;
+      if (!Array.isArray(splitsRaw) || splitsRaw.length === 0) {
+        throw new Error(
+          'releaseFundsToActorWalletForOrder: metadata.splits ausente, vazio ou não-array'
+        );
+      }
+      type ValidSplit = { splitId: string; receiverActorId: string; amountCents: number };
+      const splits: ValidSplit[] = [];
+      let sumSplits = 0;
+      for (const s of splitsRaw) {
+        if (
+          !s ||
+          typeof s.splitId !== 'string' ||
+          typeof s.receiverActorId !== 'string' ||
+          typeof s.amountCents !== 'number' ||
+          !Number.isFinite(s.amountCents) ||
+          !Number.isInteger(s.amountCents) ||
+          s.amountCents <= 0
+        ) {
+          throw new Error(
+            `releaseFundsToActorWalletForOrder: split inválido em metadata.splits: ${JSON.stringify(s)}`
+          );
+        }
+        splits.push({
+          splitId: s.splitId,
+          receiverActorId: s.receiverActorId,
+          amountCents: s.amountCents,
+        });
+        sumSplits += s.amountCents;
+      }
+      if (sumSplits !== totalAmountCents) {
+        throw new Error(
+          `releaseFundsToActorWalletForOrder: soma dos splits (${sumSplits}) ≠ payment_intent.amount_cents (${totalAmountCents})`
+        );
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // 5. Resolve conta escrow_payments (source)
+      // ────────────────────────────────────────────────────────────
+      await bankAccountService.ensurePlatformAccounts(tenantId, currency);
+      const escrowAccount = await bankAccountService.getPlatformLifecycleAccount(
+        tenantId,
+        'escrow_payments',
+        currency
+      );
+      if (!escrowAccount) {
+        throw new Error(
+          'releaseFundsToActorWalletForOrder: conta escrow_payments do tenant não encontrada'
+        );
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // 6. Para cada split: ensure actor_wallet + transfer atômico
+      // ────────────────────────────────────────────────────────────
+      const splitResults: Array<{
+        splitId: string;
+        receiverActorId: string;
+        amountCents: number;
+        bankTransactionId: string;
+        toAccountId: string;
+      }> = [];
+
+      for (const split of splits) {
+        // 6.a — garante actor_wallet do receiver (idempotente).
+        const wallet = await bankAccountService.ensureActorWalletAccount(
+          tenantId,
+          split.receiverActorId,
+          currency
+        );
+
+        // 6.b — transfer escrow_payments → actor_wallet.
+        // referenceType='fixed_price_release_to_actor_wallet' (semântica
+        // distinta de 'seller_release' do release-worker antigo).
+        // referenceId='${orderId}:${splitId}' — estável + único por split
+        // (idempotência financeira pela camada de transfer).
+        const referenceId = `${orderId}:${split.splitId}`;
+        const transferResult = await bankTransactionService.transfer(
+          tenantId,
+          {
+            eventId: deterministicReleaseTransferEventId(tenantId, orderId, split.splitId),
+            fromAccountId: escrowAccount.accountId,
+            toAccountId: wallet.accountId,
+            amountCents: split.amountCents,
+            currency,
+            transactionType: 'transfer',
+            description: `D-money: fixed-price release to actor_wallet (order ${orderId}, split ${split.splitId})`,
+            referenceType: 'fixed_price_release_to_actor_wallet',
+            referenceId,
+            treasurySource: 'treasury:settlement',
+            concept_id: 'seller-funds-release',
+            authorship: {
+              performedByUserId: null,
+              performedByActorId: null,
+              actingForActorId: split.receiverActorId,
+              actingForAccountId: wallet.accountId,
+              authoritySource: 'system',
+              permissionSnapshot: {
+                permissionKey: 'system',
+                allowed: true,
+                actorId: split.receiverActorId,
+                decidedAt: new Date().toISOString(),
+              },
+            } as any,
+          },
+          client
+        );
+
+        splitResults.push({
+          splitId: split.splitId,
+          receiverActorId: split.receiverActorId,
+          amountCents: split.amountCents,
+          bankTransactionId: transferResult.transactionId,
+          toAccountId: wallet.accountId,
+        });
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // 7. UPDATE payment_intent.payment_status='released_to_actor_wallet'
+      // ────────────────────────────────────────────────────────────
+      await client.query(
+        `UPDATE payment_intents
+         SET payment_status = 'released_to_actor_wallet', updated_at = NOW()
+         WHERE tenant_id = $1::uuid AND id = $2::uuid AND payment_status = 'escrowed'`,
+        [tenantId, intentId]
+      );
+
+      // ────────────────────────────────────────────────────────────
+      // 8. INSERT event_outbox — emit DEPOIS do ledger
+      // ────────────────────────────────────────────────────────────
+      await insertEventOutboxRow(client, {
+        tenantId,
+        eventId: deterministicReleaseFundsOutboxEventId(tenantId, orderId),
+        eventType: 'SERVICE_ORDER_FUNDS_RELEASED_TO_ACTOR_WALLET',
+        eventVersion: 1,
+        payload: {
+          serviceOrderId: orderId,
+          bookingId,
+          paymentRequestId,
+          paymentIntentId: intentId,
+          totalAmountCents,
+          destinationAccountType: 'actor_wallet',
+          splits: splitResults,
+          releasedAt: new Date().toISOString(),
+        },
+        metadata: {},
+      });
+
+      if (ownClient) {
+        await client.query('COMMIT');
+      }
+
+      return {
+        orderId,
+        paymentIntentId: intentId,
+        paymentRequestId,
+        totalAmountCents,
+        splits: splitResults,
+      };
+    } catch (error) {
+      if (ownClient) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (_rollbackErr) {
+          // ROLLBACK falhou — propaga erro original.
+        }
+      }
+      throw error;
+    } finally {
+      if (ownClient) {
+        client.release();
+      }
+    }
   }
 
   /**

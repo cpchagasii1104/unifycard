@@ -5751,3 +5751,100 @@ Frente própria que decide: rota, autoridade, janela, bridge com `financial_disp
 
 - D2 funciona com disputa testada via INSERT direto no E2E.
 - Operadores em produção podem hoje fazer UPDATE manual em `service_orders.disputed_at` se necessário — release bloqueado automaticamente.
+
+---
+
+## DT-CAMADA1-FEE-SPLIT
+
+- **Status:** OPEN (LOW — sem regra de fee explícita hoje; D-money move 100% dos splits ao receiver)
+- **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_5: D-money NÃO inventa regra de fee da plataforma. Atualmente os splits gravados em `payment_intent.metadata.splits` no createExecution (Camada 1 entrada, commit `62771db9`) contêm APENAS o receiver — 100% do valor vai para o(s) prestador(es).
+
+### Estado atual
+
+- Account types `platform_fees` e `platform_revenue` EXISTEM como contas SYSTEM tenant-única (criadas por `ensurePlatformAccounts` em `bank-account.service.ts:340-380`).
+- DB live: 18 contas `platform_fees` + 18 `platform_revenue` — uma por tenant, todas com saldo zero.
+- Engine de splits EXISTE (`bank_splits` + `createTransactionWithExplicitSplitLines`), tecnicamente capaz de dividir entre receiver e fee na mesma transação.
+- Camada 1 entrada NÃO aplica split de fee — `splitLines` é construído apenas a partir de `splitRecipients` passados pelo caller, todos com destino `escrow_payments` (ver `bank-integration.service.ts:530-575`).
+
+### Decisão D-money (K_wallet_5)
+
+D-money move o split CONFORME GRAVADO em `payment_intent.metadata.splits`. Se a entrada não separou fee, D-money não separa também. Quando regra de fee for definida, ela deve ser materializada via `bank_splits` na ENTRADA (createExecution), NÃO derivada via cálculo externo no momento do release.
+
+### Resolução prevista (futura — Camada 1.5)
+
+1. Decisão de produto: percentual/regra do fee (fixed/percentage/tiered).
+2. Estender `createExecution` (Camada 1 entrada) para criar splits canônicos `{ receiver, fee_to_platform_fees }` separados.
+3. D-money respeita os splits novos (já genérico).
+4. Reconciliation pode auditar Σ(fee_splits) ≡ saldo `platform_fees` por período.
+
+### Não bloqueia
+
+- D-money funciona materialmente com splits 100% para o receiver.
+- Plataforma ainda não captura receita via fees em Camada 1 — decisão consciente diferida.
+- Não afeta `platform_revenue`/`platform_fees` contas system (continuam zeradas até regra ser implementada).
+
+---
+
+## DT-ACTOR-WALLET-PAYOUT-WIRING
+
+- **Status:** OPEN (frente posterior — D-money entrega saldo, payout externo é outra fatia)
+- **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_7: payout para banco externo (saque) fica para frente posterior. D-money NÃO toca `payout_requests`, `bank_settlements`, payout-worker, bank-settlement-worker.
+
+### Estado atual
+
+- `actor_wallet` (account_type novo, criada por D-money) é o saldo final do prestador dentro do UnifyBank.
+- `payout-worker` (BOOT.ts:269-274) consome `payout_requests` WHERE status='requested', move BANK `seller_available` SYSTEM tenant → BANK `seller_payout` SYSTEM tenant. **Incompatível com actor_wallet**.
+- `bank-settlement-worker` consome `bank_settlements` WHERE status='pending', move SYSTEM `seller_payout` → SYSTEM `bank_settlement`. Idem incompatível.
+- DT-PIPELINE-WIRING-GAP elos 2 e 3 documentam que `createPayoutRequest` e `createBankSettlement` não têm caller real em produção. Toda a cadeia de payout legada está dormente.
+
+### O que D-money fez
+
+- Coloca o dinheiro do prestador em `actor_wallet` (actor-owned, lastreado por bank_ledger).
+- NÃO emite `payout_request`. NÃO toca cadeia bank lifecycle SYSTEM tenant.
+
+### Frente futura (saque externo a partir de actor_wallet)
+
+Quando frente F-Payout-Wallet chegar, decidir:
+1. Rota: seller solicita saque (POST /seller/wallet/withdraw?).
+2. Gates: KYC aprovado, capability ativa, conta bancária verificada, cooldown.
+3. Origem da transferência: `actor_wallet` (NÃO seller_available SYSTEM legado).
+4. Worker novo OU adaptação do payout-worker existente.
+5. Integração PIX/TED real OU continuar simulado até provider real.
+6. Reconciliation detective: cruzar `bank_settlements` (legado dormente) com `actor_wallet` transfers (canônico novo).
+
+### Risco se essa frente atrasar
+
+- Saldo em `actor_wallet` cresce indefinidamente sem caminho de saída → custódia eterna.
+- DEVERIA haver TTL/política de "se actor_wallet > X e seller_inactive_for Y dias, alerta operacional". Frente futura.
+
+### Não bloqueia
+
+- D-money entrega saldo materializado por seller, lastreado por bank_ledger, demonstrável contabilmente.
+- payout-worker legado continua dormindo, sem efeito colateral.
+
+---
+
+## DT-ACTOR-WALLET-VISIBILITY
+
+- **Status:** OPEN (LOW — superfície UI completa exige frente de produto)
+- **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_6: garantir que `actor_wallet` apareça em APIs existentes de wallet, mas SEM refactor de frontend.
+
+### Verificação no E2E D-money (T10)
+
+- `actor_wallet` aparece corretamente em `bank_accounts WHERE actor_id=worker` (T10.1 ✅ verde).
+- `GET /identity/wallet` (identity.routes.ts:746) chama `accountService.getAccountsByGlobalUserId(globalUserId)` que retorna TODAS as contas vinculadas ao user_id global. Como `actor_wallet` é criada com `actor_id` preenchido e composite `owner_id = ${actorId}:actor_wallet`, ela é listada por essa rota DESDE QUE `getAccountsByGlobalUserId` busque por owner_id/actor_id (não só user_id direto).
+
+### Verificação completa pendente
+
+A leitura da implementação exata de `accountService.getAccountsByGlobalUserId` em `core/economy/accounts/account.service` não foi feita nesta fatia. Se a rota varrer estritamente por user_id direto SEM cruzar actor_id, `actor_wallet` pode ficar invisível.
+
+### Próxima ação se necessário
+
+Se o frontend ou o sistema downstream NÃO listar `actor_wallet`:
+1. Adicionar handling explícito em `getAccountsByGlobalUserId` para incluir contas com `actor_id` correspondente.
+2. Garantir que `bank_accounts.actor_id` é populado (já é para actor_wallet — confirmação via T10).
+
+### Não bloqueia
+
+- D-money funciona materialmente; superfície UI é frente de produto separada.
+- Operadores/admin podem consultar `actor_wallet` direto via DB ou rotas Bank de busca por actor.
