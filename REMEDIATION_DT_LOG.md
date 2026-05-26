@@ -45,6 +45,86 @@ Status values:
 
 ---
 
+## DT-OUTBOX-ATOMICITY — OPEN
+
+- **Status:** OPEN 2026-05-25 (furo arquitetural reproduzível; correção fica para fatia separada OUTBOX_ATOMICITY_HARDENING)
+- **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit desta fatia). O mapa anterior já apontava o gap; B6 reproduz materialmente.
+- **Classe:** DT-A (atomicidade transacional ausente entre componentes que deveriam ser atômicos)
+- **Vinculada a:** `backend/src/modules/services/service-payment-execution.service.ts` L162-225 (catch externo do bloco do outbox); `backend/src/modules/bank/bank-transaction.service.ts:1389` (COMMIT do ledger num client distinto); `backend/src/core/events/event-outbox.repository.ts:15-41` (writer ON CONFLICT DO NOTHING)
+
+### Evidência material reproduzível
+
+`createExecution` (service-payment-execution.service.ts:57) chama `bankIntegrationService.processServicePaymentExecutionCanonical` que delega a `bankTransactionService.createTransactionWithExplicitSplitLines`. Esse método abre `client = getClientWithTenant(tenantId)` (L1215), grava bank_transactions + N entries no ledger + bank_splits, e faz `COMMIT` em L1389 — TUDO num ÚNICO client/transação. Garantia interna do bank: sólida.
+
+Depois do retorno, `createExecution` segue na L143 (`servicePaymentExecutionRepository.create`) e L162 abre um **NOVO client** (`outboxClient = await getClientWithTenant(tenantId)`) para escrever as rows no `event_outbox`. **Esses dois clients são distintos** — o bank já comitou ANTES do outbox sequer abrir BEGIN.
+
+O try/catch externo (L222-225) **ENGOLE** qualquer falha do bloco do outbox:
+
+```ts
+} catch (error) {
+  // Não quebra criação se enfileiramento falhar
+  console.error('Erro ao enfileirar effects ao criar execução (não crítico):', error);
+}
+return { execution, splits };
+```
+
+Sem `throw`. O caller (HTTP, scripts) recebe `{ execution, splits }` com sucesso aparente.
+
+**Não há sweep/recovery** que detecte "execution sem outbox row":
+- Grep por `outbox.*sweep|sweep.*outbox|orphan.*execution|execution.*without.*outbox|recovery.*outbox` em `backend/src` → **No files found**.
+
+### Reprodução (E2E `validate-pipeline-e2e-transversal.ts` Etapa B6)
+
+Cenário controlado, sem alterar produção. Equivale ao que aconteceria se o processo crashar entre o COMMIT do bank e o INSERT do outbox:
+
+1. `simExecutionId = uuidv4()` + `simEventId = deterministicServicePaymentExecutedOutboxEventId(TENANT_ID, simExecutionId)`.
+2. Sanity: `SELECT count FROM event_outbox WHERE event_id = simEventId` → 0 (B6-pre OK).
+3. `bankTransactionService.transfer(buyerAccount → providerAccount, amountCents = 1500)` com `referenceId = simExecutionId` (= o write do bank que `createExecution` faria). DELIBERADAMENTE NÃO chamamos `insertEventOutboxRow` depois.
+4. `SELECT bank_ledger WHERE transaction_id = furoTransfer.transactionId` → 2 rows (1 debit no buyer, 1 credit no provider), `amount_cents = 1500` cada (B6.1 OK — dinheiro persistiu).
+5. `SUM(amount_cents) FILTER (WHERE direction='debit') = SUM(...credit) = 1500` (B6.2 OK — bank é íntegro intra-tx).
+6. `SELECT count FROM event_outbox WHERE event_id = simEventId OR (metadata->>'executionId' = simExecutionId AND event_type='SERVICE_PAYMENT_EXECUTED')` → **0 rows** (B6.3 OK — furo provado).
+7. (B6.4) Catch verificado estaticamente em L222-225: sem `throw`; caller recebe sucesso; ausência de sweep confirmada por grep.
+
+**Estado resultante:** ledger gravado, evento NÃO existe, handlers downstream (read-model, social-inbox, event-feed, impact) NUNCA rodaram, caller (HTTP/script) recebe 200 OK. **Dinheiro fluiu, mas o sistema observador não soube.**
+
+### Risco
+
+- **Categoria:** atomicidade transacional ausente; consequência: "dinheiro sem evento" silencioso na janela entre bank COMMIT e outbox INSERT.
+- **Magnitude:** em produção, qualquer crash do processo, falha de conexão do pool (segundo client), timeout ou erro no outbox dentro dessa janela resulta em estado degradado SEM alerta. O caller assume sucesso. Handlers downstream (impact, inbox, read-model, event-feed) ficam sem rodar para essa execução específica. Re-executar `createExecution` para a mesma `paymentRequest` NÃO recupera (status='executed' já é guard).
+- **Mitigações parciais existentes:**
+  - Idempotência DB via UNIQUE no `event_outbox.event_id` + ON CONFLICT DO NOTHING — re-tentativa manual com mesmo `executionId` não duplica, mas exige caller saber que precisa retentar.
+  - Logs (`canonicalLogger`, `console.error`) deixam rastro em runtime, mas sem ação automática.
+- **Frequência esperada:** baixa por janela estreita (~ms entre COMMIT e BEGIN do outbox), mas materialmente possível em qualquer crash, restart, DB blip, ou erro no bloco outbox.
+
+### Mitigação atual (aceita conscientemente, registrada)
+
+A fatia que produziu este registro (Etapa B6) **NÃO corrigiu** o furo. Foi prova material para informar a próxima decisão.
+
+### Opções de correção futura (NÃO decididas — fatia separada OUTBOX_ATOMICITY_HARDENING)
+
+**Opção A — Mover INSERT outbox para a MESMA transação do bank:**
+Reestruturar `createTransactionWithExplicitSplitLines` para receber as rows de outbox como parâmetro e inserir DENTRO do client/transação do bank (antes do COMMIT da L1389). Pattern "transactional outbox" canônico.
+- Pró: atomicidade absoluta. Ledger + outbox commitam ou rollback juntos.
+- Contra: refactor invasivo na fronteira bank↔services; aumenta acoplamento; muda contrato de createTransactionWithExplicitSplitLines.
+
+**Opção B — Sweep periódico (executions sem outbox):**
+Job que detecta `service_payment_executions` sem `event_outbox` row correspondente e re-emite. Determinismo do event_id garante idempotência.
+- Pró: não toca caminho atual; aditivo.
+- Contra: latência (sweep não é imediato); detecta após o fato; precisa de novo mecanismo de scheduling.
+
+**Opção C — Listen/notify ou trigger SQL:**
+Trigger AFTER INSERT em `service_payment_executions` que insere na `event_outbox` automaticamente.
+- Pró: atômico (trigger executa na mesma tx do INSERT em service_payment_executions).
+- Contra: lógica de domínio (payload do evento) em SQL/PLpgSQL; menos manutenível; depende de schema fixo do payload.
+
+NÃO ESCOLHIDA. Cada opção tem tradeoff arquitetural. Decisão fica para frente OUTBOX_ATOMICITY_HARDENING quando houver dor material (incidente real de "execução órfã de outbox") ou decisão proativa de hardening.
+
+### Critério de destrave
+
+Abrir frente OUTBOX_ATOMICITY_HARDENING quando: (a) incidente real reportado por humano/audit cruzando bank_ledger × event_outbox; OU (b) decisão proativa do projeto de endurecer SSOT (após validação completa do caminho atual em produção).
+
+---
+
 ## DT-SCHEMA-DRIFT-CLUSTER-5-TABLES — OPEN
 
 - **Status:** OPEN 2026-05-25 (diagnóstico consolidado; sem correção nesta entrada)

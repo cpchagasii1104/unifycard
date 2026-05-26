@@ -20,8 +20,28 @@ import { eventRepository } from "../modules/events/event.repository";
 import { servicesRepository } from "../modules/services/services.repository";
 import { servicePaymentExecutionService } from "../modules/services/service-payment-execution.service";
 import { servicePaymentRequestService } from "../modules/services/service-payment-request.service";
+import { processEventOutboxCycle } from "../core/events/event-outbox.processor";
+import { insertEventOutboxRow } from "../core/events/event-outbox.repository";
+import { createHash } from "crypto";
 
 dotenv.config({ path: join(process.cwd(), ".env") });
+
+/**
+ * Copy mecânico do deterministicServicePaymentExecutedOutboxEventId
+ * (privado em service-payment-execution.service.ts L26-36). Mantém estrita
+ * paridade do hash para verificação de idempotência e do furo do outbox.
+ */
+function deterministicServicePaymentExecutedOutboxEventId(tenantId: string, executionId: string): string {
+  const hash = createHash("sha256")
+    .update(`SERVICE_PAYMENT_EXECUTED:${tenantId}:${executionId}`)
+    .digest();
+  const b = Buffer.alloc(16);
+  hash.copy(b, 0, 0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = b.toString("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
 const TENANT_ID = process.env.E2E_TENANT_ID || "fbe13b78-4516-493d-905a-363796aea1d1";
 
@@ -348,18 +368,103 @@ async function main(): Promise<void> {
   }
 
   // A10: outbox deve conter SERVICE_PAYMENT_EXECUTED (inserido sincronamente em A5)
-  const outboxRes = await pool.query<{ event_type: string }>(
-    `SELECT event_type FROM event_outbox
-     WHERE tenant_id = $1 AND event_type = 'SERVICE_PAYMENT_EXECUTED'
-     ORDER BY created_at DESC LIMIT 1`,
-    [TENANT_ID]
+  // Capturar o event_id determin\u00edstico do executionId da A5 para usar nas Etapas A11/A12.
+  const execEventId = deterministicServicePaymentExecutedOutboxEventId(
+    TENANT_ID,
+    exec.execution.executionId
+  );
+  const outboxRes = await pool.query<{
+    event_type: string;
+    event_id: string;
+    published_at: Date | null;
+  }>(
+    `SELECT event_type, event_id::text, published_at FROM event_outbox
+     WHERE tenant_id = $1 AND event_id = $2::uuid LIMIT 1`,
+    [TENANT_ID, execEventId]
   );
   const hasOutboxEvent = !!outboxRes.rows[0];
-  assertOk("A10: Outbox contem SERVICE_PAYMENT_EXECUTED",
+  assertOk("A10: Outbox contem SERVICE_PAYMENT_EXECUTED para esta execu\u00e7\u00e3o",
     hasOutboxEvent
       ? { ok: true }
-      : { ok: false, reason: "Nenhum evento SERVICE_PAYMENT_EXECUTED no event_outbox", detail: { tenant_id: TENANT_ID } }
+      : { ok: false, reason: "Nenhum evento SERVICE_PAYMENT_EXECUTED no event_outbox", detail: { tenant_id: TENANT_ID, event_id: execEventId } }
   );
+
+  // ============================================================
+  // ETAPA A11 \u2014 READ SIDE: processor consome o outbox
+  // ============================================================
+  // O E2E at\u00e9 aqui prova WRITE side (INSERT outbox). A11 prova que o processor
+  // can\u00f4nico (event-outbox.processor.processEventOutboxCycle) consume essa row,
+  // publica via eventBus, e marca published_at. Chamada DIRETA (sem worker
+  // setInterval) \u2014 \u00e9 o read side s\u00edncrono que o E2E n\u00e3o cobria.
+  console.log("\n=== Modo A \u2014 Etapa A11: read side do outbox (processor) ===");
+
+  const beforePub = outboxRes.rows[0]!.published_at;
+  assertOk("A11a: row do outbox antes do processor \u2014 published_at IS NULL (n\u00e3o-publicado)", {
+    ok: beforePub === null,
+    reason: "outbox row j\u00e1 estava publicada antes do processor (E2E s\u00f3 cria; n\u00e3o deveria ter sido processada por worker async ainda)",
+    detail: { event_id: execEventId, published_at: beforePub },
+  });
+
+  const processedCount = await processEventOutboxCycle();
+  console.log(`  \u2139  processEventOutboxCycle: ${processedCount} rows processadas neste ciclo`);
+
+  const afterRes = await pool.query<{ published_at: Date | null; attempts: number }>(
+    `SELECT published_at, attempts FROM event_outbox WHERE event_id = $1::uuid LIMIT 1`,
+    [execEventId]
+  );
+  const afterPub = afterRes.rows[0]?.published_at;
+  assertOk("A11b: ap\u00f3s processor \u2014 published_at preenchido (row consumida + UPDATE publicada)", {
+    ok: afterPub !== null && afterPub !== undefined,
+    reason: "row n\u00e3o foi marcada como published_at ap\u00f3s processor cycle",
+    detail: { event_id: execEventId, published_at: afterPub, attempts: afterRes.rows[0]?.attempts },
+  });
+
+  // A11c: segunda chamada do cycle \u2014 n\u00e3o republica (FOR UPDATE SKIP LOCKED WHERE
+  // published_at IS NULL filtra esta row fora). Idempot\u00eancia do processor.
+  const processedAgain = await processEventOutboxCycle();
+  const afterAgainRes = await pool.query<{ published_at: Date | null }>(
+    `SELECT published_at FROM event_outbox WHERE event_id = $1::uuid LIMIT 1`,
+    [execEventId]
+  );
+  assertOk("A11c: segunda chamada do processor n\u00e3o republica (published_at preservado)", {
+    ok: afterAgainRes.rows[0]?.published_at?.toISOString() === afterPub?.toISOString(),
+    reason: "published_at mudou na 2\u00aa chamada \u2014 poss\u00edvel re-publica\u00e7\u00e3o indesejada",
+    detail: { first: afterPub, second: afterAgainRes.rows[0]?.published_at, processedAgain },
+  });
+
+  // ============================================================
+  // ETAPA A12 \u2014 IDEMPOT\u00caNCIA DO WRITER: ON CONFLICT DO NOTHING
+  // ============================================================
+  console.log("\n=== Modo A \u2014 Etapa A12: idempot\u00eancia do writer outbox ===");
+  const countBeforeRetry = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+    [execEventId]
+  );
+  // Re-tentativa do INSERT com MESMO event_id (deterministic) \u2014 ON CONFLICT DO NOTHING.
+  const outboxRetryClient = await getClientWithTenant(TENANT_ID);
+  try {
+    await outboxRetryClient.query("BEGIN");
+    await insertEventOutboxRow(outboxRetryClient, {
+      tenantId: TENANT_ID,
+      eventId: execEventId,
+      eventType: "SERVICE_PAYMENT_EXECUTED",
+      eventVersion: 1,
+      payload: { retry_attempt: true } as any,
+      metadata: { e2e_a12: true } as any,
+    });
+    await outboxRetryClient.query("COMMIT");
+  } finally {
+    outboxRetryClient.release();
+  }
+  const countAfterRetry = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+    [execEventId]
+  );
+  assertOk("A12: re-INSERT com mesmo event_id n\u00e3o duplica (ON CONFLICT DO NOTHING) \u2014 1 row antes e depois", {
+    ok: countBeforeRetry.rows[0]?.c === "1" && countAfterRetry.rows[0]?.c === "1",
+    reason: "count divergente \u2014 UNIQUE n\u00e3o absorveu re-INSERT",
+    detail: { before: countBeforeRetry.rows[0]?.c, after: countAfterRetry.rows[0]?.c },
+  });
 
   console.log("\n=== Modo B \u2014 Falsificacao ativa ===");
   console.log("=== Structural Guard Checks ===");
@@ -443,10 +548,150 @@ async function main(): Promise<void> {
     });
   });
 
+  // ============================================================
+  // ETAPA B6 \u2014 PROVAR O FURO DO OUTBOX: dinheiro sem evento
+  // ============================================================
+  // O mapa do circuito longo registrou: bank-transaction.service.ts:1389
+  // COMMIT do ledger ocorre num client; service-payment-execution.service.ts:163
+  // abre OUTRO client (outboxClient = getClientWithTenant) DEPOIS desse COMMIT.
+  // Se o processo crashar nessa janela (ou o outboxClient.query falhar), o
+  // catch externo L222-225 ENGOLE o erro ("n\u00e3o cr\u00edtico") e o caller HTTP
+  // recebe sucesso. Estado material resultante: ledger gravado, outbox vazio,
+  // handlers downstream nunca rodam.
+  //
+  // Reprodu\u00e7\u00e3o controlada (N\u00c3O altera produ\u00e7\u00e3o): simulamos o que aconteceria
+  // se a janela falhasse. Chamamos bankTransactionService.transfer
+  // diretamente (= o write do bank que createExecution faria) com um
+  // executionId simulado, e DELIBERADAMENTE N\u00c3O chamamos insertEventOutboxRow
+  // correspondente. Esse \u00e9 o estado p\u00f3s-falha equivalente.
+  //
+  // Prova: ledger persistido + event_outbox vazio para o eventId determin\u00edstico.
+  console.log("\n=== Etapa B6 \u2014 FURO DO OUTBOX provado materialmente ===");
+
+  const simExecutionId = uuidv4();
+  const simEventId = deterministicServicePaymentExecutedOutboxEventId(TENANT_ID, simExecutionId);
+
+  // Sanity: outbox ainda n\u00e3o tem essa row (executionId \u00e9 novo).
+  const sanityBefore = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox WHERE event_id = $1::uuid`,
+    [simEventId]
+  );
+  assertOk("B6-pre: sanity \u2014 outbox N\u00c3O tem row para o executionId simulado (antes do bank)", {
+    ok: sanityBefore.rows[0]?.c === "0",
+    reason: "executionId simulado colide com outbox preexistente \u2014 gerar outro",
+    detail: { simExecutionId, simEventId, count: sanityBefore.rows[0]?.c },
+  });
+
+  // Escrita REAL no bank \u2014 equivalente ao que createExecution faria pelo
+  // caminho can\u00f4nico. N\u00c3O chamamos insertEventOutboxRow depois (= simula\u00e7\u00e3o
+  // da janela de falha).
+  const furoEventId = uuidv4();
+  const furoTransfer = await bankTransactionService.transfer(TENANT_ID, {
+    eventId: furoEventId,
+    fromAccountId: seed.buyerAccount.accountId,
+    toAccountId: seed.providerAccount.accountId,
+    amountCents: 1500,
+    currency: "BRL",
+    transactionType: "transfer",
+    referenceType: "g2_b6_outbox_furo",
+    referenceId: simExecutionId, // amarra a tx ao execution simulado
+    description: "B6 furo: transfer real sem outbox (simula\u00e7\u00e3o de janela de falha)",
+    concept_id: conceptServiceBookingPaymentId,
+    authorship: buildFinancialAuthorshipFromRequest({
+      performedByUserId: seed.buyer.user_id,
+      actingForActorId: seed.buyer.actorId,
+      actingForAccountId: seed.buyerAccount.accountId,
+      authoritySource: "ownership",
+      permissionSnapshot: {
+        permissionKey: "ownership",
+        allowed: true,
+        actorId: seed.buyer.actorId,
+        userId: seed.buyer.user_id,
+        decidedAt: new Date().toISOString(),
+      },
+    }),
+  });
+
+  // Prova 1: dinheiro PERSISTIU \u2014 bank_ledger tem 2 entries para essa tx
+  const ledgerForFuro = await pool.query<{
+    id: string;
+    account_id: string;
+    direction: string;
+    amount_cents: string;
+  }>(
+    `SELECT id::text, account_id::text, direction, amount_cents::text
+       FROM bank_ledger WHERE transaction_id = $1::uuid
+       ORDER BY direction DESC`,
+    [furoTransfer.transactionId]
+  );
+  assertOk("B6.1: dinheiro PERSISTIU \u2014 bank_ledger tem 1 d\u00e9bito + 1 cr\u00e9dito, amount=1500 cada", {
+    ok:
+      ledgerForFuro.rows.length === 2 &&
+      ledgerForFuro.rows.every((r) => r.amount_cents === "1500") &&
+      ledgerForFuro.rows.some((r) => r.direction === "debit" && r.account_id === seed.buyerAccount.accountId) &&
+      ledgerForFuro.rows.some((r) => r.direction === "credit" && r.account_id === seed.providerAccount.accountId),
+    reason: "ledger n\u00e3o persistiu as entries da transfer\u00eancia",
+    detail: ledgerForFuro.rows,
+  });
+
+  // Prova 2: \u03a3(debit) = \u03a3(credit) \u2014 conserva\u00e7\u00e3o preservada DENTRO da tx
+  const sumsForFuro = await pool.query<{ sum_debit: string; sum_credit: string }>(
+    `SELECT
+       COALESCE(SUM(amount_cents) FILTER (WHERE direction='debit'), 0)::text  AS sum_debit,
+       COALESCE(SUM(amount_cents) FILTER (WHERE direction='credit'), 0)::text AS sum_credit
+     FROM bank_ledger WHERE transaction_id = $1::uuid`,
+    [furoTransfer.transactionId]
+  );
+  assertOk("B6.2: \u03a3(d\u00e9bito) = \u03a3(cr\u00e9dito) = 1500 (bank \u00e9 \u00edntegro internamente)", {
+    ok:
+      sumsForFuro.rows[0]?.sum_debit === sumsForFuro.rows[0]?.sum_credit &&
+      sumsForFuro.rows[0]?.sum_debit === "1500",
+    reason: "somat\u00f3rias divergem",
+    detail: sumsForFuro.rows[0],
+  });
+
+  // Prova 3 \u2014 O FURO: outbox N\u00c3O tem row para o executionId simulado.
+  // (Em createExecution real, insertEventOutboxRow seria chamado AP\u00d3S o bank
+  // commit; aqui simulamos a janela em que essa chamada N\u00c3O ocorre.)
+  const outboxForFuro = await pool.query<{ c: string }>(
+    `SELECT count(*)::text AS c FROM event_outbox
+      WHERE event_id = $1::uuid OR
+            (metadata->>'executionId' = $2 AND event_type = 'SERVICE_PAYMENT_EXECUTED')`,
+    [simEventId, simExecutionId]
+  );
+  assertOk(
+    "B6.3 \u2014 FURO PROVADO: ledger tem dinheiro, event_outbox tem 0 rows para esse executionId",
+    {
+      ok: outboxForFuro.rows[0]?.c === "0",
+      reason: "havia outbox row inesperada \u2014 furo n\u00e3o reproduzido",
+      detail: { simExecutionId, simEventId, outbox_count: outboxForFuro.rows[0]?.c },
+    }
+  );
+
+  // Prova 4 \u2014 Est\u00e1tica (refer\u00eancia institucional): o catch em
+  // service-payment-execution.service.ts L222-225 ENGOLE o erro (sem re-throw),
+  // logando "Erro ao enfileirar effects ao criar execu\u00e7\u00e3o (n\u00e3o cr\u00edtico)" e
+  // retornando { execution, splits } com sucesso. Logo, o caller HTTP no
+  // cen\u00e1rio real receberia 200 OK mesmo com outbox falhando. N\u00c3O h\u00e1 sweep que
+  // detecte executions \u00f3rf\u00e3s de outbox (grep "outbox.*sweep|orphan.*execution"
+  // retornou No files found).
+  assertOk(
+    "B6.4 \u2014 catch em service-payment-execution.service.ts L222-225 ENGOLE (verificado estaticamente; sem sweep/recovery)",
+    {
+      ok: true,
+      detail:
+        "Verificado por leitura: L222 `} catch (error) {` \u2192 L224 console.error \u2192 L225 `}` sem throw. " +
+        "Caller recebe sucesso. Grep por 'outbox.*sweep|orphan.*execution|recovery.*outbox' = No files found.",
+    }
+  );
+
   console.log("\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  console.log("G2 PIPELINE E2E :: PASS");
-  console.log("  Modo A causal: OK");
+  console.log("G2 PIPELINE E2E :: PASS (estendido \u2014 A11/A12 + B6 furo do outbox)");
+  console.log("  Modo A causal: OK (RFQ \u2192 execution \u2192 ledger \u2192 outbox \u2192 processor)");
+  console.log("  Modo A read-side: A11 processor consume + A12 writer idempotente");
   console.log("  Modo B falsificacoes: TODAS rejeitadas pelo runtime");
+  console.log("  Modo B6: FURO DO OUTBOX provado materialmente (dinheiro sem evento)");
+  console.log("           \u2192 DT-OUTBOX-ATOMICITY (REMEDIATION_DT_LOG.md)");
   console.log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
 }
 

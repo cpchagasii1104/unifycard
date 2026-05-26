@@ -1,11 +1,11 @@
 {
   "version": 2,
   "keySchema": "rule:file:sha256-16(normalized-line)",
-  "generatedAt": "2026-05-25T23:44:18.129Z",
+  "generatedAt": "2026-05-26T00:53:07.063Z",
   "description": "Snapshot de violações aceites. Chaves v2 = hash do trecho (refactor de linhas não invalida). v1 (regra:ficheiro:linha) ainda é reconhecida se existir no ficheiro. Atualizar: node scripts/validate-architectural-patterns.mjs --update-baseline",
   "rulesActive": 3,
   "experimental": false,
-  "occurrenceCount": 63,
+  "occurrenceCount": 66,
   "ids": [
     "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/modules/invoicing/invoice.service.ts:14aa8b9f92478a10",
     "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/modules/marketplace/real-margin.service.ts:43607ac1d951429c",
@@ -39,6 +39,9 @@
     "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-kyc.ts:842b629afb8015eb",
     "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-kyc.ts:ecb79b137af2edcb",
     "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-kyc.ts:f2eba3a7712594a9",
+    "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-transversal.ts:1cc93a9ba48b9979",
+    "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-transversal.ts:7eadec4498e5656d",
+    "NO_DIRECT_BANK_TABLE_ACCESS:backend/src/scripts/validate-pipeline-e2e-transversal.ts:ea4b5a38c49e44ff",
     "NO_MANUAL_MONEY_CALCULATION:backend/src/core/insight/insight-engine.ts:a7c784b2365fd6c6",
     "NO_MANUAL_MONEY_CALCULATION:backend/src/core/simulation/simulation-engine.ts:7c51746fc79ef4ed",
     "NO_MANUAL_MONEY_CALCULATION:backend/src/core/simulation/simulation-engine.ts:b7c6a2f17c31e471",

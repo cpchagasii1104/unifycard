@@ -1,3 +1,57 @@
+## 2026-05-25 — Caminho longo Fase 1: rede do read-side do outbox + furo de atomicidade PROVADO (DT-OUTBOX-ATOMICITY OPEN)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `169fff0d` (Etapa 6) | **HEAD pós:** (este commit)
+
+**Contexto:** Mapa do circuito longo (sessão anterior) registrou achado material: outbox NÃO é atômico com o ledger. `bank-transaction.service.ts:1389` commita o ledger num client; `service-payment-execution.service.ts:163` abre OUTRO client para o outbox; catch externo L222-225 engole erro ("não crítico"); sem sweep que detecte execution sem outbox. Recomendação do mapa: construir rede do read-side + provar o furo antes de qualquer correção. Esta fatia executa essa recomendação. **NÃO corrige o outbox** — a correção fica para frente separada `OUTBOX_ATOMICITY_HARDENING`.
+
+**Entregue (1 commit funcional + 1 DT registrada):**
+
+- **Extensão de `validate-pipeline-e2e-transversal.ts`** com Etapas A11/A12 (read-side caminho feliz) e B6 (furo provado). Imports adicionais: `processEventOutboxCycle`, `insertEventOutboxRow`, `createHash`. Helper `deterministicServicePaymentExecutedOutboxEventId` copiado verbatim (privado no service original). Sem refactor do código de produção.
+
+- **Etapa A11 — Read-side do outbox (processor canônico):**
+  - A11a: `SELECT published_at` da row outbox criada em A5 → `IS NULL` (write-side completou; read-side pendente — comportamento esperado num E2E sem worker async).
+  - A11b: `processEventOutboxCycle()` chamado DIRETO → 4 rows processadas no ciclo; SELECT confirma `published_at` preenchido (read-side consumiu).
+  - A11c: segunda chamada do processor não republica (`published_at` preservado) — confirma `FOR UPDATE SKIP LOCKED WHERE published_at IS NULL` e idempotência do consumer.
+
+- **Etapa A12 — Idempotência do writer:**
+  - Re-INSERT em `event_outbox` com MESMO `event_id` (deterministic) → count permanece 1 (ON CONFLICT DO NOTHING ratificado materialmente).
+
+- **Etapa B6 — FURO DO OUTBOX provado materialmente:**
+  - Cenário controlado, sem alterar produção. `simExecutionId = uuidv4()` + `simEventId = deterministicServicePaymentExecutedOutboxEventId(...)`. Sanity OK (0 rows no outbox).
+  - `bankTransactionService.transfer(buyer → provider, 1500 cents, referenceId = simExecutionId)` — write REAL do bank (mesmo método que `createExecution` usa internamente). DELIBERADAMENTE não chamamos `insertEventOutboxRow` depois — simula a janela de crash.
+  - B6.1 ✓ Dinheiro PERSISTIU: `bank_ledger` tem 2 entries (1 debit no buyer, 1 credit no provider), `amount_cents=1500` cada.
+  - B6.2 ✓ Σ(débito) = Σ(crédito) = 1500 (bank é íntegro intra-tx).
+  - B6.3 ✓ **FURO PROVADO**: `event_outbox` tem 0 rows para esse executionId (busca por `event_id = simEventId` OR `metadata.executionId`).
+  - B6.4 ✓ Catch L222-225 verificado estaticamente: sem `throw`; caller recebe sucesso; ausência de sweep confirmada por grep (`outbox.*sweep|orphan.*execution|recovery.*outbox` → No files found).
+  - **Estado material reproduzível**: ledger gravado, evento NÃO existe, handlers downstream (read-model, social-inbox, event-feed, impact) NUNCA rodaram, caller recebe 200 OK. Dinheiro fluiu, observador não soube.
+
+- **DT-OUTBOX-ATOMICITY OPEN** registrada em `REMEDIATION_DT_LOG.md` (entrada nova no topo, antes da DT-SCHEMA-DRIFT-CLUSTER):
+  - Evidência reproduzível (links arquivo:linha + reprodução B6).
+  - Risco categorizado (atomicidade ausente; magnitude alta; frequência esperada baixa por janela estreita mas materialmente possível).
+  - 3 opções de correção descritas SEM DECIDIR qual (transactional outbox / sweep periódico / trigger SQL); cada uma com tradeoff arquitetural.
+  - Critério de destrave: incidente real OU decisão proativa de hardening.
+
+**5 critérios:** `tsc --noEmit` exit 0; E2E PASS (Modo A causal + A11/A12 read-side + Modo B falsificações + B6 furo); 4 gates verdes pós `--update-baseline` (3 SELECTs `bank_ledger` novos no script absorvidos; `critical_new=0` preservado; `critical_total=39 → 42`); boot N/A. Decisão de `--update-baseline` segue o precedente do E2E financeiro original (scripts/ não está no allowPath da regra; absorver no baseline é o padrão estabelecido).
+
+**OBSERVAÇÃO institucional (não-corrigida aqui):** A regra `NO_DIRECT_BANK_TABLE_ACCESS` (validate-architectural-patterns.mjs:107) tem `allowPath` que NÃO inclui `backend/src/scripts/`. Scripts E2E que precisam fazer `SELECT bank_ledger/bank_transactions` para PROVA material acabam absorvidos no baseline a cada extensão. Cada nova fatia E2E que toca bank-side rebaseliniza. **Padrão alternativo possível**: adicionar `backend/src/scripts/` ao `allowPath` da regra (decisão arquitetural). Não-corrigido nesta fatia — registrado como observação.
+
+**LIMPEZA:** segue precedente do E2E financeiro original — não limpa fixtures financeiras (bank_ledger é APPEND-ONLY por design; bank_transactions/bank_accounts ficam órfãs por FK). Leftovers do B6: +1 bank_transaction + 2 ledger entries por execução do E2E (consistente com Etapa 6 do commit `169fff0d` e com o E2E financeiro original).
+
+**Estado pós-fatia:**
+- Read-side do circuito longo (processor + idempotência writer) PROVADO em runtime real (era apenas implementado, não-provado).
+- Furo de atomicidade bank ↔ outbox PROVADO materialmente (era hipótese do mapa).
+- DT institucional registrada com evidência reproduzível + opções de correção.
+- Comportamento de produção NÃO alterado (read-only de código — só extensão de prova).
+
+**Frentes NÃO abertas (escopo travado mantido):**
+- `OUTBOX_ATOMICITY_HARDENING` (correção do furo): fatia separada quando houver dor material ou decisão proativa. 3 opções listadas na DT.
+- Workers async (settlement-worker, bank-settlement-worker, payout-worker): cada um requer setup próprio do seu modelo de input (escrowed intents / pending settlements / requested payouts). Fatias separadas — não absorvíveis no E2E atual sem mudança arquitetural do seed.
+- Conservação execução↔settlement (também NÃO ENCONTRADA — só reconciliation detective): fatia separada se houver dor material.
+- Mover `scripts/` para `allowPath` da regra arquitetural: decisão arquitetural não-feita aqui (registrada como observação).
+
+---
+
 ## 2026-05-25 — Etapa 6: E2E transversal de KYC + circuito monetário mínimo (transfer real após KYC, prova no ledger)
 
 **Branch:** `rescue-structural`
