@@ -47,7 +47,8 @@ Status values:
 
 ## DT-CONSERVATION-OBSERVABILITY — OPEN (parcialmente endereçada: S4 → S3-detectado)
 
-- **Status:** OPEN 2026-05-25 — janelas B/C de divergência de observabilidade entre transfer (bank) e UPDATE de status nas filas (payout_requests, bank_settlements). Detecção AGORA EXISTE (S3-detectado); endurecimento de worker / recovery automático permanecem decisão futura.
+- **Status:** OPEN 2026-05-25 (commit `c94eebe2` — detecção habilitada; endurecimento de worker / recovery automático permanecem decisão futura).
+- **Resumo:** janelas B/C de divergência de observabilidade entre transfer (bank) e UPDATE de status nas filas (payout_requests, bank_settlements). Detecção AGORA EXISTE (S3-detectado).
 - **Origem:** Auditoria conservation execução↔settlement (sessão 2026-05-25). Mapa do circuito longo registrou que execução é atômica (pós-OUTBOX_ATOMICITY_HARDENING) mas a cadeia ASYNC pós-execução (settlement-worker → payout-worker → bank-settlement-worker) tem janelas onde transfer commitou mas status da fila não foi atualizado.
 - **Classe:** DT-O (observabilidade — dinheiro não some, status órfão)
 
@@ -105,7 +106,7 @@ Reconciliation roda em produção por tempo suficiente para medir frequência da
 
 - **Status:** ~~OPEN 2026-05-25~~ **RESOLVED 2026-05-25** (Opção A — transactional outbox via client injetado; corrigido neste mesmo dia em fatia subsequente; furo provado E correção provada pelo MESMO E2E `validate-pipeline-e2e-transversal.ts`)
 - **Resolução:** OUTBOX_ATOMICITY_HARDENING — costura bank+execution+outbox numa única transação via `existingClient?: PoolClient` propagado pelo serviço orquestrador. Pattern replicado de `bank-transaction.service.ts:202` (`transfer` existingClient). Catch externo "não crítico" (L222-225 pré-fatia) REMOVIDO — agora a falha do outbox quebra a transação inteira (ROLLBACK).
-- **Commit de resolução:** (este commit)
+- **Commit de resolução:** `8afeec9a`
 - **Prova material da correção:** Etapa B7 do E2E (`validate-pipeline-e2e-transversal.ts`) — cenário controlado com client compartilhado entre bank+outbox + falha forçada antes do COMMIT. SELECTs confirmam: bank_ledger=0, bank_transactions=0, event_outbox=0 (ROLLBACK desfez tudo), caller recebe erro. Estado "dinheiro sem evento" tornou-se IMPOSSÍVEL no caminho do createExecution.
 - **Arquivos tocados:**
   - `backend/src/modules/bank/bank-transaction.service.ts` (createTransactionWithExplicitSplitLines: +existingClient?: PoolClient; pattern ownClient L1462-1652)
@@ -117,8 +118,7 @@ Reconciliation roda em produção por tempo suficiente para medir frequência da
 
 ### Histórico da abertura (preservado para arqueologia)
 
-- **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit 74a86f21). O mapa anterior já apontava o gap; B6 reproduz materialmente.
-- **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit desta fatia). O mapa anterior já apontava o gap; B6 reproduz materialmente.
+- **Origem:** Auditoria do mapa do circuito longo (sessão 2026-05-25). Achado material registrado na entrada do E2E `validate-pipeline-e2e-transversal.ts` Etapa B6 (commit `74a86f21`). O mapa anterior já apontava o gap; B6 reproduz materialmente.
 - **Classe:** DT-A (atomicidade transacional ausente entre componentes que deveriam ser atômicos)
 - **Vinculada a:** `backend/src/modules/services/service-payment-execution.service.ts` L162-225 (catch externo do bloco do outbox); `backend/src/modules/bank/bank-transaction.service.ts:1389` (COMMIT do ledger num client distinto); `backend/src/core/events/event-outbox.repository.ts:15-41` (writer ON CONFLICT DO NOTHING)
 
@@ -197,7 +197,7 @@ Abrir frente OUTBOX_ATOMICITY_HARDENING quando: (a) incidente real reportado por
 
 ## DT-SCHEMA-DRIFT-CLUSTER-5-TABLES — OPEN
 
-- **Status:** OPEN 2026-05-25 (diagnóstico consolidado; sem correção nesta entrada)
+- **Status:** OPEN 2026-05-25 (commit `aa4bc002` — diagnóstico consolidado; sem correção nesta entrada)
 - **Origem:** Achados materiais durante a sessão do dia 2026-05-25 (Fatia A1 RBAC, Frente B empresa, Frente C KYC, E2Es transversais). 4 das 5 tabelas apareceram como erro pré-existente "não-bloqueante" durante exercício de runtime; a 5ª (`company_documents`) apareceu como erro HTTP 500 explícito ("relação company_documents não existe") na Prova 1 da Fatia A1 ao exercitar `GET /companies/admin/documents/pending`.
 - **Classe:** DT-D (drift de schema — código vivo referencia tabela ausente no banco)
 - **Vinculada a:** `feedback_archive_nao_e_ssot.md` (auditoria contextual antes de restaurar do archive); `feedback_consultar_log_antes_de_abrir_frente.md` (cluster classificado, não tratado individualmente)
@@ -5307,3 +5307,45 @@ Reabrir feature exige: (i) JTBD real (uploads sendo feitos em produção / posts
 
 - Feed global funciona (HTTP 200 confirmado).
 - Path `groupId provided` não foi exercitado na smoke desta fatia — pode estar quebrado em runtime quando exercitado, mas não bloqueia o feed default da tela `/social`.
+
+---
+
+## DT-RECONCILE-SCRIPTS-ALLOWPATH
+
+- **Status:** OPEN
+- **Severidade:** LOW (cosmético — gera ruído no baseline, não bloqueia runtime nem compromete causalidade financeira)
+- **Origem:** Higiene documental 2026-05-25, após sessão completa do dia (Frente B / E2E transversal / OUTBOX_ATOMICITY_HARDENING / Caminho 2 reconciliation / Etapa 6 E2E financeiro). Auditoria do crescimento do baseline (`scripts/security/check-architectural-patterns-baseline.json`) detectou que 19 entradas novas absorvidas hoje (`8f32838e` → atual) são todas em `backend/src/scripts/validate-pipeline-e2e-*.ts` — arquivos de E2E que legitimamente exercitam o circuito financeiro completo (insert direto em `bank_ledger`, query direta em `bank_transactions`, etc.) com objetivo de **provar invariantes**, não de violar substrato.
+- **Vinculada a:** `DT-OUTBOX-ATOMICITY` (RESOLVED `8afeec9a`), `DT-CONSERVATION-OBSERVABILITY` (OPEN `c94eebe2`), gate `scripts/security/check-architectural-patterns.ts` (regra `NO_DIRECT_BANK_TABLE_ACCESS`).
+
+### Contexto material
+
+- `scripts/security/check-architectural-patterns.ts` define `allowPath` por regra para excluir caminhos legítimos (ex: `backend/src/modules/bank/*` para `NO_DIRECT_BANK_TABLE_ACCESS`).
+- `backend/src/scripts/validate-pipeline-e2e-*.ts` NÃO está em nenhum `allowPath`, então toda nova etapa de E2E que toca `bank_*` para verificar invariante (ex: SELECT direto em `bank_ledger` para checar Σ(débito)=Σ(crédito), INSERT direto para simular cenário de furo) é absorvida como entrada CRITICAL no baseline.
+- **19 entradas novas hoje:** `validate-pipeline-e2e-transversal.ts` (Etapa A11/A12, B6, B7, B8 — bank+outbox), `validate-pipeline-e2e-kyc.ts` (cruzamentos KYC × bank), `validate-pipeline-e2e-financeiro.ts` (Etapa 6 fim-a-fim).
+- **Achado adicional (NÃO é Q3):** 3 entradas NOVAS em **production code** absorvidas como WARNING (regra `NO_MANUAL_MONEY_CALCULATION`, não CRITICAL):
+  - `backend/src/modules/marketplace/marketplace-inventory.routes.ts` × 2
+  - `backend/src/modules/impact/impact.service.ts` × 1
+  - Risco: cálculo aritmético direto em centavos sem mediador canônico (`MoneyMath` ou similar). Não bloqueia runtime, mas viola §13 (computação financeira centralizada). Tracking separado abaixo.
+
+### Caminhos de resolução
+
+1. **Q3 — adicionar `backend/src/scripts/validate-pipeline-e2e-*.ts` ao `allowPath` da regra `NO_DIRECT_BANK_TABLE_ACCESS`:**
+   - Justificativa institucional: E2E que prova invariante material é PROBE soberano, não violação. Padrão idêntico ao já feito para `backend/src/modules/bank/*` (módulo soberano sobre suas próprias tabelas).
+   - Efeito esperado: ~19 entradas CRITICAL deixam o baseline; `critical_total` cai de 53 para ~34.
+   - Risco: BAIXO. `allowPath` apenas suprime warning de localização; gate global continua válido para resto do codebase.
+
+2. **WARNING em production (achado adicional):** abrir investigação separada para `marketplace-inventory.routes.ts` e `impact.service.ts`. Possibilidades:
+   - (a) cálculo legítimo de quantidade/contagem (não-money) sendo marcado por falso-positivo da heurística → refinar regex da regra ou adicionar comentário-marcador.
+   - (b) cálculo material de money sem mediador → criar `MoneyMath` helper ou rotear via service canônico.
+   - Decisão depende de inspeção; NÃO fazer agora (fora do escopo desta higiene documental).
+
+### Por que não fix imediato
+
+- A higiene documental do dia é **read-only + ancoragem de hashes**. Mudar `allowPath` é uma decisão arquitetural sobre o que conta como "violação legítima vs falso-positivo" da regra — exige fatia própria com tese explícita, não inflar este commit.
+- Baseline absorvendo entradas de scripts/ NÃO é dano material: `critical_new=0` mantém o gate funcionando para regressões reais; o ruído é cosmético no contador `critical_total`.
+
+### Não bloqueia
+
+- Gate de patterns funciona (critical_new=0 em todos os commits do dia).
+- Todos os E2E executam normalmente; baseline atualiza por `--update-baseline` controlado.
+- Circuito financeiro está provado fim-a-fim (Etapa 6) com triple defense + atomicidade transacional intacta.

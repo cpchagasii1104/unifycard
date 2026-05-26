@@ -1,7 +1,7 @@
 ## 2026-05-25 — Caminho 2: reconciliation detecta janelas payout/settlement (S4→S3) + alinha CHECK ao enum (drift c149ede4 fechado)
 
 **Branch:** `rescue-structural`
-**HEAD pré:** `8afeec9a` (OUTBOX_ATOMICITY_HARDENING) | **HEAD pós:** (este commit)
+**HEAD pré:** `8afeec9a` (OUTBOX_ATOMICITY_HARDENING) | **HEAD pós:** `c94eebe2`
 
 **Contexto:** Mapa do circuito longo (sessão anterior) classificou as janelas B (payout-worker) e C (bank-settlement-worker) como S4-silencioso — dinheiro fluiu mas status na fila ficou órfão (`processing`), sem detecção pela reconciliation atual nem recovery automático. Decisão arquitetural: Caminho 2 (detectar ANTES de endurecer). Reconciliation continua DETECTIVA (zero UPDATE em filas, zero movimento de dinheiro) — só amplia o que enxerga. Endurecimento de worker / recovery automático ficam como decisão futura governada pela frequência que a detecção medir em produção.
 
@@ -57,7 +57,7 @@ reconciliation_run_completed   discrepanciesFound=8 status=completed
 ## 2026-05-25 — OUTBOX_ATOMICITY_HARDENING (Opção A): client injetado costura bank+execution+outbox; DT-OUTBOX-ATOMICITY RESOLVED
 
 **Branch:** `rescue-structural`
-**HEAD pré:** `74a86f21` (furo provado) | **HEAD pós:** (este commit)
+**HEAD pré:** `74a86f21` (furo provado) | **HEAD pós:** `8afeec9a`
 
 **Contexto:** Furo provado em `74a86f21`: outbox NÃO atômico com ledger (bank commitava num client; outbox abria outro; catch externo "não crítico" engolia falhas; sem sweep). Dimensionamento mostrou A2 (cirurgia moderada com pattern `existingClient?` já existente em `transfer` L202 do MESMO arquivo do bank; blast radius 1 caller). Esta fatia corrige o furo na raiz pela Opção A — transactional outbox via client injetado. Serviço orquestra 1 transação; bank permanece ignorante do evento; client é encanamento técnico, não semântica.
 
@@ -119,7 +119,7 @@ Cenário controlado no E2E (`validate-pipeline-e2e-transversal.ts` Etapa B7), co
 ## 2026-05-25 — Caminho longo Fase 1: rede do read-side do outbox + furo de atomicidade PROVADO (DT-OUTBOX-ATOMICITY OPEN)
 
 **Branch:** `rescue-structural`
-**HEAD pré:** `169fff0d` (Etapa 6) | **HEAD pós:** (este commit)
+**HEAD pré:** `169fff0d` (Etapa 6) | **HEAD pós:** `74a86f21`
 
 **Contexto:** Mapa do circuito longo (sessão anterior) registrou achado material: outbox NÃO é atômico com o ledger. `bank-transaction.service.ts:1389` commita o ledger num client; `service-payment-execution.service.ts:163` abre OUTRO client para o outbox; catch externo L222-225 engole erro ("não crítico"); sem sweep que detecte execution sem outbox. Recomendação do mapa: construir rede do read-side + provar o furo antes de qualquer correção. Esta fatia executa essa recomendação. **NÃO corrige o outbox** — a correção fica para frente separada `OUTBOX_ATOMICITY_HARDENING`.
 
@@ -173,7 +173,7 @@ Cenário controlado no E2E (`validate-pipeline-e2e-transversal.ts` Etapa B7), co
 ## 2026-05-25 — Etapa 6: E2E transversal de KYC + circuito monetário mínimo (transfer real após KYC, prova no ledger)
 
 **Branch:** `rescue-structural`
-**HEAD pré-Etapa 6:** `aa4bc002` (DT cluster schema-drift) | **HEAD pós:** (este commit)
+**HEAD pré-Etapa 6:** `aa4bc002` (DT cluster schema-drift) | **HEAD pós:** `169fff0d`
 
 **Contexto:** Recomendação F do mapa do circuito financeiro (sessão anterior): "menor E2E possível" é ESTENDER `validate-pipeline-e2e-kyc.ts` (commit `7c93d8e7`) com 1 Etapa 6 — transfer puro no mesmo actor aprovado, sem mecanismo novo. Esta fatia executa exatamente isso, no MESMO actor que estava bloqueado em A2 (KYC_PENDING) e foi aprovado em A4. Fecha a cadeia: cadastro → KYC approved → authority ALLOW → transfer real → bank_ledger persistido → Σ(débitos)=Σ(créditos).
 
@@ -246,7 +246,7 @@ Fecha o que o mapa do circuito financeiro recomendou como menor-E2E possível, r
 ## 2026-05-25 — E2E transversal de KYC: as 3 camadas provadas em sequência única encadeada (gate block→allow)
 
 **Branch:** `rescue-structural`
-**HEAD pré-E2E-KYC:** `e961da7f` (Fatia C2) | **HEAD pós-E2E-KYC:** (este commit)
+**HEAD pré-E2E-KYC:** `e961da7f` (Fatia C2) | **HEAD pós-E2E-KYC:** `7c93d8e7`
 
 **Contexto:** Frente C fechada (C1 `24d85c6d` + C2 `e961da7f`) provou cada peça em isolado. Esta fatia entrega o E2E que **encadeia as 3 camadas em sequência única** num único script de prova — simétrico ao G2 Etapa 2 (E2E de empresa, commit `bca8ffb7`). Arquivo separado por disciplina (seeds ortogonais — KYC humano precisa só de tenant + admin; financeiro precisa de bank accounts + mint + services).
 
@@ -294,7 +294,7 @@ Fecha o que o mapa do circuito financeiro recomendou como menor-E2E possível, r
 ## 2026-05-25 — Frente C completa: 3 camadas conectadas (cadastro CRIA → KYC APROVA → authority LIBERA)
 
 **Branch:** `rescue-structural`
-**HEAD pré-C2:** `24d85c6d` (Fatia C1) | **HEAD pós-C2:** (este commit)
+**HEAD pré-C2:** `24d85c6d` (Fatia C1) | **HEAD pós-C2:** `e961da7f`
 
 **Contexto:** Veredito da Frente C Etapa 1 (terreno KYC) classificou identity workflow como CONVERGÊNCIA (substrato pronto, falta o fluxo). C1 eliminou a descontinuidade `/auth/register ↔ identities`. C2 (esta fatia) entrega o workflow `submit→review→approve` espelhando a Frente B (companies), adaptado à diferença estrutural fundamental: **identities é GLOBAL** (PK só global_user_id; sem tenant_id; sem RLS) — kyc_status é atributo da PESSOA, não da pessoa-no-tenant.
 
@@ -375,7 +375,7 @@ Modo B — falsificações rejeitadas:
 ## 2026-05-25 — Fatia C1: /auth/register cria identity pending/none — descontinuidade cadastro↔gate eliminada na raiz
 
 **Branch:** `rescue-structural`
-**HEAD pré-C1:** `bca8ffb7` (G2 Etapa 2) | **HEAD pós-C1:** (este commit)
+**HEAD pré-C1:** `bca8ffb7` (G2 Etapa 2) | **HEAD pós-C1:** `24d85c6d`
 
 **Contexto:** Veredito da Frente C Etapa 1 (terreno KYC) registrou descontinuidade material: `/auth/register` criava `global_users` + `users` + actor PF via `ensureUserActor`, mas **NÃO criava `identities`**. Em strict mode (default em produção), todo cadastro novo entrava completamente bloqueado no gate financeiro (`authority-decision.service.evaluateKycLayer` → `IDENTITY_NOT_LINKED:STRICT → IDENTITY_REQUIRED_STRICT_MODE`). Identity só era criada via `ensureCanonicalActorChain` chamada apenas por scripts E2E.
 
@@ -418,7 +418,7 @@ Setup: CPF `74666884467` (gerado válido), email `c1-test-1779746668844@e2e.inte
 ## 2026-05-25 — G2 Etapa 2: E2E transversal de empresa (cadastro → empresa → submit → review) criado e passando
 
 **Branch:** `rescue-structural`
-**HEAD pré-G2:** `8f32838e` (higiene documental) | **HEAD pós-G2 Etapa 2:** (este commit)
+**HEAD pré-G2:** `8f32838e` (higiene documental) | **HEAD pós-G2 Etapa 2:** `bca8ffb7`
 
 **Contexto:** Veredito da G2 Etapa 1 (RFC §8 — carregar estado + validar dependências) foi **convergência**: cada peça do fluxo de nascimento de empresa atravessa hoje (Fatia 1 IDENTIDADE + Fatia A1 RBAC + Fatia A2 onboarding/validation em actors.metadata + Frente B workflow company_validation_requests). Faltava o teste que prova o conjunto em sequência. Decisão arquitetural: arquivo separado (seeds ortogonais ao E2E financeiro existente — financeiro precisa de pesos: identities/authority_roots/bank accounts/mint; empresa precisa só de tenant + admin).
 
