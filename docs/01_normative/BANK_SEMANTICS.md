@@ -284,6 +284,21 @@ Resolver dinâmico **NÃO implementado** — continua FAIL-CLOSED em PE-3.
 Pré-requisito UX (`OPERATIONAL` cadastrado por PJ) rastreado em
 `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`.
 
+**Cartório operacional (DECISION-0050, 2026-05-26):** convenção canônica fechada para
+representar endereço operacional de actor-unidade:
+
+```
+HQ jurídico:
+  owner_type='company',          owner_id=<companies.company_id>, role='HQ'
+
+OPERATIONAL de actor-unidade:
+  owner_type='service_provider', owner_id=<actors.id>,             role='OPERATIONAL'
+```
+
+`service_provider` é nome TÉCNICO de owner de endereço (NÃO é actor_type).
+Helper canônico: `backend/src/core/location/operational-address.helper.ts`.
+E2E `validate-pipeline-e2e-pe5-cartorio-operacional.ts` cobre 6 cenários.
+
 Detalhes completos em `CORE_SPLIT_PAGAMENTO_CANONICO.md §9.4`.
 
 **Caminho LEGACY preservado:** caller que passa `input.splits=[100%]`

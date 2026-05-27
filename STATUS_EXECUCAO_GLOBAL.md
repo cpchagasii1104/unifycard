@@ -6046,3 +6046,69 @@ Rodada Clayton + ChatGPT pós PE-4-METRICS formalizou contrato de origem regiona
 DECISION-0049 fechada. Contrato cravado no schema. Próximo passo: implementar
 resolver dinâmico só depois que DT-PJ-OPERATIONAL fechar (frente UX/onboarding
 + decisão Clayton sobre owner_type para actor PJ).
+
+---
+
+## Sessão 2026-05-26 — PE-5-CARTÓRIO (DECISION-0050)
+
+### Contexto
+
+Pós DECISION-0049 + raio-x PE5_CARTORIO_OPERACIONAL_READONLY_REPORT. Clayton
+fechou L_owner_1 = Opção A (`owner_type='service_provider'` + `owner_id=actor.id`).
+**Esta fatia entrega APENAS o cartório (helper + readiness + E2E);
+NÃO implementa resolver dinâmico.**
+
+### Entregue
+
+1. **Helper** `backend/src/core/location/operational-address.helper.ts`:
+   - `getOperationalAddressForActor(tenantId, actorId)` — read-only
+   - `assertActorHasOperationalAddress(tenantId, actorId, mode='throw'|'warn')` — readiness
+   - `createOperationalAddressForActor(tenantId, actorId, input)` — escrita
+   - Tenant-safe (`actors.tenant_id = tenantId`)
+   - Idempotente (`OPERATIONAL_ADDRESS_ALREADY_EXISTS`)
+   - Códigos de erro: `PJ_OPERATIONAL_ADDRESS_REQUIRED`, `ACTOR_NOT_FOUND_OR_CROSS_TENANT`, `OPERATIONAL_ADDRESS_ALREADY_EXISTS`
+2. **E2E** `validate-pipeline-e2e-pe5-cartorio-operacional.ts` — **6 cenários T1-T6 verdes**:
+   - T1 sem OPERATIONAL → null + throw + warn
+   - T2 criação com convenção canônica
+   - T3 leitura não confunde com HQ
+   - T4 idempotência (DB com 1 ativo)
+   - T5 cross-tenant rejeitado
+   - T6 snapshot bank inalterado (zero impacto financeiro)
+3. **DECISION-0050** redigida (opções A/B/C + escolha A + 8 regras inegociáveis).
+4. **DTs:**
+   - `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` permanece OPEN; convenção atualizada
+   - `DT-PE5-CARTORIO-ENDPOINT-AUTH` (nova OPEN MEDIUM) — rota REST autorizada
+   - `DT-PE5-CARTORIO-ATOMICITY` (nova OPEN LOW) — createAddress + assignAddress sem transação SQL conjunta
+5. **Docs normativas:**
+   - `CORE_SPLIT_PAGAMENTO_CANONICO §9.4` (convenção HQ vs OPERATIONAL)
+   - `BANK_SEMANTICS` (sub-seção cartório operacional)
+   - `opus.md` (regra mestre permanente)
+
+### Endpoint REST NÃO implementado
+
+Padrão de auth em `location.routes.ts` hoje é apenas GET público. Sem padrão
+para POST autenticado. Inventar regra de auth = anti-norma. Rastreado em
+`DT-PE5-CARTORIO-ENDPOINT-AUTH`.
+
+Cadastro de OPERATIONAL hoje via helper direto (uso programático) ou wizard
+de UX/admin panel quando for desenhado.
+
+### Gates pós-PE-5-CARTÓRIO
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | (a rodar) |
+| validate:bank-ledger-boundaries | (a rodar) |
+| validate:regression-guards | (a rodar) |
+| architectural --strict | (a rodar) |
+| E2E PE-1 (18) | (a verificar não regrediu) |
+| E2E PE-3 | (mesmo gap de fixture de sessões anteriores; não regressão) |
+| E2E PE-4-METRICS (9) | (a verificar) |
+| E2E PE-5-CARTÓRIO (6) | PASS |
+
+### Modo
+
+Cartório operacional materializado. Trilho cravado. Resolver dinâmico fica
+para PE-5-RESOLVER (condicional a wizard de onboarding + decisão sobre auth
+do endpoint).

@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0049 (2026-05-26) |
+| Última entrada | DECISION-0050 (2026-05-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -3866,6 +3866,114 @@ Resolver tem semântica simples: lê basis declarado, resolve exatamente o que e
 - DT-REGIONAL-ORIGIN-BASIS-POLICY → CLOSED por esta DECISION
 - DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL (nova OPEN HIGH)
 - DT-PE3-LINE-TYPES-FAIL-CLOSED (permanece OPEN LOW — resolver dinâmico futuro destravar`regional_fund`)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0050 — Cartório operacional de actor-unidade via service_provider owner_type
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (PE-5-CARTÓRIO; pós DECISION-0049 + raio-x PE5_CARTORIO_OPERACIONAL_READONLY_REPORT)
+**Decisor:** Clayton (L_owner_1 = Opção A)
+**Commit âncora:** (preencher após commit)
+
+### Problema
+
+`DECISION-0049` declarou que policy line com `regional_origin_basis=
+'receiver_company_operational'` (resolver dinâmico futuro) DEVE consultar
+`address_assignments(role='OPERATIONAL')` do actor-unidade. Mas o sistema
+NÃO tinha convenção de qual `owner_type` usar para esse vínculo:
+
+- enum vivo de `address_assignments.owner_type`: `('company','profile','event','ride','group','tenant_hq','service_provider')`
+- enum vivo de `actors.actor_type`: `('user','page','group','channel','actor_human','actor_organizational','actor_system','person','company','system')`
+- `'service_provider'` está APENAS em `owner_type` (nunca foi materializado em runtime — 0 rows)
+- Sem cadastro vivo de OPERATIONAL para nenhum actor (0 rows com `role='OPERATIONAL'`)
+
+### Opções consideradas
+
+**A. `owner_type='service_provider', owner_id=<actor.id>` (ESCOLHIDA)**
+- Reusa enum existente. Zero migration.
+- Inverte coerentemente: HQ → `companies.company_id` (raiz jurídica); OPERATIONAL → `actor.id` (unidade).
+- Não mistura `companies.company_id` com `actors.id` no mesmo `owner_type`.
+- `service_provider` aqui é nome TÉCNICO de owner de endereço; NÃO é actor_type.
+
+**B. `owner_type='company', owner_id=<actor.id>`**
+- Rejeitada: mistura conceitos (`company` historicamente aponta para `companies.company_id`).
+- Pode quebrar UNIQUE `(owner_type, owner_id, role) WHERE is_primary`.
+
+**C. Estender enum com `'actor'`**
+- Rejeitada: exige migration de enum sem ganho material sobre (A).
+- "service_provider" continuaria no enum sem uso (fragmentação).
+- Pode ser reavaliada em frente futura se "service_provider" virar nomenclatura ambígua na operação real.
+
+### Escolha — Opção A
+
+**Convenção canônica:**
+
+```
+HQ (jurídico, raiz):
+  address_assignments.owner_type = 'company'
+  address_assignments.owner_id   = <companies.company_id>
+  address_assignments.role       = 'HQ'
+
+OPERATIONAL (unidade operacional de actor):
+  address_assignments.owner_type = 'service_provider'  ← técnico, NÃO actor_type
+  address_assignments.owner_id   = <actors.id>
+  address_assignments.role       = 'OPERATIONAL'
+  address_assignments.is_primary = true
+  address_assignments.valid_until_at = NULL (ativo)
+```
+
+### Regras inegociáveis (DECISION-0050)
+
+1. **`service_provider` é owner_type TÉCNICO de endereço operacional. NÃO é actor_type.** Enum vivo de `actors` NÃO inclui `service_provider` — não inventar.
+2. **HQ NUNCA é fallback automático de OPERATIONAL** (confirma DECISION-0049).
+3. **Sem backfill silencioso** HQ → OPERATIONAL. Se um actor não tem OPERATIONAL cadastrado, o sistema TRAVA (anti-padrão "premiar cadastro incompleto").
+4. **CNPJ identifica entidade jurídica.** Actor identifica unidade/papel operacional. OPERATIONAL identifica onde impacta.
+5. **Múltiplas unidades de uma empresa** = múltiplos actors compartilhando `company_id`. Cada actor (unidade) tem seu próprio OPERATIONAL.
+6. **Substituição de endereço operacional** NÃO é suportada nesta fatia (PE-5-CARTÓRIO MVP). Tentativa de criar 2º OPERATIONAL ativo para mesmo actor → `OPERATIONAL_ADDRESS_ALREADY_EXISTS`. Padrão de troca (encerrar `valid_until_at` do anterior + criar novo) é frente futura.
+7. **Resolver dinâmico de regional_fund continua FAIL-CLOSED em PE-3** — DECISION-0050 entrega APENAS o cartório (escrita + leitura + readiness). Plug em risk-financial-gate / resolver é frente PE-5-RESOLVER, condicional a `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` continuar OPEN até onboarding/wizard PJ estarem prontos.
+8. **`actor.id` não é pessoa**. Métricas públicas continuam deduplicando por `identities.global_user_id` (PE-4-METRICS). OPERATIONAL é dado de RESOLUÇÃO de fundo regional futuro, não de contagem pública.
+
+### Enforcement material (esta fatia)
+
+- **Helper** `backend/src/core/location/operational-address.helper.ts`:
+  - `getOperationalAddressForActor(tenantId, actorId)` — read-only
+  - `assertActorHasOperationalAddress(tenantId, actorId, mode='throw'|'warn')` — readiness check
+  - `createOperationalAddressForActor(tenantId, actorId, input)` — escrita (createAddress + assignAddress)
+  - Tenant-safe (valida `actors.tenant_id = tenantId`)
+  - Idempotente (`OPERATIONAL_ADDRESS_ALREADY_EXISTS` em 2ª chamada)
+  - Códigos de erro institucionais: `PJ_OPERATIONAL_ADDRESS_REQUIRED`, `ACTOR_NOT_FOUND_OR_CROSS_TENANT`, `OPERATIONAL_ADDRESS_ALREADY_EXISTS`
+- **Endpoint REST NÃO implementado nesta fatia** — padrão de auth de location.routes.ts é só GET público. Sem padrão para POST autenticado. Rastreado em `DT-PE5-CARTORIO-ENDPOINT-AUTH`.
+- **E2E** `validate-pipeline-e2e-pe5-cartorio-operacional.ts` cobre T1-T6:
+  - T1: sem OPERATIONAL → null + throw + warn
+  - T2: criação com convenção canônica (ownerType/ownerId/role/isPrimary/validUntilAt)
+  - T3: leitura retorna o criado; não confunde com HQ da company
+  - T4: idempotência (DB com exatamente 1 OPERATIONAL primário ativo)
+  - T5: cross-tenant rejeitado
+  - T6: snapshot bank_ledger/bank_transactions/bank_splits inalterado
+
+### O que NÃO entra (frentes próprias)
+
+- **PE-5-RESOLVER**: resolver dinâmico + plug em risk-financial-gate
+- **DT-PE5-CARTORIO-ENDPOINT-AUTH** (nova OPEN MEDIUM): rota REST autorizada
+- **DT-PE5-CARTORIO-ATOMICITY** (nova OPEN LOW): createAddress + assignAddress sem transação SQL conjunta
+- **Substituição de OPERATIONAL** (encerrar + criar novo)
+- **UNIQUE em `companies.cnpj`**
+- **Materialização de `economic_regions`** (DECISION-0020 §4)
+
+### Vinculadas
+
+- DECISION-0020 (Location Core)
+- DECISION-0046 (actor_wallet)
+- DECISION-0048 (camada DECISÃO ≠ EXECUÇÃO)
+- DECISION-0049 (regional_origin_basis)
+- DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL (permanece OPEN HIGH; convenção atualizada)
+- DT-PE5-CARTORIO-ENDPOINT-AUTH (nova)
+- DT-PE5-CARTORIO-ATOMICITY (nova)
 
 ### Superada por
 

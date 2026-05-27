@@ -513,6 +513,32 @@ line É OBRIGADA a declarar `regional_origin_basis` (CHECK Postgres
 rastreado em `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` (OPEN HIGH).
 DECISION-0049 entrega CONTRATO + SCHEMA; resolver é frente futura.
 
+**Convenção de cartório operacional (DECISION-0050, 2026-05-26):**
+
+Quando resolver dinâmico for habilitado, `receiver_company_operational` consulta:
+
+```
+address_assignments.owner_type = 'service_provider'   (técnico, NÃO actor_type)
+address_assignments.owner_id   = <receiverActorId>
+address_assignments.role       = 'OPERATIONAL'
+address_assignments.valid_until_at IS NULL
+address_assignments.is_primary = true
+```
+
+`receiver_company_hq` consulta separadamente:
+
+```
+address_assignments.owner_type = 'company'
+address_assignments.owner_id   = <receiver.companies.company_id>
+address_assignments.role       = 'HQ'
+```
+
+São cadeias canônicas SEPARADAS. HQ é da company (raiz jurídica). OPERATIONAL é
+do actor (unidade operacional). Resolver não cai de uma para outra.
+
+Cadastro de OPERATIONAL via helper canônico:
+`backend/src/core/location/operational-address.helper.ts`.
+
 ---
 
 ### 9.3 Variação por Categoria — ATUALIZADO por DECISION-0048

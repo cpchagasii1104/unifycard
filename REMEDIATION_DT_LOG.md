@@ -6133,14 +6133,23 @@ Quando policy line tem `destination_type='regional_fund'` SEM `destination_key` 
 - Logo: se o resolver dinâmico fosse ativado HOJE com policy declarando `receiver_company_operational`, **toda transação PJ falharia POLICY_REGIONAL_ORIGIN_UNRESOLVABLE**.
 - Não bloqueia esta fatia (DECISION-0049 + schema) — bloqueia o PRÓXIMO passo (resolver dinâmico real).
 
-### Padrão de owner_type/owner_id para actor operacional — PENDENTE
+### Padrão de owner_type/owner_id para actor operacional — FECHADO por DECISION-0050
 
-O enum `address_assignments.owner_type` aceita: `company` / `profile` / `event` / `ride` / `group` / `tenant_hq` / `service_provider`. NÃO há padrão estabelecido para vincular `actor` (unidade operacional de PJ) a `address_assignments` — duas alternativas precisam decisão:
+Convenção canônica (DECISION-0050, 2026-05-26):
 
-- **(A)** Usar `owner_type='service_provider'` + `owner_id=<actor.id>` — semanticamente correto para unidade que presta serviço.
-- **(B)** Estender enum com `owner_type='actor'` + `owner_id=<actor.id>` — exige migration nova no enum.
+```
+address_assignments.owner_type = 'service_provider'  (técnico, não actor_type)
+address_assignments.owner_id   = <actors.id>
+address_assignments.role       = 'OPERATIONAL'
+address_assignments.is_primary = true
+```
 
-**Recomendação:** (A) é menos invasivo; reusa enum existente. Mas precisa confirmação Clayton no momento de implementar o cadastro de unidades.
+Helper canônico: `backend/src/core/location/operational-address.helper.ts` —
+funções `getOperationalAddressForActor`, `assertActorHasOperationalAddress`,
+`createOperationalAddressForActor`. E2E PE-5-CARTÓRIO cobre 6 cenários verdes.
+
+Esta DT permanece OPEN porque PE-5-RESOLVER (resolver dinâmico + plug em
+risk-financial-gate) ainda não foi implementado. Quando for, esta DT fecha.
 
 ### Pré-requisitos para habilitar resolver dinâmico
 
@@ -6159,3 +6168,31 @@ O enum `address_assignments.owner_type` aceita: `company` / `profile` / `event` 
 ### Resolução prevista
 
 Frente PE-5 ou PE-6 (a definir), bloqueada por decisão Clayton sobre items 1-5 acima.
+
+---
+
+## DT-PE5-CARTORIO-ENDPOINT-AUTH
+
+- **Status:** OPEN (MEDIUM — rota REST POST `/actors/:actorId/operational-address` não implementada)
+- **Origem:** PE-5-CARTÓRIO 2026-05-26 (DECISION-0050). O helper `operational-address.helper.ts` está pronto; falta endpoint REST com autorização canônica para admin/tenant_admin/owner-flow cadastrar OPERATIONAL.
+- **Por que não foi feito nesta fatia:** padrão de auth em `location.routes.ts` hoje é apenas GET público. Não há padrão claro para POST autenticado (actionContext, ensureUserActor, RBAC). Inventar regra sem padrão = anti-norma. Prompt da fatia explicitamente proibiu: "se a autorização não estiver clara, NÃO inventar".
+- **O que falta:**
+  1. Decidir padrão de autenticação para rotas POST de location (Fastify decorator de auth + actionContext + RBAC).
+  2. Decidir owner-flow: representante legal do CNPJ pode cadastrar OPERATIONAL da sua própria unidade? Como provar materialmente que ele é representante (via `companies.global_user_id` + `actors.responsible_actor_id`)?
+  3. Endpoint REST: validação Zod do payload de address; tenant safety; resposta sem CPF/CNPJ.
+  4. E2E T7 testando endpoint (sem auth → 401; cross-tenant → 403; admin/owner → 200).
+- **Não bloqueia:** helper funciona via service direto (E2E PE-5-CARTÓRIO T1-T6 verdes). Cadastro em produção exige a rota OU helper chamado por outro fluxo (wizard de UX, admin panel).
+- **Resolução prevista:** frente PE-5-CARTORIO-ENDPOINT ou via PE-2 (admin panel se for o caminho de produto).
+
+---
+
+## DT-PE5-CARTORIO-ATOMICITY
+
+- **Status:** OPEN (LOW — `createAddress` + `assignAddress` não compartilham transação SQL)
+- **Origem:** PE-5-CARTÓRIO 2026-05-26. Helper `createOperationalAddressForActor` chama `locationRepository.createAddress(...)` e depois `locationRepository.assignAddress(...)`. Se a 2ª falhar (DB caiu, constraint violou), a 1ª já comitou — fica address órfão sem assignment.
+- **Severidade LOW:** assignment usa constraints simples (FK + NOT NULL + UNIQUE primary); falha é improvável em condições normais. Address órfão não vaza para queries de produção (nenhum caller consulta `addresses` sem JOIN com `address_assignments` ou `companies.primary_address_id`).
+- **Não bloqueia:** uso normal funciona; risco material em race condition específica.
+- **Resolução prevista:**
+  1. Refator helper para usar `runQueryWithTenant` em transação BEGIN/COMMIT/ROLLBACK envolvendo ambos os INSERTs.
+  2. OU adicionar método `createAddressAndAssign(input, assignmentArgs)` em `location.repository.ts` que faz os 2 INSERTs em transação única.
+  - Frente própria pequena (~30 linhas de refactor).

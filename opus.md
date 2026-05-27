@@ -1375,3 +1375,23 @@ explicitamente em linha própria. Código NÃO interpreta intenção.
 **Pré-requisito UX** rastreado em
 `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` (OPEN HIGH).
 Resolver dinâmico **NÃO implementado** — continua FAIL-CLOSED em PE-3.
+
+---
+
+## DECISION-0050 — Cartório operacional (PE-5-CARTÓRIO, 2026-05-26)
+
+Convenção canônica fechada (L_owner_1 = A):
+
+> "HQ é jurídico. OPERATIONAL é unidade. OPERATIONAL de actor-unidade usa
+> `address_assignments.owner_type='service_provider'`, `owner_id=actor.id`,
+> `role='OPERATIONAL'`. Resolver regional só pode usar isso quando existir;
+> não cai em HQ."
+
+`service_provider` é nome TÉCNICO de owner_type de endereço (NÃO é actor_type).
+Helper canônico em `backend/src/core/location/operational-address.helper.ts`
+expõe `getOperationalAddressForActor` / `assertActorHasOperationalAddress` /
+`createOperationalAddressForActor`. Idempotente, tenant-safe, zero impacto
+em ledger/split/payment.
+
+Resolver dinâmico (PE-5-RESOLVER) continua FAIL-CLOSED — só será habilitado
+quando UX/onboarding garantir OPERATIONAL cadastrado para PJ.
