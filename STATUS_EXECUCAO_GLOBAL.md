@@ -6630,3 +6630,46 @@ depois implementação C3 (`debitActorWalletForRecovery` em `modules/wallet/`).
 C4 implementado. Convenção C4b decidida. Próxima frente: C4b — implementar
 `ensureUserWalletForActor` + corrigir `payment-event-resolver.ts` bug + backfill + lazy creation
 em `createPaymentIntentWithClient`. C3 (`debitActorWalletForRecovery`) só após C4b validado.
+
+---
+
+## Sessão 2026-05-27 — C4b-1 FECHADO (commit `13ee5d8a`)
+
+### O que foi feito
+
+1. **`ensureUserWalletForActor` implementado em `bank-account.service.ts`:**
+   - Resolve `user_id` via `actors WHERE id = actorId`
+   - Lança `USER_WALLET_REQUIRES_USER_ID` se actor não tem user_id ou não existe
+   - Delega para `ensureLifecycleAccountsForOwner(tenantId, userId, 'user', currency)` (canônico)
+   - Retorna a conta via `getLifecycleAccount`; lança `USER_WALLET_CREATION_FAILED` se falhar
+
+2. **Bug `DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG` corrigido:**
+   - `payment-event-resolver.ts`: substituídas as duas chamadas bugadas (`ensureLifecycleAccountsForOwner(actorId)` + `getLifecycleAccount(actorId)`) por `ensureUserWalletForActor(actorId)`
+   - Convenção agora correta mesmo no branch dormente (DT-RESOLVER-PIX-BRANCH-DEAD)
+
+3. **E2E 9/9 verde** (`validate-pipeline-e2e-user-wallet-provisioning.ts`):
+   - T1 provisiona wallet, T2 idempotência, T3 actor sem user_id rejeitado, T4 actor inexistente rejeitado
+   - T5 owner_id verificado (`userId:user_wallet`), T6 actor_id verificado, T7 owner_type=actor
+   - T8-T9 zero escrita financeira
+
+4. **DTs fechadas:** `DT-USER-WALLET-PROVISIONING-FOR-RECOVERY` + `DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG`
+
+### Pré-requisitos DECISION-0053 (atualizado)
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — aguarda C4b completo |
+| C4 | Resolver de `creditor_account_id` | DONE ✓ (commit `13db36d8`) |
+| C4b | Provisionamento de `user_wallet` (helper + bug fix) | DONE ✓ (commit `13ee5d8a`) |
+| C4b-2 | Backfill actors históricos + lazy em `createPaymentIntentWithClient` | PENDENTE |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration recovery obligations substrate | DONE ✓ (`20260530570000`) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+C4b-1 fechado. Próxima frente: **C4b-2** (backfill + lazy em `createPaymentIntentWithClient`)
+— ou pular direto para **C3** (`debitActorWalletForRecovery`) se Clayton decidir adiar o backfill.
+C3 é tecnicamente desbloqueada: `ensureUserWalletForActor` existe e funciona.

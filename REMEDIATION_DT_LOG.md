@@ -6687,7 +6687,7 @@ Frente própria após DECISION-0053 migration (C6) + serviço de débito impleme
 
 ## DT-USER-WALLET-PROVISIONING-FOR-RECOVERY
 
-- **Status:** OPEN HIGH — bloqueante para recovery end-to-end; convenção decidida por DECISION-0057 (2026-05-27); implementação C4b desbloqueada
+- **Status:** CLOSED (2026-05-27, commit `13ee5d8a`) — `ensureUserWalletForActor` implementado; E2E 9/9 verde; bug payment-event-resolver corrigido na mesma frente
 - **Origem:** C4 READ-FIRST (2026-05-27) — resolver implementado (commit `13db36d8`); `user_wallet` identificada como tipo dormente com 0 rows em runtime.
 - **Vinculada a:** DECISION-0056 (D2: creditor_account_id = user_wallet do payer), DECISION-0057 (convenção canônica decidida)
 
@@ -6744,7 +6744,7 @@ C4b, mas deve ser corrigido na mesma frente ou logo após.
 
 ## DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG
 
-- **Status:** OPEN MEDIUM — não bloqueia C4b; sem dano material pois `user_wallet` tem 0 rows hoje
+- **Status:** CLOSED (2026-05-27, commit `13ee5d8a`) — bug corrigido em C4b-1; `payment-event-resolver.ts` agora chama `ensureUserWalletForActor` que resolve userId internamente
 - **Origem:** READ-FIRST C4b (2026-05-27) — divergência de convenção detectada
 - **Vinculada a:** DECISION-0057 (D5 — bug documentado; correção adiada)
 

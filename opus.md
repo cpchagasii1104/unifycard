@@ -6,6 +6,17 @@
 
 ---
 
+## Sessão 2026-05-27 — C4b-1 FECHADO (commit `13ee5d8a`)
+
+`ensureUserWalletForActor(tenantId, actorId)` implementado em `bank-account.service.ts`:
+resolve `user_id` via actors, lança `USER_WALLET_REQUIRES_USER_ID` se ausente, delega para
+`ensureLifecycleAccountsForOwner` com userId canônico. E2E 9/9 verde.
+Bug `payment-event-resolver.ts` corrigido: substituídas chamadas com actorId por `ensureUserWalletForActor`.
+DTs fechadas: `DT-USER-WALLET-PROVISIONING-FOR-RECOVERY` + `DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG`.
+**Próxima frente: C4b-2** (backfill + lazy em `createPaymentIntentWithClient`) **ou C3** (`debitActorWalletForRecovery`).
+
+---
+
 ## Sessão 2026-05-27 — C4 IMPLEMENTADO + READ-FIRST C4b + DECISION-0057
 
 C4 implementado (commit `13db36d8`): `recovery-creditor-resolver.service.ts` READ-ONLY,
