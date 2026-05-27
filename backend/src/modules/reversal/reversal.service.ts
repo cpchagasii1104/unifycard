@@ -236,21 +236,17 @@ export async function executeReversal(
           client
         );
         // DECISION-0052 Bloco E: persiste rastreabilidade canônica em
-        // bank_transactions.metadata da leg. Append seguro (NÃO altera
-        // amount/account/direction — só anota linkage).
-        // CORE_ESTORNOS §10.1.2 recomenda original_split_id em audit trail.
-        await client.query(
-          `UPDATE bank_transactions
-              SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
-            WHERE id = $2::uuid`,
-          [
-            JSON.stringify({
-              reversal_id: reversalId,
-              original_transaction_id: origId,
-              original_split_id: leg.split_id,
-            }),
-            tr.transactionId,
-          ]
+        // bank_transactions.metadata da leg via método dedicado do módulo
+        // bank (bank-ledger §4.6 — escritas bank_* só em modules/bank/).
+        await bankTransactionService.appendReversalLegMetadata(
+          tenantId,
+          tr.transactionId,
+          {
+            reversal_id: reversalId,
+            original_transaction_id: origId,
+            original_split_id: leg.split_id,
+          },
+          client
         );
         executedTxIds.push(tr.transactionId);
       }

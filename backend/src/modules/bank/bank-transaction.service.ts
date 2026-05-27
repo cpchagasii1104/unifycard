@@ -1779,6 +1779,36 @@ class BankTransactionService {
     );
     return (result.rowCount ?? 0) > 0;
   }
+
+  /**
+   * DECISION-0052 §14.3: anota metadata canônica de leg reversa em
+   * bank_transactions.metadata. Append seguro (jsonb || jsonb) — não
+   * altera amount/account/direction; só registra rastreabilidade
+   * (reversal_id, original_transaction_id, original_split_id).
+   *
+   * Existe porque bankTransactionService.transfer() não propaga a
+   * metadata para bank_transactions (o INSERT do transfer não inclui
+   * a coluna), e bank_ledger não tem coluna metadata.
+   *
+   * Escrita em bank_* exige residir em modules/bank/ (bank-ledger §4.6).
+   */
+  async appendReversalLegMetadata(
+    tenantId: string,
+    transactionId: string,
+    metadata: {
+      reversal_id: string;
+      original_transaction_id: string;
+      original_split_id: string;
+    },
+    client: PoolClient
+  ): Promise<void> {
+    await client.query(
+      `UPDATE bank_transactions
+          SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
+        WHERE tenant_id = $2::uuid AND id = $3::uuid`,
+      [JSON.stringify(metadata), tenantId, transactionId]
+    );
+  }
 }
 
 export const bankTransactionService = new BankTransactionService();
