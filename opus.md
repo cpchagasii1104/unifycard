@@ -6,6 +6,26 @@
 
 ---
 
+## Sessão 2026-05-27 — READ-FIRST C4 + DECISION-0056
+
+READ-FIRST C4 confirmou:
+- `bank_transactions.account_id` em D-money = `escrow_payments` (sistema; não é conta do payer).
+- `bank_transactions.counterpart_account_id` = conta do devedor (quem recebeu) — não serve para resolver credor.
+- `payment_intents.actor_id` = payer direto; caminho determinístico para `creditor_actor_id`.
+- Resolver com SELECT em `payment_intents` + `bank_accounts` não pode morar em `core/` — core não recebe query direta.
+
+**DECISION-0056 aprovada:**
+- `creditor_actor_id` = `payment_intents.actor_id`
+- `creditor_account_id` = `bank_accounts WHERE owner_type='actor' AND actor_id=payer AND account_type='user_wallet'`
+- `actor_wallet` vetada como destino (invariante revenue_share preservada — DECISION-0046/0055)
+- Lista fechada vetada: `escrow_*`, `clearing`, `risk_reserve`, `platform_fees`, `regional_fund`
+- Ambiguidade = erro: `CREDITOR_ACCOUNT_NOT_FOUND` / `CREDITOR_ACCOUNT_AMBIGUOUS`; sem `LIMIT 1`
+- Placement: `src/modules/financial-recovery/recovery-creditor-resolver.service.ts`
+
+**DECISION-0053 C4:** semanticamente decidido (DECISION-0056). Próxima frente = implementação do resolver.
+
+---
+
 ## Sessão 2026-05-27 — C6 / ACTOR_WALLET_RECOVERY_OBLIGATIONS_SUBSTRATE
 
 Migration `20260530570000` aplicada:

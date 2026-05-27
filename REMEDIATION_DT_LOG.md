@@ -6541,7 +6541,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-ACTOR-WALLET-DEBIT-MISSING
 
-- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055) + migration C6 materializada (`20260530570000`, 2026-05-27); implementação de `debitActorWalletForRecovery` desbloqueada
+- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055) + migration C6 materializada (`20260530570000`, 2026-05-27); C4 creditor_account_id decidido (DECISION-0056, 2026-05-27); implementação de `debitActorWalletForRecovery` aguarda resolver C4 implementado
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
   confirmou que não existe nenhum serviço de débito de `actor_wallet` via
   `bank_transactions`/`bank_ledger`.
@@ -6581,6 +6581,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 - DECISION-0053 (pré-requisito C3 — semântica definida; implementação aguarda C6)
 - DECISION-0055 (define design canônico — esta DT é o alvo de implementação)
+- DECISION-0056 (C4 — resolver creditor_account_id decidido; pré-requisito para implementação)
 - DECISION-0046 (actor_wallet canônico — invariante deve ser preservada no débito)
 - DECISION-0044 (bank-ledger boundaries — débito transita via módulo bank)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)

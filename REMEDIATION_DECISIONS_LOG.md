@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0051 (2026-05-26) |
+| Última entrada | DECISION-0056 (2026-05-27) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -4450,6 +4450,109 @@ Internamente (sequência canônica):
 - DT-ACTOR-WALLET-DEBIT-MISSING (semântica resolvida aqui; implementação pendente migration)
 - DT-RECOVERY-PAYOUT-GATE (income withholding formalizado por D3 desta DECISION)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (C3 semântica fechada; C4–C7 ainda bloqueantes)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0056 — Creditor Account for Actor Wallet Recovery
+
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). C4 semanticamente decidido; implementação do resolver desbloqueada.
+**Sessão:** 2026-05-27 (READ-FIRST C4 + DECISION-0056)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit desta sessão)
+
+### Contexto
+
+READ-FIRST C4 confirmou que `creditor_actor_id` é resolvível deterministicamente via
+`payment_intents.actor_id`, mas qual `bank_accounts.account_type` usar para
+`creditor_account_id` permanecia ambíguo. DECISION-0053 mandatou `creditor_account_id NOT NULL`
+mas explicitamente delegou o resolver para C4. Investigação revelou:
+
+- `bank_transactions.account_id` (FROM) em D-money = `escrow_payments` — conta de sistema,
+  não do payer; inutilizável como ponto de resolução do credor.
+- `bank_transactions.counterpart_account_id` = conta do **devedor** (quem recebeu o D-money)
+  — também não aponta para o credor.
+- Payer tem `bank_accounts` com `owner_type='actor'` e potencialmente múltiplos `account_type`.
+- `actor_wallet` tem invariante forte de exclusividade para `revenue_share` (DECISION-0046,
+  DECISION-0055) — misturar refund ali sujaria a semântica que levou várias sessões para cravar.
+- Resolver com SELECT em `payment_intents` + `bank_accounts` não pode morar em `src/core/`
+  — core não recebe query direta; problema de drift de boundary documentado anteriormente.
+
+### Decisão
+
+Formalizar o critério de resolução de `creditor_actor_id` e `creditor_account_id` para
+a obrigação de recovery pós-D-money e o placement canônico do resolver.
+
+### Decisões Clayton (D1–D5)
+
+**D1 — creditor_actor_id: `payment_intents.actor_id`**
+
+`payment_intents.actor_id` representa o pagador/buyer original. É o caminho mais direto a
+partir de `payment_intent_id`, que já existe como FK em `actor_wallet_recovery_obligations`.
+Sem join adicional via `service_orders` necessário.
+
+**D2 — creditor_account_id: `user_wallet` do payer**
+
+```
+bank_accounts
+  WHERE owner_type = 'actor'
+  AND actor_id = payment_intents.actor_id
+  AND account_type = 'user_wallet'
+```
+
+Recovery para o payer é devolução de valor pago — não é `revenue_share`, não é hold judicial.
+`user_wallet` é a conta padrão do usuário/pagador no sistema. Rota direta, semanticamente
+correta e isolada da semântica operacional de `actor_wallet`.
+
+**D3 — Proibições de destino: lista fechada**
+
+Recovery NÃO vai para nenhum dos seguintes tipos sem nova DECISION específica:
+- `actor_wallet` — exclusivo para revenue_share (DECISION-0046 + DECISION-0055)
+- `escrow_payments` — conta de sistema de escrow
+- `escrow_disputes` — hold formal para litigância; overkill para recovery operacional
+- `clearing` — redistribuição de plataforma; perde rastreabilidade direta payer↔recovery
+- `risk_reserve` — cofre de risco da plataforma
+- `platform_fees` — receita da plataforma
+- `regional_fund` — fundo regional comunitário
+
+**D4 — Ambiguidade = erro explícito, sem heurística silenciosa**
+
+- Zero contas `user_wallet` para o payer → lançar `CREDITOR_ACCOUNT_NOT_FOUND`
+- Múltiplas contas `user_wallet` elegíveis → lançar `CREDITOR_ACCOUNT_AMBIGUOUS`
+- Proibido: `ORDER BY created_at LIMIT 1`, seleção por `is_primary`, qualquer tiebreaker
+  silencioso — "Pix no escuro".
+
+**D5 — Placement: módulo, não core**
+
+- **Resolver:** `src/modules/financial-recovery/recovery-creditor-resolver.service.ts`
+- **Tipos:** `src/core/financial-recovery/financial-recovery.types.ts` (já existe — permitido)
+- **Natureza:** READ-ONLY. Sem escrita em banco. Sem `bankTransactionService.transfer`.
+  Sem interação com `reversal.service.ts`. Sem criação de obligation.
+- **Justificativa:** `core/` não recebe query direta de banco. Resolver que faz SELECT em
+  `payment_intents` + `bank_accounts` é lógica de módulo. Respeita pureza arquitetural
+  e evita drift de boundary — anti-padrão documentado em sessões anteriores.
+
+### Proibições desta sessão
+
+- Não implementar o resolver — esta sessão é exclusivamente documental.
+- Não criar migration.
+- Não criar `debitActorWalletForRecovery` (C3 — frente posterior ao resolver C4).
+- Não usar como destino: `actor_wallet`, `escrow_payments`, `escrow_disputes`, `clearing`,
+  `risk_reserve`, `platform_fees`, `regional_fund`.
+- Não usar heurística silenciosa (`ORDER BY`, `LIMIT 1`, `is_primary`) para desempate.
+- Não colocar resolver com SELECT em `src/core/`.
+
+### Vinculadas
+
+- DECISION-0053 (C4 — este resolver satisfaz o pré-requisito de creditor_account_id)
+- DECISION-0055 (D8 — `creditorAccountId` = parâmetro resolvido externamente por C4)
+- DECISION-0046 (actor_wallet invariante — recovery NÃO vai para actor_wallet)
+- DECISION-0044 (bank-ledger boundaries — resolver é READ-ONLY, não viola GATE-4)
+- DT-ACTOR-WALLET-DEBIT-MISSING (C4 é pré-requisito para implementação do debit service)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (C4 fecha um dos bloqueios semânticos da cadeia)
 
 ### Superada por
 

@@ -6516,3 +6516,59 @@ de DECISION-0053 com as tabelas `actor_wallet_recovery_obligations` +
 C1 + C2 + C3-semântica + C6 fechados. C4 (creditor resolver) é o próximo passo lógico
 antes de implementar `debitActorWalletForRecovery` (que precisa de `creditorAccountId`
 resolvido pelo caller). C5 (nomenclatura) pode rodar em paralelo.
+
+---
+
+## Sessão 2026-05-27 — READ-FIRST C4 + DECISION-0056
+
+### O que foi feito
+
+1. **READ-FIRST C4 concluído — 11 questões (A–K) respondidas:**
+   - `bank_transactions.account_id` (FROM) em D-money = `escrow_payments` — não é conta do payer.
+   - `bank_transactions.counterpart_account_id` = conta do **devedor** — não serve para credor.
+   - `payment_intents.actor_id` = payer direto — caminho determinístico para `creditor_actor_id`.
+   - Ambiguidade identificada: qual `account_type` usar na conta do payer.
+   - Corte arquitetural: resolver com SELECT não pode morar em `src/core/`.
+   - Bloqueio confirmado: impossível implementar C3 sem C4 decidido (obligation já exige
+     `creditor_actor_id` + `creditor_account_id` NOT NULL no momento de criação).
+
+2. **DECISION-0056 aprovada — Creditor Account for Actor Wallet Recovery:**
+
+   **D1 — creditor_actor_id:** `payment_intents.actor_id` — direto, sem join adicional.
+
+   **D2 — creditor_account_id:** `bank_accounts WHERE owner_type='actor' AND actor_id=payer AND account_type='user_wallet'`.
+   Recovery é devolução ao pagador — não é revenue_share; `user_wallet` = conta padrão do
+   usuário/pagador; `actor_wallet` vetada (invariante de revenue_share exclusivo preservada).
+
+   **D3 — Proibições de destino:** `actor_wallet`, `escrow_payments`, `escrow_disputes`,
+   `clearing`, `risk_reserve`, `platform_fees`, `regional_fund` — nenhum deles sem nova DECISION.
+
+   **D4 — Ambiguidade = erro explícito:** `CREDITOR_ACCOUNT_NOT_FOUND` (zero contas) ou
+   `CREDITOR_ACCOUNT_AMBIGUOUS` (múltiplas). Proibido: `LIMIT 1`, `ORDER BY`, heurística
+   silenciosa de qualquer tipo.
+
+   **D5 — Placement:** `src/modules/financial-recovery/recovery-creditor-resolver.service.ts`.
+   Tipos permanecem em `src/core/financial-recovery/`. Core não recebe query direta de banco.
+
+3. **Logs atualizados:**
+   - DECISION-0056 registrada em `REMEDIATION_DECISIONS_LOG.md`
+   - DT-ACTOR-WALLET-DEBIT-MISSING: C4 decidido referenciado
+   - `STATUS_EXECUCAO_GLOBAL.md` + `opus.md` atualizados
+
+### Pré-requisitos DECISION-0053 atualizados
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — aguarda C4 implementado |
+| C4 | Resolver de `creditor_account_id` via transação original | SEMÂNTICA DEFINIDA (DECISION-0056) — implementação pendente |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration revisada em sessão separada | DONE ✓ (`20260530570000`, 2026-05-27) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+C1 + C2 + C3-semântica + C4-semântica + C6 fechados. Próxima frente: implementação do
+resolver C4 (`src/modules/financial-recovery/recovery-creditor-resolver.service.ts`),
+depois implementação C3 (`debitActorWalletForRecovery` em `modules/wallet/`).
