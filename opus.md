@@ -1338,3 +1338,27 @@ recebe mais que o pago.
 **Regra operacional permanente:** "actor_wallet recebe APENAS o líquido pertencente
 ao actor. Fee, reserve, regional_fund, referral, channel, group — TUDO vai para
 destinos próprios na hora da execução, NUNCA passam pelo actor_wallet do prestador."
+
+---
+
+## PE-4-METRICS + regional_origin_basis (2026-05-26)
+
+**`economicMetricsService`** entrega métricas sociais REAIS de destinos econômicos
+(regional_fund, group) em tempo real, read-only, dedupe canônico por
+`identities.global_user_id`.
+
+**Regra operacional permanente:**
+
+> "Actor NÃO é pessoa. Para contar PESSOAS, deduplicar por
+> `identities.global_user_id` segmentado por `tax_id_type` + `kyc_status`.
+> `actor.id` é métrica INTERNA, nunca pública. CPF/CNPJ NUNCA aparecem em
+> payload. Não-verificados em rótulo SEPARADO. 'Ativo' = contribuição
+> financeira últimos 30 dias via `bank_splits.created_at`. Saldo sempre
+> `bank_ledger`."
+
+**Contrato `regional_origin_basis`** (DT-REGIONAL-ORIGIN-BASIS-POLICY, documentado
+em CORE_SPLIT §9.4): resolver dinâmico de regional_fund (futuro PE-4) DEVE
+consultar basis explícito da policy. PF nunca assume HQ; PJ nunca assume
+RESIDENCE de CPF responsável. Fail-closed `REGIONAL_ORIGIN_BASIS_REQUIRED`
+quando dinâmico ativa sem basis. mixed_policy = múltiplas linhas
+regional_fund (não heurística no resolver).

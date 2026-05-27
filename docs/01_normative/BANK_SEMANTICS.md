@@ -207,6 +207,64 @@ ausente. Fluxo:
 do prestador. D-money tem guarda anti-vazamento (`sumSplits >
 totalAmountCents` falha).
 
+---
+
+## PE-4-METRICS — Métricas sociais reais (2026-05-26)
+
+`economicMetricsService.getRegionalFundMetrics()` e `getGroupMetrics()`
+calculam em tempo real, read-only, sobre `bank_splits` + `bank_ledger`:
+
+| Métrica pública             | Fonte                                                           |
+|------------------------------|-----------------------------------------------------------------|
+| `balanceCents`               | `bankAccountService.getBalance()` (SSOT bank_ledger)            |
+| `pfVerifiedParticipants`     | DISTINCT `identities.global_user_id` WHERE `tax_id_type='cpf'` AND `kyc_status='approved'` E participou |
+| `pjVerifiedParticipants`     | idem com `tax_id_type='cnpj'`                                   |
+| `pfActiveContributors30d`    | idem PF + filtro `bank_splits.created_at > NOW() - 30 days`     |
+| `pjActiveContributors30d`    | idem PJ + filtro 30d                                            |
+| `unverifiedContributors30d`  | DISTINCT `source_actor_id` WHERE `global_user_id IS NULL` OR `kyc_status != 'approved'` E nos últimos 30d (rótulo separado) |
+| `contributionVolume30dCents` | `SUM(amount_cents)` 30d                                         |
+| `lastContributionAt`         | `MAX(created_at)`                                               |
+
+**Invariantes inegociáveis:**
+
+1. **`actor` NÃO é pessoa.** Dedupe por `identities.global_user_id` (canônico),
+   NUNCA por `actor.id` em métricas públicas. `actor_count` aparece APENAS
+   em payload `Internal` (admin/audit).
+2. **`tax_id` / `cpf` / `cnpj` NUNCA são expostos** no payload (público ou admin).
+   Servem apenas para deduplicação SQL interna.
+3. **PF e PJ separados** (`pfVerifiedParticipants` ≠ `pjVerifiedParticipants`).
+4. **Não-verificados em rótulo próprio** (`unverifiedContributors30d`) — nunca
+   somar com PF/PJ verificados.
+5. **"Ativo" = contribuição financeira nos últimos 30 dias** via
+   `bank_splits.created_at`. Login / membership não conta.
+6. **Sem tabela nova / sem migration / sem projection** — MVP via query
+   direta sobre tabelas existentes (K_metrics_6 = C). Projection vira
+   frente futura quando performance exigir (rastreado em
+   `DT-PE4-METRICS-PROJECTION-WHEN-SCALE` se necessário).
+7. **Saldo NUNCA de `regional_funds.total_balance_cents`** (projeção
+   legacy). Sempre `bank_ledger` via `bankAccountService.getBalance()`.
+
+E2E `validate-pipeline-e2e-policy-engine-metrics.ts` cobre 9 cenários
+(T1-T9, 28 asserções) provando: deduplicação por global_user_id,
+PF/PJ separados, unverified isolado, janela 30d, saldo do ledger,
+payload sem CPF/CNPJ, actor_count só interno.
+
+### Contrato `regional_origin_basis` (DT-REGIONAL-ORIGIN-BASIS-POLICY)
+
+Quando resolver dinâmico de `regional_fund` for habilitado (frente PE-4
+futura), policy line DEVE carregar `regional_origin_basis` indicando
+qual endereço resolve a região-destino:
+
+`payer_identity_residence` | `receiver_identity_residence` |
+`receiver_company_hq` | `receiver_company_operational` |
+`service_location` | `transaction_location` |
+`explicit_economic_region` | `mixed_policy`
+
+PF nunca assume HQ; PJ nunca assume RESIDENCE de CPF responsável.
+Fail-closed `REGIONAL_ORIGIN_BASIS_REQUIRED` quando dinâmico sem basis.
+
+Detalhes completos em `CORE_SPLIT_PAGAMENTO_CANONICO.md §9.4`.
+
 **Caminho LEGACY preservado:** caller que passa `input.splits=[100%]`
 continua funcionando (E2Es antigos que dependem desse contrato não
 regridem). Caminho LEGACY força destino `escrow_payments` para todos

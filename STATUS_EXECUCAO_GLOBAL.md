@@ -5917,7 +5917,7 @@ Convergência fechada via DECISION-0048. Próximo passo institucional: plugar `e
 
 ### Modo
 
-PE-3 fechado. Fluxo material:
+PE-3 fechado. Próxima frente PE-4-METRICS já entregue (ver sessão posterior). Fluxo material:
 ```
 cliente paga valor BRUTO
 → economic_policy_engine.resolveEconomicPolicy() — fail-closed se ausente/ambígua
@@ -5929,3 +5929,65 @@ cliente paga valor BRUTO
 → actor_wallet recebe LÍQUIDO; fee/reserve já caíram nos destinos finais
 ```
 Próximo passo institucional: decidir e seedar policy default canônica para Camada 1 (fora do escopo desta fatia).
+
+---
+
+## Sessão 2026-05-26 — PE-4-METRICS + Contrato regional_origin_basis
+
+### Bloco A — PE-4-METRICS-MVP (implementação read-only)
+
+1. **Service**: `backend/src/modules/economy/metrics/economic-metrics.service.ts`
+   - `getRegionalFundMetrics(tenantId, regionalFundId)` — público
+   - `getGroupMetrics(tenantId, groupId)` — público
+   - `getRegionalFundMetricsInternal(...)` / `getGroupMetricsInternal(...)` — admin (inclui `actorCount30d` + `uniqueGlobalUsers30d`)
+2. **Saída pública** (`PublicEconomicMetrics`): `balanceCents` + `pfVerifiedParticipants` + `pjVerifiedParticipants` + `pfActiveContributors30d` + `pjActiveContributors30d` + `unverifiedContributors30d` + `contributionVolume30dCents` + `lastContributionAt`. NUNCA expõe `tax_id`/`cpf`/`cnpj` nem `actor_count`.
+3. **Cadeia material de dedupe**: `bank_splits.source_actor_id → actors.global_user_id → identities.tax_id_type + kyc_status`. Dedupe correta via `COUNT(DISTINCT global_user_id) FILTER`.
+4. **Saldo**: `bankAccountService.getBalance()` (SSOT `bank_ledger`). Nunca `regional_funds.total_balance_cents`.
+5. **"Ativo"** = `bank_splits.created_at > NOW() - INTERVAL '30 days'` (K_metrics_2 = A).
+6. **Sem tabela nova / sem migration / sem cache** (K_metrics_6 = C, MVP real-time).
+7. **E2E** `validate-pipeline-e2e-policy-engine-metrics.ts` — **9 cenários T1-T9, 28 asserções, todos verdes**:
+   - T1 fundo vazio → zeros
+   - T2 1 actor 5x → 1 PF count (não 5)
+   - T3 2 actors mesmo CPF → 1 PF count (dedupe global_user_id)
+   - T4 PF + PJ separados
+   - T5 actor sem KYC → unverified
+   - T6 contribuição 31d não é ativo 30d
+   - T7 saldo bate ledger
+   - T8 payload sem CPF/CNPJ
+   - T9 actor_count só Internal
+
+### Bloco B — Contrato regional_origin_basis (documentação, sem implementação)
+
+1. **DT-REGIONAL-ORIGIN-BASIS-POLICY** registrada OPEN HIGH em `REMEDIATION_DT_LOG.md`.
+2. **CORE_SPLIT_PAGAMENTO_CANONICO §9.4** criada — enum de basis + regras inegociáveis (PF/PJ não cruzam, fail-closed quando dinâmico sem basis).
+3. **BANK_SEMANTICS** seção PE-4-METRICS + sub-seção regional_origin_basis.
+4. **Sem migration**. Sem alteração em PE-3.
+5. **Resolver dinâmico permanece FAIL-CLOSED** até DECISION-0049 (futura) formalizar.
+
+### Gates pós-PE-4
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | (a rodar pré-commit) |
+| validate:bank-ledger-boundaries | (a rodar) |
+| validate:regression-guards | (a rodar) |
+| validate-architectural-patterns --strict | (a rodar) |
+| E2E PE-1 (15) | (a verificar) |
+| E2E PE-3 (9) | (a verificar) |
+| E2E PE-4-METRICS (9) | PASS |
+
+### Provas materiais
+
+- Service NÃO importa `bank-ledger.repository` (só `bankAccountService.getBalance`)
+- Service NÃO importa `bank-transaction.service` (read-only)
+- Payload público sem `tax_id`/`cpf`/`cnpj` (T8 prova grep)
+- Payload público sem `actorCount30d` (T9 prova)
+- Dedupe por global_user_id (T3 prova: 2 actors mesmo CPF = 1 PF)
+- Janela 30d operacional (T6 prova: contribuição há 31d sai do ativo)
+
+### Modo
+
+PE-4-METRICS fechado. Contrato regional_origin_basis documentado e fail-closed.
+Próximo passo: decisão Clayton sobre DECISION-0049 (formalizar enum + escolher
+quando habilitar resolver dinâmico).

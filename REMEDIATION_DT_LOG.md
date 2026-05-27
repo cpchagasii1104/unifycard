@@ -6065,3 +6065,52 @@ PE-3 (planejada):
   - Policy que use APENAS os 4 papéis suportados funciona ponta a ponta.
   - Policy que use destino não suportado falha explicitamente em `service-payment-execution.service.createExecution` com mensagem clara (POLICY_DESTINATION_UNSUPPORTED + lista dos suportados).
   - Substrato PE-1 (resolver puro + cálculo) continua agnóstico — qualquer destino do enum funciona nele.
+
+---
+
+## DT-REGIONAL-ORIGIN-BASIS-POLICY
+
+- **Status:** OPEN (HIGH — bloqueia regional_fund dinâmico até contrato fechar)
+- **Origem:** PE-4-METRICS + conversa Clayton 2026-05-26 sobre regra de origem econômica do retorno regional. Premissa: regional_fund NÃO pode assumir uma única origem fixa (RESIDENCE da PF? HQ da PJ? local do serviço? local do cliente?). A escolha depende do tipo de actor (PF/PJ) e da política aplicada.
+
+### Contrato proposto (regional_origin_basis)
+
+Quando policy line tem `destination_type='regional_fund'` SEM `destination_key` explícito, o resolver dinâmico (frente PE-4 futura) DEVE consultar um campo `regional_origin_basis` que pode assumir:
+
+- `payer_identity_residence` — endereço RESIDENCE da identity do payer (CPF)
+- `receiver_identity_residence` — endereço RESIDENCE da identity do receiver (CPF) — útil quando o líquido vai para PF
+- `receiver_company_hq` — endereço HQ da `companies` do receiver (CNPJ)
+- `receiver_company_operational` — endereço OPERATIONAL da `companies` do receiver (CNPJ)
+- `service_location` — endereço da transação/booking/order
+- `transaction_location` — endereço do canal/loja onde a transação ocorreu
+- `explicit_economic_region` — engine NÃO resolve; policy aponta para `economic_region_id` via `destination_key`
+- `mixed_policy` — múltiplas linhas regional_fund na MESMA policy, cada uma com basis e share próprios
+
+### Regras inegociáveis do contrato
+
+1. **PF não assume HQ.** Se actor é PF, basis válidos são `*_identity_residence` ou `service_location`/`transaction_location`/`explicit_economic_region`/`mixed_policy`.
+2. **PJ não assume RESIDENCE do CPF responsável como default.** Se actor é PJ, basis válidos são `*_company_*` ou `service_location`/`transaction_location`/`explicit_economic_region`/`mixed_policy`.
+3. **Mixed policy** representa "X% para região do CPF + Y% para região do CNPJ" via múltiplas policy lines `regional_fund` (não via heurística no resolver).
+4. **Fail-closed** quando regional_fund dinâmico ativa sem `regional_origin_basis` definido: `REGIONAL_ORIGIN_BASIS_REQUIRED`.
+5. **destination_key explícito** continua permitido como override admin (ignora basis).
+6. **category / city / bairro / economic_region** continuam seletores possíveis da policy (selecionam QUAL regra aplica), não substituem basis (decide ORIGEM da região).
+7. **address_assignments** é a fonte material de "qual endereço é RESIDENCE/HQ/OPERATIONAL do actor". DECISION-0020 já formaliza esses roles.
+
+### O que NÃO faz parte deste contrato (frentes próprias)
+
+- Materialização de `economic_regions` + `economic_region_members` (DECISION-0020 §4) — necessária para `explicit_economic_region` resolver fundos múltiplos por cidade. Rastreado em `DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING`.
+- `service_location` / `transaction_location` requerem que `services` / `service_orders` / `bookings` ganhem `primary_address_id` FK — gap material a confirmar antes de habilitar esses basis.
+- Resolver completo de `mixed_policy` — múltiplas linhas regional_fund em uma policy exigem schema confirmando que `economic_policy_lines.destination_key` é nullable + suporte a múltiplas linhas mesmo `line_type` (já provado em PE-1 §I.2).
+
+### Status
+
+- **Documentado** em CORE_SPLIT_PAGAMENTO_CANONICO §9.4 (criada por esta fatia).
+- **Documentado** em BANK_SEMANTICS (seção PE-4 origin basis).
+- **Não implementado** — resolver dinâmico de regional_fund continua FAIL-CLOSED em `resolveSplitDestinationFromPolicy` (PE-3 já bloqueia).
+- **DECISION-0049** (próxima) deve formalizar o enum e regras inegociáveis se Clayton aprovar este contrato.
+
+### Não bloqueia
+
+- PE-4-METRICS (leitura) — independente desta decisão.
+- PE-3 / D-money — não afetados.
+- Fluxos que usam `destination_key` explícito — funcionam sem basis.

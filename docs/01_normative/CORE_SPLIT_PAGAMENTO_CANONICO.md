@@ -466,6 +466,39 @@ A resolução usa metadata para construir chaves hierárquicas.
 - Paraná: `split.service_booking.parana` → fee 3%
 - São Paulo: `split.service_booking.sao_paulo` → fee 5%
 
+### 9.4 Origem regional do fundo (regional_origin_basis) — DT-REGIONAL-ORIGIN-BASIS-POLICY (2026-05-26)
+
+Quando `destination_type='regional_fund'` SEM `destination_key` explícito, o
+resolver dinâmico (frente PE-4 futura) DEVE consultar `regional_origin_basis`
+da policy line. Valores conceituais previstos:
+
+| Basis                            | Resolução                                                              |
+|----------------------------------|------------------------------------------------------------------------|
+| `payer_identity_residence`       | RESIDENCE do CPF do payer (via `address_assignments`)                  |
+| `receiver_identity_residence`    | RESIDENCE do CPF do receiver                                           |
+| `receiver_company_hq`            | HQ do CNPJ do receiver (via `companies` + `address_assignments`)       |
+| `receiver_company_operational`   | OPERATIONAL do CNPJ do receiver                                        |
+| `service_location`               | Endereço do `service`/`service_order`/`booking`                        |
+| `transaction_location`           | Endereço do canal/loja onde a transação ocorreu                        |
+| `explicit_economic_region`       | Policy carrega `destination_key=<economic_region_id>`; engine não resolve |
+| `mixed_policy`                   | Múltiplas linhas `regional_fund` na MESMA policy, cada uma com basis e share próprios |
+
+**Regras inegociáveis:**
+
+1. PF NÃO assume HQ. Se actor é PF, basis válidos são `*_identity_residence` ou `service_location` / `transaction_location` / `explicit_economic_region` / `mixed_policy`.
+2. PJ NÃO assume RESIDENCE do CPF responsável como default. Se actor é PJ, basis válidos são `*_company_*` ou outros sem origem PF.
+3. **mixed_policy** representa "X% para região do CPF + Y% para região do CNPJ" via múltiplas policy lines `regional_fund` — NÃO via heurística no resolver.
+4. **Fail-closed** quando regional_fund dinâmico ativa sem `regional_origin_basis` definido: `REGIONAL_ORIGIN_BASIS_REQUIRED`.
+5. `destination_key` explícito continua override admin (ignora basis).
+6. `category` / `city` / `bairro` / `economic_region` continuam seletores da policy (selecionam QUAL regra aplica) — não substituem basis (decide ORIGEM da região).
+7. `address_assignments` é fonte material de qual endereço é RESIDENCE/HQ/OPERATIONAL (DECISION-0020).
+
+**Status atual:** contrato DOCUMENTADO; **não implementado**. Resolver dinâmico
+de `regional_fund` continua FAIL-CLOSED em PE-3 / `resolveSplitDestinationFromPolicy`.
+Rastreado em `DT-REGIONAL-ORIGIN-BASIS-POLICY` (OPEN HIGH).
+
+---
+
 ### 9.3 Variação por Categoria — ATUALIZADO por DECISION-0048
 
 **Status**: ✅ **PERMITIDA como seletor de policy** (não como calculador de split)
