@@ -6361,3 +6361,120 @@ Frente própria F-REFUND-POST-DMONEY:
 - DECISION-0051 (PE-5-RESOLVER-MVP — cenário PE-5 onde o gap fica visível)
 - DECISION-0052 (Bloco F adiado por esta DT)
 - CORE_ESTORNOS_FINANCEIROS_CANONICO §14.5 (referência cruzada)
+
+---
+
+## DT-REGIONAL-FUNDS-TOTAL-BALANCE-CENTS-DEPRECATION
+
+- **Status:** OPEN (LOW — coluna projeção legacy conflita com LEDGER_SOVEREIGNTY)
+- **Origem:** Auditoria forense 2026-05-27 (RAIO-X read-only, HEAD `ca3f1327`). Tabela `regional_funds` (migration 0014) possui coluna `total_balance_cents` que pretende guardar saldo do fundo regional. DECISION-0024 estabelece `bank_ledger` como SSOT financeiro único.
+
+### Por que importa pouco hoje
+
+- `regional_funds` tem **0 rows** no DB live (RAIO-X-PE-4 §C.1).
+- Nenhum caller ativo lê `total_balance_cents` como verdade financeira.
+- Saldo real dos fundos regionais é resolvido via `bankAccountService.getBalance(<system:regional_fund:tenant:region>)` direto do `bank_ledger`.
+
+### Por que ainda é dívida
+
+- Coluna existe no schema vivo. Se algum dev novo ler `total_balance_cents` esperando saldo, vai estar errado.
+- Confunde leitura de schema (parece SSOT, não é).
+
+### Resolução prevista
+
+Opção A: `ALTER TABLE regional_funds DROP COLUMN total_balance_cents` (limpeza definitiva — viável porque 0 rows = 0 risco material).
+Opção B: `ALTER TABLE regional_funds ALTER COLUMN total_balance_cents` + COMMENT explícito "DEPRECATED — não-SSOT; saldo real em bank_ledger via ensureRegionalFundBankAccountForRegion".
+Opção C: rename para `legacy_projected_balance_cents` (mais verboso, mesma utilidade do COMMENT).
+
+Default sugerido: **Opção A** (drop) — frente cirúrgica de 1 migration aditiva. Conviver com dívida classificada (feedback memória `nao_agir_como_resposta`) só vale se o drop carregar risco; aqui, com 0 rows, não carrega.
+
+### Não bloqueia
+
+Nada. Frente puramente cosmética/normativa.
+
+### Vinculadas
+
+- DECISION-0020 (Location Core soberano)
+- DECISION-0024 (bank_ledger = SSOT financeiro único)
+- DECISION-0051 (PE-5-RESOLVER-MVP — usa `ensureRegionalFundBankAccountForRegion`, não a tabela)
+- Auditoria forense `AUDITORIA_FORENSE_SPLIT_REGIONAL_POLICY_WALLET.md` §16 RISCO MÉDIO
+
+---
+
+## DT-USER-GROUP-ALLOCATIONS-SILENT-CALL-CLEANUP
+
+- **Status:** OPEN (LOW — call silencioso em substrato financeiro é anti-padrão de observabilidade)
+- **Origem:** Auditoria forense 2026-05-27. `bank-split-engine.service.ts:193-223` chama `userGroupAllocationRepository.findByUserId` dentro de try/catch tolerante. Tabela `user_group_allocations` **não existe no DB** (PE4 §E.1).
+
+### Comportamento atual
+
+- `findByUserId` falha silenciosamente, retorna `[]`.
+- Split engine segue normal, sem alocação para grupos.
+- Logs não emitem nada — invisível para monitoramento.
+
+### Por que importa pouco hoje
+
+- Tabela ausente, retorno sempre vazio.
+- Nenhum dinheiro foi movido para `group_accounts` (0 rows confirmado).
+- Bank-split-engine é caminho legado, subordinado por DECISION-0048.
+
+### Por que é dívida
+
+- Try/catch tolerante em substrato financeiro mascara qualquer falha real (não distingue "tabela ausente" de "DB caído" de "permissão negada").
+- Se alguém materializar `user_group_allocations` no futuro, o código ATIVA silenciosamente sem revisão de fluxo — pode mover dinheiro para grupos antes de qualquer aprovação institucional.
+
+### Resolução prevista
+
+Opção A: remover o bloco 193-223 do `bank-split-engine.service.ts` (frente PE-3 substitui esse engine; é dead code à espera de cutover).
+Opção B: trocar try/catch tolerante por feature-flag explícita (`ENABLE_GROUP_ALLOCATION_LEGACY`) que falha-aberto se tabela ausente — log estruturado em vez de silêncio.
+Opção C: materializar `user_group_allocations` + ativar fluxo (frente PE-N econômica de grupos, fora desta DT).
+
+Default sugerido: **Opção A** depois do cutover bank-split-engine → economic_policy_engine. Antes do cutover, **Opção B** se quiser limpar o silêncio sem mexer no path.
+
+### Não bloqueia
+
+Nada. Sem impacto financeiro real hoje.
+
+### Vinculadas
+
+- DECISION-0048 (bank-split-engine subordinado, cutover pendente)
+- Auditoria forense `AUDITORIA_FORENSE_SPLIT_REGIONAL_POLICY_WALLET.md` §11 + §16 RISCO MÉDIO
+
+---
+
+## DT-REFERRAL-LEGACY-CLEANUP
+
+- **Status:** OPEN (LOW — dead code de referral com risco de ativação acidental)
+- **Origem:** Auditoria forense 2026-05-27. `bank-split-engine.service.ts:167-191` aplica 5% referral hardcoded sobre profit se `referrerUserId != null`. `referral-helper.service.ts:13-91` (`getActiveReferral`) consulta tabelas `referrals` e `user_referral_links` — **ambas ausentes no DB** — com try/catch duplo. Retorna **sempre `null`** em produção.
+
+### Comportamento atual
+
+- `getActiveReferral` → `null` sempre.
+- Bloco de 5% nunca executa.
+- Nenhum dinheiro foi movido por referral genérico em produção.
+
+### Diferença com rides
+
+- `rides_referral_links` + `rides_referral_earnings`: tabelas existem (0 rows), fluxo vertical-específico próprio. Não confundir com a stack genérica desta DT.
+
+### Por que é dívida
+
+- 5% hardcoded escondido em substrato financeiro: se alguém materializar `referrals`/`user_referral_links` sem revisão, ativa fluxo silenciosamente.
+- `economic_policy_lines.line_type` inclui `referral` e `destination_type` inclui `referrer_actor_wallet`, mas `service-payment-execution.service.ts` tem `referrer_actor_wallet` em FAIL-CLOSED. Norma e código vivo divergem.
+
+### Resolução prevista
+
+Opção A: remover o bloco 167-191 + `referral-helper.service.ts` inteiro (dead code à espera de cutover).
+Opção B: deixar e materializar `referrals` (frente PE-N econômica de referral, fora desta DT) com economic_policy_engine.
+Opção C: hardcode → feature-flag explícita até cutover.
+
+Default sugerido: **Opção A** depois do cutover do bank-split-engine. Conviver só se a frente PE-N de referral for iminente.
+
+### Não bloqueia
+
+Nada. Helper retorna null há toda a história do projeto.
+
+### Vinculadas
+
+- DECISION-0048 (bank-split-engine subordinado, cutover pendente)
+- Auditoria forense `AUDITORIA_FORENSE_SPLIT_REGIONAL_POLICY_WALLET.md` §12 + §16

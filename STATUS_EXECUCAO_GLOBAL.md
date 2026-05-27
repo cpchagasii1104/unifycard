@@ -1,3 +1,26 @@
+## 2026-05-27 — Nota de auditoria: treasury-split é camada dormente, não duplica regional_fund (RAIO-X read-only)
+
+**Contexto.** Auditoria forense paralela (Claude Sonnet 4.6, HEAD `ca3f1327`) classificou como RISCO ALTO um possível double-routing de dinheiro para `regional_fund` via duas camadas: (1) split por transação (`bank-split-engine`/`economic_policy_engine` → conta `system:regional_fund:<tenant>` ou `system:regional_fund:<tenant>:<region>`) e (2) treasury-split pós-settlement (`treasury-split.service` → `treasury_accounts[regional_fund]`). A própria auditoria marcou como INCONCLUSIVO sem ler o worker nem consultar o DB.
+
+**Verificação material no DB live (HEAD `ca3f1327`):**
+
+| Verificação | Resultado |
+|---|---|
+| `SELECT COUNT(*) FROM treasury_split_executions` | **0 rows** |
+| `SELECT COUNT(*) FROM treasury_accounts` | **0 rows** (tabela existe mas nunca populada) |
+| `grep startTreasurySplitWorker backend/src` | só a própria declaração — **worker não é bootado** |
+| `bank_settlements` com `status='sent'` (única condição processada por `claimNextSettlementsPendingSplit`) | **0 rows** (7 total, todos em outros estados) |
+| `bank_accounts` com `owner_id LIKE 'system:platform:bank_settlement%'` (source account exigido por `executeSplit`) | **0 rows** — nem a conta de origem existe |
+| `bank_splits` live | 72 revenue_share + 35 fee + 23 regional_fund + 11 reserve (per-transaction split funciona normalmente) |
+
+**Conclusão material:** treasury-split é camada **dormente em quatro pontos** (worker não bootado, treasury_accounts vazia, source `bank_settlement` inexistente, `treasury_split_executions=0`). Mesmo se rodasse, cairia em no-op silencioso em todos os `if (dest)` por falta de contas destino. **Não há double-routing material em `regional_fund`.**
+
+**Arquiteturalmente:** treasury-split opera sobre `bank_settlement` (conta lifecycle agregada da plataforma) → `treasury_accounts` (namespace `treasury_accounts.account_id`). Per-transaction split opera sobre conta do pagador → `bank_accounts(owner_id='system:regional_fund:...')`. Origens diferentes, destinos em **namespaces de owner_id diferentes**. Camada distinta — governança da plataforma sobre receita líquida pós-payout, não distribuição do pagamento do comprador. Reconciliação formal com DECISION-0048 fica para frente futura (não bloqueia).
+
+**Objetivo desta nota:** evitar que próxima auditoria repita o falso positivo. Nenhuma DT aberta neste vetor — substrato dormente comprovado, sem ação requerida.
+
+---
+
 ## 2026-05-27 — F-REFUND-SPLIT-AWARE-HARDENING: taxonomia + autoria forte + linkage de splits no motor de estorno (DECISION-0052)
 
 **Branch:** `rescue-structural`

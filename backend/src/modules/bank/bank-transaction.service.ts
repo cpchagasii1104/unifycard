@@ -1781,6 +1781,27 @@ class BankTransactionService {
   }
 
   /**
+   * Leitura leve de referência canônica — usado pelo guard pós-D-money do motor
+   * de reversão antes de qualquer operação bank.
+   * SELECT sem lock; usar apenas para pré-condição de leitura.
+   */
+  async getTransactionReferenceInfo(
+    tenantId: string,
+    transactionId: string
+  ): Promise<{ referenceType: string | null; referenceId: string | null } | null> {
+    const r = await runQueryWithTenant<{ reference_type: string | null; reference_id: string | null }>(
+      tenantId,
+      `SELECT reference_type, reference_id
+         FROM bank_transactions
+        WHERE tenant_id = $1 AND id = $2
+        LIMIT 1`,
+      [tenantId, transactionId]
+    );
+    if (!r) return null;
+    return { referenceType: r.reference_type, referenceId: r.reference_id };
+  }
+
+  /**
    * DECISION-0052 §14.3: anota metadata canônica de leg reversa em
    * bank_transactions.metadata. Append seguro (jsonb || jsonb) — não
    * altera amount/account/direction; só registra rastreabilidade

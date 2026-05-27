@@ -31,6 +31,51 @@ export type { ReversalRow };
 
 const REVERSAL_LEG_NAMESPACE = 'a3b5c7d9-e1f2-4a5b-8c9d-0e1f2a3b4c5d';
 
+/**
+ * Guard pós-D-money (F-REFUND-POST-DMONEY Parte A).
+ *
+ * Se o payment_intent associado à transação original já está em
+ * 'released_to_actor_wallet', executar o reversal pelo caminho atual
+ * drenaria o pool de escrow_payments de pagamentos alheios, pois
+ * o revenue_share já foi transferido para actor_wallet do prestador.
+ *
+ * Lança REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW e registra
+ * evento financeiro auditável. Sem escrita no ledger nem criação de transação.
+ *
+ * Aplica-se apenas a transações com reference_type='service_execution'
+ * (único fluxo que passa por D-money hoje).
+ *
+ * Ref: DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH)
+ */
+async function checkPostDmoneyBlock(
+  tenantId: string,
+  originalTransactionId: string
+): Promise<void> {
+  const ref = await bankTransactionService.getTransactionReferenceInfo(tenantId, originalTransactionId);
+  if (!ref || ref.referenceType !== 'service_execution' || !ref.referenceId) return;
+  const intent = await getPaymentIntentByReference(tenantId, ref.referenceId);
+  if (intent?.status === 'released_to_actor_wallet') {
+    logFinancialEvent({
+      financial_event: 'reversal_blocked_post_dmoney',
+      tenant_id: tenantId,
+      metadata: {
+        original_transaction_id: originalTransactionId,
+        payment_intent_id: intent.id,
+        payment_intent_status: intent.status,
+        dt_ref: 'DT-PE5-REFUND-POST-DMONEY-CHAIN',
+      },
+    });
+    throw new Error(
+      'REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW: ' +
+        'payment_intent.payment_status=released_to_actor_wallet — ' +
+        'o revenue_share já foi transferido de escrow_payments para actor_wallet do prestador. ' +
+        'Executar o estorno pelo caminho atual drenaria escrow de outros pagamentos. ' +
+        'Aguarda implementação da Parte B (DECISION-0053 — actor_wallet recovery obligations). ' +
+        'Ref: DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH).'
+    );
+  }
+}
+
 export async function requestReversal(
   tenantId: string,
   input: CreateReversalRequestInput
@@ -41,6 +86,7 @@ export async function requestReversal(
     action: 'financial_reversal_request',
     amountCents: input.amountCents,
   });
+  await checkPostDmoneyBlock(tenantId, input.originalTransactionId);
   const row = await createReversalRequest(tenantId, input);
   logFinancialEvent({
     financial_event: 'reversal_requested',
@@ -164,6 +210,11 @@ export async function executeReversal(
       await client.query('ROLLBACK');
       throw new Error('REVERSAL_OF_REVERSAL_NOT_SUPPORTED');
     }
+
+    // Guard pós-D-money: defesa-em-profundidade dentro da transação.
+    // Cobre caso onde D-money correu enquanto reversal já estava em 'pending'/'failed'.
+    // Se lançar, o catch abaixo chama markFailed (status='failed') e faz ROLLBACK.
+    await checkPostDmoneyBlock(tenantId, origId);
 
     const totalCents = locked.amount_cents;
     if (totalCents !== rev.amountCents) {
@@ -382,6 +433,9 @@ export async function requestAndExecuteReversalSync(
   if (existing?.status === 'executed' && existing.reversalTransactionId) {
     return executeReversal(tenantId, existing.id);
   }
+  // Guard pós-D-money: cobre novos reversals, retentativas de 'failed' e 'pending'.
+  // Idempotência de 'executed' (acima) é a única exceção — retorna sem nova execução.
+  await checkPostDmoneyBlock(tenantId, input.originalTransactionId);
   let reversalId: string;
   if (!existing) {
     const { requireFinancialRiskClearance } = await import('@modules/risk-identity/risk-financial-gate');
