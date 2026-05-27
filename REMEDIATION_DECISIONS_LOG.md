@@ -4119,3 +4119,104 @@ A fatia F-REFUND-SPLIT-AWARE-HARDENING endurece o motor SEM reescrita: adiciona 
 ### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0053 — Actor Wallet Recovery Obligations
+
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Implementação não autorizada até C2–C7 satisfeitos.
+**Sessão:** 2026-05-27 (F-REFUND-POST-DMONEY Parte B — READ-FIRST + DECISION-0053)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após implementação)
+
+### Contexto
+
+F-REFUND-POST-DMONEY Parte A (commit `4c04e8d7`) bloqueou o reversal automático quando
+`payment_intent.payment_status = 'released_to_actor_wallet'`, lançando
+`REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW`. Auditoria READ-FIRST (2026-05-27) confirmou
+que nenhum substrato existente é reutilizável para recovery pós-D-money:
+`financial_freezes` (fantasma), `actor_debts` (domínio de evento + schema drift),
+`payout_requests` (seller exclusivo), `bank_accounts` sem campos de hold,
+`approval_requests` não materializado no banco.
+
+### Decisão
+
+Criar substrato canônico `actor_wallet_recovery_obligations` + tabela filha
+`actor_wallet_recovery_obligation_entries` para obrigações de recuperação pós-D-money.
+
+### Axiomas inegociáveis
+
+1. **Recovery obligation NÃO é estorno parcial.** Estorno continua total conforme
+   `CORE_ESTORNOS §11.2`. Recovery é obrigação pós-release em camada separada.
+2. **Reversal tradicional permanece bloqueado para `released_to_actor_wallet`, sempre.**
+   Nem `recovered` nem `cancelled` nem `failed` liberam o reversal tradicional.
+   Recovery pós-D-money é fluxo próprio — não desbloqueio do caminho antigo.
+   (Razão: revenue_share já saiu de `escrow_payments` para `actor_wallet`; executar
+   reversal tradicional depois tentaria devolver via split original, gerando duplo
+   pagamento ao payer ou drenagem de escrow de terceiros.)
+3. **`bank_ledger` é única verdade de saldo.** Qualquer movimentação de recovery
+   transita via `bank_transactions → bank_ledger`.
+4. **Sem saldo negativo.** Saldo insuficiente → obrigação em `partially_recovered`.
+5. **Sem intermediação por `risk_reserve`, `platform_fees`, `regional_fund` ou
+   `escrow_payments`.** Cadeia: `actor_wallet do devedor → conta canônica do payer`.
+6. **Uma obrigação por caso, sem exceção de status.** Unique index total sem filtro
+   WHERE em `(tenant_id, payment_intent_id, original_transaction_id, debtor_actor_id)`.
+   Reabrir caso terminal exige fluxo administrativo auditado com DECISION/autoridade própria.
+7. **Approval é pré-requisito hard para execução financeira.** Criação pode ser
+   `pending_approval` (sem mover dinheiro). Execução financeira fail-closed até
+   `approval_requests`/`approval_votes` estarem materializados.
+
+### Schema conceitual aprovado
+
+**`actor_wallet_recovery_obligations`** (campos causais imutáveis):
+`id, tenant_id, debtor_actor_id, debtor_account_id, creditor_actor_id (NOT NULL),
+creditor_account_id (NOT NULL), original_transaction_id, payment_intent_id,
+reversal_id (nullable), amount_cents CHECK(>0), reason`
+
+**Campos operacionais** (projeções — mudam por serviço canônico):
+`status DEFAULT 'pending_approval', recovered_amount_cents DEFAULT 0,
+approval_request_id (nullable), updated_at`
+
+**Invariante no banco:** `CHECK (recovered_amount_cents >= 0 AND recovered_amount_cents <= amount_cents)`
+
+**Unique index total:** `(tenant_id, payment_intent_id, original_transaction_id, debtor_actor_id)` — sem filtro WHERE
+
+**`actor_wallet_recovery_obligation_entries`** (append-only, trilha de recuperações efetivas):
+`id, tenant_id, obligation_id, recovery_transaction_id, amount_cents CHECK(>0), created_at`
+
+`recovered_amount_cents` na tabela principal é projeção que deve reconciliar com
+`SUM(entries.amount_cents)`.
+
+### Estados válidos
+
+`pending_approval → approved → partially_recovered → recovered (terminal)`
+`pending_approval → cancelled (terminal)`
+`approved → failed (terminal)`
+
+### Pré-requisitos de implementação
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA (esta sessão) |
+| C2 | `approval_requests`/`approval_votes` materializados | PENDENTE — DT-CORE-APPROVAL-REQUESTS-MISSING |
+| C3 | Serviço de débito de `actor_wallet` | PENDENTE — DT-ACTOR-WALLET-DEBIT-MISSING |
+| C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration revisada em sessão separada | PENDENTE |
+| C7 | Fluxo de finalização pós-D-money (substituto do reversal) | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Vinculadas
+
+- DECISION-0052 (Bloco F adiado — esta DECISION endereça)
+- CORE_ESTORNOS_FINANCEIROS_CANONICO §11.2 (recovery ≠ estorno parcial)
+- CORE_APROVACAO_FINANCEIRA_CANONICO (approval como pré-requisito para execução)
+- DECISION-0046 (actor_wallet canônico — invariante preservada)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH — fecha quando fluxo pós-D-money completo)
+- DT-CORE-APPROVAL-REQUESTS-MISSING (nova OPEN HIGH — pré-requisito C2)
+- DT-ACTOR-WALLET-DEBIT-MISSING (nova OPEN HIGH — pré-requisito C3)
+- DT-DMONEY-FINALIZATION-FLOW-MISSING (nova OPEN HIGH — pré-requisito C7)
+- DT-RECOVERY-PAYOUT-GATE (nova OPEN MEDIUM — L4 segunda parte, fora do escopo desta DECISION)
+
+### Superada por
+
+(preencher quando superada)

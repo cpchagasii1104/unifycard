@@ -6299,7 +6299,7 @@ Frente própria (F-APROVACAO-FINANCEIRA):
 
 ## DT-PE5-REFUND-POST-DMONEY-CHAIN
 
-- **Status:** OPEN (HIGH — inconsistência material após release do escrow)
+- **Status:** OPEN (HIGH — substrato de recovery documentado em DECISION-0053; implementação bloqueada até C2–C7)
 - **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). Investigação revelou que o motor de estorno atual NÃO TEM caminho material limpo para reverter um pagamento depois que o D-money já liberou `revenue_share` para o `actor_wallet` do worker.
 
 ### Comportamento material observado
@@ -6348,19 +6348,39 @@ Clayton determinou explicitamente: **"F: não fazer agora"**. A correção é fr
 
 - Quando UX de refund manual for adicionada (Bloco C / F-APROVACAO-FINANCEIRA), se a rota não bloquear pós-D-money explicitamente, o gap material vira incidente em produção.
 
+### Progresso
+
+**Parte A — FECHADA** (commit `4c04e8d7`, 2026-05-27):
+- Guard `checkPostDmoneyBlock` bloqueia `requestReversal`/`executeReversal`/`requestAndExecuteReversalSync`
+  quando `payment_intent.payment_status = 'released_to_actor_wallet'`.
+- Lança `REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW` antes de qualquer escrita em
+  `bank_ledger`/`bank_transactions`/`bank_splits`.
+- Drena de escrow de terceiros impossível enquanto guard ativo.
+
+**Parte B — DECISION-0053 APROVADA** (2026-05-27, registro documental):
+- Substrato canônico definido: `actor_wallet_recovery_obligations` + `actor_wallet_recovery_obligation_entries`.
+- Implementação bloqueada até C2–C7 (ver DECISION-0053).
+
 ### Resolução prevista
 
-Frente própria F-REFUND-POST-DMONEY:
-1. Decisão Clayton sobre Opção 1/2/3.
-2. Materialização da opção escolhida (migration + service + E2E).
-3. Bloqueio explícito (CHECK ou pré-condição) em `requestReversal` para impedir estorno pós-D-money no caminho "burro" atual.
+Sequência de implementação:
+1. DT-CORE-APPROVAL-REQUESTS-MISSING → materializar `approval_requests`/`approval_votes`.
+2. DT-ACTOR-WALLET-DEBIT-MISSING → serviço de débito de `actor_wallet` via `bank_transactions`.
+3. DECISION-0053 migration + service (C1–C6 satisfeitos).
+4. DT-DMONEY-FINALIZATION-FLOW-MISSING → fluxo próprio de finalização pós-D-money
+   (substituto do reversal tradicional após obrigação `recovered`).
+5. Fechar esta DT com E2E end-to-end G-DECISION-0053-01 a 15 verdes.
 
 ### Vinculadas
 
 - DECISION-0046 (actor_wallet canônico — invariante violada)
 - DECISION-0051 (PE-5-RESOLVER-MVP — cenário PE-5 onde o gap fica visível)
 - DECISION-0052 (Bloco F adiado por esta DT)
+- DECISION-0053 (substrato de recovery aprovado — implementação pendente)
 - CORE_ESTORNOS_FINANCEIROS_CANONICO §14.5 (referência cruzada)
+- DT-CORE-APPROVAL-REQUESTS-MISSING (pré-requisito C2)
+- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito C3)
+- DT-DMONEY-FINALIZATION-FLOW-MISSING (pré-requisito C7)
 
 ---
 
@@ -6478,3 +6498,163 @@ Nada. Helper retorna null há toda a história do projeto.
 
 - DECISION-0048 (bank-split-engine subordinado, cutover pendente)
 - Auditoria forense `AUDITORIA_FORENSE_SPLIT_REGIONAL_POLICY_WALLET.md` §12 + §16
+
+---
+
+## DT-CORE-APPROVAL-REQUESTS-MISSING
+
+- **Status:** OPEN (HIGH — pré-requisito hard para execução financeira de recovery pós-D-money)
+- **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
+  revelou que `approval_requests` e `approval_votes` estão definidos em
+  `CORE_APROVACAO_FINANCEIRA_CANONICO.md` mas as tabelas **não existem no banco**.
+
+### Impacto
+
+- `CORE_APROVACAO_FINANCEIRA_CANONICO.md` exige approval para `internal_refund` e qualquer
+  execução financeira de recovery.
+- Sem as tabelas, `actor_wallet_recovery_obligations` só pode nascer em `pending_approval`
+  mas nunca avançar para `approved` — qualquer execução financeira de recovery é fail-closed.
+- `DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE` já rastreia a decisão de produto (síncrono
+  vs assíncrono, thresholds, quórum). Esta DT é complementar: foca na materialização das tabelas.
+
+### Não bloqueia hoje
+
+- Guard da Parte A (commit `4c04e8d7`) já protege o fluxo de estorno.
+- Criação da obrigação em `pending_approval` pode ocorrer sem as tabelas.
+- Nenhum caller de `internal_refund` em produção até rota de UI/API for adicionada.
+
+### Resolução prevista
+
+1. Raio-x completo de `CORE_APROVACAO_FINANCEIRA_CANONICO.md` vs schema vivo (frente
+   F-APROVACAO-FINANCEIRA — ver DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE).
+2. Migration para `approval_requests` + `approval_votes` com schema canônico.
+3. Integração do gate no fluxo de recovery (DECISION-0053 C2 satisfeito).
+
+### Vinculadas
+
+- DECISION-0053 (pré-requisito C2 — bloqueia execução financeira de recovery)
+- DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (decisão de produto sobre approval)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md (norma que define o schema)
+
+---
+
+## DT-ACTOR-WALLET-DEBIT-MISSING
+
+- **Status:** OPEN (HIGH — pré-requisito hard para execução financeira de recovery pós-D-money)
+- **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
+  confirmou que não existe nenhum serviço de débito de `actor_wallet` via
+  `bank_transactions`/`bank_ledger`.
+
+### Estado atual
+
+- `actor-wallet-statement.service.ts` é READ-ONLY — expõe extrato e saldo, sem débito.
+- `bankAccountService.getBalance()` resolve saldo via `bank_ledger` (correto).
+- Nenhum `actor_wallet_debit_service`, `actor_wallet_payout_service` ou equivalente existe.
+- `payout_requests` (módulo plural) é exclusivo do fluxo `seller_available → seller_payout`;
+  sem vínculo com `actor_wallet`.
+- `actor_wallet` tem 45 contas e 373.300 cents de saldo no runtime — sem caminho de saída.
+
+### Impacto
+
+- DECISION-0053 requer que recovery debite `actor_wallet` do devedor via `bank_transactions`.
+- Sem este serviço, execução de recovery é impossível mesmo com approval materializado.
+
+### Não bloqueia hoje
+
+- Guard da Parte A protege estorno direto.
+- Nenhum fluxo de saque/payout de `actor_wallet` está ativo em produção.
+
+### Resolução prevista
+
+1. Novo serviço canônico de débito de `actor_wallet`:
+   - `actorWalletDebitService.debit(tenantId, actorId, accountId, amountCents, referenceType, referenceId)`
+   - Escreve via `bankTransactionService.transfer` (módulo bank, respeita GATE-4).
+   - Valida saldo via `bankAccountService.getBalance` antes de debitar.
+   - Proibe saldo negativo.
+2. Integração com DECISION-0053 recovery execution (C3 satisfeito).
+
+### Vinculadas
+
+- DECISION-0053 (pré-requisito C3 — bloqueia execução financeira de recovery)
+- DECISION-0046 (actor_wallet canônico — invariante deve ser preservada no débito)
+- DECISION-0044 (bank-ledger boundaries — débito transita via módulo bank)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)
+
+---
+
+## DT-DMONEY-FINALIZATION-FLOW-MISSING
+
+- **Status:** OPEN (HIGH — fluxo de finalização pós-D-money inexistente após obrigação `recovered`)
+- **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). A DECISION define o
+  substrato de recovery mas explicitamente exclui do escopo o fluxo de finalização pós-D-money
+  após a obrigação atingir `recovered`.
+
+### O que está faltando
+
+Quando `actor_wallet_recovery_obligations.status = 'recovered'`:
+- O payer foi compensado via recovery (actor_wallet → payer account).
+- O `payment_intent` ainda está em `released_to_actor_wallet`.
+- O reversal tradicional está bloqueado (guard da Parte A).
+- Não existe fluxo canônico para fechar este intent de forma limpa.
+
+Este fluxo deve:
+- Marcar o intent como finalizado pós-recovery (novo status? `refunded_via_recovery`? DECISION futura).
+- Não reutilizar `reversed` (esse status é do reversal tradicional).
+- Garantir que nenhuma duplicação de reembolso seja possível.
+- Ser rastreável via `bank_ledger` + `actor_wallet_recovery_obligations`.
+
+### Não bloqueia hoje
+
+- Guard da Parte A já bloqueia estorno perigoso.
+- Obrigação pode nascer e ser registrada sem este fluxo.
+- Nenhuma rota de UI/API de refund manual em produção.
+
+### Resolução prevista
+
+DECISION separada futura (número a definir):
+1. Definir status final do `payment_intent` após recovery completo.
+2. Definir fluxo canônico de "fechar intent pós-recovery" sem reversal.
+3. E2E end-to-end: guard bloqueia → obrigação criada → recovery executado → intent fechado.
+
+### Vinculadas
+
+- DECISION-0053 (pré-requisito C7 — esta DT é o próximo passo após C1–C6 satisfeitos)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha somente quando esta DT também for resolvida)
+- DECISION-0052 (Bloco F — estorno pós-D-money indefinido)
+
+---
+
+## DT-RECOVERY-PAYOUT-GATE
+
+- **Status:** OPEN (MEDIUM — compensação de créditos futuros antes de saque, fora do escopo de DECISION-0053)
+- **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor
+  não tem saldo suficiente para recovery total, a obrigação fica `partially_recovered`. Futuros
+  créditos nessa conta (novos revenue_share, por exemplo) poderiam ser compensados antes de
+  qualquer saque do devedor.
+
+### O que está faltando
+
+- Gate de payout que verifique `actor_wallet_recovery_obligations` com status
+  `pending_approval`/`approved`/`partially_recovered` antes de liberar saque.
+- Serviço de compensação automática: crédito entra em `actor_wallet` → drena obrigação pendente
+  antes de disponibilizar para saque.
+- Sem este gate, devedor pode receber novos créditos e sacar sem quitar obrigação de recovery.
+
+### Não bloqueia hoje
+
+- Nenhum serviço de saque de `actor_wallet` existe (DT-ACTOR-WALLET-DEBIT-MISSING).
+- Sem saque, sem risco de fuga.
+
+### Resolução prevista
+
+Frente própria após DECISION-0053 implementada:
+1. Gate de payout verificando obrigações ativas antes de liberar saque.
+2. Lógica de compensação automática de crédito entrante.
+3. E2E: crédito entra, drena obrigação parcial, saldo restante disponível para saque.
+
+### Vinculadas
+
+- DECISION-0053 §L4 (origem da decisão de compensação futura)
+- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito para o gate de saque existir)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (relacionada — recovery parcial pode bloquear saque)

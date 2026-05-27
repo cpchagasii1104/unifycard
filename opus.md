@@ -6,6 +6,25 @@
 
 ---
 
+## Sessão 2026-05-27 — F-REFUND-POST-DMONEY Parte A + READ-FIRST + DECISION-0053
+
+- **Parte A fechada** (commit `4c04e8d7`): guard `checkPostDmoneyBlock` bloqueia os 3 entry points
+  do reversal quando `payment_intent.payment_status = 'released_to_actor_wallet'`. Lança
+  `REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW`. Protege escrow de terceiros. E2E 7/7 verde.
+- **Falso positivo GATE 4** corrigido: comentário continha literal `bank_ledger` e disparava regex
+  de `NO_DIRECT_BANK_TABLE_ACCESS`. Fix: reescrita do comentário sem o literal.
+- **READ-FIRST**: nenhum substrato existente serve para recovery pós-D-money.
+  `financial_freezes` = fantasma. `actor_debts` = domínio errado + schema drift.
+  `approval_requests`/`approval_votes` = não existem no banco.
+- **DECISION-0053 aprovada**: duas tabelas (`actor_wallet_recovery_obligations` +
+  `actor_wallet_recovery_obligation_entries`). Axioma crítico: reversal tradicional
+  permanece bloqueado MESMO após `recovered`/`cancelled` — recovery é fluxo próprio,
+  não desbloqueio do caminho antigo. Unique index total sem filtro WHERE.
+- **Próximo passo**: materializar `approval_requests` (DT-CORE-APPROVAL-REQUESTS-MISSING)
+  antes de qualquer código de recovery. Não implementar DECISION-0053 sem C2–C7.
+
+---
+
 ## Sessão 2026-05-27 — F-REFUND-SPLIT-AWARE-HARDENING (DECISION-0052)
 
 - Auditei o motor de estorno (`reversal.service.ts` + `reversal.repository.ts`). Achado material: **JÁ É split-aware desde o Prompt 51** — `loadSplitLegsForReversal` lê splits originais e cada um vira uma transferência reversa. PE-5 não criou bomba. Faltava só etiqueta, assinatura e câmera.

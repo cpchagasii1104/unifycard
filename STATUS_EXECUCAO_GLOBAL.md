@@ -6276,3 +6276,63 @@ GPS regional ligado para PJ. PF aguarda V2. PE-5-RESOLVER-V2 + wizard de
 onboarding PJ + group_allocation / referral / channel_commission são as
 próximas frentes naturais (em ordem: cartório PJ UX → PF → grupos → referral
 → channel). Sem urgência cega — fatia entrega substrato + caminho seguro.
+
+---
+
+## Sessão 2026-05-27 — F-REFUND-POST-DMONEY Parte A (resgate) + READ-FIRST + DECISION-0053
+
+### Contexto
+
+Sessão de resgate forense: instância anterior havia ficado presa com 21 processos
+node órfãos em loop Redis ECONNREFUSED. Resgate diagnóstico, auditoria de git,
+correção de falso positivo no GATE 4, E2Es limpos, commit da Parte A.
+
+Em seguida: auditoria READ-FIRST para DECISION-0053.
+
+### Entregue
+
+1. **F-REFUND-POST-DMONEY Parte A — FECHADA** (commit `4c04e8d7`):
+   - Guard `checkPostDmoneyBlock` em `reversal.service.ts` bloqueia os 3 entry points
+     (`requestReversal`, `executeReversal`, `requestAndExecuteReversalSync`) quando
+     `payment_intent.payment_status = 'released_to_actor_wallet'`.
+   - Lança `REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW` antes de qualquer escrita.
+   - `bank-transaction.service.ts` ganhou `getTransactionReferenceInfo()` (read-only).
+   - E2E `validate-pipeline-e2e-refund-post-dmoney-guard.ts` — 7 cenários verdes.
+   - Falso positivo GATE 4 corrigido (comentário reescrito, sem `bank_ledger` literal).
+
+2. **Auditoria READ-FIRST (DECISION-0053):**
+   - `financial_freezes`: fantasma (0 rows, 0 callers, não integrado ao `transfer()`).
+   - `actor_debts`: domínio de evento, schema drift, sem FKs de payment.
+   - `payout_requests`: seller exclusivo.
+   - `bank_accounts`: sem campos de hold/reserva.
+   - `approval_requests`/`approval_votes`: definidos em norma, não materializados no banco.
+   - `actor_wallet`: 45 contas, 373.300 cents, sem débito/payout service.
+   - Conclusão: nenhum substrato existente é reutilizável. Exige schema novo.
+
+3. **DECISION-0053 — APROVADA PARA REGISTRO DOCUMENTAL:**
+   - Substrato: `actor_wallet_recovery_obligations` + `actor_wallet_recovery_obligation_entries`.
+   - Axiomas: recovery ≠ estorno parcial; reversal bloqueado para sempre em
+     `released_to_actor_wallet`; unique index total por caso; approval fail-closed;
+     sem saldo negativo; bank_ledger como SSOT.
+   - Implementação NÃO autorizada até C2–C7 satisfeitos.
+
+4. **DTs abertas nesta sessão:**
+   - DT-CORE-APPROVAL-REQUESTS-MISSING (OPEN HIGH)
+   - DT-ACTOR-WALLET-DEBIT-MISSING (OPEN HIGH)
+   - DT-DMONEY-FINALIZATION-FLOW-MISSING (OPEN HIGH)
+   - DT-RECOVERY-PAYOUT-GATE (OPEN MEDIUM)
+   - DT-PE5-REFUND-POST-DMONEY-CHAIN: atualizada — Parte A fechada, Parte B documentada.
+
+### Frentes bloqueantes para Parte B
+
+| Frente | DT | Prioridade |
+|--------|----|------------|
+| Materializar `approval_requests`/`approval_votes` | DT-CORE-APPROVAL-REQUESTS-MISSING | HIGH |
+| Serviço de débito de `actor_wallet` | DT-ACTOR-WALLET-DEBIT-MISSING | HIGH |
+| Fluxo de finalização pós-D-money | DT-DMONEY-FINALIZATION-FLOW-MISSING | HIGH |
+
+### Modo
+
+DECISION-0053 registrada. Guard da Parte A protege o sistema. Próximo passo:
+materializar `approval_requests` (frente F-APROVACAO-FINANCEIRA) antes de qualquer
+código de recovery. Não iniciar DECISION-0053 implementação sem C2–C7 satisfeitos.
