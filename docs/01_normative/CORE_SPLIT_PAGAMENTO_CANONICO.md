@@ -508,10 +508,13 @@ line É OBRIGADA a declarar `regional_origin_basis` (CHECK Postgres
 - TS `RegionalOriginBasis` enum (7 valores)
 - E2E PE-1 T16/T17/T18 provando CHECK do Postgres (não Zod)
 
-**Status do resolver dinâmico:** **NÃO implementado.** Continua FAIL-CLOSED em PE-3 /
-`resolveSplitDestinationFromPolicy`. Pré-requisito UX para habilitação
-rastreado em `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` (OPEN HIGH).
-DECISION-0049 entrega CONTRATO + SCHEMA; resolver é frente futura.
+**Status do resolver dinâmico (atualizado por DECISION-0051, 2026-05-26):**
+
+- ✅ **PJ implementado em MVP:** `receiver_company_operational` + `receiver_company_hq` + `mixed_policy` funcionais em `service-payment-execution.service.resolveRegionalFundDestination`.
+- ❌ **PF fail-closed:** `receiver_identity_residence` / `payer_identity_residence` retornam `POLICY_BASIS_UNSUPPORTED_MVP` (aguarda PE-5-RESOLVER-V2 + auditoria `profile_id`, vide `DT-PE5-PF-RESOLVER-PENDING`).
+- ❌ **`service_location` / `transaction_location` fail-closed:** sem fonte material no schema.
+- ❌ **`explicit_economic_region` fail-closed:** `economic_regions` não materializada.
+- **HQ NUNCA é fallback automático.** Sem OPERATIONAL ativo, `receiver_company_operational` falha `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` — não cai em HQ. Para HQ ser usado, policy declara `receiver_company_hq` explicitamente.
 
 **Convenção de cartório operacional (DECISION-0050, 2026-05-26):**
 

@@ -1395,3 +1395,28 @@ em ledger/split/payment.
 
 Resolver dinâmico (PE-5-RESOLVER) continua FAIL-CLOSED — só será habilitado
 quando UX/onboarding garantir OPERATIONAL cadastrado para PJ.
+
+---
+
+## DECISION-0051 — PE-5-RESOLVER-MVP PJ-only (2026-05-26)
+
+Resolver dinâmico de `regional_fund` HABILITADO para PJ:
+
+```
+receiver_company_operational → getOperationalAddressForActor(receiverActorId)
+                                → ensureRegionalFundBankAccountForRegion
+receiver_company_hq          → address_assignments(owner_type='company',
+                                  owner_id=receiver.company_id, role='HQ')
+                                → ensureRegionalFundBankAccountForRegion
+mixed_policy                 → N linhas regional_fund independentes
+```
+
+**Regra mestre permanente:**
+
+> "regional_fund cai DIRETO na conta do fundo regional (city-level via
+> ensureRegionalFundBankAccountForRegion), nunca em actor_wallet. D-money
+> só toca metadata.splits onde releaseToActorWallet=true (= revenue_share).
+> HQ NUNCA é fallback automático de OPERATIONAL — code não interpreta
+> intenção. PF basis (identity_residence) fail-closed até PE-5-RESOLVER-V2."
+
+E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.

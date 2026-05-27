@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0050 (2026-05-26) |
+| Última entrada | DECISION-0051 (2026-05-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -3974,6 +3974,83 @@ OPERATIONAL (unidade operacional de actor):
 - DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL (permanece OPEN HIGH; convenção atualizada)
 - DT-PE5-CARTORIO-ENDPOINT-AUTH (nova)
 - DT-PE5-CARTORIO-ATOMICITY (nova)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0051 — Resolver dinâmico de regional_fund PJ-only (PE-5-RESOLVER-MVP)
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (Q-real = A, PJ-only, decisão Clayton confirmada por ChatGPT)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit)
+
+### Decisão
+
+O resolver dinâmico de `regional_fund` (chamado em `service-payment-execution.service.createExecution` quando policy line tem `destination_type='regional_fund' AND destination_key IS NULL`) suporta APENAS **basis PJ** no MVP:
+
+- `receiver_company_operational` — via helper `operationalAddressHelper.getOperationalAddressForActor(receiverActorId)` (PE-5-CARTÓRIO/DECISION-0050)
+- `receiver_company_hq` — via `address_assignments(owner_type='company', owner_id=<receiver.company_id>, role='HQ')`
+- `mixed_policy` — múltiplas linhas `regional_fund` independentes; cada uma resolve seu basis próprio (DECISION-0049 §regra 7)
+
+**Todos os demais basis ficam FAIL-CLOSED no MVP:**
+
+- `receiver_identity_residence` / `payer_identity_residence` → aguarda PE-5-RESOLVER-V2 + auditoria `profile_id` canônico (`DT-PE5-PF-RESOLVER-PENDING`)
+- `service_location` → sem `services.primary_address_id` no schema
+- `transaction_location` → sem fonte material
+- `explicit_economic_region` → `economic_regions` não materializada (`DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING`)
+
+### Regras inegociáveis
+
+1. **HQ NUNCA é fallback automático de OPERATIONAL.** Se policy declara `basis='receiver_company_operational'` e actor não tem OPERATIONAL ativo, falha `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` — NÃO cai em HQ. Para HQ ser usado, policy declara `basis='receiver_company_hq'` explicitamente em linha separada (ou única).
+2. **`regional_fund` NUNCA entra em `payment_intent.metadata.splits` liberável para `actor_wallet`.** O split cai direto na conta do fundo regional na MESMA bank_transaction da execução; D-money não toca esses splits.
+3. **`actor_wallet` continua recebendo APENAS `revenue_share`** (invariante D-money preservada).
+4. **`mixed_policy` = múltiplas linhas independentes**; cada uma gera seu próprio `bank_split` numa conta `regional_fund` própria. Se duas linhas resolverem para a mesma cidade, ainda assim cada split é registrado separadamente para preservar rastreabilidade.
+5. **`ensureRegionalFundBankAccountForRegion(tenantId, {country, state, city})`** é a função canônica para resolver a conta destino. MVP é city-level (não suporta múltiplos fundos por cidade nem fundos por bairro — frente futura `DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING`).
+6. **Sem migration nesta fatia.** Schema já estava pronto desde DECISION-0049 (coluna `regional_origin_basis` + 2 CHECK constraints).
+7. **Propagação do basis:** `CalculatedEconomicSplit.regionalOriginBasis` adicionado em `economic-policy.types.ts`; `calculatePolicySplits` propaga do `EconomicPolicyLine.regionalOriginBasis`. Sem isso, o resolver não receberia o basis declarado.
+
+### Enforcement material
+
+- **service-payment-execution.service.ts:**
+  - `SUPPORTED_DESTINATION_TYPES` ganha `'regional_fund'`.
+  - `resolveSplitDestinationFromPolicy` despacha para `resolveRegionalFundDestination` quando destination_type='regional_fund'.
+  - `resolveRegionalFundDestination` lê `basis` do split; switch case por basis com fail-closed agressivo.
+  - Helper canônico PE-5-CARTÓRIO `operationalAddressHelper.getOperationalAddressForActor` usado para `receiver_company_operational`.
+  - Query SQL direta a `address_assignments` para `receiver_company_hq`.
+  - Resolução `(country, state, city)` via JOIN `countries × states × cities` por UUID.
+
+- **economic-policy.types.ts:** `CalculatedEconomicSplit.regionalOriginBasis: RegionalOriginBasis | null`.
+
+- **economic-policy-engine.service.ts:** `calculatePolicySplits` propaga `line.regionalOriginBasis` para cada split calculado.
+
+- **E2E** `validate-pipeline-e2e-pe5-resolver.ts`: **8 cenários T1-T8 verdes** — provam que cada caminho funcional resolve corretamente, cada caminho fail-closed bloqueia ANTES de gravar dinheiro, mixed_policy gera splits independentes para cidades diferentes, D-money preserva invariante actor_wallet ≤ revenue_share, HQ não é fallback automático.
+
+### Limitações conhecidas (rastreadas)
+
+- **PF (receiver/payer_identity_residence):** `DT-PE5-PF-RESOLVER-PENDING` (nova OPEN MEDIUM) — aguarda auditoria de qual tabela é canônica para `profile_id` (`public_profiles`? `user_profiles`?) + decisão de produto sobre PF presencial vs remoto.
+- **Múltiplos fundos por cidade / fundos por bairro:** aguarda materialização de `economic_regions` (`DT-PRESSURE-LOCATION-CORE-ECONOMIC-REGIONS-MISSING`).
+- **`service_location` / `transaction_location`:** aguarda FK `services.primary_address_id` + decisão sobre fonte material da localização da transação.
+
+### Próximos passos desbloqueados
+
+- ✅ **`DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`** pode ser fechada conceitualmente (resolver entregue + cartório usado); mas continua OPEN HIGH operacionalmente porque produção exige wizard de onboarding PJ (UX). Fica como "tecnicamente pronto, UX pendente".
+- Wizard de onboarding PJ vira frente própria (UX/produto).
+
+### Vinculadas
+
+- DECISION-0020 (Location Core — `address_assignments` é fonte material)
+- DECISION-0044 (bank-ledger boundaries)
+- DECISION-0046 (actor_wallet canônico — invariante preservada)
+- DECISION-0048 (camada DECISÃO ≠ EXECUÇÃO)
+- DECISION-0049 (regional_origin_basis canônico + CHECK Postgres)
+- DECISION-0050 (cartório operacional via service_provider)
+- DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL (permanece OPEN — desbloqueio operacional condicional a UX)
+- DT-PE5-PF-RESOLVER-PENDING (nova OPEN MEDIUM)
+- DT-PE3-LINE-TYPES-FAIL-CLOSED (parcialmente RESOLVED — regional_fund destravado para PJ)
 
 ### Superada por
 

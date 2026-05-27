@@ -186,6 +186,9 @@ export interface CalculatedEconomicSplit {
   lineType: EconomicPolicyLineType;
   destinationType: EconomicPolicyDestinationType;
   destinationKey: string | null;
+  /** DECISION-0049 + DECISION-0051: propagado do policy line para o resolver
+   *  dinâmico de regional_fund (PE-5-RESOLVER). */
+  regionalOriginBasis: RegionalOriginBasis | null;
   bps: number | null;
   amountCents: number;
   metadata?: Record<string, unknown>;

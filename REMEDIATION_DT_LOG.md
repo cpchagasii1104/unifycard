@@ -6226,3 +6226,34 @@ própria (PE-5-CARTORIO-ROUTE). Helper continua chamável por wizard de UX ou ad
   1. Refator helper para usar `runQueryWithTenant` em transação BEGIN/COMMIT/ROLLBACK envolvendo ambos os INSERTs.
   2. OU adicionar método `createAddressAndAssign(input, assignmentArgs)` em `location.repository.ts` que faz os 2 INSERTs em transação única.
   - Frente própria pequena (~30 linhas de refactor).
+
+---
+
+## DT-PE5-PF-RESOLVER-PENDING
+
+- **Status:** OPEN (MEDIUM — resolver dinâmico PF não implementado em PE-5-RESOLVER-MVP)
+- **Origem:** DECISION-0051 (PE-5-RESOLVER-MVP, 2026-05-26). MVP cobre apenas PJ (`receiver_company_operational`, `receiver_company_hq`). PF basis `receiver_identity_residence` e `payer_identity_residence` ficam FAIL-CLOSED com erro `POLICY_BASIS_UNSUPPORTED_MVP`.
+
+### Pré-requisitos para destravar PF (frente PE-5-RESOLVER-V2)
+
+1. **Auditoria de `profile_id` canônico:** decidir qual tabela é fonte material para `address_assignments(owner_type='profile')`:
+   - `public_profiles.id`?
+   - `user_profiles.id`?
+   - `profiles.id`?
+   - Ou nova convenção (ex: `owner_id=<global_users.global_user_id>` direto)?
+   - O agente de varredura normativa identificou que a NORMA decidiu usar `profile`, mas o `owner_id` específico no schema vivo precisa de raio-x dedicado.
+2. **Decisão de produto sobre PF presencial vs remoto:**
+   - Serviço presencial local → policy deve usar `service_location` (também fail-closed atualmente; aguarda FK `services.primary_address_id`).
+   - Serviço remoto/online → policy usa `receiver_identity_residence`.
+   - Quem decide qual basis? Vertical? Tipo de service? Categoria?
+3. **Substrato `address_assignments(owner_type='profile', role='RESIDENCE')` populado:** hoje 0 rows no DB live. Cadastro de residência de PF não existe como fluxo institucional ainda.
+
+### Não bloqueia
+
+- PE-5-RESOLVER-MVP funciona ponta a ponta para PJ.
+- Policy que use basis PF retorna mensagem explícita `POLICY_BASIS_UNSUPPORTED_MVP: ...` — não permite passar silenciosamente.
+- Caso de uso PF pode ser adiado sem prejudicar PJ.
+
+### Resolução prevista
+
+Frente PE-5-RESOLVER-V2 (a planejar), após auditoria + decisões de produto.

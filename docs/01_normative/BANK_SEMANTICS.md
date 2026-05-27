@@ -280,9 +280,12 @@ Formalizada em migration `20260530567000`. Enum canônico **7 valores**
 - CHECK `chk_origin_basis_canonical_values`
 - E2E PE-1 T16-T18 provando enforcement no Postgres (não Zod/TS)
 
-Resolver dinâmico **NÃO implementado** — continua FAIL-CLOSED em PE-3.
-Pré-requisito UX (`OPERATIONAL` cadastrado por PJ) rastreado em
-`DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`.
+Resolver dinâmico (PE-5-RESOLVER-MVP, DECISION-0051):
+- ✅ PJ implementado: `receiver_company_operational` + `receiver_company_hq` + `mixed_policy`
+- ❌ PF e demais basis fail-closed (vide `DT-PE5-PF-RESOLVER-PENDING`)
+- HQ NUNCA fallback automático
+- `regional_fund` cai direto na conta do fundo regional (NÃO em `actor_wallet`)
+- `actor_wallet` continua recebendo APENAS `revenue_share` via D-money
 
 **Cartório operacional (DECISION-0050, 2026-05-26):** convenção canônica fechada para
 representar endereço operacional de actor-unidade:

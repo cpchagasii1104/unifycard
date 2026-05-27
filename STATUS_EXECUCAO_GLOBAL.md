@@ -6152,3 +6152,61 @@ Fundação concretada e curada. Hardening fechou DT-PE5-CARTORIO-ATOMICITY +
 destravou E2E PE-3. Próximo passo institucional: PE-5-RESOLVER (resolver
 dinâmico de regional_fund) quando wizard de onboarding PJ + RBAC do endpoint
 estiverem decididos.
+
+---
+
+## Sessão 2026-05-26 — PE-5-RESOLVER-MVP (DECISION-0051) — PJ-only
+
+### Contexto
+
+Decisão Clayton: Q-real = A (PJ-only no MVP). PF fica para PE-5-RESOLVER-V2
+após auditoria de `profile_id` canônico. Antes da fatia, agente Explore fez
+varredura READ-ONLY de docs/01_normative/ + código e confirmou que normas
+sobre identidade/residência/mixed_policy já estavam fechadas — disciplina
+norma-primeiro aplicada.
+
+### Entregue
+
+1. **`service-payment-execution.service.ts` ganha `resolveRegionalFundDestination`:**
+   - `receiver_company_operational` via `operationalAddressHelper.getOperationalAddressForActor` (PE-5-CARTÓRIO)
+   - `receiver_company_hq` via SQL direto em `address_assignments`
+   - Resolução (country, state, city) via JOIN countries × states × cities
+   - `ensureRegionalFundBankAccountForRegion` para resolver conta destino
+   - FAIL-CLOSED agressivo: 5 mensagens de erro distintas (PF, service_location, transaction_location, explicit_economic_region, UNRESOLVABLE)
+2. **`SUPPORTED_DESTINATION_TYPES`** ganha `'regional_fund'`.
+3. **`CalculatedEconomicSplit.regionalOriginBasis`** adicionado em `economic-policy.types.ts`; `calculatePolicySplits` propaga o campo.
+4. **DECISION-0051** redigida (8 regras inegociáveis + limitações conhecidas + caminhos desbloqueados).
+5. **DT-PE5-PF-RESOLVER-PENDING** (nova OPEN MEDIUM) — rastreia auditoria PF + decisão de produto.
+6. **DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL** permanece OPEN — tecnicamente resolvida (resolver entregue), aguarda UX/onboarding em produção.
+7. **Docs normativas:** `CORE_SPLIT §9.4`, `BANK_SEMANTICS`, `opus.md` atualizados.
+8. **E2E PE-5-RESOLVER** — `validate-pipeline-e2e-pe5-resolver.ts`, **8 cenários T1-T8 verdes**:
+   - T1 operational resolve para cidade do endereço
+   - T2 operational sem cadastro → fail-closed
+   - T3 hq resolve para cidade do HQ
+   - T4 hq sem cadastro → fail-closed
+   - T5 mixed_policy → 2 splits independentes (Curitiba + SP)
+   - T6 D-money preserva actor_wallet (8000 revenue_share; nada de regional_fund)
+   - T7 PF basis → POLICY_BASIS_UNSUPPORTED_MVP
+   - T8 HQ não é fallback de operational
+
+### Gates pós-PE-5-RESOLVER
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | (a rodar pré-commit) |
+| validate:bank-ledger-boundaries | (a rodar) |
+| validate:regression-guards | (a rodar) |
+| architectural --strict | (a rodar) |
+| E2E PE-1 (18) | (a verificar) |
+| E2E PE-3 (9) | (a verificar) |
+| E2E PE-4-METRICS (9) | (a verificar) |
+| E2E PE-5-CARTÓRIO (7+T7-BIS) | (a verificar) |
+| **E2E PE-5-RESOLVER (8)** | **PASS** |
+
+### Modo
+
+GPS regional ligado para PJ. PF aguarda V2. PE-5-RESOLVER-V2 + wizard de
+onboarding PJ + group_allocation / referral / channel_commission são as
+próximas frentes naturais (em ordem: cartório PJ UX → PF → grupos → referral
+→ channel). Sem urgência cega — fatia entrega substrato + caminho seguro.
