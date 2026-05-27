@@ -6,6 +6,22 @@
 
 ---
 
+## Sessão 2026-05-27 — C6 / ACTOR_WALLET_RECOVERY_OBLIGATIONS_SUBSTRATE
+
+Migration `20260530570000` aplicada:
+- `actor_wallet_recovery_obligations`: UNIQUE total sem WHERE, 7 FKs, 3 CHECKs.
+- `actor_wallet_recovery_obligation_entries`: append-only, 2 FKs.
+- Concept `actor-wallet-recovery` em `financeiro-reversal` semeado.
+- Alerta: concept governance trigger exige `set_config('app.concept_governance','true',true)`
+  em qualquer migration que insira em `concepts`.
+
+Tipos TS em `src/core/financial-recovery/financial-recovery.types.ts`.
+E2E: 12/12 verde. Gates: tsc=0, actor-writer=OK, bank-ledger=OK, regression=OK, arch critical_new=0.
+
+DECISION-0053 C6: **DONE**. C3 implementação desbloqueada (falta C4 creditor resolver).
+
+---
+
 ## Sessão 2026-05-27 — READ-FIRST F-ACTOR-WALLET-DEBIT + DECISION-0055
 
 READ-FIRST confirmou: `actor_wallet` é CRÉDITO-ONLY (nenhum débito existe). Bloqueio de

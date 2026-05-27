@@ -6452,3 +6452,67 @@ DECISION-0055 registrada — C3 tem semântica definida. Próxima frente lógica
 de DECISION-0053 com as tabelas `actor_wallet_recovery_obligations` +
 `actor_wallet_recovery_obligation_entries` + concept `actor-wallet-recovery`), ou C4
 (resolver de creditor_account_id).
+
+---
+
+## Sessão 2026-05-27 — C6 / ACTOR_WALLET_RECOVERY_OBLIGATIONS_SUBSTRATE
+
+### O que foi feito
+
+1. **READ-FIRST C6 concluído:**
+   - HEAD `25d3e32e` confirmado, working tree limpa.
+   - PKs de todas as tabelas-alvo verificadas: `actors(id)`, `bank_accounts(id)`,
+     `bank_transactions(id)`, `payment_intents(id)`, `reversals(id)`, `approval_requests(id)`.
+   - Domínio `financeiro-reversal` confirmado no banco; `actor-wallet-recovery` ausente.
+   - Concept governance trigger (`trg_concept_governance / 0075`) identificado —
+     exige `SET app.concept_governance = 'true'` antes de INSERT em `concepts`.
+   - 328 bank_transactions e 88 payment_intents disponíveis para fixtures do E2E.
+
+2. **Migration `20260530570000_actor_wallet_recovery_obligations_substrate.sql` criada e aplicada:**
+   - `actor_wallet_recovery_obligations`: PK UUID, 7 FKs, 3 CHECKs, UNIQUE total
+     `(tenant_id, payment_intent_id, original_transaction_id, debtor_actor_id)` sem WHERE,
+     4 índices operacionais.
+   - `actor_wallet_recovery_obligation_entries`: PK UUID, 2 FKs, 1 CHECK, 3 índices.
+   - Concept `actor-wallet-recovery` semeado em `financeiro-reversal`
+     (com `set_config('app.concept_governance', 'true', true)`).
+
+3. **Tipos TS `src/core/financial-recovery/financial-recovery.types.ts` criados:**
+   - `ActorWalletRecoveryObligationStatus` (6 valores + `TERMINAL_STATUSES`)
+   - `ActorWalletRecoveryObligationRow`, `ActorWalletRecoveryObligationEntryRow`
+   - `CreateActorWalletRecoveryObligationInput`, `CreateActorWalletRecoveryObligationEntryInput`
+
+4. **E2E `validate-pipeline-e2e-recovery-obligation-substrate.ts` — 12/12 verde:**
+   - T1 INSERT válido pending_approval
+   - T2–T4 CHECKs (amount_cents, recovered_bounds, status)
+   - T5 UNIQUE total bloqueia duplicata
+   - T6 Entry válida
+   - T7–T8 FKs e CHECKs de entry
+   - T9 FK bloqueia approval_request_id inexistente
+   - T10 Concept actor-wallet-recovery confirmado
+   - T11 ledger=537 txs=274 splits=170 — zero escrita financeira
+   - T12 Ambas as tabelas existem
+
+5. **Gates:**
+   - tsc = 0 erros
+   - actor-writer = GATE OK
+   - bank-ledger = GATE OK
+   - regression-guards = GATE OK
+   - arch critical_new = 0
+
+### Pré-requisitos DECISION-0053 atualizados
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — implementação DESBLOQUEADA (C6 feito) |
+| C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration revisada em sessão separada | DONE ✓ (`20260530570000`, 2026-05-27) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+C1 + C2 + C3-semântica + C6 fechados. C4 (creditor resolver) é o próximo passo lógico
+antes de implementar `debitActorWalletForRecovery` (que precisa de `creditorAccountId`
+resolvido pelo caller). C5 (nomenclatura) pode rodar em paralelo.

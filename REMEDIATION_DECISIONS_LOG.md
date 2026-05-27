@@ -4202,7 +4202,7 @@ approval_request_id (nullable), updated_at`
 | C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — implementação pendente após migration (C6) |
 | C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
 | C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
-| C6 | Migration revisada em sessão separada | PENDENTE |
+| C6 | Migration revisada em sessão separada | DONE ✓ — `20260530570000` (2026-05-27) |
 | C7 | Fluxo de finalização pós-D-money (substituto do reversal) | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
 
 ### Vinculadas
@@ -4301,10 +4301,10 @@ Materializar o substrato canônico mínimo de aprovação financeira conforme
 
 ## DECISION-0055 — Actor Wallet Debit for Recovery — Semântica e Autoridade
 
-**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Implementação não autorizada até migration DECISION-0053 (C6) materializada.
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Migration C6 materializada (`20260530570000`); implementação de C3 desbloqueada.
 **Sessão:** 2026-05-27 (F-ACTOR-WALLET-DEBIT — READ-FIRST + DECISION-0055)
 **Decisor:** Clayton
-**Commit âncora:** (preencher após commit)
+**Commit âncora:** (preencher após commit desta sessão)
 
 ### Contexto
 

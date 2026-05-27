@@ -6541,7 +6541,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-ACTOR-WALLET-DEBIT-MISSING
 
-- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055, 2026-05-27); implementação pendente migration C6 de DECISION-0053
+- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055) + migration C6 materializada (`20260530570000`, 2026-05-27); implementação de `debitActorWalletForRecovery` desbloqueada
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
   confirmou que não existe nenhum serviço de débito de `actor_wallet` via
   `bank_transactions`/`bank_ledger`.
