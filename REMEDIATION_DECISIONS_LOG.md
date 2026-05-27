@@ -4199,7 +4199,7 @@ approval_request_id (nullable), updated_at`
 |---|----------|--------|
 | C1 | DECISION-0053 aprovada | APROVADA (esta sessão) |
 | C2 | `approval_requests`/`approval_votes` materializados | PENDENTE — DT-CORE-APPROVAL-REQUESTS-MISSING |
-| C3 | Serviço de débito de `actor_wallet` | PENDENTE — DT-ACTOR-WALLET-DEBIT-MISSING |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — implementação pendente após migration (C6) |
 | C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
 | C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
 | C6 | Migration revisada em sessão separada | PENDENTE |
@@ -4292,6 +4292,164 @@ Materializar o substrato canônico mínimo de aprovação financeira conforme
 - DT-CORE-APPROVAL-REQUESTS-MISSING (CLOSED por esta DECISION)
 - DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (parcialmente avançada — substrato existe; sync/async ainda aberto)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (C2 satisfeito; C3–C7 ainda bloqueantes)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0055 — Actor Wallet Debit for Recovery — Semântica e Autoridade
+
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Implementação não autorizada até migration DECISION-0053 (C6) materializada.
+**Sessão:** 2026-05-27 (F-ACTOR-WALLET-DEBIT — READ-FIRST + DECISION-0055)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit)
+
+### Contexto
+
+READ-FIRST F-ACTOR-WALLET-DEBIT (2026-05-27) confirmou que nenhum serviço de débito de
+`actor_wallet` existe — a conta é CRÉDITO-ONLY desde a sua criação (DECISION-0046, D-money
+Camada 1). `bankTransactionService.transfer` é o substrato correto para qualquer
+movimentação financeira.
+
+Bloqueio de design identificado: `transfer` aciona `requireFinancialRiskClearance` para
+o actor debitado (`owner_type='actor'`). Um actor com pendência de compliance poderia
+impedir indefinidamente o recovery — anti-padrão "mau pagador protegido por gate de
+compliance". Três opções analisadas; Clayton escolheu Opção 3.
+
+### Decisão
+
+Formalizar semântica, autoridade, design canônico e restrições do serviço de débito de
+`actor_wallet` para recovery pós-D-money.
+
+### Decisões Clayton (D1–D8)
+
+**D1 — Risk gate: Opção 3 — clearance `financial_recovery`**
+
+Recovery não é transferência voluntária do actor. Recovery é execução administrativa
+autorizada por aprovação financeira. O gate de clearance deve ser trilho próprio, com
+mais autoridade — não menos controle:
+
+- **NÃO** bypass total do risk gate (vira "admin pode tudo" — anti-padrão §13).
+- **NÃO** mesmo gate de transferência voluntária (`financial_transfer`) — pode travar
+  recovery de actor com compliance pendente.
+- **SIM** clearance específico `financial_recovery`:
+  - `approval_request` com `operation_type='actor_wallet_recovery'` e `status='approved'`
+  - `actor_wallet` do devedor existente no banco
+  - Saldo suficiente verificado em `bank_ledger` no momento da execução
+  - Transferência via `bankTransactionService.transfer` (GATE-4 respeitado)
+  - Sem saldo negativo
+  - Sem uso de `escrow_payments`, `risk_reserve`, `platform_fees`, `regional_fund` como origem
+
+**D2 — Partial recovery semantics**
+
+Se o saldo na `actor_wallet` do devedor for inferior ao valor total da obrigação:
+- Debitar o saldo disponível (pode ser zero — registra entry de valor zero se necessário)
+- Registrar entry em `actor_wallet_recovery_obligation_entries` com o valor efetivo
+- Status da obrigação → `partially_recovered`
+- `recovered_amount_cents` da tabela principal atualizado para refletir total acumulado
+
+Se o saldo cobrir o valor total restante:
+- Debitar o montante exato
+- Status da obrigação → `recovered` (terminal)
+
+Em nenhum caso a obrigação permite saldo negativo na `actor_wallet`.
+
+**D3 — Income withholding (retenção de recebíveis futuros)**
+
+Quando `actor_wallet_recovery_obligations.status IN ('approved', 'partially_recovered')`:
+- Todo novo crédito que entrar na `actor_wallet` do devedor deve PRIMEIRO verificar
+  obrigações ativas pendentes.
+- O valor do crédito drena a obrigação até o valor total antes de disponibilizar saldo.
+- Apenas o excedente fica livre para saque pelo actor.
+- Sem saldo negativo. Sem adiantamento pela plataforma. Sem usar cofres de terceiros.
+- Implementação via gate na entrada de crédito — escopo da DT-RECOVERY-PAYOUT-GATE.
+
+**D4 — Caminho A (MVP): payer aguarda recovery**
+
+A plataforma NÃO adianta o reembolso ao payer usando `risk_reserve` ou cofre próprio.
+O payer recebe conforme a recovery progride (Caminho A). Caminho B (plataforma adianta +
+cobra do prestador via fundo de garantia) está fora do escopo MVP e exigiria DECISION
+específica indicando qual cofre cobre o risco e com qual autoridade.
+
+**D5 — Placement: `src/modules/wallet/`**
+
+`src/modules/wallet/actor-wallet-debit.service.ts` — co-localizado com
+`actor-wallet-statement.service.ts`. Toda operação material de `actor_wallet`
+(extrato readonly + débito de recovery) concentrada no módulo `wallet`. Não vaza para
+`modules/bank` (respeita GATE-4 — serviço chama `bankTransactionService` como interface).
+
+**D6 — Nome do serviço: específico de recovery, não genérico**
+
+`debitActorWalletForRecovery` — o único fluxo autorizado para debitar `actor_wallet` é
+recovery pós-D-money via este serviço específico. Criar variante genérica
+`debitActorWallet(...)` está proibido até nova DECISION com caso de uso justificado.
+
+**D7 — reference_type canônico**
+
+`actor_wallet_recovery` — alinhado com `ApprovalOperationType` (DECISION-0054).
+Idempotência delegada ao `bankTransactionService.transfer` via constraint
+`UNIQUE(tenant_id, reference_type, reference_id)` em `bank_transactions`.
+
+**D8 — creditor_account_id: frente C4, não C3**
+
+O serviço recebe `creditorAccountId` como parâmetro — o caller resolve. A lógica de
+resolver o creditor a partir da `payment_intent` original (cadeia:
+`bank_transactions.reference_id` → `service_orders` → `payment_intents` →
+`payment_requests.payer_actor_id` → `bank_accounts`) é frente C4, fora do escopo
+desta DECISION.
+
+### Assinatura futura aprovada (não implementar — C6 pendente)
+
+```typescript
+// src/modules/wallet/actor-wallet-debit.service.ts
+async function debitActorWalletForRecovery(
+  tenantId: string,
+  input: {
+    debtorActorId: string;
+    creditorAccountId: string;       // C4 — caller resolve
+    amountCents: number;
+    obligationEntryId: string;       // FK → actor_wallet_recovery_obligation_entries (C6)
+    authorship: FinancialAuthorshipContext;
+  },
+  client?: PoolClient
+): Promise<{ transactionId: string; fromBalanceCents: number }>
+```
+
+Internamente (sequência canônica):
+1. `bankAccountService.getActorWalletAccount(tenantId, debtorActorId)` — erro `ACTOR_WALLET_NOT_FOUND` se null
+2. `bankTransactionService.transfer(tenantId, { fromAccountId: wallet.accountId, toAccountId: creditorAccountId, referenceType: 'actor_wallet_recovery', referenceId: obligationEntryId, ... }, client)` com clearance `financial_recovery`
+3. `transfer` entrega: risk gate, `INSUFFICIENT_FUNDS`, double-entry ledger, idempotência, overflow guard
+4. Retorna `{ transactionId, fromBalanceCents }`
+
+### Concept a semear (parte da migration C6 — não antecipar)
+
+- **slug:** `actor-wallet-recovery`
+- **domain:** `financeiro-reversal`
+- Será incluído na migration de DECISION-0053 junto com o seed de concepts financeiros.
+
+### Proibições desta sessão
+
+- Não criar migration de DECISION-0053.
+- Não criar `debitActorWalletForRecovery`.
+- Não semear concept `actor-wallet-recovery` isolado (aguarda migration C6).
+- Não modificar `bankTransactionService.transfer`.
+- Não modificar `reversal.service.ts`.
+- Não implementar income withholding (DT-RECOVERY-PAYOUT-GATE, frente posterior).
+- Não usar `escrow_payments`, `risk_reserve`, `platform_fees`, `regional_fund` como origem.
+- Não criar serviço genérico de débito de `actor_wallet`.
+- Não criar `actor_wallet_recovery_obligations` / `actor_wallet_recovery_obligation_entries` (C6).
+
+### Vinculadas
+
+- DECISION-0053 (C3 semântica definida por esta DECISION; implementação aguarda C6)
+- DECISION-0054 (substrato de aprovação; `operation_type='actor_wallet_recovery'` canônico)
+- DECISION-0046 (actor_wallet canônico — invariante preservada no débito)
+- DECISION-0044 (bank-ledger boundaries — débito transita via módulo bank)
+- DT-ACTOR-WALLET-DEBIT-MISSING (semântica resolvida aqui; implementação pendente migration)
+- DT-RECOVERY-PAYOUT-GATE (income withholding formalizado por D3 desta DECISION)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (C3 semântica fechada; C4–C7 ainda bloqueantes)
 
 ### Superada por
 

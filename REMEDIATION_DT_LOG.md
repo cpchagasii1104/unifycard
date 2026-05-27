@@ -6541,7 +6541,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-ACTOR-WALLET-DEBIT-MISSING
 
-- **Status:** OPEN (HIGH — pré-requisito hard para execução financeira de recovery pós-D-money)
+- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055, 2026-05-27); implementação pendente migration C6 de DECISION-0053
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
   confirmou que não existe nenhum serviço de débito de `actor_wallet` via
   `bank_transactions`/`bank_ledger`.
@@ -6554,6 +6554,7 @@ Nada. Helper retorna null há toda a história do projeto.
 - `payout_requests` (módulo plural) é exclusivo do fluxo `seller_available → seller_payout`;
   sem vínculo com `actor_wallet`.
 - `actor_wallet` tem 45 contas e 373.300 cents de saldo no runtime — sem caminho de saída.
+- **DECISION-0055 (2026-05-27):** semântica e autoridade definidas; design aprovado.
 
 ### Impacto
 
@@ -6565,18 +6566,21 @@ Nada. Helper retorna null há toda a história do projeto.
 - Guard da Parte A protege estorno direto.
 - Nenhum fluxo de saque/payout de `actor_wallet` está ativo em produção.
 
-### Resolução prevista
+### Resolução prevista (DECISION-0055 aprovada)
 
-1. Novo serviço canônico de débito de `actor_wallet`:
-   - `actorWalletDebitService.debit(tenantId, actorId, accountId, amountCents, referenceType, referenceId)`
-   - Escreve via `bankTransactionService.transfer` (módulo bank, respeita GATE-4).
-   - Valida saldo via `bankAccountService.getBalance` antes de debitar.
-   - Proibe saldo negativo.
-2. Integração com DECISION-0053 recovery execution (C3 satisfeito).
+1. **Serviço:** `debitActorWalletForRecovery` em `src/modules/wallet/actor-wallet-debit.service.ts`
+2. **Substrato:** `bankTransactionService.transfer` (GATE-4 respeitado via interface)
+3. **Risk gate:** clearance `financial_recovery` — trilho próprio, não bypass, não `financial_transfer`
+4. **reference_type:** `actor_wallet_recovery` (idempotência via UNIQUE em bank_transactions)
+5. **concept:** `actor-wallet-recovery` em `financeiro-reversal` (semear na migration C6)
+6. **Partial recovery:** debita disponível, entry em `obligation_entries`, status → `partially_recovered`
+7. **Sem saldo negativo.** Sem cofres de terceiros como origem.
+8. **Implementação:** APÓS migration C6 de DECISION-0053 (tabelas `actor_wallet_recovery_obligations` + `actor_wallet_recovery_obligation_entries` existirem).
 
 ### Vinculadas
 
-- DECISION-0053 (pré-requisito C3 — bloqueia execução financeira de recovery)
+- DECISION-0053 (pré-requisito C3 — semântica definida; implementação aguarda C6)
+- DECISION-0055 (define design canônico — esta DT é o alvo de implementação)
 - DECISION-0046 (actor_wallet canônico — invariante deve ser preservada no débito)
 - DECISION-0044 (bank-ledger boundaries — débito transita via módulo bank)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)
@@ -6627,34 +6631,53 @@ DECISION separada futura (número a definir):
 
 ## DT-RECOVERY-PAYOUT-GATE
 
-- **Status:** OPEN (MEDIUM — compensação de créditos futuros antes de saque, fora do escopo de DECISION-0053)
+- **Status:** OPEN HIGH — mecanismo formalizado (DECISION-0055 D3, 2026-05-27); implementação pendente após C6 + DT-ACTOR-WALLET-DEBIT-MISSING
 - **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor
   não tem saldo suficiente para recovery total, a obrigação fica `partially_recovered`. Futuros
-  créditos nessa conta (novos revenue_share, por exemplo) poderiam ser compensados antes de
-  qualquer saque do devedor.
+  créditos nessa conta (novos revenue_share, por exemplo) devem ser compensados antes de
+  qualquer saque do devedor. DECISION-0055 D3 formalizou esta decisão como vinculante.
+
+### Decisão Clayton (DECISION-0055 D3 — Income Withholding)
+
+Mecanismo canônico aprovado:
+
+```
+1. Recovery obrigação ativa (status IN ('approved', 'partially_recovered')).
+2. Novo crédito chega na actor_wallet do devedor (ex: novo D-money release).
+3. Antes de liberar saldo para saque: verificar obrigações pendentes.
+4. Crédito drena obrigação até o valor total.
+5. Apenas o excedente fica livre para saque pelo actor.
+6. Sem saldo negativo. Sem adiantamento pela plataforma. Sem cofres de terceiros.
+```
+
+Caminho B (plataforma adianta reembolso ao payer via `risk_reserve`) está FORA do escopo
+MVP por decisão explícita de Clayton. Payer recebe conforme recovery progride (Caminho A).
 
 ### O que está faltando
 
-- Gate de payout que verifique `actor_wallet_recovery_obligations` com status
-  `pending_approval`/`approved`/`partially_recovered` antes de liberar saque.
-- Serviço de compensação automática: crédito entra em `actor_wallet` → drena obrigação pendente
-  antes de disponibilizar para saque.
+- Gate de entrada de crédito em `actor_wallet` que verifique `actor_wallet_recovery_obligations`
+  com status `approved`/`partially_recovered` antes de liberar saldo.
+- Lógica de drenagem: crédito entrante → obrigação drenada → saldo residual disponível.
+- Update atômico: `recovered_amount_cents` + entry em `obligation_entries` + status transition.
 - Sem este gate, devedor pode receber novos créditos e sacar sem quitar obrigação de recovery.
 
 ### Não bloqueia hoje
 
 - Nenhum serviço de saque de `actor_wallet` existe (DT-ACTOR-WALLET-DEBIT-MISSING).
-- Sem saque, sem risco de fuga.
+- Sem saque ativo, sem risco de fuga de recebíveis.
 
 ### Resolução prevista
 
-Frente própria após DECISION-0053 implementada:
-1. Gate de payout verificando obrigações ativas antes de liberar saque.
-2. Lógica de compensação automática de crédito entrante.
-3. E2E: crédito entra, drena obrigação parcial, saldo restante disponível para saque.
+Frente própria após DECISION-0053 migration (C6) + serviço de débito implementado:
+1. Hook/gate no D-money release (`releaseFundsToActorWalletForOrder`) que verifica obrigações ativas.
+2. Lógica de drenagem atômica: intercepta crédito entrante, drena obrigação, libera excedente.
+3. Update de `actor_wallet_recovery_obligations.recovered_amount_cents` + status transition.
+4. E2E: crédito entra → drena R$ X da obrigação → saldo residual R$ (crédito - X) disponível.
+5. E2E: crédito quita obrigação inteira → status `recovered` → saldo excedente disponível.
 
 ### Vinculadas
 
+- DECISION-0055 D3 (formaliza income withholding como mecanismo canônico)
 - DECISION-0053 §L4 (origem da decisão de compensação futura)
-- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito para o gate de saque existir)
+- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito para o gate de drenagem existir)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (relacionada — recovery parcial pode bloquear saque)

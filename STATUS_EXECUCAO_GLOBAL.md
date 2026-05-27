@@ -6391,3 +6391,64 @@ e autorizou materialização mínima do substrato.
 
 Substrato de aprovação financeira existe no banco. Recovery pós-D-money ainda bloqueado
 em C3 (DT-ACTOR-WALLET-DEBIT-MISSING). Próximo: serviço de débito de actor_wallet.
+
+---
+
+## Sessão 2026-05-27 — READ-FIRST F-ACTOR-WALLET-DEBIT + DECISION-0055
+
+### O que foi feito
+
+1. **READ-FIRST F-ACTOR-WALLET-DEBIT concluído:**
+   - Confirmado: nenhum serviço de débito de `actor_wallet` existe; conta é CRÉDITO-ONLY.
+   - `bankTransactionService.transfer` identificado como substrato correto.
+   - Bloqueio de design identificado: risk gate automático para `owner_type='actor'` poderia
+     travar recovery de actor com compliance pendente.
+   - 12 questões (A–L) respondidas; questão D (risk gate path) encaminhada a Clayton.
+
+2. **DECISION-0055 aprovada — Semântica e Autoridade:**
+
+   **D1 — Risk gate:** Opção 3 — clearance `financial_recovery` (trilho próprio; não bypass;
+   não mesmo gate de transferência voluntária). Recovery = execução administrativa autorizada,
+   não transferência voluntária.
+
+   **D2 — Partial recovery:** Se saldo < dívida → debita disponível → entry em
+   `obligation_entries` → status `partially_recovered`. Se saldo >= dívida → debita tudo →
+   `recovered` (terminal). Sem saldo negativo em nenhum caso.
+
+   **D3 — Income withholding:** Futuras entradas na `actor_wallet` do devedor interceptadas —
+   obrigações pendentes drenadas antes de liberar saldo para saque (escopo DT-RECOVERY-PAYOUT-GATE).
+
+   **D4 — Caminho A (MVP):** Payer aguarda recovery; plataforma não adianta via `risk_reserve`.
+   Caminho B (adiantamento) exige DECISION futura separada.
+
+   **D5–D8 — Design canônico:**
+   - Placement: `src/modules/wallet/actor-wallet-debit.service.ts`
+   - Nome: `debitActorWalletForRecovery` (específico; genérico vetado)
+   - `reference_type`: `actor_wallet_recovery`
+   - Concept: `actor-wallet-recovery` em `financeiro-reversal` (seear na migration C6)
+   - `creditorAccountId` = parâmetro (C4 é frente separada)
+
+3. **Logs atualizados:**
+   - DECISION-0053 C3: "SEMÂNTICA DEFINIDA (DECISION-0055)"
+   - DT-ACTOR-WALLET-DEBIT-MISSING: status + resolução prevista atualizados
+   - DT-RECOVERY-PAYOUT-GATE: mecanismo de income withholding formalizado (D3)
+   - DECISION-0055 registrada em `REMEDIATION_DECISIONS_LOG.md`
+
+### Pré-requisitos DECISION-0053 atualizados
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — implementação pendente C6 |
+| C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration revisada em sessão separada | PENDENTE |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+DECISION-0055 registrada — C3 tem semântica definida. Próxima frente lógica: C6 (migration
+de DECISION-0053 com as tabelas `actor_wallet_recovery_obligations` +
+`actor_wallet_recovery_obligation_entries` + concept `actor-wallet-recovery`), ou C4
+(resolver de creditor_account_id).

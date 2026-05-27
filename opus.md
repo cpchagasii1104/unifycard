@@ -6,6 +6,28 @@
 
 ---
 
+## Sessão 2026-05-27 — READ-FIRST F-ACTOR-WALLET-DEBIT + DECISION-0055
+
+READ-FIRST confirmou: `actor_wallet` é CRÉDITO-ONLY (nenhum débito existe). Bloqueio de
+design identificado no risk gate do `bankTransactionService.transfer`.
+
+**DECISION-0055 aprovada — Semântica e Autoridade do débito de recovery:**
+
+- **D1 — Risk gate Opção 3:** clearance `financial_recovery` — trilho próprio, não bypass
+  total, não mesmo gate de transferência voluntária. Mais autoridade, não menos controle.
+- **D2 — Partial recovery:** saldo insuficiente → debita disponível + `partially_recovered`;
+  saldo suficiente → debita tudo + `recovered`. Sem saldo negativo.
+- **D3 — Income withholding:** futuras entradas em `actor_wallet` do devedor drenadas
+  contra obrigações pendentes antes de liberar saldo para saque.
+- **D4 — Caminho A (MVP):** payer aguarda recovery; sem adiantamento da plataforma.
+- **D5-D8:** placement `modules/wallet/actor-wallet-debit.service.ts`, nome
+  `debitActorWalletForRecovery`, `reference_type='actor_wallet_recovery'`,
+  concept `actor-wallet-recovery` em `financeiro-reversal`, `creditorAccountId` via C4.
+
+**DECISION-0053 C3:** semântica definida; implementação aguarda migration C6.
+
+---
+
 ## Sessão 2026-05-27 — F-APROVACAO-FINANCEIRA-SUBSTRATE (DECISION-0054)
 
 - **READ-FIRST confirmou**: `approval_requests`/`approval_votes` inexistentes em DB e migrations.
