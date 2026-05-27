@@ -7,6 +7,29 @@ import { runQueryWithTenant } from '@core/database/pool';
 
 export type ReversalStatus = 'pending' | 'processing' | 'executed' | 'failed';
 
+/**
+ * Taxonomia canônica de estorno (DECISION-0052 / CORE_ESTORNOS_FINANCEIROS_CANONICO §1.1).
+ *
+ * - external_reversal: gateway externo iniciou (sistêmico, sem usuário humano).
+ * - internal_refund: operador humano da plataforma decidiu refund (EXIGE
+ *   performed_by_user_id; aprovação via Bloco C é frente futura).
+ * - chargeback_open / chargeback_lost / chargeback_reversed: estados de
+ *   disputa externa (todos sistêmicos).
+ */
+export type ReversalType =
+  | 'external_reversal'
+  | 'internal_refund'
+  | 'chargeback_open'
+  | 'chargeback_lost'
+  | 'chargeback_reversed';
+
+/**
+ * Fonte canônica da autoridade que disparou a reversão (DECISION-0052).
+ *
+ * NULL aceito enquanto callers legados não declaram (compat).
+ */
+export type ReversalAuthoritySource = 'system' | 'ownership' | 'delegation' | 'account_acl';
+
 export interface ReversalRow {
   id: string;
   tenantId: string;
@@ -19,6 +42,12 @@ export interface ReversalRow {
   failureReason: string | null;
   createdAt: string;
   processedAt: string | null;
+  /** DECISION-0052: taxonomia canônica. */
+  reversalType: ReversalType;
+  /** DECISION-0052: NULL para sistêmicos; NOT NULL para internal_refund. */
+  performedByUserId: string | null;
+  /** DECISION-0052: fonte da autoridade. */
+  authoritySource: ReversalAuthoritySource | null;
 }
 
 interface ReversalDbRow {
@@ -33,6 +62,9 @@ interface ReversalDbRow {
   failure_reason: string | null;
   created_at: Date;
   processed_at: Date | null;
+  reversal_type: string;
+  performed_by_user_id: string | null;
+  authority_source: string | null;
 }
 
 function mapRow(r: ReversalDbRow): ReversalRow {
@@ -48,14 +80,31 @@ function mapRow(r: ReversalDbRow): ReversalRow {
     failureReason: r.failure_reason,
     createdAt: r.created_at.toISOString(),
     processedAt: r.processed_at ? r.processed_at.toISOString() : null,
+    reversalType: r.reversal_type as ReversalType,
+    performedByUserId: r.performed_by_user_id,
+    authoritySource: r.authority_source as ReversalAuthoritySource | null,
   };
 }
+
+const REVERSAL_SELECT_COLUMNS = `
+  id, tenant_id, original_transaction_id, reversal_transaction_id, actor_id, reason,
+  amount_cents, status, failure_reason, created_at, processed_at,
+  reversal_type, performed_by_user_id, authority_source
+`;
 
 export interface CreateReversalRequestInput {
   originalTransactionId: string;
   actorId: string;
   reason: string;
   amountCents: number;
+  /** DECISION-0052: obrigatório. Default 'external_reversal' nos callers
+   *  sistêmicos (bank-integration, reconciliation-dispute, worker). */
+  reversalType: ReversalType;
+  /** DECISION-0052: obrigatório quando reversalType='internal_refund'
+   *  (CHECK Postgres enforça). NULL para sistêmicos. */
+  performedByUserId?: string | null;
+  /** DECISION-0052: opcional; declarado pelo caller conforme contexto. */
+  authoritySource?: ReversalAuthoritySource | null;
 }
 
 export async function createReversalRequest(
@@ -69,19 +118,41 @@ export async function createReversalRequest(
     throw new Error('REVERSAL_DUPLICATE_PENDING');
   }
 
+  // Defesa runtime: norma §9.1 + CHECK Postgres já enforça, mas dar erro
+  // explícito em TS antes de cair no banco produz mensagem melhor.
+  if (input.reversalType === 'internal_refund' && !input.performedByUserId) {
+    throw new Error(
+      'INTERNAL_REFUND_REQUIRES_PERFORMED_BY_USER: ' +
+        'reversalType=internal_refund exige performedByUserId (CORE_ESTORNOS §4 + §9.1).'
+    );
+  }
+  if (
+    input.reversalType !== 'internal_refund' &&
+    input.performedByUserId
+  ) {
+    throw new Error(
+      `SYSTEMIC_REVERSAL_REJECTS_USER: reversalType='${input.reversalType}' é sistêmico ` +
+        `(CORE_ESTORNOS §4) — performedByUserId deve ser NULL. ` +
+        `Se há humano real, usar reversalType='internal_refund'.`
+    );
+  }
+
   const row = await runQueryWithTenant<ReversalDbRow>(
     tenantId,
     `INSERT INTO reversals (
-       tenant_id, original_transaction_id, actor_id, reason, amount_cents, status
-     ) VALUES ($1, $2, $3, $4, $5, 'pending')
-     RETURNING id, tenant_id, original_transaction_id, reversal_transaction_id, actor_id, reason,
-               amount_cents, status, failure_reason, created_at, processed_at`,
+       tenant_id, original_transaction_id, actor_id, reason, amount_cents, status,
+       reversal_type, performed_by_user_id, authority_source
+     ) VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8)
+     RETURNING ${REVERSAL_SELECT_COLUMNS}`,
     [
       tenantId,
       input.originalTransactionId,
       input.actorId,
       input.reason,
       input.amountCents,
+      input.reversalType,
+      input.performedByUserId ?? null,
+      input.authoritySource ?? null,
     ]
   );
   if (!row) throw new Error('createReversalRequest failed');
@@ -94,8 +165,7 @@ export async function getByOriginalTransactionId(
 ): Promise<ReversalRow | null> {
   const row = await runQueryWithTenant<ReversalDbRow>(
     tenantId,
-    `SELECT id, tenant_id, original_transaction_id, reversal_transaction_id, actor_id, reason,
-            amount_cents, status, failure_reason, created_at, processed_at
+    `SELECT ${REVERSAL_SELECT_COLUMNS}
      FROM reversals WHERE tenant_id = $1 AND original_transaction_id = $2 LIMIT 1`,
     [tenantId, originalTransactionId]
   );
@@ -105,8 +175,7 @@ export async function getByOriginalTransactionId(
 export async function getReversalById(tenantId: string, id: string): Promise<ReversalRow | null> {
   const row = await runQueryWithTenant<ReversalDbRow>(
     tenantId,
-    `SELECT id, tenant_id, original_transaction_id, reversal_transaction_id, actor_id, reason,
-            amount_cents, status, failure_reason, created_at, processed_at
+    `SELECT ${REVERSAL_SELECT_COLUMNS}
      FROM reversals WHERE tenant_id = $1 AND id = $2 LIMIT 1`,
     [tenantId, id]
   );
@@ -129,8 +198,7 @@ export async function claimPendingReversals(limit: number): Promise<ReversalRow[
          LIMIT $1
          FOR UPDATE SKIP LOCKED
        )
-       RETURNING id, tenant_id, original_transaction_id, reversal_transaction_id, actor_id, reason,
-                 amount_cents, status, failure_reason, created_at, processed_at`,
+       RETURNING ${REVERSAL_SELECT_COLUMNS}`,
       [limit]
     );
     await client.query('COMMIT');

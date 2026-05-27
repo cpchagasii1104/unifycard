@@ -1,3 +1,46 @@
+## 2026-05-27 — F-REFUND-SPLIT-AWARE-HARDENING: taxonomia + autoria forte + linkage de splits no motor de estorno (DECISION-0052)
+
+**Branch:** `rescue-structural`
+**HEAD pré:** `20b5d233` (DT-CORE-PROFILE CLOSED) | **HEAD pós:** (este commit)
+
+**Contexto.** Auditoria do motor de estorno (`reversal.service.ts` + `reversal.repository.ts`, Prompt 51) revelou que ele JÁ era split-aware desde a origem — `bankSplitRepository.loadSplitLegsForReversal` lê os splits da transação original e cada um vira uma transferência reversa independente. PE-5 não criou bomba escondida. A fatia endurece o motor SEM reescrita: etiqueta (taxonomia `reversal_type`), assinatura (autoria forte para `internal_refund`), câmera (rastreabilidade `original_split_id`).
+
+**Aprovado por Clayton:** Blocos A + B + D + E. Bloco C (approval gate) adiado por DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE. Bloco F (escrow_refunds vs reversals) rastreado em DT-PE5-REFUND-POST-DMONEY-CHAIN.
+
+**Entregue (1 commit + 2 DTs + 1 DECISION + 1 migration + E2E):**
+
+- **Migration aditiva** `backend/migrations/20260530568000_reversals_taxonomy_and_authorship.sql`: 3 ADD COLUMN (`reversal_type`, `performed_by_user_id`, `authority_source`) + 4 CHECK constraints + 1 FK para `users(user_id)`. Reversível.
+- **`reversal.repository.ts`:** tipos `ReversalType` (5 valores) e `ReversalAuthoritySource` (4 valores); campos novos em `ReversalRow` / `CreateReversalRequestInput`; constante `REVERSAL_SELECT_COLUMNS`; 2 TS guards (`INTERNAL_REFUND_REQUIRES_PERFORMED_BY_USER` / `SYSTEMIC_REVERSAL_REJECTS_USER`).
+- **`reversal.service.ts`:** metadata da leg renomeada `split_id` → `original_split_id`; UPDATE `bank_transactions.metadata` explícito após `transfer` (descoberta: `bankTransactionService.transfer` não propaga metadata para `bank_transactions`; `bank_ledger` não tem coluna metadata).
+- **Callers atualizados:** `bank-integration.service.ts:769` e `reconciliation-dispute.service.ts:281` declaram `reversalType='external_reversal'` + `authoritySource='system'` (são caminhos sistêmicos por contrato).
+- **E2E** `validate-pipeline-e2e-refund-split-aware.ts` — 9 cenários verdes:
+  - T1: PE-5 multi-split (70/20/10) + estorno antes D-money — 3 legs corretas.
+  - T2: cada leg carrega `original_split_id` em `bank_transactions.metadata`.
+  - T3: cada leg devolve exatamente seu valor original (net-zero por canal).
+  - T4: `reversal_type=external_reversal` + idempotência.
+  - T5/T6: CHECK Postgres bloqueia combinações inválidas.
+  - T7: TS guard amigável antes do banco.
+  - T8: outbox `payment_intent.status='reversed'` com metadata completa.
+  - T9: REMOVIDO (disparava `ACTOR_RISK_BLOCKED` por anomalia colateral em E2E — não determinístico; limite material em DT-PE5-REFUND-POST-DMONEY-CHAIN).
+- **DECISION-0052** no REMEDIATION_DECISIONS_LOG + §14 dentro de `CORE_ESTORNOS_FINANCEIROS_CANONICO.md`.
+- **2 DTs novas:**
+  - DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (OPEN MEDIUM) — adia Bloco C até raio-x material do Core de Aprovação.
+  - DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH) — estorno pós-D-money drena pool de escrow e deixa wallet do worker com saldo indevido; 3 opções de resolução documentadas.
+
+**O que NÃO mudou:**
+- Zero alteração no comportamento do motor de estorno. DDL é aditivo, código apenas declara metadados.
+- Zero alteração em `bank-transaction.service`, `bank-split.repository`, `bank-ledger.repository`.
+- Lógica D-money preservada.
+
+**Prova de canonicidade:**
+- E2E roda com 9/9 cenários verdes via `npx tsx backend/src/scripts/validate-pipeline-e2e-refund-split-aware.ts`.
+- CHECK Postgres bloqueia `internal_refund` sem user e `external_reversal` com user (T5/T6 provam materialmente).
+- `original_split_id` presente em metadata de cada leg reversa (T2 prova).
+
+**Próxima frente natural:** F-APROVACAO-FINANCEIRA (raio-x do Core de Aprovação Financeira + materialização de `financial_approvals` + Bloco C). Em paralelo, F-REFUND-POST-DMONEY (decisão Clayton sobre Opção 1/2/3 da DT-PE5-REFUND-POST-DMONEY-CHAIN).
+
+---
+
 ## 2026-05-26 — Canonicalização documental: `actor_wallet` declarada carteira canônica do actor (DECISION-0046)
 
 **Branch:** `rescue-structural`

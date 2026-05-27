@@ -4055,3 +4055,67 @@ O resolver dinâmico de `regional_fund` (chamado em `service-payment-execution.s
 ### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0052 — F-REFUND-SPLIT-AWARE-HARDENING (taxonomia + autoria + linkage)
+
+**Status:** ativa
+**Sessão:** 2026-05-27 (frente F-REFUND após PE-5-RESOLVER-MVP)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit)
+
+### Decisão
+
+Auditoria do motor de estorno (`reversal.service.ts` + `reversal.repository.ts`, Prompt 51) revelou que ele JÁ É SPLIT-AWARE desde a origem — `bankSplitRepository.loadSplitLegsForReversal` lê os splits da transação original e cada um vira uma transferência reversa independente. Logo, PE-5 NÃO criou bomba escondida no estorno; o motor já devolve linha por linha.
+
+A fatia F-REFUND-SPLIT-AWARE-HARDENING endurece o motor SEM reescrita: adiciona **etiqueta** (taxonomia canônica de `reversal_type`), **assinatura** (autoria forte para `internal_refund`) e **câmera de segurança** (rastreabilidade `original_split_id` em cada leg).
+
+**Aprovado nesta fatia (Blocos A + B + D + E):**
+- Bloco A — taxonomia `reversal_type` (5 valores canônicos, CHECK Postgres)
+- Bloco B — autoria forte (`performed_by_user_id` + `authority_source`; CHECK Postgres + TS guard)
+- Bloco D — E2E F-REFUND-SPLIT-AWARE (9 cenários verdes)
+- Bloco E — `original_split_id` em metadata de cada leg + `reference_id` determinístico via uuidv5
+
+**Explicitamente fora desta fatia:**
+- Bloco C (approval gate para `internal_refund`) — requer raio-x do Core de Aprovação Financeira primeiro. Rastreado em **DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE**.
+- Bloco F (segregação `escrow_refunds` vs `reversals`, comportamento pós D-money) — fora de escopo. Rastreado em **DT-PE5-REFUND-POST-DMONEY-CHAIN**.
+
+### Regras inegociáveis
+
+1. **Nenhum estorno sem `reversal_type` declarado.** Coluna NOT NULL, default `external_reversal` (sistêmico) para callers legados.
+2. **`internal_refund` exige `performed_by_user_id`.** CHECK Postgres `chk_internal_refund_requires_user` enforça mesmo se aplicação for desviada.
+3. **`external_reversal` / `chargeback_*` rejeitam `performed_by_user_id`.** CHECK Postgres `chk_external_reversal_is_systemic` enforça — sistêmico não tem humano.
+4. **Defesa em camadas.** TS guard em `createReversalRequest` lança mensagem amigável antes do banco (`INTERNAL_REFUND_REQUIRES_PERFORMED_BY_USER` / `SYSTEMIC_REVERSAL_REJECTS_USER`). CHECK Postgres é a última linha — mas existe.
+5. **`original_split_id` em `bank_transactions.metadata` de cada leg.** Persistido via UPDATE explícito após `bankTransactionService.transfer` (que não propaga metadata para `bank_transactions`). `bank_ledger` não tem coluna metadata — não foi alterado.
+6. **`reference_id` determinístico** via `uuidv5(reversalId:splitId, REVERSAL_LEG_NAMESPACE)` — permite reidempotência material.
+7. **Idempotência preservada.** 2ª chamada de `requestAndExecuteReversalSync` com mesmo `originalTransactionId` retorna mesmos `reversal_transaction_ids` sem duplicar legs.
+8. **Sem mudança de comportamento do motor.** Apenas adicionadas colunas (DDL aditivo), validações, metadata extra. Zero alteração no fluxo de transferência das legs.
+
+### Enforcement material
+
+- **Migration:** `backend/migrations/20260530568000_reversals_taxonomy_and_authorship.sql` (ALTER TABLE ADD COLUMN + 4 CHECK constraints + 1 FK).
+- **reversal.repository.ts:** novos tipos `ReversalType` / `ReversalAuthoritySource`; campos em `ReversalRow` / `CreateReversalRequestInput`; `REVERSAL_SELECT_COLUMNS` constante; 2 TS guards em `createReversalRequest`.
+- **reversal.service.ts:** metadata da leg renomeada `split_id` → `original_split_id`; UPDATE bank_transactions.metadata explícito após `transfer` (porque `transfer` não propaga metadata).
+- **Callers atualizados:** `bank-integration.service.ts:769`, `reconciliation-dispute.service.ts:281` declaram `reversalType='external_reversal'` + `authoritySource='system'`.
+- **E2E:** `backend/src/scripts/validate-pipeline-e2e-refund-split-aware.ts` — 9 cenários verdes (T1-T8 funcionais + T9 removido por não determinismo).
+
+### Limitações conhecidas (rastreadas)
+
+- **Aprovação síncrona/assíncrona de `internal_refund` não decidida:** Bloco C adiado por DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE.
+- **Estorno pós D-money tem comportamento material indefinido:** quando revenue_share já saiu do escrow para `actor_wallet`, estorno drena pool do escrow de outros pagamentos. DT-PE5-REFUND-POST-DMONEY-CHAIN.
+- **Risk gate bloqueia estorno repetido no mesmo actor:** `reversal_executed` em `actor_events` pesa 18 por evento; 5 estornos = score 90 = blocked. É comportamento desejado em produção; em E2E foi mitigado com `resetRiskProfiles()` entre fases.
+
+### Vinculadas
+
+- CORE_ESTORNOS_FINANCEIROS_CANONICO §14 (DECISION-0052 documentada como anexo)
+- CORE_APROVACAO_FINANCEIRA_CANONICO (referenciado para Bloco C — frente futura)
+- DECISION-0046 (actor_wallet canônico — invariante preservada no estorno antes D-money)
+- DECISION-0049 (regional_origin_basis — splits do PE-5 são revertidos corretamente)
+- DECISION-0051 (PE-5-RESOLVER-MVP — origem do cenário multi-split do E2E)
+- DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (nova OPEN MEDIUM)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (nova OPEN HIGH)
+
+### Superada por
+
+(preencher quando superada)

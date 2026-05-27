@@ -771,6 +771,9 @@ class BankIntegrationService {
       actorId: act,
       reason: `bridge_reverseTransaction:${eventId ?? uuidv4()}`,
       amountCents,
+      // DECISION-0052: bridge sistêmico — provider externo / fluxo automático.
+      reversalType: 'external_reversal',
+      authoritySource: 'system',
     });
     return {
       reversalTransactionId: result.reversalTransactionId,

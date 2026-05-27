@@ -6257,3 +6257,107 @@ própria (PE-5-CARTORIO-ROUTE). Helper continua chamável por wizard de UX ou ad
 ### Resolução prevista
 
 Frente PE-5-RESOLVER-V2 (a planejar), após auditoria + decisões de produto.
+
+---
+
+## DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE
+
+- **Status:** OPEN (MEDIUM — sem raio-x material do Core de Aprovação Financeira)
+- **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). O Bloco C original da fatia previa um **approval gate síncrono para `internal_refund`** — isto é, antes de gravar `reversals` com `reversal_type='internal_refund'` o sistema exigiria evidência material de aprovação (token de aprovação, registro em `financial_approvals`, etc.).
+
+### Por que está adiado
+
+A norma `CORE_APROVACAO_FINANCEIRA_CANONICO.md` existe mas:
+
+1. **Substrato material não auditado.** Não sabemos quais tabelas hoje suportam o fluxo de aprovação financeira (`financial_approvals`? `approval_workflows`? Nenhuma?), nem em que estado real estão (vazias? populadas? schema completo?).
+2. **Política de quórum não decidida.** Aprovação síncrona (mesma sessão, antes do estorno) vs assíncrona (PR de operação, dois aprovadores em momentos distintos) — produto não definiu.
+3. **Limites por valor não definidos.** Refund de R$ 5 e refund de R$ 50.000 têm o mesmo nível de aprovação? Hoje não há `thresholds_for_approval` materializados.
+4. **Quem aprova quem.** Hierarquia institucional do aprovador — é actor com permission financial_refund_approve? É owner de tenant? É um actor system com humano por trás? Não há contrato canônico vivo.
+
+### Não bloqueia
+
+- Bloco A (taxonomia) + Bloco B (autoria) + Bloco D (E2E) + Bloco E (linkage) destravam estorno split-aware completo.
+- `internal_refund` HOJE é aceito pelo banco com `performed_by_user_id` declarado (CHECK Postgres enforça). A pessoa fica gravada — só não há um segundo aprovador.
+- Em produção atual NÃO HÁ código chamando `internal_refund` (os 2 callers existentes — `bank-integration` e `reconciliation-dispute` — são sistêmicos). O risco de "refund manual sem aprovação" é ZERO até alguém adicionar uma rota de UI/API para refund manual.
+
+### Resolução prevista
+
+Frente própria (F-APROVACAO-FINANCEIRA):
+1. Raio-x material de `CORE_APROVACAO_FINANCEIRA_CANONICO` vs schema vivo.
+2. Decisão Clayton + ChatGPT sobre síncrono vs assíncrono, thresholds, hierarquia de aprovação.
+3. Migration para tabela `financial_approvals` (ou ratificação de existente).
+4. Bloco C original: integrar gate no `requestReversal` antes do INSERT em `reversals` para `reversal_type='internal_refund'`.
+5. E2E dedicado de aprovação.
+
+### Vinculadas
+
+- DECISION-0052 (Bloco C adiado por esta DT)
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md (norma a auditar)
+- CORE_ESTORNOS_FINANCEIROS_CANONICO §14 (referência cruzada)
+
+---
+
+## DT-PE5-REFUND-POST-DMONEY-CHAIN
+
+- **Status:** OPEN (HIGH — inconsistência material após release do escrow)
+- **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). Investigação revelou que o motor de estorno atual NÃO TEM caminho material limpo para reverter um pagamento depois que o D-money já liberou `revenue_share` para o `actor_wallet` do worker.
+
+### Comportamento material observado
+
+Cenário: pagamento PE-5 com policy `revenue_share=70% + regional_fund=20% + platform_fee=10%`.
+
+**Fase 1 — pagamento e splits (antes D-money):**
+- `escrow_payments` recebe 70% (revenue_share fica retido até release).
+- `regional_fund(Curitiba)` recebe 20% diretamente.
+- `platform_fees` recebe 10% diretamente.
+
+**Fase 2 — D-money (release do escrow):**
+- `serviceOrderService.releaseFundsToActorWalletForOrder()` transfere o `revenue_share` retido de `escrow_payments` para `actor_wallet` do worker.
+- Worker agora tem 70% creditado no wallet pessoal.
+
+**Fase 3 — estorno PÓS D-money (problema):**
+- Motor atual: `bankSplitRepository.loadSplitLegsForReversal` lê os splits **originais** (target = `escrow_payments`).
+- Tenta transferir `escrow_payments → buyer`.
+- `escrow_payments` é **pool agregado do tenant** — tem saldo de OUTROS pagamentos retidos.
+- O estorno NÃO falha: drena 70% da pool (que pertence a outras transações em escrow) para o buyer.
+- O `actor_wallet` do worker NÃO é tocado — fica com 70% indevido.
+- **Resultado material: sistema "cria dinheiro" do ponto de vista contábil do worker; pool de escrow fica devendo para os outros pagamentos legítimos.**
+
+### Severidade HIGH — por que importa
+
+- Invariante de soma `Σ wallet_actor + Σ escrow = Σ pagamentos_não_estornados` é **violada** em qualquer estorno pós-D-money.
+- Reconciliação automática pode mascarar (escrow_payments parece ter saldo OK quando observada em isolado).
+- Em produção isso vira fraude colateral: cliente pede refund após release, recebe dinheiro de outros usuários, worker fica com revenue indevida.
+
+### Por que não foi corrigido nesta fatia
+
+Clayton determinou explicitamente: **"F: não fazer agora"**. A correção é frente própria — exige decisão de produto sobre:
+
+**Opção 1 — cobrança reversa no `actor_wallet`:** estorno pós-D-money debita o wallet do worker. Risco: worker pode estar com saldo zerado/negativo (já gastou o dinheiro). Como tratar? Saldo negativo permitido? Bloqueio de saque até regularizar?
+
+**Opção 2 — débito pending (`actor_wallet_pending_debits`):** registra a dívida do worker; bloqueia próximos saques até quitar. Exige nova tabela + invariante de elegibilidade-para-saque.
+
+**Opção 3 — bloqueio fail-closed pós-release via flag:** `payment_intents.is_released=true` proíbe estorno; refund pós-release passa a ser fluxo separado (`escrow_refunds`) com aprovação dupla + cobrança ao worker. Mais conservador, mais lento, mas materialmente correto.
+
+### Não bloqueia (HOJE)
+
+- Em produção NÃO HÁ rota humana puxando estorno pós-D-money. Os callers atuais (`bank-integration` para reverter PIX externo, `reconciliation-dispute` para resolver dispute) operam ANTES do D-money em 100% dos casos auditados.
+- Em E2E o cenário foi removido (T9) porque dispara `ACTOR_RISK_BLOCKED` em colateral (anomalia HIGH_FREQUENCY_TRANSACTIONS após múltiplos estornos no mesmo worker) — não é determinístico para teste automatizado.
+
+### Risco em aberto
+
+- Quando UX de refund manual for adicionada (Bloco C / F-APROVACAO-FINANCEIRA), se a rota não bloquear pós-D-money explicitamente, o gap material vira incidente em produção.
+
+### Resolução prevista
+
+Frente própria F-REFUND-POST-DMONEY:
+1. Decisão Clayton sobre Opção 1/2/3.
+2. Materialização da opção escolhida (migration + service + E2E).
+3. Bloqueio explícito (CHECK ou pré-condição) em `requestReversal` para impedir estorno pós-D-money no caminho "burro" atual.
+
+### Vinculadas
+
+- DECISION-0046 (actor_wallet canônico — invariante violada)
+- DECISION-0051 (PE-5-RESOLVER-MVP — cenário PE-5 onde o gap fica visível)
+- DECISION-0052 (Bloco F adiado por esta DT)
+- CORE_ESTORNOS_FINANCEIROS_CANONICO §14.5 (referência cruzada)

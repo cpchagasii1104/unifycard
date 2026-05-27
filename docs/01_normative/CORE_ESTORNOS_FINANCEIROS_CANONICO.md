@@ -563,8 +563,100 @@ Sem isso, a resposta é sempre a mesma:
 
 **Status:** IMUTÁVEL  
 **Autoridade:** NÍVEL 1 (CORE / LEI DO SISTEMA)  
-**Última atualização:** 2024  
-**Versão:** 1.0
+**Última atualização:** 2026-05-27 (DECISION-0052)
+**Versão:** 1.1
+
+---
+
+## 14. DECISION-0052 — F-REFUND SPLIT-AWARE HARDENING (2026-05-27)
+
+**Contexto.** Em 2026-05-27 a auditoria de estorno do motor existente (`reversal.service.ts` +
+`reversal.repository.ts`, do Prompt 51) revelou que o motor JÁ é split-aware desde a sua origem
+(`bankSplitRepository.loadSplitLegsForReversal` lê os splits da transação original e cada um vira
+uma transferência reversa independente). Portanto, **PE-5 não criou bomba escondida**: o motor já
+devolve linha por linha. O que faltava era **etiqueta, assinatura e câmera de segurança** — taxonomia
+canônica de tipo de estorno, autoria forte e rastreabilidade do `original_split_id` em cada leg
+reversa. Essa decisão fecha esses três pontos e deixa explicitamente para frentes futuras os blocos
+de aprovação (Bloco C — requer raio-x do Core de Aprovação Financeira) e segregação `escrow_refunds`
+(Bloco F — fora de escopo desta fatia).
+
+### 14.1 Taxonomia canônica de `reversal_type`
+
+Coluna `reversals.reversal_type` (NOT NULL) com CHECK Postgres restringindo a 5 valores:
+
+| valor | semântica | origem | exige `performed_by_user_id`? |
+|---|---|---|---|
+| `external_reversal` | gateway externo iniciou (PIX devolvido, cartão estornado) | sistêmico | **NÃO** (CHECK bloqueia) |
+| `internal_refund` | operador humano da plataforma decidiu refund manual | humano | **SIM** (CHECK bloqueia se NULL) |
+| `chargeback_open` | disputa externa aberta (estado contábil intermediário) | sistêmico | NÃO |
+| `chargeback_lost` | chargeback perdido (estorno definitivo) | sistêmico | NÃO |
+| `chargeback_reversed` | chargeback revertido pela plataforma | sistêmico | NÃO |
+
+CHECKs Postgres garantem invariante mesmo se aplicação for desviada:
+- `chk_reversal_type_canonical` — só valores canônicos.
+- `chk_internal_refund_requires_user` — `internal_refund` exige `performed_by_user_id` NOT NULL.
+- `chk_external_reversal_is_systemic` — `external_reversal` / `chargeback_*` rejeitam `performed_by_user_id`.
+
+### 14.2 Autoria forte (`performed_by_user_id` + `authority_source`)
+
+- `reversals.performed_by_user_id` (UUID, FK `users.user_id`, ON DELETE RESTRICT): NULL para
+  sistêmicos, NOT NULL para `internal_refund`. Permite responder "quem foi a pessoa real que
+  apertou o botão" em todo estorno manual.
+- `reversals.authority_source` (TEXT, CHECK opcional): valores canônicos
+  `system` / `ownership` / `delegation` / `account_acl`. Documenta de qual cadeia institucional
+  veio a autoridade declarada (compatível com Core de Permissões Financeiras §authority).
+- Defesa em camadas: além do CHECK Postgres, `createReversalRequest` lança erro explícito em TS
+  (`INTERNAL_REFUND_REQUIRES_PERFORMED_BY_USER` / `SYSTEMIC_REVERSAL_REJECTS_USER`) para mensagem
+  amigável antes do banco.
+
+### 14.3 Rastreabilidade `original_split_id` em cada leg
+
+Para cada split original, o motor executa um `transfer` independente do destino para o pagador.
+`bank_transactions.metadata` da leg reversa recebe (via UPDATE explícito após `transfer`, porque
+`bankTransactionService.transfer` não propaga metadata para `bank_transactions`):
+
+```json
+{
+  "reversal_id": "<uuid do reversals.id>",
+  "original_transaction_id": "<uuid da tx original>",
+  "original_split_id": "<uuid do bank_splits.id daquela leg>"
+}
+```
+
+Linkage também canonicalizado em `bank_transactions.reference_id` via
+`uuidv5(reversalId:splitId, REVERSAL_LEG_NAMESPACE)` (determinístico — permite reidempotência
+material além da textual). Audit trail de §10.1.2 fica satisfeita.
+
+### 14.4 Idempotência preservada
+
+`requestAndExecuteReversalSync` continua idempotente: 2ª chamada com mesmo `originalTransactionId`
+retorna os mesmos `reversal_transaction_ids` sem duplicar legs. Comportamento já existente — agora
+validado por E2E.
+
+### 14.5 Fora de escopo desta DECISION
+
+- **Bloco C — approval gate para `internal_refund`.** Foi explicitamente adiado: exige raio-x prévio
+  do Core de Aprovação Financeira (CORE_APROVACAO_FINANCEIRA_CANONICO) para decidir se aprovação é
+  síncrona/assíncrona, quem é o aprovador canônico, quais limites de valor disparam dupla aprovação.
+  Frente futura.
+- **Bloco F — segregação `escrow_refunds` vs `reversals`.** Estorno após D-money (revenue_share já
+  liberado para `actor_wallet`) tem fluxo material distinto: drena pool de escrow de outros pagamentos
+  e deixa wallet do worker com saldo indevido. Rastreado em **DT-PE5-REFUND-POST-DMONEY-CHAIN**.
+  Frente futura.
+
+### 14.6 Evidência canônica
+
+- Migration: `backend/migrations/20260530568000_reversals_taxonomy_and_authorship.sql`
+- E2E (9 cenários verdes): `backend/src/scripts/validate-pipeline-e2e-refund-split-aware.ts`
+  - T1: pagamento PE-5 multi-split + estorno antes D-money (3 legs corretas).
+  - T2: `original_split_id` presente em metadata de cada leg.
+  - T3: cada leg devolve exatamente seu valor original (net-zero por canal).
+  - T4: `reversal_type=external_reversal` + idempotência.
+  - T5/T6: CHECK Postgres bloqueia combinações inválidas.
+  - T7: TS guard lança erro amigável antes do banco.
+  - T8: outbox `payment_intent.status='reversed'` com metadata completa.
+  - T9: REMOVIDO (não determinístico — disparava ACTOR_RISK_BLOCKED por anomalia colateral);
+        limite material rastreado em DT-PE5-REFUND-POST-DMONEY-CHAIN.
 
 ---
 

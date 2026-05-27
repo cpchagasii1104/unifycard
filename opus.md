@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-05-27 — F-REFUND-SPLIT-AWARE-HARDENING (DECISION-0052)
+
+- Auditei o motor de estorno (`reversal.service.ts` + `reversal.repository.ts`). Achado material: **JÁ É split-aware desde o Prompt 51** — `loadSplitLegsForReversal` lê splits originais e cada um vira uma transferência reversa. PE-5 não criou bomba. Faltava só etiqueta, assinatura e câmera.
+- Aprovado pelo Clayton: A (taxonomia) + B (autoria) + D (E2E) + E (linkage). Bloco C adiado (raio-x do Core de Aprovação pendente — DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE). Bloco F fora de escopo (DT-PE5-REFUND-POST-DMONEY-CHAIN).
+- Achado durante implementação: `bankTransactionService.transfer` **não propaga metadata para `bank_transactions`** e `bank_ledger` não tem coluna metadata. Fix cirúrgico: UPDATE `bank_transactions.metadata` explícito após cada `transfer` no `executeReversal`. Documentado no comentário ali.
+- Achado durante E2E: `evaluateActorRisk` lê `actor_events` (peso 18 por `reversal_executed` → 5 estornos = 90 = blocked). E2E com múltiplos estornos no mesmo worker dispara `ACTOR_RISK_BLOCKED` por colateral. Mitigação: helper `resetRiskProfiles()` limpa `actor_events` + `actor_risk_profile` entre fases. **NÃO usar isso em produção** — é mecanismo só de teste para isolar o que se mede.
+- T9 (estorno pós-D-money) removido do E2E por não-determinismo. Limite material (escrow_payments é pool, estorno drena saldo de outros pagamentos) está em DT-PE5-REFUND-POST-DMONEY-CHAIN com as 3 opções de resolução possíveis.
+- Migration `20260530568000_reversals_taxonomy_and_authorship.sql` é aditiva pura — 3 ADD COLUMN + 4 CHECK + 1 FK. Pode ser revertida.
+- E2E `validate-pipeline-e2e-refund-split-aware.ts` rodou verde (9 cenários). Outbox worker tenta Redis local e falha mas não afeta o teste.
+
+---
+
 ## §-3. Missão real
 
 **Objetivo único da operação atual: backend buildando, banco aplicado, frontend rodando, smoke test funcionando.**

@@ -283,6 +283,9 @@ export async function executeDisputeFinancialReversal(
     actorId,
     reason: `reconciliation_dispute:${disputeId}`,
     amountCents,
+    // DECISION-0052: reconciliação automática de dispute — sistêmico.
+    reversalType: 'external_reversal',
+    authoritySource: 'system',
   });
 
   assertTransition(dispute.status, 'reversed');

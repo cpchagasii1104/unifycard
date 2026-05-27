@@ -218,7 +218,15 @@ export async function executeReversal(
             currency,
             transactionType: 'transfer',
             description: `Financial reversal leg (original ${origId})`,
-            metadata: { reversal_id: reversalId, original_transaction_id: origId, split_id: leg.split_id },
+            // DECISION-0052 Bloco E: rastreabilidade canônica.
+            // NOTA: o método bankTransactionService.transfer hoje NÃO propaga
+            // metadata para bank_transactions (o INSERT não inclui a coluna).
+            // Logo, persistimos via UPDATE explícito ABAIXO do transfer.
+            metadata: {
+              reversal_id: reversalId,
+              original_transaction_id: origId,
+              original_split_id: leg.split_id,
+            },
             referenceType: 'financial_reversal_leg',
             referenceId: legReferenceId(reversalId, leg.split_id),
             authorship: buildSystemAuthorship({ actingForAccountId: fromAccountId }),
@@ -226,6 +234,23 @@ export async function executeReversal(
             treasurySource,
           },
           client
+        );
+        // DECISION-0052 Bloco E: persiste rastreabilidade canônica em
+        // bank_transactions.metadata da leg. Append seguro (NÃO altera
+        // amount/account/direction — só anota linkage).
+        // CORE_ESTORNOS §10.1.2 recomenda original_split_id em audit trail.
+        await client.query(
+          `UPDATE bank_transactions
+              SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
+            WHERE id = $2::uuid`,
+          [
+            JSON.stringify({
+              reversal_id: reversalId,
+              original_transaction_id: origId,
+              original_split_id: leg.split_id,
+            }),
+            tr.transactionId,
+          ]
         );
         executedTxIds.push(tr.transactionId);
       }
