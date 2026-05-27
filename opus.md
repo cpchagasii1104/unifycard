@@ -1356,9 +1356,22 @@ destinos próprios na hora da execução, NUNCA passam pelo actor_wallet do pres
 > financeira últimos 30 dias via `bank_splits.created_at`. Saldo sempre
 > `bank_ledger`."
 
-**Contrato `regional_origin_basis`** (DT-REGIONAL-ORIGIN-BASIS-POLICY, documentado
-em CORE_SPLIT §9.4): resolver dinâmico de regional_fund (futuro PE-4) DEVE
-consultar basis explícito da policy. PF nunca assume HQ; PJ nunca assume
-RESIDENCE de CPF responsável. Fail-closed `REGIONAL_ORIGIN_BASIS_REQUIRED`
-quando dinâmico ativa sem basis. mixed_policy = múltiplas linhas
-regional_fund (não heurística no resolver).
+**Contrato `regional_origin_basis`** — formalizado em **DECISION-0049 (2026-05-26)**.
+Coluna `economic_policy_lines.regional_origin_basis TEXT` + 2 CHECK constraints
+no Postgres (não Zod). Enum canônico de **7 valores** (mixed_policy REMOVIDO —
+é padrão de USO via múltiplas linhas).
+
+**Regra mestre permanente:**
+
+> "CNPJ identifica quem é a empresa. Actor identifica unidade/papel operacional.
+> Endereço OPERATIONAL identifica onde aquela unidade impacta economicamente.
+> Policy declara qual origem regional usar. Bank materializa. Ledger prova."
+
+**Anti-padrão bloqueado por DECISION-0049:** HQ NUNCA como fallback automático.
+Se empresa não cadastra OPERATIONAL, sistema TRAVA (não premia cadastro
+incompleto). Para HQ ser usado, policy declara `basis='receiver_company_hq'`
+explicitamente em linha própria. Código NÃO interpreta intenção.
+
+**Pré-requisito UX** rastreado em
+`DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` (OPEN HIGH).
+Resolver dinâmico **NÃO implementado** — continua FAIL-CLOSED em PE-3.

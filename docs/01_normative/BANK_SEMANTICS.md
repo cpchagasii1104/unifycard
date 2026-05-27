@@ -249,19 +249,40 @@ E2E `validate-pipeline-e2e-policy-engine-metrics.ts` cobre 9 cenários
 PF/PJ separados, unverified isolado, janela 30d, saldo do ledger,
 payload sem CPF/CNPJ, actor_count só interno.
 
-### Contrato `regional_origin_basis` (DT-REGIONAL-ORIGIN-BASIS-POLICY)
+### Contrato `regional_origin_basis` — DECISION-0049 (2026-05-26)
 
-Quando resolver dinâmico de `regional_fund` for habilitado (frente PE-4
-futura), policy line DEVE carregar `regional_origin_basis` indicando
-qual endereço resolve a região-destino:
+Formalizada em migration `20260530567000`. Enum canônico **7 valores**
+(`mixed_policy` removido — é padrão de USO via múltiplas linhas, NÃO valor):
 
 `payer_identity_residence` | `receiver_identity_residence` |
-`receiver_company_hq` | `receiver_company_operational` |
+`receiver_company_operational` | `receiver_company_hq` |
 `service_location` | `transaction_location` |
-`explicit_economic_region` | `mixed_policy`
+`explicit_economic_region`
 
-PF nunca assume HQ; PJ nunca assume RESIDENCE de CPF responsável.
-Fail-closed `REGIONAL_ORIGIN_BASIS_REQUIRED` quando dinâmico sem basis.
+**Regras inegociáveis:**
+
+- **CNPJ identifica** entidade; **actor identifica unidade/papel** operacional;
+  **OPERATIONAL identifica** onde impacta.
+- **PJ default = `receiver_company_operational`.** HQ NUNCA fallback automático.
+- **HQ só explícito** via `basis='receiver_company_hq'` declarado pela policy.
+- **PF por policy/vertical** (presencial → `service_location`; remoto →
+  `receiver_identity_residence`).
+- Múltiplas unidades de PJ = múltiplos actors compartilhando `company_id`
+  (NÃO criar `company_units` paralelo).
+- `mixed_policy` = composição via múltiplas linhas `regional_fund`, cada uma
+  com basis próprio.
+- Métrica pública deduplica por identidade real (PE-4-METRICS), não por actor.
+
+**Enforcement material:**
+
+- Coluna `economic_policy_lines.regional_origin_basis TEXT`
+- CHECK `chk_origin_basis_required_for_dynamic_regional`
+- CHECK `chk_origin_basis_canonical_values`
+- E2E PE-1 T16-T18 provando enforcement no Postgres (não Zod/TS)
+
+Resolver dinâmico **NÃO implementado** — continua FAIL-CLOSED em PE-3.
+Pré-requisito UX (`OPERATIONAL` cadastrado por PJ) rastreado em
+`DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`.
 
 Detalhes completos em `CORE_SPLIT_PAGAMENTO_CANONICO.md §9.4`.
 

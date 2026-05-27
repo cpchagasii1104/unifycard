@@ -365,6 +365,7 @@ async function main() {
       lineType: 'revenue_share' as const,
       destinationType: 'receiver_actor' as const,
       destinationKey: null,
+      regionalOriginBasis: null,
       bps: 9999,
       fixedAmountCents: null,
       appliesTo: 'gross' as const,
@@ -380,6 +381,7 @@ async function main() {
       lineType: 'platform_fee' as const,
       destinationType: 'platform_fees' as const,
       destinationKey: null,
+      regionalOriginBasis: null,
       bps: 1,
       fixedAmountCents: null,
       appliesTo: 'gross' as const,
@@ -578,11 +580,93 @@ async function main() {
   });
 
   // ============================================================
+  // T16-T18 — DECISION-0049 / regional_origin_basis (Postgres CHECK)
+  // ============================================================
+  // Estes testes provam que as CHECK constraints do banco bloqueiam
+  // (não Zod / não TS). INSERT direto via SQL.
+  console.log('\n=== T16 — CHECK Postgres: regional_fund dinâmico exige basis ===');
+  await cleanupPriorRun();
+  const t16PolicyId = await seedPolicy({
+    code: 'pe1_e2e_T16_origin_basis',
+    selectors: { vertical: 'origin_basis_check' },
+    lines: [
+      { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 10000, priority: 0 },
+    ],
+  });
+  let t16Caught = false;
+  try {
+    await pool.query(
+      `INSERT INTO economic_policy_lines (
+         policy_id, line_type, destination_type, destination_key,
+         regional_origin_basis, bps, applies_to, priority
+       ) VALUES (
+         $1::uuid, 'regional_fund', 'regional_fund', NULL,
+         NULL, 500, 'gross', 1
+       )`,
+      [t16PolicyId]
+    );
+  } catch (e: any) {
+    t16Caught = true;
+    assertOk('T16.1 — Postgres bloqueou via CHECK chk_origin_basis_required_for_dynamic_regional', {
+      ok:
+        e?.code === '23514' &&
+        /chk_origin_basis_required_for_dynamic_regional/.test(String(e?.constraint ?? '')),
+      reason: `esperava SQLSTATE 23514 + constraint name; recebi code=${e?.code}, constraint=${e?.constraint}`,
+      detail: { code: e?.code, constraint: e?.constraint, message: e?.message },
+    });
+  }
+  assertOk('T16.2 — exceção SQL foi lançada (regional_fund sem destination_key sem basis bloqueia)', {
+    ok: t16Caught, reason: 'INSERT permitido apesar do CHECK',
+  });
+
+  console.log('\n=== T17 — CHECK Postgres: mixed_policy NÃO é valor de enum ===');
+  let t17Caught = false;
+  try {
+    await pool.query(
+      `INSERT INTO economic_policy_lines (
+         policy_id, line_type, destination_type, destination_key,
+         regional_origin_basis, bps, applies_to, priority
+       ) VALUES (
+         $1::uuid, 'regional_fund', 'regional_fund', NULL,
+         'mixed_policy', 500, 'gross', 1
+       )`,
+      [t16PolicyId]
+    );
+  } catch (e: any) {
+    t17Caught = true;
+    assertOk('T17.1 — Postgres bloqueou via CHECK chk_origin_basis_canonical_values', {
+      ok:
+        e?.code === '23514' &&
+        /chk_origin_basis_canonical_values/.test(String(e?.constraint ?? '')),
+      reason: `esperava SQLSTATE 23514 + chk_origin_basis_canonical_values; recebi code=${e?.code}, constraint=${e?.constraint}`,
+      detail: { code: e?.code, constraint: e?.constraint, message: e?.message },
+    });
+  }
+  assertOk('T17.2 — exceção SQL foi lançada (mixed_policy bloqueado pelo enum)', {
+    ok: t17Caught, reason: 'mixed_policy aceito apesar do CHECK',
+  });
+
+  console.log('\n=== T18 — Path feliz via repository: basis canônico aceito ===');
+  const t18Line = await economicPolicyRepository.createPolicyLine(TENANT_ID, {
+    policyId: t16PolicyId,
+    lineType: 'regional_fund',
+    destinationType: 'regional_fund',
+    bps: 500,
+    priority: 2,
+    regionalOriginBasis: 'receiver_company_operational',
+  });
+  assertOk('T18.1 — createPolicyLine via repository aceitou basis canônico', {
+    ok: t18Line.regionalOriginBasis === 'receiver_company_operational',
+    reason: 'basis não persistido corretamente',
+    detail: t18Line,
+  });
+
+  // ============================================================
   // CLEANUP (re-roda para garantir limpeza)
   // ============================================================
   await cleanupPriorRun();
 
-  console.log('\n═══ E2E PE-1 :: PASS — 15 testes verdes. Resolver canônico funcional, BPS sem float, drift seguro, access pass override correto. ═══');
+  console.log('\n═══ E2E PE-1 :: PASS — 18 testes verdes (T1-T15 originais + T16-T18 DECISION-0049 regional_origin_basis). Resolver canônico funcional, BPS sem float, drift seguro, access pass override correto, CHECK Postgres regional_fund dinâmico operacional, mixed_policy bloqueado no enum, basis canônico aceito. ═══');
   await pool.end();
 }
 

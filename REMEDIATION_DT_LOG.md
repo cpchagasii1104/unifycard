@@ -6068,9 +6068,13 @@ PE-3 (planejada):
 
 ---
 
-## DT-REGIONAL-ORIGIN-BASIS-POLICY
+## DT-REGIONAL-ORIGIN-BASIS-POLICY (CLOSED por DECISION-0049)
 
-- **Status:** OPEN (HIGH — bloqueia regional_fund dinâmico até contrato fechar)
+- **Status:** CLOSED (2026-05-26) — contrato formalizado em DECISION-0049 + migration `20260530567000` + CHECK constraints + E2E T16-T18 provando enforcement no Postgres. Enum reduzido para 7 valores (mixed_policy removido). HQ não é fallback automático. Pré-requisito UX rastreado em DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL.
+
+### Histórico original
+
+- **Status original:** OPEN (HIGH — bloqueia regional_fund dinâmico até contrato fechar)
 - **Origem:** PE-4-METRICS + conversa Clayton 2026-05-26 sobre regra de origem econômica do retorno regional. Premissa: regional_fund NÃO pode assumir uma única origem fixa (RESIDENCE da PF? HQ da PJ? local do serviço? local do cliente?). A escolha depende do tipo de actor (PF/PJ) e da política aplicada.
 
 ### Contrato proposto (regional_origin_basis)
@@ -6114,3 +6118,44 @@ Quando policy line tem `destination_type='regional_fund'` SEM `destination_key` 
 - PE-4-METRICS (leitura) — independente desta decisão.
 - PE-3 / D-money — não afetados.
 - Fluxos que usam `destination_key` explícito — funcionam sem basis.
+
+---
+
+## DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL
+
+- **Status:** OPEN (HIGH — bloqueia habilitar resolver dinâmico de regional_fund em produção)
+- **Origem:** DECISION-0049 (2026-05-26). Contrato `regional_origin_basis` declara que `receiver_company_operational` exige `address_assignments(role='OPERATIONAL')` por unidade/actor PJ. Pré-requisito UX/onboarding: TODA empresa PJ deve ter pelo menos 1 endereço operacional cadastrado antes de qualquer transação econômica regional.
+
+### Estado material atual
+
+- `address_assignments` no DB: 4 rows, TODAS com role `HQ` (companies como owner).
+- ZERO rows com role `OPERATIONAL` em qualquer owner_type.
+- Logo: se o resolver dinâmico fosse ativado HOJE com policy declarando `receiver_company_operational`, **toda transação PJ falharia POLICY_REGIONAL_ORIGIN_UNRESOLVABLE**.
+- Não bloqueia esta fatia (DECISION-0049 + schema) — bloqueia o PRÓXIMO passo (resolver dinâmico real).
+
+### Padrão de owner_type/owner_id para actor operacional — PENDENTE
+
+O enum `address_assignments.owner_type` aceita: `company` / `profile` / `event` / `ride` / `group` / `tenant_hq` / `service_provider`. NÃO há padrão estabelecido para vincular `actor` (unidade operacional de PJ) a `address_assignments` — duas alternativas precisam decisão:
+
+- **(A)** Usar `owner_type='service_provider'` + `owner_id=<actor.id>` — semanticamente correto para unidade que presta serviço.
+- **(B)** Estender enum com `owner_type='actor'` + `owner_id=<actor.id>` — exige migration nova no enum.
+
+**Recomendação:** (A) é menos invasivo; reusa enum existente. Mas precisa confirmação Clayton no momento de implementar o cadastro de unidades.
+
+### Pré-requisitos para habilitar resolver dinâmico
+
+1. UX/onboarding bloqueia criação de actor PJ sem pelo menos 1 endereço OPERATIONAL.
+2. Decisão A/B acima sobre owner_type fechada e documentada.
+3. Validador pré-transação (risk-financial-gate ou similar) chama resolver em modo "dry-run" antes de cobrar cliente — bloqueia abertura, não commit.
+4. Wizard de cadastro de unidade/filial materializa `actor` + `address_assignments(role='OPERATIONAL')` atomicamente.
+5. Migration de seed para tenants existentes: backfill OPERATIONAL a partir de HQ existente como ponto de partida (decisão produto: aceita HQ como OPERATIONAL inicial ou força recadastro?).
+
+### Não bloqueia
+
+- DECISION-0049 + schema + CHECK constraints (esta fatia).
+- PE-1 / PE-3 / PE-4-METRICS — todos inalterados.
+- Fluxos atuais (input.splits legacy + destination_key explícito) — continuam funcionando.
+
+### Resolução prevista
+
+Frente PE-5 ou PE-6 (a definir), bloqueada por decisão Clayton sobre items 1-5 acima.

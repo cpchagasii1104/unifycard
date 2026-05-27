@@ -5991,3 +5991,58 @@ Próximo passo institucional: decidir e seedar policy default canônica para Cam
 PE-4-METRICS fechado. Contrato regional_origin_basis documentado e fail-closed.
 Próximo passo: decisão Clayton sobre DECISION-0049 (formalizar enum + escolher
 quando habilitar resolver dinâmico).
+
+---
+
+## Sessão 2026-05-26 — DECISION-0049 + migration regional_origin_basis
+
+### Contexto
+
+Rodada Clayton + ChatGPT pós PE-4-METRICS formalizou contrato de origem regional.
+**Esta fatia é contrato + schema; NÃO implementa resolver dinâmico.**
+
+### Entregue
+
+1. **Migration** `20260530567000_add_regional_origin_basis_to_policy_lines.sql`:
+   - `ADD COLUMN regional_origin_basis TEXT`
+   - CHECK `chk_origin_basis_required_for_dynamic_regional`: obrigatório quando `line_type='regional_fund' AND destination_key IS NULL`
+   - CHECK `chk_origin_basis_canonical_values`: enum 7 valores (sem mixed_policy)
+   - Aplicada (0 rows com `regional_fund` no DB live)
+2. **TS**: `RegionalOriginBasis` type + campo `regionalOriginBasis` em `EconomicPolicyLine` + `CreateEconomicPolicyLineInput` (camelCase TS, snake DB com mapping no repository).
+3. **Repository**: SELECT inclui novo campo; INSERT mapeia `input.regionalOriginBasis ?? null`.
+4. **DECISION-0049** redigida com 8 regras inegociáveis.
+5. **DTs**:
+   - `DT-REGIONAL-ORIGIN-BASIS-POLICY` → **CLOSED** por DECISION-0049
+   - `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` **nova OPEN HIGH** — bloqueia habilitar resolver dinâmico em produção
+6. **Docs normativas**:
+   - `CORE_SPLIT_PAGAMENTO_CANONICO §9.4` reescrita (regra-mãe + 9 regras inegociáveis + enforcement material)
+   - `BANK_SEMANTICS` sub-seção regional_origin_basis atualizada (enum sem mixed_policy, HQ só explícito)
+   - `opus.md` regra mestre permanente
+7. **E2E PE-1 estendido com T16-T18** (provam CHECK do Postgres, não Zod):
+   - T16: INSERT direto via SQL com `regional_fund + destination_key NULL + basis NULL` → SQLSTATE 23514 + constraint name correto
+   - T17: INSERT direto com `basis='mixed_policy'` → SQLSTATE 23514 + chk_origin_basis_canonical_values
+   - T18: `createPolicyLine` via repository com basis canônico aceito + persistido corretamente
+
+### Gates pós-DECISION-0049
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| E2E PE-1 (18 testes T1-T18) | PASS |
+| E2E PE-3 (não regrediu) | (rodar pré-commit) |
+| E2E PE-4-METRICS (não regrediu) | (rodar pré-commit) |
+| actor-writer / bank-ledger / regression-guards | (rodar pré-commit) |
+| architectural --strict | (rodar pré-commit) |
+
+### O que NÃO entra nesta fatia
+
+- Resolver dinâmico de `regional_fund` — continua FAIL-CLOSED
+- Cadastro UX de unidade PJ com OPERATIONAL — rastreado em DT
+- Materialização de `economic_regions` (DECISION-0020 §4) — frente FUND-MATERIALIZE
+- FK `services.primary_address_id` — necessária para `service_location` resolver
+
+### Modo
+
+DECISION-0049 fechada. Contrato cravado no schema. Próximo passo: implementar
+resolver dinâmico só depois que DT-PJ-OPERATIONAL fechar (frente UX/onboarding
++ decisão Clayton sobre owner_type para actor PJ).

@@ -466,36 +466,52 @@ A resolução usa metadata para construir chaves hierárquicas.
 - Paraná: `split.service_booking.parana` → fee 3%
 - São Paulo: `split.service_booking.sao_paulo` → fee 5%
 
-### 9.4 Origem regional do fundo (regional_origin_basis) — DT-REGIONAL-ORIGIN-BASIS-POLICY (2026-05-26)
+### 9.4 Origem regional do fundo (regional_origin_basis) — DECISION-0049 (2026-05-26)
 
-Quando `destination_type='regional_fund'` SEM `destination_key` explícito, o
-resolver dinâmico (frente PE-4 futura) DEVE consultar `regional_origin_basis`
-da policy line. Valores conceituais previstos:
+> **CNPJ identifica quem é a empresa. Actor identifica unidade/papel operacional.
+> Endereço OPERATIONAL identifica onde aquela unidade impacta economicamente.
+> Policy declara qual origem regional usar. Bank materializa. Ledger prova.**
+
+Quando `destination_type='regional_fund'` SEM `destination_key` explícito, a policy
+line É OBRIGADA a declarar `regional_origin_basis` (CHECK Postgres
+`chk_origin_basis_required_for_dynamic_regional`).
+
+**Enum canônico — 7 valores** (`mixed_policy` NÃO está aqui; é padrão de USO):
 
 | Basis                            | Resolução                                                              |
 |----------------------------------|------------------------------------------------------------------------|
 | `payer_identity_residence`       | RESIDENCE do CPF do payer (via `address_assignments`)                  |
 | `receiver_identity_residence`    | RESIDENCE do CPF do receiver                                           |
-| `receiver_company_hq`            | HQ do CNPJ do receiver (via `companies` + `address_assignments`)       |
-| `receiver_company_operational`   | OPERATIONAL do CNPJ do receiver                                        |
+| `receiver_company_operational`   | OPERATIONAL do CNPJ do receiver (default canônico PJ)                  |
+| `receiver_company_hq`            | HQ do CNPJ — **APENAS** se policy declarar explicitamente               |
 | `service_location`               | Endereço do `service`/`service_order`/`booking`                        |
 | `transaction_location`           | Endereço do canal/loja onde a transação ocorreu                        |
 | `explicit_economic_region`       | Policy carrega `destination_key=<economic_region_id>`; engine não resolve |
-| `mixed_policy`                   | Múltiplas linhas `regional_fund` na MESMA policy, cada uma com basis e share próprios |
 
 **Regras inegociáveis:**
 
-1. PF NÃO assume HQ. Se actor é PF, basis válidos são `*_identity_residence` ou `service_location` / `transaction_location` / `explicit_economic_region` / `mixed_policy`.
-2. PJ NÃO assume RESIDENCE do CPF responsável como default. Se actor é PJ, basis válidos são `*_company_*` ou outros sem origem PF.
-3. **mixed_policy** representa "X% para região do CPF + Y% para região do CNPJ" via múltiplas policy lines `regional_fund` — NÃO via heurística no resolver.
-4. **Fail-closed** quando regional_fund dinâmico ativa sem `regional_origin_basis` definido: `REGIONAL_ORIGIN_BASIS_REQUIRED`.
-5. `destination_key` explícito continua override admin (ignora basis).
-6. `category` / `city` / `bairro` / `economic_region` continuam seletores da policy (selecionam QUAL regra aplica) — não substituem basis (decide ORIGEM da região).
-7. `address_assignments` é fonte material de qual endereço é RESIDENCE/HQ/OPERATIONAL (DECISION-0020).
+1. **CNPJ identifica entidade jurídica.** Actor identifica unidade/papel operacional. Múltiplas unidades de uma empresa = múltiplos actors compartilhando `company_id`. Não criar `company_units` paralelo.
+2. **PJ default = `receiver_company_operational`.** HQ NUNCA como fallback automático.
+3. **HQ só explícito.** Para policy querer HQ, declara `regional_origin_basis='receiver_company_hq'` em linha própria. Resolver NÃO interpreta intenção. (Anti-pattern bloqueado: "empresa que não cadastra OPERATIONAL ganha vantagem de mandar tudo para sede".)
+4. **PF default = por policy/vertical.** Sem hardcoded universal. Serviço presencial local → `service_location`; remoto/online → `receiver_identity_residence`; configurável por policy.
+5. **`mixed_policy` é padrão de USO, NÃO valor de enum.** Composição "70% operacional + 30% sede" = duas linhas `regional_fund` na mesma policy, cada uma com basis próprio. Enum sem mixed_policy evita "samba do enum doido" (resolver perguntando "misto de quê?").
+6. **Fail-closed** quando regional_fund dinâmico ativa sem basis: SQL CHECK bloqueia INSERT no banco; resolver dinâmico futuro retornará `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` se basis pedido não tiver endereço material disponível.
+7. **`destination_key` explícito continua override admin** (basis opcional quando key fornecida).
+8. **`category` / `city` / `bairro` / `economic_region` continuam seletores da policy** (selecionam QUAL regra aplica) — não substituem basis (decide ORIGEM da região).
+9. **`address_assignments` é fonte material** de qual endereço é RESIDENCE/HQ/OPERATIONAL (DECISION-0020).
 
-**Status atual:** contrato DOCUMENTADO; **não implementado**. Resolver dinâmico
-de `regional_fund` continua FAIL-CLOSED em PE-3 / `resolveSplitDestinationFromPolicy`.
-Rastreado em `DT-REGIONAL-ORIGIN-BASIS-POLICY` (OPEN HIGH).
+**Enforcement material:**
+
+- Coluna `economic_policy_lines.regional_origin_basis TEXT`
+- CHECK `chk_origin_basis_required_for_dynamic_regional` — obrigatório quando `line_type='regional_fund' AND destination_key IS NULL`
+- CHECK `chk_origin_basis_canonical_values` — enum sem mixed_policy
+- TS `RegionalOriginBasis` enum (7 valores)
+- E2E PE-1 T16/T17/T18 provando CHECK do Postgres (não Zod)
+
+**Status do resolver dinâmico:** **NÃO implementado.** Continua FAIL-CLOSED em PE-3 /
+`resolveSplitDestinationFromPolicy`. Pré-requisito UX para habilitação
+rastreado em `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL` (OPEN HIGH).
+DECISION-0049 entrega CONTRATO + SCHEMA; resolver é frente futura.
 
 ---
 

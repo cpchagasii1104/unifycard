@@ -52,6 +52,7 @@ interface EconomicPolicyLineRow {
   line_type: string;
   destination_type: string;
   destination_key: string | null;
+  regional_origin_basis: string | null;
   bps: number | null;
   fixed_amount_cents: string | null;
   applies_to: string;
@@ -137,6 +138,7 @@ function toEconomicPolicyLine(row: EconomicPolicyLineRow): EconomicPolicyLine {
     lineType: row.line_type as any,
     destinationType: row.destination_type as any,
     destinationKey: row.destination_key,
+    regionalOriginBasis: row.regional_origin_basis as any,
     bps: row.bps,
     fixedAmountCents: row.fixed_amount_cents != null ? parseInt(String(row.fixed_amount_cents), 10) : null,
     appliesTo: row.applies_to as any,
@@ -261,6 +263,7 @@ class EconomicPolicyRepository {
       tenantId,
       `
       SELECT id, policy_id, line_type, destination_type, destination_key,
+             regional_origin_basis,
              bps, fixed_amount_cents::text AS fixed_amount_cents, applies_to,
              condition_type, condition_json, priority, metadata, created_at
         FROM economic_policy_lines
@@ -419,12 +422,14 @@ class EconomicPolicyRepository {
       `
       INSERT INTO economic_policy_lines (
         policy_id, line_type, destination_type, destination_key,
+        regional_origin_basis,
         bps, fixed_amount_cents, applies_to,
         condition_type, condition_json, priority, metadata
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb
+        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb
       )
       RETURNING id, policy_id, line_type, destination_type, destination_key,
+                regional_origin_basis,
                 bps, fixed_amount_cents::text AS fixed_amount_cents, applies_to,
                 condition_type, condition_json, priority, metadata, created_at
       `,
@@ -433,6 +438,7 @@ class EconomicPolicyRepository {
         input.lineType,
         input.destinationType,
         input.destinationKey ?? null,
+        input.regionalOriginBasis ?? null,
         input.bps ?? null,
         input.fixedAmountCents ?? null,
         input.appliesTo ?? 'gross',

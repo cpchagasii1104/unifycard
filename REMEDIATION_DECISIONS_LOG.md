@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0048 (2026-05-26) |
+| Última entrada | DECISION-0049 (2026-05-26) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -3770,6 +3770,102 @@ DECISION-0048 (2026-05-26) reduz o escopo desta decisão. `economic_policies` pe
 - DT-BANK-POLICIES-PHYSICAL-REMOVAL (nova, OPEN — remoção depende de bank-limit migrar)
 - DT-POLICY-ENGINE-PLUG-SERVICE-EXECUTION (permanece OPEN — PE-3)
 - DT-CAMADA1-FEE-SPLIT (permanece OPEN — PE-3)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0049 — regional_origin_basis canônico (CNPJ identifica; actor opera; OPERATIONAL impacta)
+
+**Status:** ativa
+**Sessão:** 2026-05-26 (rodada Clayton + ChatGPT pós PE-4-METRICS)
+**Decisor:** Clayton (com afiação ChatGPT)
+**Substitui:** DT-REGIONAL-ORIGIN-BASIS-POLICY (que estava OPEN)
+**Commit âncora:** (a preencher após commit desta fatia)
+
+### Regra-mãe
+
+```
+CNPJ identifica quem é a empresa (entidade jurídica).
+Actor identifica unidade/papel operacional.
+Endereço OPERATIONAL identifica onde aquela unidade impacta economicamente.
+Policy declara qual origem regional usar.
+Bank materializa.
+Ledger prova.
+```
+
+### 8 regras inegociáveis
+
+1. **CNPJ ≠ unidade.** Múltiplas unidades de uma empresa = múltiplos actors compartilhando `company_id`. Não criar `company_units` paralelo.
+2. **Actor = papel operacional**, NÃO pessoa nem unidade fiscal. Confirma DECISION-0048 + opus.md.
+3. **PJ default = `receiver_company_operational`.** HQ NUNCA como fallback automático.
+4. **HQ só explícito.** Para policy querer HQ, declara `regional_origin_basis='receiver_company_hq'` em linha própria. Resolver não interpreta intenção.
+5. **PF default = por policy/vertical.** Sem hardcoded universal. Serviço presencial → `service_location`; remoto/online → `receiver_identity_residence`; configurável por policy.
+6. **`regional_origin_basis` enum canônico (7 valores; mixed_policy NÃO está):**
+   - `payer_identity_residence`
+   - `receiver_identity_residence`
+   - `receiver_company_operational`
+   - `receiver_company_hq`
+   - `service_location`
+   - `transaction_location`
+   - `explicit_economic_region`
+7. **`mixed_policy` = padrão de uso, NÃO valor de enum.** Composição "70% operacional + 30% sede" = duas linhas `regional_fund` na mesma policy, cada uma com basis próprio. Se virasse enum, o resolver teria que perguntar "misto de quê?" — anti-padrão samba do enum doido.
+8. **Métrica pública deduplica por identidade**, NÃO por actor. Confirma PE-4-METRICS (já provado por T2/T3/T9).
+
+### Enforcement material (esta fatia)
+
+1. **Migration** `20260530567000_add_regional_origin_basis_to_policy_lines.sql`:
+   - `ALTER TABLE economic_policy_lines ADD COLUMN regional_origin_basis TEXT`
+   - CHECK `chk_origin_basis_required_for_dynamic_regional`: obrigatório quando `line_type='regional_fund' AND destination_key IS NULL`
+   - CHECK `chk_origin_basis_canonical_values`: enum canônico (sem mixed_policy)
+   - Aplicada (0 rows com `regional_fund` no DB live = blast zero)
+2. **TS**: `RegionalOriginBasis` type em `economic-policy.types.ts`; `regionalOriginBasis: RegionalOriginBasis | null` em `EconomicPolicyLine` + `CreateEconomicPolicyLineInput` (camelCase TS, snake DB com mapping no repository).
+3. **Repository**: SELECT inclui `regional_origin_basis`; INSERT mapeia `input.regionalOriginBasis ?? null`.
+4. **E2E** `validate-pipeline-e2e-economic-policy-engine.ts` cobre via T16-T18:
+   - T16: INSERT direto via SQL sem basis em regional_fund dinâmico → SQLSTATE 23514 + nome correto do CHECK
+   - T17: INSERT direto com `basis='mixed_policy'` → SQLSTATE 23514 + chk_origin_basis_canonical_values
+   - T18: `createPolicyLine` via repository com basis canônico aceito
+   - **Testes provam CHECK do Postgres, não Zod/TS** (anti-padrão "teste de fumaça com perfume caro" evitado).
+
+### Comportamento do resolver dinâmico (quando vier — PE-5+)
+
+Quando `economicPolicyEngineService` ganhar o resolver dinâmico (frente futura, condicional a `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`):
+
+```
+basis='receiver_company_operational':
+  → busca address_assignments(owner=<actor>, role='OPERATIONAL')
+  → se ausente, FAIL POLICY_REGIONAL_ORIGIN_UNRESOLVABLE
+  → resolver NUNCA cai em HQ automaticamente
+
+basis='receiver_company_hq':
+  → busca address_assignments(owner=<actor.company_id>, role='HQ')
+  → se ausente, FAIL POLICY_REGIONAL_ORIGIN_UNRESOLVABLE
+
+basis='service_location':
+  → busca service.primary_address_id (requer schema extra — DT-PE5-SERVICE-LOCATION-FK)
+  → se ausente, FAIL POLICY_REGIONAL_ORIGIN_UNRESOLVABLE
+```
+
+Resolver tem semântica simples: lê basis declarado, resolve exatamente o que está escrito, falha se ausente. Não interpreta intenção.
+
+### O que NÃO está nesta fatia (frentes próprias)
+
+- Resolver dinâmico de `regional_fund` — continua FAIL-CLOSED em PE-3 / `resolveSplitDestinationFromPolicy`.
+- Materialização de `economic_regions` + `economic_region_members` (DECISION-0020 §4) — pré-requisito para basis `explicit_economic_region` resolver fundos múltiplos por cidade.
+- Cadastro de unidade PJ com `OPERATIONAL` no onboarding — bloqueia em produção, rastreado em `DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL`.
+- FK `services.primary_address_id` / `service_orders.primary_address_id` — necessário para `service_location` resolver.
+
+### Vinculadas
+
+- DECISION-0020 (Location Core — `address_assignments` é fonte de OPERATIONAL/HQ/RESIDENCE)
+- DECISION-0046 (`actor_wallet` canônico)
+- DECISION-0047 (PE-1 substrate)
+- DECISION-0048 (camada DECISÃO ≠ EXECUÇÃO)
+- DT-REGIONAL-ORIGIN-BASIS-POLICY → CLOSED por esta DECISION
+- DT-PJ-OPERATIONAL-ADDRESS-MANDATORY-BEFORE-DYNAMIC-REGIONAL (nova OPEN HIGH)
+- DT-PE3-LINE-TYPES-FAIL-CLOSED (permanece OPEN LOW — resolver dinâmico futuro destravar`regional_fund`)
 
 ### Superada por
 

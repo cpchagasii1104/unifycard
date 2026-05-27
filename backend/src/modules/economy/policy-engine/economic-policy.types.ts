@@ -40,6 +40,29 @@ export type EconomicPolicyDestinationType =
 
 export type EconomicPolicyLineAppliesTo = 'gross' | 'net';
 
+/**
+ * Origem regional canônica (DECISION-0049, 2026-05-26).
+ *
+ * Quando line_type='regional_fund' E destinationKey IS NULL (resolução
+ * dinâmica), regionalOriginBasis É OBRIGATÓRIO. Resolver NUNCA faz
+ * fallback automático entre basis — se OPERATIONAL pedido e ausente,
+ * falha POLICY_REGIONAL_ORIGIN_UNRESOLVABLE.
+ *
+ * mixed_policy NÃO está aqui: composição é via MÚLTIPLAS linhas
+ * regional_fund, cada uma com seu basis próprio.
+ *
+ * Resolver dinâmico ainda NÃO implementado (frente futura). PE-3
+ * continua FAIL-CLOSED em regional_fund.
+ */
+export type RegionalOriginBasis =
+  | 'payer_identity_residence'
+  | 'receiver_identity_residence'
+  | 'receiver_company_operational'
+  | 'receiver_company_hq'
+  | 'service_location'
+  | 'transaction_location'
+  | 'explicit_economic_region';
+
 export interface EconomicPolicy {
   id: string;
   tenantId: string;
@@ -74,6 +97,9 @@ export interface EconomicPolicyLine {
   lineType: EconomicPolicyLineType;
   destinationType: EconomicPolicyDestinationType;
   destinationKey: string | null;
+  /** DECISION-0049: origem regional canônica. Obrigatório por CHECK
+   *  quando lineType='regional_fund' AND destinationKey IS NULL. */
+  regionalOriginBasis: RegionalOriginBasis | null;
   bps: number | null;
   fixedAmountCents: number | null;
   appliesTo: EconomicPolicyLineAppliesTo;
@@ -200,6 +226,10 @@ export interface CreateEconomicPolicyLineInput {
   lineType: EconomicPolicyLineType;
   destinationType: EconomicPolicyDestinationType;
   destinationKey?: string | null;
+  /** DECISION-0049: origem regional canônica. Obrigatório quando
+   *  lineType='regional_fund' AND destinationKey é null/ausente
+   *  (enforcement via CHECK chk_origin_basis_required_for_dynamic_regional). */
+  regionalOriginBasis?: RegionalOriginBasis | null;
   bps?: number | null;
   fixedAmountCents?: number | null;
   appliesTo?: EconomicPolicyLineAppliesTo;
