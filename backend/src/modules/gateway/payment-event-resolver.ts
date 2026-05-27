@@ -207,18 +207,11 @@ export async function resolvePaymentEvent(event: PaymentEvent): Promise<void> {
       throw new Error('PIX_PAYMENT_CONFIRMED requires actor_id');
     }
     await bankAccountService.ensurePlatformAccounts(tenantId, 'BRL');
-    await bankAccountService.ensureLifecycleAccountsForOwner(tenantId, event.actor_id, 'user', 'BRL');
+    const walletAccount = await bankAccountService.ensureUserWalletForActor(tenantId, event.actor_id);
 
     const escrowAccount = await bankAccountService.getPlatformLifecycleAccount(
       tenantId,
       'escrow_payments',
-      'BRL'
-    );
-    const walletAccount = await bankAccountService.getLifecycleAccount(
-      tenantId,
-      event.actor_id,
-      'user',
-      'user_wallet',
       'BRL'
     );
 

@@ -6,6 +6,7 @@ import { bankAccountRepository } from './bank-account.repository';
 import { bankLedgerRepository } from './bank-ledger.repository';
 import { asMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
 import type { PoolClient } from 'pg';
+import { runQueryWithTenant } from '@core/database/pool';
 import type {
   BankAccount,
   BankAccountType,
@@ -278,6 +279,26 @@ class BankAccountService {
       accountType: 'actor_wallet',
       currency,
     });
+  }
+
+  /** C4b (DECISION-0057) — provisiona user_wallet canonicamente a partir do actorId. Idempotente. */
+  async ensureUserWalletForActor(
+    tenantId: string,
+    actorId: string,
+    currency: BankCurrency = 'BRL'
+  ): Promise<BankAccount> {
+    const row = await runQueryWithTenant<{ user_id: string | null }>(
+      tenantId,
+      `SELECT user_id FROM actors WHERE tenant_id = $1 AND id = $2`,
+      [tenantId, actorId]
+    );
+    if (!row?.user_id) {
+      throw new Error('USER_WALLET_REQUIRES_USER_ID');
+    }
+    await this.ensureLifecycleAccountsForOwner(tenantId, row.user_id, 'user', currency);
+    const wallet = await this.getLifecycleAccount(tenantId, row.user_id, 'user', 'user_wallet', currency);
+    if (!wallet) throw new Error('USER_WALLET_CREATION_FAILED');
+    return wallet;
   }
 
   /**
