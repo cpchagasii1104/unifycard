@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-05-27 — F-APROVACAO-FINANCEIRA-SUBSTRATE (DECISION-0054)
+
+- **READ-FIRST confirmou**: `approval_requests`/`approval_votes` inexistentes em DB e migrations.
+  `core/ai/approval` = in-memory/IA, domínio diferente — não adaptar.
+- **Migration `20260530569000`**: materializou `approval_requests` + `approval_votes` conforme
+  `CORE_APROVACAO_FINANCEIRA_CANONICO §7.2`. `operation_type` inclui `actor_wallet_recovery`
+  (D1 Clayton). Sem `bank_account_policies` nesta frente (D2).
+- **E2E 10/10 verde**: T1–T10 cobrem todos os CHECKs, FKs e UNIQUE. T10 prova zero escrita
+  em `bank_ledger`/`bank_transactions`/`bank_splits`.
+- **DECISION-0053 C2 satisfeito**. C3 (DT-ACTOR-WALLET-DEBIT-MISSING) é o próximo bloqueio.
+- **DT-CORE-APPROVAL-REQUESTS-MISSING: CLOSED.**
+
+---
+
 ## Sessão 2026-05-27 — F-REFUND-POST-DMONEY Parte A + READ-FIRST + DECISION-0053
 
 - **Parte A fechada** (commit `4c04e8d7`): guard `checkPostDmoneyBlock` bloqueia os 3 entry points

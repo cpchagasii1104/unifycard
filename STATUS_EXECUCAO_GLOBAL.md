@@ -6336,3 +6336,58 @@ Em seguida: auditoria READ-FIRST para DECISION-0053.
 DECISION-0053 registrada. Guard da Parte A protege o sistema. Próximo passo:
 materializar `approval_requests` (frente F-APROVACAO-FINANCEIRA) antes de qualquer
 código de recovery. Não iniciar DECISION-0053 implementação sem C2–C7 satisfeitos.
+
+---
+
+## Sessão 2026-05-27 — F-APROVACAO-FINANCEIRA-SUBSTRATE (DECISION-0054)
+
+### Contexto
+
+READ-FIRST confirmou: `approval_requests`/`approval_votes` ausentes em DB, migrations e código.
+`core/ai/approval` existe mas é in-memory/IA — domínio diferente. Clayton decidiu D1/D2/D3
+e autorizou materialização mínima do substrato.
+
+### Entregue
+
+1. **Migration `20260530569000_financial_approval_substrate.sql`:**
+   - `approval_requests`: 2 tabelas, CHECKs para `operation_type` (8 valores incluindo
+     `actor_wallet_recovery`), `status`, `approval_type`, `required_approvals >= 1`
+   - `approval_votes`: UNIQUE `(approval_request_id, voted_by_user_id)`, CHECK `vote_type`
+   - 6 índices operacionais
+   - Aplicada e verificada no banco `unificard_dev`
+
+2. **Tipos TS `src/core/financial-approval/financial-approval.types.ts`:**
+   - `ApprovalOperationType`, `ApprovalRequestStatus`, `ApprovalVoteType`
+   - `ApprovalRequestRow`, `ApprovalVoteRow`
+   - `CreateApprovalRequestInput`, `CastApprovalVoteInput`
+
+3. **E2E `validate-pipeline-e2e-financial-approval-substrate.ts` — 10/10 verde:**
+   - T1 INSERT válido actor_wallet_recovery
+   - T2–T5 CHECKs de operation_type, status, required_approvals, approval_type
+   - T6 INSERT válido de vote com permission_snapshot
+   - T7 CHECK vote_type inválido
+   - T8 FK vote sem request
+   - T9 UNIQUE voto duplicado bloqueado
+   - T10 zero escrita em bank_ledger/bank_transactions/bank_splits (537/274/170 invariante)
+
+4. **Gates:** tsc=0 erros | actor-writer=OK | bank-ledger=OK | regression=OK | arch critical_new=0
+
+5. **DECISION-0054 registrada em `REMEDIATION_DECISIONS_LOG.md`**
+
+6. **DTs atualizadas:**
+   - `DT-CORE-APPROVAL-REQUESTS-MISSING`: **CLOSED**
+   - `DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE`: status atualizado (substrato existe)
+   - `DT-PE5-REFUND-POST-DMONEY-CHAIN`: C2 satisfeito; C3–C7 ainda bloqueantes
+
+### Próximas frentes bloqueantes para DECISION-0053
+
+| Frente | DT | Estado |
+|--------|----|--------|
+| ~~approval_requests materializado~~ | ~~DT-CORE-APPROVAL-REQUESTS-MISSING~~ | **CLOSED** |
+| Serviço de débito de actor_wallet | DT-ACTOR-WALLET-DEBIT-MISSING | OPEN HIGH |
+| Fluxo de finalização pós-D-money | DT-DMONEY-FINALIZATION-FLOW-MISSING | OPEN HIGH |
+
+### Modo
+
+Substrato de aprovação financeira existe no banco. Recovery pós-D-money ainda bloqueado
+em C3 (DT-ACTOR-WALLET-DEBIT-MISSING). Próximo: serviço de débito de actor_wallet.

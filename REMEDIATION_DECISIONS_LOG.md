@@ -4212,10 +4212,86 @@ approval_request_id (nullable), updated_at`
 - CORE_APROVACAO_FINANCEIRA_CANONICO (approval como pré-requisito para execução)
 - DECISION-0046 (actor_wallet canônico — invariante preservada)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH — fecha quando fluxo pós-D-money completo)
-- DT-CORE-APPROVAL-REQUESTS-MISSING (nova OPEN HIGH — pré-requisito C2)
+- DT-CORE-APPROVAL-REQUESTS-MISSING (nova OPEN HIGH — pré-requisito C2) → CLOSED por DECISION-0054
 - DT-ACTOR-WALLET-DEBIT-MISSING (nova OPEN HIGH — pré-requisito C3)
 - DT-DMONEY-FINALIZATION-FLOW-MISSING (nova OPEN HIGH — pré-requisito C7)
 - DT-RECOVERY-PAYOUT-GATE (nova OPEN MEDIUM — L4 segunda parte, fora do escopo desta DECISION)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0054 — Financial Approval Substrate (F-APROVACAO-FINANCEIRA-SUBSTRATE)
+
+**Status:** ativa
+**Sessão:** 2026-05-27 (F-APROVACAO-FINANCEIRA-SUBSTRATE)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit)
+
+### Contexto
+
+Auditoria READ-FIRST (2026-05-27) confirmou que `approval_requests` e `approval_votes`
+estavam definidas apenas em `CORE_APROVACAO_FINANCEIRA_CANONICO.md §7.2` sem qualquer
+materialização no banco, migrations ou código financeiro. O único "approval" vivo era
+`core/ai/approval` — sistema in-memory de confirmação de ações de IA, domínio completamente
+distinto. DECISION-0053 depende de `approval_requests` materializado (pré-requisito C2)
+para avançar qualquer execução financeira de recovery pós-D-money.
+
+### Decisão
+
+Materializar o substrato canônico mínimo de aprovação financeira conforme
+`CORE_APROVACAO_FINANCEIRA_CANONICO.md §7.2`:
+- `approval_requests` — gate obrigatório ANTES de execução financeira
+- `approval_votes` — registro de votos, append-only, um por usuário por request
+
+### Decisões Clayton (D1, D2, D3)
+
+**D1 — operation_type para recovery:** `actor_wallet_recovery`
+(não `manual_refund` — recovery ≠ estorno; DECISION-0053 §2.1)
+
+**D2 — escopo:** somente `approval_requests` + `approval_votes`
+(`bank_account_policies` para frente posterior)
+
+**D3 — permission key:** `financial:approve_recovery`
+(não reutilizar `financial:approve_transfer`)
+
+### Regras inegociáveis
+
+1. **Nenhuma operação financeira crítica sem `approval_request.status='approved'`.**
+2. **`approval_requests` não move dinheiro** — registra decisão apenas.
+3. **`approval_votes` é append-only** — sem UPDATE ou DELETE.
+4. **Um voto por usuário por request** (constraint `uq_approval_vote_per_user`).
+5. **`operation_type='actor_wallet_recovery'`** é o valor canônico para recovery pós-D-money.
+6. **`status='pending'`** no momento da criação — nenhuma auto-aprovação sem política explícita.
+7. **`expires_at` obrigatório** — aprovação expirada não pode ser executada.
+8. **`permission_snapshot` em `approval_votes`** — auditável mesmo se permissões mudarem.
+
+### Enforcement material
+
+- **Migration:** `backend/migrations/20260530569000_financial_approval_substrate.sql`
+  — 2 tabelas, 6 CHECKs, 1 UNIQUE, 6 índices
+- **Tipos TS:** `backend/src/core/financial-approval/financial-approval.types.ts`
+  — contrato de tipos sem service/repository (frentes futuras)
+- **E2E:** `backend/src/scripts/validate-pipeline-e2e-financial-approval-substrate.ts`
+  — 10/10 cenários verdes (T1–T10), confirmação de zero escrita em `bank_ledger`/`bank_transactions`/`bank_splits`
+
+### Fora do escopo desta DECISION
+
+- `bank_account_policies` (thresholds/limites — DECISION posterior)
+- Approval service / repository
+- Rotas públicas de aprovação
+- Integração com reversal/recovery (DECISION-0053 C2 satisfeito, mas C3–C7 ainda pendentes)
+- `financial:approve_recovery` no `MAPA_CANONICO_PERMISSIONS_v1.md` (frente de permissões)
+
+### Vinculadas
+
+- DECISION-0053 (pré-requisito C2 satisfeito por esta DECISION)
+- CORE_APROVACAO_FINANCEIRA_CANONICO.md §7.2 (norma que define o schema)
+- DT-CORE-APPROVAL-REQUESTS-MISSING (CLOSED por esta DECISION)
+- DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (parcialmente avançada — substrato existe; sync/async ainda aberto)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (C2 satisfeito; C3–C7 ainda bloqueantes)
 
 ### Superada por
 

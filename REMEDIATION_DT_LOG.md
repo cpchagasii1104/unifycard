@@ -6262,7 +6262,7 @@ Frente PE-5-RESOLVER-V2 (a planejar), após auditoria + decisões de produto.
 
 ## DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE
 
-- **Status:** OPEN (MEDIUM — sem raio-x material do Core de Aprovação Financeira)
+- **Status:** OPEN (MEDIUM — substrato materializado por DECISION-0054; sync/async e thresholds ainda não decididos)
 - **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). O Bloco C original da fatia previa um **approval gate síncrono para `internal_refund`** — isto é, antes de gravar `reversals` com `reversal_type='internal_refund'` o sistema exigiria evidência material de aprovação (token de aprovação, registro em `financial_approvals`, etc.).
 
 ### Por que está adiado
@@ -6299,7 +6299,7 @@ Frente própria (F-APROVACAO-FINANCEIRA):
 
 ## DT-PE5-REFUND-POST-DMONEY-CHAIN
 
-- **Status:** OPEN (HIGH — substrato de recovery documentado em DECISION-0053; implementação bloqueada até C2–C7)
+- **Status:** OPEN (HIGH — C2 satisfeito por DECISION-0054; C3–C7 ainda bloqueantes)
 - **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). Investigação revelou que o motor de estorno atual NÃO TEM caminho material limpo para reverter um pagamento depois que o D-money já liberou `revenue_share` para o `actor_wallet` do worker.
 
 ### Comportamento material observado
@@ -6503,7 +6503,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-CORE-APPROVAL-REQUESTS-MISSING
 
-- **Status:** OPEN (HIGH — pré-requisito hard para execução financeira de recovery pós-D-money)
+- **Status:** CLOSED (HIGH → RESOLVED — DECISION-0054, commit pós-ce9c36cf, 2026-05-27)
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
   revelou que `approval_requests` e `approval_votes` estão definidos em
   `CORE_APROVACAO_FINANCEIRA_CANONICO.md` mas as tabelas **não existem no banco**.
