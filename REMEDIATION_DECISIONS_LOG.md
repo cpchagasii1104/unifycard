@@ -6,7 +6,7 @@
 | Metadado | Valor |
 |---|---|
 | Criado | 2026-04-21 |
-| Última entrada | DECISION-0056 (2026-05-27) |
+| Última entrada | DECISION-0057 (2026-05-27) |
 | Base normativa | `SYSTEM_REMEDIATION_PLAN.md` v1.0 |
 | Arquivo relacionado | `SYSTEM_REMEDIATION_STATUS.md` (vivo) |
 
@@ -4553,6 +4553,109 @@ Recovery NÃO vai para nenhum dos seguintes tipos sem nova DECISION específica:
 - DECISION-0044 (bank-ledger boundaries — resolver é READ-ONLY, não viola GATE-4)
 - DT-ACTOR-WALLET-DEBIT-MISSING (C4 é pré-requisito para implementação do debit service)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (C4 fecha um dos bloqueios semânticos da cadeia)
+
+### Superada por
+
+(preencher quando superada)
+
+---
+
+## DECISION-0057 — User Wallet Owner Convention
+
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Convenção canônica de `user_wallet` decidida; C4b implementação desbloqueada semanticamente.
+**Sessão:** 2026-05-27 (READ-FIRST C4b + DECISION-0057)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit desta sessão)
+
+### Contexto
+
+READ-FIRST C4b identificou divergência material antes de implementar provisionamento de
+`user_wallet`. `financial-simulator.controller.ts` documenta explicitamente:
+
+```typescript
+// Contas user_wallet: owner_id canónico = user_id + ":user_wallet"
+```
+
+Mas `payment-event-resolver.ts` linha ~210 passa `event.actor_id` onde
+`ensureLifecycleAccountsForOwner` espera `userId`. Se ambos os composites existissem para o
+mesmo actor (`actorId:user_wallet` + `userId:user_wallet`), o resolver C4 (`WHERE actor_id = ...
+AND account_type = 'user_wallet'`) retornaria duas linhas e lançaria `CREDITOR_ACCOUNT_AMBIGUOUS`.
+
+`user_wallet` está dormente com 0 rows — nenhuma conta foi criada em produção. A divergência não
+causou dano material ainda, mas precisava ser resolvida antes de qualquer provisionamento de C4b.
+
+### Decisão
+
+Formalizar a convenção canônica de `user_wallet`, as regras de provisionamento e o tratamento
+do bug de convenção em `payment-event-resolver.ts`.
+
+### Decisões Clayton (D1–D5)
+
+**D1 — Convenção canônica: `owner_id = '${userId}:user_wallet'`**
+
+`user_wallet` é a carteira do usuário/payer — não do papel operacional do actor.
+A separação canônica é:
+- `user_wallet`  → carteira do **usuário pagador** (identificado por `userId` da tabela `users`)
+- `actor_wallet` → carteira do **actor operacional** que recebe `revenue_share` (identificado por `actorId`)
+
+Usar `actorId` como prefixo de `user_wallet` quebraria a semântica e criaria risco de contas
+duplicadas (dois composites válidos para o mesmo actor). A convenção documentada em
+`financial-simulator.controller.ts` linha 4 continua sendo canônica e vinculante.
+
+**D2 — Relação actor/user: resolução de `bank_accounts.actor_id`**
+
+`bank_accounts.actor_id` para `user_wallet` deve ser preenchido com o `actors.id` do actor humano
+correspondente, resolvido por:
+```sql
+SELECT id FROM actors WHERE user_id = $userId AND actor_type IN ('user', 'person', 'actor_human')
+```
+Este padrão já existe em `bank-account.repository.ts` (createAccount) e continua válido. O helper
+futuro `ensureUserWalletForActor(tenantId, actorId)` deve derivar `userId` via `actors.user_id`
+e delegar para `ensureLifecycleAccountsForOwner(tenantId, userId, 'user')`.
+
+**D3 — Escopo do backfill**
+
+Backfill deve cobrir todos os actors humanos com `user_id NOT NULL` que aparecem em
+`payment_intents`, independente do status do intent. Motivo: recovery de payer é possível para
+qualquer intent pago, não apenas `released_to_actor_wallet`.
+
+**D4 — Actor sem `user_id`: fail-closed**
+
+Não criar `user_wallet` para actors sem `user_id` vinculado (empresa, page, organização).
+Falhar explicitamente com `USER_WALLET_REQUIRES_USER_ID`. Actors institucionais exigem decisão
+futura sobre carteira pagadora institucional. Não inventar composite alternativo agora.
+
+**D5 — Bug em `payment-event-resolver.ts`: adiar, não bloquear**
+
+`payment-event-resolver.ts` linha ~210 passa `event.actor_id` onde a função espera `userId` —
+bug de convenção que produziria `owner_id = actorId:user_wallet` em vez de `userId:user_wallet`.
+A correção canônica:
+```typescript
+const actor = await actorRepository.getById(tenantId, event.actor_id);
+if (actor?.userId) {
+  await bankAccountService.ensureLifecycleAccountsForOwner(tenantId, actor.userId, 'user', 'BRL');
+}
+```
+Correção adiada para frente dedicada (`DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG`). C4b NÃO
+depende desta correção, pois o backfill e o lazy creation usarão `userId:user_wallet` diretamente.
+O resolver C4 encontra a conta por `actor_id` (FK resolvida corretamente no createAccount).
+
+### Proibições desta sessão
+
+- Não implementar provisionamento.
+- Não criar migration.
+- Não criar `ensureUserWalletForActor`.
+- Não corrigir `payment-event-resolver.ts` agora.
+- Não criar `user_wallet` nesta sessão.
+- Não mover dinheiro.
+
+### Vinculadas
+
+- DECISION-0056 (user_wallet = destino de recovery; convenção define como provisionar)
+- DT-USER-WALLET-PROVISIONING-FOR-RECOVERY (recebe decisão D1–D5; C4b implementação desbloqueada)
+- DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG (bug registrado nesta sessão)
+- DECISION-0046 (actor_wallet invariante — permanece exclusivo para revenue_share)
+- DECISION-0053 (C4b é pré-requisito antes de C3)
 
 ### Superada por
 

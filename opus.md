@@ -6,6 +6,25 @@
 
 ---
 
+## Sessão 2026-05-27 — C4 IMPLEMENTADO + READ-FIRST C4b + DECISION-0057
+
+C4 implementado (commit `13db36d8`): `recovery-creditor-resolver.service.ts` READ-ONLY,
+fail-closed, E2E 8/8. DT-USER-WALLET-PROVISIONING-FOR-RECOVERY registrada.
+
+READ-FIRST C4b encontrou bug material: `payment-event-resolver.ts` passa `event.actor_id`
+onde `ensureLifecycleAccountsForOwner` espera `userId`. Convenção real = `userId:user_wallet`.
+
+**DECISION-0057 aprovada:**
+- owner_id canônico: `${userId}:user_wallet` (userId de `users`, nunca actorId)
+- Helper futuro: `ensureUserWalletForActor(actorId)` → resolve userId → delega para `ensureLifecycleAccountsForOwner`
+- Backfill: actors humanos com `user_id NOT NULL` em `payment_intents` (todo status)
+- Sem `user_id` → `USER_WALLET_REQUIRES_USER_ID` (sem composite alternativo)
+- Bug `payment-event-resolver.ts` → DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG (corrigir ANTES do backfill)
+
+**PRÓXIMA FRENTE C4b:** corrigir bug resolver → `ensureUserWalletForActor` → backfill → lazy em `createPaymentIntentWithClient`.
+
+---
+
 ## Sessão 2026-05-27 — READ-FIRST C4 + DECISION-0056
 
 READ-FIRST C4 confirmou:

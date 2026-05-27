@@ -6687,45 +6687,111 @@ Frente própria após DECISION-0053 migration (C6) + serviço de débito impleme
 
 ## DT-USER-WALLET-PROVISIONING-FOR-RECOVERY
 
-- **Status:** OPEN HIGH — bloqueante para recovery end-to-end (2026-05-27)
-- **Origem:** C4 READ-FIRST (2026-05-27) — resolver implementado (commit desta sessão); `user_wallet` identificada como tipo dormente com 0 rows em runtime.
-- **Vinculada a:** DECISION-0056 (D2: creditor_account_id = user_wallet do payer)
+- **Status:** OPEN HIGH — bloqueante para recovery end-to-end; convenção decidida por DECISION-0057 (2026-05-27); implementação C4b desbloqueada
+- **Origem:** C4 READ-FIRST (2026-05-27) — resolver implementado (commit `13db36d8`); `user_wallet` identificada como tipo dormente com 0 rows em runtime.
+- **Vinculada a:** DECISION-0056 (D2: creditor_account_id = user_wallet do payer), DECISION-0057 (convenção canônica decidida)
 
 ### Contexto
 
 `user_wallet` é o destino canônico de recovery do payer (DECISION-0056 D2). É semanticamente
-correto: recovery para payer é devolução ao pagador, não revenue_share. Por isso `actor_wallet`
-foi vetada como destino. O resolver `resolveRecoveryCreditor` implementa a lógica corretamente,
-mas no runtime atual `user_wallet` tem **0 rows** — o tipo existe no schema (migration
-`20260530557000`) e no `BankAccountType`, mas `ensureLifecycleAccountsForOwner` nunca foi
-chamada durante o onboarding dos payers existentes.
+correto: recovery para payer é devolução ao pagador, não revenue_share. O resolver
+`resolveRecoveryCreditor` (`modules/financial-recovery/recovery-creditor-resolver.service.ts`,
+commit `13db36d8`) implementa a lógica corretamente, mas no runtime atual `user_wallet` tem
+**0 rows** — o tipo existe no schema e no `BankAccountType`, mas nunca foi provisionado.
 
 Consequência: resolver lança `CREDITOR_ACCOUNT_NOT_FOUND` para 100% dos payers atuais.
-Recovery end-to-end está semanticamente decidido e implementado, mas operacionalmente bloqueado
-até que `user_wallet` seja provisionada para os payers.
 
-### O que está faltando
+### Convenção decidida (DECISION-0057)
 
-Estratégia de provisionamento a decidir (Clayton, 2026-05-27):
+- **owner_id canônico:** `${userId}:user_wallet` (userId = users.id, nunca actorId)
+- **owner_type no DB:** `'actor'` (traduzido de `'user'` via `toDbOwnerType`)
+- **actor_id:** resolvido por `actors WHERE user_id = userId AND actor_type IN ('user', 'person', 'actor_human')`
+- **Actor sem user_id:** falha com `USER_WALLET_REQUIRES_USER_ID` — sem composite alternativo
 
-1. **No onboarding** — chamar `ensureLifecycleAccountsForOwner` durante criação de actor (ideal)
-2. **Lazy em payment_intent** — provisionar `user_wallet` no momento em que o payer cria um `payment_intent`
-3. **Backfill controlado** — migration que cria `user_wallet` para todos os actors que já têm `payment_intents`
-4. **Combinação** — onboarding + lazy + backfill
+### Estratégia de provisionamento (DECISION-0057)
+
+**C4b — frente a implementar (bloqueante para C3):**
+
+1. **Helper:** `ensureUserWalletForActor(tenantId, actorId)` em `bank-account.service.ts`
+   - Resolve `userId` via `actors WHERE id = actorId`
+   - Delega para `ensureLifecycleAccountsForOwner(tenantId, userId, 'user')` (existente, idempotente)
+   - Falha com `USER_WALLET_REQUIRES_USER_ID` se actor não tem `user_id`
+
+2. **Backfill:** script/migration para todos os actors humanos com `user_id NOT NULL` que aparecem em `payment_intents` (independente de status)
+
+3. **Lazy:** chamar `ensureUserWalletForActor` em `createPaymentIntentWithClient` antes do INSERT
+
+### Bug a corrigir separadamente (DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG)
+
+`payment-event-resolver.ts` passa `event.actor_id` onde a função espera `userId`. Não bloqueia
+C4b, mas deve ser corrigido na mesma frente ou logo após.
 
 ### Não bloqueia hoje
 
-- Guard da Parte A bloqueia estorno perigoso (independente desta DT).
-- Nenhum fluxo de recovery está ativo em produção.
-- O resolver funciona corretamente — fail-closed é comportamento correto para runtime sem user_wallet.
-
-### Resolução prevista
-
-Frente própria C4b após confirmação de estratégia de provisionamento com Clayton.
-O resolver C4 não precisa mudar — apenas o substrato (existência da user_wallet) precisa existir.
+- Guard da Parte A bloqueia estorno perigoso.
+- Nenhum fluxo de recovery ativo em produção.
+- Resolver fail-closed é comportamento correto enquanto user_wallet não existe.
 
 ### Vinculadas
 
 - DECISION-0056 (D2 — user_wallet como destino canônico de recovery)
-- DT-ACTOR-WALLET-DEBIT-MISSING (C4 resolver pré-requisito satisfeito; C4b bloqueante para C3)
+- DECISION-0057 (D1–D5 — convenção canônica e estratégia de provisionamento)
+- DT-ACTOR-WALLET-DEBIT-MISSING (C4b pré-requisito antes de C3)
+- DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG (bug de convenção a corrigir)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (cadeia completa depende de C4b + C3)
+
+---
+
+## DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG
+
+- **Status:** OPEN MEDIUM — não bloqueia C4b; sem dano material pois `user_wallet` tem 0 rows hoje
+- **Origem:** READ-FIRST C4b (2026-05-27) — divergência de convenção detectada
+- **Vinculada a:** DECISION-0057 (D5 — bug documentado; correção adiada)
+
+### Contexto
+
+`backend/src/modules/gateway/payment-event-resolver.ts` linha ~210:
+```typescript
+await bankAccountService.ensureLifecycleAccountsForOwner(tenantId, event.actor_id, 'user', 'BRL');
+```
+
+Passa `event.actor_id` (UUID do actor) onde a função espera `userId` (UUID do usuário da tabela
+`users`). `actor.id ≠ actor.user_id` em geral — são entidades distintas. O resultado seria
+`owner_id = '${actorId}:user_wallet'` em vez do canônico `'${userId}:user_wallet'`.
+
+Dano potencial: se C4b criar contas com `userId:user_wallet` e este código criar contas com
+`actorId:user_wallet`, o mesmo actor poderia ter duas `user_wallet` rows. O resolver C4
+(`WHERE actor_id = actorId AND account_type = 'user_wallet'`) retornaria ambas e lançaria
+`CREDITOR_ACCOUNT_AMBIGUOUS`.
+
+### Por que não bloqueia agora
+
+`user_wallet` tem 0 rows — nenhuma conta foi criada por este caminho. C4b criará as primeiras
+`user_wallet` usando a convenção canônica `userId:user_wallet`. Enquanto C4b não for implantado,
+este bug não produz rows conflitantes.
+
+### Correção canônica
+
+```typescript
+// payment-event-resolver.ts — ANTES (bug):
+await bankAccountService.ensureLifecycleAccountsForOwner(tenantId, event.actor_id, 'user', 'BRL');
+
+// DEPOIS (correto):
+const actor = await actorRepository.getById(tenantId, event.actor_id);
+if (actor?.userId) {
+  await bankAccountService.ensureLifecycleAccountsForOwner(tenantId, actor.userId, 'user', 'BRL');
+}
+// Se actor sem userId: skip silencioso OU USER_WALLET_REQUIRES_USER_ID — conforme DECISION-0057 D4
+```
+
+Ou chamar o helper futuro `ensureUserWalletForActor(tenantId, event.actor_id)` após C4b implementado.
+
+### Resolução prevista
+
+Correção incluída na frente C4b ou em frente própria imediatamente após.
+Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas conflitantes.
+
+### Vinculadas
+
+- DECISION-0057 (D5 — bug documentado aqui)
+- DT-USER-WALLET-PROVISIONING-FOR-RECOVERY (bug bloqueia se não corrigido antes do backfill)

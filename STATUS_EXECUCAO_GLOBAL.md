@@ -6572,3 +6572,61 @@ resolvido pelo caller). C5 (nomenclatura) pode rodar em paralelo.
 C1 + C2 + C3-semântica + C4-semântica + C6 fechados. Próxima frente: implementação do
 resolver C4 (`src/modules/financial-recovery/recovery-creditor-resolver.service.ts`),
 depois implementação C3 (`debitActorWalletForRecovery` em `modules/wallet/`).
+
+---
+
+## Sessão 2026-05-27 — C4 IMPLEMENTADO + READ-FIRST C4b + DECISION-0057
+
+### O que foi feito
+
+1. **C4 implementado (commit `13db36d8`):**
+   - `backend/src/modules/financial-recovery/recovery-creditor-resolver.service.ts` criado
+   - `resolveRecoveryCreditor(tenantId, paymentIntentId)` → READ-ONLY, fail-closed
+   - E2E 8/8 verde: T1 resolve, T2 PAYMENT_INTENT_NOT_FOUND, T3 CREDITOR_ACCOUNT_NOT_FOUND,
+     T4 CREDITOR_ACCOUNT_AMBIGUOUS, T5 actor_wallet não aceita, T6-T8 zero escrita financeira
+   - `DT-USER-WALLET-PROVISIONING-FOR-RECOVERY` registrada (OPEN HIGH)
+
+2. **READ-FIRST C4b concluído:**
+   - Divergência material detectada antes de implementar: `payment-event-resolver.ts` passa
+     `event.actor_id` onde `ensureLifecycleAccountsForOwner` espera `userId`.
+   - Convenção canônica confirmada: `owner_id = '${userId}:user_wallet'`
+   - Sem dano material atual (0 rows de user_wallet), mas risco de `CREDITOR_ACCOUNT_AMBIGUOUS`
+     se implementado sem corrigir o bug primeiro.
+
+3. **DECISION-0057 aprovada — User Wallet Owner Convention:**
+
+   **D1 — owner_id canônico:** `${userId}:user_wallet` (userId de `users`, nunca actorId)
+
+   **D2 — actor_id resolution:** `actors WHERE user_id = userId AND actor_type IN ('user', 'person', 'actor_human')` — padrão já existente no repositório
+
+   **D3 — backfill:** todos os actors humanos com `user_id NOT NULL` em `payment_intents`,
+   independente de status do intent
+
+   **D4 — actor sem user_id:** `USER_WALLET_REQUIRES_USER_ID` — sem composite alternativo
+
+   **D5 — bug payment-event-resolver:** adiado para frente C4b; registrado como
+   `DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG` (OPEN MEDIUM)
+
+4. **Logs atualizados:**
+   - DECISION-0057 registrada em `REMEDIATION_DECISIONS_LOG.md`
+   - `DT-USER-WALLET-PROVISIONING-FOR-RECOVERY` atualizada com convenção D1–D5
+   - `DT-USER-WALLET-PAYMENT-EVENT-RESOLVER-BUG` registrada (nova, OPEN MEDIUM)
+
+### Pré-requisitos DECISION-0053 atualizados
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — aguarda C4b |
+| C4 | Resolver de `creditor_account_id` | DONE ✓ (commit `13db36d8`) |
+| C4b | Provisionamento de `user_wallet` para payers | CONVENÇÃO DECIDIDA (DECISION-0057) — implementação pendente |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration recovery obligations substrate | DONE ✓ (`20260530570000`) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+C4 implementado. Convenção C4b decidida. Próxima frente: C4b — implementar
+`ensureUserWalletForActor` + corrigir `payment-event-resolver.ts` bug + backfill + lazy creation
+em `createPaymentIntentWithClient`. C3 (`debitActorWalletForRecovery`) só após C4b validado.
