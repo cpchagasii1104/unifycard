@@ -165,6 +165,58 @@ async function seedPolicy(opts: {
   return policy.id;
 }
 
+/**
+ * Subsidia a conta do buyer fixture com saldo suficiente via INSERT direto
+ * em bank_transactions + bank_ledger (escrita controlada de teste — NÃO é
+ * caminho de produção). bank_ledger é append-only por trigger, então não
+ * há cleanup; rastreado com reference_type='pe3_e2e_subsidy'.
+ *
+ * Adicionado em PE-5-CARTÓRIO-HARDENING (2026-05-26) para destravar o
+ * E2E PE-3 que falhava INSUFFICIENT_FUNDS quando rodado em sequência com
+ * outros E2Es que esgotam o saldo do buyer.
+ */
+async function subsidizeBuyerForExecution(buyerActorId: string, amount: number): Promise<void> {
+  // Conta do payer em createExecution é resolvida via resolveUserAccount, que
+  // procura account_type='credit' com actor_id matching. Subsídio precisa
+  // creditar EXATAMENTE essa conta.
+  const acc = await pool.query<{ id: string }>(
+    `SELECT id::text FROM bank_accounts
+      WHERE tenant_id = $1::uuid AND actor_id = $2::uuid AND account_type = 'credit'
+      LIMIT 1`,
+    [TENANT_ID, buyerActorId]
+  );
+  if (!acc.rows[0]) {
+    // Buyer ainda não tem bank_account — sem subsídio possível, segue
+    // (createExecution criará conforme padrão; pode falhar depois).
+    return;
+  }
+  const accountId = acc.rows[0].id;
+  const txId = uuidv4();
+  await pool.query(
+    `INSERT INTO bank_transactions (
+       id, tenant_id, actor_id, account_id, amount_cents, purpose,
+       justification, reference_type, reference_id, concept_id,
+       internal_completed_at
+     ) VALUES (
+       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'execution',
+       'E2E PE-3 buyer subsidy', 'pe3_e2e_subsidy', $6,
+       (SELECT concept_id FROM concepts WHERE slug='ride-payment' LIMIT 1),
+       NOW()
+     )`,
+    [txId, TENANT_ID, buyerActorId, accountId, amount, uuidv4()]
+  );
+  await pool.query(
+    `INSERT INTO bank_ledger (
+       id, tenant_id, account_id, transaction_id, direction,
+       amount_cents, purpose, justification
+     ) VALUES (
+       gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, 'credit',
+       $4, 'execution', 'E2E PE-3 buyer subsidy'
+     )`,
+    [TENANT_ID, accountId, txId, amount]
+  );
+}
+
 async function createPaymentRequest(
   fixtures: Fixtures,
   amount: number
@@ -229,8 +281,13 @@ async function main() {
   await bootstrap();
   await ensurePlatformAccounts();
   const fixtures = await loadFixtures();
+  // PE-5-CARTÓRIO-HARDENING (2026-05-26): subsidia buyer com valor amplo
+  // para destravar T2-T9 (cada execução custa 333~10000 cents; soma ~55000).
+  // Padrão: INSERT direto em bank_ledger (escrita controlada de teste).
+  // Idempotente: cada execução do E2E acumula crédito; sem prejuízo.
+  await subsidizeBuyerForExecution(fixtures.buyerActorId, 200000);
   console.log(
-    `  ℹ  buyer=${fixtures.buyerActorId.slice(0, 8)} worker=${fixtures.workerActorId.slice(0, 8)}\n`
+    `  ℹ  buyer=${fixtures.buyerActorId.slice(0, 8)} worker=${fixtures.workerActorId.slice(0, 8)} (subsídio 200000 cents aplicado)\n`
   );
 
   // ============================================================

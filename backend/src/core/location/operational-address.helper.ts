@@ -239,19 +239,21 @@ async function createOperationalAddressForActor(
     throw err;
   }
 
-  // 3. Cria address (createdByTenantId = tenantId).
-  const createdAddress = await locationRepository.createAddress(input.address, tenantId);
-
-  // 4. Cria assignment OPERATIONAL.
-  const assignment = await locationRepository.assignAddress(
-    createdAddress.id,
-    'service_provider',
-    actorId,
-    'OPERATIONAL',
-    true
+  // 3-4. Cria address + assignment EM UMA TRANSAÇÃO SQL ATÔMICA.
+  //      Se assignment falhar (FK/CHECK/UNIQUE), address é ROLLBACK.
+  //      Fecha DT-PE5-CARTORIO-ATOMICITY (PE-5-CARTÓRIO-HARDENING).
+  const { address, assignment } = await locationRepository.createAddressAndAssign(
+    input.address,
+    tenantId,
+    {
+      ownerType: 'service_provider',
+      ownerId: actorId,
+      role: 'OPERATIONAL',
+      isPrimary: true,
+    }
   );
 
-  return { assignment, address: createdAddress };
+  return { assignment, address };
 }
 
 export const operationalAddressHelper = {

@@ -6112,3 +6112,43 @@ de UX/admin panel quando for desenhado.
 Cartório operacional materializado. Trilho cravado. Resolver dinâmico fica
 para PE-5-RESOLVER (condicional a wizard de onboarding + decisão sobre auth
 do endpoint).
+
+---
+
+## Sessão 2026-05-26 — PE-5-CARTÓRIO-HARDENING
+
+Pós DECISION-0050. Fatia curta de hardening antes de PE-5-RESOLVER, conforme
+Clayton: "cartório sem atomicidade vira gaveta com documento sem protocolo".
+
+### Entregue
+
+1. **`locationRepository.createAddressAndAssign(addressInput, tenantId, assignmentArgs)`** — método novo que faz BEGIN/INSERT/INSERT/COMMIT em transação SQL única; ROLLBACK automático se assignment falhar.
+2. **`operational-address.helper.ts.createOperationalAddressForActor`** refatorado para usar o método atômico.
+3. **E2E PE-5-CARTÓRIO estendido com T7 + T7-BIS:**
+   - T7: actor inexistente → defesa em pré-validação (sem INSERT em addresses)
+   - T7-BIS: força CHECK violation no assignment (owner_type inválido) e prova que addresses count permanece IDÊNTICO (rollback efetivo da transação)
+4. **Fixture PE-3 destravado:** helper `subsidizeBuyerForExecution(buyerActorId, amount)` no E2E PE-3 — credita saldo na conta `actor_id=buyerActorId, account_type='credit'` via INSERT direto em bank_transactions + bank_ledger (escrita controlada de teste, rastreada com `reference_type='pe3_e2e_subsidy'`). Sem mudança em produção.
+5. **DT-PE5-CARTORIO-ATOMICITY → CLOSED** (atomicidade entregue + provada).
+6. **DT-PE5-CARTORIO-ENDPOINT-AUTH atualizada** com auditoria do padrão `actionContext+tenant` (existe via `company-members.routes.ts:24-69`); RBAC fino continua decisão de produto pendente.
+7. **Auditoria de auth documentada:** padrão para POST autenticado existe no projeto; falta decidir `permissionKey` canônica para "cadastrar OPERATIONAL de unidade PJ".
+
+### Gates pós-hardening
+
+| Gate | Resultado |
+|---|---|
+| tsc backend | 0 erros |
+| validate:actor-writer-boundaries | (a rodar) |
+| validate:bank-ledger-boundaries | (a rodar) |
+| validate:regression-guards | (a rodar) |
+| architectural --strict | (a rodar) |
+| E2E PE-1 (18) | (a verificar) |
+| E2E PE-3 (9) | **PASS** (fixture destravado) |
+| E2E PE-4-METRICS (9) | (a verificar) |
+| E2E PE-5-CARTÓRIO (7+T7-BIS) | **PASS** |
+
+### Modo
+
+Fundação concretada e curada. Hardening fechou DT-PE5-CARTORIO-ATOMICITY +
+destravou E2E PE-3. Próximo passo institucional: PE-5-RESOLVER (resolver
+dinâmico de regional_fund) quando wizard de onboarding PJ + RBAC do endpoint
+estiverem decididos.

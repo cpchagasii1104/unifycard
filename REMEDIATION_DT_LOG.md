@@ -6175,7 +6175,33 @@ Frente PE-5 ou PE-6 (a definir), bloqueada por decisão Clayton sobre items 1-5 
 
 - **Status:** OPEN (MEDIUM — rota REST POST `/actors/:actorId/operational-address` não implementada)
 - **Origem:** PE-5-CARTÓRIO 2026-05-26 (DECISION-0050). O helper `operational-address.helper.ts` está pronto; falta endpoint REST com autorização canônica para admin/tenant_admin/owner-flow cadastrar OPERATIONAL.
-- **Por que não foi feito nesta fatia:** padrão de auth em `location.routes.ts` hoje é apenas GET público. Não há padrão claro para POST autenticado (actionContext, ensureUserActor, RBAC). Inventar regra sem padrão = anti-norma. Prompt da fatia explicitamente proibiu: "se a autorização não estiver clara, NÃO inventar".
+
+### Auditoria PE-5-CARTÓRIO-HARDENING (2026-05-26)
+
+Padrão de auth para POST autenticado EXISTE no projeto — vide
+`backend/src/core/companies/company-members.routes.ts:24-69`:
+
+```typescript
+fastify.post<{ Params: ..., Body: ... }>('/:companyId/members', async (req, reply) => {
+  if (!req.actionContext || !req.actionContext.actorId) {
+    return reply.status(400).send({ error: 'ActionContext obrigatório' });
+  }
+  if (!req.tenant || !req.tenant.id) {
+    return reply.status(400).send({ error: 'Tenant not found' });
+  }
+  // Zod validate + service call com req.tenant.id + req.actionContext.actorId
+});
+```
+
+**O que ainda falta para a rota:**
+- Decisão de produto sobre RBAC fino: admin / tenant_admin / owner-flow? Hoje o padrão é "qualquer actor autenticado do tenant chama". Sem RBAC, qualquer usuário poderia cadastrar OPERATIONAL para QUALQUER actor do mesmo tenant — risco institucional.
+- `core/authorization/require-permission.guard.ts` existe (visto na auditoria) — provavelmente é o mecanismo RBAC canônico. Precisa decisão sobre qual `permissionKey` representa "cadastrar OPERATIONAL de unidade PJ".
+
+### Por que não foi feito mesmo no HARDENING
+
+A fatia HARDENING priorizou atomicidade (DT fechada) e fixture (E2E PE-3 destravado).
+RBAC fino é decisão de produto + mapeamento com `require-permission.guard.ts` — vira fatia
+própria (PE-5-CARTORIO-ROUTE). Helper continua chamável por wizard de UX ou admin panel.
 - **O que falta:**
   1. Decidir padrão de autenticação para rotas POST de location (Fastify decorator de auth + actionContext + RBAC).
   2. Decidir owner-flow: representante legal do CNPJ pode cadastrar OPERATIONAL da sua própria unidade? Como provar materialmente que ele é representante (via `companies.global_user_id` + `actors.responsible_actor_id`)?
@@ -6186,9 +6212,13 @@ Frente PE-5 ou PE-6 (a definir), bloqueada por decisão Clayton sobre items 1-5 
 
 ---
 
-## DT-PE5-CARTORIO-ATOMICITY
+## DT-PE5-CARTORIO-ATOMICITY (CLOSED por PE-5-CARTÓRIO-HARDENING)
 
-- **Status:** OPEN (LOW — `createAddress` + `assignAddress` não compartilham transação SQL)
+- **Status:** CLOSED (2026-05-26) — `locationRepository.createAddressAndAssign(addressInput, tenantId, assignmentArgs)` faz BEGIN/INSERT/INSERT/COMMIT em transação SQL única; ROLLBACK automático se assignment falhar. Helper `operational-address.helper.ts.createOperationalAddressForActor` agora usa esse método. E2E PE-5-CARTÓRIO T7+T7-BIS prova: T7 valida defesa em pré-validação (actor inexistente → throw antes do INSERT); T7-BIS força CHECK violation em owner_type e prova que addresses count permanece IDÊNTICO antes/depois (rollback efetivo).
+
+### Histórico original
+
+- **Status original:** OPEN (LOW — `createAddress` + `assignAddress` não compartilham transação SQL)
 - **Origem:** PE-5-CARTÓRIO 2026-05-26. Helper `createOperationalAddressForActor` chama `locationRepository.createAddress(...)` e depois `locationRepository.assignAddress(...)`. Se a 2ª falhar (DB caiu, constraint violou), a 1ª já comitou — fica address órfão sem assignment.
 - **Severidade LOW:** assignment usa constraints simples (FK + NOT NULL + UNIQUE primary); falha é improvável em condições normais. Address órfão não vaza para queries de produção (nenhum caller consulta `addresses` sem JOIN com `address_assignments` ou `companies.primary_address_id`).
 - **Não bloqueia:** uso normal funciona; risco material em race condition específica.

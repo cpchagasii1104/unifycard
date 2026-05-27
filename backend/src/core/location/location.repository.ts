@@ -390,6 +390,120 @@ class LocationRepository {
 
     return result.rows[0] as AddressAssignment;
   }
+
+  /**
+   * Cria address + assignment em UMA transação SQL atômica.
+   *
+   * Garante que se o INSERT do assignment falhar (FK / CHECK / UNIQUE),
+   * o INSERT do address é ROLLBACK — sem rastros órfãos em `addresses`.
+   *
+   * Fecha DT-PE5-CARTORIO-ATOMICITY (PE-5-CARTÓRIO-HARDENING 2026-05-26).
+   *
+   * Caller-side: usar quando endereço NUNCA existe sem assignment associado
+   * (cartório operacional). Para fluxos onde endereço pode pré-existir e
+   * só o assignment muda, continuar usando `createAddress` + `assignAddress`
+   * separados.
+   */
+  async createAddressAndAssign(
+    addressInput: CreateAddressInput,
+    createdByTenantId: string | null,
+    assignment: {
+      ownerType: AddressOwnerType;
+      ownerId: string;
+      role: AddressRole;
+      isPrimary?: boolean;
+    }
+  ): Promise<{ address: Address; assignment: AddressAssignment }> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const addressResult = await client.query<Address>(
+        `
+        INSERT INTO addresses (
+          country_id, state_id, city_id, neighborhood_id,
+          postal_code, street, number, complement, reference,
+          source, lat, lng, is_geocoded, created_by_tenant_id
+        ) VALUES (
+          $1, $2, $3, $4,
+          $5, $6, $7, $8, $9,
+          $10, $11, $12,
+          CASE WHEN $11::numeric IS NOT NULL THEN true ELSE false END,
+          $13
+        )
+        RETURNING
+          address_id AS id,
+          country_id AS "countryId",
+          state_id AS "stateId",
+          city_id AS "cityId",
+          neighborhood_id AS "neighborhoodId",
+          postal_code AS "postalCode",
+          street, number, complement, reference,
+          source,
+          is_geocoded AS "isGeocoded",
+          lat, lng,
+          created_by_tenant_id AS "createdByTenantId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        `,
+        [
+          addressInput.countryId,
+          addressInput.stateId ?? null,
+          addressInput.cityId ?? null,
+          addressInput.neighborhoodId ?? null,
+          addressInput.postalCode ?? null,
+          addressInput.street ?? null,
+          addressInput.number ?? null,
+          addressInput.complement ?? null,
+          addressInput.reference ?? null,
+          addressInput.source,
+          addressInput.lat ?? null,
+          addressInput.lng ?? null,
+          createdByTenantId,
+        ]
+      );
+      const createdAddress = addressResult.rows[0] as Address;
+
+      const assignmentResult = await client.query<AddressAssignment>(
+        `
+        INSERT INTO address_assignments (
+          owner_type, owner_id, address_id, role, is_primary
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING
+          assignment_id AS id,
+          owner_type AS "ownerType",
+          owner_id AS "ownerId",
+          address_id AS "addressId",
+          role,
+          is_primary AS "isPrimary",
+          valid_from_at AS "validFromAt",
+          valid_until_at AS "validUntilAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        `,
+        [
+          assignment.ownerType,
+          assignment.ownerId,
+          createdAddress.id,
+          assignment.role,
+          assignment.isPrimary ?? false,
+        ]
+      );
+      const createdAssignment = assignmentResult.rows[0] as AddressAssignment;
+
+      await client.query('COMMIT');
+      return { address: createdAddress, assignment: createdAssignment };
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // ROLLBACK falhou (conexão perdida) — propaga erro original.
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export const locationRepository = new LocationRepository();

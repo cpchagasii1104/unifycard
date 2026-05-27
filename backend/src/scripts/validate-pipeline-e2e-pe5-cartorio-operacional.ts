@@ -365,11 +365,82 @@ async function main() {
     reason: `bank_splits mudou: ${beforeSnap.splits} → ${afterSnap.splits}`,
   });
 
+  // ============================================================
+  // T7 — ATOMICIDADE: assignment falha → address rollback
+  // ============================================================
+  console.log('\n=== T7 — atomicidade: assignment INVÁLIDO faz rollback do address ===');
+  // Conta endereços antes
+  const addressesBefore = await pool.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM addresses WHERE created_by_tenant_id = $1::uuid`,
+    [TENANT_ID]
+  );
+  const beforeCount = parseInt(addressesBefore.rows[0]!.c, 10);
+  // Tenta cadastrar OPERATIONAL com actorId INEXISTENTE (forçará erro institucional
+  // ou no caminho de validação, OU no assignment se chegasse lá).
+  // Helper já valida actor existe → throws ACTOR_NOT_FOUND. Logo address NÃO é criado.
+  let t7Caught = false;
+  try {
+    await operationalAddressHelper.createOperationalAddressForActor(
+      TENANT_ID,
+      uuidv4(), // actor inexistente
+      { address: { countryId: brId, source: 'UX_INPUT', street: 'Rua T7 órfã' } as any }
+    );
+  } catch (e: any) {
+    t7Caught = true;
+    assertOk('T7.1 — actor inexistente → ACTOR_NOT_FOUND_OR_CROSS_TENANT (defesa 1: pré-validação)', {
+      ok: e?.code === ACTOR_NOT_FOUND_OR_CROSS_TENANT,
+      reason: `recebi code=${e?.code}`,
+    });
+  }
+  assertOk('T7.2 — exceção lançada', { ok: t7Caught });
+  const addressesAfter = await pool.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM addresses WHERE created_by_tenant_id = $1::uuid`,
+    [TENANT_ID]
+  );
+  const afterCount = parseInt(addressesAfter.rows[0]!.c, 10);
+  assertOk('T7.3 — addresses count inalterado (pré-validação bloqueou antes do INSERT)', {
+    ok: beforeCount === afterCount,
+    reason: `addresses count mudou: ${beforeCount} → ${afterCount}`,
+  });
+
+  // T7 BIS — atomicidade REAL via createAddressAndAssign direto com assignment
+  // inválido (owner_type fora do enum) para provar rollback dentro da transação.
+  console.log('\n=== T7-BIS — createAddressAndAssign rollbacka address se assignment falhar ===');
+  const beforeCount2 = (await pool.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM addresses WHERE created_by_tenant_id = $1::uuid`,
+    [TENANT_ID]
+  )).rows[0]!.c;
+  let t7bisCaught = false;
+  try {
+    const { locationRepository } = await import('../core/location/location.repository');
+    await locationRepository.createAddressAndAssign(
+      { countryId: brId, source: 'UX_INPUT', street: 'Rua T7-BIS rollback' } as any,
+      TENANT_ID,
+      {
+        ownerType: 'invalid_type_xyz' as any, // viola CHECK address_assignments.owner_type
+        ownerId: uuidv4(),
+        role: 'OPERATIONAL',
+        isPrimary: true,
+      }
+    );
+  } catch {
+    t7bisCaught = true;
+  }
+  assertOk('T7-BIS.1 — exceção foi lançada (CHECK violou)', { ok: t7bisCaught });
+  const afterCount2 = (await pool.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM addresses WHERE created_by_tenant_id = $1::uuid`,
+    [TENANT_ID]
+  )).rows[0]!.c;
+  assertOk('T7-BIS.2 — addresses count IDÊNTICO (rollback da transação atômica)', {
+    ok: beforeCount2 === afterCount2,
+    reason: `addresses count mudou: ${beforeCount2} → ${afterCount2}; rollback falhou`,
+  });
+
   // Cleanup final
   await cleanupPe5TestData();
 
   console.log(
-    '\n═══ E2E PE-5-CARTÓRIO :: PASS — 6 cenários T1-T6 verdes. Cartório operacional funcional. Convenção canônica: owner_type=service_provider + owner_id=<actor.id> + role=OPERATIONAL. Idempotente. Tenant-safe. Zero impacto em dinheiro. ═══'
+    '\n═══ E2E PE-5-CARTÓRIO :: PASS — 7 cenários T1-T7+BIS verdes. Cartório operacional funcional. Convenção canônica: owner_type=service_provider + owner_id=<actor.id> + role=OPERATIONAL. Idempotente. Tenant-safe. Atômico (createAddress+assignAddress em transação SQL única). Zero impacto em dinheiro. ═══'
   );
   await pool.end();
 }
