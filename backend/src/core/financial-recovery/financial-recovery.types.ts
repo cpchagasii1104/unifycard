@@ -67,6 +67,13 @@ export interface CreateActorWalletRecoveryObligationInput {
   approvalRequestId?: string;        // preenchido após criação do approval_request
 }
 
+// C4 resolver output (DECISION-0056)
+export interface ResolvedRecoveryCreditor {
+  paymentIntentId: string;
+  creditorActorId: string;
+  creditorAccountId: string;
+}
+
 export interface CreateActorWalletRecoveryObligationEntryInput {
   tenantId: string;
   obligationId: string;

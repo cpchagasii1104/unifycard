@@ -6682,3 +6682,50 @@ Frente própria após DECISION-0053 migration (C6) + serviço de débito impleme
 - DECISION-0053 §L4 (origem da decisão de compensação futura)
 - DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito para o gate de drenagem existir)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (relacionada — recovery parcial pode bloquear saque)
+
+---
+
+## DT-USER-WALLET-PROVISIONING-FOR-RECOVERY
+
+- **Status:** OPEN HIGH — bloqueante para recovery end-to-end (2026-05-27)
+- **Origem:** C4 READ-FIRST (2026-05-27) — resolver implementado (commit desta sessão); `user_wallet` identificada como tipo dormente com 0 rows em runtime.
+- **Vinculada a:** DECISION-0056 (D2: creditor_account_id = user_wallet do payer)
+
+### Contexto
+
+`user_wallet` é o destino canônico de recovery do payer (DECISION-0056 D2). É semanticamente
+correto: recovery para payer é devolução ao pagador, não revenue_share. Por isso `actor_wallet`
+foi vetada como destino. O resolver `resolveRecoveryCreditor` implementa a lógica corretamente,
+mas no runtime atual `user_wallet` tem **0 rows** — o tipo existe no schema (migration
+`20260530557000`) e no `BankAccountType`, mas `ensureLifecycleAccountsForOwner` nunca foi
+chamada durante o onboarding dos payers existentes.
+
+Consequência: resolver lança `CREDITOR_ACCOUNT_NOT_FOUND` para 100% dos payers atuais.
+Recovery end-to-end está semanticamente decidido e implementado, mas operacionalmente bloqueado
+até que `user_wallet` seja provisionada para os payers.
+
+### O que está faltando
+
+Estratégia de provisionamento a decidir (Clayton, 2026-05-27):
+
+1. **No onboarding** — chamar `ensureLifecycleAccountsForOwner` durante criação de actor (ideal)
+2. **Lazy em payment_intent** — provisionar `user_wallet` no momento em que o payer cria um `payment_intent`
+3. **Backfill controlado** — migration que cria `user_wallet` para todos os actors que já têm `payment_intents`
+4. **Combinação** — onboarding + lazy + backfill
+
+### Não bloqueia hoje
+
+- Guard da Parte A bloqueia estorno perigoso (independente desta DT).
+- Nenhum fluxo de recovery está ativo em produção.
+- O resolver funciona corretamente — fail-closed é comportamento correto para runtime sem user_wallet.
+
+### Resolução prevista
+
+Frente própria C4b após confirmação de estratégia de provisionamento com Clayton.
+O resolver C4 não precisa mudar — apenas o substrato (existência da user_wallet) precisa existir.
+
+### Vinculadas
+
+- DECISION-0056 (D2 — user_wallet como destino canônico de recovery)
+- DT-ACTOR-WALLET-DEBIT-MISSING (C4 resolver pré-requisito satisfeito; C4b bloqueante para C3)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (cadeia completa depende de C4b + C3)
