@@ -34,6 +34,8 @@ import HomePage from './pages/HomePage';
 import WelcomePage from './pages/WelcomePage';
 import SearchPage from './pages/SearchPage';
 import EmDesenvolvimentoPage from './pages/EmDesenvolvimentoPage';
+import TransparencyPage from './pages/TransparencyPage';
+import NotificationsPage from './pages/NotificationsPage';
 import VotesPage from './pages/VotesPage';
 import AssistantPage from './pages/AssistantPage';
 import ServicosPage from './pages/ServicosPage';
@@ -272,6 +274,9 @@ function AppContent() {
           <Route path="agenda-unificada" element={<UnifiedAgendaPage />} />
           <Route path="unified-calendar" element={<UnifiedAgendaPage />} />
           <Route path="impacto" element={<div style={{ padding: '2rem' }}><h1>Impacto</h1><p>Em breve...</p></div>} />
+          {/* Placeholders honestos (DT-UX-GHOST-ROUTE-TRANSPARENCIA / -NOTIFICATIONS): */}
+          <Route path="transparencia" element={<TransparencyPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="ledger" element={<SocialLedger />} />
           <Route path="profile/:id" element={<SocialProfilePage />} />
           <Route path="company/:id" element={<SocialCompanyPage />} />

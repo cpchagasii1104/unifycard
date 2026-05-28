@@ -7243,10 +7243,11 @@ actor-scoped.
 
 ## DT-UX-GHOST-ROUTE-TRANSPARENCIA
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — `frontend/src/pages/TransparencyPage.tsx` criado como placeholder honesto e registrado em `App.tsx` (dentro do SocialLayout, junto com `impacto`). Mensagem clara: módulo em preparação, sem buscar backend, sem inventar números, com botão de voltar para `/home`. Links existentes em `DashboardHome.tsx`, `actorContextConfig.ts` e `businessProfileCatalog.ts` agora resolvem para a página real em vez de tela em branco. Build frontend OK.
 - **Severidade:** LOW
 - **Classe:** DT-F (feature gap — link sem destino)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
 
 ### Contexto
 
@@ -7267,10 +7268,11 @@ não expor o link até o módulo existir.
 
 ## DT-UX-GHOST-ROUTE-NOTIFICATIONS
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — `frontend/src/pages/NotificationsPage.tsx` criado como placeholder honesto e registrado em `App.tsx`. Sino no `DashboardHome` (`route: '/notifications'`) agora resolve. Mensagem clara: central em preparação, sem buscar backend, sem badge fake, sem item simulado. **Observação documentada na própria página**: existem `api/system-notifications.ts` + `components/system-notifications/NotificationList.tsx` que consomem backend real; a integração formal fica para fatia de produto separada (decisão sobre filtros, paginação, política read/unread visível). Build frontend OK.
 - **Severidade:** LOW
 - **Classe:** DT-F (feature gap — link sem destino)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
 
 ### Contexto
 
