@@ -54,7 +54,10 @@ async function checkPostDmoneyBlock(
   const ref = await bankTransactionService.getTransactionReferenceInfo(tenantId, originalTransactionId);
   if (!ref || ref.referenceType !== 'service_execution' || !ref.referenceId) return;
   const intent = await getPaymentIntentByReference(tenantId, ref.referenceId);
-  if (intent?.status === 'released_to_actor_wallet') {
+  if (
+    intent?.status === 'released_to_actor_wallet' ||
+    intent?.status === 'refunded_via_recovery'
+  ) {
     logFinancialEvent({
       financial_event: 'reversal_blocked_post_dmoney',
       tenant_id: tenantId,
@@ -67,10 +70,10 @@ async function checkPostDmoneyBlock(
     });
     throw new Error(
       'REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW: ' +
-        'payment_intent.payment_status=released_to_actor_wallet — ' +
+        `payment_intent.payment_status=${intent.status} — ` +
         'o revenue_share já foi transferido de escrow_payments para actor_wallet do prestador. ' +
         'Executar o estorno pelo caminho atual drenaria escrow de outros pagamentos. ' +
-        'Aguarda implementação da Parte B (DECISION-0053 — actor_wallet recovery obligations). ' +
+        'Para status refunded_via_recovery: recovery já concluído via actor_wallet_recovery_obligations. ' +
         'Ref: DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH).'
     );
   }

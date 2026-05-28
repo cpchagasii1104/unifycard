@@ -12,6 +12,7 @@
 
 import type { PoolClient } from 'pg';
 import { debitActorWalletForRecovery } from '../wallet/actor-wallet-debit.service';
+import { finalizeRecoveryCase } from './recovery-finalization.service';
 import { logFinancialEvent } from '@core/observability/financial-logger';
 
 export interface DrainResult {
@@ -76,6 +77,12 @@ export async function drainRecoveryObligationsForCredit(
         reference_id: obligationId,
         metadata: { obligation_status: result.result },
       });
+
+      // C7: quando obligation atinge 'recovered', finalizar atomicamente
+      // dentro da mesma transação do D-money (mesmo client).
+      if (result.result === 'recovered') {
+        await finalizeRecoveryCase(tenantId, obligationId, client);
+      }
     }
   }
 

@@ -30,7 +30,15 @@ export type PaymentIntentStatus =
    * dormente em produção (DT-PIPELINE-WIRING-GAP); D-money NÃO acorda
    * esse caminho legado.
    */
-  | 'released_to_actor_wallet';
+  | 'released_to_actor_wallet'
+  /**
+   * refunded_via_recovery (C7 Recovery Finalization — 2026-05-27):
+   * Estado terminal pós-recovery completo. A obligation vinculada atingiu
+   * 'recovered' via actor_wallet_recovery_obligations. Dinheiro foi
+   * devolvido ao payer via user_wallet. NÃO confundir com 'reversed'
+   * (estorno tradicional via reversal.service.ts).
+   */
+  | 'refunded_via_recovery';
 
 export interface PaymentIntent {
   id: string;
@@ -194,6 +202,18 @@ export async function updatePaymentIntentStatus(
   );
   if (!row) throw new Error('updatePaymentIntentStatus: intent not found');
   return toIntent(row);
+}
+
+export async function updatePaymentIntentStatusWithClient(
+  client: PoolClient,
+  tenantId: string,
+  intentId: string,
+  status: PaymentIntentStatus
+): Promise<void> {
+  await client.query(
+    `UPDATE payment_intents SET payment_status = $3, updated_at = now() WHERE tenant_id = $1 AND id = $2`,
+    [tenantId, intentId, status]
+  );
 }
 
 export async function updatePaymentIntentMetadata(
