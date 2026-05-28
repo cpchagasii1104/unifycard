@@ -4791,3 +4791,209 @@ Nenhum atalho de auto-aprovação no MVP. Aprovação manual ou workflow a defin
 ### Superada por
 
 (preencher quando superada — próxima frente será commit de implementação)
+
+---
+
+## DECISION-0059 — ACTOR_WALLET_PAYOUT_EXTERNAL_SETTLEMENT
+
+**Status:** APROVADA COMO BLOQUEIO E DIREÇÃO FUTURA — IMPLEMENTAÇÃO NÃO AUTORIZADA (2026-05-28).
+**Sessão:** 2026-05-28 (READ-FIRST + DECISION documental pós-F3).
+**Decisor:** Clayton (com auditorias paralelas A/B/C concluídas).
+**Commit âncora:** documental (sem código).
+
+### Contexto
+
+F3 entregou settlement INTERNO: `actor_wallet` → `bank_settlement` (account_type).
+Cofre interno aberto e testado. F4 — gateway externo (PIX/TED/PSP) — exigiu três
+auditorias paralelas (A/B/C) que retornaram veredito unânime de PARAR:
+
+- **A — autoridade/norma**: produto, compliance, KYC e norma insuficientes para autorizar envio a banco externo.
+- **B — schema/código**: substrato externo (destinos bancários, ordens externas, callbacks) inexistente.
+- **C — concorrência/idempotência/PSP**: worker, status model externo, idempotência externa e PSP indefinidos.
+
+F4 NÃO pode virar código. F4 NÃO pode virar migration. F4 NÃO pode virar worker. F4 NÃO pode virar adapter.
+F4 começa com DECISION. Esta é a cerca; não é a estrada.
+
+### Axioma central
+
+O envio externo é **operação fora do sistema**. Quando dinheiro sai para PSP/banco,
+o sistema NÃO o controla mais até retorno (sucesso, falha ou devolução). Isso muda
+toda a topologia: ledger não pode ser fonte primária da verdade externa; quem decide
+é o callback do PSP.
+
+**Trilho interno (F3 — fechado):**
+```
+actor_wallet → bank_settlement (account_type)
+```
+
+**Trilho externo (F4 — esta DECISION):**
+```
+bank_settlement → PSP/PIX/TED/banco externo
+```
+
+### Decisões (D1–D13)
+
+**D1 — F4 não é continuação automática da F3.**
+F3 termina em `bank_settlement`. F4 é operação externa separada. Mesmo
+`actor_wallet_payout_requests.id` pode (futuramente) ter F3 (interno) feito
+e F4 (externo) pendente OU não. F4 não substitui F3.
+
+**D2 — DECISION-0058 não autoriza F4.**
+DECISION-0058 D3 restringe `destination_type='internal_settlement'`. Qualquer
+adição (`pix`, `ted`, `wire`) exige nova autorização explícita de Clayton +
+ratificação de produto + compliance. DECISION-0059 NÃO autoriza F4 — apenas
+ratifica que F4 é frente própria com cerca clara.
+
+**D3 — Saque externo MVP apenas para conta própria.**
+A primeira fatia de F4, quando autorizada, só permitirá envio para conta
+bancária do próprio actor (CPF/CNPJ do actor = titular da conta de destino).
+Envio para terceiro fica proibido até DECISION específica de compliance.
+
+**D4 — KYC/KYB verified é pré-requisito fail-closed.**
+Sem `actor.kyc_status='verified'` (PF) ou KYB equivalente (PJ), F4 é fail-closed.
+Não há "modo simulado" para esse gate.
+
+**D5 — Conta bancária externa do actor é pré-requisito material.**
+Antes de qualquer F4.x avançar, F4.0 (registro de destino bancário do actor)
+precisa existir. Entidade conceitual:
+
+```
+actor_bank_destinations (
+  id UUID PK,
+  tenant_id UUID,
+  actor_id UUID,
+  destination_type TEXT,        -- 'pix_key' | 'bank_account'
+  pix_key_type TEXT,            -- 'cpf' | 'cnpj' | 'email' | 'phone' | 'random'
+  pix_key TEXT,
+  bank_code TEXT,
+  agency TEXT,
+  account_number TEXT,
+  account_type TEXT,            -- 'checking' | 'savings'
+  holder_document TEXT,         -- CPF/CNPJ do titular (deve ser igual ao actor)
+  holder_name TEXT,
+  ownership_verified_at TIMESTAMPTZ,
+  status TEXT,                  -- 'pending_verification' | 'verified' | 'rejected' | 'archived'
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+)
+```
+
+CHECK: `holder_document` deve ser igual a `actor.cpf_cnpj` (D3 — conta própria).
+
+**D6 — External settlement order é entidade própria.**
+NÃO reaproveitar `bank_settlements` (escopo seller legado, dormente).
+NÃO reaproveitar `payout_requests` (escopo seller_available legado).
+NÃO reaproveitar `actor_wallet_payout_requests` (escopo interno F3 fechado).
+
+Entidade conceitual:
+
+```
+actor_wallet_external_payouts (
+  id UUID PK,
+  tenant_id UUID,
+  payout_request_id UUID FK actor_wallet_payout_requests,
+  actor_id UUID,
+  actor_bank_destination_id UUID FK actor_bank_destinations,
+  provider TEXT,                              -- 'stark' | 'pagarme' | ... (definido em F4.2)
+  external_idempotency_key TEXT,
+  provider_reference_id TEXT,                 -- ID retornado pelo PSP
+  status TEXT,                                -- ver D7
+  failed_reason TEXT,
+  sent_at TIMESTAMPTZ,                        -- quando PSP aceitou a ordem
+  confirmed_at TIMESTAMPTZ,                   -- callback de confirmação final
+  returned_at TIMESTAMPTZ,                    -- callback de devolução
+  request_payload JSONB,                      -- payload enviado ao PSP
+  response_payload JSONB,                     -- última resposta do PSP
+  amount_sent_cents BIGINT,
+  amount_confirmed_cents BIGINT,
+  bank_settlement_transaction_id UUID,        -- bank_transactions debit (settlement → external_out)
+  return_transaction_id UUID,                 -- bank_transactions credit (external_in → actor_wallet) em devolução
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+)
+```
+
+**D7 — Status externos obrigatórios:**
+
+```
+pending          → ordem criada localmente; ainda não enviada ao PSP
+processing       → enviada ao PSP; aguardando aceite
+sent             → PSP aceitou; dinheiro saiu para a rede bancária
+confirmed        → callback final positivo: dinheiro chegou ao destino
+failed_transit   → falha temporária (timeout, network); permite retry
+failed_final     → falha terminal sem devolução (PSP retornou erro definitivo)
+returned         → dinheiro voltou; precisa re-crédito interno (ver D11)
+cancelled        → cancelado antes de enviar; nenhum movimento real
+```
+
+**D8 — Timestamps externos exigem confirmação externa.**
+`sent_at`, `confirmed_at`, `returned_at` SOMENTE são preenchidos após callback
+ou consulta confirmada do PSP. Nunca usar `NOW()` sem evidência externa.
+Falsificar esses timestamps é violação de causalidade.
+
+**D9 — F4 é assíncrona. Worker obrigatório.**
+Chamada de rede ao PSP NÃO pode acontecer dentro de transação financeira longa.
+Padrão:
+1. TX-1 (síncrona, curta): cria `actor_wallet_external_payouts` em `pending`, COMMIT.
+2. Worker (async): pega `pending`, envia ao PSP, atualiza para `processing`/`sent`.
+3. Callback (async): recebe webhook do PSP, atualiza para `confirmed`/`failed_final`/`returned`.
+
+Detalhes do trilho contábil (debito de `bank_settlement` para liberar a ordem
+externa) ficam para F4.1 substrate.
+
+**D10 — Idempotência externa obrigatória.**
+`external_idempotency_key` deve ser determinística por `payout_request_id`
+(ex.: `external:${payout_request_id}`). PSP deve recusar duplicatas.
+`provider_reference_id` armazenado quando PSP retornar (primeira resposta wins).
+Webhook deduplication por `provider_reference_id` + status transition válido.
+
+**D11 — Returned/reversed é fluxo de primeira classe.**
+Se dinheiro voltar (PIX devolvido, TED retornado), o sistema DEVE:
+1. Receber callback de devolução.
+2. Marcar `returned_at` + `status='returned'`.
+3. Criar `bank_transactions` de re-crédito: `external_in` → `actor_wallet`
+   (referenceType próprio, ex.: `actor_wallet_payout_return`).
+4. Atualizar `return_transaction_id`.
+5. Atualizar `actor_wallet_payout_requests.status` (decisão futura: voltar para
+   `approved` para nova tentativa? marcar `failed` terminal? — definir em F4.3).
+
+**D12 — PSP/parceiro NÃO escolhido. Adapter real proibido até DECISION nova.**
+Sem PSP definido, qualquer `pspAdapter.send()` é especulativo. Mock só pode
+ser desenhado em DECISION futura de sandbox que diga explicitamente "isto
+NÃO é produção". Mocks que fingem produção (preenchem `confirmed_at` sem
+evidência real) são VETADOS.
+
+**D13 — F4 dividida em sub-frentes sequenciais:**
+
+```
+F4.0 — actor_bank_destinations          (registro de destino bancário)
+F4.1 — external settlement order substrate (schema actor_wallet_external_payouts)
+F4.2 — PSP adapter                       (depende de escolha do parceiro)
+F4.3 — callback/reconciliation           (webhook + state machine + returned handling)
+F4.4 — compliance/KYC gates              (KYC verified obrigatório + AML + limits)
+```
+
+NENHUMA das sub-frentes está autorizada. Cada uma exigirá READ-FIRST próprio
+e possivelmente DECISION adicional dependendo do PSP escolhido.
+
+### Relação com F3 (intocada)
+
+F3 NÃO mexe em bank_ledger ao "enviar externo" porque F3 NÃO envia externo.
+F3 termina em `bank_settlement` (account_type interno). O envio externo é
+side-effect FORA do sistema. Ledger interno só volta a mexer se houver
+retorno/devolução/recrédito (D11).
+
+### Vinculadas
+
+- DECISION-0058 (autoriza apenas internal_settlement; F4 exige autorização separada)
+- DECISION-0053 (recovery obligations — drain continua aplicável em F4)
+- DECISION-0054 (approval substrate — F4 pode reutilizar approval_request com operation_type novo)
+- DECISION-0055 (debit semantics — drain D2 ainda aplica)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT principal — esta DECISION é a cerca documental)
+- DT-ACTOR-WALLET-PAYOUT-WIRING (CLOSED escopo interno)
+- SSOT_EXCLUSIVE_BANK_RULE.md (movimentação interna via bank_ledger; envio externo NÃO movimenta ledger até retorno)
+- BANK_SEMANTICS.md linha 61 ("NÃO é payout externo (saque para banco real é frente posterior)") — DECISION-0059 ratifica "posterior" como F4
+
+### Superada por
+
+(preencher quando F4 for autorizada e DECISIONs sub-frentes forem registradas)

@@ -7177,3 +7177,67 @@ Auditoria e split de DTs para refletir estado real: interno CLOSED, externo sepa
 
 Zero código F4. Zero migration F4. Zero rota F4. Zero worker F4.
 Trilho externo permanece lacrado até autorização explícita Clayton + READ-FIRST A/B/C específico de F4.
+
+## Sessão 2026-05-28 — DECISION-0059 + F4 DT DOCUMENTAL (cerca antes da estrada)
+
+### Escopo
+
+Auditoria A/B/C de F4 concluída com veredito unânime de PARAR.
+Registro documental:
+- DECISION-0059 (D1–D13) — cerca arquitetural de F4 (saque externo)
+- 5 sub-DTs derivadas (F4.0–F4.4)
+
+Zero código. Zero migration. Zero rota. Zero worker. Zero adapter. F4 NÃO iniciada.
+
+### Veredito A/B/C
+
+| Paralela | Veredito | Razão |
+|----------|----------|-------|
+| A — autoridade/norma | PARAR | Produto, compliance, KYC e norma insuficientes |
+| B — schema/código | PARAR | Substrato externo (destinos, ordens, callbacks) inexistente |
+| C — concorrência/PSP | PARAR | Worker, status model externo, idempotência externa, PSP indefinidos |
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DECISIONS_LOG.md` | **Nova DECISION-0059** — APROVADA COMO BLOQUEIO E DIREÇÃO FUTURA. D1–D13 cobrem axioma, sub-frentes F4.0–F4.4, KYC, conta própria, idempotência externa, returned handling, proibições. |
+| `REMEDIATION_DT_LOG.md` | DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT atualizada com veredito A/B/C + 5 sub-DTs derivadas. |
+| `REMEDIATION_DT_LOG.md` | **Nova**: DT-ACTOR-BANK-DESTINATION-MISSING (F4.0) |
+| `REMEDIATION_DT_LOG.md` | **Nova**: DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING (F4.1) |
+| `REMEDIATION_DT_LOG.md` | **Nova**: DT-PSP-DISBURSEMENT-ADAPTER-MISSING (F4.2) |
+| `REMEDIATION_DT_LOG.md` | **Nova**: DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING (F4.3) |
+| `REMEDIATION_DT_LOG.md` | **Nova**: DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING (F4.4) |
+| `opus.md` | DECISION-0059 referenciada; F4 sub-frentes mapeadas |
+
+### Estado das DTs do trilho payout
+
+| DT | Status |
+|----|--------|
+| DT-ACTOR-WALLET-PAYOUT-WIRING | CLOSED (internal scope) |
+| DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT | OPEN HIGH / NOT AUTHORIZED (mãe) |
+| DT-ACTOR-BANK-DESTINATION-MISSING | OPEN HIGH / NOT AUTHORIZED (F4.0) |
+| DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING | OPEN HIGH / NOT AUTHORIZED (F4.1) |
+| DT-PSP-DISBURSEMENT-ADAPTER-MISSING | OPEN HIGH / NOT AUTHORIZED (F4.2) |
+| DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING | OPEN HIGH / NOT AUTHORIZED (F4.3) |
+| DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING | OPEN HIGH / NOT AUTHORIZED (F4.4) |
+| DT-RECOVERY-PAYOUT-GATE | PARTIALLY CLOSED (interno fechado; externo via F4) |
+| DT-PE5-REFUND-POST-DMONEY-CHAIN | CLOSED (intocado) |
+
+### Axioma central (DECISION-0059)
+
+Envio externo é **operação fora do sistema**. Ledger interno NÃO é fonte primária
+da verdade externa; quem decide é o callback do PSP. F4 não é "mais um service" —
+é outro campeonato (rua, banco, callback, devolução, KYC, reconciliação).
+
+### F4 NÃO iniciada
+
+- Zero código F4
+- Zero migration F4
+- Zero rota F4
+- Zero worker F4
+- Zero adapter F4
+- Zero CHECK extension em `destination_type`
+- Zero PIX/TED no schema
+
+Trilho externo permanece lacrado. DECISION-0059 é a cerca. A estrada espera autorização.

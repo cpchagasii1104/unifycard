@@ -6856,10 +6856,19 @@ PIX/TED/PSP saque para banco externo foi movido para **DT-ACTOR-WALLET-PAYOUT-EX
 
 ## DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT
 
-- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). Saque de `actor_wallet` para banco externo (PIX/TED/PSP) ainda não autorizado por Clayton. F3 entregou apenas settlement INTERNO (`actor_wallet` → `bank_settlement` account_type); rota externa exige decisão própria.
-- **Origem:** DECISION-0058 D3 (2026-05-28). F3 implementou o MVP interno; gateway externo foi explicitamente deixado para frente posterior com autorização separada.
-- **Vinculada a:** DECISION-0058 (decisão atual restringe `destination_type='internal_settlement'`), DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno fechado), DT-RECOVERY-PAYOUT-GATE (gate externo)
-- **Classe:** DT-F (feature gap — requer decisão arquitetural própria + contratos externos)
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). Auditorias paralelas A/B/C concluíram veredito unânime de **PARAR**. DECISION-0059 (2026-05-28) registrou a cerca documental para F4 (cofre externo). Implementação proibida até autorização Clayton explícita.
+- **Origem:** DECISION-0058 D3 (2026-05-28) restringiu MVP a internal_settlement. F3 entregou cofre interno (CLOSED). DECISION-0059 (2026-05-28) ratificou que F4 é frente própria.
+- **Vinculada a:** DECISION-0059 (cerca documental de F4), DECISION-0058 (decisão atual restringe `destination_type='internal_settlement'`), DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno CLOSED), DT-RECOVERY-PAYOUT-GATE (gate externo)
+- **Classe:** DT-F (feature gap — requer DECISION própria + contratos externos + escolha de PSP)
+- **Sub-DTs derivadas:** DT-ACTOR-BANK-DESTINATION-MISSING, DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING, DT-PSP-DISBURSEMENT-ADAPTER-MISSING, DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING, DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING
+
+### Veredito A/B/C (2026-05-28)
+
+- **A — autoridade/norma**: PARAR. Produto, compliance, KYC e norma insuficientes para autorizar envio a banco externo.
+- **B — schema/código**: PARAR. Substrato externo (destinos bancários, ordens externas, callbacks) inexistente.
+- **C — concorrência/idempotência/PSP**: PARAR. Worker, status model externo, idempotência externa e PSP indefinidos.
+
+Veredito consolidado: F4 NÃO vira código sem DECISION + autorização. DECISION-0059 é essa cerca.
 
 ### O que falta (escopo F4)
 
@@ -6900,6 +6909,171 @@ Frente F4 — requer autorização explícita Clayton + READ-FIRST em três para
 
 ### Vinculadas
 
+- DECISION-0059 (cerca documental — F4 começa com DECISION, não com código)
 - DECISION-0058 (decisão atual restringe a internal_settlement — F4 exigirá DECISION nova)
 - DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno fechado)
 - DT-RECOVERY-PAYOUT-GATE (gate externo permanece OPEN apenas no contexto F4)
+
+---
+
+## DT-ACTOR-BANK-DESTINATION-MISSING
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.0 — pré-requisito material de F4.
+- **Origem:** DECISION-0059 D5 (2026-05-28). Saque externo exige que o actor tenha conta bancária registrada e ownership verificado.
+- **Vinculada a:** DECISION-0059 (D5 — substrato de destinos bancários), DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Classe:** DT-F (feature gap — entidade conceitual definida em DECISION-0059, não implementada).
+
+### O que falta
+
+Entidade `actor_bank_destinations` com:
+- destination_type ('pix_key' | 'bank_account')
+- pix_key_type + pix_key (para PIX) OU bank_code + agency + account_number + account_type (para TED)
+- holder_document + holder_name + ownership_verified_at
+- CHECK: holder_document = actor.cpf_cnpj (D3 — conta própria MVP)
+- status lifecycle: pending_verification → verified | rejected | archived
+
+### Não bloqueia hoje
+
+F4 inteiro está NOT AUTHORIZED. Sem F4 autorizada, F4.0 não tem caller.
+
+### Vinculadas
+
+- DECISION-0059 D5
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
+
+---
+
+## DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.1 — substrato de ordem externa.
+- **Origem:** DECISION-0059 D6 + D7 (2026-05-28). External settlement orders são entidade própria; NÃO reaproveitar bank_settlements / payout_requests / actor_wallet_payout_requests.
+- **Vinculada a:** DECISION-0059 D6/D7/D9/D10, DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Classe:** DT-F (schema gap — entidade conceitual definida em DECISION-0059, não implementada).
+
+### O que falta
+
+Entidade `actor_wallet_external_payouts` com (ver DECISION-0059 D6):
+- payout_request_id FK (vínculo com pedido interno aprovado)
+- actor_bank_destination_id FK (vínculo com F4.0)
+- provider + external_idempotency_key + provider_reference_id
+- status lifecycle D7: pending → processing → sent → confirmed / failed_transit / failed_final / returned / cancelled
+- sent_at / confirmed_at / returned_at (D8: NUNCA NOW() sem callback)
+- amount_sent_cents / amount_confirmed_cents (podem divergir)
+- bank_settlement_transaction_id / return_transaction_id
+- request_payload / response_payload (JSONB)
+
+### Não bloqueia hoje
+
+F4 NOT AUTHORIZED.
+
+### Vinculadas
+
+- DECISION-0059 D6/D7/D8/D9/D10
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
+- DT-ACTOR-BANK-DESTINATION-MISSING (F4.0 — pré-requisito)
+
+---
+
+## DT-PSP-DISBURSEMENT-ADAPTER-MISSING
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.2 — adapter do parceiro bancário.
+- **Origem:** DECISION-0059 D12 (2026-05-28). PSP/parceiro NÃO escolhido. Adapter real proibido até DECISION nova.
+- **Vinculada a:** DECISION-0059 D12, DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Classe:** DT-F + DT-D (feature gap + decisão pendente — escolha de PSP é decisão de produto/compliance).
+
+### O que falta
+
+1. Escolha do PSP (Stark, Pagarme, Inter, banco direto, etc.) — exige análise de custo, SLA, regiões, compliance.
+2. Credenciais sandbox + produção.
+3. Adapter `pspDisbursementAdapter` com interface mínima:
+   - `send(externalPayoutId, destination, amount, idempotencyKey)`
+   - `query(providerReferenceId)`
+4. Mapping de errors do PSP para status D7.
+
+### Proibições
+
+- Mock que finge produção (preenche `confirmed_at` sem callback real) é VETADO (D8 + D12).
+- Sandbox precisa ser declarado explicitamente em DECISION de sandbox separada.
+
+### Não bloqueia hoje
+
+F4 NOT AUTHORIZED.
+
+### Vinculadas
+
+- DECISION-0059 D12
+- DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING (F4.1 — pré-requisito)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
+
+---
+
+## DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.3 — webhook + state machine + returned handling.
+- **Origem:** DECISION-0059 D7/D8/D10/D11 (2026-05-28). Callback do PSP é fonte de verdade externa; sem ele, status nunca avança para `confirmed`/`returned`.
+- **Vinculada a:** DECISION-0059 D7/D8/D10/D11, DT-PSP-DISBURSEMENT-ADAPTER-MISSING.
+- **Classe:** DT-F (feature gap — fluxo assíncrono crítico).
+
+### O que falta
+
+1. Webhook handler: rota pública (ou endpoint privado autenticado) que recebe callback do PSP.
+2. Webhook deduplication por `provider_reference_id` + status transition válido (D10).
+3. State machine: `pending → processing → sent → confirmed | failed_transit | failed_final | returned`.
+4. Returned handling (D11):
+   - Receber callback de devolução.
+   - Marcar `returned_at` + `status='returned'`.
+   - Criar `bank_transactions` de re-crédito (`external_in` → `actor_wallet`).
+   - Atualizar `return_transaction_id`.
+   - Decidir destino de `actor_wallet_payout_requests.status` (voltar para `approved`? marcar `failed` terminal?).
+5. Reconciliation periódica: cruzar registros locais com extrato do PSP para detectar status descasados.
+
+### Não bloqueia hoje
+
+F4 NOT AUTHORIZED. Sem PSP definido, callback é especulativo.
+
+### Vinculadas
+
+- DECISION-0059 D7/D8/D10/D11
+- DT-PSP-DISBURSEMENT-ADAPTER-MISSING (F4.2 — pré-requisito)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
+
+---
+
+## DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.4 — gates de compliance/KYC.
+- **Origem:** DECISION-0059 D3 + D4 (2026-05-28). KYC verified + conta própria são pré-requisitos fail-closed.
+- **Vinculada a:** DECISION-0059 D3/D4, DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Classe:** DT-F + DT-N (feature gap + norma — compliance exige decisões de produto).
+
+### O que falta
+
+1. Gate KYC fail-closed (D4):
+   - PF: `actor.kyc_status='verified'`
+   - PJ: equivalente KYB (definir critério)
+   - Sem gate verde, F4 é bloqueado.
+2. Gate "conta própria" (D3):
+   - Verificar que `actor_bank_destinations.holder_document = actor.cpf_cnpj`.
+   - Envio para terceiro proibido até DECISION específica.
+3. Limites operacionais:
+   - Per-actor diário/mensal.
+   - AML: detecção de padrões suspeitos.
+   - Blocklists (PEP, sanções).
+4. Audit trail: capability snapshot + permission snapshot no momento do envio.
+
+### Decisões PRODUTO pendentes
+
+- Limites exatos (R$ por dia, por mês).
+- Critério de KYB para PJ.
+- Política de envio a terceiro (proibido MVP; quando autorizar?).
+- Cooldown entre saques.
+
+### Não bloqueia hoje
+
+F4 NOT AUTHORIZED. Sem F4, KYC gate externo não tem caller.
+
+### Vinculadas
+
+- DECISION-0059 D3/D4
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
+- DT-ACTOR-BANK-DESTINATION-MISSING (F4.0 — implementa o "conta própria" check)

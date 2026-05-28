@@ -1603,7 +1603,16 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 
 ## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (2026-05-28, documental)
 
-**F1+F2+F2-hardening+F3 DONE.** Escopo INTERNO fechado (DT-ACTOR-WALLET-PAYOUT-WIRING). Escopo EXTERNO movido para **DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT** (OPEN HIGH / NOT AUTHORIZED — exigirá DECISION nova).
+**F1+F2+F2-hardening+F3 DONE.** Escopo INTERNO fechado (DT-ACTOR-WALLET-PAYOUT-WIRING).
+
+**F4 (saque externo)**: DECISION-0059 (2026-05-28) registrou cerca documental. Veredito A/B/C unânime: PARAR. F4 começa com DECISION, não com código. Sub-frentes mapeadas em sub-DTs próprias:
+- F4.0 — DT-ACTOR-BANK-DESTINATION-MISSING (`actor_bank_destinations`)
+- F4.1 — DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING (`actor_wallet_external_payouts`)
+- F4.2 — DT-PSP-DISBURSEMENT-ADAPTER-MISSING (escolha de PSP)
+- F4.3 — DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING (webhook + returned)
+- F4.4 — DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING (compliance/KYC)
+
+Axioma central DECISION-0059: envio externo é operação fora do sistema; ledger interno NÃO é fonte primária da verdade externa.
 
 **Regras operacionais permanentes:**
 
