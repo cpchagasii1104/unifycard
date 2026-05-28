@@ -467,6 +467,10 @@ class ServicePaymentExecutionService {
 
     const payerUserId = payerActor.user_id;
 
+    // C4b-2 lazy (DECISION-0057): garante user_wallet do payer antes de abrir transação.
+    // Idempotente — sem efeito se já existir. user_id validado acima (nunca lança USER_WALLET_REQUIRES_USER_ID aqui).
+    await bankAccountService.ensureUserWalletForActor(tenantId, paymentRequest.payerActorId);
+
     // ============================================================
     // PE-3 (2026-05-26 — DECISION-0048) — RESOLUÇÃO DE POLICY
     // ============================================================

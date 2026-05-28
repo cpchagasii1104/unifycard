@@ -74,11 +74,21 @@ async function ledgerSnapshot() {
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
 async function getActor(): Promise<string> {
+  // Precisa de actor sem user_wallet pré-existente — T3 exige NOT_FOUND isolado.
+  // Após o backfill C4b-2 atores com user_id têm wallet; usamos actor sem wallet.
   const r = await q(
-    `SELECT id FROM actors WHERE tenant_id = $1 LIMIT 1`,
+    `SELECT a.id FROM actors a
+      WHERE a.tenant_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM bank_accounts ba
+           WHERE ba.tenant_id = a.tenant_id
+             AND ba.actor_id = a.id
+             AND ba.account_type = 'user_wallet'
+        )
+      LIMIT 1`,
     [TENANT_ID]
   );
-  if (!r.rows[0]) throw new Error('Nenhum actor para tenant ' + TENANT_ID);
+  if (!r.rows[0]) throw new Error('Nenhum actor sem user_wallet para tenant ' + TENANT_ID);
   return r.rows[0].id as string;
 }
 
