@@ -6663,13 +6663,54 @@ em `createPaymentIntentWithClient`. C3 (`debitActorWalletForRecovery`) só após
 | C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — aguarda C4b completo |
 | C4 | Resolver de `creditor_account_id` | DONE ✓ (commit `13db36d8`) |
 | C4b | Provisionamento de `user_wallet` (helper + bug fix) | DONE ✓ (commit `13ee5d8a`) |
-| C4b-2 | Backfill actors históricos + lazy em `createPaymentIntentWithClient` | PENDENTE |
+| C4b-2 | Backfill + lazy creation em `createExecution` | DONE ✓ (commit `d3ab14f3`) |
 | C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
 | C6 | Migration recovery obligations substrate | DONE ✓ (`20260530570000`) |
 | C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
 
 ### Modo
 
-C4b-1 fechado. Próxima frente: **C4b-2** (backfill + lazy em `createPaymentIntentWithClient`)
-— ou pular direto para **C3** (`debitActorWalletForRecovery`) se Clayton decidir adiar o backfill.
-C3 é tecnicamente desbloqueada: `ensureUserWalletForActor` existe e funciona.
+C4b-2 fechado. C3 (`debitActorWalletForRecovery`) é próxima frente — payers têm `user_wallet`
+canônica provisionada. Resolver C4 passa 8/8. C3 pode ser implementado com segurança.
+
+---
+
+## Sessão 2026-05-27 — C4b-2 FECHADO (commit `d3ab14f3`)
+
+### O que foi feito
+
+1. **Lazy creation em `service-payment-execution.service.ts`:**
+   - `ensureUserWalletForActor(tenantId, paymentRequest.payerActorId)` inserido após validação `payerActor.user_id` (linha 468), antes de abrir a transação DB
+   - Idempotente; `user_id` já validado pelo guard acima — nunca lança `USER_WALLET_REQUIRES_USER_ID` no caminho normal
+
+2. **Backfill `backfill-user-wallets-for-payers.ts`:**
+   - DRY_RUN=true (default) mostra escopo sem escrever
+   - Execução live: 2 payers cobertos, 2 wallets criadas (`userId:user_wallet`), 0 erros, 0 skips
+   - Idempotência confirmada: segunda execução marcou 0 criados, 2 já existiam
+
+3. **E2E 12/12 verde** (`validate-pipeline-e2e-c4b2-user-wallet-backfill.ts`):
+   - T1-T6 backfill + estrutura da conta, T7-T8 resolver C4, T9-T11 zero escrita financeira, T12 lazy creation
+
+4. **E2E C4 resolver corrigido** — `getActor()` passou a filtrar atores com user_wallet pré-existente (backfill deixava wallets no DB); 8/8 verde
+
+### Pré-requisitos DECISION-0053 (atualizado final C4b)
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | **DESBLOQUEADO — próxima frente** |
+| C4 | Resolver de `creditor_account_id` | DONE ✓ (commit `13db36d8`) |
+| C4b-1 | Helper + bug fix `payment-event-resolver` | DONE ✓ (commit `13ee5d8a`) |
+| C4b-2 | Backfill + lazy creation | DONE ✓ (commit `d3ab14f3`) |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration recovery obligations substrate | DONE ✓ (`20260530570000`) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+**Próxima frente: C3 — `debitActorWalletForRecovery`.**
+Placement: `src/modules/wallet/actor-wallet-debit.service.ts`.
+Semântica: DECISION-0055 (clearance `financial_recovery`, débito parcial ok, income withholding D3).
+reference_type: `actor_wallet_recovery`; concept: `actor-wallet-recovery` (já semeado em C6).
+`creditorAccountId` passado como parâmetro (C4 resolve externamente).

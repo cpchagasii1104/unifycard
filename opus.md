@@ -6,6 +6,15 @@
 
 ---
 
+## Sessão 2026-05-27 — C4b-2 FECHADO (commit `d3ab14f3`)
+
+Lazy creation inserida em `createExecution` (service-payment-execution) após guard `user_id`.
+Backfill: 2 payers cobertos, 0 erros, idempotente. E2E 12/12. Resolver C4 E2E fixado para
+pegar actor sem wallet pré-existente (backfill deixava wallets no DB); 8/8.
+**Próxima frente: C3 — `debitActorWalletForRecovery`** em `modules/wallet/actor-wallet-debit.service.ts`.
+
+---
+
 ## Sessão 2026-05-27 — C4b-1 FECHADO (commit `13ee5d8a`)
 
 `ensureUserWalletForActor(tenantId, actorId)` implementado em `bank-account.service.ts`:
