@@ -6941,3 +6941,43 @@ Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCen
 ### Gates desta sessão
 
 Não aplicável — sessão puramente documental. Zero código alterado.
+
+---
+
+## Sessão 2026-05-28 — F1 SUBSTRATE FECHADO (commit `98a1111a`)
+
+### Escopo
+
+F1 — `actor_wallet_payout_requests` substrate. Zero payout operacional.
+
+### Entregue
+
+| Item | Detalhe |
+|------|---------|
+| Migration `20260530572000` | CREATE TABLE `actor_wallet_payout_requests` + CHECK extension + concept seed |
+| `actor-wallet-payout-request.types.ts` | Status enum, row/domain types, constants OPERATION_TYPE/REFERENCE_TYPE, mapper |
+| E2E F1 | 12/12 PASS — schema gates, FK, CHECKs, UNIQUE idempotency, concept, zero ledger |
+
+### Gates F1 (fechamento institucional)
+
+| Gate | Resultado |
+|------|-----------|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK [actor-writer §4.8.1] |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK [bank-ledger §4.6] |
+| `validate:regression-guards` | ✅ GATE OK [financial-regression + sql-lint + migration numbering] |
+| `validate:architecture:strict` | ✅ `critical_new=0` |
+| E2E F1 | ✅ 12/12 |
+
+### Invariantes confirmadas
+
+- Zero alteração em `payout_requests` (trilho seller intocado)
+- Zero alteração em `payout-worker.ts`
+- Zero serviço/worker/rota de payout criado
+- Zero escrita em `bank_ledger`, `bank_transactions`, `bank_splits`
+- Exatamente 3 arquivos no commit: migration + types + E2E
+
+### DT-ACTOR-WALLET-PAYOUT-WIRING — estado pós-F1
+
+- **F1 SUBSTRATE**: DONE (98a1111a)
+- **DT permanece OPEN HIGH**: F2/F3 ainda não existem; payout real não implementado

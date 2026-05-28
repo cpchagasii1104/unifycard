@@ -6829,11 +6829,11 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 
 ### Resolução prevista
 
-Frente própria após autorização explícita de Clayton. Pré-requisitos formais:
-1. DECISION-0058 registrada (FEITO — 2026-05-28).
-2. Migration `actor_wallet_payout_requests` aprovada.
-3. `actor_wallet_payout` adicionado ao CHECK de `approval_requests`.
-4. Serviço + E2E + gates verdes.
+Frentes sequenciais:
+- F1 SUBSTRATE: **DONE** (commit `98a1111a`, 2026-05-28) — schema + types + E2E 12/12. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
+- F2 REQUEST SERVICE: OPEN — criar pedido `pending_approval` (sem execução financeira).
+- F3 EXECUÇÃO ATÔMICA: OPEN — drain obrigações + payout em BEGIN/COMMIT único.
+- F4 GATEWAY EXTERNO: OPEN — PIX/TED (não autorizado).
 
 ### Vinculadas
 

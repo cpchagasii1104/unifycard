@@ -1620,8 +1620,10 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 - D4: todo saque entra como `pending_approval`; execução financeira só após `approved`
 - D5: `operation_type='actor_wallet_payout'`, `reference_type='actor_wallet_payout'` (NÃO existem ainda — a criar na migration)
 
-**Estado do sistema (2026-05-28):**
-- `BANK_SEMANTICS.md` linha 61 ainda verdadeira: "NÃO é payout externo"
-- `actor_wallet_payout` NÃO está no CHECK de `approval_requests`
-- `actor_wallet_payout_requests` NÃO existe no schema
-- Income withholding C3.1 ativo: protege contra fuga enquanto payout não existe
+**Estado do sistema (2026-05-28 — pós-F1):**
+- `actor_wallet_payout_requests` EXISTE (migration `20260530572000`, commit `98a1111a`)
+- `approval_requests` aceita `operation_type='actor_wallet_payout'` (CHECK estendido)
+- concept `actor-wallet-payout` em `financeiro-payout` EXISTE
+- `BANK_SEMANTICS.md` linha 61 ainda verdadeira: "NÃO é payout externo" — substrato ≠ execução
+- Income withholding C3.1 ativo: protege contra fuga enquanto F2/F3 não existem
+- F2 (request service) e F3 (execução atômica) OPEN — aguardam autorização
