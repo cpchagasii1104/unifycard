@@ -2,7 +2,7 @@
 // 2026-05-15: hook que materializa "actor = modo operacional" no frontend.
 // Diretriz Clayton: trocar actor reconfigura prioridades/atalhos/cards/CTAs.
 //
-// Não confundir com useActorContext (gestão de seleção do actor).
+// Seleção do actor ativo vive em SessionProvider/useSession (runtime soberano).
 // Este hook responde: dado o actor ativo, qual é o MODO operacional do sistema?
 //
 // Componentes consomem o perfil contextual ao invés de espalhar lógica

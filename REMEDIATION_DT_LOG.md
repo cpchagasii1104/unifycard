@@ -7291,10 +7291,11 @@ existir como rota real.
 
 ## DT-DEPRECATED-ACTOR-CONTEXT-KEY-ORPHAN
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — arquivo deprecated deletado (`frontend/src/hooks/useActorContext.ts`). Zero consumers reais (confirmado por grep antes E depois do delete). Comentário órfão em `useActorMode.ts:5` ajustado para apontar `SessionProvider/useSession` (runtime soberano). Chave `unificard_active_actor` (sem `_id`) **não existe mais** no source frontend. Chave soberana `unificard_active_actor_id` permanece em `SessionProvider`, `api/client.ts`, `api/events-v2.ts`, `Login.tsx`. Frontend build + typecheck + backend gates (actor-writer, regression-guards, arch) verdes.
 - **Severidade:** MEDIUM
 - **Classe:** DT-L (legado órfão com risco de reintrodução)
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend runtime alterado. Zero migration. Apenas 2 arquivos frontend (delete + ajuste de comentário órfão).
 
 ### Contexto
 
