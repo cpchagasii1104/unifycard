@@ -6918,7 +6918,7 @@ Frente F4 — requer autorização explícita Clayton + READ-FIRST em três para
 
 ## DT-ACTOR-BANK-DESTINATION-MISSING
 
-- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.0 — pré-requisito material de F4. **Base factual corrigida por DECISION-0060** (2026-05-28).
+- **Status:** CLOSED (2026-05-28) — F4.0 MVP substrate entregue (commit `e1536d07`). Migration `20260530574000`, service `actorBankDestinationService`, E2E 8/8 PASS, todos os gates verdes. Catálogo `actor_bank_destinations` existe com lifecycle + TRIGGER de "conta própria" + auto_tax_id_match + manual_review. Nenhuma operação financeira real disparada. **Base factual estabelecida em DECISION-0060.**
 - **Origem:** DECISION-0059 D5 (2026-05-28). Saque externo exige que o actor tenha conta bancária registrada e ownership verificado.
 - **Correção factual:** DECISION-0060 (2026-05-28) substitui a referência obsoleta a `actor.cpf_cnpj` (coluna removida em migration 0010) pela referência canônica a `identities.tax_id`. Enforcement de "conta própria" passa a ser duas camadas (service + TRIGGER), pois CHECK puro não suporta JOIN.
 - **Vinculada a:** DECISION-0060 (governança canônica F4.0), DECISION-0059 (D5 — substrato de destinos bancários), DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).

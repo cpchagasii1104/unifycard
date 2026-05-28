@@ -1620,7 +1620,7 @@ Axioma central DECISION-0059: envio externo é operação fora do sistema; ledge
 - Gate canônico KYC para F4: `evaluateKycLayer` em `authority-decision.service.ts:125-205` modo `strict`.
 - `actor_bank_destinations` será catálogo reutilizável, NÃO destino inline.
 - "Conta própria" exige enforcement em duas camadas (service fail-closed + TRIGGER). CHECK puro NÃO funciona (sem JOIN/sub-SELECT em PostgreSQL).
-- F4.0 ainda **NÃO autorizada** para código. Próximo passo: prompt executor F4.0 se Clayton autorizar.
+- **F4.0 MVP substrate DONE** (commit `e1536d07`, 2026-05-28) — `actor_bank_destinations` catálogo + lifecycle + auto_tax_id_match + manual_review. "Conta própria" em duas camadas (service + DB TRIGGER). DT-ACTOR-BANK-DESTINATION-MISSING CLOSED. E2E 8/8 + regressões F1/F2/F3/C3/C3.1/C7/statement todas verdes. Zero PSP, zero PIX/TED real, zero callback, zero worker, zero ledger.
 - **D12 esclarecimento append-only (2026-05-28)**: aplicação do gate KYC por sub-frente — F4.0 cadastro pode admitir `kyc_status='pending'` (sujeito a ratificação Clayton no prompt executor F4.0); F4.1+ uso real exige `approved` strict sem exceção. D12 NÃO autoriza F4.0 nem flexibiliza F4.1+.
 
 **Regras operacionais permanentes:**

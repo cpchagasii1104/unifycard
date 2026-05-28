@@ -7328,3 +7328,84 @@ Clayton pode autorizar prompt executor F4.0 substrate, ratificando explicitament
 - Aceitar `kyc_status='pending'` no cadastro OU exigir `approved` desde o cadastro.
 
 F4.1/F4.2/F4.3/F4.4 continuam NOT AUTHORIZED.
+
+## Sessão 2026-05-28 — F4.0 MVP SUBSTRATE FECHADO (commit `e1536d07`)
+
+### Escopo
+
+F4.0 — `actor_bank_destinations` MVP substrate. Catálogo reutilizável de destinos externos
+DECLARADOS do actor. Cadastro + lifecycle + verificação de titularidade.
+
+ESCOPO ESTRITO: zero PSP, zero PIX/TED real, zero callback, zero worker, zero movimento
+financeiro. Apenas substrato preparatório para futuro F4.1+ quando autorizado.
+
+### Entregue
+
+| Item | Detalhe |
+|------|---------|
+| Migration `20260530574000` | CREATE TABLE actor_bank_destinations + CHECKs + indexes + 3 TRIGGERS |
+| `actor-bank-destination.types.ts` | Tipos canônicos + mapper Row→Domain |
+| `actor-bank-destination.service.ts` | CRUD canônico: create (com auto_tax_id_match), list, get, markVerified, markRejected, archive |
+| E2E F4.0 | 8/8 PASS (T1 happy pix CPF, T2 mismatch fail-closed, T3 bank_account, T4 lifecycle, T5 trigger bypass guard, T6 KYC pending OK, T7/T8 F1/F2/F3/ledger intocados) |
+
+### Gates F4.0 (fechamento institucional)
+
+| Gate | Resultado |
+|------|-----------|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK |
+| `validate:regression-guards` | ✅ GATE OK |
+| `validate:architectural` | ✅ `critical_new=0` (20 violations baseline) |
+| E2E F4.0 | ✅ 8/8 |
+| E2E F1 regression | ✅ 12/12 |
+| E2E F2 regression | ✅ 20/20 (após restaurar saldo depletado de runs F3 anteriores) |
+| E2E F3 regression | ✅ 18/18 |
+| E2E C3 | ✅ 18/18 |
+| E2E C3.1 | ✅ 13/13 |
+| E2E C7 | ✅ 14/14 |
+| E2E statement | ✅ PASS |
+
+### Invariantes confirmadas
+
+- "Conta própria" em DUAS camadas (DECISION-0060 D8):
+  - Camada A (service): valida holder_document vs identities.tax_id ANTES do INSERT
+  - Camada B (DB TRIGGER): `trg_abd_enforce_own_account` valida o mesmo no DB
+- Lifecycle controlado por TRIGGER: pending → verified | rejected | archived; transições inválidas bloqueadas
+- `auto_tax_id_match` aplica APENAS quando pix_key_type ∈ {cpf, cnpj} e chave bate exatamente com `identities.tax_id`
+- KYC pending NÃO bloqueia cadastro (DECISION-0060 D12)
+- KYC NULL (identity ausente) BLOQUEIA cadastro (sem tax_id não há conta própria)
+- `actor_wallet_payout_requests.destination_type` CHECK preservado (`'internal_settlement'` apenas)
+- `destination_key` permanece NULL — não populado por F4.0
+- Zero alteração em `bank_ledger`, `bank_transactions`, `bank_splits`, `payout_requests`, `bank_settlements`
+
+### Não implementado (escopo respeitado)
+
+- Sem PSP / PIX / TED real
+- Sem callback handler
+- Sem worker
+- Sem rota pública (apenas service interno)
+- Sem frontend
+- Sem CHECK extension em `actor_wallet_payout_requests.destination_type`
+- F4.1 / F4.2 / F4.3 / F4.4 continuam NOT AUTHORIZED
+
+### Estado das DTs F4
+
+| DT | Status | Razão |
+|----|--------|-------|
+| DT-ACTOR-WALLET-PAYOUT-WIRING | CLOSED (internal scope) | F3 entregue |
+| DT-ACTOR-BANK-DESTINATION-MISSING | **CLOSED** | F4.0 MVP entregue (commit `e1536d07`) |
+| DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT | OPEN HIGH / NOT AUTHORIZED | F4 mãe — ainda exige PSP + callback |
+| DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.1 |
+| DT-PSP-DISBURSEMENT-ADAPTER-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.2 |
+| DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.3 |
+| DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.4 (gate canônico definido em DECISION-0060 D5+D12) |
+
+### Próximo passo recomendado
+
+F4.0 está pronto como fundação. Quando Clayton autorizar próxima fatia:
+- F4.1 (`actor_wallet_external_payouts` substrate) exigirá DECISION nova + prompt executor.
+- F4.2 (PSP adapter) exige escolha de parceiro PSP em decisão de produto.
+
+Por enquanto: fundação registrada, cofre interno fechado, cadastro de destinos declarados
+operacional para futuro uso quando trilho externo for autorizado.
