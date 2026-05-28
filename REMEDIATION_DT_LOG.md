@@ -7388,7 +7388,7 @@ Remover em fatia pequena de higiene ou condicionar via `if (DEV) console.log`.
 - **Severidade:** MEDIUM
 - **Classe:** DT-T (teste — fixture/state contaminado)
 - **Origem:** auditoria F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero código de produção alterado. Apenas scripts E2E.
+- **Resolução:** commit `1fb196db` (sessão 2026-05-28). Zero código de produção alterado. Apenas scripts E2E.
 
 ### Contexto
 
