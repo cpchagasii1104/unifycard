@@ -1603,7 +1603,7 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 
 ## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (2026-05-28, documental)
 
-**F1+F2 DONE.** F3 (execução financeira) e F4 (PIX/TED) aguardam autorização de produto.
+**F1+F2+F2-hardening+F3 DONE.** F4 (PIX/TED externo) ainda OPEN — não autorizado.
 
 **Regras operacionais permanentes:**
 
@@ -1628,6 +1628,7 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 - Active-gate: 1 request ativo por actor por vez; `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` (commit `c7838c50`)
 - Partial unique index `uidx_actor_wallet_payout_one_active_per_actor` — protege contra race condition
 - `calculateActorWalletBalanceProjection` — helper compartilhado (statement + payout services)
+- `actorWalletPayoutService.executeActorWalletPayout` EXISTE (commit `8f36db6e`) — execução atômica wallet→settlement com authorship='ownership'; D-3 partial + D-4 zero implementados
 - `ApprovalOperationType` inclui `'actor_wallet_payout'` (financial-approval.types.ts)
-- Income withholding C3.1 ativo: protege contra fuga enquanto F3 não existe
-- F3 (execução atômica) e F4 (PIX/TED) OPEN — aguardam autorização
+- Income withholding C3.1 ativo: drain ocorre dentro de F3 também (cap = saldo atual)
+- F4 (PIX/TED externo) OPEN — não autorizado

@@ -7070,3 +7070,70 @@ Hardening: um actor só pode ter 1 request ativo por vez (pending_approval | app
 - **F1 SUBSTRATE**: DONE (`98a1111a`)
 - **F2 REQUEST SERVICE**: DONE (`a1532780`) + **HARDENING**: DONE (`c7838c50`)
 - **DT permanece PARTIAL HIGH**: F3/F4 aguardam autorização
+
+## Sessão 2026-05-28 — F3 EXECUÇÃO FINANCEIRA FECHADA (commit `8f36db6e`)
+
+### Escopo
+
+F3 — `executeActorWalletPayout` — executa atomicamente o saque de actor_wallet.
+MOVE DINHEIRO via `bankTransactionService.transfer`. Zero rota pública, zero worker,
+zero PIX/TED, zero migration nova. Apenas service interno + bank_settlement (account_type).
+
+### Entregue
+
+| Item | Detalhe |
+|------|---------|
+| `actor-wallet-payout.service.ts` | método `executeActorWalletPayout(tenantId, payoutRequestId, performedByUserId)` |
+| Fluxo atômico | BEGIN → SELECT FOR UPDATE → validações → 'processing' → drain → recalc → transfer → 'completed' → COMMIT |
+| Authorship | 'ownership' (não 'system') — saque é voluntário do actor |
+| D-3 (parcial) | Se saldo pós-drain < requested, executa parcial (`executed_amount_cents < requested`) |
+| D-4 (zero) | Se saldo pós-drain = 0, marca `failed` com `zero_available_after_recovery_drain`; `executed_amount_cents` permanece NULL |
+| Idempotência | status='completed' retorna `completed_idempotent` sem novo transfer; `bankTransactionService.transfer` tem lock por reference |
+| E2E F3 | 18/18 PASS (happy path, status checks, terminais, drain, partial, zero, rollback, concorrência, regressões) |
+
+### Gates F3 (fechamento institucional)
+
+| Gate | Resultado |
+|------|-----------|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK |
+| `validate:regression-guards` | ✅ GATE OK |
+| `validate:architectural` | ✅ `critical_new=0` |
+| E2E F1 | ✅ 12/12 |
+| E2E F2 | ✅ 20/20 |
+| E2E F3 | ✅ 18/18 |
+| E2E C3 (debit recovery) | ✅ 18/18 |
+| E2E C3.1 (income withholding) | ✅ 13/13 |
+| E2E C7 (finalization) | ✅ 14/14 |
+| E2E actor-wallet-statement | ✅ PASS |
+
+### Invariantes confirmadas
+
+- LOCK order respeitado: payout_request FOR UPDATE → obligations FOR UPDATE (via drain) → bank_accounts (via transfer)
+- Drain ocorre ANTES do payout (recovery prevalece)
+- Recálculo de saldo dentro da TX com mesmo client (não usa snapshot F2)
+- Authorship 'ownership' com `permissionSnapshot.reason='approval_request {id} status=approved'`
+- D-4: zero transfer, settlement_transaction_id=null, status=failed limpo
+- Rollback técnico (T9) restaura status 'approved' atomicamente
+- Sem deadlock entre F3 e C3.1 concorrente (T11)
+- Zero alteração em payout_requests legado (T13)
+- Zero alteração em bank_settlements row count (T14)
+- Ledger double-entry íntegro (T15)
+
+### Não implementado (mantém escopo)
+
+- Sem rota pública
+- Sem worker
+- Sem PIX/TED/PSP
+- Sem `settlement_batch` / `withdrawal_external`
+- Sem chave de destino externa
+
+### DT-ACTOR-WALLET-PAYOUT-WIRING — estado pós-F3
+
+- **F1 SUBSTRATE**: DONE (`98a1111a`)
+- **F2 REQUEST SERVICE**: DONE (`a1532780`)
+- **F2 HARDENING**: DONE (`c7838c50`)
+- **F3 EXECUÇÃO**: DONE (`8f36db6e`) — saque interno funcional
+- **F4 PIX/TED**: OPEN — não autorizado
+- DT permanece **PARTIAL HIGH**: payout EXTERNO ainda OPEN
