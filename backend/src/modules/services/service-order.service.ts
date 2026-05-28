@@ -13,6 +13,7 @@ import { bankSplitRepository } from '@modules/bank/bank-split.repository';
 import { bankTransactionService } from '@modules/bank/bank-transaction.service';
 import { getClientWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
+import { drainRecoveryObligationsForCredit } from '@modules/financial-recovery/actor-wallet-recovery-obligation.service';
 import { HttpError } from '@core/errors/http-error';
 import type { PermissionKey } from '@core/authorization/permission-keys';
 import type { BankCurrency } from '@modules/bank/bank-account.types';
@@ -1106,6 +1107,15 @@ class ServiceOrderService {
           bankTransactionId: transferResult.transactionId,
           toAccountId: wallet.accountId,
         });
+
+        // 6.c — C3.1 income withholding (DECISION-0055 D3): drena obligations ativas
+        // do receiver dentro da mesma transação SQL, limitando ao crédito recém-entrado.
+        await drainRecoveryObligationsForCredit(
+          tenantId,
+          split.receiverActorId,
+          split.amountCents,
+          client
+        );
       }
 
       // ────────────────────────────────────────────────────────────
