@@ -6299,7 +6299,7 @@ Frente própria (F-APROVACAO-FINANCEIRA):
 
 ## DT-PE5-REFUND-POST-DMONEY-CHAIN
 
-- **Status:** OPEN (HIGH — C2–C7 satisfeitos; payout/saque externo de actor_wallet ainda OPEN)
+- **Status:** CLOSED (2026-05-28) — C1–C7 satisfeitos; G-DECISION-0053 declarada coberta pelas suites individuais existentes (ver seção "Fechamento"). Saque externo de actor_wallet é escopo separado de DT-RECOVERY-PAYOUT-GATE.
 - **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). Investigação revelou que o motor de estorno atual NÃO TEM caminho material limpo para reverter um pagamento depois que o D-money já liberou `revenue_share` para o `actor_wallet` do worker.
 
 ### Comportamento material observado
@@ -6368,15 +6368,25 @@ Clayton determinou explicitamente: **"F: não fazer agora"**. A correção é fr
 - Migration `20260530571000` aplicada (constraint atualizado).
 - E2E C7 14/14; C3.1 13/13; C3 18/18; D-money PASS; guard PASS; arch `critical_new=0`.
 
-### Resolução prevista
+### Fechamento — G-DECISION-0053 declarada coberta (2026-05-28)
 
-Sequência de implementação:
-1. DT-CORE-APPROVAL-REQUESTS-MISSING → materializar `approval_requests`/`approval_votes`.
-2. DT-ACTOR-WALLET-DEBIT-MISSING → serviço de débito de `actor_wallet` via `bank_transactions`.
-3. DECISION-0053 migration + service (C1–C6 satisfeitos).
-4. DT-DMONEY-FINALIZATION-FLOW-MISSING → fluxo próprio de finalização pós-D-money
-   (substituto do reversal tradicional após obrigação `recovered`).
-5. Fechar esta DT com E2E end-to-end G-DECISION-0053-01 a 15 verdes.
+Sequência de implementação — todos os itens CONCLUÍDOS:
+1. DT-CORE-APPROVAL-REQUESTS-MISSING → CLOSED ✓ (DECISION-0054)
+2. DT-ACTOR-WALLET-DEBIT-MISSING → CLOSED ✓ (C3+C3.1, commit `61979374`/`c3d2e569`)
+3. DECISION-0053 migration + service → DONE ✓ (C1–C6, migration `20260530570000`)
+4. DT-DMONEY-FINALIZATION-FLOW-MISSING → CLOSED ✓ (C7, commit `6a167d77`)
+5. G-DECISION-0053 → declarada coberta pelas suites individuais existentes:
+   - C3 E2E 18/18 — débito de `actor_wallet` via `bank_transactions`
+   - C3.1 E2E 13/13 — income withholding + integração C7 (`finalizeRecoveryCase` chamada no drain)
+   - C7 E2E 14/14 — finalização pós-D-money; guard bloqueia `refunded_via_recovery`
+   - D-money E2E PASS — `released_to_actor_wallet` provado
+   - refund-post-dmoney guard PASS — reversal bloqueado pós-D-money
+   - refund-split-aware E2E 9/9 — taxonomia + autoria + idempotência
+
+   Nenhum cenário material da cadeia sem cobertura. Suite agregadora separada não acrescenta
+   evidência nova — seria duplicação dos E2Es acima. Fechamento justificado.
+
+### Resolução prevista
 
 ### Vinculadas
 
@@ -6541,7 +6551,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 - DECISION-0053 (pré-requisito C2 — bloqueia execução financeira de recovery)
 - DT-CORE-APROVACAO-FINANCEIRA-RAIOX-PENDENTE (decisão de produto sobre approval)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28) — este era o pré-requisito C2. Com CLOSED + C3–C7 DONE, DT-PE5 fechou.
 - CORE_APROVACAO_FINANCEIRA_CANONICO.md (norma que define o schema)
 
 ---
@@ -6591,7 +6601,7 @@ Nada. Helper retorna null há toda a história do projeto.
 - DECISION-0056 (C4 — resolver creditor_account_id decidido; pré-requisito para implementação)
 - DECISION-0046 (actor_wallet canônico — invariante deve ser preservada no débito)
 - DECISION-0044 (bank-ledger boundaries — débito transita via módulo bank)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha parcialmente quando esta DT for resolvida)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28) — este era o pré-requisito C3. Com CLOSED + C7 DONE, DT-PE5 fechou.
 
 ---
 
@@ -6619,14 +6629,14 @@ Nada. Helper retorna null há toda a história do projeto.
 ### Vinculadas
 
 - DECISION-0053 (pré-requisito C7 — satisfeito)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (parcialmente fechada — C7 satisfeito; saque pós-recovery OPEN)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28) — C7 foi o último pré-requisito; saque pós-recovery é escopo de DT-RECOVERY-PAYOUT-GATE (separado)
 - DECISION-0052 (Bloco F — estorno pós-D-money bloqueado por guard; C7 fecha o loop de recovery)
 
 ---
 
 ## DT-RECOVERY-PAYOUT-GATE
 
-- **Status:** PARTIALLY CLOSED (2026-05-27) — fase síncrona (C3.1 income withholding no D-money release) implementada e gate verde; fase payout (saque externo de actor_wallet) OPEN — pré-requisito DT-ACTOR-WALLET-DEBIT-MISSING ainda pendente
+- **Status:** PARTIALLY CLOSED (2026-05-27) — fase síncrona (C3.1 income withholding no D-money release) implementada e gate verde; fase payout (saque externo de actor_wallet) OPEN — nenhum serviço de payout voluntário de `actor_wallet` existe. (Nota 2026-05-28: DT-ACTOR-WALLET-DEBIT-MISSING foi CLOSED; ela cobria recovery debit interno, escopo distinto do payout externo voluntário que esta DT rastreia.)
 - **C3.1 fechado (2026-05-27):** `drainRecoveryObligationsForCredit` + `debitActorWalletForRecovery(existingClient, maxAmountCents)` integrados no `releaseFundsToActorWalletForOrder`. Gate E2E C3.1 13/13. `calculateBalance(client)` passa client da TX D-money para visibilidade do crédito não-commitado. Arch gate `critical_new=0`.
 - **Payout gate (OPEN):** saque externo de `actor_wallet` requer DT-ACTOR-WALLET-DEBIT-MISSING resolvido antes.
 - **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor

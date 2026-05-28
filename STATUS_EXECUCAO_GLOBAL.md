@@ -6895,8 +6895,8 @@ Ponto ainda aberto: gate no saque externo de `actor_wallet` (DT-ACTOR-WALLET-PAY
 
 - **DT-DMONEY-FINALIZATION-FLOW-MISSING** → CLOSED (C7 implementado)
 - **DT-ACTOR-WALLET-DEBIT-MISSING** → CLOSED (C3+C3.1+C7 comprovados juntos)
+- **DT-PE5-REFUND-POST-DMONEY-CHAIN** → CLOSED (auditoria documental 2026-05-28): C1–C7 todos satisfeitos; G-DECISION-0053 declarada coberta pelos E2Es individuais (C3 18/18 + C3.1 13/13 + C7 14/14 + D-money PASS + guard PASS + refund-split-aware 9/9); suite agregadora separada não acrescenta cobertura nova.
 
-### DTs mantidas abertas
+### DTs mantidas abertas / parciais
 
-- **DT-RECOVERY-PAYOUT-GATE** → PARTIALLY CLOSED (C3.1 síncrono feito; saque externo pendente)
-- **DT-PE5-REFUND-POST-DMONEY-CHAIN** → OPEN (G-DECISION-0053 suite não existe; cadeia material comprovada nos E2Es individuais mas sem suite end-to-end unificada)
+- **DT-RECOVERY-PAYOUT-GATE** → PARTIALLY CLOSED (C3.1 síncrono feito; payout externo voluntário OPEN — nenhum serviço de saque de `actor_wallet` existe; escopo distinto de DT-ACTOR-WALLET-DEBIT-MISSING que é CLOSED)

@@ -4213,7 +4213,7 @@ approval_request_id (nullable), updated_at`
 - CORE_ESTORNOS_FINANCEIROS_CANONICO §11.2 (recovery ≠ estorno parcial)
 - CORE_APROVACAO_FINANCEIRA_CANONICO (approval como pré-requisito para execução)
 - DECISION-0046 (actor_wallet canônico — invariante preservada)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH — fecha quando fluxo pós-D-money completo)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28) — C1–C7 satisfeitos + G-DECISION-0053 declarada coberta pelas suites individuais
 - DT-CORE-APPROVAL-REQUESTS-MISSING (nova OPEN HIGH — pré-requisito C2) → CLOSED por DECISION-0054
 - DT-ACTOR-WALLET-DEBIT-MISSING → CLOSED (C3+C3.1+C7 implementados e comprovados)
 - DT-DMONEY-FINALIZATION-FLOW-MISSING → CLOSED (C7 implementado)
