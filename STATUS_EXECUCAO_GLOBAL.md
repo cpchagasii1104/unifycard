@@ -7137,3 +7137,43 @@ zero PIX/TED, zero migration nova. Apenas service interno + bank_settlement (acc
 - **F3 EXECUÇÃO**: DONE (`8f36db6e`) — saque interno funcional
 - **F4 PIX/TED**: OPEN — não autorizado
 - DT permanece **PARTIAL HIGH**: payout EXTERNO ainda OPEN
+
+## Sessão 2026-05-28 — FECHAMENTO DOCUMENTAL PÓS-F3 (DT split)
+
+### Escopo
+
+Harmonização documental após F3. Zero código. Zero migration. Zero E2E.
+Auditoria e split de DTs para refletir estado real: interno CLOSED, externo separado.
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DT_LOG.md` | `DT-ACTOR-WALLET-PAYOUT-WIRING` (entrada antiga, linha 5792): marcada SUPERSEDED |
+| `REMEDIATION_DT_LOG.md` | `DT-ACTOR-WALLET-PAYOUT-WIRING` (canônica): status → CLOSED — INTERNAL SETTLEMENT SCOPE |
+| `REMEDIATION_DT_LOG.md` | **Nova DT**: `DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT` → OPEN HIGH / NOT AUTHORIZED |
+| `REMEDIATION_DT_LOG.md` | `DT-RECOVERY-PAYOUT-GATE`: status refinado — interno CLOSED por F3; externo via nova DT |
+
+### Estado final das DTs relacionadas
+
+| DT | Status | Razão |
+|----|--------|-------|
+| DT-ACTOR-WALLET-PAYOUT-WIRING | CLOSED (internal scope) | F1+F2+F2-hardening+F3 entregues; settlement interno funcional |
+| DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT | OPEN HIGH / NOT AUTHORIZED | PIX/TED/PSP exige decisão nova + contrato externo + worker + reconciliação |
+| DT-RECOVERY-PAYOUT-GATE | PARTIALLY CLOSED | Interno (C3.1 + F3 drain) CLOSED; externo segue OPEN no contexto F4 |
+| DT-PE5-REFUND-POST-DMONEY-CHAIN | CLOSED | Confirmado intocado |
+
+### Invariantes registrados (F3 — internal scope)
+
+- F3 termina em `bank_settlement` (account_type — não tabela).
+- F3 NÃO movimenta dinheiro para banco externo.
+- F3 NÃO toca `payout_requests` legado.
+- F3 NÃO cria row em `bank_settlements` table.
+- F3 NÃO cria rota pública.
+- F3 NÃO cria worker.
+- DECISION-0058 continua vigente; F4 exigirá decisão própria.
+
+### F4 não foi iniciado
+
+Zero código F4. Zero migration F4. Zero rota F4. Zero worker F4.
+Trilho externo permanece lacrado até autorização explícita Clayton + READ-FIRST A/B/C específico de F4.

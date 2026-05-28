@@ -1603,7 +1603,7 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 
 ## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (2026-05-28, documental)
 
-**F1+F2+F2-hardening+F3 DONE.** F4 (PIX/TED externo) ainda OPEN — não autorizado.
+**F1+F2+F2-hardening+F3 DONE.** Escopo INTERNO fechado (DT-ACTOR-WALLET-PAYOUT-WIRING). Escopo EXTERNO movido para **DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT** (OPEN HIGH / NOT AUTHORIZED — exigirá DECISION nova).
 
 **Regras operacionais permanentes:**
 

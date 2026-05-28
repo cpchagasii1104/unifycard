@@ -5789,9 +5789,11 @@ D-money move o split CONFORME GRAVADO em `payment_intent.metadata.splits`. Se a 
 
 ---
 
-## DT-ACTOR-WALLET-PAYOUT-WIRING
+## DT-ACTOR-WALLET-PAYOUT-WIRING (entrada original — SUPERSEDED 2026-05-28)
 
-- **Status:** OPEN (frente posterior — D-money entrega saldo, payout externo é outra fatia)
+> **SUPERSEDED.** Esta entrada foi suplantada pela DT canônica `DT-ACTOR-WALLET-PAYOUT-WIRING` registrada abaixo (mesmo nome, versão DECISION-0058) que rastreia F1/F2/F3/F4 explicitamente. O escopo interno (F1-F3) foi fechado em 2026-05-28; o escopo externo (F4) foi movido para `DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT`. Mantida aqui como histórico do origem D-money (Camada 1).
+
+- **Status:** SUPERSEDED (2026-05-28) — origem histórica; ver DT canônica abaixo + DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT.
 - **Origem:** D-money (Camada 1, 2026-05-26). Decisão Clayton/ChatGPT K_wallet_7: payout para banco externo (saque) fica para frente posterior. D-money NÃO toca `payout_requests`, `bank_settlements`, payout-worker, bank-settlement-worker.
 
 ### Estado atual
@@ -6636,9 +6638,13 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-RECOVERY-PAYOUT-GATE
 
-- **Status:** PARTIALLY CLOSED (2026-05-27) — fase síncrona (C3.1 income withholding no D-money release) implementada e gate verde; fase payout (saque externo de actor_wallet) OPEN — nenhum serviço de payout voluntário de `actor_wallet` existe. (Nota 2026-05-28: DT-ACTOR-WALLET-DEBIT-MISSING foi CLOSED; ela cobria recovery debit interno, escopo distinto do payout externo voluntário que esta DT rastreia.)
+- **Status:** PARTIALLY CLOSED (2026-05-28) — escopo INTERNO totalmente fechado; escopo EXTERNO acompanhado em DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT.
+  - **C3.1 income withholding (D-money release)**: CLOSED (2026-05-27).
+  - **Payout gate INTERNAL (drain antes do saque)**: CLOSED (2026-05-28) — F3 `executeActorWalletPayout` (commit `8f36db6e`) drena obrigações ativas DENTRO da TX do saque, ANTES de transferir excedente para `bank_settlement`. SELECT FOR UPDATE em obligations garante serialização.
+  - **Payout gate EXTERNAL (PIX/TED/PSP)**: OPEN — não autorizado. Acompanhado em DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT.
 - **C3.1 fechado (2026-05-27):** `drainRecoveryObligationsForCredit` + `debitActorWalletForRecovery(existingClient, maxAmountCents)` integrados no `releaseFundsToActorWalletForOrder`. Gate E2E C3.1 13/13. `calculateBalance(client)` passa client da TX D-money para visibilidade do crédito não-commitado. Arch gate `critical_new=0`.
-- **Payout gate (OPEN):** saque voluntário de `actor_wallet` requer entidade própria `actor_wallet_payout_requests` + serviço de payout + approval gate. Mapeado em DECISION-0058 (2026-05-28). DT dedicada: DT-ACTOR-WALLET-PAYOUT-WIRING.
+- **F3 fechou gate interno (2026-05-28):** mesmo helper `drainRecoveryObligationsForCredit` é chamado dentro de `executeActorWalletPayout` com `client` da TX de saque. Drain ocorre ANTES do `transfer` para `bank_settlement`. D-3/D-4 cobrem casos parcial e zero-after-drain. E2E F3 18/18 + regressão C3.1 13/13 + C7 14/14.
+- **Payout gate EXTERNAL (OPEN):** saque para banco externo (PIX/TED) ainda não autorizado. Quando F4 for autorizado, o mesmo padrão de drain pré-payout deve ser preservado (drain → recalc → transfer external → callback). DT dedicada: DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT.
 - **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor
   não tem saldo suficiente para recovery total, a obrigação fica `partially_recovered`. Futuros
   créditos nessa conta (novos revenue_share, por exemplo) devem ser compensados antes de
@@ -6686,8 +6692,9 @@ Frente própria após DECISION-0053 migration (C6) + serviço de débito impleme
 
 - DECISION-0055 D3 (formaliza income withholding como mecanismo canônico)
 - DECISION-0053 §L4 (origem da decisão de compensação futura)
-- DECISION-0058 (F-ACTOR-WALLET-PAYOUT-WIRING — decisão documental da frente de implementação)
-- DT-ACTOR-WALLET-PAYOUT-WIRING (DT dedicada ao payout voluntário — ver abaixo)
+- DECISION-0058 (F-ACTOR-WALLET-PAYOUT-WIRING — decisão arquitetural; cobre apenas internal MVP)
+- DT-ACTOR-WALLET-PAYOUT-WIRING → CLOSED escopo interno (2026-05-28; ver abaixo)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT → OPEN HIGH (PIX/TED externo — não autorizado)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28)
 
 ---
@@ -6807,39 +6814,92 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 
 ## DT-ACTOR-WALLET-PAYOUT-WIRING
 
-- **Status:** PARTIAL HIGH (2026-05-28) — F1+F2+F2-hardening+F3 DONE. Saque interno funcional (actor_wallet → bank_settlement). F4 (PIX/TED externo) ainda OPEN — não autorizado.
-- **Origem:** DECISION-0058 (2026-05-28). Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCents` exposto como projeção de leitura. Implementação do saque real é frente posterior separada.
-- **Vinculada a:** DECISION-0058, DECISION-0053, DECISION-0054, DECISION-0055, DT-RECOVERY-PAYOUT-GATE
-- **Classe:** DT-F (feature gap — substrato documentado mas não implementado)
+- **Status:** CLOSED — INTERNAL SETTLEMENT SCOPE (2026-05-28). F1+F2+F2-hardening+F3 DONE. Saque interno (`actor_wallet` → `bank_settlement` via account_type) funcional e validado. Escopo externo (PIX/TED/PSP) movido para DT própria: **DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT** (OPEN HIGH / NOT AUTHORIZED).
+- **Origem:** DECISION-0058 (2026-05-28). Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCents` exposto como projeção de leitura. Implementação do saque real era frente posterior separada — agora interno fechado.
+- **Vinculada a:** DECISION-0058, DECISION-0053, DECISION-0054, DECISION-0055, DT-RECOVERY-PAYOUT-GATE (gate interno fechado), DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (gateway externo OPEN)
+- **Classe:** DT-F (feature gap — escopo interno entregue; escopo externo separado)
 
-### O que falta
+### Escopo INTERNO entregue (CLOSED 2026-05-28)
 
-1. **Migration**: criar `actor_wallet_payout_requests` (schema mínimo em DECISION-0058 D1).
-2. **Approval gate**: registrar `operation_type='actor_wallet_payout'` no CHECK constraint de `approval_requests` (`CORE_APROVACAO_FINANCEIRA_CANONICO.md` + migration).
-3. **Serviço**: `actorWalletPayoutService` — criação de solicitação + execução atômica (D2: drain obrigações + payout em transação única com `SELECT FOR UPDATE`).
-4. **Settlement MVP (D3)**: liquidação interna apenas; PIX/TED é fase posterior explícita.
-5. **Rota**: `POST /identity/wallet/payout-request` (ou equivalente a decidir com produto).
-6. **E2E**: gates tsc + actor-writer + bank-ledger + regression + arch + E2E financeiro completo.
+Frentes sequenciais — INTERNAL SETTLEMENT:
 
-### Não bloqueia hoje
-
-- Nenhum serviço de saque de `actor_wallet` existe — sem risco de fuga de recebíveis.
-- `availableBalanceCents` é somente leitura — nenhuma movimentação disparada por ele.
-- Income withholding (C3.1) já está ativo — novas entradas drenam obrigações antes de acumular saldo livre.
-
-### Resolução prevista
-
-Frentes sequenciais:
 - F1 SUBSTRATE: **DONE** (commit `98a1111a`, 2026-05-28) — schema + types + E2E 12/12. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
-- F2 REQUEST SERVICE: **DONE** (commit `a1532780`, 2026-05-28) — `requestActorWalletPayout` cria `pending_approval` + approval_request atômico. E2E 16/16. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
-- F2 HARDENING (active-gate): **DONE** (commit `c7838c50`, 2026-05-28) — 1 request ativo por actor + `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` + partial unique index + helper compartilhado de projeção. E2E 20/20 + F1 12/12 + statement PASS.
-- F3 EXECUÇÃO ATÔMICA: **DONE** (commit `8f36db6e`, 2026-05-28) — `executeActorWalletPayout` em BEGIN/COMMIT único: SELECT FOR UPDATE → drain → recalc → transfer wallet→bank_settlement com authorship='ownership'. D-3 (parcial) + D-4 (zero/failed) implementados. E2E F3 18/18. Sem worker, sem rota pública, sem migration nova.
-- F4 GATEWAY EXTERNO: OPEN — PIX/TED (não autorizado).
+- F2 REQUEST SERVICE: **DONE** (commit `a1532780`, 2026-05-28) — `requestActorWalletPayout` cria `pending_approval` + approval_request atômico. E2E 16/16.
+- F2 HARDENING (active-gate): **DONE** (commit `c7838c50`, 2026-05-28) — 1 request ativo por actor + `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` + partial unique index `uidx_actor_wallet_payout_one_active_per_actor` + helper compartilhado `calculateActorWalletBalanceProjection`. E2E 20/20.
+- F3 EXECUÇÃO ATÔMICA INTERNA: **DONE** (commit `8f36db6e`, 2026-05-28) — `executeActorWalletPayout` em BEGIN/COMMIT único: SELECT FOR UPDATE → drain → recalc → transfer `actor_wallet`→`bank_settlement` com authorship='ownership'. D-3 (parcial) + D-4 (zero/failed) implementados. E2E F3 18/18.
+
+### Invariantes confirmados pelo F3
+
+- F3 termina em `bank_settlement` (account_type — não tabela).
+- F3 NÃO movimenta dinheiro para banco externo.
+- F3 NÃO toca `payout_requests` legado (T13).
+- F3 NÃO cria row em `bank_settlements` table (T14).
+- F3 NÃO cria rota pública.
+- F3 NÃO cria worker.
+- Drain (C3.1) ocorre dentro da TX de F3 (recovery prevalece).
+- Approval `status='approved'` é gate obrigatório (D4).
+
+### Escopo EXTERNO movido para DT própria
+
+PIX/TED/PSP saque para banco externo foi movido para **DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT**. Esta DT (WIRING) fica fechada no escopo interno; ela NÃO acompanha mais o gateway externo.
 
 ### Vinculadas
 
-- DECISION-0058 (D1–D5 — decisões arquiteturais desta frente)
-- DT-RECOVERY-PAYOUT-GATE (DT mãe do gate de saque)
+- DECISION-0058 (D1–D5 — decisões arquiteturais; F4 exigirá DECISION nova)
+- DT-RECOVERY-PAYOUT-GATE (gate interno fechado por F3; gate externo segue OPEN via F4)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (gateway externo OPEN HIGH / NOT AUTHORIZED)
 - DECISION-0054 (approval substrate — gate D4)
 - DECISION-0055 (debit semantics — drain D2 usa `debitActorWalletForRecovery`)
 - F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1` — projeção que informa UI de saque)
+
+---
+
+## DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT
+
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). Saque de `actor_wallet` para banco externo (PIX/TED/PSP) ainda não autorizado por Clayton. F3 entregou apenas settlement INTERNO (`actor_wallet` → `bank_settlement` account_type); rota externa exige decisão própria.
+- **Origem:** DECISION-0058 D3 (2026-05-28). F3 implementou o MVP interno; gateway externo foi explicitamente deixado para frente posterior com autorização separada.
+- **Vinculada a:** DECISION-0058 (decisão atual restringe `destination_type='internal_settlement'`), DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno fechado), DT-RECOVERY-PAYOUT-GATE (gate externo)
+- **Classe:** DT-F (feature gap — requer decisão arquitetural própria + contratos externos)
+
+### O que falta (escopo F4)
+
+1. **Decisão arquitetural própria** (não é DECISION-0058 — esta cobre apenas internal MVP):
+   - Quais `destination_type` extras: `'pix'`, `'ted'`, `'wire'`?
+   - Política de KYC / verificação de conta bancária do beneficiário.
+   - Limites operacionais (per-actor, per-dia, per-mês).
+   - SLA de settlement (síncrono vs. async com callback).
+2. **CHECK extension** em `actor_wallet_payout_requests.destination_type` para incluir destinos externos (migration nova).
+3. **Schema**: campos `destination_key` validados conforme tipo (PIX key format, agência+conta para TED, etc.).
+4. **Contrato PSP**: gateway parceiro (Stark, Pagarme, etc.) + credenciais + sandbox + produção.
+5. **Callback assíncrono**: webhook handler para status final do banco externo; reconciliação com `actor_wallet_payout_requests.status`.
+6. **Compliance**: anti-money-laundering, blocklists, tribunal-de-contas se aplicável.
+7. **Service novo OU extension do `executeActorWalletPayout`**: decidir se F4 é método separado (`executeActorWalletPayoutExternal`) ou parâmetro adicional.
+8. **Reconciliation detective**: cruzar `actor_wallet_payout_requests` external com extratos do PSP.
+9. **Worker assíncrono** (necessário para PSP — callback pode demorar horas).
+10. **E2E F4**: settlement externo, callback de sucesso, callback de falha, timeout, reconciliação.
+
+### O que NÃO é F4
+
+- F3 settlement interno (CLOSED via DT-ACTOR-WALLET-PAYOUT-WIRING).
+- Drain de obrigações em atender saque interno (CLOSED via F3).
+- Income withholding C3.1 (CLOSED via DT-RECOVERY-PAYOUT-GATE escopo interno).
+- Ledger / bank_transactions infrastructure (existente e estável).
+
+### Não bloqueia hoje
+
+- F3 entrega saque INTERNO operacional para MVP.
+- Sem rota pública / worker / PSP, não há risco de falha real com banco externo.
+- `availableBalanceCents` permanece projeção de leitura — UI pode mostrar saldo sem autorizar movimentação externa.
+
+### Resolução prevista
+
+Frente F4 — requer autorização explícita Clayton + READ-FIRST em três paralelas:
+- **A** — norma/autoridade: quais aprovações adicionais para saque externo (KYC, limit policies).
+- **B** — schema/código: CHECK extension, callback handler, worker, reconciliação.
+- **C** — concorrência/idempotência/compliance: webhook deduplication, timeout, AML, blocklists.
+
+### Vinculadas
+
+- DECISION-0058 (decisão atual restringe a internal_settlement — F4 exigirá DECISION nova)
+- DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno fechado)
+- DT-RECOVERY-PAYOUT-GATE (gate externo permanece OPEN apenas no contexto F4)
