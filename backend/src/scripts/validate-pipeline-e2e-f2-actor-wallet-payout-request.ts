@@ -206,6 +206,76 @@ async function cleanupPayoutRequests(ids: string[]): Promise<void> {
   }
 }
 
+// ── seed determinístico de saldo (DT-E2E-...-FIXTURE-BALANCE-DEPLETION) ──────
+//
+// F2 não move dinheiro real. Mas service.requestActorWalletPayout consulta o
+// saldo projetado (gross - pending) e bloqueia se requestedAmount > available.
+// Para isolar F2 de depletion deixada por outras suites (F3 cleanup deixa o
+// wallet em estado pré-F3, que pode ser 0), seed determinístico via reference
+// 'e2e_f2_seed' que é limpo no finally.
+//
+// Padrão idêntico ao F3 (seedWalletCredit / cleanupSeedCredits).
+
+async function seedWalletCreditF2(
+  actorId: string,
+  accountId: string,
+  amountCents: number
+): Promise<string> {
+  if (amountCents <= 0) return '';
+  const txId = uuidv4();
+  const conceptRes = await q(
+    `SELECT concept_id FROM concepts WHERE domain='financeiro-payout' LIMIT 1`
+  );
+  if (!conceptRes.rows[0]) throw new Error('concept financeiro-payout ausente');
+  const conceptId = conceptRes.rows[0].concept_id;
+  await q(
+    `INSERT INTO bank_transactions
+       (id, tenant_id, actor_id, account_id, amount_cents, purpose,
+        justification, reference_type, reference_id, concept_id)
+     VALUES ($1::uuid,$2,$3,$4,$5,'initial_credit','e2e F2 seed credit','e2e_f2_seed',$6,$7)`,
+    [txId, TENANT_ID, actorId, accountId, amountCents, txId, conceptId]
+  );
+  await q(
+    `INSERT INTO bank_ledger
+       (id, tenant_id, account_id, transaction_id, direction, amount_cents, purpose, justification)
+     VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, 'initial_credit', 'e2e F2 seed credit')`,
+    [TENANT_ID, accountId, txId, amountCents]
+  );
+  return txId;
+}
+
+async function getWalletBalance(accountId: string): Promise<number> {
+  const r = await q(
+    `SELECT COALESCE(SUM(CASE WHEN direction='credit' THEN amount_cents ELSE -amount_cents END),0)::bigint AS bal
+       FROM bank_ledger WHERE tenant_id=$1 AND account_id=$2`,
+    [TENANT_ID, accountId]
+  );
+  return Number(r.rows[0].bal);
+}
+
+async function ensureWalletBalanceF2(
+  actorId: string,
+  accountId: string,
+  targetCents: number
+): Promise<void> {
+  const cur = await getWalletBalance(accountId);
+  if (cur >= targetCents) return;
+  await seedWalletCreditF2(actorId, accountId, targetCents - cur);
+}
+
+async function cleanupSeedCreditsF2(): Promise<void> {
+  await q(
+    `DELETE FROM bank_ledger WHERE transaction_id IN (
+       SELECT id FROM bank_transactions WHERE tenant_id=$1 AND reference_type='e2e_f2_seed'
+     )`,
+    [TENANT_ID]
+  ).catch(() => {});
+  await q(
+    `DELETE FROM bank_transactions WHERE tenant_id=$1 AND reference_type='e2e_f2_seed'`,
+    [TENANT_ID]
+  ).catch(() => {});
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -215,6 +285,18 @@ async function main() {
 
   const fixtures = await getFixtures();
   const { userId, actorId, actorWalletAccountId } = fixtures;
+
+  // Pre-flight determinístico (DT-E2E-...-FIXTURE-BALANCE-DEPLETION):
+  // garante saldo mínimo para F2 sem depender de estado deixado por outras suites.
+  // F2 requer available >= maior amount testado (T5/T11 = 50, mas T17 setup usa 1).
+  // Threshold 10000 dá margem confortável e ainda permite T6 testar INSUFFICIENT
+  // (999_999_999 > 10000 + qualquer saldo prévio realista).
+  const preBal = await getWalletBalance(actorWalletAccountId);
+  if (preBal < 10000) {
+    await seedWalletCreditF2(actorId, actorWalletAccountId, 10000 - preBal);
+    console.log(`[pre-flight] F2 seed credit ${10000 - preBal} cents (saldo ${preBal} → 10000)`);
+  }
+
   const snapshot0 = await getFinancialSnapshot();
   const createdPayoutIds: string[] = [];
   const obligFixtures: Array<{ obligId: string; fakeTxId: string; fakeIntentId: string }> = [];
@@ -759,6 +841,8 @@ async function main() {
       `DELETE FROM actor_wallet_payout_requests WHERE tenant_id=$1 AND idempotency_key LIKE 'f2-t13-%'`,
       [TENANT_ID]
     ).catch(() => {});
+    // Seed credits desta suite — limpa para evitar acumulação cross-run
+    await cleanupSeedCreditsF2();
   }
 
   // ── summary ──────────────────────────────────────────────────────────────────

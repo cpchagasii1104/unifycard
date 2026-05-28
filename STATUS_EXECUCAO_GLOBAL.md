@@ -7454,3 +7454,44 @@ que a próxima frente possível NÃO é F4.1. Identidade/onboarding ou frente
 de perfil/contexto (consumindo `public_profiles` + endpoint capabilities)
 são candidatas naturais. F4.0 continua como fundação sem dependentes
 ativados.
+
+## Sessão 2026-05-28 — DT-E2E-...-FIXTURE-BALANCE-DEPLETION CLOSED
+
+### Escopo
+
+Estabilização determinística dos E2Es financeiros F2/F3. Apenas scripts E2E.
+Zero código de produção. Zero migration. Zero alteração de schema/regras.
+
+### Mudanças
+
+- `backend/src/scripts/validate-pipeline-e2e-f2-actor-wallet-payout-request.ts`:
+  adicionados `seedWalletCreditF2`, `getWalletBalance`, `ensureWalletBalanceF2`,
+  `cleanupSeedCreditsF2`. Pre-flight garante saldo ≥ 10000 antes do snapshot0.
+  Finally limpa seeds por `reference_type='e2e_f2_seed'`.
+- F3 mantido (já tinha o padrão `seedWalletCredit`/`cleanupSeedCredits` desde
+  commit `8f36db6e`).
+
+### Evidência
+
+| Run | Suite | Resultado |
+|-----|-------|-----------|
+| 1 | F3 | 18/18 (depleta wallet por design em T7) |
+| 2 | F2 pós-F3 | 20/20 (auto-seed: `8092 cents (saldo 1908 → 10000)`) |
+| 3 | F2 idempotente | 20/20 |
+| 4 | F3 idempotente | 18/18 |
+
+Regressões completas verde:
+
+- F1 12/12 · F4.0 8/8 · C3 18/18 · C3.1 13/13 · C7 14/14 · statement PASS
+- tsc clean · actor-writer OK · bank-ledger OK · regression-guards OK
+- arch critical_new=0 (baseline 20 violations)
+
+### DT fechada
+
+- **DT-E2E-ACTOR-WALLET-PAYOUT-FIXTURE-BALANCE-DEPLETION**: OPEN → **CLOSED**.
+
+### Estado F4 inalterado
+
+- F4.0 DONE (commit `e1536d07`)
+- F4.1 / F4.2 / F4.3 / F4.4 continuam OPEN / NOT AUTHORIZED
+- DECISION-0058 / 0059 / 0060 vigentes

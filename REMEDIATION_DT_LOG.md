@@ -7384,10 +7384,11 @@ Remover em fatia pequena de higiene ou condicionar via `if (DEV) console.log`.
 
 ## DT-E2E-ACTOR-WALLET-PAYOUT-FIXTURE-BALANCE-DEPLETION
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — F2 ganhou pre-flight `seedWalletCreditF2` + cleanup determinístico via `cleanupSeedCreditsF2` (reference_type='e2e_f2_seed'), mesmo padrão já existente em F3 (`seedWalletCredit`/`cleanupSeedCredits` com reference_type='e2e_f3_seed'). F3 já tinha cleanup completo de drain transactions (via `actor_wallet_recovery_obligation_entries.recovery_transaction_id`). Determinismo provado por sequência F3→F2→F2→F3 — cada suite seed sua própria baseline, limpa tudo, próxima execução não depende de estado residual. Pre-flight log do F2 confirma: "F2 seed credit 8092 cents (saldo 1908 → 10000)".
 - **Severidade:** MEDIUM
 - **Classe:** DT-T (teste — fixture/state contaminado)
 - **Origem:** auditoria F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero código de produção alterado. Apenas scripts E2E.
 
 ### Contexto
 
@@ -7415,18 +7416,45 @@ foi necessária para F2 voltar a 20/20.
 - F3 E2E tem pre-flight (`seedWalletCredit`) que mitiga seu próprio caso, mas
   F1/F2 não têm.
 
-### Resolução prevista
+### Resolução adotada (CLOSED 2026-05-28)
 
-Implementar uma das opções, sem urgência:
+**Opção 3 — seed determinístico por suite** (a mais barata sem mexer em produção).
 
-1. Fixture isolada/idempotente: F2 cria seu próprio actor + wallet por execução
-   (igual ao padrão usado em F3 T19 e em F4.0 T1-T6).
-2. Cleanup completo: F3 limpa TODAS as bank_transactions e bank_ledger entries
-   geradas durante seus testes (incluindo drain do trilho recovery, não só payout).
-3. Seed determinístico antes de cada suite financeira: helper compartilhado que
-   restaura saldo para um valor mínimo antes de qualquer payout test.
+F2 agora replica o padrão já existente em F3:
 
-Opção 1 é mais higiênica; opção 3 é a mais barata.
+- `seedWalletCreditF2(actorId, accountId, amountCents)`: INSERT direto em
+  `bank_transactions` (purpose='initial_credit', reference_type='e2e_f2_seed')
+  + INSERT em `bank_ledger` direção 'credit'. Padrão consistente com C3 E2E
+  e com `seedWalletCredit` de F3.
+- Pre-flight em `main()`: se `getWalletBalance` < 10000, seed do delta para
+  garantir baseline determinística antes de capturar `snapshot0`.
+- `cleanupSeedCreditsF2()` no finally: `DELETE` por `reference_type='e2e_f2_seed'`
+  remove seeds desta suite, mantendo isolamento entre runs.
+
+F3 já tinha esta arquitetura desde sua criação (commit `8f36db6e`). F3 também
+limpa drain transactions via `cleanupObligFixture` que resolve
+`actor_wallet_recovery_obligation_entries.recovery_transaction_id` e deleta
+as bank_transactions + bank_ledger correspondentes — drain do trilho recovery
+não fica órfão.
+
+### Evidência de determinismo
+
+Sequência testada na sessão de resolução:
+
+1. F3 RUN 1 → 18/18 (pre-flight log)
+2. F2 RUN 1 pós-F3 → `[pre-flight] F2 seed credit 8092 cents (saldo 1908 → 10000)` → 20/20
+3. F2 RUN 2 → 20/20 (sem necessidade de seed adicional, idempotente)
+4. F3 RUN 2 → 18/18
+
+Confirmado: cada suite cria sua baseline, limpa tudo, próxima execução não
+depende de estado residual.
+
+### Confirmação de escopo
+
+- Zero alteração em código runtime de produção (services, repositories, controllers).
+- Zero migration nova.
+- Zero alteração em invariantes financeiros.
+- Apenas scripts E2E foram tocados.
 
 ### Vinculadas
 
