@@ -4662,3 +4662,132 @@ O resolver C4 encontra a conta por `actor_id` (FK resolvida corretamente no crea
 ### Superada por
 
 (preencher quando superada)
+
+---
+
+## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (saque voluntário de actor_wallet)
+
+**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-28). Frente de implementação NÃO iniciada — aguarda autorização de produto.
+**Sessão:** 2026-05-28 (READ-FIRST + DECISION documental)
+**Decisor:** Clayton
+**Commit âncora:** (preencher após commit desta sessão)
+
+### Contexto
+
+Após fechamento de F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), o sistema expõe
+`availableBalanceCents` como projeção de leitura. Esse campo revela quanto o actor poderia
+sacar, mas NÃO autoriza saque — a autorização é frente própria.
+
+READ-FIRST desta sessão confirmou:
+- `payout_requests` existe, mas é trilho exclusivo do seller (`seller_available → seller_payout`).
+  Reutilizar para `actor_wallet` seria drift semântico e violaria DECISION-0055.
+- `actor_wallet_payout` NÃO está nos `operation_types` de `CORE_APROVACAO_FINANCEIRA_CANONICO.md`.
+- `BANK_SEMANTICS.md` linha 61 declara explicitamente: "NÃO é payout externo (saque para banco
+  real é frente posterior)".
+- Trilho seller (`payout_requests`) e trilho actor (`actor_wallet_payout_requests`) são entidades
+  distintas com semânticas e ciclos de vida diferentes.
+
+### Decisões Clayton (D1–D5)
+
+**D1 — Nova entidade: `actor_wallet_payout_requests`**
+
+Criar entidade própria para saque de `actor_wallet`. NÃO reutilizar `payout_requests` (trilho
+seller). Separação justificada por:
+- `payout_requests` tem `seller_id` + ciclo de vida seller-specific
+- `actor_wallet_payout_requests` tem `actor_id` + `bank_account_id` (conta origem) + ciclo de
+  vida próprio com gate de aprovação obrigatório (D4)
+- Reutilização criaria ambiguidade semântica e risco de cruzamento de trilhos financeiros
+
+Schema mínimo previsto (NÃO criar migration agora — só documental):
+```sql
+actor_wallet_payout_requests (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  actor_id UUID NOT NULL,                    -- actor que solicita saque
+  bank_account_id UUID NOT NULL,             -- conta actor_wallet de origem (SSOT)
+  amount_cents BIGINT NOT NULL CHECK > 0,
+  currency TEXT NOT NULL DEFAULT 'BRL',
+  status TEXT NOT NULL DEFAULT 'pending_approval',
+  destination_type TEXT NOT NULL,            -- 'internal_settlement' (MVP) | 'pix' | 'ted'
+  destination_key TEXT,                      -- chave PIX / dados bancários
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  approved_at TIMESTAMPTZ,
+  processed_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  failed_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+**D2 — Atomicidade obrigatória: drain + payout em transação única**
+
+Toda execução de saque DEVE:
+1. `BEGIN` (transação única)
+2. `SELECT FOR UPDATE` em todas as obrigações `approved`/`partially_recovered` do actor
+3. `debitActorWalletForRecovery(client, ...)` para cada obrigação ativa (drena antes de sacar)
+4. Recalcular `availableBalanceCents` com o MESMO `client` (visão dentro da TX)
+5. Executar débito de saque APENAS sobre o saldo excedente após drenagem
+6. `COMMIT`
+7. Qualquer falha em qualquer etapa → `ROLLBACK` completo
+
+Axioma: `availableBalanceCents` projetado em leitura NÃO é autorização suficiente para executar
+movimentação. A drenagem síncrona garante que obrigações ativas sejam quitadas antes do saque.
+
+**D3 — Settlement MVP: interno antes de gateway externo**
+
+Fase 1 (MVP): liquidação interna via `bankTransactionService.transfer` entre `actor_wallet` e
+conta de liquidação interna do parceiro. Sem gateway PIX/TED externo.
+
+Fase 2 (posterior, autorização futura): gateway externo (PIX via parceiro bancário, TED).
+NÃO implementar fase 2 sem decisão explícita de Clayton.
+
+`destination_type='internal_settlement'` é o único valor permitido no MVP.
+
+**D4 — Gate pending_approval obrigatório (fail-closed)**
+
+Todo saque de `actor_wallet` deve seguir o fluxo:
+```
+pending_approval → approved → processing → completed
+                           ↘ cancelled
+               ↘ rejected
+                           → failed (após processing)
+```
+
+Execução financeira (débito real em `bank_ledger`) APENAS após status `approved`.
+Gate de aprovação governa por `approval_requests` (DECISION-0054 substrate).
+`operation_type = 'actor_wallet_payout'` (novo — a ser adicionado ao CHECK constraint
+de `CORE_APROVACAO_FINANCEIRA_CANONICO.md` na migration de implementação).
+
+Nenhum atalho de auto-aprovação no MVP. Aprovação manual ou workflow a definir.
+
+**D5 — Nomenclatura canônica**
+
+- Entidade DB: `actor_wallet_payout_requests`
+- `operation_type` (approval_requests): `'actor_wallet_payout'`
+- `reference_type` (bank_transactions): `'actor_wallet_payout'`
+- Status enum: `pending_approval | approved | processing | completed | failed | cancelled | rejected`
+- Trilho legacy NÃO reutilizado: `payout_requests` permanece exclusivo do seller
+- Conceito UI/produto (a decidir): "Saque da carteira" / "Transferir para conta"
+
+### Proibições desta sessão
+
+- Não criar migration.
+- Não criar `actor_wallet_payout_requests`.
+- Não adicionar `actor_wallet_payout` ao CHECK constraint de aprovações.
+- Não implementar serviço de saque.
+- Não mover dinheiro.
+- Não alterar `BANK_SEMANTICS.md` linha 61 — ela permanece verdadeira até implementação.
+
+### Vinculadas
+
+- DECISION-0053 (actor_wallet recovery obligations — substrato que o drain D2 utiliza)
+- DECISION-0054 (approval substrate — gate D4 depende deste trilho)
+- DECISION-0055 (actor_wallet debit semantics — drain D2 usa `debitActorWalletForRecovery`)
+- DT-RECOVERY-PAYOUT-GATE (DT que rastreia o payout gate aberto)
+- F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1` — projeta `availableBalanceCents` que informa UI)
+- SSOT_EXCLUSIVE_BANK_RULE.md (toda movimentação financeira via bank_ledger)
+
+### Superada por
+
+(preencher quando superada — próxima frente será commit de implementação)

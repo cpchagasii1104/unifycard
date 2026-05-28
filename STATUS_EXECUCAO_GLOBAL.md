@@ -6899,4 +6899,45 @@ Ponto ainda aberto: gate no saque externo de `actor_wallet` (DT-ACTOR-WALLET-PAY
 
 ### DTs mantidas abertas / parciais
 
-- **DT-RECOVERY-PAYOUT-GATE** → PARTIALLY CLOSED (C3.1 síncrono feito; payout externo voluntário OPEN — nenhum serviço de saque de `actor_wallet` existe; escopo distinto de DT-ACTOR-WALLET-DEBIT-MISSING que é CLOSED)
+- **DT-RECOVERY-PAYOUT-GATE** → PARTIALLY CLOSED (C3.1 síncrono feito; payout externo voluntário OPEN — mapeado em DECISION-0058 e rastreado em DT-ACTOR-WALLET-PAYOUT-WIRING)
+
+---
+
+## Sessão 2026-05-28 — DECISION-0058 DOCUMENTAL (F-ACTOR-WALLET-PAYOUT-WIRING)
+
+### Escopo
+
+Registro documental da frente de saque voluntário de `actor_wallet`. Zero código, zero migration, zero movimento financeiro. Apenas decisões arquiteturais formalizadas.
+
+### Motivação
+
+Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCents` expõe projeção de leitura mas NÃO autoriza saque. O saque real é frente própria com:
+- Entidade nova `actor_wallet_payout_requests` (NÃO reutilizar trilho seller `payout_requests`)
+- Atomicidade obrigatória: drain obrigações + payout em transação única
+- Gate pending_approval fail-closed (DECISION-0054 substrate)
+- Settlement MVP interno antes de PIX/TED externo
+
+### DECISION-0058 — Decisões Clayton (D1–D5)
+
+| # | Decisão | Resumo |
+|---|---------|--------|
+| D1 | Nova entidade | `actor_wallet_payout_requests` — NÃO reutilizar `payout_requests` seller |
+| D2 | Atomicidade | `SELECT FOR UPDATE` + drain + payout em BEGIN/COMMIT único |
+| D3 | Settlement MVP | Liquidação interna; PIX/TED é fase posterior explícita |
+| D4 | Gate aprovação | `pending_approval` obrigatório; execução só após `approved` |
+| D5 | Nomenclatura | `actor_wallet_payout_requests`, `operation_type='actor_wallet_payout'`, `reference_type='actor_wallet_payout'` |
+
+### DTs abertas nesta sessão
+
+- **DT-ACTOR-WALLET-PAYOUT-WIRING** → OPEN HIGH (2026-05-28) — frente aguarda autorização de produto
+
+### Arquivos atualizados
+
+- `REMEDIATION_DECISIONS_LOG.md` — DECISION-0058 registrada
+- `REMEDIATION_DT_LOG.md` — DT-RECOVERY-PAYOUT-GATE atualizada + DT-ACTOR-WALLET-PAYOUT-WIRING criada
+- `opus.md` — memória operacional atualizada
+- `STATUS_EXECUCAO_GLOBAL.md` — esta entrada
+
+### Gates desta sessão
+
+Não aplicável — sessão puramente documental. Zero código alterado.

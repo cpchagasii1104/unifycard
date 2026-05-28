@@ -6638,7 +6638,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 - **Status:** PARTIALLY CLOSED (2026-05-27) — fase síncrona (C3.1 income withholding no D-money release) implementada e gate verde; fase payout (saque externo de actor_wallet) OPEN — nenhum serviço de payout voluntário de `actor_wallet` existe. (Nota 2026-05-28: DT-ACTOR-WALLET-DEBIT-MISSING foi CLOSED; ela cobria recovery debit interno, escopo distinto do payout externo voluntário que esta DT rastreia.)
 - **C3.1 fechado (2026-05-27):** `drainRecoveryObligationsForCredit` + `debitActorWalletForRecovery(existingClient, maxAmountCents)` integrados no `releaseFundsToActorWalletForOrder`. Gate E2E C3.1 13/13. `calculateBalance(client)` passa client da TX D-money para visibilidade do crédito não-commitado. Arch gate `critical_new=0`.
-- **Payout gate (OPEN):** saque externo de `actor_wallet` requer DT-ACTOR-WALLET-DEBIT-MISSING resolvido antes.
+- **Payout gate (OPEN):** saque voluntário de `actor_wallet` requer entidade própria `actor_wallet_payout_requests` + serviço de payout + approval gate. Mapeado em DECISION-0058 (2026-05-28). DT dedicada: DT-ACTOR-WALLET-PAYOUT-WIRING.
 - **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor
   não tem saldo suficiente para recovery total, a obrigação fica `partially_recovered`. Futuros
   créditos nessa conta (novos revenue_share, por exemplo) devem ser compensados antes de
@@ -6686,8 +6686,9 @@ Frente própria após DECISION-0053 migration (C6) + serviço de débito impleme
 
 - DECISION-0055 D3 (formaliza income withholding como mecanismo canônico)
 - DECISION-0053 §L4 (origem da decisão de compensação futura)
-- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito para o gate de drenagem existir)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (relacionada — recovery parcial pode bloquear saque)
+- DECISION-0058 (F-ACTOR-WALLET-PAYOUT-WIRING — decisão documental da frente de implementação)
+- DT-ACTOR-WALLET-PAYOUT-WIRING (DT dedicada ao payout voluntário — ver abaixo)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN → CLOSED (2026-05-28)
 
 ---
 
@@ -6801,3 +6802,43 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 
 - DECISION-0057 (D5 — bug documentado aqui)
 - DT-USER-WALLET-PROVISIONING-FOR-RECOVERY (bug bloqueia se não corrigido antes do backfill)
+
+---
+
+## DT-ACTOR-WALLET-PAYOUT-WIRING
+
+- **Status:** OPEN HIGH (2026-05-28) — nenhum serviço de saque voluntário de `actor_wallet` existe. DECISION-0058 registra as decisões arquiteturais; frente de implementação aguarda autorização de produto.
+- **Origem:** DECISION-0058 (2026-05-28). Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCents` exposto como projeção de leitura. Implementação do saque real é frente posterior separada.
+- **Vinculada a:** DECISION-0058, DECISION-0053, DECISION-0054, DECISION-0055, DT-RECOVERY-PAYOUT-GATE
+- **Classe:** DT-F (feature gap — substrato documentado mas não implementado)
+
+### O que falta
+
+1. **Migration**: criar `actor_wallet_payout_requests` (schema mínimo em DECISION-0058 D1).
+2. **Approval gate**: registrar `operation_type='actor_wallet_payout'` no CHECK constraint de `approval_requests` (`CORE_APROVACAO_FINANCEIRA_CANONICO.md` + migration).
+3. **Serviço**: `actorWalletPayoutService` — criação de solicitação + execução atômica (D2: drain obrigações + payout em transação única com `SELECT FOR UPDATE`).
+4. **Settlement MVP (D3)**: liquidação interna apenas; PIX/TED é fase posterior explícita.
+5. **Rota**: `POST /identity/wallet/payout-request` (ou equivalente a decidir com produto).
+6. **E2E**: gates tsc + actor-writer + bank-ledger + regression + arch + E2E financeiro completo.
+
+### Não bloqueia hoje
+
+- Nenhum serviço de saque de `actor_wallet` existe — sem risco de fuga de recebíveis.
+- `availableBalanceCents` é somente leitura — nenhuma movimentação disparada por ele.
+- Income withholding (C3.1) já está ativo — novas entradas drenam obrigações antes de acumular saldo livre.
+
+### Resolução prevista
+
+Frente própria após autorização explícita de Clayton. Pré-requisitos formais:
+1. DECISION-0058 registrada (FEITO — 2026-05-28).
+2. Migration `actor_wallet_payout_requests` aprovada.
+3. `actor_wallet_payout` adicionado ao CHECK de `approval_requests`.
+4. Serviço + E2E + gates verdes.
+
+### Vinculadas
+
+- DECISION-0058 (D1–D5 — decisões arquiteturais desta frente)
+- DT-RECOVERY-PAYOUT-GATE (DT mãe do gate de saque)
+- DECISION-0054 (approval substrate — gate D4)
+- DECISION-0055 (debit semantics — drain D2 usa `debitActorWalletForRecovery`)
+- F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1` — projeção que informa UI de saque)

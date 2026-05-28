@@ -1598,3 +1598,30 @@ mixed_policy                 → N linhas regional_fund independentes
 > intenção. PF basis (identity_residence) fail-closed até PE-5-RESOLVER-V2."
 
 E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
+
+---
+
+## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (2026-05-28, documental)
+
+**Frente NÃO implementada.** Aguarda autorização de produto.
+
+**Regras operacionais permanentes:**
+
+> "Saque de `actor_wallet` é frente própria com entidade própria.
+> NÃO reutilizar `payout_requests` — trilho exclusivo do seller.
+> `availableBalanceCents` projeta leitura; NÃO autoriza movimentação.
+> Drain de obrigações + payout em BEGIN/COMMIT único. Sem atalho."
+
+**Invariantes D1–D5:**
+
+- D1: entidade = `actor_wallet_payout_requests`; `payout_requests` = seller only
+- D2: `SELECT FOR UPDATE` → drain (`debitActorWalletForRecovery`) → recalcular saldo → payout excedente → COMMIT (ou ROLLBACK total)
+- D3: settlement MVP = interno; PIX/TED = fase 2 (não autorizado)
+- D4: todo saque entra como `pending_approval`; execução financeira só após `approved`
+- D5: `operation_type='actor_wallet_payout'`, `reference_type='actor_wallet_payout'` (NÃO existem ainda — a criar na migration)
+
+**Estado do sistema (2026-05-28):**
+- `BANK_SEMANTICS.md` linha 61 ainda verdadeira: "NÃO é payout externo"
+- `actor_wallet_payout` NÃO está no CHECK de `approval_requests`
+- `actor_wallet_payout_requests` NÃO existe no schema
+- Income withholding C3.1 ativo: protege contra fuga enquanto payout não existe
