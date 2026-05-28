@@ -1621,6 +1621,7 @@ Axioma central DECISION-0059: envio externo é operação fora do sistema; ledge
 - `actor_bank_destinations` será catálogo reutilizável, NÃO destino inline.
 - "Conta própria" exige enforcement em duas camadas (service fail-closed + TRIGGER). CHECK puro NÃO funciona (sem JOIN/sub-SELECT em PostgreSQL).
 - F4.0 ainda **NÃO autorizada** para código. Próximo passo: prompt executor F4.0 se Clayton autorizar.
+- **D12 esclarecimento append-only (2026-05-28)**: aplicação do gate KYC por sub-frente — F4.0 cadastro pode admitir `kyc_status='pending'` (sujeito a ratificação Clayton no prompt executor F4.0); F4.1+ uso real exige `approved` strict sem exceção. D12 NÃO autoriza F4.0 nem flexibiliza F4.1+.
 
 **Regras operacionais permanentes:**
 

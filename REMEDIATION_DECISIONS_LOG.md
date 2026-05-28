@@ -5037,7 +5037,7 @@ Identidade fiscal e KYC do actor vivem em `identities`, NÃO em `actors`.
 `actors` carrega apenas o vínculo (`global_user_id` FK + `chk_actor_requires_identity`).
 F4.0/F4 que precisar dessas informações DEVE consultar `identities` via JOIN.
 
-### Decisões (D1–D11)
+### Decisões (D1–D11 + D12 esclarecimento append-only)
 
 **D1 — Correção factual da DECISION-0059 D5.**
 DECISION-0059 D5 referencia `actor.cpf_cnpj`. Essa coluna NÃO EXISTE no schema
@@ -5163,6 +5163,38 @@ F4.0 NÃO autoriza, mesmo com prompt executor:
 
 F4.1, F4.2, F4.3 e F4.4 continuam NOT AUTHORIZED. Cada uma exigirá
 DECISION própria + prompt executor próprio.
+
+**D12 — Esclarecimento de aplicação do gate KYC: cadastro F4.0 vs uso real F4.1+.**
+Append-only (2026-05-28) para evitar interpretação errônea de D5.
+
+D5 fixou o gate canônico KYC como `evaluateKycLayer` em modo `strict` e
+declarou-o OBRIGATÓRIO para "fluxos com efeito financeiro externo". O CADASTRO
+de destino bancário em F4.0 NÃO movimenta dinheiro e NÃO produz efeito
+financeiro externo — é apenas registro + verificação de titularidade.
+
+Esclarecimento canônico:
+
+- **F4.0 (cadastro `actor_bank_destinations`)**: pode admitir actor com
+  `identities.kyc_status='pending'` se Clayton assim ratificar no prompt
+  executor F4.0 específico. Cadastro permite onboarding sem bloquear
+  jornada de KYC. Decisão final do nível mínimo (`pending` aceito vs.
+  exige `approved` para cadastrar) fica para o prompt executor F4.0
+  quando autorizado.
+
+- **F4.1+ (uso real para payout externo)**: exige `identities.kyc_status='approved'`
+  via `evaluateKycLayer` em modo `strict` SEM EXCEÇÃO. O gate strict de D5
+  aplica-se aqui sem ambiguidade.
+
+D12 NÃO autoriza F4.0 nem flexibiliza segurança em F4.1+. Apenas alinha
+a leitura canônica de D5 com a natureza de cada sub-frente:
+
+- Cadastro = decisão de produto no momento do prompt executor F4.0
+  (Clayton ratifica `pending` aceito ou não).
+- Uso real = strict `approved` SEMPRE.
+
+D8 ("conta própria" em duas camadas) e D9 (lifecycle pending_verification →
+verified | rejected | archived) continuam aplicáveis ao cadastro
+independentemente do nível KYC permitido no momento.
 
 ### Relação com DECISION-0059
 

@@ -7055,11 +7055,14 @@ F4 NOT AUTHORIZED. Sem PSP definido, callback é especulativo.
 
 ### O que falta
 
-1. Gate KYC fail-closed (canônico via DECISION-0060 D5):
+1. Gate KYC fail-closed (canônico via DECISION-0060 D5 + D12):
    - PF: `identities.kyc_status='approved'` (NÃO `actors.kyc_status='verified'` — coluna não existe)
    - PJ: idem, `tax_id_type='cnpj' AND kyc_status='approved'` (KYB usa mesma coluna)
    - Implementação canônica: `evaluateKycLayer` em `authority-decision.service.ts:125-205` em modo `strict`.
-   - Sem gate verde, F4 é bloqueado.
+   - **Aplicação por sub-frente (DECISION-0060 D12):**
+     - F4.0 (cadastro): pode admitir `kyc_status='pending'` se Clayton ratificar no prompt executor F4.0. Cadastro NÃO movimenta dinheiro.
+     - F4.1+ (uso real para payout externo): exige `kyc_status='approved'` strict SEM EXCEÇÃO.
+   - Sem gate verde no USO real, F4 é bloqueado.
 2. Gate "conta própria" (D3):
    - Verificar que `actor_bank_destinations.holder_document = actor.cpf_cnpj`.
    - Envio para terceiro proibido até DECISION específica.

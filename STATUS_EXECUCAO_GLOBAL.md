@@ -7296,3 +7296,35 @@ DECISION-0060 fixou a base canônica. Próxima decisão Clayton:
 - **(b)** Manter pausa documental e esperar autorização explícita futura.
 
 Em ambos os casos, F4.1/F4.2/F4.3/F4.4 continuam NOT AUTHORIZED e exigem DECISIONs próprias.
+
+## Sessão 2026-05-28 — DECISION-0060 D12 esclarecimento append-only (cadastro vs uso)
+
+### Escopo
+
+DECISION-0060 (commit `d5c93467`) já registrou governança canônica de F4.0 e correção factual de DECISION-0059 D5. Esta entrada adiciona esclarecimento append-only **D12** sobre aplicação do gate KYC, alinhando D5 com a natureza de cada sub-frente.
+
+### Mudança
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DECISIONS_LOG.md` | DECISION-0060: nova cláusula **D12** (esclarecimento append-only) — distingue F4.0 cadastro (pode admitir `kyc_status='pending'` sujeito a ratificação Clayton) vs F4.1+ uso real (exige `approved` strict sem exceção). Header "Decisões (D1–D11)" → "Decisões (D1–D11 + D12 esclarecimento append-only)". |
+| `REMEDIATION_DT_LOG.md` | DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING: gate KYC documenta agora a distinção cadastro vs uso. |
+
+### O que D12 NÃO faz
+
+- NÃO autoriza F4.0 para código.
+- NÃO flexibiliza segurança em F4.1+.
+- NÃO reescreve D5 nem D8 nem D11.
+- NÃO altera nenhum DT status.
+
+### O que D12 faz
+
+- Alinha leitura canônica de D5 com a natureza de cadastro (zero efeito financeiro).
+- Deixa explícito que a decisão final do nível KYC mínimo aceito em cadastro é do prompt executor F4.0 quando autorizado.
+
+### Próximo passo recomendado (inalterado)
+
+Clayton pode autorizar prompt executor F4.0 substrate, ratificando explicitamente:
+- Aceitar `kyc_status='pending'` no cadastro OU exigir `approved` desde o cadastro.
+
+F4.1/F4.2/F4.3/F4.4 continuam NOT AUTHORIZED.
