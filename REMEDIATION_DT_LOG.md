@@ -7612,3 +7612,91 @@ identities matching exato:      4 dos 7 user_profiles
 - DT permanece OPEN até DECISION sobre SSOT CPF ser registrada.
 - DT NÃO deve ser fechada por essa execução — apenas reclassificação documental.
 - Próxima fatia possível: DECISION-006X (após 0061) escolhendo A/B/C. Recomendação não-vinculante do raio-X: hipótese C (convivência declarada + sync service), em paralelo arquitetural com DECISION-0061.
+
+---
+
+## DT-BANK-BALANCE-BY-CPF-GHOST-USERS-CPF
+
+- **Status:** CLOSED (2026-05-28) — corrigido em fatia F0.1 da DECISION-0062 D14 (commit `<HEAD_AFTER>`).
+- **Severidade:** LOW
+- **Classe:** DT-T (técnica — ghost reference em código vivo).
+- **Origem:** inventário F0 pós-DECISION-0062 (HEAD `2b8fbd17`, 2026-05-28).
+
+### Achado original
+
+`backend/src/modules/bank/bank-balance-by-cpf.service.ts:120-127` lia `users.cpf`,
+coluna **inexistente no schema vivo** (confirmado via
+`information_schema.columns WHERE table_name='users' AND column_name='cpf'`
+→ zero rows).
+
+A query original:
+
+```sql
+SELECT u.user_id, u.email, p.full_name
+FROM users u
+LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
+WHERE u.tenant_id = $1
+  AND u.cpf = $2
+```
+
+### Risco
+
+- Endpoint admin-only `GET /admin/finance/consolidated-balance/by-cpf/:cpf` em
+  `core/unifybank/bank-balance-consolidation.routes.ts:347` retornava **HTTP 500**
+  permanentemente por SQL error (`column "u.cpf" does not exist`).
+- Risco financeiro: **ZERO**. Service é declaradamente READ-MODEL PURO ("não CORE,
+  não fonte de verdade, não decisório"). Não decide saldo, não persiste, não
+  autoriza nenhuma operação.
+- Risco operacional: BAIXO. Observabilidade admin quebrada; restaurada com a fix.
+
+### Correção aplicada
+
+JOIN canônico via `global_users.cpf` conforme DECISION-0062 D4 (âncora de
+cadastro/deduplicação PF, imutável após criação):
+
+```sql
+SELECT u.user_id, u.email, p.full_name
+FROM global_users gu
+JOIN users u ON u.global_user_id = gu.global_user_id
+LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
+WHERE u.tenant_id = $1
+  AND gu.cpf = $2
+```
+
+Tenant isolation preservada por `u.tenant_id = $1`. Contrato público da rota
+intacto (mesma resposta `BalanceByCpf`, mesma permissão
+`admin:view_consolidated_balance`, mesma semântica de read-model).
+
+Comentário-NOTA atualizado no service para refletir DECISION-0062 D4.
+
+### Alinhamento com DECISION-0062
+
+- D2/D4: `global_users.cpf` é âncora canônica para busca por documento fiscal
+  PF; `identities.tax_id` é SSOT operacional global. Hoje os dois trilhos têm
+  divergência runtime conhecida (DECISION-0062 D9 backfill pendente); JOIN via
+  `global_users.cpf` é o caminho seguro hoje sem depender de F1+F2.
+- D14: esta correção é exatamente o caso `bank-balance-by-cpf.service.ts`
+  citado em D14 como dívida de correção F0. Resolvido.
+
+### Confirmação READ-ONLY
+
+- Zero alteração em `bank_ledger`, `bank_transactions`, `bank_splits`.
+- Zero migration, zero schema.
+- Zero alteração em `core.service.ts`, `profile.service.ts`, `identity.service.ts`, `auth.service.ts`.
+- Zero alteração em F4.0 / F4.1 / F4.2 / F4.3 / F4.4.
+- Service mantido como read-model puro. Admin-only preservado.
+
+### Smoke test runtime
+
+`psql ... SELECT gu.cpf, COUNT(u.user_id) FROM global_users gu JOIN users u
+ON u.global_user_id = gu.global_user_id GROUP BY gu.cpf LIMIT 3;` retornou
+3 CPFs com 1, 24 e 1 users matching — JOIN funcional. Query corrigida bate
+em dados existentes.
+
+### Vinculadas
+
+- DECISION-0062 D4/D14 (commit `2b8fbd17`)
+- DECISION-0060 D2 (identities.tax_id SSOT KYC/payout — coerente; F4.0 segue intacta)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (permanece OPEN — esta fatia é só F0.1, F1–F5 continuam pendentes)
+- `backend/src/modules/bank/bank-balance-by-cpf.service.ts`
+- `backend/src/core/unifybank/bank-balance-consolidation.routes.ts:347`

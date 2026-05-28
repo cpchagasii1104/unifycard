@@ -108,8 +108,10 @@ class BankBalanceByCpfService {
     }
 
     // 1. Buscar todos os Actors vinculados ao CPF
-    // NOTA: CPF está na tabela users
-    // Actors podem ser do tipo 'user' (vinculado diretamente) ou 'page' (empresas do usuário)
+    // CPF de busca administrativa usa global_users.cpf como âncora de
+    // cadastro/deduplicação, conforme DECISION-0062 D4 (commit 2b8fbd17).
+    // users.cpf NÃO existe no schema vivo; resolução é via global_user_id.
+    // Saldos continuam sendo lidos exclusivamente do Bank (ledger).
     const users = await runQueriesWithTenant<{
       user_id: string;
       email: string;
@@ -118,10 +120,11 @@ class BankBalanceByCpfService {
       tenantId,
       `
       SELECT u.user_id, u.email, p.full_name
-      FROM users u
+      FROM global_users gu
+      JOIN users u ON u.global_user_id = gu.global_user_id
       LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
       WHERE u.tenant_id = $1
-        AND u.cpf = $2
+        AND gu.cpf = $2
       `,
       [tenantId, normalizedCpf]
     );

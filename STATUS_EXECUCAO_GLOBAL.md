@@ -7653,3 +7653,46 @@ F0 (correção de ghost references) é a fatia futura mais barata. Subfases:
    como fonte — virar correções documentais ou subfases F0.
 
 Sem isso, F1 (backfill audit) pode partir de base inconsistente.
+
+## Sessão 2026-05-28 — F0.1 DECISION-0062 — bank-balance-by-cpf ghost users.cpf
+
+### Escopo
+
+Correção cirúrgica da única ghost reference ACTIVE-BREAKING identificada no
+inventário F0. Endpoint admin-only read-model. Zero ledger, zero schema, zero
+migration.
+
+### Mudança
+
+| Arquivo | Mudança |
+|---------|---------|
+| `backend/src/modules/bank/bank-balance-by-cpf.service.ts` | Query trocou `FROM users u ... AND u.cpf = $2` por `FROM global_users gu JOIN users u ON u.global_user_id = gu.global_user_id WHERE gu.cpf = $2`. Comentário-NOTA atualizado para citar DECISION-0062 D4. |
+| `REMEDIATION_DT_LOG.md` | **Nova DT-BANK-BALANCE-BY-CPF-GHOST-USERS-CPF criada e fechada (CLOSED)** na mesma fatia, com achado original, risco, correção, smoke test e vinculação a DECISION-0062 D14. |
+| `opus.md` | Memória curta sobre F0.1 + DT CLOSED. |
+
+### Gates verdes
+
+- tsc clean
+- validate:actor-writer-boundaries OK
+- validate:bank-ledger-boundaries OK
+- validate:regression-guards OK
+- arch baseline 20 violations, `critical_new=0`
+
+### Smoke test
+
+`SELECT gu.cpf, COUNT(u.user_id) FROM global_users gu JOIN users u ON u.global_user_id = gu.global_user_id GROUP BY gu.cpf LIMIT 3` retornou 3 CPFs com 1/24/1 users matching — JOIN funcional contra dados reais.
+
+### Confirmações de escopo
+
+- ✅ Zero migration
+- ✅ Zero schema alterado
+- ✅ Zero alteração em `bank_ledger` / `bank_transactions` / `bank_splits`
+- ✅ Zero alteração em F4.0 / F4.1 / F4.2 / F4.3 / F4.4
+- ✅ Zero alteração em `core.service.ts` / `profile.service.ts` / `identity.service.ts` / `auth.service.ts`
+- ✅ Contrato público da rota intacto (mesma permissão, mesma resposta `BalanceByCpf`)
+- ✅ Service mantido como read-model puro
+- ✅ Arquivos ambientais NÃO commitados
+
+### Próximo passo recomendado
+
+F1 (backfill audit do gap `user_profiles.cpf` ↔ `identities.tax_id`) é a próxima fatia natural da DECISION-0062 D10. Outras DTs paralelas opcionais: DT-ACTORS-LEGACY-KYC-COLUMNS (`actors.kyc_limit_cents` / `kyc_verified_at` sem readers) e ratificação documental de `authority_roots.cpf_hash` como projeção de dedup.
