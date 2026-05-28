@@ -12,6 +12,7 @@ export type ApprovalOperationType =
   | 'payment'
   | 'manual_refund'
   | 'actor_wallet_recovery'  // DECISION-0053: recovery pós-D-money
+  | 'actor_wallet_payout'    // DECISION-0058: saque voluntário de actor_wallet (F1 migration 20260530572000)
   | 'add_beneficiary'
   | 'remove_beneficiary'
   | 'change_limit'
