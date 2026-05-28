@@ -7409,3 +7409,48 @@ F4.0 está pronto como fundação. Quando Clayton autorizar próxima fatia:
 
 Por enquanto: fundação registrada, cofre interno fechado, cadastro de destinos declarados
 operacional para futuro uso quando trilho externo for autorizado.
+
+## Sessão 2026-05-28 — REGISTRO DOCUMENTAL DE DTs DE PERFIL/CONTEXTO + HIGIENE E2E
+
+### Escopo
+
+Documentação apenas. Zero código. Zero migration. Zero alteração de schema.
+Append-only de 10 DTs detectadas em auditorias paralelas (perfil/contexto/UX)
+e em higiene de E2E observada durante F4.0.
+
+### DTs abertas nesta sessão
+
+| DT | Severidade | Razão |
+|----|------------|-------|
+| DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER | MEDIUM | `public_profiles` actor-keyed sem consumer frontend claro |
+| DT-CAPABILITIES-ENDPOINT-FRONTEND-DISCONNECTED | LOW | Endpoint capabilities existe; frontend usa hardcode `actorContextConfig` |
+| DT-USER-PROFILES-LEGACY-ORPHAN | LOW | `user_profiles` legado coexistindo com `profiles` canônica |
+| DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK | LOW | `AvailableActor.user_id?` exposto induz misuse semântico |
+| DT-UX-GHOST-ROUTE-TRANSPARENCIA | LOW | Link `/transparencia` sem rota destino |
+| DT-UX-GHOST-ROUTE-NOTIFICATIONS | LOW | Sino aponta `/notifications` sem rota destino |
+| DT-DEPRECATED-ACTOR-CONTEXT-KEY-ORPHAN | MEDIUM | `useActorContext.ts` deprecated usa chave localStorage paralela |
+| DT-COMPANY-DASHBOARD-ACTOR-CHECK-EMPTY | LOW | Dashboard de empresa com check incompleto de actor_type |
+| DT-PROTECTEDROUTE-DIAGNOSTIC-LOG | LOW | `console.log` diagnóstico ativo em produção |
+| DT-E2E-ACTOR-WALLET-PAYOUT-FIXTURE-BALANCE-DEPLETION | MEDIUM | F2/F3 dependem de saldo residual; restauração manual necessária |
+
+### Confirmações de escopo
+
+- ✅ Zero arquivo `.ts` alterado
+- ✅ Zero arquivo `.sql` alterado
+- ✅ Zero migration criada
+- ✅ Zero código de frontend alterado
+- ✅ Zero alteração em `bank_ledger`, `bank_transactions`, `bank_splits`
+- ✅ Zero implementação iniciada
+- ✅ Zero correção aplicada (apenas registro documental)
+- ✅ Arquivos ambientais (`.claude/settings.local.json`, `frontend_src_completo.txt`, screenshots PNG, logs em `docs/99_archive/`) NÃO commitados
+- ✅ Audits antigos untracked (`AUDITORIA_FORENSE_*`, `PE4_*`, `PE5_*`, `RAIO-X-PE-4-*`) NÃO commitados
+- ✅ F4.0 permanece DONE (commit `e1536d07`)
+- ✅ F4.1 / F4.2 / F4.3 / F4.4 continuam OPEN / NOT AUTHORIZED
+
+### Próximo passo
+
+Clayton decide próxima frente. Recomendações da auditoria pré-F4.0 indicam
+que a próxima frente possível NÃO é F4.1. Identidade/onboarding ou frente
+de perfil/contexto (consumindo `public_profiles` + endpoint capabilities)
+são candidatas naturais. F4.0 continua como fundação sem dependentes
+ativados.

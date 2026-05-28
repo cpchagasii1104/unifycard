@@ -7089,3 +7089,347 @@ F4 NOT AUTHORIZED. Sem F4, KYC gate externo não tem caller.
 - DECISION-0059 D3/D4
 - DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
 - DT-ACTOR-BANK-DESTINATION-MISSING (F4.0 — implementa o "conta própria" check em duas camadas conforme DECISION-0060 D8)
+
+---
+
+## DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** MEDIUM
+- **Classe:** DT-D (drift — substrato sem consumer alinhado)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+A tabela `public_profiles` existe no schema vivo, com campos público actor-keyed
+(bio, cover, follower_count, visibility e similares), mas não há consumer
+frontend claro que materialize esses campos como identidade pública do actor.
+O frontend continua tratando partes do perfil como user-keyed.
+
+### Risco
+
+- Substrato público actor-keyed virar órfão por falta de uso real.
+- Frontend continuar usando perfil user-keyed como se fosse a identidade
+  pública do actor — o que é incoerente com a tese actor-first (DECISION-0043
+  e adjacentes).
+
+### Mitigação atual
+
+- Sem impacto financeiro/autoridade — `public_profiles` é projeção pública,
+  não fonte de capability nem de saldo.
+
+### Resolução prevista
+
+Decisão de produto sobre frontend (Codex) consumir `public_profiles` para os
+campos actor-scoped OU decisão explícita de arquivar/substituir o substrato.
+
+### Vinculadas
+
+- DECISION-0043 (actor como modo operacional)
+- DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (drift relacionado entre perfil e actor)
+
+---
+
+## DT-CAPABILITIES-ENDPOINT-FRONTEND-DISCONNECTED
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-D (drift entre substrato backend e projeção frontend)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+`GET /actors/:id/capabilities` existe no backend e responde corretamente,
+mas o frontend ainda usa `actorContextConfig.ts` hardcoded para projetar
+capabilities por actor_type/modo. O endpoint canônico está disponível e
+não consumido.
+
+### Risco
+
+- Hardcode MVP v1 virar fonte permanente de UX sem rastreio de qual
+  capability cada actor pode exercer.
+- Divergência silenciosa entre o que o backend autoriza e o que o frontend
+  oferece como atalho/CTA.
+
+### Mitigação atual
+
+- Hardcode é projeção visual; **não concede autoridade financeira nem
+  operacional**. Backend continua autoritativo via `authority-decision.service`.
+
+### Resolução prevista
+
+Frontend consumir o endpoint real quando MVP v2 (modo operante dinâmico) for
+autorizado (project_modo_operante v2) OU decisão explícita mantendo v1
+hardcode com prazo/critério de convergência.
+
+### Vinculadas
+
+- DECISION-0039 (modo operante — substrato canônico)
+- project_modo_operante (memória) — v1 hardcoded, v2 dinâmica não autorizada
+
+---
+
+## DT-USER-PROFILES-LEGACY-ORPHAN
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-L (legado órfão coexistindo com canônico)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+Tabela `user_profiles` aparenta ser legado coexistindo com `profiles` (que é
+a canônica vigente). Não há consumer frontend ativo claro para `user_profiles`.
+
+### Risco
+
+- Dois substratos de perfil pessoal vivos sem decisão explícita sobre qual
+  vence em conflito.
+- Migration/refactor futuro confundir qual é canônico.
+
+### Mitigação atual
+
+- Sem consumer frontend ativo conhecido; sem impacto runtime.
+
+### Resolução prevista
+
+Decidir migração/depreciação de `user_profiles` OU documentar propósito
+distinto (se houver) e marcar como ativa. Auditoria de callers backend
+recomendada antes de qualquer DROP.
+
+### Vinculadas
+
+- DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER (mesma família de drift de perfil)
+
+---
+
+## DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-N (nomenclatura/risco de confusão semântica)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+`AvailableActor.user_id?` é exposto no frontend dentro da projeção do switcher
+de actor. A presença simultânea de `actor_id` e `user_id` no mesmo objeto pode
+induzir manutenção futura a usar `user_id` em operação que deveria ser
+actor-scoped.
+
+### Risco
+
+- Drift silencioso: hooks/rotas futuras lerem `user_id` por engano em fluxos
+  actor-scoped.
+- Quebra do pilar "frontend nunca cria verdade — projeta verdade resolvida"
+  por leitura errada da identidade soberana.
+
+### Mitigação atual
+
+- Nenhum misuse confirmado em auditoria. Risco é preventivo.
+
+### Resolução prevista
+
+- Audit grep de consumers de `AvailableActor.user_id` no frontend.
+- Remover o campo se não houver uso necessário, OU renomear para deixar
+  semântica explícita (`owner_user_id`, etc.), OU documentar uso permitido.
+
+### Vinculadas
+
+- feedback_frontend_nunca_cria_verdade (regra cross-layer)
+- 07_NOMENCLATURA_CANONICA (regra de campos com sufixo explícito)
+
+---
+
+## DT-UX-GHOST-ROUTE-TRANSPARENCIA
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-F (feature gap — link sem destino)
+- **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+
+### Contexto
+
+Navegação aponta para `/transparencia`, mas a rota não existe no router
+frontend. Click resulta em tela em branco ou fallback genérico.
+
+### Risco
+
+- UX quebrada em fluxo aparentemente disponível.
+- Sinal de descompromisso com o pilar de transparência operacional do projeto.
+
+### Resolução prevista
+
+Criar placeholder honesto (página "em construção") ou ajustar navegação para
+não expor o link até o módulo existir.
+
+---
+
+## DT-UX-GHOST-ROUTE-NOTIFICATIONS
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-F (feature gap — link sem destino)
+- **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+
+### Contexto
+
+Sino do header aponta para `/notifications`, mas a rota não existe no router
+frontend. Click resulta em tela em branco.
+
+### Risco
+
+- UX quebrada em elemento global persistente (sino sempre visível).
+- Frustração imediata do usuário.
+
+### Resolução prevista
+
+Criar placeholder honesto OU remover o link/sino até o módulo de notificações
+existir como rota real.
+
+---
+
+## DT-DEPRECATED-ACTOR-CONTEXT-KEY-ORPHAN
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** MEDIUM
+- **Classe:** DT-L (legado órfão com risco de reintrodução)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+Arquivo deprecated `useActorContext.ts` ainda existe e usa chave localStorage
+paralela `unificard_active_actor`, enquanto o canônico `SessionProvider` usa
+`unificard_active_actor_id`. Duas chaves coexistem no mesmo namespace de
+storage.
+
+### Risco
+
+- Reimportação futura (acidental ou via copy-paste) de `useActorContext`
+  cria desync silencioso de actor ativo entre tabs/abas.
+- Drift difícil de detectar porque ambos os caminhos compilam e rodam.
+
+### Mitigação atual
+
+- Nenhuma — arquivo continua importável. Risco material se for usado.
+
+### Resolução prevista
+
+- Deletar o arquivo deprecated, OU
+- Bloquear import via lint/gate, OU
+- Documentar explicitamente como vetado e marcar com `@deprecated` + erro
+  em build se importado.
+
+### Vinculadas
+
+- DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (família de drift actor/contexto)
+
+---
+
+## DT-COMPANY-DASHBOARD-ACTOR-CHECK-EMPTY
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-D (drift de UX — check incompleto)
+- **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+
+### Contexto
+
+`CompanyDashboardPage` contém check de `actor_type` que pode terminar vazio
+ou ambíguo quando o actor ativo não é uma empresa. Usuário PF, grupo, canal
+ou outro tipo acessando essa rota encontra UX confusa.
+
+### Risco
+
+- UX confusa em rota acessível por engano (ex.: usuário troca de actor sem
+  perceber que está em URL de empresa).
+- Backend preserva segurança (autoridade não é concedida pelo dashboard),
+  mas usuário fica perdido.
+
+### Mitigação atual
+
+- Backend permanece autoritativo — sem capability/saldo entregue por engano.
+- Risco é apenas de experiência, não material financeiro.
+
+### Resolução prevista
+
+Tela explicativa quando `actor_type` não é empresa OU redirect seguro para
+o homepage contextual do actor atual.
+
+---
+
+## DT-PROTECTEDROUTE-DIAGNOSTIC-LOG
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** LOW
+- **Classe:** DT-H (higiene — ruído de log)
+- **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+
+### Contexto
+
+`ProtectedRoute.tsx` mantém `console.log` diagnóstico ativo. Em produção
+esse log gera ruído desnecessário e pode vazar informação sobre estrutura
+de auth/routing para console do browser.
+
+### Risco
+
+- Ruído em console em produção.
+- Leak de detalhes internos para qualquer usuário com devtools aberto.
+
+### Resolução prevista
+
+Remover em fatia pequena de higiene ou condicionar via `if (DEV) console.log`.
+
+---
+
+## DT-E2E-ACTOR-WALLET-PAYOUT-FIXTURE-BALANCE-DEPLETION
+
+- **Status:** OPEN (2026-05-28)
+- **Severidade:** MEDIUM
+- **Classe:** DT-T (teste — fixture/state contaminado)
+- **Origem:** auditoria F4.0 (2026-05-28).
+
+### Contexto
+
+Durante a execução de F4.0, o E2E F2 inicialmente reportou 11/20 porque o
+saldo da `actor_wallet` do actor de teste estava em 0 após runs anteriores
+de F3. F3 cria drain transactions que reduzem o saldo permanentemente quando
+o cleanup não remove TODOS os ledger entries vinculados (drain transfers
+de wallet → creditor + payout transfers de wallet → bank_settlement, com
+diferentes referenceTypes). Restauração manual via crédito direto no ledger
+foi necessária para F2 voltar a 20/20.
+
+### Risco
+
+- E2Es financeiros dependerem de estado residual entre suites, mascarando
+  regressões reais. Falha intermitente difícil de diagnosticar.
+- Manutenção futura aceitar "falha cosmética por depletion" e perder sinal
+  de regressão estrutural genuína.
+- Validar que F4.0 não causa regressão fica menos confiável quando a
+  baseline depende de seeded balance manual.
+
+### Mitigação atual
+
+- F4.0 NÃO causou a depletion (não toca saldo).
+- Restauração manual foi documentada e a falha foi isolada como ambiental.
+- F3 E2E tem pre-flight (`seedWalletCredit`) que mitiga seu próprio caso, mas
+  F1/F2 não têm.
+
+### Resolução prevista
+
+Implementar uma das opções, sem urgência:
+
+1. Fixture isolada/idempotente: F2 cria seu próprio actor + wallet por execução
+   (igual ao padrão usado em F3 T19 e em F4.0 T1-T6).
+2. Cleanup completo: F3 limpa TODAS as bank_transactions e bank_ledger entries
+   geradas durante seus testes (incluindo drain do trilho recovery, não só payout).
+3. Seed determinístico antes de cada suite financeira: helper compartilhado que
+   restaura saldo para um valor mínimo antes de qualquer payout test.
+
+Opção 1 é mais higiênica; opção 3 é a mais barata.
+
+### Vinculadas
+
+- E2E F2 (`validate-pipeline-e2e-f2-actor-wallet-payout-request.ts`)
+- E2E F3 (`validate-pipeline-e2e-f3-actor-wallet-payout-execution.ts`) — já tem pre-flight `seedWalletCredit`
+- DT-ACTOR-BANK-DESTINATION-MISSING — CLOSED (F4.0 entregue sem causar essa depletion)
