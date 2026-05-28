@@ -6856,9 +6856,9 @@ PIX/TED/PSP saque para banco externo foi movido para **DT-ACTOR-WALLET-PAYOUT-EX
 
 ## DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT
 
-- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). Auditorias paralelas A/B/C concluíram veredito unânime de **PARAR**. DECISION-0059 (2026-05-28) registrou a cerca documental para F4 (cofre externo). Implementação proibida até autorização Clayton explícita.
-- **Origem:** DECISION-0058 D3 (2026-05-28) restringiu MVP a internal_settlement. F3 entregou cofre interno (CLOSED). DECISION-0059 (2026-05-28) ratificou que F4 é frente própria.
-- **Vinculada a:** DECISION-0059 (cerca documental de F4), DECISION-0058 (decisão atual restringe `destination_type='internal_settlement'`), DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno CLOSED), DT-RECOVERY-PAYOUT-GATE (gate externo)
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). Auditorias paralelas A/B/C concluíram veredito unânime de **PARAR**. DECISION-0059 (2026-05-28) registrou a cerca documental para F4 (cofre externo). **DECISION-0060 (2026-05-28) corrigiu a base factual de D5 e fixou governança canônica de F4.0** (identidade/KYC em `identities`, não `actors`; enforcement de "conta própria" em duas camadas; catálogo `actor_bank_destinations`). Implementação proibida até autorização Clayton explícita.
+- **Origem:** DECISION-0058 D3 (2026-05-28) restringiu MVP a internal_settlement. F3 entregou cofre interno (CLOSED). DECISION-0059 (2026-05-28) ratificou que F4 é frente própria. DECISION-0060 (2026-05-28) corrigiu D5 e fixou governança.
+- **Vinculada a:** DECISION-0060 (governança canônica F4.0 + correção factual D5), DECISION-0059 (cerca documental de F4), DECISION-0058 (decisão atual restringe `destination_type='internal_settlement'`), DT-ACTOR-WALLET-PAYOUT-WIRING (escopo interno CLOSED), DT-RECOVERY-PAYOUT-GATE (gate externo)
 - **Classe:** DT-F (feature gap — requer DECISION própria + contratos externos + escolha de PSP)
 - **Sub-DTs derivadas:** DT-ACTOR-BANK-DESTINATION-MISSING, DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING, DT-PSP-DISBURSEMENT-ADAPTER-MISSING, DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING, DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING
 
@@ -6918,19 +6918,24 @@ Frente F4 — requer autorização explícita Clayton + READ-FIRST em três para
 
 ## DT-ACTOR-BANK-DESTINATION-MISSING
 
-- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.0 — pré-requisito material de F4.
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.0 — pré-requisito material de F4. **Base factual corrigida por DECISION-0060** (2026-05-28).
 - **Origem:** DECISION-0059 D5 (2026-05-28). Saque externo exige que o actor tenha conta bancária registrada e ownership verificado.
-- **Vinculada a:** DECISION-0059 (D5 — substrato de destinos bancários), DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
-- **Classe:** DT-F (feature gap — entidade conceitual definida em DECISION-0059, não implementada).
+- **Correção factual:** DECISION-0060 (2026-05-28) substitui a referência obsoleta a `actor.cpf_cnpj` (coluna removida em migration 0010) pela referência canônica a `identities.tax_id`. Enforcement de "conta própria" passa a ser duas camadas (service + TRIGGER), pois CHECK puro não suporta JOIN.
+- **Vinculada a:** DECISION-0060 (governança canônica F4.0), DECISION-0059 (D5 — substrato de destinos bancários), DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Classe:** DT-F (feature gap — entidade conceitual definida em DECISION-0059, corrigida factualmente por DECISION-0060, não implementada).
 
 ### O que falta
 
-Entidade `actor_bank_destinations` com:
+Entidade `actor_bank_destinations` com (referência canônica: DECISION-0060):
 - destination_type ('pix_key' | 'bank_account')
 - pix_key_type + pix_key (para PIX) OU bank_code + agency + account_number + account_type (para TED)
-- holder_document + holder_name + ownership_verified_at
-- CHECK: holder_document = actor.cpf_cnpj (D3 — conta própria MVP)
-- status lifecycle: pending_verification → verified | rejected | archived
+- holder_document + holder_name + ownership_verified_at + ownership_verification_method
+- Enforcement "conta própria" em DUAS camadas (DECISION-0060 D8):
+  - Service layer fail-closed: rejeita INSERT/UPDATE onde `holder_document ≠ identities.tax_id` (via JOIN `actors.global_user_id → users.global_user_id → identities`).
+  - TRIGGER BEFORE INSERT/UPDATE: mesma comparação no DB.
+  - CHECK constraint puro NÃO é aceito (não suporta JOIN).
+- status lifecycle: pending_verification → verified | rejected | archived (DECISION-0060 D9)
+- ownership_verification_method: auto_tax_id_match | manual_review | psp_future (DECISION-0060 D10)
 
 ### Não bloqueia hoje
 
@@ -6938,6 +6943,7 @@ F4 inteiro está NOT AUTHORIZED. Sem F4 autorizada, F4.0 não tem caller.
 
 ### Vinculadas
 
+- DECISION-0060 (governança canônica F4.0 + correção factual de DECISION-0059 D5)
 - DECISION-0059 D5
 - DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
 
@@ -7041,16 +7047,18 @@ F4 NOT AUTHORIZED. Sem PSP definido, callback é especulativo.
 
 ## DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING
 
-- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.4 — gates de compliance/KYC.
+- **Status:** OPEN HIGH / NOT AUTHORIZED (2026-05-28). F4.4 — gates de compliance/KYC. **Gate canônico definido em DECISION-0060 D5** (não em `actors.kyc_status`).
 - **Origem:** DECISION-0059 D3 + D4 (2026-05-28). KYC verified + conta própria são pré-requisitos fail-closed.
-- **Vinculada a:** DECISION-0059 D3/D4, DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
+- **Correção factual:** DECISION-0060 D4/D5 (2026-05-28) substitui referência obsoleta a `actor.kyc_status='verified'` (coluna removida em migration 0010) pela referência canônica `identities.kyc_status='approved'` via `evaluateKycLayer` em modo `strict`.
+- **Vinculada a:** DECISION-0060 (governança canônica KYC), DECISION-0059 D3/D4, DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe).
 - **Classe:** DT-F + DT-N (feature gap + norma — compliance exige decisões de produto).
 
 ### O que falta
 
-1. Gate KYC fail-closed (D4):
-   - PF: `actor.kyc_status='verified'`
-   - PJ: equivalente KYB (definir critério)
+1. Gate KYC fail-closed (canônico via DECISION-0060 D5):
+   - PF: `identities.kyc_status='approved'` (NÃO `actors.kyc_status='verified'` — coluna não existe)
+   - PJ: idem, `tax_id_type='cnpj' AND kyc_status='approved'` (KYB usa mesma coluna)
+   - Implementação canônica: `evaluateKycLayer` em `authority-decision.service.ts:125-205` em modo `strict`.
    - Sem gate verde, F4 é bloqueado.
 2. Gate "conta própria" (D3):
    - Verificar que `actor_bank_destinations.holder_document = actor.cpf_cnpj`.
@@ -7074,6 +7082,7 @@ F4 NOT AUTHORIZED. Sem F4, KYC gate externo não tem caller.
 
 ### Vinculadas
 
+- DECISION-0060 (gate canônico KYC via `identities.kyc_status='approved'` + `evaluateKycLayer` strict)
 - DECISION-0059 D3/D4
 - DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe)
-- DT-ACTOR-BANK-DESTINATION-MISSING (F4.0 — implementa o "conta própria" check)
+- DT-ACTOR-BANK-DESTINATION-MISSING (F4.0 — implementa o "conta própria" check em duas camadas conforme DECISION-0060 D8)

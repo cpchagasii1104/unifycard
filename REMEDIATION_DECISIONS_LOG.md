@@ -4997,3 +4997,205 @@ retorno/devolução/recrédito (D11).
 ### Superada por
 
 (preencher quando F4 for autorizada e DECISIONs sub-frentes forem registradas)
+
+---
+
+## DECISION-0060 — ACTOR_BANK_DESTINATIONS_GOVERNANCE
+
+**Status:** APROVADA COMO CORREÇÃO FACTUAL + GOVERNANÇA DE F4.0 — IMPLEMENTAÇÃO NÃO AUTORIZADA (2026-05-28).
+**Sessão:** 2026-05-28 (auditoria pré-F4.0 + correção documental).
+**Decisor:** Clayton (com auditoria de schema vivo confirmando bug factual em DECISION-0059 D5).
+**Commit âncora:** documental (sem código, sem migration, sem schema).
+
+### Contexto
+
+DECISION-0059 (2026-05-28) registrou cerca documental para F4 com veredito A/B/C de PARAR.
+Auditoria pré-F4.0 (mesma data, antes desta DECISION) confirmou no schema vivo:
+
+1. `actors.kyc_status` **NÃO EXISTE** (DROP COLUMN em `0010_migrate_identity_from_actors.sql:42`).
+2. `actors.cpf_cnpj` **NÃO EXISTE** (DROP COLUMN em `0010_migrate_identity_from_actors.sql:41`).
+3. SSOT canônico para documento fiscal é `identities.tax_id` (NOT NULL).
+4. SSOT canônico para tipo de documento é `identities.tax_id_type` (CHECK IN `'cpf'|'cnpj'`).
+5. SSOT canônico para KYC é `identities.kyc_status` (CHECK IN `'pending'|'approved'|'rejected'`).
+6. Gate canônico em runtime é `evaluateKycLayer` em `authority-decision.service.ts:125-205`,
+   que faz JOIN `actors → users → identities` e lê `identities.kyc_status`.
+7. CHECK constraint em PostgreSQL **NÃO suporta sub-SELECT/JOIN**, logo "comparar
+   `holder_document` com `identities.tax_id` via CHECK puro" é tecnicamente impossível.
+
+DECISION-0059 D5 contém **referência factual obsoleta**:
+
+> "CHECK: `holder_document` deve ser igual a `actor.cpf_cnpj` (D3 — conta própria)."
+
+Esta DECISION-0060 NÃO REESCREVE D5 e NÃO APAGA D5. Ela registra append-only a
+correção factual e fixa a base canônica para F4.0/F4 futuro. Quando F4.0 for
+autorizada, qualquer migration/service derivada DEVE usar esta DECISION-0060 como
+fonte canônica, não a referência obsoleta de DECISION-0059 D5.
+
+### Axioma central
+
+Identidade fiscal e KYC do actor vivem em `identities`, NÃO em `actors`.
+`actors` carrega apenas o vínculo (`global_user_id` FK + `chk_actor_requires_identity`).
+F4.0/F4 que precisar dessas informações DEVE consultar `identities` via JOIN.
+
+### Decisões (D1–D11)
+
+**D1 — Correção factual da DECISION-0059 D5.**
+DECISION-0059 D5 referencia `actor.cpf_cnpj`. Essa coluna NÃO EXISTE no schema
+vivo (DROP COLUMN em migration 0010). A referência é factualmente obsoleta.
+DECISION-0060 fixa que, para qualquer implementação futura de F4, a comparação
+de "conta própria" usa `identities.tax_id` via JOIN com `actors.global_user_id →
+users.global_user_id → identities`.
+
+**D2 — SSOT canônico de documento fiscal: `identities.tax_id`.**
+NOT NULL por construção (migration `0009_create_identities.sql:7`).
+`actors.cpf_cnpj` NÃO existe e NÃO pode ser reintroduzido.
+Qualquer service/migration que precise do documento fiscal do actor consulta
+`identities.tax_id` via JOIN.
+
+**D3 — SSOT canônico de tipo de documento: `identities.tax_id_type`.**
+CHECK IN `'cpf'|'cnpj'`. Determina o algoritmo de validação aplicado.
+
+**D4 — SSOT canônico de KYC: `identities.kyc_status`.**
+CHECK IN `'pending'|'approved'|'rejected'`.
+KYC aprovado significa `identities.kyc_status='approved'` (NÃO `'verified'`).
+Migration 0010 fez backfill `verified → approved` (linhas 25-30).
+
+**D5 — Gate canônico de KYC para F4.0/F4: `evaluateKycLayer` em modo strict.**
+`authority-decision.service.ts:125-205` JÁ implementa o gate canônico (JOIN
+`actors → users → identities`). Para F4.0/F4, o modo `strict` é OBRIGATÓRIO:
+- `kyc_status IS NULL` → BLOCK
+- `kyc_status = 'pending'` → BLOCK
+- `kyc_status = 'rejected'` → BLOCK
+- `kyc_status = 'approved'` → PASS
+
+Modo `permissive` é INACEITÁVEL para fluxos com efeito financeiro externo.
+
+**D6 — `actor_bank_destinations` será CATÁLOGO reutilizável, NÃO destino inline.**
+Cadastro do destino bancário do actor é entidade própria, com lifecycle próprio,
+desacoplada de cada pedido de saque. Razões:
+
+- Verificação de titularidade (manual ou PSP) é cara — fazer uma vez é melhor que toda saque.
+- Trilha auditável independente do histórico de saques.
+- UX padrão de mercado: cadastrar PIX/conta uma vez no perfil.
+- Reuso entre múltiplos pedidos F4 sem re-cadastro.
+
+`actor_bank_destinations` é a tabela referenciada em DT-ACTOR-BANK-DESTINATION-MISSING.
+
+**D7 — `actor_wallet_payout_requests.destination_key` permanece NÃO USADO para external payout.**
+A coluna `destination_key` (TEXT NULL) JÁ existe no substrato F1 (migration
+`20260530572000`) e hoje é sempre NULL porque `destination_type` CHECK só
+admite `'internal_settlement'`. Não popular esse campo para external payout
+até DECISION explícita futura de F4.1 que defina como o request liga ao
+catálogo de destinos (provavelmente via FK `actor_bank_destination_id`).
+Não há decisão final aqui — F4.1 cuida disso.
+
+**D8 — "Conta própria" é obrigatória e exige enforcement em DUAS camadas.**
+
+Regra: o documento do titular do destino bancário DEVE corresponder ao
+`identities.tax_id` do actor.
+
+Mecanismo de enforcement:
+
+1. **Service layer fail-closed**: o service de cadastro/atualização de
+   `actor_bank_destinations` consulta `identities.tax_id` via JOIN e
+   rejeita qualquer INSERT/UPDATE onde `holder_document ≠ identities.tax_id`.
+   Esta é a primeira linha de defesa.
+
+2. **Defesa em profundidade no DB**: TRIGGER `BEFORE INSERT/UPDATE` em
+   `actor_bank_destinations` que executa a mesma comparação via JOIN.
+   Esta é a segunda linha de defesa, independente da camada de service.
+
+CHECK constraint puro NÃO é mecanismo válido porque CHECK não suporta
+sub-SELECT/JOIN em PostgreSQL. Qualquer DECISION/migration futura que
+propuser `CHECK (holder_document = ...)` é fatura técnica e DEVE ser
+rejeitada na revisão.
+
+**D9 — Lifecycle obrigatório de `actor_bank_destinations`.**
+
+```
+pending_verification  → verified | rejected | archived
+verified              → archived
+rejected              → archived
+archived              → terminal
+```
+
+Estados ativos para uso em saque externo (quando F4 for autorizada):
+apenas `verified`. `pending_verification`, `rejected` e `archived` são
+fail-closed para envio externo.
+
+**D10 — Métodos de verificação de titularidade reconhecidos.**
+
+`actor_bank_destinations.ownership_verification_method` deve registrar:
+
+- `auto_tax_id_match` — verificação automática quando a chave PIX contém
+  o tax_id exato do actor (ex.: PIX key tipo CPF/CNPJ idêntica a `identities.tax_id`).
+  Esta é a única automação permitida no MVP.
+- `manual_review` — workflow admin análogo a `identity-validation.service.ts`.
+  Admin com permissão dedicada (ex.: `manage_bank_destinations_review`) aprova
+  após análise de comprovante. Aplica-se a chaves PIX por email/phone/random
+  e a contas TED.
+- `psp_future` — reserva semântica. NÃO implementar até DECISION nova de PSP.
+
+Falsificar `ownership_verified_at` sem evidência (`NOW()` em mock) é VETADO,
+seguindo o axioma de DECISION-0059 D8.
+
+**D11 — Escopo permitido vs. proibido para F4.0 (quando autorizada).**
+
+F4.0, **quando autorizada por prompt executor específico**, poderá criar APENAS:
+
+- Migration de `actor_bank_destinations` (catálogo + lifecycle + TRIGGER de "conta própria").
+- Service de CRUD com fail-closed em "conta própria" (D8 camada 1).
+- Workflow `pending_verification → verified | rejected | archived`.
+- E2E cobrindo: criação, auto-verify por tax_id match, rejeição por mismatch,
+  lifecycle, fail-closed em modificação após `verified`.
+
+F4.0 NÃO autoriza, mesmo com prompt executor:
+
+- PSP, PIX adapter, TED adapter, callback handler.
+- Worker assíncrono.
+- Envio externo de qualquer natureza.
+- Movimentação em `bank_ledger`.
+- Movimentação em `bank_transactions`.
+- Movimentação em `bank_splits`.
+- Alteração em `actor_wallet_payout_requests.destination_type` CHECK.
+- Alteração em `actor_wallet_payout_requests.destination_key` população.
+- Conexão real com F3 (que continua só com `'internal_settlement'`).
+
+F4.1, F4.2, F4.3 e F4.4 continuam NOT AUTHORIZED. Cada uma exigirá
+DECISION própria + prompt executor próprio.
+
+### Relação com DECISION-0059
+
+DECISION-0060 é **append-only complementar** a DECISION-0059. NÃO reescreve
+D5 da DECISION-0059, NÃO apaga texto, NÃO substitui DECISION-0059.
+
+A leitura canônica para F4.0/F4 fica:
+
+- DECISION-0059 = cerca arquitetural geral de F4 + sub-frentes F4.0–F4.4.
+- **DECISION-0060 = base factual canônica para identidade fiscal + KYC + governança de `actor_bank_destinations`.**
+
+Qualquer conflito futuro entre DECISION-0059 D5 (referência obsoleta a
+`actor.cpf_cnpj`) e DECISION-0060 D1/D2/D8 (referência correta a
+`identities.tax_id`) é resolvido a favor de DECISION-0060.
+
+### Vinculadas
+
+- DECISION-0059 (cerca arquitetural de F4 — D5 contém referência factual obsoleta corrigida aqui)
+- DECISION-0058 (autoriza apenas `destination_type='internal_settlement'`; F4 exige DECISION nova)
+- DECISION-0054 (approval substrate — F4 pode reutilizar com `operation_type` novo)
+- DECISION-0055 (debit semantics — drain D2 ainda aplica em F4)
+- DT-ACTOR-BANK-DESTINATION-MISSING (DT principal de F4.0; permanece OPEN HIGH / NOT AUTHORIZED)
+- DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (DT mãe F4; permanece OPEN HIGH / NOT AUTHORIZED)
+- DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING (F4.1; permanece OPEN HIGH / NOT AUTHORIZED)
+- DT-PSP-DISBURSEMENT-ADAPTER-MISSING (F4.2; permanece OPEN HIGH / NOT AUTHORIZED)
+- DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING (F4.3; permanece OPEN HIGH / NOT AUTHORIZED)
+- DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING (F4.4; permanece OPEN HIGH / NOT AUTHORIZED — gate canônico fica em D5 desta DECISION)
+- `backend/migrations/0009_create_identities.sql` (cria `tax_id`, `tax_id_type`, `kyc_status`, `kyc_level`)
+- `backend/migrations/0010_migrate_identity_from_actors.sql` (DROP `actors.kyc_status` e `actors.cpf_cnpj`; FK + CHECK forçando identity)
+- `backend/src/core/compliance/authority-decision.service.ts:125-205` (gate canônico via JOIN)
+- `backend/src/core/kyc/kyc.validators.ts` (helpers reutilizáveis: `validateTaxId`, `normalizeTaxId`)
+- `backend/migrations/20260530572000_actor_wallet_payout_requests_substrate.sql` (substrato F1 com `destination_key` reservado)
+
+### Superada por
+
+(preencher quando F4.0 for autorizada por prompt executor específico e DECISIONs sub-frentes forem registradas)

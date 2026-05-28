@@ -1614,6 +1614,14 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 
 Axioma central DECISION-0059: envio externo é operação fora do sistema; ledger interno NÃO é fonte primária da verdade externa.
 
+**DECISION-0060 (2026-05-28)** — governança canônica de F4.0 + correção factual append-only de DECISION-0059 D5:
+- Identidade fiscal e KYC vivem em `identities`, **NÃO** em `actors` (`actors.cpf_cnpj` e `actors.kyc_status` foram removidos em migration 0010).
+- SSOT canônico: `identities.tax_id`, `identities.tax_id_type`, `identities.kyc_status='approved'`.
+- Gate canônico KYC para F4: `evaluateKycLayer` em `authority-decision.service.ts:125-205` modo `strict`.
+- `actor_bank_destinations` será catálogo reutilizável, NÃO destino inline.
+- "Conta própria" exige enforcement em duas camadas (service fail-closed + TRIGGER). CHECK puro NÃO funciona (sem JOIN/sub-SELECT em PostgreSQL).
+- F4.0 ainda **NÃO autorizada** para código. Próximo passo: prompt executor F4.0 se Clayton autorizar.
+
 **Regras operacionais permanentes:**
 
 > "Saque de `actor_wallet` é frente própria com entidade própria.

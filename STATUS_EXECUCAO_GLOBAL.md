@@ -7241,3 +7241,58 @@ da verdade externa; quem decide é o callback do PSP. F4 não é "mais um servic
 - Zero PIX/TED no schema
 
 Trilho externo permanece lacrado. DECISION-0059 é a cerca. A estrada espera autorização.
+
+## Sessão 2026-05-28 — DECISION-0060 GOVERNANÇA F4.0 (correção factual append-only)
+
+### Escopo
+
+Auditoria pré-F4.0 detectou bug factual em DECISION-0059 D5:
+- DECISION-0059 D5 citava `actor.cpf_cnpj`
+- `actors.cpf_cnpj` NÃO existe (DROP COLUMN em migration 0010)
+- `actors.kyc_status` NÃO existe (DROP COLUMN em migration 0010)
+- SSOT correto é `identities.tax_id` + `identities.kyc_status`
+
+DECISION-0060 registrada como **correção factual append-only + governança de F4.0**.
+Zero código, zero migration, zero implementação.
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DECISIONS_LOG.md` | **Nova DECISION-0060** — D1–D11 cobrem: correção factual de D5, SSOT identities, gate canônico `evaluateKycLayer` strict, catálogo `actor_bank_destinations`, enforcement "conta própria" em duas camadas (service + TRIGGER), lifecycle, métodos de verificação. |
+| `REMEDIATION_DT_LOG.md` | DT-ACTOR-BANK-DESTINATION-MISSING: base factual corrigida + vinculada a DECISION-0060. |
+| `REMEDIATION_DT_LOG.md` | DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING: gate canônico apontado para `identities.kyc_status='approved'` via `evaluateKycLayer` strict (em vez de `actors.kyc_status='verified'` obsoleto). |
+| `REMEDIATION_DT_LOG.md` | DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT (mãe): vinculação a DECISION-0060 registrada. |
+| `opus.md` | DECISION-0060 referenciada + nota canônica de SSOT identities. |
+
+### Estado das DTs do trilho payout (inalterado em status)
+
+| DT | Status | Razão |
+|----|--------|-------|
+| DT-ACTOR-WALLET-PAYOUT-WIRING | CLOSED (internal scope) | F3 entregue |
+| DT-ACTOR-WALLET-PAYOUT-EXTERNAL-SETTLEMENT | OPEN HIGH / NOT AUTHORIZED | F4 não autorizado |
+| DT-ACTOR-BANK-DESTINATION-MISSING | **OPEN HIGH / NOT AUTHORIZED** | F4.0 substrate pendente (base factual corrigida por DECISION-0060) |
+| DT-EXTERNAL-PAYOUT-ORDER-SUBSTRATE-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.1 |
+| DT-PSP-DISBURSEMENT-ADAPTER-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.2 |
+| DT-EXTERNAL-PAYOUT-CALLBACK-RECONCILIATION-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.3 |
+| DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING | OPEN HIGH / NOT AUTHORIZED | F4.4 (gate canônico agora apontado para DECISION-0060) |
+
+### F4.0 NÃO implementada
+
+- Zero código
+- Zero migration
+- Zero rota
+- Zero worker
+- Zero adapter
+- Zero CHECK extension em `destination_type` de `actor_wallet_payout_requests`
+- Zero PIX/TED/PSP/callback
+- Zero reaproveitamento de `payout_requests` legado
+- Zero reaproveitamento de `bank_settlements` table para external payout
+
+### Próximo passo recomendado
+
+DECISION-0060 fixou a base canônica. Próxima decisão Clayton:
+- **(a)** Autorizar prompt executor F4.0 substrate (apenas cadastro + verificação de destino, conforme DECISION-0060 D11) — F4.0 pode virar código.
+- **(b)** Manter pausa documental e esperar autorização explícita futura.
+
+Em ambos os casos, F4.1/F4.2/F4.3/F4.4 continuam NOT AUTHORIZED e exigem DECISIONs próprias.
