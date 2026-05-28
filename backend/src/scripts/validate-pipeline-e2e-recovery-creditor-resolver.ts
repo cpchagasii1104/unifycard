@@ -85,7 +85,7 @@ async function getActor(): Promise<{ id: string; userId: string }> {
            WHERE ba.tenant_id = a.tenant_id
              AND ba.owner_type = 'actor'
              AND ba.account_type = 'user_wallet'
-             AND (ba.owner_id = a.user_id OR ba.owner_id = a.user_id || ':user_wallet')
+             AND (ba.owner_id = a.user_id::text OR ba.owner_id = a.user_id::text || ':user_wallet')
         )
       LIMIT 1`,
     [TENANT_ID]

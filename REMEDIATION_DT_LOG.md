@@ -6299,7 +6299,7 @@ Frente própria (F-APROVACAO-FINANCEIRA):
 
 ## DT-PE5-REFUND-POST-DMONEY-CHAIN
 
-- **Status:** OPEN (HIGH — C2 satisfeito por DECISION-0054; C3–C7 ainda bloqueantes)
+- **Status:** OPEN (HIGH — C2–C7 satisfeitos; payout/saque externo de actor_wallet ainda OPEN)
 - **Origem:** DECISION-0052 (F-REFUND-SPLIT-AWARE-HARDENING, 2026-05-27). Investigação revelou que o motor de estorno atual NÃO TEM caminho material limpo para reverter um pagamento depois que o D-money já liberou `revenue_share` para o `actor_wallet` do worker.
 
 ### Comportamento material observado
@@ -6360,6 +6360,13 @@ Clayton determinou explicitamente: **"F: não fazer agora"**. A correção é fr
 **Parte B — DECISION-0053 APROVADA** (2026-05-27, registro documental):
 - Substrato canônico definido: `actor_wallet_recovery_obligations` + `actor_wallet_recovery_obligation_entries`.
 - Implementação bloqueada até C2–C7 (ver DECISION-0053).
+
+**C7 — FECHADO** (2026-05-28, `feat(recovery): finalize post-dmoney recovery cases`):
+- `finalizeRecoveryCase`: `recovered`+`released_to_actor_wallet` → `refunded_via_recovery` + outbox event.
+- Guard atualizado: bloqueia também `refunded_via_recovery`.
+- Integração C3.1: drain chama `finalizeRecoveryCase` no mesmo client TX.
+- Migration `20260530571000` aplicada (constraint atualizado).
+- E2E C7 14/14; C3.1 13/13; C3 18/18; D-money PASS; guard PASS; arch `critical_new=0`.
 
 ### Resolução prevista
 
@@ -6590,43 +6597,30 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-DMONEY-FINALIZATION-FLOW-MISSING
 
-- **Status:** OPEN (HIGH — fluxo de finalização pós-D-money inexistente após obrigação `recovered`)
+- **Status:** CLOSED (2026-05-28) — C7 implementado; fluxo de finalização pós-D-money materializado.
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). A DECISION define o
   substrato de recovery mas explicitamente exclui do escopo o fluxo de finalização pós-D-money
   após a obrigação atingir `recovered`.
 
-### O que está faltando
+### Fechamento — C7 implementado (commit: feat(recovery): finalize post-dmoney recovery cases, 2026-05-28)
 
-Quando `actor_wallet_recovery_obligations.status = 'recovered'`:
-- O payer foi compensado via recovery (actor_wallet → payer account).
-- O `payment_intent` ainda está em `released_to_actor_wallet`.
-- O reversal tradicional está bloqueado (guard da Parte A).
-- Não existe fluxo canônico para fechar este intent de forma limpa.
-
-Este fluxo deve:
-- Marcar o intent como finalizado pós-recovery (novo status? `refunded_via_recovery`? DECISION futura).
-- Não reutilizar `reversed` (esse status é do reversal tradicional).
-- Garantir que nenhuma duplicação de reembolso seja possível.
-- Ser rastreável via `bank_ledger` + `actor_wallet_recovery_obligations`.
-
-### Não bloqueia hoje
-
-- Guard da Parte A já bloqueia estorno perigoso.
-- Obrigação pode nascer e ser registrada sem este fluxo.
-- Nenhuma rota de UI/API de refund manual em produção.
-
-### Resolução prevista
-
-DECISION separada futura (número a definir):
-1. Definir status final do `payment_intent` após recovery completo.
-2. Definir fluxo canônico de "fechar intent pós-recovery" sem reversal.
-3. E2E end-to-end: guard bloqueia → obrigação criada → recovery executado → intent fechado.
+**Implementado:**
+- `recovery-finalization.service.ts` — `finalizeRecoveryCase(tenantId, obligationId, client?)`:
+  - `recovered` + intent `released_to_actor_wallet` → `payment_status = 'refunded_via_recovery'` + evento `PAYMENT_INTENT_REFUNDED_VIA_RECOVERY`
+  - `recovered` + intent em outro status (income withholding não-D-money) → finaliza silenciosamente sem alterar intent
+  - `cancelled` → evento `ACTOR_WALLET_RECOVERY_CANCELLED`, intent inalterado
+  - Status não-terminal → `RECOVERY_FINALIZATION_OBLIGATION_NOT_TERMINAL` (sem escrita)
+  - Idempotente: segunda chamada retorna `already_finalized`
+- Migration `20260530571000_extend_payment_status_refunded_via_recovery.sql` aplicada (CHECK constraint atualizado)
+- `checkPostDmoneyBlock` bloqueia `refunded_via_recovery` (além de `released_to_actor_wallet`)
+- C3.1 drain integrado: após `debitActorWalletForRecovery` retornar `recovered`, chama `finalizeRecoveryCase` no mesmo client
+- E2E C7 14/14 verde; C3.1 13/13; C3 18/18; D-money PASS; guard PASS
 
 ### Vinculadas
 
-- DECISION-0053 (pré-requisito C7 — esta DT é o próximo passo após C1–C6 satisfeitos)
-- DT-PE5-REFUND-POST-DMONEY-CHAIN (fecha somente quando esta DT também for resolvida)
-- DECISION-0052 (Bloco F — estorno pós-D-money indefinido)
+- DECISION-0053 (pré-requisito C7 — satisfeito)
+- DT-PE5-REFUND-POST-DMONEY-CHAIN (parcialmente fechada — C7 satisfeito; saque pós-recovery OPEN)
+- DECISION-0052 (Bloco F — estorno pós-D-money bloqueado por guard; C7 fecha o loop de recovery)
 
 ---
 

@@ -108,36 +108,31 @@ export async function finalizeRecoveryCase(
         return 'already_finalized';
       }
 
-      // Unexpected status guard
-      if (paymentStatus !== 'released_to_actor_wallet') {
-        throw new RecoveryFinalizationError(
-          'RECOVERY_FINALIZATION_UNEXPECTED_PAYMENT_STATUS',
-          `payment_intent ${obligation.payment_intent_id} has status '${paymentStatus}' — ` +
-            `expected 'released_to_actor_wallet' (obligation ${obligationId})`
+      // C7 update only applies when intent has already been paid out via D-money.
+      // For obligations created outside the D-money flow (income withholding against
+      // 'pending'/'escrowed' intents), skip the payment_intent update gracefully.
+      if (paymentStatus === 'released_to_actor_wallet') {
+        await updatePaymentIntentStatusWithClient(
+          client,
+          tenantId,
+          obligation.payment_intent_id,
+          'refunded_via_recovery'
         );
+
+        // Insert event (deterministic id — idempotent on replay)
+        await insertEventOutboxRow(client, {
+          tenantId,
+          eventId: outboxEventIdFromSeed(`PAYMENT_INTENT_REFUNDED_VIA_RECOVERY:${tenantId}:${obligationId}`),
+          eventType: 'PAYMENT_INTENT_REFUNDED_VIA_RECOVERY',
+          payload: {
+            obligation_id: obligationId,
+            payment_intent_id: obligation.payment_intent_id,
+            recovered_amount_cents: Number(obligation.recovered_amount_cents),
+            debtor_actor_id: obligation.debtor_actor_id,
+            creditor_actor_id: obligation.creditor_actor_id,
+          },
+        });
       }
-
-      // Update payment_intent status atomically
-      await updatePaymentIntentStatusWithClient(
-        client,
-        tenantId,
-        obligation.payment_intent_id,
-        'refunded_via_recovery'
-      );
-
-      // Insert event (deterministic id — idempotent on replay)
-      await insertEventOutboxRow(client, {
-        tenantId,
-        eventId: outboxEventIdFromSeed(`PAYMENT_INTENT_REFUNDED_VIA_RECOVERY:${tenantId}:${obligationId}`),
-        eventType: 'PAYMENT_INTENT_REFUNDED_VIA_RECOVERY',
-        payload: {
-          obligation_id: obligationId,
-          payment_intent_id: obligation.payment_intent_id,
-          recovered_amount_cents: Number(obligation.recovered_amount_cents),
-          debtor_actor_id: obligation.debtor_actor_id,
-          creditor_actor_id: obligation.creditor_actor_id,
-        },
-      });
 
       if (ownClient) await client.query('COMMIT');
       return 'finalized';

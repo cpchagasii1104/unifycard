@@ -224,8 +224,15 @@ async function createObligation(
 }
 
 async function cleanupObligation(obligationId: string) {
+  const txRow = await q(
+    `SELECT original_transaction_id FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligationId]
+  );
+  const origTxId: string | null = txRow.rows[0]?.original_transaction_id ?? null;
   await q(`DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id=$1`, [obligationId]);
   await q(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [obligationId]);
+  if (origTxId) {
+    await q(`DELETE FROM bank_transactions WHERE id=$1`, [origTxId]);
+  }
 }
 
 async function cleanupIntent(intentId: string) {
@@ -376,7 +383,11 @@ async function runTests() {
     const approvalId = await createApprovalRequest(fixture);
     const obligationId = await createObligation(fixture, intentId, 5000, approvalId, 'recovered', 5000);
 
-    // Cria uma bank_transaction fake com reference_type='service_execution' para ativar o guard
+    // checkPostDmoneyBlock faz: bank_tx.reference_id → getPaymentIntentByReference (WHERE reference_id=$)
+    // Precisamos do reference_id canônico do intent (não o id) para o guard encontrar o intent.
+    const intentRefRow = await q(`SELECT reference_id FROM payment_intents WHERE id=$1`, [intentId]);
+    const intentRefId: string = intentRefRow.rows[0].reference_id;
+
     const cid = await getConceptId();
     const origTxId = uuidv4();
     await q(
@@ -384,7 +395,7 @@ async function runTests() {
          reference_type, reference_id, concept_id, internal_completed_at)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'execution', 'E2E C7 T7 reversal guard test',
                'service_execution', $6, $7, NOW())`,
-      [origTxId, TENANT_ID, fixture.debtorActorId, fixture.debtorAccountId, 5000, intentId, cid]
+      [origTxId, TENANT_ID, fixture.debtorActorId, fixture.debtorAccountId, 5000, intentRefId, cid]
     );
 
     const { requestReversal } = await import('../modules/reversal/reversal.service');
@@ -394,8 +405,7 @@ async function runTests() {
         actorId: fixture.debtorActorId,
         amountCents: 5000,
         reason: 'E2E C7 T7 reversal guard test — deve bloquear',
-        reversalType: 'internal_refund',
-        performedByUserId: fixture.requestedByUserId,
+        reversalType: 'external_reversal',
       });
       fail('T7 reversal bloqueado em refunded_via_recovery', 'não lançou erro');
     } catch (e) {
@@ -406,6 +416,8 @@ async function runTests() {
       }
     }
 
+    // Limpa reversal antes da bank_transaction (guard pode ter falhado em run anterior).
+    await q(`DELETE FROM reversals WHERE original_transaction_id=$1`, [origTxId]);
     await q(`DELETE FROM bank_transactions WHERE id=$1`, [origTxId]);
     await cleanupObligation(obligationId);
     await cleanupIntent(intentId);
