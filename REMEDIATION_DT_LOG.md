@@ -7335,7 +7335,7 @@ storage.
 - **Severidade:** LOW
 - **Classe:** DT-D (drift de UX — check incompleto)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration.
+- **Resolução:** commit `42dcd047` (sessão 2026-05-28). Zero backend, zero migration.
 
 ### Contexto
 
@@ -7368,7 +7368,7 @@ o homepage contextual do actor atual.
 - **Severidade:** LOW
 - **Classe:** DT-H (higiene — ruído de log)
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration.
+- **Resolução:** commit `42dcd047` (sessão 2026-05-28). Zero backend, zero migration.
 
 ### Contexto
 
