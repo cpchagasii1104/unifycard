@@ -7617,7 +7617,7 @@ identities matching exato:      4 dos 7 user_profiles
 
 ## DT-BANK-BALANCE-BY-CPF-GHOST-USERS-CPF
 
-- **Status:** CLOSED (2026-05-28) — corrigido em fatia F0.1 da DECISION-0062 D14 (commit `<HEAD_AFTER>`).
+- **Status:** CLOSED (2026-05-28) — corrigido em fatia F0.1 da DECISION-0062 D14 (commit `fee7b754`).
 - **Severidade:** LOW
 - **Classe:** DT-T (técnica — ghost reference em código vivo).
 - **Origem:** inventário F0 pós-DECISION-0062 (HEAD `2b8fbd17`, 2026-05-28).
