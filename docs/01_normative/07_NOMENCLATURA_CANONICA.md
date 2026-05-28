@@ -629,6 +629,37 @@ Tipo: `VARCHAR` ou `ENUM`
 'expired'           -- Expirado
 ```
 
+**`payment_intents.payment_status` — valores canônicos do UnifiCard**
+
+Coluna: `payment_intents.payment_status` (tabela `payment_intents`, módulo `payments`).
+Todos em `snake_case` lowercase. CHECK constraint em `payment_intents_payment_status_check`.
+
+```sql
+'pending'                  -- Intent criado, aguardando captura
+'authorized'               -- Autorizado (pré-captura)
+'captured'                 -- Capturado (dinheiro movido para escrow)
+'escrowed'                 -- Revenue share retido em escrow_payments até D-money
+'settled'                  -- Liquidado externamente
+'failed'                   -- Falhou antes de captura
+'cancelled'                -- Cancelado antes de captura
+'reversed'                 -- Revertido pelo caminho tradicional (pré-D-money)
+'partially_refunded'       -- Parcialmente estornado
+'disputed'                 -- Em disputa/chargeback
+'expired'                  -- Expirado
+'released_to_actor_wallet' -- D-money executado: revenue_share liberado para actor_wallet do prestador
+                           -- Reversal tradicional BLOQUEADO a partir deste status
+'refunded_via_recovery'    -- Payer compensado via actor_wallet_recovery_obligations pós-D-money
+                           -- Status terminal. Obrigação atingiu 'recovered'. Reversal tradicional
+                           -- BLOQUEADO (guard permanece ativo). Não confundir com 'reversed'.
+                           -- DECISION-0053 C7, 2026-05-28.
+```
+
+**Regra de transição pós-D-money (INVARIANTE):**
+- `released_to_actor_wallet` → `refunded_via_recovery` somente via `finalizeRecoveryCase` (C7)
+- Nenhum desses dois status libera o reversal tradicional (`REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW`)
+- `cancelled` obligation NÃO altera `payment_status`; intent permanece `released_to_actor_wallet`
+- `refunded_via_recovery` é lowercase snake_case; NÃO usar `RefundedViaRecovery`, `REFUNDED_VIA_RECOVERY` (exceto em event_type de outbox)
+
 **Status de Pedido/Order (marketplace)**
 
 ```sql

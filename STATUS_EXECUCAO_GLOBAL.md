@@ -6820,13 +6820,83 @@ reference_type: `actor_wallet_recovery`; concept: `actor-wallet-recovery` (já s
 | C3.1 | Income withholding síncrono no D-money | **DONE ✓ (commit `c3d2e569`)** |
 | C4 | Resolver creditor_account_id | DONE ✓ |
 | C4b-1/C4b-2 | User wallet provisioning | DONE ✓ |
-| C5 | Nomenclatura canônica | PENDENTE |
+| C5 | Nomenclatura canônica | **DONE ✓ (2026-05-28 — `07_NOMENCLATURA_CANONICA.md` atualizado)** |
 | C6 | Migration substrate | DONE ✓ |
-| C7 | Finalização pós-D-money (orquestração) | PENDENTE — requer autorização Clayton |
+| C7 | Finalização pós-D-money (orquestração) | **DONE ✓ (commits `6a167d77` + `f8a0c59e`)** |
 
 ### Modo
 
 **C3.1 fechado.** O income withholding está ativo e síncrono com D-money.
-Próxima frente relevante: **C7** (orquestração completa pós-D-money) — requer autorização explícita.
+**C7 fechado.** `finalizeRecoveryCase` implementado. Cadeia pós-D-money completa.
 **DT-RECOVERY-PAYOUT-GATE**: parcialmente endereçada por C3.1 (income withholding implementado).
 Ponto ainda aberto: gate no saque externo de `actor_wallet` (DT-ACTOR-WALLET-PAYOUT-WIRING).
+
+---
+
+## Sessão 2026-05-28 — C7 FECHADO + C5 FECHADO (commits `6a167d77`, `f8a0c59e`)
+
+### C7 — `finalizeRecoveryCase` (DECISION-0053 C7)
+
+1. **`recovery-finalization.service.ts`** — `finalizeRecoveryCase(tenantId, obligationId, existingClient?)`:
+   - `recovered` + intent `released_to_actor_wallet` → `payment_status = 'refunded_via_recovery'` + evento `PAYMENT_INTENT_REFUNDED_VIA_RECOVERY` no `event_outbox` (event_id determinístico via SHA256)
+   - `recovered` + intent em outro status (ex: income withholding em intent `pending`) → finaliza silenciosamente sem alterar intent
+   - `cancelled` → evento `ACTOR_WALLET_RECOVERY_CANCELLED`, intent inalterado (permanece `released_to_actor_wallet`)
+   - Status não-terminal (`approved`, `partially_recovered`, `pending_approval`, `failed`) → `RECOVERY_FINALIZATION_OBLIGATION_NOT_TERMINAL` sem nenhuma escrita
+   - Idempotente: segunda chamada para obligation `recovered` + intent já `refunded_via_recovery` → retorna `already_finalized`
+   - Não move dinheiro. Não toca `bank_ledger`/`bank_transactions`/`bank_splits`. Não cria reversal.
+2. **Migration `20260530571000_extend_payment_status_refunded_via_recovery.sql`**:
+   - Estende `payment_intents.payment_status` CHECK com `refunded_via_recovery`
+   - Aplicada ao runtime (DB já com constraint atualizado)
+3. **`payment-intent-repository.ts`**:
+   - `PaymentIntentStatus` agora inclui `'refunded_via_recovery'`
+   - `updatePaymentIntentStatusWithClient(client, tenantId, intentId, status)` — UPDATE dentro de client externo
+4. **`reversal.service.ts`** — `checkPostDmoneyBlock` atualizado:
+   - Bloqueia `released_to_actor_wallet` (Parte A, commit `4c04e8d7`) E `refunded_via_recovery` (C7)
+   - Lança `REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW` com mensagem indicando que recovery já foi concluído
+   - Reversal tradicional continua bloqueado mesmo após C7 — invariante preservada
+5. **Integração C3.1**: `drainRecoveryObligationsForCredit` chama `finalizeRecoveryCase(tenantId, obligationId, client)` após `result.result === 'recovered'` — mesmo client TX, atomicidade total
+
+### C5 — Nomenclatura canônica
+
+- `07_NOMENCLATURA_CANONICA.md` atualizado: bloco dedicado `payment_intents.payment_status` com `refunded_via_recovery` e semântica
+- `CORE_ESTORNOS_FINANCEIROS_CANONICO.md` atualizado: seção C7 recovery path
+
+### Pré-requisitos DECISION-0053 (final)
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | DONE ✓ |
+| C2 | approval_requests materializado | DONE ✓ (DECISION-0054) |
+| C3 | debitActorWalletForRecovery | DONE ✓ (commit `61979374`) |
+| C3.1 | Income withholding síncrono no D-money | DONE ✓ (commit `c3d2e569`) |
+| C4 | Resolver creditor_account_id | DONE ✓ |
+| C4b-1/C4b-2 | User wallet provisioning | DONE ✓ |
+| C5 | Nomenclatura canônica | **DONE ✓ (2026-05-28)** |
+| C6 | Migration substrate | DONE ✓ (`20260530570000`) |
+| C7 | Finalização pós-D-money | **DONE ✓ (commits `6a167d77` + `f8a0c59e`)** |
+
+### Gates finais C7
+
+| Gate | Resultado |
+|---|---|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK |
+| `validate:regression-guards` | ✅ GATE OK |
+| `validate-architectural-patterns --strict` | ✅ `critical_new=0` |
+| E2E C7 `validate-pipeline-e2e-c7-recovery-finalization.ts` | ✅ 14/14 |
+| E2E C3 `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts` | ✅ 18/18 |
+| E2E C3.1 `validate-pipeline-e2e-c3-1-income-withholding.ts` | ✅ 13/13 |
+| E2E D-money `validate-pipeline-e2e-camada1-dmoney.ts` | ✅ PASS |
+| E2E refund-post-dmoney-guard | ✅ PASS |
+| E2E refund-split-aware | ✅ PASS |
+
+### DTs fechadas nesta sessão
+
+- **DT-DMONEY-FINALIZATION-FLOW-MISSING** → CLOSED (C7 implementado)
+- **DT-ACTOR-WALLET-DEBIT-MISSING** → CLOSED (C3+C3.1+C7 comprovados juntos)
+
+### DTs mantidas abertas
+
+- **DT-RECOVERY-PAYOUT-GATE** → PARTIALLY CLOSED (C3.1 síncrono feito; saque externo pendente)
+- **DT-PE5-REFUND-POST-DMONEY-CHAIN** → OPEN (G-DECISION-0053 suite não existe; cadeia material comprovada nos E2Es individuais mas sem suite end-to-end unificada)

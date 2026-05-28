@@ -660,6 +660,53 @@ validado por E2E.
 
 ---
 
+## 15. DECISION-0053 C7 — Recovery Pós-D-money Path (2026-05-28)
+
+### 15.1 Contexto
+
+Após D-money (`payment_intent.payment_status = 'released_to_actor_wallet'`), o reversal
+tradicional está **bloqueado** (guard `REVERSAL_POST_DMONEY_REQUIRES_RECOVERY_FLOW`). O
+caminho canônico para compensar o payer é `actor_wallet_recovery_obligations` (DECISION-0053).
+
+### 15.2 Status terminal pós-recovery
+
+Quando `actor_wallet_recovery_obligations.status = 'recovered'` e o intent está em
+`released_to_actor_wallet`: `finalizeRecoveryCase` (C7) transita o intent para
+`payment_status = 'refunded_via_recovery'`.
+
+**`refunded_via_recovery` NÃO libera o reversal tradicional.** O guard permanece ativo
+para ambos os status pós-D-money (`released_to_actor_wallet` e `refunded_via_recovery`).
+
+### 15.3 Recovery path vs estorno path
+
+| Dimensão | Estorno (reversals) | Recovery pós-D-money |
+|---|---|---|
+| Tabela central | `reversals` | `actor_wallet_recovery_obligations` |
+| Move escrow | Sim (reversão das legs originais) | Não |
+| Toca bank_ledger/txs | Sim | Não (C7 é semântico) |
+| Pré-requisito | Pré-D-money | Pós-D-money (`released_to_actor_wallet`) |
+| Status final intent | `reversed` | `refunded_via_recovery` |
+| Guard ativo após | N/A (estorno executado) | Sim (`refunded_via_recovery` bloqueado) |
+
+### 15.4 Invariante semântica
+
+`cancelled` obligation NÃO altera `payment_status`. Intent permanece `released_to_actor_wallet`.
+Apenas obligation `recovered` transita para `refunded_via_recovery` (e somente quando o
+intent já está em `released_to_actor_wallet`).
+
+### 15.5 Evidência canônica
+
+- Migration: `backend/migrations/20260530571000_extend_payment_status_refunded_via_recovery.sql`
+- Serviço: `backend/src/modules/financial-recovery/recovery-finalization.service.ts`
+- E2E: `backend/src/scripts/validate-pipeline-e2e-c7-recovery-finalization.ts` (14/14 verde)
+  - T1: `recovered` → `refunded_via_recovery`
+  - T4: `cancelled` → intent inalterado
+  - T7: reversal bloqueado em `refunded_via_recovery`
+  - T9: zero escrita em `bank_ledger`/`bank_transactions`/`bank_splits`
+  - T10: cadeia C3.1→C7 atômica (drain→finalize no mesmo client TX)
+
+---
+
 ## 🔗 Referencias
 <!-- AUTO-GENERATED-START -->
 ### Referencia

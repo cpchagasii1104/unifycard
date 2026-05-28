@@ -4124,10 +4124,10 @@ A fatia F-REFUND-SPLIT-AWARE-HARDENING endurece o motor SEM reescrita: adiciona 
 
 ## DECISION-0053 — Actor Wallet Recovery Obligations
 
-**Status:** ativa — APROVADA PARA REGISTRO DOCUMENTAL (2026-05-27). Implementação não autorizada até C2–C7 satisfeitos.
+**Status:** ativa — IMPLEMENTADA (C1–C7 satisfeitos, 2026-05-28). Substrato + fluxo pós-D-money operacionais.
 **Sessão:** 2026-05-27 (F-REFUND-POST-DMONEY Parte B — READ-FIRST + DECISION-0053)
 **Decisor:** Clayton
-**Commit âncora:** (preencher após implementação)
+**Commit âncora:** `6a167d77` (C7), `f8a0c59e` (fix E2E + guard relaxation), `c3d2e569` (C3.1), `61979374` (C3), migration `20260530570000` (C6)
 
 ### Contexto
 
@@ -4197,13 +4197,15 @@ approval_request_id (nullable), updated_at`
 
 | # | Condição | Estado |
 |---|----------|--------|
-| C1 | DECISION-0053 aprovada | APROVADA (esta sessão) |
-| C2 | `approval_requests`/`approval_votes` materializados | PENDENTE — DT-CORE-APPROVAL-REQUESTS-MISSING |
-| C3 | Serviço de débito de `actor_wallet` | SEMÂNTICA DEFINIDA (DECISION-0055) — implementação pendente após migration (C6) |
-| C4 | Resolver de `creditor_account_id` via transação original | PENDENTE |
-| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
-| C6 | Migration revisada em sessão separada | DONE ✓ — `20260530570000` (2026-05-27) |
-| C7 | Fluxo de finalização pós-D-money (substituto do reversal) | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+| C1 | DECISION-0053 aprovada | DONE ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ — DECISION-0054 |
+| C3 | Serviço de débito de `actor_wallet` | DONE ✓ — commit `61979374`, `actor-wallet-debit.service.ts` |
+| C3.1 | Income withholding síncrono no D-money | DONE ✓ — commit `c3d2e569`, `drainRecoveryObligationsForCredit` |
+| C4 | Resolver de `creditor_account_id` via transação original | DONE ✓ — DECISION-0056, commit `13db36d8` |
+| C4b-1/C4b-2 | User wallet provisioning automático | DONE ✓ — commits `13ee5d8a` + `d3ab14f3` |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | DONE ✓ — 2026-05-28 |
+| C6 | Migration recovery obligations substrate | DONE ✓ — `20260530570000` (2026-05-27) |
+| C7 | Fluxo de finalização pós-D-money | DONE ✓ — commits `6a167d77` + `f8a0c59e`, migration `20260530571000` |
 
 ### Vinculadas
 
@@ -4213,13 +4215,13 @@ approval_request_id (nullable), updated_at`
 - DECISION-0046 (actor_wallet canônico — invariante preservada)
 - DT-PE5-REFUND-POST-DMONEY-CHAIN (OPEN HIGH — fecha quando fluxo pós-D-money completo)
 - DT-CORE-APPROVAL-REQUESTS-MISSING (nova OPEN HIGH — pré-requisito C2) → CLOSED por DECISION-0054
-- DT-ACTOR-WALLET-DEBIT-MISSING (nova OPEN HIGH — pré-requisito C3)
-- DT-DMONEY-FINALIZATION-FLOW-MISSING (nova OPEN HIGH — pré-requisito C7)
-- DT-RECOVERY-PAYOUT-GATE (nova OPEN MEDIUM — L4 segunda parte, fora do escopo desta DECISION)
+- DT-ACTOR-WALLET-DEBIT-MISSING → CLOSED (C3+C3.1+C7 implementados e comprovados)
+- DT-DMONEY-FINALIZATION-FLOW-MISSING → CLOSED (C7 implementado)
+- DT-RECOVERY-PAYOUT-GATE → PARTIALLY CLOSED (C3.1 síncrono implementado; saque externo pendente)
 
 ### Superada por
 
-(preencher quando superada)
+(não aplicável — implementação completa, axiomas preservados)
 
 ---
 

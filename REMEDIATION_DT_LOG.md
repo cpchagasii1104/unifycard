@@ -6383,11 +6383,11 @@ Sequência de implementação:
 - DECISION-0046 (actor_wallet canônico — invariante violada)
 - DECISION-0051 (PE-5-RESOLVER-MVP — cenário PE-5 onde o gap fica visível)
 - DECISION-0052 (Bloco F adiado por esta DT)
-- DECISION-0053 (substrato de recovery aprovado — implementação pendente)
-- CORE_ESTORNOS_FINANCEIROS_CANONICO §14.5 (referência cruzada)
-- DT-CORE-APPROVAL-REQUESTS-MISSING (pré-requisito C2)
-- DT-ACTOR-WALLET-DEBIT-MISSING (pré-requisito C3)
-- DT-DMONEY-FINALIZATION-FLOW-MISSING (pré-requisito C7)
+- DECISION-0053 (substrato de recovery — C1–C7 IMPLEMENTADOS)
+- CORE_ESTORNOS_FINANCEIROS_CANONICO §14.5 + §15 (referência cruzada)
+- DT-CORE-APPROVAL-REQUESTS-MISSING → CLOSED (DECISION-0054)
+- DT-ACTOR-WALLET-DEBIT-MISSING → CLOSED (C3+C3.1+C7 comprovados, 2026-05-28)
+- DT-DMONEY-FINALIZATION-FLOW-MISSING → CLOSED (C7, 2026-05-28)
 
 ---
 
@@ -6548,7 +6548,7 @@ Nada. Helper retorna null há toda a história do projeto.
 
 ## DT-ACTOR-WALLET-DEBIT-MISSING
 
-- **Status:** OPEN HIGH — semântica resolvida (DECISION-0055) + migration C6 materializada (`20260530570000`, 2026-05-27); C4 creditor_account_id decidido (DECISION-0056, 2026-05-27); implementação de `debitActorWalletForRecovery` aguarda resolver C4 implementado
+- **Status:** CLOSED (2026-05-28) — C3 (`debitActorWalletForRecovery`, commit `61979374`) + C3.1 (income withholding, commit `c3d2e569`) + C7 (finalização pós-D-money, commits `6a167d77`+`f8a0c59e`) implementados e comprovados por E2E conjunto (C3 18/18, C3.1 13/13, C7 14/14). Cadeia operacional: débito de `actor_wallet` via `bank_transactions` existe e é exercido pelo income withholding síncrono no D-money. Saque externo (payout voluntário) permanece pendente em DT-RECOVERY-PAYOUT-GATE — escopo distinto desta DT.
 - **Origem:** DECISION-0053 (Actor Wallet Recovery Obligations, 2026-05-27). Auditoria READ-FIRST
   confirmou que não existe nenhum serviço de débito de `actor_wallet` via
   `bank_transactions`/`bank_ledger`.

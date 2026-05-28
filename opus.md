@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-05-28 — C7 FECHADO (commits `6a167d77` + `f8a0c59e`)
+
+`finalizeRecoveryCase(tenantId, obligationId, existingClient?)` em `recovery-finalization.service.ts`.
+Quando obligation `recovered` + intent `released_to_actor_wallet`: atualiza `payment_status → 'refunded_via_recovery'` + evento `PAYMENT_INTENT_REFUNDED_VIA_RECOVERY` (idempotente por event_id SHA256).
+Quando obligation `recovered` + intent em qualquer outro status (income withholding não-D-money): finaliza silenciosamente, sem alterar intent.
+Quando obligation `cancelled`: apenas evento `ACTOR_WALLET_RECOVERY_CANCELLED` — intent permanece `released_to_actor_wallet`, sem alteração.
+**`refunded_via_recovery` NÃO libera reversal tradicional** — guard permanece ativo para ambos os status pós-D-money.
+Migration `20260530571000` estende CHECK constraint de `payment_intents.payment_status`.
+Integração C3.1: `drainRecoveryObligationsForCredit` chama `finalizeRecoveryCase` no mesmo client TX após `recovered`.
+E2E C7 14/14. DT-DMONEY-FINALIZATION-FLOW-MISSING CLOSED. DT-ACTOR-WALLET-DEBIT-MISSING CLOSED.
+**C7 não move dinheiro. Não toca bank_ledger/bank_transactions/bank_splits.**
+
+---
+
 ## Sessão 2026-05-27 — C3.1 FECHADO (commit `c3d2e569`) — Income Withholding Síncrono
 
 `drainRecoveryObligationsForCredit(tenantId, debtorActorId, creditedAmountCents, client)` em
