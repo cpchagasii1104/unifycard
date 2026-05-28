@@ -7489,11 +7489,11 @@ depende de estado residual.
 
 ## DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY
 
-- **Status:** OPEN (2026-05-28) — sucede DT-USER-PROFILES-LEGACY-ORPHAN (reclassificação documental após raio-X).
+- **Status:** OPEN — BLOCKED BY DECISION-0062 (2026-05-28). Sucede DT-USER-PROFILES-LEGACY-ORPHAN. **Hipótese escolhida: A como destino canônico, com execução gradual (F0–F5)** conforme DECISION-0062 D10. Não fechada — DT só vira CLOSED após F0–F5 mergeados e janela de observação sem regressão.
 - **Severidade:** MEDIUM (era LOW na DT antiga; risco real é divergência cross-domain entre CORE e KYC/payout).
-- **Classe:** DT-D + DT-N (drift de canonicidade + decisão arquitetural pendente sobre SSOT de identidade fiscal entre dois domínios).
+- **Classe:** DT-D + DT-N (drift de canonicidade + decisão arquitetural canonizada por DECISION-0062 mas implementação não autorizada).
 - **Origem:** raio-X de `user_profiles` + `AvailableActor.user_id` pós-DECISION-0061 (HEAD `ccd03ad8`, 2026-05-28).
-- **Cross-link com DECISIONs:** DECISION-0060 D2 (`identities.tax_id` SSOT KYC/payout/F4) coexiste com declaração não-canonizada em `core.service.ts:313` (`cpfSource: 'user_profiles'`).
+- **Cross-link com DECISIONs:** DECISION-0062 (canonicidade global escolhida — Hipótese A); DECISION-0060 D2 (`identities.tax_id` SSOT KYC/payout/F4) é base; DECISION-0061 D6 (vetada exposição pública de `tax_id`) é coerente; `IDENTITY_SSOT_PRECEDENCE.md` é a normativa-mãe estendida.
 
 ### Achados materiais (do raio-X)
 
@@ -7569,41 +7569,19 @@ depende de estado residual.
 Antes de qualquer fatia de identidade/onboarding ou frente que dependa de
 SSOT único de CPF (ex.: F4.1+), DECISION explícita sobre canonicidade.
 
-### Hipóteses para DECISION futura (NÃO escolhidas aqui)
+### Hipóteses (resolvidas por DECISION-0062 — 2026-05-28)
 
-**Hipótese A — `identities.tax_id` vence como SSOT único.**
+**Hipótese ESCOLHIDA: A como destino canônico, com execução gradual.**
 
-- CORE passa a ler/escrever via `identities.tax_id`.
-- `user_profiles.cpf` vira projeção/cache OU é depreciada em fase 2.
-- `profiles.cpf` segue espelho ou também é depreciado.
-- Migration: backfill de `identities` a partir de `user_profiles` para os 3 órfãos
-  + refator de `profile.service.ts` para escrever via `identity.service`.
-- Frente de onboarding nova parte daí.
-- Risco: alto blast radius — `core.service.ts` precisa ser reescrito; UI de perfil
-  passa a depender de identity bootstrap.
+DECISION-0062 fixou `identities.tax_id` como SSOT operacional global de documento fiscal. CORE/profile (`user_profiles.cpf` + `profiles.cpf`) migra para esse SSOT em fases F0–F5 (ver D10 da DECISION-0062). `global_users.cpf` permanece como âncora de cadastro/deduplicação/auth bootstrap, **imutável após criação** (lock semântico de DECISION-0062 D4).
 
-**Hipótese B — `user_profiles.cpf` vence como SSOT CORE; identity é projeção KYC.**
+Razão (registrada em DECISION-0062 contexto):
+- CPF não é "campo de perfil" — é raiz civil/operacional do sistema.
+- Hipótese C (convivência declarada) mantém dois cartórios oficiais — bomba lenta inaceitável para identidade fiscal.
+- Hipótese B (CORE vence) conflitaria com DECISION-0060 D2 vigente.
+- Hipótese A está alinhada com `IDENTITY_SSOT_PRECEDENCE.md` (normativa-mãe que já declarava `identities` autoridade de KYC/documento).
 
-- CORE/profile mantém autoridade sobre o documento.
-- `identities.tax_id` é populado/atualizado a partir de `user_profiles.cpf` em momentos
-  bem definidos (submissão KYC, evento de onboarding).
-- DECISION-0060 D2 precisa ser revisada/complementada para acomodar essa projeção.
-- Risco: conflito documental com DECISION-0060 vigente; revisar D2 sem reescrever a cerca F4.
-
-**Hipótese C — Convivência declarada (paralelo a DECISION-0061).**
-
-- `user_profiles.cpf` continua SSOT CORE.
-- `identities.tax_id` continua SSOT KYC/payout (DECISION-0060 D2 vigente).
-- Sync explícito obrigatório via service compartilhado (ex.: `cpfSyncService`)
-  chamado nos dois caminhos de escrita.
-- Documentar fronteiras operacionais: nenhum service do trilho A lê do trilho B
-  direto; ambos consultam o sync service.
-- Migration: backfill inicial para alinhar os 3 user_profiles órfãos com identity.
-- Risco: complexidade operacional; precisa disciplina permanente para não
-  reintroduzir drift.
-
-DECISION-0061 escolheu Hipótese C para identidade pública/social — é precedente
-de design, não obrigação para CPF.
+**Hipóteses B e C registradas historicamente acima foram REJEITADAS por DECISION-0062.**
 
 ### Evidência runtime reportada
 

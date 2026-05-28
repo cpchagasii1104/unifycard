@@ -7590,3 +7590,66 @@ A/B/C registradas na DT. Recomendação não-vinculante do raio-X: hipótese C
 (convivência declarada + sync service explícito), paralela arquitetural a
 DECISION-0061. Sem essa DECISION, frente de identidade/onboarding parte
 sem chão.
+
+## Sessão 2026-05-28 — DECISION-0062 CPF_CNPJ_SSOT_CANONICALITY_GLOBAL (documental)
+
+### Escopo
+
+Decisão documental append-only. Zero código. Zero migration. Zero schema.
+
+Auditoria pré-DECISION confirmou materialmente: `global_users.cpf` (21 rows
+UNIQUE), `user_profiles.cpf` (7 rows), `profiles.cpf` (61 rows), `identities.tax_id`
+(9 rows), `companies.cnpj` (13 rows). Ghost reference factual em
+`bank-balance-by-cpf.service.ts:121-124` lendo `users.cpf` (coluna inexistente
+em schema vivo). `IDENTITY_SSOT_PRECEDENCE.md` já normatizava `identities`
+como autoridade de KYC/documento — DECISION-0062 estende para CORE.
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DECISIONS_LOG.md` | **Nova DECISION-0062** — D1–D16 fixam Hipótese A como destino, execução gradual F0–F5, papéis dos quatro substratos, vetos explícitos, ghost reference virando DT própria, vinculação à normativa-mãe |
+| `REMEDIATION_DT_LOG.md` | DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY: status **OPEN — BLOCKED BY DECISION-0062**; hipóteses B/C marcadas REJEITADAS; bloco de resolução prevista realinhado com F0–F5 |
+| `opus.md` | Memória curta sobre DECISION-0062 + plano F0–F5 |
+
+### Hipótese escolhida
+
+**Hipótese A como destino canônico, com execução gradual.**
+
+`identities.tax_id` vence como SSOT operacional global. CORE migra em F0–F5,
+sem refator imediato.
+
+### Estado das DTs relacionadas
+
+| DT | Status |
+|----|--------|
+| DT-USER-PROFILES-LEGACY-ORPHAN | SUPERSEDED (histórico preservado) |
+| DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY | OPEN — BLOCKED BY DECISION-0062 (não fechada) |
+| DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER | OPEN — BLOCKED BY DECISION-0061 (inalterada) |
+| DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK | OPEN (inalterada) |
+| DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING | OPEN (reforçada por D12) |
+| DT-ACTOR-BANK-DESTINATION-MISSING | CLOSED (TRIGGER F4.0 já consulta `identities.tax_id`) |
+
+### Confirmações de escopo
+
+- ✅ Zero `.ts` / `.tsx` / `.sql` alterado
+- ✅ Zero migration nova
+- ✅ Zero schema alterado
+- ✅ Zero frontend runtime
+- ✅ Zero backend runtime
+- ✅ Zero alteração em `global_users` / `user_profiles` / `profiles` / `identities` / `actors` / `companies`
+- ✅ `bank-balance-by-cpf.service.ts` NÃO corrigido (vira DT própria em F0)
+- ✅ DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY permanece OPEN
+- ✅ F4.0 permanece DONE
+- ✅ F4.1/F4.2/F4.3/F4.4 continuam OPEN / NOT AUTHORIZED
+- ✅ Arquivos ambientais NÃO commitados
+
+### Próximo passo recomendado
+
+F0 (correção de ghost references) é a fatia futura mais barata. Subfases:
+
+1. Criar DT própria para `bank-balance-by-cpf.service.ts` (alvo de F0).
+2. Auditar docs/DTs com menções a `users.cpf`, `actors.cpf_cnpj` ou `actors.kyc_status`
+   como fonte — virar correções documentais ou subfases F0.
+
+Sem isso, F1 (backfill audit) pode partir de base inconsistente.

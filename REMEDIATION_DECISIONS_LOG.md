@@ -5399,3 +5399,215 @@ Nenhuma das duas está autorizada por esta DECISION. Esta DECISION apenas fixa q
 ### Superada por
 
 (preencher quando saneamento C1 ou neutralização C2 for autorizada e DECISION de implementação for registrada)
+
+---
+
+## DECISION-0062 — CPF_CNPJ_SSOT_CANONICALITY_GLOBAL
+
+**Status:** APROVADA COMO DECISÃO DE CANONICIDADE — IMPLEMENTAÇÃO NÃO AUTORIZADA (2026-05-28).
+**Sessão:** 2026-05-28 (auditoria pós-DT-CPF-SSOT-DUAL-WRITE + raio-X CPF/CNPJ).
+**Decisor:** Clayton.
+**Commit âncora:** documental (sem código).
+**Hipótese escolhida:** **Hipótese A como destino canônico, com execução gradual** (ver D10).
+
+### Contexto
+
+Após auditoria pré-onboarding e raio-X de `user_profiles`/`AvailableActor.user_id`/`global_users`/`bank-balance-by-cpf`, foram confirmados materialmente:
+
+- **Múltiplos substratos de CPF** vivos em runtime:
+  - `global_users.cpf` — 21 rows, todas com CPF, UNIQUE.
+  - `user_profiles.cpf` — 7 rows, todas com CPF.
+  - `profiles.cpf` — 61 rows com CPF.
+  - `identities.tax_id` — 9 rows.
+- **Divergência runtime confirmada**: `user_profiles` carrega CPFs que nem sempre têm identity correspondente (gap de cobertura assimétrico).
+- **Ghost reference factual em código financeiro**: `backend/src/modules/bank/bank-balance-by-cpf.service.ts:121-124` faz `FROM users u ... AND u.cpf = $2`, mas a coluna `users.cpf` **NÃO existe no schema vivo** (verificado em `information_schema.columns`). Caller silenciosamente quebrado.
+- `actors.cpf_cnpj` e `actors.kyc_status` removidos em migration 0010 e não devem voltar.
+- DECISION-0060 D2 já fixou `identities.tax_id` como SSOT para KYC/payout/F4.
+- A normativa-mãe **`docs/01_normative/IDENTITY_SSOT_PRECEDENCE.md`** já declara `identities` como autoridade de KYC/documento fiscal e tipifica como fail-condition "leitura de identidade fiscal/KYC a partir de `actors` ou caches quando `identities` está disponível para o mesmo `global_user_id` sem reconciliação explícita".
+- O domínio CORE/profile ficou **órfão dessa cobertura normativa**, levando ao dual-write `user_profiles.cpf`+`profiles.cpf` vs `identities.tax_id`.
+
+DECISION-0062 estende a diretriz de `IDENTITY_SSOT_PRECEDENCE.md` para o domínio CORE/onboarding, fechando o gap.
+
+### Axioma central
+
+CPF/CNPJ é **âncora raiz da identidade civil/fiscal** no UnifiCard. A partir desse documento fiscal o sistema conecta identity, user, actors, empresas, permissões, KYC e fluxos financeiros futuros. Não é "campo de perfil" — é raiz operacional.
+
+A Hipótese A (`identities.tax_id` vence como SSOT operacional global) é o destino canônico. A execução é gradual para não quebrar o CORE em runtime.
+
+### Decisões (D1–D16)
+
+**D1 — Axioma central.**
+
+CPF/CNPJ é âncora raiz da identidade civil/fiscal no UnifiCard. A partir desse
+documento fiscal o sistema conecta identity, user, actors, empresas, permissões,
+KYC e fluxos financeiros futuros.
+
+**D2 — SSOT operacional global.**
+
+`identities.tax_id` é o SSOT operacional global de documento fiscal para o sistema.
+
+Implicações:
+- Toda leitura nova de documento fiscal em fluxo de produto/financeiro deve resolver via `identities.tax_id`.
+- KYC/payout/F4.0 já operam sobre `identities.tax_id` (DECISION-0060 D2 vigente).
+- CORE/profile **migra** para esse SSOT em fases F0–F5 (ver D10).
+
+**D3 — Tipo fiscal.**
+
+`identities.tax_id_type` é o SSOT do tipo fiscal:
+- `'cpf'`
+- `'cnpj'`
+
+Inferência por `length(normalize(tax_id))` (11 = cpf, 14 = cnpj) é **fallback de emergência**, não substituto canônico. Migration 0010 fez backfill explícito desse campo.
+
+**D4 — Papel de `global_users.cpf`.**
+
+`global_users.cpf` permanece como âncora de **cadastro, deduplicação cross-tenant e auth bootstrap** para pessoa física.
+
+Características operacionais:
+- UNIQUE(cpf) em schema (`0058`) — deduplicação garantida.
+- Comentário canônico da tabela: "Identidade global por CPF; usada por auth.register e identity.service".
+- Não é fonte operacional para fluxos de produto/financeiro.
+- Deve **alimentar/ancorar** `identities.tax_id`, não competir com ela.
+
+**Imutabilidade após criação**: `global_users.cpf` deve ser tratado como **imutável após a primeira persistência** (signup/cadastro), salvo decisão arquitetural específica + migration dedicada. UNIQUE constraint já garante unicidade técnica; esta DECISION adiciona lock semântico: `UPDATE global_users SET cpf = ...` é VETADO em qualquer caminho normal de produto/perfil/identity. Reabertura exige DECISION nova para casos como retificação judicial.
+
+**D5 — Papel de `user_profiles.cpf`.**
+
+`user_profiles.cpf` é **substrato vivo**, mas deixa de ser SSOT.
+
+Passa a ser **projeção CORE transitória** até execução da migração canônica (F4 de D10).
+
+- Não pode ser tratado como órfão.
+- Não pode ser deletado sem plano de migração + backfill auditado.
+- Não deve ser introduzido em fluxos novos.
+- Refatores futuros de `core.service.ts` e `profile.service.ts` (F4 de D10) devem migrar a leitura para `identities.tax_id`.
+
+**D6 — Papel de `profiles.cpf`.**
+
+`profiles.cpf` é **espelho/projeção transitória**.
+
+- Não é SSOT de nenhuma dimensão.
+- Mantida pela CTE em `profile.service.ts:455-477` em sync com `user_profiles.cpf`.
+- Será deprecada na fase F5 de D10, somente após prova material de migração de leituras.
+
+**D7 — Proibição de novas fontes.**
+
+Nenhuma frente futura pode criar novo campo/tabela de CPF/CNPJ como fonte de verdade paralela.
+
+Qualquer migration que adicione coluna de documento fiscal a uma tabela NOVA é VETADA até DECISION específica que justifique. Extensões válidas se limitam a colunas derivadas/cache documentadas (ex.: hash, last4) que NÃO sejam SSOT.
+
+**D8 — Campos mortos.**
+
+`actors.cpf_cnpj` e `actors.kyc_status` estão **mortos**.
+
+- Removidos por migration `0010_migrate_identity_from_actors.sql` (linhas 41-42).
+- Não podem ser reintroduzidos por nenhuma migration futura sem revogação explícita desta DECISION + DECISION-0060.
+- Referências a esses campos em código/docs/DTs são **dívidas de correção** (ver D14).
+
+**D9 — Backfill obrigatório.**
+
+Antes de migrar qualquer leitura CORE para `identities.tax_id`, é **OBRIGATÓRIO**:
+
+1. **Audit**: listar usuários com CPF em `user_profiles`/`global_users` sem linha correspondente em `identities` (matching via `users.global_user_id → identities.global_user_id` ou via `cpf == tax_id` normalizado).
+2. **Reconciliação**: para cada gap, decidir: criar `identities` row via `identity.service.ts` (bootstrap KYC pending) OU marcar como inconsistência operacional documentada.
+3. **Backfill idempotente**: script reaplicável que apenas insere identities faltantes; nunca sobrescreve `identities.tax_id` existente.
+4. **Evidência**: relatório de cobertura pós-backfill — gap esperado: zero.
+
+Sem audit + backfill provados, **fase F4 de D10 não pode iniciar**.
+
+**D10 — Implementação gradual.**
+
+Esta DECISION escolhe o destino canônico (Hipótese A), mas **não autoriza refactor imediato**. A execução futura deve ser fatiada:
+
+- **F0 — Correção de referências documentais fantasma**: corrigir/inutilizar `bank-balance-by-cpf.service.ts` que lê `users.cpf` (coluna inexistente); auditar docs/DTs que ainda mencionam `actors.cpf_cnpj` ou `users.cpf` como fonte (ver D14).
+- **F1 — Backfill audit**: query/script que reporta gaps `user_profiles.cpf` vs `identities.tax_id` (cobertura, divergência, formato).
+- **F2 — Backfill idempotente**: script que popula `identities` para os gaps encontrados, criando identity rows em estado KYC apropriado (provavelmente `kyc_status='pending'` para casos sem KYC ainda submetido).
+- **F3 — E2E de coerência CPF**: testes provando que `core.service.ts` (após F4) e `identity.service.ts` retornam o mesmo CPF normalizado para o mesmo `global_user_id`.
+- **F4 — Migrar leitura CORE com segurança**: refator de `core.service.ts:225-338` para resolver CPF via JOIN com `identities` em vez de `user_profiles`. Mudança feita atrás de feature flag ou em fatia minúscula com regressão E2E completa.
+- **F5 — Deprecar `user_profiles.cpf` e `profiles.cpf`**: somente após F4 estável em produção. Estratégia: parar escritas → manter leitura como fallback temporário → DROP COLUMN em migration dedicada com janela de observação.
+
+Cada fase exige prompt executor próprio + autorização explícita Clayton.
+
+**D11 — CNPJ.**
+
+O sistema **registra/vincula** CNPJ existente. O sistema **não "cria"** CNPJ real.
+
+CNPJ de empresa permanece em `companies.cnpj` (existe + populado: 13 rows runtime) **até decisão específica** sobre identidade fiscal PJ em `identities.tax_id_type='cnpj'`.
+
+Quando essa DECISION PJ for tomada (frente própria), o caminho canônico será simétrico ao de CPF:
+- `companies.cnpj` âncora de cadastro/deduplicação PJ
+- `identities.tax_id_type='cnpj'` SSOT operacional PJ
+
+Por ora, escopo PJ não está coberto materialmente por esta DECISION; está apenas reservado.
+
+**D12 — F4.0.**
+
+`actor_bank_destinations.holder_document` continua validando contra `identities.tax_id` via TRIGGER `trg_abd_enforce_own_account` (DECISION-0060 D8 + commit `e1536d07`).
+
+DECISION-0062 **reforça** DECISION-0060 D8 ao confirmar que `identities.tax_id` é SSOT operacional global, alinhando F4.0 com a canonicidade ampliada.
+
+DECISION-0062 **não autoriza** F4.1/F4.2/F4.3/F4.4 — continuam OPEN / NOT AUTHORIZED conforme DECISION-0059 e DTs sub-frentes.
+
+**D13 — Payload público.**
+
+CPF/CNPJ/`tax_id` **nunca** deve aparecer em:
+
+- Perfil público (rota `/social/actors/:id`)
+- `public_profiles.metadata` (vetado em DECISION-0061 D6, reforçado aqui)
+- Payload social (feed, comentários, reações)
+- Qualquer endpoint não autenticado/contextualizado
+
+Qualquer service que retorne `tax_id` em payload acessível por terceiros é **violação estrutural** (equivalente a fail-condition de `IDENTITY_SSOT_PRECEDENCE.md`).
+
+**D14 — Ghost references.**
+
+Referências a `users.cpf`, `actors.cpf_cnpj` ou `actors.kyc_status` em código/docs/DTs são **dívidas de correção**.
+
+Identificadas hoje:
+- `backend/src/modules/bank/bank-balance-by-cpf.service.ts:121-124` — `FROM users u ... AND u.cpf = $2` (coluna inexistente). Caller dormente OU silenciosamente quebrado.
+- Outras a auditar em F0 de D10.
+
+Cada ghost reference vira **DT própria** ou subfase explícita de F0. **NÃO** corrigir agora — corrigir num caminho documentado com regressão.
+
+`bank-balance-by-cpf.service.ts` em particular deve virar DT dedicada (ex.: `DT-BANK-BALANCE-BY-CPF-GHOST-USERS-CPF`) na próxima fatia documental, ratificando que a função estava materialmente quebrada e propondo correção alinhada à hipótese A (consultar `global_users.cpf → identities.tax_id` em vez de `users.cpf`).
+
+**D15 — Relação com onboarding.**
+
+Nenhuma frente grande de identity/onboarding deve implementar entrada ou edição de CPF **antes** da execução de F1+F2 (audit + backfill) de D10.
+
+A frente de onboarding (memória `project_frente_identidade_onboarding`) tem como bloqueador material esta DECISION + execução das fases F0–F2.
+
+**D16 — Relação com DT.**
+
+`DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY` permanece **OPEN**.
+
+DECISION-0062 escolhe a canonicidade (Hipótese A), mas a dívida só **fecha** quando backfill (F1+F2), leitura migrada (F4), sync/transição (entre F4 e F5) e E2Es (F3) estiverem implementados e estáveis.
+
+Reclassificação de status futuro:
+- `OPEN — BLOCKED BY DECISION-0062` enquanto F0 não iniciar.
+- `IN PROGRESS` durante F1–F4.
+- `CLOSED` apenas após F5 mergeado + janela de observação sem regressão.
+
+### Vinculadas
+
+- **`docs/01_normative/IDENTITY_SSOT_PRECEDENCE.md`** — **normativa-mãe** que DECISION-0062 estende para o domínio CORE/onboarding. Já declarava `identities` como autoridade de KYC/documento; esta DECISION fecha o gap CORE que estava órfão dessa cobertura.
+- DECISION-0060 D2/D8 (`identities.tax_id` SSOT KYC/payout/F4 — DECISION-0062 reforça e amplia globalmente)
+- DECISION-0061 D6 (`tax_id` vetado em `public_profiles` — reforçado por D13)
+- DECISION-0043 (actor como projeção contextual — não cobria CPF SSOT)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (DT alvo desta DECISION — permanece OPEN)
+- DT-USER-PROFILES-LEGACY-ORPHAN (SUPERSEDED — entrada histórica preservada)
+- DT-PAYOUT-EXTERNAL-KYC-GATE-MISSING (F4.4 — gate canônico via `identities.kyc_status='approved'`, alinhado a DECISION-0062)
+- DT-ACTOR-BANK-DESTINATION-MISSING (CLOSED em `e1536d07` — TRIGGER F4.0 já consulta `identities.tax_id`)
+- `backend/migrations/0009_create_identities.sql` (substrato `identities.tax_id`)
+- `backend/migrations/0010_migrate_identity_from_actors.sql` (DROP `actors.cpf_cnpj` + backfill — base canônica)
+- `backend/migrations/0058_users_global_users_profiles_app.sql` (substrato `global_users.cpf` + `profiles.cpf`)
+- `backend/migrations/0066_profile_support_tables.sql` (substrato `user_profiles.cpf` + `companies.cnpj`)
+- `backend/src/core/profile/profile.service.ts:418-477` (dual-write CTE — migrará em F4)
+- `backend/src/core/core.service.ts:180,225-338` (declara `cpfSource: 'user_profiles'` — migrará em F4)
+- `backend/src/core/identity/identity.service.ts:255` (escrita canônica em `identities`)
+- `backend/src/core/auth/auth.service.ts:393-397` (bug-fix CPF 2026-05-14 — caminho de bootstrap a auditar em F0/F1)
+- `backend/src/modules/bank/bank-balance-by-cpf.service.ts:121-124` (ghost reference `users.cpf` — vira DT própria em F0)
+
+### Superada por
+
+(preencher quando F0–F5 forem executadas e DECISION de implementação final for registrada)
