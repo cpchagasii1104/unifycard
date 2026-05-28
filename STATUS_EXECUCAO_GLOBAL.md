@@ -6714,3 +6714,59 @@ Placement: `src/modules/wallet/actor-wallet-debit.service.ts`.
 Semântica: DECISION-0055 (clearance `financial_recovery`, débito parcial ok, income withholding D3).
 reference_type: `actor_wallet_recovery`; concept: `actor-wallet-recovery` (já semeado em C6).
 `creditorAccountId` passado como parâmetro (C4 resolve externamente).
+
+---
+
+## Sessão 2026-05-27 — C3 FECHADO (commit `61979374`)
+
+### O que foi feito
+
+1. **`debitActorWalletForRecovery` implementado em `src/modules/wallet/actor-wallet-debit.service.ts`:**
+   - Carrega obligation + valida status (bloqueia: `pending_approval`, `recovered`, `cancelled`, `failed`)
+   - Valida approval_request: `status='approved'` + `operation_type='actor_wallet_recovery'`
+   - Calcula `amountToRecover = Math.min(remaining, balance)` via `bankLedgerRepository.calculateBalance`
+   - Short-circuit para `no_funds_available` se `amountToRecover === 0`
+   - Atômico `BEGIN/COMMIT`: `bankTransactionService.transfer` (existingClient) → INSERT `actor_wallet_recovery_obligation_entries` → UPDATE `actor_wallet_recovery_obligations` (recovered_amount_cents + status)
+   - `ROLLBACK.catch(() => {})` + `client.release()` no `finally`
+   - `reference_type='actor_wallet_recovery'`, `concept_id='actor-wallet-recovery'` (slug), `transactionType='transfer'`
+
+2. **E2E 18/18 verde** (`validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts`):
+   - T1: saldo suficiente → `recovered`, 1 entry, amountDebited=total
+   - T2: saldo parcial → `partially_recovered` (obrigação dinâmica > saldo disponível)
+   - T3: `partially_recovered` + novo saldo → segunda entry → `recovered`
+   - T4/T4b: saldo zero → `no_funds_available`, zero bank_transactions criados
+   - T5-T8: guards de status/approval (6 asserts)
+   - T9: CHK `chk_recovery_obligation_recovered_bounds` enforced no DB
+   - T10: Σentries = recovered_amount_cents (obligation limpa via serviço)
+   - T11: ledger double-entry preservado (Σdéb = Σcréd por transação)
+   - T12: zero escrita em escrow/risk/fees/regional
+   - T13/T14: actor_wallet debitada, user_wallet creditada
+   - T15: rollback (BEGIN + transfer sem entry → ROLLBACK → sem tx órfã)
+
+3. **Gates verdes:**
+   - `tsc --noEmit`: 0 erros
+   - `validate:actor-writer-boundaries`: GATE OK [§4.8.1]
+   - `validate:bank-ledger-boundaries`: GATE OK [§4.6]
+   - `validate:regression-guards`: GATE OK [financial-regression + sql-regression-lint + migrations]
+   - E2E C4 resolver: 8/8 | E2E C4b-2 backfill: 12/12 (regressão zero)
+
+### Pré-requisitos DECISION-0053 (atualizado final C3)
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | `approval_requests`/`approval_votes` materializados | DONE ✓ (DECISION-0054) |
+| C3 | Serviço de débito de `actor_wallet` | **DONE ✓ (commit `61979374`)** |
+| C4 | Resolver de `creditor_account_id` | DONE ✓ (commit `13db36d8`) |
+| C4b-1 | Helper + bug fix `payment-event-resolver` | DONE ✓ (commit `13ee5d8a`) |
+| C4b-2 | Backfill + lazy creation | DONE ✓ (commit `d3ab14f3`) |
+| C5 | Nomenclatura ratificada por `07_NOMENCLATURA_CANONICA.md` | PENDENTE |
+| C6 | Migration recovery obligations substrate | DONE ✓ (`20260530570000`) |
+| C7 | Fluxo de finalização pós-D-money | PENDENTE — DT-DMONEY-FINALIZATION-FLOW-MISSING |
+
+### Modo
+
+**C3 fechado.** O cobrador está operacional. Próximas frentes possíveis:
+- **C7** (bloqueante para fechar o caso): orquestração do fluxo pós-D-money que chama C4 resolver + C3 debit para cada obligation aberta — "o juiz de encerramento do caso".
+- **C5**: ratificação de nomenclatura por `07_NOMENCLATURA_CANONICA.md` (não bloqueia C7).
+- **Observação:** C7 requer autorização explícita de Clayton (escopo: finalização pós-D-money, não só débito).

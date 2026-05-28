@@ -6,6 +6,16 @@
 
 ---
 
+## Sessão 2026-05-27 — C3 FECHADO (commit `61979374`)
+
+`debitActorWalletForRecovery` implementado em `src/modules/wallet/actor-wallet-debit.service.ts`.
+Valida status + approval, calcula `Math.min(remaining, balance)`, atômico BEGIN/COMMIT:
+transfer(existingClient) → INSERT obligation_entries → UPDATE obligations. Short-circuit no_funds_available.
+E2E 18/18 após 4 fixes nos cenários de balanço dinâmico (T2/T4/T9/T10). Gates verdes.
+**C3 = cobrador operacional. Próxima frente C7 (orquestração pós-D-money) requer autorização Clayton.**
+
+---
+
 ## Sessão 2026-05-27 — C4b-2 FECHADO (commit `d3ab14f3`)
 
 Lazy creation inserida em `createExecution` (service-payment-execution) após guard `user_id`.
