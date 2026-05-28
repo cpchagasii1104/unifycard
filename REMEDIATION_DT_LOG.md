@@ -7247,7 +7247,7 @@ actor-scoped.
 - **Severidade:** LOW
 - **Classe:** DT-F (feature gap — link sem destino)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
+- **Resolução:** commit `26ce0e28` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
 
 ### Contexto
 
@@ -7272,7 +7272,7 @@ não expor o link até o módulo existir.
 - **Severidade:** LOW
 - **Classe:** DT-F (feature gap — link sem destino)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
+- **Resolução:** commit `26ce0e28` (sessão 2026-05-28). Zero backend, zero migration. Apenas frontend.
 
 ### Contexto
 
