@@ -33,6 +33,7 @@ import {
   type ActorWalletPayoutRequestRow,
   toActorWalletPayoutRequest,
 } from './actor-wallet-payout-request.types';
+import { calculateActorWalletBalanceProjection } from './actor-wallet-balance-projection';
 
 // ── Error class ───────────────────────────────────────────────────────────────
 
@@ -44,7 +45,8 @@ export class ActorWalletPayoutError extends Error {
       | 'ACTOR_WALLET_PAYOUT_MISSING_REASON'
       | 'ACTOR_WALLET_PAYOUT_MISSING_REQUESTED_BY'
       | 'ACTOR_WALLET_NOT_FOUND'
-      | 'ACTOR_WALLET_PAYOUT_INSUFFICIENT_AVAILABLE_BALANCE',
+      | 'ACTOR_WALLET_PAYOUT_INSUFFICIENT_AVAILABLE_BALANCE'
+      | 'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE',
     message: string
   ) {
     super(message);
@@ -132,9 +134,28 @@ class ActorWalletPayoutService {
       // Recalcular snapshot para retorno informativo (saldo pode ter mudado)
       const wallet = await bankAccountService.getActorWalletAccount(tenantId, actorId);
       const snapshot = wallet
-        ? await this._calculateSnapshot(tenantId, actorId, wallet.accountId)
+        ? await calculateActorWalletBalanceProjection(tenantId, actorId, wallet.accountId)
         : { grossBalanceCents: 0, pendingRecoveryCents: 0, availableBalanceCents: 0 };
       return { payoutRequest: existingRequest, alreadyExisted: true, balanceSnapshot: snapshot };
+    }
+
+    // ── 2b. Active-gate — um actor só pode ter 1 request ativo por vez ────────
+    // Idempotência vem antes: mesma key não ativa este gate.
+    // Previne exposição semântica a aprovação duplicada (DECISION-0058 hardening).
+
+    const activeRequest = await pool.query<{ id: string }>(
+      `SELECT id FROM actor_wallet_payout_requests
+        WHERE tenant_id = $1 AND actor_id = $2
+          AND status IN ('pending_approval', 'approved', 'processing')
+        LIMIT 1`,
+      [tenantId, actorId]
+    );
+    if (activeRequest.rows[0]) {
+      throw new ActorWalletPayoutError(
+        'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE',
+        `actor ${actorId} já possui request ativo (id=${activeRequest.rows[0].id}). ` +
+          `Cancele ou aguarde a resolução do pedido anterior antes de criar um novo.`
+      );
     }
 
     // ── 3. Verificar actor_wallet ─────────────────────────────────────────────
@@ -150,7 +171,7 @@ class ActorWalletPayoutService {
     // ── 4. Snapshot informativo de saldo ──────────────────────────────────────
     // Calculado ANTES da TX; não é SSOT — F3 recalcula com SELECT FOR UPDATE.
 
-    const snapshot = await this._calculateSnapshot(tenantId, actorId, wallet.accountId);
+    const snapshot = await calculateActorWalletBalanceProjection(tenantId, actorId, wallet.accountId);
 
     // ── 5. Gate de criação: amount <= available no snapshot ───────────────────
     // Filtro conservador de criação de pedido. NÃO substitui a validação em F3.
@@ -232,37 +253,25 @@ class ActorWalletPayoutService {
         alreadyExisted: false,
         balanceSnapshot: snapshot,
       };
-    } catch (err) {
+    } catch (err: any) {
       await client.query('ROLLBACK').catch(() => {});
+      // Race condition: dois requests paralelos passaram pelo active-gate
+      // antes que um deles comitasse — partial index captura aqui.
+      if (
+        err.code === '23505' &&
+        err.constraint === 'uidx_actor_wallet_payout_one_active_per_actor'
+      ) {
+        throw new ActorWalletPayoutError(
+          'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE',
+          `actor ${actorId} já possui request ativo (conflito de concorrência detectado pelo index).`
+        );
+      }
       throw err;
     } finally {
       client.release();
     }
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────────────
-
-  private async _calculateSnapshot(
-    tenantId: string,
-    actorId: string,
-    accountId: string
-  ): Promise<{ grossBalanceCents: number; pendingRecoveryCents: number; availableBalanceCents: number }> {
-    const [balanceResult, obligResult] = await Promise.all([
-      bankAccountService.getBalance(tenantId, accountId),
-      pool.query<{ pending_cents: string }>(
-        `SELECT COALESCE(SUM(amount_cents - recovered_amount_cents), 0)::text AS pending_cents
-           FROM actor_wallet_recovery_obligations
-          WHERE tenant_id = $1
-            AND debtor_actor_id = $2
-            AND status IN ('approved', 'partially_recovered')`,
-        [tenantId, actorId]
-      ),
-    ]);
-    const grossBalanceCents = balanceResult.balanceCents;
-    const pendingRecoveryCents = parseInt(obligResult.rows[0]!.pending_cents, 10);
-    const availableBalanceCents = Math.max(0, grossBalanceCents - pendingRecoveryCents);
-    return { grossBalanceCents, pendingRecoveryCents, availableBalanceCents };
-  }
 }
 
 export const actorWalletPayoutService = new ActorWalletPayoutService();

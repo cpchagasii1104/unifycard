@@ -277,22 +277,25 @@ async function main() {
     let firstPayoutId: string | null = null;
     try {
       firstPayoutId = uuidv4();
+      // status='cancelled' (terminal) — evita conflito com partial unique index
+      // enquanto T2's row (pending_approval) ainda está ativa no mesmo test run.
+      // O UNIQUE uq_payout_request_idempotency não filtra por status.
       await q(
         `INSERT INTO actor_wallet_payout_requests
            (id, tenant_id, actor_id, actor_wallet_account_id,
-            requested_amount_cents, destination_type, idempotency_key)
-         VALUES ($1,$2,$3,$4,2000,'internal_settlement',$5)`,
+            requested_amount_cents, destination_type, idempotency_key, status)
+         VALUES ($1,$2,$3,$4,2000,'internal_settlement',$5,'cancelled')`,
         [firstPayoutId, TENANT_ID, actorId, accountId, idemKey],
       );
       payoutIds.push(firstPayoutId);
 
-      // Tentar inserir segundo com mesma chave
+      // Tentar inserir segundo com mesma chave — deve falhar por uq_payout_request_idempotency
       try {
         await q(
           `INSERT INTO actor_wallet_payout_requests
              (id, tenant_id, actor_id, actor_wallet_account_id,
-              requested_amount_cents, destination_type, idempotency_key)
-           VALUES ($1,$2,$3,$4,3000,'internal_settlement',$5)`,
+              requested_amount_cents, destination_type, idempotency_key, status)
+           VALUES ($1,$2,$3,$4,3000,'internal_settlement',$5,'cancelled')`,
           [uuidv4(), TENANT_ID, actorId, accountId, idemKey],
         );
         fail('T8', 'segundo INSERT com mesma idempotency_key deveria ter falhado');

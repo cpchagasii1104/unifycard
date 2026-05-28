@@ -46,6 +46,7 @@ import {
   actorWalletPayoutService,
   ActorWalletPayoutError,
 } from '../modules/wallet/actor-wallet-payout.service';
+import { calculateActorWalletBalanceProjection } from '../modules/wallet/actor-wallet-balance-projection';
 
 dotenv.config({ path: join(process.cwd(), 'backend', '.env') });
 
@@ -322,31 +323,29 @@ async function main() {
     }
 
     // ── T5: amount <= available passa ─────────────────────────────────────────
-    console.log('T5 — amount=1 <= available projetado passa criação');
-    // T1 já prova isso (amount=1 criou com sucesso), mas reconfirmamos explicitamente
+    // Após F2 hardening: active-gate bloqueia nova criação enquanto R1 (T1) está ativo.
+    // T1 já provou que amount=1 <= available cria pedido. T5 confirma via snapshot.
+    console.log('T5 — snapshot confirma available >= 1 (T1 já provou que criação passa)');
     try {
-      const idem5 = `f2-t5-${uuidv4().slice(0, 8)}`;
-      const res5 = await actorWalletPayoutService.requestActorWalletPayout({
-        tenantId: TENANT_ID,
-        actorId,
-        requestedByUserId: userId,
-        requestedAmountCents: 1,
-        idempotencyKey: idem5,
-        reason: 'e2e T5',
-      });
-      createdPayoutIds.push(res5.payoutRequest.id);
-      if (res5.payoutRequest.status === 'pending_approval') {
-        ok('T5', `amount=1 criou pedido — available=${res5.balanceSnapshot.availableBalanceCents}`);
+      const snap5 = await calculateActorWalletBalanceProjection(TENANT_ID, actorId, actorWalletAccountId);
+      if (snap5.availableBalanceCents >= 1) {
+        ok('T5', `snapshot: available=${snap5.availableBalanceCents} >= 1 — T1 provou que criação passa`);
       } else {
-        fail('T5', 'status inesperado: ' + res5.payoutRequest.status);
+        fail('T5', `available=${snap5.availableBalanceCents} — saldo insuficiente para provar T5`);
       }
     } catch (e: any) {
       fail('T5', e.message);
     }
 
     // ── T6: amount > available falha INSUFFICIENT_AVAILABLE_BALANCE ───────────
-    console.log('T6 — amount > available projetado falha com INSUFFICIENT_AVAILABLE_BALANCE');
+    // Active-gate é verificado antes do balance-gate. Cancelar R1 primeiro para
+    // que o balance-gate seja alcançado com nova key.
+    console.log('T6 — cancela R1, nova key com amount > available → INSUFFICIENT_AVAILABLE_BALANCE');
     try {
+      // Cancelar R1 (de T1) para que o active-gate não intercepte T6
+      if (createdPayoutIds[0]) {
+        await q(`UPDATE actor_wallet_payout_requests SET status='cancelled' WHERE id=$1`, [createdPayoutIds[0]]);
+      }
       await actorWalletPayoutService.requestActorWalletPayout({
         tenantId: TENANT_ID,
         actorId,
@@ -363,6 +362,7 @@ async function main() {
         fail('T6', 'erro inesperado: ' + e.message);
       }
     }
+    // Estado após T6: R1 está cancelled; nenhum request ativo para actorId
 
     // ── T7: obligation 'approved' reduz available ─────────────────────────────
     console.log('T7 — obligation approved reduz available no snapshot');
@@ -370,7 +370,7 @@ async function main() {
     try {
       obligT7 = await insertObligFixture(TENANT_ID, actorId, actorWalletAccountId, 50000, 'approved', 0);
       obligFixtures.push(obligT7);
-      const snap = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snap = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       if (snap.pendingRecoveryCents >= 50000) {
@@ -394,7 +394,7 @@ async function main() {
       // amount=10000, recovered=3000 → pending=7000
       obligT8 = await insertObligFixture(TENANT_ID, actorId, actorWalletAccountId, 10000, 'partially_recovered', 3000);
       obligFixtures.push(obligT8);
-      const snap = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snap = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       if (snap.pendingRecoveryCents >= 7000) {
@@ -417,13 +417,13 @@ async function main() {
     try {
       obligT9 = await insertObligFixture(TENANT_ID, actorId, actorWalletAccountId, 50000, 'pending_approval', 0);
       obligFixtures.push(obligT9);
-      const snapBefore = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapBefore = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       await cleanupObligFixture(obligT9.obligId, obligT9.fakeTxId, obligT9.fakeIntentId);
       obligFixtures.pop();
       obligT9 = null;
-      const snapAfter = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapAfter = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       if (snapBefore.pendingRecoveryCents === snapAfter.pendingRecoveryCents) {
@@ -445,13 +445,13 @@ async function main() {
     try {
       obligT10 = await insertObligFixture(TENANT_ID, actorId, actorWalletAccountId, 50000, 'recovered', 50000);
       obligFixtures.push(obligT10);
-      const snapBefore = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapBefore = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       await cleanupObligFixture(obligT10.obligId, obligT10.fakeTxId, obligT10.fakeIntentId);
       obligFixtures.pop();
       obligT10 = null;
-      const snapAfter = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapAfter = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       if (snapBefore.pendingRecoveryCents === snapAfter.pendingRecoveryCents) {
@@ -473,13 +473,13 @@ async function main() {
     try {
       obligT11 = await insertObligFixture(TENANT_ID, actorId, actorWalletAccountId, 50000, 'cancelled', 0);
       obligFixtures.push(obligT11);
-      const snapBefore = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapBefore = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       await cleanupObligFixture(obligT11.obligId, obligT11.fakeTxId, obligT11.fakeIntentId);
       obligFixtures.pop();
       obligT11 = null;
-      const snapAfter = await (actorWalletPayoutService as any)._calculateSnapshot(
+      const snapAfter = await calculateActorWalletBalanceProjection(
         TENANT_ID, actorId, actorWalletAccountId
       );
       if (snapBefore.pendingRecoveryCents === snapAfter.pendingRecoveryCents) {
@@ -534,11 +534,13 @@ async function main() {
     try {
       // Injetamos uma idempotency_key que causaria UNIQUE violation no payout_request
       // para forçar rollback: primeiro criamos uma row com a key diretamente
+      // Status 'cancelled' (terminal) — partial unique index não se aplica a terminais.
+      // O service detecta idempotência pela key INDEPENDENTE do status.
       await q(
         `INSERT INTO actor_wallet_payout_requests
            (id, tenant_id, actor_id, actor_wallet_account_id,
             requested_amount_cents, destination_type, idempotency_key, status)
-         VALUES ($1,$2,$3,$4,1,'internal_settlement',$5,'pending_approval')`,
+         VALUES ($1,$2,$3,$4,1,'internal_settlement',$5,'cancelled')`,
         [uuidv4(), TENANT_ID, actorId, actorWalletAccountId, idem13]
       );
       // Agora chamar o service com a mesma key → idempotência (não erro)
@@ -559,6 +561,152 @@ async function main() {
       }
     } catch (e: any) {
       fail('T13', 'erro inesperado: ' + e.message);
+    }
+
+    // ── Setup T17/T18/T20: criar request ativo (R1 foi cancelado em T6) ────────
+    // Após T6, actorId não tem request ativo. Criar um novo para provar T17/T18/T20.
+    const idem17Setup = `f2-t17s-${uuidv4().slice(0, 8)}`;
+    let r17setupId: string | null = null;
+    try {
+      const r17setup = await actorWalletPayoutService.requestActorWalletPayout({
+        tenantId: TENANT_ID,
+        actorId,
+        requestedByUserId: userId,
+        requestedAmountCents: 1,
+        idempotencyKey: idem17Setup,
+        reason: 'setup para T17/T18/T19/T20',
+      });
+      r17setupId = r17setup.payoutRequest.id;
+      createdPayoutIds.push(r17setupId);
+    } catch (e: any) {
+      // Se falhar, T17/T18/T19/T20 vão fail com contexto explícito
+    }
+
+    // ── T17: segunda key diferente falha com ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE
+    console.log('T17 — segunda idempotency_key diferente falha com ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE');
+    {
+      if (!r17setupId) {
+        fail('T17', 'Pré-condição: setup r17 falhou — sem request ativo para testar');
+      } else {
+        try {
+          await actorWalletPayoutService.requestActorWalletPayout({
+            tenantId: TENANT_ID,
+            actorId,
+            requestedByUserId: userId,
+            requestedAmountCents: 1,
+            idempotencyKey: `f2-t17-${uuidv4().slice(0, 8)}`,
+            reason: 'e2e T17 — deve falhar com ALREADY_ACTIVE',
+          });
+          fail('T17', 'deveria ter falhado com ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE');
+        } catch (e: any) {
+          if (e instanceof ActorWalletPayoutError && e.code === 'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE') {
+            ok('T17', 'ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE lançado corretamente para nova key com request ativo');
+          } else {
+            fail('T17', 'erro inesperado: ' + e.message);
+          }
+        }
+      }
+    }
+
+    // ── T18: mesma key não ativa o active-gate (idempotência prevalece) ───────
+    console.log('T18 — mesma idempotency_key não falha com ALREADY_ACTIVE (idempotência prevalece)');
+    if (r17setupId) {
+      try {
+        // Chamar com a mesma key do setup — deve retornar alreadyExisted=true
+        const res18 = await actorWalletPayoutService.requestActorWalletPayout({
+          tenantId: TENANT_ID,
+          actorId,
+          requestedByUserId: userId,
+          requestedAmountCents: 1,
+          idempotencyKey: idem17Setup, // mesma key do setup
+          reason: 'e2e T18 — idempotência deve prevalecer sobre active-gate',
+        });
+        if (res18.alreadyExisted === true) {
+          const approvalCount = await q(
+            `SELECT COUNT(*) AS n FROM actor_wallet_payout_requests
+              WHERE tenant_id=$1 AND actor_id=$2 AND status='pending_approval'`,
+            [TENANT_ID, actorId]
+          );
+          ok('T18', `alreadyExisted=true — idempotência prevaleceu sobre active-gate (pending_count=${approvalCount.rows[0].n})`);
+        } else {
+          fail('T18', 'esperava alreadyExisted=true mas obteve alreadyExisted=false');
+        }
+      } catch (e: any) {
+        fail('T18', 'lançou erro inesperado: ' + e.message);
+      }
+    } else {
+      fail('T18', 'setup T17 falhou — sem request ativo para testar');
+    }
+
+    // ── T19: request terminal permite novo request ────────────────────────────
+    // Cancela r17setup (terminal) → nova key deve passar pelo active-gate.
+    // Usa o mesmo actorId (saldo ~110100, amount=1 passa balance-gate).
+    console.log('T19 — request terminal (cancelled) permite novo pedido com nova key');
+    try {
+      if (!r17setupId) {
+        fail('T19', 'Pré-condição: setup r17 falhou — não é possível testar T19');
+      } else {
+        // Simular encerramento do request
+        await q(`UPDATE actor_wallet_payout_requests SET status='cancelled' WHERE id=$1`, [r17setupId]);
+
+        // Nova key → active-gate passa (r17setup é terminal), balance-gate passa (saldo disponível)
+        const res19 = await actorWalletPayoutService.requestActorWalletPayout({
+          tenantId: TENANT_ID,
+          actorId,
+          requestedByUserId: userId,
+          requestedAmountCents: 1,
+          idempotencyKey: `f2-t19-${uuidv4().slice(0, 8)}`,
+          reason: 'e2e T19 — novo pedido após terminal',
+        });
+        createdPayoutIds.push(res19.payoutRequest.id);
+
+        if (res19.payoutRequest.status === 'pending_approval' && res19.alreadyExisted === false) {
+          ok('T19', `request terminal permite novo pedido — id=${res19.payoutRequest.id.slice(0, 8)}`);
+        } else {
+          fail('T19', `status=${res19.payoutRequest.status} alreadyExisted=${res19.alreadyExisted}`);
+        }
+      }
+    } catch (e: any) {
+      fail('T19', e.message);
+    }
+    // Estado após T19: res19 está pending_approval — ativo para T20
+
+    // ── T20: partial unique index bloqueia INSERT direto ─────────────────────
+    // T19 criou um request ativo (pending_approval) para actorId.
+    // INSERT direto com mesmo actor + status ativo deve violar o partial index.
+    console.log('T20 — partial unique index bloqueia segundo INSERT direto com mesmo actor ativo');
+    {
+      const activeForT20 = await q(
+        `SELECT id FROM actor_wallet_payout_requests
+          WHERE tenant_id=$1 AND actor_id=$2
+            AND status IN ('pending_approval','approved','processing')
+          LIMIT 1`,
+        [TENANT_ID, actorId]
+      );
+      if (!activeForT20.rows[0]) {
+        fail('T20', 'Pré-condição: nenhum request ativo para actorId — T19 pode ter falhado');
+      } else {
+        const directId = uuidv4();
+        let inserted = false;
+        try {
+          await q(
+            `INSERT INTO actor_wallet_payout_requests
+               (id, tenant_id, actor_id, actor_wallet_account_id,
+                requested_amount_cents, destination_type, idempotency_key, status)
+             VALUES ($1,$2,$3,$4,1,'internal_settlement',$5,'pending_approval')`,
+            [directId, TENANT_ID, actorId, actorWalletAccountId, `f2-t20-${uuidv4().slice(0, 8)}`]
+          );
+          inserted = true;
+          fail('T20', 'INSERT direto deveria ter falhado com 23505 (partial index)');
+          await q(`DELETE FROM actor_wallet_payout_requests WHERE id=$1`, [directId]).catch(() => {});
+        } catch (e: any) {
+          if (!inserted && (e.code === '23505' || String(e.message).includes('uidx_actor_wallet_payout_one_active_per_actor'))) {
+            ok('T20', 'partial unique index bloqueou INSERT direto com 23505');
+          } else if (!inserted) {
+            fail('T20', 'erro inesperado (não é 23505): ' + e.message);
+          }
+        }
+      }
     }
 
     // ── T14: zero bank_ledger ─────────────────────────────────────────────────

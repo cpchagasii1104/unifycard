@@ -23,6 +23,7 @@
 
 import { pool } from '@core/database/pool';
 import { bankAccountService } from '@modules/bank/bank-account.service';
+import { calculateActorWalletBalanceProjection } from './actor-wallet-balance-projection';
 import type { BankCurrency } from '@modules/bank/bank-account.types';
 
 export type WalletEntryDirection = 'credit' | 'debit';
@@ -105,20 +106,8 @@ class ActorWalletStatementService {
     if (!wallet) {
       return { actorWallet: null, entries: [] };
     }
-    const grossBalanceCents = (await bankAccountService.getBalance(tenantId, wallet.accountId))
-      .balanceCents;
-
-    // Pending recovery projection (read-only — SSOT é bank_ledger, não este campo).
-    const obligResult = await pool.query<{ pending_cents: string }>(
-      `SELECT COALESCE(SUM(amount_cents - recovered_amount_cents), 0)::text AS pending_cents
-         FROM actor_wallet_recovery_obligations
-        WHERE tenant_id = $1
-          AND debtor_actor_id = $2
-          AND status IN ('approved', 'partially_recovered')`,
-      [tenantId, actorId]
-    );
-    const pendingRecoveryCents = parseInt(obligResult.rows[0]!.pending_cents, 10);
-    const availableBalanceCents = Math.max(0, grossBalanceCents - pendingRecoveryCents);
+    const { grossBalanceCents, pendingRecoveryCents, availableBalanceCents } =
+      await calculateActorWalletBalanceProjection(tenantId, actorId, wallet.accountId);
 
     // Query única com JOINs LEFT — reconstrói origem para D-money entries.
     // Entries sem JOIN bem-sucedido (sourceType='unknown') aparecem
