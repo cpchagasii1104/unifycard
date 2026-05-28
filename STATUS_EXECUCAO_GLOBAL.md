@@ -7495,3 +7495,50 @@ Regressões completas verde:
 - F4.0 DONE (commit `e1536d07`)
 - F4.1 / F4.2 / F4.3 / F4.4 continuam OPEN / NOT AUTHORIZED
 - DECISION-0058 / 0059 / 0060 vigentes
+
+## Sessão 2026-05-28 — DECISION-0061 ACTOR_PUBLIC_PROFILE_CANONICALITY (documental)
+
+### Escopo
+
+Decisão documental append-only. Zero código. Zero migration. Zero schema.
+
+Raio-X material de `public_profiles` confirmou duplicação direta com `actors`
+(slug/display_name/bio/avatar_url/cover_url/metadata) + 0 rows runtime + zero
+consumer frontend. DECISION-0061 escolheu Hipótese C (convivência declarada).
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DECISIONS_LOG.md` | **Nova DECISION-0061** — D1–D10 fixam SSOT `actors` para identidade pública básica; `public_profiles` reservada como camada complementar; vetos explícitos contra vazamento (tax_id, kyc_status, cpf legado) |
+| `REMEDIATION_DT_LOG.md` | DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER atualizada: status **OPEN — BLOCKED BY DECISION-0061**. **Não fechada.** |
+| `opus.md` | Memória curta sobre DECISION-0061 e próximo passo recomendado (C2 primeiro) |
+
+### Estado das DTs relacionadas
+
+| DT | Status |
+|----|--------|
+| DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER | OPEN — BLOCKED BY DECISION-0061 |
+| DT-USER-PROFILES-LEGACY-ORPHAN | OPEN (escopo ortogonal, não tocada) |
+| DT-PE5-PF-RESOLVER-PENDING | OPEN — resolução PARCIAL via DECISION-0061 para o ângulo social; ângulo PF presencial/remoto continua aberto |
+| DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK | OPEN (escopo distinto, não tocada) |
+
+### Confirmações de escopo
+
+- ✅ Zero `.ts` / `.tsx` / `.sql` alterado
+- ✅ Zero migration
+- ✅ Zero frontend runtime
+- ✅ Zero backend runtime
+- ✅ Zero alteração em `actors` / `public_profiles` / `profiles` / `user_profiles` / `identities`
+- ✅ Zero schema alterado
+- ✅ F4.0 permanece DONE
+- ✅ F4.1 / F4.2 / F4.3 / F4.4 continuam OPEN / NOT AUTHORIZED
+- ✅ Arquivos ambientais (`.claude/settings.local.json`, `frontend_src_completo.txt`, screenshots, logs) NÃO commitados
+
+### Próximo passo recomendado
+
+C2 (neutralização temporária) primeiro — manter `public_profiles` sem consumer,
+documentar substrato reservado, usar `actors` como caminho MVP, eventualmente
+remover callers dormentes em `venue.routes.ts`. Depois, se houver demanda real
+de produto, C1 (saneamento de schema com migration de DROP COLUMN). Cada uma
+exige prompt executor próprio com autorização explícita Clayton.

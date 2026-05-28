@@ -5231,3 +5231,171 @@ Qualquer conflito futuro entre DECISION-0059 D5 (referência obsoleta a
 ### Superada por
 
 (preencher quando F4.0 for autorizada por prompt executor específico e DECISIONs sub-frentes forem registradas)
+
+---
+
+## DECISION-0061 — ACTOR_PUBLIC_PROFILE_CANONICALITY
+
+**Status:** APROVADA COMO ESCOLHA DE CANONICIDADE — IMPLEMENTAÇÃO NÃO AUTORIZADA (2026-05-28).
+**Sessão:** 2026-05-28 (raio-X documental pré-fatia perfil público).
+**Decisor:** Clayton.
+**Commit âncora:** documental (sem código).
+**Hipótese escolhida:** **Hipótese C — convivência declarada**.
+
+### Contexto
+
+Raio-X da `DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER` confirmou materialmente:
+
+- Tabela `public_profiles` existe (migration `20260530440000_public_profiles.sql`).
+- Module backend completo: `backend/src/modules/public-profiles/` (types + repository + service + routes).
+- 5 rotas REST registradas em `protectedScope` (`app.builder.ts:666-667`).
+- Frontend tem **zero** referências a `public_profiles` / `publicProfiles` / `public-profile`.
+- Runtime `unificard_dev`: **0 rows** em `public_profiles`.
+- 80 actors com `slug` populado em `actors` em runtime.
+- Endpoint canônico consumido pelo frontend é `GET /social/actors/:id` (lê de `actors`), não de `public_profiles`.
+- Único caller adjacente de `publicProfileService` (`venue.routes.ts`) está dormente porque a tabela está vazia.
+
+Duplicação material confirmada entre `actors` e `public_profiles` para os campos:
+`display_name`, `slug`, `avatar_url`, `cover_url`, `bio`, `metadata`.
+
+Em `actors`: populado em runtime. Em `public_profiles`: zero rows. SSOT de fato hoje é `actors`.
+
+Implementar consumer frontend de `public_profiles` agora criaria duas verdades públicas do mesmo actor instantaneamente.
+
+### Axioma central
+
+A identidade pública básica do actor (nome de exibição, slug, avatar, capa, bio, metadata básica) vive em `actors`. Esta DECISION-0061 ratifica a realidade de runtime e bloqueia o caminho de divergência.
+
+`public_profiles` é camada pública/social complementar — não substituto, não duplicação, não competidor de identidade pública básica.
+
+### Decisões (D1–D10)
+
+**D1 — `actors` é o SSOT da identidade pública básica do actor.**
+
+Campos canônicos em `actors`:
+- `display_name`
+- `slug`
+- `avatar_url`
+- `cover_url`
+- `bio`
+- `metadata` (básica do actor)
+
+Razões:
+- Já populados em runtime (80 actors com slug).
+- `/social/actors/:id` já serve esses campos.
+- Frontend (`ProfilePage`, `CompanyPage`) já consome esse endpoint.
+- Migrar para `public_profiles` agora teria alto blast radius.
+- Deletar `public_profiles` agora perderia a intenção de camada pública/social futura.
+
+**D2 — `public_profiles` NÃO é SSOT de identidade pública básica.**
+
+`public_profiles` está proibida de competir com `actors` por:
+- nome público (`display_name`)
+- slug
+- avatar (`avatar_url`)
+- capa (`cover_url`)
+- bio
+- metadata básica
+
+Qualquer migration/service futuro que reintroduza ou rebata essa duplicação é VETADO até DECISION nova.
+
+**D3 — `public_profiles` é camada pública/social complementar do actor.**
+
+Campos conceitualmente pertencentes a `public_profiles`:
+- `visibility` (público | privado | followers_only)
+- `is_public`
+- `is_verified` (verificação pública/social — NÃO KYC)
+- `profile_type` (apenas se reconciliado com `actors.actor_type` — ver D8)
+- `follower_count` / `following_count` (apenas se definidos como projeção/cache com fonte de atualização explícita — ver D7)
+- metadata pública-social específica (NÃO identity fiscal)
+
+**D4 — Estado atual classificado: substrato órfão/parcial.**
+
+- Tabela existe.
+- Backend tem módulo vivo.
+- Runtime tem 0 rows.
+- Frontend não consome.
+- Há duplicação material com `actors`.
+
+`public_profiles` permanece sem caller frontend ativo até saneamento (ver D9).
+
+**D5 — Frontend NÃO deve consumir `public_profiles` enquanto a duplicação não for removida.**
+
+Bloqueio operacional: qualquer fatia que introduza `getPublicProfile`/equivalente no frontend antes de migration de saneamento (C1) ou neutralização declarada (C2) é VETADA por esta DECISION.
+
+`GET /social/actors/:id` continua sendo a rota canônica para perfil público no MVP.
+
+**D6 — Proibições explícitas de vazamento de dado privado.**
+
+`public_profiles`, hoje e em qualquer evolução futura:
+
+- NUNCA expor `identities.tax_id` (CPF/CNPJ) em payload público.
+- NUNCA expor `identities.kyc_status` como dado público bruto.
+- NUNCA expor `user_profiles.cpf` (legado).
+- Perfil privado editável (`PerfilPage` / `api/profile` / `api/identity`) NÃO vira payload público.
+- `public_profiles.metadata` NÃO retorna bruto ao frontend público sem allowlist explícita.
+
+A allowlist é responsabilidade do service que servir o read model.
+
+**D7 — `follower_count` / `following_count` exigem decisão própria antes de virarem verdade.**
+
+Enquanto não houver job/trigger/projeção canônica definida:
+- Contagem agregada em runtime via `social-2.0.service.getActorCounts` permanece fonte de exibição.
+- Colunas materializadas em `public_profiles.follower_count` / `public_profiles.following_count` **NÃO devem ser usadas como verdade**.
+- Reimplementação como projeção exige DECISION futura definindo: fonte do incremento, política de atualização (trigger vs job), tolerância a divergência.
+
+**D8 — `profile_type` precisa ser reconciliado com `actors.actor_type`.**
+
+Mismatch atual:
+- `public_profiles.profile_type`: `'user' | 'page' | 'group' | 'cultural_profile'`
+- `actors.actor_type` (após 0064): 10 valores incluindo `'user'`, `'page'`, `'group'`, `'channel'`, `'actor_human'`, `'actor_organizational'`, `'actor_system'`, `'person'`, `'company'`, `'system'` (mas NÃO `'cultural_profile'`).
+
+Enquanto não houver reconciliação:
+- `actors.actor_type` vence como identidade do actor.
+- `public_profiles.profile_type` **NÃO decide identidade do actor**.
+- Pode existir como atributo de visibilidade/categorização social, sem autoridade tipológica.
+
+**D9 — Próxima implementação futura, quando autorizada, deve seguir uma de duas trilhas.**
+
+**C1 — Saneamento de schema (caminho cirúrgico):**
+- Migration de DROP COLUMN em `public_profiles` para campos duplicados com `actors`
+  (`display_name`, `slug`, `bio`, `avatar_url`, `cover_url`, `metadata`).
+- Manter apenas campos sociais/complementares (D3).
+- Ajustar `public-profile.service.ts` + `public-profile.repository.ts` para não retornar/aceitar campos duplicados.
+- Decidir seed/backfill mínimo de `public_profiles` por actor existente, se necessário.
+- Frontend só consome após isso.
+
+**C2 — Neutralização temporária (caminho conservador):**
+- Manter `public_profiles` sem consumer frontend.
+- Documentar como substrato reservado para futura saneação.
+- Reclassificar `DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER` como blocked-by-decision.
+- Usar `actors` como caminho MVP para perfil público (estado atual ratificado).
+- Eventual remoção de `venue.routes.ts` consumers do `publicProfileService` se eles também não tiverem fluxo ativo.
+
+Nenhuma das duas está autorizada por esta DECISION. Esta DECISION apenas fixa qual hipótese vence quando o prompt executor for criado.
+
+**D10 — Relação com DTs.**
+
+- **DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER** permanece **OPEN**, agora bloqueada por implementação futura (C1 ou C2) conforme esta DECISION.
+- **DT-USER-PROFILES-LEGACY-ORPHAN** permanece **OPEN** — escopo ortogonal (`user_profiles.cpf` superseded por `identities.tax_id`, decisão de DROP fica para fatia própria).
+- **DT-PE5-PF-RESOLVER-PENDING** (`REMEDIATION_DT_LOG.md:6234`) referencia parcialmente esta DECISION-0061 — para a questão "qual tabela é canônica para `profile_id` entre `public_profiles` e `user_profiles`", a resposta canônica é: **nenhuma das duas** para identidade pública básica (essa vive em `actors`). A DT continua OPEN para o ângulo de PF presencial/remoto que esta DECISION não cobre.
+- Nenhuma DT fechada nesta execução.
+
+### Vinculadas
+
+- DECISION-0043 (actor como projeção contextual — não cobria SSOT pública de perfil; esta DECISION-0061 a complementa)
+- DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER (DT alvo do raio-X)
+- DT-USER-PROFILES-LEGACY-ORPHAN (legado ortogonal)
+- DT-PE5-PF-RESOLVER-PENDING (resolução parcial — domínio social)
+- `backend/migrations/0002_identity.sql` (`actors` base)
+- `backend/migrations/0064_add_user_id_to_actors.sql` (slug/bio/avatar/cover em `actors`)
+- `backend/migrations/20260530440000_public_profiles.sql` (substrato visado)
+- `backend/migrations/0066_profile_support_tables.sql` (`user_profiles` legado)
+- `backend/src/modules/social/social-2.0.routes.ts` linhas 498-540 (`/social/actors/:id` — endpoint canônico vigente)
+- `backend/src/modules/social/actor.repository.ts` (SELECT `actors`)
+- `frontend/src/api/social-2.0.ts:255-258` (`getActorProfile`)
+- `frontend/src/components/social/ProfilePage.tsx` (consumer atual)
+
+### Superada por
+
+(preencher quando saneamento C1 ou neutralização C2 for autorizada e DECISION de implementação for registrada)

@@ -7094,10 +7094,11 @@ F4 NOT AUTHORIZED. Sem F4, KYC gate externo não tem caller.
 
 ## DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** OPEN — BLOCKED BY DECISION-0061 (2026-05-28). Raio-X material concluído nesta sessão confirmou: tabela existe + backend module vivo + 0 rows runtime + frontend não consome + `/social/actors/:id` lê de `actors` que tem todas as colunas duplicadas (`display_name`, `slug`, `bio`, `avatar_url`, `cover_url`, `metadata`). DECISION-0061 escolheu Hipótese C — `actors` SSOT de identidade pública básica; `public_profiles` reservada como camada pública/social complementar (`visibility`, `is_public`, `is_verified` não-KYC, `profile_type` reconciliado, contadores como projeção definida). Implementação futura segue C1 (saneamento de schema) ou C2 (neutralização temporária) conforme prompt executor futuro.
 - **Severidade:** MEDIUM
 - **Classe:** DT-D (drift — substrato sem consumer alinhado)
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+- **Não fechada:** implementação (saneamento C1 ou neutralização C2) ainda pendente. DECISION-0061 é cerca documental, não estrada.
 
 ### Contexto
 
@@ -7120,13 +7121,26 @@ O frontend continua tratando partes do perfil como user-keyed.
 
 ### Resolução prevista
 
-Decisão de produto sobre frontend (Codex) consumir `public_profiles` para os
-campos actor-scoped OU decisão explícita de arquivar/substituir o substrato.
+DECISION-0061 fixou canonicidade: `actors` é SSOT de identidade pública básica;
+`public_profiles` é camada complementar. Próximo prompt executor escolherá entre:
+
+- **C1 — Saneamento**: migration de DROP COLUMN para remover duplicação em
+  `public_profiles`; manter apenas campos sociais/complementares; ajustar
+  service+repository; decidir seed/backfill; frontend só consome depois.
+- **C2 — Neutralização temporária**: manter substrato sem consumer; documentar
+  reserva; usar `actors` como caminho MVP; eventualmente remover callers
+  dormentes em `venue.routes.ts` se também não tiverem fluxo ativo.
+
+Nenhuma das duas autorizada por DECISION-0061. Aguarda prompt executor próprio
+com escolha explícita Clayton.
 
 ### Vinculadas
 
-- DECISION-0043 (actor como modo operacional)
+- **DECISION-0061** (canonicidade pública do perfil do actor — escolha de hipótese C)
+- DECISION-0043 (actor como modo operacional — não cobre SSOT pública de perfil; DECISION-0061 complementa)
 - DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT (drift relacionado entre perfil e actor)
+- DT-USER-PROFILES-LEGACY-ORPHAN (legado ortogonal — `user_profiles.cpf` superseded por `identities.tax_id`)
+- DT-PE5-PF-RESOLVER-PENDING (resolução parcial via DECISION-0061 — domínio social fixado)
 
 ---
 
