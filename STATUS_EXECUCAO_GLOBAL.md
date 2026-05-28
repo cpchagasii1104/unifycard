@@ -6770,3 +6770,63 @@ reference_type: `actor_wallet_recovery`; concept: `actor-wallet-recovery` (já s
 - **C7** (bloqueante para fechar o caso): orquestração do fluxo pós-D-money que chama C4 resolver + C3 debit para cada obligation aberta — "o juiz de encerramento do caso".
 - **C5**: ratificação de nomenclatura por `07_NOMENCLATURA_CANONICA.md` (não bloqueia C7).
 - **Observação:** C7 requer autorização explícita de Clayton (escopo: finalização pós-D-money, não só débito).
+
+---
+
+## Sessão 2026-05-27 — C3.1 FECHADO (commit `c3d2e569`) — Income Withholding Síncrono
+
+### O que foi feito
+
+1. **`debitActorWalletForRecovery` adaptado (C3.1):**
+   - Aceita `existingClient?: PoolClient` — skips BEGIN/COMMIT/release se fornecido
+   - Aceita `maxAmountCents?: number` — teta de drenagem = crédito recém-entrado
+   - `calculateBalance` agora passa o client (vê crédito D-money ainda não commitado)
+   - Todos os reads (obligation, approval) migrados para `client.query` (consistent view)
+
+2. **`drainRecoveryObligationsForCredit` criado em `src/modules/financial-recovery/actor-wallet-recovery-obligation.service.ts`:**
+   - Seleciona obligations com `status IN ('approved', 'partially_recovered')` + `FOR UPDATE FIFO`
+   - Loop FIFO com `residualCreditCents` decrescente
+   - Cada obligation chama `debitActorWalletForRecovery(tenantId, id, client, residualCreditCents)`
+   - Retorna `{ totalDrainedCents, residualCreditCents, obligationsTouched, entriesCreated }`
+   - `logFinancialEvent` por drenagem realizada
+
+3. **`releaseFundsToActorWalletForOrder` integrado (service-order.service.ts):**
+   - Após cada split transfer `escrow_payments → actor_wallet`, chama `drainRecoveryObligationsForCredit`
+   - Passa `split.receiverActorId` e `split.amountCents` (teto)
+   - Usa o mesmo `client` → atomicidade total com D-money
+   - regional_fund/platform_fee não são afetados (não estão em `metadata.splits`)
+
+4. **E2E 13/13 verde** (`validate-pipeline-e2e-c3-1-income-withholding.ts`):
+   - T1: drain 80/100 → recovered; T2: drain 50/80 → partially; T3: parcial + 30 → recovered
+   - T4: sem obligation → 0 drain; T5: FIFO multi-obligation; T6/T7: pending/cancelled bloqueados
+   - T8: actor sem obligations → 0 drain (simula regional/fee); T9: não drena saldo antigo
+   - T10: ROLLBACK → sem bank_transactions ou entries; T11: double-entry; T12: Σentries=recovered
+   - T13: system accounts inalterados
+
+5. **Gates verdes:**
+   - `tsc --noEmit`: 0 erros
+   - `validate:actor-writer-boundaries`: GATE OK [§4.8.1]
+   - `validate:bank-ledger-boundaries`: GATE OK [§4.6]
+   - `validate:regression-guards`: GATE OK
+   - E2E C3: 18/18 | E2E D-money: 28/28 (regressão zero)
+
+### Pré-requisitos DECISION-0053 (atualizado final C3.1)
+
+| # | Condição | Estado |
+|---|----------|--------|
+| C1 | DECISION-0053 aprovada | APROVADA ✓ |
+| C2 | approval substrate | DONE ✓ |
+| C3 | debitActorWalletForRecovery | DONE ✓ (commit `61979374`) |
+| C3.1 | Income withholding síncrono no D-money | **DONE ✓ (commit `c3d2e569`)** |
+| C4 | Resolver creditor_account_id | DONE ✓ |
+| C4b-1/C4b-2 | User wallet provisioning | DONE ✓ |
+| C5 | Nomenclatura canônica | PENDENTE |
+| C6 | Migration substrate | DONE ✓ |
+| C7 | Finalização pós-D-money (orquestração) | PENDENTE — requer autorização Clayton |
+
+### Modo
+
+**C3.1 fechado.** O income withholding está ativo e síncrono com D-money.
+Próxima frente relevante: **C7** (orquestração completa pós-D-money) — requer autorização explícita.
+**DT-RECOVERY-PAYOUT-GATE**: parcialmente endereçada por C3.1 (income withholding implementado).
+Ponto ainda aberto: gate no saque externo de `actor_wallet` (DT-ACTOR-WALLET-PAYOUT-WIRING).

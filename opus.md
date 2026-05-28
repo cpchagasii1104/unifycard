@@ -6,6 +6,18 @@
 
 ---
 
+## Sessão 2026-05-27 — C3.1 FECHADO (commit `c3d2e569`) — Income Withholding Síncrono
+
+`drainRecoveryObligationsForCredit(tenantId, debtorActorId, creditedAmountCents, client)` em
+`financial-recovery/actor-wallet-recovery-obligation.service.ts`. Seleciona obligations ativas
+com FOR UPDATE FIFO, drena cada uma até `creditedAmountCents`. Integrado em
+`releaseFundsToActorWalletForOrder` após cada split D-money — mesmo client → atomicidade total.
+`debitActorWalletForRecovery` adaptado: `existingClient?`, `maxAmountCents?`, `calculateBalance(client)`.
+E2E 13/13. Regressão zero: C3 18/18, D-money 28/28.
+**DT-RECOVERY-PAYOUT-GATE parcialmente fechada. Saque externo ainda pendente.**
+
+---
+
 ## Sessão 2026-05-27 — C3 FECHADO (commit `61979374`)
 
 `debitActorWalletForRecovery` implementado em `src/modules/wallet/actor-wallet-debit.service.ts`.
