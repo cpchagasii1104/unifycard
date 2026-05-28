@@ -144,6 +144,88 @@ async function captureBankSnapshot() {
   return { ledgerCount: ledger.rows[0]?.c ?? '0', txCount: tx.rows[0]?.c ?? '0' };
 }
 
+// ── available-balance fixture helpers ────────────────────────────────────────
+
+async function findCreditorForObligation(
+  tenantId: string,
+  excludeActorId: string
+): Promise<{ actorId: string; accountId: string } | null> {
+  const r = await pool.query<{ actor_id: string; account_id: string }>(
+    `SELECT a.id::text AS actor_id, ba.id::text AS account_id
+       FROM actors a
+       JOIN bank_accounts ba
+         ON ba.actor_id = a.id AND ba.tenant_id = a.tenant_id AND ba.account_type = 'user_wallet'
+      WHERE a.tenant_id = $1 AND a.id::text <> $2 LIMIT 1`,
+    [tenantId, excludeActorId]
+  );
+  return r.rows[0] ? { actorId: r.rows[0].actor_id, accountId: r.rows[0].account_id } : null;
+}
+
+async function getRecoveryConceptId(): Promise<string | null> {
+  const r = await pool.query<{ concept_id: string }>(
+    `SELECT concept_id FROM concepts WHERE slug='actor-wallet-recovery' LIMIT 1`
+  );
+  return r.rows[0]?.concept_id ?? null;
+}
+
+interface ObligFixture {
+  obligationId: string;
+  origTxId: string;
+}
+
+async function insertObligationFixture(
+  tenantId: string,
+  debtorActorId: string,
+  debtorAccountId: string,
+  creditorActorId: string,
+  creditorAccountId: string,
+  amountCents: number,
+  status: string,
+  recoveredAmountCents = 0
+): Promise<ObligFixture> {
+  const cid = await getRecoveryConceptId();
+  const origTxId = uuidv4();
+  await pool.query(
+    `INSERT INTO bank_transactions
+       (id, tenant_id, actor_id, account_id, amount_cents, purpose, justification,
+        reference_type, reference_id, concept_id, internal_completed_at)
+     VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,'execution','E2E stmt avail origin',
+             'e2e_stmt_avail_origin',$6,$7,NOW())`,
+    [origTxId, tenantId, debtorActorId, debtorAccountId, amountCents, uuidv4(), cid]
+  );
+  const intentId = uuidv4();
+  await pool.query(
+    `INSERT INTO payment_intents
+       (id, tenant_id, actor_id, amount_cents, intent_type, reference_id, gateway, currency, payment_status)
+     VALUES ($1,$2,$3,$4,'stmt_avail_test',$5,'test','BRL','released_to_actor_wallet')`,
+    [intentId, tenantId, debtorActorId, amountCents, uuidv4()]
+  );
+  const obligationId = uuidv4();
+  await pool.query(
+    `INSERT INTO actor_wallet_recovery_obligations
+       (id, tenant_id, debtor_actor_id, debtor_account_id, creditor_actor_id, creditor_account_id,
+        original_transaction_id, payment_intent_id, amount_cents, reason, status,
+        recovered_amount_cents, approval_request_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'E2E stmt avail test',$10,$11,NULL)`,
+    [
+      obligationId, tenantId,
+      debtorActorId, debtorAccountId,
+      creditorActorId, creditorAccountId,
+      origTxId, intentId, amountCents,
+      status, recoveredAmountCents,
+    ]
+  );
+  return { obligationId, origTxId };
+}
+
+async function deleteObligationFixture(f: ObligFixture): Promise<void> {
+  await pool.query(
+    `DELETE FROM actor_wallet_recovery_obligation_entries WHERE obligation_id=$1`, [f.obligationId]
+  );
+  await pool.query(`DELETE FROM actor_wallet_recovery_obligations WHERE id=$1`, [f.obligationId]);
+  await pool.query(`DELETE FROM bank_transactions WHERE id=$1`, [f.origTxId]);
+}
+
 async function bootstrap(): Promise<void> {
   const { socialPortsRegistry } = await import('../core/social/ports-registry');
   const adapters = await import('../modules/social/adapters');
@@ -373,7 +455,253 @@ async function main() {
     detail: { before: snapshotBeforeRead, after: snapshotAfterRead },
   });
 
-  console.log('\n═══ E2E ACTOR_WALLET STATEMENT :: PASS — saldo igual ao ledger; origem rastreável; isolamento por actor; unknown sem quebrar; zero escrita. ═══');
+  // ============================================================
+  // AVAILABLE BALANCE — T6–T15
+  // ============================================================
+  console.log('\n═══ AVAILABLE BALANCE PROJECTION — T6–T15 ═══\n');
+
+  const creditor = await findCreditorForObligation(TENANT_ID, fixtures.workerActorId);
+  assertOk('SETUP AB — creditor (user_wallet de outro actor) disponível', {
+    ok: !!creditor,
+    reason: 'nenhum actor com user_wallet encontrado — fixtures incompletas',
+  });
+
+  const toCleanup: ObligFixture[] = [];
+  try {
+    // T6 — sem obligations ativas: pendingRecoveryCents=0, availableBalanceCents=grossBalanceCents
+    console.log('=== T6 — sem obligations ativas: pending=0, available=gross ===');
+    const stmtClean = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T6.1 — grossBalanceCents presente', {
+      ok: typeof stmtClean.actorWallet?.grossBalanceCents === 'number',
+      reason: 'grossBalanceCents ausente',
+      detail: stmtClean.actorWallet,
+    });
+    assertOk('T6.2 — pendingRecoveryCents = 0 (sem obligations ativas)', {
+      ok: stmtClean.actorWallet?.pendingRecoveryCents === 0,
+      reason: 'pendingRecoveryCents != 0 — obligations ativas inesperadas no worker',
+      detail: { pending: stmtClean.actorWallet?.pendingRecoveryCents },
+    });
+    assertOk('T6.3 — availableBalanceCents = grossBalanceCents', {
+      ok:
+        stmtClean.actorWallet?.availableBalanceCents ===
+        stmtClean.actorWallet?.grossBalanceCents,
+      reason: 'available != gross com pending=0',
+      detail: stmtClean.actorWallet,
+    });
+
+    const baseGross = stmtClean.actorWallet!.grossBalanceCents;
+
+    // T7 — obligation 'approved' entra por completo
+    console.log('\n=== T7 — obligation approved entra no pendingRecoveryCents ===');
+    const ob7 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      3000, 'approved'
+    );
+    toCleanup.push(ob7);
+    const stmt7 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T7.1 — pendingRecoveryCents = 3000 (approved, 0 recovered)', {
+      ok: stmt7.actorWallet?.pendingRecoveryCents === 3000,
+      reason: 'pending errado',
+      detail: { pending: stmt7.actorWallet?.pendingRecoveryCents, expected: 3000 },
+    });
+    assertOk('T7.2 — availableBalanceCents = gross - 3000', {
+      ok: stmt7.actorWallet?.availableBalanceCents === Math.max(0, baseGross - 3000),
+      reason: 'available errado',
+      detail: { available: stmt7.actorWallet?.availableBalanceCents, expected: Math.max(0, baseGross - 3000) },
+    });
+
+    // T8 — obligation 'partially_recovered' entra só com (amount - recovered)
+    console.log('\n=== T8 — obligation partially_recovered entra com restante ===');
+    const ob8 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      8000, 'partially_recovered', 3000 // 8000 - 3000 = 5000 pendente
+    );
+    toCleanup.push(ob8);
+    const stmt8 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    // ob7=3000 (approved) + ob8=(8000-3000)=5000 → total 8000
+    assertOk('T8.1 — pendingRecoveryCents = 3000 + 5000 = 8000', {
+      ok: stmt8.actorWallet?.pendingRecoveryCents === 8000,
+      reason: 'pending errado após parcialmente recovered',
+      detail: { pending: stmt8.actorWallet?.pendingRecoveryCents, expected: 8000 },
+    });
+
+    // Cleanup ob7+ob8 antes dos testes de status não-elegível
+    await deleteObligationFixture(ob7);
+    await deleteObligationFixture(ob8);
+    toCleanup.length = 0;
+
+    // T9 — obligation 'recovered' NÃO entra
+    console.log('\n=== T9 — obligation recovered NÃO entra ===');
+    const ob9 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      5000, 'recovered', 5000
+    );
+    toCleanup.push(ob9);
+    const stmt9 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T9.1 — pendingRecoveryCents = 0 (recovered não entra)', {
+      ok: stmt9.actorWallet?.pendingRecoveryCents === 0,
+      reason: 'obligation recovered contou indevidamente',
+      detail: { pending: stmt9.actorWallet?.pendingRecoveryCents },
+    });
+    await deleteObligationFixture(ob9);
+    toCleanup.length = 0;
+
+    // T10 — obligation 'cancelled' NÃO entra
+    console.log('\n=== T10 — obligation cancelled NÃO entra ===');
+    const ob10 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      5000, 'cancelled'
+    );
+    toCleanup.push(ob10);
+    const stmt10 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T10.1 — pendingRecoveryCents = 0 (cancelled não entra)', {
+      ok: stmt10.actorWallet?.pendingRecoveryCents === 0,
+      reason: 'obligation cancelled contou indevidamente',
+      detail: { pending: stmt10.actorWallet?.pendingRecoveryCents },
+    });
+    await deleteObligationFixture(ob10);
+    toCleanup.length = 0;
+
+    // T11 — obligation 'pending_approval' NÃO entra
+    console.log('\n=== T11 — obligation pending_approval NÃO entra ===');
+    const ob11 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      5000, 'pending_approval'
+    );
+    toCleanup.push(ob11);
+    const stmt11 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T11.1 — pendingRecoveryCents = 0 (pending_approval não entra)', {
+      ok: stmt11.actorWallet?.pendingRecoveryCents === 0,
+      reason: 'obligation pending_approval contou indevidamente',
+      detail: { pending: stmt11.actorWallet?.pendingRecoveryCents },
+    });
+    await deleteObligationFixture(ob11);
+    toCleanup.length = 0;
+
+    // T12 — pending > gross → availableBalanceCents = 0, nunca negativo
+    console.log('\n=== T12 — pending > gross → availableBalanceCents = 0 ===');
+    const overflowAmount = baseGross + 50000; // certamente maior que gross
+    const ob12 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      overflowAmount, 'approved'
+    );
+    toCleanup.push(ob12);
+    const stmt12 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T12.1 — availableBalanceCents = 0 (pending > gross)', {
+      ok: stmt12.actorWallet?.availableBalanceCents === 0,
+      reason: 'availableBalanceCents negativo ou incorreto',
+      detail: {
+        gross: stmt12.actorWallet?.grossBalanceCents,
+        pending: stmt12.actorWallet?.pendingRecoveryCents,
+        available: stmt12.actorWallet?.availableBalanceCents,
+      },
+    });
+    assertOk('T12.2 — availableBalanceCents >= 0 (nunca negativo)', {
+      ok: (stmt12.actorWallet?.availableBalanceCents ?? -1) >= 0,
+      reason: 'availableBalanceCents é negativo',
+      detail: { available: stmt12.actorWallet?.availableBalanceCents },
+    });
+    await deleteObligationFixture(ob12);
+    toCleanup.length = 0;
+
+    // T13 — múltiplas obligations ativas somam corretamente
+    console.log('\n=== T13 — múltiplas obligations ativas somam ===');
+    const ob13a = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      4000, 'approved'
+    );
+    const ob13b = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      6000, 'partially_recovered', 1000 // restante = 5000
+    );
+    toCleanup.push(ob13a, ob13b);
+    const stmt13 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    // 4000 (approved) + 5000 (partially_recovered restante) = 9000
+    assertOk('T13.1 — pendingRecoveryCents = 4000 + 5000 = 9000', {
+      ok: stmt13.actorWallet?.pendingRecoveryCents === 9000,
+      reason: 'soma múltiplas obligations errada',
+      detail: { pending: stmt13.actorWallet?.pendingRecoveryCents, expected: 9000 },
+    });
+    await deleteObligationFixture(ob13a);
+    await deleteObligationFixture(ob13b);
+    toCleanup.length = 0;
+
+    // T14 — leitura com obligation ativa NÃO escreve em bank_ledger
+    console.log('\n=== T14 — leitura não escreve em bank_ledger ===');
+    const ob14 = await insertObligationFixture(
+      TENANT_ID, fixtures.workerActorId, workerWallet!.accountId,
+      creditor!.actorId, creditor!.accountId,
+      2000, 'approved'
+    );
+    toCleanup.push(ob14);
+    const snapBefore = await captureBankSnapshot();
+    await actorWalletStatementService.getActorWalletStatement(TENANT_ID, fixtures.workerActorId);
+    await actorWalletStatementService.getActorWalletStatement(TENANT_ID, fixtures.workerActorId);
+    const snapAfter = await captureBankSnapshot();
+    assertOk('T14.1 — bank_ledger count inalterado após leitura com obligation ativa', {
+      ok: snapAfter.ledgerCount === snapBefore.ledgerCount,
+      reason: 'leitura escreveu em bank_ledger',
+      detail: { before: snapBefore, after: snapAfter },
+    });
+    assertOk('T14.2 — bank_transactions count inalterado', {
+      ok: snapAfter.txCount === snapBefore.txCount,
+      reason: 'leitura escreveu bank_transactions',
+      detail: { before: snapBefore, after: snapAfter },
+    });
+    await deleteObligationFixture(ob14);
+    toCleanup.length = 0;
+
+    // T15 — balanceCents = grossBalanceCents (alias preservado)
+    console.log('\n=== T15 — balanceCents é alias de grossBalanceCents ===');
+    const stmt15 = await actorWalletStatementService.getActorWalletStatement(
+      TENANT_ID, fixtures.workerActorId
+    );
+    assertOk('T15.1 — balanceCents === grossBalanceCents (backward compat)', {
+      ok:
+        stmt15.actorWallet?.balanceCents === stmt15.actorWallet?.grossBalanceCents,
+      reason: 'alias balanceCents diverge de grossBalanceCents',
+      detail: {
+        balanceCents: stmt15.actorWallet?.balanceCents,
+        grossBalanceCents: stmt15.actorWallet?.grossBalanceCents,
+      },
+    });
+    assertOk('T15.2 — balanceCents é o saldo bruto (= ledger SUM)', {
+      ok: stmt15.actorWallet?.balanceCents === stmt15.actorWallet?.grossBalanceCents,
+      reason: 'balanceCents alterado indevidamente',
+      detail: stmt15.actorWallet,
+    });
+  } finally {
+    // Garantia: limpar qualquer fixture não limpa por falha
+    for (const f of toCleanup) {
+      try { await deleteObligationFixture(f); } catch { /* best-effort */ }
+    }
+  }
+
+  console.log('\n═══ E2E ACTOR_WALLET STATEMENT :: PASS — saldo igual ao ledger; origem rastreável; isolamento por actor; unknown sem quebrar; zero escrita; available balance projection (T6–T15) verificado. ═══');
   await pool.end();
 }
 

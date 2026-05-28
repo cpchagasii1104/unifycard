@@ -49,7 +49,23 @@ export interface WalletEntry {
 export interface ActorWalletStatement {
   actorWallet: {
     accountId: string;
+    /** Alias para grossBalanceCents. Mantido para compatibilidade. */
     balanceCents: number;
+    /** Saldo bruto via bank_ledger. SSOT — não persistir, não usar para executar movimentações. */
+    grossBalanceCents: number;
+    /**
+     * Soma de (amount_cents − recovered_amount_cents) de obrigações em
+     * status 'approved' ou 'partially_recovered'. Projeção calculada em
+     * leitura — NÃO é SSOT financeiro. NÃO usar como fonte para executar
+     * movimentações financeiras. DECISION-0053.
+     */
+    pendingRecoveryCents: number;
+    /**
+     * max(0, grossBalanceCents − pendingRecoveryCents). Projeção calculada
+     * em leitura — NÃO é SSOT financeiro. NÃO usar como fonte para
+     * executar movimentações financeiras.
+     */
+    availableBalanceCents: number;
     currency: BankCurrency;
   } | null;
   entries: WalletEntry[];
@@ -89,8 +105,20 @@ class ActorWalletStatementService {
     if (!wallet) {
       return { actorWallet: null, entries: [] };
     }
-    const balanceCents = (await bankAccountService.getBalance(tenantId, wallet.accountId))
+    const grossBalanceCents = (await bankAccountService.getBalance(tenantId, wallet.accountId))
       .balanceCents;
+
+    // Pending recovery projection (read-only — SSOT é bank_ledger, não este campo).
+    const obligResult = await pool.query<{ pending_cents: string }>(
+      `SELECT COALESCE(SUM(amount_cents - recovered_amount_cents), 0)::text AS pending_cents
+         FROM actor_wallet_recovery_obligations
+        WHERE tenant_id = $1
+          AND debtor_actor_id = $2
+          AND status IN ('approved', 'partially_recovered')`,
+      [tenantId, actorId]
+    );
+    const pendingRecoveryCents = parseInt(obligResult.rows[0]!.pending_cents, 10);
+    const availableBalanceCents = Math.max(0, grossBalanceCents - pendingRecoveryCents);
 
     // Query única com JOINs LEFT — reconstrói origem para D-money entries.
     // Entries sem JOIN bem-sucedido (sourceType='unknown') aparecem
@@ -174,7 +202,10 @@ class ActorWalletStatementService {
     return {
       actorWallet: {
         accountId: wallet.accountId,
-        balanceCents,
+        balanceCents: grossBalanceCents,
+        grossBalanceCents,
+        pendingRecoveryCents,
+        availableBalanceCents,
         currency,
       },
       entries,
