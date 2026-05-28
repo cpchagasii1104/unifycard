@@ -7542,3 +7542,51 @@ documentar substrato reservado, usar `actors` como caminho MVP, eventualmente
 remover callers dormentes em `venue.routes.ts`. Depois, se houver demanda real
 de produto, C1 (saneamento de schema com migration de DROP COLUMN). Cada uma
 exige prompt executor próprio com autorização explícita Clayton.
+
+## Sessão 2026-05-28 — Reclassificação documental DT-USER-PROFILES → DT-CPF-SSOT-DUAL-WRITE
+
+### Escopo
+
+Reclassificação documental append-only. Zero código. Zero migration. Zero schema.
+
+Raio-X (commit `ccd03ad8`) refutou a classificação original de
+`DT-USER-PROFILES-LEGACY-ORPHAN` como "legado órfão". Reclassificada para
+`DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY` (MEDIUM, OPEN), capturando o
+problema real: ambiguidade de SSOT de CPF entre CORE (`user_profiles.cpf`
++ `profiles.cpf`) e identity/KYC/payout (`identities.tax_id`, DECISION-0060 D2).
+
+### Mudanças documentais
+
+| Arquivo | Mudança |
+|---------|---------|
+| `REMEDIATION_DT_LOG.md` | DT antiga marcada SUPERSEDED com pointer; nova DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY anexada ao fim com achados materiais, riscos, proibições e hipóteses A/B/C; cross-link adicionado em DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK |
+| `opus.md` | Memória curta sobre reclassificação e necessidade de DECISION sobre SSOT CPF antes de frente de identidade/onboarding |
+
+### Estado das DTs relacionadas
+
+| DT | Status |
+|----|--------|
+| DT-USER-PROFILES-LEGACY-ORPHAN | SUPERSEDED (entrada histórica preservada) |
+| DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY | OPEN (MEDIUM) — sucessora |
+| DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK | OPEN (LOW) — atualizada com nota de raio-X (4 call sites em features mockadas) |
+| DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER | OPEN — BLOCKED BY DECISION-0061 (inalterada) |
+
+### Confirmações de escopo
+
+- ✅ `user_profiles` NÃO foi tratada como órfão (confirmado vivo via raio-X)
+- ✅ Zero `.ts` / `.tsx` / `.sql` alterado
+- ✅ Zero migration nova
+- ✅ Zero schema alterado
+- ✅ Zero frontend runtime
+- ✅ Zero backend runtime
+- ✅ Zero alteração em `user_profiles` / `profiles` / `identities` / `actors`
+- ✅ F4.0 permanece DONE; F4.1/F4.2/F4.3/F4.4 continuam OPEN / NOT AUTHORIZED
+- ✅ Arquivos ambientais NÃO commitados
+
+### Próximo passo recomendado
+
+DECISION-006X sobre canonicidade de CPF entre CORE e identity, com hipóteses
+A/B/C registradas na DT. Recomendação não-vinculante do raio-X: hipótese C
+(convivência declarada + sync service explícito), paralela arquitetural a
+DECISION-0061. Sem essa DECISION, frente de identidade/onboarding parte
+sem chão.

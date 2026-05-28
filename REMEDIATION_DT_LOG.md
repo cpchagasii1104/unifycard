@@ -7183,37 +7183,30 @@ hardcode com prazo/critério de convergência.
 
 ---
 
-## DT-USER-PROFILES-LEGACY-ORPHAN
+## DT-USER-PROFILES-LEGACY-ORPHAN (SUPERSEDED 2026-05-28)
 
-- **Status:** OPEN (2026-05-28)
-- **Severidade:** LOW
-- **Classe:** DT-L (legado órfão coexistindo com canônico)
+> **SUPERSEDED por DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY** (mesma data).
+> Classificação original ("legado órfão") foi materialmente refutada por raio-X (HEAD `ccd03ad8`):
+> `user_profiles` tem 7 rows em runtime; `core.service.ts:313` declara `cpfSource: 'user_profiles'`
+> como FONTE ÚNICA; `profile.service.ts:455-477` faz UPSERT em `user_profiles` + UPDATE espelho
+> em `profiles.cpf`; frontend `Profile.tsx:336` consome via `getCoreProfile().personal_profile.cpf`.
+> Não é órfã. O problema real é dual-write/ambiguidade de CPF entre CORE (`user_profiles`/`profiles`)
+> e identity/KYC/payout (`identities.tax_id`, DECISION-0060 D2). Ver DT abaixo.
+
+- **Status:** SUPERSEDED (2026-05-28) — entrada original mantida como histórico append-only.
+- **Severidade original:** LOW (subdimensionada — risco real é MEDIUM, ver DT sucessora).
+- **Classe original:** DT-L (incorreta — substrato é vivo, não órfão).
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
 
-### Contexto
+### Contexto histórico (preservado)
 
-Tabela `user_profiles` aparenta ser legado coexistindo com `profiles` (que é
-a canônica vigente). Não há consumer frontend ativo claro para `user_profiles`.
-
-### Risco
-
-- Dois substratos de perfil pessoal vivos sem decisão explícita sobre qual
-  vence em conflito.
-- Migration/refactor futuro confundir qual é canônico.
-
-### Mitigação atual
-
-- Sem consumer frontend ativo conhecido; sem impacto runtime.
-
-### Resolução prevista
-
-Decidir migração/depreciação de `user_profiles` OU documentar propósito
-distinto (se houver) e marcar como ativa. Auditoria de callers backend
-recomendada antes de qualquer DROP.
+Entrada original assumiu que `user_profiles` era legado coexistindo com `profiles` sem
+consumer frontend ativo. Raio-X confirmou que essa leitura era incorreta materialmente.
 
 ### Vinculadas
 
-- DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER (mesma família de drift de perfil)
+- **DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY** (DT sucessora — escopo correto)
+- DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER (família tangencial — DECISION-0061)
 
 ---
 
@@ -7252,6 +7245,17 @@ actor-scoped.
 
 - feedback_frontend_nunca_cria_verdade (regra cross-layer)
 - 07_NOMENCLATURA_CANONICA (regra de campos com sufixo explícito)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (tangencial — outra ambiguidade no domínio identidade, com escopo distinto: SSOT de CPF entre CORE e KYC)
+
+### Atualização do raio-X (2026-05-28, HEAD `ccd03ad8`)
+
+Auditoria confirmou 4 call sites usando padrão `activeActor.user_id || activeActor.actor_id`:
+`DisputePanel.tsx:76,90,104` + `ActivityDetailModal.tsx:58`. APIs chamadas
+(`createDispute`, `resolveDispute`, etc.) declaram parâmetro como `*UserId`
+(USER ID), mas estão MOCKADAS via `localStorage` hoje — endpoint backend
+comentado em `api/disputes.ts`. Risco real mas dormente. Fatia mínima futura:
+remover fallback nos 4 call sites + remover/renomear `user_id?` do type, em
+paralelo com fatia de disputes ganhar backend real.
 
 ---
 
@@ -7480,3 +7484,153 @@ depende de estado residual.
 - E2E F2 (`validate-pipeline-e2e-f2-actor-wallet-payout-request.ts`)
 - E2E F3 (`validate-pipeline-e2e-f3-actor-wallet-payout-execution.ts`) — já tem pre-flight `seedWalletCredit`
 - DT-ACTOR-BANK-DESTINATION-MISSING — CLOSED (F4.0 entregue sem causar essa depletion)
+
+---
+
+## DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY
+
+- **Status:** OPEN (2026-05-28) — sucede DT-USER-PROFILES-LEGACY-ORPHAN (reclassificação documental após raio-X).
+- **Severidade:** MEDIUM (era LOW na DT antiga; risco real é divergência cross-domain entre CORE e KYC/payout).
+- **Classe:** DT-D + DT-N (drift de canonicidade + decisão arquitetural pendente sobre SSOT de identidade fiscal entre dois domínios).
+- **Origem:** raio-X de `user_profiles` + `AvailableActor.user_id` pós-DECISION-0061 (HEAD `ccd03ad8`, 2026-05-28).
+- **Cross-link com DECISIONs:** DECISION-0060 D2 (`identities.tax_id` SSOT KYC/payout/F4) coexiste com declaração não-canonizada em `core.service.ts:313` (`cpfSource: 'user_profiles'`).
+
+### Achados materiais (do raio-X)
+
+1. **`user_profiles` é substrato VIVO, não órfão.**
+   - 7 rows em runtime (`unificard_dev`), todas com CPF preenchido.
+   - `core.service.ts` (linhas 180, 225-263, 297-338) declara explicitamente
+     `cpfSource: 'user_profiles'` como FONTE ÚNICA de CPF no payload
+     `GET /core/profile.personal_profile.cpf`.
+   - `profile.service.ts:418-477` faz CTE de UPSERT em `user_profiles` E
+     UPDATE espelho em `profiles.cpf` no mesmo caminho de escrita.
+   - `auth.service.ts:393-397` comenta o bug-fix 2026-05-14 que garante
+     propagação de CPF para `user_profiles` via `profileService`.
+   - Frontend `Profile.tsx:336-344` consome `personal_profile.cpf` em
+     UI editável de perfil (LIVE em runtime).
+
+2. **`profiles.cpf` é espelho dual-write.**
+   - `profiles` tem 61 rows com CPF em runtime.
+   - Atualizado em conjunto com `user_profiles` via CTE em `profile.service.ts:455-477`.
+   - Sincronia controlada se TODA escrita passar por esse caminho.
+
+3. **`identities.tax_id` é SSOT paralelo declarado em DECISION-0060.**
+   - DECISION-0060 D2 declarou `identities.tax_id` como SSOT canônico
+     para documento fiscal no trilho KYC + F4 payout.
+   - `identity.service.ts:255` escreve em `identities` em caminho separado
+     (KYC submission, não onboarding via core/profile).
+   - Migration 0010 removeu `actors.cpf_cnpj` e fez backfill para `identities.tax_id`.
+
+4. **Divergência runtime já observada.**
+   - 7 rows em `user_profiles.cpf`
+   - Apenas 4 dessas 7 mapeiam a uma `identities.tax_id` matchando exatamente
+     (via `users.global_user_id → identities.global_user_id`).
+   - 3 usuários têm CPF persistido em CORE mas SEM identity equivalente
+     populada — o dado já está divergindo silenciosamente.
+
+5. **Caminho de escrita NÃO sincroniza os dois trilhos.**
+   - `profile.service.ts` escreve em `user_profiles` + `profiles`. Não toca `identities`.
+   - `identity.service.ts` escreve em `identities`. Não toca `user_profiles`/`profiles`.
+   - Não há trigger, view materializada nem service compartilhado que
+     mantenha os dois domínios consistentes.
+
+### Risco
+
+- **CORE/onboarding e KYC/payout podem operar sobre CPFs divergentes para o mesmo usuário.**
+- F4 (quando autorizar saque externo) consulta `identities.tax_id` para "conta própria"
+  (DECISION-0060 D8); se o CPF do CORE estiver mais atualizado, o gate pode falhar
+  por motivo incorreto.
+- Qualquer frente futura de identidade/onboarding pode escolher fonte errada
+  se não houver DECISION explícita.
+- Risco operacional: alguém pode tentar DROP `user_profiles` achando que é legado
+  (justamente o que a DT antiga sugeria) — bate `GET /core/profile` em produção
+  e quebra `Profile.tsx`.
+
+### Mitigação atual
+
+- O caminho de escrita atual (`profile.service.ts`) mantém `user_profiles.cpf`
+  e `profiles.cpf` consistentes entre si via CTE.
+- F4.0 ainda não envia dinheiro externo — saque interno F3 não exige conferência
+  CPF-vs-tax_id.
+- Frontend não exibe `tax_id` lado a lado com `personal_profile.cpf`, então
+  divergência não é visível ao usuário hoje.
+
+### Proibições (até DECISION ser tomada)
+
+- NÃO dropar `user_profiles` (substrato vivo, consumer real).
+- NÃO tratar `user_profiles` como legado morto.
+- NÃO sincronizar CPF por código ad hoc (`UPDATE` cruzado sem DECISION é jeitinho).
+- NÃO criar trigger que copie `user_profiles.cpf → identities.tax_id` sem decisão arquitetural.
+- NÃO escrever em `identities.tax_id` dentro do caminho de `profile.service.ts`.
+- NÃO escrever em `user_profiles.cpf` dentro do caminho de `identity.service.ts`.
+
+### Resolução prevista
+
+Antes de qualquer fatia de identidade/onboarding ou frente que dependa de
+SSOT único de CPF (ex.: F4.1+), DECISION explícita sobre canonicidade.
+
+### Hipóteses para DECISION futura (NÃO escolhidas aqui)
+
+**Hipótese A — `identities.tax_id` vence como SSOT único.**
+
+- CORE passa a ler/escrever via `identities.tax_id`.
+- `user_profiles.cpf` vira projeção/cache OU é depreciada em fase 2.
+- `profiles.cpf` segue espelho ou também é depreciado.
+- Migration: backfill de `identities` a partir de `user_profiles` para os 3 órfãos
+  + refator de `profile.service.ts` para escrever via `identity.service`.
+- Frente de onboarding nova parte daí.
+- Risco: alto blast radius — `core.service.ts` precisa ser reescrito; UI de perfil
+  passa a depender de identity bootstrap.
+
+**Hipótese B — `user_profiles.cpf` vence como SSOT CORE; identity é projeção KYC.**
+
+- CORE/profile mantém autoridade sobre o documento.
+- `identities.tax_id` é populado/atualizado a partir de `user_profiles.cpf` em momentos
+  bem definidos (submissão KYC, evento de onboarding).
+- DECISION-0060 D2 precisa ser revisada/complementada para acomodar essa projeção.
+- Risco: conflito documental com DECISION-0060 vigente; revisar D2 sem reescrever a cerca F4.
+
+**Hipótese C — Convivência declarada (paralelo a DECISION-0061).**
+
+- `user_profiles.cpf` continua SSOT CORE.
+- `identities.tax_id` continua SSOT KYC/payout (DECISION-0060 D2 vigente).
+- Sync explícito obrigatório via service compartilhado (ex.: `cpfSyncService`)
+  chamado nos dois caminhos de escrita.
+- Documentar fronteiras operacionais: nenhum service do trilho A lê do trilho B
+  direto; ambos consultam o sync service.
+- Migration: backfill inicial para alinhar os 3 user_profiles órfãos com identity.
+- Risco: complexidade operacional; precisa disciplina permanente para não
+  reintroduzir drift.
+
+DECISION-0061 escolheu Hipótese C para identidade pública/social — é precedente
+de design, não obrigação para CPF.
+
+### Evidência runtime reportada
+
+```
+user_profiles.cpf populadas:    7
+profiles.cpf populadas:        61
+identities matching exato:      4 dos 7 user_profiles
+```
+
+### Vinculadas
+
+- DECISION-0060 (D2 — `identities.tax_id` SSOT KYC/payout/F4)
+- DECISION-0061 (precedente de "convivência declarada" para identidade pública)
+- DT-USER-PROFILES-LEGACY-ORPHAN (SUPERSEDED — entrada original mantida como histórico)
+- DT-AVAILABLE-ACTOR-USER-ID-CONFUSION-RISK (tangencial — outra ambiguidade no domínio identidade/actor, com escopo distinto)
+- DT-PUBLIC-PROFILES-NO-FRONTEND-CONSUMER (família tangencial de canonicidade de perfil — DECISION-0061 vigente)
+- `backend/src/core/profile/profile.service.ts:418-477`
+- `backend/src/core/core.service.ts:180,225-338`
+- `backend/src/core/auth/auth.service.ts:393-397`
+- `backend/src/core/identity/identity.service.ts:255`
+- `backend/migrations/0066_profile_support_tables.sql` (user_profiles)
+- `backend/migrations/0058_users_global_users_profiles_app.sql` (profiles)
+- `backend/migrations/0009_create_identities.sql` (identities)
+- `backend/migrations/0010_migrate_identity_from_actors.sql` (remoção `actors.cpf_cnpj` + backfill)
+
+### Notas operacionais
+
+- DT permanece OPEN até DECISION sobre SSOT CPF ser registrada.
+- DT NÃO deve ser fechada por essa execução — apenas reclassificação documental.
+- Próxima fatia possível: DECISION-006X (após 0061) escolhendo A/B/C. Recomendação não-vinculante do raio-X: hipótese C (convivência declarada + sync service), em paralelo arquitetural com DECISION-0061.
