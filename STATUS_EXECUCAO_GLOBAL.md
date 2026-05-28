@@ -7025,3 +7025,48 @@ Zero movimentação financeira. Zero worker. Zero rota pública.
 - **F1 SUBSTRATE**: DONE (`98a1111a`)
 - **F2 REQUEST SERVICE**: DONE (`a1532780`)
 - **DT permanece PARTIAL HIGH**: F3 (execução financeira) e F4 (PIX/TED) aguardam autorização
+
+## Sessão 2026-05-28 — HARDENING F2 ACTIVE-GATE (commit `c7838c50`)
+
+### Escopo
+
+Auditoria C detectou: F2 permitia múltiplos payout requests ativos por actor (keys diferentes).
+Hardening: um actor só pode ter 1 request ativo por vez (pending_approval | approved | processing).
+
+### Entregue
+
+| Item | Detalhe |
+|------|---------|
+| Migration `20260530573000` | Partial unique index `uidx_actor_wallet_payout_one_active_per_actor` + verificação anti-duplicatas |
+| `actor-wallet-balance-projection.ts` | Helper compartilhado de projeção de saldo (elimina duplicação) |
+| `actor-wallet-payout.service.ts` | `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` + active-gate check + catch 23505 |
+| `actor-wallet-statement.service.ts` | Usa helper compartilhado (sem mudança de comportamento) |
+| E2E F2 | T17–T20 adicionados; T5/T6/T13 ajustados para nova semântica |
+| E2E F1 | T8 corrigido (status='cancelled' para não conflitar com partial index) |
+
+### Gates
+
+| Gate | Resultado |
+|------|-----------|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK |
+| `validate:regression-guards` | ✅ GATE OK |
+| `validate:architectural` | ✅ `critical_new=0` |
+| E2E F1 | ✅ 12/12 |
+| E2E F2 | ✅ 20/20 |
+| E2E actor-wallet-statement | ✅ PASS |
+
+### Invariantes confirmadas
+
+- `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` dispara com nova key se actor tem request ativo (T17)
+- Idempotência prevalece sobre active-gate: mesma key retorna existente (T18)
+- Status terminal (cancelled/rejected/failed/completed) libera novo request (T19)
+- Partial unique index bloqueia INSERT direto via 23505 (T20)
+- Zero movimento financeiro. Zero rota pública. F3 não iniciada.
+
+### DT-ACTOR-WALLET-PAYOUT-WIRING — estado pós-hardening
+
+- **F1 SUBSTRATE**: DONE (`98a1111a`)
+- **F2 REQUEST SERVICE**: DONE (`a1532780`) + **HARDENING**: DONE (`c7838c50`)
+- **DT permanece PARTIAL HIGH**: F3/F4 aguardam autorização

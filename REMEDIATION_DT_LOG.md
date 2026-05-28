@@ -6832,6 +6832,7 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 Frentes sequenciais:
 - F1 SUBSTRATE: **DONE** (commit `98a1111a`, 2026-05-28) — schema + types + E2E 12/12. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
 - F2 REQUEST SERVICE: **DONE** (commit `a1532780`, 2026-05-28) — `requestActorWalletPayout` cria `pending_approval` + approval_request atômico. E2E 16/16. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
+- F2 HARDENING (active-gate): **DONE** (commit `c7838c50`, 2026-05-28) — 1 request ativo por actor + `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` + partial unique index + helper compartilhado de projeção. E2E 20/20 + F1 12/12 + statement PASS.
 - F3 EXECUÇÃO ATÔMICA: OPEN — drain obrigações + payout em BEGIN/COMMIT único. Aguarda autorização.
 - F4 GATEWAY EXTERNO: OPEN — PIX/TED (não autorizado).
 

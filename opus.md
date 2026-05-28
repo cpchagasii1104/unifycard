@@ -1625,6 +1625,9 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 - `approval_requests` aceita `operation_type='actor_wallet_payout'` (CHECK estendido)
 - concept `actor-wallet-payout` em `financeiro-payout` EXISTE
 - `actorWalletPayoutService.requestActorWalletPayout` EXISTE (commit `a1532780`) — cria `pending_approval` + `approval_request` atômico; zero movimento financeiro
+- Active-gate: 1 request ativo por actor por vez; `ACTOR_WALLET_PAYOUT_ALREADY_ACTIVE` (commit `c7838c50`)
+- Partial unique index `uidx_actor_wallet_payout_one_active_per_actor` — protege contra race condition
+- `calculateActorWalletBalanceProjection` — helper compartilhado (statement + payout services)
 - `ApprovalOperationType` inclui `'actor_wallet_payout'` (financial-approval.types.ts)
 - Income withholding C3.1 ativo: protege contra fuga enquanto F3 não existe
 - F3 (execução atômica) e F4 (PIX/TED) OPEN — aguardam autorização
