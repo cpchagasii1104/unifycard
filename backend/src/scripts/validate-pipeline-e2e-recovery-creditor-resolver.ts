@@ -8,10 +8,10 @@
  * Testa somente leitura determinística de creditor_account_id.
  *
  * Cenários:
- *   T1  Resolve com payer que tem exatamente uma user_wallet
+ *   T1  Resolve com payer que tem user_wallet no formato lifecycle
  *   T2  Falha PAYMENT_INTENT_NOT_FOUND quando intent não existe
  *   T3  Falha CREDITOR_ACCOUNT_NOT_FOUND quando payer não tem user_wallet
- *   T4  Falha CREDITOR_ACCOUNT_AMBIGUOUS quando payer tem duas user_wallet
+ *   T4  Falha CREDITOR_ACCOUNT_NOT_FOUND quando actor não tem user_id
  *   T5  Falha CREDITOR_ACCOUNT_NOT_FOUND quando payer só tem actor_wallet (vetada por DECISION-0056)
  *   T6  bank_ledger: zero escrita durante todos os cenários
  *   T7  bank_transactions: zero escrita durante todos os cenários
@@ -73,22 +73,36 @@ async function ledgerSnapshot() {
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
-async function getActor(): Promise<string> {
-  // Precisa de actor sem user_wallet pré-existente — T3 exige NOT_FOUND isolado.
-  // Após o backfill C4b-2 atores com user_id têm wallet; usamos actor sem wallet.
+async function getActor(): Promise<{ id: string; userId: string }> {
+  // Precisa de actor COM user_id mas sem user_wallet lifecycle existente.
+  // T3 exige NOT_FOUND após T1 remover a wallet do mesmo actor.
   const r = await q(
-    `SELECT a.id FROM actors a
+    `SELECT a.id, a.user_id FROM actors a
       WHERE a.tenant_id = $1
+        AND a.user_id IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM bank_accounts ba
            WHERE ba.tenant_id = a.tenant_id
-             AND ba.actor_id = a.id
+             AND ba.owner_type = 'actor'
              AND ba.account_type = 'user_wallet'
+             AND (ba.owner_id = a.user_id OR ba.owner_id = a.user_id || ':user_wallet')
         )
       LIMIT 1`,
     [TENANT_ID]
   );
-  if (!r.rows[0]) throw new Error('Nenhum actor sem user_wallet para tenant ' + TENANT_ID);
+  if (!r.rows[0]) throw new Error('Nenhum actor com user_id sem user_wallet lifecycle para tenant ' + TENANT_ID);
+  return { id: r.rows[0].id as string, userId: r.rows[0].user_id as string };
+}
+
+async function getActorWithoutUserId(): Promise<string> {
+  const r = await q(
+    `SELECT a.id FROM actors a
+      WHERE a.tenant_id = $1
+        AND a.user_id IS NULL
+      LIMIT 1`,
+    [TENANT_ID]
+  );
+  if (!r.rows[0]) throw new Error('Nenhum actor sem user_id para tenant ' + TENANT_ID);
   return r.rows[0].id as string;
 }
 
@@ -102,13 +116,14 @@ async function createPaymentIntent(actorId: string): Promise<string> {
   return r.rows[0].id as string;
 }
 
-async function createUserWallet(actorId: string): Promise<string> {
-  const compositeOwnerId = `${actorId}:user_wallet:test_${uuidv4()}`;
+async function createUserWallet(actorId: string, userId: string): Promise<string> {
+  // owner_id no formato lifecycle que getLifecycleAccount espera: '{userId}:user_wallet'
+  // owner_type = 'actor' (DB canonical — BankAccountOwnerType 'user' mapeia para 'actor' no DB)
   const r = await q(
     `INSERT INTO bank_accounts (tenant_id, owner_id, owner_type, account_type, actor_id)
      VALUES ($1, $2, 'actor', 'user_wallet', $3)
      RETURNING id`,
-    [TENANT_ID, compositeOwnerId, actorId]
+    [TENANT_ID, `${userId}:user_wallet`, actorId]
   );
   return r.rows[0].id as string;
 }
@@ -151,11 +166,11 @@ async function runTests() {
   const createdIntents: string[] = [];
 
   try {
-    const actorId = await getActor();
+    const { id: actorId, userId } = await getActor();
 
-    // T1 — happy path: payer com exatamente uma user_wallet
+    // T1 — happy path: payer com user_wallet no formato lifecycle
     {
-      const walletId = await createUserWallet(actorId);
+      const walletId = await createUserWallet(actorId, userId);
       createdAccounts.push(walletId);
       const intentId = await createPaymentIntent(actorId);
       createdIntents.push(intentId);
@@ -167,12 +182,12 @@ async function runTests() {
           result.creditorAccountId === walletId &&
           result.paymentIntentId === intentId
         ) {
-          ok('T1 resolve com user_wallet única', `account=${walletId.slice(0, 8)}…`);
+          ok('T1 resolve com user_wallet lifecycle', `account=${walletId.slice(0, 8)}…`);
         } else {
           fail('T1 resolve com user_wallet única', `resultado inesperado: ${JSON.stringify(result)}`);
         }
       } catch (e) {
-        fail('T1 resolve com user_wallet única', String(e));
+        fail('T1 resolve com user_wallet lifecycle', String(e));
       }
 
       // Remove a wallet para não interferir em T3
@@ -211,27 +226,22 @@ async function runTests() {
       }
     }
 
-    // T4 — CREDITOR_ACCOUNT_AMBIGUOUS (payer com duas user_wallet)
+    // T4 — CREDITOR_ACCOUNT_NOT_FOUND quando actor não tem user_id
     {
-      const wallet1 = await createUserWallet(actorId);
-      const wallet2 = await createUserWallet(actorId);
-      createdAccounts.push(wallet1, wallet2);
-      const intentId = await createPaymentIntent(actorId);
+      const noUserIdActorId = await getActorWithoutUserId();
+      const intentId = await createPaymentIntent(noUserIdActorId);
       createdIntents.push(intentId);
 
       try {
         await resolveRecoveryCreditor(TENANT_ID, intentId);
-        fail('T4 CREDITOR_ACCOUNT_AMBIGUOUS', 'deveria ter lançado erro');
+        fail('T4 CREDITOR_ACCOUNT_NOT_FOUND (sem user_id)', 'deveria ter lançado erro');
       } catch (e) {
-        if (e instanceof RecoveryCreditorResolverError && e.code === 'CREDITOR_ACCOUNT_AMBIGUOUS') {
-          ok('T4 CREDITOR_ACCOUNT_AMBIGUOUS', `code=${e.code}, wallets=2`);
+        if (e instanceof RecoveryCreditorResolverError && e.code === 'CREDITOR_ACCOUNT_NOT_FOUND') {
+          ok('T4 CREDITOR_ACCOUNT_NOT_FOUND (sem user_id)', `code=${e.code}`);
         } else {
-          fail('T4 CREDITOR_ACCOUNT_AMBIGUOUS', `erro errado: ${String(e)}`);
+          fail('T4 CREDITOR_ACCOUNT_NOT_FOUND (sem user_id)', `erro errado: ${String(e)}`);
         }
       }
-
-      await q(`DELETE FROM bank_accounts WHERE id = ANY($1::uuid[])`, [[wallet1, wallet2]]);
-      createdAccounts.splice(0);
     }
 
     // T5 — actor_wallet não é aceita (CREDITOR_ACCOUNT_NOT_FOUND, não fallback)

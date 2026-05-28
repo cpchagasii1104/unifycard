@@ -3,28 +3,27 @@
 // READ-ONLY resolver — C4 (DECISION-0056, 2026-05-27).
 //
 // Dado um paymentIntentId, resolve:
-//   creditorActorId  = payment_intents.actor_id (o payer original)
-//   creditorAccountId = bank_accounts.id onde account_type='user_wallet' AND actor_id=payer
+//   creditorActorId   = payment_intents.actor_id (o payer original)
+//   creditorAccountId = user_wallet do actor (via bankAccountService — bank SSOT)
 //
 // Destino canônico: user_wallet. actor_wallet vetada por DECISION-0056 D3
 // (actor_wallet recebe exclusivamente revenue_share).
 //
 // Fail-closed — sem fallback silencioso:
 //   PAYMENT_INTENT_NOT_FOUND   — intent não existe para o tenant
-//   CREDITOR_ACCOUNT_NOT_FOUND — payer não tem user_wallet (dormente; ver DT-USER-WALLET-PROVISIONING-FOR-RECOVERY)
-//   CREDITOR_ACCOUNT_AMBIGUOUS — payer tem mais de uma user_wallet (sem LIMIT 1)
+//   CREDITOR_ACCOUNT_NOT_FOUND — payer não tem user_id ou user_wallet não provisionada
 //
 // NÃO move dinheiro. NÃO chama bankTransactionService. NÃO mexe em reversal.
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant } from '@core/database/pool';
 import type { ResolvedRecoveryCreditor } from '@core/financial-recovery/financial-recovery.types';
+import { bankAccountService } from '../bank/bank-account.service';
 
 export class RecoveryCreditorResolverError extends Error {
   constructor(
     public readonly code:
       | 'PAYMENT_INTENT_NOT_FOUND'
-      | 'CREDITOR_ACCOUNT_NOT_FOUND'
-      | 'CREDITOR_ACCOUNT_AMBIGUOUS',
+      | 'CREDITOR_ACCOUNT_NOT_FOUND',
     message: string
   ) {
     super(message);
@@ -51,30 +50,32 @@ export async function resolveRecoveryCreditor(
 
   const creditorActorId = pi.actor_id;
 
-  const wallets = await runQueriesWithTenant<{ id: string }>(
+  const actorRow = await runQueryWithTenant<{ user_id: string | null }>(
     tenantId,
-    `SELECT id FROM bank_accounts
-     WHERE tenant_id = $1 AND actor_id = $2 AND account_type = 'user_wallet'`,
+    `SELECT user_id FROM actors WHERE tenant_id = $1 AND id = $2`,
     [tenantId, creditorActorId]
   );
 
-  if (wallets.length === 0) {
+  const userId = actorRow?.user_id;
+  if (!userId) {
+    throw new RecoveryCreditorResolverError(
+      'CREDITOR_ACCOUNT_NOT_FOUND',
+      `payer actor ${creditorActorId} has no user_id — cannot resolve user_wallet (tenant ${tenantId})`
+    );
+  }
+
+  const creditorWallet = await bankAccountService.getLifecycleAccount(tenantId, userId, 'user', 'user_wallet');
+
+  if (!creditorWallet) {
     throw new RecoveryCreditorResolverError(
       'CREDITOR_ACCOUNT_NOT_FOUND',
       `payer actor ${creditorActorId} has no user_wallet (tenant ${tenantId}) — see DT-USER-WALLET-PROVISIONING-FOR-RECOVERY`
     );
   }
 
-  if (wallets.length > 1) {
-    throw new RecoveryCreditorResolverError(
-      'CREDITOR_ACCOUNT_AMBIGUOUS',
-      `payer actor ${creditorActorId} has ${wallets.length} user_wallet accounts (tenant ${tenantId})`
-    );
-  }
-
   return {
     paymentIntentId,
     creditorActorId,
-    creditorAccountId: wallets[0]!.id,
+    creditorAccountId: creditorWallet.accountId,
   };
 }

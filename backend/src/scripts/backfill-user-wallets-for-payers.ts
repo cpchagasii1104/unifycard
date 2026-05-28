@@ -5,7 +5,7 @@
  * que aparecem como payer em payment_intents, independente do status.
  *
  * Idempotente: reexecução segura, skips contas já existentes.
- * Não cria saldo. Não toca bank_ledger, bank_transactions, bank_splits.
+ * Não cria saldo. Não escreve em tabelas de ledger nem transações bancárias.
  *
  * Uso:
  *   DRY_RUN=true  npx tsx backend/src/scripts/backfill-user-wallets-for-payers.ts   (default)
@@ -61,11 +61,8 @@ async function run() {
   let errors = 0;
 
   for (const row of withUser) {
-    const snap = await pool.query<{ id: string }>(
-      `SELECT id FROM bank_accounts WHERE tenant_id=$1 AND actor_id=$2 AND account_type='user_wallet'`,
-      [row.tenant_id, row.actor_id]
-    );
-    const existedBefore = snap.rows.length > 0;
+    const existingWallet = await bankAccountService.getLifecycleAccount(row.tenant_id, row.user_id, 'user', 'user_wallet');
+    const existedBefore = existingWallet !== null;
 
     if (DRY_RUN) {
       console.log(`  DRY  actor=${row.actor_id.slice(0, 8)} user=${row.user_id.slice(0, 8)} exists=${existedBefore}`);

@@ -6632,7 +6632,9 @@ DECISION separada futura (número a definir):
 
 ## DT-RECOVERY-PAYOUT-GATE
 
-- **Status:** OPEN HIGH — mecanismo formalizado (DECISION-0055 D3, 2026-05-27); implementação pendente após C6 + DT-ACTOR-WALLET-DEBIT-MISSING
+- **Status:** PARTIALLY CLOSED (2026-05-27) — fase síncrona (C3.1 income withholding no D-money release) implementada e gate verde; fase payout (saque externo de actor_wallet) OPEN — pré-requisito DT-ACTOR-WALLET-DEBIT-MISSING ainda pendente
+- **C3.1 fechado (2026-05-27):** `drainRecoveryObligationsForCredit` + `debitActorWalletForRecovery(existingClient, maxAmountCents)` integrados no `releaseFundsToActorWalletForOrder`. Gate E2E C3.1 13/13. `calculateBalance(client)` passa client da TX D-money para visibilidade do crédito não-commitado. Arch gate `critical_new=0`.
+- **Payout gate (OPEN):** saque externo de `actor_wallet` requer DT-ACTOR-WALLET-DEBIT-MISSING resolvido antes.
 - **Origem:** DECISION-0053 §L4 segunda parte (2026-05-27). Quando `actor_wallet` do devedor
   não tem saldo suficiente para recovery total, a obrigação fica `partially_recovered`. Futuros
   créditos nessa conta (novos revenue_share, por exemplo) devem ser compensados antes de
