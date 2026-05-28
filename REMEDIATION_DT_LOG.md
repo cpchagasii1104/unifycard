@@ -7295,7 +7295,7 @@ existir como rota real.
 - **Severidade:** MEDIUM
 - **Classe:** DT-L (legado órfão com risco de reintrodução)
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
-- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend runtime alterado. Zero migration. Apenas 2 arquivos frontend (delete + ajuste de comentário órfão).
+- **Resolução:** commit `234b7909` (sessão 2026-05-28). Zero backend runtime alterado. Zero migration. Apenas 2 arquivos frontend (delete + ajuste de comentário órfão).
 
 ### Contexto
 
