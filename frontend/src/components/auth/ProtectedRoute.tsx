@@ -12,17 +12,6 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { authHydrated } = useSession();
 
-  // [DIAG 2026-05-19] Investigando bug / → /login mesmo com token=null tenant=null
-  // Remover após diagnóstico concluído.
-  if (typeof window !== 'undefined') {
-    console.log('[ProtectedRoute DIAG]', {
-      pathname: window.location.pathname,
-      authHydrated,
-      isAuth: isAuthenticated(),
-      tenant: getTenantId(),
-    });
-  }
-
   // Aguardar hidratação (bootstrap terminou ou utilizador público já resolvido)
   if (!authHydrated) {
     return null;

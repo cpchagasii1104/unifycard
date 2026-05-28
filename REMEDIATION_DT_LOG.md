@@ -7331,10 +7331,11 @@ storage.
 
 ## DT-COMPANY-DASHBOARD-ACTOR-CHECK-EMPTY
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — bloco `if (activeActor?.actor_type !== 'page')` em `CompanyDashboardPage.tsx` (linhas 23-26) que continha só comentário "Por enquanto, apenas renderizar o dashboard - ele vai lidar com permissões" foi substituído por estado honesto: ícone 🏢, mensagem clara explicando que o painel só está disponível quando o actor ativo é a empresa, instrução para trocar no seletor de actor, e dois botões (Ir para Empresas / Voltar para a Home). Zero fetch, zero authority resolution no frontend, zero troca implícita de actor. Backend permanece autoritativo. Build frontend + typecheck + backend gates verdes.
 - **Severidade:** LOW
 - **Classe:** DT-D (drift de UX — check incompleto)
 - **Origem:** auditoria de UX pós-F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration.
 
 ### Contexto
 
@@ -7363,10 +7364,11 @@ o homepage contextual do actor atual.
 
 ## DT-PROTECTEDROUTE-DIAGNOSTIC-LOG
 
-- **Status:** OPEN (2026-05-28)
+- **Status:** CLOSED (2026-05-28) — bloco diagnóstico `[DIAG 2026-05-19]` (linhas 15-24 do `ProtectedRoute.tsx`, com `console.log('[ProtectedRoute DIAG]', {...})`) removido cirurgicamente. Lógica de auth (`authHydrated`, `isAuthenticated()`, `getTenantId()`, redirect para `/login`) preservada intacta — bloco DIAG estava isolado, sem dependência. O próprio comentário antigo já dizia "Remover após diagnóstico concluído." Build frontend + typecheck + backend gates verdes.
 - **Severidade:** LOW
 - **Classe:** DT-H (higiene — ruído de log)
 - **Origem:** auditoria de perfil/contexto pós-F4.0 (2026-05-28).
+- **Resolução:** commit `<HEAD_AFTER>` (sessão 2026-05-28). Zero backend, zero migration.
 
 ### Contexto
 
