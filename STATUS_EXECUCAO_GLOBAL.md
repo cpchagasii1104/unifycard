@@ -6981,3 +6981,47 @@ F1 — `actor_wallet_payout_requests` substrate. Zero payout operacional.
 
 - **F1 SUBSTRATE**: DONE (98a1111a)
 - **DT permanece OPEN HIGH**: F2/F3 ainda não existem; payout real não implementado
+
+## Sessão 2026-05-28 — F2 REQUEST SERVICE FECHADO (commit `a1532780`)
+
+### Escopo
+
+F2 — `requestActorWalletPayout` — cria pedido `pending_approval` de saque de actor_wallet.
+Zero movimentação financeira. Zero worker. Zero rota pública.
+
+### Entregue
+
+| Item | Detalhe |
+|------|---------|
+| `actor-wallet-payout.service.ts` | `ActorWalletPayoutService.requestActorWalletPayout` — validação + idempotência + snapshot + gate + BEGIN/COMMIT |
+| `financial-approval.types.ts` | `ApprovalOperationType` estendido com `'actor_wallet_payout'` |
+| E2E F2 | 16/16 PASS |
+
+### Gates F2 (fechamento institucional)
+
+| Gate | Resultado |
+|------|-----------|
+| `tsc --noEmit` | ✅ clean |
+| `validate:actor-writer-boundaries` | ✅ GATE OK [actor-writer §4.8.1] |
+| `validate:bank-ledger-boundaries` | ✅ GATE OK [bank-ledger §4.6] |
+| `validate:regression-guards` | ✅ GATE OK |
+| `validate:architectural` | ✅ `critical_new=0` (20 violations pré-existentes, nenhuma nova) |
+| E2E F1 regression | ✅ 12/12 |
+| E2E F2 | ✅ 16/16 |
+
+### Invariantes confirmadas
+
+- Zero alteração em `bank_ledger` (T14 PASS)
+- Zero alteração em `bank_transactions` (T15 PASS)
+- `payout_requests` (trilho seller) intocado (T16 PASS)
+- Idempotência por `(tenant_id, idempotency_key)` — segunda chamada retorna `alreadyExisted=true` (T4 PASS)
+- `availableBalanceCents` é projeção — NÃO SSOT financeiro
+- `ACTOR_WALLET_PAYOUT_INSUFFICIENT_AVAILABLE_BALANCE` dispara quando `amount > available` no snapshot (T6 PASS)
+- Obligations `approved`/`partially_recovered` reduzem `pendingRecoveryCents` (T7/T8 PASS)
+- Obligations `pending_approval`/`recovered`/`cancelled` NÃO reduzem (T9/T10/T11 PASS)
+
+### DT-ACTOR-WALLET-PAYOUT-WIRING — estado pós-F2
+
+- **F1 SUBSTRATE**: DONE (`98a1111a`)
+- **F2 REQUEST SERVICE**: DONE (`a1532780`)
+- **DT permanece PARTIAL HIGH**: F3 (execução financeira) e F4 (PIX/TED) aguardam autorização

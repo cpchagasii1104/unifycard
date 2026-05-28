@@ -6807,7 +6807,7 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 
 ## DT-ACTOR-WALLET-PAYOUT-WIRING
 
-- **Status:** OPEN HIGH (2026-05-28) — nenhum serviço de saque voluntário de `actor_wallet` existe. DECISION-0058 registra as decisões arquiteturais; frente de implementação aguarda autorização de produto.
+- **Status:** PARTIAL HIGH (2026-05-28) — F1+F2 DONE. F3 (execução financeira) e F4 (PIX/TED) ainda aguardam autorização.
 - **Origem:** DECISION-0058 (2026-05-28). Após F-ACTOR-WALLET-AVAILABLE-BALANCE (commit `f14634c1`), `availableBalanceCents` exposto como projeção de leitura. Implementação do saque real é frente posterior separada.
 - **Vinculada a:** DECISION-0058, DECISION-0053, DECISION-0054, DECISION-0055, DT-RECOVERY-PAYOUT-GATE
 - **Classe:** DT-F (feature gap — substrato documentado mas não implementado)
@@ -6831,8 +6831,8 @@ Deve ser resolvida ANTES de qualquer backfill/lazy creation para evitar contas c
 
 Frentes sequenciais:
 - F1 SUBSTRATE: **DONE** (commit `98a1111a`, 2026-05-28) — schema + types + E2E 12/12. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
-- F2 REQUEST SERVICE: OPEN — criar pedido `pending_approval` (sem execução financeira).
-- F3 EXECUÇÃO ATÔMICA: OPEN — drain obrigações + payout em BEGIN/COMMIT único.
+- F2 REQUEST SERVICE: **DONE** (commit `a1532780`, 2026-05-28) — `requestActorWalletPayout` cria `pending_approval` + approval_request atômico. E2E 16/16. Gates: tsc clean, actor-writer OK, bank-ledger OK, regression OK, arch critical_new=0.
+- F3 EXECUÇÃO ATÔMICA: OPEN — drain obrigações + payout em BEGIN/COMMIT único. Aguarda autorização.
 - F4 GATEWAY EXTERNO: OPEN — PIX/TED (não autorizado).
 
 ### Vinculadas

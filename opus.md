@@ -1603,7 +1603,7 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 
 ## DECISION-0058 — F-ACTOR-WALLET-PAYOUT-WIRING (2026-05-28, documental)
 
-**Frente NÃO implementada.** Aguarda autorização de produto.
+**F1+F2 DONE.** F3 (execução financeira) e F4 (PIX/TED) aguardam autorização de produto.
 
 **Regras operacionais permanentes:**
 
@@ -1618,12 +1618,13 @@ E2E PE-5-RESOLVER 8/8 verdes prova todos os caminhos + fail-closeds.
 - D2: `SELECT FOR UPDATE` → drain (`debitActorWalletForRecovery`) → recalcular saldo → payout excedente → COMMIT (ou ROLLBACK total)
 - D3: settlement MVP = interno; PIX/TED = fase 2 (não autorizado)
 - D4: todo saque entra como `pending_approval`; execução financeira só após `approved`
-- D5: `operation_type='actor_wallet_payout'`, `reference_type='actor_wallet_payout'` (NÃO existem ainda — a criar na migration)
+- D5: `operation_type='actor_wallet_payout'`, `reference_type='actor_wallet_payout'`
 
-**Estado do sistema (2026-05-28 — pós-F1):**
+**Estado do sistema (2026-05-28 — pós-F2):**
 - `actor_wallet_payout_requests` EXISTE (migration `20260530572000`, commit `98a1111a`)
 - `approval_requests` aceita `operation_type='actor_wallet_payout'` (CHECK estendido)
 - concept `actor-wallet-payout` em `financeiro-payout` EXISTE
-- `BANK_SEMANTICS.md` linha 61 ainda verdadeira: "NÃO é payout externo" — substrato ≠ execução
-- Income withholding C3.1 ativo: protege contra fuga enquanto F2/F3 não existem
-- F2 (request service) e F3 (execução atômica) OPEN — aguardam autorização
+- `actorWalletPayoutService.requestActorWalletPayout` EXISTE (commit `a1532780`) — cria `pending_approval` + `approval_request` atômico; zero movimento financeiro
+- `ApprovalOperationType` inclui `'actor_wallet_payout'` (financial-approval.types.ts)
+- Income withholding C3.1 ativo: protege contra fuga enquanto F3 não existe
+- F3 (execução atômica) e F4 (PIX/TED) OPEN — aguardam autorização
