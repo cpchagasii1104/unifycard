@@ -6,7 +6,8 @@ import { CompanyStatus } from '@unificard/contracts';
 import { pool } from '@core/database/pool';
 import { ensurePageActor, ensureUserActor } from '@modules/identity/actor-writer.service';
 import { isTestOverrideUser } from '../../utils/isTestOverrideUser';
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
+import { HttpError } from '@core/errors/http-error';
 import { locationRepository } from '@core/location/location.repository';
 import type { CreateAddressInput } from '@core/location/location.types';
 import type {
@@ -727,6 +728,195 @@ class CompaniesService {
     }
 
     return { company, companyUser };
+  }
+
+  /**
+   * Ativação operacional da empresa (Momento 2) — single writer (Fase 3B.3).
+   * Desenho: docs/02_decisions/DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md (commit 691b2169).
+   *
+   * Três fases. Os writers de actor (ensureUserActor/ensurePageActor) usam
+   * runQueryWithTenant/client interno e por isso rodam FORA da transação — NUNCA dentro de
+   * BEGIN/COMMIT. Só a Fase 3 abre transação (getClientWithTenant) e grava APENAS a
+   * classificação primária (primary_company_type_id + primary_concept_id). SEM capabilities
+   * (dívida D-CONCEPT/D-CONTEXT-RESOLVER). Falha em qualquer ponto → fail-closed.
+   */
+  async activateCompanyOperationally(input: {
+    tenantId: string;
+    companyId: string;
+    responsibleUserId: string;
+    primaryCompanyTypeId: string;
+    primaryConceptId: string;
+  }): Promise<{
+    companyId: string;
+    pageActorId: string;
+    responsibleActorId: string;
+    primaryCompanyTypeId: string;
+    primaryConceptId: string;
+    alreadyActive: boolean;
+  }> {
+    const { tenantId, companyId, responsibleUserId, primaryCompanyTypeId, primaryConceptId } = input;
+
+    // ── FASE 1 — validações (FORA de transação) ──────────────────────────────
+    const company = await runQueryWithTenant<{
+      company_id: string;
+      primary_company_type_id: string | null;
+      primary_concept_id: string | null;
+    }>(
+      tenantId,
+      `SELECT company_id, primary_company_type_id, primary_concept_id
+         FROM companies
+        WHERE company_id = $1 AND tenant_id = $2
+        LIMIT 1`,
+      [companyId, tenantId]
+    );
+    if (!company) {
+      throw this.activationError('COMPANY_NOT_FOUND', `Empresa ${companyId} não encontrada no tenant`, 404);
+    }
+
+    const companyType = await runQueryWithTenant<{ id: string }>(
+      tenantId,
+      `SELECT id FROM company_types WHERE id = $1 LIMIT 1`,
+      [primaryCompanyTypeId]
+    );
+    if (!companyType) {
+      throw this.activationError('COMPANY_TYPE_NOT_FOUND', `company_type ${primaryCompanyTypeId} inexistente`, 404);
+    }
+
+    const concept = await runQueryWithTenant<{ concept_id: string }>(
+      tenantId,
+      `SELECT concept_id FROM concepts WHERE concept_id = $1 LIMIT 1`,
+      [primaryConceptId]
+    );
+    if (!concept) {
+      throw this.activationError('CONCEPT_NOT_FOUND', `concept ${primaryConceptId} inexistente`, 404);
+    }
+
+    const allowedPair = await runQueryWithTenant<{ ok: number }>(
+      tenantId,
+      `SELECT 1 AS ok FROM company_type_allowed_concepts
+        WHERE company_type_id = $1 AND concept_id = $2 LIMIT 1`,
+      [primaryCompanyTypeId, primaryConceptId]
+    );
+    if (!allowedPair) {
+      throw this.activationError(
+        'COMPANY_TYPE_CONCEPT_NOT_ALLOWED',
+        `par (company_type=${primaryCompanyTypeId}, concept=${primaryConceptId}) não permitido em company_type_allowed_concepts`,
+        400
+      );
+    }
+
+    // Idempotência preliminar: par diferente já gravado → fail fast (evita criar page-actor à toa).
+    if (company.primary_company_type_id !== null || company.primary_concept_id !== null) {
+      const samePair =
+        company.primary_company_type_id === primaryCompanyTypeId &&
+        company.primary_concept_id === primaryConceptId;
+      if (!samePair) {
+        throw this.activationError(
+          'COMPANY_ALREADY_OPERATIONAL_WITH_DIFFERENT_CLASSIFICATION',
+          `empresa ${companyId} já operacional com classificação diferente`,
+          409
+        );
+      }
+    }
+
+    // ── FASE 2 — garantir identidade operacional (FORA de transação) ─────────
+    // ensureUserActor/ensurePageActor usam client interno; NUNCA dentro de BEGIN/COMMIT.
+    const responsibleActor = await ensureUserActor(tenantId, responsibleUserId);
+    if (!responsibleActor?.actor_id) {
+      throw this.activationError(
+        'RESPONSIBLE_ACTOR_NOT_FOUND',
+        `actor humano responsável (user ${responsibleUserId}) não resolvido`,
+        404
+      );
+    }
+    const pageActor = await ensurePageActor(tenantId, companyId, responsibleActor.actor_id);
+    if (!pageActor?.actor_id || pageActor.actor_type !== 'page') {
+      throw this.activationError(
+        'PAGE_ACTOR_AMBIGUOUS',
+        `page-actor da empresa ${companyId} em estado inesperado`,
+        500
+      );
+    }
+
+    // ── FASE 3 — transação da classificação (SÓ SELECT FOR UPDATE + UPDATE) ──
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      const locked = await client.query<{
+        primary_company_type_id: string | null;
+        primary_concept_id: string | null;
+      }>(
+        `SELECT primary_company_type_id, primary_concept_id
+           FROM companies
+          WHERE company_id = $1 AND tenant_id = $2
+          FOR UPDATE`,
+        [companyId, tenantId]
+      );
+      if (locked.rowCount === 0) {
+        await client.query('ROLLBACK');
+        throw this.activationError('COMPANY_NOT_FOUND', `Empresa ${companyId} desapareceu sob lock`, 404);
+      }
+
+      const cur = locked.rows[0];
+      if (cur.primary_company_type_id !== null || cur.primary_concept_id !== null) {
+        const samePair =
+          cur.primary_company_type_id === primaryCompanyTypeId &&
+          cur.primary_concept_id === primaryConceptId;
+        if (samePair) {
+          await client.query('COMMIT');
+          return {
+            companyId,
+            pageActorId: pageActor.actor_id,
+            responsibleActorId: responsibleActor.actor_id,
+            primaryCompanyTypeId,
+            primaryConceptId,
+            alreadyActive: true,
+          };
+        }
+        await client.query('ROLLBACK');
+        throw this.activationError(
+          'COMPANY_ALREADY_OPERATIONAL_WITH_DIFFERENT_CLASSIFICATION',
+          `empresa ${companyId} já operacional com classificação diferente (detectado sob lock)`,
+          409
+        );
+      }
+
+      await client.query(
+        `UPDATE companies
+            SET primary_company_type_id = $1,
+                primary_concept_id = $2,
+                updated_at = now()
+          WHERE company_id = $3 AND tenant_id = $4`,
+        [primaryCompanyTypeId, primaryConceptId, companyId, tenantId]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        companyId,
+        pageActorId: pageActor.actor_id,
+        responsibleActorId: responsibleActor.actor_id,
+        primaryCompanyTypeId,
+        primaryConceptId,
+        alreadyActive: false,
+      };
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // rollback best-effort; erro original prevalece
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private activationError(code: string, message: string, statusCode: number): HttpError {
+    const err = new HttpError(`${code}: ${message}`, statusCode);
+    (err as unknown as { code: string }).code = code;
+    return err;
   }
 
   /**

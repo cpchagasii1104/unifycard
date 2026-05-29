@@ -360,7 +360,11 @@ export class ActorRepository {
 
     // 2. Actors de empresas onde o usuário tem permissão
     // Busca empresas via JOIN direto entre company_users e users usando global_user_id
-    // LEFT JOIN company_types para expor slug (bootstrap contextual — Fase 1 capabilities)
+    // LEFT JOIN company_types via c.primary_company_type_id (classificação POR-EMPRESA, Fase 3B.3 —
+    //   NÃO mais tenants.company_type_id, que vira default/template do tenant).
+    // FILTRO OPERACIONAL (Fase 3B.3): só lista empresa OPERACIONAL (Momento 2) — page-actor com
+    //   responsible_actor_id + companies.primary_company_type_id/primary_concept_id preenchidos e
+    //   com par válido em company_type_allowed_concepts. Empresa Momento 1 (inerte) fica INVISÍVEL.
     // 2026-05-18 P1 Frente C — REVERTIDA após smoke FAIL crítico de bootstrap.
     // Causa raiz: coluna `companies.activity` NÃO EXISTE no schema material
     // (auditado em migration 0065 e seguintes). Tipo TS `Company.activity`
@@ -385,17 +389,24 @@ export class ActorRepository {
         c.company_status,
         ct.slug AS company_type_slug
       FROM actors a
-      INNER JOIN companies c ON a.company_id = c.company_id
-      INNER JOIN company_users cu ON c.company_id = cu.company_id
+      INNER JOIN companies c ON a.company_id = c.company_id AND c.tenant_id = $1
+      INNER JOIN company_users cu ON c.company_id = cu.company_id AND cu.tenant_id = $1
       INNER JOIN users u ON cu.global_user_id = u.global_user_id
-      INNER JOIN tenants t ON a.tenant_id = t.id
-      LEFT JOIN company_types ct ON ct.id = t.company_type_id
+      LEFT JOIN company_types ct ON ct.id = c.primary_company_type_id
       WHERE a.tenant_id = $1
         AND a.actor_type = 'page'
+        AND a.responsible_actor_id IS NOT NULL
         AND u.user_id = $2
         AND u.tenant_id = $1
         AND cu.is_active = true
         AND c.status != 'suspended'
+        AND c.primary_company_type_id IS NOT NULL
+        AND c.primary_concept_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM company_type_allowed_concepts ctac
+           WHERE ctac.company_type_id = c.primary_company_type_id
+             AND ctac.concept_id = c.primary_concept_id
+        )
       ORDER BY cu.is_primary DESC, c.created_at DESC
       `,
       [tenantId, userId]
