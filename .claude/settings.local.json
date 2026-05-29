@@ -136,7 +136,13 @@
       "Bash(git -C C:/unificard log -1 --oneline)",
       "PowerShell(psql \"postgresql://postgres:21estePDZ...@localhost:5432/unificard_dev\" -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE '%profile%' OR table_name LIKE '%skill%' OR table_name LIKE '%health%' OR table_name LIKE '%learn%' OR table_name LIKE '%education%' OR table_name LIKE '%availab%' OR table_name LIKE '%activit%' ORDER BY table_name;\" 2>&1)",
       "PowerShell(psql \"postgresql://postgres:21estePDZ...@localhost:5432/unificard_dev\" -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;\" 2>&1)",
-      "PowerShell(psql \"postgresql://postgres:21estePDZ...@localhost:5432/unificard_dev\" -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND \\(table_name LIKE '%health%' OR table_name LIKE '%skill%' OR table_name LIKE '%learn%' OR table_name LIKE '%educat%' OR table_name LIKE '%agenda%'\\) ORDER BY table_name;\" 2>&1)"
+      "PowerShell(psql \"postgresql://postgres:21estePDZ...@localhost:5432/unificard_dev\" -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND \\(table_name LIKE '%health%' OR table_name LIKE '%skill%' OR table_name LIKE '%learn%' OR table_name LIKE '%educat%' OR table_name LIKE '%agenda%'\\) ORDER BY table_name;\" 2>&1)",
+      "Bash(Get-ChildItem -Path \"C:\\\\unificard\" -Recurse -Filter \".env*\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(cd C:\\\\unificard\\\\backend; $env:PGPASSWORD = \"postgres\"; psql -U postgres -h localhost -p 5432 -d unificard_dev -c \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN \\('schedules', 'schedule_slots', 'bookings', 'event_attendees', 'rides_vehicles'\\) ORDER BY table_name;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"21estePDZ...\"; psql -U postgres -h localhost -p 5432 -d unificard_dev -c \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN \\('schedules', 'schedule_slots', 'bookings', 'event_attendees', 'rides_vehicles'\\) ORDER BY table_name;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"21estePDZ...\"; psql -U postgres -h localhost -p 5432 -d unificard_dev -c \"SELECT filename, executed_at FROM schema_migrations WHERE filename ILIKE '%schedule%' OR filename ILIKE '%booking%' OR filename ILIKE '%event_attendee%' OR filename ILIKE '%rides_vehicle%' ORDER BY filename;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"21estePDZ...\"; psql -U postgres -h localhost -p 5432 -d unificard_dev -c \"SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 10;\" 2>&1)"
     ]
   }
 }

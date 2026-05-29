@@ -8232,3 +8232,56 @@ Falsas positivas 3/5 indicam que a auditoria estática precisaria distinguir ALT
 ### Próximo passo
 
 Aguardar Clayton + Opus + ChatGPT revisarem o desenho. Quando autorizado, escrever as 2 migrations propostas em fatia separada.
+
+## Sessão 2026-05-29 — Instância E: lacuna dos nomes RESOLVIDA
+
+### Escopo
+
+Fechar a contradição entre tree (CREATE bookings com `requestedat` legado, event_attendees com `check_in_time`) e banco real (colunas modernas `requested_at`, `checked_in_at`) antes de finalizar o desenho do Pacote 1. Modo guardião read-only.
+
+### Achado decisivo
+
+A rota é **(a) migration do tree que rodou na ordem cronológica certa por acaso** — ordem de execução real ≠ ordem alfabética. Evidência em `schema_migrations.executed_at`:
+
+```
+20260530150000_event_attendees.sql                       executed 2026-04-21 13:48:00.503 (CREATE check_in_time)
+20260530491000_create_unified_availability_tables.sql    executed 2026-04-21 13:48:00.868 (CREATE requestedat etc.)
+20260428260000_bookings_fix_timestamp_names.sql         executed 2026-04-29 22:42:23.740 (RENAME ← 8 dias depois)
+20260428280000_event_attendees_fix_check_in_time.sql    executed 2026-04-29 22:42:23.761 (RENAME ← 8 dias depois)
+```
+
+As migrations RENAME foram adicionadas ao tree DEPOIS das CREATEs já terem rodado. O runner detectou-as como novas pendentes e rodou-as. Como as tabelas já existiam, `IF EXISTS column` retornou TRUE e RENAME efetivou.
+
+**No rebuild zero, todas pendentes simultaneamente: ordem alfabética coloca RENAME ANTES de CREATE → RENAME vira no-op silencioso → tabelas finais com colunas LEGADAS, divergente do real.**
+
+### Implicação
+
+A divergência rebuild-vs-real NÃO é cosmética: bookings tem 4 colunas com nomes legados (`requestedat`/`confirmedat`/`cancelledat`/`expiredat`); event_attendees tem 1 (`check_in_time`). Consumidores TS que esperam nomes modernos quebram no rebuild.
+
+### Refinamento do Pacote 1
+
+A análise anterior (entrega "3 falsas positivas") estava parcialmente certa (RENAME não QUEBRA) mas incompleta (divergência é estrutural). Refinamento:
+
+- **A) Pacote 1 mínimo (2 migrations):** só schedules + schedule_slots; aceita divergência de nomes em bookings/event_attendees; consumers que esperam nomes modernos quebram no rebuild.
+- **B) Pacote 1 ampliado (≈6 migrations):** + backdate de availability + availability_participants + bookings + event_attendees com colunas MODERNAS antes dos RENAMEs. Rebuild = real.
+
+### Estado-alvo capturado para 4 tabelas core
+
+`schedules` (9 cols), `schedule_slots` (7 cols) — CREATE tardio do tree JÁ É IDÊNTICO ao real (só falta CHECK constraint da 535000).
+
+`bookings` (15 cols) — 4 nomes divergem (legados no tree, modernos no real).
+
+`event_attendees` (8 cols) — 1 nome diverge (`check_in_time` legado vs `checked_in_at` moderno).
+
+Nenhuma divergência de tipo/default/FK adicional detectada.
+
+### Confirmações de escopo
+
+- ✅ Zero edição/escrita/execução de migration
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Banco real intocado em toda a fatia
+- ✅ Decisões fechadas pelo Clayton respeitadas
+
+### Próximo passo
+
+Aguardar decisão Clayton + Opus + ChatGPT entre alternativas A (mínimo) e B (ampliado) antes da escrita do Pacote 1.

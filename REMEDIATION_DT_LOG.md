@@ -8681,6 +8681,205 @@ Aguardar Clayton + Opus + ChatGPT revisarem o desenho. Quando autorizado, escrev
 - CHECKs adicionadas em `20260530535000_c36_status_check_constraints.sql:89-115`
 - Falsas positivas: `20260428260000_bookings_fix_timestamp_names.sql`, `20260428280000_event_attendees_fix_check_in_time.sql`, `20260523100000_rides_vehicles_concept_id_nullable.sql`
 
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Instância E: lacuna dos nomes RESOLVIDA (2026-05-29)
+
+- **Modo:** guardião read-only absoluto. SELECT-only no banco real + leitura de migrations.
+- **Objetivo:** explicar a contradição entre tree (CREATE com colunas LEGADAS) e banco real (colunas MODERNAS) antes de desenhar P1.
+- **Achado decisivo:** rota é **(a) migration do tree que rodou na ordem cronológica certa por acaso** — ordem de execução real ≠ ordem alfabética.
+
+### Evidência decisiva (executed_at em schema_migrations)
+
+```
+20260530150000_event_attendees.sql                       executed=2026-04-21 13:48:00.503  ← criou check_in_time
+20260530491000_create_unified_availability_tables.sql   executed=2026-04-21 13:48:00.868  ← criou requestedat etc.
+20260428260000_bookings_fix_timestamp_names.sql         executed=2026-04-29 22:42:23.740  ← RENAME (8 dias DEPOIS)
+20260428280000_event_attendees_fix_check_in_time.sql    executed=2026-04-29 22:42:23.761  ← RENAME (8 dias DEPOIS)
+```
+
+A migration de RENAME (filename `20260428…`) rodou **8 dias DEPOIS** da migration de CREATE (filename `20260530…`), apesar de ter timestamp de filename ANTERIOR.
+
+### Como isso foi possível
+
+Sequência cronológica real:
+1. **21/abr/2026 13:48** — Tree continha 20260530150000 e 20260530491000; runner aplicou em ordem alfabética disponível naquele momento (CREATE com nomes legados).
+2. **Entre 21/abr e 29/abr** — alguém adicionou ao tree `20260428260000_bookings_fix_timestamp_names.sql` e `20260428280000_event_attendees_fix_check_in_time.sql` (timestamps "do passado").
+3. **29/abr/2026 22:42** — Runner detectou as 2 novas como pendentes (já que 20260530xxx estava registrada). Rodou apenas as novas. Tabelas JÁ existiam → `IF EXISTS column` = TRUE → RENAME efetivou. Colunas viraram MODERNAS.
+
+**O runner ordena por filename alfabético**, mas só roda as PENDENTES. Como as migrations CREATE já estavam aplicadas quando as RENAME foram adicionadas, o efeito final foi "RENAME depois de CREATE" — apesar do filename sugerir o oposto.
+
+### Por que o rebuild zero diverge
+
+No rebuild ZERO, todas as 328 migrations estão simultaneamente pendentes. O runner ordena ALFABETICAMENTE por filename:
+1. `20260428260000_bookings_fix_timestamp_names.sql` roda PRIMEIRO. Tabela `bookings` não existe → `IF EXISTS column 'requestedat'` = FALSE → no-op silencioso.
+2. `20260530491000_create_unified_availability_tables.sql` roda DEPOIS. Cria `bookings` com colunas LEGADAS.
+3. Estado final: colunas legadas (`requestedat`, `confirmedat`, etc.).
+
+Mesma análise para `event_attendees` com `check_in_time`.
+
+### Classificação da rota
+
+- (a) **Migration do tree que rodou na ordem certa por acaso** ✓ — confirmado por `checksum=36ae25b4cb74` (não null) + `executed_at` real.
+- (b) órfã/perdida → NÃO. As 3 órfãs (518000, 519000, 560000) não tocam essas colunas (nomes não relacionados).
+- (c) correção manual fora de migration → NÃO. O RENAME está no tree e tem checksum.
+- (d) indeterminado → NÃO. Evidência clara.
+
+### Implicação para o desenho do Pacote 1 (refina a entrega anterior)
+
+**A divergência rebuild-vs-real NÃO é cosmética.** No rebuild atual, bookings nasce com `requestedat`/`confirmedat`/`cancelledat`/`expiredat` e event_attendees nasce com `check_in_time`. **Diferente do banco vivo.** Aplicações que assumem nomes modernos quebram no rebuild.
+
+Para o backdate produzir estado-alvo IDÊNTICO ao real, há 2 opções equivalentes:
+
+- **Opção X1 (estado moderno desde sempre):** backdate de CREATE com COLUNAS MODERNAS antes do RENAME. RENAME executa → `IF EXISTS column 'requestedat'` = FALSE → no-op. CREATE original (20260530491000) com IF NOT EXISTS = no-op. **Estado final = moderno = real.**
+
+- **Opção X2 (preserva história semântica):** backdate de CREATE com COLUNAS LEGADAS antes do RENAME. RENAME executa → tabela existe e tem coluna legada → ALTER renomeia. CREATE original = no-op. **Estado final = moderno = real.**
+
+Ambas atingem o estado-alvo. **X1 é mais limpo** (uma instrução SQL); **X2 preserva história de versionamento**.
+
+### Estado-alvo de cada uma das 4 tabelas core (para o backdate produzir)
+
+Colunas/constraints capturadas do banco real. CHECK constraints (status) vêm de `20260530535000_c36_status_check_constraints.sql:89-115` — **NÃO precisam estar no backdate** (rodam depois).
+
+#### `schedules` (estado real, 0 rows)
+```
+COLS:
+  id              uuid PK DEFAULT uuid_generate_v4()
+  tenant_id       uuid NOT NULL  FK → tenants(id)
+  actor_id        uuid           FK → actors(id)
+  reference_type  text
+  reference_id    uuid
+  status          text NOT NULL DEFAULT 'active'
+  metadata        jsonb NOT NULL DEFAULT '{}'::jsonb
+  created_at      timestamptz NOT NULL DEFAULT now()
+  updated_at      timestamptz NOT NULL DEFAULT now()
+CHECK: chk_schedules_status (vem da 535000)
+INDEXES: schedules_pkey
+```
+
+Conteúdo do CREATE tardio `20260530200000_schedules.sql` JÁ É IGUAL ao estado-alvo. Sem divergência de colunas/defaults/FKs. **Apenas falta a CHECK constraint (vem depois).**
+
+#### `schedule_slots` (estado real, 0 rows)
+```
+COLS:
+  id           uuid PK DEFAULT uuid_generate_v4()
+  schedule_id  uuid NOT NULL  FK → schedules(id)
+  starts_at    timestamptz NOT NULL
+  ends_at      timestamptz NOT NULL
+  status       text NOT NULL DEFAULT 'available'
+  metadata     jsonb NOT NULL DEFAULT '{}'::jsonb
+  created_at   timestamptz NOT NULL DEFAULT now()
+CHECK: chk_schedule_slots_status (vem da 535000)
+INDEXES: schedule_slots_pkey
+```
+
+Conteúdo do CREATE tardio `20260530210000_schedule_slots.sql` IGUAL ao estado-alvo (modulo CHECK).
+
+#### `bookings` (estado real, 39 rows) — DIVERGENTE DO TREE
+```
+COLS (15):
+  booking_id          uuid PK DEFAULT gen_random_uuid()
+  tenant_id           uuid NOT NULL
+  availability_id     uuid NOT NULL  FK → availability(availability_id) ON DELETE CASCADE
+  requester_actor_id  uuid NOT NULL
+  status              varchar(30) NOT NULL DEFAULT 'requested'
+  notes               text
+  metadata            jsonb NOT NULL DEFAULT '{}'::jsonb
+  requested_at        timestamptz NOT NULL DEFAULT now()     ← MODERNO (tree tem requestedat)
+  checked_in_at       timestamptz                            ← já era checked_in_at no tree
+  checked_out_at      timestamptz                            ← já era checked_out_at no tree
+  confirmed_at        timestamptz                            ← MODERNO (tree tem confirmedat)
+  cancelled_at        timestamptz                            ← MODERNO (tree tem cancelledat)
+  expired_at          timestamptz                            ← MODERNO (tree tem expiredat)
+  created_at          timestamptz NOT NULL DEFAULT now()
+  updated_at          timestamptz NOT NULL DEFAULT now()
+CHECK: chk_bookings_status (vem da 535000)
+INDEXES: bookings_pkey, idx_bookings_tenant_availability, idx_bookings_tenant_requester
+FKs: bookings_availability_id_fkey
+```
+
+**Divergência: 4 colunas com nomes legados no tree (`requestedat`, `confirmedat`, `cancelledat`, `expiredat`) vs modernos no real.**
+
+#### `event_attendees` (estado real, 0 rows) — DIVERGENTE DO TREE
+```
+COLS (8):
+  id              uuid PK DEFAULT uuid_generate_v4()
+  tenant_id       uuid NOT NULL  FK → tenants(id)
+  event_id        uuid NOT NULL  FK → events(id)
+  global_user_id  uuid           FK → global_users(global_user_id)
+  actor_id        uuid           FK → actors(id)
+  checked_in_at   timestamptz                            ← MODERNO (tree tem check_in_time)
+  status          text NOT NULL DEFAULT 'registered'
+  created_at      timestamptz NOT NULL DEFAULT now()
+UNIQUE: (tenant_id, event_id, global_user_id)
+CHECK: chk_event_attendees_status (vem da 535000)
+INDEXES: event_attendees_pkey, event_attendees_tenant_id_event_id_global_user_id_key
+```
+
+**Divergência: 1 coluna com nome legado no tree (`check_in_time`) vs moderno no real.**
+
+### Outras divergências (além de nomes)
+
+Comparando CREATE original (tree) vs real:
+- **schedules**: nenhuma divergência além da CHECK (que vem da 535000).
+- **schedule_slots**: idem.
+- **bookings**: 4 nomes de coluna (legadas no tree, modernas no real) + CHECK da 535000.
+- **event_attendees**: 1 nome de coluna (`check_in_time` no tree, `checked_in_at` no real) + CHECK da 535000.
+
+Nenhuma divergência de tipo, default ou FK adicional foi detectada.
+
+### Refinamento da entrega anterior do Pacote 1
+
+A análise da Instância anterior (falsas positivas para bookings/event_attendees) era **parcialmente correta** — o RENAME não QUEBRA o rebuild. Mas era **incompleta** sobre o efeito: a divergência rebuild-vs-real **não é cosmética**, é estrutural (nomes diferentes), e afeta consumidores que esperam o nome moderno.
+
+**Refinamento sugerido:** o Pacote 1 talvez precise de **4 migrations** ao invés de 2, para que o rebuild produza estado IDÊNTICO ao real:
+1. `20260428100000_create_schedules.sql` (já planejado)
+2. `20260428110000_create_schedule_slots.sql` (já planejado)
+3. **NOVO:** `20260428240000_create_bookings.sql` — backdate de CREATE bookings com colunas MODERNAS (Opção X1) ANTES de `20260428260000_bookings_fix_timestamp_names.sql`. Depende de `availability` existir antes; precisaria backdate de availability + participants também — OU usar Opção X2 (colunas legadas, deixar RENAME efetivar).
+4. **NOVO:** `20260428270000_create_event_attendees.sql` — backdate de CREATE event_attendees com `checked_in_at` (Opção X1) ANTES de `20260428280000`. Depende de `events` existir.
+
+**Caveat sobre dependências:** bookings depende de `availability` (FK). event_attendees depende de `events` (FK). availability é criada em `20260530491000`; events em `0005_events.sql` (timestamp legado, roda muito cedo). Portanto:
+- event_attendees backdate é viável (events já existe via `0005_events.sql`).
+- bookings backdate exige TAMBÉM backdate de availability+availability_participants — escopo maior.
+
+### Recomendação de decisão para o desenho do Pacote 1
+
+Duas alternativas legítimas:
+
+**A) Pacote 1 mínimo (2 migrations) — aceitar divergência de nomes:**
+- Só schedules + schedule_slots
+- Rebuild produz bookings com colunas legadas e event_attendees com `check_in_time`
+- Divergência aceita; consumidores TS que esperam nomes modernos quebram no rebuild
+- Mais simples; menos risco; aplica DT separada para corrigir nomes depois
+
+**B) Pacote 1 ampliado (4-6 migrations) — produzir estado idêntico ao real:**
+- Adicionar backdate de event_attendees (1 migration; events já está disponível)
+- Adicionar backdate de availability + bookings + availability_participants juntos (3 migrations; cadeia FK)
+- Total ≈ 6 migrations
+- Rebuild produz estado IDÊNTICO ao real para essas 4+ tabelas
+- Mais complexo; mais risco; resolve a divergência de uma vez
+
+**Sugestão:** ratificar B para que o rebuild seja fidedigno. Mas decisão é do Clayton + Opus + ChatGPT.
+
+### Confirmações de escopo Instância E
+
+- ✅ Zero migration escrita
+- ✅ Zero edição de código/schema
+- ✅ Zero execução de migration
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Banco real intocado em toda a fatia
+- ✅ Sem decidir/propor SQL — apenas fechando lacuna de evidência
+
+### Vinculadas
+
+- F-MIGRATION-REBUILD-PACKAGES Desenho P1 (commit `3d8d4718`) — refinado aqui
+- Instância A (3 órfãs) — descartada como rota dos RENAMEs
+- `20260530150000_event_attendees.sql:10` (CREATE com `check_in_time`)
+- `20260530491000_create_unified_availability_tables.sql:32-37` (CREATE bookings com legados)
+- `20260428260000_bookings_fix_timestamp_names.sql:13-55` (RENAME executado em 29/abr)
+- `20260428280000_event_attendees_fix_check_in_time.sql:3-12` (idem)
+- `20260530535000_c36_status_check_constraints.sql:89-115` (CHECKs adicionadas depois)
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
