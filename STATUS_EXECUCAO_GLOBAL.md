@@ -7820,3 +7820,76 @@ Durante T6/T7 inicial, F4.0 falhou com `ACTOR_BANK_DEST_IDENTITY_MISSING — act
 ### Próximo passo recomendado
 
 F4 (migrar leitura CORE) — refatorar `core.service.ts` para JOIN com `identities` e ler `i.tax_id` em vez de `up.cpf`/`p.cpf`. **NÃO autorizado nesta sessão** — exige autorização Clayton + revisão de impacto nos consumers de `personal_profile.cpf` no frontend. Alternativa adjacente: fatia dedicada para DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (gap material que afeta F4.0 em produção pra qualquer usuário novo).
+
+## Sessão 2026-05-28 — F3.1 v2 DECISION-0062 (register identity-before-actor + repo fail-closed)
+
+### Escopo
+
+Fechar DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID via dupla camada: B na origem (ordem no register) + A no ponto de INSERT (fail-closed em service layer). Garantir que todo actor humano canônico nasça com `actors.global_user_id` preenchido e validado contra `identities`, respeitando ordem causal IDENTIDADE → ACTOR.
+
+### Auditoria live (pré-edição)
+
+- `fk_actor_identity` ATIVA: `FOREIGN KEY (global_user_id) REFERENCES identities(global_user_id)`
+- `chk_actor_requires_identity` ATIVA mas só dispara para `actor_type='actor_human'` (CHECK aberta sobre 10 valores; runtime majoritário usa `'user'`)
+- Runtime atual: 134 atores, 40 com `global_user_id`, **94 sem** — drift material mensurado
+
+### Mudança
+
+| Arquivo | Mudança |
+|---------|---------|
+| `backend/src/core/auth/auth.service.ts:515-540` | Ordem dos blocos invertida: `ensureIdentityRowForGlobalUserId` agora roda ANTES de `ensureUserActor`. Best-effort preservado em ambos (justificativa: trava A garante fail-closed). |
+| `backend/src/modules/social/actor.repository.ts:56-130` | `findOrCreateUserActor` agora resolve `users.global_user_id` na query existente, valida presença em `identities`, faz `throw` explícito se ausência (não cria órfão) e inclui `global_user_id` no INSERT. Assinatura pública inalterada. |
+| `REMEDIATION_DT_LOG.md` | DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID **CLOSED** + bloco "Fechamento F3.1 v2" com T1–T6 + 5 gates + auditoria live. Nova **DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION** OPEN (3 vocabulários coexistindo + CHECK inefetiva). |
+| `STATUS_EXECUCAO_GLOBAL.md` | Checkpoint F3.1 v2. |
+| `opus.md` | Memória curta de F3.1 v2 + DT-ACTOR-TYPE aberta. |
+
+### Resultados T1–T6 + 5 gates
+
+| Item | Resultado |
+|------|-----------|
+| T1 register real cria cadeia `u.global_user_id = i.global_user_id = a.global_user_id` | PASS |
+| T2 idempotência: segunda chamada retorna mesmo actor, `updated_at` inalterado, count=1 | PASS |
+| T3 fail-closed: identity ausente → throw `identity ausente`; orphan_count=0 | PASS |
+| T4 E2E F3 coerência CPF/tax_id (regression) | 9/9 PASS |
+| T5 E2E KYC (regression) | PASS (Modo A 5 etapas + PROVA DE OURO + transfer real; Modo B 3 rejeições; Σ débitos=créditos) |
+| T6 E2E F4.0 actor-bank-destinations (regression) | 8/8 PASS |
+| tsc | clean |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK |
+| validate-architectural-patterns --strict | `critical_new=0` (warning_new=1 herdado de outro script) |
+
+### Decisão sobre best-effort vs propagação no register
+
+**Mantido best-effort** em ambos os blocos do register (`console.warn` + continua). Justificativa:
+- A trava A em `findOrCreateUserActor` é fail-closed: se identity falhou silenciosa, o INSERT em actors falha limpo, sem criar órfão.
+- O retry no próximo acesso reexecuta os dois na ordem correta (identity → actor).
+- Não regredimos a UX do register: cadastros continuam sucedendo mesmo com hiccup transitório.
+- Propagar erro do identity quebraria o register em casos onde o retry resolveria.
+
+### Compensação E2E F3 — redundante mas mantida
+
+`validate-pipeline-e2e-cpf-tax-id-coherence.ts:308` ainda executa `UPDATE actors SET global_user_id=…` após o register. Após F3.1 v2 o INSERT já popula, então o WHERE não casa nada (no-op idempotente). E2E F3 continua 9/9 PASS. **Não removido nesta fatia** (conforme instrução do prompt — reportar antes de remover). Remoção fica como cleanup cosmético opcional em fatia futura.
+
+### Cleanup leftover do E2E KYC
+
+Antes: leftover de `actors (PF)` por FK `bank_accounts_actor_id_fkey`. Depois: também leftover de `identities` por FK `fk_actor_identity` (porque agora actor tem `global_user_id` populado). Não é regressão — é a mesma cadeia FK se expandindo um nível. Cenários do KYC continuam todos PASS.
+
+### Confirmações de escopo
+
+- ✅ Zero migration nova (`actors.global_user_id` já existia)
+- ✅ Zero schema alterado (zero CHECK / FK / trigger novo)
+- ✅ Zero alteração em `identities` (schema/dados), `global_users.cpf`, `user_profiles.cpf`, `profiles.cpf`
+- ✅ Zero alteração em `bank_ledger`, `bank_transactions`, `bank_splits`
+- ✅ Zero alteração em F4 (leitura CORE), F5, Profile P0
+- ✅ Zero correção de `actor_type` ou `chk_actor_requires_identity` (registrado em DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION OPEN)
+- ✅ Zero backfill dos 94 actores existentes com `global_user_id IS NULL` (fatia futura)
+- ✅ Assinatura pública de `findOrCreateUserActor` inalterada (8 callers intactos)
+
+### Estado DECISION-0062
+
+- F0.1 ✓ `fee7b754` · F1 ✓ · F2 ✓ `e68be393` · F3 ✓ `0b32cd20` · **F3.1 v2 ✓ (commit a seguir)**
+- F4 OPEN (migrar leitura CORE — exige Clayton + revisão frontend)
+- F5 OPEN (deprecar caches transitórios pós-F4)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY: OPEN — BLOCKED BY DECISION-0062
+- DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION: OPEN (não bloqueia F4)

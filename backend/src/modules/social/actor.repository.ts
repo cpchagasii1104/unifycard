@@ -75,14 +75,16 @@ export class ActorRepository {
       return existing;
     }
 
-    // Busca nome do usuário
+    // Busca nome do usuário + global_user_id (F3.1 v2 DECISION-0062: ordem causal
+    // identity → actor; actors.global_user_id é fail-closed para actores humanos).
     const user = await runQueryWithTenant<{
       email: string;
       full_name: string | null;
+      global_user_id: string | null;
     }>(
       tenantId,
       `
-      SELECT u.email, p.full_name
+      SELECT u.email, p.full_name, u.global_user_id::text AS global_user_id
       FROM users u
       LEFT JOIN profiles p ON u.user_id = p.user_id AND u.tenant_id = p.tenant_id
       WHERE u.user_id = $1
@@ -95,19 +97,44 @@ export class ActorRepository {
       throw new Error('Usuário não encontrado');
     }
 
+    // 🔴 F3.1 v2 (DECISION-0062): fail-closed para actor humano sem âncora global.
+    // FK `actors.global_user_id → identities(global_user_id)` exige row preexistente.
+    if (!user.global_user_id) {
+      throw new Error(
+        `findOrCreateUserActor: users.global_user_id ausente para user_id=${userId} — ` +
+        `actor humano canônico exige âncora global (DECISION-0062 D4 / §4.8). ` +
+        `Não cria órfão.`
+      );
+    }
+
+    const identityCheck = await runQueryWithTenant<{ global_user_id: string }>(
+      tenantId,
+      `SELECT global_user_id::text FROM identities WHERE global_user_id = $1::uuid LIMIT 1`,
+      [user.global_user_id]
+    );
+
+    if (!identityCheck) {
+      throw new Error(
+        `findOrCreateUserActor: identity ausente para global_user_id=${user.global_user_id} — ` +
+        `ordem causal exige identity ANTES de actor (§7 hierarquia epistemológica + ` +
+        `migration 0010 FK fk_actor_identity). Chame identityService.` +
+        `ensureIdentityRowForGlobalUserId antes de criar actor.`
+      );
+    }
+
     const displayName = user.full_name || user.email.split('@')[0];
 
-    // Cria novo actor
+    // Cria novo actor — agora popula global_user_id satisfazendo FK fk_actor_identity.
     const newActor = await runQueryWithTenant<ActorRow>(
       tenantId,
       `
       INSERT INTO actors (
-        tenant_id, actor_type, user_id, display_name, slug
+        tenant_id, actor_type, user_id, global_user_id, display_name, slug
       )
-      VALUES ($1, 'user', $2, $3, $4)
+      VALUES ($1, 'user', $2, $3::uuid, $4, $5)
       RETURNING *
       `,
-      [tenantId, userId, displayName, `user-${userId.substring(0, 8)}`]
+      [tenantId, userId, user.global_user_id, displayName, `user-${userId.substring(0, 8)}`]
     );
 
     if (!newActor) {

@@ -7772,7 +7772,7 @@ em dados existentes.
 
 ## DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID
 
-- **Status:** OPEN (descoberta 2026-05-28 durante F3 E2E coerência).
+- **Status:** CLOSED (2026-05-28) via F3.1 v2 DECISION-0062. Commit a seguir.
 - **Classe:** DT-D (drift entre normativa de domínio e código vigente).
 - **Norma violada:** DECISION-0060 D8 exige `actors.global_user_id` populada para que F4.0 (`actor_bank_destinations`) consiga JOIN `actors → identities` e enforçar "conta própria" via `holder_document = identities.tax_id`. Schema permite NULL para retrocompatibilidade, mas todo actor humano novo criado pelo pipeline canônico de `register` deveria nascer com `global_user_id` populada.
 - **Local material:** `backend/src/modules/social/actor.repository.ts:101-111` (`findOrCreateUserActor`).
@@ -7824,3 +7824,140 @@ Adicionalmente, considerar backfill de `actors.global_user_id` para atores exist
 - `backend/src/modules/social/actor.repository.ts:101-118`
 - `backend/src/modules/identity/actor-writer.service.ts:17-20`
 - `backend/src/scripts/validate-pipeline-e2e-cpf-tax-id-coherence.ts` (compensação localizada)
+
+### Fechamento F3.1 v2 (2026-05-28)
+
+Correção entregue em dupla camada (B na origem + A no ponto de INSERT):
+
+**Movimento B — `backend/src/core/auth/auth.service.ts:515-540`:** ordem dos dois blocos `try { ensure... }` invertida. `identityService.ensureIdentityRowForGlobalUserId(globalUserId)` agora roda ANTES de `ensureUserActor(finalTenantId, user.userId)`. Sequência canônica final: `global_users → users → identities → actors`. Best-effort com `console.warn` preservado em ambos os blocos (não propaga para o caller do register), porque a trava A garante fail-closed: se identity falhar silenciosa, o INSERT em actors falha limpo sem criar órfão; retry no próximo acesso reexecuta os dois na ordem correta.
+
+**Movimento A — `backend/src/modules/social/actor.repository.ts:56-130` (`findOrCreateUserActor`):** antes do INSERT:
+1. Query lê `u.email + p.full_name + u.global_user_id` em uma chamada só (extensão da query existente).
+2. Se `users.global_user_id IS NULL` → `throw new Error('findOrCreateUserActor: users.global_user_id ausente …')` — não cria órfão.
+3. SELECT em `identities WHERE global_user_id = $1` confirma presença da row canônica.
+4. Se identity ausente → `throw new Error('findOrCreateUserActor: identity ausente … chame identityService.ensureIdentityRowForGlobalUserId antes …')` — mensagem cita ordem causal §7.
+5. INSERT na lista de colunas inclui `global_user_id`; `VALUES` inclui `$3::uuid`. Satisfaz FK `fk_actor_identity`.
+
+Assinatura pública de `findOrCreateUserActor(tenantId, userId)` inalterada — `global_user_id` resolvido internamente. Nenhum caller precisou ser tocado (8 callers — script seed, scripts E2E, tests, adapter, marketplace).
+
+### Validação T1–T6 + 5 gates
+
+| Teste | Resultado |
+|-------|-----------|
+| T1 (register real cria actor com `actors.global_user_id = users.global_user_id = identities.global_user_id`) | PASS |
+| T2 (idempotência: segunda chamada retorna mesmo `actor_id`, mesmo `updated_at`, count=1) | PASS |
+| T3 (fail-closed: usuário sem identity → throw `identity ausente`; orphan_count=0) | PASS |
+| T4 (regressão E2E F3 `validate-pipeline-e2e-cpf-tax-id-coherence.ts`) | 9/9 PASS |
+| T5 (regressão E2E KYC `validate-pipeline-e2e-kyc.ts`) | PASS (Modo A 5 etapas + PROVA DE OURO + Etapa 6 transfer real; Modo B 3 rejeições; Σ débitos = Σ créditos) |
+| T6 (regressão E2E F4.0 `validate-pipeline-e2e-actor-bank-destinations.ts`) | 8/8 PASS |
+| tsc clean | OK |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK |
+| validate-architectural-patterns --strict | `critical_new=0` (warning_new=1 herdado, fora de escopo F3.1) |
+
+### Auditoria live de constraints (banco vivo, antes da edição)
+
+Saída literal das 3 queries:
+
+```
+=== pg_constraint on actors ===
+  actors_actor_type_check
+    CHECK ((actor_type = ANY (ARRAY['user','page','group','channel','actor_human','actor_organizational','actor_system','person','company','system'])))
+  chk_actor_requires_identity
+    CHECK (((actor_type <> 'actor_human') OR (global_user_id IS NOT NULL)))
+  fk_actor_identity
+    FOREIGN KEY (global_user_id) REFERENCES identities(global_user_id)
+  actors_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  …pkey, unique, chk actor_id=id, fk tenant, fk responsible_actor…
+
+=== actor_type distribution ===
+  actor_human   2
+  company       1
+  page         12
+  user        119
+
+=== columns (global_user_id, actor_type, user_id) ===
+  actor_type     text  NO
+  global_user_id uuid  YES
+  user_id        uuid  YES
+
+=== runtime ===
+  total=134  with_gu=40  without_gu=94
+```
+
+**Confirmações:** `fk_actor_identity` ativa e aponta para `identities(global_user_id)`. `chk_actor_requires_identity` ativa MAS só dispara para `actor_type='actor_human'` — os 119 actores `'user'` (vocabulário social vivo) NÃO são protegidos por essa CHECK. Vocabulário fragmentado em 4 valores reais (`user`, `page`, `actor_human`, `company`) coexistindo em CHECK aberto. Por isso a fail-closed precisa ficar no service layer (movimento A), não na constraint.
+
+### Compensação localizada no E2E F3 — agora redundante (mantida sem dano)
+
+`backend/src/scripts/validate-pipeline-e2e-cpf-tax-id-coherence.ts:308` ainda executa `UPDATE actors SET global_user_id=… WHERE … global_user_id IS NULL` após o `register`. Após F3.1 v2, o INSERT já popula `global_user_id`, então o WHERE não casa nada (no-op idempotente). E2E F3 continua 9/9 PASS sem mudança. **Reporto sem remover** (conforme instrução): a remoção do UPDATE de compensação fica como cleanup cosmético opcional em fatia futura.
+
+### Cleanup leftover do E2E KYC pós-F3.1 v2
+
+Antes: `⚠ actors (PF) … bank_accounts_actor_id_fkey`. Depois: também `⚠ identities … fk_actor_identity`. Causa: actor PF persiste por causa do `bank_accounts` (mesmo padrão append-only de bank leftover já documentado); como agora actor tem `global_user_id` populado, o DELETE de identity também viola FK. Não é regressão funcional — é o mesmo leftover esperado se expandindo um nível na cadeia FK. **Não corrigir nesta fatia** (cleanup E2E não é escopo F3.1 v2; cenários do KYC continuam todos PASS).
+
+### Confirmações de escopo F3.1 v2
+
+- ✅ Zero migration nova
+- ✅ Zero schema alterado
+- ✅ Zero alteração em `identities` (schema/dados/triggers), `global_users.cpf`, `user_profiles.cpf`, `profiles.cpf`
+- ✅ Zero alteração em `bank_ledger`, `bank_transactions`, `bank_splits`
+- ✅ Zero correção de `actor_type` ou constraints (CHECK vocabulário aberto + chk_actor_requires_identity inefetiva ficam para DT separada)
+- ✅ Zero backfill de actors existentes (94 com `global_user_id IS NULL` permanecem — escopo de fatia futura)
+- ✅ Zero alteração em F4 (leitura CORE), F5, Profile P0
+- ✅ Best-effort no register preservado (com argumento: fail-closed na trava A garante invariante)
+
+---
+
+## DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION
+
+- **Status:** OPEN (descoberta 2026-05-28 durante auditoria pré-F3.1 v2 do banco vivo).
+- **Classe:** DT-D (drift histórico não resolvido entre 3 ondas de modelagem).
+- **Origem:** o sistema passou por 3 reconstruções (Bubble → híbrido → atual). Cada onda deixou um vocabulário de `actor_type` que não foi substituído ao final.
+
+### Vocabulário fragmentado vivo
+
+CHECK `actors_actor_type_check` aceita 10 valores em 3 famílias coexistentes:
+
+```
+('user','page','group','channel')                                  -- onda social runtime (vigente)
+('actor_human','actor_organizational','actor_system')              -- onda N1 (DECISION-0010 / chk_actor_requires_identity)
+('person','company','system')                                       -- onda Bubble-era (legado pré-genesis)
+```
+
+Distribuição vigente em `unificard_dev` (2026-05-28):
+
+| actor_type | linhas |
+|---|---|
+| `user` | 119 |
+| `page` | 12 |
+| `actor_human` | 2 |
+| `company` | 1 |
+
+### Consequência material
+
+A constraint `chk_actor_requires_identity` (`CHECK ((actor_type <> 'actor_human') OR (global_user_id IS NOT NULL))`) está **viva mas inefetiva no runtime** — só dispara para os 2 atores `actor_human`. Os 119 actores humanos vigentes (`actor_type='user'`) passam sem proteção da CHECK. Daí F3.1 v2 ter precisado de fail-closed em service layer (`findOrCreateUserActor`).
+
+### Por que NÃO corrigir agora
+
+- Unificar vocabulário exige decisão de produto sobre família canônica (provavelmente a onda social `user/page/group/channel` por ser runtime majoritário) + decisão de schema (rename rows + apertar CHECK + atualizar `chk_actor_requires_identity` para a família escolhida + auditar todos os readers de `actor_type` no código).
+- Fatia ampla, transversal (social/identity/marketplace/wallet), com risco de quebrar consumidores que dependem do valor literal.
+- Não bloqueia F3.1 v2 (fail-closed em service layer cobre).
+- Não bloqueia F4 leitura CORE.
+
+### Correção proposta (esboço — não autorizada)
+
+1. Auditoria leitora: grep por `actor_type=` / `actor_type IN (` no codebase para mapear consumidores por valor literal.
+2. Decisão Clayton: qual família vence canônicamente? (recomendação inicial: `user`/`page`/`group`/`channel` por massa runtime, mas com nome semântico equivalente — `actor_human` é mais expressivo).
+3. Migration: rename rows + reescrever CHECK + apertar `chk_actor_requires_identity` para o valor canônico vencedor.
+4. E2E de regressão por consumidor.
+
+### Vinculadas
+
+- DECISION-0010 (vestígio: `chk_actor_requires_identity` sobre `actor_human`)
+- DECISION-0062 (canonicidade do domínio identity; coerente)
+- DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (CLOSED — cobre fail-closed em service layer, compensando a constraint inefetiva)
+- `backend/migrations/0010_migrate_identity_from_actors.sql` (origem da CHECK que só cobre `actor_human`)
+- `backend/migrations/0064_add_user_id_to_actors.sql` (origem do vocabulário social)
+- pg_constraint live: `actors_actor_type_check` (10 valores, CHECK aberta)
