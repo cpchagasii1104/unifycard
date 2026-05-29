@@ -9862,3 +9862,44 @@ Banco limpo confirmado. Próxima fatia: recriar **dev + PF + PJ + banda** pelo *
 - DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (CLOSED — mas atores legados permanecem; reset os elimina)
 - DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (OPEN — reset deletará as 3 rows-vestígio `actor_human`/`company`)
 - DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (permanece OPEN — F4/F5 pendentes; reset não muda)
+
+---
+
+## F-DEV-DATA-RESEED — FASE 3A: BOOTSTRAP CANÔNICO DO TENANT DEV (2026-05-29) ✅
+
+Executada no banco limpo (HEAD `1d818e0b`) via script versionado dev-only
+`backend/src/scripts/bootstrap-dev-canonical.ts` (idempotente, não-automático, guards
+NODE_ENV≠production + PILOT_MODE≠true + `current_database()='unificard_dev'`). **Só caminhos
+canônicos de serviço — zero INSERT manual em users/actors/global_users/identities.**
+
+Orquestração:
+1. `tenantService.createTenant` → tenant DEV `fbe13b78-4516-493d-905a-363796aea1d1`
+2. `rbacService.seedDefaultRBAC` → `seed_default_rbac()` (migration 0060)
+3. `authService.register(DEV_TENANT_ID, …, cpf='11144477735')` → cadeia
+   global_users→users→identities→actor; `ensureUserActor` garante o actor
+4. `rbacService.assignRoleByName(…, 'admin')` — **EXCLUSIVO do bootstrap DEV** (register
+   normal NÃO atribui role)
+
+Verificação por SELECT (toda verde):
+- tenants(DEV)=1, tenant_contexts=8
+- roles=4 (admin/user/merchant/manager, is_system_role=true), permissions=38, role_permissions=68
+- global_users=1, users(global_user_id≠null)=1, identities=1
+- actor: `actor_type='user'`, `global_user_id NOT NULL`, `actor_id ≠ user_id` → **A7 respeitada**
+- user_roles: DEV→admin; permissões efetivas resolvidas via join = 38
+
+**A7 adotada (diretriz desta etapa):** actor humano oficial = register→ensureUserActor→
+findOrCreateUserActor (`actor_type='user'`, actor_id próprio). Genesis (`actor_type='actor_human'`)
+NÃO usado — fica como dívida (DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION).
+
+### DT-SEED-DEV-COMPLETE-NON-CANONICAL-USER (OPEN)
+`backend/src/scripts/seed-dev-complete.ts` cria o user DEV por INSERT direto sem
+CPF/global_user_id (`:192-199`) + actor tolerante a falha (`:238-251`), conflitando com A7 e
+com o fluxo register→global_users→identities→actor. **Mitigação:** não usar para PF na Fase 3A
+(usamos `bootstrap-dev-canonical.ts`). **Resolução prevista:** substituir a criação de user do
+seed-dev-complete por `authService.register` ou depreciar o script.
+
+### Achado operacional (registrado)
+Script standalone NÃO passa pelo BOOT do app → `socialPortsRegistry` vazio → `ensureUserActor`
+falha ("ActorRepository não foi injetado"). `bootstrap-dev-canonical.ts` replica a injeção
+canônica de `app.builder.ts:44-58` (`wireSocialPorts`). Qualquer script futuro que crie actor
+precisa dessa wiring.

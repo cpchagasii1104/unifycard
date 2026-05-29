@@ -1678,3 +1678,30 @@ Axioma central DECISION-0059: envio externo é operação fora do sistema; ledge
 - `ApprovalOperationType` inclui `'actor_wallet_payout'` (financial-approval.types.ts)
 - Income withholding C3.1 ativo: drain ocorre dentro de F3 também (cap = saldo atual)
 - F4 (PIX/TED externo) OPEN — não autorizado
+
+---
+
+## FASE 3A — bootstrap canônico do tenant DEV (2026-05-29) ✅
+
+Banco limpo (HEAD `1d818e0b`) ganhou sua primeira vida por caminhos canônicos de serviço,
+não por seed manual. Script versionado dev-only: `backend/src/scripts/bootstrap-dev-canonical.ts`
+(idempotente; guards NODE_ENV≠production + PILOT_MODE≠true + `current_database()='unificard_dev'`).
+
+Ordem canônica: `tenantService.createTenant` → `rbacService.seedDefaultRBAC` (`seed_default_rbac`,
+migration 0060) → `authService.register` (global_users→users→identities→actor) →
+`rbacService.assignRoleByName('admin')`. **Zero INSERT manual.**
+
+**A7 adotada:** actor humano = register→ensureUserActor→findOrCreateUserActor (`actor_type='user'`,
+actor_id próprio ≠ user_id, global_user_id NOT NULL). Genesis (`actor_type='actor_human'`) NÃO
+usado — dívida (DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION).
+
+Verificado por SELECT: tenant_contexts=8 · roles=4/permissions=38/role_permissions=68 ·
+PF completa (gu=1, identity=1, actor user) · user_roles DEV→admin · permissões efetivas=38.
+
+Achados registrados no DT_LOG:
+- **DT-SEED-DEV-COMPLETE-NON-CANONICAL-USER (OPEN):** seed-dev-complete cria user por INSERT
+  direto sem CPF/global_user_id — não usar para PF; substituir por register ou depreciar.
+- Script standalone precisa replicar a injeção de social ports do `app.builder.ts` (sem isso
+  `ensureUserActor` falha por registry vazio).
+
+Próximo (fora desta etapa): PJ e banda — bloqueados por decisões de produto (ver Passo 0).

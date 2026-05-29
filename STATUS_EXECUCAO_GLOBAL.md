@@ -8612,3 +8612,20 @@ Mirror `unificard_dev_rebuild_check_20260529134919` · TRAVA OK · Pacote 1.c ro
 - ✅ Mirror dropado após captura forense
 - ✅ Pacote 1.c criou APENAS a FK
 - ✅ Sem RESET_*/AUDIT_*/.dump/log/inventário no commit
+
+---
+
+## FASE 3A — BOOTSTRAP CANÔNICO DO TENANT DEV (2026-05-29) ✅
+
+Primeira vida no banco limpo (HEAD `1d818e0b`), por caminhos canônicos de serviço via
+`backend/src/scripts/bootstrap-dev-canonical.ts` (dev-only, idempotente). Detalhe completo +
+DT-SEED-DEV-COMPLETE-NON-CANONICAL-USER no `REMEDIATION_DT_LOG.md`.
+
+Resultado verificado por SELECT:
+- tenant DEV `fbe13b78-…` + tenant_contexts=8
+- RBAC: roles=4 / permissions=38 / role_permissions=68 (via `seed_default_rbac`)
+- PF: global_users=1 / users(c/ global_user_id)=1 / identities=1 / actor `actor_type='user'`
+  com `global_user_id NOT NULL` e `actor_id ≠ user_id` (**A7 respeitada**)
+- user_roles: DEV→admin (exclusivo do bootstrap); permissões efetivas=38
+
+Fora de escopo (não executado): PJ e banda.
