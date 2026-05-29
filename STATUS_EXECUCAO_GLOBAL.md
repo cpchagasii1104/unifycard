@@ -7888,7 +7888,7 @@ Antes: leftover de `actors (PF)` por FK `bank_accounts_actor_id_fkey`. Depois: t
 
 ### Estado DECISION-0062
 
-- F0.1 ✓ `fee7b754` · F1 ✓ · F2 ✓ `e68be393` · F3 ✓ `0b32cd20` · **F3.1 v2 ✓ (commit a seguir)**
+- F0.1 ✓ `fee7b754` · F1 ✓ · F2 ✓ `e68be393` · F3 ✓ `0b32cd20` · **F3.1 v2 ✓ `c73ac382`**
 - F4 OPEN (migrar leitura CORE — exige Clayton + revisão frontend)
 - F5 OPEN (deprecar caches transitórios pós-F4)
 - DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY: OPEN — BLOCKED BY DECISION-0062

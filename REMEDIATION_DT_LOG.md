@@ -7772,7 +7772,7 @@ em dados existentes.
 
 ## DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID
 
-- **Status:** CLOSED (2026-05-28) via F3.1 v2 DECISION-0062. Commit a seguir.
+- **Status:** CLOSED (2026-05-28) via F3.1 v2 DECISION-0062, commit `c73ac382`.
 - **Classe:** DT-D (drift entre normativa de domínio e código vigente).
 - **Norma violada:** DECISION-0060 D8 exige `actors.global_user_id` populada para que F4.0 (`actor_bank_destinations`) consiga JOIN `actors → identities` e enforçar "conta própria" via `holder_document = identities.tax_id`. Schema permite NULL para retrocompatibilidade, mas todo actor humano novo criado pelo pipeline canônico de `register` deveria nascer com `global_user_id` populada.
 - **Local material:** `backend/src/modules/social/actor.repository.ts:101-111` (`findOrCreateUserActor`).
