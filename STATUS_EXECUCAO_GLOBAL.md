@@ -8497,3 +8497,55 @@ Banco vivo: no-op (FK já existe). Rebuild zero: FK criada → diff fecha.
 ### Próximo passo
 
 Aguardar autorização para escrever Pacote 1.c (1 ADD CONSTRAINT idempotente).
+
+## Sessão 2026-05-29 — Pacote 1.c · FK reposta · Grupo 3 = 0 · drop/recreate LIBERADO
+
+### Escopo
+
+1 migration idempotente: ADD CONSTRAINT da FK `bank_transactions_concept_id_fkey` ausente no rebuild pelo padrão Pacote 1.b. Sem índice (`indexes 840=840`). + correção documental sobre Pacote 3 e 3 órfãs.
+
+### Correção documental
+
+- **Pacote 3** — Paralela C tinha premissa errada: `_deprecated_*` NASCEM por RENAME guarded em `20260429100000`. Decisão "aposentar" era inócua. Não reabrir.
+- **3 órfãs** (518000/519000/560000) — absolvidas pelo diff. Grupo 2 esperado. Tombstone permanece.
+
+### Arquivo escrito
+
+```
+backend/migrations/20260530506500_add_bank_transactions_concept_id_fkey.sql
+
+DO $$ BEGIN IF NOT EXISTS (... pg_constraint ...)
+  THEN ALTER TABLE bank_transactions ADD CONSTRAINT
+       bank_transactions_concept_id_fkey FOREIGN KEY (concept_id)
+       REFERENCES concepts(concept_id) ON DELETE RESTRICT;
+END IF; END $$;
+```
+
+### Gates 5/5
+
+tsc · actor-writer §4.8.1 · bank-ledger §4.6 · regression-guards (Gate 3: 334 migrations) · arch strict `critical_new=0`.
+
+### Ensaio 334/334
+
+Mirror `unificard_dev_rebuild_check_20260529134919` · TRAVA OK · Pacote 1.c rodou em 32ms [282/334] · ensaio completo até 334.
+
+### Novo diff: Grupo 3 = 0
+
+- **Grupo 1 (cosmético): 14** — reversals.* LF/CRLF · schema_migrations runner names · _deprecated_tenant_products estado histórico
+- **Grupo 2 (esperado): 26** — 23 MIGRATION_ONLY_IN_MIRROR + 3 órfãs
+- **Grupo 3 (não aceitas): 0 ✓** — FK foi reposta
+
+**Constraints: 1111 = 1111** (vs 1111 vs 1110 antes).
+
+### Recomendação
+
+**Drop/recreate real LIBERADO** para Clayton executar manualmente após backup confirmado. Rebuild reproduz o real estruturalmente; só restam cosméticos.
+
+### Confirmações de escopo
+
+- ✅ Banco real INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME ativa nos logs do migrate
+- ✅ Migrations aplicadas SÓ no espelho descartável
+- ✅ Mirror dropado após captura forense
+- ✅ Pacote 1.c criou APENAS a FK
+- ✅ Sem RESET_*/AUDIT_*/.dump/log/inventário no commit

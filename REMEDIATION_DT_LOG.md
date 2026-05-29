@@ -9565,6 +9565,167 @@ Auditar padrões "ADD COLUMN antecipado → bloco IF NOT EXISTS pulado" preventi
 - Pacote 1.c sugerido (1 ADD CONSTRAINT idempotente) — escopo único e isolado
 - Refinamento documental da Paralela C: `_deprecated_*` nascem por RENAME em `20260429100000`
 
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Pacote 1.c · FK concept_id reposta · diff Grupo 3 = 0 (2026-05-29)
+
+- **Status:** Pacote 1.c ESCRITO + ensaio COMPLETO no espelho (334/334) + diff novo confirma **Grupo 3 = 0**. Rebuild estruturalmente equivalente ao real. Banco real INTOCADO.
+- **HEAD antes:** `8f276907` (diff-audit checkpoint).
+
+### Correção documental (Pacote 3) — ATUALIZAÇÃO
+
+**Premissa anterior INVALIDADA:** a Paralela C tinha classificado `_deprecated_product_concept_resolution_queue` e `_deprecated_tenant_products` como "dívida real sem origem no tree" e Clayton decidiu "Pacote 3 fora — _deprecated_ não voltam". Investigação na DIFF-AUDIT mostrou que `20260429100000_unificacao_semantica_v2.sql` faz RENAME guarded de 4 tabelas (product_concepts/catalog_products/tenant_products/product_concept_resolution_queue) → `_deprecated_*`. No rebuild as tabelas NASCEM por RENAME. **Resultado benigno:** a decisão de "aposentar" era inócua porque o rebuild faz a coisa certa de qualquer forma. As 4 tabelas `_deprecated_*` aparecem em ambos os lados do diff; nenhuma vai para o Grupo 3. **Não reabrir Pacote 3** — sem ação necessária.
+
+### Absolvição das 3 órfãs — REGISTRADA
+
+`20260530518000_create_payment_milestones.sql`, `20260530519000_seed_concept_split_engineering.sql`, `20260530560000_backfill_pf_actor_registry.sql` aparecem como **MIGRATION_ONLY_IN_REAL** no diff. Estão no **Grupo 2 (esperado)** — zero impacto estrutural. As tabelas/colunas que essas órfãs eventualmente produziram (payment_milestones, actor_registry, etc.) existem em AMBOS lados via outras migrations canônicas. Pacote 2 tombstone permanece a decisão correta. Não reabrir.
+
+### Read-first Pacote 1.c
+
+FK definição confirmada no banco vivo:
+```
+bank_transactions_concept_id_fkey
+  FOREIGN KEY (concept_id) REFERENCES concepts(concept_id) ON DELETE RESTRICT
+```
+
+Timestamp escolhido: `20260530506500` (posterior a `20260530506000` em `localeCompare`).
+
+### Arquivo escrito
+
+```
+backend/migrations/20260530506500_add_bank_transactions_concept_id_fkey.sql
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'bank_transactions'::regclass
+      AND conname  = 'bank_transactions_concept_id_fkey'
+      AND contype  = 'f'
+  ) THEN
+    ALTER TABLE bank_transactions
+      ADD CONSTRAINT bank_transactions_concept_id_fkey
+      FOREIGN KEY (concept_id) REFERENCES concepts(concept_id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+```
+
+SÓ a FK. Sem índice (diff confirmou `indexes 840=840` — índice criado pelo `CREATE INDEX IF NOT EXISTS` da 506000, fora do bloco DO $$).
+
+### Gates 5/5 verdes
+
+| Gate | Resultado |
+|---|---|
+| tsc | clean |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK (Gate 3: 334 migrations) |
+| validate-architectural-patterns --strict | `critical_new=0` |
+
+### Ensaio em espelho — 334/334 OK
+
+Mirror `unificard_dev_rebuild_check_20260529134919`. TRAVA confirmada nos logs:
+```
+🎯 Banco-alvo do migrate: unificard_dev_rebuild_check_20260529134919
+✅ Alvo confere com EXPECTED_DATABASE_NAME='unificard_dev_rebuild_check_20260529134919'
+📋 MIGRATIONS PENDENTES: 334 de 334
+
+[282/334] 20260530506500_add_bank_transactions_concept_id_fkey.sql   32ms ✓ Pacote 1.c
+[334/334] 20260530574000_actor_bank_destinations_substrate.sql       39ms ✓
+✨ Todas as migrações pendentes foram EXECUTADAS com sucesso!
+```
+
+### NOVO diff normalizado (real vs espelho 334/334)
+
+```
+Counts:
+  real    235 tables · 2348 cols · 1111 constraints · 76 triggers ·
+          840 indexes · 1 view · 122 funcs · 4 ext · 314 mig ·
+          94 col_cmts · 117 tbl_cmts
+  mirror  235 · 2347 · 1111 · 76 · 840 · 1 · 122 · 4 · 334 · 90 · 116
+```
+
+**Constraints: 1111 = 1111** (era 1111 vs 1110 antes da 1.c).
+
+40 divergências reclassificadas:
+
+### GRUPO 1 — ACEITAS / cosméticas (11)
+
+```
+3  reversals.* COLUMN_COMMENT_DIFF_LF_ONLY (LF vs CRLF; texto idêntico)
+4  schema_migrations.{filename,executed_at,checksum,execution_time_ms}
+   COLUMN_COMMENT_MISSING (runner não comenta)
+1  schema_migrations TABLE_COMMENT_MISSING
+1  schema_migrations.schema_migrations_filename_key CONSTRAINT_MISSING
+1  schema_migrations.unique_filename CONSTRAINT_EXTRA   ← funcionalmente igual ao acima
+1  schema_migrations.schema_migrations_filename_key INDEX_MISSING
+1  schema_migrations.unique_filename INDEX_EXTRA        ← idem
+1  _deprecated_tenant_products.price COLUMN_MISSING (estado histórico real)
+1  _deprecated_tenant_products.price_cents COLUMN_COMMENT_DIFF (real tem DRAFT antigo;
+                                                                 mirror tem o atualizado)
+```
+
+Sub-total: **3 + 4 + 1 + 4 (schema_migrations constraint/index pair) + 2 (_deprecated) = 14**
+
+Recontagem precisa:
+- 1 COLUMN_COMMENT_DIFF
+- 3 COLUMN_COMMENT_DIFF_LF_ONLY
+- 4 COLUMN_COMMENT_MISSING_IN_MIRROR
+- 1 COLUMN_MISSING_IN_MIRROR
+- 1 CONSTRAINT_EXTRA_IN_MIRROR
+- 1 CONSTRAINT_MISSING_IN_MIRROR
+- 1 INDEX_EXTRA_IN_MIRROR
+- 1 INDEX_MISSING_IN_MIRROR
+- 1 TABLE_COMMENT_MISSING_IN_MIRROR
+= **14 itens cosméticos / aceitos**
+
+### GRUPO 2 — ESPERADAS (26)
+
+- 23 `MIGRATION_ONLY_IN_MIRROR` = 6 do Pacote 1+1.b+1.c + 17 pending do real (Descoberta B)
+- 3 `MIGRATION_ONLY_IN_REAL` = 3 órfãs absolvidas
+
+### GRUPO 3 — NÃO ACEITAS = **0** ✓
+
+A FK `bank_transactions_concept_id_fkey` que era o único item do Grupo 3 anterior **foi RESOLVIDA pelo Pacote 1.c**. Nenhuma nova divergência estrutural surgiu.
+
+### RECOMENDAÇÃO — drop/recreate real LIBERADO
+
+O rebuild reproduz o real ESTRUTURALMENTE. Divergências remanescentes são:
+- **Cosméticas** (LF vs CRLF em comments; nomes de constraint de tabela de controle do runner) — sem impacto funcional.
+- **Esperadas** (migrations recém-adicionadas que ainda não rodaram no real; 3 órfãs tombstone) — sem impacto estrutural.
+
+**Drop/recreate real LIBERADO para execução manual de Clayton** após:
+1. Aprovação explícita (não automatizado).
+2. Backup atual (já existe: `RESET_BACKUP_2026-05-28T23-29-59.dump`).
+3. Execução manual via `dropdb` + `createdb` + `pnpm migrate` (todos comandos rodados pelo próprio Clayton).
+4. Verificação posterior via script de integridade.
+
+### Artefatos forenses (locais, não commitados)
+
+- `RESET_SCHEMA_BEFORE_2026-05-29T13-49-19.sql` (637 KB)
+- `RESET_INVENTORY_BEFORE_2026-05-29T13-49-19.json`
+- `RESET_SCHEMA_REBUILD_2026-05-29T13-49-19.sql` (636 KB)
+- `RESET_INVENTORY_REBUILD_2026-05-29T13-49-19.json`
+- `AUDIT_DIFF_2026-05-29T13-49-19.json`
+- `RESET_MIGRATE_LOG_2026-05-29T13-49-19.log`
+
+### Confirmações de escopo
+
+- ✅ Banco real `unificard_dev` INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME ativa em cada migrate (visto nos logs)
+- ✅ Migrations novas aplicadas SÓ no espelho descartável
+- ✅ Mirror dropado interativamente após captura forense
+- ✅ Pacote 1.c criou APENAS a FK (sem índice, dados, ou outro objeto)
+- ✅ bank_ledger / bank_transactions data / bank_splits / schema financeiro NÃO TOCADOS
+- ✅ Artefatos RESET_*/AUDIT_*/.dump/log/inventário NÃO staged
+
+### Vinculadas
+
+- Pacote 1 (`b276eb30`) — Descoberta C resolvida
+- Pacote 1.b (`744d8bb9`) — Descoberta D resolvida; FK ficou órfã (escopo prévio)
+- Pacote 1.c (este commit) — FK reposta; Grupo 3 = 0
+- DIFF-AUDIT (`8f276907`) — mapa do diff que isolou o item único
+- Refinamento documental: Pacote 3 premissa corrigida; 3 órfãs absolvidas
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
