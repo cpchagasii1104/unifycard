@@ -7961,3 +7961,118 @@ A constraint `chk_actor_requires_identity` (`CHECK ((actor_type <> 'actor_human'
 - `backend/migrations/0010_migrate_identity_from_actors.sql` (origem da CHECK que só cobre `actor_human`)
 - `backend/migrations/0064_add_user_id_to_actors.sql` (origem do vocabulário social)
 - pg_constraint live: `actors_actor_type_check` (10 valores, CHECK aberta)
+
+---
+
+## F-DEV-DATA-CLEAN-RESET — Fase 0 (READ-ONLY) DONE · AGUARDANDO APROVAÇÃO
+
+- **Status:** Fase 0 (mapeamento + backup + manifesto) DONE em 2026-05-28. **Aguardando aprovação humana de Clayton** antes da Fase 1 (deleção dirigida). Zero deleção realizada.
+- **Branch:** `rescue-structural` · HEAD `77316eee` · Banco confirmado: `unificard_dev`.
+- **Origem:** prompt F-DEV-DATA-CLEAN-RESET de Clayton — reset seletivo de fixtures/teste em `unificard_dev`, substituindo o backfill dos 94 atores órfãos (`DT-FINDORCREATEUSERACTOR` já CLOSED, mas atores legados permanecem; reset os elimina sem backfill).
+
+### Artefatos da Fase 0
+
+| Artefato | Path | Tamanho |
+|---|---|---|
+| Backup pg_dump (formato custom, compressão 6, banco inteiro) | `C:/unificard/RESET_BACKUP_2026-05-28T23-29-59.dump` | 9.3 MB |
+| Manifesto JSON | `C:/unificard/RESET_MANIFEST_2026-05-29T02-28-38-985Z.json` | 40 KB |
+
+### UUIDs canônicos confirmados (sem prefixo)
+
+- Tenant DEV preservado: `fbe13b78-4516-493d-905a-363796aea1d1` ("UnifyCard DEV")
+- Actor dev preservado: `751a4fe0-2f33-4053-bfa8-3dcad39b3b30` (type=user, name="dev")
+- User do dev: `beb7b5e4-2d22-4782-83c9-6e006da53713` (email="dev@unificard.local")
+- Global user do dev: `2a3cf794-d500-45e9-bcc6-2f1c6afd008b` (cpf sintético `syn:…`)
+
+### Baseline de seeds estruturais (Fase 0 — nenhum ainda apagado)
+
+| Tabela | Escopo | Total | Nota |
+|---|---|---|---|
+| `concepts` | GLOBAL | 90 | sem tenant_id |
+| `company_types` | GLOBAL | 7 | |
+| `company_type_allowed_concepts` | GLOBAL | 7 | |
+| `categories` | GLOBAL | 102 | |
+| `canonical_products` | tenant-scoped (null tenant) | 35 | todos com `tenant_id IS NULL` |
+| `permissions` | tenant-scoped DEV | 38 | distinct_tenants=1 (DEV) |
+| `roles` | tenant-scoped DEV | 4 | distinct_tenants=1 (DEV) |
+| `role_permissions` | tenant-scoped DEV | 68 | distinct_tenants=1 (DEV) |
+| `tenants` | (n/a) | 39 | 1 preserve + 38 delete |
+
+**Confirmação:** ✅ NENHUM seed estrutural preso a tenant a deletar.
+
+### Baseline globais
+
+```
+tenants=39  actors=138  users=71  identities=23  global_users=21
+```
+
+### Classificação dos 39 tenants
+
+- **PRESERVE: 1** — `fbe13b78-4516-493d-905a-363796aea1d1` "UnifyCard DEV" (actors=75, users=8)
+- **DELETE: 38** — regex `^Tenant q3*|^Tenant smoke*|^Q3-E2E-v2-*|^Tenant beta7|^Tenant birth|^Tenant plan|^Tenant unifybank$` (Tenant unifybank flagged para review)
+
+### Mapa financeiro (tenants a deletar)
+
+```
+TOTAL fixture fin: bank_accounts=271  ledger=126  txs=54  splits=26
+  20 tenants q3v3organizer*: concentram a maior parte do ledger fixture
+  (1 tenant tem ledger=29; outros 19 têm ledger=4–11 cada)
+
+TRAVA — DEV (NÃO TOCAR): bank_accounts=128  ledger=1486  txs=1112  splits=247
+```
+
+### 5 ACHADOS materiais reportados a Clayton (aguardando decisão)
+
+1. **ACHADO 1 (crítico):** O actor dev preservado NÃO tem cadeia PF canônica hoje. `actors.global_user_id=NULL`, `global_users.cpf` é sintético (`syn:…`), `identities` row AUSENTE. Está no bucket dos 81 atores quebrados. Três opções (A: preservar como está; B: substituir por register canônico na Fase 3; C: hack manual — não recomendado).
+2. **ACHADO 2:** 74 actors dentro do tenant DEV são fixture (3 vestígio `actor_human`/`company` + 5 pages teste "Restaurante Sabor da Bahia"/"MotoMecânica Sul"/"Banda Som da Rua"/2× outras + 66 users teste de T2–T6 + e2e_kyc). Decisão: deletar todos? Preservar alguma page?
+3. **ACHADO 3:** Tenant "Tenant unifybank" (`f40f7587-889c-40e2-8299-02049947d881`) classificado por regex como DELETE_FIXTURE, mas nome sugere infraestrutura. Tem actors=1 users=1 bank_*=0. Aguardando decisão.
+4. **ACHADO 4:** 20 tenants q3v3organizer* têm 126 ledger rows fixture. Trigger de imutabilidade pode bloquear DELETE em `bank_ledger`/`bank_transactions`/`bank_splits`. Plano de mitigação se isso ocorrer: (i) reset total via backup→drop→recreate→migrations→seeds; (ii) deixar esses tenants intactos; (iii) outra. Aguardando direção Clayton.
+5. **ACHADO 5:** `global_users` é transversal a tenant (sem `tenant_id`). Antes de DELETE de `global_users`, validar em runtime na Fase 1 que não é referenciado por user de outro tenant.
+
+### Sequência de DELETE proposta
+
+```
+Para cada um dos 38 tenants DELETE, em BEGIN/COMMIT por tenant:
+  1. FKs RESTRICT (events, reversals, inventory_movements, pdv_sessions,
+     purchase_orders, stock_transfers, product_offers, suppliers,
+     service_discovery_requests)   — WHERE tenant_id=$
+  2. Demais ~85 tabelas filhas de actors  — WHERE tenant_id=$
+  3. bank_* (PARAR se trigger bloquear — ACHADO 4)
+  4. company_users / company_validation_requests / company_validations
+  5. actors  — WHERE tenant_id=$
+  6. companies
+  7. profiles / user_profiles
+  8. identity_validation_requests (CASCADE de identities cobre)
+  9. identities (só global_user_id exclusivos do tenant)
+ 10. users
+ 11. global_users (só exclusivos do tenant)
+ 12. tenants
+
+Para o DEV (transação separada, 74 actors alvo, dev preservado):
+  Mesma sequência 1–11 por actor. ZERO toque em bank_* do DEV.
+```
+
+### Confirmações de escopo Fase 0
+
+- ✅ Zero deleção realizada
+- ✅ Zero schema/migration alterado
+- ✅ Zero toque em bank_* (fixture nem DEV)
+- ✅ Backup gerado e validado (9.3 MB, formato custom)
+- ✅ Manifesto JSON persistido (40 KB)
+- ✅ UUIDs sempre completos em queries; prefixos só para leitura humana
+- ✅ Trava de imutabilidade financeira permanece intacta (será exercitada na Fase 1)
+
+### Próximo passo
+
+**Aguardando aprovação de Clayton** das 5 decisões + lista de 38 tenants. Sem "APROVADO" explícito, Fase 1 NÃO inicia.
+
+### Pendência que esta frente substitui
+
+- **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
+
+### Vinculadas
+
+- F3.1 v2 DECISION-0062 (commit `c73ac382` — actor humano canônico exige cadeia identity→actor; reset elimina actores que violam essa cadeia)
+- DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (CLOSED — mas atores legados permanecem; reset os elimina)
+- DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (OPEN — reset deletará as 3 rows-vestígio `actor_human`/`company`)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (permanece OPEN — F4/F5 pendentes; reset não muda)

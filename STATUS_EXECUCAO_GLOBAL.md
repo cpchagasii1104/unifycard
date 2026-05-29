@@ -7893,3 +7893,66 @@ Antes: leftover de `actors (PF)` por FK `bank_accounts_actor_id_fkey`. Depois: t
 - F5 OPEN (deprecar caches transitórios pós-F4)
 - DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY: OPEN — BLOCKED BY DECISION-0062
 - DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION: OPEN (não bloqueia F4)
+
+## Sessão 2026-05-28 — GUARDIÃO READ-ONLY C1/C2/C3/C4 (pré-D1/D2 + reset)
+
+Auditoria read-only de 4 dimensões, sem edição:
+- **C1 mapa de chaves + grafo FK:** 81 tabelas com chaves de identidade; 95 filhas de `actors`, 25 de `users`, 9 de `global_users`, 3 de `companies`, 2 de `identities`. Topologia dupla em `category_ai_logs`, `event_attendees`, `event_reservations` (`actor_id`+`global_user_id`).
+- **C2 concept real:** 90 rows. ATIVA em `bank_transactions` (1166/1166), `canonical_products` (35/35), `company_type_allowed_concepts` (7/7). FINGIDA em `categories` (3/102 com concept; resto resolve por slug/keywords).
+- **C3 capability/authority:** substrato existe (actor_delegations=2, authority_decision_audit=506, permissions=38, roles=4, user_roles=1) mas RESOLVER backend é hardcoded (`ACTOR_CAPABILITIES_MAP` literal em `actor-capabilities.service.ts`). Frontend consome catálogo estático (`actorContextConfig.ts`). "Contexto por capability dinâmica" é frente nova.
+- **C4 actor_type:** vocabulário VIVO no código é `user/page/group/channel`. Banco tem 4 valores reais (`user=119`, `page=12`, `actor_human=2`, `company=1`) mas CHECK aceita 10. Drift: `page` 12/12 sem global_user_id, `user` 81/123 sem. Resolvibilidade dos 81: 61 backfill_simples, 18 actor_sem_user, 2 global_user_sem_identity.
+
+Conclusão C4 alimentou D1 (família canônica candidata: `user/page/group/channel`) e direcionou Clayton para reset seletivo em vez de backfill.
+
+## Sessão 2026-05-28 — F-DEV-DATA-CLEAN-RESET Fase 0 DONE (GATE AWAITING APPROVAL)
+
+### Escopo
+
+Reset seletivo de fixtures/teste em `unificard_dev` substituindo backfill dos 94 atores órfãos. Modo executor com PORTÃO DE APROVAÇÃO HUMANA entre mapeamento e deleção. Banco confirmado: `unificard_dev`.
+
+### Mudança documental (apenas)
+
+| Arquivo | Mudança |
+|---|---|
+| `REMEDIATION_DT_LOG.md` | Nova seção **F-DEV-DATA-CLEAN-RESET — Fase 0 (READ-ONLY) DONE · AGUARDANDO APROVAÇÃO** com manifesto consolidado, 5 achados materiais e sequência de DELETE proposta. |
+| `STATUS_EXECUCAO_GLOBAL.md` | Este checkpoint. |
+| `opus.md` | Memória curta da Fase 0 + estado de espera. |
+| `RESET_BACKUP_2026-05-28T23-29-59.dump` | **NOVO ARTEFATO** (9.3 MB) — backup pg_dump custom do banco inteiro. |
+| `RESET_MANIFEST_2026-05-29T02-28-38-985Z.json` | **NOVO ARTEFATO** (40 KB) — manifesto JSON com tenants/actors/baseline/ordem de DELETE. |
+
+### UUIDs confirmados
+
+- DEV tenant: `fbe13b78-4516-493d-905a-363796aea1d1` "UnifyCard DEV"
+- DEV actor : `751a4fe0-2f33-4053-bfa8-3dcad39b3b30` name="dev"
+- DEV user  : `beb7b5e4-2d22-4782-83c9-6e006da53713` email="dev@unificard.local"
+
+### Baseline + estimativa
+
+```
+Atual: tenants=39  actors=138  users=71  identities=23  global_users=21
+Plano: PRESERVE=1 tenant (DEV)  ·  DELETE=38 tenants
+       PRESERVE=1 actor (dev)   ·  DELETE=74 actors dentro do DEV
+Seeds GLOBAL intactos: concepts=90 company_types=7 categories=102 canonical_products=35
+Seeds tenant-scoped DEV: permissions=38 roles=4 role_permissions=68 — PRESERVADOS
+Financeiro fixture (a deletar): bank_accounts=271 ledger=126 txs=54 splits=26
+Financeiro DEV (NÃO TOCAR): bank_accounts=128 ledger=1486 txs=1112 splits=247
+```
+
+### 5 ACHADOS reportados a Clayton (aguardando decisão)
+
+1. **Dev sem cadeia PF canônica** (NULL global_user_id + syn:CPF + sem identity). Opções A/B/C documentadas.
+2. **74 actors no DEV** incluem 5 pages teste com nomes reais ("Restaurante Sabor da Bahia"/"MotoMecânica Sul"/"Banda Som da Rua"); confirmar deleção total.
+3. **"Tenant unifybank"** (`f40f7587…`) flagged DELETE por regex; nome ambíguo — confirmar fixture.
+4. **20 tenants q3v3organizer*** com 126 ledger rows; trigger de imutabilidade pode bloquear DELETE; plano de mitigação aguardando direção (reset total via backup, ou deixar intactos).
+5. **`global_users` transversal** (sem tenant_id); validar exclusividade por tenant em runtime na Fase 1.
+
+### Confirmações de escopo Fase 0
+
+- ✅ Zero deleção  ·  ✅ Zero schema/migration  ·  ✅ Zero toque em bank_*
+- ✅ Backup gerado (9.3 MB)  ·  ✅ Manifesto JSON (40 KB)
+- ✅ UUIDs completos em todas as queries; prefixos só para leitura humana
+- ✅ Trava de imutabilidade financeira preservada (será exercitada na Fase 1)
+
+### Próximo passo
+
+Aguardando aprovação Clayton ("APROVADO" + decisões dos 5 achados) antes de iniciar Fase 1. Sem aprovação, sessão termina aqui sem deleção.
