@@ -9920,3 +9920,17 @@ de rodar os gates). Banco limpo → banco vivo canônico.
 - **PRÓXIMO — FASE 3B (PJ):** pende DECISÃO DE PRODUTO **A3** (caminho oficial de empresa:
   company-canonical minimalista × companies.service legado com page-actor) e **A4** (empresa
   nasce classificada com company_type/CONCEPT vs nua). NÃO iniciar 3B sem decidir A3/A4.
+
+### DT-COMPANY-MARKETPLACE-ACTIVATION-FLAGS-PARALLEL-CAPABILITY (OPEN) — comprovada 2026-05-29
+**Contexto.** `MarketplaceCompanyModule` mantém flags de capacidade operacional
+(`catalog_ready`/`services_ready`/`agenda_configured`/`dispatch_enabled`/`quote_flow_enabled`/
+`pdvEnabled`/`b2b_enabled`) FORA do SSOT canônico de contexto/CONCEPT/capability.
+**Prova material:** `backend/src/modules/marketplace/domain/company/marketplace-company.service.ts:17`
+declara `private companyActivationStates: Map<string, {...}>` — estado em MEMÓRIA VOLÁTIL
+(perdido no restart), gravado por `updateCompanyActivationState` (`:237-285`,
+`this.companyActivationStates.set`) e lido por `getCompanyActivationState` (`:290`). Não há
+tabela, não há derivação de CONCEPT/company_type/capability. As flags são setadas a partir de
+`businessTemplate.operationalConfig` no onboarding (`:387-394`), não de um SSOT soberano.
+**Mitigação:** não usar como fonte soberana na Fase 3B; a visibilidade/capability do resolver
+NÃO deve depender dessas flags.
+**Resolução futura:** D-CONCEPT/D-CONTEXT-RESOLVER decide absorver/derivar/aposentar.
