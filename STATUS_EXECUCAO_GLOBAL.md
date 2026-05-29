@@ -8182,3 +8182,53 @@ Inclui 558000 (Descoberta B). Hipótese: roda OK no rebuild porque sem dados nã
 ### Próximo passo
 
 Decisão Clayton sobre desenho dos 4 pacotes como migrations reais. Esta fatia entrega MAPA; correção é fatia separada.
+
+## Sessão 2026-05-29 — F-MIGRATION-REBUILD-PACKAGES P1 (desenho read-only)
+
+### Escopo
+
+Reunir evidência exata para desenhar o Pacote 1 (5 famílias de inversão REF_BEFORE_CREATE) como migrations forward-only seguras — antes de escrever qualquer SQL. Decisões fechadas pelo Clayton (não reabertas): Pacote 3 `_deprecated_*` fora; órfã 560000 vira tombstone.
+
+### Resultado
+
+Das 5 famílias da Paralela B, apenas **1 dívida real** (schedules + schedule_slots). As outras 4 são **falsas positivas** da auditoria estática — todas têm guard `IF EXISTS` que torna o ALTER no-op no rebuild.
+
+| Família | Análise | Decisão |
+|---|---|---|
+| **schedules** | REVOKE em `20260428200000:4` sem guard → CREATE em `20260530200000` | **Opção X (backdate)**: criar `20260428100000_create_schedules.sql` |
+| **schedule_slots** | REVOKE em `20260428200000:5` sem guard → CREATE em `20260530210000` | **Opção X (backdate)**: criar `20260428110000_create_schedule_slots.sql` |
+| **bookings** | RENAME em `20260428260000` com `IF EXISTS column` → no-op silencioso no rebuild zero (tabela nem existe); CREATE em `20260530491000` com colunas legadas | **Não mexer.** Divergência cosmética; nenhuma migration posterior usa nomes renomeados |
+| **event_attendees** | Mesma análise de bookings (`20260428280000` com guard) | **Não mexer.** Divergência cosmética |
+| **rides_vehicles** | `20260523100000` com `IF EXISTS table` + `ADD COLUMN IF NOT EXISTS`; CREATE em `20260530350000` já com `concept_id` | **Não mexer.** Rebuild produz estado idêntico ao real |
+
+### Pacote 1 final: 2 migrations forward-only
+
+```
+1.  20260428100000_create_schedules.sql       (~15 linhas, clone de 20260530200000)
+2.  20260428110000_create_schedule_slots.sql  (~13 linhas, clone de 20260530210000)
+```
+
+Ambas com `CREATE TABLE IF NOT EXISTS` — idempotentes no banco vivo (no-op, 0 rows em ambas as tabelas), e desbloqueiam o rebuild zero.
+
+### Análise dos guards (read)
+
+- `guard-financial-regression.ts`: só verifica `src/*.ts`, não migrations → sem impacto.
+- `sql-regression-lint.ts`: só proíbe `SELECT * FROM` → CREATE TABLE OK.
+- `check-migration-numbering.js:28`: arquivos com 14 dígitos (`/^\d{14}_/`) são **ignorados** pelo check de numeração → backdates aceitas.
+- `migrate.ts` runner: `extractMigrationNumber` retorna null para 14 dígitos → forward-only check NÃO se aplica. Ordenação por filename completo (`localeCompare`).
+
+### Refinamento da Paralela B (anotado, sem ação)
+
+Falsas positivas 3/5 indicam que a auditoria estática precisaria distinguir ALTER bruto de ALTER protegido por `DO $$ BEGIN IF EXISTS … END $$`. Melhoria futura da auditoria.
+
+### Confirmações de escopo
+
+- ✅ Zero migration escrita / Zero edição
+- ✅ Zero execução de migration
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Banco real intocado em toda a fatia
+- ✅ Decisões fechadas (Pacote 3 fora, órfã 560000 tombstone) respeitadas
+
+### Próximo passo
+
+Aguardar Clayton + Opus + ChatGPT revisarem o desenho. Quando autorizado, escrever as 2 migrations propostas em fatia separada.

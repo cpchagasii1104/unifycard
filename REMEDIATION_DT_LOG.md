@@ -8552,6 +8552,135 @@ Migrations 1-5 e 9-10 são **purely structural** (CREATE TABLE com colunas obser
 - Seção 17 do `docs/01_normative/00_AGENT_PROTOCOL.md` — objetos sem ficheiro
 - Próxima fatia (decisão Clayton): desenhar 4 pacotes acima como migrations forward-only reais.
 
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Desenho do Pacote 1 (2026-05-29)
+
+- **Modo:** guardião read-only. Zero edição de migration. Zero execução. Banco real só SELECTs.
+- **Decisões já fechadas (não reabrir):** Pacote 3 `_deprecated_*` não voltam no rebuild; órfã 560000 vira tombstone/no-op (writer canônico vivo no actor.repository).
+- **Resultado:** das 5 famílias originais, apenas **2 migrations** precisarão ser escritas. As outras 3 são **falsas positivas da auditoria estática** (têm guard `IF EXISTS` que torna o ALTER no-op no rebuild).
+
+### Por família — evidência exata
+
+#### Família 1 — `schedules` + `schedule_slots`  →  Opção X (backdate CREATE) RECOMENDADA
+
+**Precoce:** `20260428200000_schedules_revoke_write.sql:4-5` — `REVOKE INSERT, UPDATE ON schedules FROM PUBLIC; REVOKE INSERT, UPDATE ON schedule_slots FROM PUBLIC;` — **sem guard**. Quebra forward-only se as tabelas não existirem ainda. **É o tropeço real do ensaio.**
+
+**Tardio:** `20260530200000_schedules.sql:4-14` — `CREATE TABLE IF NOT EXISTS schedules (id PK, tenant_id FK tenants, actor_id FK actors, reference_type, reference_id, status DEFAULT 'active', metadata, created_at, updated_at)`.
+
+**Tardio:** `20260530210000_schedule_slots.sql:5-13` — `CREATE TABLE IF NOT EXISTS schedule_slots (id PK, schedule_id FK schedules, starts_at, ends_at, status DEFAULT 'available', metadata, created_at)`.
+
+**Estado real do banco vivo (após CHECKs adicionados por `20260530535000_c36_status_check_constraints.sql:109-115`):**
+- `schedules`: id (PK), tenant_id (FK tenants), actor_id (FK actors), reference_type, reference_id, status (`chk_schedules_status` CHECK in 'active'/'inactive'/'archived'), metadata, created_at, updated_at. **0 rows.**
+- `schedule_slots`: id (PK), schedule_id (FK schedules), starts_at, ends_at, status (`chk_schedule_slots_status` CHECK in 'available'/'booked'/'blocked'/'cancelled'), metadata, created_at. **0 rows.**
+
+A CHECK não vem do CREATE, vem da 535000 — que está em [179..328]. No rebuild rodará após o CREATE. OK.
+
+**Plano recomendado (Opção X):**
+- Criar `20260428100000_create_schedules.sql` — clonar conteúdo de `20260530200000_schedules.sql` (CREATE TABLE IF NOT EXISTS schedules)
+- Criar `20260428110000_create_schedule_slots.sql` — clonar conteúdo de `20260530210000_schedule_slots.sql` (CREATE TABLE IF NOT EXISTS schedule_slots)
+- Timestamp escolhido: `20260428100000` e `20260428110000` (antes do REVOKE em `20260428200000`)
+- Originais `20260530200000_schedules.sql` e `20260530210000_schedule_slots.sql` **permanecem intactos** — `IF NOT EXISTS` os torna no-op no rebuild
+
+**Análise de risco — banco vivo:** ambas tabelas já existem; `CREATE TABLE IF NOT EXISTS` é no-op idempotente. Zero risco. Zero efeito em dados (0 rows em ambas).
+
+**Análise de risco — runner:** filename 14 dígitos passa pelo `extractMigrationNumber → null`, então NÃO entra no forward-only check (`migrate.ts:483-498`). Ordenação alfabética por filename completo. `20260428100000…` < `20260428200000…` < `20260530200000…`. Ordem correta.
+
+**Por que NÃO opção Y (mover CREATE existente):** mover/renomear `20260530200000_schedules.sql` para timestamp anterior tornaria a entry em `schema_migrations` órfã (sem ficheiro) — criaria mais uma órfã. Inaceitável.
+
+#### Família 2 — `bookings`  →  **FALSA POSITIVA** (não escrever migration)
+
+**Precoce:** `20260428260000_bookings_fix_timestamp_names.sql:13-55` — 4 blocos `DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE … column_name='requestedat') THEN ALTER TABLE bookings RENAME COLUMN requestedat TO requested_at; END $$;` (e para `confirmedat`/`cancelledat`/`expiredat`).
+
+**Tardio:** `20260530491000_create_unified_availability_tables.sql:24-40` — `CREATE TABLE IF NOT EXISTS bookings (..., requestedat TIMESTAMPTZ, ..., confirmedat, cancelledat, expiredat, ...)`. Cria com colunas LEGADAS.
+
+**Comportamento no rebuild zero:**
+1. Em 20260428260000, `bookings` não existe → `IF EXISTS column` é FALSE em 4× → **no-op silencioso (não quebra)**.
+2. Em 20260530491000, CREATE cria `bookings` com colunas legadas.
+3. Tabela final no rebuild: colunas `requestedat`/`confirmedat`/`cancelledat`/`expiredat` (legadas).
+
+**Estado real do banco vivo:** colunas RENOMEADAS — `requested_at`, `confirmed_at`, `cancelled_at`, `expired_at` + `chk_bookings_status` CHECK in 'requested'/'confirmed'/'cancelled'/'expired'/'checked_in'/'checked_out'. 39 rows.
+
+**Divergência aceita:** rebuild produz colunas legadas; real tem modernas. Grep em migrations confirma que **NENHUMA outra migration do tree referencia `requested_at`/`confirmed_at`/etc. em bookings** — apenas o próprio fix `20260428260000`. CHECK constraint `chk_bookings_status` é adicionada em `20260530535000_c36_status_check_constraints.sql:93-95` por `ALTER TABLE bookings ADD CONSTRAINT chk_bookings_status CHECK (status IN ...)` — não depende dos nomes de timestamp.
+
+**Decisão:** **não mexer.** Divergência cosmética entre rebuild e real, sem efeito em migrations posteriores. Anotar como "follow-up código TS pode usar nome moderno — fora deste pacote".
+
+#### Família 3 — `event_attendees`  →  **FALSA POSITIVA** (não escrever migration)
+
+**Precoce:** `20260428280000_event_attendees_fix_check_in_time.sql:3-12` — `DO $$ BEGIN IF EXISTS (column 'check_in_time') THEN ALTER TABLE event_attendees RENAME COLUMN check_in_time TO checked_in_at; END $$;`. Guard idempotente.
+
+**Tardio:** `20260530150000_event_attendees.sql:4-14` — `CREATE TABLE IF NOT EXISTS event_attendees (..., check_in_time TIMESTAMPTZ, ...)`. Cria com nome legado.
+
+**Comportamento no rebuild zero:** mesma análise que bookings. RENAME no-op silencioso, CREATE cria com `check_in_time`. Tabela final no rebuild: `check_in_time` (legado).
+
+**Estado real:** `checked_in_at` (renomeada) + `chk_event_attendees_status` CHECK (registered/cancelled/attended/no_show) adicionada por 535000.
+
+**Grep em migrations:** **nenhuma outra migration referencia `checked_in_at` em event_attendees** — apenas o próprio fix. Divergência aceita.
+
+**Decisão:** **não mexer.** Divergência cosmética.
+
+#### Família 4 — `rides_vehicles`  →  **FALSA POSITIVA** (não escrever migration)
+
+**Precoce:** `20260523100000_rides_vehicles_concept_id_nullable.sql:10-30` — `DO $mig$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='rides_vehicles') THEN ALTER TABLE rides_vehicles ADD COLUMN IF NOT EXISTS concept_id UUID NULL; ...; END $mig$;`. **Duplo guard** (IF EXISTS table + ADD COLUMN IF NOT EXISTS).
+
+**Tardio:** `20260530350000_rides_core.sql:20-46` — `CREATE TABLE IF NOT EXISTS rides_vehicles (..., concept_id UUID, ...)` (linha 32). **CREATE já inclui `concept_id`.**
+
+**Comportamento no rebuild zero:**
+1. Em 20260523100000, rides_vehicles não existe → IF EXISTS table = FALSE → no-op.
+2. Em 20260530350000, CREATE cria rides_vehicles JÁ com concept_id.
+3. Tabela final no rebuild: igual ao real.
+
+**Profile:** `20260530350000_rides_core.sql` NÃO está na lista `LATENT_MODULE_MIGRATIONS` (`migrate.ts:48-63`) — roda em CORE_ONLY normalmente.
+
+**Decisão:** **não mexer.** Falsa positiva confirmada; rebuild produz estado idêntico ao real.
+
+### Análise dos guards de regressão (Passo 5)
+
+| Guard | Verifica | Impacto no Pacote 1 |
+|---|---|---|
+| `guard-financial-regression.ts` | Padrões em `src/*.ts` (não migrations) | Nenhum |
+| `sql-regression-lint.ts` | `SELECT * FROM` em migrations | Nenhum (CREATE TABLE não usa SELECT *) |
+| `check-migration-numbering.js` | Numeração 4-dígitos única + sufixos sequenciais | Linha 28: arquivos com 14 dígitos (`/^\d{14}_/`) são IGNORADOS pelo check — nossas backdates (`20260428100000_…`, `20260428110000_…`) passam sem verificação |
+| Runner `migrate.ts` forward-only | `extractMigrationNumber` retorna null para 14 dígitos → forward-only check NÃO se aplica | Backdates aceitas |
+| Runner ordenação | `localeCompare(filename)` alfabético | `20260428100000` < `20260428200000` ✓ |
+
+### Lista preliminar das migrations forward-only do Pacote 1
+
+| # | Nome proposto | O que cria | Origem | Estimativa |
+|---|---|---|---|---|
+| 1 | `20260428100000_create_schedules.sql` | `CREATE TABLE IF NOT EXISTS schedules` (colunas idênticas a `20260530200000_schedules.sql`) | Necessário para `20260428200000_schedules_revoke_write.sql` rodar do zero | ~15 linhas |
+| 2 | `20260428110000_create_schedule_slots.sql` | `CREATE TABLE IF NOT EXISTS schedule_slots` (colunas idênticas a `20260530210000_schedule_slots.sql`) | Mesmo motivo de #1 | ~13 linhas |
+
+**Tamanho total Pacote 1: 2 migrations, ~30 linhas SQL.**
+
+**Famílias originais que NÃO geram migration:** bookings, event_attendees, rides_vehicles (3 falsas positivas).
+
+### Refinamento da Paralela B (sinalizado, sem ação aqui)
+
+A auditoria estática detectou inversões REF_BEFORE_CREATE em 5 famílias, mas apenas **1 família (schedules+schedule_slots)** é dívida real. As outras 3 (bookings, event_attendees, rides_vehicles) têm guard `IF EXISTS` que torna o ALTER no-op no rebuild — falsas positivas do regex que não distingue ALTER bruto de ALTER protegido por `DO $$ BEGIN IF EXISTS … THEN … END $$`. Refinamento da auditoria seria: filtrar ALTERs envoltos em guard `IF EXISTS`. Anotado como melhoria futura da auditoria, sem efeito nesta fatia.
+
+### Confirmações de escopo Pacote 1 (desenho)
+
+- ✅ Zero migration escrita
+- ✅ Zero edição de código/schema
+- ✅ Zero execução de migration
+- ✅ Zero toque no banco real além de SELECT (8 tabelas inspecionadas)
+- ✅ Banco real intocado em toda a fatia
+- ✅ Decisões fechadas pelo Clayton respeitadas (Pacote 3 fora; órfã 560000 tombstone)
+- ✅ Sem propor SQL ainda — apenas mapa do desenho
+
+### Próximo passo
+
+Aguardar Clayton + Opus + ChatGPT revisarem o desenho. Quando autorizado, escrever as 2 migrations propostas (Pacote 1) numa fatia separada.
+
+### Vinculadas
+
+- F-MIGRATION-REBUILD-COHERENCE-AUDIT (commit `cbddd2de`) — fonte do mapa
+- F-DEV-DATA-CLEAN-RESET portão 1.3 — Descoberta C destravada por Pacote 1
+- Família 1 (única dívida real): `20260428200000_schedules_revoke_write.sql:4-5`, `20260530200000_schedules.sql:4-14`, `20260530210000_schedule_slots.sql:5-13`
+- CHECKs adicionadas em `20260530535000_c36_status_check_constraints.sql:89-115`
+- Falsas positivas: `20260428260000_bookings_fix_timestamp_names.sql`, `20260428280000_event_attendees_fix_check_in_time.sql`, `20260523100000_rides_vehicles_concept_id_nullable.sql`
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
