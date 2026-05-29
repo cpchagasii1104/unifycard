@@ -7696,3 +7696,63 @@ migration.
 ### Próximo passo recomendado
 
 F1 (backfill audit do gap `user_profiles.cpf` ↔ `identities.tax_id`) é a próxima fatia natural da DECISION-0062 D10. Outras DTs paralelas opcionais: DT-ACTORS-LEGACY-KYC-COLUMNS (`actors.kyc_limit_cents` / `kyc_verified_at` sem readers) e ratificação documental de `authority_roots.cpf_hash` como projeção de dedup.
+
+## Sessão 2026-05-28 — F2 DECISION-0062 backfill identities
+
+### Escopo
+
+Backfill idempotente de `identities` a partir de `global_users.cpf` para
+`global_user_id` distintos sem identity row. Script standalone com dry-run
+default + `--apply` explícito. Validação de dígitos via helper canônico
+`validateCpf`. Logging LGPD-safe com `sanitizeCpfForLog`.
+
+### Mudança
+
+| Arquivo | Mudança |
+|---------|---------|
+| `backend/src/scripts/backfill-identities-from-global-users-cpf.ts` | **NOVO** — script F2 com dry-run/apply + classificação + ON CONFLICT DO NOTHING + LGPD-safe log |
+| `REMEDIATION_DT_LOG.md` | DT-CPF-SSOT-DUAL-WRITE: F2 DONE registrado + matriz F0–F5 + estado runtime pós-backfill + confirmações de escopo |
+| `opus.md` | Memória curta de F2 |
+
+### Operação
+
+| Fase | Resultado |
+|------|-----------|
+| Dry-run | 11 candidates SQL filter → 10 VALID_FOR_INSERT + 1 BLOCKED_INVALID_DIGITS |
+| Apply | 10 inserts ok, 0 skipped on conflict, 1 bloqueado por dígitos verificadores |
+| Pre `identities` | 9 |
+| Post `identities` | 19 (delta +10) |
+| `kyc_status='pending'` | 5 → 12 |
+| `kyc_status='approved'` | 7 (inalterado) |
+| `missing_identity_after_backfill` | 1 (esperado — CPF inválido) |
+
+### Gates verdes
+
+- tsc clean
+- validate:actor-writer-boundaries GATE OK
+- validate:bank-ledger-boundaries GATE OK
+- validate:regression-guards GATE OK
+- arch baseline 20, `critical_new=0`
+- E2E F4.0 actor_bank_destinations: 8/8 PASS
+- E2E KYC transversal: PASS (KYC_PENDING → KYC_OK → AUTHORITY_ALLOW + ledger double-entry)
+
+### Confirmações de escopo
+
+- ✅ Zero migration
+- ✅ Zero schema alterado
+- ✅ Zero alteração em `global_users.cpf` (imutabilidade D4 preservada)
+- ✅ Zero alteração em `user_profiles.cpf` / `profiles.cpf`
+- ✅ Zero alteração em `core.service.ts` / `profile.service.ts` / `identity.service.ts` / `auth.service.ts`
+- ✅ Zero alteração em `bank_ledger` / `bank_transactions` / `bank_splits`
+- ✅ F4.0 inalterado (E2E regression PASS)
+- ✅ F4.1 / F4.2 / F4.3 / F4.4 continuam OPEN / NOT AUTHORIZED
+- ✅ DT-CPF-SSOT-DUAL-WRITE NÃO fechada (F3/F4/F5 pendentes)
+- ✅ Arquivos ambientais NÃO commitados
+
+### Próximo passo recomendado
+
+F3 — Suite E2E de coerência CPF. Não exige mudança de schema nem service.
+Apenas invariantes que provem:
+- `GET /core/profile.personal_profile.cpf` retorna CPF coerente com `identities.tax_id`
+- F4.0 (`actor_bank_destinations`) cadastra para os 10 novos identities sem fail
+- KYC submission funciona para identities recém-criadas

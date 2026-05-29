@@ -7489,7 +7489,7 @@ depende de estado residual.
 
 ## DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY
 
-- **Status:** OPEN — BLOCKED BY DECISION-0062 (2026-05-28). Sucede DT-USER-PROFILES-LEGACY-ORPHAN. **Hipótese escolhida: A como destino canônico, com execução gradual (F0–F5)** conforme DECISION-0062 D10. Não fechada — DT só vira CLOSED após F0–F5 mergeados e janela de observação sem regressão.
+- **Status:** OPEN — BLOCKED BY DECISION-0062 (2026-05-28). Sucede DT-USER-PROFILES-LEGACY-ORPHAN. **Hipótese escolhida: A como destino canônico, com execução gradual (F0–F5)** conforme DECISION-0062 D10. Não fechada — DT só vira CLOSED após F0–F5 mergeados e janela de observação sem regressão. **F0.1 DONE** (commit `fee7b754` — bank-balance-by-cpf ghost reference fix). **F2 DONE** (commit `<HEAD_AFTER>` — backfill idempotente de 10 identities a partir de global_users.cpf). F1 audit, F3 E2E coerência, F4 migrar leitura CORE e F5 deprecar caches transitórios ainda pendentes.
 - **Severidade:** MEDIUM (era LOW na DT antiga; risco real é divergência cross-domain entre CORE e KYC/payout).
 - **Classe:** DT-D + DT-N (drift de canonicidade + decisão arquitetural canonizada por DECISION-0062 mas implementação não autorizada).
 - **Origem:** raio-X de `user_profiles` + `AvailableActor.user_id` pós-DECISION-0061 (HEAD `ccd03ad8`, 2026-05-28).
@@ -7582,6 +7582,49 @@ Razão (registrada em DECISION-0062 contexto):
 - Hipótese A está alinhada com `IDENTITY_SSOT_PRECEDENCE.md` (normativa-mãe que já declarava `identities` autoridade de KYC/documento).
 
 **Hipóteses B e C registradas historicamente acima foram REJEITADAS por DECISION-0062.**
+
+### Progresso F0–F5 (DECISION-0062 D10)
+
+| Fase | Status | Commit | Notas |
+|------|--------|--------|-------|
+| F0.1 ghost reference (bank-balance-by-cpf) | DONE | `fee7b754` | Query trocada para `global_users.cpf` via JOIN canônico |
+| F1 backfill audit | DONE (READ-ONLY, sessão anterior) | n/a | 11 candidatos distintos identificados |
+| **F2 backfill idempotente** | **DONE** | `<HEAD_AFTER>` | **10 inserts em `identities` (delta 9→19); 1 bloqueado por dígitos inválidos. Zero schema/migration. Zero alteração em global_users/user_profiles/profiles/CORE/auth services.** |
+| F3 E2E coerência CPF | OPEN | — | Validar simetria CORE ↔ identity após F2 |
+| F4 migrar leitura CORE | OPEN | — | Refatorar `core.service.ts` para JOIN com identities |
+| F5 deprecar caches | OPEN | — | DROP `user_profiles.cpf` / `profiles.cpf` após F4 estável |
+
+### Estado runtime pós-F2
+
+- `identities` total: 9 → **19** (delta +10)
+- `identities` com `tax_id`: **19** (100%)
+- `missing_identity_after_backfill`: **1** (esperado — único CPF inválido por dígitos verificadores em `global_users.cpf`, guid `28221f67`)
+- `kyc_status='pending'`: 5 → 12 (delta +7 reservados para CPFs reais; +3 já estavam pending pré-F2)
+- `kyc_status='approved'`: 7 (inalterado — KYC aprovado preservado)
+
+### Confirmações de escopo F2
+
+- ✅ Zero migration nova
+- ✅ Zero schema alterado
+- ✅ Zero alteração em `global_users.cpf` (imutável D4 preservada)
+- ✅ Zero alteração em `user_profiles.cpf` / `profiles.cpf` (transitórios intactos)
+- ✅ Zero alteração em `core.service.ts` / `profile.service.ts` / `identity.service.ts` / `auth.service.ts`
+- ✅ Zero alteração em `bank_ledger` / `bank_transactions` / `bank_splits`
+- ✅ Zero alteração em F4.0 (E2E F4.0 regression 8/8 pós-F2)
+- ✅ E2E KYC PASS pós-F2 (KYC_PENDING → KYC_OK → AUTHORITY_ALLOW + ledger double-entry)
+- ✅ Helper canônico `validateCpf` rejeitou CPF inválido por dígitos verificadores
+- ✅ `ON CONFLICT (global_user_id) DO NOTHING` garante idempotência cross-run
+- ✅ Logging LGPD-safe (CPFs mascarados via `sanitizeCpfForLog`)
+- ✅ Bloqueios materiais aplicados: sintéticos / formato 14 dígitos / sem global_user_id / dígitos inválidos
+
+### Próximo passo natural
+
+**F3 — E2E coerência CPF.** Suite mínima que prove que após backfill:
+- `GET /core/profile.personal_profile.cpf` para um actor com identity recém-criada retorna CPF coerente com `identities.tax_id`
+- F4.0 cadastra destino bancário sem fail para os 10 novos identities (`holder_document = identities.tax_id`)
+- KYC submission para um identity recém-criado funciona normalmente
+
+F3 não exige mudança de schema nem de service. É apenas suite de invariantes.
 
 ### Evidência runtime reportada
 
