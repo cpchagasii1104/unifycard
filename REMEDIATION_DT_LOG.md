@@ -9043,6 +9043,137 @@ Para cada backdated abaixo, conteúdo = clone do CREATE TABLE existente no tree,
 - `20260428200000_schedules_revoke_write.sql` (REVOKE — primeiro problema)
 - RENAMEs guarded: `20260428260000` (4×) e `20260428280000` (1×)
 
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Pacote 1 ESCRITO + ensaio progrediu (Descoberta C RESOLVIDA) + Descoberta D aberta (2026-05-29)
+
+- **Status:** 4 migrations escritas; pré-flight A/B PASS; gates 5/6 verdes; **schema-coherence falha por dívida pré-existente** (allowlist deadlines abril/maio 2026, isolado testado SEM novas migrations). Ensaio em espelho rodou 182/332 — **Pacote 1 resolveu a Descoberta C original** (`schedules_revoke_write.sql` passou OK). Falha em **NOVA inversão fora do mapa**: `20260428210000_bank_transactions_concept_id_not_null.sql` requer `concept_id` que só é adicionada por `20260530506000_bank_transactions_concept_id.sql`. **Commit retido por instrução explícita do prompt (dívida nova, decisão de Clayton+Opus+ChatGPT).**
+- **Branch:** `rescue-structural` · HEAD `3240ee7e` (working tree dirty com 4 migrations + docs).
+
+### Arquivos escritos (working tree, NÃO commitados)
+
+| Arquivo | Linhas | Propósito |
+|---|---|---|
+| `backend/migrations/20260427120000_unified_availability_base.sql` | 67 | CREATE availability + bookings (nomes modernos) + availability_participants + 5 índices |
+| `backend/migrations/20260427200000_create_schedules.sql` | 18 | CREATE schedules |
+| `backend/migrations/20260427210000_create_schedule_slots.sql` | 17 | CREATE schedule_slots |
+| `backend/migrations/20260530151000_event_attendees_rename_checked_in_at.sql` | 33 | RENAME guarded check_in_time → checked_in_at após CREATE original |
+
+Todos com `IF NOT EXISTS` (CREATE) e `IF EXISTS / NOT EXISTS` (RENAME). Banco vivo: no-op total. Rebuild: cria estrutura na ordem certa.
+
+### Pré-flight A — PASS
+
+- schedules depende só de `tenants` (0002_identity.sql:10) e `actors` (0002_identity.sql:19). Ambas em 4-dígitos → ordenam antes de `20260427xxxxxx`. ✓
+- schedule_slots depende de schedules (backdated `20260427200000`). schedule_slots backdated em `20260427210000`. Ordem OK. ✓
+- bloco availability: `availability` sem FK externa; `bookings` e `availability_participants` só FK interna a availability. ✓
+
+### Pré-flight B — PASS (parser ACEITA duplicate CREATE)
+
+`scripts/validate-schema-code-coherence.mjs:412-424` faz `schema.set(tableName, columns)` para cada CREATE TABLE encontrado, **sobreescrevendo silenciosamente** o entry anterior. Não acusa duplicidade como erro. Em modo `both`/`strict` (default), usa `schemaDb` do banco vivo (colunas modernas) — sem regressão funcional.
+
+### Gates — 5/6 verdes; 1 herdado (PRÉ-EXISTENTE)
+
+| Gate | Resultado |
+|---|---|
+| tsc | clean |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK (financial + sql-regression-lint + check-migration-numbering 332 OK) |
+| validate-architectural-patterns --strict | `critical_new=0` (warning_new=1 herdado fora do escopo Pacote 1) |
+| validate:schema-coherence | **FAIL — allowlist expirada (C1/C3/C4/C8/C12/C31-C35)** |
+
+**Falha do schema-coherence ISOLADA como pré-existente:** renomeei temporariamente os 4 arquivos `.sql.tmp`, re-rodei o gate, mesmo erro idêntico. Allowlist tem deadlines abril/maio 2026 — não introduzidas pelo Pacote 1.
+
+### Ensaio em espelho — TRAVA confirmada nos logs
+
+Mirror: `unificard_dev_rebuild_check_20260529032800`. Logs:
+```
+🎯 Banco-alvo do migrate: unificard_dev_rebuild_check_20260529032800
+✅ Alvo confere com EXPECTED_DATABASE_NAME='unificard_dev_rebuild_check_20260529032800'
+📋 MIGRATIONS PENDENTES: 332 de 332
+```
+
+### Resultado do ensaio — 182/332 (vs 178/328 antes) — Descoberta C RESOLVIDA
+
+```
+Última OK:    20260428200000_schedules_revoke_write.sql (1ms)
+            ← exatamente onde a Descoberta C tropeçava antes
+Falha em:   20260428210000_bank_transactions_concept_id_not_null.sql
+            ALTER TABLE bank_transactions ALTER COLUMN concept_id SET NOT NULL;
+            ERROR: coluna "concept_id" da relação "bank_transactions" não existe
+```
+
+**Pacote 1 funcionou:**
+- `20260427120000_unified_availability_base.sql` (17ms) executou OK
+- `20260427200000_create_schedules.sql` (6ms) executou OK
+- `20260427210000_create_schedule_slots.sql` (3ms) executou OK
+- `20260428200000_schedules_revoke_write.sql` (1ms) **passou** — Descoberta C RESOLVIDA
+- ensaio avançou de [179/328] para [183/332] (4 backdated + uma migration a mais)
+
+### Descoberta D (NOVA, fora do mapa) — bank_transactions.concept_id
+
+Mesma estrutura da Descoberta C original, agora em outra família:
+- `20260428210000_bank_transactions_concept_id_not_null.sql:10-11` (28/abr) — `ALTER TABLE bank_transactions ALTER COLUMN concept_id SET NOT NULL;`
+- `20260530506000_bank_transactions_concept_id.sql:20` (30/mai) — `ALTER TABLE bank_transactions ADD COLUMN concept_id UUID NULL`
+
+Em ordem alfabética, SET NOT NULL roda ANTES do ADD COLUMN. Coluna não existe → falha.
+
+**Por que a Paralela B não detectou:** o regex de inversão buscava `CREATE TABLE` como evento de "criação" do objeto. ADD COLUMN não era considerado, então a referência (ALTER COLUMN) não foi cruzada com a "criação" (ADD COLUMN). Refinamento necessário da auditoria estática.
+
+### Por que o banco vivo funciona
+
+Mesma rota da Descoberta E: migrations rodaram em ordem cronológica diferente da alfabética. A `20260530506000` (ADD COLUMN) provavelmente rodou primeiro (criada antes); depois a `20260428210000` (SET NOT NULL) foi adicionada ao tree posteriormente — em 29/abr ou similar — quando a coluna já existia.
+
+### Decisão do commit — RETIDO por instrução
+
+Conforme prompt:
+> ★ Se o ensaio FALHAR por dívida NOVA não causada pelo Pacote 1 (ex: outra inversão
+>   mais adiante que não mapeamos): preservar artefatos, reportar, e NÃO commitar por
+>   decisão automática — Clayton+Opus+ChatGPT decidem se o Pacote 1 entra como avanço
+>   parcial ou aguarda o próximo pacote.
+
+**Commit do Pacote 1 RETIDO.** Aguarda decisão.
+
+### Artefatos forenses (locais, NÃO commitados)
+
+- `RESET_MIGRATE_LOG_2026-05-29T03-28-00.log` — log completo do ensaio (182 sucessos + 1 falha)
+- `RESET_SCHEMA_REBUILD_PARTIAL_PKG1_2026-05-29T03-28-00.sql` — schema-only do espelho parcial (334 KB)
+
+### Confirmações de escopo
+
+- ✅ Migrations novas aplicadas SÓ no espelho descartável (NÃO no banco real)
+- ✅ Banco real `unificard_dev` permanece INTOCADO
+- ✅ TRAVA `EXPECTED_DATABASE_NAME` ativa em TODO migrate (confirmada nos logs)
+- ✅ Artefatos RESET_*/AUDIT_* NÃO commitados
+- ✅ Mirror dropado interativamente após captura forense
+- ✅ bank_* do real não tocado · trigger de imutabilidade preservado
+- ✅ Falha do schema-coherence isolada como pré-existente (teste com `.sql.tmp`)
+- ✅ Duplicate CREATE confirmado aceito pelo parser (sobreescreve silenciosamente)
+
+### Recomendação sobre liberar drop/recreate real
+
+**NÃO liberar ainda.** Descoberta D precisa ser resolvida primeiro. Sugestão: tratar como Pacote 1.b (NOVO ALTER backdated para bank_transactions criar concept_id antes de SET NOT NULL):
+- Criar `20260428205000_repair_bank_transactions_concept_id.sql`:
+  ```sql
+  ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS concept_id UUID;
+  ```
+- No banco vivo: ADD COLUMN IF NOT EXISTS = no-op.
+- No rebuild: cria coluna antes do SET NOT NULL.
+- Original `20260530506000_bank_transactions_concept_id.sql` permanece (ADD COLUMN IF NOT EXISTS interno).
+
+Mas isto é decisão Clayton+Opus+ChatGPT.
+
+### Vinculadas
+
+- F-MIGRATION-REBUILD-PACKAGES Desenho P1 (`3d8d4718`) e Instância E (`40654b22`)
+- F-MIGRATION-REBUILD-PACKAGES Instância F (`3240ee7e`) — TRAVA prevista, P1 confirmado
+- Descoberta C (RESOLVIDA por este Pacote 1)
+- Descoberta D (NOVA — `20260428210000` vs `20260530506000`)
+- `backend/migrations/20260427120000_unified_availability_base.sql` (NOVO)
+- `backend/migrations/20260427200000_create_schedules.sql` (NOVO)
+- `backend/migrations/20260427210000_create_schedule_slots.sql` (NOVO)
+- `backend/migrations/20260530151000_event_attendees_rename_checked_in_at.sql` (NOVO)
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".

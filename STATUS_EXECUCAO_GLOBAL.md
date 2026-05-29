@@ -8338,3 +8338,58 @@ Total: 6 migrations, ~95 linhas SQL.
 ### Próximo passo
 
 Aguardar decisão Opus para escrita das 6 backdated. Mapa final está consolidado no DT_LOG.
+
+## Sessão 2026-05-29 — Pacote 1 ESCRITO; Descoberta C RESOLVIDA; Descoberta D aberta
+
+### Escopo
+
+Executor da primeira escrita. 4 migrations forward-only (3 backdated em `20260427xxxxxx` + 1 rename posterior em `20260530151000`). Pré-flight A/B PASS; gates 5/6 verdes (1 herdado pré-existente). Ensaio em espelho com TRAVA. **Pacote 1 funciona: Descoberta C RESOLVIDA. Nova Descoberta D aparece mais adiante. Commit RETIDO.**
+
+### Arquivos NOVOS (working tree, não commitados)
+
+- `backend/migrations/20260427120000_unified_availability_base.sql` (67 linhas — availability + bookings nomes modernos + availability_participants + 5 índices)
+- `backend/migrations/20260427200000_create_schedules.sql` (18 linhas)
+- `backend/migrations/20260427210000_create_schedule_slots.sql` (17 linhas)
+- `backend/migrations/20260530151000_event_attendees_rename_checked_in_at.sql` (33 linhas, rename guarded)
+
+### Gates
+
+| Gate | Resultado |
+|---|---|
+| tsc | clean |
+| actor-writer §4.8.1 | OK |
+| bank-ledger §4.6 | OK |
+| regression-guards | OK (332 migrations no Gate 3) |
+| arch --strict | `critical_new=0` |
+| schema-coherence | FAIL — allowlist deadlines abril/maio expirados (**isolado como pré-existente**: teste com `.sql.tmp` mostrou mesmo erro sem Pacote 1) |
+
+### Ensaio em espelho — TRAVA confirmada
+
+Mirror `unificard_dev_rebuild_check_20260529032800`. Banco-alvo correto, EXPECTED confere, 0 baseline (banco vazio), 332 pendentes. **Ensaio rodou 182 OK** (era 178 antes do Pacote 1 = +4 backdated).
+
+### Resultado
+
+- ✓ 3 backdated executaram (17ms + 6ms + 3ms)
+- ✓ `20260428200000_schedules_revoke_write.sql` (1ms) — **PASSOU, Descoberta C RESOLVIDA**
+- ✗ `20260428210000_bank_transactions_concept_id_not_null.sql` — **falha NOVA: coluna concept_id não existe** (Descoberta D)
+
+### Descoberta D (NOVA, fora do mapa)
+
+```
+20260428210000_bank_transactions_concept_id_not_null.sql  (28/abr — ALTER COLUMN SET NOT NULL)
+20260530506000_bank_transactions_concept_id.sql           (30/mai — ADD COLUMN)
+```
+
+Mesma estrutura da C (filename antigo SET NOT NULL antes do filename moderno ADD COLUMN). Paralela B não detectou porque buscava CREATE TABLE; ADD COLUMN estava fora do escopo. Refinamento necessário.
+
+### Commit RETIDO
+
+Conforme instrução do prompt para "dívida nova não causada pelo Pacote 1". Aguarda Clayton+Opus+ChatGPT.
+
+### Confirmações de escopo
+
+- ✅ Banco real `unificard_dev` INTOCADO
+- ✅ Migrations novas aplicadas SÓ no espelho descartável (já dropado)
+- ✅ TRAVA EXPECTED_DATABASE_NAME confirmada nos logs
+- ✅ Artefatos RESET_* NÃO commitados
+- ✅ Falha schema-coherence isolada como pré-existente
