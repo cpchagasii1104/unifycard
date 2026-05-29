@@ -8051,3 +8051,84 @@ Espelhos descartáveis `mirror_test_…` e `mirror_test_b_…` apagados via `dro
 ### Próximo passo
 
 Próxima sessão retoma o ensaio em espelho (Fase 1.2 do F-DEV-DATA-CLEAN-RESET) com a mira corrigida. Hipótese a confirmar: **558000 roda OK do zero** porque sem dados não há violação da CHECK; falha é só do estado vivo (1 row com `refunded_via_recovery`). Se confirmado, drop/recreate viável e o ensaio prova reconstrução. As 3 órfãs em `schema_migrations` continuam para mapeamento.
+
+## Sessão 2026-05-29 — F-DEV-DATA-CLEAN-RESET Fase 1.2 RETOMADA · Descoberta C aberta
+
+### Escopo
+
+Retomar ensaio em espelho com TRAVA `EXPECTED_DATABASE_NAME` em todo migrate. Bloqueou-se ANTES de chegar na 558000 por uma dívida diferente — **Descoberta C** (ordem alfabética entre REVOKE e CREATE de `schedules` quebra forward-only).
+
+### TRAVA confirmada
+
+Output do migrate (banco-alvo + EXPECTED):
+```
+🎯 Banco-alvo do migrate: unificard_dev_rebuild_check_20260529011201
+✅ Alvo confere com EXPECTED_DATABASE_NAME='unificard_dev_rebuild_check_20260529011201'
+```
+
+178 migrations executadas com sucesso, falha em [179/328] em `20260428200000_schedules_revoke_write.sql`: REVOKE sobre tabela `schedules` que ainda não existe.
+
+### Descoberta C — ordem incorreta entre migrations
+
+```
+20260428200000_schedules_revoke_write.sql   ← 28/04: REVOKE
+20260530200000_schedules.sql                 ← 30/05: CREATE TABLE
+20260530210000_schedule_slots.sql            ← 30/05: schedule_slots
+```
+
+Runner ordena por filename alfabético (`migrate.ts:432`). Em ordem alfabética `20260428…` < `20260530…`, então REVOKE roda ANTES de CREATE → quebra forward-only.
+
+**Porque o banco real funciona:** `schedules` provavelmente foi criada por uma das 3 órfãs em `schema_migrations` sem ficheiro (Seção 17 AGENT_PROTOCOL) ou por SQL manual fora do controle.
+
+### Observação dirigida sobre a 558000 (instrução do prompt)
+
+**Não verificável nesta sessão.** Ensaio parou em [179/328], muito antes da 558000. Para confirmar/refutar a hipótese "Descoberta B some sozinha quando do zero", seria preciso destravar a Descoberta C primeiro — fora do escopo desta fatia.
+
+### Inventário comparativo (real vs espelho parcial)
+
+| | real (BEFORE) | espelho parcial (179/328) | gap |
+|---|---|---|---|
+| tables | 235 | 126 | -109 |
+| columns | 2348 | 1096 | -1252 |
+| constraints | 1111 | 498 | -613 |
+| triggers | 76 | 57 | -19 |
+| indexes | 840 | 477 | -363 |
+| functions | 122 | 100 | -22 |
+| extensions | 4 | 3 | -1 |
+| schema_migrations | 314 | 178 | -136 |
+
+Seeds parciais nascendo em ordem: `concepts=10/90`, `categories=58/102`, `company_types=7/7`, `tenants=0` (correto). RBAC (`permissions`/`roles`/`role_permissions`), `canonical_products` ainda não chegaram.
+
+### 3 órfãs identificadas no `schema_migrations` do real
+
+- `20260530518000_create_payment_milestones.sql`
+- `20260530519000_seed_concept_split_engineering.sql`
+- `20260530560000_backfill_pf_actor_registry.sql`
+
+### Artefatos Fase 1.2 (locais, não commitar)
+
+| Path | Tamanho |
+|---|---|
+| `RESET_SCHEMA_BEFORE_2026-05-29T01-12-01.sql` | 637 KB |
+| `RESET_INVENTORY_BEFORE_2026-05-29T01-12-01.json` | ~470 KB |
+| `RESET_MIGRATE_LOG_2026-05-29T01-12-01.log` | log completo migrate (178 sucessos + 1 falha) |
+| `RESET_SCHEMA_REBUILD_CHECK_PARTIAL_2026-05-29T01-12-01.sql` | 328 KB |
+| `RESET_INVENTORY_REBUILD_CHECK_PARTIAL_2026-05-29T01-12-01.json` | ~230 KB |
+| `RESET_SCHEMA_DIFF_PARTIAL_2026-05-29T01-12-01.txt` | 390 KB (11765 linhas) |
+
+### Portão 1.3 — RESULTADO VÁLIDO: dívida de migration encontrada
+
+**RECOMENDAÇÃO: PARAR — não prosseguir para drop/recreate real.**
+
+Dívida material distinta da Descoberta B encontrada antes do ensaio chegar nela. Decisão Clayton sobre: (a) corrigir ordem (renomear `20260428200000_schedules_revoke_write.sql` para timestamp >= 20260530200001, ou unificar em migration única); (b) investigar as 3 órfãs e gerar ficheiros forward-only; (c) ambos. Fora desta sessão: proibido SQL manual.
+
+### Confirmações de escopo
+
+- ✅ Zero migration aplicada no banco real
+- ✅ Banco real `unificard_dev` intocado em toda a sessão
+- ✅ Trigger de imutabilidade não tocado · zero toque em bank_* do real
+- ✅ TRAVA `EXPECTED_DATABASE_NAME` confirmada nos logs em cada migrate
+- ✅ Forense capturado ANTES de dropar (logs + schema parcial + inventário parcial + diff)
+- ⚠️ Espelho `unificard_dev_rebuild_check_20260529011201` aguarda dropdb interativo
+- ✅ Artefatos RESET_* NÃO commitados (apenas docs institucionais)
+- ✅ Backup completo (`RESET_BACKUP_2026-05-28T23-29-59.dump`) preservado

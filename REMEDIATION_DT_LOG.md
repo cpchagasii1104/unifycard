@@ -8275,6 +8275,144 @@ Retomar o ensaio em espelho (Fase 1.2 do F-DEV-DATA-CLEAN-RESET) em sessão futu
 - `backend/src/core/db/migrate.ts:557-589` (guard-rail novo)
 - Commit `39ea70623` (marco-zero, origem do hydrate)
 
+---
+
+## F-DEV-DATA-CLEAN-RESET — Fase 1.2 RETOMADA · Descoberta C aberta (2026-05-29)
+
+- **Status:** Ensaio em espelho rodou **178/328 migrations** com mira corrigida; falhou em [179/328] por **ordem incorreta de migrations**. NÃO foi possível verificar a Descoberta B (558000) — ensaio parou ANTES de chegar nela. Banco real intocado.
+- **HEAD:** `aa6834ae` (F-FIX-ENV-PRECEDENCE)
+- **Espelho:** `unificard_dev_rebuild_check_20260529011201`
+
+### TRAVA confirmada nos logs do migrate
+
+Output inicial do `pnpm exec tsx src/core/db/migrate.ts` com `DATABASE_URL` e `EXPECTED_DATABASE_NAME` apontando para o espelho:
+
+```
+✔ Conexão com banco de dados estabelecida
+
+🎯 Banco-alvo do migrate: unificard_dev_rebuild_check_20260529011201
+✅ Alvo confere com EXPECTED_DATABASE_NAME='unificard_dev_rebuild_check_20260529011201'
+
+📊 RESUMO: 0 migration(s) já registrada(s) no controle
+📋 MIGRATIONS PENDENTES: 328 de 328 disponíveis
+```
+
+Alvo correto, schema_migrations vazia (sem baseline), 328 pendentes — comportamento esperado de banco vazio. **A correção F-FIX-ENV-PRECEDENCE funcionou em produção do ensaio.**
+
+### Descoberta C — ordem de migrations quebra forward-only
+
+A migration **`20260428200000_schedules_revoke_write.sql`** falhou em [179/328] com:
+```
+error: relação "schedules" não existe
+```
+
+Inspeção do código revela apenas REVOKE:
+```sql
+REVOKE INSERT, UPDATE ON schedules FROM PUBLIC;
+```
+
+**A tabela `schedules` é criada por outra migration:**
+```
+20260428200000_schedules_revoke_write.sql   (28/04 — REVOKE)
+20260530200000_schedules.sql                 (30/05 — CREATE TABLE)
+20260530210000_schedule_slots.sql            (30/05 — CREATE schedule_slots)
+```
+
+Em ordem alfabética/lexicográfica (que é a ordem do runner em `migrate.ts:432`), `20260428…` roda ANTES de `20260530…`. Logo, REVOKE antes de CREATE → falha forward-only.
+
+**Por que o banco real funciona?**
+- `schedules` foi provavelmente criada por uma das **3 órfãs** em `schema_migrations` sem ficheiro correspondente (Seção 17 do AGENT_PROTOCOL):
+  - `20260530518000_create_payment_milestones.sql` (sem ficheiro)
+  - `20260530519000_seed_concept_split_engineering.sql` (sem ficheiro)
+  - `20260530560000_backfill_pf_actor_registry.sql` (sem ficheiro)
+- OU foi criada por SQL manual fora do controle de versão (aplicação ad-hoc)
+- OU por uma migration de timestamp diferente que foi renomeada e perdeu rastreio
+
+Esta é **Descoberta C** — distinta da B; é defeito real de ordem entre migrations existentes no tree.
+
+### Observação dirigida sobre a 558000
+
+**A 558000 NÃO chegou a ser executada.** O ensaio parou em [179/328], muito antes da [???/328] que seria a 558000. Portanto:
+
+- ❌ Não é possível responder "a 558000 passou no espelho?" — não rodou.
+- ❌ Não é possível confirmar que Descoberta B "some sozinha quando rodada do zero" — testes não chegou.
+- ➡️ Para confirmar B, seria necessário primeiro resolver C (criar ficheiro da migration que cria `schedules` antes da REVOKE, ou pular a REVOKE). Fora do escopo desta fatia (proibido SQL manual / "correção" de schema).
+
+### Estado parcial do espelho (178 migrations aplicadas)
+
+```
+tables=126 (vs 235 no real, faltam 109)
+columns=1096 (vs 2348 no real)
+constraints=498 (vs 1111 no real)
+triggers=57 (vs 76 no real)
+indexes=477 (vs 840 no real)
+functions=100 (vs 122 no real)
+extensions=3 (vs 4 no real)
+
+Seeds parciais nasceram em ordem:
+  concepts=10 (vs 90 final) ← parcial, mais seeds depois da 200000
+  categories=58 (vs 102 final) ← idem
+  company_types=7 (igual) ← já completo aos 7 antes da 200000
+  company_type_allowed_concepts=7 (igual)
+  permissions=0 (vs 38 final) ← não chegou (rbac vem depois)
+  roles=0 (vs 4 final) ← idem
+  role_permissions=0 (vs 68 final) ← idem
+  canonical_products=0 (vs 35 final) ← não chegou
+  tenants=0 ← correto (zero fixtures no rebuild)
+```
+
+### 3 órfãs em `schema_migrations` (versions sem ficheiro)
+
+Confirmadas no inventário BEFORE:
+- `20260530518000_create_payment_milestones.sql`
+- `20260530519000_seed_concept_split_engineering.sql`
+- `20260530560000_backfill_pf_actor_registry.sql`
+
+**Hipótese**: estas órfãs poderiam ter criado objetos no banco real que não nascem no rebuild — incluindo possivelmente `schedules` (apesar do nome não sugerir; precisaria inspeção do dump completo). Detalhe a investigar em fatia futura.
+
+### Artefatos gerados (locais, não commitar)
+
+| Path | Tamanho | Conteúdo |
+|---|---|---|
+| `RESET_SCHEMA_BEFORE_2026-05-29T01-12-01.sql` | 637 KB | schema-only do banco real |
+| `RESET_INVENTORY_BEFORE_2026-05-29T01-12-01.json` | ~470 KB | inventário normalizado: 235 tables, 1111 constraints, 76 triggers, 122 functions; 314 migrations registradas, 328 arquivos, 17 pendentes, 3 órfãs |
+| `RESET_MIGRATE_LOG_2026-05-29T01-12-01.log` | (full log) | output completo do migrate no espelho (178 sucessos + 1 falha) |
+| `RESET_SCHEMA_REBUILD_CHECK_PARTIAL_2026-05-29T01-12-01.sql` | 328 KB | schema-only parcial do espelho (após 178 migrations) |
+| `RESET_INVENTORY_REBUILD_CHECK_PARTIAL_2026-05-29T01-12-01.json` | ~230 KB | inventário parcial do espelho |
+| `RESET_SCHEMA_DIFF_PARTIAL_2026-05-29T01-12-01.txt` | 390 KB | diff schema real vs espelho parcial (11765 linhas; cobre as 109 tabelas faltantes) |
+
+### Portão 1.3 — RESULTADO VÁLIDO: dívida de migration encontrada
+
+**RECOMENDAÇÃO: PARAR — não prosseguir para drop/recreate real.** Dívida de migration localizada antes do ensaio chegar nas dependentes posteriores (incluindo a 558000 da Descoberta B). Lista para Clayton:
+
+1. **Descoberta C (NOVA, 2026-05-29):** `20260428200000_schedules_revoke_write.sql` quebra forward-only — REVOKE antes de CREATE TABLE. Provavelmente outras migrations entre [179/328] e [328/328] dependem dessa mesma `schedules` ou de outras tabelas criadas tardiamente.
+2. **Descoberta B (sessão anterior):** `20260530558000` — não verificada porque ensaio parou em 179. Hipótese "some quando do zero" continua pendente.
+3. **3 órfãs em schema_migrations** — versions aplicadas no real sem ficheiro no tree; possíveis suspeitas pela criação de `schedules` ou outras tabelas que estão no real mas não no rebuild.
+
+Decisão Clayton: (a) corrigir ordenamento das migrations para que CREATE preceda REVOKE/seed; (b) investigar e gerar ficheiros forward-only para as 3 órfãs; (c) ambos. Fora desta sessão: proibido SQL manual / "correção" de schema.
+
+### Confirmações de escopo Fase 1.2 (ensaio)
+
+- ✅ Zero migration aplicada no banco real (todas as 178 sucessos foram no espelho)
+- ✅ Banco real `unificard_dev` intocado em toda a sessão
+- ✅ Trigger de imutabilidade não tocado
+- ✅ `bank_*` do real não tocado
+- ✅ Backup completo (`RESET_BACKUP_2026-05-28T23-29-59.dump`) preservado
+- ✅ TRAVA `EXPECTED_DATABASE_NAME` confirmada nos logs em cada migrate
+- ✅ Artefatos RESET_* NÃO commitados (apenas docs institucionais serão)
+- ⚠️ Espelho `unificard_dev_rebuild_check_20260529011201` aguarda dropdb interativo
+
+### Vinculadas
+
+- F-FIX-ENV-PRECEDENCE (commit `aa6834ae` — pré-requisito desta fatia, validou TRAVA em produção)
+- Descoberta A (RESOLVIDA na fatia anterior)
+- Descoberta B (`20260530558000` — não verificada nesta sessão; depende de C)
+- Descoberta C (NOVA — ordem entre `20260428200000_schedules_revoke_write.sql` e `20260530200000_schedules.sql`)
+- 3 órfãs em `schema_migrations` (Seção 17 AGENT_PROTOCOL)
+- `backend/migrations/20260428200000_schedules_revoke_write.sql`
+- `backend/migrations/20260530200000_schedules.sql`
+- `backend/migrations/20260530210000_schedule_slots.sql`
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
