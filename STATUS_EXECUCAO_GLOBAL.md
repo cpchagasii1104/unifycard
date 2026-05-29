@@ -8393,3 +8393,61 @@ Conforme instrução do prompt para "dívida nova não causada pelo Pacote 1". A
 - ✅ TRAVA EXPECTED_DATABASE_NAME confirmada nos logs
 - ✅ Artefatos RESET_* NÃO commitados
 - ✅ Falha schema-coherence isolada como pré-existente
+
+## Sessão 2026-05-29 — Pacote 1.b · Descoberta D RESOLVIDA · ensaio 333/333
+
+### Escopo
+
+UMA migration backdated para criar `bank_transactions.concept_id` antes do `COMMENT ON COLUMN` em `20260428210000:14` (FORA do `DO $$` guard). Conforme prompt: sem FK, índice, NOT NULL ou COMMENT.
+
+### Read-first confirmações
+
+- 506000 cria `UUID NULL` + FK + índice (dentro de `DO $$ IF NOT EXISTS`).
+- Banco vivo: `UUID NOT NULL`, FK e índice presentes. Diferença NULL→NOT NULL vem da 20260428210000 SET NOT NULL guarded (que rodou cronologicamente depois no vivo). Sem divergência 506000 ↔ vivo.
+- Ordem `localeCompare`: `20260428200000` < `20260428205000` < `20260428210000` ✓.
+
+### Arquivo escrito
+
+```
+backend/migrations/20260428205000_repair_bank_transactions_concept_id.sql
+
+ALTER TABLE bank_transactions
+  ADD COLUMN IF NOT EXISTS concept_id UUID;
+```
+
+Backdated cria APENAS coluna nua. COMMENT permanece na 210000.
+
+### Gates 5/5 verdes
+
+tsc · actor-writer §4.8.1 · bank-ledger §4.6 · regression-guards (Gate 3: 333 migrations) · arch strict `critical_new=0`.
+
+### Ensaio em espelho — 333/333
+
+Mirror `unificard_dev_rebuild_check_20260529123855`. TRAVA confirmada. Sequência crítica:
+
+```
+[183/333] 20260428205000_repair_bank_transactions_concept_id.sql     2ms  ✓ Pacote 1.b
+[184/333] 20260428210000_bank_transactions_concept_id_not_null.sql  13ms  ✓ Descoberta D RESOLVIDA
+...
+[333/333] 20260530574000_actor_bank_destinations_substrate.sql      44ms  ✓
+✨ Todas as migrações pendentes foram EXECUTADAS com sucesso!
+```
+
+**Pacote 1 + Pacote 1.b juntos: rebuild zero roda 333/333 migrations sem falha.**
+
+### Divergência conhecida e aceita
+
+Coluna `concept_id` nasce sem FK no rebuild (regra do prompt). Banco real tem FK. Tratamento futuro.
+
+### Próximo passo
+
+Comparar inventário/schema do espelho completo vs banco real (próxima fatia).
+
+### Confirmações de escopo
+
+- ✅ Banco real INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME ativa nos logs
+- ✅ Mirror dropado interativamente após confirmação
+- ✅ Backdated sem FK/índice/NOT NULL/COMMENT
+- ✅ bank_ledger/bank_transactions data/bank_splits/schema financeiro NÃO TOCADOS
+- ✅ Sem RESET_*/AUDIT_*/.dump/log/inventário no commit

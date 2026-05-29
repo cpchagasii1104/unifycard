@@ -9174,6 +9174,212 @@ Mas isto é decisão Clayton+Opus+ChatGPT.
 - `backend/migrations/20260427210000_create_schedule_slots.sql` (NOVO)
 - `backend/migrations/20260530151000_event_attendees_rename_checked_in_at.sql` (NOVO)
 
+### Atualização — Pacote 1 COMMITED (b276eb30) + Instância G mapeou classe completa
+
+**Pacote 1 COMMITED em `b276eb30`** após verificação pré-commit (git diff --check limpo; `git diff --name-only --cached` confirmou apenas os 7 arquivos esperados; zero RESET_*/AUDIT_*/.dump/.log staged).
+
+### Instância G — varredura ampliada (DDL + DML + COMMENT)
+
+Generalização da Descoberta D: qualquer statement (DDL OU DML OU COMMENT) que referencia coluna ANTES da sua criação na ordem `localeCompare` (que é a ordem REAL do runner).
+
+**Critério de ordem refinado:** `localeCompare` ≠ ASCII puro. Comprovado pelo log de ensaio anterior — `20260408_bank_transactions.sql` rodou ANTES de `20260408140000_b2b_bank_dual_transaction_isolation.sql` apesar de `_` (0x5F) > `1` (0x31) em ASCII; em locale-aware, `_` é tratado como separador especial.
+
+**Refs varridos:**
+- DDL: ALTER COLUMN SET/DROP/TYPE · ADD CONSTRAINT (CHECK/UNIQUE/FK) · CREATE INDEX · RENAME COLUMN · DROP COLUMN · REVOKE/GRANT
+- DML: UPDATE SET · INSERT INTO (cols)
+- COMMENT ON COLUMN (adicionado após inspeção do arquivo `20260428210000` revelar que o ALTER COLUMN tinha guard DO $$ mas o COMMENT estava FORA)
+
+**Volume varrido:**
+```
+332 migrations · 2374 colunas criadas (CREATE TABLE inline + ADD COLUMN)
+243 CREATE TABLE · 161 ADD COLUMN · 1366 refs (DDL+DML+COMMENT)
+```
+
+### Resultado Instância G
+
+```
+Total inversões de coluna detectadas: 7
+  NÃO-GUARDED (quebram rebuild): 1
+  GUARDED (no-op no rebuild):    6
+  Descoberta D capturada:        SIM ✓
+```
+
+### Único NÃO-GUARDED — Descoberta D refinada
+
+```
+bank_transactions.concept_id
+  Coluna criada em:  20260530506000_bank_transactions_concept_id.sql
+                     (ADD COLUMN guarded — DO $$ IF NOT EXISTS THEN ADD COLUMN)
+  Ref problemática:  20260428210000_bank_transactions_concept_id_not_null.sql:14
+                     COMMENT ON COLUMN bank_transactions.concept_id IS '...'
+                     ← FORA do DO $$, não-guarded → quebra no rebuild
+```
+
+**Refinamento da Descoberta D:** o ALTER COLUMN SET NOT NULL (linhas 2-13) ESTÁ dentro de `DO $$ IF EXISTS column AND is_nullable='YES' THEN ALTER ... END $$` — é guarded e seria no-op. **O statement que realmente quebra é o COMMENT ON COLUMN da linha 14, fora do DO.**
+
+### 6 GUARDED (informativas, não quebram)
+
+| Objeto | Ref | Tipo |
+|---|---|---|
+| bank_transactions.concept_id | 20260428210000:10 (dentro do DO $$) | ALTER COLUMN SET NOT NULL guarded |
+| bookings.requestedat | 20260428260000 (DO $$ IF EXISTS) | RENAME COLUMN guarded |
+| bookings.confirmedat | idem | idem |
+| bookings.cancelledat | idem | idem |
+| bookings.expiredat | idem | idem |
+| event_attendees.check_in_time | 20260428280000 (DO $$ IF EXISTS) | RENAME COLUMN guarded |
+
+Todos no-op no rebuild quando coluna moderna ou ausente. Já mapeados pela Paralela B/F.
+
+### Verificação de regressão nas 4 tabelas do Pacote 1
+
+```
+availability                 NÃO-GUARDED hits=0  ✓
+bookings                     NÃO-GUARDED hits=0  ✓
+availability_participants    NÃO-GUARDED hits=0  ✓
+schedules                    NÃO-GUARDED hits=0  ✓
+schedule_slots               NÃO-GUARDED hits=0  ✓
+```
+
+Pacote 1 não introduziu inversão de coluna em nenhuma das 4 tabelas. Sem regressão.
+
+### Falso positivo corrigido (regra da auditoria)
+
+Tentativa inicial classificou `b2b_payment_intents.bank_transaction_id` (COMMENT em `20260408140000`, ADD COLUMN em `20260408_bank_transactions.sql`) como inversão. Após inspeção do log do ensaio anterior (linhas 1331-1336: `20260408_bank_transactions.sql` (3ms) rodou ANTES de `20260408140000_b2b_bank_dual_transaction_isolation.sql` (5ms)), confirmou-se que **`localeCompare` não é ordenação ASCII pura**. Underscore (`_`, 0x5F) em locale-aware vem antes de dígitos. Auditoria ajustada para usar `localeCompare` — falso positivo eliminado.
+
+### Pacote 1.b sugerido (1 migration, ~5 linhas)
+
+Sem escrever SQL — apenas mapa:
+
+```
+<ts entre 20260428200000 e 20260428210000>_repair_bank_transactions_concept_id.sql
+  ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS concept_id UUID;
+```
+
+Timestamp sugerido: `20260428205000` (janela `200000`–`210000` livre).
+
+**Banco vivo:** ADD COLUMN IF NOT EXISTS = no-op (coluna já existe). Idempotente.
+**Rebuild zero:** cria coluna ANTES do `20260428210000` (que faz SET NOT NULL guarded + COMMENT externo). COMMENT roda sobre coluna agora existente → OK.
+**Original `20260530506000`:** mantém estrutura `DO $$ IF NOT EXISTS THEN ADD COLUMN`; quando rodar, coluna já existe → no-op.
+
+### Volume: NÃO disparou freio
+
+1 NÃO-GUARDED ≪ 15. Pacote 1.b é fatia pequena e isolada — pode prosseguir.
+
+### Confirmações de escopo Instância G
+
+- ✅ Zero edição de migration / schema / código
+- ✅ Zero execução de migration (real ou espelho)
+- ✅ Zero toque no banco real além de leitura de tree
+- ✅ Banco real intocado em toda a Fase 2
+- ✅ Sem decidir/propor SQL — apenas mapa preciso
+- ✅ Artefatos AUDIT_G_*.json local, não commitado
+
+### Vinculadas
+
+- Pacote 1 COMMITED (`b276eb30`) — Descoberta C RESOLVIDA
+- Descoberta D (NOVA, do ensaio do Pacote 1) — refinada: COMMENT fora do DO, não SET NOT NULL
+- Pacote 1.b sugerido (1 ADD COLUMN backdated)
+- Refinamento da auditoria estática: localeCompare como critério de ordem; COMMENT ON COLUMN como evento de referência
+
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Pacote 1.b (Descoberta D RESOLVIDA · ensaio 333/333) — 2026-05-29
+
+- **Status:** Pacote 1.b ESCRITO + ensaio COMPLETO no espelho (333/333 migrations OK). Descoberta D ULTRAPASSADA. Banco real INTOCADO.
+- **HEAD antes:** `b276eb30` (Pacote 1).
+
+### Read-first
+
+- `20260428210000_bank_transactions_concept_id_not_null.sql:14` — `COMMENT ON COLUMN bank_transactions.concept_id IS '...'` fora do `DO $$`.
+- `20260530506000_bank_transactions_concept_id.sql:12-23` — `DO $$ IF NOT EXISTS THEN ADD COLUMN concept_id UUID NULL REFERENCES concepts(concept_id) ON DELETE RESTRICT` + `CREATE INDEX IF NOT EXISTS idx_bank_transactions_concept_id`.
+- Banco vivo (SELECT em information_schema):
+  ```
+  data_type=uuid · udt_name=uuid · is_nullable=NO · column_default=NULL
+  FK: bank_transactions_concept_id_fkey → concepts(concept_id) ON DELETE RESTRICT
+  Índice: idx_bank_transactions_concept_id (btree)
+  ```
+- Comparação 506000 vs vivo: 506000 cria `UUID NULL` com FK; vivo é `UUID NOT NULL` com FK. **Não diverge entre si** — a transição NULL→NOT NULL é causada pela `20260428210000` (SET NOT NULL guarded dentro do DO) que rodou DEPOIS no banco vivo (ordem cronológica de adição ≠ alfabética). 
+- Ordem localeCompare: `20260428200000` < `20260428205000` < `20260428210000` ✓
+
+### Arquivo escrito (working tree, commit pendente)
+
+```
+backend/migrations/20260428205000_repair_bank_transactions_concept_id.sql
+
+ALTER TABLE bank_transactions
+  ADD COLUMN IF NOT EXISTS concept_id UUID;
+```
+
+Conforme prompt: NÃO inclui FK, índice, NOT NULL nem COMMENT. Backdated cria APENAS coluna nua idempotente.
+
+### Comportamento esperado por contexto
+
+| Cenário | Sequência | Resultado |
+|---|---|---|
+| Banco vivo (coluna já existe) | ADD COLUMN IF NOT EXISTS → no-op | sem alteração |
+| Rebuild zero | `20260428205000` cria coluna UUID NULL → `20260428210000` SET NOT NULL guarded efetiva (col agora existe e is_nullable=YES) → COMMENT linha 14 roda sobre coluna existente OK → `20260530506000` IF NOT EXISTS=FALSE skip · CREATE INDEX IF NOT EXISTS cria índice | coluna NOT NULL com índice; FK ausente (divergência aceita conforme escopo do prompt) |
+
+**Confirmação da regra do COMMENT (lição da Instância G):** backdated NÃO duplica o COMMENT. O COMMENT permanece em `20260428210000:14` e no rebuild roda DEPOIS da backdated criar a coluna → executa sobre coluna existente.
+
+### Gates 5/5 verdes
+
+| Gate | Resultado |
+|---|---|
+| tsc | clean |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK (Gate 3: 333 migrations) |
+| validate-architectural-patterns --strict | `critical_new=0` (warning_new=1 herdado fora do escopo) |
+
+(schema-coherence não rodado nesta fatia — esperado falhar por allowlist expirada pré-existente, fora do escopo desta correção.)
+
+### Ensaio em espelho — TRAVA confirmada · 333/333 OK
+
+Mirror: `unificard_dev_rebuild_check_20260529123855`.
+
+```
+✔ Conexão estabelecida
+🎯 Banco-alvo do migrate: unificard_dev_rebuild_check_20260529123855
+✅ Alvo confere com EXPECTED_DATABASE_NAME='unificard_dev_rebuild_check_20260529123855'
+📊 RESUMO: 0 migration(s) já registrada(s) no controle
+📋 MIGRATIONS PENDENTES: 333 de 333 disponíveis
+```
+
+Sequência crítica:
+```
+[183/333]  20260428205000_repair_bank_transactions_concept_id.sql        2ms  ✓ (Pacote 1.b)
+[184/333]  20260428210000_bank_transactions_concept_id_not_null.sql    13ms  ✓ (Descoberta D RESOLVIDA)
+...
+[333/333]  20260530574000_actor_bank_destinations_substrate.sql        44ms  ✓
+✨ Todas as migrações pendentes foram EXECUTADAS com sucesso!
+```
+
+**Descoberta D ULTRAPASSADA. Nenhuma nova Descoberta E surgiu no resto do ensaio.**
+
+### Confirmações de escopo
+
+- ✅ Banco real `unificard_dev` INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME confirmada nos logs (alvo = espelho, não unificard_dev)
+- ✅ Migrations novas aplicadas SÓ no espelho descartável
+- ✅ Mirror dropado interativamente após confirmação
+- ✅ Backdated criou SÓ a coluna (sem FK, índice, NOT NULL ou COMMENT)
+- ✅ Apenas o `COMMENT` da 210000 continua na 210000 — não duplicado
+- ✅ bank_ledger / bank_transactions data / bank_splits / schema financeiro além desta coluna idempotente: NÃO TOCADOS
+- ✅ Sem RESET_*/AUDIT_*/.dump/diff/log/inventário no commit
+
+### Divergência conhecida e aceita
+
+Após Pacote 1 + Pacote 1.b, no rebuild zero a coluna `bank_transactions.concept_id` nasce sem FK. No banco real, a FK `bank_transactions_concept_id_fkey → concepts(concept_id) ON DELETE RESTRICT` existe. Divergência conscientemente fora do escopo deste Pacote 1.b (regra do prompt: "NÃO adicionar FK"). Tratamento em fatia futura, se decidido.
+
+### Vinculadas
+
+- Pacote 1 (`b276eb30`) — Descoberta C resolvida
+- Pacote 1.b (este commit) — Descoberta D resolvida
+- `backend/migrations/20260428205000_repair_bank_transactions_concept_id.sql` (NOVO)
+- `backend/migrations/20260428210000_bank_transactions_concept_id_not_null.sql` (statement precoce, mantido)
+- `backend/migrations/20260530506000_bank_transactions_concept_id.sql` (cria FK + índice; ambos preservados — coluna no rebuild passa pelo skip e cria índice)
+- Instância G — auditoria estática ampliada que isolou o achado
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
