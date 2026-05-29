@@ -8188,6 +8188,93 @@ NÃO prosseguir para drop/recreate do banco real. Banco real intacto, espelho va
 - `backend/migrations/20260530571000_extend_payment_status_refunded_via_recovery.sql`
 - Seção 17 do `docs/01_normative/00_AGENT_PROTOCOL.md` (objetos aplicados sem ficheiro)
 
+---
+
+## F-FIX-ENV-PRECEDENCE — Descoberta A do portão 1.3 RESOLVIDA (2026-05-29)
+
+- **Status:** DONE em 2026-05-29. Resolve Descoberta A do portão 1.3 do F-DEV-DATA-CLEAN-RESET. Descoberta B (558000) e 3 órfãs ficam para o ensaio pós-fix (próxima fatia).
+- **Classe:** DT-D (defeito de mecanismo / arma carregada).
+
+### Causa raiz
+
+`backend/src/core/db/load-backend-env.ts:42-66` (`hydrateDatabaseUrlFromEnvFile`) sobrescrevia `process.env.DATABASE_URL` SEMPRE com o valor do `.env`, ignorando overrides via env var explícita. Tentativa de ensaio em espelho (Fase 1.2.b do reset) com `DATABASE_URL=postgresql://.../mirror` rodou contra o banco REAL — só não causou estrago porque a 1ª migration falhou em ROLLBACK transacional.
+
+### Git blame
+
+```
+39ea70623  (Clayton Pereira Chagas, 2026-05-22)
+"marco-zero: estado real do disco aceito como ponto-zero da retomada"
+```
+
+A função existe desde o marco-zero (2026-05-22) — herdada do estado pré-retomada. Razão original (do comentário no próprio código): **"dotenv corta em `#` sem aspas"** — quando a senha do `.env` contém `#`, dotenv trunca o valor; a função relê a linha bruta para recuperar o valor completo. Intenção válida; o defeito é a sobrescrita **incondicional**.
+
+Verificação atual: `.env` vigente não contém `#` (0 ocorrências). A função estava ativa por defesa em profundidade.
+
+### Correção
+
+**`backend/src/core/db/load-backend-env.ts`** — hidratação condicional:
+
+```diff
+- if (value) {
++ if (value && !process.env.DATABASE_URL) {
++   // Env explícito (ex.: ensaio em espelho via DATABASE_URL=…) vence o .env.
+    process.env.DATABASE_URL = value;
+  }
+```
+
+**`backend/src/core/db/migrate.ts`** — guard-rail mínimo de alvo:
+
+```ts
+// Após teste de conexão, antes de aplicar migrations:
+const targetDbName = (await pool.query<{ db: string }>(
+  'SELECT current_database() AS db')).rows[0]!.db;
+console.log(`🎯 Banco-alvo do migrate: ${targetDbName}`);
+const expected = process.env.EXPECTED_DATABASE_NAME;
+if (expected && expected !== targetDbName) {
+  console.error(`❌ Alvo divergente: '${targetDbName}' ≠ '${expected}' — abortado.`);
+  process.exit(2);
+}
+```
+
+Sem `EXPECTED_DATABASE_NAME` setada, comportamento atual preservado (log informativo, segue fluxo). Com a env var setada e divergência, aborta com exit 2 ANTES de qualquer migration.
+
+### Validação (7 cenários)
+
+| Cenário | Resultado |
+|---|---|
+| (a) Boot normal (sem env override, .env hidrata) | PASS — `DATABASE_URL` resolveu para `unificard_dev` corretamente |
+| (b) Migrate normal sem `EXPECTED_DATABASE_NAME` (espelho B vazio) | PASS — log "🎯 Banco-alvo: mirror_test_b_…" sem bloquear; fluxo CI/dev intacto |
+| (c) DATABASE_URL explícito → espelho A | PASS — alvo "mirror_test_…" respeitado (antes ia para unificard_dev) |
+| (d) `EXPECTED_DATABASE_NAME` confere com alvo | PASS — "✅ Alvo confere com EXPECTED_DATABASE_NAME='mirror_test_…'" |
+| (e) `EXPECTED_DATABASE_NAME` divergente (mirror_a vs mirror_b) | PASS — abortou com exit code 2 antes de aplicar |
+| (f) Gates 5/5 | tsc clean · actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK · arch strict `critical_new=0` |
+| (g) E2Es de fumaça | F3 9/9 PASS · F4.0 8/8 PASS · KYC PROVA DE OURO + Σ débitos=créditos PASS |
+
+Espelhos descartáveis `mirror_test_…` e `mirror_test_b_…` apagados via `dropdb` interativo.
+
+### Confirmações de escopo
+
+- ✅ Zero migration aplicada em qualquer banco
+- ✅ Zero das 17 migrations pendentes do banco real foi aplicada (Descoberta B permanece aberta)
+- ✅ Zero schema/migration alterado
+- ✅ Zero toque em `bank_*` / `bank_ledger` / `bank_transactions` / `bank_splits`
+- ✅ Zero trigger desabilitado
+- ✅ Banco real `unificard_dev` intocado
+- ✅ Ambos espelhos descartáveis criados e dropados na mesma fatia
+- ✅ Backup `RESET_BACKUP_2026-05-28T23-29-59.dump` preservado
+
+### Próximo passo
+
+Retomar o ensaio em espelho (Fase 1.2 do F-DEV-DATA-CLEAN-RESET) em sessão futura, agora com a mira corrigida. A Descoberta B (`558000` falha por drift) e as 3 órfãs em `schema_migrations` continuam aguardando — esperado encontrá-las no ensaio pós-fix (provavelmente 558000 roda OK do zero, porque sem dados não há violação).
+
+### Vinculadas
+
+- F-DEV-DATA-CLEAN-RESET (Descoberta A do portão 1.3 — esta fatia resolve)
+- F-DEV-DATA-CLEAN-RESET (Descoberta B do portão 1.3 — segue aberta para próxima fatia)
+- `backend/src/core/db/load-backend-env.ts:42-67`
+- `backend/src/core/db/migrate.ts:557-589` (guard-rail novo)
+- Commit `39ea70623` (marco-zero, origem do hydrate)
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".

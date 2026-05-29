@@ -59,7 +59,11 @@ function hydrateDatabaseUrlFromEnvFile(): void {
       value = value.slice(1, -1);
     }
 
-    if (value) {
+    if (value && !process.env.DATABASE_URL) {
+      // Env explícito (ex.: ensaio em espelho via DATABASE_URL=…) vence o .env.
+      // Hidratação só age quando a variável NÃO existe no ambiente — preserva a
+      // intenção original (resolver truncamento do dotenv em senha com `#`) sem
+      // sobrescrever overrides intencionais.
       process.env.DATABASE_URL = value;
     }
     return;

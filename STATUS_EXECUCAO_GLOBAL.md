@@ -8004,3 +8004,50 @@ PARADO em portão 1.3 com 2 descobertas materiais. Decisão de Clayton sobre:
 4. Aprovar `dropdb` do espelho vazio
 
 Banco real intacto. Backup completo preservado (9.3 MB). Trigger de imutabilidade nunca tocado. Nenhuma migration alterada.
+
+## Sessão 2026-05-29 — F-FIX-ENV-PRECEDENCE (Descoberta A do portão 1.3 RESOLVIDA)
+
+### Escopo
+
+Fatia própria de fix, ANTES de retomar o ensaio em espelho. Corrige `load-backend-env.ts` para respeitar override de `DATABASE_URL` via env var explícita + adiciona guard-rail `EXPECTED_DATABASE_NAME` em `migrate.ts` que aborta antes de aplicar migrations se o alvo divergir.
+
+### Causa raiz (Descoberta A)
+
+`hydrateDatabaseUrlFromEnvFile` em `load-backend-env.ts:42-66` sobrescrevia `DATABASE_URL` SEMPRE com o valor lido bruto do `.env`. Origem: commit marco-zero `39ea70623` (Clayton, 2026-05-22). Razão original (no comentário): "dotenv corta em `#` sem aspas" — quando senha tem `#`, dotenv trunca o valor; a função relê linha bruta para recuperar. **Intenção válida; defeito = sobrescrita incondicional.**
+
+### Mudança
+
+| Arquivo | Mudança |
+|---|---|
+| `backend/src/core/db/load-backend-env.ts` | Hidratação condicional: `if (value && !process.env.DATABASE_URL)`. Env explícito vence; .env só hidrata se var não setada. |
+| `backend/src/core/db/migrate.ts` | Guard-rail mínimo após teste de conexão: `SELECT current_database()` + log "🎯 Banco-alvo"; se `EXPECTED_DATABASE_NAME` setada e divergente → exit 2 antes de qualquer migration. Comportamento atual preservado quando env var não setada. |
+| `REMEDIATION_DT_LOG.md` | Seção "F-FIX-ENV-PRECEDENCE" com causa raiz, blame, correção, 7 cenários, vinculadas. |
+| `STATUS_EXECUCAO_GLOBAL.md` | Este checkpoint. |
+| `opus.md` | Memória curta. |
+
+### Validação (a–g)
+
+| # | Cenário | Resultado |
+|---|---|---|
+| a | Boot normal sem env override (loadBackendEnv só) | PASS (`DATABASE_URL`→`unificard_dev`) |
+| b | Migrate sem `EXPECTED_DATABASE_NAME` (espelho B vazio) | PASS (log informativo, segue) |
+| c | DATABASE_URL=mirror_a → respeita override | PASS (alvo "mirror_test_…") |
+| d | EXPECTED confere com alvo | PASS ("✅ Alvo confere") |
+| e | EXPECTED divergente (mirror_a vs mirror_b) | PASS (abort exit 2 antes de aplicar) |
+| f | Gates 5/5 | tsc · actor-writer · bank-ledger · regression-guards · arch strict (`critical_new=0`) |
+| g | E2Es fumaça | F3 9/9 · F4.0 8/8 · KYC PROVA DE OURO + Σ débitos=créditos |
+
+Espelhos descartáveis `mirror_test_…` e `mirror_test_b_…` apagados via `dropdb` interativo.
+
+### Confirmações de escopo
+
+- ✅ Zero migration aplicada em qualquer banco (real ou espelho)
+- ✅ Zero das 17 migrations pendentes do banco real foi aplicada (Descoberta B segue aberta)
+- ✅ Zero schema/migration alterado · zero toque em bank_*
+- ✅ Trigger de imutabilidade não tocado
+- ✅ Banco real `unificard_dev` permanece intocado
+- ✅ Boot/conexão normal preservados (cenários a/b/E2Es)
+
+### Próximo passo
+
+Próxima sessão retoma o ensaio em espelho (Fase 1.2 do F-DEV-DATA-CLEAN-RESET) com a mira corrigida. Hipótese a confirmar: **558000 roda OK do zero** porque sem dados não há violação da CHECK; falha é só do estado vivo (1 row com `refunded_via_recovery`). Se confirmado, drop/recreate viável e o ensaio prova reconstrução. As 3 órfãs em `schema_migrations` continuam para mapeamento.
