@@ -7956,3 +7956,51 @@ Financeiro DEV (NÃO TOCAR): bank_accounts=128 ledger=1486 txs=1112 splits=247
 ### Próximo passo
 
 Aguardando aprovação Clayton ("APROVADO" + decisões dos 5 achados) antes de iniciar Fase 1. Sem aprovação, sessão termina aqui sem deleção.
+
+## Sessão 2026-05-29 — F-DEV-DATA-CLEAN-RESET Fase 1.1 DONE + 1.2 BLOQUEADA por descoberta de dívida
+
+### Escopo
+
+Clayton aprovou estratégia drop/recreate com ensaio em espelho (não DELETE por tenant). Tenant unifybank confirmado fixture. Permissões adicionadas: `pg_dump:*` e `createdb:*` (durável); `dropdb:*` apenas interativo.
+
+### Mudança documental
+
+| Arquivo | Mudança |
+|---|---|
+| `.claude/settings.local.json` | Adicionado `Bash(pg_dump:*)` e `Bash(createdb:*)` ao allow. `dropdb` permanece interativo. |
+| `REMEDIATION_DT_LOG.md` | Nova seção "Atualização 2026-05-29 — Estratégia DROP/RECREATE aprovada; portão 1.3 BLOQUEADO" com 2 descobertas materiais. |
+| `STATUS_EXECUCAO_GLOBAL.md` | Este checkpoint. |
+| `opus.md` | Memória curta. |
+
+### Artefatos Fase 1.1 (local, não commitar)
+
+| Path | Tamanho | Conteúdo |
+|---|---|---|
+| `RESET_SCHEMA_BEFORE_2026-05-29T00-18-35.sql` | 637 KB | pg_dump schema-only do banco atual |
+| `RESET_INVENTORY_BEFORE_2026-05-29T00-18-35.json` | ~470 KB | Inventário normalizado: 235 tables, 2348 cols, 1111 constraints, 76 triggers, 840 indexes, 122 functions, 4 extensions, 314 migrations registradas |
+
+### Achados estruturais (Fase 1.1)
+
+- Seeds estruturais (concepts, permissions, roles, categories, company_types, canonical_products) vivem DENTRO de migrations; diretório `backend/seeds/` tem apenas 2 fixtures (`035_seed_demo_city_nova_beauty.sql`, `036_seed_e2e_c52_payment_intents.sql`). Não rodar `RUN_SEEDS=true` em rebuild.
+- `schema_migrations`: 314 registradas · arquivos: 328 · pendentes: 17 · órfãs (sem ficheiro): 3
+
+### Fase 1.2 BLOQUEADA — 2 descobertas materiais
+
+**Descoberta A — `backend/src/core/db/migrate.ts` ignora override de `DATABASE_URL`:** `loadBackendEnv()` chama `hydrateDatabaseUrlFromEnvFile()` (`load-backend-env.ts:42-66`) que sobrescreve `process.env.DATABASE_URL` SEMPRE com o valor do `.env`. Tentativa de ensaio em espelho via env var acabou rodando contra o banco REAL — ROLLBACK transacional preservou tudo (banco real intacto: tenants=39, actors=138, users=71, identities=23, global_users=21, migs=314).
+
+**Descoberta B — migration 20260530558000 não roda no estado atual:** falha em `ATRewriteTable` por violação de `payment_intents_payment_status_check` — 1 row com `payment_status='refunded_via_recovery'` (valor que só seria adicionado pela migration POSTERIOR 571000). CHECK atual do banco JÁ inclui ambos os valores → drift: a CHECK foi aplicada por rota manual/órfã (possivelmente uma das 3 versions sem ficheiro).
+
+### Estado do espelho
+
+- Mirror DB `unificard_dev_rebuild_check_20260529001835` criado vazio (0 tabelas; ensaio nunca chegou nele por causa da Descoberta A).
+- `dropdb` do espelho aguarda aprovação interativa de Clayton.
+
+### Próximo passo
+
+PARADO em portão 1.3 com 2 descobertas materiais. Decisão de Clayton sobre:
+1. Como destravar Descoberta A (patch local de `load-backend-env.ts`, runner-mirror dedicado, ou swap controlado de `.env`)
+2. Resolver Descoberta B antes do recreate (a migration 558000 precisa ser corrigida OU 571000 precisa ser merged antes, ou alguma outra solução)
+3. Investigar as 3 versions órfãs em `schema_migrations` (objetos aplicados sem ficheiro — pode revelar a rota da CHECK atual)
+4. Aprovar `dropdb` do espelho vazio
+
+Banco real intacto. Backup completo preservado (9.3 MB). Trigger de imutabilidade nunca tocado. Nenhuma migration alterada.

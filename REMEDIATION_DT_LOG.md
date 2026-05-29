@@ -8066,6 +8066,128 @@ Para o DEV (transação separada, 74 actors alvo, dev preservado):
 
 **Aguardando aprovação de Clayton** das 5 decisões + lista de 38 tenants. Sem "APROVADO" explícito, Fase 1 NÃO inicia.
 
+### Atualização 2026-05-29 — Estratégia DROP/RECREATE aprovada; portão 1.3 BLOQUEADO
+
+Clayton aprovou estratégia drop/recreate com ensaio em espelho (não DELETE por tenant). Decisões dos 5 achados consolidadas: (1) dev recriado canônico na Fase 3; (2) 74 actors DEV somem no recreate; (3) unifybank confirmado fixture (nada depende); (4) ledger não é deletado, é recriado sem ele; (5) global_users novo. Autorização diferenciada de comandos: `pg_dump:*` e `createdb:*` durável; `dropdb:*` apenas interativo caso a caso.
+
+**FASE 1.1 DONE** — artefatos read-only criados:
+- `RESET_SCHEMA_BEFORE_2026-05-29T00-18-35.sql` (637 KB, schema-only do banco atual)
+- `RESET_INVENTORY_BEFORE_2026-05-29T00-18-35.json` (~470 KB, inventário normalizado)
+  - 235 tabelas · 2348 colunas · 1111 constraints · 76 triggers · 840 índices · 1 view · 122 functions · 4 extensions
+  - `schema_migrations`: **314 registradas**, **328 arquivos no disco**
+  - `files_minus_db = 17` migrations pendentes (não rodadas)
+  - `db_minus_files = 3` registros sem arquivo (Seção 17 do AGENT_PROTOCOL — objeto aplicado sem ficheiro)
+  - Seeds estruturais (90 concepts / 38 permissions / 4 roles / 102 categories / etc.) vivem DENTRO de migrations (não em `seeds/`); diretório `seeds/` tem apenas 2 fixtures
+
+**FASE 1.2 BLOQUEADA — 2 DESCOBERTAS MATERIAIS** (portão 1.3 NÃO foi alcançado por motivo legítimo):
+
+#### Descoberta A — Runner de migrate ignora override de `DATABASE_URL`
+
+`backend/src/core/db/migrate.ts:14` chama `loadBackendEnv()`. Em `load-backend-env.ts:42-66`, `hydrateDatabaseUrlFromEnvFile()` faz `process.env.DATABASE_URL = value` SEMPRE — sobrescreve qualquer override via env var, ignorando `DATABASE_URL=postgresql://.../mirror pnpm exec tsx migrate.ts`. Tentativa de Fase 1.2.b (rodar migrate no espelho criado vazio) acabou rodando contra o banco **REAL** — felizmente a primeira migration falhou em ROLLBACK transacional antes de qualquer DDL.
+
+**Confirmação após detecção:** banco real `unificard_dev` permanece intacto — tenants=39, actors=138, users=71, identities=23, global_users=21, schema_migrations=314 (todos iguais ao baseline da Fase 0). Espelho `unificard_dev_rebuild_check_20260529001835` permanece com 0 tabelas (zero efeito do ensaio).
+
+**Implicação:** ensaio em espelho via runner padrão é INVIÁVEL. Caminhos para retomar:
+1. Patch temporário em `load-backend-env.ts` (não persistir) ou criar runner-mirror dedicado que respeite env var
+2. Swap controlado de `.env` (cp .env .env.bak; sed inplace; rodar; restaurar)
+3. Não é problema "do banco" — é mecanismo do runner
+
+#### Descoberta B — Migration 20260530558000 NÃO RODA do zero (forward-only quebrado)
+
+Tentativa real revelou que `20260530558000_extend_payment_intents_released_to_actor_wallet.sql` falha em `ATRewriteTable`:
+```
+ERROR: a restrição de verificação "payment_intents_payment_status_check" da relação "payment_intents" é violada por alguma linha
+```
+
+Investigação no banco real:
+```
+payment_intents.payment_status (distinct values):
+  pending                    237
+  escrowed                    92
+  released_to_actor_wallet    76
+  reversed                    24
+  refunded_via_recovery        1   ← FORA da lista da 558000
+```
+
+A migration 558000 inclui `released_to_actor_wallet` mas NÃO `refunded_via_recovery`. Este último é introduzido pela 571000 (depois). Logo, num run forward-only: 558000 tenta rodar → encontra 1 row com `refunded_via_recovery` (gravada por código atual operando sob CHECK posterior aplicada por outra via) → FALHA.
+
+A CHECK atual do banco real inclui ambos:
+```
+CHECK ((payment_status = ANY (ARRAY[
+  'pending','authorized','captured','escrowed','settled','failed',
+  'cancelled','reversed','partially_refunded','disputed','expired',
+  'released_to_actor_wallet','refunded_via_recovery'])))
+```
+
+Isso confirma drift de migration ativo: a CHECK foi aplicada por outra rota (manual, ad-hoc, ou migration que foi MARCADA via baseline mas não tem ficheiro 1:1 — provável `db_minus_files=3`).
+
+#### Lista das 17 migrations pendentes no banco real
+
+```
+20260530558000_extend_payment_intents_released_to_actor_wallet.sql    ← FALHA (Descoberta B)
+20260530559000_extend_service_order_status_funds_released.sql
+20260530560000_create_economic_policies.sql
+20260530561000_create_economic_policy_lines.sql
+20260530562000_create_access_pass_products.sql
+20260530563000_create_actor_access_passes.sql
+20260530564000_create_economic_policy_resolution_logs.sql
+20260530565000_rename_rca_to_channel_commission.sql
+20260530566000_deprecate_bank_policies_table.sql
+20260530567000_add_regional_origin_basis_to_policy_lines.sql
+20260530568000_reversals_taxonomy_and_authorship.sql
+20260530569000_financial_approval_substrate.sql
+20260530570000_actor_wallet_recovery_obligations_substrate.sql
+20260530571000_extend_payment_status_refunded_via_recovery.sql    ← adiciona refunded_via_recovery ao CHECK
+20260530572000_actor_wallet_payout_requests_substrate.sql
+20260530573000_actor_wallet_payout_one_active_per_actor.sql
+20260530574000_actor_bank_destinations_substrate.sql
+```
+
+#### Implicações para drop/recreate
+
+Mesmo se a Descoberta A for resolvida (runner aceitar override), o drop/recreate **vai falhar na migration 558000** porque:
+- Em ordem alfabética, 558000 roda ANTES de 571000.
+- Se alguma migration entre 0001-557 popular `payment_intents` com row em `refunded_via_recovery` (E2E seed dentro de migration, fixture, etc.), 558000 falha.
+- Mais provável: nenhuma migration prévia popula `refunded_via_recovery`; o caso é só do banco vivo (1 row criada em runtime). DO ZERO, 558000 PROVAVELMENTE roda OK (sem dados, sem violação). Mas precisa confirmar via ensaio em espelho — que está bloqueado por Descoberta A.
+
+#### Portão 1.3 → RESULTADO VÁLIDO: descoberta de dívida
+
+NÃO prosseguir para drop/recreate do banco real. Banco real intacto, espelho vazio (não chegou a popular). Aguardando direção Clayton:
+
+1. **Resolver Descoberta A** (mecanismo) — patch temporário em load-backend-env.ts ou swap controlado de .env; depois re-rodar ensaio.
+2. **Após ensaio** — se 558000 rodar OK do zero, confirma que o problema é apenas drift do banco vivo (não defeito da migration). Drop/recreate viável.
+3. **Se 558000 falhar do zero também** — é defeito real da migration; precisa correção forward-only nova.
+4. **Identificar os 3 `db_minus_files`** — versions registradas sem ficheiro; podem revelar a rota manual que aplicou a CHECK atual.
+
+### Cleanup pós-Fase 1.2 BLOQUEADA
+
+- Mirror DB `unificard_dev_rebuild_check_20260529001835` permanece criado vazio (0 tabelas) — `dropdb` precisa aprovação interativa de Clayton.
+- Scripts `_tmp_*` removidos.
+- Artefatos `RESET_*` permanecem locais (não commitados):
+  - `RESET_BACKUP_2026-05-28T23-29-59.dump` (9.3 MB, banco completo)
+  - `RESET_SCHEMA_BEFORE_2026-05-29T00-18-35.sql` (637 KB)
+  - `RESET_INVENTORY_BEFORE_2026-05-29T00-18-35.json` (~470 KB)
+  - `RESET_MANIFEST_2026-05-29T02-28-38-985Z.json` (40 KB)
+
+### Confirmações de escopo Fase 1.1/1.2 (tentativa)
+
+- ✅ Zero deleção realizada · ✅ Zero migration alterada · ✅ Zero schema alterado
+- ✅ Banco real intacto (contagens iguais baseline Fase 0)
+- ✅ Espelho criado vazio (0 efeito)
+- ✅ Trigger de imutabilidade preservado
+- ⚠️ Mirror DB pendente de dropdb interativo
+
+### Vinculadas
+
+- DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (CLOSED — substituído pelo recreate planejado)
+- DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (OPEN — desaparece se recreate prosseguir)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (permanece OPEN)
+- `backend/src/core/db/migrate.ts:14` (runner ignora override)
+- `backend/src/core/db/load-backend-env.ts:42-66` (hydrate sobrescreve)
+- `backend/migrations/20260530558000_extend_payment_intents_released_to_actor_wallet.sql`
+- `backend/migrations/20260530571000_extend_payment_status_refunded_via_recovery.sql`
+- Seção 17 do `docs/01_normative/00_AGENT_PROTOCOL.md` (objetos aplicados sem ficheiro)
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
