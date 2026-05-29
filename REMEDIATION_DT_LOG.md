@@ -9380,6 +9380,191 @@ Após Pacote 1 + Pacote 1.b, no rebuild zero a coluna `bank_transactions.concept
 - `backend/migrations/20260530506000_bank_transactions_concept_id.sql` (cria FK + índice; ambos preservados — coluna no rebuild passa pelo skip e cria índice)
 - Instância G — auditoria estática ampliada que isolou o achado
 
+---
+
+## F-MIGRATION-REBUILD-DIFF-AUDIT — diff normalizado real vs espelho 333/333 (2026-05-29)
+
+- **Modo:** guardião read-only. SELECT no real + espelho descartável recriado e dropado interativamente. Zero correção.
+- **Status:** ensaio 333/333 OK; diff capturado e classificado em 3 grupos. **Grupo 3 (não aceitas) tem apenas 1 item: a FK `bank_transactions_concept_id_fkey` já prevista pelo Pacote 1.b.**
+- **HEAD:** `744d8bb9` (Pacote 1.b).
+
+### Captura
+
+| | real (`unificard_dev`) | espelho (`unificard_dev_rebuild_check_20260529130822`) |
+|---|---|---|
+| tables | 235 | 235 |
+| columns | 2348 | 2347 |
+| constraints | 1111 | 1110 |
+| triggers | 76 | 76 |
+| indexes | 840 | 840 |
+| views | 1 | 1 |
+| functions | 122 | 122 |
+| extensions | 4 | 4 |
+| schema_migrations | 314 | 333 |
+| column_comments | 94 | 90 |
+| table_comments | 117 | 116 |
+
+TRAVA confirmada no migrate do espelho: alvo = `unificard_dev_rebuild_check_20260529130822`, EXPECTED confere, ZERO conexão com `unificard_dev`. Banco real intocado.
+
+### Total: 40 divergências classificadas
+
+```
+COLUMN_COMMENT_DIFF                       4
+COLUMN_COMMENT_MISSING_IN_MIRROR          4
+COLUMN_MISSING_IN_MIRROR                  1
+CONSTRAINT_EXTRA_IN_MIRROR                1
+CONSTRAINT_MISSING_IN_MIRROR              2
+INDEX_EXTRA_IN_MIRROR                     1
+INDEX_MISSING_IN_MIRROR                   1
+MIGRATION_ONLY_IN_MIRROR                 22
+MIGRATION_ONLY_IN_REAL                    3
+TABLE_COMMENT_MISSING_IN_MIRROR           1
+                                        ───
+                                         40
+```
+
+### Refinamento — Paralela C corrigida
+
+A Paralela C tinha classificado `_deprecated_product_concept_resolution_queue` e `_deprecated_tenant_products` como "dívida real" (sem CREATE no tree). **Investigação atual mostrou que `20260429100000_unificacao_semantica_v2.sql` faz RENAME guarded:**
+
+```sql
+ALTER TABLE product_concept_resolution_queue RENAME TO _deprecated_product_concept_resolution_queue;
+ALTER TABLE product_concepts                  RENAME TO _deprecated_product_concepts;
+ALTER TABLE catalog_products                  RENAME TO _deprecated_catalog_products;
+ALTER TABLE tenant_products                   RENAME TO _deprecated_tenant_products;
+```
+
+No rebuild as 4 tabelas `_deprecated_*` NASCEM por RENAME. **Decisão "Pacote 3 fora — _deprecated_ não voltam" estava baseada em premissa errada**, mas isto é descoberta nesta fatia — não exige reabertura imediata.
+
+### GRUPO 1 — ACEITAS / cosméticas (16 itens)
+
+**1.1 — 3 `reversals.*` column_comment_diff** — diferença puramente de line-ending:
+
+```
+reversals.reversal_type        REAL 327 chars (LF) vs MIRROR 330 chars (CRLF). Texto idêntico.
+reversals.performed_by_user_id REAL 167 chars (LF) vs MIRROR 169 chars (CRLF). Texto idêntico.
+reversals.authority_source     REAL 263 chars (LF) vs MIRROR 266 chars (CRLF). Texto idêntico.
+```
+
+Causa: arquivo `.sql` no Windows tem CRLF; o COMMENT do real foi gravado em ambiente LF. Não afeta funcionalidade.
+
+**1.2 — 9 divergências em `schema_migrations`** — a tabela é criada pelo runner em `migrate.ts:201-213` com nomes/comments diferentes da migration 000 que rodou no real (provavelmente `migrations_archive/0000_*`). Funcionalmente equivalente:
+
+```
+schema_migrations: TABLE_COMMENT_MISSING_IN_MIRROR (runner não comenta)
+                   4 COLUMN_COMMENT_MISSING_IN_MIRROR (idem)
+                   CONSTRAINT_MISSING_IN_MIRROR: schema_migrations_filename_key (real)
+                   CONSTRAINT_EXTRA_IN_MIRROR:   unique_filename (mirror, do runner)
+                   INDEX_MISSING_IN_MIRROR:      schema_migrations_filename_key
+                   INDEX_EXTRA_IN_MIRROR:        unique_filename
+```
+
+Os 2 nomes representam a MESMA `UNIQUE (filename)`.
+
+**1.3 — `_deprecated_tenant_products.price_cents` COLUMN_COMMENT_DIFF + `_deprecated_tenant_products.price` COLUMN_MISSING_IN_MIRROR** — estado histórico do real:
+
+```
+real:    coluna `price` ainda existe; comment de price_cents é o DRAFT antigo
+         ("convive com price NUMERIC até remoção programada")
+mirror:  `price` foi DROPada pela 20260530530000 (linha 50); comment atualizado
+         ("§Nomenclatura: dinheiro = amount_cents BIGINT. Tabela deprecated.")
+```
+
+Pelo ramo IF/ELSIF da 530000, no real provavelmente a 530000 entrou no `ELSIF` (price_cents já existia mas price não, ou vice-versa) e não dropou. O espelho do zero entrou no IF principal. **Real está atrasado**; espelho representa o estado canônico. Não-bloqueante.
+
+### GRUPO 2 — ESPERADAS (24 itens)
+
+**2.1 — 22 `MIGRATION_ONLY_IN_MIRROR`** — composição:
+
+- **5 novas (Pacote 1 + 1.b)** que ainda não foram aplicadas no real:
+  - 20260427120000_unified_availability_base.sql
+  - 20260427200000_create_schedules.sql
+  - 20260427210000_create_schedule_slots.sql
+  - 20260428205000_repair_bank_transactions_concept_id.sql
+  - 20260530151000_event_attendees_rename_checked_in_at.sql
+- **17 pending no real** (Descoberta B original) que rodaram no espelho do zero:
+  - 20260530558000–20260530574000 (lista completa no DT_LOG anterior)
+
+**2.2 — 3 `MIGRATION_ONLY_IN_REAL`** — exatamente as 3 órfãs já documentadas:
+- `20260530518000_create_payment_milestones.sql`
+- `20260530519000_seed_concept_split_engineering.sql`
+- `20260530560000_backfill_pf_actor_registry.sql`
+
+Decisão Pacote 2 (tombstone) já fechada.
+
+### GRUPO 3 — NÃO ACEITAS (1 item)
+
+**3.1 — `bank_transactions.bank_transactions_concept_id_fkey`** — CONSTRAINT_MISSING_IN_MIRROR:
+
+```
+real:    FOREIGN KEY (concept_id) REFERENCES concepts(concept_id) ON DELETE RESTRICT
+mirror:  (ausente)
+```
+
+**Causa exata (padrão do Pacote 1.b):** o `20260428205000_repair_bank_transactions_concept_id.sql` (Pacote 1.b) cria a coluna NUA antes do `20260530506000`. Quando 506000 roda, seu `DO $$ IF NOT EXISTS THEN ADD COLUMN concept_id UUID NULL REFERENCES concepts(concept_id) ON DELETE RESTRICT` skip → FK não é criada.
+
+**Migration origem da FK:** `20260530506000_bank_transactions_concept_id.sql:19-22` (dentro de bloco IF NOT EXISTS que continha coluna + FK juntas).
+
+**Não há OUTRA divergência do mesmo padrão.** Auditei especificamente todos os blocos `DO $$ IF NOT EXISTS THEN ADD COLUMN` para constraints/FK/comments embutidos que pudessem ter ficado órfãos por antecipação — esta é a única ocorrência.
+
+### Volume Grupo 3 = 1 — Freio NÃO disparado
+
+Pode prosseguir com Pacote 1.c focado.
+
+### Esboço Pacote 1.c (sem escrever SQL)
+
+```
+1 migration (timestamp ≥ 20260530506000 para evitar conflito com a 506000 já aplicada):
+
+<timestamp>_add_bank_transactions_concept_id_fkey.sql
+  DO $$ BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conname = 'bank_transactions_concept_id_fkey'
+    ) THEN
+      ALTER TABLE bank_transactions
+        ADD CONSTRAINT bank_transactions_concept_id_fkey
+        FOREIGN KEY (concept_id) REFERENCES concepts(concept_id) ON DELETE RESTRICT;
+    END IF;
+  END $$;
+
+Banco vivo:  IF NOT EXISTS = FALSE → no-op (FK já existe).
+Rebuild zero: FK criada → diff fecha.
+
+Timestamp: posterior a 20260530506000 e 20260428210000. Sugestão: 20260530506500
+(janela entre 506000 e 507000, se livre) — ou 20260530574500 (após o último
+pending atual) para sequência clean.
+```
+
+### Mapa para nova classe de auditoria (refinamento futuro)
+
+Auditar padrões "ADD COLUMN antecipado → bloco IF NOT EXISTS pulado" preventivamente:
+- Listar TODOS os blocos `DO $$ IF NOT EXISTS THEN ADD COLUMN ... REFERENCES ...` no tree (já feito nesta fatia para validar único caso).
+- Quando um Pacote backdated criar nova coluna, AUDITAR se o bloco original tinha FK/índice/constraint embutidos para incluir no Pacote.b correspondente.
+
+### Artefatos gerados (locais, não commitados)
+
+- `RESET_SCHEMA_BEFORE_2026-05-29T13-08-22.sql` (637 KB)
+- `RESET_INVENTORY_BEFORE_2026-05-29T13-08-22.json`
+- `RESET_SCHEMA_REBUILD_2026-05-29T13-08-22.sql` (636 KB)
+- `RESET_INVENTORY_REBUILD_2026-05-29T13-08-22.json`
+- `AUDIT_DIFF_2026-05-29T13-08-22.json`
+
+### Confirmações de escopo
+
+- ✅ Banco real `unificard_dev` INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME ativa em cada migrate (visto nos logs)
+- ✅ Espelho dropado interativamente após captura
+- ✅ Zero correção / Zero migration escrita
+- ✅ Artefatos AUDIT/RESET locais, não commitados
+
+### Vinculadas
+
+- Pacote 1 (`b276eb30`) — Descoberta C resolvida
+- Pacote 1.b (`744d8bb9`) — Descoberta D resolvida; FK ausente prevista (escopo)
+- Pacote 1.c sugerido (1 ADD CONSTRAINT idempotente) — escopo único e isolado
+- Refinamento documental da Paralela C: `_deprecated_*` nascem por RENAME em `20260429100000`
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".

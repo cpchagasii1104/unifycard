@@ -8451,3 +8451,49 @@ Comparar inventário/schema do espelho completo vs banco real (próxima fatia).
 - ✅ Backdated sem FK/índice/NOT NULL/COMMENT
 - ✅ bank_ledger/bank_transactions data/bank_splits/schema financeiro NÃO TOCADOS
 - ✅ Sem RESET_*/AUDIT_*/.dump/log/inventário no commit
+
+## Sessão 2026-05-29 — F-MIGRATION-REBUILD-DIFF-AUDIT (read-only)
+
+### Escopo
+
+Diff normalizado completo: real `unificard_dev` vs espelho 333/333 recriado e dropado interativamente. Banco real intocado. Captura: tabelas, colunas, constraints, triggers, índices, views, functions, extensions, schema_migrations, comments coluna/tabela.
+
+### Resultado
+
+**40 divergências** classificadas em 3 grupos:
+
+- **GRUPO 1 — Aceitas/cosméticas (16):**
+  - 3 `reversals.*` column_comment_diff: LF (real) vs CRLF (mirror, Windows .sql). Texto idêntico.
+  - 9 em `schema_migrations`: tabela criada pelo runner em `migrate.ts:201-213` com nomes/comments diferentes da migration 000 antiga do real. Equivalente.
+  - `_deprecated_tenant_products.price/price_cents`: estado histórico do real (530000 entrou em ramo ELSIF).
+
+- **GRUPO 2 — Esperadas (24):**
+  - 22 `MIGRATION_ONLY_IN_MIRROR`: 5 do Pacote 1+1.b + 17 pending do real (Descoberta B) que rodaram no espelho.
+  - 3 `MIGRATION_ONLY_IN_REAL`: as 3 órfãs (Pacote 2 tombstone).
+
+- **GRUPO 3 — Não aceitas (1):**
+  - `bank_transactions.bank_transactions_concept_id_fkey` — FK órfã pelo padrão Pacote 1.b.
+
+### Refinamento documental
+
+Paralela C tinha classificado `_deprecated_*` como dívida real. Investigação atual: `20260429100000_unificacao_semantica_v2.sql` faz RENAME guarded de 4 tabelas para `_deprecated_*`. No rebuild as tabelas NASCEM por RENAME.
+
+### Pacote 1.c sugerido (1 migration, sem SQL escrito)
+
+`<timestamp ≥ 506000>_add_bank_transactions_concept_id_fkey.sql` com `DO $$ IF NOT EXISTS pg_constraint ... THEN ADD CONSTRAINT FOREIGN KEY (concept_id) REFERENCES concepts(concept_id) ON DELETE RESTRICT END $$`.
+
+Banco vivo: no-op (FK já existe). Rebuild zero: FK criada → diff fecha.
+
+### Volume Grupo 3 = 1 — Freio NÃO disparado
+
+### Confirmações de escopo
+
+- ✅ Banco real INTOCADO em toda a fatia
+- ✅ EXPECTED_DATABASE_NAME ativa nos logs do migrate do espelho
+- ✅ Espelho dropado interativamente
+- ✅ Zero correção / Zero migration escrita
+- ✅ Artefatos AUDIT/RESET locais, não commitados
+
+### Próximo passo
+
+Aguardar autorização para escrever Pacote 1.c (1 ADD CONSTRAINT idempotente).
