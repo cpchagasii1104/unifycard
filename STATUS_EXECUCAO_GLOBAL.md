@@ -8285,3 +8285,56 @@ Nenhuma divergência de tipo/default/FK adicional detectada.
 ### Próximo passo
 
 Aguardar decisão Clayton + Opus + ChatGPT entre alternativas A (mínimo) e B (ampliado) antes da escrita do Pacote 1.
+
+## Sessão 2026-05-29 — Instância F: TRAVA pré-escrita do Pacote 1 confirmada
+
+### Escopo
+
+Decisão fechada: Pacote 1 = alternativa B (ampliado), rides FORA, backdated NOVO (não editar antigo). Esta fatia mapeia tudo que toca as 6 tabelas DEPOIS do CREATE para garantir que as backdated não derrubem migrations posteriores.
+
+### Resultado — TRAVA OK · REGRA DE PARADA NÃO DISPARADA
+
+**Único statement posterior por tabela:** a CHECK constraint `chk_<tabela>_status` adicionada por `20260530535000_c36_status_check_constraints.sql` — **sempre NÃO-GUARDED** (`ALTER TABLE … ADD CONSTRAINT …` puro). Solução: **backdated NÃO ANTECIPA** essa CHECK — deixa a 535000 criar. CHECK constraint não é nascida com a tabela.
+
+**Trava dos RENAMEs:** todos os 5 (4 em bookings + 1 em event_attendees) usam `DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE column_name = '<legado>') THEN ... END $$` — **guarded**. Cenário rebuild: backdated cria com nome MODERNO → RENAME procura LEGADO → `IF EXISTS` FALSE → no-op seguro.
+
+**Regra de parada:** grep no tree por refs a `requestedat`/`confirmedat`/`cancelledat`/`expiredat`/`check_in_time` em migrations posteriores: **ZERO referências não-guarded.** Backdate pode nascer moderno com 100% segurança.
+
+### Janela de timestamp e ordem das backdated
+
+```
+20260427100000_create_availability.sql                  ← raiz do bloco availability
+20260427110000_create_availability_participants.sql     ← FK availability
+20260427120000_create_bookings.sql                       ← FK availability, NOMES MODERNOS
+20260427200000_create_schedules.sql                      ← independente
+20260427210000_create_schedule_slots.sql                 ← FK schedules
+20260427280000_create_event_attendees.sql                ← FK externals, checked_in_at
+< 20260428200000_schedules_revoke_write.sql              ← primeiro problemático (faixa acaba aqui)
+```
+
+Dependências externas (`tenants`, `actors`, `events`, `global_users`) já criadas por migrations 4-dígitos (`0001`-`0005`+) que ordenam ANTES de qualquer `2026XXXX` (`'0'` < `'2'`).
+
+### Lista FINAL por backdated (resumo; detalhe completo no DT_LOG)
+
+| Backdated | Cria | NÃO cria |
+|---|---|---|
+| `20260427100000_create_availability.sql` | tabela + 2 índices | `chk_availability_status`, função `detect_availability_conflicts` |
+| `20260427110000_create_availability_participants.sql` | tabela + 1 índice | — (nenhum posterior) |
+| `20260427120000_create_bookings.sql` | tabela com `requested_at`/`confirmed_at`/`cancelled_at`/`expired_at`/`checked_in_at`/`checked_out_at` + 2 índices | `chk_bookings_status` |
+| `20260427200000_create_schedules.sql` | clone do CREATE existente | `chk_schedules_status` |
+| `20260427210000_create_schedule_slots.sql` | clone do CREATE existente | `chk_schedule_slots_status` |
+| `20260427280000_create_event_attendees.sql` | tabela com `checked_in_at` + UNIQUE | `chk_event_attendees_status` |
+
+Total: 6 migrations, ~95 linhas SQL.
+
+### Confirmações de escopo
+
+- ✅ Zero migration escrita / zero edição / zero execução
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Banco real intocado em toda a fatia
+- ✅ Decisões fechadas pelo Clayton respeitadas
+- ✅ Sem propor SQL — apenas mapa preciso para o Opus desenhar sem chute
+
+### Próximo passo
+
+Aguardar decisão Opus para escrita das 6 backdated. Mapa final está consolidado no DT_LOG.

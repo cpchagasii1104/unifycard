@@ -8880,6 +8880,169 @@ Duas alternativas legítimas:
 - `20260428280000_event_attendees_fix_check_in_time.sql:3-12` (idem)
 - `20260530535000_c36_status_check_constraints.sql:89-115` (CHECKs adicionadas depois)
 
+---
+
+## F-MIGRATION-REBUILD-PACKAGES — Instância F: TRAVA pré-escrita confirmada (2026-05-29)
+
+- **Modo:** guardião read-only absoluto. Só leitura de migrations + SELECT no banco real.
+- **Objetivo cumprido:** confirmar que as backdated do Pacote 1 ampliado (alternativa B) podem nascer com NOMES MODERNOS sem quebrar nenhuma migration posterior.
+- **Resultado:** TRAVA OK · REGRA DE PARADA NÃO DISPARADA · janelas de timestamp identificadas · lista PRECISA do que cada backdated deve conter.
+
+### Mapa por tabela — statements DEPOIS do CREATE original
+
+Para cada uma das 6 tabelas-alvo, o ÚNICO statement DEPOIS do CREATE que toca a tabela é a CHECK constraint `chk_<tabela>_status` adicionada por `20260530535000_c36_status_check_constraints.sql` — sempre NÃO-GUARDED (ADD CONSTRAINT puro, sem `IF NOT EXISTS` nem DO block).
+
+| Tabela | CREATE original | Único posterior | Posterior é guarded? | Veredito para backdated |
+|---|---|---|---|---|
+| `schedules` | `20260530200000_schedules.sql` | `20260530535000:113` `ADD CONSTRAINT chk_schedules_status` | **NÃO-GUARDED** | backdated CRIA tabela; **NÃO ANTECIPA** CHECK |
+| `schedule_slots` | `20260530210000_schedule_slots.sql` | `20260530535000:109` `ADD CONSTRAINT chk_schedule_slots_status` | **NÃO-GUARDED** | idem |
+| `availability` | `20260530491000:3-17` | `20260530535000:89` `ADD CONSTRAINT chk_availability_status` | **NÃO-GUARDED** | idem |
+| `availability_participants` | `20260530491000:47-56` | **nenhum** | — | backdated CRIA tabela e índice; **sem conflito** |
+| `bookings` | `20260530491000:24-40` | `20260530535000:93` `ADD CONSTRAINT chk_bookings_status` | **NÃO-GUARDED** | backdated CRIA tabela com nomes MODERNOS; **NÃO ANTECIPA** CHECK |
+| `event_attendees` | `20260530150000_event_attendees.sql` | `20260530535000:97` `ADD CONSTRAINT chk_event_attendees_status` | **NÃO-GUARDED** | backdated CRIA tabela com `checked_in_at`; **NÃO ANTECIPA** CHECK |
+
+**Regra de conflito aplicada:** se um statement posterior é NÃO-GUARDED (a CHECK chk_*_status), o backdated **não pode** antecipar esse objeto — senão o ADD CONSTRAINT da 535000 falha "constraint already exists". Solução: backdated cria SÓ tabela + colunas + PK + FKs + UNIQUE inline + índices. CHECK fica para a 535000.
+
+### Função `detect_availability_conflicts` (criada em 491000:61-78)
+
+`CREATE OR REPLACE FUNCTION detect_availability_conflicts(...)` em `20260530491000:61-78`. Usada por `backend/src/core/availability/unified-availability.repository.ts`.
+
+**Veredito:** backdated NÃO cria função. Deixa para a 491000. `CREATE OR REPLACE FUNCTION` é idempotente, mas única fonte é mais limpo. No banco vivo: já existe. No rebuild: 491000 cria.
+
+### TRAVA DOS RENAMEs — resultado
+
+Todos os 5 RENAMEs usam `DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE column_name = '<legado>') THEN ALTER TABLE ... RENAME ... END $$` — **GUARDED**:
+
+| RENAME | Guarded? | Cenário rebuild com backdated moderno |
+|---|---|---|
+| `bookings.requestedat → requested_at` | ✓ | backdated criou `requested_at`; `requestedat` não existe → IF EXISTS = FALSE → no-op |
+| `bookings.confirmedat → confirmed_at` | ✓ | idem |
+| `bookings.cancelledat → cancelled_at` | ✓ | idem |
+| `bookings.expiredat → expired_at` | ✓ | idem |
+| `event_attendees.check_in_time → checked_in_at` | ✓ | backdated criou `checked_in_at`; `check_in_time` não existe → no-op |
+
+**TRAVA OK:** todos os RENAMEs viram no-op seguro quando coluna moderna já existe.
+
+### REGRA DE PARADA — resultado: NÃO DISPARADA
+
+Grep no tree por referências a colunas LEGADAS (`requestedat`, `confirmedat`, `cancelledat`, `expiredat`, `check_in_time`):
+
+- `requestedat`: 0 referências (excluindo CREATE original + RENAME guarded)
+- `confirmedat`: 0
+- `cancelledat`: 0
+- `expiredat`: 0
+- `check_in_time`: 0
+
+**NENHUMA migration posterior referencia colunas legadas em ALTER, INDEX, CHECK, ou trigger não-guarded.** Backdate pode nascer com nomes modernos com 100% de segurança.
+
+### Confirmação banco vivo (SELECT)
+
+```
+bookings.requested_at:  EXISTS
+bookings.confirmed_at:  EXISTS
+bookings.cancelled_at:  EXISTS
+bookings.expired_at:    EXISTS
+bookings.checked_in_at: EXISTS
+event_attendees.checked_in_at: EXISTS
+```
+
+Nenhuma coluna legada existe no banco. Backdated com `IF NOT EXISTS` será no-op total no vivo.
+
+### Cadeia FK do bloco availability (real)
+
+```
+availability:                (sem FK interna do bloco)
+availability_participants:   FK → availability(availability_id) ON DELETE CASCADE
+bookings:                    FK → availability(availability_id) ON DELETE CASCADE
+event_attendees:             FK → tenants(id), events(id), actors(id), global_users(global_user_id)
+schedules:                   FK → tenants(id), actors(id)
+schedule_slots:              FK → schedules(id)
+```
+
+Ordem interna obrigatória das backdated:
+1. **availability** (não tem dependência interna do bloco)
+2. **availability_participants** e **bookings** (em qualquer ordem entre si; ambos dependem de availability)
+3. **schedules** (independente)
+4. **schedule_slots** (depende de schedules)
+5. **event_attendees** (depende só de externals: tenants/events/actors/global_users)
+
+Dependências EXTERNAS ao bloco (`tenants`, `actors`, `events`, `global_users`) são criadas em migrations de 4 dígitos (`0001`–`0005`+) que ordenam alfabeticamente ANTES de qualquer `2026XXXX…` (porque `'0'` < `'2'`). Logo, qualquer timestamp `20260427xxxxxx` tem essas tabelas disponíveis.
+
+### Janela de timestamp segura
+
+A faixa LIVRE para backdated é qualquer timestamp 14-dígitos **estritamente menor** que `20260428200000` (primeiro statement problemático: schedules REVOKE). Faixa recomendada: **`20260427xxxxxx`** (1 dia antes; sem conflito de prefixo).
+
+Ordem alfabética validada:
+```
+20260427100000_create_availability.sql
+20260427110000_create_availability_participants.sql
+20260427120000_create_bookings.sql               ← com NOMES MODERNOS
+20260427200000_create_schedules.sql
+20260427210000_create_schedule_slots.sql
+20260427280000_create_event_attendees.sql        ← com checked_in_at
+< 20260428200000_schedules_revoke_write.sql        (REVOKE roda DEPOIS dos CREATE)
+< 20260428260000_bookings_fix_timestamp_names.sql  (RENAMEs guarded; viram no-op)
+< 20260428280000_event_attendees_fix_check_in_time.sql (idem)
+< 20260530150000_event_attendees.sql               (CREATE com IF NOT EXISTS — no-op)
+< 20260530200000_schedules.sql                     (idem)
+< 20260530210000_schedule_slots.sql                (idem)
+< 20260530491000_create_unified_availability_tables.sql (idem para tabelas; cria função)
+< 20260530535000_c36_status_check_constraints.sql  (ADD CONSTRAINT chk_*_status — agora OK)
+```
+
+### Lista FINAL e PRECISA — o que cada backdated deve CONTER e OMITIR
+
+Para cada backdated abaixo, conteúdo = clone do CREATE TABLE existente no tree, ajustes pontuais:
+
+#### `20260427100000_create_availability.sql`
+- **CONTER:** `CREATE TABLE IF NOT EXISTS availability (availability_id UUID PK DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, owner_type VARCHAR(30) NOT NULL, owner_id UUID NOT NULL, availability_type VARCHAR(30) NOT NULL DEFAULT 'fixed', status VARCHAR(30) NOT NULL DEFAULT 'active', start_datetime TIMESTAMPTZ NOT NULL, end_datetime TIMESTAMPTZ NOT NULL, timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo', capacity INTEGER, metadata JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())` + `CREATE INDEX IF NOT EXISTS idx_availability_tenant_owner ON availability(tenant_id, owner_type, owner_id)` + `CREATE INDEX IF NOT EXISTS idx_availability_tenant_window ON availability(tenant_id, start_datetime, end_datetime)`
+- **OMITIR:** `chk_availability_status` (vem da 535000); função `detect_availability_conflicts` (vem da 491000)
+
+#### `20260427110000_create_availability_participants.sql`
+- **CONTER:** `CREATE TABLE IF NOT EXISTS availability_participants (participant_id UUID PK, tenant_id UUID NOT NULL, availability_id UUID NOT NULL REFERENCES availability(availability_id) ON DELETE CASCADE, actor_id UUID NOT NULL, role VARCHAR(30) NOT NULL, metadata, created_at, updated_at)` + `CREATE INDEX IF NOT EXISTS idx_availability_participants_tenant ON availability_participants(tenant_id, availability_id)`
+- **OMITIR:** nada (não há statement posterior tocando esta tabela)
+
+#### `20260427120000_create_bookings.sql` ★ NOMES MODERNOS ★
+- **CONTER:** `CREATE TABLE IF NOT EXISTS bookings (booking_id UUID PK DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL, availability_id UUID NOT NULL REFERENCES availability(availability_id) ON DELETE CASCADE, requester_actor_id UUID NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'requested', notes TEXT, metadata, **requested_at TIMESTAMPTZ NOT NULL DEFAULT now()**, **checked_in_at TIMESTAMPTZ**, **checked_out_at TIMESTAMPTZ**, **confirmed_at TIMESTAMPTZ**, **cancelled_at TIMESTAMPTZ**, **expired_at TIMESTAMPTZ**, created_at, updated_at)` + 2 índices `idx_bookings_tenant_availability` e `idx_bookings_tenant_requester` (ambos com IF NOT EXISTS)
+- **OMITIR:** `chk_bookings_status` (vem da 535000)
+- **OBSERVAÇÃO:** colunas em negrito são MODERNAS (estado real); CREATE original tem nomes legados. Esta é a substituição intencional confirmada pela Instância E + Trava F.
+
+#### `20260427200000_create_schedules.sql`
+- **CONTER:** clone do `20260530200000_schedules.sql` (9 colunas, FK tenants/actors, PK, defaults) — já tem IF NOT EXISTS
+- **OMITIR:** `chk_schedules_status` (vem da 535000)
+
+#### `20260427210000_create_schedule_slots.sql`
+- **CONTER:** clone do `20260530210000_schedule_slots.sql` (7 colunas, FK schedules, PK, defaults)
+- **OMITIR:** `chk_schedule_slots_status` (vem da 535000)
+
+#### `20260427280000_create_event_attendees.sql` ★ NOME MODERNO ★
+- **CONTER:** `CREATE TABLE IF NOT EXISTS event_attendees (id UUID PK DEFAULT uuid_generate_v4(), tenant_id UUID NOT NULL REFERENCES tenants(id), event_id UUID NOT NULL REFERENCES events(id), global_user_id UUID REFERENCES global_users(global_user_id), actor_id UUID REFERENCES actors(id), **checked_in_at TIMESTAMPTZ**, status TEXT NOT NULL DEFAULT 'registered', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(tenant_id, event_id, global_user_id))`
+- **OMITIR:** `chk_event_attendees_status` (vem da 535000)
+- **OBSERVAÇÃO:** `checked_in_at` MODERNO (CREATE original tem `check_in_time`).
+
+### Resumo do Pacote 1 ampliado
+
+6 migrations forward-only, ~95 linhas SQL total. Banco vivo: todas IF NOT EXISTS → no-op total. Rebuild: cria tudo na ordem correta com nomes modernos; RENAMEs guarded viram no-op; CHECKs adicionadas pela 535000 sem conflito; 535 ainda cria as constraints sem "already exists".
+
+### Confirmações de escopo Instância F
+
+- ✅ Zero migration escrita
+- ✅ Zero edição de código/schema/migration
+- ✅ Zero execução de migration
+- ✅ Zero toque no banco real além de SELECT (8 tabelas + FKs + colunas)
+- ✅ Banco real intocado em toda a fatia
+- ✅ Decisões fechadas pelo Clayton respeitadas (rides FORA, backdated novo só)
+- ✅ Sem decidir/propor SQL — apenas mapa para Opus desenhar
+- ✅ Artefatos AUDIT_F intermediários removidos
+
+### Vinculadas
+
+- F-MIGRATION-REBUILD-PACKAGES Desenho P1 (`3d8d4718`) e Instância E (`40654b22`)
+- `20260530535000_c36_status_check_constraints.sql:89-115` (ADD CONSTRAINT NÃO-GUARDED — único posterior)
+- `20260530491000_create_unified_availability_tables.sql` (CREATE original do bloco availability + função)
+- `20260428200000_schedules_revoke_write.sql` (REVOKE — primeiro problema)
+- RENAMEs guarded: `20260428260000` (4×) e `20260428280000` (1×)
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".
