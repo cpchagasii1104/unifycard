@@ -7489,7 +7489,7 @@ depende de estado residual.
 
 ## DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY
 
-- **Status:** OPEN — BLOCKED BY DECISION-0062 (2026-05-28). Sucede DT-USER-PROFILES-LEGACY-ORPHAN. **Hipótese escolhida: A como destino canônico, com execução gradual (F0–F5)** conforme DECISION-0062 D10. Não fechada — DT só vira CLOSED após F0–F5 mergeados e janela de observação sem regressão. **F0.1 DONE** (commit `fee7b754` — bank-balance-by-cpf ghost reference fix). **F2 DONE** (commit `<HEAD_AFTER>` — backfill idempotente de 10 identities a partir de global_users.cpf). F1 audit, F3 E2E coerência, F4 migrar leitura CORE e F5 deprecar caches transitórios ainda pendentes.
+- **Status:** OPEN — BLOCKED BY DECISION-0062 (2026-05-28). Sucede DT-USER-PROFILES-LEGACY-ORPHAN. **Hipótese escolhida: A como destino canônico, com execução gradual (F0–F5)** conforme DECISION-0062 D10. Não fechada — DT só vira CLOSED após F0–F5 mergeados e janela de observação sem regressão. **F0.1 DONE** (commit `fee7b754` — bank-balance-by-cpf ghost reference fix). **F2 DONE** (commit `e68be393` — backfill idempotente de 10 identities a partir de global_users.cpf). F1 audit, F3 E2E coerência, F4 migrar leitura CORE e F5 deprecar caches transitórios ainda pendentes.
 - **Severidade:** MEDIUM (era LOW na DT antiga; risco real é divergência cross-domain entre CORE e KYC/payout).
 - **Classe:** DT-D + DT-N (drift de canonicidade + decisão arquitetural canonizada por DECISION-0062 mas implementação não autorizada).
 - **Origem:** raio-X de `user_profiles` + `AvailableActor.user_id` pós-DECISION-0061 (HEAD `ccd03ad8`, 2026-05-28).
@@ -7589,7 +7589,7 @@ Razão (registrada em DECISION-0062 contexto):
 |------|--------|--------|-------|
 | F0.1 ghost reference (bank-balance-by-cpf) | DONE | `fee7b754` | Query trocada para `global_users.cpf` via JOIN canônico |
 | F1 backfill audit | DONE (READ-ONLY, sessão anterior) | n/a | 11 candidatos distintos identificados |
-| **F2 backfill idempotente** | **DONE** | `<HEAD_AFTER>` | **10 inserts em `identities` (delta 9→19); 1 bloqueado por dígitos inválidos. Zero schema/migration. Zero alteração em global_users/user_profiles/profiles/CORE/auth services.** |
+| **F2 backfill idempotente** | **DONE** | `e68be393` | **10 inserts em `identities` (delta 9→19); 1 bloqueado por dígitos inválidos. Zero schema/migration. Zero alteração em global_users/user_profiles/profiles/CORE/auth services.** |
 | F3 E2E coerência CPF | OPEN | — | Validar simetria CORE ↔ identity após F2 |
 | F4 migrar leitura CORE | OPEN | — | Refatorar `core.service.ts` para JOIN com identities |
 | F5 deprecar caches | OPEN | — | DROP `user_profiles.cpf` / `profiles.cpf` após F4 estável |
