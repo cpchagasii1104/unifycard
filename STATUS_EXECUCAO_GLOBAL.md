@@ -7756,3 +7756,67 @@ Apenas invariantes que provem:
 - `GET /core/profile.personal_profile.cpf` retorna CPF coerente com `identities.tax_id`
 - F4.0 (`actor_bank_destinations`) cadastra para os 10 novos identities sem fail
 - KYC submission funciona para identities recém-criadas
+
+## Sessão 2026-05-28 — F3 DECISION-0062 E2E coerência CPF/tax_id
+
+### Escopo
+
+Suite E2E autocontida que prova invariantes pós-F2: identities é SSOT operacional global (D2), global_users.cpf é âncora imutável (D4), user_profiles.cpf + profiles.cpf são projeções transitórias (D5/D6). Zero schema/service/migration alterado. Apenas adição de suite de invariantes.
+
+### Mudança
+
+| Arquivo | Mudança |
+|---------|---------|
+| `backend/src/scripts/validate-pipeline-e2e-cpf-tax-id-coherence.ts` | **NOVO** — 9 cenários (T1 baseline pós-F2, T2 coerência cross-substrato, T3 cadastro real, T4 CORE coerente, T5 payload público sem CPF, T6 F4.0 happy path, T7 F4.0 bloqueia mismatch, T8 idempotência F2, T9 cleanup seguro). Prefixo `e2e_f3_cpf_tax_id_`. Env lock `unificard_dev`. LGPD-safe via `sanitizeCpfForLog`. |
+| `REMEDIATION_DT_LOG.md` | DT-CPF-SSOT-DUAL-WRITE: F3 marcado DONE na matriz F0–F5 + bloco "Fechamento F3" detalhando cada cenário. Nova **DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID** registrada como descoberta material (gap em `findOrCreateUserActor` que não popula `actors.global_user_id`). |
+| `opus.md` | Memória curta de F3 + remissão para a DT descoberta. |
+
+### Operação
+
+| Cenário | Resultado |
+|---------|-----------|
+| T1 baseline pós-F2 | PASS (`identities_total=20`, 0 órfão válido) |
+| T1.b CPF inválido fora de identities | PASS (CPF `28221f67` bloqueado por dígitos permanece fora) |
+| T2 coerência cross-substrato | PASS (mismatch up=0 p=0 gu_real=0) |
+| T3 cadastro real | PASS (gu.cpf + identity.tax_id = mesmo CPF; kyc pending/none) |
+| T4 CORE coerente | PASS (`personal_profile.cpf` = `identities.tax_id`) |
+| T5 payload público | PASS (sem `cpf`/`tax_id`/`holder_document`/`kyc_status` em `actorRepository.findById`) |
+| T6 F4.0 happy path | PASS (`auto_tax_id_match` + ledger/txs/splits inalterados) |
+| T7 F4.0 bloqueia mismatch | PASS (`ACTOR_BANK_DEST_HOLDER_DOCUMENT_MISMATCH` + zero ledger) |
+| T8 idempotência F2 | PASS (re-apply: total inalterado, fingerprint intacto, zero UPDATE em rows pré-existentes) |
+| Cleanup | PASS (apenas fixtures `e2e_f3_*` deletadas) |
+
+**Resultado: 9/9 PASS.**
+
+### Gates verdes pós-F3
+
+- tsc clean
+- validate:actor-writer-boundaries GATE OK §4.8.1
+- validate:bank-ledger-boundaries GATE OK §4.6
+- validate:regression-guards GATE OK (financial-regression + sql-regression-lint + migration-numbering)
+- validate:architecture:strict `critical_new=0` (warning_new=1 herdado — não tocado por F3)
+
+### E2Es vizinhos pós-F3 (regression)
+
+- `validate-pipeline-e2e-kyc.ts`: PASS (KYC_PENDING → KYC_OK → AUTHORITY_ALLOW + TRANSFER_EXECUTED + LEDGER_PERSISTED, Σ débitos = Σ créditos)
+- `validate-pipeline-e2e-actor-bank-destinations.ts`: 8/8 PASS (T6 KYC pending cadastro permitido D12, T8 ledger/txs/payout_requests inalterados)
+
+### Descoberta material registrada como DT separada
+
+Durante T6/T7 inicial, F4.0 falhou com `ACTOR_BANK_DEST_IDENTITY_MISSING — actor … sem identity vinculada (global_user_id NULL)`. Investigação revelou que `actor.repository.findOrCreateUserActor` (`backend/src/modules/social/actor.repository.ts:101-111`) NÃO popula `actors.global_user_id` no INSERT, apesar de `users.global_user_id` estar disponível trivialmente. DECISION-0060 D8 exige identity vinculada para F4.0. F3 compensa localmente na fixture (`UPDATE actors SET global_user_id=...`) **sem tocar código de produção** e abre DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID para tratamento futuro.
+
+### Confirmações de escopo F3
+
+- ✅ Zero migration nova
+- ✅ Zero schema alterado
+- ✅ Zero alteração em `auth.service.ts` / `core.service.ts` / `profile.service.ts` / `identity.service.ts`
+- ✅ Zero alteração em `actor.repository.ts` / `actor-writer.service.ts` (gap material registrado como DT separada)
+- ✅ Zero alteração em `bank_ledger` / `bank_transactions` / `bank_splits`
+- ✅ Zero alteração em F4.0 (E2E regression PASS pós-F3)
+- ✅ Zero alteração no script F2 (idempotência provada por re-run real, não por output textual)
+- ✅ DT-CPF-SSOT-DUAL-WRITE NÃO fechada (F4/F5 pendentes)
+- ✅ Arquivos ambientais NÃO commitados
+
+### Próximo passo recomendado
+
+F4 (migrar leitura CORE) — refatorar `core.service.ts` para JOIN com `identities` e ler `i.tax_id` em vez de `up.cpf`/`p.cpf`. **NÃO autorizado nesta sessão** — exige autorização Clayton + revisão de impacto nos consumers de `personal_profile.cpf` no frontend. Alternativa adjacente: fatia dedicada para DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID (gap material que afeta F4.0 em produção pra qualquer usuário novo).

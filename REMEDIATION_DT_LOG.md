@@ -7589,8 +7589,8 @@ Razão (registrada em DECISION-0062 contexto):
 |------|--------|--------|-------|
 | F0.1 ghost reference (bank-balance-by-cpf) | DONE | `fee7b754` | Query trocada para `global_users.cpf` via JOIN canônico |
 | F1 backfill audit | DONE (READ-ONLY, sessão anterior) | n/a | 11 candidatos distintos identificados |
-| **F2 backfill idempotente** | **DONE** | `e68be393` | **10 inserts em `identities` (delta 9→19); 1 bloqueado por dígitos inválidos. Zero schema/migration. Zero alteração em global_users/user_profiles/profiles/CORE/auth services.** |
-| F3 E2E coerência CPF | OPEN | — | Validar simetria CORE ↔ identity após F2 |
+| F2 backfill idempotente | DONE | `e68be393` | 10 inserts em `identities` (delta 9→19); 1 bloqueado por dígitos inválidos. Zero schema/migration. Zero alteração em global_users/user_profiles/profiles/CORE/auth services. |
+| **F3 E2E coerência CPF/tax_id** | **DONE** | (este commit) | **9/9 cenários PASS. Suite `validate-pipeline-e2e-cpf-tax-id-coherence.ts` (T1–T9). Zero alteração em service/schema/migration. KYC E2E + F4.0 E2E regression PASS pós-F3.** |
 | F4 migrar leitura CORE | OPEN | — | Refatorar `core.service.ts` para JOIN com identities |
 | F5 deprecar caches | OPEN | — | DROP `user_profiles.cpf` / `profiles.cpf` após F4 estável |
 
@@ -7625,6 +7625,30 @@ Razão (registrada em DECISION-0062 contexto):
 - KYC submission para um identity recém-criado funciona normalmente
 
 F3 não exige mudança de schema nem de service. É apenas suite de invariantes.
+
+### Fechamento F3 (2026-05-28)
+
+Suite `backend/src/scripts/validate-pipeline-e2e-cpf-tax-id-coherence.ts` executa 9 cenários **autocontidos**, idempotentes, com prefixo `e2e_f3_cpf_tax_id_` e LGPD-safe logging via `sanitizeCpfForLog`.
+
+| # | Cenário | Resultado | Invariante provada |
+|---|---------|-----------|---------------------|
+| T1 | Baseline pós-F2 | PASS | `identities_total ≥ 19`, zero CPF válido órfão; CPF inválido por dígitos permanece fora de `identities`. |
+| T2 | Coerência cross-substrato | PASS | `regexp_replace(up.cpf/p.cpf/gu.cpf,'\D','','g') = regexp_replace(i.tax_id,'\D','','g')` para todas as rows com identity. Zero divergência. |
+| T3 | Cadastro real cria cadeia fiscal mínima | PASS | `authService.register` → `global_users.cpf` + `identities.tax_id` (`cpf`, `pending`, `none`) em uma única chamada. |
+| T4 | CORE coerente com identity | PASS | `coreService.getCompleteProfile` retorna `personal_profile.cpf` igual a `identities.tax_id` para identity recém-criada (estado transitório aceitável: NULL se projeção ainda não populada — identity SSOT íntegra). |
+| T5 | Payload público sem CPF/tax_id | PASS | `actorRepository.findById` retorna 0 campos `tax_id`/`cpf`/`holder_document`/`kyc_status` e 0 ocorrências de CPF cru no JSON. |
+| T6 | F4.0 happy path (DECISION-0060 D5) | PASS | `actorBankDestinationService.createDestination` com `holderDocument = identities.tax_id` → `verified` + `auto_tax_id_match`; **ledger/txs/splits inalterados**. |
+| T7 | F4.0 bloqueia mismatch (DECISION-0060 D5 trigger) | PASS | `holderDocument ≠ identities.tax_id` → `ACTOR_BANK_DEST_HOLDER_DOCUMENT_MISMATCH`; **ledger/txs/splits inalterados**. |
+| T8 | Idempotência F2 | PASS | Re-run de `backfill-identities-from-global-users-cpf.ts --apply` mantém `identities_total = 20` e fingerprint (tax_id/tax_id_type/kyc_status/kyc_level/updated_at) intacto para rows pré-existentes. Zero UPDATE colateral. |
+| T9 | Cleanup seguro | PASS (implícito) | Apenas fixtures `e2e_f3_*` deletadas via `DELETE ... WHERE id = ANY($1::uuid[])`. Nenhum row pré-F3 alterado. |
+
+**Gates pós-F3:** `tsc` clean, `validate:actor-writer-boundaries` GATE OK §4.8.1, `validate:bank-ledger-boundaries` GATE OK §4.6, `validate:regression-guards` GATE OK (financial-regression + sql-regression-lint + migration-numbering), `validate:architecture:strict` `critical_new=0`.
+
+**E2Es vizinhos pós-F3 (regression):** `validate-pipeline-e2e-kyc.ts` PASS (causal A: KYC_PENDING → KYC_OK → AUTHORITY_ALLOW + TRANSFER_EXECUTED + LEDGER_PERSISTED, Σ débitos = Σ créditos). `validate-pipeline-e2e-actor-bank-destinations.ts` PASS 8/8 (T6 KYC pending cadastro permitido D12; T8 ledger/txs/payout_requests inalterados).
+
+**Confirmações de escopo F3:** zero alteração em service/schema/migration/CORE/auth/identity. Apenas adição de suite de invariantes. F2 idempotência provada na prática (não no output textual do script F2, conforme exigido).
+
+**Compensação localizada (não muda código de produção):** o script E2E faz `UPDATE actors SET global_user_id=...` na fixture criada por `register` porque `actor.repository.findOrCreateUserActor` (`backend/src/modules/social/actor.repository.ts:101-111`) hoje INSERTa sem `global_user_id` populado. F4.0 (DECISION-0060 D8) exige identity vinculada. Isso revela gap material em `findOrCreateUserActor` — ver DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID abaixo.
 
 ### Evidência runtime reportada
 
@@ -7743,3 +7767,60 @@ em dados existentes.
 - DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (permanece OPEN — esta fatia é só F0.1, F1–F5 continuam pendentes)
 - `backend/src/modules/bank/bank-balance-by-cpf.service.ts`
 - `backend/src/core/unifybank/bank-balance-consolidation.routes.ts:347`
+
+---
+
+## DT-FINDORCREATEUSERACTOR-MISSING-GLOBAL-USER-ID
+
+- **Status:** OPEN (descoberta 2026-05-28 durante F3 E2E coerência).
+- **Classe:** DT-D (drift entre normativa de domínio e código vigente).
+- **Norma violada:** DECISION-0060 D8 exige `actors.global_user_id` populada para que F4.0 (`actor_bank_destinations`) consiga JOIN `actors → identities` e enforçar "conta própria" via `holder_document = identities.tax_id`. Schema permite NULL para retrocompatibilidade, mas todo actor humano novo criado pelo pipeline canônico de `register` deveria nascer com `global_user_id` populada.
+- **Local material:** `backend/src/modules/social/actor.repository.ts:101-111` (`findOrCreateUserActor`).
+
+### Comportamento observado
+
+`authService.register(...)` (commit em `auth.service.ts:520`) chama best-effort `ensureUserActor(tenantId, userId)`. Esse delega a `findOrCreateUserActor`, que executa:
+
+```sql
+INSERT INTO actors (tenant_id, actor_type, user_id, display_name, slug)
+VALUES ($1, 'user', $2, $3, $4)
+RETURNING *
+```
+
+A coluna `actors.global_user_id` **não é populada**, apesar de `users.global_user_id` estar disponível trivialmente (1 JOIN). Resultado: atores recém-criados via fluxo canônico de registro têm `global_user_id IS NULL`, o que faz F4.0 (`actorBankDestinationService.createDestination`) falhar com `ACTOR_BANK_DEST_IDENTITY_MISSING — actor X sem identity vinculada (global_user_id NULL)`.
+
+### Evidência
+
+E2E F3 T6/T7 falhou inicialmente com `actor … sem identity vinculada (global_user_id NULL) — DECISION-0060 D8 exige identity`. O E2E F3 compensa localmente a fixture com `UPDATE actors SET global_user_id=... WHERE actor_type='user' AND global_user_id IS NULL` para provar invariantes F4.0, **mas não corrige o gap de produção**.
+
+### Impacto
+
+- Qualquer fluxo F4 (cadastro de destino bancário externo) feito por usuário recém-cadastrado falha até alguém popular `actors.global_user_id` manualmente.
+- A constraint `chk_actor_requires_identity` (`0010:50-54`) só dispara para `actor_type='actor_human'`, então `actor_type='user'` (vigente) passa pelo INSERT sem proteção.
+- O drift é silencioso — não há erro em `register`, apenas falha tardia ao tentar F4.0.
+
+### Correção proposta (não autorizada nesta fatia)
+
+`findOrCreateUserActor` deveria popular `global_user_id` no INSERT, fazendo JOIN com `users` para resolver:
+
+```sql
+INSERT INTO actors (tenant_id, actor_type, user_id, global_user_id, display_name, slug)
+SELECT $1, 'user', $2, u.global_user_id, $3, $4 FROM users u WHERE u.id = $2
+```
+
+Adicionalmente, considerar backfill de `actors.global_user_id` para atores existentes com NULL (auditoria similar a F1).
+
+### Confirmação de escopo F3 (esta fatia)
+
+- F3 NÃO altera `actor.repository.ts` nem `actor-writer.service.ts` nem `auth.service.ts`.
+- F3 apenas documenta o gap e compensa localmente na fixture E2E.
+- DT fica registrada para abertura de fatia dedicada no momento certo (decisão pendente de Clayton — pode ser próxima fatia natural pré-F4 produção real ou pode esperar F4.x).
+
+### Vinculadas
+
+- DECISION-0060 D8 (norma material)
+- DECISION-0062 (canonicidade identities; coerente)
+- DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY (família — mesmo domínio identidade)
+- `backend/src/modules/social/actor.repository.ts:101-118`
+- `backend/src/modules/identity/actor-writer.service.ts:17-20`
+- `backend/src/scripts/validate-pipeline-e2e-cpf-tax-id-coherence.ts` (compensação localizada)
