@@ -9934,3 +9934,22 @@ tabela, não há derivação de CONCEPT/company_type/capability. As flags são s
 **Mitigação:** não usar como fonte soberana na Fase 3B; a visibilidade/capability do resolver
 NÃO deve depender dessas flags.
 **Resolução futura:** D-CONCEPT/D-CONTEXT-RESOLVER decide absorver/derivar/aposentar.
+
+### DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT (OPEN) — Fase 3B.3 (2026-05-29)
+**Contexto.** `backend/src/core/companies/company-canonical.service.ts` está montado
+(rota em `app.builder.ts:264`), mas NÃO bate com o schema vivo de `companies`: o INSERT usa
+colunas fantasma (`legal_name`, `document_type`, `document_number`, `country`, `state`) que
+não existem em `companies` (origem `0065_create_companies_minimal.sql`). Em runtime quebraria
+com "column does not exist".
+**Mitigação atual (3B.3):** NÃO é base da 3B.3 — a base real é `companies.service`. NÃO tocado
+nesta fatia (só registrado).
+**Resolução futura:** corrigir para o schema vivo OU aposentar/desativar a rota, em fatia própria.
+
+### DT-COMPANY-3B3-CAPABILITIES-OMITTED (OPEN) — Fase 3B.3 (2026-05-29)
+**Contexto.** A 3B.3 NÃO grava capabilities na ativação operacional da empresa, porque não
+existe fonte canônica `company_type/concept → capabilities` e o soft-block conflita com
+capabilities default.
+**Mitigação atual:** empresa operacional (Momento 2) na 3B.3 ≝ page-actor + responsible_actor_id
++ primary_company_type_id + primary_concept_id válidos (par em company_type_allowed_concepts).
+Sem capabilities persistidas (não há tabela de capability no schema vivo — provado por A8).
+**Resolução futura:** D-CONCEPT / D-CONTEXT-RESOLVER define a derivação governada de capabilities.

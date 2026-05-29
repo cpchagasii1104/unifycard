@@ -8641,3 +8641,18 @@ Selo pós-verificação de gates (etapa separada do append inicial). Banco limpo
   Genesis = dívida, não trilho.
 - **PRÓXIMO — FASE 3B (PJ):** pende DECISÃO DE PRODUTO A3 (caminho oficial de empresa) e A4
   (nasce classificada vs nua). NÃO iniciar 3B sem decidir A3/A4.
+
+### FASE 3B.3 — CLOSED ✅ (2026-05-29) — Empresa em Dois Momentos
+Desenho: docs/02_decisions/DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md (commit 691b2169).
+- Migration 20260530575000: companies.primary_company_type_id + primary_concept_id (FK RESTRICT),
+  CHECK pareado, unique partial index uq_actors_company_page (1 page-actor por company).
+- companies.service.activateCompanyOperationally(): single writer 3 fases (validação fora da tx →
+  ensure*Actor fora da tx → Fase 3 transacional FOR UPDATE grava só primary_*; sem capabilities).
+- findAvailableActors: só empresa OPERACIONAL (page-actor + responsible + primary_* + par válido),
+  classificação por-empresa (companies.primary_*, não tenants.company_type_id), tenant isolation
+  explícito (a./c./cu.tenant_id).
+- E2E validate-pipeline-e2e-company-two-moments.ts: 21/21 (M1-M7, A1-A8, R1-R5, CLEANUP).
+- Gates verdes · typecheck clean · critical_new=0 · warning_new da fatia=0.
+- DTs: DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT, DT-COMPANY-3B3-CAPABILITIES-OMITTED.
+- company-canonical.service e rota: NÃO tocados. Capabilities: NÃO gravadas. DEV: limpo.
+- PRÓXIMO: 3C (banda) — desenho próprio.

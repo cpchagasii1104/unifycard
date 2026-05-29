@@ -1719,3 +1719,14 @@ Selo pós-verificação de gates (separada do append inicial). Banco limpo → b
   humano; Genesis (`actor_human`, actor_id=user_id) fica como dívida.
 - **PRÓXIMO — 3B (PJ):** NÃO iniciar sem decidir A3 (caminho oficial de empresa) e A4
   (nasce classificada vs nua).
+
+### FASE 3B.3 — CLOSED ✅ (2026-05-29) — Empresa em Dois Momentos
+A3/A4 decididas e implementadas. Empresa nasce inerte (Momento 1, primary_* NULL, invisível) e
+vira operacional (Momento 2) só via activateCompanyOperationally() — single writer transacional
+que grava só primary_company_type_id+primary_concept_id (par válido em company_type_allowed_concepts),
+garante page-actor+responsible FORA da tx, SEM capabilities. Resolver findAvailableActors filtra
+empresa operacional e classifica por-empresa (companies.primary_*, não tenants.company_type_id),
+com tenant isolation explícito. Migration 20260530575000 (2 cols + CHECK pareado + unique page-actor
+index). E2E 21/21 (M/A/R). Gates verdes, typecheck clean, critical_new=0, sem warning nova.
+DTs abertas: company-canonical quebrado (schema drift, não tocado) + capabilities omitidas
+(aguarda D-CONCEPT/D-CONTEXT-RESOLVER). Próximo: 3C (banda).
