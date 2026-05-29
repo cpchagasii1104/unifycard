@@ -1705,3 +1705,17 @@ Achados registrados no DT_LOG:
   `ensureUserActor` falha por registry vazio).
 
 Próximo (fora desta etapa): PJ e banda — bloqueados por decisões de produto (ver Passo 0).
+
+### FASE 3A — CLOSED ✅ (gates verdes, 2026-05-29)
+Selo pós-verificação de gates (separada do append inicial). Banco limpo → banco vivo canônico.
+- Commit do bootstrap: `8d8de80b`.
+- Gates pós-commit: actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK
+  (334 migrations) · architecture --strict exit 0 `critical_new=0` · typecheck clean.
+- `warning_new=1` isolada em `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts:334`
+  (money arithmetic) — pré-existente, NÃO do bootstrap, não-bloqueante.
+- Vivo: tenant DEV + tenant_contexts(8) + RBAC(4/38/68) + PF canônico
+  (`actor_type='user'`, `global_user_id NOT NULL`, `actor_id ≠ user_id`) + role admin.
+- **A7 ADOTADA:** register→ensureUserActor→findOrCreateUserActor é o trilho oficial do actor
+  humano; Genesis (`actor_human`, actor_id=user_id) fica como dívida.
+- **PRÓXIMO — 3B (PJ):** NÃO iniciar sem decidir A3 (caminho oficial de empresa) e A4
+  (nasce classificada vs nua).

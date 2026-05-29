@@ -8629,3 +8629,15 @@ Resultado verificado por SELECT:
 - user_roles: DEV→admin (exclusivo do bootstrap); permissões efetivas=38
 
 Fora de escopo (não executado): PJ e banda.
+
+### FASE 3A — CLOSED ✅ (gates verdes, 2026-05-29)
+Selo pós-verificação de gates (etapa separada do append inicial). Banco limpo → banco vivo canônico.
+- Commit do bootstrap: `8d8de80b`.
+- Gates pós-commit: actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK
+  (334 migrations) · architecture --strict exit 0 `critical_new=0` · typecheck clean.
+- `warning_new=1` isolada: `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts:334`
+  (NO_MANUAL_MONEY_CALCULATION), pré-existente, NÃO relacionada ao bootstrap, não-bloqueante.
+- **A7 ADOTADA:** register→ensureUserActor→findOrCreateUserActor (`actor_type='user'`).
+  Genesis = dívida, não trilho.
+- **PRÓXIMO — FASE 3B (PJ):** pende DECISÃO DE PRODUTO A3 (caminho oficial de empresa) e A4
+  (nasce classificada vs nua). NÃO iniciar 3B sem decidir A3/A4.

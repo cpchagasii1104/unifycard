@@ -9903,3 +9903,20 @@ Script standalone NÃO passa pelo BOOT do app → `socialPortsRegistry` vazio �
 falha ("ActorRepository não foi injetado"). `bootstrap-dev-canonical.ts` replica a injeção
 canônica de `app.builder.ts:44-58` (`wireSocialPorts`). Qualquer script futuro que crie actor
 precisa dessa wiring.
+
+### FASE 3A — CLOSED ✅ (gates verdes, 2026-05-29)
+Selo registrado após verificação de gates (etapa separada — o append anterior foi feito antes
+de rodar os gates). Banco limpo → banco vivo canônico.
+- Commit do bootstrap: `8d8de80b`.
+- Gates pós-commit: actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK
+  (334 migrations) · architecture --strict exit 0 `critical_new=0` · typecheck clean.
+- `warning_new=1` isolada: `validate-pipeline-e2e-c3-actor-wallet-debit-recovery.ts:334`
+  (NO_MANUAL_MONEY_CALCULATION) — arquivo pré-existente, NÃO relacionado a
+  `bootstrap-dev-canonical.ts`, não-bloqueante (ARCH_FAIL_ON=CRITICAL).
+- Resultado vivo: tenant DEV + tenant_contexts(8) + RBAC(4 roles / 38 perms / 68 role_perms)
+  + PF canônico (`actor_type='user'`, `global_user_id NOT NULL`, `actor_id ≠ user_id`) + role admin.
+- **A7 ADOTADA:** actor humano oficial = register→ensureUserActor→findOrCreateUserActor.
+  Genesis (`actor_type='actor_human'`, actor_id=user_id) = dívida, não trilho.
+- **PRÓXIMO — FASE 3B (PJ):** pende DECISÃO DE PRODUTO **A3** (caminho oficial de empresa:
+  company-canonical minimalista × companies.service legado com page-actor) e **A4** (empresa
+  nasce classificada com company_type/CONCEPT vs nua). NÃO iniciar 3B sem decidir A3/A4.
