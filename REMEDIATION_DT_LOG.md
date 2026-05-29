@@ -8413,6 +8413,145 @@ Decisão Clayton: (a) corrigir ordenamento das migrations para que CREATE preced
 - `backend/migrations/20260530200000_schedules.sql`
 - `backend/migrations/20260530210000_schedule_slots.sql`
 
+---
+
+## F-MIGRATION-REBUILD-COHERENCE-AUDIT — guardião read-only, dívida total mapeada (2026-05-29)
+
+- **Modo:** guardião read-only absoluto. Zero edição. Zero execução de migration. SELECT-only no banco real. Auditoria estática + reuso dos artefatos do portão 1.3.
+- **Objetivo cumprido:** medir tamanho TOTAL da dívida antes de propor correção em pacotes coerentes.
+
+### Artefatos gerados (locais, não commitar)
+
+| Path | Conteúdo |
+|---|---|
+| `AUDIT_A_ORPHANS_*.json` | 3 órfãs detalhadas + inferências do que cada criou |
+| `AUDIT_B_ORDER_*.json` | 19 inversões + objetos sem CREATE no tree + flags IF NOT EXISTS |
+| `AUDIT_C_GAP_*.json` | 113 tabelas faltantes classificadas (esperado vs dívida real) + blast radius |
+
+### Paralela A — schema_migrations: órfãs
+
+**Total confirmado: 3 órfãs.** Mesmo trio já conhecido — nenhuma adicional descoberta.
+
+| ID | filename | executed_at | checksum | exec_ms | Inferência |
+|---|---|---|---|---|---|
+| 294 | `20260530518000_create_payment_milestones.sql` | 2026-05-16 23:34:04 | **NULL** | **null** | Marcada pelo baseline auto **sem executar SQL**. `payment_milestones` EXISTE (11 cols) — criada por outra rota. |
+| 295 | `20260530519000_seed_concept_split_engineering.sql` | 2026-05-16 23:34:04 | **NULL** | **null** | Marcada baseline. `concepts` matching 'split': **0**. Seed nunca ocorreu. |
+| 307 | `20260530560000_backfill_pf_actor_registry.sql` | 2026-05-20 15:46:31 | `809b1d45…` | 29ms | **Executada de verdade**. `actor_registry` tem 65 rows. |
+
+**Observação chave:** órfãs 294 e 295 NÃO foram executadas (checksum/exec_ms null) — apenas registradas pelo baseline. O objeto `payment_milestones` que EXISTE no real foi criado por **outra rota** (provavelmente SQL manual ad-hoc). Órfã 307 foi executada — backfill operacional aplicado em runtime.
+
+**Colisão de timestamp:** `20260530560000` é prefixo de DOIS arquivos:
+- `20260530560000_backfill_pf_actor_registry.sql` — ORFÃ aplicada (sem ficheiro)
+- `20260530560000_create_economic_policies.sql` — PENDING (no tree, não aplicado)
+Mesmo prefixo numérico mas nomes diferentes; runner ordena por filename completo, então tecnicamente não há conflito de extração de versão; mas é um sinal claro de que duas rotas paralelas geraram o timestamp idêntico.
+
+**17 PENDING** confirmados (mesma lista anterior — descobertas B vivem aqui).
+
+### Paralela B — inversões de ordem (estática)
+
+**Total: 19 inversões em 12 objetos.** Detalhe por categoria:
+
+**REF_BEFORE_CREATE (8 ocorrências em 5 famílias) — todas inversões cronológicas REAIS:**
+
+| Objeto | Inversão | Origem |
+|---|---|---|
+| `schedules` | `20260428200000_schedules_revoke_write.sql:4` (REVOKE) → criado em `20260530200000_schedules.sql:4` | **Descoberta C confirmada** (tropeço do ensaio) |
+| `schedule_slots` | `20260428200000_schedules_revoke_write.sql:5` (REVOKE) → criado em `20260530210000_schedule_slots.sql:5` | Mesma migration; pega 2 objetos |
+| `bookings` | `20260428260000_bookings_fix_timestamp_names.sql:20,31,42,53` (4× ALTER) → criado em `20260530491000_create_unified_availability_tables.sql:24` | 4 ALTERs antes do CREATE |
+| `event_attendees` | `20260428280000_event_attendees_fix_check_in_time.sql:10` (ALTER) → criado em `20260530150000_event_attendees.sql:4` | ALTER antes do CREATE |
+| `rides_vehicles` | `20260523100000_rides_vehicles_concept_id_nullable.sql:18` (ALTER) → criado em `20260530350000_rides_core.sql:20` | ALTER antes do CREATE (latente, profile FULL apenas) |
+
+**Padrão:** todas as 5 famílias têm o mesmo formato — migration de timestamp ANTIGO (`20260428…` / `20260523…`) faz ALTER/REVOKE em tabela cuja CREATE TABLE está em timestamp POSTERIOR (`20260530…`). Provavelmente herança de renomeio histórico ou refactor que invalidou a cronologia original. Em ordem alfabética (runner padrão), são todos forward-only quebrados.
+
+**REF_TO_NEVER_CREATED (7 objetos com refs mas sem CREATE no tree):**
+
+| Objeto | Refs | Classe |
+|---|---|---|
+| `schema_migrations` | 3 INSERTs | Tabela de controle do runner (criada pelo `ensureMigrationsTable` em runtime). Normal. |
+| `schema` | 2 REVOKEs | Falso positivo do regex (`REVOKE … ON SCHEMA public`). |
+| `function` | 1 GRANT | Falso positivo do regex (`GRANT … ON FUNCTION …`). |
+| `_deprecated_product_concept_resolution_queue` | 2 ALTER | Seção 17 — tabela renomeada por SQL manual antes do cleanup. |
+| `_deprecated_product_concepts` | 1 DROP | Idem. |
+| `_deprecated_tenant_products` | 1 ALTER | Idem. |
+| `_deprecated_catalog_products` | 1 DROP | Idem. |
+
+Os 4 `_deprecated_*` aparecem em `20260429200000_cleanup_semantico.sql`. Provavelmente em algum momento alguém fez `ALTER TABLE ... RENAME TO _deprecated_…` por SQL manual (sem migration versionada) e depois a migration de cleanup faz DROP/ALTER nessas. Sinal de Seção 17.
+
+**IF NOT EXISTS:** 117 CREATE TABLE com `IF NOT EXISTS` (proporção alta — mascara dívida se um CREATE foi pulado por idempotência defensiva).
+
+### Paralela C — gap esperado vs dívida real de schema
+
+- 235 tabelas no real, 126 no espelho parcial → **113 ausentes**
+- **111 ausentes são GAP ESPERADO** (criadas em migrations [179..328] — incluindo `schedules`, `schedule_slots`, todas as substract* das 17 pending, etc.)
+- **2 ausentes são DÍVIDA REAL** (sem CREATE em NENHUMA migration do tree):
+  - `_deprecated_product_concept_resolution_queue` — sem FK apontando (blast=0)
+  - `_deprecated_tenant_products` — sem FK apontando (blast=0)
+
+**Blast radius da dívida real = ZERO.** Ambas são legado de rename manual, sem dependências. Conviver com elas é viável; reconstruí-las como forward-only é trivial (CREATE TABLE simples).
+
+### Consolidado — tamanho TOTAL da dívida
+
+| Categoria | Quantidade | Severidade |
+|---|---|---|
+| Órfãs em schema_migrations | 3 | 2 baseline-marked (não executadas) + 1 backfill real |
+| Inversões REF_BEFORE_CREATE | 8 em 5 famílias | bloqueante de drop/recreate |
+| Refs a tabelas `_deprecated_*` sem CREATE | 4 objetos | herança de rename manual; baixo risco |
+| Tabelas em dívida real de schema | 2 | blast radius zero |
+| Pending no tree (não aplicadas no real) | 17 | inclui Descoberta B (558000) |
+| Colisões de timestamp | 1 (`20260530560000` duplicado) | baixa; runner ordena por filename completo |
+
+### Migrations forward-only que PRECISARÃO ser criadas (lista, sem escrever SQL)
+
+| # | Nome sugerido | O que fará | Origem |
+|---|---|---|---|
+| 1 | `<ts>_repair_create_schedules.sql` | CREATE TABLE schedules + colunas observadas no real (id, tenant_id, actor_id, reference_type, reference_id, status, metadata, created_at, updated_at) | Para que `20260428200000_schedules_revoke_write` pare de quebrar |
+| 2 | `<ts>_repair_create_schedule_slots.sql` | CREATE TABLE schedule_slots | Mesma família de #1 |
+| 3 | `<ts>_repair_create_bookings.sql` | CREATE TABLE bookings | Para que `20260428260000_bookings_fix_timestamp_names` pare de quebrar |
+| 4 | `<ts>_repair_create_event_attendees.sql` | CREATE TABLE event_attendees | Para `20260428280000_event_attendees_fix_check_in_time` |
+| 5 | `<ts>_repair_create_rides_vehicles.sql` | CREATE TABLE rides_vehicles (profile FULL) | Para `20260523100000_rides_vehicles_concept_id_nullable` |
+| 6 | `<ts>_repair_create_payment_milestones.sql` | CREATE TABLE payment_milestones (estrutura observada no real, 11 colunas) | Substituir órfã 518000 (que não rodou) |
+| 7 | `<ts>_repair_seed_concept_split_engineering.sql` | INSERT em concepts (domínio split-engineering) | Substituir órfã 519000 OU marcar como obsoleta se ninguém usa |
+| 8 | `<ts>_repair_backfill_pf_actor_registry.sql` | Re-implementar backfill | Substituir órfã 307 (executada de verdade no real, mas sem ficheiro) — ou marcar como "estado vivo, não re-executar" |
+| 9 | `<ts>_repair_create_deprecated_product_concept_resolution_queue.sql` | CREATE TABLE `_deprecated_product_concept_resolution_queue` | Para que `20260429200000_cleanup_semantico` ALTER funcione no rebuild |
+| 10 | `<ts>_repair_create_deprecated_tenant_products.sql` | CREATE TABLE `_deprecated_tenant_products` | Idem |
+
+Migrations 1-5 e 9-10 são **purely structural** (CREATE TABLE com colunas observadas no real); migrations 6-8 lidam com as 3 órfãs. **NÃO inclui correção das 17 pending** (essas já têm ficheiro; é só rodar depois de pacote estrutural).
+
+### Pacotes coerentes de correção (recomendados)
+
+**Pacote 1 — Estrutural Pré-Cleanup (deve preceder qualquer migration de abril/maio que faz ALTER/REVOKE em tabela criada depois):**
+- Migrations 1, 2, 3, 4, 9, 10 (CREATE de schedules, schedule_slots, bookings, event_attendees, `_deprecated_*`)
+- Timestamp deve ser **anterior** ao primeiro ALTER/REVOKE — ou seja, próximo de `20260428000000`
+- Profile CORE_ONLY (sem rides)
+
+**Pacote 2 — Órfãs (substituem entradas em schema_migrations sem ficheiro):**
+- Migration 6 (payment_milestones), 7 (seed split-engineering), 8 (backfill actor_registry)
+- Timestamps próximos aos das órfãs originais (518000-560000) mas posteriores ao Pacote 1
+- Para 6 e 7: o `INSERT INTO schema_migrations` deve ser ajustado para que NÃO tente re-executar a versão antiga sem ficheiro (problema operacional do baseline auto)
+- Migration 8: o backfill JÁ rodou; o ficheiro forward-only deve ser idempotente para não duplicar
+
+**Pacote 3 — Rides (profile FULL, separado):**
+- Migration 5 (rides_vehicles) — só ativada com `MIGRATION_PROFILE=FULL`
+
+**Pacote 4 — 17 PENDING (após Pacote 1+2):**
+- As 17 migrations já no tree. Ordem alfabética já está correta; só precisa rodar após os 3 pacotes acima.
+- Inclui 558000 (Descoberta B). Hipótese a confirmar no ensaio: sem dados, 558000 roda OK.
+
+### Confirmações de escopo guardião
+
+- ✅ Zero edição de migration, schema, código
+- ✅ Zero execução de migration (nem real nem espelho) nesta fatia
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Artefatos AUDIT_* / RESET_* NÃO commitados; apenas docs institucionais
+- ✅ Banco real intocado em toda a fatia
+
+### Vinculadas
+
+- Portão 1.3 (F-DEV-DATA-CLEAN-RESET) — Descoberta C (commits `634f6542`)
+- F-FIX-ENV-PRECEDENCE (`aa6834ae`) — TRAVA usada
+- Seção 17 do `docs/01_normative/00_AGENT_PROTOCOL.md` — objetos sem ficheiro
+- Próxima fatia (decisão Clayton): desenhar 4 pacotes acima como migrations forward-only reais.
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".

@@ -8132,3 +8132,53 @@ Dívida material distinta da Descoberta B encontrada antes do ensaio chegar nela
 - ⚠️ Espelho `unificard_dev_rebuild_check_20260529011201` aguarda dropdb interativo
 - ✅ Artefatos RESET_* NÃO commitados (apenas docs institucionais)
 - ✅ Backup completo (`RESET_BACKUP_2026-05-28T23-29-59.dump`) preservado
+
+## Sessão 2026-05-29 — F-MIGRATION-REBUILD-COHERENCE-AUDIT (guardião read-only)
+
+### Escopo
+
+Medir o tamanho TOTAL da dívida de migration ANTES de qualquer correção, via 3 paralelas estáticas (read-only no banco real + parsing do tree + reuso dos artefatos do portão 1.3). Anti-cascata: não usar runner que continua após falha como fonte de verdade — fonte é estática.
+
+### Artefatos (locais, não commitar)
+
+- `AUDIT_A_ORPHANS_1780029566846.json` — órfãs detalhadas
+- `AUDIT_B_ORDER_1780029641545.json` — inversões + IF NOT EXISTS
+- `AUDIT_C_GAP_1780029694024.json` — gap esperado vs dívida real + blast radius
+
+### Tamanho total da dívida
+
+| Categoria | Qtd | Detalhe |
+|---|---|---|
+| Órfãs em schema_migrations | **3** | 294 (`create_payment_milestones`, baseline-marked sem rodar SQL); 295 (`seed_concept_split_engineering`, idem); 307 (`backfill_pf_actor_registry`, executada de verdade). |
+| Inversões REF_BEFORE_CREATE | **8 em 5 famílias** | `schedules`, `schedule_slots`, `bookings` (4×), `event_attendees`, `rides_vehicles`. Padrão: timestamp ~abril faz ALTER/REVOKE em tabela criada em timestamp ~maio. |
+| Refs a tabelas `_deprecated_*` (Seção 17) | 4 objetos | herança de rename manual em `20260429200000_cleanup_semantico.sql`. |
+| Dívida real de schema | **2** | `_deprecated_product_concept_resolution_queue`, `_deprecated_tenant_products`. Blast radius = 0. |
+| Pending no tree | 17 | inclui Descoberta B (558000) — depende de destravar Descoberta C. |
+| Colisão de timestamp | 1 | `20260530560000` é prefixo de DUAS migrations (1 órfã + 1 pending). Sem efeito no runner (ordena por filename completo). |
+| IF NOT EXISTS em CREATE TABLE | 117 | proporção alta — mascara dívida se algum CREATE foi pulado defensivamente. |
+
+### Migrations forward-only que PRECISARÃO ser criadas (10 itens, agrupadas em 4 pacotes)
+
+**Pacote 1 — Estrutural pré-cleanup (CREATE de tabelas referenciadas em abril):**
+1. CREATE schedules · 2. CREATE schedule_slots · 3. CREATE bookings · 4. CREATE event_attendees · 9. CREATE `_deprecated_product_concept_resolution_queue` · 10. CREATE `_deprecated_tenant_products`
+
+**Pacote 2 — Substituir órfãs:**
+6. CREATE payment_milestones (substitui órfã 518000) · 7. INSERT split-engineering concepts (substitui 519000) · 8. Reimplementar backfill PF actor_registry idempotente (substitui 560000)
+
+**Pacote 3 — Rides (profile FULL, opcional):**
+5. CREATE rides_vehicles
+
+**Pacote 4 — 17 PENDING (após pacotes 1+2):**
+Inclui 558000 (Descoberta B). Hipótese: roda OK no rebuild porque sem dados não há violação da CHECK.
+
+### Confirmações de escopo
+
+- ✅ Zero edição de migration / schema / código
+- ✅ Zero execução de migration nesta fatia
+- ✅ Zero toque no banco real além de SELECT
+- ✅ Artefatos AUDIT_* / RESET_* NÃO commitados
+- ✅ Banco real intocado em toda a sessão
+
+### Próximo passo
+
+Decisão Clayton sobre desenho dos 4 pacotes como migrations reais. Esta fatia entrega MAPA; correção é fatia separada.
