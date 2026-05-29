@@ -9726,6 +9726,132 @@ O rebuild reproduz o real ESTRUTURALMENTE. Divergências remanescentes são:
 - DIFF-AUDIT (`8f276907`) — mapa do diff que isolou o item único
 - Refinamento documental: Pacote 3 premissa corrigida; 3 órfãs absolvidas
 
+---
+
+## F-DEV-DATA-CLEAN-RESET — RECREATE EXECUTADO · banco real limpo (2026-05-29)
+
+- **Status:** Clayton executou manualmente `dropdb + createdb + migrate` no banco real `unificard_dev`. Migrate rodou **334/334** com `EXPECTED_DATABASE_NAME` confirmado. Banco real agora reflete o rebuild do tree. Reset completo.
+- **HEAD:** `29d8dcb0` (Pacote 1.c).
+- **Backup pré-drop:** `C:/unificard/RESET_BACKUP_PRE_DROP_2026-05-29T14-11-01.dump` (15 MB; pg_dump custom; 2353 TOC entries; pg_restore -l validado).
+
+### Conexões — 8 client backends terminados antes do drop
+
+```
+8 conexões em pg_stat_activity (todas client backend, datname=unificard_dev):
+  pid=896    idle in transaction (UPDATE bank_transactions, xact 13h)  ← cadeia órfã
+  pid=4840   active wait=Lock blocked by [896]
+  pid=25628  idle in transaction (UPDATE bank_transactions, xact 13h)  ← cadeia órfã
+  pid=22100  active wait=Lock blocked by [25628]
+  pid=27236  idle ClientRead (SELECT bank_settlements)                  ← pool keep-alive
+  pid=9080   idle ClientRead (COMMIT)
+  pid=20696  idle ClientRead (COMMIT)
+  pid=27220  idle ClientRead (COMMIT)
+```
+
+`pg_terminate_backend` em todas as 8 (autorizado por Clayton). Re-check confirmou zero conexões. NÃO foi usado `dropdb --force`.
+
+### Verificação pós-recreate
+
+#### Passo 1 — Gates 5/5 verdes
+
+| Gate | Resultado |
+|---|---|
+| tsc | clean |
+| validate:actor-writer-boundaries | GATE OK §4.8.1 |
+| validate:bank-ledger-boundaries | GATE OK §4.6 |
+| validate:regression-guards | GATE OK (Gate 3: 334 migrations) |
+| validate-architectural-patterns --strict | `critical_new=0` (warning_new=1 herdado fora do escopo) |
+
+#### Passo 2 — Diff pós-recreate (BEFORE pré-drop vs AFTER recreate)
+
+```
+Counts:
+  BEFORE  235 tables · 2348 cols · 1111 constraints · 76 triggers · 840 indexes ·
+          1 view · 122 funcs · 4 ext · 314 migrations · 94 col_cmts · 117 tbl_cmts
+  AFTER   235 · 2347 · 1111 · 76 · 840 · 1 · 122 · 4 · 334 · 90 · 116
+```
+
+**40 divergências — idênticas ao DIFF-AUDIT do espelho.** Classificadas:
+
+- **GRUPO 1 (cosméticas, 14):**
+  - 3 reversals.* COLUMN_COMMENT_DIFF_LF_ONLY (LF do BEFORE vs CRLF do AFTER — texto idêntico)
+  - 4 schema_migrations.* COLUMN_COMMENT_MISSING_IN_AFTER (runner não comenta)
+  - 1 schema_migrations TABLE_COMMENT_MISSING_IN_AFTER
+  - 1 schema_migrations.schema_migrations_filename_key CONSTRAINT_MISSING + 1 INDEX_MISSING
+  - 1 schema_migrations.unique_filename CONSTRAINT_EXTRA + 1 INDEX_EXTRA (par equivalente)
+  - 1 _deprecated_tenant_products.price COLUMN_MISSING_IN_AFTER (estado histórico pré-drop)
+  - 1 _deprecated_tenant_products.price_cents COLUMN_COMMENT_DEF_DIFF (rebuild atualizou via 530000)
+- **GRUPO 2 (esperadas, 26):**
+  - 23 `MIGRATION_EXTRA_IN_AFTER` = 6 do Pacote 1+1.b+1.c + 17 pendentes anteriores que agora rodaram
+  - 3 `MIGRATION_MISSING_IN_AFTER` = as 3 órfãs absolvidas (tombstone)
+- **GRUPO 3 (não aceitas): 0 ✓**
+
+**Execução real reproduziu fielmente o espelho.** Recreate fiel ao previsto pelo ensaio.
+
+#### Passo 3 — Seeds estruturais
+
+```
+concepts                       90  ✓ (de migrations seed_concepts_*)
+company_types                  7   ✓
+company_type_allowed_concepts  7   ✓
+categories                     102 ✓
+canonical_products             35  ✓
+permissions                    0   ⚠ (era tenant-scoped do DEV; sem tenant, sem RBAC)
+roles                          0   ⚠ (idem)
+role_permissions               0   ⚠ (idem)
+```
+
+**Sem rodar `RUN_SEEDS=true`:** seeds estruturais GLOBAIS nascem das migrations (concepts/categories/company_types/canonical_products). RBAC (permissions/roles/role_permissions) é TENANT-SCOPED — não nasce sem tenant. Esperado e correto. Renascerão no fluxo canônico quando criar o tenant DEV.
+
+#### Passo 4 — Estado limpo (fixtures)
+
+```
+tenants            0  ✓
+actors             0  ✓
+users              0  ✓
+identities         0  ✓
+global_users       0  ✓
+bank_ledger        0  ✓
+bank_transactions  0  ✓
+bank_accounts      0  ✓
+bank_splits        0  ✓
+```
+
+**ZERO fixture sobreviveu.** Reset perfeito.
+
+### Comparação com objetivo do reset
+
+- Antes do drop: 39 tenants, 140 actors, 71 users, 25 identities, 21 global_users, 1616 bank_ledger, 1168 bank_transactions, 401 bank_accounts, 273 bank_splits.
+- Depois: tudo 0. Backup `RESET_BACKUP_PRE_DROP_2026-05-29T14-11-01.dump` é a única referência ao estado anterior.
+
+### Artefatos pós-recreate (locais, não commitados)
+
+- `RESET_SCHEMA_AFTER_2026-05-29T15-19-38.sql` (636 KB)
+- `RESET_INVENTORY_AFTER_2026-05-29T15-19-38.json` (1.1 MB)
+- `RESET_BACKUP_PRE_DROP_2026-05-29T14-11-01.dump` (15 MB, pré-drop)
+
+### Recomendação — Fase 3 (reseed canônico) como FATIA SEPARADA
+
+Banco limpo confirmado. Próxima fatia: recriar **dev + PF + PJ + banda** pelo **FLUXO CANÔNICO** (prova F3.1 v2). Regra: se faltar fluxo canônico para algum contexto, **mapear como ACHADO**, não improvisar seed manual. Fora desta fatia.
+
+### Confirmações de escopo
+
+- ✅ Banco real recriado pelo Clayton (Claude Code NÃO executou dropdb/createdb)
+- ✅ Backup pré-drop fresco e validado
+- ✅ 8 conexões terminadas via `pg_terminate_backend` (autorizado); NÃO foi usado `dropdb --force`
+- ✅ EXPECTED_DATABASE_NAME ativa no migrate do recreate (confirmado pelo Clayton no log)
+- ✅ Gates 5/5 verdes no banco recriado
+- ✅ Grupo 3 = 0 confirmado pelo diff
+- ✅ Estado limpo perfeito (zero fixtures)
+- ✅ Artefatos RESET_*/AUDIT_*/.dump/.log NÃO commitados
+
+### Vinculadas
+
+- Pacote 1 + 1.b + 1.c (`b276eb30` → `744d8bb9` → `29d8dcb0`) — backdates que viabilizaram o rebuild fiel
+- DIFF-AUDIT do espelho (`8f276907`) — previu exatamente o diff pós-recreate
+- F-FIX-ENV-PRECEDENCE (`aa6834ae`) — TRAVA que protegeu o migrate de errar de banco
+- Próxima frente: F-DEV-DATA-RESEED canônico (Fase 3) em fatia separada
+
 ### Pendência que esta frente substitui
 
 - **Backfill dos 94 atores `global_user_id IS NULL`** (proposto após F3.1 v2): substituído pelo reset. Após Fase 1+3 concluídas, fechar como "SUBSTITUÍDO POR F-DEV-DATA-CLEAN-RESET".

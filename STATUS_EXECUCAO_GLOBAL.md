@@ -8498,6 +8498,69 @@ Banco vivo: no-op (FK já existe). Rebuild zero: FK criada → diff fecha.
 
 Aguardar autorização para escrever Pacote 1.c (1 ADD CONSTRAINT idempotente).
 
+## Sessão 2026-05-29 — RECREATE EXECUTADO · banco real limpo
+
+### Escopo
+
+Clayton executou manualmente `dropdb + createdb + migrate` no banco real `unificard_dev`. Migrate rodou **334/334** com TRAVA `EXPECTED_DATABASE_NAME` confirmada. Verificação pós-recreate completa.
+
+### Conexões limpas antes do drop
+
+8 client backends terminados via `pg_terminate_backend` (autorizado): 4 órfãs de 13h (cadeia 896↔4840 + 25628↔22100) + 4 IDLE pool keep-alive (27236/9080/20696/27220). Re-check confirmou zero. **`dropdb --force` NÃO usado.**
+
+### Verificação pós-recreate
+
+#### Gates 5/5
+
+tsc clean · actor-writer §4.8.1 · bank-ledger §4.6 · regression-guards (Gate 3: 334) · arch strict `critical_new=0`.
+
+#### Diff pós-recreate (BEFORE pré-drop vs AFTER recreate)
+
+**40 divergências — idênticas ao espelho.**
+- Grupo 1 cosméticas (14): LF/CRLF reversals · schema_migrations runner names · _deprecated_tenant_products estado histórico do BEFORE
+- Grupo 2 esperadas (26): 23 MIGRATION_EXTRA_IN_AFTER (6 Pacotes + 17 pendentes) + 3 MIGRATION_MISSING (3 órfãs absolvidas)
+- **Grupo 3 não aceitas: 0 ✓**
+
+**Recreate fiel ao espelho.**
+
+#### Seeds estruturais
+
+```
+GLOBAIS (nascem das migrations):
+  concepts=90  company_types=7  company_type_allowed_concepts=7
+  categories=102  canonical_products=35
+
+TENANT-SCOPED (não nascem sem tenant — esperado):
+  permissions=0  roles=0  role_permissions=0
+```
+
+RBAC renascerá no fluxo canônico quando criar o tenant DEV. Sem rodar `RUN_SEEDS=true`.
+
+#### Estado limpo
+
+```
+tenants=0  actors=0  users=0  identities=0  global_users=0
+bank_ledger=0  bank_transactions=0  bank_accounts=0  bank_splits=0
+```
+
+ZERO fixture sobreviveu. Reset perfeito.
+
+### Backup pré-drop preservado
+
+`RESET_BACKUP_PRE_DROP_2026-05-29T14-11-01.dump` (15 MB, pg_dump custom, 2353 TOC entries, pg_restore -l validado).
+
+### Próximo passo
+
+Fase 3 (reseed canônico) como **fatia separada**: dev + PF + PJ + banda pelo FLUXO CANÔNICO (prova F3.1 v2). Se faltar fluxo canônico, mapear como ACHADO — sem improvisar seed manual.
+
+### Confirmações de escopo
+
+- ✅ Banco real recriado pelo Clayton (Claude Code NÃO executou dropdb/createdb)
+- ✅ Backup pré-drop validado · `dropdb --force` NÃO usado
+- ✅ EXPECTED_DATABASE_NAME ativa no migrate (Clayton confirmou no log)
+- ✅ Gates 5/5 · Grupo 3 = 0 · estado limpo perfeito
+- ✅ Artefatos RESET_* NÃO commitados
+
 ## Sessão 2026-05-29 — Pacote 1.c · FK reposta · Grupo 3 = 0 · drop/recreate LIBERADO
 
 ### Escopo
