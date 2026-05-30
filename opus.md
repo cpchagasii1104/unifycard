@@ -1730,3 +1730,59 @@ com tenant isolation explícito. Migration 20260530575000 (2 cols + CHECK paread
 index). E2E 21/21 (M/A/R). Gates verdes, typecheck clean, critical_new=0, sem warning nova.
 DTs abertas: company-canonical quebrado (schema drift, não tocado) + capabilities omitidas
 (aguarda D-CONCEPT/D-CONTEXT-RESOLVER). Próximo: 3C (banda).
+
+### FASE 3C.3 — CLOSED ✅ (2026-05-30) — Group Actor em Dois Momentos
+Group actor implementado pelo mesmo padrão da 3B.3: Momento 1 (social/inerte, actor_id=NULL) →
+Momento 2 (operacional, ensureGroupActor preenche actor_id atomicamente). Writer único:
+groups.service.ts::createGroup chama ensureGroupActor após groupsRepository.create — FORA de TX
+ativa (motor tem TX interna própria). ensureGroupActor (actor.repository.ts:337) é transacional,
+idempotente, fail-closed: lê groups.owner_actor_id como responsible_actor_id, revalida âncora
+humana sob SELECT FOR UPDATE, falha fechada se owner_actor_id NULL (§4.8.2). Migration 576000:
+uq_actors_group (unique partial actors WHERE actor_type='group') + actors_group_id_fkey (RESTRICT)
++ uq_groups_actor (unique partial groups WHERE actor_id IS NOT NULL). Bug corrigido em addMember:
+ON CONFLICT SET role = CASE WHEN owner THEN preserve ELSE EXCLUDED.role END — antes retornava
+0 rows quando owner tentava ser downgraded → throw. E2E validate-pipeline-e2e-group-two-moments.ts:
+11/11 verdes (M1/M2/M3 schema + A1–A7 ativação + CLEANUP). Gates verdes, critical_new=0.
+DT-GROUP-OWNER-DOUBLE-ADD registrada: duplo addMember em :187+193 é NO-OP funcional; remover
+quando authority/capability entrar em escopo (não antes). Commits: 284ae2a8 (migration) + 78091dbb (wiring).
+
+### SEC-1 — CLOSED ✅ (2026-05-30) — chk_actor_requires_identity cobre user/actor_human/person
+Gap fechado: migration 0010 criou chk_actor_requires_identity para actor_type='actor_human'.
+Migration 0064 reabriu o vocabulário para 10 valores incluindo 'user' (canônico runtime) sem
+atualizar a constraint — banco aceitava user actor sem global_user_id por ~2 anos.
+Migration 577000 amplia: CHECK (actor_type NOT IN ('user','actor_human','person') OR
+global_user_id IS NOT NULL). Pré-flight: 0 violações. GUARD DO $$ RAISE EXCEPTION interno.
+Runtime já era fail-closed (findOrCreateUserActor: 2 guards explícitos §4.8.1).
+Commit: 1a946c6f. Gates verdes, regression-guards=337.
+
+### COE-1 — CLOSED ✅ (2026-05-30) — checkOwnership consulta groups.id
+Bug em authorization.service.ts:396: WHERE group_id=$1 contra tabela groups (PK=id, não group_id).
+Owner legítimo de grupo era NUNCA reconhecido como owner na camada de authority — acesso negado
+indevidamente em toda checagem de ownership de grupo. Correção: WHERE id=$1. 1 token, 1 linha,
+1 arquivo. DT-GROUPS-ROUTES-LEGACY-GROUP-ID registrada para bugs parentes em grupos-closure e
+grupos-state-history (mesmo padrão, escopo ortogonal — microfrente própria futura).
+Commit: 12ec1f91. Gates verdes, regression-guards=337.
+
+### COE-2 — CLOSED ✅ (2026-05-30) — groups.owner_actor_id SET NOT NULL
+Coluna era nullable no banco mas obrigatória de-facto no código: createGroup sempre seta
+owner_actor_id (ensureUserActor lança antes se userId inválido) e ensureGroupActor exige
+owner_actor_id com dois throws §4.8.2 (pré-TX e sob lock). Formalização da segunda linha de
+defesa no banco, como SEC-1. Migration 578000: GUARD DO $$ + ALTER TABLE groups ALTER COLUMN
+owner_actor_id SET NOT NULL. Pré-flight: 0 violações. is_nullable=NO confirmado.
+DT-GROUPS-OWNER-FK-ONDELETE-POLICY registrada: FK usa ON DELETE NO ACTION (padrão) vs RESTRICT
+da 576000 — assimetria de política de ciclo de vida, microfrente de authority futura.
+Commit: b01cba54. Gates verdes, regression-guards=338.
+
+**Estado do sistema (2026-05-30 — pós-COE-2):**
+- Fase 3 completa: 3A (user actor) + 3B (page actor) + 3C (group actor) CLOSED
+- Linha causal fechada: IDENTIDADE → AUTORIDADE → ÂNCORA CIVIL
+- Dupla linha de defesa para âncoras civis: runtime (fail-closed) + banco (constraint)
+- actor_type='user' → global_user_id: findOrCreateUserActor + chk_actor_requires_identity
+- groups.owner_actor_id: ensureGroupActor §4.8.2 + NOT NULL
+- groups.actor_id: NULL legítimo por dois momentos (by design, não é gap)
+- Cofre econômico: DESLIGADO — ECON-1/2/3 aguardam F-MAPA
+- DTs abertas: DT-GROUPS-ROUTES-LEGACY-GROUP-ID · DT-GROUPS-OWNER-FK-ONDELETE-POLICY
+  · DT-GROUP-OWNER-DOUBLE-ADD · DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (SEC-2 pendente)
+  · DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT · DT-COMPANY-MARKETPLACE-ACTIVATION-FLAGS-PARALLEL-CAPABILITY
+- HEAD: 22de5412 · branch: rescue-structural · migrations: 338
+- Próxima frente: F-MAPA-DE-ACOPLAMENTO-SISTEMICO (READ-ONLY) antes de qualquer ECON
