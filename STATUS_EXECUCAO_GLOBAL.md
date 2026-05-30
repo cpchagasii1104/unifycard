@@ -8656,3 +8656,82 @@ Desenho: docs/02_decisions/DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md (commit 691b
 - DTs: DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT, DT-COMPANY-3B3-CAPABILITIES-OMITTED.
 - company-canonical.service e rota: NÃO tocados. Capabilities: NÃO gravadas. DEV: limpo.
 - PRÓXIMO: 3C (banda) — desenho próprio.
+
+### FASE 3C.3 — CLOSED ✅ (2026-05-30) — Group Actor em Dois Momentos
+Desenho: docs/02_decisions/DESENHO_FASE_3C_GROUP_ACTOR_DOIS_MOMENTOS.md (commit 962987b1).
+- Migration 576000: uq_actors_group (unique partial actors WHERE actor_type='group') +
+  actors_group_id_fkey (RESTRICT) + uq_groups_actor (unique partial groups WHERE actor_id IS NOT NULL).
+  GUARD DO $$ ×3 (órfãos, dup group-actor, dup groups.actor_id). Commits: 284ae2a8 + 78091dbb.
+- groups.service.createGroup → ensureGroupActor (Etapa 4, commit 78091dbb): group-actor criado
+  atomicamente FORA de TX ativa. ensureGroupActor transacional, idempotente, fail-closed:
+  lê owner_actor_id como responsible_actor_id, revalida âncora humana sob FOR UPDATE, falha
+  fechada se owner_actor_id NULL (§4.8.2).
+- addMember corrigido: ON CONFLICT CASE WHEN owner THEN preserve ELSE EXCLUDED.role END.
+  Bug anterior: WHERE <false> em ON CONFLICT retornava 0 rows → throw.
+- E2E validate-pipeline-e2e-group-two-moments.ts: 11/11 verdes (M1/M2/M3 + A1–A7 + CLEANUP).
+- Gates verdes · critical_new=0 · regression-guards=336→337 (com migrations de integridade).
+- DT-GROUP-OWNER-DOUBLE-ADD: duplo addMember em :187+193 é NO-OP funcional (guard CASE WHEN).
+  Remover quando authority/capability entrar em escopo.
+- DEV: limpo. Cofre econômico: NÃO tocado.
+- PRÓXIMO: hardening de identidade/authority (SEC-1, COE-1, COE-2) antes de ECON.
+
+### SEC-1 — CLOSED ✅ (2026-05-30) — chk_actor_requires_identity cobre user/actor_human/person
+- Gap: migration 0010 criou constraint para actor_type='actor_human'. Migration 0064 reabriu
+  vocabulário para 10 valores (incluindo 'user', canônico runtime) sem atualizar constraint.
+  Banco aceitava user actor sem global_user_id por ~2 anos.
+- Migration 577000: DROP + ADD CHECK (actor_type NOT IN ('user','actor_human','person') OR
+  global_user_id IS NOT NULL). GUARD DO $$ pré-voo + gate pós-aplicação na mesma TX.
+- Pré-flight: 0 violações em DEV. Runtime já era fail-closed (findOrCreateUserActor §4.8.1).
+- Commit: 1a946c6f. Gates verdes. regression-guards=337.
+
+### COE-1 — CLOSED ✅ (2026-05-30) — checkOwnership consulta groups.id
+- Bug: authorization.service.ts:396 usava WHERE group_id=$1 contra tabela groups cuja PK é id.
+  Owner legítimo de grupo NUNCA reconhecido como owner em toda checagem de ownership de grupo.
+- Correção: WHERE id=$1. 1 token, 1 linha, 1 arquivo.
+- DT-GROUPS-ROUTES-LEGACY-GROUP-ID registrada: bugs parentes em groups-closure.routes.ts:39
+  e groups-state-history.routes.ts:37 (escopo ortogonal, microfrente própria futura).
+- Commit: 12ec1f91. Gates verdes. regression-guards=337.
+
+### COE-2 — CLOSED ✅ (2026-05-30) — groups.owner_actor_id SET NOT NULL
+- Coluna era nullable no banco mas obrigatória de-facto: createGroup sempre seta owner_actor_id
+  (ensureUserActor lança antes) e ensureGroupActor tem 2 throws §4.8.2 (pré-TX e sob lock).
+- Migration 578000: GUARD DO $$ + ALTER TABLE groups ALTER COLUMN owner_actor_id SET NOT NULL.
+- Pré-flight: 0 violações. is_nullable=NO confirmado pós-aplicação.
+- DT-GROUPS-OWNER-FK-ONDELETE-POLICY: groups_owner_actor_id_fkey usa ON DELETE NO ACTION
+  (padrão) vs RESTRICT da 576000. Assimetria de ciclo de vida — microfrente de authority futura.
+- Commit: b01cba54. Gates verdes. regression-guards=338.
+
+---
+
+## ESTADO GLOBAL — 2026-05-30 (pós-COE-2)
+
+**Branch:** rescue-structural · **HEAD:** 42c189f7 · **Migrations:** 338
+
+**Fase 3 — COMPLETA:**
+- 3A user actor (pessoa física) CLOSED · 3B page actor (empresa) CLOSED · 3C group actor (coletivo) CLOSED
+- Os três sujeitos operacionais básicos nascem por trilho canônico: CPF → identity → actor
+
+**Linha causal fechada:** IDENTIDADE → AUTORIDADE → ÂNCORA CIVIL
+**Dupla linha de defesa:**
+- actor_type='user' → global_user_id: findOrCreateUserActor (runtime) + chk_actor_requires_identity (banco)
+- groups.owner_actor_id: ensureGroupActor §4.8.2 (runtime) + NOT NULL (banco)
+- groups.actor_id: NULL legítimo por dois momentos (by design)
+
+**Cofre econômico:** DESLIGADO — ECON-1/2/3 aguardam F-MAPA-DE-ACOPLAMENTO-SISTEMICO
+
+**DTs abertas registradas no REMEDIATION_DT_LOG.md:**
+- DT-GROUPS-ROUTES-LEGACY-GROUP-ID (endpoints quebrados, rotas de superfície)
+- DT-GROUPS-OWNER-FK-ONDELETE-POLICY (assimetria ON DELETE)
+- DT-GROUP-OWNER-DOUBLE-ADD (duplo addMember, funcional, aguarda authority)
+- DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (SEC-2 pendente — auditoria 10→4, sem poda)
+- DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT (schema drift em company-canonical.service)
+- DT-COMPANY-MARKETPLACE-ACTIVATION-FLAGS-PARALLEL-CAPABILITY (flags em memória volátil)
+- DT-COMPANY-3B3-CAPABILITIES-OMITTED (capabilities não gravadas, aguarda D-CONCEPT)
+
+**Próxima frente:** F-MAPA-DE-ACOPLAMENTO-SISTEMICO (READ-ONLY)
+Quatro perguntas-gate antes de ECON-1:
+1. ensureActorWalletAccount exercido com page/group ou só user?
+2. Governance commitment sem bank_ledger correspondente? (DEV vazio = INCONCLUSIVO, não limpo)
+3. bank/wallet/split compara actor_type legado?
+4. split engine enxerga group-actor como destinatário elegível?
+Critério: 4 limpas → ECON-1 pode ser desenhada. Qualquer fantasma/inconclusivo → DT primeiro.
