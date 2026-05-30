@@ -9973,3 +9973,16 @@ chama esses endpoints específicos.
 Estas rotas exigem decisão sobre aliases (`id AS group_id`), semântica de `is_active` vs `status`,
 e validação de callers que dependam do nome da coluna retornada. Ratificação própria obrigatória.
 **Próxima ação:** microfrente própria — READ-ONLY + mapeamento de callers + ratificação antes de editar.
+
+### DT-GROUPS-OWNER-FK-ONDELETE-POLICY (OPEN) — descoberto em READ-ONLY COE-2 (2026-05-30)
+**Contexto.** `groups_owner_actor_id_fkey` usa `ON DELETE NO ACTION` (padrão PostgreSQL), enquanto
+a FK análoga da migration 576000 (`actors_group_id_fkey`: `actors.group_id → groups(id)`) usa
+explicitamente `ON DELETE RESTRICT`. Há assimetria de política de ciclo de vida entre as duas
+pontas da relação grupo↔actor-owner.
+**Prova material:** `pg_get_constraintdef(groups_owner_actor_id_fkey)` =
+`FOREIGN KEY (owner_actor_id) REFERENCES actors(id)` — sem cláusula ON DELETE explícita.
+**Por que não foi tocado no COE-2:** COE-2 respondia "grupo pode existir sem owner?" (não) via
+NOT NULL. ON DELETE responde "o que acontece se o actor-owner for apagado?" — ciclo de vida e
+authority, eixo ortogonal. Misturar as duas perguntas quebraria a atomicidade da microfrente.
+**Próxima ação:** avaliar em microfrente de ciclo de vida/authority se NO ACTION deve virar
+RESTRICT para simetria com 576000. READ-ONLY + ratificação antes de editar.
