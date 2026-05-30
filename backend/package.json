@@ -83,7 +83,7 @@
     "execution-health:gate": "node scripts/execution-global-health-check.mjs",
     "validate:core-only": "tsx src/scripts/validate-core-only.ts",
     "validate:profile-n1": "tsx src/scripts/validate-profile-n1.ts",
-    "validate:architectural": "node scripts/validate-architectural-rules.ts",
+    "validate:architectural": "tsx scripts/validate-architectural-rules.ts",
     "remove:context-nutricao": "tsx src/scripts/remove-deprecated-context-nutricao.ts",
     "seed:n2-governed": "tsx src/scripts/seed-n2-governed.ts",
     "seed:professions": "tsx scripts/seed-professions.ts",
