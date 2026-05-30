@@ -186,7 +186,10 @@ class GroupsRepository {
     // Adicionar owner como membro com role 'owner'
     await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'owner');
 
-    // Adicionar owner também como 'admin' para permitir atualizações
+    // DT-GROUP-OWNER-DOUBLE-ADD (3C.3): owner já foi adicionado como 'owner' acima; este
+    // addMember('admin') agora é NO-OP de efeito (o guard no ON CONFLICT não rebaixa owner →
+    // role permanece 'owner'). Mantido porque decidir se owner⊇admin é authority, fora do
+    // escopo da 3C.3. Remover o duplo-add quando authority/capability entrar em escopo.
     await this.addMember(tenantId, row.id, ownerUserIdForMembership, 'admin');
 
     return this.toGroup(row);
@@ -391,7 +394,8 @@ class GroupsRepository {
       `
       INSERT INTO group_members (tenant_id, group_id, user_id, role)
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE SET role = EXCLUDED.role
+      ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE
+        SET role = EXCLUDED.role WHERE group_members.role <> 'owner'
       RETURNING group_id, user_id, role, created_at AS "joinedAt"
       `,
       [tenantId, groupId, userId, role]
