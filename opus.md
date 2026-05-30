@@ -1780,9 +1780,15 @@ Commit: b01cba54. Gates verdes, regression-guards=338.
 - actor_type='user' → global_user_id: findOrCreateUserActor + chk_actor_requires_identity
 - groups.owner_actor_id: ensureGroupActor §4.8.2 + NOT NULL
 - groups.actor_id: NULL legítimo por dois momentos (by design, não é gap)
-- Cofre econômico: DESLIGADO — ECON-1/2/3 aguardam F-MAPA
-- DTs abertas: DT-GROUPS-ROUTES-LEGACY-GROUP-ID · DT-GROUPS-OWNER-FK-ONDELETE-POLICY
+- Cofre econômico: DESLIGADO. F-MAPA concluído (READ-ONLY): ECON-1 liberada com cuidado,
+  ECON-2 BLOQUEADA (DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP), ECON-3 BLOQUEADA (bridge ausente)
+- DTs abertas: DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP (bloqueante ECON-2)
+  · DT-GROUPS-ROUTES-LEGACY-GROUP-ID · DT-GROUPS-OWNER-FK-ONDELETE-POLICY
   · DT-GROUP-OWNER-DOUBLE-ADD · DT-ACTOR-TYPE-VOCABULARY-FRAGMENTATION (SEC-2 pendente)
   · DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT · DT-COMPANY-MARKETPLACE-ACTIVATION-FLAGS-PARALLEL-CAPABILITY
 - HEAD: 22de5412 · branch: rescue-structural · migrations: 338
-- Próxima frente: F-MAPA-DE-ACOPLAMENTO-SISTEMICO (READ-ONLY) antes de qualquer ECON
+- F-MAPA P4 FANTASMA: split de grupo (bank-split-engine.service.ts:202-207) usa
+  getAccountByOwner(groupId,'company') — nunca casa com wallet canônica ${actorId}:actor_wallet.
+  Split comunitário vaza para regional_fund sem erro. Frente cirúrgica exige ratificação tripla.
+- Próxima frente: corrigir split engine (group_id→groups.actor_id→getActorWalletAccount) com E2E
+  — NÃO EXECUTAR SEM RATIFICAÇÃO TRIPLA (escrita em código que distribui dinheiro)

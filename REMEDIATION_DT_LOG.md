@@ -9986,3 +9986,33 @@ NOT NULL. ON DELETE responde "o que acontece se o actor-owner for apagado?" — 
 authority, eixo ortogonal. Misturar as duas perguntas quebraria a atomicidade da microfrente.
 **Próxima ação:** avaliar em microfrente de ciclo de vida/authority se NO ACTION deve virar
 RESTRICT para simetria com 576000. READ-ONLY + ratificação antes de editar.
+
+### DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP (OPEN — BLOQUEANTE de ECON-2) — descoberto em F-MAPA (2026-05-30)
+**Contexto.** O split engine resolve a wallet de grupo por lookup legado incompatível com a
+wallet canônica do group-actor. O split comunitário destinado a grupos NUNCA encontra a conta
+e vaza silenciosamente para `regional_fund`, sem erro e sem log. Bloqueia ECON-2.
+**Prova material (verificada no código por executora, não só leitura do arquiteto):**
+- Wallet canônica — `backend/src/modules/bank/bank-account.service.ts:256-279`
+  `ensureActorWalletAccount(actorId)`: `owner_id = '${actorId}:actor_wallet'`, `owner_type = 'actor_wallet'`.
+  Resolução do composite confirmada em `bank-account.repository.ts:241-246` (`endsWith(':actor_wallet')`).
+- Lookup do split — `backend/src/modules/bank/bank-split-engine.service.ts:202-207`
+  `getAccountByOwner(tenantId, alloc.groupId, 'company', currency)`:
+  `owner_id = alloc.groupId` (id do grupo, NÃO o actor_id do group-actor); `owner_type = 'company'`.
+- Mismatch duplo: `owner_id` (groupId vs `${groupActorId}:actor_wallet`) E `owner_type`
+  (`'company'` vs `'actor_wallet'`). `getAccountByOwner` retorna null → linha 209
+  `if (groupAccount && groupCents > 0)` falsa → split não empilhado → `groupAllocationTotalCents`
+  fica 0 → linha 221 `profitAmountCents -= 0` (sem redução) → remanescente cai inteiro em
+  `regional_fund` (linhas 225-246). **Vazamento silencioso de dinheiro do grupo.**
+- Mesmo padrão legado (`group_id, 'company'`) aparece em bank-http.routes.ts:218 e
+  transparency.service.ts:272 — relacionado a ECON-1 (ownerType='group' ausente).
+**Efeito:** todo split comunitário para grupo elegível (CONTRATO_GRUPOS_V1, até 3%) vai para o
+fundo regional em vez do grupo. Invariante de ledger (Σdéb=Σcred) FECHA — por isso é invisível
+aos gates atuais; o dinheiro só está no destino errado.
+**Por que NÃO foi corrigido em F-MAPA:** F-MAPA é READ-ONLY (multímetro, não chave de boca).
+Corrigir o split engine é escrita em código que distribui dinheiro → exige ratificação tripla
+(Opus + ChatGPT + Clayton) antes de qualquer linha.
+**Próxima ação (frente cirúrgica própria — NÃO EXECUTAR SEM RATIFICAÇÃO):** corrigir a cadeia
+`group_id → groups.actor_id (group-actor.actor_id) → getActorWalletAccount()` e provar por E2E
+nesta ordem causal: (1) grupo com actor canônico; (2) actor_wallet criada; (3) split comunitário
+encontra a wallet; (4) valor cai no grupo; (5) remanescente vai ao regional_fund SÓ depois;
+(6) ledger fecha (Σdéb=Σcred). Depende de ECON-1 (ownerType='group') resolvido antes.

@@ -8735,3 +8735,38 @@ Quatro perguntas-gate antes de ECON-1:
 3. bank/wallet/split compara actor_type legado?
 4. split engine enxerga group-actor como destinatário elegível?
 Critério: 4 limpas → ECON-1 pode ser desenhada. Qualquer fantasma/inconclusivo → DT primeiro.
+
+---
+
+## F-MAPA-DE-ACOPLAMENTO-SISTEMICO — CONCLUÍDO ✅ (2026-05-30, READ-ONLY)
+
+Regra fundamental aplicada: **DEV vazio = INCONCLUSIVO, não LIMPO** (ausência de evidência em
+ambiente zerado não é evidência de ausência).
+
+**Vereditos calibrados das 4 perguntas-gate:**
+
+- **P1 — LIMPO ESTRUTURAL + COBERTURA AUSENTE.** ensureActorWalletAccount aceita qualquer actorId
+  via composite `${actorId}:actor_wallet`; o único exercício material é com actor_type='user'
+  (PE5). Estrutura libera page/group, mas prova não existe. Não bloqueia ECON-1; exige E2E de
+  page/group quando a frente entrar.
+- **P2 — DESLIGADO CONFIRMADO.** Os 4 workers de governança são dead code sem call site em BOOT.
+  Libera não mexer agora; NÃO prova coerência quando ligar. ECON-3 exige E2E commitment→bank_ledger
+  antes de wirar worker.
+- **P3 — NÃO BLOQUEANTE COM RESSALVA.** Nenhum filtro de actor_type exclui page/group do caminho
+  canônico de actor_wallet. Vocabulário legado (`'company'` para grupo) permanece vetor de
+  acidente — visível, não ativo.
+- **P4 — FANTASMA CONFIRMADO (bloqueio real).** bank-split-engine.service.ts:202-207 resolve grupo
+  por getAccountByOwner(groupId, 'company') — nunca casa com a wallet canônica
+  `${groupActorId}:actor_wallet` (owner_type='actor_wallet'). Split comunitário vaza para
+  regional_fund sem erro. Verificado no código pela executora. → **DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP**.
+
+**Resultado do mapa:**
+- ECON-1 (ownerType='group') pode ser desenhada com cuidado — frente própria.
+- **ECON-2 BLOQUEADA** até corrigir o lookup do split de grupo (DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP).
+- **ECON-3 BLOQUEADA** até provar bridge governance/treasury → bank_ledger.
+
+**Próxima ação:** NÃO é ECON. A frente cirúrgica que corrige o split engine é escrita em código
+que distribui dinheiro → carrega `NÃO EXECUTAR SEM RATIFICAÇÃO TRIPLA` (Opus + ChatGPT + Clayton).
+Cadeia a corrigir: group_id → groups.actor_id → getActorWalletAccount(), com E2E provando ordem
+causal: (1) grupo com actor; (2) wallet criada; (3) split encontra wallet; (4) valor cai no grupo;
+(5) remanescente ao regional_fund só depois; (6) ledger fecha (Σdéb=Σcred).
