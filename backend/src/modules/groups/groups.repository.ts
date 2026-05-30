@@ -395,7 +395,7 @@ class GroupsRepository {
       INSERT INTO group_members (tenant_id, group_id, user_id, role)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (tenant_id, group_id, user_id) DO UPDATE
-        SET role = EXCLUDED.role WHERE group_members.role <> 'owner'
+        SET role = CASE WHEN group_members.role = 'owner' THEN group_members.role ELSE EXCLUDED.role END
       RETURNING group_id, user_id, role, created_at AS "joinedAt"
       `,
       [tenantId, groupId, userId, role]

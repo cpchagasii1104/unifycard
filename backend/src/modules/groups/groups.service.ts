@@ -10,7 +10,7 @@ import { runQueryWithTenant } from '@core/database/pool';
 import { BadRequestError } from '@core/errors';
 import { worldService } from '@core/world/services/world.service';
 import type { Group, GroupMember, CreateGroupInput, UpdateGroupInput, GroupWithMembers, GroupInvite, GroupInviteStatus, CreateGroupInviteInput } from './groups.types';
-import { ensureUserActor } from '@modules/identity/actor-writer.service';
+import { ensureUserActor, ensureGroupActor } from '@modules/identity/actor-writer.service';
 
 class GroupsService {
   /**
@@ -226,6 +226,11 @@ class GroupsService {
     await groupCreationPolicy.canCreateGroup(tenantId, ownerActor.actor_id);
 
     const group = await groupsRepository.create(tenantId, ownerActor.actor_id, input);
+
+    // §3C.3 Etapa 4 — writer único: garante group-actor atômico (§4.8.1 LEI_COERENCIA).
+    // ensureGroupActor: transacional, idempotente, fail-closed.
+    // NÃO chamar dentro de transação ativa (tem TX interna própria).
+    await ensureGroupActor(tenantId, group.groupId);
 
     // 🔴 INTENÇÃO FINANCEIRA: Criar conta econômica apenas se houver intenção financeira
     // Reutilizar variável hasFinancialIntent já declarada acima
