@@ -9953,3 +9953,23 @@ capabilities default.
 + primary_company_type_id + primary_concept_id válidos (par em company_type_allowed_concepts).
 Sem capabilities persistidas (não há tabela de capability no schema vivo — provado por A8).
 **Resolução futura:** D-CONCEPT / D-CONTEXT-RESOLVER define a derivação governada de capabilities.
+
+### DT-GROUPS-ROUTES-LEGACY-GROUP-ID (OPEN) — descoberto em READ-ONLY COE-1 (2026-05-30)
+**Contexto.** Duas rotas de superfície do módulo de grupos usam `group_id` como nome de coluna
+na tabela `groups`, mas `groups` não possui essa coluna — a PK é `id`. São vestígios do momento
+em que a tabela renomeou a PK de `group_id` para `id` sem que esses arquivos fossem atualizados.
+**Prova material:**
+- `backend/src/modules/groups/groups-closure.routes.ts:39`
+  `SELECT group_id, created_at FROM groups WHERE group_id = $1 AND tenant_id = $2`
+  → `group_id` inexistente no SELECT e no WHERE; endpoint retorna erro 500 em qualquer chamada.
+- `backend/src/modules/groups/groups-state-history.routes.ts:37`
+  `SELECT group_id, is_active, created_at, updated_at FROM groups WHERE group_id = $1 AND tenant_id = $2`
+  → `group_id` inexistente; `is_active` inexistente (estado real é derivado de `status = 'active'`);
+  endpoint sempre quebrado em runtime.
+**Mitigação atual:** rotas de superfície (não core); grupos foram criados via `groupsService` sem
+passar por essas rotas nos testes E2E (3C.3 usou createGroup direto). Efeito limitado a quem
+chama esses endpoints específicos.
+**Por que separado do COE-1:** COE-1 era core authority (authorization.service) — correção de 1 token.
+Estas rotas exigem decisão sobre aliases (`id AS group_id`), semântica de `is_active` vs `status`,
+e validação de callers que dependam do nome da coluna retornada. Ratificação própria obrigatória.
+**Próxima ação:** microfrente própria — READ-ONLY + mapeamento de callers + ratificação antes de editar.
