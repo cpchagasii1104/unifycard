@@ -1788,7 +1788,9 @@ Commit: b01cba54. Gates verdes, regression-guards=338.
   · DT-COMPANY-CANONICAL-SERVICE-SCHEMA-DRIFT · DT-COMPANY-MARKETPLACE-ACTIVATION-FLAGS-PARALLEL-CAPABILITY
 - HEAD: 22de5412 · branch: rescue-structural · migrations: 338
 - F-MAPA P4 FANTASMA: split de grupo (bank-split-engine.service.ts:202-207) usa
-  getAccountByOwner(groupId,'company') — nunca casa com wallet canônica ${actorId}:actor_wallet.
-  Split comunitário vaza para regional_fund sem erro. Frente cirúrgica exige ratificação tripla.
+  getAccountByOwner(groupId,'company'). Wallet canônica tem owner_id='${actorId}:actor_wallet',
+  owner_type='actor', account_type='actor_wallet'. toDbOwnerType colapsa 'user' e 'company' ambos
+  em 'actor' → owner_type CASA; o mismatch é SÓ no owner_id (groupId vs composite). Split
+  comunitário vaza para regional_fund sem erro. Frente cirúrgica exige ratificação tripla.
 - Próxima frente: corrigir split engine (group_id→groups.actor_id→getActorWalletAccount) com E2E
   — NÃO EXECUTAR SEM RATIFICAÇÃO TRIPLA (escrita em código que distribui dinheiro)

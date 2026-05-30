@@ -8756,9 +8756,11 @@ ambiente zerado não é evidência de ausência).
   canônico de actor_wallet. Vocabulário legado (`'company'` para grupo) permanece vetor de
   acidente — visível, não ativo.
 - **P4 — FANTASMA CONFIRMADO (bloqueio real).** bank-split-engine.service.ts:202-207 resolve grupo
-  por getAccountByOwner(groupId, 'company') — nunca casa com a wallet canônica
-  `${groupActorId}:actor_wallet` (owner_type='actor_wallet'). Split comunitário vaza para
-  regional_fund sem erro. Verificado no código pela executora. → **DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP**.
+  por getAccountByOwner(groupId, 'company'). Wallet canônica: owner_id=`${groupActorId}:actor_wallet`,
+  owner_type='actor', account_type='actor_wallet'. toDbOwnerType (repo:34-38) colapsa 'user' e
+  'company' ambos em 'actor' → owner_type CASA; o mismatch é SÓ no owner_id (groupId vs composite).
+  Split comunitário vaza para regional_fund sem erro. Três colunas verificadas no código vivo pela
+  executora. → **DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP**.
 
 **Resultado do mapa:**
 - ECON-1 (ownerType='group') pode ser desenhada com cuidado — frente própria.
