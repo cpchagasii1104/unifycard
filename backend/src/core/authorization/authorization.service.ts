@@ -393,7 +393,7 @@ class AuthorizationService {
         `
           SELECT owner_actor_id
           FROM groups
-          WHERE group_id = $1
+          WHERE id = $1
           LIMIT 1
         `,
         [entityId]
