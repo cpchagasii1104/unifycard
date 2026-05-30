@@ -37,6 +37,10 @@ export class ActorRepositoryAdapter implements ActorRepositoryPort {
     );
   }
 
+  async findOrCreateGroupActor(tenantId: string, groupId: string) {
+    return realRepository.findOrCreateGroupActor(tenantId, groupId);
+  }
+
   async updateUserActorDisplayName(tenantId: string, userId: string, displayName: string) {
     return realRepository.updateUserActorDisplayName(tenantId, userId, displayName);
   }

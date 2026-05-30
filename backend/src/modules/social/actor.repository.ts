@@ -1,5 +1,5 @@
 // src/modules/social/actor.repository.ts
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type { ActorTypeDb } from '@core/social/actor-type';
 
 export interface ActorRow {
@@ -320,6 +320,169 @@ export class ActorRepository {
     }
 
     return newActor;
+  }
+
+  /**
+   * Busca ou cria o group-actor (actor_type='group') de um group (Fase 3C.3, Etapa 2).
+   *
+   * 🔴 QUEBRA DE PADRÃO CONSCIENTE: diferente dos find* vizinhos
+   * (findOrCreateUserActor/findOrCreatePageActor são NÃO-transacionais, single-table, via
+   * runQueryWithTenant), este método é TRANSACIONAL porque o group-actor exige escrita
+   * ATÔMICA em DUAS tabelas (INSERT actors + UPDATE groups.actor_id) com lock na row de
+   * groups. Espelha o molde de companies.service.activateCompanyOperationally (3B.3):
+   * getClientWithTenant + BEGIN + SELECT FOR UPDATE + COMMIT/ROLLBACK.
+   * Owner (âncora civil §4.8.2) validado FORA da tx (falha cedo) e REVALIDADO sob lock.
+   * Fail-closed em qualquer divergência; idempotente por coerência; nunca cria 2º group-actor.
+   */
+  async findOrCreateGroupActor(tenantId: string, groupId: string): Promise<ActorRow> {
+    // 1. Owner FORA da transação — falha cedo se âncora civil inválida.
+    const pre = await runQueryWithTenant<{ owner_actor_id: string | null }>(
+      tenantId,
+      `SELECT owner_actor_id::text AS owner_actor_id FROM groups WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [groupId, tenantId]
+    );
+    if (!pre) {
+      throw new Error(`findOrCreateGroupActor: group ${groupId} não encontrado no tenant`);
+    }
+    await this.assertGroupOwnerIsHuman(tenantId, pre.owner_actor_id, groupId);
+
+    // 2. Transação — TODAS as queries usam ESTE client (runQueryWithTenant pegaria conexão
+    //    nova e o FOR UPDATE não protegeria o INSERT). Nada de ensure* aqui dentro.
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      // 3. Lock na row de groups.
+      const locked = await client.query<{
+        owner_actor_id: string | null;
+        actor_id: string | null;
+        name: string;
+        slug: string | null;
+      }>(
+        `SELECT owner_actor_id::text AS owner_actor_id, actor_id::text AS actor_id, name, slug
+           FROM groups WHERE id = $1 AND tenant_id = $2 FOR UPDATE`,
+        [groupId, tenantId]
+      );
+      if (locked.rowCount === 0) {
+        await client.query('ROLLBACK');
+        throw new Error(`findOrCreateGroupActor: group ${groupId} desapareceu sob lock`);
+      }
+      const g = locked.rows[0];
+      const ownerActorId = g.owner_actor_id;
+
+      // 4. Revalidar owner SOB LOCK (mesmo client) — fecha janela de corrida.
+      if (!ownerActorId) {
+        await client.query('ROLLBACK');
+        throw new Error(`findOrCreateGroupActor: group ${groupId} sem owner_actor_id (âncora civil ausente) — §4.8.2`);
+      }
+      const ownerUnderLock = await client.query<{ actor_type: string; global_user_id: string | null }>(
+        `SELECT actor_type, global_user_id::text AS global_user_id FROM actors
+          WHERE actor_id = $1 AND tenant_id = $2 LIMIT 1`,
+        [ownerActorId, tenantId]
+      );
+      if (
+        ownerUnderLock.rowCount === 0 ||
+        ownerUnderLock.rows[0].actor_type !== 'user' ||
+        ownerUnderLock.rows[0].global_user_id === null
+      ) {
+        await client.query('ROLLBACK');
+        throw new Error(`findOrCreateGroupActor: owner_actor_id ${ownerActorId} não é actor humano válido (actor_type='user' + global_user_id) sob lock — §4.8.2`);
+      }
+
+      // 5. Idempotência: se já há actor, conferir coerência (fail-closed se divergir).
+      if (g.actor_id !== null) {
+        const existing = await client.query<ActorRow>(
+          `SELECT * FROM actors WHERE actor_id = $1 AND tenant_id = $2 LIMIT 1`,
+          [g.actor_id, tenantId]
+        );
+        const e = existing.rows[0];
+        if (
+          existing.rowCount === 1 &&
+          e.actor_type === 'group' &&
+          e.group_id === groupId &&
+          e.responsible_actor_id === ownerActorId
+        ) {
+          await client.query('COMMIT');
+          return e;
+        }
+        await client.query('ROLLBACK');
+        throw new Error(`findOrCreateGroupActor: group ${groupId} com group-actor incoerente (corrupção estrutural) — falha fechada`);
+      }
+
+      // 6. Criar actor — display_name de groups.name (NOT NULL); slug de groups.slug com fallback.
+      const displayName = g.name;
+      const slug = g.slug || `group-${groupId.substring(0, 8)}`;
+      const inserted = await client.query<ActorRow>(
+        `INSERT INTO actors (tenant_id, actor_type, group_id, display_name, slug, responsible_actor_id)
+         VALUES ($1, 'group', $2, $3, $4, $5)
+         RETURNING *`,
+        [tenantId, groupId, displayName, slug, ownerActorId]
+      );
+      const newActor = inserted.rows[0];
+
+      // 7. Back-link groups.actor_id na MESMA transação. COMMIT.
+      await client.query(
+        `UPDATE groups SET actor_id = $1, updated_at = now() WHERE id = $2 AND tenant_id = $3`,
+        [newActor.actor_id, groupId, tenantId]
+      );
+      await client.query('COMMIT');
+      return newActor;
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // rollback best-effort; erro original prevalece
+      }
+      // 8. Corrida no uq_actors_group (23505): tx abortou; reler em NOVA query e conferir coerência.
+      if ((err as { code?: string }).code === '23505') {
+        const g2 = await runQueryWithTenant<{ owner_actor_id: string | null }>(
+          tenantId,
+          `SELECT owner_actor_id::text AS owner_actor_id FROM groups WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+          [groupId, tenantId]
+        );
+        const relido = await runQueriesWithTenant<ActorRow>(
+          tenantId,
+          `SELECT * FROM actors WHERE group_id = $1 AND actor_type = 'group' AND tenant_id = $2`,
+          [groupId, tenantId]
+        );
+        if (
+          g2 &&
+          relido.length === 1 &&
+          relido[0].group_id === groupId &&
+          relido[0].actor_type === 'group' &&
+          relido[0].responsible_actor_id === g2.owner_actor_id
+        ) {
+          return relido[0];
+        }
+        throw new Error(`findOrCreateGroupActor: corrida 23505 e estado relido incoerente — falha fechada`);
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Valida que o owner do group é um actor humano (âncora civil §4.8.2): actor_type='user'
+   * com global_user_id NOT NULL. Usado FORA da transação (pré-checagem). Não-transacional.
+   */
+  private async assertGroupOwnerIsHuman(
+    tenantId: string,
+    ownerActorId: string | null,
+    groupId: string
+  ): Promise<void> {
+    if (!ownerActorId) {
+      throw new Error(`findOrCreateGroupActor: group ${groupId} sem owner_actor_id (âncora civil ausente) — §4.8.2`);
+    }
+    const owner = await runQueryWithTenant<{ actor_type: string; global_user_id: string | null }>(
+      tenantId,
+      `SELECT actor_type, global_user_id::text AS global_user_id FROM actors
+        WHERE actor_id = $1 AND tenant_id = $2 LIMIT 1`,
+      [ownerActorId, tenantId]
+    );
+    if (!owner || owner.actor_type !== 'user' || owner.global_user_id === null) {
+      throw new Error(`findOrCreateGroupActor: owner_actor_id ${ownerActorId} não é actor humano válido (actor_type='user' + global_user_id NOT NULL) — §4.8.2`);
+    }
   }
 
   /**

@@ -39,6 +39,7 @@ export interface ActorRepositoryPort {
     companyId: string,
     responsibleActorId: string
   ): Promise<ActorRow>;
+  findOrCreateGroupActor(tenantId: string, groupId: string): Promise<ActorRow>;
   updateUserActorDisplayName(tenantId: string, userId: string, displayName: string): Promise<ActorRow | null>;
   update(
     tenantId: string,

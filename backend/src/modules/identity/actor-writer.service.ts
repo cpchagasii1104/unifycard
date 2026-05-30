@@ -33,3 +33,15 @@ export async function ensurePageActor(
   const repo = socialPortsRegistry.getActorRepository();
   return repo.findOrCreatePageActor(tenantId, companyId, responsibleActorId);
 }
+
+/**
+ * Garante que existe um actor 'group' para este group (Fase 3C.3).
+ * Idempotente — seguro chamar múltiplas vezes.
+ * Âncora civil obrigatória: responsible_actor_id = groups.owner_actor_id (actor humano §4.8.2).
+ * O motor é transacional (escrita atômica actors + groups.actor_id) — ver
+ * actor.repository.findOrCreateGroupActor. NÃO chamar dentro de transação ativa.
+ */
+export async function ensureGroupActor(tenantId: string, groupId: string) {
+  const repo = socialPortsRegistry.getActorRepository();
+  return repo.findOrCreateGroupActor(tenantId, groupId);
+}
