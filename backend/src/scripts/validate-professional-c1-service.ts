@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool, runQueryWithTenant } from '../core/database/pool';
 import { professionalC1Service } from '../core/profile/professional-c1/professional-c1.service';
+import { conceptParamSchema } from '../core/profile/professional-c1/professional-c1.routes';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -111,6 +112,13 @@ async function main(): Promise<void> {
       TENANT, `SELECT count(*)::text AS n FROM actor_professional_concepts
                WHERE tenant_id=$1 AND actor_id=$2 AND concept_id=$3`, [TENANT, actorId, conceptId]);
     record('T7b linha permanece após retire (zero delete físico)', stillThere?.n === '1');
+
+    // T14 — guarda de :conceptId UUID em PATCH/DELETE (auditoria A2). Schema da rota:
+    //   não-UUID → safeParse falha (rota responde 400 antes do service, não 500).
+    record('T14a conceptId não-UUID ("abc") rejeitado pelo schema da rota → 400',
+      conceptParamSchema.safeParse({ conceptId: 'abc' }).success === false);
+    record('T14b conceptId UUID válido aceito pelo schema da rota',
+      conceptParamSchema.safeParse({ conceptId }).success === true);
 
   } finally {
     // Teardown físico (teardown de teste, NÃO o service): DEV intacto.

@@ -43,6 +43,8 @@ const patchSchema = z.object({
   reactivate: z.literal(true).optional(),
 });
 
+export const conceptParamSchema = z.object({ conceptId: z.string().uuid() });
+
 const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
   // R1 — GET /profile/professional/c1
   fastify.get('/professional/c1', async (req, reply) => {
@@ -96,11 +98,15 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         const { tenantId, actorId } = requireContext(req);
+        const parsedParams = conceptParamSchema.safeParse(req.params);
+        if (!parsedParams.success) {
+          return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
+        }
         const parsed = patchSchema.safeParse(req.body);
         if (!parsed.success) {
           return reply.status(400).send({ error: 'Payload inválido', details: parsed.error.issues });
         }
-        const result = await professionalC1Service.updateConcept(tenantId, actorId, req.params.conceptId, {
+        const result = await professionalC1Service.updateConcept(tenantId, actorId, parsedParams.data.conceptId, {
           skillLevel: parsed.data.skill_level,
           yearsExperience: parsed.data.years_experience,
           reactivate: parsed.data.reactivate,
@@ -118,7 +124,11 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       try {
         const { tenantId, actorId } = requireContext(req);
-        const result = await professionalC1Service.retireConcept(tenantId, actorId, req.params.conceptId);
+        const parsedParams = conceptParamSchema.safeParse(req.params);
+        if (!parsedParams.success) {
+          return reply.status(400).send({ error: 'Parâmetro inválido', details: parsedParams.error.issues });
+        }
+        const result = await professionalC1Service.retireConcept(tenantId, actorId, parsedParams.data.conceptId);
         return reply.status(200).send(result);
       } catch (error) {
         return fail(reply, error);
