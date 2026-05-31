@@ -10345,3 +10345,66 @@ exige read-only/ratificação própria + decisão de Clayton. Nenhum achado vira
 
 **Carimbo final:** este bloco é diagnóstico. Não autoriza correção, não religa frontend, não cria
 schema, não abre A3. Cada item acima nasce frente própria com read-only + ratificação quando Clayton decidir.
+
+---
+
+## ACHADOS DE RUNTIME DO SWEEP DE ABAS DO PERFIL (2026-05-31)
+
+**Natureza: ACHADOS (diagnóstico), NÃO correção e NÃO decisão de destino.** Registrados por autorização
+de Clayton após sweep autenticado real (login dev + `x-action-context`, actor `b682724c`) contra backend
+local. Contexto: na MESMA frente foi corrigido o drift `categories.domain_type` (commit `d497fe63`), que
+resolveu `GET /profile/physical` (volta a 200) — esse fix NÃO está nesta lista; estas DTs são o que
+**permanece** e cujo destino depende de Clayton / frente própria. Cada DT diz: **destino depende de
+Clayton/frente própria**.
+
+### 1. DT-PROFILE-PROFESSIONAL-LEGACY-MISSING-TABLES
+`GET /profile/professional` (legado) retorna 500 — `relação "user_skills_categories" não existe`
+(origem `profile-professional.service.ts:48`). Depende de tabelas legadas ausentes
+(`user_skills_categories` e família). **NÃO restaurar tabelas.** Destino (A3 / deprecação / adaptação
+explícita) **depende de Clayton/frente própria.** Relaciona-se a `DT-PROFILE-PROFESSIONAL-LEGACY-ROUTE-LIVE-BROKEN`
+e `DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY` (já registradas) — este achado é o reforço com
+evidência runtime (HTTP 500 + stack).
+
+### 2. DT-PROFILE-INFERENCE-COUPLED-TO-PROFESSIONAL-LEGACY
+`GET /profile/inference` e `GET /profile/inference/snapshot` retornam 500 por dependerem do serviço
+profissional **legado**. Evidência: APÓS o fix de `domain_type` (`d497fe63`), o erro de categoria
+desapareceu e o 500 restante passou a ser `relação "user_skills_categories" não existe` (snapshot via
+`profile-inference.service.ts:242` → `profile-professional.service.ts:48`). Ou seja, o drift de categoria
+foi corrigido, mas inference segue acoplada ao legado. **NÃO corrigir agora.** Destino **depende de
+Clayton/frente própria** (desacoplar inference do legado é decisão de A3/frente própria).
+
+### 3. DT-PROFILE-HEALTH-FACTS-SUBSTRATE-DRIFT
+`GET /profile/health/facts` retorna 500. Duas camadas comprovadas no vivo:
+(a) **substrato ausente** — `relação "user_health_facts" não existe` (nenhuma tabela `%health%` no schema
+vivo); (b) **bug secundário de identidade** — a rota (`profile-health.routes.ts:75`) passa
+`req.actionContext.actorId` (um **actor_id**) como `userId` para o fallback `ensureUserActor`
+(`actor.utils.ts:74`), que espera **user_id** → "Usuário não encontrado" quando o header `x-actor-id`
+não é enviado. **Saúde é domínio sensível.** NÃO criar migration sem READ-FIRST/norma própria; não
+ampliar coleta; não improvisar schema. Cruza com `DT-HEALTH-FACTS-TABLE-MISSING` (já registrada). Destino
+**depende de Clayton/frente própria.**
+
+### 4. DT-CORE-PROFILE-GET-CREATES-ACTOR (reforço runtime)
+`GET /profile` cria profile/actor em leitura (side effect): handler chama
+`profileService.createProfileIfNotExists` quando o profile não existe (`profile.routes.ts:63`).
+**DT já registrada anteriormente** — este é o reforço com evidência de runtime do sweep (HTTP 200, mas
+escrita em leitura). NÃO corrigir sem desenho próprio. Destino **depende de Clayton/frente própria.**
+
+### 5. DT-AUTH-RATE-LIMIT-LOGS-MISSING
+No login (`POST /auth/login`) surge `relação "auth_rate_limit_logs" não existe`. **Login funciona**
+(não-fatal); o erro é do logging/rate-limit. Exige decisão sobre migration/logging (criar tabela vs
+tornar logging tolerante a ausência). NÃO criar migration nesta frente. Destino **depende de
+Clayton/frente própria.**
+
+### 6. DT-MARKETPLACE-FINANCE-AGENDA-SCHEDULED-ACTIONS-MISSING
+`GET /marketplace/finance/agenda` retorna 500 — `relação "scheduled_actions" não existe` (42P01),
+origem `financial-agenda.service.ts:70`. **Substrato ausente.** NÃO corrigir nesta frente; **não tocar
+financeiro.** Destino **depende de Clayton/frente própria.**
+
+### Observação adjacente (não é DT de produto)
+O warning `pool.ts:65 Connection terminated` (configuração de encoding/search_path) **reproduz sob carga
+real** (visto em múltiplas requisições do sweep), ao contrário do boot limpo isolado. Não-fatal (requests
+retornam normalmente). Atualiza a conclusão anterior de "não reproduzível". Diagnóstico próprio quando
+Clayton priorizar; não tocado aqui.
+
+**Carimbo:** ACHADOS registrados. Nenhuma correção, nenhuma religação, nenhum schema, nenhuma migration,
+nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autorização explícita.
