@@ -10241,3 +10241,38 @@ vigente (ver feedback institucional "archive não é SSOT vigente").
 - não rodar `normalize-category-concepts.ts` (write-candidate: `UPDATE categories SET concept_id`
   sob `--apply`; caracterizado por grep, NÃO executado neste gate);
 - não tratar `category_id` como SSOT semântico (o SSOT é `CONCEPT`).
+
+---
+
+## DTs ADJACENTES À FATIA A2/C1 (registradas, NÃO corrigidas — 2026-05-31, commit de código f959d912)
+
+Findings adjacentes ao backend C1 service/API. Registrados conforme DESENHO_A2 §10. NÃO tocados
+em A2 (escopo estrito). Cada um exige read-only/ratificação própria antes de qualquer correção.
+
+### DT-ACTORS-ID-ACTORID-INVARIANT-EXISTS (NOTA — premissa cond.2 refutada pelo vivo)
+**Contexto.** O Contrato A1 cond.2 assumiu que NÃO há invariante `actors.id = actor_id`
+(DT-ACTORS-ID-ACTORID-NO-INVARIANT). **Verificação minha no vivo (b1e48f99) REFUTA a premissa:**
+existe `chk_actors_actor_id_equals_id` (CHECK `actor_id = id`) na tabela `actors`. O banco JÁ força
+o invariante. **Consequência:** a guarda REPARO 2 do C1 (`id !== actor_id ⇒ ACTOR_ID_INVARIANT_BROKEN`)
+é defesa-em-profundidade, não correção de gap; o teste T12 não é exercível com dado real (o CHECK
+proíbe id≠actor_id). Status: a "DT de invariante ausente" está RESOLVIDA pelo schema vivo.
+
+### DT-CORE-PROFILE-GET-CREATES-ACTOR (OPEN — origem: diagnóstico A1/P2)
+**Contexto.** Diagnóstico A1 (pesquisa P2) apontou que o caminho de leitura de perfil legado pode
+disparar criação de actor (side effect proibido em leitura, §4.8.1 / DECISION-0063 §11). Referências
+citadas pelo desenho: `core.service.ts:348`, `profile-inference.service.ts:245`. **Não verificado
+por mim nesta fatia** (A2 não toca o legado). O C1 novo NÃO tem esse problema (R1 lê por
+actionContext.actorId, zero criação — provado em T3). Próxima ação: read-only próprio confirmando
+os call sites legados antes de qualquer correção (frente A3/deprecação).
+
+### DT-LOOSE-ACTOR-LOOKUPS (OPEN — origem: diagnóstico A1/P2)
+**Contexto.** Diagnóstico A1 apontou ~6 lookups soltos `user/global_user → actor_id` fora da porta
+governada (anti-padrão §4.8.1). **Não inventariados por mim nesta fatia.** O C1 novo NÃO introduz
+lookup solto (grep no diff = zero; T9). Próxima ação: read-only próprio mapeando os 6 call sites
+antes de corrigir.
+
+### NOTA NORMATIVA — "Lei 7" (CONCEPT como SSOT semântico)
+O DESENHO_A2 §10 pede ancorar a citação "Lei 7" em §4.10/§7 da norma. Registro: o C1 usa `concept_id`
+como identidade semântica (concepts SSOT), `source_category_id` como breadcrumb — conforme a regra
+de CONCEPT-como-SSOT. Ancoragem normativa formal do número da "Lei 7" fica para revisão documental
+própria (não-bloqueante).
