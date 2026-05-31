@@ -8883,3 +8883,23 @@ Gates da correção de código: 4/4 verdes · tsc limpo · critical_new=0.
   violação — ver gate de reancoragem de identidade).
 - Perfil profissional continua aguardando **desenho actor-first** (DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY).
 - Grupos financeiros continuam CONGELADOS (cofre desligado; aguardam pendentes do CONTRATO_GRUPOS_V2).
+
+---
+
+## MVP C1 PERFIL PROFISSIONAL — PROMULGADO COMO DECISION-0063 ✅ (2026-05-31)
+
+Desenho do MVP C1 do perfil profissional promulgado como **DECISION-0063** (Opus + ChatGPT + Clayton).
+Promulgação DOCUMENTAL — zero código · zero schema · zero migration · zero DML.
+Documento canônico: `docs/02_decisions/DESENHO_MVP_C1_PERFIL_PROFISSIONAL.md`.
+
+Substrato ratificado (actor-keyed, concept-anchored):
+- `actor_professional_profiles` — bio profissional, 1:1 por actor (`UNIQUE(tenant_id, actor_id)`);
+- `actor_professional_concepts` — competências declaradas, 1:N por actor (`UNIQUE(tenant_id, actor_id, concept_id)`).
+Ciclo de vida binário (`is_active` + `retired_at`); DELETE de competência proibido.
+`concept_id` = identidade; `actor_id` = chave; `source_category_id` = breadcrumb.
+C1 apenas — C2 (preço/oferta) / C3 (availability) / C4 (capability/authority) FORA.
+
+**Próxima frente:** prompt executor da **migration canônica de C1** (as 2 tabelas + gates da §11) —
+sessão SEPARADA. Esta promulgação NÃO preparou executor.
+Grupos financeiros seguem congelados · CHECK actor_type segue higiene independente ·
+preço/oferta/capability/availability ficam para frentes futuras.

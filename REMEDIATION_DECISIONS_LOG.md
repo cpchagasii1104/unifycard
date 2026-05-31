@@ -5611,3 +5611,44 @@ Reclassificação de status futuro:
 ### Superada por
 
 (preencher quando F0–F5 forem executadas e DECISION de implementação final for registrada)
+
+---
+
+## DECISION-0063 — MVP_C1_PROFESSIONAL_DECLARATIVE_SUBSTRATE
+
+**Data:** 2026-05-31 · **Ratificação:** Opus (consolidou) + ChatGPT (ratificou) + Clayton (OK final).
+**Documento canônico:** `docs/02_decisions/DESENHO_MVP_C1_PERFIL_PROFISSIONAL.md`.
+**Origem:** Gate D2 (HEAD 73527a3b) — PROFISSIONAL D2 PARCIAL: ponte governada e chão semântico
+prontos; substrato profissional actor-keyed ausente. O substrato faltante É o entregável desta frente.
+
+**O quê.** Desenho do MVP C1 do perfil profissional: substrato profissional declarativo
+**actor-first, concept-anchored**. Grava verdade declarada ("este actor declara competência no
+concept X"); é SSOT da declaração profissional, NÃO read-model.
+
+**Natureza.** DECISION de DESENHO. NÃO é implementação, NÃO é schema, NÃO é migration.
+**Esta DECISION não implementa schema. A migration de C1 é frente separada.**
+
+**Decisões fechadas (13, Clayton):**
+- multiplicidade SIM → `UNIQUE(tenant_id, actor_id, concept_id)` (nunca `UNIQUE(tenant_id, actor_id)` em competências);
+- `concept_id` = identidade semântica (Lei 7); `source_category_id` = apenas rastreio/breadcrumb, nunca identidade;
+- `skill_level` = declaração qualitativa; `years_experience` = declaração quantitativa (ambas não-credenciais);
+- certificação/verificação FORA do MVP C1;
+- bio profissional distinta da bio geral (`public_profiles.bio`);
+- preço/oferta/capability FORA (C2/C4); availability/agenda FORA (C3, SSOT temporal próprio);
+- leitura por `actor_id` JÁ resolvido (sem side effect de criação); escrita/provisionamento via
+  `ensureUserActor`/`findOrCreateUserActor` (actor-writer); lookup solto user/global_user→actor_id PROIBIDO.
+
+**Entidades candidatas ratificadas (sem migration nesta etapa):**
+- `actor_professional_profiles` — bio profissional, **1:1 por actor**, `UNIQUE(tenant_id, actor_id)`;
+- `actor_professional_concepts` — competências declaradas, **1:N por actor**, `UNIQUE(tenant_id, actor_id, concept_id)`.
+
+**Ciclo de vida.** Binário: `is_active BOOLEAN NOT NULL DEFAULT true` + `retired_at`. Desativação
+lógica; **DELETE de competência PROIBIDO** (remoção = `is_active=false` + `retired_at`). Sem `status`
+enum no MVP (não inventar estado concreto além de ativo/retirado).
+
+**Escopo:** MVP C1 apenas. **Anti-escopo:** sem preço · sem oferta · sem `workers` · sem availability
+· sem capability · sem authority · sem `bank_*` · sem certificação verificável.
+
+**Próxima frente (sessão separada):** prompt executor da migration canônica de C1 — criação das duas
+tabelas + gates da §11 do desenho. C2/C3/C4 = frentes posteriores (C2/preço só após camada de pricing
+e sua relação com `bank_*`, ratificação tripla).

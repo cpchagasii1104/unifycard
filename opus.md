@@ -1850,3 +1850,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Payload externo das duas rotas permaneceu intacto.
 - Ressalva: se o status de grupos virar multiestado no futuro (CHECK ampliado), revisar a derivação
   de `state` em groups-state-history.routes.ts.
+
+### MVP C1 PERFIL PROFISSIONAL — DECISION-0063 promulgada (2026-05-31)
+- MVP C1 promulgado como DECISION ratificada (Opus + ChatGPT + Clayton). Doc:
+  `docs/02_decisions/DESENHO_MVP_C1_PERFIL_PROFISSIONAL.md`. Promulgação documental — não ligou nada.
+- C1 = substrato profissional declarativo actor-first. Duas entidades:
+  `actor_professional_profiles` (bio profissional, 1:1 por actor) +
+  `actor_professional_concepts` (competências, 1:N por actor).
+- `actor_id` = chave operacional; `concept_id` = identidade semântica; `source_category_id` = breadcrumb.
+- `skill_level`/`years_experience` = declarações, NÃO credenciais; certificação verificada FORA do MVP.
+- preço/oferta/workers/availability/capability/bank FORA do MVP (C2/C3/C4 futuras).
+- Leitura usa actor_id já resolvido (sem side effect); escrita via actor-writer; lookup solto PROIBIDO.
+- Ciclo de vida binário (`is_active` + `retired_at`); DELETE de competência proibido.
+- Próxima ação = migration C1 em sessão SEPARADA. Esta sessão NÃO preparou executor.
