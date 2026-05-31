@@ -10289,3 +10289,59 @@ DIFERENCIAL (só novas contam). Limpar as 20 é frente PRÓPRIA, não A2.
 o `validate:architectural` cru fica vermelho por dívida legada conhecida, não por A2.
 **Próxima ação.** Frente read-only própria para mapear as 20 violações legadas e desenhar correção
 (ratificação própria); não bloqueia outras fatias enquanto `critical_new=0`.
+
+---
+
+## ACHADOS FORENSES DO PERFIL CONTEXTUAL (instâncias A/B/C/D, 2026-05-31)
+
+**Natureza: MAPA (diagnóstico), NÃO autorização de correção.** Estes são DTs-DE-MAPA. Cada correção
+exige read-only/ratificação própria + decisão de Clayton. Nenhum achado vira decisão de produto aqui.
+
+**Origem e HEAD observado por instância:**
+- **A e C → HEAD `92650e8c`** (pós-selo A2).
+- **B e D → HEAD `761f9571`** (pré-reparos C1).
+- **RESSALVA EXPLÍCITA:** B e D NÃO viram os reparos finais do C1 (`04030be2` :conceptId UUID /
+  `977898a4` PATCH vazio). Mas os achados de B/D são de **FRONTEND/abas**, que NÃO mudaram nesses
+  HEADs — logo seus achados de superfície continuam VÁLIDOS. Os reparos foram só no backend C1.
+
+### Achados numerados
+1. **Profissional FRONTEND ainda chama o legado `/profile/professional`, NÃO o C1.** (B,D)
+   O backend C1 (`/profile/professional/c1`) existe e está selado, mas o frontend não foi religado.
+2. **C1 backend vivo e SELADO, porém OCIOSO até A3.** (A,C / pós-selo) Nenhum caller de produto
+   consome o C1 ainda; só o teste de integração.
+3. **UI não adapta abas por actor.** Hoje bloqueia (≠user → NotApplicable) ou redireciona
+   (page → `/empresa/:id`). (B,D) A superfície não se molda pelo actor ativo (contraria a visão).
+4. **Interesses e Aprendizado gravam `category_id`/blob em `global_users.metadata` como IDENTIDADE**
+   — viola CONCEPT-como-SSOT (Lei 7). (A,B,C) Identidade semântica deve ser `concept_id`, não category.
+5. **Catálogo/taxonomia de `conceptId` HARDCODED no frontend** em Interesses (ProfilePhysical). (B)
+   Lista de conceitos no FE viola CONCEPT-como-SSOT (a verdade deve vir do backend).
+6. **Drift documental/schema:** `user_health_facts` AUSENTE no vivo; docs citam
+   `unified_availability`/`unified_bookings` mas o vivo usa `availability`/`bookings`. (C,D)
+7. **DT-AVAILABILITY-SSOT-NAME-DRIFT** (map): alinhar a referência normativa ao nome vivo
+   (`availability`/`bookings`, não `unified_*`). (C,D)
+
+### DTs-de-mapa (NÃO autorização de correção)
+- **DT-PROFILE-PROFESSIONAL-LEGACY-ROUTE-LIVE-BROKEN** — legado `/profile/professional` retorna 500
+  (tabelas archive-only ausentes). (C,D) Relaciona-se a `DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY`
+  (já registrada) e ao achado #1; deprecação/religação é A3, não agora.
+- **DT-PROFILE-INTERESTS-LEARNING-CATEGORY-ID-IN-JSONB** — `category_id`/blob como identidade em
+  `global_users.metadata` (achados #4/#5). (A,C)
+- **DT-HEALTH-FACTS-TABLE-MISSING** — `user_health_facts` ausente no schema vivo (achado #6). (C)
+- **DT-CPF-TRIPLE-HOME** — CPF em três lugares: `identities.tax_id` × `user_profiles.cpf` ×
+  `profiles.cpf`. (A,C) (cruza com DECISION-0062 CPF SSOT — execução pendente.)
+- **DT-PROFILE-GET-WRITES-ON-READ** — `GET /profile` faz INSERT (auto-create na leitura). (C)
+  Relaciona-se a `DT-CORE-PROFILE-GET-CREATES-ACTOR` (já registrada); side effect em leitura proibido.
+- **DT-PROFILE-PERSONAL-METADATA-NO-CONTRACT** — gênero/onboarding em JSONB sem contrato. (C)
+- **DT-PJ-PROFILE-BOUNDARY-UNVERIFIED** — fronteira PJ/CompaniesManager INCONCLUSIVA; exige passe
+  read-only próprio. (A,B,C,D)
+- **DT-AVAILABILITY-SSOT-NAME-DRIFT** — ver achado #7. (C,D)
+
+### Decisões PENDENTES de Clayton / frente própria (NÃO decidir aqui)
+- Interesse/Aprendizado = CONCEPT? (modelar identidade semântica)
+- CPF triple-write (qual SSOT vence; cruza DECISION-0062)
+- Fronteira PJ (CompaniesManager)
+- `user_health_facts` (criar? derivar? aposentar?)
+- Contrato de agenda declarativa vs `availability` (nome + semântica)
+
+**Carimbo final:** este bloco é diagnóstico. Não autoriza correção, não religa frontend, não cria
+schema, não abre A3. Cada item acima nasce frente própria com read-only + ratificação quando Clayton decidir.
