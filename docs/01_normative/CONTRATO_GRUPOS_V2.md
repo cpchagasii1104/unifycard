@@ -4,10 +4,11 @@
 > Qualquer implementação que contradiga este contrato é BUG por definição.
 
 **Data:** 2026-05-31
-**Status:** TEXTO RATIFICADO POR OPUS + CHATGPT — AGUARDANDO AVAL FINAL DE CLAYTON PARA PROMULGAÇÃO COMO VIGENTE. (As decisões de conteúdo já são de Clayton; falta apenas o aval sobre o texto final antes de promover a VIGENTE e revogar os pontos do V1.)
+**Promulgado:** 2026-05-31 (aval final de Clayton)
+**Status:** APROVADO — ratificado por Clayton + Opus + ChatGPT · VIGENTE
 **Versão:** 2.0
 **Branch de referência:** rescue-structural
-**Substituirá:** CONTRATO_GRUPOS_V1.md (v1.0, 2025-12-30) nos pontos explicitamente revogados na §REVOGAÇÕES, **após promulgação como VIGENTE**.
+**Substitui:** CONTRATO_GRUPOS_V1.md (v1.0, 2025-12-30) nos pontos explicitamente revogados na §REVOGAÇÕES.
 **Referencia:** DECISION-0046 (actor_wallet canônico), BANK_SEMANTICS.md (account_type / receivables), COE-2 (groups.owner_actor_id NOT NULL), CONTRATO_GRUPOS_V1 (base não-revogada).
 
 ---

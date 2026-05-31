@@ -3,17 +3,17 @@ Domain: UNKNOWN
 Governing Contract: CORE_IMUTAVEL.md
 # CONTRATO DE GRUPOS — UnifiCard v1.0
 
-> **ℹ️ EXISTE UM `CONTRATO_GRUPOS_V2.md` RATIFICADO (Opus + ChatGPT), aguardando aval final de Clayton para promulgação (2026-05-31).**
-> Quando promulgado como VIGENTE, o V2 revogará/emendará pontos específicos deste contrato
-> (conta única `owner_type='group'`, `user_active_groups` como substrato do split, critérios de
-> elegibilidade do §4, "Como Grupo Gasta" do §5 — ver §REVOGAÇÕES do V2).
-> **Até a promulgação do V2, este contrato (V1) permanece INTEGRALMENTE VIGENTE.**
+> **⚠️ PARCIALMENTE REVOGADO POR `CONTRATO_GRUPOS_V2.md` — promulgado VIGENTE em 2026-05-31 (aval de Clayton).**
+> O V2 revoga/emenda pontos específicos deste contrato (ver §REVOGAÇÕES do V2):
+> conta única de grupo (`owner_type='group'`), `user_active_groups` como substrato do split,
+> critérios de elegibilidade do §4 (suspensos na v1) e "Como Grupo Gasta" do §5.
+> **O restante do V1 permanece VIGENTE.** Em conflito, o V2 prevalece nos pontos revogados.
 
 > **Este documento é LEI.**
 > Qualquer implementação que contradiga este contrato é BUG por definição.
 
 **Data:** 30/12/2025
-**Status:** APROVADO · VIGENTE (V2 ratificado aguarda promulgação para revogar pontos deste — 2026-05-31)
+**Status:** APROVADO · PARCIALMENTE REVOGADO PELO V2 (2026-05-31); base não-revogada VIGENTE
 **Versão:** 1.0
 
 ---
@@ -621,8 +621,8 @@ function calculateGroupSplit(
 
 ---
 
-*Este documento é a fonte de verdade vigente do módulo de Grupos (v1.0).*
-*Um `CONTRATO_GRUPOS_V2.md` ratificado aguarda promulgação; quando vigente, será a fonte nos pontos que revogar.*
+*Este documento foi a fonte de verdade do módulo de Grupos na v1.0; permanece vigente na base não-revogada.*
+*Nos pontos revogados/emendados, a fonte de verdade vigente é `CONTRATO_GRUPOS_V2.md` (promulgado 2026-05-31).*
 *Qualquer alteração requer nova versão do contrato.*
 
 ---

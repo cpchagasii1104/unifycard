@@ -58,8 +58,8 @@ marcado abaixo.
 | CONTRACTS.md | CANÔNICO · VIGENTE | Contrato | Arquitetura contratos cross-layer frontend backend |
 | contrato_canonico_de_limites_tecnicos_irreversiveis_unifi_card.md | CANÔNICO · VIGENTE | Contrato | Contrato canônico limites técnicos irreversíveis |
 | CONTRATO_FEED_MATCHING_UNIFICARD.md | CANÔNICO · VIGENTE | Contrato | Contrato Feed e Matching do UnifiCard |
-| CONTRATO_GRUPOS_V2.md | RATIFICADO · AGUARDANDO PROMULGAÇÃO | Contrato | Contrato de Groups v2.0 — dois bolsos (operacional + comunitário); revogará pontos do V1 ao ser promulgado |
-| CONTRATO_GRUPOS_V1.md | CANÔNICO · VIGENTE (V2 aguarda promulgação) | Contrato | Contrato de Groups é LEI v1.0 |
+| CONTRATO_GRUPOS_V2.md | CANÔNICO · VIGENTE | Contrato | Contrato de Groups LEI v2.0 — dois bolsos (operacional + comunitário); substitui pontos do V1 (promulgado 2026-05-31) |
+| CONTRATO_GRUPOS_V1.md | CANÔNICO · PARCIALMENTE REVOGADO PELO V2 | Contrato | Contrato de Groups LEI v1.0 (base não-revogada vigente) |
 | CORE_APROVACAO_FINANCEIRA_CANONICO.md | CANÔNICO · VIGENTE | Core | CORE de aprovação financeira canônico imutável |
 | CORE_CATEGORY_CONTRACT.md | CORE | Core | Contrato fundacional sistema de categorias |
 | CORE_CATEGORY_VALIDATION_MATRIX.md | CANÔNICO · VIGENTE | Core | Critérios validação categorias profissionais core |
