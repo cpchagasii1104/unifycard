@@ -9,7 +9,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 import { pool, runQueryWithTenant } from '../core/database/pool';
 import { professionalC1Service } from '../core/profile/professional-c1/professional-c1.service';
-import { conceptParamSchema } from '../core/profile/professional-c1/professional-c1.routes';
+import { conceptParamSchema, patchSchema, isEmptyPatch } from '../core/profile/professional-c1/professional-c1.routes';
 
 dotenv.config({ path: join(process.cwd(), '.env') });
 
@@ -119,6 +119,16 @@ async function main(): Promise<void> {
       conceptParamSchema.safeParse({ conceptId: 'abc' }).success === false);
     record('T14b conceptId UUID válido aceito pelo schema da rota',
       conceptParamSchema.safeParse({ conceptId }).success === true);
+
+    // T15 — guarda de PATCH vazio (R4). Harness testa o service direto; guarda é na rota →
+    // exercitar a condição da guarda (mesma função isEmptyPatch que a rota usa).
+    const emptyBody = patchSchema.safeParse({});
+    record('T15a PATCH body {} → guarda detecta "nada a atualizar" (rota 400)',
+      emptyBody.success === true && isEmptyPatch(emptyBody.data) === true);
+    // borda: years_experience=null É material (limpa anos) → NÃO é vazio (rota chama service).
+    const nullYears = patchSchema.safeParse({ years_experience: null });
+    record('T15b PATCH {years_experience:null} é MATERIAL (null limpa anos) → não-vazio',
+      nullYears.success === true && isEmptyPatch(nullYears.data) === false);
 
   } finally {
     // Teardown físico (teardown de teste, NÃO o service): DEV intacto.

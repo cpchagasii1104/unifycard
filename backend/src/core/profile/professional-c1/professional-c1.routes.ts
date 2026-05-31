@@ -37,11 +37,20 @@ const declareSchema = z.object({
   years_experience: z.number().int().min(0).max(80).nullable().optional(),
 });
 
-const patchSchema = z.object({
+export const patchSchema = z.object({
   skill_level: z.number().int().min(1).max(5).optional(),
   years_experience: z.number().int().min(0).max(80).nullable().optional(),
   reactivate: z.literal(true).optional(),
 });
+
+// Guarda de PATCH vazio: nenhum campo material veio (null em years É material — limpa anos).
+export function isEmptyPatch(data: z.infer<typeof patchSchema>): boolean {
+  return (
+    data.skill_level === undefined &&
+    data.years_experience === undefined &&
+    data.reactivate === undefined
+  );
+}
 
 export const conceptParamSchema = z.object({ conceptId: z.string().uuid() });
 
@@ -105,6 +114,10 @@ const professionalC1Routes: FastifyPluginAsync = async (fastify) => {
         const parsed = patchSchema.safeParse(req.body);
         if (!parsed.success) {
           return reply.status(400).send({ error: 'Payload inválido', details: parsed.error.issues });
+        }
+        // PATCH vazio: nenhum campo material → 400 (não toca updated_at sem alteração real).
+        if (isEmptyPatch(parsed.data)) {
+          return reply.status(400).send({ error: 'Nada a atualizar' });
         }
         const result = await professionalC1Service.updateConcept(tenantId, actorId, parsedParams.data.conceptId, {
           skillLevel: parsed.data.skill_level,
