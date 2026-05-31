@@ -30,11 +30,11 @@ async function runSlaMonitorCycle(): Promise<void> {
   try {
     const now = new Date();
 
-    // A) settlement_delay: payment_intents status = escrowed há mais de 5 minutos
+    // A) settlement_delay: payment_intents payment_status = escrowed há mais de 5 minutos
     const settlementResult = await pool.query<{ id: string; tenant_id: string; created_at: Date }>(
       `SELECT id, tenant_id, created_at
        FROM payment_intents
-       WHERE status = 'escrowed'
+       WHERE payment_status = 'escrowed'
          AND created_at <= now() - interval '1 minute' * $1`,
       [SETTLEMENT_DELAY_MINUTES]
     );
