@@ -8970,3 +8970,70 @@ forenses A/B/C/D das abas do perfil como diagnóstico/DT (passo documental próp
 Docs de direção do front preservados em `docs/02_decisions/`:
 `VISAO_PERFIL_CONTEXTUAL_POR_ACTOR.md` (norte: "Perfil coleta. SSOT guarda. Actor molda a superfície.")
 + `PLANO_PERFIL_CONTEXTO_POR_ACTOR.md` (boot/plano). São direção, não autorização de código.
+
+---
+
+## ACHADOS FORENSES A/B/C/D — CONSOLIDADOS ✅ (doc `83724089` · 2026-05-31)
+
+O passo documental que o bloco A2 marcou como "NÃO feito aqui" foi **feito**: achados forenses A/B/C/D
+das abas do perfil registrados em `REMEDIATION_DT_LOG.md` como **DTs-de-mapa** (diagnóstico, NÃO
+autorização de correção). Commit documental `83724089`. Origem por instância (A,C → `92650e8c`;
+B,D → `761f9571`) e ressalva de que B/D não viram os reparos C1 mas seus achados de frontend seguem
+válidos. Zero código/migration. Visão contextual preservada em `38f17806`.
+
+---
+
+## ERROS PÓS-BOOT DO BACKEND — CORRIGIDOS ✅ (código `d18c800d` · 2026-05-31)
+
+Fatia cirúrgica sobre erros não-fatais observados ao subir o backend:
+- **SlaMonitorWorker (42703):** query A (`settlement_delay`) projetava `payment_intents.status`,
+  inexistente. Schema vivo + CHECK `payment_intents_payment_status_check` provaram que a coluna canônica
+  é `payment_status` (`'escrowed'` válido). Corrigida só a query A; B (`payout_requests.status`) e C
+  (`bank_settlements.status`) verificadas como corretas e preservadas. Colunas explícitas, sem `SELECT *`.
+- **Redis/BullMQ spam:** `PaymentWorker` tentava conectar sem Redis em DEV. Guard `isRedisQueueEnabled()`
+  já existia e funciona; resolvido por config local `REDIS_ENABLED=false` no `backend/.env`
+  (git-ignored, NÃO committado). Pós-fix: 1 linha "não iniciado", zero spam.
+- **pool.ts:65 `Connection terminated`:** NÃO reproduziu em boot limpo isolado → não tocado (Etapa 4).
+  *(Conclusão revista mais abaixo — reproduz sob carga real.)*
+
+Gates: tsc 0 · actor-writer/bank-ledger/regression OK · `critical_new=0` · `validate:architectural`
+baseline 20 inalterado. Não tocou financeiro/migration/frontend.
+
+---
+
+## DRIFT `categories.domain_type` — CORRIGIDO ✅ (código `d497fe63` · APROVADO Clayton · 2026-05-31)
+
+`CategoryRepository.findById`/`findBySlug` projetavam `categories.domain_type`, coluna **inexistente** no
+schema vivo (information_schema confirma; nenhuma migration ativa a cria — só `migrations_archive/`
+observability, outra tabela). Causava HTTP 500 (42703) em `GET /profile/physical` e no caminho de
+categoria de `/profile/inference`. Removidas as duas projeções: semanticamente neutro porque
+`categories.model.ts:36` já mapeia `domainType = row.domain_type ?? 'SERVICE'` — ausência da coluna
+produz o mesmo valor canônico que NULL produziria. **`/profile/physical` voltou a 200.** C1 intacto.
+
+**Fecha a DT histórica `DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES`** (registrada antes neste arquivo, ~L5455
+— `categories.repository.ts:110 domain_type`). Sem migration · sem tocar CONCEPT resolver · sem C1.
+Gates: tsc 0 · 4 validators OK · `critical_new=0` · baseline 20 inalterado. Aprovado por Clayton.
+
+---
+
+## SWEEP DE ABAS DO PERFIL + 6 DTs DE RUNTIME ✅ (doc `5480572e` · 2026-05-31)
+
+Sweep autenticado real (login dev + `x-action-context`, actor `b682724c`) de todas as abas. Endpoints
+**verdes**: `/profile`, `/profile/progress`, `/profile/professional/c1` (C1 selado), `/profile/physical`
+(pós-fix), `/profile/learning`, `/profile/education(/events)`, `/profile/health/taxonomies`. Falhas
+registradas como **ACHADOS** em `REMEDIATION_DT_LOG.md` (commit `5480572e`, sem correção/decisão):
+1. `DT-PROFILE-PROFESSIONAL-LEGACY-MISSING-TABLES` — `/profile/professional` 500 (`user_skills_categories`).
+2. `DT-PROFILE-INFERENCE-COUPLED-TO-PROFESSIONAL-LEGACY` — inference/snapshot dependem do legado; após o
+   fix de `domain_type` o 500 restante é `user_skills_categories`.
+3. `DT-PROFILE-HEALTH-FACTS-SUBSTRATE-DRIFT` — `user_health_facts` ausente (domínio sensível) + bug
+   secundário de identidade (`actionContext.actorId` passado como `userId` ao `ensureUserActor`).
+4. `DT-CORE-PROFILE-GET-CREATES-ACTOR` — reforço runtime (GET cria profile/actor em leitura).
+5. `DT-AUTH-RATE-LIMIT-LOGS-MISSING` — `auth_rate_limit_logs` ausente; login funciona (não-fatal).
+6. `DT-MARKETPLACE-FINANCE-AGENDA-SCHEDULED-ACTIONS-MISSING` — `scheduled_actions` ausente; não tocar financeiro.
+
+**Revisão da conclusão pós-boot:** `pool.ts:65 Connection terminated` **reproduz sob carga real**
+(múltiplas requisições do sweep), ao contrário do boot limpo. Não-fatal; diagnóstico próprio quando
+priorizado.
+
+**A3 (frontend) permanece BLOQUEADA** até housekeeping da bancada + autorização explícita. Destino do
+legado profissional/inference, saúde, agenda e rate-limit-logs depende de Clayton/frente própria.
