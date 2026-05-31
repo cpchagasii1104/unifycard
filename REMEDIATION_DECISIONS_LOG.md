@@ -5670,6 +5670,22 @@ tabelas → gates da §11 do desenho → registro de C1 no `SSOT_REGISTRY_UNIFIC
 declaração profissional. C2/C3/C4 = frentes posteriores (C2/preço só após camada de pricing e sua
 relação com `bank_*`, ratificação tripla).
 
+**Sub-etapa 1 — VALIDAÇÃO CANÔNICA DE NOMES: CONCLUÍDA ✅ (READ-ONLY, 2026-05-31, HEAD fe81cb3a).**
+Validado contra `07_NOMENCLATURA_CANONICA.md`:
+- `actor_professional_profiles` / `actor_professional_concepts`: ZERO colisão (banco vivo + migrations
+  + archive); snake_case + plural + prefixo `actor_` (convenção viva: actor_delegations/actor_reputation/
+  actor_registry/actor_wallet_*).
+- Termos canônicos: `professional` (scope/actor_type), `concept` (SSOT semântico), `profile`, `skill`.
+- Colunas: `_at` (created/updated/declared/retired), `is_active` (prefixo `is_`), `_id` (FK). Sem termo
+  proibido. Reforço: evitar `status` enum (07:247 proíbe `status` isolado) está ALINHADO com a norma.
+- Esqueleto de chaveamento consistente com actor_reputation (id/tenant_id/actor_id/.../*_at).
+
+**PENDÊNCIAS para a migration (decisões de tipo, NÃO naming — exigem definição antes do schema):**
+- `skill_level`: tipo SQL não fixado no desenho ("declaração qualitativa") — TEXT? enum?
+- `years_experience`: tipo SQL não fixado ("declaração quantitativa") — INTEGER?
+Estas são decisões de produto/desenho da fatia. A migration NÃO deve ser escrita sem fixá-las +
+ratificação tripla (criação de substrato SSOT). Executor não se autoriza.
+
 ### Superada por
 
 (preencher quando a migration de C1 e a implementação forem registradas)
