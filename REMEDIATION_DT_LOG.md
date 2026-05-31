@@ -10276,3 +10276,16 @@ O DESENHO_A2 §10 pede ancorar a citação "Lei 7" em §4.10/§7 da norma. Regis
 como identidade semântica (concepts SSOT), `source_category_id` como breadcrumb — conforme a regra
 de CONCEPT-como-SSOT. Ancoragem normativa formal do número da "Lei 7" fica para revisão documental
 própria (não-bloqueante).
+
+### DT-VALIDATE-ARCHITECTURAL-20-LEGADO (OPEN — registrada no selo A2, 2026-05-31)
+**Contexto.** O gate `validate:architectural` (versão CI não-baseline) sai com exit 1 porque conta
+`Total=20` violações arquiteturais PRÉ-EXISTENTES (dívida de perfil legado): majoritariamente
+REGRA 3 "Categorias no perfil devem ter evento versionado associado" + 1 REGRA 2 "Perfil do Usuário
+não pode ser usado em decisões/limites/permissões". `Bloqueia Freeze: 0`.
+**Estado vs A2.** As 20 são BASELINE legado — `validate-architectural-patterns --strict` confirma
+`critical_new=0`, ou seja, a fatia C1 (A2) NÃO adicionou violação nova. A2 foi aceita por critério
+DIFERENCIAL (só novas contam). Limpar as 20 é frente PRÓPRIA, não A2.
+**Mitigação atual.** Gate diferencial (`--strict`, baseline 20) é o critério de aceite vigente;
+o `validate:architectural` cru fica vermelho por dívida legada conhecida, não por A2.
+**Próxima ação.** Frente read-only própria para mapear as 20 violações legadas e desenhar correção
+(ratificação própria); não bloqueia outras fatias enquanto `critical_new=0`.
