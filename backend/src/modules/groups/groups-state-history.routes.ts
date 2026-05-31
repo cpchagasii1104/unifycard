@@ -28,13 +28,12 @@ const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         // Verificar se grupo existe
         const groupRow = await runQueryWithTenant<{
-          group_id: string;
-          is_active: boolean;
+          status: string;
           created_at: Date;
           updated_at: Date;
         }>(
           tenantId,
-          `SELECT group_id, is_active, created_at, updated_at FROM groups WHERE group_id = $1 AND tenant_id = $2`,
+          `SELECT status, created_at, updated_at FROM groups WHERE id = $1 AND tenant_id = $2`,
           [groupId, tenantId]
         );
 
@@ -43,14 +42,19 @@ const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // 🔴 BLINDAGEM: Usar apenas dados reais já existentes
-        // Estado do grupo é baseado em is_active (true/false)
+        // Estado do grupo é baseado em groups.status (active/inactive)
         // Sem tabela de histórico, retornamos apenas o estado atual na criação
 
         const history: Array<{ state: string; changedAt: string }> = [];
 
+        // `state` reflete o status binário VIVO de groups (chk_groups_status: active/inactive),
+        // espelhando a derivação canônica de groups.repository.ts:70. Se o ciclo de vida de grupo
+        // for enriquecido no futuro (CHECK ampliado), esta derivação precisa de revisão.
+        const state: 'active' | 'inactive' = groupRow.status === 'active' ? 'active' : 'inactive';
+
         // Estado inicial (criação)
         history.push({
-          state: groupRow.is_active ? 'active' : 'inactive',
+          state,
           changedAt: groupRow.created_at.toISOString(),
         });
 

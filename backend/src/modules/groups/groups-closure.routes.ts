@@ -32,11 +32,10 @@ const groupsClosureRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         // Verificar se grupo existe
         const groupRow = await runQueryWithTenant<{
-          group_id: string;
           created_at: Date;
         }>(
           tenantId,
-          `SELECT group_id, created_at FROM groups WHERE group_id = $1 AND tenant_id = $2`,
+          `SELECT created_at FROM groups WHERE id = $1 AND tenant_id = $2`,
           [groupId, tenantId]
         );
 
