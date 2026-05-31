@@ -1826,3 +1826,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (2) rodar diagnósticos G1 (região do usuário p/ fallback) / G2 (substrato #3 vivo?) / G3 (ciclo de
   status do grupo); (3) ratificação tripla para qualquer frente que mova dinheiro.
 - Perfil profissional é frente SEPARADA — não misturar com grupos. Uma frente executora por vez.
+
+### GATE PERFIL PROFISSIONAL — memória operacional (2026-05-31, HEAD 8bfb0b21)
+- A aba profissional atual NÃO tem chão de serviço. O serviço quebra em runtime porque escreve em
+  4 tabelas archive-only ausentes do banco vivo (`user_skills_categories`, `predefined_services`,
+  `combo_discount_rules`, `workers`) — só em migrations_archive/, nunca canônicas.
+- O chão SEMÂNTICO existe e deve ser PRESERVADO: categories + concepts + invariante concept-first +
+  árvore professional (L2 com concept, domain='servicos'). Não é "perfil em ruínas".
+- Archive NÃO deve ser restaurado automaticamente (archive não é SSOT vigente). O serviço é
+  user/global_user-keyed; o sistema é actor-first — restaurar verbatim reintroduz substrato anti-canônico.
+- Próxima frente = REDESENHO actor-first e concept-anchored do read-model profissional (não migration
+  mecânica). O MVP futuro deve SEPARAR: identidade/competência/bio · oferta/preço/workers ·
+  availability · capability/authority.
+- Bloqueio até a DT resolver: não popular, não seedar, não restaurar archive, não rodar
+  normalize-category-concepts.ts, não tratar category_id como SSOT semântico (SSOT = CONCEPT).
+- DT registrada: DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY.

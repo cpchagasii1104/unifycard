@@ -10167,3 +10167,56 @@ O destino canônico é o composite `owner_type='actor'` por finalidade. Ajuste p
 - **DT-USER-GROUP-ALLOCATIONS-SILENT-CALL-CLEANUP** (OPEN, ver §6443): reforçada pelo V2 — o V2
   declara `user_group_allocations` fora do split comunitário; a limpeza/aposentadoria do call
   silencioso ganha respaldo normativo.
+
+---
+
+### DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY (OPEN) — gate read-only 2026-05-31
+**Tipo:** Profile / Professional / Schema / Actor-first.
+**Status:** OPEN.
+**Origem:** gate read-only "perfil profissional: schema vivo + concept linkage" (HEAD 8bfb0b21).
+
+**1. Achado.** O serviço atual da aba profissional escreve em quatro tabelas ausentes do banco
+vivo E ausentes das migrations canônicas:
+- `user_skills_categories`
+- `predefined_services`
+- `combo_discount_rules`
+- `workers`
+
+**2. Evidência.**
+- Banco vivo `unificard_dev` com 236 tabelas (populado — ausência é real, não banco-vazio).
+- `SELECT` em `information_schema.tables` retornou **0/4** das tabelas acima.
+- grep confirmou: as 4 só têm CREATE em `backend/migrations_archive/`
+  (`user_skills_categories` → 0351/0353; `predefined_services` → 0566;
+  `combo_discount_rules` → 0196; `workers` → 0630). Nenhuma em `backend/migrations/` canônicas.
+- HEAD do gate: `8bfb0b21`.
+
+**3. Impacto.** Qualquer tentativa de salvar/popular a aba profissional atual quebra em runtime
+(`relation does not exist`). Popular dados está BLOQUEADO. Não há chão material de serviço —
+apesar de o chão semântico existir.
+
+**4. Nuance (não é "perfil em ruínas").** O substrato SEMÂNTICO está íntegro e canônico:
+- `categories` (canônica 0061) + `concepts` (canônica 0069, 90 conceitos);
+- invariante concept-first `create_category_from_concept` (0097/0110);
+- árvore `professional` mínima: L0=2, L1=22, L2=3;
+- L2 professional 3/3 com `concept_id`, todos `domain='servicos'`, zero colisão.
+O que falta é o read-model/serviço canônico da aba, não a fundação semântica.
+
+**5. Regra.** NÃO restaurar tabelas de `migrations_archive` mecanicamente. Archive não é SSOT
+vigente (ver feedback institucional "archive não é SSOT vigente").
+
+**6. Motivo.** O serviço atual é `user_id`/`global_user_id`-keyed, enquanto a arquitetura vigente
+é actor-first. Restaurar verbatim reintroduziria substrato anti-canônico (não-actor).
+
+**7. Resolução prevista.** Abrir frente de DESENHO antes de qualquer migration:
+- decidir se o read-model profissional será redesenhado actor-keyed;
+- derivar de `CONCEPT`/`categories` canônicos;
+- separar identidade profissional de oferta/preço/workers;
+- definir se algum elemento archive deve ser migrado, reescrito ou aposentado.
+
+**8. Bloqueio (até esta DT ser resolvida).**
+- não popular a aba profissional;
+- não seedar dados profissionais no serviço atual;
+- não restaurar archive;
+- não rodar `normalize-category-concepts.ts` (write-candidate: `UPDATE categories SET concept_id`
+  sob `--apply`; caracterizado por grep, NÃO executado neste gate);
+- não tratar `category_id` como SSOT semântico (o SSOT é `CONCEPT`).

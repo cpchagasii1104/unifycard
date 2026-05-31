@@ -8842,3 +8842,24 @@ NÃO liga dinheiro. As DTs técnicas de grupo seguem ABERTAS com o V2 como norma
 
 Regra: abrir apenas UMA frente executora por vez. Qualquer frente que mova dinheiro exige
 ratificação tripla (Opus + ChatGPT + Clayton).
+
+---
+
+## GATE PERFIL PROFISSIONAL — schema vivo + concept linkage ✅ READ-ONLY (2026-05-31 · HEAD 8bfb0b21)
+
+Multímetro rodado na frente paralela (perfil profissional). Resultado:
+- **GATE 1 (schema vivo) = FAIL real.** As 4 tabelas do serviço profissional
+  (`user_skills_categories`, `predefined_services`, `combo_discount_rules`, `workers`) NÃO existem
+  no banco vivo `unificard_dev` (0/4, num DB com 236 tabelas) E não têm migration canônica — só em
+  `migrations_archive/`. O serviço quebra em runtime ao escrever.
+- **GATE 2 (category→concept) = PASS.** Substrato semântico íntegro e canônico (`categories` 0061,
+  `concepts` 0069/90 conceitos, invariante 0097/0110, árvore professional mínima: L2 3/3 com
+  concept, domain='servicos', zero colisão). Árvore ainda é bootstrap mínima (3 folhas médicas).
+
+**Popular a aba profissional está BLOQUEADO** (DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY).
+A próxima frente NÃO é migration mecânica nem restauração de archive — é **DESENHO actor-first** do
+read-model profissional (serviço atual é user/global_user-keyed; sistema é actor-first; archive não
+é SSOT vigente). Grupos permanecem em trilho SEPARADO; não misturar frentes.
+
+Natureza do gate: READ-ONLY. Zero código · zero schema · zero migration · zero DML · zero população.
+`normalize-category-concepts.ts` caracterizado como write-candidate e NÃO executado.
