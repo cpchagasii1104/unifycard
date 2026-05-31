@@ -8903,3 +8903,25 @@ C1 apenas — C2 (preço/oferta) / C3 (availability) / C4 (capability/authority)
 sessão SEPARADA. Esta promulgação NÃO preparou executor.
 Grupos financeiros seguem congelados · CHECK actor_type segue higiene independente ·
 preço/oferta/capability/availability ficam para frentes futuras.
+
+---
+
+## DECISION-0063 — MIGRATION C1 APLICADA ✅ (2026-05-31)
+
+DECISION-0063 entrou em EXECUÇÃO PARCIAL. Migration `20260530579000_create_actor_professional_substrate.sql`
+criada e aplicada no `unificard_dev`. O substrato C1 nasceu no schema:
+- `actor_professional_profiles` (bio profissional, 1:1 por actor; UNIQUE tenant_id, actor_id);
+- `actor_professional_concepts` (competências declaradas, 1:N; UNIQUE tenant_id, actor_id, concept_id;
+  CHECKs: skill_level 1..5, years_experience NULL|0..80, ciclo is_active+retired_at).
+Registrado no `SSOT_REGISTRY_UNIFICARD.md` como SSOT da declaração profissional.
+
+**Esta fatia criou APENAS o substrato C1.** Zero API/service/repository/rota · zero seed · zero
+frontend · zero C2/C3/C4 · zero bank/split/payout · zero workers · zero archive restaurado · zero
+actor_type. Financeiro intocado.
+
+Próxima frente (SEPARADA, ratificação própria): service/API do MVP C1 — leitura por
+`actionContext.actorId`, escrita via actor-writer (§4.8.1), sem lookup solto.
+
+**Nota de reconciliação (housekeeping, não desta fatia):** migrations 577000/578000/579000 foram
+aplicadas via `psql -f` direto (SEC-1/COE-2/C1) e NÃO estão em `schema_migrations` (tracking em 336;
+disco em 339). Não corrigido aqui (exigiria DML manual fora de escopo). Reconciliar em sessão própria.

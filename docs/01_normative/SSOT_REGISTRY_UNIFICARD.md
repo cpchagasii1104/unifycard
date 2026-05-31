@@ -420,6 +420,44 @@ Prompt operacional (não substitui lei): CURSOR_PROMPT_AUTHORITY_LAYER.md — co
 
 ---
 
+## SSOT — Substrato profissional declarativo actor-first (C1)
+
+**Autoridade normativa:** DECISION-0063 (`docs/02_decisions/DESENHO_MVP_C1_PERFIL_PROFISSIONAL.md`).
+**Materializado:** migration `20260530579000_create_actor_professional_substrate.sql` (2026-05-31).
+
+```
+Conceito: a DECLARAÇÃO profissional do actor — "este actor declara competência no concept X".
+Tabelas (SSOT da declaração profissional):
+  - actor_professional_profiles   — bio profissional, 1:1 por actor (UNIQUE tenant_id, actor_id)
+  - actor_professional_concepts   — competências declaradas, 1:N por actor
+                                    (UNIQUE tenant_id, actor_id, concept_id)
+Identidade:
+  - operacional: actor_id (D2; resolvido via writer §4.8.1 — leitura sem side effect, escrita
+    via ensureUserActor/findOrCreateUserActor; lookup solto user/global_user→actor_id PROIBIDO)
+  - semântica: concept_id → concepts(concept_id) (Lei 7; CONCEPT é o SSOT semântico)
+  - navegação/rastreio: source_category_id → categories(category_id) (breadcrumb, NUNCA identidade)
+Cardinalidade: profiles 1:1 por actor · concepts 1:N por actor.
+Declarações (não credenciais): skill_level SMALLINT 1..5 · years_experience SMALLINT NULL|0..80.
+Ciclo de vida: binário is_active + retired_at (CHECK de coerência); remoção = desativação lógica,
+  nunca DELETE. Sem status enum.
+ESTE SSOT É: a verdade da declaração profissional do actor (identidade/competência declarada).
+ESTE SSOT NÃO É:
+  - NÃO é SSOT de preço (C2)
+  - NÃO é SSOT de oferta/serviços/workers (C2)
+  - NÃO é SSOT de availability/agenda (C3 — unified_availability/unified_bookings)
+  - NÃO é SSOT de capability/authority (C4 — engine de autoridade + actor_registry)
+  - NÃO é SSOT de certificação verificada (trilha de credencial própria, futura)
+  - NÃO é SSOT financeiro (nenhum bank_*)
+Leitores futuros: aba de perfil profissional (projeção/porta), busca/matching (read), via service
+  próprio (frente posterior, ratificação própria) — NÃO autoram preço/oferta/availability/capability.
+Proibidos: restaurar substrato archive global-user-keyed; tratar category_id como identidade;
+  autorar C2/C3/C4 a partir deste substrato; tratar a aba como SSOT (a aba projeta, C1 declara).
+```
+
+**Referência cruzada:** writer de actors — §**4.8.1** (`LEI_DE_COERENCIA_SISTEMICA`); CONCEPT semântico — Lei 7 (`LEIS_OPERACIONAIS`); perfil geral actor-keyed (template de forma, não destino) — `public_profiles`.
+
+---
+
 ## 🔗 Referencias
 <!-- AUTO-GENERATED-START -->
 ### Referencia

@@ -1863,3 +1863,14 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Leitura usa actor_id já resolvido (sem side effect); escrita via actor-writer; lookup solto PROIBIDO.
 - Ciclo de vida binário (`is_active` + `retired_at`); DELETE de competência proibido.
 - Próxima ação = migration C1 em sessão SEPARADA. Esta sessão NÃO preparou executor.
+
+### MIGRATION C1 APLICADA (2026-05-31) — substrato profissional nasceu
+- Migration `20260530579000_create_actor_professional_substrate.sql` criada e aplicada no unificard_dev.
+- Tabelas criadas: `actor_professional_profiles` (bio, 1:1) + `actor_professional_concepts` (competências, 1:N).
+- `skill_level`/`years_experience` são SMALLINT declarativos (CHECK 1..5 / NULL|0..80), NÃO credenciais.
+- `is_active` + `retired_at` travam o ciclo no banco (CHECK de coerência); remoção = desativação lógica.
+- Registrado no SSOT_REGISTRY como SSOT da declaração profissional (não preço/oferta/availability/capability/cert/bank).
+- NÃO houve API/service/repository/rota/frontend/seed. Só schema C1.
+- Próximo passo NÃO é automático: precisa NOVA frente (ratificação própria) para service/API do MVP C1,
+  com leitura por actionContext.actorId e escrita via actor-writer, sem lookup solto.
+- Housekeeping pendente: schema_migrations não registra 577000/578000/579000 (aplicadas via psql -f). Reconciliar à parte.
