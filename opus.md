@@ -1874,3 +1874,12 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Próximo passo NÃO é automático: precisa NOVA frente (ratificação própria) para service/API do MVP C1,
   com leitura por actionContext.actorId e escrita via actor-writer, sem lookup solto.
 - Housekeeping pendente: schema_migrations não registra 577000/578000/579000 (aplicadas via psql -f). Reconciliar à parte.
+
+### RECONCILIAÇÃO schema_migrations — RESOLVIDO (2026-05-31)
+- As 3 migrations aplicadas via psql -f nesta série (577000 SEC-1, 578000 COE-2, 579000 C1) foram
+  registradas em schema_migrations após provar os 4 critérios (arquivo existe, aplicada no schema,
+  validada por SELECT, ausente do tracking). Total 336→339 (= disco). Transação com LOCK EXCLUSIVE,
+  formato do runner (filename + checksum sha256 + execution_time_ms NULL). Linhas existentes intactas.
+- O runner canônico (npm run migrate) volta a refletir a realidade: não re-executaria essas 3.
+- INSERT em schema_migrations é estado de banco (não versionado). Lição: aplicar migrations futuras
+  pelo runner canônico evita essa defasagem; psql -f direto exige reconciliação posterior.

@@ -8923,5 +8923,14 @@ Próxima frente (SEPARADA, ratificação própria): service/API do MVP C1 — le
 `actionContext.actorId`, escrita via actor-writer (§4.8.1), sem lookup solto.
 
 **Nota de reconciliação (housekeeping, não desta fatia):** migrations 577000/578000/579000 foram
-aplicadas via `psql -f` direto (SEC-1/COE-2/C1) e NÃO estão em `schema_migrations` (tracking em 336;
-disco em 339). Não corrigido aqui (exigiria DML manual fora de escopo). Reconciliar em sessão própria.
+aplicadas via `psql -f` direto (SEC-1/COE-2/C1) e NÃO estavam em `schema_migrations` (tracking em 336;
+disco em 339). Não corrigido naquela fatia (exigiria DML manual fora de escopo).
+
+**RECONCILIAÇÃO — RESOLVIDO ✅ (2026-05-31, sessão housekeeping própria).** As três migrations
+passaram os 4 critérios (arquivo existe · aplicada materialmente no schema vivo · validada por SELECT
+· ausente do tracking) e foram registradas em `schema_migrations` via 3 INSERTs (formato do runner:
+filename + checksum sha256 do conteúdo + execution_time_ms NULL), em transação única com
+`LOCK TABLE ... EXCLUSIVE`. Total 336 → 339 (= disco). Linhas existentes intactas (575000/576000 com
+checksums/tempos inalterados). O runner canônico (`npm run migrate`) NÃO re-executaria mais essas
+três — tracking alinhado com o schema vivo. Zero DDL · zero migration rodada · zero schema alterado ·
+só INSERT em schema_migrations (estado de banco, não versionado em git).
