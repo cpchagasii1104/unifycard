@@ -8813,3 +8813,32 @@ de grupo.**
 **Cofre econômico permanece DESLIGADO.** Nenhum prompt executor financeiro deve ser preparado antes
 da decisão de Clayton sobre fungibilidade. Sem ECON-1 executor, sem provisionar wallet de grupo,
 sem fix split lookup, sem schema financeiro, sem código financeiro até a decisão.
+
+---
+
+## CONTRATO_GRUPOS_V2 — PROMULGADO VIGENTE ✅ (2026-05-31 · commit 24710b29)
+
+Clayton deu o aval final. `CONTRATO_GRUPOS_V2` promulgado como VIGENTE; gates 4/4 verdes.
+`CONTRATO_GRUPOS_V1` parcialmente revogado nos pontos da §REVOGAÇÕES (conta única `owner_type=
+'group'`, `user_active_groups` como substrato do split, elegibilidade §4, "Como Grupo Gasta" §5);
+base não-revogada do V1 segue vigente. Blocos AUTO-GENERATED preservados (a ferramenta regenera).
+
+**Natureza da promulgação: DOCUMENTAL/NORMATIVA.** Zero código financeiro · zero schema · zero
+migration · zero DML · cofre econômico de grupo continua DESLIGADO.
+
+A pergunta "natureza do dinheiro de grupo" foi RESPONDIDA pelo V2: **dois bolsos por grupo** —
+operacional (`actor_wallet`) + comunitário (`group_community_fund`, nome a validar). Isso
+RESOLVE a contradição normativa (DT-CONTRATO-GRUPOS-V1-SINGLE-ACCOUNT-VS-OPTION-C CLOSED), mas
+NÃO liga dinheiro. As DTs técnicas de grupo seguem ABERTAS com o V2 como norma de referência
+(ver REMEDIATION_DT_LOG.md → "RECLASSIFICAÇÃO PÓS-CONTRATO_GRUPOS_V2").
+
+### FILA ATUAL (uma frente executora por vez)
+1. **[esta sessão]** Reclassificação documental das DTs pós-V2 — CONCLUÍDA.
+2. **Próxima frente possível de grupos:** validação READ-ONLY de nomenclatura
+   `group_community_fund` vs treasury `community_fund` de plataforma (pré-requisito de qualquer
+   migration; §DECISÕES PENDENTES #1 do V2). NÃO executada nesta sessão.
+3. **Frente paralela possível:** perfil profissional — gate READ-ONLY de schema vivo + concept
+   linkage. Frente SEPARADA; não misturar com grupos.
+
+Regra: abrir apenas UMA frente executora por vez. Qualquer frente que mova dinheiro exige
+ratificação tripla (Opus + ChatGPT + Clayton).

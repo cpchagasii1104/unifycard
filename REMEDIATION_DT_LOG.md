@@ -10113,3 +10113,57 @@ owner_id distintos, dois slots únicos distintos. `account_type` não entra na c
 **Mitigação atual:** sem convergência financeira até decisão de fungibilidade.
 **Resolução prevista:** ECON-1 redesenhada deve definir constraint/índice/regra de unicidade
 compatível com a conta monetária canônica escolhida.
+
+---
+
+## RECLASSIFICAÇÃO PÓS-CONTRATO_GRUPOS_V2 (2026-05-31 · commit normativo 24710b29)
+
+`CONTRATO_GRUPOS_V2` foi promulgado VIGENTE (aval Clayton; gates 4/4 verdes). `CONTRATO_GRUPOS_V1`
+ficou parcialmente revogado nos pontos da §REVOGAÇÕES. Esta seção reclassifica as DTs de grupo à
+luz do V2. **Promulgação foi documental/normativa: zero código, zero schema, zero migration, zero
+dinheiro. Cofre econômico de grupo segue DESLIGADO.**
+
+### DT-CONTRATO-GRUPOS-V1-SINGLE-ACCOUNT-VS-OPTION-C (CLOSED — RESOLVIDA pelo V2)
+**Origem:** F-MAPA / diagnóstico Opção C (2026-05-30) — sugerida, formalizada agora já resolvida.
+**Contradição:** o V1 (LEI) previa CONTA ÚNICA de grupo (`owner_type='group'`) recebendo o split;
+a decisão de Clayton (Opção C) exigia DOIS bolsos. Implementar dois bolsos sob o V1 vigente seria
+"BUG por definição" pelo próprio V1.
+**Resolução:** `CONTRATO_GRUPOS_V2` VIGENTE (commit 24710b29). O V2 revogou a conta única e definiu
+dois bolsos por grupo: operacional = `actor_wallet`; comunitário = `group_community_fund` (nome
+funcional, sujeito à validação de nomenclatura canônica — colisão com o treasury `community_fund`
+de plataforma, ver §DECISÕES PENDENTES #1 do V2).
+**Observação:** resolve a contradição NORMATIVA apenas. NÃO implementa schema, split, wallet,
+statement ou qualquer fluxo financeiro. Status: CLOSED.
+
+### Norma de referência atualizada para as DTs técnicas de grupo (permanecem OPEN)
+As DTs abaixo seguem ABERTAS (exigem implementação futura, com ratificação tripla). A norma de
+referência passa a ser `CONTRATO_GRUPOS_V2` VIGENTE, que decidiu:
+- dois bolsos por grupo (operacional = `actor_wallet`; comunitário = `group_community_fund`, nome a validar);
+- `group_members` = fonte canônica de vínculo do split comunitário;
+- `user_active_groups` = read-model futuro, NÃO SSOT obrigatório;
+- `user_group_allocations` = NÃO é fonte do split comunitário (dívida a aposentar/reclassificar);
+- fallback regional por AUSÊNCIA DE VÍNCULO ELEGÍVEL (não por falha de lookup), na região do USUÁRIO;
+- gasto comunitário externo = trilho financeiro próprio (ratificação tripla);
+- statement com os dois bolsos SEPARADOS; visibilidade agregada aos membros.
+
+Correção de enquadramento (vinculante para estas DTs): onde elas falavam de "ECON-1 = ownerType=
+'group'" ou "conta única" como destino futuro, isso está MORTO — o V2 revogou `owner_type='group'`.
+O destino canônico é o composite `owner_type='actor'` por finalidade. Ajuste por DT:
+
+- **DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP** (OPEN — segue BLOQUEANTE da implementação do split
+  comunitário): o fix mira a conta canônica por finalidade do V2 (`group_community_fund` via
+  composite), NÃO `getAccountByOwner(groupId,'company')`. Tom inalterado: risco LATENTE, não
+  vazamento ativo (depende de `user_group_allocations` inexistente; step 3 não executa hoje).
+- **DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED** (OPEN): o V2 confirma os dois bolsos como contas a
+  provisionar; provisionamento canônico permanece gap a implementar.
+- **DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES** (OPEN): o V2 escolhe os trilhos canônicos (#2
+  actor_wallet + bolso comunitário); o legado #1 (`owner_id=groupId`,'company') e o #3 (core/economy)
+  passam a ser trilhos a APOSENTAR/convergir, não destinos.
+- **DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT** (OPEN): sob o V2, ter dois bolsos por grupo é
+  DESEJADO; a questão vira unicidade por (grupo × finalidade) via convenção de owner_id composite —
+  a regra exata de unicidade é decisão da frente de implementação.
+- **DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE** (OPEN): pré-requisito técnico do
+  provisionamento dos bolsos; inalterada pelo V2.
+- **DT-USER-GROUP-ALLOCATIONS-SILENT-CALL-CLEANUP** (OPEN, ver §6443): reforçada pelo V2 — o V2
+  declara `user_group_allocations` fora do split comunitário; a limpeza/aposentadoria do call
+  silencioso ganha respaldo normativo.

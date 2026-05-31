@@ -1813,3 +1813,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Próxima ação após a decisão: desenhar frente READ-ONLY de consequências da opção escolhida.
 - DTs novas: DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED · DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES ·
   DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE · DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT.
+
+### CONTRATO_GRUPOS_V2 VIGENTE — memória operacional (2026-05-31, commit 24710b29)
+- A pergunta foi RESPONDIDA: o V2 (LEI vigente) decidiu **dois bolsos por grupo** —
+  operacional (`actor_wallet`) + comunitário (`group_community_fund`, nome a validar).
+- Isso NÃO ligou o dinheiro. Foi promulgação documental. Cofre econômico de grupo segue DESLIGADO.
+- `owner_type='group'` está REVOGADO pelo V2; destino canônico = composite `owner_type='actor'`
+  por finalidade. `group_members` = SSOT do vínculo do split; `user_active_groups` = read-model
+  futuro; `user_group_allocations` = fora do split (dívida a aposentar).
+- Antes de QUALQUER implementação financeira de grupo:
+  (1) validar nome do account_type comunitário (colisão com treasury `community_fund` de plataforma);
+  (2) rodar diagnósticos G1 (região do usuário p/ fallback) / G2 (substrato #3 vivo?) / G3 (ciclo de
+  status do grupo); (3) ratificação tripla para qualquer frente que mova dinheiro.
+- Perfil profissional é frente SEPARADA — não misturar com grupos. Uma frente executora por vez.
