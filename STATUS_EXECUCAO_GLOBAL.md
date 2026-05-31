@@ -8863,3 +8863,23 @@ read-model profissional (serviço atual é user/global_user-keyed; sistema é ac
 
 Natureza do gate: READ-ONLY. Zero código · zero schema · zero migration · zero DML · zero população.
 `normalize-category-concepts.ts` caracterizado como write-candidate e NÃO executado.
+
+---
+
+## DT-GROUPS-ROUTES-LEGACY-GROUP-ID — CORRIGIDA ✅ (código `d064e5e9` · fecho doc 2026-05-31)
+
+Primeira DT de CÓDIGO desta série, fechada. As 2 rotas de superfície que davam HTTP 500
+(`groups-closure.routes.ts`, `groups-state-history.routes.ts`) passaram a consultar o schema vivo:
+`groups.group_id` → `groups.id` (PK); `groups.is_active` → `groups.status` binário (active/inactive),
+com `state` derivado preservado. Payload externo intacto. `group_events.group_id` (coluna legítima)
+preservado — sem find-replace cego.
+
+Correção NÃO tocou: dinheiro · bank_ledger · split · payout · actor_type · schema · migrations.
+Gates da correção de código: 4/4 verdes · tsc limpo · critical_new=0.
+
+### Próxima etapa recomendada
+- **Grafo de dependências das frentes vivas** (READ-ONLY) antes de abrir nova frente; OU, se Clayton
+  preferir, **CHECK actor_type** como frente própria ratificada (janela limpa: dados só 'user', zero
+  violação — ver gate de reancoragem de identidade).
+- Perfil profissional continua aguardando **desenho actor-first** (DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY).
+- Grupos financeiros continuam CONGELADOS (cofre desligado; aguardam pendentes do CONTRATO_GRUPOS_V2).

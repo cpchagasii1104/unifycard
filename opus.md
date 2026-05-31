@@ -1841,3 +1841,12 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Bloqueio até a DT resolver: não popular, não seedar, não restaurar archive, não rodar
   normalize-category-concepts.ts, não tratar category_id como SSOT semântico (SSOT = CONCEPT).
 - DT registrada: DT-PROFILE-PROFESSIONAL-SERVICE-TABLES-ARCHIVE-ONLY.
+
+### ROTAS DE GRUPO CORRIGIDAS — memória operacional (2026-05-31, código d064e5e9)
+- Rotas `groups-closure` e `groups-state-history` corrigidas para o schema vivo (DT-GROUPS-ROUTES-LEGACY-GROUP-ID).
+- `groups.group_id` era legado inexistente → `groups.id` é a PK real.
+- `groups.is_active` era legado inexistente → `groups.status` é binário no schema vivo (CHECK active/inactive).
+- `group_events.group_id` é coluna LEGÍTIMA (FK → groups) e foi preservada — sem find-replace cego.
+- Payload externo das duas rotas permaneceu intacto.
+- Ressalva: se o status de grupos virar multiestado no futuro (CHECK ampliado), revisar a derivação
+  de `state` em groups-state-history.routes.ts.

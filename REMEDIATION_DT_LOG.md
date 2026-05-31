@@ -9954,7 +9954,7 @@ capabilities default.
 Sem capabilities persistidas (não há tabela de capability no schema vivo — provado por A8).
 **Resolução futura:** D-CONCEPT / D-CONTEXT-RESOLVER define a derivação governada de capabilities.
 
-### DT-GROUPS-ROUTES-LEGACY-GROUP-ID (OPEN) — descoberto em READ-ONLY COE-1 (2026-05-30)
+### DT-GROUPS-ROUTES-LEGACY-GROUP-ID (CLOSED — CORRIGIDA 2026-05-31) — descoberto em READ-ONLY COE-1 (2026-05-30)
 **Contexto.** Duas rotas de superfície do módulo de grupos usam `group_id` como nome de coluna
 na tabela `groups`, mas `groups` não possui essa coluna — a PK é `id`. São vestígios do momento
 em que a tabela renomeou a PK de `group_id` para `id` sem que esses arquivos fossem atualizados.
@@ -9973,6 +9973,27 @@ chama esses endpoints específicos.
 Estas rotas exigem decisão sobre aliases (`id AS group_id`), semântica de `is_active` vs `status`,
 e validação de callers que dependam do nome da coluna retornada. Ratificação própria obrigatória.
 **Próxima ação:** microfrente própria — READ-ONLY + mapeamento de callers + ratificação antes de editar.
+
+**FECHO (CLOSED — CORRIGIDA, commit `d064e5e9`, 2026-05-31).**
+Correção cirúrgica aplicada após gate read-only (Cenário A) + ratificação.
+- **Causa:** duas rotas de superfície consultavam colunas legadas/inexistentes em `groups`:
+  `group_id` (ambas) e `is_active` (state-history).
+- **Correção:** `groups.group_id` → `groups.id` (PK real); `groups.is_active` →
+  `groups.status`, com `state` derivado binário `active/inactive` (narrowing TS explícito,
+  espelhando `groups.repository.ts:70`).
+  - `groups-closure.routes.ts`: `SELECT created_at FROM groups WHERE id = $1 ...` (group_id não
+    ia no payload → nem alias precisou).
+  - `groups-state-history.routes.ts`: `SELECT status, created_at, updated_at FROM groups WHERE
+    id = $1 ...`; `state = (status === 'active') ? 'active' : 'inactive'`.
+- **Payload externo:** PRESERVADO (closure: `{lifetimeEvents, lifetimeEconomicVolume, createdAt}`;
+  state-history: `[{state, changedAt}]`). Nenhum consumidor externo dependia de `group_id`/`is_active`.
+- **Precisão importante:** `group_events.group_id` foi PRESERVADO — é coluna legítima de
+  `group_events` (FK → groups), não da tabela `groups`. NÃO houve find-replace cego de `group_id`.
+- **Ressalva futura (não bloqueia o fecho):** a correção reflete o schema vivo, onde
+  `chk_groups_status` é binário. Se o ciclo de vida de grupos for enriquecido futuramente
+  (CHECK ampliado p/ DRAFT/INFORMAL/VERIFIED/DORMANT/BANNED, como o CONTRATO_GRUPOS_V1 descreve),
+  a derivação de `state` deve ser revista. Hoje, o mapeamento binário é o correto e provado.
+- **Validação do fix:** tsc limpo · 4 gates verdes · zero resíduo legado · zero schema/migration/DML.
 
 ### DT-GROUPS-OWNER-FK-ONDELETE-POLICY (OPEN) — descoberto em READ-ONLY COE-2 (2026-05-30)
 **Contexto.** `groups_owner_actor_id_fkey` usa `ON DELETE NO ACTION` (padrão PostgreSQL), enquanto
