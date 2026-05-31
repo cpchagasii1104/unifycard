@@ -10033,3 +10033,83 @@ actor_type='group') → obter seu `actor_id` → buscar a wallet por
 causal: (1) grupo com actor canônico; (2) actor_wallet criada; (3) split comunitário encontra a
 wallet; (4) valor cai no grupo; (5) remanescente vai ao regional_fund SÓ depois; (6) ledger fecha
 (Σdéb=Σcred). Depende de ECON-1 (ownerType='group') resolvido antes.
+
+**REVISÃO FACTUAL append-only (2026-05-30, pós-paralelas A/B/C/D) — corrige o TOM:**
+O risco desta DT é **LATENTE, não ativo**. O split de grupo **NÃO vaza dinheiro hoje**. Motivo
+material (cruza com DT-USER-GROUP-ALLOCATIONS-SILENT-CALL-CLEANUP, 2026-05-27, PE4 §E.1):
+- O step 3 do split de grupo (`bank-split-engine.service.ts:193-223`) depende de
+  `userGroupAllocationRepository.findByUserId` contra a tabela `user_group_allocations`, que
+  **NÃO existe no DB** (0 rows; `findByUserId` retorna `[]` por try/catch tolerante).
+- Logo o bloco de alocação de grupo **não executa**: nenhum `getAccountByOwner(groupId,'company')`
+  é disparado, nenhum split de grupo é calculado, nenhum centavo se move para grupo nem vaza.
+- A frase original "vaza silenciosamente para regional_fund, sem erro e sem log" descreve o que
+  ACONTECERIA se o caminho fosse ativado — NÃO o estado de hoje. Substituir "vazamento atual"
+  por "**risco ARMADO para quando o fluxo nascer**".
+- Quando `user_group_allocations` for materializada (frente econômica de grupos), o lookup atual
+  estará armado para mirar o trilho ERRADO (`getAccountByOwner(groupId,'company')`) em vez da
+  conta canônica que Clayton vier a decidir. A DT continua válida e BLOQUEANTE de ECON-2 — só o
+  tom muda de "vazamento ativo" para "risco latente pré-armado".
+- Correção adicional de premissa: a "ECON-1 = ownerType='group'" mencionada na linha "Depende de
+  ECON-1" está MORTA. ECON-1 será redesenhada como "Convergência da conta monetária de grupo"
+  (ver DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES) — a questão real é a NATUREZA econômica do
+  dinheiro de grupo, não a string ownerType.
+
+### DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED (OPEN) — paralelas A/B/C/D pós F-MAPA (2026-05-30)
+**Status:** OPEN.
+**Origem:** paralelas A/B/C/D após F-MAPA-DE-ACOPLAMENTO-SISTEMICO.
+**Contexto:** `ensureGroupActor` cria o group-actor e o back-link `groups.actor_id`, mas NÃO chama
+`ensureActorWalletAccount`. Não há call site vivo que provisione a actor_wallet canônica para um
+group-actor no ciclo de vida do grupo. O único `ensureActorWalletAccount` real identificado fica
+no release D-money/service-order (`service-order.service.ts:1060`, por `receiverActorId`) —
+caminho ortogonal ao split comunitário.
+**Risco:** corrigir o lookup do split para a actor_wallet sem provisionamento prévio apontaria
+para uma conta que não nasce ("corrigir o endereço de uma casa que não foi construída").
+**Mitigação atual:** coração econômico de grupo permanece desligado; nenhuma implementação antes
+da decisão de fungibilidade de Clayton.
+**Resolução prevista:** após Clayton decidir a natureza do dinheiro de grupo, provisionar a conta
+canônica escolhida no ciclo correto, com E2E e gates.
+
+### DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES (OPEN) — paralelas A/B/C/D pós diagnóstico B2 (2026-05-30)
+**Status:** OPEN.
+**Origem:** paralelas A/B/C/D após diagnóstico B2.
+**Contexto:** foram identificados três substratos/trilhos de dinheiro de grupo:
+- **#1 Bank legado vivo:** `owner_id=groupId`, ownerType API `'company'`, DB `owner_type='actor'`,
+  `account_type` default `'credit'` (verificado: 0003_bank_core.sql:31). Usado por
+  `resolveGroupAccount`/`getOrCreateAccount` (bank-integration.service.ts:53-64) e mirado pelo
+  split engine atual (`getAccountByOwner(groupId,'company')`).
+- **#2 actor_wallet canônica:** `owner_id='${groupActorId}:actor_wallet'`, `owner_type='actor'`,
+  `account_type='actor_wallet'`. Ainda NÃO provisionada para grupos (ver DT acima).
+- **#3 core/economy legado/dormente:** substrato paralelo ainda referenciado por
+  `assignment.service.ts:307`.
+**Risco:** múltiplos trilhos podem fragmentar saldo e confundir statement, payout, recovery e
+split — criando dupla realidade financeira para o mesmo grupo. Reforço material: a UNIQUE
+`(tenant_id, owner_type, owner_id)` (0003_bank_core.sql:37) NÃO impede a coexistência de #1 e #2
+(owner_id diferente) — ver DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT.
+**Mitigação atual:** não implementar o "ECON-1 antigo"; aguardar decisão de Clayton sobre
+fungibilidade/natureza do dinheiro de grupo.
+**Resolução prevista:** redesenhar ECON-1 como "Convergência da conta monetária de grupo",
+decidindo qual substrato sobrevive e como os demais serão aposentados/migrados/isolados.
+
+### DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE (OPEN) — paralela C (2026-05-30)
+**Status:** OPEN.
+**Origem:** paralela C.
+**Contexto:** `ensureActorWalletAccount` (bank-account.service.ts:256-281) usa padrão
+check-then-insert (`getAccountByOwnerAndType` → se não existe → `createAccount`) sem lock
+transacional específico nem `INSERT ... ON CONFLICT` robusto para corrida concorrente.
+**Risco:** duas chamadas concorrentes podem tentar criar a mesma actor_wallet, causando erro de
+unique ou comportamento não-idempotente.
+**Mitigação atual:** ainda sem fluxo de provisionamento massivo de actor_wallet de grupo.
+**Resolução prevista:** antes de provisionar wallet de group-actor em fluxo vivo, endurecer
+idempotência sob corrida com padrão transacional adequado, sem violar bank_ledger.
+
+### DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT (OPEN) — paralela C (2026-05-30)
+**Status:** OPEN.
+**Origem:** paralela C.
+**Contexto:** `UNIQUE(tenant_id, owner_type, owner_id)` (verificado: 0003_bank_core.sql:37) impede
+duplicata do mesmo `owner_id`, mas NÃO garante semanticamente "uma conta monetária canônica por
+grupo", porque #1 usa `owner_id=groupId` e #2 usa `owner_id='${groupActorId}:actor_wallet'` — dois
+owner_id distintos, dois slots únicos distintos. `account_type` não entra na chave única.
+**Risco:** duas contas diferentes podem coexistir para o mesmo grupo sem violar o unique index.
+**Mitigação atual:** sem convergência financeira até decisão de fungibilidade.
+**Resolução prevista:** ECON-1 redesenhada deve definir constraint/índice/regra de unicidade
+compatível com a conta monetária canônica escolhida.

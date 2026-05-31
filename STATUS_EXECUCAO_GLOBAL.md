@@ -8772,3 +8772,44 @@ que distribui dinheiro → carrega `NÃO EXECUTAR SEM RATIFICAÇÃO TRIPLA` (Opu
 Cadeia a corrigir: group_id → groups.actor_id → getActorWalletAccount(), com E2E provando ordem
 causal: (1) grupo com actor; (2) wallet criada; (3) split encontra wallet; (4) valor cai no grupo;
 (5) remanescente ao regional_fund só depois; (6) ledger fecha (Σdéb=Σcred).
+
+---
+
+## PARALELAS A/B/C/D — CONCLUÍDAS ✅ (2026-05-30, READ-ONLY) — Conta monetária de grupo
+
+As paralelas A/B/C/D investigaram a conta monetária de grupo em modo read-only e **superaram** a
+sequência anterior. Achados registrados no REMEDIATION_DT_LOG.md:
+- **DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED** — actor_wallet canônica do group-actor nunca é
+  provisionada no ciclo de vida do grupo (ensureGroupActor não chama ensureActorWalletAccount).
+- **DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES** — três trilhos de dinheiro de grupo: #1 Bank legado
+  (owner_id=groupId, ownerType='company'), #2 actor_wallet canônica (composite), #3 core/economy
+  dormente (assignment.service.ts:307). Split engine mira #1.
+- **DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE** — check-then-insert sem lock robusto.
+- **DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT** — UNIQUE(tenant_id, owner_type, owner_id) não
+  garante "uma conta canônica por grupo"; #1 e #2 coexistem.
+
+### CORREÇÃO FACTUAL — split de grupo é risco LATENTE, não vazamento ativo
+A DT-SPLIT-ENGINE-GROUP-WALLET-LEGACY-LOOKUP foi revisada (append-only). O split de grupo **NÃO
+vaza dinheiro hoje**: o step 3 depende de `user_group_allocations`, tabela que **não existe no DB**
+(0 rows; cruza com DT-USER-GROUP-ALLOCATIONS-SILENT-CALL-CLEANUP). O bloco não executa. O risco é
+**ARMADO para quando o fluxo nascer** — não vazamento corrente.
+
+### "ECON-1 = ownerType='group'" — MORTO
+O nome antigo está morto. Motivo: o Bank canônico tende a `owner_type='actor'`; a actor_wallet usa
+composite `owner_id='${actorId}:actor_wallet'`; `ownerType='group'` reviveria vocabulário
+anti-canônico/arqueológico. O problema real **não é uma string — é a natureza econômica do dinheiro
+de grupo.**
+
+### NOVA ORDEM RATIFICADA (substitui "ECON-1 converge #1→#2")
+1. **Clayton decide a natureza do dinheiro de grupo:**
+   split comunitário é dinheiro geral fungível? fundo comunitário restrito? dois bolsos separados
+   por account_type?
+2. **ECON-1 redesenhada** como "Convergência da conta monetária de grupo".
+3. **provisionar** a conta canônica decidida (no ciclo correto, com E2E + gates).
+4. **fix split lookup** group_id → groups.actor_id → conta canônica.
+5. **E2E group split.**
+6. **ECON-2.**
+
+**Cofre econômico permanece DESLIGADO.** Nenhum prompt executor financeiro deve ser preparado antes
+da decisão de Clayton sobre fungibilidade. Sem ECON-1 executor, sem provisionar wallet de grupo,
+sem fix split lookup, sem schema financeiro, sem código financeiro até a decisão.

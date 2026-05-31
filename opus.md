@@ -1794,3 +1794,22 @@ Commit: b01cba54. Gates verdes, regression-guards=338.
   comunitário vaza para regional_fund sem erro. Frente cirúrgica exige ratificação tripla.
 - Próxima frente: corrigir split engine (group_id→groups.actor_id→getActorWalletAccount) com E2E
   — NÃO EXECUTAR SEM RATIFICAÇÃO TRIPLA (escrita em código que distribui dinheiro)
+
+### PARALELAS A/B/C/D — memória operacional para a próxima Opus (2026-05-30)
+As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e mudaram o enquadramento:
+- O problema NÃO é a string `ownerType='group'` — é a NATUREZA ECONÔMICA do dinheiro de grupo.
+  A paralela D salvou a frente de transformar `ownerType='group'` em religião (vocabulário
+  arqueológico anti-canônico). "ECON-1 = ownerType='group'" está MORTO.
+- A PERGUNTA QUE ORDENA TUDO (só Clayton responde): "split comunitário é dinheiro geral fungível,
+  fundo comunitário restrito, ou dois bolsos separados por account_type?"
+- CORREÇÃO de tom: o split de grupo é risco LATENTE, não vazamento ativo. Depende de
+  `user_group_allocations` (tabela inexistente no DB); o step 3 não executa hoje. O lookup errado
+  está ARMADO para quando o fluxo nascer.
+- Três substratos paralelos de dinheiro de grupo (DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES):
+  #1 Bank legado (owner_id=groupId) · #2 actor_wallet canônica (composite, não provisionada) ·
+  #3 core/economy dormente (assignment.service.ts:307).
+- ENQUANTO Clayton não decidir: SEM ECON-1 executor · SEM provisionar wallet de grupo · SEM fix
+  split lookup · SEM schema financeiro · SEM código financeiro.
+- Próxima ação após a decisão: desenhar frente READ-ONLY de consequências da opção escolhida.
+- DTs novas: DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED · DT-GROUP-MONEY-THREE-PARALLEL-SUBSTRATES ·
+  DT-ENSURE-ACTOR-WALLET-NOT-IDEMPOTENT-UNDER-RACE · DT-BANK-ACCOUNTS-UNIQUE-INDEX-INSUFFICIENT.
