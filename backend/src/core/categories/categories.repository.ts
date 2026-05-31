@@ -107,7 +107,7 @@ export class CategoryRepository {
       `
       SELECT category_id, parent_id, name, slug, description, level, path, 
              COALESCE(keywords, '[]'::jsonb) AS keywords,
-             country_code, scope, domain_type, metadata, created_at, updated_at
+             country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE category_id = $1 AND ${statusCondition}
       LIMIT 1
@@ -142,7 +142,7 @@ export class CategoryRepository {
     const statusCondition = await this.getStatusCondition();
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path, 
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, domain_type, metadata, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, metadata, created_at, updated_at
       FROM categories
       WHERE slug = $1 AND ${statusCondition}
     `;
