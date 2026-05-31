@@ -80,7 +80,7 @@ Inclui: mini-cores clandestinos, seção FISCALIZAÇÃO, STATUS DE GATES, e crit
 **Arquivo:** `05_CONTRATOS_CANONICOS.md` — contrato como unidade mínima de legitimidade.
 **Arquivo:** `CONTRACTS.md` — arquitetura cross-layer frontend/backend.
 **Core:** `CORE_FINANCIAL_CONTRACT.md`, `CORE_IDENTITY_AND_ACTORS_CONTRACT.md`, `CORE_TEMPORAL_CONTRACT.md`, `CORE_OBSERVABILITY_CONTRACT.md`, `CORE_CATEGORY_CONTRACT.md`
-**Específicos:** `USER_PROFILE_CONTRACT.md`, `CONTRATO_GRUPOS_V1.md`, `CONTRATO_FEED_MATCHING_UNIFICARD.md`, `CORE_VS_MODULOS_CONTRACT.md`
+**Específicos:** `USER_PROFILE_CONTRACT.md`, `CONTRATO_GRUPOS_V1.md` (vigente), `CONTRATO_GRUPOS_V2.md` (ratificado, aguarda promulgação; dois bolsos), `CONTRATO_FEED_MATCHING_UNIFICARD.md`, `CORE_VS_MODULOS_CONTRACT.md`
 
 ### 14. Como a observabilidade e os effects são controlados?
 **Arquivo:** `CORE_OBSERVABILITY_CONTRACT.md` — contrato fundacional de observabilidade.
