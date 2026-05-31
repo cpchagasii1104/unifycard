@@ -7,6 +7,7 @@ import { socialPortsRegistry } from '@core/social/ports-registry';
 import { ConflictError } from '@core/errors';
 import { runQueryWithTenant } from '@core/database/pool';
 import profileProfessionalRoutes from './profile-professional.routes';
+import professionalC1Routes from './professional-c1/professional-c1.routes';
 import profilePhysicalRoutes from './profile-physical.routes';
 import profileLearningRoutes from './profile-learning.routes';
 import profileInferenceRoutes from './profile-inference.routes';
@@ -16,6 +17,8 @@ import profileHealthRoutes from './profile-health.routes';
 const profileRoutes: FastifyPluginAsync = async (fastify) => {
   // Registrar rotas de perfil profissional
   await fastify.register(profileProfessionalRoutes);
+  // Registrar rotas C1 actor-first do perfil profissional (DESENHO_A2 / DECISION-0063)
+  await fastify.register(professionalC1Routes);
   // Registrar rotas de perfil físico
   await fastify.register(profilePhysicalRoutes);
   // Registrar rotas de perfil de aprendizado
