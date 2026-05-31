@@ -5680,11 +5680,20 @@ Validado contra `07_NOMENCLATURA_CANONICA.md`:
   proibido. Reforço: evitar `status` enum (07:247 proíbe `status` isolado) está ALINHADO com a norma.
 - Esqueleto de chaveamento consistente com actor_reputation (id/tenant_id/actor_id/.../*_at).
 
-**PENDÊNCIAS para a migration (decisões de tipo, NÃO naming — exigem definição antes do schema):**
-- `skill_level`: tipo SQL não fixado no desenho ("declaração qualitativa") — TEXT? enum?
-- `years_experience`: tipo SQL não fixado ("declaração quantitativa") — INTEGER?
-Estas são decisões de produto/desenho da fatia. A migration NÃO deve ser escrita sem fixá-las +
-ratificação tripla (criação de substrato SSOT). Executor não se autoriza.
+**Sub-etapa 2 — DECISÕES DE TIPO: FECHADAS por Clayton (2026-05-31).**
+- `skill_level` → `SMALLINT NOT NULL CHECK (skill_level BETWEEN 1 AND 5)`. Autoavaliação declarada,
+  estruturada e comparável (busca/matching/contratação futura); labels na UI, número no banco.
+  NÃO texto livre (evita "avançado/bom/ótimo/nível 4" inconsistentes). Continua declaração, não credencial.
+- `years_experience` → `SMALLINT NULL CHECK (years_experience IS NULL OR years_experience BETWEEN 0 AND 80)`.
+  NULL = não informado; 0 = informou zero. Declarado, não verificado.
+- Ciclo de vida travado no banco → `CHECK ((is_active = true AND retired_at IS NULL) OR
+  (is_active = false AND retired_at IS NOT NULL))`. Remoção = desativação lógica, nunca DELETE.
+Justificativa Clayton: modelo enterprise útil para busca/matching/contratação; nível estruturado e
+comparável, sem virar certificação. Certificação/verificação segue FORA do MVP C1.
+
+**Estado da frente:** spec COMPLETO (naming validado + tipos fechados + ciclo travado). Falta APENAS
+a execução — escrita+aplicação da migration que cria o substrato SSOT da declaração profissional.
+Isso exige prompt executor com ratificação tripla (executor não se autoriza). Spec pronto para o executor.
 
 ### Superada por
 

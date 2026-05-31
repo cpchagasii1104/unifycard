@@ -114,13 +114,14 @@ O erro do serviço antigo foi fundir C1 com C2 (autorar preço na tela de identi
 - `actor_id` UUID NOT NULL → actors(id)   ← chave operacional (D2)
 - `concept_id` UUID NOT NULL → concepts(concept_id)   ← identidade semântica (Lei 7), OBRIGATÓRIO
 - `source_category_id` UUID NULL → categories(category_id)   ← rastreio de navegação OPCIONAL; NUNCA identidade
-- `skill_level`   ← declaração qualitativa do actor (não credencial)
-- `years_experience`   ← declaração quantitativa do actor (não credencial)
+- `skill_level` SMALLINT NOT NULL `CHECK (skill_level BETWEEN 1 AND 5)`   ← autoavaliação declarada (não credencial); nível estruturado e comparável (busca/matching futuro). Labels (iniciante/…/especialista) ficam na UI; o banco grava número (decisão Clayton 2026-05-31)
+- `years_experience` SMALLINT NULL `CHECK (years_experience IS NULL OR years_experience BETWEEN 0 AND 80)`   ← anos declarados (não verificados); NULL = não informado, 0 = informou zero (decisão Clayton 2026-05-31)
 - `is_active` BOOLEAN NOT NULL DEFAULT true   ← ciclo de vida binário (ativa/retirada); NÃO `status` enum (sem estados concretos além de ativo/inativo no MVP)
 - `declared_at` TIMESTAMPTZ NOT NULL
 - `updated_at` TIMESTAMPTZ NOT NULL
 - `retired_at` TIMESTAMPTZ NULL   ← marca a retirada lógica
 - **`UNIQUE(tenant_id, actor_id, concept_id)`**   ← multiplicidade (decisão #1)
+- **`CHECK ((is_active = true AND retired_at IS NULL) OR (is_active = false AND retired_at IS NOT NULL))`**   ← trava o ciclo binário no banco: retirada ⟺ `retired_at` preenchido (decisão Clayton 2026-05-31)
 
 Regras:
 - `concept_id` obrigatório; identidade da profissão.
