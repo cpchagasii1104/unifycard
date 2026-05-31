@@ -1875,6 +1875,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   com leitura por actionContext.actorId e escrita via actor-writer, sem lookup solto.
 - Housekeeping pendente: schema_migrations não registra 577000/578000/579000 (aplicadas via psql -f). Reconciliar à parte.
 
+### A2 BACKEND C1 SERVICE/API — SELADA ✅ (2026-05-31) — atualiza o "próximo passo" acima
+- A frente service/API do C1 (antes "próxima") foi ENTREGUE e SELADA. Commits: f959d912 (código) +
+  04030be2 (reparo :conceptId UUID) + 977898a4 (reparo PATCH vazio) + 92650e8c (selo). Selo doc:
+  docs/02_decisions/SELO_A2_C1_PERFIL_PROFISSIONAL.md.
+- Ratificação tripla: Opus + ChatGPT (P1–P10 nos brutos, HEAD 977898a4) + Clayton (selo).
+- Aceite arquitetural por critério DIFERENCIAL: validate-architectural --strict critical_new=0;
+  baseline legado critical_total=20 (DT-VALIDATE-ARCHITECTURAL-20-LEGADO, frente própria). NÃO é "5 gates verdes".
+- Premissa "não há CHECK actors.id=actor_id" REFUTADA: existe chk_actors_actor_id_equals_id (CHECK actor_id=id);
+  guarda ACTOR_ID_INVARIANT_BROKEN é defesa-em-profundidade.
+- A3 (frontend) BLOQUEADA. Pré-condições: (1) bancada limpa/isolada; (2) autorização explícita de Clayton.
+- Próximo passo NÃO é código: housekeeping da bancada → consolidar achados forenses A/B/C/D (passo
+  documental próprio, não feito aqui) → só então A3 read-only. Interesses/Gostos fora até A3.
+- Docs de direção preservados em docs/02_decisions/: VISAO_PERFIL_CONTEXTUAL_POR_ACTOR.md ("Perfil coleta.
+  SSOT guarda. Actor molda a superfície.") + PLANO_PERFIL_CONTEXTO_POR_ACTOR.md. Direção, não autorização.
+
 ### RECONCILIAÇÃO schema_migrations — RESOLVIDO (2026-05-31)
 - As 3 migrations aplicadas via psql -f nesta série (577000 SEC-1, 578000 COE-2, 579000 C1) foram
   registradas em schema_migrations após provar os 4 critérios (arquivo existe, aplicada no schema,

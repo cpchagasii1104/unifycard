@@ -8919,8 +8919,8 @@ Registrado no `SSOT_REGISTRY_UNIFICARD.md` como SSOT da declaração profissiona
 frontend · zero C2/C3/C4 · zero bank/split/payout · zero workers · zero archive restaurado · zero
 actor_type. Financeiro intocado.
 
-Próxima frente (SEPARADA, ratificação própria): service/API do MVP C1 — leitura por
-`actionContext.actorId`, escrita via actor-writer (§4.8.1), sem lookup solto.
+~~Próxima frente (SEPARADA, ratificação própria): service/API do MVP C1~~ — **ENTREGUE e SELADA**
+(ver bloco "A2 BACKEND C1 SERVICE/API — SELADA" no fim deste arquivo).
 
 **Nota de reconciliação (housekeeping, não desta fatia):** migrations 577000/578000/579000 foram
 aplicadas via `psql -f` direto (SEC-1/COE-2/C1) e NÃO estavam em `schema_migrations` (tracking em 336;
@@ -8934,3 +8934,39 @@ filename + checksum sha256 do conteúdo + execution_time_ms NULL), em transaçã
 checksums/tempos inalterados). O runner canônico (`npm run migrate`) NÃO re-executaria mais essas
 três — tracking alinhado com o schema vivo. Zero DDL · zero migration rodada · zero schema alterado ·
 só INSERT em schema_migrations (estado de banco, não versionado em git).
+
+---
+
+## A2 BACKEND C1 SERVICE/API — SELADA ✅ (2026-05-31)
+
+A frente "service/API do MVP C1" (antes marcada como próxima) foi ENTREGUE, auditada e SELADA.
+Substitui a redação stale acima.
+
+**Commits:** `f959d912` (código C1 backend: types/repository/service/routes + montagem + teste) ·
+`04030be2` (reparo: validar `:conceptId` UUID em PATCH/DELETE) · `977898a4` (reparo: PATCH vazio → 400,
+sem tocar updated_at) · `92650e8c` (selo A2 + correção de premissas do Contrato A1).
+Selo documental: `docs/02_decisions/SELO_A2_C1_PERFIL_PROFISSIONAL.md`.
+
+**Ratificação tripla:** Opus (coordenador) · ChatGPT (auditoria independente dos brutos, P1–P10
+CONFIRMADO no HEAD final `977898a4`) · Clayton (selo).
+
+**Critério de aceite arquitetural (diferencial):** `validate-architectural-patterns --strict` →
+`critical_new=0` (zero violação NOVA do C1); baseline legado `critical_total=20`. As 20 são dívida
+de perfil legado (DT-VALIDATE-ARCHITECTURAL-20-LEGADO), frente própria — não A2. NÃO é "5 gates verdes":
+o gate `validate:architectural` cru fica vermelho por essa dívida legada; A2 passa pelo critério
+diferencial (só novas contam).
+
+**Premissa do Contrato A1 refutada pelo vivo:** "não há CHECK actors.id=actor_id" é FALSO — existe
+`chk_actors_actor_id_equals_id | CHECK ((actor_id = id))`. A guarda `ACTOR_ID_INVARIANT_BROKEN` no
+C1 é defesa-em-profundidade (não correção de gap; o banco já força).
+
+**A3 (frontend) — BLOQUEADA.** Pré-condições para abrir A3 (mesmo read-only): (1) bancada limpa/
+isolada (working tree sem arquivos não relacionados); (2) autorização explícita de Clayton.
+
+**Próximo passo NÃO é código:** (a) finalizar housekeeping da bancada; (b) consolidar os achados
+forenses A/B/C/D das abas do perfil como diagnóstico/DT (passo documental próprio — NÃO feito aqui);
+(c) só então A3 read-only. Interesses/Gostos fora da fila até A3.
+
+Docs de direção do front preservados em `docs/02_decisions/`:
+`VISAO_PERFIL_CONTEXTUAL_POR_ACTOR.md` (norte: "Perfil coleta. SSOT guarda. Actor molda a superfície.")
++ `PLANO_PERFIL_CONTEXTO_POR_ACTOR.md` (boot/plano). São direção, não autorização de código.
