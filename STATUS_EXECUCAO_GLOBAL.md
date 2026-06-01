@@ -9057,3 +9057,25 @@ baseline `Total=20` SEM aumento** (não só "4 gates"/`critical_new=0`).
 **A3-código continua NÃO autorizado.** Pré-condições para o código A3, na ordem: (1) housekeeping final da
 bancada (`.claude/settings.local.json`, `erros.txt`); (2) redigir prompt de execução cirúrgico (com a nota
 de verificação acima); (3) garantir escritor único; (4) manter frontend/Codex dentro do desenho ratificado.
+
+---
+
+## A3.1 BACKEND — SELADA ✅ (código `526b1c6f` · selo `SELO_A3_1_INFERENCE_DESACOPLAMENTO.md` · 2026-05-31)
+
+Housekeeping final feito (`cf126a83`). Prompt cirúrgico A3.1 ratificado por Clayton com 4 travas
+(ancoragem ETAPA 0 · baseline antes/depois · TRAVA de shape no READ-FIRST · TRAVA de commit). Executada
+e **SELADA**.
+
+**Escopo único:** `backend/src/core/profile/profile-inference.service.ts` (+2/-1). `.catch` LOCAL apenas
+na promise do serviço profissional legado morto dentro do `Promise.all` de `getUserProfileSnapshot`,
+degradando SÓ esse bloco para `{ skills: [], count: 0 }` (shape exato consumido). physical/learning
+seguem SEM catch (não engole erro geral). C1 intacto · legado `/profile/professional` inalterado ·
+frontend/migration/financeiro intocados · sem console.log.
+
+**Validação:** baseline inference/snapshot **500**→ pós **200** (snapshot com `professional:{skills:[],count:0}`);
+C1 e physical **200** intactos; legado **500** inalterado. tsc=0 · gates sem regressão ·
+`validate:architectural Total=20` sem aumento. Sweep pelo fluxo real (actor resolvido pelo `userId`, não hardcoded).
+
+**Fila após o selo:** A3.1 backend SELADA · **A3.2 frontend/Codex = próxima, só prompt/desenho, NÃO
+autorizada a código** (migrar aba Profissional → `/profile/professional/c1` pelo DESENHO_A3) ·
+Interesses/Aprendizado bloqueado · financeiro/migration bloqueados.
