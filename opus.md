@@ -2005,3 +2005,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   Learning↔Interest sim, Learning↔Professional NÃO automático.
 - Doc: DECISION_0065_LEARNING_CONCEPTS_MATERIAL_DIRECTIVES.md + log. Próxima fatia = Migration A (Learning
   concepts + associação governada; prompt executor próprio). NÃO autoriza migration aqui.
+
+### MIGRATION A — LEARNING CONCEPTS + ASSOCIAÇÃO — EXECUTADA ✅ (2026-06-01)
+- Migration 20260601120000_seed_learning_concepts_and_associate_categories.sql (forward-only, idempotente,
+  fail-closed), aplicada pelo runner canônico pnpm migrate (única pendente; schema_migrations 339→340 com
+  checksum). Conforme DECISION-0064/0065.
+- Fez: 36 concepts em educacao-e-conhecimento (slug limpo, app.concept_governance + INSERT ON CONFLICT) +
+  associou concept_id às 36 folhas scope='learning' level=1 por mapping literal (UPDATE só folha sem concept,
+  árvore preservada, sem create_category_from_concept, sem level 2). Não tocou interest/C1/frontend/financeiro.
+- Provas: concepts 90→126, 36 folhas com concept, 8 raízes SEM concept (esperado), interest=0, PUT
+  /profile/learning agora 200 (era 400), teardown via endpoint. Guard intacto.
+- Persistência segue blob global_users.metadata (DT-LEARNING-INTEREST-BLOB-SSOT OPEN até C1).
+  DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID → PARTIALLY MITIGATED. Interest = fatia própria.
+- Fila: Interest (desenho+migration) · DESENHO C1 actor-first (após substrato).

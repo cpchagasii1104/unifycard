@@ -9257,3 +9257,29 @@ compartilhamento Learning↔Interest sim, Learning↔Professional/Serviços NÃO
 + associação governada** (36 concepts em educacao-e-conhecimento + associar folhas; prompt executor próprio,
 ratificação). Interest = fatia própria. C1 Learning/Interest só depois do substrato. Bloqueados: financeiro,
 Agenda, Saúde/Lifestyle.
+
+---
+
+## MIGRATION A — LEARNING CONCEPTS + ASSOCIAÇÃO — EXECUTADA ✅ (2026-06-01)
+
+Executada conforme DECISION-0064/0065. Migration `backend/migrations/20260601120000_seed_learning_concepts_and_associate_categories.sql`
+(forward-only, idempotente, transacional, fail-closed), aplicada pelo runner canônico `pnpm migrate`
+(única pendente; registrada em `schema_migrations` com checksum). HEAD origem `233cb428`.
+
+**O que fez:** (1) criou **36 concepts** de Learning no domínio `educacao-e-conhecimento` (slug limpo do
+tópico, sem `-aprendizado`; via `set_config('app.concept_governance','true')` + INSERT ON CONFLICT
+(domain,slug)); (2) associou `concept_id` às **36 folhas existentes** `scope='learning'` level=1 por mapping
+literal (UPDATE só folha sem concept; árvore preservada, sem `create_category_from_concept`, sem nível 2).
+**Não tocou** Interest (`scope='interest'`=0 inalterado), C1, frontend, Agenda, Saúde, financeiro.
+
+**Provas:** 36 concepts (concepts 90→126) · 36 folhas com `concept_id` · 8 raízes/agregadores SEM concept
+(esperado) · 0 folhas do mapping sem concept · `scope='interest'`=0 · **teste funcional: PUT
+`/profile/learning` agora 200** (era 400 "concept_id obrigatório"), com teardown via endpoint governado.
+
+**Estado:** Learning recebeu substrato semântico governado; aba Aprendizado **salva**. **C1 ainda NÃO
+criado** — persistência continua blob `global_users.metadata` (estado temporário; DT-LEARNING-INTEREST-BLOB-SSOT
+segue OPEN até C1). DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID → **PARTIALLY MITIGATED** (Learning resolvido;
+Interest pendente). **Interest permanece para fatia própria.**
+
+**Fila:** Interest (desenho + migration própria) · DESENHO C1 Learning/Interest actor-first (após substrato).
+Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
