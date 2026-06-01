@@ -5698,3 +5698,60 @@ Isso exige prompt executor com ratificação tripla (executor não se autoriza).
 ### Superada por
 
 (preencher quando a migration de C1 e a implementação forem registradas)
+
+---
+
+## DECISION-0064 — LEARNING_INTEREST_SEMANTIC_GOVERNANCE
+
+**Status:** RATIFICADA — GOVERNANÇA/DESENHO; IMPLEMENTAÇÃO (MIGRATION/C1) NÃO AUTORIZADA NESTA DECISION (2026-06-01).
+**Sessão:** 2026-06-01 (pós-auditoria read-only Learning/Interest Lei 7).
+**Decisor:** Clayton (Opção C + vetos).
+**Commit âncora:** documental. HEAD de origem: `e908f3c7`.
+**Documento canônico:** `docs/02_decisions/DECISION_0064_LEARNING_INTEREST_SEMANTIC_GOVERNANCE.md`.
+**Vinculada a:** DECISION-0063 (padrão C1 profissional); DTs `DT-LEARNING-INTEREST-BLOB-SSOT`,
+`DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID`, `DT-INTEREST-SCOPE-EMPTY`,
+`DT-PROFILE-FRONTEND-DRIVES-TAXONOMY`, `DT-LIFESTYLE-SENSITIVE-IN-BLOB`.
+
+### Contexto
+
+Abas Aprendizado/Interesses mortas: salvam `categoryId` em blob `global_users.metadata` sem substrato
+concept-first; guards Lei 7 bloqueiam corretamente (falha fechada). Problema = ausência de vocabulário
+semântico governado, não bug de frontend. Material (HEAD `e908f3c7`): 90 concepts existentes ~todos
+financeiros/comerciais (0 servem Learning/Interest; `educacao-e-conhecimento` = 0 concepts); 44 learning
+categories `concept_id=NULL` (0 overlap com concepts); `scope='interest'` vazio. Pipeline
+concept-governance/`create_category_from_concept` existe; falta dado + associação.
+
+### Opções e escolha
+
+A (categories+concept_id obrigatório) · B (UI direto por concepts) · C (híbrido governado). **Escolha:
+OPÇÃO C.**
+
+### Regras decididas
+
+categories = navegação · concepts = identidade (SSOT) · só folha com `concept_id` governado é declarável ·
+`source_category_id` = breadcrumb nunca identidade · Learning/Interest podem compartilhar `concept_id` mas
+declaração distinta · Learning ≠ Professional · interesse declarado ≠ inferido · sugestão do usuário entra
+em fila governada (não cria concept/category automático).
+
+### Domínios
+
+Learning concepts → `educacao-e-conhecimento` (N0 canônico, **verificado em `domains`**: presente, 0
+concepts hoje). Interest → árvore própria governada `scope='interest'` (inexistente hoje), compartilhando
+`concept_id` quando o significado for comum; correspondência exata concept↔folha é material da migration.
+
+### Vetos
+
+Sem SQL direto p/ popular `categories.concept_id` · sem remover `requireCategoriesWithConceptForScope` ·
+sem `categoryId` como identidade · sem frontend criando concept/taxonomia · **sem C1 antes do substrato
+semântico governado**.
+
+### Consequências / próxima frente
+
+Curto prazo: criar/associar concepts Learning/Interest via pipeline governado ANTES do C1 (frente
+material própria, ~36+ concepts). Médio: DESENHO C1 actor-first + concept-first. Sequência: (1)
+DESENHO/MIGRATION governada de concepts/categories Learning/Interest → (2) DESENHO C1. Esta DECISION fixa
+modelo + domínios + vetos; NÃO autoriza migration nem C1 (fatias separadas, ratificação própria).
+
+### Superada por
+
+(em aberto — esta é uma decisão vigente)

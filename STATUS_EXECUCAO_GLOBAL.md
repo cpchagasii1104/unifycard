@@ -9212,3 +9212,26 @@ atalho** (salvo decisão explícita de Clayton): "popular `categories.concept_id
 destravar o save" — cristalizaria `category` como identidade, repetindo a doença do legado profissional.
 **Fila:** governança semântica Learning/Interest → DESENHO C1 Learning/Interest · (alternativa que Clayton
 sequencia) C2/C3 profissional. Bloqueados: financeiro, migration, schema.
+
+---
+
+## DECISION-0064 — GOVERNANÇA SEMÂNTICA LEARNING/INTEREST PROMULGADA ✅ (2026-06-01)
+
+Clayton promulgou a **DECISION-0064** (`docs/02_decisions/DECISION_0064_LEARNING_INTEREST_SEMANTIC_GOVERNANCE.md`
++ `REMEDIATION_DECISIONS_LOG.md`). Precedida por auditoria read-only de governança semântica (HEAD
+`e908f3c7`): 90 concepts ~todos financeiros/comerciais (0 servem Learning/Interest), `educacao-e-conhecimento`
+= 0 concepts (mas domínio **existe** em `domains`), 44 learning categories `concept_id=NULL`,
+`scope='interest'` vazio; pipeline concept-governance/`create_category_from_concept` existe — falta dado.
+
+**Decisão: OPÇÃO C (híbrido governado).** categories=navegação · concepts=identidade (SSOT) · só folha
+com `concept_id` governado é declarável · `source_category_id`=breadcrumb · Learning/Interest podem
+compartilhar `concept_id` mas declaração distinta · Learning≠Professional · declarado≠inferido · sugestão
+do usuário → fila governada. **Domínios:** learning → `educacao-e-conhecimento`; interest → árvore própria
+`scope='interest'` reusando concepts. **Vetos:** sem SQL direto p/ popular `categories.concept_id` · guard
+`requireCategoriesWithConceptForScope` permanece · sem categoryId como identidade · sem frontend criando
+taxonomia · **sem C1 antes do substrato semântico**.
+
+**Fila:** (1) DESENHO/MIGRATION governada de concepts/categories Learning/Interest (criar ~36+ concepts via
+pipeline governado + associar) → (2) DESENHO C1 Learning/Interest actor-first. DECISION-0064 fixa modelo +
+domínios + vetos; NÃO autoriza migration nem C1 (fatias separadas, ratificação própria). Bloqueados:
+financeiro, Agenda, Saúde/Lifestyle (`DT-LIFESTYLE-SENSITIVE-IN-BLOB` = frente própria).

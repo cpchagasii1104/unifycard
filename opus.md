@@ -1975,3 +1975,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Próxima frente recomendada: governança semântica Learning/Interest (concept_id por pipeline governado,
   NÃO frontend) ANTES do DESENHO C1 actor-first. VETADO atalho "popular category.concept_id p/ destravar"
   (cristaliza category como identidade) salvo decisão explícita de Clayton. Padrão de referência: C1 profissional.
+
+### DECISION-0064 LEARNING/INTEREST SEMANTIC GOVERNANCE — PROMULGADA ✅ (2026-06-01)
+- Clayton escolheu OPÇÃO C (híbrido governado). Doc: DECISION_0064_LEARNING_INTEREST_SEMANTIC_GOVERNANCE.md
+  + REMEDIATION_DECISIONS_LOG.md. HEAD origem e908f3c7. Material confirmado: 90 concepts ~todos
+  financeiros/comerciais (0 p/ learning/interest), educacao-e-conhecimento=0 concepts (domínio EXISTE em
+  domains), 44 learning cats concept_id=NULL, scope='interest' vazio; pipeline concept-governance +
+  create_category_from_concept existe.
+- Regras: categories=navegação, concepts=identidade(SSOT), só folha com concept_id governado é declarável,
+  source_category_id=breadcrumb, learning/interest compartilham concept_id mas declaração distinta,
+  learning≠professional, declarado≠inferido, sugestão→fila governada. Domínios: learning →
+  educacao-e-conhecimento; interest → árvore própria scope='interest' reusando concepts.
+- Vetos: sem SQL direto p/ popular categories.concept_id; guard requireCategoriesWithConceptForScope
+  permanece; sem categoryId como identidade; sem frontend criando taxonomia; SEM C1 antes do substrato.
+- Fila: (1) DESENHO/MIGRATION governada concepts/categories Learning/Interest → (2) DESENHO C1 actor-first.
+  DECISION-0064 NÃO autoriza migration nem C1 (fatias separadas).
