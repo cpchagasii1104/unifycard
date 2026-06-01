@@ -501,8 +501,17 @@ if (!hasReadAccess) {
 
     // Chamar repository APENAS após validações
     const allRows = await this.repository.findAll(countryCode, context);
-    
+
     const allCategories = CategoryModel.fromRows(allRows);
+
+    // OPÇÃO B (07 §4262/4278): conceptId só é exposto no contexto profissional (declaração C1).
+    // Em qualquer outro contexto (marketplace/produto/transacional) o campo NÃO é surfaçado —
+    // evita criar atalho de árvore de categorias para concept_ref transacional.
+    if (context !== 'professional') {
+      for (const cat of allCategories) {
+        delete (cat as { conceptId?: string | null }).conceptId;
+      }
+    }
 
     // Criar mapa de categorias por ID
     const categoryMap = new Map<string, CategoryTree>();
@@ -771,7 +780,14 @@ if (!hasReadAccess) {
    */
   async getChildren(categoryId: string, countryCode?: string | null, context: CategoryContext = 'professional'): Promise<Category[]> {
     const rows = await this.repository.findChildren(categoryId, context, countryCode);
-    return CategoryModel.fromRows(rows);
+    const cats = CategoryModel.fromRows(rows);
+    // OPÇÃO B (07 §4262/4278): conceptId só no contexto profissional; não surfaçar fora dele.
+    if (context !== 'professional') {
+      for (const cat of cats) {
+        delete (cat as { conceptId?: string | null }).conceptId;
+      }
+    }
+    return cats;
   }
 
   /**
@@ -1166,6 +1182,8 @@ if (!hasReadAccess) {
         level: category.level,
         path: category.path || [],
         fullPathLabel,
+        // OPÇÃO B: conceptId só no autocomplete profissional (declaração C1); proibido como concept_ref transacional.
+        ...(context === 'professional' ? { conceptId: category.conceptId ?? null } : {}),
       });
     }
     

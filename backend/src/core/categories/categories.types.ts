@@ -13,6 +13,8 @@ export interface Category {
   keywords: string[];
   countryCode: string | null; // Código ISO do país (ex: 'BR', 'US', 'CN'). NULL para categorias globais
   scope?: string; // Scope da categoria (ex: 'professional', 'cause', 'learning')
+  /** Identidade semântica/CONCEPT (`categories.concept_id`). Exposto só p/ seleção profissional (C1); proibido como `concept_ref` transacional (07 §4262/4278). */
+  conceptId?: string | null;
   /** PRODUCT = taxonomia catálogo físico; SERVICE = legado (papéis/navegação). Coluna `categories.domain_type`. */
   domainType?: 'SERVICE' | 'PRODUCT';
   status?: CategoryStatus;
@@ -38,6 +40,7 @@ export interface CategoryRow {
   keywords: string[] | null;
   country_code: string | null;
   scope?: string;
+  concept_id?: string | null;
   domain_type?: 'SERVICE' | 'PRODUCT';
   status?: CategoryStatus;
   requires_review?: boolean;
@@ -145,6 +148,8 @@ export interface CategoryAutocompleteResult {
   level: number;
   path: string[];
   fullPathLabel: string;
+  /** Identidade semântica/CONCEPT da folha profissional. Só p/ declaração C1; proibido como `concept_ref` transacional. */
+  conceptId?: string | null;
 }
 
 export interface CategoryPathSuggestion {

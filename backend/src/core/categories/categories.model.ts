@@ -33,6 +33,8 @@ export class CategoryModel {
       keywords: this.normalizeKeywords(row.keywords),
       countryCode: row.country_code || null,
       scope: row.scope,
+      // conceptId exposto para declaração profissional; proibido usar como concept_ref transacional (07 §4262/4278).
+      conceptId: row.concept_id ?? null,
       domainType: row.domain_type ?? 'SERVICE',
       status: row.status ?? 'active',
       requiresReview: row.requires_review ?? false,

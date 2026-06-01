@@ -302,7 +302,7 @@ export class CategoryRepository {
 
     let query = `
       SELECT category_id, parent_id, name, slug, description, level, path,
-             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, created_at, updated_at
+             COALESCE(to_jsonb(keywords), '[]'::jsonb) as keywords, country_code, scope, concept_id, created_at, updated_at
       FROM categories
       WHERE ${whereSql} AND parent_id = $${parentIdParamIndex}
       ORDER BY level ASC, name ASC
@@ -938,9 +938,9 @@ export class CategoryRepository {
     
     // keywords: JSONB (migration 0061) — alinhado ao schema; path permanece TEXT[]
     let query = `
-      SELECT category_id, parent_id, name, slug, description, level, path, 
+      SELECT category_id, parent_id, name, slug, description, level, path,
              COALESCE(keywords, '[]'::jsonb) AS keywords,
-             country_code, scope, metadata, created_at, updated_at
+             country_code, scope, concept_id, metadata, created_at, updated_at
       FROM categories
       WHERE ${whereSql}
       ORDER BY level ASC, name ASC
