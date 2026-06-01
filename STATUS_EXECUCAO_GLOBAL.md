@@ -9144,3 +9144,26 @@ ficou fora do escopo da A3.2 (nada alterado em `ProfileAgenda`). Resolução: fr
 migra availability ao SSOT temporal canônico (Unified Availability, `actor_id`), respeitando
 Constituição Art. II / `CORE_IMUTAVEL.md`. **Fila pós-selo restante:** (2) housekeeping · (3) destino do
 legado `/profile/professional` · (4) C2/C3 profissional OU Interesses/Lei 7.
+
+---
+
+## HOUSEKEEPING PÓS-A3.2 — PARCIAL ✅ (2026-06-01)
+
+Item (2) da fila pós-selo A3.2, parte 1 cumprida; parte 2 diagnosticada (decisão de Clayton).
+
+**Removidos (untracked, evidência temporária da auditoria A3.2):** os 5 `A3_2_*.txt`
+(`A3_2_AUDIT_CHECKLIST.txt`, `A3_2_BACKEND_1958ab05_{DIFF,STAT}.txt`,
+`A3_2_FRONTEND_98a75ad0_{DIFF,STAT}.txt`) — eram dumps de `git show`/`stat` dos commits já selados,
+reconstrutíveis do git. Removidos do disco; nada versionado afetado (sem commit pela remoção em si).
+
+**`frontend_src_completo.txt` — DIAGNOSTICADO, NÃO ALTERADO:** tracked (único commit que o tocou:
+`39ea7062` "marco-zero"), 5,28 MB / 183.166 linhas. É **dump gerado** (concatenação de toda a árvore
+`frontend/src` com cabeçalhos `===== <path> =====`), insumo de revisão. O diff de working tree
+(481+/587−) é só a divergência entre o snapshot committado e o fonte atual (que mudou desde então,
+inclui A3.2+R3). **Recomendação:** transformar em artefato fora do repo (gerar sob demanda + `.gitignore`)
+ou congelar como snapshot histórico — blob de 5 MB que faz drift a cada mudança de fonte não deve ser
+artefato versionado vivo. **Decisão (manter/restaurar/transformar) pendente de Clayton; não tocado nesta
+fatia.**
+
+**Fila pós-selo restante:** (2b) decidir destino do `frontend_src_completo.txt` · (3) destino do legado
+`/profile/professional` (410/501) · (4) C2/C3 profissional OU Interesses/Lei 7.

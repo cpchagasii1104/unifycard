@@ -1931,3 +1931,13 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   Constituição Art. II / CORE_IMUTAVEL. Sem tocar código/Agenda/financeiro/migration nesta fatia.
 - Fila pós-selo restante: (2) housekeeping · (3) destino do legado /profile/professional · (4) C2/C3
   profissional OU Interesses/Lei 7.
+
+### HOUSEKEEPING PÓS-A3.2 — PARCIAL ✅ (2026-06-01)
+- Removidos os 5 A3_2_*.txt (untracked, evidência temporária = dumps git show/stat dos commits selados,
+  reconstrutíveis). Remoção de untracked não gera commit por si.
+- frontend_src_completo.txt DIAGNOSTICADO, NÃO ALTERADO: tracked (único commit 39ea7062 "marco-zero"),
+  5,28 MB / 183.166 linhas, dump gerado (concatenação de frontend/src). Diff working tree = divergência
+  do snapshot vs fonte atual. Recomendação: artefato fora do repo (gerar sob demanda + .gitignore) ou
+  snapshot congelado; NÃO versionar blob que faz drift. Decisão de Clayton; não tocado.
+- Fila restante: (2b) destino do frontend_src_completo.txt · (3) destino legado /profile/professional ·
+  (4) C2/C3 profissional OU Interesses/Lei 7.
