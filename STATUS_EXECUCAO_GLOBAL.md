@@ -9131,3 +9131,16 @@ próprio (Agenda persiste availability via `updateProfessionalProfile` PUT legad
 final do legado `/profile/professional` (410/501 vs intocado) · (4) próxima frente de valor (Clayton
 sequencia): C2/C3 profissional OU Interesses/Lei 7. Bloqueados: Interesses/Aprendizado · financeiro ·
 migration.
+
+---
+
+## DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT — REGISTRADA ✅ (`REMEDIATION_DT_LOG.md` · 2026-06-01)
+
+Item (1) da fila pós-selo A3.2 cumprido. DT **OPEN** registrada no log canônico de DTs. Evidência:
+`ProfileAgenda.tsx` persiste o schedule/availability profissional via `updateProfessionalProfile`
+(PUT legado `/profile/professional`, linha 165) — camada TEMPO ainda acoplada ao perfil profissional
+legado, enquanto a aba Profissional já migrou para C1. Mitigação: aba C1 não usa mais legado; Agenda
+ficou fora do escopo da A3.2 (nada alterado em `ProfileAgenda`). Resolução: frente própria TEMPO/Agenda
+migra availability ao SSOT temporal canônico (Unified Availability, `actor_id`), respeitando
+Constituição Art. II / `CORE_IMUTAVEL.md`. **Fila pós-selo restante:** (2) housekeeping · (3) destino do
+legado `/profile/professional` · (4) C2/C3 profissional OU Interesses/Lei 7.

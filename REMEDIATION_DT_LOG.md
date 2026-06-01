@@ -10408,3 +10408,33 @@ Clayton priorizar; não tocado aqui.
 
 **Carimbo:** ACHADOS registrados. Nenhuma correção, nenhuma religação, nenhum schema, nenhuma migration,
 nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autorização explícita.
+
+---
+
+## DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** pós-selo A3.2 / auditoria da aba Profissional C1 (`SELO_A3_2_PROFISSIONAL_C1.md`).
+- **Vinculada a:** A3.2 (aba Profissional legado → C1); camada TEMPO/C3 (Agenda / Unified Availability).
+- **Contexto:** a aba Profissional foi migrada para o substrato C1 actor-first (`/profile/professional/c1`)
+  e não carrega mais a camada TEMPO. Porém a Agenda (`frontend/src/components/ProfileAgenda.tsx`) ainda
+  persiste o schedule/availability profissional pelo **caminho legado profissional**: importa
+  `updateProfessionalProfile` de `../api/categories` (linha 21) e chama
+  `await updateProfessionalProfile({ availability: newSchedule })` (linha 165), que faz **PUT
+  `/profile/professional`** (legado morto). Os próprios comentários do componente (≈ linhas 136–141)
+  declaram a intenção de manter a verdade temporal só em `unified_availability`, mas a persistência do
+  schedule do profissional continua roteada pelo PUT legado.
+- **Risco:** camada TEMPO acoplada ao perfil profissional **legado**. Quando o legado
+  `/profile/professional` for removido / responder 410/501 (decisão de destino pendente, fatia própria),
+  a persistência de availability da Agenda quebra. Além disso, schedule persistido fora do SSOT temporal
+  canônico (`unified_availability` / Unified Availability — Constituição Art. II; `CORE_IMUTAVEL.md`)
+  arrisca disponibilidade fora da fonte única de verdade temporal.
+- **Mitigação atual:** a aba Profissional C1 **não usa mais** o legado (zero `getProfessionalProfile` /
+  `updateProfessionalProfile` no fluxo da aba — provado no selo A3.2). A Agenda ficou **explicitamente
+  fora do escopo** da A3.2; nada foi alterado em `ProfileAgenda` nesta cadeia. A dívida está isolada e
+  documentada, não ampliada.
+- **Resolução prevista:** frente própria TEMPO/Agenda (ratificação própria) para migrar a persistência de
+  availability ao **SSOT temporal canônico**, respeitando Unified Availability / Agenda Universal e
+  `actor_id` (sem schedule em `availability.metadata`; sem segundo SSOT temporal). Não tratar junto de
+  financeiro nem de C2/C3 profissional. Pré-condição prática: decidir antes (ou em conjunto) o destino
+  final do legado `/profile/professional` (410/501 vs intocado).

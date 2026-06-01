@@ -1921,3 +1921,13 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Fila documental após o selo (commits próprios, NÃO neste selo): registrar
   DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT + housekeeping (5 .txt evidência A3_2_* +
   frontend_src_completo.txt) + destino final do legado /profile/professional (410/501 vs intocado).
+
+### DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT — REGISTRADA ✅ (2026-06-01)
+- Item (1) da fila pós-selo A3.2 cumprido. DT OPEN no REMEDIATION_DT_LOG.md (docs-only). Evidência:
+  ProfileAgenda.tsx:165 persiste availability via updateProfessionalProfile (PUT legado
+  /profile/professional). Camada TEMPO ainda acoplada ao perfil profissional legado; aba Profissional já
+  em C1. Mitigação: aba C1 não usa legado; Agenda fora do escopo da A3.2 (ProfileAgenda intocado).
+  Resolução: frente própria TEMPO/Agenda → SSOT temporal canônico (Unified Availability, actor_id),
+  Constituição Art. II / CORE_IMUTAVEL. Sem tocar código/Agenda/financeiro/migration nesta fatia.
+- Fila pós-selo restante: (2) housekeeping · (3) destino do legado /profile/professional · (4) C2/C3
+  profissional OU Interesses/Lei 7.
