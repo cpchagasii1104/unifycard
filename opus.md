@@ -2197,3 +2197,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   DT-PROFILE-FRONTEND-DRIVES-TAXONOMY PARTIALLY MITIGATED (não fechada). Nova DT-C1-LEARNING-INTEREST-
   REACTIVATION (OPEN LOW, edge 409). Resíduo: readers backend (opportunity/inference/core) ainda no blob
   vazio → migração p/ C1 é frente futura. Frente Learning/Interest→C1 CONCLUÍDA (Fatias 1–5).
+
+### SELO C1 LEARNING/INTEREST — FRENTE CONCLUÍDA (docs-only) ✅ (2026-06-01)
+- Criado docs/02_decisions/SELO_C1_LEARNING_INTEREST.md: encerramento documental da frente Learning/Interest
+  → C1 (Fatias 1–5). Docs-only; zero código/runtime/migration/frontend/backend/financeiro. HEAD selado
+  9c3af519. Cadeia cf791d1f(0064)/233cb428(0065)/6d9e9a29(MigA)/a602d2dd+963649af(0066+ADENDO)/ff7495c5(MigB)/
+  b445cf4a(0067)/0299459b(F1)/4abf8a90(F2)/827c0b07(F3)/ff534b44(0068-4a)/eca51cbc(4b)/f639516f(4c)/9c3af519(F5).
+- Estado final: Learning→actor_learning_concepts, Interest→actor_interest_concepts, view
+  actor_concept_declarations_v; metadata.learnings/interests removidos; Lifestyle fora. Invariantes:
+  concept_id=identidade, category/source_category=breadcrumb, actor_id=operacional, sem global_user_id/blob
+  SSOT, sem frontend criando taxonomia, sem financeiro.
+- DTs: BLOB-SSOT CLOSED; LIFESTYLE-SENSITIVE OPEN; FRONTEND-DRIVES-TAXONOMY PARTIALLY MITIGATED;
+  C1-REACTIVATION OPEN LOW. Resíduos (frentes próprias): readers backend→C1, reativação pós soft-delete,
+  Lifestyle/Saúde, Agenda. Gates docs-only verdes (critical_new=0). Atualizados STATUS+opus+DT_LOG (ref selo).

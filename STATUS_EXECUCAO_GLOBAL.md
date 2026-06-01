@@ -9619,3 +9619,23 @@ INTEREST-REACTIVATION** (OPEN LOW, follow-up).
 **DTs:** DT-LEARNING-INTEREST-BLOB-SSOT → **CLOSED**. DT-LIFESTYLE-SENSITIVE-IN-BLOB permanece **OPEN** (frente
 própria). DT-PROFILE-FRONTEND-DRIVES-TAXONOMY permanece **PARTIALLY MITIGATED** (não fechada — varredura de
 outros fluxos pendente). Zero financeiro · zero Agenda · zero Saúde · zero Profissional C1.
+
+---
+
+## SELO C1 LEARNING/INTEREST — FRENTE CONCLUÍDA (DOCS-ONLY) ✅ (2026-06-01)
+
+Selo documental de encerramento da frente **Learning/Interest → C1 actor-first** (Fatias 1–5), consolidando
+a cadeia DECISION-0064/0065/Migration A/0066+ADENDO/Migration B/0067/Fatias 1–2–3/0068-4a/4b/4c/5
+(`cf791d1f`…`9c3af519`). **Docs-only** — zero código/runtime/migration/frontend/backend/financeiro.
+
+**Criado:** `docs/02_decisions/SELO_C1_LEARNING_INTEREST.md` (estado final · cadeia de commits · invariantes
+preservados · DTs · resíduos fora do selo). **Estado final:** Learning grava em `actor_learning_concepts`,
+Interest em `actor_interest_concepts`, view `actor_concept_declarations_v` read-only; `metadata.learnings`/
+`metadata.interests` removidos; Lifestyle fora. **Invariantes:** concept_id=identidade · category_id/
+source_category_id=breadcrumb · actor_id=identidade operacional · sem global_user_id/blob como SSOT · sem
+frontend criando taxonomia · sem financeiro.
+
+**DTs finais:** DT-LEARNING-INTEREST-BLOB-SSOT **CLOSED** · DT-LIFESTYLE-SENSITIVE-IN-BLOB **OPEN** ·
+DT-PROFILE-FRONTEND-DRIVES-TAXONOMY **PARTIALLY MITIGATED** · DT-C1-LEARNING-INTEREST-REACTIVATION **OPEN LOW**.
+**Resíduos (frentes próprias):** readers backend (opportunity/inference/core) → C1 · reativação pós soft-delete ·
+Lifestyle/Saúde · Agenda/TEMPO. Gates docs-only verdes (`critical_new=0`).
