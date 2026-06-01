@@ -2152,3 +2152,26 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Interest (ProfilePhysical) ainda usa catálogo hardcoded (Fatia 4c redesign). Blob não limpo (Fatia 5).
   DT-LEARNING-INTEREST-BLOB-SSOT OPEN. Edge: re-declarar concept retirado dá 409 (UNIQUE; reativação via
   PATCH reactivate é follow-up). Fila: 4c → 5.
+
+### C1 INTEREST — FATIA 4c (FRONTEND, REDESIGN ProfilePhysical) — EXECUTADA ✅ (2026-06-01)
+- Seção de Interesses do ProfilePhysical migrada p/ C1 (DECISION-0067). Só frontend. HEAD origem eca51cbc.
+  5 arquivos: novo api/interestC1.ts (client camelCase get/declare/update/retire, BINÁRIO sem progress);
+  ProfilePhysical.tsx (catálogo fora, árvore C1 + save granular); ProfilePhysicalForm.tsx (chips removíveis +
+  árvore real; hábitos/rotina/objetivos/estilo-de-vida intactos); useProfilePhysicalState.ts (estado árvore +
+  snapshot initialInterests; removeu activeDomain/customInterestInput); useProfilePhysicalLogic.ts
+  (PREDEFINED_CONCEPTS fake removido; exporta isInterestSelected/findCategoryInTree).
+- Removido: catálogo hardcoded (39 conceitos fake 'leisure.cinema'/'activity.swimming'/'content.photography'),
+  LIFE_DOMAINS, texto livre (addCustomInterest/generateCustomConceptId), InterestState. SEM mapeamento fake→real.
+  Novo: getCategoryTree('interest') (conceptId Fatia 4a; folhas slug -interesse) + getInterestC1; folha só
+  declarável com conceptId real (sem fallback conceptId←categoryId; raiz sem conceptId = navegação); save
+  granular POST/DELETE(soft); sourceCategoryId=categoryId breadcrumb.
+- Separação Interest×Lifestyle: interests→C1; PUT /profile/physical legado INTOCADO (interests:[] como já era;
+  metadata.physicalProfile com interests do blob preservado verbatim — zero cleanup blob; lifestyle/hábitos/
+  rotina/objetivos inalterados). Lifestyle/Saúde sem mudança semântica.
+- Provas: frontend typecheck=0; greps (catálogo fake só em comentário; conceptId UUID, não categoryId/fake;
+  legado preservado). Runtime (Café cafe-interesse): POST201/GET count1/DELETE200soft/GET active0;
+  blob.interests 0 antes e 0 depois (C1 não toca blob); linha de teste removida. Gates verdes; critical_new=0,
+  critical_total=20; warning_new=1 pré-existente (não meu, e2e-c3:334).
+- Aprendizado E Interesses agora em C1. Blob não limpo (Fatia 5). DT-LEARNING-INTEREST-BLOB-SSOT OPEN (CLOSE
+  só na Fatia 5). DT-PROFILE-FRONTEND-DRIVES-TAXONOMY mais mitigada (Interesses também não cria taxonomia).
+  Edge 409 re-declarar retirado (reativação PATCH reactivate = follow-up). Fila: Fatia 5 cleanup blob.

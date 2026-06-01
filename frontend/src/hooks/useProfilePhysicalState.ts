@@ -1,29 +1,29 @@
 import { useState } from 'react';
 import type { LifestyleInfo } from '../api/physical';
+import type { CategoryTree } from '../api/categories';
 
-type LifeDomain = 
-  | 'atividades_e_praticas'
-  | 'lazer_e_entretenimento'
-  | 'leitura_e_conteudo'
-  | 'musica_e_cultura'
-  | 'gastronomia_e_consumo'
-  | 'habitos_e_rotinas'
-  | 'experiencias_viagens_e_eventos';
+// Interesse selecionado (C1 actor-first/concept-first, DECISION-0067). BINÁRIO: sem state/weight/priority.
+// categoryId = breadcrumb (= source_category_id no C1); conceptId = identidade semântica (Lei 7).
+export interface SelectedInterest {
+  categoryId: string;
+  conceptId: string;
+  categoryName: string;
+  categoryPath: string[];
+}
 
-type InterestState = 'gosto' | 'pratico_as_vezes' | 'pratico_regularmente';
-
-type ConceptId = string;
-
-interface UserInterest {
-  conceptId: ConceptId;
+// habits/weeklyRoutine/goals + interests permanecem no fluxo LEGADO (blob global_users.metadata).
+// interests aqui é apenas o valor carregado do blob, PRESERVADO para o save legado (zero cleanup do blob).
+// A seção de Interesses da UI NÃO usa mais este campo — ela usa selectedInterests (C1).
+interface UserInterestLegacy {
+  conceptId: string;
   label: string;
-  state: InterestState;
-  domain: LifeDomain;
+  state: 'gosto' | 'pratico_as_vezes' | 'pratico_regularmente';
+  domain: string;
   isCustom: boolean;
 }
 
 interface PhysicalProfileData {
-  interests: UserInterest[];
+  interests: UserInterestLegacy[];
   habits: {
     smoking: 'não_fumo' | 'ocasionalmente' | 'regularmente' | null;
     drinking: 'não_bebo' | 'socialmente' | 'regularmente' | null;
@@ -33,7 +33,6 @@ interface PhysicalProfileData {
 }
 
 export function useProfilePhysicalState() {
-  const [activeDomain, setActiveDomain] = useState<LifeDomain | null>(null);
   const [profileData, setProfileData] = useState<PhysicalProfileData>({
     interests: [],
     habits: {
@@ -51,29 +50,33 @@ export function useProfilePhysicalState() {
     sexualOrientation: null,
   });
 
-  const [customInterestInput, setCustomInterestInput] = useState<Record<LifeDomain, string>>({
-    atividades_e_praticas: '',
-    lazer_e_entretenimento: '',
-    leitura_e_conteudo: '',
-    musica_e_cultura: '',
-    gastronomia_e_consumo: '',
-    habitos_e_rotinas: '',
-    experiencias_viagens_e_eventos: '',
-  });
+  // C1 de Interesse (substitui o catálogo hardcoded — Fatia 4c).
+  const [interestTree, setInterestTree] = useState<CategoryTree[]>([]);
+  const [selectedInterests, setSelectedInterests] = useState<SelectedInterest[]>([]);
+  // Snapshot do C1 no load (diff granular do save: novo→POST, removido→DELETE).
+  const [initialInterests, setInitialInterests] = useState<SelectedInterest[]>([]);
+  const [expandedInterests, setExpandedInterests] = useState<Set<string>>(new Set());
+  const [interestError, setInterestError] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return {
-    activeDomain,
-    setActiveDomain,
     profileData,
     setProfileData,
     lifestyle,
     setLifestyle,
-    customInterestInput,
-    setCustomInterestInput,
+    interestTree,
+    setInterestTree,
+    selectedInterests,
+    setSelectedInterests,
+    initialInterests,
+    setInitialInterests,
+    expandedInterests,
+    setExpandedInterests,
+    interestError,
+    setInterestError,
     isLoading,
     setIsLoading,
     isSaving,
@@ -82,6 +85,3 @@ export function useProfilePhysicalState() {
     setError,
   };
 }
-
-
-

@@ -9537,3 +9537,45 @@ permanece OPEN. Lifestyle fora.
 
 **Fila:** **Fatia 4c — frontend Interest** (redesign ProfilePhysical → árvore `scope='interest'` +
 `/profile/interest/c1`) → **Fatia 5 — cleanup do blob**. Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## C1 INTEREST — FATIA 4c (FRONTEND) — EXECUTADA ✅ (2026-06-01)
+
+Seção de **Interesses** do `ProfilePhysical` migrada do catálogo **hardcoded/blob** para o C1
+actor-first/concept-first (DECISION-0067, Fatia 4c). HEAD origem `eca51cbc`. **Só frontend**
+(backend/migration/schema/C1 backend intocados). **Lifestyle/Saúde NÃO tocados semanticamente.**
+
+**Arquivos (5):** novo `frontend/src/api/interestC1.ts` (client camelCase: get/declare/update/retire,
+**binário sem progress**); `ProfilePhysical.tsx` (catálogo removido, árvore C1 + save granular); `ProfilePhysicalForm.tsx`
+(seção Interesses = chips removíveis + árvore real; hábitos/rotina/objetivos/estilo-de-vida intactos);
+`useProfilePhysicalState.ts` (estado da árvore C1 + snapshot `initialInterests`; removido estado só-catálogo
+`activeDomain`/`customInterestInput`); `useProfilePhysicalLogic.ts` (PREDEFINED_CONCEPTS fake **removido**;
+exporta `isInterestSelected`/`findCategoryInTree`).
+
+**Catálogo hardcoded removido:** `PREDEFINED_CONCEPTS` (39 conceitos fake `leisure.cinema`/`activity.swimming`/
+`content.photography`/…), `LIFE_DOMAINS`, texto livre (`addCustomInterest`/`generateCustomConceptId`) e
+`InterestState` (gosto/pratico…). **Nenhum mapeamento de id fake → concept real.** **Novo fluxo:** load
+`getCategoryTree('interest')` (conceptId surfaçado pela Fatia 4a; folhas slug `-interesse`) + `getInterestC1`;
+folha **só declarável com conceptId real** (sem fallback conceptId←categoryId; raiz sem conceptId = só navegação);
+save **granular** (novo→POST declare, removido→DELETE/soft); `sourceCategoryId`=categoryId breadcrumb.
+
+**Separação Interest × Lifestyle:** save de interests = C1; **PUT `/profile/physical` legado INTOCADO**
+(interests:[] como já era; `metadata.physicalProfile` com interests do blob **preservado verbatim** — zero
+cleanup do blob; smokes/drinks/relationshipStatus/sexualOrientation/hábitos/rotina/objetivos inalterados).
+
+**Provas:** frontend typecheck=0; greps (catálogo fake só em comentários; C1 presente; conceptId UUID enviado,
+não categoryId/fake; legado preservado). **Runtime (Café `cafe-interesse`, cat `b986d931…`/concept `3d65f9fe…`):**
+POST **201** (conceptId+sourceCategoryId, isActive) / GET count=1 / DELETE **200** soft (retiredAt) / GET active=0;
+`global_users.metadata.interests` **0 antes e 0 depois** (C1 não toca o blob); linha de teste removida. Gates
+backend sem regressão (actor-writer/bank-ledger/regression OK); architectural-patterns `critical_new=0`,
+`critical_total=20` (sem aumento); `warning_new=1` é o **pré-existente** (`validate-pipeline-e2e-c3-...:334`, não meu).
+
+**Estado:** Aprendizado **e** Interesses agora usam C1. **Blob ainda não limpo** (Fatia 5).
+DT-LEARNING-INTEREST-BLOB-SSOT permanece **OPEN** (CLOSE só na Fatia 5). DT-PROFILE-FRONTEND-DRIVES-TAXONOMY
+mais mitigada (Interesses também não cria taxonomia pelo frontend). Edge conhecido: re-declarar concept
+retirado dá 409 (reativação via PATCH `reactivate` é follow-up).
+
+**Fila:** **Fatia 5 — cleanup do blob** (remover persistência learning/interests de `global_users.metadata`,
+mantendo Lifestyle fora — DT-LIFESTYLE-SENSITIVE-IN-BLOB frente própria). Bloqueados: financeiro, Agenda,
+Saúde/Lifestyle.

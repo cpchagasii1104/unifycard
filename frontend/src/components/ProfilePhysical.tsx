@@ -4,14 +4,24 @@
 // É autoexpressão voluntária, mutável e contextual.
 // Físico NÃO é: profissão, saúde clínica, personalidade, score, identidade fixa, classificação humana.
 // Preferências declaradas NÃO decidem nada no sistema.
+//
+// Fatia 4c (DECISION-0067): a seção de INTERESSES foi migrada do catálogo HARDCODED/blob para o C1
+// actor-first/concept-first (/profile/interest/c1, árvore real scope='interest'). O catálogo fake
+// (PREDEFINED_CONCEPTS com conceptId 'leisure.cinema'/'activity.swimming') foi REMOVIDO. O restante
+// (hábitos/rotina/objetivos/lifestyle) CONTINUA no fluxo LEGADO (PUT /profile/physical) — intocado.
 
 import { useEffect } from 'react';
 import {
   getPhysicalProfile,
   updatePhysicalProfile,
-  type LifestyleInfo,
 } from '../api/physical';
-import { useProfilePhysicalState } from '../hooks/useProfilePhysicalState';
+import {
+  getInterestC1,
+  declareInterestConceptC1,
+  retireInterestConceptC1,
+} from '../api/interestC1';
+import { getCategoryTree, type Category, type CategoryTree } from '../api/categories';
+import { useProfilePhysicalState, type SelectedInterest } from '../hooks/useProfilePhysicalState';
 import { useProfilePhysicalLogic } from '../hooks/useProfilePhysicalLogic';
 import ProfilePhysicalForm from './ProfilePhysicalForm';
 import { useSession } from '../contexts/SessionProvider';
@@ -19,125 +29,14 @@ import NotApplicableMessage from './NotApplicableMessage';
 import './ProfilePhysical.css';
 
 // ============================================================
-// CAMADA 1 — DOMÍNIOS DE VIDA (UI/UX apenas)
+// LIFESTYLE LEGADO (hábitos/rotina/objetivos) — fora do C1
 // ============================================================
-// Domínios existem SOMENTE para organizar o formulário e navegação visual.
-// NÃO são salvos como identidade e NÃO são usados como filtros sistêmicos.
-
-type LifeDomain = 
-  | 'atividades_e_praticas'
-  | 'lazer_e_entretenimento'
-  | 'leitura_e_conteudo'
-  | 'musica_e_cultura'
-  | 'gastronomia_e_consumo'
-  | 'habitos_e_rotinas'
-  | 'experiencias_viagens_e_eventos';
-
-interface LifeDomainConfig {
-  id: LifeDomain;
-  label: string;
-  icon?: string;
-}
-
-const LIFE_DOMAINS: LifeDomainConfig[] = [
-  { id: 'atividades_e_praticas', label: 'Atividades e Práticas' },
-  { id: 'lazer_e_entretenimento', label: 'Lazer e Entretenimento' },
-  { id: 'leitura_e_conteudo', label: 'Leitura e Conteúdo' },
-  { id: 'musica_e_cultura', label: 'Música e Cultura' },
-  { id: 'gastronomia_e_consumo', label: 'Gastronomia e Consumo' },
-  { id: 'habitos_e_rotinas', label: 'Hábitos e Rotinas' },
-  { id: 'experiencias_viagens_e_eventos', label: 'Experiências, Viagens e Eventos' },
-];
-
-// ============================================================
-// CAMADA 2 — CONCEPT IDs (interno, invisível ao usuário)
-// ============================================================
-// Cada item selecionável mapeia para um Concept ID canônico.
-// NÃO usar texto livre como chave lógica.
-// O usuário NUNCA vê o concept_id.
-
-type ConceptId = string; // Ex: 'activity.swimming', 'leisure.videogames', 'music.rock'
-
-interface ConceptDefinition {
-  conceptId: ConceptId;
-  label: string; // Nome exibido ao usuário
-  domain: LifeDomain;
-}
-
-// Conceitos pré-definidos por domínio (exemplos)
-const PREDEFINED_CONCEPTS: ConceptDefinition[] = [
-  // Atividades e Práticas
-  { conceptId: 'activity.swimming', label: 'Natação', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.running', label: 'Corrida', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.yoga', label: 'Yoga', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.cycling', label: 'Ciclismo', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.gym', label: 'Academia', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.dancing', label: 'Dança', domain: 'atividades_e_praticas' },
-  { conceptId: 'activity.martial_arts', label: 'Artes Marciais', domain: 'atividades_e_praticas' },
-  
-  // Lazer e Entretenimento
-  { conceptId: 'leisure.videogames', label: 'Videogames', domain: 'lazer_e_entretenimento' },
-  { conceptId: 'leisure.board_games', label: 'Jogos de Tabuleiro', domain: 'lazer_e_entretenimento' },
-  { conceptId: 'leisure.cinema', label: 'Cinema', domain: 'lazer_e_entretenimento' },
-  { conceptId: 'leisure.theater', label: 'Teatro', domain: 'lazer_e_entretenimento' },
-  { conceptId: 'leisure.karting', label: 'Karting', domain: 'lazer_e_entretenimento' },
-  { conceptId: 'leisure.bowling', label: 'Boliche', domain: 'lazer_e_entretenimento' },
-  
-  // Leitura e Conteúdo
-  { conceptId: 'content.reading', label: 'Leitura', domain: 'leitura_e_conteudo' },
-  { conceptId: 'content.podcasts', label: 'Podcasts', domain: 'leitura_e_conteudo' },
-  { conceptId: 'content.documentaries', label: 'Documentários', domain: 'leitura_e_conteudo' },
-  { conceptId: 'content.writing', label: 'Escrita', domain: 'leitura_e_conteudo' },
-  { conceptId: 'content.photography', label: 'Fotografia', domain: 'leitura_e_conteudo' },
-  
-  // Música e Cultura
-  { conceptId: 'music.rock', label: 'Rock', domain: 'musica_e_cultura' },
-  { conceptId: 'music.pop', label: 'Pop', domain: 'musica_e_cultura' },
-  { conceptId: 'music.samba', label: 'Samba', domain: 'musica_e_cultura' },
-  { conceptId: 'music.jazz', label: 'Jazz', domain: 'musica_e_cultura' },
-  { conceptId: 'music.classical', label: 'Música Clássica', domain: 'musica_e_cultura' },
-  { conceptId: 'music.electronic', label: 'Eletrônica', domain: 'musica_e_cultura' },
-  { conceptId: 'culture.museums', label: 'Museus', domain: 'musica_e_cultura' },
-  { conceptId: 'culture.art_galleries', label: 'Galerias de Arte', domain: 'musica_e_cultura' },
-  
-  // Gastronomia e Consumo
-  { conceptId: 'food.cooking', label: 'Culinária', domain: 'gastronomia_e_consumo' },
-  { conceptId: 'food.restaurants', label: 'Restaurantes', domain: 'gastronomia_e_consumo' },
-  { conceptId: 'food.wine', label: 'Vinhos', domain: 'gastronomia_e_consumo' },
-  { conceptId: 'food.craft_beer', label: 'Cerveja Artesanal', domain: 'gastronomia_e_consumo' },
-  { conceptId: 'food.coffee', label: 'Café', domain: 'gastronomia_e_consumo' },
-  
-  // Hábitos e Rotinas
-  { conceptId: 'habit.meditation', label: 'Meditação', domain: 'habitos_e_rotinas' },
-  { conceptId: 'habit.morning_routine', label: 'Rotina Matinal', domain: 'habitos_e_rotinas' },
-  { conceptId: 'habit.night_owl', label: 'Coruja Noturna', domain: 'habitos_e_rotinas' },
-  { conceptId: 'habit.early_bird', label: 'Madrugador', domain: 'habitos_e_rotinas' },
-  
-  // Experiências, Viagens e Eventos
-  { conceptId: 'experience.travel', label: 'Viagens', domain: 'experiencias_viagens_e_eventos' },
-  { conceptId: 'experience.adventure', label: 'Aventura', domain: 'experiencias_viagens_e_eventos' },
-  { conceptId: 'experience.festivals', label: 'Festivais', domain: 'experiencias_viagens_e_eventos' },
-  { conceptId: 'experience.concerts', label: 'Shows', domain: 'experiencias_viagens_e_eventos' },
-  { conceptId: 'experience.sports_events', label: 'Eventos Esportivos', domain: 'experiencias_viagens_e_eventos' },
-];
-
-// ============================================================
-// CAMADA 3 — DECLARAÇÃO DO USUÁRIO
-// ============================================================
-// O usuário pode selecionar interesses e marcar estados simples.
-
-type InterestState = 'gosto' | 'pratico_as_vezes' | 'pratico_regularmente';
-
-interface UserInterest {
-  conceptId: ConceptId;
-  label: string; // Nome exibido (pode ser do conceito pré-definido ou texto livre mapeado)
-  state: InterestState;
-  domain: LifeDomain; // Apenas para organização visual
-  isCustom: boolean; // true se foi digitado pelo usuário (não pré-definido)
-}
-
+// Estes campos permanecem declarativos no blob legado (PUT /profile/physical). NÃO migram para o C1
+// nesta fatia (DT-LIFESTYLE-SENSITIVE-IN-BLOB é frente própria). interests aqui é o valor do blob,
+// preservado para o save legado (zero cleanup do blob) — a UI NÃO o edita mais.
 interface PhysicalProfileData {
-  interests: UserInterest[];
+  // Valor legado do blob (UserInterest[]), preservado verbatim — a UI não o edita nesta fatia.
+  interests: any[];
   habits: {
     smoking: 'não_fumo' | 'ocasionalmente' | 'regularmente' | null;
     drinking: 'não_bebo' | 'socialmente' | 'regularmente' | null;
@@ -147,7 +46,7 @@ interface PhysicalProfileData {
 }
 
 export default function ProfilePhysical() {
-  const { activeActor } = useSession();
+  const { activeActor, sessionReady } = useSession();
 
   // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
   if (activeActor && activeActor.actor_type !== 'user') {
@@ -155,14 +54,20 @@ export default function ProfilePhysical() {
   }
 
   const {
-    activeDomain,
-    setActiveDomain,
     profileData,
     setProfileData,
     lifestyle,
     setLifestyle,
-    customInterestInput,
-    setCustomInterestInput,
+    interestTree,
+    setInterestTree,
+    selectedInterests,
+    setSelectedInterests,
+    initialInterests,
+    setInitialInterests,
+    expandedInterests,
+    setExpandedInterests,
+    interestError,
+    setInterestError,
     isLoading,
     setIsLoading,
     isSaving,
@@ -170,16 +75,47 @@ export default function ProfilePhysical() {
     error,
     setError,
   } = useProfilePhysicalState();
-  const { generateCustomConceptId, getInterestsByDomain, getConceptsByDomain, isConceptSelected, PREDEFINED_CONCEPTS } = useProfilePhysicalLogic();
+  const { isInterestSelected: isInterestSelectedLogic, findCategoryInTree } = useProfilePhysicalLogic();
 
   useEffect(() => {
+    if (!sessionReady) {
+      setIsLoading(false);
+      return;
+    }
     loadData();
-  }, []);
+  }, [sessionReady]);
+
+  // Mapeia declarações C1 → modelo local. Nome/path resolvidos via sourceCategoryId na árvore (breadcrumb/UI,
+  // não identidade). Fallback honesto por conceptId quando a categoria não é resolvível (sem inventar category).
+  const mapC1ToSelected = (
+    concepts: { conceptId: string; sourceCategoryId: string | null }[],
+    tree: CategoryTree[]
+  ): SelectedInterest[] => {
+    return concepts.map((c) => {
+      const cat = c.sourceCategoryId ? findCategoryInTree(tree, c.sourceCategoryId) : null;
+      return {
+        categoryId: c.sourceCategoryId ?? c.conceptId, // chave de UI (breadcrumb se houver)
+        conceptId: c.conceptId,
+        categoryName: cat?.name ?? 'Interesse',
+        categoryPath: cat?.path ?? [],
+      };
+    });
+  };
 
   const loadData = async () => {
     setIsLoading(true);
     setError(null);
+    setInterestError(null);
     try {
+      // 🔴 Interesses: árvore real scope='interest' (conceptId surfaçado pela Fatia 4a) + declarações C1.
+      const tree = await getCategoryTree('interest');
+      setInterestTree(tree);
+      const c1 = await getInterestC1();
+      const loadedInterests = mapC1ToSelected(c1.concepts, tree);
+      setSelectedInterests(loadedInterests);
+      setInitialInterests(loadedInterests); // snapshot para o diff granular do save
+
+      // Lifestyle/hábitos/rotina/objetivos: fluxo LEGADO (blob), intocado.
       const profile = await getPhysicalProfile().catch(() => ({
         globalUserId: '',
         interests: [],
@@ -195,11 +131,12 @@ export default function ProfilePhysical() {
 
       setLifestyle(profile.lifestyle);
 
-      // 🔒 Carregar dados do perfil físico de metadata (se existir)
+      // 🔒 Carregar dados declarativos legados de metadata (se existir). interests do blob é PRESERVADO
+      // (não editado pela UI), apenas carregado para reescrita verbatim no save (zero cleanup do blob).
       const physicalData = (profile.metadata && typeof profile.metadata === 'object' && 'physicalProfile' in profile.metadata)
         ? (profile.metadata.physicalProfile as Partial<PhysicalProfileData>)
         : undefined;
-      
+
       if (physicalData) {
         setProfileData({
           interests: physicalData.interests || [],
@@ -215,7 +152,7 @@ export default function ProfilePhysical() {
         setProfileData({
           interests: [],
           habits: {
-            smoking: profile.lifestyle.smokes === 'never' ? 'não_fumo' : 
+            smoking: profile.lifestyle.smokes === 'never' ? 'não_fumo' :
                      profile.lifestyle.smokes === 'occasionally' ? 'ocasionalmente' :
                      profile.lifestyle.smokes === 'regularly' ? 'regularmente' : null,
             drinking: profile.lifestyle.drinks === 'never' ? 'não_bebo' :
@@ -235,94 +172,55 @@ export default function ProfilePhysical() {
     }
   };
 
+  // ============================================================
+  // INTERESSES (C1 actor-first/concept-first) — árvore real scope='interest'
+  // ============================================================
+  const toggleInterestCategory = (categoryId: string) => {
+    const next = new Set(expandedInterests);
+    if (next.has(categoryId)) {
+      next.delete(categoryId);
+    } else {
+      next.add(categoryId);
+    }
+    setExpandedInterests(next);
+  };
 
-  // Adicionar interesse pré-definido
-  const addPredefinedInterest = (concept: ConceptDefinition, state: InterestState) => {
-    const existing = profileData.interests.find(i => i.conceptId === concept.conceptId);
-    if (existing) {
-      // Atualizar estado se já existe
-      updateInterestState(concept.conceptId, state);
+  const isInterestSelected = (categoryId: string): boolean => {
+    return isInterestSelectedLogic(categoryId, selectedInterests);
+  };
+
+  const addInterest = (category: Category) => {
+    if (isInterestSelected(category.categoryId)) {
       return;
     }
-
-    const newInterest: UserInterest = {
-      conceptId: concept.conceptId,
-      label: concept.label,
-      state,
-      domain: concept.domain,
-      isCustom: false,
-    };
-
-    setProfileData({
-      ...profileData,
-      interests: [...profileData.interests, newInterest],
-    });
-  };
-
-  // Adicionar interesse customizado (texto livre)
-  const addCustomInterest = (domain: LifeDomain, state: InterestState) => {
-    const label = customInterestInput[domain].trim();
-    if (!label) return;
-
-    const conceptId = generateCustomConceptId(label, domain);
-    
-    // Verificar se já existe (mesmo conceptId ou mesmo label no mesmo domínio)
-    const existing = profileData.interests.find(
-      i => i.conceptId === conceptId || (i.label.toLowerCase() === label.toLowerCase() && i.domain === domain)
-    );
-    
-    if (existing) {
-      updateInterestState(existing.conceptId, state);
-      setCustomInterestInput({ ...customInterestInput, [domain]: '' });
+    // TRAVA C1: declaração exige conceptId real surfaçado pelo backend (Fatia 4a). Sem fallback
+    // conceptId ← categoryId, sem inventar conceito. Folha sem conceptId (ex.: raiz de navegação)
+    // não é declarável.
+    if (!category.conceptId) {
+      setInterestError(
+        'Este interesse ainda não está vinculado a um conceito no sistema e não pode ser declarado agora.'
+      );
       return;
     }
-
-    const newInterest: UserInterest = {
-      conceptId,
-      label,
-      state,
-      domain,
-      isCustom: true,
-    };
-
-    setProfileData({
-      ...profileData,
-      interests: [...profileData.interests, newInterest],
-    });
-
-    setCustomInterestInput({ ...customInterestInput, [domain]: '' });
+    setSelectedInterests([
+      ...selectedInterests,
+      {
+        categoryId: category.categoryId,
+        conceptId: category.conceptId,
+        categoryName: category.name,
+        categoryPath: category.path,
+      },
+    ]);
+    setInterestError(null);
   };
 
-  // Atualizar estado de um interesse
-  const updateInterestState = (conceptId: ConceptId, state: InterestState) => {
-    setProfileData({
-      ...profileData,
-      interests: profileData.interests.map(i =>
-        i.conceptId === conceptId ? { ...i, state } : i
-      ),
-    });
+  const removeInterest = (categoryId: string) => {
+    setSelectedInterests(selectedInterests.filter((s) => s.categoryId !== categoryId));
   };
 
-  // Remover interesse
-  const removeInterest = (conceptId: ConceptId) => {
-    setProfileData({
-      ...profileData,
-      interests: profileData.interests.filter(i => i.conceptId !== conceptId),
-    });
-  };
-
-  const getInterestsByDomainWrapper = (domain: LifeDomain): UserInterest[] => {
-    return getInterestsByDomain(domain, profileData.interests);
-  };
-
-  const getConceptsByDomainWrapper = (domain: LifeDomain): ConceptDefinition[] => {
-    return getConceptsByDomain(domain);
-  };
-
-  const isConceptSelectedWrapper = (conceptId: ConceptId): boolean => {
-    return isConceptSelected(conceptId, profileData.interests);
-  };
-
+  // ============================================================
+  // LIFESTYLE LEGADO (hábitos/rotina/objetivos/estilo de vida) — intocado
+  // ============================================================
   const updateHabits = (field: 'smoking' | 'drinking', value: PhysicalProfileData['habits']['smoking'] | PhysicalProfileData['habits']['drinking']) => {
     setProfileData({
       ...profileData,
@@ -343,7 +241,7 @@ export default function ProfilePhysical() {
   const toggleGoal = (goal: 'estética' | 'bem_estar' | 'condicionamento') => {
     const currentGoals = profileData.goals;
     const isSelected = currentGoals.includes(goal);
-    
+
     setProfileData({
       ...profileData,
       goals: isSelected
@@ -355,9 +253,30 @@ export default function ProfilePhysical() {
   const handleSave = async () => {
     setIsSaving(true);
     setError(null);
+    setInterestError(null);
 
     try {
-      // 🔒 Salvar dados declarativos em metadata (temporário até API ser atualizada)
+      // 1) INTERESSES → C1 GRANULAR (diff contra o snapshot do load). conceptId = identidade;
+      //    categoryId = breadcrumb (sourceCategoryId). Binário: novo→POST declare, removido→DELETE retire.
+      const initialByConcept = new Map(initialInterests.map((s) => [s.conceptId, s]));
+      const currentByConcept = new Map(selectedInterests.map((s) => [s.conceptId, s]));
+
+      for (const cur of selectedInterests) {
+        if (!initialByConcept.has(cur.conceptId)) {
+          await declareInterestConceptC1({
+            conceptId: cur.conceptId,
+            sourceCategoryId: cur.categoryId,
+          });
+        }
+      }
+      for (const prev of initialInterests) {
+        if (!currentByConcept.has(prev.conceptId)) {
+          await retireInterestConceptC1(prev.conceptId);
+        }
+      }
+
+      // 2) LIFESTYLE LEGADO — INTOCADO. interests:[] (já era o comportamento); blob preservado verbatim
+      //    (profileData.interests = valor carregado, não editado). NÃO grava interesses como SSOT aqui.
       await updatePhysicalProfile({
         interests: [], // Não usar categorias
         lifestyle: {
@@ -371,9 +290,15 @@ export default function ProfilePhysical() {
         },
         preferences: {},
         metadata: {
-          physicalProfile: profileData, // 🔒 Dados declarativos completos
+          physicalProfile: profileData, // 🔒 Dados declarativos legados (interests do blob preservado)
         },
       });
+
+      // 3) Releitura do C1 → re-sincroniza o snapshot (próximo diff parte do estado real).
+      const c1 = await getInterestC1();
+      const refreshed = mapC1ToSelected(c1.concepts, interestTree);
+      setSelectedInterests(refreshed);
+      setInitialInterests(refreshed);
 
       alert('Interesses e gostos atualizados com sucesso!');
     } catch (err) {
@@ -381,6 +306,70 @@ export default function ProfilePhysical() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // renderInterestTree: declarável = folha com conceptId real; raiz sem conceptId é só navegação/grupo.
+  const renderInterestTree = (categories: CategoryTree[], level: number = 0): JSX.Element[] => {
+    return categories.map((category) => {
+      const hasChildren = category.children && category.children.length > 0;
+      const isExpanded = expandedInterests.has(category.categoryId);
+      const isSelected = isInterestSelected(category.categoryId);
+      const declarable = !!category.conceptId;
+      const pathDisplay = category.path.length > 0
+        ? category.path.join(' > ') + ' > ' + category.name
+        : category.name;
+
+      return (
+        <div key={category.categoryId} className="interest-tree-item" style={{ paddingLeft: `${level * 1.5}rem`, marginBottom: '0.25rem' }}>
+          <div className="interest-tree-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {hasChildren && (
+              <button
+                type="button"
+                className="expand-button"
+                onClick={() => toggleInterestCategory(category.categoryId)}
+                aria-label={isExpanded ? 'Recolher' : 'Expandir'}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.75rem' }}
+              >
+                {isExpanded ? '▼' : '▶'}
+              </button>
+            )}
+            {!hasChildren && <span style={{ display: 'inline-block', width: '1rem' }} />}
+            <span className="interest-tree-name" title={pathDisplay}>
+              {category.name}
+            </span>
+            {declarable ? (
+              isSelected ? (
+                <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Selecionado</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => addInterest(category)}
+                  title={`Adicionar ${category.name}`}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    backgroundColor: '#e5e7eb',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  + Adicionar
+                </button>
+              )
+            ) : (
+              <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Navegue para ver interesses</span>
+            )}
+          </div>
+          {hasChildren && isExpanded && (
+            <div className="interest-tree-children">
+              {renderInterestTree(category.children!, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   if (isLoading) {
@@ -395,21 +384,15 @@ export default function ProfilePhysical() {
   return (
     <ProfilePhysicalForm
       error={error}
-      activeDomain={activeDomain}
-      setActiveDomain={setActiveDomain}
+      interestError={interestError}
       profileData={profileData}
       lifestyle={lifestyle}
-      customInterestInput={customInterestInput}
-      setCustomInterestInput={setCustomInterestInput}
       isSaving={isSaving}
-      LIFE_DOMAINS={LIFE_DOMAINS}
-      getInterestsByDomain={getInterestsByDomainWrapper}
-      getConceptsByDomain={getConceptsByDomainWrapper}
-      isConceptSelected={isConceptSelectedWrapper}
-      updateInterestState={updateInterestState}
+      interestTree={interestTree}
+      selectedInterests={selectedInterests}
+      isInterestSelected={isInterestSelected}
       removeInterest={removeInterest}
-      addPredefinedInterest={addPredefinedInterest}
-      addCustomInterest={addCustomInterest}
+      renderInterestTree={renderInterestTree}
       updateHabits={updateHabits}
       updateWeeklyRoutine={updateWeeklyRoutine}
       toggleGoal={toggleGoal}
