@@ -2123,3 +2123,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   GET C1 200; legados /profile/learning e /physical 200. typecheck=0; gates verdes; critical_new=0.
 - Frontend ainda nos legados; blob não limpo. DT-LEARNING-INTEREST-BLOB-SSOT OPEN (fecha Fatia 5).
   Fila: Fatia 4 frontend → Fatia 5 cleanup. Lifestyle fora.
+
+### FATIA 4 PAROU → FATIA 4a BACKEND (DECISION-0068) EXECUTADA ✅ (2026-06-01)
+- Fatia 4 frontend PAROU no READ-FIRST: (1) ProfileLearning só tinha categoryId (sem conceptId); (2)
+  ProfilePhysical usa catálogo hardcoded de interesses com conceptId fake ('leisure.cinema'), nunca a árvore
+  scope='interest'. Causa-raiz: categories.service removia conceptId p/ context!=='professional'.
+- Fatia 4a (DECISION-0068): categories.service.ts expõe conceptId nas leituras para contextos DECLARATIVOS
+  professional/learning/interest (helper canExposeCategoryConceptId; 3 pontos tree/children/autocomplete;
+  context omitido NÃO surfaça). Não expõe a event/company/marketplace/transacional/lifestyle. Lei 7:
+  declaração ≠ concept_ref transacional.
+- Provas: professional 3; learning 36/36 (era 0); interest 38/38; children sem context 0; event/company 0.
+  typecheck=0; gates verdes; critical_new=0. Escopo único categories.service.ts.
+- Fila: Fatia 4b frontend Learning→C1 → 4c frontend Interest (redesign ProfilePhysical p/ árvore
+  scope='interest' + /profile/interest/c1; lifestyle intocado) → Fatia 5 cleanup blob.

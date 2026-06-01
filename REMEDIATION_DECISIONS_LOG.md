@@ -5940,3 +5940,42 @@ executor próprio, ratificação, ciclo fechado.
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0068 — CONCEPTID_SURFACING_DECLARATIVE_CONTEXTS
+
+**Status:** RATIFICADA — EXECUTADA (código + provas) (2026-06-01).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `827c0b07`.
+**Documento canônico:** `docs/02_decisions/DECISION_0068_CONCEPTID_SURFACING_DECLARATIVE_CONTEXTS.md`.
+**Complementa (sem alterar retroativamente):** DECISION-0064/0067; estende OPÇÃO B (07 §4262/4278) sem
+revogar a proibição transacional.
+
+### Contexto
+
+Fatia 4 frontend parada porque o frontend não recebia `conceptId`: `categories.service.ts` removia
+`conceptId` de toda leitura com `context !== 'professional'` (incl. learning/interest); C1 exige conceptId
+UUID real. ProfileLearning só tinha categoryId; ProfilePhysical usa catálogo hardcoded com conceptId fake.
+
+### Escolha
+
+Expor `conceptId` nas leituras de categoria APENAS para contextos DECLARATIVOS: `professional`, `learning`,
+`interest`. Helper único `canExposeCategoryConceptId(context?)` nos 3 pontos de surfacing (tree/children/
+autocomplete). Contexto omitido ⇒ NÃO surfaçar (default seguro; decide pelo context explícito, não pelo
+effectiveContext).
+
+### Justificativa / Vetos
+
+Declaração de perfil actor-first/concept-first ≠ concept_ref transacional (intent/offer/checkout/pagamento)
+→ §4262/4278 não se aplica. NÃO expor para event/campaign/company/health/lifestyle/group/marketplace/
+financeiro nem contexto omitido. category_id segue navegação; concept_id segue identidade (Lei 7).
+
+### Consequência / Provas
+
+Desbloqueia Fatia 4b (frontend Learning→C1) e 4c (redesign Interest no ProfilePhysical). Provas executadas:
+professional 3 conceptId (preservado); learning 36/36; interest 38/38; children sem context 0 (3 filhos);
+event/company 0. Escopo: só `categories.service.ts`; zero frontend/migration/schema/C1/financeiro/blob.
+
+### Superada por
+
+(em aberto — decisão vigente)

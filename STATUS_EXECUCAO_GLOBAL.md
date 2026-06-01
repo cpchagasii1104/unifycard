@@ -9483,3 +9483,28 @@ OPEN (fecha só na Fatia 5). Lifestyle fora.
 
 **Fila:** Fatia 4 (frontend migra abas Learning/Interest para o C1) → Fatia 5 (cleanup do blob, lifestyle
 fora). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## FATIA 4 PAROU (2 bloqueadores) → FATIA 4a BACKEND EXECUTADA (DECISION-0068) ✅ (2026-06-01)
+
+**Fatia 4 (frontend) PAROU corretamente no READ-FIRST** — 2 bloqueadores materiais não previstos:
+(1) `ProfileLearning` só tinha `categoryId` (sem conceptId); (2) `ProfilePhysical` usa catálogo **hardcoded**
+de interesses com conceptId textual fake (`'leisure.cinema'`), nunca a árvore `scope='interest'`.
+**Causa-raiz comum:** `categories.service.ts` removia `conceptId` de toda leitura com
+`context !== 'professional'` (OPÇÃO B) → frontend learning/interest não recebia conceptId real.
+
+**Fatia 4a (backend, DECISION-0068) EXECUTADA:** `categories.service.ts` passa a expor `conceptId` nas
+leituras de categoria para os contextos **DECLARATIVOS** `professional`/`learning`/`interest` (helper
+`canExposeCategoryConceptId`; 3 pontos: tree/children/autocomplete). Contexto omitido ⇒ NÃO surfaçar
+(default seguro). **NÃO** exposto a event/company/marketplace/transacional/financeiro/lifestyle. Justificativa
+Lei 7: declaração ≠ concept_ref transacional (§4262/4278 não se aplica a declaração de perfil).
+
+**Provas:** professional 3 conceptId (preservado); **learning 36/36** (era 0); **interest 38/38**; children
+sem context 0 (3 filhos); event/company 0. typecheck=0; gates verdes; `critical_new=0`. Escopo único:
+`categories.service.ts` — zero frontend/migration/schema/C1 backend/financeiro/blob.
+
+**Fila:** **Fatia 4b — frontend Learning → C1** (ProfileLearning captura conceptId surfaçado e usa
+`/profile/learning/c1`) → **Fatia 4c — frontend Interest** (redesenhar seção de interesses do ProfilePhysical
+para árvore `scope='interest'` + `/profile/interest/c1`; lifestyle intocado) → **Fatia 5 — cleanup do blob**.
+Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

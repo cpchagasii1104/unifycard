@@ -29,6 +29,19 @@ import type {
 import { HttpError } from '@core/errors/http-error';
 import { assertCategoryWritableForUserSkillsStrict } from '@core/profile/category-navigation-bridge';
 
+/**
+ * Surfacing de `conceptId` em LEITURAS de categoria — DECISION-0068.
+ * Exposto APENAS em contextos DECLARATIVOS de perfil (actor-first/concept-first): `professional`,
+ * `learning`, `interest`. NÃO exposto em contextos transacionais/marketplace/checkout/offer/intent,
+ * nem `event`/`campaign`/`company`/`health`/`group`/etc. `category_id` segue navegação/breadcrumb;
+ * `concept_id` segue identidade semântica (Lei 7). Contexto OMITIDO (undefined) ⇒ NÃO surfaçar
+ * (default seguro). Não usa o fallback interno `effectiveContext` — decide pelo `context` explícito.
+ */
+const DECLARATIVE_CONCEPT_CONTEXTS = new Set<CategoryContext>(['professional', 'learning', 'interest']);
+function canExposeCategoryConceptId(context?: CategoryContext): boolean {
+  return context !== undefined && DECLARATIVE_CONCEPT_CONTEXTS.has(context);
+}
+
 class CategoriesService {
   private repository = new CategoryRepository();
   
@@ -504,10 +517,10 @@ if (!hasReadAccess) {
 
     const allCategories = CategoryModel.fromRows(allRows);
 
-    // OPÇÃO B (07 §4262/4278): conceptId só é exposto no contexto profissional (declaração C1).
-    // Em qualquer outro contexto (marketplace/produto/transacional) o campo NÃO é surfaçado —
-    // evita criar atalho de árvore de categorias para concept_ref transacional.
-    if (context !== 'professional') {
+    // DECISION-0068 (estende OPÇÃO B / 07 §4262/4278): conceptId é exposto em contextos DECLARATIVOS
+    // (professional/learning/interest) — declaração de perfil concept-first, NÃO concept_ref transacional.
+    // Em qualquer outro contexto (marketplace/produto/transacional/event/company/…) NÃO é surfaçado.
+    if (!canExposeCategoryConceptId(context)) {
       for (const cat of allCategories) {
         delete (cat as { conceptId?: string | null }).conceptId;
       }
@@ -780,12 +793,13 @@ if (!hasReadAccess) {
    */
   async getChildren(categoryId: string, countryCode?: string | null, context?: CategoryContext): Promise<Category[]> {
     // Filtro mantém 'professional' como default histórico (não muda QUAIS filhos retornam);
-    // mas conceptId só é exposto quando context === 'professional' veio EXPLÍCITO do caller.
+    // mas conceptId só é exposto quando o contexto DECLARATIVO veio EXPLÍCITO do caller.
     const effectiveContext: CategoryContext = context ?? 'professional';
     const rows = await this.repository.findChildren(categoryId, effectiveContext, countryCode);
     const cats = CategoryModel.fromRows(rows);
-    // OPÇÃO B (07 §4262/4278): default seguro — sem contexto explícito profissional, NÃO surfaçar conceptId.
-    if (context !== 'professional') {
+    // DECISION-0068: surfaçar conceptId em contextos declarativos (professional/learning/interest).
+    // Decide pelo `context` EXPLÍCITO (não pelo fallback effectiveContext): contexto omitido ⇒ NÃO surfaçar.
+    if (!canExposeCategoryConceptId(context)) {
       for (const cat of cats) {
         delete (cat as { conceptId?: string | null }).conceptId;
       }
@@ -1185,8 +1199,9 @@ if (!hasReadAccess) {
         level: category.level,
         path: category.path || [],
         fullPathLabel,
-        // OPÇÃO B: conceptId só no autocomplete profissional (declaração C1); proibido como concept_ref transacional.
-        ...(context === 'professional' ? { conceptId: category.conceptId ?? null } : {}),
+        // DECISION-0068: conceptId no autocomplete de contextos declarativos (professional/learning/interest);
+        // proibido como concept_ref transacional (não-declarativos não recebem).
+        ...(canExposeCategoryConceptId(context) ? { conceptId: category.conceptId ?? null } : {}),
       });
     }
     
