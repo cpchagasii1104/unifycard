@@ -1941,3 +1941,10 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   snapshot congelado; NÃO versionar blob que faz drift. Decisão de Clayton; não tocado.
 - Fila restante: (2b) destino do frontend_src_completo.txt · (3) destino legado /profile/professional ·
   (4) C2/C3 profissional OU Interesses/Lei 7.
+
+### Housekeeping 2b — frontend_src_completo.txt REMOVIDO DO VERSIONAMENTO ✅ (2026-06-01)
+- Autorizado por Clayton. git rm do dump (5,28 MB / 183k linhas) + .gitignore (seção "Session-regenerated
+  full dumps"). READ-FIRST: zero dependência material (só docs STATUS/opus/SELO referenciam). Gerar sob
+  demanda fora do commit; fonte real = frontend/src; snapshot histórico em 39ea7062.
+- Fila restante: (3) destino legado /profile/professional (410/501) · (4) C2/C3 profissional OU
+  Interesses/Lei 7.

@@ -9167,3 +9167,11 @@ fatia.**
 
 **Fila pós-selo restante:** (2b) decidir destino do `frontend_src_completo.txt` · (3) destino do legado
 `/profile/professional` (410/501) · (4) C2/C3 profissional OU Interesses/Lei 7.
+
+### Housekeeping 2b — `frontend_src_completo.txt` REMOVIDO DO VERSIONAMENTO ✅ (2026-06-01)
+Item (2b) resolvido, autorizado por Clayton. `git rm` do dump + adicionado ao `.gitignore` (seção
+"Session-regenerated full dumps", junto de `SRC_FULL.txt` etc.). READ-FIRST provou zero dependência
+material (sem script/gate/normativo/runtime; só referências em STATUS/opus/SELO — docs operacionais).
+Deve ser **gerado sob demanda** como evidência temporária fora do commit; **fonte real continua sendo
+`frontend/src`**. Snapshot histórico preservado em `39ea7062`. **Fila pós-selo restante:** (3) destino do
+legado `/profile/professional` (410/501) · (4) C2/C3 profissional OU Interesses/Lei 7.
