@@ -86,6 +86,24 @@ class InterestC1Service {
     if (input.sourceCategoryId) {
       await this.assertSourceCategory(tenantId, input.sourceCategoryId, input.conceptId);
     }
+
+    // Idempotência por declaração (DT-C1-LEARNING-INTEREST-REACTIVATION): o POST não deve falhar com 409
+    // quando o mesmo concept já existe INATIVO (soft-delete) — deve REATIVAR a linha existente (sem
+    // duplicar; UNIQUE tenant+actor+concept). Concept ATIVO → 409 preservado. Inexistente → INSERT.
+    // Interest é binário (sem progress); breadcrumb só muda se enviado; declared_at preservado.
+    const existing = await interestC1Repository.findByConcept(tenantId, actorId, input.conceptId);
+    if (existing) {
+      if (existing.is_active) {
+        throw HttpError.conflict('Interesse já declarado para este concept');
+      }
+      const row = await interestC1Repository.updateConcept(tenantId, actorId, input.conceptId, {
+        reactivate: true,
+        sourceCategoryId: input.sourceCategoryId, // undefined ⇒ preserva breadcrumb; valor ⇒ atualiza
+      });
+      if (!row) throw HttpError.notFound('Interesse não encontrado');
+      return toDTO(row);
+    }
+
     try {
       const row = await interestC1Repository.declareConcept(tenantId, actorId, input);
       return toDTO(row);

@@ -53,6 +53,22 @@ class InterestC1Repository {
     );
   }
 
+  // Linha do concept para o actor, ATIVA OU INATIVA (para decidir 409 vs reativação). LIMIT 1 (UNIQUE).
+  async findByConcept(
+    tenantId: string,
+    actorId: string,
+    conceptId: string
+  ): Promise<InterestConceptRow | undefined> {
+    return runQueryWithTenant<InterestConceptRow>(
+      tenantId,
+      `SELECT ${CONCEPT_COLS}
+         FROM actor_interest_concepts
+        WHERE tenant_id = $1 AND actor_id = $2 AND concept_id = $3
+        LIMIT 1`,
+      [tenantId, actorId, conceptId]
+    );
+  }
+
   async declareConcept(
     tenantId: string,
     actorId: string,

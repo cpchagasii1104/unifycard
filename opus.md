@@ -2279,3 +2279,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - DT-C1-READERS-BLOB-TO-C1 CLOSED (3 agregadores no C1). Resíduo não-bloqueante: GET /profile/learning legado lê
   blob vazio (frontend-morto, candidato 501 follow-up); getPhysicalProfile só p/ lifestyle/health (DT-LIFESTYLE-
   SENSITIVE-IN-BLOB). Nenhum reader sourcing interest/learning do blob. Frente readers→C1 (F1–F4) CONCLUÍDA.
+
+### C1 LEARNING/INTEREST — REATIVAÇÃO PÓS SOFT-DELETE ✅ · DT-REACTIVATION CLOSED (2026-06-01)
+- Re-declarar (POST) concept retirado não dá mais 409 → reativa linha inativa, idempotente. Só backend C1
+  (learning-c1 + interest-c1, repo+service). HEAD origem c5b1fea3. Zero migration/frontend/routes/readers/
+  Professional/Lifestyle/Saúde/Agenda/financeiro/blob.
+- Novo findByConcept nos repos (linha ativa OU inativa). declareConcept idempotente: inativa→reativa via
+  updateConcept({reactivate:true, sourceCategoryId?, progress?}) (is_active=true, retired_at=NULL,
+  updated_at=now(); breadcrumb/progress só mudam se enviados; declared_at preservado); ativa→409 preservado;
+  inexistente→INSERT. POST mantém 201 também na reativação (sem branch de rota, sem novo param reactivate no
+  POST). assertSourceCategory mantido; Interest binário; Professional não tocado.
+- Provas runtime (probe): Learning POST novo(progress1)→DELETE soft→POST reativa(progress1→3, retiredAt null,
+  declaredAt preservado, sem 409)→GET ativo→POST ativo=409→DB rows=1 (sem duplicata). Interest idem binário→
+  reativa sem 409→409 ativo→DB rows=1. Gates verdes; critical_new=0/total=20. DT-C1-LEARNING-INTEREST-
+  REACTIVATION CLOSED. Follow-ups: 501 GET /profile/learning; DT-LIFESTYLE; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY.

@@ -100,6 +100,25 @@ class LearningC1Service {
     if (input.sourceCategoryId) {
       await this.assertSourceCategory(tenantId, input.sourceCategoryId, input.conceptId);
     }
+
+    // Idempotência por declaração (DT-C1-LEARNING-INTEREST-REACTIVATION): o POST não deve falhar com 409
+    // quando o mesmo concept já existe INATIVO (soft-delete) — deve REATIVAR a linha existente (sem
+    // duplicar; UNIQUE tenant+actor+concept). Concept ATIVO → 409 preservado. Inexistente → INSERT.
+    // declared_at é PRESERVADO (updateConcept não o toca); breadcrumb/progress só mudam se enviados.
+    const existing = await learningC1Repository.findByConcept(tenantId, actorId, input.conceptId);
+    if (existing) {
+      if (existing.is_active) {
+        throw HttpError.conflict('Aprendizado já declarado para este concept');
+      }
+      const row = await learningC1Repository.updateConcept(tenantId, actorId, input.conceptId, {
+        reactivate: true,
+        sourceCategoryId: input.sourceCategoryId, // undefined ⇒ preserva breadcrumb; valor ⇒ atualiza
+        progress: input.progress, // undefined ⇒ preserva progress; valor ⇒ atualiza
+      });
+      if (!row) throw HttpError.notFound('Aprendizado não encontrado');
+      return toDTO(row);
+    }
+
     try {
       const row = await learningC1Repository.declareConcept(tenantId, actorId, input);
       return toDTO(row);

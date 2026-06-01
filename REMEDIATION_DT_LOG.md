@@ -10498,7 +10498,9 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-C1-LEARNING-INTEREST-REACTIVATION
 
-- **Status:** OPEN LOW (2026-06-01) — follow-up registrado na Fatia 5, NÃO corrigido nesta fatia.
+- **Status:** **CLOSED (2026-06-01)** — reativação pós soft-delete resolvida no backend C1 (Learning + Interest).
+- **Resolução (2026-06-01):** o `declareConcept` dos services C1 ficou **idempotente por declaração**: antes do INSERT, consulta a linha do concept (novo `findByConcept` no repo, ATIVA OU INATIVA). Se existe **inativa** → **reativa** via `updateConcept({reactivate:true, ...})` (is_active=true, retired_at=NULL, `updated_at=now()`; breadcrumb e progress só mudam se enviados; **`declared_at` preservado**). Se existe **ativa** → **409 preservado**. Inexistente → INSERT 201. **Sem novo parâmetro `reactivate` no contrato POST** (o backend resolve pelo estado inativo; PATCH `{reactivate:true}` segue disponível, mas o POST agora basta). Contrato: POST mantém **201** também na reativação (sem branch de rota; idempotência por semântica de declaração). Provado runtime (Learning: POST→DELETE→POST reativa progress 1→3 sem 409, declaredAt preservado, 409 com ativo, DB rows=1; Interest idem binário). Gates verdes; `critical_new=0`. Escopo: só `learning-c1`/`interest-c1` (repo+service); zero migration/frontend/routes/Professional/Lifestyle/financeiro/`global_users.metadata`.
+- **Status histórico:** OPEN LOW (2026-06-01) — follow-up registrado na Fatia 5.
 - **Origem:** observada nas Fatias 4b/4c/5 do C1 Learning/Interest.
 - **Contexto:** re-declarar (POST `/profile/{learning,interest}/c1/concepts`) um concept previamente **retirado** (soft-delete, `retired_at` setado / `is_active=false`) retorna **409** por violar `UNIQUE(tenant_id, actor_id, concept_id)`. A reativação correta é `PATCH /concepts/:conceptId {reactivate:true}` (já suportado pelo backend), mas o frontend (save granular) emite POST para itens "novos" — um concept reativado é tratado como novo.
 - **Risco:** baixo — o save pode falhar com 409 ao re-adicionar um interesse/aprendizado removido em sessão anterior; UX mostra erro limpo (não corrompe dado).

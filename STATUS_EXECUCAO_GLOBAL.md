@@ -9752,3 +9752,27 @@ actor-writer/bank-ledger/regression OK; arch `critical_new=0`, `critical_total=2
 GET `/profile/learning` legado ainda lê blob vazio (frontend-morto; candidato a 501, follow-up cosmético);
 `getPhysicalProfile` segue só para **lifestyle/health** (DT-LIFESTYLE-SENSITIVE-IN-BLOB). Nenhum reader
 sourcing interest/learning do blob permanece.
+
+---
+
+## C1 LEARNING/INTEREST — REATIVAÇÃO PÓS SOFT-DELETE EXECUTADA ✅ · DT-REACTIVATION CLOSED (2026-06-01)
+
+Edge conhecido resolvido: re-declarar (POST) um concept previamente retirado não dá mais **409** — **reativa**
+a linha inativa, idempotente. HEAD origem `c5b1fea3`. **Só backend C1** (`learning-c1` + `interest-c1`, repo+
+service); zero migration/frontend/routes/readers/Professional/Lifestyle/Saúde/Agenda/financeiro/blob.
+
+**Mudança:** novo `findByConcept` nos repos (linha ATIVA OU INATIVA). `declareConcept` (service) ficou
+**idempotente**: existe **inativa** → reativa via `updateConcept({reactivate:true, sourceCategoryId?, progress?})`
+(is_active=true, retired_at=NULL, updated_at=now(); breadcrumb/progress só mudam se enviados; **declared_at
+preservado**); existe **ativa** → **409 preservado**; inexistente → INSERT. **POST mantém 201** também na
+reativação (sem branch de rota; sem novo param `reactivate` no contrato POST — o backend resolve pelo estado).
+Breadcrumb (`assertSourceCategory`) segue validado; Interest binário; Professional C1 **não** tocado.
+
+**Provas runtime** (probe, declarações seedadas/removidas): **Learning** POST novo (progress=1) → DELETE soft →
+POST de novo **reativa** (progress 1→3, retiredAt=null, declaredAt preservado, **sem 409**) → GET ativo → POST
+com ativo = **409** → **DB rows=1 (sem duplicata)**. **Interest** idêntico (binário) → reativa sem 409 → 409 com
+ativo → DB rows=1. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch `critical_new=0`,
+`critical_total=20`.
+
+**DT-C1-LEARNING-INTEREST-REACTIVATION → CLOSED.** Follow-ups remanescentes (frentes próprias): 501 do GET
+`/profile/learning` legado; DT-LIFESTYLE-SENSITIVE-IN-BLOB; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY.
