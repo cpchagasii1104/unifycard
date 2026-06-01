@@ -9389,3 +9389,35 @@ fecha só após Fatia 5; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY só após Fatia 4).
 **Fila:** DECISION-0067 NÃO autoriza migration. Próxima fatia material = **Fatia 1 — schema migration C1
 Learning/Interest** (prompt executor próprio, ratificação, ciclo fechado). Bloqueados: financeiro, Agenda,
 Saúde/Lifestyle.
+
+---
+
+## C1 LEARNING/INTEREST — FATIA 1 (SCHEMA) — EXECUTADA ✅ (2026-06-01)
+
+Executada conforme DECISION-0067 (Fatia 1, schema additive). Migration
+`backend/migrations/20260601140000_create_actor_learning_interest_substrate.sql` (forward-only,
+idempotente via guard `to_regclass`, transacional, fail-closed, **schema-only sem DML**), aplicada pelo
+runner canônico `pnpm migrate` (única pendente; `schema_migrations` 341→342 com checksum). HEAD origem `b445cf4a`.
+
+**O que fez:** criou (1) **`actor_learning_concepts`** (1:N; `progress SMALLINT NULL 1..3` = exploração,
+NÃO competência), (2) **`actor_interest_concepts`** (1:N binário, sem atributo), ambas espelhando
+`actor_professional_concepts` — `tenant_id`+`actor_id`(FK actors.id)+`concept_id`(FK concepts)+
+`source_category_id`(FK categories, breadcrumb), `is_active`+`declared_at`+`updated_at`+`retired_at`,
+UNIQUE(tenant,actor,concept), CHECK lifecycle (XOR) + CHECK progress (learning), índice (tenant,concept);
+e (3) a view read-only **`actor_concept_declarations_v`** (UNION professional+learning+interest; colunas
+type-specific nullable, **sem `attrs jsonb`**). **Não tocou** professional C1 (selado), `global_users.metadata`,
+categories/concepts, lifestyle, agenda, financeiro.
+
+**Provas:** 3 objetos criados · 4 FKs por tabela · UNIQUE + CHECKs (lifecycle×2, progress) · índices
+(tenant,concept) · **0 rows** nas duas tabelas · view não quebra (vazia, professional 0 rows em dev) ·
+blob intocado (0 global_users) · learning 36 / interest 38 folhas intactas · professional intacta.
+typecheck=0; gates verdes; `critical_new=0`, `critical_total=20` sem aumento.
+
+**Estado:** schema C1 existe, mas **escrita/leitura runtime ainda NÃO usam C1** — backend C1 (Fatia 2),
+backfill (3), frontend (4) e cleanup do blob (5) **ainda não executados**. Persistência runtime continua o
+blob `global_users.metadata` (DT-LEARNING-INTEREST-BLOB-SSOT segue OPEN — fecha só na Fatia 5). Lifestyle
+**fora** (DT-LIFESTYLE-SENSITIVE-IN-BLOB OPEN).
+
+**Fila:** **Fatia 2 — backend C1** (rotas/services/repositories `/profile/learning/c1` e
+`/profile/interest/c1`, espelhando `professional-c1.*`) · depois backfill · frontend · cleanup. Bloqueados:
+financeiro, Agenda, Saúde/Lifestyle.

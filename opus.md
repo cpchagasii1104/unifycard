@@ -2077,3 +2077,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   frontend → (5) cleanup blob (lifestyle fora). Nenhuma DT fechada aqui.
 - Doc: DECISION_0067_C1_LEARNING_INTEREST_ACTOR_FIRST.md + log. Próxima fatia = Fatia 1 (schema migration;
   executor próprio, ratificação). NÃO autoriza migration aqui.
+
+### C1 LEARNING/INTEREST — FATIA 1 (SCHEMA) — EXECUTADA ✅ (2026-06-01)
+- Migration 20260601140000_create_actor_learning_interest_substrate.sql (forward-only, idempotente via
+  guard to_regclass, fail-closed, schema-only sem DML), runner canônico pnpm migrate (única pendente;
+  schema_migrations 341→342 com checksum). DECISION-0067 Fatia 1.
+- Criou: actor_learning_concepts (progress SMALLINT NULL 1..3 = exploração, NÃO competência) +
+  actor_interest_concepts (binário, sem atributo) — espelham actor_professional_concepts
+  (tenant_id+actor_id FK actors.id+concept_id FK concepts+source_category_id FK categories breadcrumb,
+  is_active+declared/updated/retired_at, UNIQUE(tenant,actor,concept), CHECK lifecycle XOR + CHECK progress,
+  índice (tenant,concept)). View read-only actor_concept_declarations_v (UNION professional+learning+
+  interest; colunas type-specific nullable, sem attrs jsonb). Não tocou professional/blob/categories/
+  concepts/lifestyle/financeiro.
+- Provas: 3 objetos; 4 FKs/tabela; UNIQUE+CHECKs; índices; 0 rows; view ok (vazia); blob intocado;
+  learning 36/interest 38 intactos; professional intacta. typecheck=0; gates verdes; critical_new=0.
+- Escrita/leitura runtime AINDA NÃO usam C1 (blob segue destino; DT-LEARNING-INTEREST-BLOB-SSOT OPEN).
+  Fila: Fatia 2 backend C1 (rotas/services /profile/{learning,interest}/c1 espelhando professional-c1.*) →
+  backfill → frontend → cleanup. Lifestyle fora.
