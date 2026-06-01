@@ -2260,3 +2260,22 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   no-actor→0 sem 500. Greps: sem getLearningProfile/getProfileLearningService (comentário); helper C1 presente;
   sem global_users.metadata. profile-inference/core/feed/matching sem diff. Gates verdes; critical_new=0/
   total=20. DT-C1-READERS-BLOB-TO-C1 OPEN (parcial; pendente core.service). Fila: F4 core.service.getCompleteProfile.
+
+### READERS BACKEND → C1 — F4 (CORE.SERVICE) EXECUTADA ✅ · DT-READERS CLOSED (2026-06-01)
+- core.service.getCompleteProfile: physical_profile.interests vem do C1 (helper F1), não mais do físico legado
+  (que retornava []). Último dos 3 agregadores → fecha DT-C1-READERS-BLOB-TO-C1. HEAD origem dc1c40f7. Só
+  core.service. Zero frontend/migration/financeiro/Lifestyle-semântica/Saúde/Agenda/Professional/reactivation.
+- getPhysicalProfile mantido SÓ p/ lifestyle/preferences/health (legado intocado); interests via
+  getUserInterestDeclarationsForProfile, mapeados {conceptId, categoryId(=sourceCategoryId??''), categoryName
+  (??''), categoryPath(??[])} (physical_profile.interests é any[] → conceptId aditivo local; categoryId/Name
+  breadcrumb, nunca identidade; sem fallback conceptId←categoryId). Top-level profile.interests ganhou fallbacks
+  aditivos (interest_id=conceptId; name=categoryName). Sem actor/decl ⇒ [] controlado; ambiguidade tratada pelo
+  catch resiliente da seção (getCompleteProfile nunca lança).
+- Provas runtime (probe): A sem interest→physical_profile presente, []=interests, lifestyle preservado; B com
+  Interest C1→count1 conceptId real, name=Café, top profile.interests[0]={interest_id:conceptId,name:Café},
+  lifestyle preservado; C no-actor→physical_profile null, interests [], sem 500. Greps: sem physicalProfile.
+  interests, sem global_users.metadata novo; inference/opportunity/feed/matching sem diff. Gates verdes;
+  critical_new=0/total=20.
+- DT-C1-READERS-BLOB-TO-C1 CLOSED (3 agregadores no C1). Resíduo não-bloqueante: GET /profile/learning legado lê
+  blob vazio (frontend-morto, candidato 501 follow-up); getPhysicalProfile só p/ lifestyle/health (DT-LIFESTYLE-
+  SENSITIVE-IN-BLOB). Nenhum reader sourcing interest/learning do blob. Frente readers→C1 (F1–F4) CONCLUÍDA.

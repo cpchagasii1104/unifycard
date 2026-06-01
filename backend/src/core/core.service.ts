@@ -5,6 +5,9 @@ import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { profileService } from './profile/profile.service';
 import { profileProfessionalService } from './profile/profile-professional.service';
 import { profilePhysicalService } from './profile/profile-physical.service';
+// F4 (DECISION-0069): interesses do getCompleteProfile vêm do C1 actor-first/concept-first (helper de
+// leitura), não mais do físico legado (que retorna []). Lifestyle/Health continuam no fluxo legado.
+import { profileC1DeclarationsReadService } from './profile/profile-c1-declarations-read.service';
 import { profileEducationService } from './profile/profile-education.service';
 import { identityService } from './identity/identity.service';
 import { ensureUserActor } from '@modules/identity/actor-writer.service';
@@ -381,12 +384,26 @@ export class CoreService {
           tenantId,
           userId
         );
+        // Interesses vêm do C1 actor-first/concept-first (DECISION-0069/F4), NÃO do físico legado (que
+        // retorna []). Lifestyle/Health permanecem no fluxo legado (getPhysicalProfile), intocados. Sem
+        // actor / sem declaração ⇒ [] controlado; ambiguidade de actor é tratada pelo catch resiliente
+        // desta seção (contrato: getCompleteProfile NUNCA lança — degrada por seção e registra).
+        const interestC1 = await profileC1DeclarationsReadService.getUserInterestDeclarationsForProfile(
+          tenantId,
+          userId
+        );
+        const c1Interests = interestC1.interests.map((i) => ({
+          conceptId: i.conceptId, // identidade semântica (Lei 7)
+          categoryId: i.sourceCategoryId ?? '', // breadcrumb/backcompat (NUNCA identidade)
+          categoryName: i.categoryName ?? '',
+          categoryPath: i.categoryPath ?? [],
+        }));
         if (physicalProfile) {
           // Extrair dados de saúde compartilhados (altura, peso, peso ideal) se existirem
           const sharedHealthData = physicalProfile.metadata?.sharedHealthData;
-          
+
           profile.physical_profile = {
-            interests: physicalProfile.interests || [],
+            interests: c1Interests,
             lifestyle: physicalProfile.lifestyle || {
               drinks: null,
               smokes: null,
@@ -590,12 +607,13 @@ export class CoreService {
         // Manter array vazio
       }
 
-      // 7. Interesses (do physical_profile já buscado)
-      // Interesses já vêm no physical_profile.interests, não precisa buscar separado
+      // 7. Interesses (do physical_profile já buscado — agora C1 concept-first, F4)
+      // Interesses já vêm no physical_profile.interests, não precisa buscar separado. interest_id usa o
+      // conceptId (identidade C1); name usa o categoryName (breadcrumb). Fallbacks legados preservados.
       if (profile.physical_profile?.interests) {
         profile.interests = profile.physical_profile.interests.map((interest: any) => ({
-          interest_id: interest.interest_id || interest.id || '',
-          name: interest.name || interest.label || '',
+          interest_id: interest.conceptId || interest.interest_id || interest.id || '',
+          name: interest.categoryName || interest.name || interest.label || '',
           category: interest.category || null,
         }));
       }

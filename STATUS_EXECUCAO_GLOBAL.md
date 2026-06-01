@@ -9723,3 +9723,32 @@ actor-writer/bank-ledger/regression OK; arch `critical_new=0`, `critical_total=2
 
 **DT-C1-READERS-BLOB-TO-C1: OPEN** (F3 mitigação parcial; pendente **core.service.getCompleteProfile**).
 **Fila:** F4 core.service.
+
+---
+
+## READERS BACKEND → C1 — F4 (CORE.SERVICE) EXECUTADA ✅ · DT-READERS CLOSED (2026-06-01)
+
+`core.service.getCompleteProfile` monta `physical_profile.interests` a partir do C1 (helper F1), não mais do
+físico legado (que retornava []). **Último dos 3 readers/agregadores** — **fecha DT-C1-READERS-BLOB-TO-C1**.
+HEAD origem `dc1c40f7`. **Só core.service**; zero frontend/migration/financeiro/Lifestyle-semântica/Saúde/
+Agenda/Professional/reactivation.
+
+**Mudança:** `getPhysicalProfile` **mantido** SÓ para lifestyle/preferences/health (legado intocado);
+interests passam a vir de `getUserInterestDeclarationsForProfile(tenantId, userId)`, mapeados para
+`{conceptId, categoryId(=sourceCategoryId ?? ''), categoryName(?? ''), categoryPath(?? [])}` (`physical_profile.
+interests` é `any[]` → conceptId aditivo local; categoryId/Name = breadcrumb/backcompat, NUNCA identidade;
+sem fallback conceptId←categoryId). O derivado top-level `profile.interests` ganhou fallbacks aditivos
+(`interest_id` usa conceptId; `name` usa categoryName). Sem actor / sem declaração ⇒ [] controlado;
+ambiguidade tratada pelo catch resiliente da seção (contrato: getCompleteProfile NUNCA lança).
+
+**Provas runtime** (probe; Interest C1 seedado/removido): A sem interest → physical_profile presente,
+interests=[], lifestyle preservado; B com Interest C1 → interests count=1 com **conceptId real**, name='Café',
+top-level `profile.interests[0]={interest_id:conceptId, name:'Café'}`, **lifestyle preservado**; C user sem
+actor → physical_profile=null, interests=[], **sem 500**. Greps: sem `physicalProfile.interests` (interests=C1),
+sem `global_users.metadata` novo; inference/opportunity/feed/matching **sem diff**. Gates: typecheck0;
+actor-writer/bank-ledger/regression OK; arch `critical_new=0`, `critical_total=20`.
+
+**DT-C1-READERS-BLOB-TO-C1 → CLOSED** (3 agregadores no C1). **Resíduo não-bloqueante (frentes próprias):**
+GET `/profile/learning` legado ainda lê blob vazio (frontend-morto; candidato a 501, follow-up cosmético);
+`getPhysicalProfile` segue só para **lifestyle/health** (DT-LIFESTYLE-SENSITIVE-IN-BLOB). Nenhum reader
+sourcing interest/learning do blob permanece.
