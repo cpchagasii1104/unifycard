@@ -10438,3 +10438,39 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   `actor_id` (sem schedule em `availability.metadata`; sem segundo SSOT temporal). Não tratar junto de
   financeiro nem de C2/C3 profissional. Pré-condição prática: decidir antes (ou em conjunto) o destino
   final do legado `/profile/professional` (410/501 vs intocado).
+
+---
+
+## DT-DEAD-PROFESSIONAL-LEGACY-SUBSTRATE
+
+- **Status:** PARTIALLY MITIGATED (2026-06-01) — rotas curto-circuitadas com 501; serviço/substrato
+  legado ainda presentes.
+- **Origem:** auditoria read-only do destino do legado `/profile/professional` (pós-selo A3.2) + decisão
+  de Clayton por **501** (recurso migrado para C1, não removido).
+- **Vinculada a:** A3.2 (aba Profissional → C1, selada); `DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT`
+  (único caller HTTP vivo do PUT legado).
+- **Contexto:** o serviço legado `backend/src/core/profile/profile-professional.service.ts` opera sobre
+  **4 tabelas AUSENTES** do schema vivo — `user_skills_categories`, `predefined_services`,
+  `combo_discount_rules`, `professional_profiles` (verificado por `to_regclass` em 2026-06-01: todas
+  `AUSENTE`; só o substrato C1 `actor_professional_profiles`/`actor_professional_concepts` existe). As
+  rotas `GET`/`PUT /profile/professional` chamavam esse serviço morto e retornavam **500/400 opaco**. Esta
+  fatia as curto-circuitou para **501 explícito** apontando para `/profile/professional/c1` (sem chamar o
+  serviço, sem fallback 200 vazio). O **arquivo de serviço e os métodos permanecem** no código (não
+  removidos); callers internos `core.service.ts:348` (try/catch que degrada) e
+  `profile-inference.service.ts:246` (`.catch` selado em A3.1) continuam invocando o **método de serviço**
+  (não a rota) e seguem degradando seguro — não afetados pelo 501 das rotas.
+- **Risco:** (1) reativação acidental — alguém religar as rotas ao serviço morto sem perceber que as
+  tabelas não existem; (2) auditoria futura confundir o **501** (porta fechada, substrato ainda vivo no
+  código) com **limpeza total** (serviço/arquivo removidos), e remover indevidamente algo que outros
+  caminhos mortos ainda referenciam; (3) o substrato `user_skills_categories` é também tocado por Human
+  MVP (`DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES`, candidata) e por `categories.service.ts`
+  (`assignSkillToUser`) — remoção do serviço profissional NÃO equivale a remover a tabela/uso.
+- **Mitigação atual:** `GET`/`PUT /profile/professional` respondem **501** (`code
+  PROFESSIONAL_PROFILE_LEGACY_NOT_IMPLEMENTED`, `replacement /profile/professional/c1`), sem tocar o
+  serviço morto. Falha agora é **honesta** (501 = migrado/não implementado aqui) em vez de 500 opaco.
+  Nenhum caller funcional quebrado (GET sem caller vivo; PUT só ProfileAgenda, já quebrado).
+- **Resolução prevista:** frente futura para **remover** o serviço legado + rotas + callers mortos,
+  **somente após** Agenda (`DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT`) e Human MVP
+  (`DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES`) serem tratados — para não amputar substrato que outros
+  caminhos mortos ainda referenciam antes de mapeá-los. Ratificação própria; não junto de financeiro nem
+  de C2/C3 profissional.

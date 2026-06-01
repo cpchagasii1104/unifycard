@@ -1948,3 +1948,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   demanda fora do commit; fonte real = frontend/src; snapshot histórico em 39ea7062.
 - Fila restante: (3) destino legado /profile/professional (410/501) · (4) C2/C3 profissional OU
   Interesses/Lei 7.
+
+### Legado /profile/professional → 501 EXPLÍCITO ✅ (2026-06-01)
+- Item (3) resolvido. Decisão Clayton: 501 (migrado p/ C1, não removido). Auditoria read-only provou
+  serviço legado sobre 4 tabelas AUSENTES (user_skills_categories, predefined_services,
+  combo_discount_rules, professional_profiles; to_regclass=AUSENTE; só C1 existe) → rotas davam 500/400
+  opaco. GET/PUT /profile/professional agora 501 (code PROFESSIONAL_PROFILE_LEGACY_NOT_IMPLEMENTED,
+  replacement /profile/professional/c1), sem chamar o serviço morto, sem fallback 200 vazio.
+- Escopo único: profile-professional.routes.ts. Serviço legado/C1/Agenda/frontend/schema/financeiro
+  INTOCADOS. Callers internos (core.service:348 try/catch, inference:246 .catch A3.1) usam o método de
+  serviço, não a rota → imunes ao 501. Prova: GET 501, PUT 501, C1 200 intacto. tsc=0.
+- DT registrada: DT-DEAD-PROFESSIONAL-LEGACY-SUBSTRATE (PARTIALLY MITIGATED — rotas 501; serviço/substrato
+  ainda presentes, remoção é frente futura após Agenda + Human MVP). Candidata:
+  DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES.
+- Fila restante: (4) C2/C3 profissional OU Interesses/Lei 7.

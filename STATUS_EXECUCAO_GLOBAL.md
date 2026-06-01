@@ -9175,3 +9175,17 @@ material (sem script/gate/normativo/runtime; só referências em STATUS/opus/SEL
 Deve ser **gerado sob demanda** como evidência temporária fora do commit; **fonte real continua sendo
 `frontend/src`**. Snapshot histórico preservado em `39ea7062`. **Fila pós-selo restante:** (3) destino do
 legado `/profile/professional` (410/501) · (4) C2/C3 profissional OU Interesses/Lei 7.
+
+### Legado `/profile/professional` → 501 EXPLÍCITO ✅ (2026-06-01)
+
+Item (3) da fila pós-selo resolvido, decisão de Clayton por **501** (recurso migrado para C1, não
+removido). Precedido por auditoria read-only que provou: serviço legado opera sobre 4 tabelas AUSENTES do
+schema vivo (`user_skills_categories`, `predefined_services`, `combo_discount_rules`,
+`professional_profiles` — `to_regclass` = AUSENTE; só C1 existe) → rotas retornavam 500/400 opaco.
+`GET`/`PUT /profile/professional` agora curto-circuitadas para **501** (`code
+PROFESSIONAL_PROFILE_LEGACY_NOT_IMPLEMENTED`, `replacement /profile/professional/c1`), **sem chamar o
+serviço morto, sem fallback 200 vazio**. Escopo único: `profile-professional.routes.ts` (serviço legado,
+C1, Agenda, frontend, schema, financeiro INTOCADOS). Prova runtime: GET 501 · PUT 501 · C1 200 intacto.
+DT registrada: **`DT-DEAD-PROFESSIONAL-LEGACY-SUBSTRATE`** (PARTIALLY MITIGATED — rotas 501; serviço/
+substrato legado ainda presentes, remoção é frente futura após Agenda + Human MVP). **Fila pós-selo
+restante:** (4) C2/C3 profissional OU Interesses/Lei 7. Candidata: `DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES`.
