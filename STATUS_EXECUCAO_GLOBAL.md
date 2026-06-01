@@ -9037,3 +9037,23 @@ priorizado.
 
 **A3 (frontend) permanece BLOQUEADA** até housekeeping da bancada + autorização explícita. Destino do
 legado profissional/inference, saúde, agenda e rate-limit-logs depende de Clayton/frente própria.
+
+---
+
+## DESENHO_A3 — RATIFICADO (ChatGPT) + PROMULGADO (Clayton) ✅ (doc `c6830926` · 2026-05-31)
+
+Frente 1 (fechar o ciclo do C1: tirar a aba Profissional do legado morto, ligar no C1 selado) entregue
+como **DESENHO read-only/diagnóstico** em `docs/02_decisions/DESENHO_A3_PROFISSIONAL_LEGADO_PARA_C1.md`
+(commit documental `c6830926`, 153 linhas, zero código). **Auditoria ChatGPT: P1–P8 CONFIRMADOS**
+(sem autorização implícita de código · sem alias legado→C1 · inference degrada SÓ o bloco profissional
+sem engolir erro geral · frontend aceita redução de escopo · campos fora do C1 nunca em metadata/legado ·
+`concept_id` soberano / `source_category_id` breadcrumb · Codex só após o desenho · A3-código/Interesses/
+financeiro/migration bloqueados). **Clayton PROMULGOU** o desenho como direção vigente da próxima etapa.
+
+**Nota não-bloqueante (ChatGPT) a carregar no PROMPT de código A3, não no doc promulgado:** a verificação
+do prompt de execução deve citar explicitamente **`tsc` + gates canônicos + `validate:architectural`
+baseline `Total=20` SEM aumento** (não só "4 gates"/`critical_new=0`).
+
+**A3-código continua NÃO autorizado.** Pré-condições para o código A3, na ordem: (1) housekeeping final da
+bancada (`.claude/settings.local.json`, `erros.txt`); (2) redigir prompt de execução cirúrgico (com a nota
+de verificação acima); (3) garantir escritor único; (4) manter frontend/Codex dentro do desenho ratificado.
