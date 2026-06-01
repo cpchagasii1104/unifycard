@@ -9330,3 +9330,32 @@ interest e learning compartilham o mesmo `concept_id`. Doc: ADENDO A em
 
 **Fila:** próxima fatia material = **Migration B** com **category slugs `-interesse` + concepts limpos**
 (prompt executor próprio, ratificação, ciclo fechado). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## MIGRATION B — INTEREST CONCEPTS + ÁRVORE `scope='interest'` — EXECUTADA ✅ (2026-06-01)
+
+Executada conforme DECISION-0064/0066 + ADENDO A. Migration `backend/migrations/20260601130000_seed_interest_concepts_and_tree.sql`
+(forward-only, idempotente, transacional, fail-closed), aplicada pelo runner canônico `pnpm migrate`
+(única pendente; `schema_migrations` 340→341 com checksum). HEAD origem `963649af`.
+
+**O que fez:** (1) criou **11 concepts novos** em `cultura-lazer-e-eventos` (slug limpo, governado); (2) criou
+a **árvore mínima `scope='interest'`** — **7 raízes** (level 0, sem concept, slug `-interesse`) + **38 folhas**
+(level 1, com `concept_id`, slug `-interesse`); 27 folhas **reusam** concepts de Learning
+(`educacao-e-conhecimento`), 11 usam os concepts novos. Slugs de categoria **sufixados `-interesse`** por causa
+de `categories_slug_key UNIQUE(slug)` global; concepts mantêm slug limpo (ADENDO A). **Não tocou** Learning
+(`scope='learning'` inalterado), lifestyle, C1, frontend, Agenda, financeiro.
+
+**Provas:** 11 concepts (concepts 126→137) · 7 raízes sem concept · 38 folhas com concept · 0 categoria
+interest sem sufixo `-interesse` · 27 reuso→educacao · 11 novas→cultura-lazer · Learning inalterado (36/0) ·
+compartilhamento provado (`fotografia-interesse` e `fotografia-aprendizado` → mesmo concept `fotografia`) ·
+**teste funcional: PUT `/profile/physical` interests agora 200** (era 400 "fora do escopo"), com teardown
+e sem tocar valores de lifestyle.
+
+**Estado:** Interest recebeu substrato semântico governado; **a aba Interesses salva**. **C1 ainda NÃO
+criado** — persistência das duas abas (Learning + Interest) continua blob `global_users.metadata` (estado
+temporário). DT-INTEREST-SCOPE-EMPTY → **PARTIALLY MITIGATED**. DT-LEARNING-INTEREST-BLOB-SSOT segue OPEN
+(CLOSE só após C1). Lifestyle continua fora do escopo (DT-LIFESTYLE-SENSITIVE-IN-BLOB OPEN).
+
+**Fila:** **DESENHO C1 Learning/Interest actor-first** (substrato semântico de ambos agora existe) ·
+Lifestyle (frente própria). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

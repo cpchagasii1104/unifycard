@@ -2046,3 +2046,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   *-interesse → concept limpo. Concept não duplica (UNIQUE(domain,slug)); folha interest e learning
   compartilham concept_id. Vinculante p/ Migration B.
 - Próxima fatia = Migration B com category slugs -interesse + concepts limpos (executor próprio, ratificação).
+
+### MIGRATION B — INTEREST CONCEPTS + ÁRVORE scope='interest' — EXECUTADA ✅ (2026-06-01)
+- Migration 20260601130000_seed_interest_concepts_and_tree.sql (forward-only, idempotente, fail-closed),
+  runner canônico pnpm migrate (única pendente; schema_migrations 340→341 com checksum). DECISION-0064/0066
+  + ADENDO A.
+- Fez: 11 concepts novos em cultura-lazer-e-eventos (slug limpo, governado) + árvore scope='interest': 7
+  raízes (level 0, sem concept, slug -interesse) + 38 folhas (level 1, concept_id, slug -interesse). 27
+  folhas reusam concepts de Learning (educacao), 11 usam novos. Slugs categoria sufixados -interesse
+  (categories_slug_key UNIQUE global); concepts slug limpo. Não tocou learning/lifestyle/C1/frontend/financeiro.
+- Provas: concepts 126→137; 7 raízes sem concept; 38 folhas com concept; 0 sem sufixo -interesse; 27
+  reuso→educacao; 11 novas→cultura-lazer; Learning inalterado (36/0); compartilhamento provado
+  (fotografia-interesse + fotografia-aprendizado → mesmo concept fotografia); PUT /profile/physical
+  interests agora 200 (era 400), teardown sem tocar lifestyle.
+- Persistência segue blob global_users.metadata (DT-LEARNING-INTEREST-BLOB-SSOT OPEN até C1).
+  DT-INTEREST-SCOPE-EMPTY → PARTIALLY MITIGATED. Lifestyle fora do escopo.
+- Fila: DESENHO C1 Learning/Interest actor-first (substrato de ambos agora existe). Lifestyle frente própria.
