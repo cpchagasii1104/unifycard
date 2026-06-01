@@ -5876,3 +5876,67 @@ Migration B. Não autoriza migration.
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0067 — C1_LEARNING_INTEREST_ACTOR_FIRST
+
+**Status:** RATIFICADA — ARQUITETURA/DESENHO; IMPLEMENTAÇÃO (MIGRATION/BACKEND/FRONTEND) NÃO AUTORIZADA NESTA DECISION (2026-06-01).
+**Sessão:** 2026-06-01 (pós-desenho read-only C1 Learning/Interest, pós-Migrations A+B).
+**Decisor:** Clayton (Opção C + campos + ordem + vetos).
+**Commit âncora:** documental. HEAD de origem: `ff7495c5`.
+**Documento canônico:** `docs/02_decisions/DECISION_0067_C1_LEARNING_INTEREST_ACTOR_FIRST.md`.
+**Deriva de:** DECISION-0063 (template C1 profissional) + 0064/0065/0066.
+
+### Contexto
+
+Learning+Interest têm substrato semântico governado (Migrations A `6d9e9a29` / B `ff7495c5`) e salvam, mas
+persistência ainda é blob `global_users.metadata` (DT-LEARNING-INTEREST-BLOB-SSOT OPEN). C1 move declarações
+para SSOT actor-first `tenant_id+actor_id+concept_id` (+source_category_id breadcrumb), espelhando o C1
+profissional selado (DECISION-0063). Material: tabelas C1 learning/interest AUSENTES; professional EXISTE
+(template); 0 dados no blob (dev) → backfill no-op seguro.
+
+### Opções e escolha
+
+A (duas tabelas) · B (genérica) · C (duas tabelas + view). **Escolha: OPÇÃO C.**
+Tabelas: `actor_learning_concepts`, `actor_interest_concepts`. View read-only:
+`actor_concept_declarations_v` (UNION professional+learning+interest).
+
+### Campos / regras
+
+Learning: `progress SMALLINT NULL (1..3)` = estágio de exploração, NÃO competência (sem skill_level/years).
+Interest: binário (sem weight/priority). Sem bio/profile p/ Learning/Interest. concept_id obrigatório
+(identidade); actor_id obrigatório via writer §4.8.1 (não global_user_id); source_category_id só breadcrumb;
+ciclo is_active+retired_at (XOR); UNIQUE(tenant,actor,concept); índice (tenant,concept).
+
+### Contrato futuro
+
+`/profile/learning/c1` e `/profile/interest/c1` (GET/POST/PATCH/DELETE granular, desativação lógica). READ
+camelCase / WRITE camelCase inputs / interno snake_case. Espelha professional-c1.
+
+### Vetos
+
+Sem tabela genérica com attrs jsonb (re-blob) · sem global_user_id como identidade operacional · sem
+categoryId como identidade · sem lifestyle · sem inferred profile na mesma tabela · sem professional/
+capability/authority/oferta/agenda/financeiro · sem global_users.metadata como destino.
+
+### Ordem das fatias
+
+(1) schema migration (2 tabelas + view) → (2) backend C1 → (3) backfill idempotente (DEV no-op) → (4)
+frontend → (5) cleanup do blob (lifestyle fora). Cada fatia = prompt executor próprio. C1 profissional
+permanece selado.
+
+### Impacto DTs (nenhuma fechada aqui)
+
+DT-LEARNING-INTEREST-BLOB-SSOT fecha só após Fatia 5; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY só após Fatia 4;
+DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID e DT-INTEREST-SCOPE-EMPTY já PARTIALLY MITIGATED;
+DT-LIFESTYLE-SENSITIVE-IN-BLOB permanece fora.
+
+### Próxima frente
+
+NÃO autoriza migration. Próxima fatia material = **Fatia 1 (schema migration C1 Learning/Interest)**, prompt
+executor próprio, ratificação, ciclo fechado.
+
+### Superada por
+
+(em aberto — decisão vigente)

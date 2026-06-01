@@ -2062,3 +2062,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Persistência segue blob global_users.metadata (DT-LEARNING-INTEREST-BLOB-SSOT OPEN até C1).
   DT-INTEREST-SCOPE-EMPTY → PARTIALLY MITIGATED. Lifestyle fora do escopo.
 - Fila: DESENHO C1 Learning/Interest actor-first (substrato de ambos agora existe). Lifestyle frente própria.
+
+### DECISION-0067 C1 LEARNING/INTEREST ACTOR-FIRST — PROMULGADA ✅ (2026-06-01)
+- Pós-desenho read-only (HEAD ff7495c5). OPÇÃO C: duas tabelas escrita (actor_learning_concepts,
+  actor_interest_concepts) + view read-only unificada (actor_concept_declarations_v, UNION
+  professional+learning+interest). Espelha C1 profissional (DECISION-0063, tabela própria); evita re-blob;
+  Learning≠Professional≠Interest.
+- Campos: Learning progress SMALLINT NULL 1..3 (exploração, NÃO competência; sem skill_level/years);
+  Interest binário; sem bio; concept_id obrigatório (identidade); actor_id via writer §4.8.1 (não
+  global_user_id); source_category_id breadcrumb; ciclo is_active+retired_at XOR; UNIQUE(tenant,actor,concept).
+- Contrato /profile/learning/c1 e /profile/interest/c1 (GET/POST/PATCH/DELETE granular; READ/WRITE camelCase,
+  interno snake). Material: tabelas AUSENTES (build limpo); 0 dados no blob (backfill no-op).
+- Ordem fatias: (1) schema migration 2 tabelas+view → (2) backend C1 → (3) backfill idempotente → (4)
+  frontend → (5) cleanup blob (lifestyle fora). Nenhuma DT fechada aqui.
+- Doc: DECISION_0067_C1_LEARNING_INTEREST_ACTOR_FIRST.md + log. Próxima fatia = Fatia 1 (schema migration;
+  executor próprio, ratificação). NÃO autoriza migration aqui.

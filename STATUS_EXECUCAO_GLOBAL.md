@@ -9359,3 +9359,33 @@ temporário). DT-INTEREST-SCOPE-EMPTY → **PARTIALLY MITIGATED**. DT-LEARNING-I
 
 **Fila:** **DESENHO C1 Learning/Interest actor-first** (substrato semântico de ambos agora existe) ·
 Lifestyle (frente própria). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## DECISION-0067 — C1 LEARNING/INTEREST ACTOR-FIRST PROMULGADA ✅ (2026-06-01)
+
+Após desenho read-only do C1 (pós-Migrations A+B, HEAD `ff7495c5`), Clayton promulgou **DECISION-0067**
+(`docs/02_decisions/DECISION_0067_C1_LEARNING_INTEREST_ACTOR_FIRST.md` + log). Deriva do C1 profissional
+selado (DECISION-0063) + 0064/0065/0066.
+
+**Escolha: OPÇÃO C** — duas tabelas separadas para escrita (`actor_learning_concepts`,
+`actor_interest_concepts`) + view read-only unificada (`actor_concept_declarations_v`, UNION
+professional+learning+interest). Espelha o C1 profissional (tabela própria), evita re-blob (tabela genérica
+exigiria attrs jsonb), mantém Learning≠Professional≠Interest. **Campos:** Learning com `progress SMALLINT
+NULL (1..3)` = exploração, NÃO competência (sem skill_level/years); Interest binário (sem weight/priority);
+sem bio/profile; `concept_id` obrigatório (identidade), `actor_id` via writer §4.8.1 (não global_user_id),
+`source_category_id` breadcrumb, ciclo is_active+retired_at. **Contrato:** `/profile/learning/c1` e
+`/profile/interest/c1` (GET/POST/PATCH/DELETE granular; READ/WRITE camelCase, interno snake).
+
+**Vetos:** sem genérica com attrs jsonb · sem global_user_id como identidade · sem categoryId como
+identidade · sem lifestyle · sem inferred na mesma tabela · sem professional/capability/authority/financeiro
+· sem blob como destino. **Material:** tabelas C1 learning/interest AUSENTES (build limpo); 0 dados no blob
+(backfill no-op seguro).
+
+**Ordem das fatias:** (1) schema migration (2 tabelas + view) → (2) backend C1 → (3) backfill idempotente →
+(4) frontend → (5) cleanup do blob (lifestyle fora). **Nenhuma DT fechada aqui** (DT-LEARNING-INTEREST-BLOB-SSOT
+fecha só após Fatia 5; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY só após Fatia 4).
+
+**Fila:** DECISION-0067 NÃO autoriza migration. Próxima fatia material = **Fatia 1 — schema migration C1
+Learning/Interest** (prompt executor próprio, ratificação, ciclo fechado). Bloqueados: financeiro, Agenda,
+Saúde/Lifestyle.
