@@ -45,37 +45,17 @@ const profileLearningRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * PUT /profile/learning
-   * Atualiza perfil de aprendizado do usuário autenticado
+   * PUT /profile/learning — LEGADO (501 Not Implemented)
+   * Aprendizado foi migrado e provado em C1 actor-first (DECISION-0067, Fatia 4b).
+   * A escrita agora é o contrato granular /profile/learning/c1/* (POST/PATCH/DELETE).
+   * Esta rota NÃO grava mais em global_users.metadata (Fatia 5 — cleanup do blob); responde 501 explícito.
    */
-  fastify.put('/learning', async (req, reply) => {
-    if (!req.user) {
-      return reply.status(401).send({ ok: false, message: 'Não autenticado' });
-    }
-
-    if (!req.tenant) {
-      return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
-    }
-
-    try {
-      const input = req.body as any;
-      const profile = await profileLearningService.updateLearningProfile(
-        req.tenant.id,
-        req.user.id,
-        input
-      );
-      return reply.send({ ok: true, data: profile });
-    } catch (error) {
-      if (error instanceof HttpError) {
-        return reply.status(error.statusCode).send({ ok: false, message: error.message });
-      }
-      fastify.log.error({ err: error }, 'Erro ao atualizar perfil de aprendizado');
-      return reply.status(500).send({
-        ok: false,
-        message: 'Erro ao atualizar perfil de aprendizado',
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+  fastify.put('/learning', async (_req, reply) => {
+    return reply.status(501).send({
+      ok: false,
+      message: 'Endpoint legado migrado para /profile/learning/c1.',
+      replacement: '/profile/learning/c1',
+    });
   });
 };
 

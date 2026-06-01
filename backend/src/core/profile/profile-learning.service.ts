@@ -9,15 +9,17 @@
 import { identityService } from '../identity/identity.service';
 import type {
   LearningProfile,
-  UpdateLearningProfileInput,
   LearningCategory,
 } from './profile-learning.types';
 import {
   assertStoredProfileCategoryIdsStrict,
-  assertWritePayloadCategoryIdsOnly,
   enrichCategoryNavigationByIds,
-  requireCategoriesWithConceptForScope,
 } from './category-navigation-bridge';
+// Fatia 5 (DECISION-0067): a ESCRITA de Aprendizado saiu do blob `global_users.metadata` para o C1
+// (`/profile/learning/c1` → `actor_learning_concepts`). O método legado `updateLearningProfile` (que
+// gravava `metadata.learnings`/`learningPreferences`/`learningMetadata`) foi REMOVIDO; a rota PUT /profile/
+// learning responde 501. `getLearningProfile` permanece (leitura; o blob não guarda mais `learnings` —
+// cleanup pela migration 20260601160000 — então retorna lista vazia).
 
 class ProfileLearningService {
   /**
@@ -82,94 +84,8 @@ class ProfileLearningService {
     };
   }
 
-  /**
-   * Atualiza perfil de aprendizado
-   */
-  async updateLearningProfile(
-    tenantId: string,
-    userId: string,
-    input: UpdateLearningProfileInput
-  ): Promise<LearningProfile> {
-    // Buscar globalUserId
-    const identity = await identityService.getIdentityProfile(userId, tenantId);
-    if (!identity || !identity.global.globalUserId) {
-      throw new Error('Identidade do usuário não encontrada');
-    }
-
-    const globalUserId = identity.global.globalUserId;
-
-    // Buscar metadata atual
-    const { pool } = await import('@core/database/pool');
-    const currentRow = await pool.query<{ metadata: any }>(
-      `
-      SELECT metadata
-      FROM global_users
-      WHERE global_user_id = $1
-      ORDER BY updated_at DESC
-      LIMIT 1
-      `,
-      [globalUserId]
-    );
-
-    const currentMetadata = currentRow.rows[0]?.metadata || {};
-
-    const nextLearningIds =
-      input.learnings !== undefined
-        ? assertWritePayloadCategoryIdsOnly(input.learnings, 'learnings')
-        : assertStoredProfileCategoryIdsStrict(currentMetadata.learnings, 'learnings');
-
-    if (nextLearningIds.length > 0) {
-      await requireCategoriesWithConceptForScope(pool, nextLearningIds, 'learning');
-    }
-
-    const nextPreferences =
-      input.preferences !== undefined ? input.preferences : currentMetadata.learningPreferences || {};
-    const nextLearningMeta =
-      input.metadata !== undefined ? input.metadata : currentMetadata.learningMetadata || {};
-
-    const updatedMetadata = {
-      ...currentMetadata,
-      learnings: nextLearningIds,
-      learningPreferences: nextPreferences,
-      learningMetadata: nextLearningMeta,
-    };
-
-    await pool.query(
-      `
-      UPDATE global_users
-      SET metadata = $1::jsonb, updated_at = now()
-      WHERE global_user_id = $2
-      `,
-      [JSON.stringify(updatedMetadata), globalUserId]
-    );
-
-    const baseRows = await enrichCategoryNavigationByIds(pool, nextLearningIds, 'learning');
-    const learnings: LearningCategory[] = baseRows.map((row) => {
-      const pref = nextPreferences[row.categoryId] || {};
-      return {
-        categoryId: row.categoryId,
-        categoryName: row.categoryName,
-        categoryPath: row.categoryPath,
-        level: row.level,
-        progress: pref.progress ?? null,
-        preferences:
-          pref && (pref.details?.length || pref.notes || pref.progress != null)
-            ? {
-                progress: pref.progress,
-                details: pref.details,
-                notes: pref.notes,
-              }
-            : undefined,
-      };
-    });
-
-    return {
-      globalUserId,
-      learnings,
-      preferences: nextPreferences,
-      metadata: nextLearningMeta,
-    };
-  }
+  // updateLearningProfile REMOVIDO (Fatia 5) — a escrita de Aprendizado é o C1 /profile/learning/c1.
+  // A rota PUT /profile/learning responde 501. Nenhum fluxo ativo grava `learnings` no blob.
 }
 
 export const profileLearningService = new ProfileLearningService();

@@ -9579,3 +9579,43 @@ retirado dá 409 (reativação via PATCH `reactivate` é follow-up).
 **Fila:** **Fatia 5 — cleanup do blob** (remover persistência learning/interests de `global_users.metadata`,
 mantendo Lifestyle fora — DT-LIFESTYLE-SENSITIVE-IN-BLOB frente própria). Bloqueados: financeiro, Agenda,
 Saúde/Lifestyle.
+
+---
+
+## C1 LEARNING/INTEREST — FATIA 5 (CLEANUP DO BLOB) — EXECUTADA ✅ · DT-BLOB-SSOT CLOSED (2026-06-01)
+
+Persistência de Learning/Interest **saiu do blob** `global_users.metadata`. HEAD origem `f639516f`.
+Learning/Interest já estavam migrados/provados em C1 (Fatias 1–4c). **Lifestyle/Saúde preservados** (frente
+própria). **Fecha DT-LEARNING-INTEREST-BLOB-SSOT.**
+
+**Arquivos (5):** nova migration `20260601160000_cleanup_learning_interest_blob_keys.sql`;
+`profile-learning.routes.ts` (PUT `/profile/learning` → **501** → `/profile/learning/c1`);
+`profile-learning.service.ts` (`updateLearningProfile` REMOVIDO; `getLearningProfile` mantido p/ readers);
+`profile-physical.service.ts` (não lê/grava mais `interests`; `updatePhysicalProfile` retira `interests`/
+`learnings` do metadata e preserva lifestyle; `getPhysicalProfile` → `interests:[]`);
+`frontend/.../ProfilePhysical.tsx` (não reidrata/reenvia interesses pelo legado — envio morto removido).
+
+**Migration:** forward-only, idempotente, guard "C1 existe" + verificação pós. `metadata - 'learnings' -
+'interests'` só nas linhas que têm as chaves. **Antes:** learnings=1 row / interests=2 rows; **depois:** 0/0.
+Demais chaves preservadas (lifestyle/preferences/learningPreferences/learningMetadata/physicalMetadata/
+updatedAt). `schema_migrations` 343→344. Re-run runner = 0 pendentes; UPDATE re-run = 0 linhas (idempotente).
+
+**Provas runtime (3010):** PUT `/profile/learning` → **501** (replacement `/profile/learning/c1`);
+GET `/profile/learning/c1` → 200; Interest C1 POST 201/GET active 1/DELETE 200 (intacto); PUT
+`/profile/physical` com `interests` falso → **ignorado** (retorna interests=0), **lifestyle persistido**
+(smokes=never, relationshipStatus=single), blob `hasLearnings=false`/`hasInterests=false` **antes e depois**
+(write-time não recria chaves); GET `/profile/physical` → interests=[] + lifestyle. `actor_learning_concepts`/
+`actor_interest_concepts` intactas. Lifestyle de teste revertido.
+
+**Gates:** backend typecheck=0; frontend typecheck=0; actor-writer/bank-ledger/regression OK (344 migrations);
+architectural-patterns `critical_new=0`, `critical_total=20` (sem aumento); `warning_new=1` pré-existente
+(`...e2e-c3...:334`, não meu).
+
+**Resíduo não-bloqueante:** readers backend (`opportunity`/`profile-inference`/`core.service`) ainda chamam
+`getLearningProfile`/`getPhysicalProfile` (agora retornam vazio) — migrar esses READERS para ler o C1 é frente
+futura (não persistem verdade, só degradam para vazio, sem crash). Edge 409 reativação → **DT-C1-LEARNING-
+INTEREST-REACTIVATION** (OPEN LOW, follow-up).
+
+**DTs:** DT-LEARNING-INTEREST-BLOB-SSOT → **CLOSED**. DT-LIFESTYLE-SENSITIVE-IN-BLOB permanece **OPEN** (frente
+própria). DT-PROFILE-FRONTEND-DRIVES-TAXONOMY permanece **PARTIALLY MITIGATED** (não fechada — varredura de
+outros fluxos pendente). Zero financeiro · zero Agenda · zero Saúde · zero Profissional C1.

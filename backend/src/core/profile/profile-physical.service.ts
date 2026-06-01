@@ -10,12 +10,11 @@ import type {
 } from './profile-physical.types';
 import { profileHealthFactsRepository } from './profile-health-facts.repository';
 import { profileHealthTaxonomyRepository } from './profile-health-taxonomy.repository';
-import {
-  assertStoredProfileCategoryIdsStrict,
-  assertWritePayloadCategoryIdsOnly,
-  enrichCategoryNavigationByIds,
-  requireCategoriesWithConceptForScope,
-} from './category-navigation-bridge';
+// Fatia 5 (DECISION-0067): INTERESSES saíram do blob `global_users.metadata.interests` para o C1
+// (`/profile/interest/c1` → `actor_interest_concepts`). Este serviço NÃO lê nem grava mais `interests`
+// como SSOT. LIFESTYLE/SAÚDE (drinks/smokes/relationshipStatus/sexualOrientation/preferences/health)
+// permanecem no fluxo legado, INTOCADOS (DT-LIFESTYLE-SENSITIVE-IN-BLOB é frente própria). Os guards de
+// category→concept (category-navigation-bridge) eram usados só para `interests` → removidos deste serviço.
 
 class ProfilePhysicalService {
   /**
@@ -51,19 +50,9 @@ class ProfilePhysicalService {
 
     const metadata = userRow.rows[0]?.metadata || {};
 
-    const interestIds = assertStoredProfileCategoryIdsStrict(metadata.interests, 'interests');
-    const interests: InterestCategory[] = await enrichCategoryNavigationByIds(
-      pool,
-      interestIds,
-      'interest',
-    ).then((rows) =>
-      rows.map((row) => ({
-        categoryId: row.categoryId,
-        categoryName: row.categoryName,
-        categoryPath: row.categoryPath,
-        level: row.level,
-      })),
-    );
+    // INTERESSES: não vêm mais do blob (Fatia 5). A verdade é o C1 (/profile/interest/c1). O contrato
+    // legado mantém a forma, mas a lista é sempre vazia aqui — quem precisa de interesses lê o C1.
+    const interests: InterestCategory[] = [];
     const lifestyle: LifestyleInfo = metadata.lifestyle || {
       drinks: null,
       smokes: null,
@@ -179,18 +168,15 @@ class ProfilePhysicalService {
 
     const currentMetadata = currentRow.rows[0]?.metadata || {};
 
-    const nextInterestIds =
-      input.interests !== undefined
-        ? assertWritePayloadCategoryIdsOnly(input.interests, 'interests')
-        : assertStoredProfileCategoryIdsStrict(currentMetadata.interests, 'interests');
-
-    if (nextInterestIds.length > 0) {
-      await requireCategoriesWithConceptForScope(pool, nextInterestIds, 'interest');
-    }
+    // INTERESSES não são mais persistidos no blob (Fatia 5). Ignoramos `input.interests` (envio morto) e
+    // retiramos a chave legada `interests` do metadata escrito (cleanup também em write-time). LIFESTYLE e
+    // demais campos legados (preferences/physicalMetadata) seguem INTOCADOS.
+    const { interests: _legacyInterests, learnings: _legacyLearnings, ...restMetadata } = currentMetadata;
+    void _legacyInterests;
+    void _legacyLearnings;
 
     const updatedMetadata = {
-      ...currentMetadata,
-      interests: nextInterestIds,
+      ...restMetadata,
       lifestyle: {
         ...(currentMetadata.lifestyle || {}),
         ...(input.lifestyle || {}),
@@ -215,22 +201,9 @@ class ProfilePhysicalService {
       [JSON.stringify(updatedMetadata), globalUserId]
     );
 
-    const interestsWithDetails: InterestCategory[] = await enrichCategoryNavigationByIds(
-      pool,
-      nextInterestIds,
-      'interest',
-    ).then((rows) =>
-      rows.map((row) => ({
-        categoryId: row.categoryId,
-        categoryName: row.categoryName,
-        categoryPath: row.categoryPath,
-        level: row.level,
-      })),
-    );
-
     return {
       globalUserId,
-      interests: interestsWithDetails,
+      interests: [],
       lifestyle: updatedMetadata.lifestyle,
       preferences: updatedMetadata.preferences || {},
       metadata: updatedMetadata.physicalMetadata || {},

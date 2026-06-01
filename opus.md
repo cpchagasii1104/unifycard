@@ -2175,3 +2175,25 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Aprendizado E Interesses agora em C1. Blob não limpo (Fatia 5). DT-LEARNING-INTEREST-BLOB-SSOT OPEN (CLOSE
   só na Fatia 5). DT-PROFILE-FRONTEND-DRIVES-TAXONOMY mais mitigada (Interesses também não cria taxonomia).
   Edge 409 re-declarar retirado (reativação PATCH reactivate = follow-up). Fila: Fatia 5 cleanup blob.
+
+### C1 LEARNING/INTEREST — FATIA 5 (CLEANUP BLOB) — EXECUTADA ✅ · DT-BLOB-SSOT CLOSED (2026-06-01)
+- Persistência de Learning/Interest saiu de global_users.metadata. HEAD origem f639516f. Lifestyle/Saúde
+  preservados. 5 arquivos: nova migration 20260601160000_cleanup_learning_interest_blob_keys.sql;
+  profile-learning.routes.ts (PUT /profile/learning → 501 → /profile/learning/c1); profile-learning.service.ts
+  (updateLearningProfile REMOVIDO; getLearningProfile mantido p/ readers); profile-physical.service.ts (não
+  lê/grava mais interests; updatePhysicalProfile retira chaves interests/learnings e preserva lifestyle;
+  getPhysicalProfile→interests:[]); ProfilePhysical.tsx (não reidrata/reenvia interesses pelo legado).
+- Migration forward-only/idempotente, guard C1-existe + verificação pós; metadata - 'learnings' - 'interests'
+  só nas linhas com as chaves. Antes learnings=1/interests=2 rows → depois 0/0; demais chaves preservadas
+  (lifestyle/preferences/learningPreferences/learningMetadata/physicalMetadata/updatedAt). schema_migrations
+  343→344; runner re-run 0 pendentes; UPDATE re-run 0 linhas.
+- Runtime (3010): PUT /profile/learning→501; GET /profile/learning/c1→200; Interest C1 POST201/GETactive1/
+  DELETE200 (intacto); PUT /profile/physical com interests falso → ignorado (interests=0) + lifestyle
+  persistido + blob hasL=false/hasI=false antes e depois; GET /profile/physical interests=[]+lifestyle.
+  actor_learning/interest_concepts intactas. Lifestyle de teste revertido.
+- Gates: back+front typecheck=0; actor-writer/bank-ledger/regression OK (344); arch critical_new=0,
+  critical_total=20; warning_new=1 pré-existente (não meu). Zero financeiro/Agenda/Saúde/Profissional C1.
+- DT-LEARNING-INTEREST-BLOB-SSOT → CLOSED. DT-LIFESTYLE-SENSITIVE-IN-BLOB OPEN (frente própria).
+  DT-PROFILE-FRONTEND-DRIVES-TAXONOMY PARTIALLY MITIGATED (não fechada). Nova DT-C1-LEARNING-INTEREST-
+  REACTIVATION (OPEN LOW, edge 409). Resíduo: readers backend (opportunity/inference/core) ainda no blob
+  vazio → migração p/ C1 é frente futura. Frente Learning/Interest→C1 CONCLUÍDA (Fatias 1–5).

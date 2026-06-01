@@ -139,7 +139,7 @@ export default function ProfilePhysical() {
 
       if (physicalData) {
         setProfileData({
-          interests: physicalData.interests || [],
+          interests: [], // Fatia 5: interesses NÃO vêm mais do blob (verdade = C1 /profile/interest/c1)
           habits: physicalData.habits || {
             smoking: null,
             drinking: null,
@@ -275,10 +275,10 @@ export default function ProfilePhysical() {
         }
       }
 
-      // 2) LIFESTYLE LEGADO — INTOCADO. interests:[] (já era o comportamento); blob preservado verbatim
-      //    (profileData.interests = valor carregado, não editado). NÃO grava interesses como SSOT aqui.
+      // 2) LIFESTYLE LEGADO — INTOCADO (hábitos/rotina/objetivos/estilo de vida). Fatia 5: o envio morto de
+      //    `interests` ao endpoint legado foi REMOVIDO; o backend também não persiste mais `interests`.
+      //    `profileData.interests` é sempre [] (a verdade de interesses é o C1 /profile/interest/c1).
       await updatePhysicalProfile({
-        interests: [], // Não usar categorias
         lifestyle: {
           ...lifestyle,
           smokes: profileData.habits.smoking === 'não_fumo' ? 'never' :
@@ -290,7 +290,7 @@ export default function ProfilePhysical() {
         },
         preferences: {},
         metadata: {
-          physicalProfile: profileData, // 🔒 Dados declarativos legados (interests do blob preservado)
+          physicalProfile: profileData, // dados declarativos legados (hábitos/rotina/objetivos); interests=[]
         },
       });
 
