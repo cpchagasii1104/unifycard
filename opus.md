@@ -1898,3 +1898,26 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - O runner canônico (npm run migrate) volta a refletir a realidade: não re-executaria essas 3.
 - INSERT em schema_migrations é estado de banco (não versionado). Lição: aplicar migrations futuras
   pelo runner canônico evita essa defasagem; psql -f direto exige reconciliação posterior.
+
+### A3.1 + A3.2 — SELADAS ✅ (aba Profissional legado → C1) (2026-06-01)
+- A3.1 backend SELADA (526b1c6f · selo SELO_A3_1_INFERENCE_DESACOPLAMENTO.md): desacopla
+  getUserProfileSnapshot do serviço profissional legado morto → inference/snapshot 500→200.
+- A3.2 SELADA (selo SELO_A3_2_PROFISSIONAL_C1.md) após ratificação ChatGPT. Clayton OVERRIDOU a regra
+  "Codex faz frontend" e autorizou Claude a executar o frontend. Cadeia: 1958ab05 (backend expõe
+  categories.concept_id como conceptId GATED por context=professional — OPÇÃO B, 07 §4262/4278) +
+  98a75ad0 (frontend migra a aba p/ /profile/professional/c1; save granular; conceptId real;
+  source_category_id=breadcrumb; redução de escopo; ProfileAgenda+updateProfessionalProfile INTACTOS) +
+  e1400562 (/children exige ?context=professional explícito p/ conceptId) + 31e31419 (remove catch amplo
+  de getProfessionalC1) + 361c2671 (A3.2-R3: expansão profissional envia context=professional; sem isso
+  a folha chegava sem conceptId e a trava C1 do addSkill bloqueava o "Adicionar").
+- Invariantes provados: concept_id soberano (folha exige conceptId real FK→concepts, sem fallback p/
+  categoryId) · source_category_id só breadcrumb · C1 backend selado intacto · legado não usado pela aba ·
+  Agenda fora do escopo · zero financeiro · zero migration.
+- Validação: frontend tsc=0 · gates backend sem regressão · validate-architectural --strict
+  critical_new=0, critical_total=20 sem aumento · prova runtime pelo fluxo real (actor dinâmico, porta 3010).
+- A3.2 NÃO resolve: Aprendizado · Interesses · Saúde · Agenda (TEMPO/C3) · C2/C3 profissional (preço/
+  serviços/availability — "em breve"). C1 declara identidade/competência; não é SSOT de preço/oferta/
+  availability/capability.
+- Fila documental após o selo (commits próprios, NÃO neste selo): registrar
+  DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT + housekeeping (5 .txt evidência A3_2_* +
+  frontend_src_completo.txt) + destino final do legado /profile/professional (410/501 vs intocado).

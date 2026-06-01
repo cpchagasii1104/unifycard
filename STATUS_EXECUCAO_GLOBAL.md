@@ -9094,3 +9094,40 @@ radius · escopo só-frontend · sem merge/rebase/push). Documento canônico de 
 pós-execução do Codex: auditoria do diff + verificação backend (re-sweep C1, prova de não-persistência fora
 do C1). **Código A3.2 = autorizado ao Codex** dentro do escopo estrito do prompt. Interesses/Aprendizado,
 financeiro e migration seguem bloqueados.
+
+---
+
+## A3.2 — SELADA ✅ (aba Profissional → C1 · selo `SELO_A3_2_PROFISSIONAL_C1.md` · 2026-06-01)
+
+Selada por Clayton após ratificação independente do ChatGPT. Frente 1 (aba Profissional legado → C1)
+fechada tecnicamente. **Clayton OVERRIDOU** a regra "Codex faz frontend" e autorizou a executora
+`unificard` (Claude) a executar o frontend.
+
+**Cadeia selada:** `1958ab05` (backend expõe `categories.concept_id` como `conceptId` GATED por
+`context=professional` — OPÇÃO B, 07 §4262/4278) · `98a75ad0` (frontend migra a aba p/
+`/profile/professional/c1`: load getProfessionalC1, save granular POST/PATCH/DELETE+bio PUT, conceptId
+real, source_category_id=breadcrumb, redução de escopo, ProfileAgenda+updateProfessionalProfile
+INTACTOS) · `e1400562` (`/children` exige `?context=professional` explícito p/ surfaçar conceptId) ·
+`31e31419` (remove catch amplo de getProfessionalC1 que mascarava erro real) · `361c2671` (**A3.2-R3**:
+expansão profissional chama `getCategoryChildren(categoryId,'professional')`; sem isso a folha chegava
+sem conceptId e a trava C1 bloqueava o "Adicionar").
+
+**Invariantes provados:** `concept_id` soberano (folha declarável exige conceptId real FK→concepts, sem
+fallback p/ categoryId) · `source_category_id` só breadcrumb · C1 backend selado intacto (contrato write
+preservado) · legado `/profile/professional` NÃO usado pela aba (zero getProfessionalProfile/
+updateProfessionalProfile no fluxo) · Agenda fora do escopo · zero financeiro · zero migration.
+
+**Validação:** frontend tsc=0 · gates backend sem regressão (`actor-writer` OK · `bank-ledger` OK ·
+`regression-guards` OK · `validate-architectural --strict` `critical_new=0`, `critical_total=20` sem
+aumento) · prova runtime pelo fluxo real (actor resolvido dinamicamente pelo userId, porta alt 3010).
+
+**A3.2 NÃO resolve:** Aprendizado · Interesses · Saúde · Agenda (camada TEMPO/C3) · C2/C3 profissional
+(preço/serviços/availability — "em breve", frentes posteriores). C1 declara identidade/competência; NÃO
+é SSOT de preço/oferta/availability/capability.
+
+**Fila após o selo:** (1) registrar `DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT` em commit documental
+próprio (Agenda persiste availability via `updateProfessionalProfile` PUT legado morto) ·
+(2) housekeeping (5 `.txt` evidência `A3_2_*` + destino do `frontend_src_completo.txt`) · (3) destino
+final do legado `/profile/professional` (410/501 vs intocado) · (4) próxima frente de valor (Clayton
+sequencia): C2/C3 profissional OU Interesses/Lei 7. Bloqueados: Interesses/Aprendizado · financeiro ·
+migration.
