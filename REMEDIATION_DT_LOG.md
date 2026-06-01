@@ -10474,3 +10474,62 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   (`DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES`) serem tratados — para não amputar substrato que outros
   caminhos mortos ainda referenciam antes de mapeá-los. Ratificação própria; não junto de financeiro nem
   de C2/C3 profissional.
+
+---
+
+> **Bloco abaixo:** 5 DTs da auditoria read-only de Interesses/Aprendizado Lei 7 (2026-06-01,
+> HEAD `3b62c823`). Diagnóstico material: abas Aprendizado/Interesses mortas — mostram opções mas
+> não salvam (guard Lei 7 falha fechado sobre substrato não-migrado). Provas: GET `/profile/learning`
+> 200 vazio; PUT `/profile/learning` → 400 "concept_id obrigatório" (44 categorias `scope='learning'`,
+> todas `concept_id=NULL`); PUT `/profile/physical` interests → 400 "fora do escopo 'interest'"
+> (`scope='interest'` = 0 linhas); ambos rejeitados ANTES do `UPDATE` (não-mutante).
+
+## DT-LEARNING-INTEREST-BLOB-SSOT
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** auditoria read-only Interesses/Aprendizado Lei 7 (pós-A3.2).
+- **Vinculada a:** Lei 7 (CONCEPT = SSOT semântico); SSOT_REGISTRY §5.1 (actor-first); `DT-ONBOARDING-METADATA-STORAGE-DECISION` (mesmo padrão metadata-blob); `DT-CORE-PROFILE-IGNORES-ACTOR-CONTEXT` (CLOSED — perfil global-user vs actor).
+- **Contexto:** Aprendizado (`profile-learning.service.ts`) e Interesses (`profile-physical.service.ts`) persistem em **`global_users.metadata`** (blob JSONB) via `UPDATE global_users SET metadata` (linhas 139 / 211), guardando `metadata.learnings`/`metadata.interests` como arrays de **`categoryId`** (não `concept_id`), além de `preferences`/`lifestyle`/`*Metadata`. Identidade = **`global_user_id`** (não `actor_id`). Contratos frontend (`api/learning.ts`, `api/physical.ts`) só expõem `categoryId`, nunca `conceptId`.
+- **Risco:** perfil vira **SSOT paralelo opaco** — verdade não consultável/auditável por linha (blob), `category_id` como identidade semântica (viola §8 LEI_COERENCIA / §20 ONTOLOGIA / Lei 7), global-user-keyed contra a direção actor-first + concept-first. Contraria a tese "perfil como porta de entrada dos SSOTs do actor".
+- **Mitigação atual:** guards `category-navigation-bridge.ts` bloqueiam deriva semântica quando `concept_id` ausente — a feature fica **morta** em vez de salvar mentira (falha fechada, correto). NÃO há fallback `conceptId ← categoryId`.
+- **Resolução prevista:** frente **DESENHO C1 actor-first** para Learning/Interest (espelhar C1 profissional: `tenant_id` + `actor_id` via writer §4.8.1 + `concept_id` obrigatório + `source_category_id` breadcrumb + `is_active`/`retired_at`), **após** governança semântica (DT abaixo). Sem blob como SSOT do que precisa ser consultável.
+
+## DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** auditoria read-only Interesses/Aprendizado Lei 7.
+- **Vinculada a:** `DT-LEARNING-INTEREST-BLOB-SSOT`; 18_DOMAIN_ONTOLOGY §15 item 4 ("Migrar categories → concept_id" — nunca feito p/ learning); `DT-DRIFT-SCHEMA-CODE-MISMATCH-CATEGORIES`.
+- **Contexto:** existem **44 categorias `scope='learning'`** (44 ativas), aparecem na UI via `getCategoryTree('learning')` (`ProfileLearning.tsx:165`), mas **TODAS com `concept_id=NULL`** (verificado por SELECT read-only). O guard `requireCategoriesWithConceptForScope(pool, ids, 'learning')` (`profile-learning.service.ts:122`) exige `concept_id NOT NULL` → **todo save → 400** "Derivação semântica bloqueada: concept_id obrigatório" (provado: `7edb09d0` "Fotografia").
+- **Risco:** aba Aprendizado mostra opções mas **não salva**. Tentativa de "popular `concept_id` no improviso" para destravar **cristalizaria `category_id` como identidade** (repete a doença do legado profissional) — **atalho VETADO** salvo decisão explícita de Clayton.
+- **Mitigação atual:** guard falha fechado (não corrompe; não inventa concept).
+- **Resolução prevista:** frente de **governança semântica** para associar/criar `concept_id` por **pipeline governado** (CONCEPT §5.5, NÃO pelo frontend), e definir navegação UI até concepts. Pré-condição de qualquer C1 de Aprendizado.
+
+## DT-INTEREST-SCOPE-EMPTY
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** auditoria read-only Interesses/Aprendizado Lei 7.
+- **Vinculada a:** `DT-LEARNING-INTEREST-BLOB-SSOT`.
+- **Contexto:** `categories scope='interest'` tem **0 linhas** (verificado read-only). O guard `requireCategoriesWithConceptForScope(pool, ids, 'interest')` (`profile-physical.service.ts:188`) rejeita qualquer `categoryId` como **"fora do escopo 'interest'"** → PUT de interesses sempre **400** (provado).
+- **Risco:** Interesses **não têm árvore/navegação operacional** nem SSOT semântico — aba inerte por ausência total de substrato.
+- **Mitigação atual:** guard bloqueia escrita inválida (falha fechada).
+- **Resolução prevista:** desenhar navegação de interesses **conectada a CONCEPT**, sem `category` como identidade; decidir se interesse usa árvore própria (`scope='interest'`) governada por CONCEPT ou modelo direto concept-first.
+
+## DT-PROFILE-FRONTEND-DRIVES-TAXONOMY
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** auditoria read-only Interesses/Aprendizado Lei 7.
+- **Vinculada a:** 18_DOMAIN_ONTOLOGY §5.5.4 (proibido criar CONCEPT fora de governança); 21_PLANO_DE_EXPANSÃO_GOVERNADA_DO_N2 (expansão governada); `project_frontend_nunca_cria_verdade`.
+- **Contexto:** `ProfileLearning.tsx` chama `suggestCategoryPath(searchTerm, 'learning')` (:356) e `createCategoryWithAI(searchTerm, 'learning', parentId)` (:379) — frontend como **condutor de criação de taxonomia/navegação** (cria `categories`, via endpoint backend de IA; não cria CONCEPT diretamente, mas dirige a expansão).
+- **Risco:** frontend vira origem de semântica/navegação, contornando governança de CONCEPT e expansão governada do N2. Não usar esse caminho para "destravar" o C1.
+- **Mitigação atual:** registrar dívida; não usar como atalho de destravamento.
+- **Resolução prevista:** mover criação/associação semântica para **pipeline governado backend/CONCEPT**, com UI apenas **sugerindo intenção** (não persistindo taxonomia).
+
+## DT-LIFESTYLE-SENSITIVE-IN-BLOB
+
+- **Status:** OPEN (2026-06-01)
+- **Origem:** auditoria read-only Interesses/Aprendizado Lei 7 (achado adjacente).
+- **Vinculada a:** `DT-LEARNING-INTEREST-BLOB-SSOT`; frente Saúde (fora do escopo desta auditoria).
+- **Contexto:** `profile-physical.service.ts` guarda `metadata.lifestyle` (`drinks`, `smokes`, `relationshipStatus`, `sexualOrientation`) em **`global_users.metadata`**, junto da aba physical/interests — **dado pessoal sensível** sem SSOT próprio.
+- **Risco:** dado sensível (incl. orientação sexual) em blob sem SSOT próprio, trilha de auditoria nem política clara de consentimento/uso.
+- **Mitigação atual:** fora do escopo Learning/Interest; **não ampliar** uso. Não tocado nesta fatia.
+- **Resolução prevista:** frente própria de Saúde/Lifestyle sensível com SSOT e política de consentimento/uso adequada (ratificação própria; não junto de Learning/Interest).

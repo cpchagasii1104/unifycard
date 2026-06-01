@@ -1962,3 +1962,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   ainda presentes, remoção é frente futura após Agenda + Human MVP). Candidata:
   DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES.
 - Fila restante: (4) C2/C3 profissional OU Interesses/Lei 7.
+
+### Auditoria READ-ONLY Interesses/Aprendizado Lei 7 — CONCLUÍDA + 5 DTs ✅ (2026-06-01)
+- Abas Aprendizado/Interesses MORTAS: mostram opções, não salvam. SSOT = blob global_users.metadata
+  (categoryId em JSONB, global-user-keyed, sem concept_id, sem substrato actor-first). Guards Lei 7
+  (category-navigation-bridge.ts) falham fechado sobre substrato não-migrado: learning → 44 cats
+  scope='learning' concept_id=NULL → PUT 400 "concept_id obrigatório"; interest → scope='interest' 0 cats
+  → PUT 400 "fora do escopo". Provas runtime não-mutantes (guard rejeita antes do UPDATE). lifestyle
+  sensível (orientação sexual etc.) no mesmo blob.
+- 5 DTs OPEN registradas: DT-LEARNING-INTEREST-BLOB-SSOT, DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID,
+  DT-INTEREST-SCOPE-EMPTY, DT-PROFILE-FRONTEND-DRIVES-TAXONOMY, DT-LIFESTYLE-SENSITIVE-IN-BLOB.
+- Próxima frente recomendada: governança semântica Learning/Interest (concept_id por pipeline governado,
+  NÃO frontend) ANTES do DESENHO C1 actor-first. VETADO atalho "popular category.concept_id p/ destravar"
+  (cristaliza category como identidade) salvo decisão explícita de Clayton. Padrão de referência: C1 profissional.

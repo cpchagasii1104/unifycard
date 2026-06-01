@@ -9189,3 +9189,26 @@ C1, Agenda, frontend, schema, financeiro INTOCADOS). Prova runtime: GET 501 · P
 DT registrada: **`DT-DEAD-PROFESSIONAL-LEGACY-SUBSTRATE`** (PARTIALLY MITIGATED — rotas 501; serviço/
 substrato legado ainda presentes, remoção é frente futura após Agenda + Human MVP). **Fila pós-selo
 restante:** (4) C2/C3 profissional OU Interesses/Lei 7. Candidata: `DT-HUMAN-MVP-USES-DEAD-USER-SKILLS-CATEGORIES`.
+
+---
+
+## AUDITORIA READ-ONLY Interesses/Aprendizado Lei 7 — CONCLUÍDA + 5 DTs REGISTRADAS ✅ (2026-06-01)
+
+Auditoria read-only concluída (HEAD `3b62c823`). **Diagnóstico:** abas Aprendizado e Interesses estão
+**mortas/semânticamente bloqueadas** — mostram opções mas não salvam. Persistência é **blob
+`global_users.metadata`** (`categoryId` em JSONB, global-user-keyed, sem `concept_id`, sem SSOT
+actor-first). Os guards Lei 7 (`category-navigation-bridge.ts`) **falham fechado** sobre substrato
+não-migrado: Aprendizado → 44 categorias `scope='learning'` com `concept_id=NULL` → PUT 400 "concept_id
+obrigatório"; Interesses → `scope='interest'` com 0 categorias → PUT 400 "fora do escopo". Provas runtime
+não-mutantes (guard rejeita antes do UPDATE). Padrão correto de referência: C1 profissional.
+
+**5 DTs registradas (todas OPEN)** em `REMEDIATION_DT_LOG.md`: `DT-LEARNING-INTEREST-BLOB-SSOT` ·
+`DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID` · `DT-INTEREST-SCOPE-EMPTY` ·
+`DT-PROFILE-FRONTEND-DRIVES-TAXONOMY` · `DT-LIFESTYLE-SENSITIVE-IN-BLOB`.
+
+**Próxima frente recomendada:** **governança semântica Learning/Interest** (associar/criar `concept_id`
+por pipeline governado CONCEPT, NÃO pelo frontend) **ANTES** do DESENHO C1 actor-first. **VETADO como
+atalho** (salvo decisão explícita de Clayton): "popular `categories.concept_id` no improviso para
+destravar o save" — cristalizaria `category` como identidade, repetindo a doença do legado profissional.
+**Fila:** governança semântica Learning/Interest → DESENHO C1 Learning/Interest · (alternativa que Clayton
+sequencia) C2/C3 profissional. Bloqueados: financeiro, migration, schema.
