@@ -9452,3 +9452,34 @@ segue OPEN (fecha só na Fatia 5). Lifestyle fora.
 
 **Fila:** Fatia 3 (backfill blob→C1, idempotente, DEV no-op) → Fatia 4 (frontend) → Fatia 5 (cleanup).
 Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## C1 LEARNING/INTEREST — FATIA 3 (BACKFILL) — EXECUTADA ✅ (2026-06-01)
+
+Backfill `global_users.metadata` → C1 (DECISION-0067, Fatia 3). Migration
+`backend/migrations/20260601150000_backfill_learning_interest_blob_to_c1.sql` (forward-only, idempotente
+via `ON CONFLICT`, transacional, **fail-closed**). Aplicada pelo runner canônico `pnpm migrate` (única
+pendente; `schema_migrations` 342→343 com checksum). HEAD origem `4abf8a90`.
+
+**Estratégia actor (sem improviso):** `actor_id` resolvido pelo mapeamento canônico vivo
+`actors.global_user_id = global_users.global_user_id AND actor_type='user'` (ponte de resolução; NÃO cria
+actor, NÃO usa global_user_id como identidade final). `concept_id` via categoria (scope correto + concept);
+`source_category_id` = breadcrumb; `progress` (learning) de `learningPreferences[catId].progress`
+(beginner|intermediate|advanced → 1|2|3; numérico 1..3 preservado; nulo → NULL).
+
+**Guards fail-closed (não pula dado real):** aborta se metadata.learnings/interests não-array; se
+global_user com itens sem actor user resolvível; se item não resolve categoria scope+concept; se progress
+com valor inesperado. **DEV em 2026-06-01: 0 itens no blob → backfill NO-OP (0 linhas migradas).**
+
+**Provas:** C1 inalterado (learning=1/interest=1 = resíduo inativo do teste da Fatia 2; **delta=0**); 0
+duplicatas por (tenant,actor,concept); blob **intocado** (0 global_users); categories/concepts intocados
+(36/38, 137 concepts); GET `/profile/{learning,interest}/c1` → 200; legados `/profile/learning` e
+`/profile/physical` → 200 intocados. typecheck=0; gates verdes; `critical_new=0`.
+
+**Estado:** schema (Fatia 1) + backend (Fatia 2) + backfill (Fatia 3) prontos. **Frontend ainda usa os
+endpoints legados** (gravam no blob); **blob ainda não foi limpo**. DT-LEARNING-INTEREST-BLOB-SSOT segue
+OPEN (fecha só na Fatia 5). Lifestyle fora.
+
+**Fila:** Fatia 4 (frontend migra abas Learning/Interest para o C1) → Fatia 5 (cleanup do blob, lifestyle
+fora). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

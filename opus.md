@@ -2108,3 +2108,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (0). typecheck=0; gates verdes; critical_new=0.
 - Frontend ainda usa legados (blob). Fila: Fatia 3 backfill (DEV no-op) → Fatia 4 frontend → Fatia 5
   cleanup blob. DT-LEARNING-INTEREST-BLOB-SSOT OPEN (fecha na Fatia 5). Lifestyle fora.
+
+### C1 LEARNING/INTEREST — FATIA 3 (BACKFILL) — EXECUTADA ✅ (2026-06-01)
+- Migration 20260601150000_backfill_learning_interest_blob_to_c1.sql (forward-only, idempotente ON
+  CONFLICT, transacional, fail-closed), runner canônico (única pendente; schema_migrations 342→343 com
+  checksum). DECISION-0067 Fatia 3.
+- Estratégia actor: actor_id via mapeamento canônico actors.global_user_id=global_users.global_user_id AND
+  actor_type='user' (ponte; NÃO cria actor, NÃO usa global_user_id como identidade final). concept_id via
+  categoria; source_category_id breadcrumb; progress de learningPreferences[catId].progress
+  (beginner/intermediate/advanced→1/2/3). Guards fail-closed: não-array, sem actor, categoria não-resolvível,
+  progress inesperado → abort.
+- DEV: 0 itens no blob → backfill NO-OP (0 migradas). Provas: C1 inalterado (delta=0; learning=1/interest=1 =
+  resíduo inativo Fatia 2); 0 duplicatas; blob intocado (0); categories/concepts intocados (36/38, 137);
+  GET C1 200; legados /profile/learning e /physical 200. typecheck=0; gates verdes; critical_new=0.
+- Frontend ainda nos legados; blob não limpo. DT-LEARNING-INTEREST-BLOB-SSOT OPEN (fecha Fatia 5).
+  Fila: Fatia 4 frontend → Fatia 5 cleanup. Lifestyle fora.
