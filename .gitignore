@@ -39,3 +39,6 @@ _orphans/
 
 # Artefatos de sessao Claude Code (efemeros, nao versionados)
 executei*.md
+
+# Config local de permissoes do Claude Code (override local, nao versionado)
+.claude/settings.local.json
