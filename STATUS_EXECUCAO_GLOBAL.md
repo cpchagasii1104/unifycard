@@ -9666,3 +9666,35 @@ Gates: typecheck 0; actor-writer/bank-ledger/regression OK; arch `critical_new=0
 
 **DT:** **DT-C1-READERS-BLOB-TO-C1 OPEN** (consumidores pendentes). **Fila:** F2 profile-inference → F3
 opportunity → F4 core.service. Bloqueados: Lifestyle/Saúde, Agenda, financeiro, reactivation 409.
+
+---
+
+## READERS BACKEND → C1 — F2 (PROFILE-INFERENCE CONCEPT-FIRST) EXECUTADA ✅ (2026-06-01)
+
+`profile-inference.service.ts` migrado para ler Learning/Interest pelo helper C1 (F1), concept-first. HEAD
+origem `8820b59a`. **Só profile-inference (+ types aditivo)**; **nenhum** outro consumidor migrado. Zero
+frontend/migration/financeiro/Lifestyle/Saúde/Agenda/Professional/reactivation.
+
+**Decisão de escopo (D1, autorizada por Clayton):** incluído `profile-inference.types.ts` SÓ para ajuste
+**aditivo** (`+conceptId` nos itens interest/learning do snapshot). Blast radius verificado = **zero fora de
+profile-inference** (snapshot só é construído em `getUserProfileSnapshot`; demais usos são leitura/passagem
+HTTP — typecheck confirma). categoryId/categoryName = breadcrumb/backcompat (null→''), NUNCA identidade.
+
+**Mudança:** `getUserProfileSnapshot` troca `getPhysicalProfile`/`getLearningProfile` por
+`profileC1DeclarationsReadService.getUserActorConceptDeclarationsForProfile` (vazio controlado se sem actor).
+REGRA A/B passam a usar `interest.conceptId`/`learning.conceptId` direto; os resolvers
+`resolvePhysicalToLearningTarget`/`resolveLearningToProfessionalTarget` aceitam **conceptId** (não resolvem
+mais concept a partir de categoryId; breadcrumb só alimenta o slug-fallback). IDs de sugestão por conceptId.
+`recordSuggestionAction`/`isSuggestionDismissed` (metadata.suggestionHistory) **intocados** (não é Learning/
+Interest). `resolveConceptFromCategoryCached` mantido só em `findCategoryBySlug` (categoria-ALVO).
+
+**Provas runtime** (probe; declarações C1 seedadas/removidas): P0 limpo → snapshot 0/0, getInferences
+`explorer` sem throw; P1 interest → physical.count=1 com **conceptId real**; REGRA A concept-first → 1 sugestão
+sem throw; P2 beginner → `hasIntermediateOrAdvanced=false`; P3 intermediate → `=true`, getInferences
+`in_transition` sem throw; P4 no-actor → 0/0 sem 500. Greps: sem getLearningProfile/getPhysicalProfile
+(só comentário), sem metadata.learnings/interests, sem fallback conceptId←categoryId. Consumidores
+opportunity/core/feed/matching **sem diff**. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch
+`critical_new=0`, `critical_total=20`.
+
+**DT-C1-READERS-BLOB-TO-C1: OPEN** (F2 mitigação parcial; pendentes opportunity.service + core.service).
+**Fila:** F3 opportunity → F4 core.service.

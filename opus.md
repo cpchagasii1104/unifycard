@@ -2226,3 +2226,23 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   sem actor→{actorId:null,[],[]} (não 500); ambiguidade fail-closed por rows.length>1. Greps: sem SELECT*/
   global_users.metadata/ensureUserActor (só comentário). Gates: typecheck0; actor-writer/bank-ledger/regression
   OK; arch critical_new=0/total=20. DT-C1-READERS-BLOB-TO-C1 OPEN. Fila: F2 inference→F3 opportunity→F4 core.
+
+### READERS BACKEND → C1 — F2 (PROFILE-INFERENCE CONCEPT-FIRST) EXECUTADA ✅ (2026-06-01)
+- profile-inference.service.ts migrado p/ ler Learning/Interest pelo helper C1 (F1), concept-first. HEAD origem
+  8820b59a. Só profile-inference (+ types aditivo). Nenhum outro consumidor migrado. Zero frontend/migration/
+  financeiro/Lifestyle/Saúde/Agenda/Professional/reactivation.
+- Escopo D1 (autorizado Clayton): incluído profile-inference.types.ts só p/ +conceptId aditivo no snapshot
+  (interest/learning). Blast radius verificado = zero fora de profile-inference (snapshot só construído em
+  getUserProfileSnapshot; typecheck confirma). categoryId/categoryName=breadcrumb/backcompat (null→''), nunca
+  identidade.
+- getUserProfileSnapshot troca getPhysicalProfile/getLearningProfile por
+  profileC1DeclarationsReadService.getUserActorConceptDeclarationsForProfile (vazio controlado sem actor).
+  REGRA A/B usam interest.conceptId/learning.conceptId direto; resolvePhysicalToLearningTarget/
+  resolveLearningToProfessionalTarget aceitam conceptId (não resolvem concept de categoryId; breadcrumb só p/
+  slug-fallback); ids de sugestão por conceptId. recordSuggestionAction/isSuggestionDismissed
+  (metadata.suggestionHistory) intocados. resolveConceptFromCategoryCached só em findCategoryBySlug (alvo).
+- Provas runtime (probe): P0 limpo→0/0 explorer sem throw; P1 interest→count1 conceptId real, REGRA A
+  concept-first 1 sugestão; P2 beginner→hasIntermediateOrAdvanced=false; P3 intermediate→=true, in_transition;
+  P4 no-actor→0/0 sem 500. Greps: sem getLearningProfile/getPhysicalProfile (comentário), sem metadata.learnings/
+  interests, sem fallback conceptId←categoryId. opportunity/core/feed/matching sem diff. Gates verdes;
+  critical_new=0/total=20. DT-C1-READERS-BLOB-TO-C1 OPEN (parcial). Fila: F3 opportunity→F4 core.

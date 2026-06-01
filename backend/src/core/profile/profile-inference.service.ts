@@ -30,8 +30,11 @@ import {
 import { SemanticResolutionError } from '@core/semantic/semantic.errors';
 import { upsertTenantMetrics } from '@core/semantic/semantic-metrics.repository';
 import { resolveSemanticPolicy, type SemanticPolicy } from '@core/semantic/semantic.policy';
-import { profilePhysicalService } from './profile-physical.service';
-import { profileLearningService } from './profile-learning.service';
+// F2 (DECISION-0069): Learning/Interest do snapshot vêm do C1 actor-first/concept-first via helper de
+// leitura (não mais de getLearningProfile/getPhysicalProfile, que liam o blob hoje vazio). Professional
+// permanece separado. `resolveConceptFromCategoryCached` segue importado (usado só em findCategoryBySlug
+// para resolver a categoria-ALVO da sugestão — não a declaração C1).
+import { profileC1DeclarationsReadService } from './profile-c1-declarations-read.service';
 import { profileProfessionalService } from './profile-professional.service';
 import type {
   UserState,
@@ -239,22 +242,39 @@ class ProfileInferenceService {
     tenantId: string,
     userId: string
   ): Promise<UserProfileSnapshot> {
-    const [physical, learning, professional] = await Promise.all([
-      profilePhysicalService.getPhysicalProfile(tenantId, userId),
-      profileLearningService.getLearningProfile(tenantId, userId),
-      // Bloco profissional depende de serviço legado morto; degrada SÓ ele (physical/learning seguem propagando).
+    const [decls, professional] = await Promise.all([
+      // C1 actor-first/concept-first (DECISION-0069): Learning + Interest do actor 'user'. Sem actor /
+      // sem declaração ⇒ vazio controlado (não 500). conceptId é a identidade; sourceCategoryId breadcrumb.
+      profileC1DeclarationsReadService.getUserActorConceptDeclarationsForProfile(tenantId, userId),
+      // Bloco profissional depende de serviço legado morto; degrada SÓ ele.
       profileProfessionalService.getProfessionalProfile(tenantId, userId).catch(() => ({ skills: [], count: 0 })),
     ]);
 
+    // Mapeia C1 → snapshot. conceptId = identidade; categoryId/categoryName = breadcrumb (null → '' p/
+    // backcompat do contrato, NUNCA identidade). categoryPath sempre array.
+    const interests = decls.interests.map((i) => ({
+      conceptId: i.conceptId,
+      categoryId: i.sourceCategoryId ?? '',
+      categoryName: i.categoryName ?? '',
+      categoryPath: i.categoryPath,
+    }));
+    const learnings = decls.learning.map((l) => ({
+      conceptId: l.conceptId,
+      categoryId: l.sourceCategoryId ?? '',
+      categoryName: l.categoryName ?? '',
+      categoryPath: l.categoryPath,
+      progress: l.progress,
+    }));
+
     return {
       physical: {
-        interests: physical?.interests || [],
-        count: physical?.interests?.length || 0,
+        interests,
+        count: interests.length,
       },
       learning: {
-        learnings: learning?.learnings || [],
-        count: learning?.learnings?.length || 0,
-        hasIntermediateOrAdvanced: (learning?.learnings || []).some(
+        learnings,
+        count: learnings.length,
+        hasIntermediateOrAdvanced: learnings.some(
           (l) => l.progress === 'intermediate' || l.progress === 'advanced'
         ),
       },
@@ -263,8 +283,8 @@ class ProfileInferenceService {
         count: professional?.skills?.length || 0,
       },
       lastUpdated: {
-        physical: physical ? new Date().toISOString() : undefined,
-        learning: learning ? new Date().toISOString() : undefined,
+        physical: decls.actorId ? new Date().toISOString() : undefined,
+        learning: decls.actorId ? new Date().toISOString() : undefined,
         professional: professional ? new Date().toISOString() : undefined,
       },
     };
@@ -328,20 +348,23 @@ class ProfileInferenceService {
       const physicalInterests = snapshot.physical.interests;
       
       for (const interest of physicalInterests) {
+        // concept-first (DECISION-0069): conceptId vem direto do C1 (identidade); categoryPath/Name e o
+        // breadcrumb categoryId só alimentam o fallback de slug. NÃO resolver concept a partir de categoryId.
         const { target: learningCategory } = await this.resolvePhysicalToLearningTarget(
           ctx,
           tenantId,
-          interest.categoryId,
+          interest.conceptId,
           interest.categoryPath,
           interest.categoryName,
+          interest.categoryId,
         );
 
         if (learningCategory) {
           suggestions.push({
-            id: `physical_to_learning_${interest.categoryId}`,
+            id: `physical_to_learning_${interest.conceptId}`,
             type: 'physical_to_learning',
             title: 'Quer aprender mais sobre isso?',
-            message: `Você gosta de "${interest.categoryName}". Que tal explorar isso como aprendizado?`,
+            message: `Você gosta de "${interest.categoryName || 'isso'}". Que tal explorar isso como aprendizado?`,
             actionLabel: 'Ver temas de aprendizado',
             categoryId: learningCategory.categoryId,
             categoryName: learningCategory.name,
@@ -368,22 +391,24 @@ class ProfileInferenceService {
       if (advancedLearnings.length > 0) {
         const learning = advancedLearnings[0];
 
+        // concept-first (DECISION-0069): conceptId direto do C1; breadcrumb só para fallback de slug.
         const { target: professionalCategory } = await this.resolveLearningToProfessionalTarget(
           ctx,
           tenantId,
-          learning.categoryId,
+          learning.conceptId,
           learning.categoryPath,
           learning.categoryName,
+          learning.categoryId,
         );
 
         if (professionalCategory) {
           // 🔴 BLINDAGEM: Mensagem não menciona "nível" como capacidade
           const phaseLabel = learning.progress === 'intermediate' ? 'praticando' : 'aprofundando';
           suggestions.push({
-            id: `learning_to_professional_${learning.categoryId}`,
+            id: `learning_to_professional_${learning.conceptId}`,
             type: 'learning_to_professional',
             title: 'Você já pensou em usar isso profissionalmente?',
-            message: `Você está ${phaseLabel} "${learning.categoryName}". Que tal considerar isso como profissão?`,
+            message: `Você está ${phaseLabel} "${learning.categoryName || 'isso'}". Que tal considerar isso como profissão?`,
             actionLabel: 'Ver profissões relacionadas',
             categoryId: professionalCategory.categoryId,
             categoryName: professionalCategory.name,
@@ -458,30 +483,28 @@ class ProfileInferenceService {
   private async resolvePhysicalToLearningTarget(
     ctx: SemanticInferenceContext,
     tenantId: string,
-    interestCategoryId: string,
+    conceptId: string,
     path: string[],
     name: string,
+    sourceCategoryId: string,
   ): Promise<{
     target: { categoryId: string; name: string; path: string[] } | null;
   }> {
-    const interestSem = await resolveConceptFromCategoryCached(
-      interestCategoryId,
-      ctx.resolutionCache,
-    );
-
-    const interestRow = await getCategoryRow(interestCategoryId);
+    // concept-first (DECISION-0069): conceptId vem direto do C1; NÃO resolver concept a partir de categoryId.
+    // O breadcrumb (sourceCategoryId) só serve para extrair o slug da categoria de origem para o fallback.
+    const interestRow = sourceCategoryId ? await getCategoryRow(sourceCategoryId) : null;
     const extraSlugs = interestRow?.slug ? [interestRow.slug] : [];
     const candidates = this.buildSlugCandidates(path, name, extraSlugs);
 
-    if (interestSem.conceptId) {
-      const edges = await this.getRelatedConceptsCached(ctx, interestSem.conceptId, [
+    if (conceptId) {
+      const edges = await this.getRelatedConceptsCached(ctx, conceptId, [
         'enables',
       ]);
       for (const e of edges) {
         const row = await getCategoryRow(e.toCategoryId);
         if (row && row.conceptId === e.relatedConceptId) {
           console.log(
-            `[semantic][INFO] graph decision physical→learning from_concept=${interestSem.conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
+            `[semantic][INFO] graph decision physical→learning from_concept=${conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
           );
           ctx.decisionStats.graphSuccess += 1;
           return {
@@ -499,7 +522,7 @@ class ProfileInferenceService {
         ctx,
         tenantId,
         'physical→learning',
-        interestSem.conceptId,
+        conceptId,
         'learning',
         candidates,
         ['enables'],
@@ -520,7 +543,7 @@ class ProfileInferenceService {
         ctx,
         'affinityPhysical',
         'no_graph_or_slug',
-        `interestCategoryId=${interestCategoryId} concept_id=${interestSem.conceptId}`,
+        `sourceCategoryId=${sourceCategoryId || 'null'} concept_id=${conceptId}`,
       );
       return { target: null };
     }
@@ -529,7 +552,7 @@ class ProfileInferenceService {
       ctx,
       'affinityPhysical',
       'missing_concept',
-      `interestCategoryId=${interestCategoryId} slug fallback`,
+      `sourceCategoryId=${sourceCategoryId || 'null'} slug fallback (no conceptId)`,
     );
     this.assertSlugFallbackAllowed(
       ctx.policy,
@@ -558,30 +581,27 @@ class ProfileInferenceService {
   private async resolveLearningToProfessionalTarget(
     ctx: SemanticInferenceContext,
     tenantId: string,
-    learningCategoryId: string,
+    conceptId: string,
     path: string[],
     name: string,
+    sourceCategoryId: string,
   ): Promise<{
     target: { categoryId: string; name: string; path: string[] } | null;
   }> {
-    const learnSem = await resolveConceptFromCategoryCached(
-      learningCategoryId,
-      ctx.resolutionCache,
-    );
-
-    const learnRow = await getCategoryRow(learningCategoryId);
+    // concept-first (DECISION-0069): conceptId direto do C1; breadcrumb (sourceCategoryId) só p/ slug.
+    const learnRow = sourceCategoryId ? await getCategoryRow(sourceCategoryId) : null;
     const extraSlugs = learnRow?.slug ? [learnRow.slug] : [];
     const candidates = this.buildSlugCandidates(path, name, extraSlugs);
 
-    if (learnSem.conceptId) {
-      const edges = await this.getRelatedConceptsCached(ctx, learnSem.conceptId, [
+    if (conceptId) {
+      const edges = await this.getRelatedConceptsCached(ctx, conceptId, [
         'evolves_to',
       ]);
       for (const e of edges) {
         const row = await getCategoryRow(e.toCategoryId);
         if (row && row.conceptId === e.relatedConceptId) {
           console.log(
-            `[semantic][INFO] graph decision learning→professional from_concept=${learnSem.conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
+            `[semantic][INFO] graph decision learning→professional from_concept=${conceptId} to_category=${e.toCategoryId} relation=${e.relationType}`,
           );
           ctx.decisionStats.graphSuccess += 1;
           return {
@@ -599,7 +619,7 @@ class ProfileInferenceService {
         ctx,
         tenantId,
         'learning→professional',
-        learnSem.conceptId,
+        conceptId,
         'professional',
         candidates,
         ['evolves_to'],
@@ -620,7 +640,7 @@ class ProfileInferenceService {
         ctx,
         'affinityLearning',
         'no_graph_or_slug',
-        `learningCategoryId=${learningCategoryId} concept_id=${learnSem.conceptId}`,
+        `sourceCategoryId=${sourceCategoryId || 'null'} concept_id=${conceptId}`,
       );
       return { target: null };
     }
@@ -629,7 +649,7 @@ class ProfileInferenceService {
       ctx,
       'affinityLearning',
       'missing_concept',
-      `learningCategoryId=${learningCategoryId} slug fallback`,
+      `sourceCategoryId=${sourceCategoryId || 'null'} slug fallback (no conceptId)`,
     );
     this.assertSlugFallbackAllowed(
       ctx.policy,

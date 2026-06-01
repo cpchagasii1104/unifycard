@@ -27,13 +27,16 @@ export interface InferenceRule {
 
 export interface UserProfileSnapshot {
   physical: {
-    interests: Array<{ categoryId: string; categoryName: string; categoryPath: string[] }>;
+    // C1 actor-first (DECISION-0069, F2): conceptId = identidade semântica usada pelas regras (Lei 7).
+    // categoryId/categoryName/categoryPath = breadcrumb/backcompat de UI/contrato (NUNCA identidade).
+    interests: Array<{ conceptId: string; categoryId: string; categoryName: string; categoryPath: string[] }>;
     count: number;
   };
   learning: {
-    learnings: Array<{ 
-      categoryId: string; 
-      categoryName: string; 
+    learnings: Array<{
+      conceptId: string;
+      categoryId: string;
+      categoryName: string;
       categoryPath: string[];
       progress?: 'beginner' | 'intermediate' | 'advanced' | null;
     }>;
