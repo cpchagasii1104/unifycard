@@ -100,13 +100,9 @@ export function useProfessionalCategories(
       });
 
       // A3.2 tab-only / C1: perfil profissional vem do C1 actor-first (concepts + bio).
-      // Não bloquear UI se não existir; 404/erro → estado vazio.
-      const c1 = await getProfessionalC1().catch((err) => {
-        if (import.meta.env.DEV && err?.status !== 404) {
-          console.warn('Erro ao carregar perfil C1 (não crítico):', err);
-        }
-        return { concepts: [], professional_bio: null };
-      });
+      // C1 já retorna 200 { concepts:[], professional_bio:null } para perfil vazio legítimo.
+      // NÃO mascarar erro real (500/401/403) como vazio — falha visível via catch externo do loadData.
+      const c1 = await getProfessionalC1();
 
       // Aplicar filtro profissional na árvore (e resolver labels via sourceCategoryId).
       let filteredTree: CategoryTree[] = [];
