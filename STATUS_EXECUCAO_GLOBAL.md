@@ -9698,3 +9698,28 @@ opportunity/core/feed/matching **sem diff**. Gates: typecheck0; actor-writer/ban
 
 **DT-C1-READERS-BLOB-TO-C1: OPEN** (F2 mitigação parcial; pendentes opportunity.service + core.service).
 **Fila:** F3 opportunity → F4 core.service.
+
+---
+
+## READERS BACKEND → C1 — F3 (OPPORTUNITY SERVICE) EXECUTADA ✅ (2026-06-01)
+
+`opportunity.service.ts` migrado: o gate de Aprendizado lê o C1 (helper F1), não mais `getLearningProfile`
+legado/blob. HEAD origem `c7eb34a4`. **Só opportunity.service**; zero frontend/migration/financeiro/Lifestyle/
+Saúde/Agenda/Professional/reactivation.
+
+**Mudança:** removido o import dinâmico de `profileLearningService`; o gate
+`learningProfile.learnings.length === 0` virou `getUserLearningDeclarationsForProfile(tenantId, userId)` →
+`learningDeclarations.length === 0`. 0 actor/0 declaração ⇒ count 0 controlado (sem throw); ambiguidade
+(`USER_ACTOR_AMBIGUOUS_FOR_C1_DECLARATIONS`) propaga como erro real (não mascarada). `getInferences` (já
+concept-first pós-F2) **preservado**. Geradores mock intocados (recebem as declarações C1; ignoram conteúdo —
+Aprendizado segue sugestivo, NUNCA bloqueante). Sem `categoryId` como identidade (só count). Interest não
+tocado nesta fatia.
+
+**Provas runtime** (probe; learning C1 seedado/removido): A sem learning → opportunities=0 (gate falso, sem
+throw); B com Learning C1 → gate true, 2 oportunidades (sem throw); C user sem actor → opportunities=0
+(controlado, **sem 500**). Greps: sem `getLearningProfile`/`getProfileLearningService` (só comentário); helper
+C1 presente; sem `global_users.metadata`. profile-inference/core/feed/matching **sem diff**. Gates: typecheck0;
+actor-writer/bank-ledger/regression OK; arch `critical_new=0`, `critical_total=20`.
+
+**DT-C1-READERS-BLOB-TO-C1: OPEN** (F3 mitigação parcial; pendente **core.service.getCompleteProfile**).
+**Fila:** F4 core.service.

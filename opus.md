@@ -2246,3 +2246,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   P4 no-actor→0/0 sem 500. Greps: sem getLearningProfile/getPhysicalProfile (comentário), sem metadata.learnings/
   interests, sem fallback conceptId←categoryId. opportunity/core/feed/matching sem diff. Gates verdes;
   critical_new=0/total=20. DT-C1-READERS-BLOB-TO-C1 OPEN (parcial). Fila: F3 opportunity→F4 core.
+
+### READERS BACKEND → C1 — F3 (OPPORTUNITY SERVICE) EXECUTADA ✅ (2026-06-01)
+- opportunity.service.ts: gate de Aprendizado lê o C1 (helper F1), não mais getLearningProfile legado/blob.
+  HEAD origem c7eb34a4. Só opportunity.service. Zero frontend/migration/financeiro/Lifestyle/Saúde/Agenda/
+  Professional/reactivation.
+- Removido import dinâmico de profileLearningService; gate learningProfile.learnings.length →
+  getUserLearningDeclarationsForProfile → learningDeclarations.length. 0 actor/0 decl ⇒ count 0 controlado
+  (sem throw); ambiguidade propaga erro real. getInferences (concept-first pós-F2) preservado. Geradores mock
+  intocados (recebem declarações C1; ignoram conteúdo — aprendizado sugestivo, não bloqueante). Só count, sem
+  categoryId como identidade. Interest não tocado.
+- Provas runtime (probe): A sem learning→0 (sem throw); B com Learning C1→gate true, 2 oportunidades; C
+  no-actor→0 sem 500. Greps: sem getLearningProfile/getProfileLearningService (comentário); helper C1 presente;
+  sem global_users.metadata. profile-inference/core/feed/matching sem diff. Gates verdes; critical_new=0/
+  total=20. DT-C1-READERS-BLOB-TO-C1 OPEN (parcial; pendente core.service). Fila: F4 core.service.getCompleteProfile.

@@ -12,13 +12,11 @@
 // - Por que isso NÃO pode virar decisão: aprendizado é interesse ativo, não validação
 
 import { profileInferenceService } from '../profile/profile-inference.service';
+import { profileC1DeclarationsReadService } from '../profile/profile-c1-declarations-read.service';
 import type { OpportunityResult, Opportunity, OpportunityType } from './opportunity.types';
 
-// Import dinâmico para evitar dependência circular
-const getProfileLearningService = async () => {
-  const { profileLearningService } = await import('../profile/profile-learning.service');
-  return profileLearningService;
-};
+// F3 (DECISION-0069): o gate de Aprendizado lê o C1 actor-first/concept-first (helper de leitura), não mais
+// o getLearningProfile legado (que lia o blob hoje vazio). Aprendizado segue sugestivo, NUNCA bloqueante.
 
 class OpportunityService {
   /**
@@ -38,13 +36,18 @@ class OpportunityService {
     // Buscar inferências do usuário
     const inferences = await profileInferenceService.getInferences(tenantId, userId);
     
-    // Buscar perfil de aprendizado (para contexto sugestivo, não bloqueante)
-    const profileLearningServiceInstance = await getProfileLearningService();
-    const learningProfile = await profileLearningServiceInstance.getLearningProfile(tenantId, userId);
-    
-    // 🔴 BLINDAGEM: Se não houver perfil de aprendizado, ainda pode retornar oportunidades
+    // Aprendizado declarado no C1 actor-first (DECISION-0069/F3) — contexto sugestivo, não bloqueante.
+    // Sem actor / sem declaração ⇒ count 0 controlado (helper retorna vazio, sem throw). Ambiguidade de
+    // actor (USER_ACTOR_AMBIGUOUS_FOR_C1_DECLARATIONS) propaga como erro real (não mascarar).
+    const learningC1 = await profileC1DeclarationsReadService.getUserLearningDeclarationsForProfile(
+      tenantId,
+      userId,
+    );
+    const learningDeclarations = learningC1.learning;
+
+    // 🔴 BLINDAGEM: Se não houver aprendizado declarado, ainda pode retornar oportunidades
     // (baseadas em outros fatores como estado inferido, físico, profissional)
-    if (!learningProfile || learningProfile.learnings.length === 0) {
+    if (learningDeclarations.length === 0) {
       // Não bloqueia - pode retornar oportunidades baseadas em outros fatores
       // Por enquanto, retorna vazio apenas se não houver contexto algum
       // Em produção, poderia buscar oportunidades baseadas em físico/profissional
@@ -71,7 +74,7 @@ class OpportunityService {
       const exploratory = await this.generateExploratoryOpportunities(
         tenantId,
         userId,
-        learningProfile,
+        learningDeclarations,
         1
       );
       opportunities.push(...exploratory);
@@ -82,7 +85,7 @@ class OpportunityService {
       const community = await this.generateCommunityOpportunities(
         tenantId,
         userId,
-        learningProfile,
+        learningDeclarations,
         1
       );
       opportunities.push(...community);
@@ -95,7 +98,7 @@ class OpportunityService {
       const professional = await this.generateProfessionalOpportunities(
         tenantId,
         userId,
-        learningProfile,
+        learningDeclarations,
         1
       );
       opportunities.push(...professional);
