@@ -9421,3 +9421,34 @@ blob `global_users.metadata` (DT-LEARNING-INTEREST-BLOB-SSOT segue OPEN — fech
 **Fila:** **Fatia 2 — backend C1** (rotas/services/repositories `/profile/learning/c1` e
 `/profile/interest/c1`, espelhando `professional-c1.*`) · depois backfill · frontend · cleanup. Bloqueados:
 financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## C1 LEARNING/INTEREST — FATIA 2 (BACKEND) — EXECUTADA ✅ (2026-06-01)
+
+Backend C1 actor-first de Learning e Interest implementado (DECISION-0067, Fatia 2), espelhando
+`professional-c1.*`. HEAD origem `0299459b`. **Sem migration nesta fatia** (schema da Fatia 1 já completo).
+
+**Criados** (8 arquivos novos + registro): `core/profile/learning-c1/{types,repository,service,routes}.ts`
+e `core/profile/interest-c1/{types,repository,service,routes}.ts`; registrados em `profile.routes.ts`.
+
+**Rotas:** `GET /profile/learning/c1` · `POST /profile/learning/c1/concepts {conceptId, sourceCategoryId?,
+progress?}` · `PATCH /profile/learning/c1/concepts/:conceptId {progress?, sourceCategoryId?, reactivate?}` ·
+`DELETE …` (desativação lógica). Idem `/profile/interest/c1` (binário, sem progress). **Body camelCase,
+interno snake_case.** actorId = `req.actionContext.actorId` (writer §4.8.1; nunca req.user.id); concept_id
+obrigatório; source_category_id breadcrumb com **validação de consistência** (scope correto + concept_id +
+bate com conceptId, senão 400). resolveActorGuarded + invariante actor_id=id; mapIntegrityError
+(23505→409, 23503→400, 23514→400). **Sem `global_users.metadata`, sem lifestyle, sem professional/
+capability/authority/financeiro.**
+
+**Provas runtime:** Learning — GET vazio 200 · POST 201 · GET 1 · PATCH progress 200 · PATCH vazio→400 ·
+POST dup→409 · DELETE 200 (soft) · GET vazio pós. Interest — GET/POST/GET/DELETE/GET ok. Breadcrumb:
+learning C1 com category de scope interest → 400. Legados `/profile/learning` e `/profile/physical`
+**intocados** (200). Blob **intocado** (0 global_users). typecheck=0; gates verdes; `critical_new=0`.
+
+**Estado:** backend C1 existe e funciona, mas **frontend ainda usa os endpoints legados** (gravam no blob) —
+Fatia 3 (backfill), Fatia 4 (frontend) e Fatia 5 (cleanup do blob) **pendentes**. DT-LEARNING-INTEREST-BLOB-SSOT
+segue OPEN (fecha só na Fatia 5). Lifestyle fora.
+
+**Fila:** Fatia 3 (backfill blob→C1, idempotente, DEV no-op) → Fatia 4 (frontend) → Fatia 5 (cleanup).
+Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

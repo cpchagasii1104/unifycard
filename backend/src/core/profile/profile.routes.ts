@@ -8,6 +8,8 @@ import { ConflictError } from '@core/errors';
 import { runQueryWithTenant } from '@core/database/pool';
 import profileProfessionalRoutes from './profile-professional.routes';
 import professionalC1Routes from './professional-c1/professional-c1.routes';
+import learningC1Routes from './learning-c1/learning-c1.routes';
+import interestC1Routes from './interest-c1/interest-c1.routes';
 import profilePhysicalRoutes from './profile-physical.routes';
 import profileLearningRoutes from './profile-learning.routes';
 import profileInferenceRoutes from './profile-inference.routes';
@@ -19,6 +21,9 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(profileProfessionalRoutes);
   // Registrar rotas C1 actor-first do perfil profissional (DESENHO_A2 / DECISION-0063)
   await fastify.register(professionalC1Routes);
+  // Registrar rotas C1 actor-first de Aprendizado e Interesse (DECISION-0067, Fatia 2)
+  await fastify.register(learningC1Routes);
+  await fastify.register(interestC1Routes);
   // Registrar rotas de perfil físico
   await fastify.register(profilePhysicalRoutes);
   // Registrar rotas de perfil de aprendizado

@@ -2094,3 +2094,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Escrita/leitura runtime AINDA NÃO usam C1 (blob segue destino; DT-LEARNING-INTEREST-BLOB-SSOT OPEN).
   Fila: Fatia 2 backend C1 (rotas/services /profile/{learning,interest}/c1 espelhando professional-c1.*) →
   backfill → frontend → cleanup. Lifestyle fora.
+
+### C1 LEARNING/INTEREST — FATIA 2 (BACKEND) — EXECUTADA ✅ (2026-06-01)
+- 8 arquivos novos: core/profile/{learning-c1,interest-c1}/{types,repository,service,routes}.ts +
+  registro em profile.routes.ts. Espelha professional-c1. Sem migration (schema da Fatia 1 pronto).
+- Rotas: GET/POST/PATCH/DELETE /profile/learning/c1 e /profile/interest/c1 (interest binário sem progress).
+  Body camelCase, interno snake. actorId=req.actionContext.actorId (writer §4.8.1, nunca req.user.id);
+  concept_id obrigatório; source_category_id breadcrumb com validação (scope+concept_id+bate conceptId →
+  senão 400). resolveActorGuarded+invariante; mapIntegrityError (23505→409/23503→400/23514→400). Sem
+  global_users.metadata, sem lifestyle, sem professional/capability/financeiro.
+- Provas: learning GET vazio200/POST201/GET1/PATCH200/PATCHvazio400/dup409/DELETE200/GETvazio; interest
+  ok; breadcrumb scope errado→400; legados /profile/learning e /physical intocados (200); blob intocado
+  (0). typecheck=0; gates verdes; critical_new=0.
+- Frontend ainda usa legados (blob). Fila: Fatia 3 backfill (DEV no-op) → Fatia 4 frontend → Fatia 5
+  cleanup blob. DT-LEARNING-INTEREST-BLOB-SSOT OPEN (fecha na Fatia 5). Lifestyle fora.
