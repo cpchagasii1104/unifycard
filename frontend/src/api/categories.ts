@@ -146,10 +146,18 @@ export async function searchCategories(term: string, limit: number = 50, context
 /**
  * Busca filhos diretos de uma categoria
  * Útil para carregamento sob demanda quando os children não vêm populados na árvore
+ *
+ * @param context Quando 'professional', o backend surfaça `conceptId` nas folhas (declaração C1).
+ *   Sem context explícito, `conceptId` NÃO é exposto (OPÇÃO B, 07 §4262/4278). O fluxo profissional
+ *   DEVE passar 'professional' para que a folha traga conceptId real (a trava C1 exige conceptId).
  */
-export async function getCategoryChildren(categoryId: string): Promise<Category[]> {
+export async function getCategoryChildren(
+  categoryId: string,
+  context?: CategoryContext
+): Promise<Category[]> {
   try {
-    const response = await apiFetch(`/categories/${categoryId}/children`);
+    const query = context ? `?${new URLSearchParams({ context }).toString()}` : '';
+    const response = await apiFetch(`/categories/${categoryId}/children${query}`);
     const result = await response.json();
     if (result.ok && result.data) {
       return result.data.children || [];

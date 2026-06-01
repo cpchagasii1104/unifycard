@@ -450,7 +450,9 @@ export default function ProfileProfessional() {
         setLoadingChildren(prev => new Set(prev).add(categoryId));
 
         try {
-          const children = await getCategoryChildren(categoryId);
+          // Contexto profissional EXPLÍCITO: sem ele o backend não surfaça conceptId (OPÇÃO B),
+          // e a folha chega sem conceptId — a trava C1 do addSkill bloquearia a declaração.
+          const children = await getCategoryChildren(categoryId, 'professional');
           console.log(`[toggleCategory] Children carregados para ${category.name}:`, {
             count: children.length,
             sample: children.slice(0, 3).map(c => ({ name: c.name, level: c.level, scope: c.scope })),
