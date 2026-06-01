@@ -2034,3 +2034,15 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   NÃO fechar DT-LEARNING-INTEREST-BLOB-SSOT (blob até C1), guard intacto.
 - Doc: DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md + log. Próxima fatia = Migration B (ciclo fechado:
   migration+validação+STATUS/opus/DTs+gates). NÃO autoriza migration aqui.
+
+### Auditoria duplicidade Interest + ADENDO A à 0066 ✅ (2026-06-01)
+- Auditoria read-only (HEAD a602d2dd): SEM duplicidade material de Interest. 0 tabelas/colunas
+  interest/hobby/preference; scope=interest=0; 0 dos 11 concepts novos; archive (0682/0875/0078) NUNCA
+  aplicado (tabelas AUSENTES vivas); 'interest' é slot canônico vazio; Git sem impl anterior. human-mvp
+  dormente lê context 'interest' (tabelas AUSENTES) — não bloqueia. Migration B pode seguir.
+- ADENDO A à DECISION-0066 (doc + log): categories_slug_key = UNIQUE(slug) GLOBAL → slugs limpos de
+  categoria interest colidem (11: programacao/idiomas/ciencias/...; gastronomia em professional). REGRA:
+  concepts slug LIMPO; categories scope='interest' com sufixo -interesse (raízes+folhas); mapping
+  *-interesse → concept limpo. Concept não duplica (UNIQUE(domain,slug)); folha interest e learning
+  compartilham concept_id. Vinculante p/ Migration B.
+- Próxima fatia = Migration B com category slugs -interesse + concepts limpos (executor próprio, ratificação).

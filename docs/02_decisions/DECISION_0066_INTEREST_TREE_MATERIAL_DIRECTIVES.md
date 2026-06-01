@@ -106,3 +106,54 @@ sem fechar `DT-LEARNING-INTEREST-BLOB-SSOT` (persistência segue blob até C1) �
   com prompt executor próprio e ratificação (executor não se autoriza).
 - **Interest declarado ≠ inferido** (declarado = futuro C1; inferido = GRAPH/inference, substrato separado).
 - **C1 Learning/Interest** só **depois** do substrato de Interest existir.
+
+---
+
+## ADENDO A — SLUGS DE CATEGORIES INTEREST COM SUFIXO `-interesse` (2026-06-01)
+
+**Status:** RATIFICADO — refinamento material desta DECISION; vinculante para a Migration B.
+**Origem:** auditoria read-only de duplicidade/arqueologia de Interesses (HEAD `a602d2dd`).
+
+### Contexto da auditoria
+Auditoria read-only confirmou, antes da Migration B: **NÃO existe duplicidade material** de substrato de
+Interest — 0 tabelas/colunas de interest/hobby/preference no schema vivo; `scope='interest'`=0; 0 dos 11
+concepts novos planejados; nenhuma migration **aplicada** anterior de Interest (archive `0682/0875/0078`
+nunca aplicado — tabelas AUSENTES vivas); `'interest'` é **slot canônico declarado mas vazio**; domínio
+`cultura-lazer-e-eventos` existe; histórico Git **sem** implementação anterior de Interest removida.
+
+### Veredito
+**Sem duplicidade material → Migration B pode seguir.** Não há nada a reaproveitar além dos 27 concepts de
+Learning (reuso já previsto na §6). O único leitor adjacente é o módulo **human-mvp dormente** (lê context
+'interest', tabelas AUSENTES) — não bloqueia.
+
+### Achado material (BLOQUEADOR de slug, agora resolvido por este adendo)
+`categories_slug_key` = **`UNIQUE (slug)` GLOBAL** (verificado). Os slugs **limpos** planejados na §6 para
+as **categorias** de interest colidem com categorias existentes (11 colisões: `programacao`, `idiomas`,
+`ciencias`, `decoracao`, `panificacao`, `manutencao-basica`, `desenho-ilustracao`, `ferramentas-digitais`,
+`financas-pessoais`, `inteligencia-artificial` em learning; `gastronomia` em professional). Os **concepts**
+NÃO colidem (`concepts` é `UNIQUE(domain, slug)`).
+
+### Regra (vinculante para a Migration B)
+1. **Concepts mantêm slug LIMPO** (ex.: `fotografia`, `musica`, `programacao`, `cinema-e-series`).
+2. **Categories `scope='interest'` usam sufixo `-interesse`** (raízes E folhas): ex.: raiz
+   `cultura-e-arte-interesse`, `gastronomia-interesse`; folha `fotografia-interesse`, `programacao-interesse`,
+   `cinema-e-series-interesse`.
+3. O sufixo `-interesse` é **navegação/contexto, NÃO identidade**.
+4. `concept_id` continua sendo a **identidade semântica**; `source_category_id` futuro continua **breadcrumb**.
+5. O esquema **não duplica concept** — apenas evita colisão de **category** (slug global único).
+6. **Mapping literal da Migration B:** category slug `*-interesse` → concept slug **limpo** (reuso de
+   `educacao-e-conhecimento` quando o significado for comum; concept novo em `cultura-lazer-e-eventos`
+   para lazer/afinidade).
+
+> Observação: as folhas que **reutilizam** concept de Learning (educacao-e-conhecimento) e as **novas**
+> (cultura-lazer-e-eventos) seguem o **mesmo** esquema de category slug `-interesse`. Folha interest e folha
+> learning **compartilham o mesmo `concept_id`** (slugs de categoria distintos; concept único).
+
+### Vetos mantidos (de 0064/0065/0066)
+Sem SQL ad-hoc (só migration governada com mapping) · sem frontend criando taxonomia · sem `categoryId`
+como identidade · sem C1 antes da Migration B · sem lifestyle nesta migration · guard
+`requireCategoriesWithConceptForScope` permanece.
+
+### Impacto / próxima frente
+Migration B passa a usar **category slugs `-interesse` + concepts limpos**. Este adendo **não autoriza**
+migration; a Migration B continua sendo fatia executora própria com ratificação.

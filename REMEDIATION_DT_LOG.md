@@ -10515,8 +10515,13 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   materiais de Interest **registradas em DECISION-0066** (árvore mínima governada `scope='interest'`, raízes
   sem concept + folhas com concept, reuso de concepts de Learning + concepts novos em `cultura-lazer-e-eventos`).
   **Status permanece OPEN** — nenhuma migration executada ainda; a mitigação virá com a **Migration B**.
-- **Resolução prevista:** Migration B governada (DECISION-0066) cria árvore `scope='interest'` + concepts,
-  conectada a CONCEPT, sem `category` como identidade. Status muda só após a migration.
+  **Nota (2026-06-01, ADENDO A à 0066):** auditoria read-only confirmou **sem duplicidade material** de
+  substrato de Interest (archive nunca aplicado; sem impl. anterior no Git). Achado: `categories_slug_key`
+  é `UNIQUE(slug)` global → categorias `scope='interest'` usarão **sufixo `-interesse`** (concepts mantêm
+  slug limpo, compartilhados). **Status segue OPEN** (sem migration ainda).
+- **Resolução prevista:** Migration B governada (DECISION-0066 + ADENDO A) cria árvore `scope='interest'`
+  (slugs `-interesse`) + concepts (limpos), conectada a CONCEPT, sem `category` como identidade. Status muda
+  só após a migration.
 
 ## DT-PROFILE-FRONTEND-DRIVES-TAXONOMY
 

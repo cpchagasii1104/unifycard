@@ -9309,3 +9309,24 @@ antes da Migration B · NÃO fechar DT-LEARNING-INTEREST-BLOB-SSOT (persistênci
 Interest concepts + árvore + associação** (governada, prompt executor próprio com ratificação, ciclo
 fechado: migration + validação + STATUS/opus/DTs + gates). Depois: DESENHO C1 Learning/Interest. Bloqueados:
 financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## AUDITORIA DUPLICIDADE INTEREST + ADENDO A à DECISION-0066 ✅ (2026-06-01)
+
+Auditoria read-only de duplicidade/arqueologia de Interesses (HEAD `a602d2dd`): **SEM duplicidade material**
+— 0 tabelas/colunas de interest/hobby/preference no schema vivo; `scope='interest'`=0; 0 dos 11 concepts
+novos; archive (`0682/0875/0078`) **nunca aplicado** (tabelas AUSENTES vivas); `'interest'` é slot canônico
+declarado mas vazio; histórico Git **sem** implementação anterior de Interest. Único leitor adjacente:
+módulo **human-mvp dormente** (context 'interest', tabelas AUSENTES) — não bloqueia. **Migration B pode
+seguir.**
+
+**Achado material → ADENDO A à DECISION-0066 (promulgado):** `categories_slug_key` é **`UNIQUE(slug)`
+GLOBAL** → slugs limpos de categoria interest colidem com learning/professional (11 colisões). **Regra:**
+concepts mantêm slug **limpo**; categorias `scope='interest'` usam **sufixo `-interesse`** (raízes e folhas);
+mapping `*-interesse` (category) → slug limpo (concept). Concept NÃO duplica (`UNIQUE(domain,slug)`); folha
+interest e learning compartilham o mesmo `concept_id`. Doc: ADENDO A em
+`DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md` + log.
+
+**Fila:** próxima fatia material = **Migration B** com **category slugs `-interesse` + concepts limpos**
+(prompt executor próprio, ratificação, ciclo fechado). Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

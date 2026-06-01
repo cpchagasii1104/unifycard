@@ -5861,6 +5861,18 @@ NÃO autoriza migration. Domínio decidido → próxima fatia material PODE ser 
 concepts + árvore + associação** (governada, prompt executor próprio, ratificação). C1 só depois do
 substrato de Interest.
 
+### Adendo A (2026-06-01) — slugs de categories interest com sufixo `-interesse`
+
+Após auditoria read-only de duplicidade (HEAD `a602d2dd`): **sem duplicidade material** de substrato de
+Interest (0 tabelas/scope/concepts; archive nunca aplicado; sem implementação anterior no Git) → Migration
+B pode seguir. **Achado:** `categories_slug_key UNIQUE(slug)` é **global** → slugs limpos de categoria
+colidem (11: programacao/idiomas/ciencias/… em learning; gastronomia em professional). **Regra:** concepts
+mantêm slug **limpo**; categorias `scope='interest'` usam **sufixo `-interesse`** (raízes e folhas); mapping
+`*-interesse` (category) → slug limpo (concept). Concept não duplica (UNIQUE(domain,slug)); folha interest e
+learning compartilham o mesmo `concept_id`. Detalhe canônico no doc
+`docs/02_decisions/DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md` (ADENDO A). Vinculante para a
+Migration B. Não autoriza migration.
+
 ### Superada por
 
 (em aberto — decisão vigente)
