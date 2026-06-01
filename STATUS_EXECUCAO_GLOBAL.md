@@ -9079,3 +9079,18 @@ C1 e physical **200** intactos; legado **500** inalterado. tsc=0 · gates sem re
 **Fila após o selo:** A3.1 backend SELADA · **A3.2 frontend/Codex = próxima, só prompt/desenho, NÃO
 autorizada a código** (migrar aba Profissional → `/profile/professional/c1` pelo DESENHO_A3) ·
 Interesses/Aprendizado bloqueado · financeiro/migration bloqueados.
+
+---
+
+## A3.2 — PROMPT FINAL AUTORIZADO PARA O CODEX ✅ (doc `PROMPT_A3_2_FRONTEND_CODEX.md` · 2026-05-31)
+
+Prompt de execução A3.2 (frontend) ratificado por Clayton com ajustes sucessivos (separação A3.1/A3.2 ·
+contrato C1 write-snake/read-camel · sem hardcode de actor · ETAPA 0 explícita · BASELINE antes de editar ·
+TRAVA de `concept_id` · save granular com STOP se não calcular diff · "zero legado" condicionado a blast
+radius · escopo só-frontend · sem merge/rebase/push). Documento canônico de referência para o Codex:
+`docs/02_decisions/PROMPT_A3_2_FRONTEND_CODEX.md`.
+
+**Fronteira:** FRONTEND = alçada do Codex (agente separado). **Claude NÃO executa A3.2.** Papel do Claude
+pós-execução do Codex: auditoria do diff + verificação backend (re-sweep C1, prova de não-persistência fora
+do C1). **Código A3.2 = autorizado ao Codex** dentro do escopo estrito do prompt. Interesses/Aprendizado,
+financeiro e migration seguem bloqueados.
