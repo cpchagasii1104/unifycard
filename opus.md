@@ -2210,3 +2210,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - DTs: BLOB-SSOT CLOSED; LIFESTYLE-SENSITIVE OPEN; FRONTEND-DRIVES-TAXONOMY PARTIALLY MITIGATED;
   C1-REACTIVATION OPEN LOW. Resíduos (frentes próprias): readers backend→C1, reativação pós soft-delete,
   Lifestyle/Saúde, Agenda. Gates docs-only verdes (critical_new=0). Atualizados STATUS+opus+DT_LOG (ref selo).
+
+### READERS BACKEND → C1 — F1 (READ HELPER) EXECUTADA ✅ · DECISION-0069 (2026-06-01)
+- Infra de leitura C1 para readers user-scoped. Só backend, read-only; NENHUM consumidor migrado
+  (profile-inference/opportunity/core intactos). HEAD origem 392cd68b. Zero frontend/migration/financeiro/
+  Lifestyle/Saúde/Agenda/Professional.
+- DECISION-0069 (docs/02_decisions/DECISION_0069_*): userId→actors.actor_id (tenant+user_id+actor_type='user');
+  sem ensureUserActor; sem global_user_id SSOT; 0 actor→vazio controlado; >1→USER_ACTOR_AMBIGUOUS_FOR_C1_
+  DECLARATIONS; fonte view actor_concept_declarations_v (concept_id identidade; source_category_id breadcrumb).
+- Arquivos: profile-c1-declarations-read.repository.ts (findUserActors + listActive learning/interest via view +
+  LEFT JOIN categories) + .service.ts (getUserActorConceptDeclarationsForProfile + wrappers; shape {actorId,
+  learning[],interests[]}; progress 1/2/3→beginner/intermediate/advanced; professional excluído).
+- Provas runtime (probe tsx, declarações C1 seedadas/removidas): actorId match dev, learning=3/interest=1;
+  progress 1/2/3→labels (conceptId real, name/path do breadcrumb); interest conceptId+sourceCategoryId; user
+  sem actor→{actorId:null,[],[]} (não 500); ambiguidade fail-closed por rows.length>1. Greps: sem SELECT*/
+  global_users.metadata/ensureUserActor (só comentário). Gates: typecheck0; actor-writer/bank-ledger/regression
+  OK; arch critical_new=0/total=20. DT-C1-READERS-BLOB-TO-C1 OPEN. Fila: F2 inference→F3 opportunity→F4 core.

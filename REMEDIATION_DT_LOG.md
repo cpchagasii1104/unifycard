@@ -10504,6 +10504,16 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** baixo — o save pode falhar com 409 ao re-adicionar um interesse/aprendizado removido em sessão anterior; UX mostra erro limpo (não corrompe dado).
 - **Resolução prevista:** no save granular do frontend, distinguir "novo de fato" de "reativação" (consultar declarações inativas ou tentar PATCH `reactivate` no 409). Fora do escopo do cleanup (Fatia 5).
 
+## DT-C1-READERS-BLOB-TO-C1
+
+- **Status:** OPEN (2026-06-01) — F1 (helper de leitura) entregue; consumidores ainda **não** migrados.
+- **Origem:** auditoria read-only dos readers backend (pós-`SELO_C1_LEARNING_INTEREST.md` §5.1) + DECISION-0069.
+- **Vinculada a:** DECISION-0069 (resolução `userId → actor user`), DECISION-0067 (C1 actor-first), `SELO_C1_LEARNING_INTEREST.md`.
+- **Contexto:** após o cleanup do blob (Fatia 5), os readers backend `profile-inference.service` (`getUserProfileSnapshot` → physical.interests + learning.learnings), `opportunity.service` (`getContextualOpportunities` → gate `learnings.length`) e `core.service` (`getCompleteProfile` → `physical_profile.interests`) ainda chamam os leitores legados (`getLearningProfile`/`getPhysicalProfile`), que hoje retornam **vazio** (degradam sem crash; não persistem verdade). A verdade de Learning/Interest vive no C1 (`actor_learning_concepts`/`actor_interest_concepts`).
+- **Risco:** sinal de Learning/Interest ausente em feed/matching/oportunidades/inferência até a migração; baixo (degradação para vazio, sem corrupção). categoryId como ponte semântica nas REGRAS A/B do inference é *smell* a corrigir (conceptId é soberano no C1).
+- **Mitigação (F1, 2026-06-01):** entregue o read-service `profile-c1-declarations-read.{service,repository}.ts` (read-only; resolve `userId → actor user`; lê `actor_concept_declarations_v`; shape com conceptId/breadcrumb/progress; vazio controlado; ambiguidade fail-closed). **Nenhum consumidor trocado** nesta fatia.
+- **Resolução prevista:** **F2** `profile-inference.service` → helper (concept-first; adaptar REGRA A/B p/ resolver grafo a partir do conceptId; mapear progress) — conserta feed/matching/opportunity/inference-routes; **F3** `opportunity.service` → remover leitura legada direta; **F4** `core.service.getCompleteProfile` → interests via helper (lifestyle/health permanecem legado). CLOSE quando os 3 consumidores lerem o C1 e não houver leitura ativa de `getLearningProfile`/interests-de-`getPhysicalProfile`.
+
 ## DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID
 
 - **Status:** **PARTIALLY MITIGATED** (2026-06-01) — Learning resolvido por Migration A; Interest pendente (DT-INTEREST-SCOPE-EMPTY).

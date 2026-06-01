@@ -5979,3 +5979,45 @@ event/company 0. Escopo: só `categories.service.ts`; zero frontend/migration/sc
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0069 — Readers user-scoped resolvem declarações C1 pelo actor user
+
+**Status:** RATIFICADA — EXECUTADA (F1: helper de leitura + provas) (2026-06-01).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `392cd68b`.
+**Documento canônico:** `docs/02_decisions/DECISION_0069_C1_READERS_USER_ACTOR_RESOLUTION.md`.
+**Complementa (sem revogar):** DECISION-0067/0068; `SELO_C1_LEARNING_INTEREST.md` §5.1 (resíduo readers→C1).
+
+### Contexto
+
+Frente Learning/Interest → C1 selada (escrita+frontend no C1; blob removido). Mas readers backend
+(`profile-inference.service`, `opportunity.service`, `core.service`) ainda usam leitores legados (hoje
+retornam vazio) e operam por `userId`, enquanto o C1 é actor-first (leitura por `actor_id`).
+
+### Escolha
+
+Readers user-scoped resolvem `userId → actors.actor_id` onde `tenant_id=$1 AND user_id=$2 AND
+actor_type='user'`. Sem criação (zero `ensureUserActor`); sem `global_user_id` como identidade final; 0
+actor → vazio controlado; >1 actor → falha fechada `USER_ACTOR_AMBIGUOUS_FOR_C1_DECLARATIONS`. Fonte =
+view `actor_concept_declarations_v` (`concept_id` identidade; `declaration_kind IN ('learning','interest')`,
+`is_active=true`); `source_category_id` breadcrumb opcional (LEFT JOIN categories; nulo → não inventar).
+
+### Justificativa / Vetos
+
+Ponte de identidade necessária antes de migrar consumidores; concept-first preserva Lei 7. Vetos:
+`ensureUserActor`, `global_user_id` como SSOT, `SELECT *`, `global_users.metadata`, fallback
+`conceptId←categoryId`, mistura de Professional/Lifestyle/Saúde, financeiro, escrita, migrar consumidores.
+
+### Consequência / Provas (F1)
+
+Entregue helper `profile-c1-declarations-read.{service,repository}.ts` (read-only). Provas runtime:
+actorId resolvido (match dev), learning=3/interest=1, progress 1/2/3→beginner/intermediate/advanced (conceptId
+real, name/path do breadcrumb), interest com conceptId+sourceCategoryId, user sem actor→vazio controlado,
+ambiguidade por `rows.length>1`. Gates: typecheck 0; actor-writer/bank-ledger/regression OK; arch
+`critical_new=0`. Zero consumidor migrado/frontend/migration/financeiro/Lifestyle/Saúde/Agenda/Professional.
+Próximas: F2 inference → F3 opportunity → F4 core. `DT-C1-READERS-BLOB-TO-C1` OPEN.
+
+### Superada por
+
+(em aberto — decisão vigente)

@@ -9639,3 +9639,30 @@ frontend criando taxonomia · sem financeiro.
 DT-PROFILE-FRONTEND-DRIVES-TAXONOMY **PARTIALLY MITIGATED** · DT-C1-LEARNING-INTEREST-REACTIVATION **OPEN LOW**.
 **Resíduos (frentes próprias):** readers backend (opportunity/inference/core) → C1 · reativação pós soft-delete ·
 Lifestyle/Saúde · Agenda/TEMPO. Gates docs-only verdes (`critical_new=0`).
+
+---
+
+## READERS BACKEND → C1 — F1 (READ HELPER) EXECUTADA ✅ · DECISION-0069 (2026-06-01)
+
+Infraestrutura de leitura C1 para readers backend user-scoped. HEAD origem `392cd68b`. **Só backend, read-only**;
+**nenhum consumidor migrado** (profile-inference/opportunity/core intactos). Zero frontend/migration/financeiro/
+Lifestyle/Saúde/Agenda/Professional.
+
+**DECISION-0069** (`docs/02_decisions/DECISION_0069_C1_READERS_USER_ACTOR_RESOLUTION.md`): readers user-scoped
+resolvem `userId → actors.actor_id` (`tenant_id+user_id+actor_type='user'`); sem `ensureUserActor`; sem
+`global_user_id` como SSOT; 0 actor → vazio controlado; >1 → `USER_ACTOR_AMBIGUOUS_FOR_C1_DECLARATIONS`; fonte =
+view `actor_concept_declarations_v` (concept_id identidade; source_category_id breadcrumb opcional).
+
+**Arquivos:** `profile-c1-declarations-read.repository.ts` (queries explícitas: findUserActors + listActive
+learning/interest via view + LEFT JOIN categories) + `profile-c1-declarations-read.service.ts`
+(`getUserActorConceptDeclarationsForProfile` + wrappers só-learning/só-interest; shape `{actorId, learning[],
+interests[]}`; progress 1/2/3→beginner/intermediate/advanced). `professional` excluído.
+
+**Provas runtime** (actor dev, declarações C1 seedadas/removidas): actorId resolvido (match), learning=3/
+interest=1; progress 1/2/3 → labels corretos (conceptId real, name/path do breadcrumb); interest com conceptId+
+sourceCategoryId; user sem actor → `{actorId:null, learning:[], interests:[]}` (não 500); ambiguidade fail-closed
+por `rows.length>1`. Greps anti-escopo: sem SELECT*/global_users.metadata/ensureUserActor (só em comentário).
+Gates: typecheck 0; actor-writer/bank-ledger/regression OK; arch `critical_new=0`, `critical_total=20`.
+
+**DT:** **DT-C1-READERS-BLOB-TO-C1 OPEN** (consumidores pendentes). **Fila:** F2 profile-inference → F3
+opportunity → F4 core.service. Bloqueados: Lifestyle/Saúde, Agenda, financeiro, reactivation 409.
