@@ -242,7 +242,8 @@ class ProfileInferenceService {
     const [physical, learning, professional] = await Promise.all([
       profilePhysicalService.getPhysicalProfile(tenantId, userId),
       profileLearningService.getLearningProfile(tenantId, userId),
-      profileProfessionalService.getProfessionalProfile(tenantId, userId),
+      // Bloco profissional depende de serviço legado morto; degrada SÓ ele (physical/learning seguem propagando).
+      profileProfessionalService.getProfessionalProfile(tenantId, userId).catch(() => ({ skills: [], count: 0 })),
     ]);
 
     return {
