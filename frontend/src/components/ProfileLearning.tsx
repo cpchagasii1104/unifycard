@@ -5,15 +5,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useSession } from '../contexts/SessionProvider';
 import NotApplicableMessage from './NotApplicableMessage';
 import { CategoryContext } from '@unificard/contracts';
+// Fatia 4b (DECISION-0067): aba Aprendizado migrada para o C1 actor-first/concept-first.
+// Legado /profile/learning (blob) NÃO é mais usado por esta aba. Criação de taxonomia pelo
+// frontend (createCategoryWithAI/suggestCategoryPath) foi neutralizada (governança futura).
 import {
-  getLearningProfile,
-  updateLearningProfile,
-} from '../api/learning';
+  getLearningC1,
+  declareLearningConceptC1,
+  updateLearningConceptC1,
+  retireLearningConceptC1,
+} from '../api/learningC1';
 import {
   getCategoryTree,
   autocompleteCategories,
-  createCategoryWithAI,
-  suggestCategoryPath,
   type CategoryTree,
   type Category,
   type CategoryAutocompleteResult,
@@ -25,12 +28,33 @@ import ProfileLearningForm from './ProfileLearningForm';
 import './ProfileLearning.css';
 
 interface SelectedLearning {
-  categoryId: string;
+  categoryId: string;          // breadcrumb (= source_category_id no C1)
+  conceptId: string;           // identidade semântica (C1, Lei 7)
   categoryName: string;
   categoryPath: string[];
-  details: string[];
-  notes: string;
+  details: string[];           // UI-local; C1 NÃO persiste
+  notes: string;               // UI-local; C1 NÃO persiste
   progress: 'beginner' | 'intermediate' | 'advanced' | null;
+}
+
+// Mapeamento progress UI(string) ↔ C1(SMALLINT 1..3). Estágio de EXPLORAÇÃO, não competência.
+type UiProgress = 'beginner' | 'intermediate' | 'advanced' | null;
+function uiToC1Progress(p: UiProgress): number | null {
+  return p === 'beginner' ? 1 : p === 'intermediate' ? 2 : p === 'advanced' ? 3 : null;
+}
+function c1ToUiProgress(n: number | null): UiProgress {
+  return n === 1 ? 'beginner' : n === 2 ? 'intermediate' : n === 3 ? 'advanced' : null;
+}
+// Resolve nome/path de uma categoria pelo id na árvore carregada (breadcrumb/UI, não identidade).
+function findCategoryInTree(nodes: CategoryTree[], categoryId: string): CategoryTree | null {
+  for (const n of nodes) {
+    if (n.categoryId === categoryId) return n;
+    if (n.children) {
+      const f = findCategoryInTree(n.children, categoryId);
+      if (f) return f;
+    }
+  }
+  return null;
 }
 
 export default function ProfileLearning() {
@@ -76,6 +100,8 @@ export default function ProfileLearning() {
     setSuggestionError,
     selectedLearnings,
     setSelectedLearnings,
+    initialLearnings,
+    setInitialLearnings,
     expandedCategories,
     setExpandedCategories,
     isLoading,
@@ -161,30 +187,29 @@ export default function ProfileLearning() {
     setIsLoading(true);
     setError(null);
     try {
-      // 🔴 REGRA: Buscar categorias EXCLUSIVAMENTE de context='learning'
+      // 🔴 REGRA: Buscar categorias EXCLUSIVAMENTE de context='learning' (agora com conceptId — Fatia 4a)
       const tree = await getCategoryTree('learning');
       setCategoryTree(tree);
 
-      // Buscar perfil de aprendizado
-      const profile = await getLearningProfile().catch(() => ({
-        globalUserId: '',
-        learnings: [],
-        preferences: {},
-        metadata: {},
-      }));
+      // C1 actor-first: declarações vêm de /profile/learning/c1 (NÃO do blob legado).
+      const c1 = await getLearningC1();
 
-      // Converter aprendizados do perfil para formato local
-      const preferencesObj = profile.preferences as { [categoryId: string]: { details?: string[]; notes?: string; progress?: 'beginner' | 'intermediate' | 'advanced' | null } } || {};
-      setSelectedLearnings(
-        profile.learnings.map((learning) => ({
-          categoryId: learning.categoryId,
-          categoryName: learning.categoryName,
-          categoryPath: learning.categoryPath,
-          details: preferencesObj[learning.categoryId]?.details || [],
-          notes: preferencesObj[learning.categoryId]?.notes || '',
-          progress: preferencesObj[learning.categoryId]?.progress || null,
-        }))
-      );
+      // Converter declarações C1 → modelo local. Nome/path resolvidos via sourceCategoryId na árvore
+      // (breadcrumb/UI, não identidade). progress C1(1..3) → UI(string).
+      const loaded: SelectedLearning[] = c1.concepts.map((c) => {
+        const cat = c.sourceCategoryId ? findCategoryInTree(tree, c.sourceCategoryId) : null;
+        return {
+          categoryId: c.sourceCategoryId ?? c.conceptId, // chave de UI (breadcrumb se houver)
+          conceptId: c.conceptId,
+          categoryName: cat?.name ?? 'Aprendizado',
+          categoryPath: cat?.path ?? [],
+          details: [],
+          notes: '',
+          progress: c1ToUiProgress(c.progress),
+        };
+      });
+      setSelectedLearnings(loaded);
+      setInitialLearnings(loaded); // snapshot para o diff granular do save
     } catch (err) {
       // 🚫 Nada de retry - falhou → UI mostra erro → fim
       const errorMessage = err instanceof Error ? err.message : 'Não foi possível carregar as categorias agora.';
@@ -324,7 +349,7 @@ export default function ProfileLearning() {
       return;
     }
 
-    // Converter para Category e adicionar como learning
+    // Converter para Category e adicionar como learning. conceptId surfaçado pelo autocomplete (Fatia 4a).
     const category: Category = {
       categoryId: result.id,
       parentId: null,
@@ -333,10 +358,11 @@ export default function ProfileLearning() {
       description: null,
       level: result.level,
       path: result.path,
+      conceptId: result.conceptId ?? null,
       createdAt: '',
       updatedAt: '',
     };
-    
+
     addLearning(category);
     setSearchTerm('');
     setAutocompleteResults([]);
@@ -344,89 +370,18 @@ export default function ProfileLearning() {
     setSearchFieldError(null); // Limpar erro ao selecionar
   };
 
-  const handleSuggestCategory = async () => {
-    if (!searchTerm.trim()) {
-      setSuggestionError('Digite o nome do tema de aprendizado que deseja sugerir');
-      return;
-    }
+  // NEUTRALIZADO (Fatia 4b / DT-PROFILE-FRONTEND-DRIVES-TAXONOMY): o frontend NÃO cria taxonomia.
+  // Sugestões de novos temas serão tratadas por governança futura (sem chamada de backend).
+  const TAXONOMY_SUGGESTION_MESSAGE =
+    'Sugestões de novos temas de aprendizado serão tratadas por governança futura. ' +
+    'Por enquanto, selecione um tema existente da lista.';
 
-    setIsSuggesting(true);
-    setSuggestionError(null);
-    try {
-      const suggestion = await suggestCategoryPath(searchTerm.trim(), 'learning' as CategoryContext);
-      setCategorySuggestion(suggestion);
-      setShowSuggestionModal(true);
-    } catch (err) {
-      console.error('Erro ao sugerir categoria:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao sugerir categoria';
-      setSuggestionError(errorMessage);
-      if (errorMessage.includes('não permitido') || errorMessage.includes('inválido')) {
-        alert(errorMessage);
-      }
-    } finally {
-      setIsSuggesting(false);
-    }
+  const handleSuggestCategory = async () => {
+    setSuggestionError(TAXONOMY_SUGGESTION_MESSAGE);
   };
 
-  const handleCreateWithAI = async (parentId?: string | null) => {
-    if (!searchTerm.trim()) {
-      alert('Digite ou fale o nome do tema de aprendizado que deseja criar');
-      return;
-    }
-
-    setIsCreatingWithAI(true);
-    try {
-      const result = await createCategoryWithAI(searchTerm.trim(), 'learning' as CategoryContext, parentId);
-      
-      if (result.created && result.category) {
-        // Fechar modal
-        setShowSuggestionModal(false);
-        setCategorySuggestion(null);
-        
-        // Mostrar feedback
-        if (result.requiresApproval) {
-          alert(`📋 ${result.message || `Sua sugestão "${result.category.name}" foi enviada para análise!\n\nO tema será revisado e poderá aparecer no sistema em breve.`}`);
-        } else {
-          alert(`✅ Tema "${result.category.name}" criado com sucesso!`);
-        }
-        
-        // Recarregar árvore de categorias
-        const tree = await getCategoryTree('learning');
-        setCategoryTree(tree);
-        
-        // Adicionar automaticamente se for nível 2 (tema) e já aprovado
-        if (result.category.level === 2 && !result.requiresApproval) {
-          addLearning(result.category);
-        } else {
-          // Se não for tema ou precisa aprovação, fazer busca para encontrar
-          await handleSearch(searchTerm);
-        }
-        setSearchTerm('');
-      } else if (result.existingCategory) {
-        setShowSuggestionModal(false);
-        alert(`Tema "${result.existingCategory.name}" já existe!`);
-        // Adicionar automaticamente se for nível 2
-        if (result.existingCategory.level === 2) {
-          addLearning(result.existingCategory);
-        } else {
-          await handleSearch(searchTerm);
-        }
-        setSearchTerm('');
-      }
-    } catch (err) {
-      console.error('Erro ao criar categoria via IA:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar categoria via IA';
-      
-      if (errorMessage.includes('❌')) {
-        alert(`🚫 ${errorMessage.replace('❌ ', '')}\n\nEste termo não pode ser cadastrado.`);
-      } else if (errorMessage.includes('não permitido') || errorMessage.includes('inválido') || errorMessage.includes('Tags HTML') || errorMessage.includes('URLs')) {
-        alert(`❌ ${errorMessage}\n\nPor favor, use apenas letras, espaços e hífens.`);
-      } else {
-        alert(`❌ ${errorMessage}`);
-      }
-    } finally {
-      setIsCreatingWithAI(false);
-    }
+  const handleCreateWithAI = async (_parentId?: string | null) => {
+    alert(`ℹ️ ${TAXONOMY_SUGGESTION_MESSAGE}`);
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -453,10 +408,20 @@ export default function ProfileLearning() {
       return;
     }
 
+    // TRAVA C1: declaração exige conceptId real surfaçado pelo backend (Fatia 4a). Sem fallback
+    // conceptId ← categoryId, sem inventar conceito. Folha sem conceptId não é declarável.
+    if (!category.conceptId) {
+      setSearchFieldError(
+        'Este tema ainda não está vinculado a um conceito no sistema e não pode ser declarado agora.'
+      );
+      return;
+    }
+
     setSelectedLearnings([
       ...selectedLearnings,
       {
         categoryId: category.categoryId,
+        conceptId: category.conceptId,
         categoryName: category.name,
         categoryPath: category.path,
         details: [],
@@ -555,17 +520,52 @@ export default function ProfileLearning() {
     }
 
     try {
-      await updateLearningProfile({
-        learnings: selectedLearnings.map((s) => s.categoryId),
-        preferences: selectedLearnings.reduce((acc, learning) => {
-          acc[learning.categoryId] = {
-            details: learning.details,
-            notes: learning.notes || undefined,
-            progress: learning.progress || undefined,
-          };
-          return acc;
-        }, {} as Record<string, { details?: string[]; notes?: string; progress?: 'beginner' | 'intermediate' | 'advanced' | null }>),
+      // Save GRANULAR no C1 (diff contra o snapshot do load): novo→POST, progress alterado→PATCH,
+      // removido→DELETE (desativação lógica). conceptId é a identidade; categoryId é breadcrumb.
+      // C1 NÃO persiste details/notes (DECISION-0067) — não são enviados.
+      const initialByConcept = new Map(initialLearnings.map((s) => [s.conceptId, s]));
+      const currentByConcept = new Map(selectedLearnings.map((s) => [s.conceptId, s]));
+
+      // Novos: presentes agora, ausentes no snapshot → POST declare.
+      for (const cur of selectedLearnings) {
+        if (!initialByConcept.has(cur.conceptId)) {
+          await declareLearningConceptC1({
+            conceptId: cur.conceptId,
+            sourceCategoryId: cur.categoryId,
+            progress: uiToC1Progress(cur.progress),
+          });
+        }
+      }
+      // Progress alterado: presentes em ambos com progress diferente → PATCH.
+      for (const cur of selectedLearnings) {
+        const prev = initialByConcept.get(cur.conceptId);
+        if (prev && prev.progress !== cur.progress) {
+          await updateLearningConceptC1(cur.conceptId, { progress: uiToC1Progress(cur.progress) });
+        }
+      }
+      // Removidos: no snapshot, ausentes agora → DELETE retire (desativação lógica).
+      for (const prev of initialLearnings) {
+        if (!currentByConcept.has(prev.conceptId)) {
+          await retireLearningConceptC1(prev.conceptId);
+        }
+      }
+
+      // Releitura do C1 → re-sincroniza o snapshot (próximo diff parte do estado real).
+      const c1 = await getLearningC1();
+      const refreshed: SelectedLearning[] = c1.concepts.map((c) => {
+        const cat = c.sourceCategoryId ? findCategoryInTree(categoryTree, c.sourceCategoryId) : null;
+        return {
+          categoryId: c.sourceCategoryId ?? c.conceptId,
+          conceptId: c.conceptId,
+          categoryName: cat?.name ?? 'Aprendizado',
+          categoryPath: cat?.path ?? [],
+          details: [],
+          notes: '',
+          progress: c1ToUiProgress(c.progress),
+        };
       });
+      setSelectedLearnings(refreshed);
+      setInitialLearnings(refreshed);
 
       alert('Perfil de aprendizado atualizado com sucesso!');
     } catch (err) {

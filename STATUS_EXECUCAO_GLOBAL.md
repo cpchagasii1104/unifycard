@@ -9508,3 +9508,32 @@ sem context 0 (3 filhos); event/company 0. typecheck=0; gates verdes; `critical_
 `/profile/learning/c1`) → **Fatia 4c — frontend Interest** (redesenhar seção de interesses do ProfilePhysical
 para árvore `scope='interest'` + `/profile/interest/c1`; lifestyle intocado) → **Fatia 5 — cleanup do blob**.
 Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## C1 LEARNING — FATIA 4b (FRONTEND) — EXECUTADA ✅ (2026-06-01)
+
+Aba **Aprendizado** migrada do legado/blob para o C1 actor-first/concept-first (DECISION-0067, Fatia 4b).
+HEAD origem `ff534b44`. **Só frontend** (backend/migration/schema/C1 intocados).
+
+**Arquivos:** novo `frontend/src/api/learningC1.ts` (client camelCase: get/declare/update/retire);
+`ProfileLearning.tsx` + `useProfileLearningState.ts` (modelo ganha `conceptId` + snapshot `initialLearnings`).
+
+**Fluxo antigo removido da aba:** `getLearningProfile`/`updateLearningProfile` (blob legado) — **não mais
+chamados** pela aba. `createCategoryWithAI('learning')`/`suggestCategoryPath('learning')` **neutralizados**
+(mensagem honesta "governança futura", sem chamada de backend) → DT-PROFILE-FRONTEND-DRIVES-TAXONOMY mitigada
+na aba Aprendizado. **Novo fluxo:** load `getLearningC1`; árvore `getCategoryTree('learning')` (conceptId
+surfaçado pela Fatia 4a); folha **só declarável com conceptId real** (sem fallback conceptId←categoryId);
+save **granular** (novo→POST, progress alterado→PATCH, removido→DELETE/soft); `sourceCategoryId`=categoryId
+breadcrumb; progress UI(string)↔C1(1..3). C1 NÃO persiste details/notes (UI-local).
+
+**Provas:** frontend typecheck=0; greps (legado ZERO, C1 presente, conceptId enviado, IA neutralizada,
+Physical/Interest intocados); runtime do fluxo C1 (programacao): POST 201 / GET / PATCH progress 200 /
+DELETE 200(soft) / GET vazio; blob.learnings intocado (0). Gates backend sem regressão; `critical_new=0`.
+
+**Estado:** Aprendizado usa C1. **Interesses (ProfilePhysical) ainda NÃO** — usa catálogo hardcoded com
+conceptId fake (Fatia 4c redesign). **Blob ainda não limpo** (Fatia 5). DT-LEARNING-INTEREST-BLOB-SSOT
+permanece OPEN. Lifestyle fora.
+
+**Fila:** **Fatia 4c — frontend Interest** (redesign ProfilePhysical → árvore `scope='interest'` +
+`/profile/interest/c1`) → **Fatia 5 — cleanup do blob**. Bloqueados: financeiro, Agenda, Saúde/Lifestyle.

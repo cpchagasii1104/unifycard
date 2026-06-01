@@ -2136,3 +2136,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   typecheck=0; gates verdes; critical_new=0. Escopo único categories.service.ts.
 - Fila: Fatia 4b frontend Learning→C1 → 4c frontend Interest (redesign ProfilePhysical p/ árvore
   scope='interest' + /profile/interest/c1; lifestyle intocado) → Fatia 5 cleanup blob.
+
+### C1 LEARNING — FATIA 4b (FRONTEND) — EXECUTADA ✅ (2026-06-01)
+- Aba Aprendizado migrada p/ C1 (DECISION-0067). Só frontend. Novo api/learningC1.ts (client camelCase:
+  get/declare/update/retire); ProfileLearning.tsx + useProfileLearningState.ts (modelo +conceptId, snapshot
+  initialLearnings).
+- Removido da aba: getLearningProfile/updateLearningProfile (blob). Neutralizado:
+  createCategoryWithAI/suggestCategoryPath (mensagem honesta, sem backend). Novo: load getLearningC1; árvore
+  getCategoryTree('learning') com conceptId (Fatia 4a); folha só declarável com conceptId real (sem fallback);
+  save granular POST/PATCH/DELETE(soft); sourceCategoryId=categoryId breadcrumb; progress UI<->C1 1..3; C1 não
+  persiste details/notes.
+- Provas: frontend typecheck=0; greps (legado ZERO, C1 presente, conceptId, IA neutralizada, Physical
+  intocado); runtime programacao POST201/GET/PATCH200/DELETE200soft/GETvazio; blob.learnings intocado (0).
+  Gates verdes; critical_new=0.
+- Interest (ProfilePhysical) ainda usa catálogo hardcoded (Fatia 4c redesign). Blob não limpo (Fatia 5).
+  DT-LEARNING-INTEREST-BLOB-SSOT OPEN. Edge: re-declarar concept retirado dá 409 (UNIQUE; reativação via
+  PATCH reactivate é follow-up). Fila: 4c → 5.
