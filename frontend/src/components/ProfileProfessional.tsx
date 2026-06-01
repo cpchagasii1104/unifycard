@@ -7,7 +7,6 @@ import {
   autocompleteCategories,
   getCategoryTree,
   getCategoryChildren,
-  updateProfessionalProfile,
   createCategoryWithAI,
   suggestCategoryPath,
   type Category,
@@ -15,10 +14,16 @@ import {
   type CategoryAutocompleteResult,
   type CategoryPathSuggestion,
 } from '../api/categories';
+import {
+  updateProfessionalBioC1,
+  declareProfessionalConceptC1,
+  updateProfessionalConceptC1,
+  retireProfessionalConceptC1,
+} from '../api/professionalC1';
+import type { ProfessionalInitialSnapshot } from '../hooks/useProfessionalCategories';
 import { type UserPlan } from '../config/features';
 import {
   sanitizeText,
-  validateMonetaryValue,
   validateYearsExperience,
 } from '../utils/validation';
 import { normalizeCategoryLabel, normalizeCategoryPath } from '../utils/categoryLabelNormalizer';
@@ -29,22 +34,15 @@ import { useProfessionalCategories } from '../hooks/useProfessionalCategories';
 import ProfileProfessionalForm from './ProfileProfessionalForm';
 import './ProfileProfessional.css';
 
-type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote';
-type ServiceType = 'service' | 'product';
-
+// A3.2 tab-only / C1: aba Profissional declara competências por CONCEPT (sem preço/serviço/availability).
 interface SelectedSkill {
-  categoryId: string;
+  categoryId: string;              // chave de UI/dedupe (= categoria L2 selecionada)
+  conceptId: string;               // identidade semântica/CONCEPT (declaração C1)
+  sourceCategoryId: string | null; // breadcrumb de navegação
   categoryName: string;
   categoryPath: string[];
   skillLevel: number;
   yearsExperience: number;
-  hourlyRate: number | null;
-  pricingType: PricingType;
-  serviceType: ServiceType;
-  chargeVisit: boolean;
-  visitPrice: number | null;
-  predefinedServices: any[];
-  comboDiscountRules: any[];
 }
 
 export default function ProfileProfessional() {
@@ -109,6 +107,9 @@ export default function ProfileProfessional() {
   // 🔴 Guard para evitar chamadas duplicadas (React.StrictMode em DEV)
   const hasLoadedRef = useRef(false);
 
+  // Snapshot inicial do C1 (para o save granular: novo/alterado/removido).
+  const [initialSnapshot, setInitialSnapshot] = useState<ProfessionalInitialSnapshot>({ concepts: [], bio: '' });
+
   // Hook de categorias
   const {
     categoryTree,
@@ -117,7 +118,7 @@ export default function ProfileProfessional() {
     loadData: loadCategoriesData,
     findCategoryById,
     updateTreeWithChildren,
-  } = useProfessionalCategories(setIsLoading, setError, setBio, setSelectedSkills);
+  } = useProfessionalCategories(setIsLoading, setError, setBio, setSelectedSkills, setInitialSnapshot);
 
   useEffect(() => {
     // GUARD: Não fazer chamadas de API antes de sessionReady
@@ -305,7 +306,7 @@ export default function ProfileProfessional() {
       return;
     }
 
-    // Converter para Category e adicionar como skill
+    // Converter para Category e adicionar como skill (conceptId vem do backend, não inventado).
     const category: Category = {
       categoryId: result.id,
       parentId: null,
@@ -314,10 +315,11 @@ export default function ProfileProfessional() {
       description: null,
       level: result.level,
       path: result.path,
+      conceptId: result.conceptId ?? null,
       createdAt: '',
       updatedAt: '',
     };
-    
+
     addSkill(category);
     setSearchTerm('');
     setAutocompleteResults([]);
@@ -489,77 +491,56 @@ export default function ProfileProfessional() {
       return;
     }
 
+    // TRAVA C1: declaração exige concept_id real vindo do backend. Sem fallback para categoryId,
+    // sem inventar conceito. Se a categoria não traz conceptId, bloquear com mensagem honesta.
+    if (!category.conceptId) {
+      setSearchFieldError(
+        'Esta profissão ainda não está vinculada a um conceito no sistema e não pode ser declarada agora.'
+      );
+      return;
+    }
+
     const newSkill: SelectedSkill = {
       categoryId: category.categoryId,
+      conceptId: category.conceptId,
+      sourceCategoryId: category.categoryId, // breadcrumb de origem da seleção
       categoryName: category.name,
       categoryPath: category.path,
       skillLevel: 3, // Default: intermediário
       yearsExperience: 0,
-      hourlyRate: null, // Valor será definido pelo usuário
-      pricingType: 'hourly', // Default: cobrança por hora
-      serviceType: 'service', // Default: serviço
-      chargeVisit: false, // Default: não cobra visita
-      visitPrice: null,
-      predefinedServices: [], // Sem serviços pré-definidos inicialmente
-      comboDiscountRules: [], // Sem regras de desconto inicialmente
     };
 
     setSelectedSkills([...selectedSkills, newSkill]);
     setSearchTerm('');
     setSearchResults([]);
     setSearchFieldError(null); // Limpar erro ao adicionar profissão
-    
-    // Marcar como recém-adicionado para destacar e focar no campo de taxa horária
+
+    // Destacar a competência recém-adicionada por alguns segundos.
     setNewlyAddedSkillId(category.categoryId);
-    
-    // Focar no campo de taxa horária após um pequeno delay para garantir renderização
-    setTimeout(() => {
-      const hourlyRateInput = document.getElementById(`hourly-rate-${category.categoryId}`) as HTMLInputElement;
-      if (hourlyRateInput) {
-        hourlyRateInput.focus();
-        hourlyRateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      // Remover o destaque após alguns segundos
-      setTimeout(() => {
-        setNewlyAddedSkillId(null);
-      }, 3000);
-    }, 100);
+    setTimeout(() => setNewlyAddedSkillId(null), 3000);
   };
 
   const removeSkill = (categoryId: string) => {
     setSelectedSkills(selectedSkills.filter((s) => s.categoryId !== categoryId));
   };
 
-  const updateSkill = (categoryId: string, field: 'skillLevel' | 'yearsExperience' | 'hourlyRate' | 'pricingType' | 'serviceType' | 'chargeVisit' | 'visitPrice', value: number | null | PricingType | ServiceType | boolean) => {
+  const updateSkill = (categoryId: string, field: 'skillLevel' | 'yearsExperience', value: number) => {
     const updated = selectedSkills.map((s) =>
       s.categoryId === categoryId ? { ...s, [field]: value } : s
     );
     setSelectedSkills(updated);
 
-    // Validação em tempo real
-    const skill = updated.find(s => s.categoryId === categoryId);
-    if (skill) {
-      if (field === 'hourlyRate' && value !== null && typeof value === 'number') {
-        const validation = validateMonetaryValue(value);
-        if (!validation.valid) {
-          setSkillErrors({ ...skillErrors, [categoryId]: validation.error || 'Valor inválido' });
-          return;
-        }
+    // Validação em tempo real (só anos de experiência permanece no C1).
+    if (field === 'yearsExperience') {
+      const validation = validateYearsExperience(value, userAge);
+      if (!validation.valid) {
+        setSkillErrors({ ...skillErrors, [categoryId]: validation.error || 'Anos de experiência inválidos' });
+        return;
       }
-      
-      if (field === 'yearsExperience' && typeof value === 'number') {
-        const validation = validateYearsExperience(value, userAge);
-        if (!validation.valid) {
-          setSkillErrors({ ...skillErrors, [categoryId]: validation.error || 'Anos de experiência inválidos' });
-          return;
-        }
-      }
-      
-      // Remover erro se validação passou
-      const newErrors = { ...skillErrors };
-      delete newErrors[categoryId];
-      setSkillErrors(newErrors);
     }
+    const newErrors = { ...skillErrors };
+    delete newErrors[categoryId];
+    setSkillErrors(newErrors);
   };
 
   const renderCategoryTree = (categories: CategoryTree[], level: number = 0): JSX.Element[] => {
@@ -676,43 +657,16 @@ export default function ProfileProfessional() {
     setSkillErrors({});
     setSearchFieldError(null);
 
-    // Validações antes de salvar
+    // Validação (C1): só anos de experiência (skillLevel é select 1..5).
     const errors: string[] = [];
     const newSkillErrors: Record<string, string> = {};
-
-    // VALIDAÇÃO OBRIGATÓRIA: Pelo menos uma profissão deve estar selecionada
-    if (selectedSkills.length === 0) {
-      setError('Selecione pelo menos uma profissão da lista antes de salvar.');
-      setIsSaving(false);
-      return;
-    }
-
-    // VALIDAÇÃO: Se há texto no campo de busca mas nenhuma profissão selecionada, bloquear
-    if (searchTerm.trim().length > 0 && selectedSkills.length === 0) {
-      setSearchFieldError('Selecione uma profissão da lista. Não é possível salvar apenas texto digitado.');
-      setError('Selecione uma profissão da lista antes de salvar.');
-      setIsSaving(false);
-      return;
-    }
-
-    // Validar skills
     for (const skill of selectedSkills) {
-      if (skill.hourlyRate !== null && (skill.pricingType === 'hourly' || skill.pricingType === 'daily' || skill.pricingType === 'weekly' || skill.pricingType === 'monthly')) {
-        const valueValidation = validateMonetaryValue(skill.hourlyRate);
-        if (!valueValidation.valid) {
-          newSkillErrors[skill.categoryId] = valueValidation.error || 'Valor inválido';
-          const pricingLabel = skill.pricingType === 'hourly' ? 'hora' : skill.pricingType === 'daily' ? 'dia' : skill.pricingType === 'weekly' ? 'semana' : 'mês';
-          errors.push(`Valor por ${pricingLabel} de ${normalizeCategoryLabel(skill.categoryName)}`);
-        }
-      }
-
       const yearsValidation = validateYearsExperience(skill.yearsExperience, userAge);
       if (!yearsValidation.valid) {
         newSkillErrors[skill.categoryId] = yearsValidation.error || 'Anos de experiência inválidos';
         errors.push(`Anos de experiência de ${normalizeCategoryLabel(skill.categoryName)}`);
       }
     }
-
     if (errors.length > 0) {
       setSkillErrors(newSkillErrors);
       setError(`Por favor, corrija os seguintes erros: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
@@ -721,40 +675,49 @@ export default function ProfileProfessional() {
     }
 
     try {
-      // Sanitizar dados antes de enviar
+      // Save GRANULAR C1 (sem PUT-bundle): diff vs snapshot inicial.
+      const initialByConcept = new Map(initialSnapshot.concepts.map((c) => [c.conceptId, c]));
+      const currentConceptIds = new Set(selectedSkills.map((s) => s.conceptId));
+
+      // Novo → POST (concept_id real + source_category_id breadcrumb). Alterado → PATCH (campo material).
+      for (const skill of selectedSkills) {
+        const prev = initialByConcept.get(skill.conceptId);
+        if (!prev) {
+          await declareProfessionalConceptC1({
+            conceptId: skill.conceptId,
+            sourceCategoryId: skill.sourceCategoryId,
+            skillLevel: skill.skillLevel,
+            yearsExperience: skill.yearsExperience,
+          });
+        } else if (prev.skillLevel !== skill.skillLevel || prev.yearsExperience !== skill.yearsExperience) {
+          await updateProfessionalConceptC1(skill.conceptId, {
+            skillLevel: skill.skillLevel,
+            yearsExperience: skill.yearsExperience,
+          });
+        }
+      }
+
+      // Removido → DELETE (desativação lógica).
+      for (const prev of initialSnapshot.concepts) {
+        if (!currentConceptIds.has(prev.conceptId)) {
+          await retireProfessionalConceptC1(prev.conceptId);
+        }
+      }
+
+      // Bio → PUT só se mudou.
       const sanitizedBio = bio ? sanitizeText(bio, 5000) : null;
+      if ((sanitizedBio || '') !== (initialSnapshot.bio || '')) {
+        await updateProfessionalBioC1(sanitizedBio);
+      }
 
-      const sanitizedSkills = selectedSkills.map((s) => ({
-        categoryId: s.categoryId,
-        skillLevel: s.skillLevel,
-        yearsExperience: s.yearsExperience,
-        hourlyRate: s.hourlyRate,
-        pricingType: s.pricingType,
-        serviceType: s.serviceType,
-        chargeVisit: s.chargeVisit,
-        visitPrice: s.visitPrice,
-        predefinedServices: s.predefinedServices.map(ps => ({
-          serviceId: ps.serviceId,
-          name: ps.name,
-          description: ps.description,
-          basePrice: ps.basePrice,
-          discountPercentage: ps.discountPercentage,
-          isActive: ps.isActive,
+      // Atualizar snapshot para refletir o estado salvo (evita reenvio em saves seguintes).
+      setInitialSnapshot({
+        concepts: selectedSkills.map((s) => ({
+          conceptId: s.conceptId,
+          skillLevel: s.skillLevel,
+          yearsExperience: s.yearsExperience,
         })),
-        comboDiscountRules: s.comboDiscountRules.map(rule => ({
-          ruleId: rule.ruleId,
-          minServices: rule.minServices,
-          discountPercentage: rule.discountPercentage,
-          description: rule.description,
-          isActive: rule.isActive,
-        })),
-      }));
-
-      await updateProfessionalProfile({
-        skills: sanitizedSkills,
-        bio: sanitizedBio,
-        // 🔧 FIX: availability não é mais gerenciado aqui - use a aba Agenda
-        // availability: availability,
+        bio: sanitizedBio || '',
       });
 
       alert('Perfil profissional atualizado com sucesso!');
@@ -810,7 +773,6 @@ export default function ProfileProfessional() {
       addSkill={addSkill}
       removeSkill={removeSkill}
       updateSkill={updateSkill}
-      setSelectedSkills={setSelectedSkills}
       renderCategoryTree={(categories) => renderCategoryTree(categories)}
       showSuggestionModal={showSuggestionModal}
       setShowSuggestionModal={setShowSuggestionModal}

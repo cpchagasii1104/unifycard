@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import type { CategoryTree, Category } from '../api/categories';
-import { getCategoryTree, getCategoryChildren, getProfessionalProfile } from '../api/categories';
+import { getCategoryTree, getCategoryChildren } from '../api/categories';
+import { getProfessionalC1 } from '../api/professionalC1';
+
+export interface ProfessionalInitialSnapshot {
+  concepts: Array<{ conceptId: string; skillLevel: number; yearsExperience: number }>;
+  bio: string;
+}
 
 export function useProfessionalCategories(
   setIsLoading: (loading: boolean) => void,
   setError: (error: string | null) => void,
   setBio: (bio: string) => void,
-  setSelectedSkills: (skills: any[]) => void
+  setSelectedSkills: (skills: any[]) => void,
+  setInitialSnapshot: (snapshot: ProfessionalInitialSnapshot) => void
 ) {
   const [categoryTree, setCategoryTree] = useState<CategoryTree[]>([]);
 
@@ -92,52 +99,64 @@ export function useProfessionalCategories(
         throw new Error(`Erro ao carregar categorias: ${errorMsg}`);
       });
 
-      // 🔴 ADR: Perfil profissional pode ou não existir - não bloquear UI
-      // Carregar perfil profissional em paralelo, mas não falhar se não existir
-      const profile = await getProfessionalProfile().catch((err) => {
-        // 404 = perfil não existe ainda - estado esperado, não é erro
-        if (err?.status === 404 || err?.code === 'NOT_FOUND') {
-          // Não logar - é estado esperado (perfil não criado ainda)
-          return { globalUserId: '', skills: [], bio: null };
+      // A3.2 tab-only / C1: perfil profissional vem do C1 actor-first (concepts + bio).
+      // Não bloquear UI se não existir; 404/erro → estado vazio.
+      const c1 = await getProfessionalC1().catch((err) => {
+        if (import.meta.env.DEV && err?.status !== 404) {
+          console.warn('Erro ao carregar perfil C1 (não crítico):', err);
         }
-        // Outros erros não são críticos - perfil pode não existir ainda
-        if (import.meta.env.DEV) {
-          console.warn('Erro ao carregar perfil profissional (não crítico):', err);
-        }
-        return { globalUserId: '', skills: [], bio: null };
+        return { concepts: [], professional_bio: null };
       });
 
-      // 🔴 ADR: Tratar lista vazia como estado válido (não é erro)
-      // Árvore pode estar vazia se feature não estiver configurada ainda
+      // Aplicar filtro profissional na árvore (e resolver labels via sourceCategoryId).
+      let filteredTree: CategoryTree[] = [];
       if (tree.length === 0) {
         setCategoryTree([]);
       } else {
-        // 🔒 Aplicar filtro profissional: apenas categorias permitidas
-        const filteredTree = filterProfessionalCategories(tree);
+        filteredTree = filterProfessionalCategories(tree);
         setCategoryTree(filteredTree);
       }
-      
-      // 🔴 ADR: Perfil profissional é opcional - não bloquear UI se não existir
-      // Apenas setar dados se perfil existir
-      if (profile) {
-        setBio(profile.bio || '');
-        setSelectedSkills(
-          profile.skills.map((s) => ({
-            categoryId: s.categoryId,
-            categoryName: s.categoryName,
-            categoryPath: s.categoryPath,
-            skillLevel: s.skillLevel,
-            yearsExperience: s.yearsExperience,
-            hourlyRate: s.hourlyRate,
-            pricingType: s.pricingType || 'hourly',
-            serviceType: (s as any).serviceType || 'service',
-            chargeVisit: (s as any).chargeVisit || false,
-            visitPrice: (s as any).visitPrice || null,
-            predefinedServices: (s as any).predefinedServices || [],
-            comboDiscountRules: (s as any).comboDiscountRules || [],
-          }))
-        );
-      }
+
+      const findInTree = (nodes: CategoryTree[], id: string): CategoryTree | null => {
+        for (const n of nodes) {
+          if (n.categoryId === id) return n;
+          if (n.children) {
+            const f = findInTree(n.children, id);
+            if (f) return f;
+          }
+        }
+        return null;
+      };
+
+      const activeConcepts = (c1.concepts || []).filter((c) => c.isActive);
+
+      setBio(c1.professional_bio || '');
+      setSelectedSkills(
+        activeConcepts.map((c) => {
+          // Label resolvido via sourceCategoryId contra a árvore profissional (breadcrumb, não identidade).
+          const cat = c.sourceCategoryId ? findInTree(filteredTree, c.sourceCategoryId) : null;
+          return {
+            categoryId: c.sourceCategoryId ?? c.conceptId, // chave de UI (breadcrumb se houver)
+            conceptId: c.conceptId,
+            sourceCategoryId: c.sourceCategoryId,
+            // Fallback honesto não-semântico quando o label não é resolvível na árvore carregada.
+            categoryName: cat?.name ?? 'Competência profissional',
+            categoryPath: cat?.path ?? [],
+            skillLevel: c.skillLevel,
+            yearsExperience: c.yearsExperience ?? 0,
+          };
+        })
+      );
+
+      // Snapshot inicial para o save granular (diff novo/alterado/removido).
+      setInitialSnapshot({
+        concepts: activeConcepts.map((c) => ({
+          conceptId: c.conceptId,
+          skillLevel: c.skillLevel,
+          yearsExperience: c.yearsExperience ?? 0,
+        })),
+        bio: c1.professional_bio || '',
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados';
       

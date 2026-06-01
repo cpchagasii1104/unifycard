@@ -1,24 +1,17 @@
 import type { Category, CategoryAutocompleteResult, CategoryTree, CategoryPathSuggestion } from '../api/categories';
 import { normalizeCategoryLabel, normalizeCategoryPath } from '../utils/categoryLabelNormalizer';
-import PredefinedServicesManager from './PredefinedServicesManager';
-import ComboDiscountRulesManager from './ComboDiscountRulesManager';
+
+// A3.2 tab-only / C1: aba Profissional só renderiza bio + competências (conceptId/skillLevel/yearsExperience).
+// Preço/serviços/availability/workers/capability/authority ficam fora (C2/C3/C4) — "em breve".
 interface SelectedSkill {
   categoryId: string;
+  conceptId: string;
+  sourceCategoryId: string | null;
   categoryName: string;
   categoryPath: string[];
   skillLevel: number;
   yearsExperience: number;
-  hourlyRate: number | null;
-  pricingType: PricingType;
-  serviceType: ServiceType;
-  chargeVisit: boolean;
-  visitPrice: number | null;
-  predefinedServices: any[];
-  comboDiscountRules: any[];
 }
-
-type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote';
-type ServiceType = 'service' | 'product';
 
 interface ProfileProfessionalFormProps {
   error: string | null;
@@ -54,8 +47,7 @@ interface ProfileProfessionalFormProps {
   isSkillSelected: (categoryId: string) => boolean;
   addSkill: (category: Category) => void;
   removeSkill: (categoryId: string) => void;
-  updateSkill: (categoryId: string, field: 'skillLevel' | 'yearsExperience' | 'hourlyRate' | 'pricingType' | 'serviceType' | 'chargeVisit' | 'visitPrice', value: number | null | PricingType | ServiceType | boolean) => void;
-  setSelectedSkills: (skills: SelectedSkill[] | ((prev: SelectedSkill[]) => SelectedSkill[])) => void;
+  updateSkill: (categoryId: string, field: 'skillLevel' | 'yearsExperience', value: number) => void;
   renderCategoryTree: (categories: CategoryTree[]) => JSX.Element[];
   showSuggestionModal: boolean;
   setShowSuggestionModal: (show: boolean) => void;
@@ -101,7 +93,6 @@ export default function ProfileProfessionalForm({
   addSkill,
   removeSkill,
   updateSkill,
-  setSelectedSkills,
   renderCategoryTree,
   showSuggestionModal,
   setShowSuggestionModal,
@@ -418,168 +409,13 @@ export default function ProfileProfessionalForm({
                         <p className="field-hint">Máximo recomendado: {Math.max(0, userAge - 16)} anos</p>
                       )}
                     </div>
+                    {/* A3.2/C1: preço, serviços, disponibilidade e outras capacidades NÃO são declarados aqui. */}
                     <div className="skill-field">
-                      <label>Tipo: Serviço ou Produto *</label>
-                      <select
-                        value={skill.serviceType}
-                        onChange={(e) =>
-                          updateSkill(skill.categoryId, 'serviceType', e.target.value as ServiceType)
-                        }
-                      >
-                        <option value="service">Serviço</option>
-                        <option value="product">Produto</option>
-                      </select>
-                      <p className="field-hint">
-                        {skill.serviceType === 'service'
-                          ? 'Você presta um serviço (ex: conserto, instalação, limpeza)'
-                          : 'Você vende um produto físico'}
+                      <p className="field-hint" style={{ color: '#6b7280' }}>
+                        💡 Preço, serviços ofertados e disponibilidade chegam em breve (em outra etapa).
+                        Aqui você declara a competência e o nível.
                       </p>
                     </div>
-
-                    {skill.serviceType === 'service' && (
-                      <>
-                        <div className="skill-field">
-                          <label>Tipo de Cobrança *</label>
-                          <select
-                            value={skill.pricingType}
-                            onChange={(e) =>
-                              updateSkill(skill.categoryId, 'pricingType', e.target.value as PricingType)
-                            }
-                          >
-                            <option value="hourly">Cobrança por Hora</option>
-                            <option value="daily">Cobrança por Dia</option>
-                            <option value="weekly">Cobrança por Semana</option>
-                            <option value="monthly">Cobrança por Mês</option>
-                            <option value="quote">Solicitar Orçamento Primeiro</option>
-                          </select>
-                          <p className="field-hint">
-                            {skill.pricingType === 'hourly'
-                              ? 'Você cobra um valor fixo por hora trabalhada'
-                              : skill.pricingType === 'daily'
-                              ? 'Você cobra um valor fixo por dia trabalhado'
-                              : skill.pricingType === 'weekly'
-                              ? 'Você cobra um valor fixo por semana trabalhada'
-                              : skill.pricingType === 'monthly'
-                              ? 'Você cobra um valor fixo por mês trabalhado'
-                              : 'Você precisa fazer um orçamento antes de aceitar o serviço'}
-                          </p>
-                        </div>
-
-                        {(skill.pricingType === 'hourly' || skill.pricingType === 'daily' || skill.pricingType === 'weekly' || skill.pricingType === 'monthly') && (
-                          <div className={`skill-field ${isNewlyAdded ? 'highlight-field' : ''}`}>
-                            <label>
-                              {skill.pricingType === 'hourly' && 'Valor por Hora (R$)'}
-                              {skill.pricingType === 'daily' && 'Valor por Dia (R$)'}
-                              {skill.pricingType === 'weekly' && 'Valor por Semana (R$)'}
-                              {skill.pricingType === 'monthly' && 'Valor por Mês (R$)'}
-                              {isNewlyAdded && <span className="required-indicator"> *</span>}
-                            </label>
-                            <input
-                              id={`hourly-rate-${skill.categoryId}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="999999.99"
-                              value={skill.hourlyRate || ''}
-                              onChange={(e) => {
-                                const value = e.target.value ? parseFloat(e.target.value) : null;
-                                updateSkill(skill.categoryId, 'hourlyRate', value);
-                              }}
-                              placeholder="0.00"
-                              className={skillErrors[skill.categoryId]?.includes('Valor') ? 'error' : ''}
-                              required={isNewlyAdded}
-                            />
-                            {skillErrors[skill.categoryId]?.includes('Valor') && (
-                              <span className="field-error">{skillErrors[skill.categoryId]}</span>
-                            )}
-                            <p className="field-hint">
-                              {isNewlyAdded 
-                                ? `💡 Defina o valor ${skill.pricingType === 'hourly' ? 'por hora' : skill.pricingType === 'daily' ? 'por dia' : skill.pricingType === 'weekly' ? 'por semana' : 'por mês'} para esta profissão. Ex: cortador de grama pode ter um valor diferente de manicure.`
-                                : `Valor específico para esta profissão (máx: R$ 999.999,99)`
-                              }
-                            </p>
-                          </div>
-                        )}
-
-                        {skill.pricingType === 'quote' && (
-                          <div className="skill-field">
-                            <label className="checkbox-label">
-                              <input
-                                type="checkbox"
-                                checked={skill.chargeVisit}
-                                onChange={(e) => {
-                                  updateSkill(skill.categoryId, 'chargeVisit', e.target.checked);
-                                  if (!e.target.checked) {
-                                    updateSkill(skill.categoryId, 'visitPrice', null);
-                                  }
-                                }}
-                              />
-                              <span>Cobrar pela visita para fazer orçamento</span>
-                            </label>
-                            {skill.chargeVisit && (
-                              <div style={{ marginTop: '0.5rem' }}>
-                                <label>Preço da Visita (R$)</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  max="999999.99"
-                                  value={skill.visitPrice || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value ? parseFloat(e.target.value) : null;
-                                    updateSkill(skill.categoryId, 'visitPrice', value);
-                                  }}
-                                  placeholder="0.00"
-                                />
-                                <p className="field-hint">
-                                  Valor que você cobra pela visita para fazer o orçamento. O mercado é livre - você decide se cobra ou não.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Serviços Pré-definidos */}
-                        <div className="predefined-services-wrapper">
-                          <PredefinedServicesManager
-                            services={skill.predefinedServices}
-                            onChange={(newServices) => {
-                              const updated = selectedSkills.map((s) =>
-                                s.categoryId === skill.categoryId
-                                  ? { ...s, predefinedServices: newServices }
-                                  : s
-                              );
-                              setSelectedSkills(updated);
-                            }}
-                            categoryName={skill.categoryName}
-                          />
-                        </div>
-
-                        {/* Regras de Desconto para Combos */}
-                        <div className="combo-discount-rules-wrapper">
-                          <ComboDiscountRulesManager
-                            rules={skill.comboDiscountRules}
-                            onChange={(newRules) => {
-                              const updated = selectedSkills.map((s) =>
-                                s.categoryId === skill.categoryId
-                                  ? { ...s, comboDiscountRules: newRules }
-                                  : s
-                              );
-                              setSelectedSkills(updated);
-                            }}
-                            categoryName={skill.categoryName}
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {skill.serviceType === 'product' && (
-                      <div className="skill-field">
-                        <p className="field-hint">
-                          Para produtos, você pode definir preços específicos quando criar anúncios ou ofertas.
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               );

@@ -1,32 +1,16 @@
 import { useState } from 'react';
 import type { Category, CategoryAutocompleteResult } from '../api/categories';
 
-type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quote';
-type ServiceType = 'service' | 'product';
-
-interface PredefinedService {
-  serviceId: string;
-  name: string;
-  description?: string;
-  basePrice: number;
-  discountPercentage?: number;
-  finalPrice: number;
-  isActive: boolean;
-}
-
+// A3.2 tab-only / C1: a aba Profissional declara competências por CONCEPT.
+// Campos de preço/serviço/availability/workers/capability SAÍRAM (C2/C3/C4) — não são mais persistidos.
 interface SelectedSkill {
-  categoryId: string;
+  categoryId: string;              // chave de UI/dedupe (= categoria L2 selecionada)
+  conceptId: string;               // identidade semântica/CONCEPT (declaração C1)
+  sourceCategoryId: string | null; // breadcrumb de navegação (origem da seleção)
   categoryName: string;
   categoryPath: string[];
   skillLevel: number;
   yearsExperience: number;
-  hourlyRate: number | null;
-  pricingType: PricingType;
-  serviceType: ServiceType;
-  chargeVisit: boolean;
-  visitPrice: number | null;
-  predefinedServices: PredefinedService[];
-  comboDiscountRules: any[];
 }
 
 export function useProfileProfessionalState() {

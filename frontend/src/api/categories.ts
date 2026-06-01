@@ -13,6 +13,8 @@ export interface Category {
   level: number;
   path: string[];
   scope?: string; // Scope da categoria (ex: 'professional', 'global')
+  /** Identidade semântica/CONCEPT (`categories.concept_id`). Exposto só no contexto profissional. NÃO é navegação; proibido usar como `concept_ref` transacional. */
+  conceptId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -304,6 +306,8 @@ export interface CategoryAutocompleteResult {
   level: number;
   path: string[];
   fullPathLabel: string;
+  /** Identidade semântica/CONCEPT da folha profissional. Só no autocomplete profissional. */
+  conceptId?: string | null;
 }
 
 export interface CategoryPathSuggestion {
