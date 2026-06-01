@@ -2018,3 +2018,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Persistência segue blob global_users.metadata (DT-LEARNING-INTEREST-BLOB-SSOT OPEN até C1).
   DT-LEARNING-CATEGORIES-MISSING-CONCEPT-ID → PARTIALLY MITIGATED. Interest = fatia própria.
 - Fila: Interest (desenho+migration) · DESENHO C1 actor-first (após substrato).
+
+### DECISION-0066 DIRETRIZES MATERIAIS INTEREST — PROMULGADA ✅ (2026-06-01)
+- Pós-desenho read-only de Interest (HEAD 6d9e9a29). OPÇÃO A (árvore mínima governada scope='interest').
+  Raízes level 0 sem concept (7: cultura-e-arte, esporte-e-bem-estar, tecnologia-e-jogos, gastronomia,
+  casa-e-mao-na-massa, negocios-e-financas, mundo-e-pessoas); folhas level 1 com concept; reuso de concept
+  Learning quando significado idêntico (27 folhas); concepts novos só governança p/ lazer/afinidade (11:
+  cinema-e-series, leitura, teatro, futebol, corrida, yoga, gadgets, vinhos-e-bebidas, cafe, viagens, pets).
+- Domínio dos concepts novos RESOLVIDO: cultura-lazer-e-eventos VERIFICADO existe em domains → não ambíguo
+  → sem bloqueio p/ Migration B. Tópicos de conhecimento reutilizam educacao-e-conhecimento.
+- Verificações read-only: scope=interest=0, 36 educacao concepts, categories_scope_check permite 'interest'
+  (sem alterar schema), guard physical.service:188 requireCategoriesWithConceptForScope(...,'interest'),
+  lifestyle enredado no mesmo blob/endpoint (DT-LIFESTYLE-SENSITIVE-IN-BLOB, fora da Migration B).
+- Vetos: sem lifestyle, sem frontend taxonomia, sem categoryId identidade, sem SQL ad-hoc, sem C1 antes,
+  NÃO fechar DT-LEARNING-INTEREST-BLOB-SSOT (blob até C1), guard intacto.
+- Doc: DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md + log. Próxima fatia = Migration B (ciclo fechado:
+  migration+validação+STATUS/opus/DTs+gates). NÃO autoriza migration aqui.

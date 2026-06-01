@@ -10511,8 +10511,12 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Vinculada a:** `DT-LEARNING-INTEREST-BLOB-SSOT`.
 - **Contexto:** `categories scope='interest'` tem **0 linhas** (verificado read-only). O guard `requireCategoriesWithConceptForScope(pool, ids, 'interest')` (`profile-physical.service.ts:188`) rejeita qualquer `categoryId` como **"fora do escopo 'interest'"** → PUT de interesses sempre **400** (provado).
 - **Risco:** Interesses **não têm árvore/navegação operacional** nem SSOT semântico — aba inerte por ausência total de substrato.
-- **Mitigação atual:** guard bloqueia escrita inválida (falha fechada).
-- **Resolução prevista:** desenhar navegação de interesses **conectada a CONCEPT**, sem `category` como identidade; decidir se interesse usa árvore própria (`scope='interest'`) governada por CONCEPT ou modelo direto concept-first.
+- **Mitigação atual:** guard bloqueia escrita inválida (falha fechada). **Nota (2026-06-01):** diretrizes
+  materiais de Interest **registradas em DECISION-0066** (árvore mínima governada `scope='interest'`, raízes
+  sem concept + folhas com concept, reuso de concepts de Learning + concepts novos em `cultura-lazer-e-eventos`).
+  **Status permanece OPEN** — nenhuma migration executada ainda; a mitigação virá com a **Migration B**.
+- **Resolução prevista:** Migration B governada (DECISION-0066) cria árvore `scope='interest'` + concepts,
+  conectada a CONCEPT, sem `category` como identidade. Status muda só após a migration.
 
 ## DT-PROFILE-FRONTEND-DRIVES-TAXONOMY
 

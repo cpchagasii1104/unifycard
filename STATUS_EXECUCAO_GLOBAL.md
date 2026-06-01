@@ -9283,3 +9283,29 @@ Interest pendente). **Interest permanece para fatia própria.**
 
 **Fila:** Interest (desenho + migration própria) · DESENHO C1 Learning/Interest actor-first (após substrato).
 Bloqueados: financeiro, Agenda, Saúde/Lifestyle.
+
+---
+
+## DECISION-0066 — DIRETRIZES MATERIAIS INTEREST PROMULGADA ✅ (2026-06-01)
+
+Após desenho read-only de Interest (pós-Migration A, HEAD `6d9e9a29`), Clayton promulgou **DECISION-0066**
+(`docs/02_decisions/DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md` + log). Deriva de 0064/0065.
+
+**Escolha: OPÇÃO A (árvore mínima governada `scope='interest'`).** Raízes level 0 sem concept (cultura-e-arte,
+esporte-e-bem-estar, tecnologia-e-jogos, gastronomia, casa-e-mao-na-massa, negocios-e-financas,
+mundo-e-pessoas); folhas level 1 com concept; **reuso** de concept de Learning quando o significado for
+idêntico (27 folhas); **concepts novos** só via governança para lazer/afinidade (11 candidatos:
+cinema-e-series, leitura, teatro, futebol, corrida, yoga, gadgets, vinhos-e-bebidas, cafe, viagens, pets).
+
+**Domínio dos concepts novos RESOLVIDO:** `cultura-lazer-e-eventos` **verificado EXISTE em `domains`** (N0
+canônico) → domínio não ambíguo → **sem bloqueio para a Migration B**. Tópicos de conhecimento reutilizam
+`educacao-e-conhecimento`.
+
+**Vetos:** lifestyle FORA da Migration B (DT-LIFESTYLE-SENSITIVE-IN-BLOB segue própria) · sem frontend
+criando taxonomia · sem categoryId como identidade · sem SQL ad-hoc (só migration governada) · sem C1
+antes da Migration B · NÃO fechar DT-LEARNING-INTEREST-BLOB-SSOT (persistência blob até C1) · guard intacto.
+
+**Fila:** DECISION-0066 NÃO autoriza migration. Domínio decidido → próxima fatia material = **Migration B —
+Interest concepts + árvore + associação** (governada, prompt executor próprio com ratificação, ciclo
+fechado: migration + validação + STATUS/opus/DTs + gates). Depois: DESENHO C1 Learning/Interest. Bloqueados:
+financeiro, Agenda, Saúde/Lifestyle.

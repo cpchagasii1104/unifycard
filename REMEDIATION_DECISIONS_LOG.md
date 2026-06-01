@@ -5801,3 +5801,66 @@ próprio, ratificação). Interest = fatia própria. C1 Learning/Interest só de
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0066 — INTEREST_TREE_MATERIAL_DIRECTIVES
+
+**Status:** RATIFICADA — DIRETRIZES MATERIAIS PRÉ-MIGRATION B; IMPLEMENTAÇÃO (MIGRATION) NÃO AUTORIZADA NESTA DECISION (2026-06-01).
+**Sessão:** 2026-06-01 (pós-desenho read-only de Interest, pós-Migration A).
+**Decisor:** Clayton (árvore + reuso + domínio + fronteiras).
+**Commit âncora:** documental. HEAD de origem: `6d9e9a29`.
+**Documento canônico:** `docs/02_decisions/DECISION_0066_INTEREST_TREE_MATERIAL_DIRECTIVES.md`.
+**Deriva de:** DECISION-0064 (Opção C) + DECISION-0065 (Learning). Materializa diretrizes de Interest.
+
+### Contexto
+
+Migration A (`6d9e9a29`) criou 36 concepts Learning + associou 36 folhas. `scope='interest'` segue vazio
+(0). `/profile/physical` lê/escreve interests via scope 'interest' (`enrichCategoryNavigationByIds(...,
+'interest')` :55/:218; `requireCategoriesWithConceptForScope(...,'interest')` :188) — exige categorias
+`scope='interest'` com `concept_id`. `categories_scope_check` já permite 'interest' (sem alterar schema).
+Lifestyle sensível enredado no mesmo blob/endpoint — fora desta decisão.
+
+### Opções e escolha
+
+A (árvore mínima governada) · B (ampla) · C (concepts direto) · D (adiar). **Escolha: OPÇÃO A.**
+
+### Regras
+
+Interest = árvore própria `scope='interest'`, mínima/governada. Raízes level 0 sem concept; folhas level 1
+com concept. Reuso de `concept_id` de Learning quando o significado for idêntico; concepts novos só via
+governança para lazer/afinidade não coberto. Lifestyle FORA da Migration B. Persistência blob temporária
+até C1 (NÃO fechar DT-LEARNING-INTEREST-BLOB-SSOT). C1 só depois do substrato de Interest.
+
+### Árvore inicial
+
+Raízes: cultura-e-arte, esporte-e-bem-estar, tecnologia-e-jogos, gastronomia, casa-e-mao-na-massa,
+negocios-e-financas, mundo-e-pessoas. Folhas reuso (27): musica, fotografia, desenho-ilustracao, design,
+atividade-fisica, nutricao, saude-mental, games, programacao, inteligencia-artificial, ferramentas-digitais,
+culinaria, confeitaria, panificacao, jardinagem, marcenaria, diy, decoracao, manutencao-basica,
+empreendedorismo, financas-pessoais, gestao, marketing-digital, idiomas, historia, filosofia, ciencias.
+Folhas/concepts novos candidatos (11): cinema-e-series, leitura, teatro, futebol, corrida, yoga, gadgets,
+vinhos-e-bebidas, cafe, viagens, pets.
+
+### Domínio dos concepts novos — RESOLVIDO
+
+`cultura-lazer-e-eventos` **verificado EXISTE em domains** (N0 canônico) → domínio recomendado para concepts
+novos de lazer/afinidade; tópicos de conhecimento reutilizam `educacao-e-conhecimento`. **Domínio NÃO
+ambíguo** → sem bloqueio de domínio para Migration B. Reclassificação fina de candidato isolado p/ outro
+domínio vivo é ajuste do prompt da Migration B; **nunca** inventar domínio novo sem fatia própria.
+
+### Vetos
+
+Sem lifestyle nesta migration · sem frontend criando taxonomia · sem categoryId como identidade · sem SQL
+ad-hoc (só migration governada com mapping) · sem C1 antes da Migration B · sem fechar
+DT-LEARNING-INTEREST-BLOB-SSOT · guard requireCategoriesWithConceptForScope permanece.
+
+### Escopo / próxima frente
+
+NÃO autoriza migration. Domínio decidido → próxima fatia material PODE ser **Migration B — Interest
+concepts + árvore + associação** (governada, prompt executor próprio, ratificação). C1 só depois do
+substrato de Interest.
+
+### Superada por
+
+(em aberto — decisão vigente)
