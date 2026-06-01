@@ -778,10 +778,13 @@ if (!hasReadAccess) {
    * Busca filhos de uma categoria
    * @param countryCode - Se fornecido, filtra por país (incluindo categorias globais)
    */
-  async getChildren(categoryId: string, countryCode?: string | null, context: CategoryContext = 'professional'): Promise<Category[]> {
-    const rows = await this.repository.findChildren(categoryId, context, countryCode);
+  async getChildren(categoryId: string, countryCode?: string | null, context?: CategoryContext): Promise<Category[]> {
+    // Filtro mantém 'professional' como default histórico (não muda QUAIS filhos retornam);
+    // mas conceptId só é exposto quando context === 'professional' veio EXPLÍCITO do caller.
+    const effectiveContext: CategoryContext = context ?? 'professional';
+    const rows = await this.repository.findChildren(categoryId, effectiveContext, countryCode);
     const cats = CategoryModel.fromRows(rows);
-    // OPÇÃO B (07 §4262/4278): conceptId só no contexto profissional; não surfaçar fora dele.
+    // OPÇÃO B (07 §4262/4278): default seguro — sem contexto explícito profissional, NÃO surfaçar conceptId.
     if (context !== 'professional') {
       for (const cat of cats) {
         delete (cat as { conceptId?: string | null }).conceptId;

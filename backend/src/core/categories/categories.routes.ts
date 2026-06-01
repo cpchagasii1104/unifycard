@@ -682,6 +682,7 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get<{
     Params: { categoryId: string };
+    Querystring: { context?: CategoryContext };
   }>(
     '/:categoryId/children',
     {
@@ -692,11 +693,18 @@ const categoriesRoutes: FastifyPluginAsync = async (fastify) => {
             categoryId: { type: 'string' },
           },
         },
+        querystring: {
+          type: 'object',
+          properties: {
+            context: { type: 'string', enum: CATEGORY_CONTEXT_VALUES },
+          },
+        },
       },
     },
     async (req, reply) => {
       try {
-        const children = await categoriesService.getChildren(req.params.categoryId);
+        // conceptId só é surfaçado quando context=professional vem EXPLÍCITO na query (07 §4262/4278).
+        const children = await categoriesService.getChildren(req.params.categoryId, undefined, req.query.context);
         return reply.send({ ok: true, data: { children, totalCents: children.length } });
       } catch (error) {
         fastify.log.error({ err: error }, 'Erro ao buscar filhos da categoria');
