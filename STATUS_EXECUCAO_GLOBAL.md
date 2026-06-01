@@ -9235,3 +9235,25 @@ taxonomia · **sem C1 antes do substrato semântico**.
 pipeline governado + associar) → (2) DESENHO C1 Learning/Interest actor-first. DECISION-0064 fixa modelo +
 domínios + vetos; NÃO autoriza migration nem C1 (fatias separadas, ratificação própria). Bloqueados:
 financeiro, Agenda, Saúde/Lifestyle (`DT-LIFESTYLE-SENSITIVE-IN-BLOB` = frente própria).
+
+---
+
+## DECISION-0065 — DIRETRIZES MATERIAIS LEARNING CONCEPTS PROMULGADA ✅ (2026-06-01)
+
+Após desenho read-only da migration governada (HEAD `cf791d1f`, pipeline governado confirmado:
+concept-governance/trigger 0075/create_category_from_concept 0097-0110; categories SEM triggers vivos;
+CHECK só exige concept em level 2), Clayton promulgou **DECISION-0065**
+(`docs/02_decisions/DECISION_0065_LEARNING_CONCEPTS_MATERIAL_DIRECTIVES.md` + log). Deriva de 0064.
+
+**6 decisões materiais:** (1) concept slug = tópico limpo (`fotografia`, sem `-aprendizado`; contexto é
+declaração, não identidade) · (2) domínio = `educacao-e-conhecimento` (sem resolver compartilhamento com
+Professional aqui) · (3) associação = preservar árvore + criar concepts governados + associar `concept_id`
+às folhas existentes por **migration governada com mapping literal** (NÃO é SQL ad-hoc; veto 0064 segue
+contra UPDATE manual/runtime/fora de migration) · (4) nível declarável = manter `level=1` (não reestruturar;
+critério = folha com concept_id, não level) · (5) Interest = fatia própria (não na Migration A) · (6)
+compartilhamento Learning↔Interest sim, Learning↔Professional/Serviços NÃO automático.
+
+**Fila:** DECISION-0065 NÃO autoriza migration. Próxima fatia material = **Migration A — Learning concepts
++ associação governada** (36 concepts em educacao-e-conhecimento + associar folhas; prompt executor próprio,
+ratificação). Interest = fatia própria. C1 Learning/Interest só depois do substrato. Bloqueados: financeiro,
+Agenda, Saúde/Lifestyle.

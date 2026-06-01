@@ -5755,3 +5755,49 @@ modelo + domínios + vetos; NÃO autoriza migration nem C1 (fatias separadas, ra
 ### Superada por
 
 (em aberto — esta é uma decisão vigente)
+
+---
+
+## DECISION-0065 — LEARNING_CONCEPTS_MATERIAL_DIRECTIVES
+
+**Status:** RATIFICADA — DIRETRIZES MATERIAIS PRÉ-MIGRATION; IMPLEMENTAÇÃO (MIGRATION) NÃO AUTORIZADA NESTA DECISION (2026-06-01).
+**Sessão:** 2026-06-01 (pós-desenho read-only da migration governada Learning/Interest).
+**Decisor:** Clayton (6 decisões materiais).
+**Commit âncora:** documental. HEAD de origem: `cf791d1f`.
+**Documento canônico:** `docs/02_decisions/DECISION_0065_LEARNING_CONCEPTS_MATERIAL_DIRECTIVES.md`.
+**Deriva de:** DECISION-0064 (modelo Opção C). Não altera 0064; materializa decisões operacionais.
+
+### Contexto
+
+Desenho material read-only (HEAD `cf791d1f`) confirmou o pipeline governado (`concept-governance.service`
+/ trigger 0075 / `create_category_from_concept` 0097/0110; `concepts UNIQUE(domain,slug)`, FK
+`domain→domains`, `categories.concept_id` FK→concepts ON DELETE SET NULL, CHECK só exige concept em
+level 2, `categories` SEM triggers vivos) e isolou 6 decisões antes da Migration A de Learning.
+
+### Decisões materiais
+
+1. **Slug do concept:** tópico limpo (`fotografia`, `musica`, `programacao`); sem sufixo `-aprendizado`
+   (contexto pertence à declaração futura, não à identidade). Categorias mantêm slug de navegação.
+2. **Domínio Migration A:** `educacao-e-conhecimento` (N0 vivo). NÃO resolve compartilhamento com
+   Professional/Serviços aqui; futuro precisa de decisão de ontologia própria.
+3. **Associação:** preservar árvore learning existente; criar concepts por caminho governado; associar
+   `concept_id` às folhas existentes **por migration governada, mapping literal, transação**. NÃO é "SQL
+   direto ad-hoc"; é migration forward-only documentada/ratificada. Veto 0064 segue contra UPDATE manual/
+   runtime/improvisado/fora de migration governada.
+4. **Nível declarável:** manter folhas learning em `level=1`; NÃO reestruturar p/ level 2; NÃO usar
+   `create_category_from_concept` se reestruturar a tree. Critério declarável = folha com `concept_id`
+   governado (guard não checa level).
+5. **Interest:** NÃO criar `scope='interest'` na Migration A; fatia própria (sem árvore/decisão de produto
+   hoje). Learning/Interest poderão compartilhar concepts quando o significado for igual.
+6. **Compartilhamento:** Learning↔Interest pode compartilhar `concept_id`; Learning↔Professional/Serviços
+   NÃO automaticamente (exercício/oferta ≠ desejo de aprender; mesma palavra ≠ mesma verdade operacional).
+
+### Escopo / fila
+
+Esta fatia **NÃO autoriza migration ainda**. Próxima fatia material = **Migration A — Learning concepts +
+associação governada** (36 concepts em `educacao-e-conhecimento` + associar folhas; prompt executor
+próprio, ratificação). Interest = fatia própria. C1 Learning/Interest só depois do substrato semântico.
+
+### Superada por
+
+(em aberto — decisão vigente)

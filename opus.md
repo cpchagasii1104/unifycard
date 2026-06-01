@@ -1990,3 +1990,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   permanece; sem categoryId como identidade; sem frontend criando taxonomia; SEM C1 antes do substrato.
 - Fila: (1) DESENHO/MIGRATION governada concepts/categories Learning/Interest → (2) DESENHO C1 actor-first.
   DECISION-0064 NÃO autoriza migration nem C1 (fatias separadas).
+
+### DECISION-0065 DIRETRIZES MATERIAIS LEARNING CONCEPTS — PROMULGADA ✅ (2026-06-01)
+- Pós-desenho read-only (HEAD cf791d1f). Pipeline governado confirmado material: concept-governance.service
+  (createConcept valida domain N0) / trigger 0075 (app.concept_governance) / create_category_from_concept
+  0097-0110 (INSERTa level-2, check domain servicos só p/ professional); concepts UNIQUE(domain,slug),
+  categories.concept_id FK→concepts ON DELETE SET NULL, CHECK chk_n2_requires_concept só level 2, categories
+  SEM triggers vivos (UPDATE concept_id não bloqueado). 36 learning folhas mapeadas (muitas com slug
+  -aprendizado), 8 raízes agregadoras, 0 overlap com concepts, sem colisão domain.
+- 6 decisões (DECISION-0065, deriva de 0064): (1) concept slug limpo (fotografia, sem -aprendizado) (2)
+  domínio educacao-e-conhecimento (sem compartilhar c/ professional aqui) (3) associação por migration
+  governada com mapping literal, preserva árvore — NÃO é SQL ad-hoc; veto 0064 segue (4) nível declarável
+  level=1, não reestruturar, critério=folha com concept_id (5) Interest fatia própria (6) compartilhar
+  Learning↔Interest sim, Learning↔Professional NÃO automático.
+- Doc: DECISION_0065_LEARNING_CONCEPTS_MATERIAL_DIRECTIVES.md + log. Próxima fatia = Migration A (Learning
+  concepts + associação governada; prompt executor próprio). NÃO autoriza migration aqui.
