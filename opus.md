@@ -2832,3 +2832,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   PJ fora. (Lição: o cache parcial é uma armadilha — um provider melhor não ajuda se o cache curto-circuita com dado
   incompleto; requireExternalCode resolve sem apagar cache. Probe com rows SINTÉTICAS evitou mexer no estado real da
   F-GEO-2b — F-GEO-2d parte do estado documentado, sem herdar mock.)
+
+### F-GEO-2d — execução real ViaCEP, city_id preenchido ✅ (2026-06-02) — frente Location/Geo
+- Docs-only (HEAD 9585524b antes=depois). Execução manual com API externa real ViaCEP, fora do CI. Zero código/
+  migration/frontend/PJ/Companies/financeiro/cleanup blob/DML manual.
+- Comando: CEP_PROVIDER=viacep pnpm --dir C:/unificard/backend tsx src/scripts/backfill-geo-enrichment.ts →
+  {"scanned":3,"enriched":3,"skipped":0,"failed":0}.
+- Antes→depois (3 endereços DEV, todos Curitiba/PR): addresses.city_id 3×NULL → 3×9d431002 (Curitiba EXISTENTE
+  reusada, não criada; addr_city 0→3). cep_cache: 3 linhas BRASIL_API com city_external_code=NULL → re-resolvidas
+  VIA_CEP com IBGE 4106902 (cache parcial NÃO bloqueou — requireExternalCode funcionou em produção de dados real).
+  cities 27→27 (sem crescimento). neighborhoods 0→0. aal 1→1. blob 1→1 (preservado).
+- Gates (código intocado): actor-writer/bank-ledger OK; regression PASSOU (348); arch critical_new=0/total=20/
+  warning_new=1 (:334 pré-existente). Probe read-only descartável não commitado.
+- DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE permanece OPEN (não fechar). city_id real desbloqueia F-GEO-3 (core lê
+  cidade/UF por FK do catálogo, sem blob). Bairro ainda residual via blob (neighborhoods=0) — outra frente. PJ fora.
+  (Lição: o teste que importa é o real — o mock provou o caminho, mas só a ViaCEP real confirmou que o contrato traz
+  IBGE e que o cache parcial da BrasilAPI cedeu. enriched=3 desta vez É city resolvido, diferente do enriched=3
+  state-only da F-GEO-2b. A coleira de IBGE no provider transformou "enriquecido" honesto em cidade canônica.)

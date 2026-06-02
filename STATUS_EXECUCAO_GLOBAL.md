@@ -10599,3 +10599,27 @@ total=20.
 `CEP_PROVIDER=viacep pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts` (manual/env, fora do CI) para
 preencher `city_id` dos 3 → **F-GEO-3** (core lê state/city do catálogo, sem blob) → **F4** cleanup → **F5** selo.
 PJ fora desta instância; usa o mesmo provider/cache.
+
+---
+
+## F-GEO-2d — execução real ViaCEP (city_id preenchido) ✅ (2026-06-02) — frente Location/Geo
+
+HEAD `9585524b` (antes=depois — **docs-only**, zero código/migration/frontend/PJ). Execução manual autorizada com
+**API externa real** (ViaCEP), fora do CI.
+
+**Comando exato:** `CEP_PROVIDER=viacep pnpm --dir C:/unificard/backend tsx src/scripts/backfill-geo-enrichment.ts`
+→ `{"scanned":3,"enriched":3,"skipped":0,"failed":0}`.
+
+**Antes → Depois (estado real, 3 endereços DEV, todos Curitiba/PR):**
+- `addresses.city_id`: 3× NULL → 3× `9d431002` (**Curitiba existente REUSADA**, não criada). `addr_state` 3→3, `addr_city` 0→**3**.
+- `cep_resolution_cache`: 3 linhas `BRASIL_API` com `city_external_code=NULL` → **re-resolvidas para `VIA_CEP`** com
+  `city_external_code=4106902` (IBGE), `source=CEP_RESOLVED`, hash novo. O cache parcial **não bloqueou** (requireExternalCode).
+- `cities` 27→**27** (sem crescimento — reuso por external_code). `neighborhoods` 0→0. `actor_active_location` 1→1.
+  `profiles.metadata.address` 1→1 (**blob preservado**).
+
+Gates pós-execução (código intocado): actor-writer OK; bank-ledger OK; regression PASSOU (348); arch
+`critical_new=0` / `critical_total=20` / `warning_new=1` (pré-existente :334). Probe read-only descartável (não commitado).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (não fechar). Com `city_id` real preenchido, o próximo
+corte **F-GEO-3** fica desbloqueado: core lê cidade/UF por FK (catálogo), sem depender do blob. **Bairro ainda é
+residual via blob** (neighborhoods=0) — outra frente. PJ fora desta instância.
