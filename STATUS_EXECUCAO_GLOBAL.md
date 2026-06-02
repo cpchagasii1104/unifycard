@@ -9776,3 +9776,27 @@ ativo → DB rows=1. Gates: typecheck0; actor-writer/bank-ledger/regression OK; 
 
 **DT-C1-LEARNING-INTEREST-REACTIVATION → CLOSED.** Follow-ups remanescentes (frentes próprias): 501 do GET
 `/profile/learning` legado; DT-LIFESTYLE-SENSITIVE-IN-BLOB; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY.
+
+---
+
+## LEGADO LEARNING GET → 501 EXPLÍCITO ✅ (2026-06-01)
+
+`GET /profile/learning` (rota legada) passou a responder **501** `PROFILE_LEARNING_LEGACY_DISABLED` →
+`/profile/learning/c1`, em simetria com o PUT (já 501). HEAD origem `ed6738ce`. **Só
+`profile-learning.routes.ts`**; zero C1/frontend/migration/readers/Lifestyle/Saúde/Agenda/Profissional/
+financeiro.
+
+**Mudança:** o handler GET deixou de chamar `getLearningProfile` (lia o blob hoje vazio) e retorna
+`{ ok:false, code:'PROFILE_LEARNING_LEGACY_DISABLED', message:'Use /profile/learning/c1', replacement:
+'/profile/learning/c1' }`. Imports órfãos (`profileLearningService`, `HttpError`) removidos da rota. **PUT
+preservado** (501, payload inalterado). O método de serviço `getLearningProfile` **não foi deletado** (deixado
+intacto; agora **sem callers backend** — candidato a remoção futura, reportado, não removido nesta fatia).
+
+**Provas runtime (3010):** GET `/profile/learning` → **501** com `code`+`replacement`; PUT `/profile/learning`
+→ **501**; GET `/profile/learning/c1` → **200**; GET `/profile/interest/c1` → **200** (intacto). Greps:
+frontend `api/learning.ts` é cliente **morto** (nenhum componente importa); backend `getLearningProfile` sem
+callers após a troca. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch `critical_new=0`,
+`critical_total=20`.
+
+Follow-ups remanescentes (frentes próprias): DT-LIFESTYLE-SENSITIVE-IN-BLOB; DT-PROFILE-FRONTEND-DRIVES-
+TAXONOMY; remoção futura do `getLearningProfile` morto (cosmético).

@@ -2293,3 +2293,15 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   declaredAt preservado, sem 409)→GET ativo→POST ativo=409→DB rows=1 (sem duplicata). Interest idem binário→
   reativa sem 409→409 ativo→DB rows=1. Gates verdes; critical_new=0/total=20. DT-C1-LEARNING-INTEREST-
   REACTIVATION CLOSED. Follow-ups: 501 GET /profile/learning; DT-LIFESTYLE; DT-PROFILE-FRONTEND-DRIVES-TAXONOMY.
+
+### LEGADO LEARNING GET → 501 EXPLÍCITO ✅ (2026-06-01)
+- GET /profile/learning (rota legada) → 501 PROFILE_LEARNING_LEGACY_DISABLED → /profile/learning/c1 (simetria
+  com PUT). Só profile-learning.routes.ts. HEAD origem ed6738ce. Zero C1/frontend/migration/readers/Lifestyle/
+  Saúde/Agenda/Profissional/financeiro.
+- Handler GET não chama mais getLearningProfile (blob vazio); retorna {ok:false, code, message:'Use /profile/
+  learning/c1', replacement:'/profile/learning/c1'}. Imports órfãos (profileLearningService, HttpError)
+  removidos da rota. PUT preservado (501). getLearningProfile NÃO deletado (intacto, agora sem callers backend
+  — remoção futura cosmética, reportada).
+- Provas runtime (3010): GET 501 com code+replacement; PUT 501; GET /profile/learning/c1 200; GET /profile/
+  interest/c1 200 (intacto). Greps: frontend api/learning.ts cliente morto (nenhum componente importa); backend
+  getLearningProfile sem callers. Gates verdes; critical_new=0/total=20. DT-READERS residuo (a) RESOLVIDO.
