@@ -2799,3 +2799,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   src/scripts/backfill-geo-enrichment.ts (manual/env, NÃO no CI). DT-PERSONAL-ADDRESS OPEN. (Disciplina: API
   externa em coleira — dry-run com Null+mock antes de soltar o provider real; teardown deixou DEV pristino p/ a
   execução real não herdar dado de mock.)
+
+### F-GEO-2b — BACKFILL GEO REAL (BrasilAPI) ✅ (2026-06-02) — execução controlada
+- Sem commit de código (script intocado; só dados no DB). Comando real (manual/env, fora do CI): CEP_PROVIDER=
+  brasilapi pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts → {scanned:3,enriched:3,skipped:0,failed:0}.
+- RESULTADO MATERIAL (honesto): BrasilAPI v2 NÃO retorna IBGE (city_ibge ausente) → os 3 enriqueceram STATE-ONLY
+  (state_id=PR; city_id NULL — caminho documentado sem IBGE, não é erro, sem match frágil). Cache 0→3 (BRASIL_API,
+  Curitiba/bairro/street, city_external_code NULL, source=CEP_RESOLVED, raw_response_hash sha256 sem payload).
+  addr_state 0→3; addr_city 0→0; cities 27→27 (nenhuma nova); neighborhoods 0→0; aal 1→1; blob 1→1 preservado.
+  Gates verdes (348; critical_new=0).
+- ACHADO provider-IBGE: para city_id canônico precisa provider com IBGE — ViaCEP retorna `ibge` (BrasilAPI v2 não).
+  Follow-up: ViaCepProvider (port já plugável). Até lá, city/bairro de exibição via blob (ou via cache, que tem o
+  texto). DT-PERSONAL-ADDRESS OPEN. Próximo: provider IBGE (ViaCEP) → F-GEO-3 (core lê state, e city quando
+  resolvido, do catálogo) → F4 cleanup → F5 selo. PJ fora. (Lição: enriched=3 ≠ city resolvido — enrichAddress
+  marca enriched no state-only também; o relatório tem que distinguir state-only de state+city, não vender
+  "enriquecido" como cidade canônica. Provider real revelou o gap de contrato (sem IBGE) que o mock não revelava —
+  por isso a execução real importa, mesmo com 3 CEPs.)

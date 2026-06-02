@@ -10550,3 +10550,26 @@ cache só sha256 (sem raw payload); **blob preservado 1→1**; neighborhoods 0�
 **DEV pronto para F-GEO-2b (execução real, autorização explícita necessária).** Comando exato recomendado:
 `CEP_PROVIDER=brasilapi pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts` (execução **manual/env**,
 NÃO no CI). **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.**
+
+---
+
+## F-GEO-2b — BACKFILL GEO REAL (BrasilAPI) ✅ (2026-06-02) — execução controlada
+
+HEAD `17947618`. **Sem commit de código** (script intocado; só dados no DB). Comando real autorizado (manual/env,
+fora do CI): `CEP_PROVIDER=brasilapi pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts` →
+`{scanned:3, enriched:3, skipped:0, failed:0}`.
+
+**Resultado material (honesto):** **BrasilAPI v2 NÃO retorna IBGE** (`city_ibge` ausente) → os 3 addresses
+enriqueceram **STATE-ONLY** (`state_id`=PR setado; **`city_id` permanece NULL** — caminho documentado sem IBGE;
+não é erro, sem match frágil). **Antes→Depois:** `cep_resolution_cache` 0→3 (provider=BRASIL_API, UF/cidade=
+Curitiba/bairro/street, `city_external_code`=NULL, source=CEP_RESOLVED, `raw_response_hash`=sha256 **sem payload**);
+`addr_state` 0→3; `addr_city` 0→0; `cities` 27→27 (nenhuma nova — sem IBGE); `neighborhoods` 0→0; `actor_active_
+location` 1→1; **blob `metadata.address` 1→1 preservado**. Gates verdes (348; critical_new=0).
+
+**ACHADO (provider-IBGE gap):** para `city_id` canônico é preciso provider que retorne **IBGE** — **ViaCEP retorna
+`ibge`** (BrasilAPI v2 não). Trocar/empilhar provider é **follow-up** (port `CepProvider` já plugável; basta um
+`ViaCepProvider`). Até lá, city/bairro de exibição seguem via blob (ou via cache, que já tem o texto).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo: **provider IBGE (ViaCEP)** para resolver
+city_id → depois **F-GEO-3** (core lê state — e city quando resolvido — do catálogo) → **F4** cleanup → **F5** selo.
+PJ fora desta instância.
