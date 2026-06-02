@@ -2683,3 +2683,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   CEP/street/number/complement); PJ não deve assumir cidade/UF textual canônica; enriquecimento via CEP/catálogo/
   geocoding = decisão própria. DT-PERSONAL-ADDRESS OPEN. Fila: F2 frontend → F3 readers sem blob → F4 cleanup →
   F5 selo+CLOSE. PJ fora desta instância.
+
+### F2 — ENDEREÇO CIVIL PF: FRONTEND ProfilePersonal → ROTA CANÔNICA ✅ (2026-06-01)
+- Frontend-only, 2 arquivos: novo api/residenceAddress.ts (get/putResidenceAddress → GET/PUT /profile/residence-
+  address) + Profile.tsx. HEAD origem f32dba8c. Zero backend/migration/PJ/Companies/CPF/gender/financeiro. Blob
+  preservado (cleanup=F4).
+- Save: handleSavePersonal removeu metadata.address do payload de updateProfile; grava endereço via
+  putResidenceAddress APÓS updateProfile (CEP-âncora; só se há CEP; erro de endereço NÃO mascarado — propaga
+  "Erro ao salvar endereço"). cpf/gender intocados. Load INALTERADO: lê coreProfile.addresses (F1 já fez vir do
+  Location Core + enriquecimento city/state do blob); trocar p/ GET cru perderia city/state na exibição.
+- Provas: frontend typecheck0; PUT /profile/residence-address (fluxo F2) 200 source=UX_INPUT, Location Core
+  atualizado; blob metadata.address NÃO criado/atualizado (false→false). Greps: sem metadata.address em
+  Profile.tsx; usa putResidenceAddress. Gates OK; critical_new=0/total=20. DT-PERSONAL-ADDRESS OPEN. Fila: F3
+  readers sem blob (remover enriquecimento transitório) → F4 cleanup → F5 selo+CLOSE.

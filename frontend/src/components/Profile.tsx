@@ -9,6 +9,7 @@ import {
   type IdentityProfile,
 } from "../api/identity";
 import { updateProfile, confirmFirstAccess } from "../api/profile";
+import { putResidenceAddress } from "../api/residenceAddress";
 import { getCoreProfile } from "../api/core";
 import { getPlan, updatePlan, type UserPlan } from "../api/plan";
 import { maskCPF, validateCPF, verifyCPFExists } from "../utils/cpf";
@@ -873,21 +874,10 @@ export default function Profile() {
           ? formatBrazilianPhone(areaCode, phoneNumber)
           : `+${countryCode} ${areaCode} ${phoneNumber}`;
 
-      // 🔴 IMUTABILIDADE: Não incluir CPF e gender no metadata se já foram cadastrados
-      const metadataToSend: Record<string, any> = {
-        address: {
-          cep: cep.replace(/\D/g, ""),
-          // 🔧 CORREÇÃO: Usar nomes compatíveis com o backend (aceita ambos, mas "address" e "address_number" são preferidos)
-          address: sanitizedAddress, // Mantém compatibilidade: backend aceita tanto "address" quanto "street"
-          address_number: addressNumber.trim(), // Mantém compatibilidade: backend aceita tanto "address_number" quanto "number"
-          street: sanitizedAddress, // Mantém para compatibilidade reversa
-          number: addressNumber.trim(), // Mantém para compatibilidade reversa
-          complement: sanitizedComplement,
-          neighborhood: sanitizedNeighborhood,
-          city: sanitizedCity,
-          state: sanitizedState,
-        },
-      };
+      // 🔴 F2 (DECISION-0074): o endereço civil PF NÃO vai mais em `metadata.address`. Ele é gravado no
+      // Location Core canônico via PUT /profile/residence-address (abaixo, após o updateProfile). O metadata
+      // segue carregando apenas cpf/gender quando aplicável (fora do escopo desta frente — não alterar).
+      const metadataToSend: Record<string, any> = {};
 
       // 🔴 IMUTABILIDADE: Só incluir CPF e gender no metadata se ainda não foram cadastrados
       if (!hasCpf && cpf) {
@@ -947,6 +937,29 @@ export default function Profile() {
         await updateProfile(profileUpdate);
 
         console.log("[Profile] Perfil local atualizado com sucesso");
+
+        // 🔴 F2 (DECISION-0074): grava o endereço civil PF no Location Core canônico (CEP-âncora),
+        // NÃO mais em metadata.address. Só envia se há CEP preenchido (mínimo canônico). Falha do
+        // endereço NÃO é mascarada como sucesso total — propaga erro específico.
+        const cepDigits = cep.replace(/\D/g, "");
+        if (cepDigits) {
+          try {
+            await putResidenceAddress({
+              cep: cepDigits,
+              address: sanitizedAddress,
+              address_number: addressNumber.trim(),
+              complement: sanitizedComplement,
+              neighborhood: sanitizedNeighborhood,
+              city: sanitizedCity,
+              state: sanitizedState,
+            });
+            console.log("[Profile] Endereço gravado no Location Core (/profile/residence-address)");
+          } catch (addrErr) {
+            throw new Error(
+              `Erro ao salvar endereço: ${addrErr instanceof Error ? addrErr.message : "Erro desconhecido"}`,
+            );
+          }
+        }
 
         // Sincronizar actors: refresh após salvar perfil (se fullName foi atualizado)
         if (sanitizedFullName && sanitizedFullName.trim() !== '') {

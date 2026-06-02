@@ -10384,3 +10384,24 @@ decisão própria.
 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F2** frontend ProfilePersonal → rota
 canônica → **F3** readers/core sem blob → **F4** cleanup blob → **F5** selo + CLOSE. **PJ fora desta instância.**
+
+---
+
+## F2 — ENDEREÇO CIVIL PF: FRONTEND ProfilePersonal → ROTA CANÔNICA ✅ (2026-06-01)
+
+HEAD origem `f32dba8c`. **Frontend-only, 2 arquivos**: novo `frontend/src/api/residenceAddress.ts` + `Profile.tsx`.
+Zero backend/migration/schema/PJ/Companies/CPF/gender/financeiro. **Blob preservado** (cleanup=F4).
+
+**Save:** `Profile.tsx::handleSavePersonal` **removeu `metadata.address`** do payload de `updateProfile` e passou
+a gravar o endereço via `putResidenceAddress` (`PUT /profile/residence-address`, CEP-âncora) **após** o
+`updateProfile`; só envia se há CEP; **erro de endereço não mascarado** (propaga `"Erro ao salvar endereço: …"`).
+`cpf`/`gender` intocados no metadata condicional. **Load inalterado**: lê `coreProfile.addresses` (que a F1 já fez
+vir do Location Core + enriquecimento city/state do blob) — trocar para o GET cru perderia city/state na exibição.
+
+**Provas:** frontend typecheck0; PUT `/profile/residence-address` (fluxo F2) → **200, source=UX_INPUT**, Location
+Core atualizado; **blob `metadata.address` NÃO criado/atualizado** (false→false). Greps: sem `metadata.address`
+em `Profile.tsx`; usa `putResidenceAddress`. Gates: actor-writer/bank-ledger/regression OK; arch critical_new=0/
+total=20. Backend typecheck dispensado (backend não tocado).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F3** readers/core sem depender do blob
+(remover enriquecimento transitório) → **F4** cleanup `profiles.metadata.address` → **F5** selo + CLOSE.
