@@ -100,12 +100,64 @@ export class MockCepProvider implements CepProvider {
 }
 
 /**
- * Provider default do runtime: NULL a menos que CEP_PROVIDER=brasilapi (opt-in explícito).
+ * F-GEO-2c (DECISION-0077/0078): Provider real via ViaCEP. fetch nativo + timeout. Retorna o código IBGE do
+ * município (`ibge`) — o que permite resolver `city_id` canônico via `cities.external_code` (BrasilAPI v2 não
+ * traz IBGE). Sem lat/lng, sem payload bruto, fail-open.
+ */
+export class ViaCepProvider implements CepProvider {
+  constructor(private readonly timeoutMs: number = 4000) {}
+
+  async resolvePostalCode(postalCode: string): Promise<CepResolution | null> {
+    const cep = normalizePostalCode(postalCode);
+    if (!cep) return null;
+
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+        signal: controller.signal,
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      if (data?.erro) return null; // ViaCEP sinaliza CEP inexistente com { erro: true }
+      const stateCode = typeof data?.uf === 'string' ? data.uf.toUpperCase() : null;
+      const cityName = typeof data?.localidade === 'string' ? data.localidade : null;
+      if (!stateCode || !cityName) return null;
+      return {
+        postalCode: cep,
+        stateCode,
+        cityName,
+        cityExternalCode:
+          typeof data?.ibge === 'string' && /^\d{7}$/.test(data.ibge) ? data.ibge : null,
+        neighborhoodName: typeof data?.bairro === 'string' && data.bairro ? data.bairro : null,
+        street: typeof data?.logradouro === 'string' && data.logradouro ? data.logradouro : null,
+        lat: null,
+        lng: null,
+        source: 'VIA_CEP',
+      };
+    } catch {
+      return null; // fail-open
+    } finally {
+      clearTimeout(t);
+    }
+  }
+}
+
+/**
+ * Provider default do runtime: NULL a menos que CEP_PROVIDER opte explicitamente (opt-in).
+ *   CEP_PROVIDER=viacep    → ViaCEP (retorna IBGE → resolve city_id canônico) [preferido]
+ *   CEP_PROVIDER=brasilapi → BrasilAPI (street/coords; v2 sem IBGE → tende a state-only)
+ *   ausente / 'null'       → NullCepProvider (sem rede; seguro para gates/testes)
  * Garante que gates/testes não batem em rede sem configuração intencional.
  */
 export function getDefaultCepProvider(): CepProvider {
-  if (process.env.CEP_PROVIDER === 'brasilapi') {
-    return new BrasilApiCepProvider();
+  switch (process.env.CEP_PROVIDER) {
+    case 'viacep':
+      return new ViaCepProvider();
+    case 'brasilapi':
+      return new BrasilApiCepProvider();
+    default:
+      return new NullCepProvider();
   }
-  return new NullCepProvider();
 }

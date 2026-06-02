@@ -10573,3 +10573,29 @@ location` 1→1; **blob `metadata.address` 1→1 preservado**. Gates verdes (348
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo: **provider IBGE (ViaCEP)** para resolver
 city_id → depois **F-GEO-3** (core lê state — e city quando resolvido — do catálogo) → **F4** cleanup → **F5** selo.
 PJ fora desta instância.
+
+---
+
+## F-GEO-2c — ViaCepProvider (IBGE) + cache-incompleto re-resolve ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `73d48e30`. **Backend-only, 2 arquivos** (`cep-provider.ts` + `geo-enrichment.service.ts`). Zero
+frontend/migration/PJ/Companies/financeiro/cleanup blob/API externa nos testes.
+
+**ViaCepProvider:** `fetch` nativo + timeout; mapeia ViaCEP `ibge`→`cityExternalCode`, `uf`/`localidade`/`bairro`/
+`logradouro`; trata `{erro:true}`; fail-open; sem lat/lng/payload. **Provider selection:** `getDefaultCepProvider`
+suporta `CEP_PROVIDER=viacep|brasilapi|null` (default Null, sem rede). **Cache parcial:** `resolvePostalCode(cep,
+{requireExternalCode})` — cache-hit só vale se completo p/ o objetivo; com `requireExternalCode` e cache sem IBGE
+(ex.: BrasilAPI antigo), **re-resolve via provider** e o upsert sobrescreve; `enrichAddress` passa
+`requireExternalCode:true`. Sem migration (cache ON CONFLICT); sem mudança no script.
+
+**Provas (probe Mock-ViaCEP, sem rede, rows SINTÉTICAS — 3 reais intocados):** cache BrasilAPI incompleto (IBGE
+null) **não bloqueia** → re-resolve, **reusa Curitiba** (IBGE 4106902), city_id setado, cache → VIA_CEP+IBGE; re-run
+cache-completo → **provider não chamado**; IBGE novo **cria city sob demanda**; provider throw → **fail-open**;
+**estado real intocado** (cache idêntico, 3 addresses city_id NULL); neighborhoods 0, aal 1, blob 1; teardown
+limpo (cities 27). Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (348); arch critical_new=0/
+total=20.
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo: **F-GEO-2d** — execução real
+`CEP_PROVIDER=viacep pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts` (manual/env, fora do CI) para
+preencher `city_id` dos 3 → **F-GEO-3** (core lê state/city do catálogo, sem blob) → **F4** cleanup → **F5** selo.
+PJ fora desta instância; usa o mesmo provider/cache.

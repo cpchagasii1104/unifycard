@@ -33,15 +33,28 @@ export class GeoEnrichmentService {
   /**
    * Resolve o CEP CACHE-FIRST (DECISION-0078): consulta `cep_resolution_cache` antes do provider; em miss,
    * chama o provider e grava no cache (sem payload bruto, sem lat/lng). fail-open. NÃO escreve em `addresses`.
+   *
+   * F-GEO-2c: `requireExternalCode` força re-resolução quando o cache hit está INCOMPLETO para o objetivo
+   * (tem UF/cidade mas `city_external_code` NULL — ex.: cache antigo da BrasilAPI sem IBGE). Assim um provider
+   * com IBGE (ViaCEP) pode completar a linha; o upsert sobrescreve o cache. Sem isso, o cache parcial
+   * curto-circuitaria o provider e o `city_id` nunca seria resolvido.
    */
-  async resolvePostalCode(postalCode: string): Promise<CepResolution | null> {
+  async resolvePostalCode(
+    postalCode: string,
+    opts: { requireExternalCode?: boolean } = {}
+  ): Promise<CepResolution | null> {
     const cep = normalizePostalCode(postalCode);
     if (!cep) return null;
 
-    // 1) cache-first
+    // 1) cache-first (hit só vale se completo o suficiente para o objetivo)
     try {
       const cached = await locationRepository.findCepResolutionByPostalCode(cep);
-      if (cached && cached.stateCode && cached.cityName) {
+      const cacheUsable =
+        cached &&
+        cached.stateCode &&
+        cached.cityName &&
+        (!opts.requireExternalCode || !!cached.cityExternalCode);
+      if (cacheUsable && cached) {
         return {
           postalCode: cep,
           stateCode: cached.stateCode,
@@ -98,7 +111,8 @@ export class GeoEnrichmentService {
     const cep = normalizePostalCode(postalCode);
     if (!cep) return { enriched: false, reason: 'cep_invalido' };
 
-    const resolution = await this.resolvePostalCode(cep);
+    // requireExternalCode: o enrich quer `city_id` (via IBGE) — força re-resolução de cache incompleto.
+    const resolution = await this.resolvePostalCode(cep, { requireExternalCode: true });
     if (!resolution) return { enriched: false, reason: 'nao_resolvido_fail_open' };
 
     const country = await locationRepository.findCountryByCode('BR');

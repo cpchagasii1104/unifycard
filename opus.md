@@ -2815,3 +2815,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   marca enriched no state-only também; o relatório tem que distinguir state-only de state+city, não vender
   "enriquecido" como cidade canônica. Provider real revelou o gap de contrato (sem IBGE) que o mock não revelava —
   por isso a execução real importa, mesmo com 3 CEPs.)
+
+### F-GEO-2c — ViaCepProvider (IBGE) + cache-incompleto re-resolve ✅ (2026-06-02) — frente Location/Geo
+- Backend-only, 2 arquivos (cep-provider.ts + geo-enrichment.service.ts). HEAD origem 73d48e30. Zero frontend/
+  migration/PJ/Companies/financeiro/cleanup blob/API externa nos testes.
+- ViaCepProvider (fetch nativo+timeout; ibge→cityExternalCode, uf/localidade/bairro/logradouro; trata {erro:true};
+  fail-open; sem lat/lng/payload). getDefaultCepProvider: CEP_PROVIDER=viacep|brasilapi|null (default Null sem rede).
+  resolvePostalCode(cep,{requireExternalCode}): cache-hit só vale se completo p/ o objetivo; com requireExternalCode
+  e cache sem IBGE (BrasilAPI antigo) RE-RESOLVE via provider e upsert sobrescreve; enrichAddress passa
+  requireExternalCode:true. Sem migration (ON CONFLICT); sem mudança no script (WHERE já cobre city_id IS NULL).
+- Provas (probe Mock-ViaCEP, sem rede, rows SINTÉTICAS — 3 reais intocados): cache BrasilAPI incompleto não bloqueia
+  → reusa Curitiba por IBGE, city_id setado, cache→VIA_CEP+IBGE; re-run cache-completo → provider não chamado; IBGE
+  novo cria city sob demanda; provider throw → fail-open; estado real intocado (cache idêntico, 3 city_id NULL);
+  neighborhoods 0/aal 1/blob 1; teardown (cities 27). Gates typecheck0; critical_new=0/348. Probes não commitados.
+  DT-PERSONAL-ADDRESS OPEN. Fila: F-GEO-2d (CEP_PROVIDER=viacep real, manual/env) → F-GEO-3 (core sem blob) → F4 → F5.
+  PJ fora. (Lição: o cache parcial é uma armadilha — um provider melhor não ajuda se o cache curto-circuita com dado
+  incompleto; requireExternalCode resolve sem apagar cache. Probe com rows SINTÉTICAS evitou mexer no estado real da
+  F-GEO-2b — F-GEO-2d parte do estado documentado, sem herdar mock.)
