@@ -10141,3 +10141,26 @@ Gates: front+back typecheck0; actor-writer/bank-ledger/regression OK; arch criti
 
 **DT-AGENDA permanece OPEN.** Fila: F3 cleanup do client legado `updateProfessionalProfile({availability})` +
 campo `availability?` (cabo velho) → F4 testes+selo+CLOSE da DT.
+
+---
+
+## F3 — AGENDA CLEANUP DO CLIENT LEGADO ✅ (2026-06-01)
+
+Faxina do cabo velho. Frontend-only, **1 arquivo** (`frontend/src/api/categories.ts`). HEAD origem `20ac9756`.
+Zero backend/migration/schema/financeiro/schedules/professional-backend/`/profile/professional`.
+
+**Removido:** função `updateProfessionalProfile` (e o campo `availability?: AvailabilitySchedule | null` do seu
+payload). Era o **único caller HTTP** do legado `PUT /profile/professional` (hoje 501) e o cabo morto pelo qual
+a Agenda persistia availability antes da F2. **Zero caller vivo** comprovado por grep antes da remoção (só a
+própria definição).
+
+**Preservados (fora do escopo — sem "já que estou aqui"):** tipo `AvailabilitySchedule` (VIVO — UI da grade em
+`AvailabilitySchedule.tsx`/`Enhanced`/`ProfileAgenda`/`Form`/state hook); `getProfessionalProfile` + interface
+`ProfessionalProfile` (leitura legada, faxina própria futura). ProfileAgenda mantém só o comentário explicativo
+do 501 (não sugere caminho morto).
+
+**Provas:** frontend typecheck0 (sem import órfão); greps — `updateProfessionalProfile` só no comentário F3;
+`availability?:` **zero** em categories.ts; ProfileAgenda usa `putWeeklyAvailabilityTemplate`. Gates: actor-
+writer/bank-ledger/regression OK; arch critical_new=0/total=20.
+
+**DT-AGENDA permanece OPEN.** Fila: **F4** testes + selo `SELO_AGENDA_UNIFIED_AVAILABILITY.md` + **CLOSE** da DT.

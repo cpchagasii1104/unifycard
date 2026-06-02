@@ -10481,9 +10481,20 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   sem `metadata.schedule`/`schedules`/`schedule_slots`. **Zero backend/migration/schema/professional/financeiro/
   Learning-Interest/Lifestyle/Health.** Gates: front+back typecheck0; actor-writer/bank-ledger/regression OK;
   arch critical_new=0/total=20. **DT permanece OPEN** (resta F3 cleanup do client legado + F4 selo/close).
+- **Mitigação parcial (F3 cleanup do client legado, 2026-06-01):** **`updateProfessionalProfile` REMOVIDO**
+  de `frontend/src/api/categories.ts` (era o único caller HTTP do legado `PUT /profile/professional`, hoje 501,
+  e o cabo morto pelo qual a Agenda persistia availability — campo `availability?` interno saiu junto). Zero
+  caller vivo comprovado por grep antes da remoção (só a própria definição). **Preservados (fora do escopo):**
+  tipo `AvailabilitySchedule` (vivo — UI da grade em `AvailabilitySchedule.tsx`/`Enhanced`/`ProfileAgenda`/
+  `Form`/state hook), `getProfessionalProfile` + interface `ProfessionalProfile` (leitura legada, faxina
+  própria futura). ProfileAgenda mantém só comentário explicativo do 501 (não sugere caminho morto). Greps
+  pós: `updateProfessionalProfile` só no comentário F3; `availability?:` zero em categories.ts; ProfileAgenda
+  usa `putWeeklyAvailabilityTemplate`. **Zero backend/migration/schema/financeiro/schedules/professional-backend.**
+  Gates: frontend typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. **DT
+  permanece OPEN** (resta F4 selo/close).
 - **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1 ✅ (backend materializador + rota + fix repo)** →
-  **F2 ✅ (frontend ProfileAgenda → endpoint temporal + read-back do SSOT)** → **F3** cleanup do client legado
-  `updateProfessionalProfile({availability})` + campo `availability?` → **F4** testes + selo + CLOSE da DT.
+  **F2 ✅ (frontend ProfileAgenda → endpoint temporal + read-back do SSOT)** → **F3 ✅ (cleanup do client legado
+  `updateProfessionalProfile`)** → **F4** testes + selo `SELO_AGENDA_UNIFIED_AVAILABILITY.md` + **CLOSE** da DT.
   Ordem: backend seguro antes do frontend; sem `DELETE` em massa. `/profile/professional` segue 501; sem
   segundo SSOT temporal; financeiro fora.
 

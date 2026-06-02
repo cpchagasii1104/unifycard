@@ -247,52 +247,11 @@ export async function getProfessionalProfile(): Promise<ProfessionalProfile> {
   return result;
 }
 
-export async function updateProfessionalProfile(data: {
-  skills?: Array<{
-    categoryId: string;
-    skillLevel?: number;
-    yearsExperience?: number;
-    hourlyRate?: number | null;
-    pricingType?: PricingType;
-    serviceType?: ServiceType;
-    chargeVisit?: boolean;
-    visitPrice?: number | null;
-    predefinedServices?: Array<{
-      serviceId?: string;
-      name: string;
-      description?: string;
-      basePrice: number;
-      discountPercentage?: number;
-      isActive?: boolean;
-    }>;
-    comboDiscountRules?: Array<{
-      ruleId?: string;
-      minServices: number;
-      discountPercentage: number;
-      description?: string;
-      isActive?: boolean;
-    }>;
-  }>;
-  education?: Array<{
-    educationId?: string;
-    level: 'elementary' | 'high_school' | 'technical' | 'bachelor' | 'master' | 'phd' | 'other';
-    institution: string;
-    course?: string;
-    field?: string;
-    startDate?: string;
-    endDate?: string | null;
-    isCompleted: boolean;
-    description?: string;
-  }>;
-  bio?: string | null;
-  availability?: AvailabilitySchedule | null;
-}): Promise<ProfessionalProfile> {
-  const response = await apiFetch('/profile/professional', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-  return response.json();
-}
+// F3 (DECISION-0072): `updateProfessionalProfile` REMOVIDO. Era o único caller HTTP do legado
+// `PUT /profile/professional` (hoje 501) e o cabo morto pelo qual a Agenda persistia availability.
+// A Agenda agora materializa a grade no SSOT temporal via `PUT /availability/weekly-template`
+// (ver `api/availability.ts::putWeeklyAvailabilityTemplate`). O tipo `AvailabilitySchedule` segue
+// vivo (UI da grade) e `getProfessionalProfile` (leitura legada) fica fora desta faxina.
 
 export interface AICreateCategoryResult {
   created: boolean;

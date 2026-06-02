@@ -2520,3 +2520,16 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   temporal; sem metadata.schedule/schedules/schedule_slots. Gates: front+back typecheck0; critical_new=0/
   total=20. DT-AGENDA OPEN. Fila: F3 cleanup client legado updateProfessionalProfile({availability})+campo
   availability? → F4 selo+CLOSE.
+
+### F3 — AGENDA CLEANUP DO CLIENT LEGADO ✅ (2026-06-01)
+- Frontend-only, 1 arquivo (api/categories.ts). HEAD origem 20ac9756. Zero backend/migration/schema/financeiro/
+  schedules/professional-backend/profile-professional.
+- Removido updateProfessionalProfile (+ campo availability? do payload) — único caller HTTP do legado PUT
+  /profile/professional (501) e cabo morto da Agenda pré-F2. Zero caller vivo (grep antes da remoção).
+- Preservados (fora do escopo, sem "já que estou aqui"): tipo AvailabilitySchedule (vivo, UI da grade em
+  AvailabilitySchedule.tsx/Enhanced/ProfileAgenda/Form/state); getProfessionalProfile + interface
+  ProfessionalProfile (leitura legada, faxina futura). ProfileAgenda só comentário explicativo do 501.
+- Provas: frontend typecheck0 (sem import órfão — PricingType/ServiceType seguem usados); greps
+  updateProfessionalProfile só comentário, availability?: zero em categories.ts, ProfileAgenda usa endpoint
+  temporal. Gates: actor-writer/bank-ledger/regression OK; critical_new=0/total=20. DT-AGENDA OPEN. Fila: F4
+  selo SELO_AGENDA_UNIFIED_AVAILABILITY.md + CLOSE.
