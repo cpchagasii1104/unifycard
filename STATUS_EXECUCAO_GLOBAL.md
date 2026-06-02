@@ -10906,3 +10906,26 @@ Gates docs-only: actor-writer/bank-ledger OK; regression PASSOU (352); arch crit
 
 **Aba Pessoal: SEM address e SEM gender em blob.** Próximo alvo real = **CPF (DECISION-0062 F4/F5)** — frente FISCAL
 própria (imutabilidade/unicidade/LGPD), não faxina. PJ fora desta instância.
+
+---
+
+## CPF F4 — core.service lê CPF de `identities.tax_id` ✅ (2026-06-02) — frente DECISION-0062
+
+HEAD origem `bd020b23`. **Backend-only, 1 arquivo** (`core.service.ts`). Zero migration/frontend/PJ/CNPJ/endereço/
+gender/Health/Lifestyle/financeiro/bank/ledger/writers/cache cleanup/DML.
+
+**Mudança:** os dois readers de CPF do `getCompleteProfile` passam a `LEFT JOIN identities (tax_id_type='cpf')` via
+`u.global_user_id` e resolvem **`cpf = identities.tax_id || user_profiles.cpf (fallback transitório)`**; `cpfSource`
+→ **`identities_tax_id`**. **`personal_profile.cpf` preservado** (frontend intocado); `identity_status`/`hasCpf`/score
+inalterados (derivam do campo). Writers/dual-write/`global_users.cpf`/`identities.tax_id`/caches **não tocados** (F5).
+`bank-balance-by-cpf` fora de escopo (lê `global_users.cpf` âncora, D4-aligned).
+
+**Trava satisfeita:** pré-check gap `global_users.cpf` sem identity=**0**, divergência=**0**. **Provas (runtime):** core
+`personal_profile.cpf` = `identities.tax_id` (MATCH=true), `cpfSource='identities_tax_id'`, `identity_status=COMPLETE`;
+cross-substrato idêntico (gu=up=p=tax_id). E2E `validate-pipeline-e2e-cpf-tax-id-coherence.ts`: **7/8 PASS** (T4 CORE↔identities
+PASS); única falha = **T1 baseline obsoleto** (`identities_total>=19` congelado ao DEV pré-reset; `realOrphans=0` passa) —
+**não é regressão do F4**; DEV auto-limpo. Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU; arch
+critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**`DT-CPF-SSOT-DUAL-WRITE-CORE-VS-IDENTITY` permanece OPEN.** Próximo: **F5** — deprecar caches `user_profiles.cpf` +
+`profiles.cpf` (parar dual-write → leitura fallback → DROP em migration dedicada com janela de observação). PJ fora.

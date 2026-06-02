@@ -180,24 +180,30 @@ export class CoreService {
       try {
         const { pool } = await import('@core/database/pool');
         
-        // Query única que busca referral_code e CPF de uma vez
+        // F4 CPF (DECISION-0062 D2): CPF vem do SSOT operacional identities.tax_id (tax_id_type='cpf').
+        // user_profiles.cpf permanece apenas como FALLBACK TRANSITÓRIO até F5 (deprecação dos caches).
         const identityResult = await pool.query<{
           referral_code: string | null;
-          cpf: string | null;
+          identity_cpf: string | null;
+          user_profile_cpf: string | null;
         }>(
           `
-          SELECT u.referral_code, up.cpf
+          SELECT u.referral_code,
+                 i.tax_id AS identity_cpf,
+                 up.cpf AS user_profile_cpf
           FROM users u
+          LEFT JOIN identities i ON i.global_user_id = u.global_user_id AND i.tax_id_type = 'cpf'
           LEFT JOIN user_profiles up ON up.user_id = u.user_id
           WHERE u.user_id = $1
           LIMIT 1
           `,
           [userId]
         );
-        
+
         const row = identityResult.rows[0];
         if (row) {
-          cpf = row.cpf || null;
+          // identities.tax_id é SOBERANO; blob de cache (user_profiles.cpf) só se SSOT ausente (transição).
+          cpf = row.identity_cpf || row.user_profile_cpf || null;
           referralCode = row.referral_code || null;
           
           // 🔴 GERAÇÃO GARANTIDA: Se não tem código, gerar AGORA
@@ -233,13 +239,14 @@ export class CoreService {
       }
       
       try {
-        // 🔴 CORREÇÃO CRÍTICA: Buscar CPF de user_profiles via JOIN explícito
-        // CPF NUNCA vem de profiles.metadata - sempre de user_profiles
+        // F4 CPF (DECISION-0062 D2): CPF vem do SSOT identities.tax_id (tax_id_type='cpf'); user_profiles.cpf
+        // é apenas FALLBACK TRANSITÓRIO até F5. CPF NUNCA vem de profiles.metadata.
         console.error('PARAM_DEBUG', JSON.stringify({ tenantId, userId }));
         const personalProfileRow = await runQueryWithTenant<{
           full_name: string | null;
           phone: string | null;
           metadata: any;
+          identity_cpf: string | null;
           cpf: string | null;
           birthdate: Date | string | null;
           gender: string | null;
@@ -251,6 +258,7 @@ export class CoreService {
             p.full_name,
             p.phone,
             p.metadata,
+            i.tax_id AS identity_cpf,
             up.cpf,
             gu.birthdate,
             gu.gender,
@@ -262,6 +270,7 @@ export class CoreService {
           LEFT JOIN user_profiles up ON up.user_id = p.user_id
           LEFT JOIN users u ON u.id = p.user_id
           LEFT JOIN global_users gu ON gu.global_user_id = u.global_user_id
+          LEFT JOIN identities i ON i.global_user_id = u.global_user_id AND i.tax_id_type = 'cpf'
           WHERE p.tenant_id = $1 AND p.user_id = $2
           ORDER BY p.updated_at DESC
           LIMIT 1
@@ -272,10 +281,10 @@ export class CoreService {
         console.error('PARAM_DEBUG_RESULT', JSON.stringify(personalProfileRow ?? 'UNDEFINED'));
         if (personalProfileRow) {
           const row = personalProfileRow;
-          
-          // 🔴 REGRA: CPF SEMPRE vem de user_profiles (fonte única de verdade)
-          // Se não encontrou CPF na query acima, usar o que foi buscado anteriormente
-          const finalCpf = row.cpf || cpf;
+
+          // F4 CPF (DECISION-0062 D2): identities.tax_id é SOBERANO; user_profiles.cpf (row.cpf) e o cpf
+          // resolvido antes são FALLBACK TRANSITÓRIO (também já identities-first) até a F5 remover os caches.
+          const finalCpf = row.identity_cpf || row.cpf || cpf;
           const profilePersonalConfirmed = row.profile_personal_confirmed === true;
           const birthdate =
             row.birthdate instanceof Date
@@ -316,14 +325,14 @@ export class CoreService {
             // metadata NUNCA contém CPF (regra de negócio)
             metadata: mirroredMetadata,
             referralCode: referralCode,
-            cpf: finalCpf, // ← FONTE ÚNICA: user_profiles
+            cpf: finalCpf, // ← FONTE: identities.tax_id (F4/DECISION-0062); user_profiles = fallback transitório
             birthdate,
             profile_personal_confirmed: profilePersonalConfirmed,
             profilePersonalConfirmed,
             can_edit_personal_data: !profilePersonalConfirmed,
           };
           
-          console.log('[CoreService] ✅ personal_profile montado com CPF de user_profiles:', {
+          console.log('[CoreService] ✅ personal_profile montado com CPF de identities.tax_id (F4):', {
             tenantId,
             userId,
             fullName: profile.personal_profile.fullName,
@@ -332,7 +341,7 @@ export class CoreService {
             metadataKeys: Object.keys(profile.personal_profile.metadata || {}),
             cpf: profile.personal_profile.cpf ? profile.personal_profile.cpf.substring(0, 3) + '***' : null,
             profilePersonalConfirmed: profile.personal_profile.profilePersonalConfirmed,
-            cpfSource: 'user_profiles',
+            cpfSource: 'identities_tax_id',
           });
         } else {
           // Se não existe profile, criar estrutura mínima com referralCode
@@ -342,7 +351,7 @@ export class CoreService {
             phone: null,
             metadata: {},
             referralCode: referralCode,
-            cpf: cpf, // ← FONTE ÚNICA: user_profiles (buscado anteriormente)
+            cpf: cpf, // ← FONTE: identities.tax_id (F4; resolvido antes, identities-first)
             birthdate: null,
             profile_personal_confirmed: false,
             profilePersonalConfirmed: false,

@@ -3042,3 +3042,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: duas frentes da aba Pessoal (endereço, gender) fecharam com o MESMO molde — decisão→coluna/SSOT→migração→
   desacoplar leitor→cleanup com guard→selo. Vale como template reusável para CPF, MAS o CPF tem peso fiscal/unicidade/
   LGPD que os outros não têm: o molde dá a forma, não dispensa o capacete. Selo verifica commits antes de fossilizar.)
+
+### CPF F4 — core.service lê CPF de identities.tax_id ✅ (2026-06-02) — frente DECISION-0062
+- Backend-only, 1 arquivo (core.service.ts). HEAD origem bd020b23. Zero migration/frontend/PJ/CNPJ/endereço/gender/
+  Health/Lifestyle/financeiro/bank/ledger/writers/cache/DML. Trava adicional Clayton respeitada (só leitura CORE).
+- Dois readers de CPF do getCompleteProfile: LEFT JOIN identities (tax_id_type='cpf') via u.global_user_id; cpf =
+  identities.tax_id || user_profiles.cpf (fallback transitório); cpfSource user_profiles → identities_tax_id.
+  personal_profile.cpf PRESERVADO (frontend intocado); identity_status/hasCpf/score inalterados. Writers/caches/
+  global_users.cpf/identities.tax_id NÃO tocados (F5).
+- Trava (gap=0/divergência=0) satisfeita no pré-check. Provas runtime: core.cpf == identities.tax_id (MATCH true),
+  cpfSource=identities_tax_id, identity_status=COMPLETE; cross-substrato gu=up=p=tax_id. E2E coherence: 7/8 PASS (T4
+  CORE↔identities PASS); única falha T1 = baseline obsoleto (identities_total>=19 vs DEV resetado a 2; realOrphans=0
+  passa) → NÃO é regressão do F4; DEV auto-limpo. Gates typecheck0/critical_new=0. DT OPEN. Próximo F5 (deprecar caches).
+  (Lição: o molde de "espelho preserva contrato" (gender) reaplicou direto no CPF — trocar a FONTE no JOIN e manter o
+  CAMPO de saída (personal_profile.cpf) zerou o impacto no frontend. E ao rodar um E2E com baseline absoluto antigo, a
+  disciplina é separar invariante real (realOrphans=0, T2 mismatch=0, T4 coerência) de assertion ambiental obsoleta
+  (count>=19): o teste falhou, mas a falha é do baseline congelado, não do código — reportar honesto, não "consertar"
+  fora de escopo nem fingir 9/9.)
