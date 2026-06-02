@@ -9999,3 +9999,29 @@ sem diff. Gates: typecheck0; actor-writer/bank-ledger/regression OK (345); arch 
 **Endpoint legado e blob seguem vivos até F5.** **Fila:** **F5** cleanup do blob (`profile-physical.service`
 para de gravar/ler `metadata.lifestyle`; micro-decisão de backfill; NÃO confundir lifestyle sensível com
 sharedHealthData/preferences) → **F6** selo + CLOSE.
+
+---
+
+## F5 — CLEANUP DO BLOB `metadata.lifestyle` ✅ (2026-06-01)
+
+A "estrada velha" foi cortada. HEAD origem `75bf815c`. **Só** `profile-physical.{service,types}.ts` + migration
+`20260601180000`; zero core.service/social-targeting/lifestyle-SSOT/Health(501)/frontend/Learning-Interest/
+Profissional/Agenda/financeiro/backfill. **DT segue OPEN** (falta o selo F6).
+
+**Backend:** `getPhysicalProfile` não lê mais `metadata.lifestyle` (retorna `{drinks:null,smokes:null,
+relationshipStatus:null}` controlado, **sem sexualOrientation**); `updatePhysicalProfile` retira a chave
+`lifestyle` do metadata escrito (write-time, junto de interests/learnings) e ignora `input.lifestyle`. Tipo
+`LifestyleInfo` perdeu `sexualOrientation` (blast radius zero fora de profile-physical). **Migration**
+forward-only/idempotente: `metadata - 'lifestyle'` só nas linhas com a chave; **antes** 2 rows / **depois** 0;
+preferences/physicalMetadata preservados; `schema_migrations` 345→346; re-run 0 linhas. **Sem backfill**
+(actor_lifestyle_attributes=0; valores legados sem consent NÃO viram ativos — DECISION-0071 §6).
+
+**Provas runtime (3010):** GET `/profile/physical` 200 (lifestyle vazio, sem sexualOrientation); PUT com
+`lifestyle` (incl. sexualOrientation) → **não recria** a chave (`hasLifestyle=false`), physicalMetadata
+preservado; GET `/profile/lifestyle` 200 (SSOT); Health `/profile/health/*` **501**. Greps: profile-physical
+sem leitura/escrita de `metadata.lifestyle` (só comentário); frontend **não tocado** (já não enviava lifestyle —
+frontend typecheck dispensado). Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (346,
+numeração única); arch `critical_new=0`, `critical_total=20`.
+
+**Lifestyle agora é SSOT puro** (schema/service/rotas/frontend/readers + blob removido). **Fila:** **F6** selo
+`SELO_LIFESTYLE_SSOT.md` + **CLOSE** da `DT-LIFESTYLE-SENSITIVE-IN-BLOB`.

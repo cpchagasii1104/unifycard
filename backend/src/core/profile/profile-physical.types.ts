@@ -8,11 +8,13 @@ export interface InterestCategory {
   level: number;
 }
 
+// F5 (DECISION-0071): Lifestyle saiu do blob `global_users.metadata.lifestyle` para o SSOT actor-first
+// (`/profile/lifestyle` → `actor_lifestyle_attributes`). Este contrato legado fica vazio/controlado (a verdade
+// é o SSOT). `sexualOrientation` foi REMOVIDO (fora do MVP, DECISION-0071).
 export interface LifestyleInfo {
   drinks: 'never' | 'socially' | 'regularly' | 'prefer_not_to_say' | null;
   smokes: 'never' | 'occasionally' | 'regularly' | 'prefer_not_to_say' | null;
   relationshipStatus: 'single' | 'dating' | 'in_relationship' | 'married' | 'prefer_not_to_say' | null;
-  sexualOrientation: 'heterosexual' | 'homosexual' | 'bisexual' | 'pansexual' | 'asexual' | 'prefer_not_to_say' | null;
 }
 
 export interface PhysicalProfile {

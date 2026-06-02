@@ -10,11 +10,12 @@ import type {
 } from './profile-physical.types';
 import { profileHealthFactsRepository } from './profile-health-facts.repository';
 import { profileHealthTaxonomyRepository } from './profile-health-taxonomy.repository';
-// Fatia 5 (DECISION-0067): INTERESSES saíram do blob `global_users.metadata.interests` para o C1
-// (`/profile/interest/c1` → `actor_interest_concepts`). Este serviço NÃO lê nem grava mais `interests`
-// como SSOT. LIFESTYLE/SAÚDE (drinks/smokes/relationshipStatus/sexualOrientation/preferences/health)
-// permanecem no fluxo legado, INTOCADOS (DT-LIFESTYLE-SENSITIVE-IN-BLOB é frente própria). Os guards de
-// category→concept (category-navigation-bridge) eram usados só para `interests` → removidos deste serviço.
+// Fatia 5 (DECISION-0067): INTERESSES saíram do blob `global_users.metadata.interests` para o C1.
+// F5 (DECISION-0071): LIFESTYLE (drinks/smokes/relationshipStatus) também saiu do blob para o SSOT actor-first
+// (`/profile/lifestyle` → `actor_lifestyle_attributes`). Este serviço NÃO lê nem grava mais `lifestyle` nem
+// `interests`/`learnings` no blob; o contrato legado de `lifestyle` retorna vazio/controlado (sem
+// `sexualOrientation`). PRESERVADOS no blob: `preferences`, `physicalMetadata`, `sharedHealthData` (saúde é
+// frente própria, Health segue 501). Os guards category→concept eram só para `interests` → removidos.
 
 class ProfilePhysicalService {
   /**
@@ -50,15 +51,11 @@ class ProfilePhysicalService {
 
     const metadata = userRow.rows[0]?.metadata || {};
 
-    // INTERESSES: não vêm mais do blob (Fatia 5). A verdade é o C1 (/profile/interest/c1). O contrato
-    // legado mantém a forma, mas a lista é sempre vazia aqui — quem precisa de interesses lê o C1.
+    // INTERESSES: não vêm mais do blob (Fatia 5). A verdade é o C1 (/profile/interest/c1).
+    // LIFESTYLE: não vem mais do blob (F5). A verdade é o SSOT (/profile/lifestyle → actor_lifestyle_attributes).
+    // O contrato legado mantém a forma, mas ambos são vazios/controlados aqui (sem sexualOrientation).
     const interests: InterestCategory[] = [];
-    const lifestyle: LifestyleInfo = metadata.lifestyle || {
-      drinks: null,
-      smokes: null,
-      relationshipStatus: null,
-      sexualOrientation: null,
-    };
+    const lifestyle: LifestyleInfo = { drinks: null, smokes: null, relationshipStatus: null };
     const preferences = metadata.preferences || {};
 
     // Dados de saúde (consentimento): falha propaga — sem retorno parcial silencioso
@@ -168,19 +165,17 @@ class ProfilePhysicalService {
 
     const currentMetadata = currentRow.rows[0]?.metadata || {};
 
-    // INTERESSES não são mais persistidos no blob (Fatia 5). Ignoramos `input.interests` (envio morto) e
-    // retiramos a chave legada `interests` do metadata escrito (cleanup também em write-time). LIFESTYLE e
-    // demais campos legados (preferences/physicalMetadata) seguem INTOCADOS.
-    const { interests: _legacyInterests, learnings: _legacyLearnings, ...restMetadata } = currentMetadata;
+    // INTERESSES (Fatia 5) e LIFESTYLE (F5) não são mais persistidos no blob. Ignoramos `input.interests` e
+    // `input.lifestyle` (envio morto de clientes legados) e RETIRAMOS as chaves `interests`/`learnings`/
+    // `lifestyle` do metadata escrito (cleanup em write-time — se reaparecerem via payload legado, não
+    // persistem). PRESERVADOS: `preferences`, `physicalMetadata` (e `sharedHealthData` dentro dele) + demais.
+    const { interests: _legacyInterests, learnings: _legacyLearnings, lifestyle: _legacyLifestyle, ...restMetadata } = currentMetadata;
     void _legacyInterests;
     void _legacyLearnings;
+    void _legacyLifestyle;
 
     const updatedMetadata = {
       ...restMetadata,
-      lifestyle: {
-        ...(currentMetadata.lifestyle || {}),
-        ...(input.lifestyle || {}),
-      },
       preferences: {
         ...(currentMetadata.preferences || {}),
         ...(input.preferences || {}),
@@ -204,7 +199,8 @@ class ProfilePhysicalService {
     return {
       globalUserId,
       interests: [],
-      lifestyle: updatedMetadata.lifestyle,
+      // Lifestyle não vive mais no blob (F5): contrato legado vazio/controlado (verdade = SSOT /profile/lifestyle).
+      lifestyle: { drinks: null, smokes: null, relationshipStatus: null },
       preferences: updatedMetadata.preferences || {},
       metadata: updatedMetadata.physicalMetadata || {},
     };

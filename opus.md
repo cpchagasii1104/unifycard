@@ -2426,3 +2426,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   physicalProfile.lifestyle; sexualOrientation só comentário; profile-physical/social-targeting sem diff. Gates:
   typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. Blob e legado vivos até F5.
   Fila: F5 cleanup blob (profile-physical para de gravar/ler metadata.lifestyle; micro-decisão backfill).
+
+### F5 — CLEANUP DO BLOB metadata.lifestyle ✅ (2026-06-01)
+- Estrada velha cortada. Só profile-physical.{service,types}.ts + migration 20260601180000. HEAD origem
+  75bf815c. Zero core.service/social-targeting/lifestyle-SSOT/Health(501)/frontend/Learning-Interest/Profissional/
+  Agenda/financeiro/backfill. DT OPEN (falta selo F6).
+- getPhysicalProfile não lê mais metadata.lifestyle (retorna {drinks:null,smokes:null,relationshipStatus:null}
+  controlado, sem sexualOrientation); updatePhysicalProfile retira a chave lifestyle do metadata escrito (write-
+  time, junto de interests/learnings) e ignora input.lifestyle. LifestyleInfo perdeu sexualOrientation (blast
+  radius zero fora de profile-physical). Migration forward-only/idempotente metadata-'lifestyle': antes 2 rows/
+  depois 0; preferences/physicalMetadata preservados; schema_migrations 345→346; re-run 0. Sem backfill
+  (actor_lifestyle=0; legado sem consent não vira ativo — DECISION-0071 §6).
+- Provas runtime (3010): GET /profile/physical 200 (lifestyle vazio, sem sexualOrientation); PUT com lifestyle
+  → não recria a chave (hasLifestyle=false), physicalMetadata preservado; GET /profile/lifestyle 200 (SSOT);
+  Health 501. Greps: profile-physical sem read/write metadata.lifestyle (só comentário); frontend não tocado
+  (já não enviava; front typecheck dispensado). Gates: typecheck0; actor-writer/bank-ledger/regression OK (346);
+  arch critical_new=0/total=20. Lifestyle agora é SSOT puro. Fila: F6 selo SELO_LIFESTYLE_SSOT.md + CLOSE da DT.
