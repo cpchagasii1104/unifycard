@@ -133,8 +133,54 @@ export interface AvailabilityConflict {
 }
 
 /**
+ * F2 (DECISION-0072 B1): grade semanal declarativa e resultado da materialização.
+ * `schedule` é INPUT (dia-da-semana → faixas "HH:MM-HH:MM" + opcional `specific`). NÃO é persistido
+ * como blob — o backend materializa em janelas concretas no SSOT `availability`.
+ */
+export type WeeklyAvailabilitySchedule = Record<string, string[]>;
+
+export interface MaterializeWeeklyTemplateResult {
+  created: number;
+  kept: number;
+  reactivated: number;
+  retired: number;
+  protectedCount: number;
+  rejected: Array<{ entry: string; reason: string }>;
+  conflicts: Array<{ templateKey: string; reason: string }>;
+  horizonWeeks: number;
+  timezone: string;
+  ownerType: string;
+  ownerId: string;
+}
+
+/**
+ * Materializa a grade semanal declarativa em janelas concretas no SSOT temporal `availability`
+ * (PUT /availability/weekly-template — DECISION-0072 B1). `ownerId` NÃO é enviado: o backend usa o
+ * actor do contexto (actionContext). `timezone` IANA é obrigatória (sem fallback silencioso).
+ */
+export async function putWeeklyAvailabilityTemplate(input: {
+  schedule: WeeklyAvailabilitySchedule;
+  timezone: string;
+  horizonWeeks?: number;
+}): Promise<MaterializeWeeklyTemplateResult> {
+  const result = await apiFetchJson<{ ok: boolean; data: MaterializeWeeklyTemplateResult }>(
+    '/availability/weekly-template',
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }
+  );
+
+  if (!result.ok || !result.data) {
+    throw new Error('Erro ao salvar disponibilidade semanal');
+  }
+
+  return result.data;
+}
+
+/**
  * Listar disponibilidades com filtros
- * 
+ *
  * @param filters Filtros de busca
  * @returns Lista de disponibilidades
  */

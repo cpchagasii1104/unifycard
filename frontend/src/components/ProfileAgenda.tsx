@@ -4,6 +4,7 @@
 // 🔴 REGRA: Agenda pertence ao activeActor, não à pessoa física/jurídica
 
 import { useEffect, useCallback, useRef, useState } from 'react';
+import { DateTime } from 'luxon';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import {
   listAvailabilities,
@@ -12,22 +13,59 @@ import {
   detectConflicts,
   createAvailability,
   updateAvailability,
+  putWeeklyAvailabilityTemplate,
   type UnifiedAvailability,
   type UnifiedBooking,
   type AvailabilityParticipant,
   type AvailabilityConflict,
   type AvailabilityOwnerType,
 } from '../api/availability';
-import { updateProfessionalProfile, type AvailabilitySchedule } from '../api/categories';
+import { type AvailabilitySchedule } from '../api/categories';
 import { useProfileAgendaState } from '../hooks/useProfileAgendaState';
 import { useProfileAgendaLogic } from '../hooks/useProfileAgendaLogic';
 import ProfileAgendaForm from './ProfileAgendaForm';
 import './ProfileAgenda.css';
 
 // 🔴 CORE TEMPORAL: AvailabilitySchedule é INPUT DECLARATIVO
-// NÃO é verdade temporal e NÃO deve ser salvo em availability.metadata.schedule
-// Este componente apenas mantém schedule como estado local para edição
-// A persistência real de availability ocorre via Core canônico (sem schedule em metadata)
+// NÃO é verdade temporal e NÃO é salvo em availability.metadata.schedule (guard 400 do Core).
+// F2 (DECISION-0072 B1): o save materializa a grade no SSOT `availability` via
+// PUT /availability/weekly-template; o read-back reconstrói a grade a partir das janelas
+// materializadas (metadata.source==='profile_weekly_template'), nunca de bookings nem de profile.
+
+/** Marcador de procedência das janelas geradas pelo materializador semanal (F1). */
+const WEEKLY_TEMPLATE_SOURCE = 'profile_weekly_template';
+
+/** luxon weekday (1=Mon..7=Sun) → chave da grade. */
+const LUXON_WEEKDAY_TO_KEY: Record<number, string> = {
+  1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday', 7: 'sunday',
+};
+
+/**
+ * Reconstrói a grade semanal declarativa a partir das janelas CONCRETAS materializadas no SSOT
+ * `availability` (apenas as marcadas como template recorrente e ativas). Converte start/end para
+ * dia-da-semana + "HH:mm-HH:mm" na timezone de cada janela. NÃO usa bookings nem metadata.schedule.
+ */
+function reconstructWeeklySchedule(avs: UnifiedAvailability[]): AvailabilitySchedule {
+  const byDay: Record<string, Set<string>> = {};
+  for (const a of avs) {
+    if (a.metadata?.source !== WEEKLY_TEMPLATE_SOURCE) continue;
+    if (a.availabilityType !== 'recurring') continue;
+    if (a.status !== 'active') continue;
+    const tz = a.timezone || 'America/Sao_Paulo';
+    const start = DateTime.fromISO(a.startDatetime, { zone: tz });
+    const end = DateTime.fromISO(a.endDatetime, { zone: tz });
+    if (!start.isValid || !end.isValid) continue;
+    const dayKey = LUXON_WEEKDAY_TO_KEY[start.weekday];
+    if (!dayKey) continue;
+    const range = `${start.toFormat('HH:mm')}-${end.toFormat('HH:mm')}`;
+    (byDay[dayKey] ??= new Set<string>()).add(range);
+  }
+  const schedule: AvailabilitySchedule = {};
+  for (const [day, ranges] of Object.entries(byDay)) {
+    schedule[day] = Array.from(ranges).sort();
+  }
+  return schedule;
+}
 
 export default function ProfileAgenda() {
   const { activeActor } = useActiveActor();
@@ -89,10 +127,10 @@ export default function ProfileAgenda() {
 
       setAvailabilities(availabilitiesData);
 
-      // 🔴 CORE TEMPORAL: Schedule é apenas INPUT DECLARATIVO local
-      // Não carregamos schedule de availability.metadata (violação do Core)
-      // Schedule é mantido apenas como estado local para edição
-      setSchedule({});
+      // 🔴 CORE TEMPORAL (F2): read-back da grade reconstruído a partir das janelas CONCRETAS
+      // materializadas no SSOT `availability` (template recorrente ativo), NÃO de metadata.schedule
+      // nem de bookings. Antes era `setSchedule({})` (write-only sem read-back).
+      setSchedule(reconstructWeeklySchedule(availabilitiesData));
 
       // Buscar bookings associados às disponibilidades
       const allBookings: UnifiedBooking[] = [];
@@ -131,15 +169,10 @@ export default function ProfileAgenda() {
     }
   };
 
-  // 🔴 CORE TEMPORAL: schedule é INPUT DECLARATIVO. Persistência respeitando
-  // AGENDA_UNIVERSAL_CONTRACT:
-  //   - Schedule do profissional persiste em professional_profile.availability
-  //     (preferências declaradas — NÃO é verdade temporal)
-  //   - Verdade temporal continua exclusivamente em unified_availability
-  //     (criada via Core canônico em frente futura "confirmar e ativar")
-  //
-  // 2026-05-15: implementada persistência de schedule via updateProfessionalProfile
-  // com debounce (evita save a cada toggle do user).
+  // 🔴 CORE TEMPORAL (F2 / DECISION-0072 B1): schedule é INPUT DECLARATIVO. A persistência
+  // materializa a grade em janelas CONCRETAS no SSOT `availability` via PUT /availability/weekly-template
+  // (NÃO mais via PUT /profile/professional, que responde 501). Verdade temporal vive só em
+  // `availability`. Timezone EXPLÍCITA do browser; se ausente, o save é bloqueado (sem fallback silencioso).
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -152,9 +185,19 @@ export default function ProfileAgenda() {
     // Atualizar estado local imediatamente (UX responsiva)
     setSchedule(newSchedule);
 
-    // Apenas user actor (PF) persiste schedule profissional — pages têm agenda
-    // própria via outro caminho. Schedule é dimensão da PESSOA, não da empresa.
+    // Apenas user actor (PF) persiste schedule semanal — pages têm agenda própria via outro
+    // caminho. Schedule é dimensão da PESSOA, não da empresa.
     if (activeActor.actor_type !== 'user') return;
+
+    // Timezone EXPLÍCITA (DECISION-0072 §3.4): sem fallback silencioso. Se o browser não resolver,
+    // bloquear o save com erro claro.
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone) {
+      setSaveStatus('error');
+      setError('Não foi possível detectar seu fuso horário. A agenda não foi salva.');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+      return;
+    }
 
     // Debounce: salvar 700ms após última mudança
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -162,7 +205,7 @@ export default function ProfileAgenda() {
 
     saveTimerRef.current = setTimeout(async () => {
       try {
-        await updateProfessionalProfile({ availability: newSchedule });
+        await putWeeklyAvailabilityTemplate({ schedule: newSchedule, timezone });
         setSaveStatus('saved');
         // Voltar para 'idle' depois de 2s
         setTimeout(() => setSaveStatus('idle'), 2000);

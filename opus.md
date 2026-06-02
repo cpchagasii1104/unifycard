@@ -2501,3 +2501,22 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   com booking (active), 0 DELETE; P4 specific válido cria / inválido rejeita; P5 tz inválida 400; P6 schedules/
   schedule_slots 0→0. Gates verdes (typecheck0; critical_new=0/total=20). Probe NÃO commitado (faz DELETE; dev-
   only). Frontend ainda no 501 → DT-AGENDA OPEN. Fila: F2 frontend (write canônico + read-back) → F3 → F4.
+
+### F2 — AGENDA FRONTEND → WEEKLY TEMPLATE ENDPOINT ✅ (2026-06-01)
+- Frontend-only (2 arquivos: api/availability.ts + ProfileAgenda.tsx). HEAD origem 29de8ef0. Zero backend/
+  migration/schema/professional/financeiro/Learning-Interest/Lifestyle/Health/schedules/schedule_slots. Bug
+  visível da Agenda fechou.
+- Save: removeu updateProfessionalProfile({availability}) (→ PUT /profile/professional → 501); novo
+  putWeeklyAvailabilityTemplate → PUT /availability/weekly-template. Timezone explícita do browser
+  (Intl…timeZone; bloqueia save se ausente, sem fallback silencioso). ownerId não enviado (backend usa
+  actionContext). Debounce preservado. 501 desaparece.
+- Read-back: setSchedule({}) (write-only) → reconstructWeeklySchedule a partir das janelas concretas do SSOT
+  availability (metadata.source==='profile_weekly_template' + recurring + active), start/end→dia+HH:mm via
+  luxon na tz da janela. Nunca de bookings nem metadata.schedule. Leitura de janelas/bookings/conflitos
+  preservada. specific sem UI nova.
+- Provas HTTP (3010, actor dev): PUT 200 (não 501), created=16 (mon+wed/8sem); GET 16 janelas template;
+  read-back reconstrói {monday:09:00-12:00, wednesday:14:00-16:00}; 16 rows em availability (não profile);
+  teardown limpo. Greps: sem updateProfessionalProfile/profile/professional (só comentário); chama endpoint
+  temporal; sem metadata.schedule/schedules/schedule_slots. Gates: front+back typecheck0; critical_new=0/
+  total=20. DT-AGENDA OPEN. Fila: F3 cleanup client legado updateProfessionalProfile({availability})+campo
+  availability? → F4 selo+CLOSE.

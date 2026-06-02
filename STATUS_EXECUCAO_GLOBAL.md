@@ -10113,3 +10113,31 @@ total=20.
 **Frontend ainda escreve no 501** (ProfileAgenda intocado). **DT-AGENDA permanece OPEN.** Fila: F2 frontend
 (ProfileAgenda → `PUT /availability/weekly-template` + corrigir read-back `setSchedule({})`) → F3 cleanup do
 `updateProfessionalProfile` morto → F4 selo+CLOSE.
+
+---
+
+## F2 — AGENDA FRONTEND → WEEKLY TEMPLATE ENDPOINT ✅ (2026-06-01)
+
+Frontend-only (2 arquivos). HEAD origem `29de8ef0`. Zero backend/migration/schema/professional/financeiro/
+Learning-Interest/Lifestyle/Health/schedules/schedule_slots. **O bug visível da Agenda fechou.**
+
+**Save:** `ProfileAgenda.tsx` removeu `updateProfessionalProfile({availability})` (→ `PUT /profile/professional`
+→ 501) e passou a salvar via novo `putWeeklyAvailabilityTemplate` (`api/availability.ts` → `PUT /availability/
+weekly-template`). **Timezone explícita** do browser (`Intl.DateTimeFormat().resolvedOptions().timeZone`);
+bloqueia o save com erro claro se ausente (sem fallback silencioso). `ownerId` não é enviado (backend usa
+actionContext). Debounce 700ms preservado. **Erro 501 desaparece.**
+
+**Read-back:** `setSchedule({})` (write-only) → `reconstructWeeklySchedule(...)` reconstrói a grade a partir das
+janelas concretas do SSOT `availability` (`metadata.source==='profile_weekly_template'` + `recurring` +
+`active`), convertendo start/end → dia + `HH:mm` via luxon na tz da janela. **Nunca de bookings nem
+metadata.schedule.** Leitura de janelas concretas/bookings/conflitos preservada. `specific` sem UI nova.
+
+**Provas (HTTP, backend 3010, actor dev):** PUT `/availability/weekly-template` → **200 (não 501)**, created=16
+(monday+wednesday/8sem), tz/horizon corretos; GET `/availability` → 16 janelas template (recurring/active/
+source); **read-back reconstrói** exatamente `{monday:09:00-12:00, wednesday:14:00-16:00}`; 16 rows em
+`availability` (não em profile); teardown limpo. Greps: ProfileAgenda sem `updateProfessionalProfile`/`/profile/
+professional` (só comentário); chama o endpoint temporal; sem `metadata.schedule`/`schedules`/`schedule_slots`.
+Gates: front+back typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20.
+
+**DT-AGENDA permanece OPEN.** Fila: F3 cleanup do client legado `updateProfessionalProfile({availability})` +
+campo `availability?` (cabo velho) → F4 testes+selo+CLOSE da DT.

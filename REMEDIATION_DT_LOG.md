@@ -10463,9 +10463,27 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   (segue active); `specific` válido cria janela, inválido rejeita; tz inválida → 400; `schedules`/
   `schedule_slots` intocados (0→0). **Sem frontend/migration/schema/professional/metadata.schedule/financeiro.**
   Gates verdes (typecheck0; critical_new=0/total=20). **DT permanece OPEN** (frontend ainda escreve no 501).
+- **Mitigação parcial (F2 frontend, 2026-06-01):** **ProfileAgenda parou de escrever no endpoint morto.**
+  Só frontend (2 arquivos): `api/availability.ts` ganhou `putWeeklyAvailabilityTemplate` (PUT `/availability/
+  weekly-template`; **não envia ownerId** — backend usa actionContext; timezone obrigatória); `ProfileAgenda.
+  tsx` **removeu `updateProfessionalProfile({availability})`** (que batia no `PUT /profile/professional` → 501)
+  e passou a salvar a grade pelo endpoint temporal, com **timezone explícita do browser** (`Intl…timeZone`;
+  bloqueia o save com erro claro se ausente — sem fallback silencioso). **Read-back corrigido:** o
+  `setSchedule({})` (write-only) virou `reconstructWeeklySchedule(...)` — reconstrói a grade a partir das
+  janelas concretas do SSOT `availability` (filtro `metadata.source==='profile_weekly_template'` +
+  `availabilityType==='recurring'` + `status==='active'`), convertendo start/end → dia-da-semana + `HH:mm`
+  via luxon na timezone da janela; **nunca de bookings nem de metadata.schedule**. `specific` sem UI nova
+  (não inventado). Provado runtime (HTTP, backend 3010, actor dev): PUT `/availability/weekly-template` →
+  **200 (não 501)**, created=16 (monday+wednesday/8sem), tz/horizon corretos; GET `/availability` retorna 16
+  janelas template (recurring/active/source); **read-back reconstrói** exatamente `{monday:09:00-12:00,
+  wednesday:14:00-16:00}`; 16 rows em `availability` (não em profile); teardown limpo. Greps: ProfileAgenda
+  sem `updateProfessionalProfile`/`/profile/professional` (só comentário); chama `putWeeklyAvailabilityTemplate`;
+  sem `metadata.schedule`/`schedules`/`schedule_slots`. **Zero backend/migration/schema/professional/financeiro/
+  Learning-Interest/Lifestyle/Health.** Gates: front+back typecheck0; actor-writer/bank-ledger/regression OK;
+  arch critical_new=0/total=20. **DT permanece OPEN** (resta F3 cleanup do client legado + F4 selo/close).
 - **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1 ✅ (backend materializador + rota + fix repo)** →
-  **F2** frontend (ProfileAgenda → `PUT /availability/weekly-template`; corrigir read-back `setSchedule({})`)
-  → **F3** cleanup do `updateProfessionalProfile({availability})` morto → **F4** testes + selo + CLOSE da DT.
+  **F2 ✅ (frontend ProfileAgenda → endpoint temporal + read-back do SSOT)** → **F3** cleanup do client legado
+  `updateProfessionalProfile({availability})` + campo `availability?` → **F4** testes + selo + CLOSE da DT.
   Ordem: backend seguro antes do frontend; sem `DELETE` em massa. `/profile/professional` segue 501; sem
   segundo SSOT temporal; financeiro fora.
 
