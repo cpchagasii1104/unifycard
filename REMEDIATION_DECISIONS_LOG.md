@@ -6284,3 +6284,47 @@ gates verdes; critical_new=0. DT permanece OPEN.
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0077 — Política de enriquecimento geográfico do Location Core (estratégia B+D+C; lat/lng coarse)
+
+**Status:** RATIFICADA — ESTRATÉGIA/MODELAGEM (D-GEO), DOCS-ONLY; implementação não autorizada (2026-06-02).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `ff0a8c43`.
+**Documento canônico:** `docs/02_decisions/DECISION_0077_LOCATION_CORE_GEO_ENRICHMENT_POLICY.md`.
+**Subordinada a:** DECISION-0020/0021/0074/0076, SSOT_REGISTRY, LGPD. **Vinculada a:**
+`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN), DECISION-0075 §7. **Escopo:** estratégia compartilhável; NÃO
+implementa, NÃO toca PJ.
+
+### Contexto
+
+`addresses` sem coluna textual de city/state/neighborhood (só FK nullable); catálogo só capitais (cities=27,
+neighborhoods=0); sem resolver CEP→geo / geocoding no backend; único resolver vivo `findStateByCode(UF)`. Por isso
+o blob é fallback transitório de exibição (DECISION-0076). addresses=3, todas com state_id/city_id/lat/lng NULL.
+
+### Escolha (B+D+C sob demanda)
+
+**B** state_id por UF (imediato/barato) + **D** resolver CEP→UF/cidade/IBGE em frente futura (ViaCEP/BrasilAPI;
+bairro=texto) + **C** importar `cities` por external_code IBGE **sob demanda** (CEP de município ausente). **lat/lng
+default = centroide coarse da cidade**, não coord precisa da residência. SSOT = FK por external_code (IBGE); CEP =
+insumo.
+
+### Privacidade / Fronteiras / Vetos
+
+Coord precisa de residência = sensível → RESIDENCE usa **centroide coarse**; geocoding preciso só com decisão de
+privacidade (consent/visibility/RLS; addresses não tem RLS hoje). RESIDENCE ≠ actor_active_location ≠ OPERATIONAL
+≠ HQ; CEP não é SSOT sozinho. Vetos: coluna textual em addresses; match frágil por nome; residência via
+actor_active_location; geocoding preciso de residência sem privacidade; API externa sem frente própria; tocar
+PJ/Companies; limpar blob; implementar aqui.
+
+### PJ + Cleanup PF + Sequência
+
+PJ/Companies NÃO devem criar resolver geo paralelo nem assumir city/UF textual canônica (DECISION-0075 §7); usam
+o mesmo F-GEO futuro. **F3/F4/F5 do endereço PF BLOQUEADOS** até F-GEO entregar ao menos state_id/city_id (ou
+pré-condição DECISION-0076 §2.8); blob permanece fallback. Sequência: D-GEO (esta) → F-GEO-1 (resolver CEP/IBGE)
+→ F-GEO-2 (enrich addresses) → F-GEO-3 (core sem blob) → F-GEO-4 (cleanup metadata.address PF) → F-GEO-5 (selo/
+close). Docs-only; gates verdes; critical_new=0. DT permanece OPEN.
+
+### Superada por
+
+(em aberto — decisão vigente)

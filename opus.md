@@ -2713,3 +2713,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Fronteira PJ já em DECISION-0075 §7 + DT_LOG. Gates docs-only verdes (critical_new=0/total=20). Próximo corte NÃO
   é F3 — é F-GEO (frente própria) ou outra direção do Perfil PF. PJ fora desta instância. (Lição: não arrancar o
   andaime — reader ainda usa o blob p/ não perder cidade/UF/bairro; cleanup só após estratégia geográfica.)
+
+### D-GEO — ESTRATÉGIA DE ENRIQUECIMENTO GEOGRÁFICO (DECISION-0077) ✅ DOCS-ONLY (2026-06-02)
+- HEAD origem ff0a8c43. Docs-only: zero código/runtime/migration/frontend/backend/API externa/PJ/Companies/
+  financeiro/cleanup blob. Novo DECISION_0077_LOCATION_CORE_GEO_ENRICHMENT_POLICY.md + DECISIONS_LOG + DT_LOG +
+  STATUS + opus.
+- Pós F-GEO READ-ONLY (catálogo capitais-only cities=27/neighborhoods=0; sem resolver CEP/geocode; cities têm
+  centroide; só findStateByCode vivo). Estratégia oficial B+D+C sob demanda: B state_id por UF (imediato); D
+  resolver CEP→UF/cidade/IBGE futuro (ViaCEP/BrasilAPI; bairro=texto); C importar cities por external_code IBGE
+  sob demanda; lat/lng default = centroide coarse da cidade (não coord precisa de residência — LGPD; geocoding
+  preciso só com decisão de privacidade/RLS, pois addresses não tem RLS). SSOT=FK por external_code; CEP=insumo.
+- Fronteiras: RESIDENCE ≠ actor_active_location ≠ OPERATIONAL ≠ HQ. Cleanup PF (F3/F4/F5) BLOQUEADO até F-GEO
+  entregar state_id/city_id (ou pré-condição 0076 §2.8); blob = fallback transitório. PJ: não criar resolver geo
+  paralelo nem assumir city/UF textual canônica (DECISION-0075 §7); mesmo F-GEO. Gates docs-only verdes
+  (critical_new=0/total=20). DT-PERSONAL-ADDRESS OPEN. Frente endereço PF correta e governada (blob=andaime
+  documentado). Próximo: F-GEO-1 (implementação, compartilhável PF/PJ — provável outra instância) OU dívida menor
+  PF (gender). PJ fora desta instância.

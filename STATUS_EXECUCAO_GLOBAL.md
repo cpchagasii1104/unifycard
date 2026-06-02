@@ -10430,3 +10430,26 @@ CEP-âncora). Gates docs-only verdes (critical_new=0/total=20).
 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Próximo corte NÃO é F3 — é **F-GEO** (frente
 própria/compartilhável) ou outra direção do Perfil PF. PJ permanece fora desta instância.
+
+---
+
+## D-GEO — ESTRATÉGIA DE ENRIQUECIMENTO GEOGRÁFICO (DECISION-0077) ✅ (2026-06-02) — DOCS-ONLY
+
+HEAD origem `ff0a8c43`. Docs-only: zero código/runtime/migration/frontend/backend/API externa/PJ/Companies/
+financeiro/cleanup blob. Novo `docs/02_decisions/DECISION_0077_LOCATION_CORE_GEO_ENRICHMENT_POLICY.md` +
+DECISIONS_LOG + DT_LOG + este STATUS + opus.
+
+**Pós F-GEO READ-ONLY**, estratégia oficial **B+D+C sob demanda**: **B** `state_id` por UF (imediato/barato);
+**D** resolver CEP→UF/cidade/IBGE em frente futura (ViaCEP/BrasilAPI; bairro=texto); **C** importar `cities` por
+`external_code` (IBGE) **sob demanda**; **lat/lng default = centroide coarse da cidade** (não coord precisa de
+residência — LGPD; geocoding preciso só com decisão de privacidade/consent/RLS, pois `addresses` não tem RLS).
+SSOT = FK por external_code; CEP=insumo. Fronteiras: RESIDENCE ≠ actor_active_location ≠ OPERATIONAL ≠ HQ.
+
+**Cleanup PF:** F3/F4/F5 do endereço PF **BLOQUEADOS** até F-GEO entregar ao menos `state_id`/`city_id` (ou
+pré-condição DECISION-0076 §2.8); blob permanece fallback transitório. **PJ:** não criar resolver geo paralelo
+nem assumir city/UF textual canônica (DECISION-0075 §7); usa o mesmo F-GEO. Gates docs-only verdes
+(critical_new=0/total=20).
+
+**Frente endereço PF está correta e governada** (blob = andaime documentado, não gambiarra). Próximo corte:
+**F-GEO-1** (implementação, frente compartilhável PF/PJ — provável outra instância/sessão) **OU** pausar endereço
+PF aqui e atacar dívida menor do Perfil PF (ex.: `gender` em metadata). PJ fora desta instância.
