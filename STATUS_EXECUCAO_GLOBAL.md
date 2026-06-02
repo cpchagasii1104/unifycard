@@ -9821,3 +9821,27 @@ declaração C1). **DT-PROFILE-FRONTEND-DRIVES-TAXONOMY → PARTIALLY MITIGATED 
 **nova `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` → DEFERRED** (rastreia o resíduo; decisão de
 produto futura: manter governado / neutralizar como Learning-Interest / fila formal sempre REVIEW). Gates
 docs-only verdes (`critical_new=0`).
+
+---
+
+## DT-LIFESTYLE-SENSITIVE-IN-BLOB — D1 (POLÍTICA DE DADOS SENSÍVEIS) ✅ DOCS-ONLY · DECISION-0071 (2026-06-01)
+
+Decisão de produto/privacidade ratificada por Clayton antes de qualquer schema/código. **Docs-only** — zero
+código/runtime/frontend/backend/migration/financeiro/Learning-Interest C1/Agenda/Profissional. HEAD origem
+`dec3b883`. **DT permanece OPEN** (D1 é decisão; implementação pendente).
+
+**Criado:** `docs/02_decisions/DECISION_0071_SENSITIVE_LIFESTYLE_HEALTH_PROFILE_POLICY.md`. **Escolhas (9):**
+sexualOrientation **removido/bloqueado do MVP**; relationshipStatus/drinks/smokes **mantidos como lifestyle
+privado** (visibility private default, consent explícito por campo, **sem targeting**); social-targeting
+**desacopla drinks/smokes** até consent; retenção = **delete real/anonymize** (audit sem valor em claro);
+identidade **actor-first**; **Saúde → 501** até substrato governado (0382 = frente própria). **Eixos 10/11:**
+texto livre que possa capturar saúde não é neutro (trava); dado civil não reaproveitável para Saúde sem
+finalidade/consent (`biologicalSex` não existe no repo → trava prospectiva).
+
+**Auditoria material confirmada:** tabelas de saúde AUSENTES (`user_health_facts`/`health_taxonomies`/
+`health_consents`; migration 0382 arquivada não aplicada); UI/rotas de Saúde **fantasmas**; blob lifestyle em
+DEV com valores nulos. Gates docs-only verdes (`critical_new=0`).
+
+**Sequência (não autorizada aqui):** F-SAUDE-501 → F-TARGETING-DECOUPLE → F1 schema (SSOT lifestyle actor-first
++ consent/visibility/audit) → F2 backend → F3 frontend (remove sexualOrientation) → F4 readers → F5 cleanup
+blob + selo + CLOSE. **Ordem inegociável:** política antes de schema/código.

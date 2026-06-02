@@ -6064,3 +6064,43 @@ fica para fatia própria — esta DECISION só classifica e separa a dívida. Do
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0071 — Política de dados sensíveis Lifestyle/Saúde no Perfil
+
+**Status:** RATIFICADA — DECISÃO DE PRODUTO/PRIVACIDADE (D1), DOCS-ONLY; implementação NÃO autorizada (2026-06-01).
+**Decisor:** Clayton (9 escolhas + 2 eixos). **Commit âncora:** HEAD origem `dec3b883`.
+**Documento canônico:** `docs/02_decisions/DECISION_0071_SENSITIVE_LIFESTYLE_HEALTH_PROFILE_POLICY.md`.
+**Subordinada a:** Constituição/LEIS (LGPD como limite), LEI_COERÊNCIA §4.8 (actor-first). **Vinculada a:**
+`DT-LIFESTYLE-SENSITIVE-IN-BLOB` (OPEN — D1 tomada, implementação pendente).
+
+### Contexto
+
+`global_users.metadata.lifestyle` guarda `sexualOrientation`/`relationshipStatus`/`drinks`/`smokes` sem
+consent/visibility/audit/retenção; `drinks/smokes` alimentam `social-targeting`. Saúde tem UI/rotas/service/
+repos mas **tabelas ausentes** (migration 0382 arquivada) → fantasma. Learning/Interest já no C1 (não reabrir).
+
+### Escolhas (9 pontos)
+
+1 sexualOrientation: **A remover/bloquear do MVP** · 2 relationshipStatus: **A lifestyle privado** · 3
+drinks/smokes: **A privado, sem targeting** · 4 social-targeting: **A bloquear drinks/smokes até consent** · 5
+visibility: **A private default** · 6 consent: **A explícito por campo** · 7 retenção: **A delete real/
+anonymize; audit do evento sem valor em claro** · 8 identidade: **A actor-first** · 9 Saúde: **B 501 até
+substrato governado**. Eixos adicionais: **10** texto livre que possa capturar saúde não é neutro (trava;
+`biologicalSex` não existe no repo; único caminho livre-saúde é o substrato de Saúde sob 501); **11** dado
+civil (ex.: biologicalSex futuro) não reaproveitável para Saúde sem finalidade/consent (trava prospectiva).
+
+### Vetos / Consequências
+
+Vetos: sensível em metadata como SSOT final; targeting com sensível sem consent; Health fantasma; global_user
+como identidade quando o dado é do actor; reaproveitar dado civil para saúde sem finalidade; texto livre
+saúde como neutro. Consequências: Saúde→501 (fatia própria); lifestyle exige SSOT actor-first+consent+
+visibility(private)+audit+retenção antes de sair do blob; sexualOrientation sai; desacoplar drinks/smokes do
+targeting; cleanup do blob só após SSOT+backfill. Sequência: F-SAUDE-501 → F-TARGETING-DECOUPLE → F1 schema →
+F2 backend → F3 frontend → F4 readers → F5 cleanup+selo. Ordem inegociável: política antes de schema/código.
+DT permanece OPEN. Docs-only; gates verdes; critical_new=0.
+
+### Superada por
+
+(em aberto — decisão vigente)
