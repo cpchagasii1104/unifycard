@@ -6418,3 +6418,52 @@ critical_new=0. **DT permanece OPEN** (esta decisão não fecha a DT).
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0080 — gender como atributo civil do Identity SSOT (global_users.gender), fora do blob (D-GENDER)
+
+**Status:** RATIFICADA — MODELAGEM/IDENTIDADE (D-GENDER), DOCS-ONLY; implementação não autorizada (2026-06-02).
+**Decisor:** Clayton ("perfil coleta, identidade guarda"). **Commit âncora:** HEAD origem `c04e1223`.
+**Documento canônico:** `docs/02_decisions/DECISION_0080_PROFILE_GENDER_IDENTITY_SSOT.md`.
+**Subordinada a:** Constituição/LEIS, LEI_DE_COERÊNCIA, SSOT_REGISTRY, 07_NOMENCLATURA, LGPD. **Vinculada a:**
+`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` (OPEN, criada por esta decisão), `DECISION-0062` (CPF SSOT — padrão de
+referência, NÃO tocada), `DECISION-0071` (sensíveis — fronteira: gender NÃO é sensível). **Escopo:** SOMENTE `gender`
+(PF); NÃO toca CPF/endereço/PJ/Health/Lifestyle/social-targeting code.
+
+### Contexto
+
+`gender` ainda vive em `profiles.metadata.gender` — último campo civil simples da aba Pessoal no blob (endereço já
+selado). O código agrupa gender com identity-core (`fullName/cpf/birthdate`): `types/identity.ts:53` ("NUNCA incluir:
+fullName, cpf, birthdate, gender"), OnboardingModal/gating, `identity_status`. **Assimetria material:** `global_users`
+já tem colunas `full_name/birthdate/cpf`; **gender é o único desses ainda no blob**. DB (DEV): `metadata ? 'gender'`=1
+(valor `male`); address=0; metadata null=0; `global_users` sem coluna gender.
+
+### Escolha
+
+`gender` = atributo CIVIL/identity-core (não health, não lifestyle, não sexualOrientation). **Destino canônico =
+`global_users.gender`** (coluna no Identity SSOT, simétrica a full_name/birthdate/cpf). Descartados: manter no blob;
+`profiles.gender` (cache novo — repete padrão do `profiles.cpf` que a 0062 deprecia); actor_lifestyle/sensível;
+Health; CONCEPT/C1. Princípio: "perfil coleta, identidade guarda".
+
+### Valores + Lock + Consumers
+
+**Valores:** enum canônico = `GENDER_VALUES` do contrato (`male|female|other`); `other` MANTIDO (canônico; UI pode
+expor só male/female no MVP); `prefer_not_to_say` NÃO adicionar (sem evidência); CHECK por enum, bloquear valor livre;
+reconciliar na F2 a inconsistência (runtime honra só male/female em identity_status/lock vs contrato com `other`).
+**Lock:** preservar comportamento atual (primeiro save trava; gender imutável; participa de onboarding/identity_status)
+— muda o LOCAL, não a REGRA. **Consumers:** core.service (identity_status/score), profile.service (lock/onboarding/
+validação), identity.routes (passthrough), social-targeting (demographics, lê via objeto montado), groups gating —
+todos passam a ler do Identity SSOT/read-model; objeto montado segue expondo gender (preserva social-targeting).
+
+### Sequência + Vetos
+
+Sequência: D-GENDER (esta) → F1 (migration `global_users.gender` + backfill) → F2 (writers/readers → coluna, strip do
+metadata espelhando CPF) → F3 (frontend/contratos s/n) → F4 (cleanup `metadata.gender` com guard fail-closed) → F5
+(selo/CLOSE). Vetos: salvar gender no blob pós-frente; criar cache `profiles.gender`; misturar Health/Lifestyle;
+tratar como sexualOrientation; usar como CONCEPT; tocar CPF/endereço/PJ; alterar regra de lock; implementar nesta
+decisão. Docs-only; gates verdes; critical_new=0. **DT criada OPEN; esta decisão não fecha a DT.**
+
+### Superada por
+
+(em aberto — decisão vigente)

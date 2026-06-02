@@ -2957,3 +2957,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: selo verifica antes de fossilizar. Hash em documento de referência é permanente — `git log` de cada commit
   da cadeia antes de gravar custou segundos e evita citar hash errado para sempre. Selar = consolidar a causalidade
   inteira num lugar, com a DT fechada e os resíduos nomeados explicitamente como frentes próprias, não varridos.)
+
+### D-GENDER — DECISION-0080: gender → Identity SSOT (global_users.gender) ✅ (2026-06-02) — docs-only
+- Docs-only (HEAD origem c04e1223). Zero código/migration/runtime/frontend/backend/DML/PJ/CPF/endereço/financeiro/
+  social-targeting code. Doc: DECISION_0080_PROFILE_GENDER_IDENTITY_SSOT.md. DT criada: DT-PERSONAL-GENDER-BLOB-TO-
+  IDENTITY-SSOT OPEN.
+- gender = atributo civil/identity-core (não health/lifestyle/sexualOrientation). Destino = global_users.gender
+  (coluna no Identity SSOT, simétrica a full_name/birthdate/cpf). Sinal decisivo: global_users já tem colunas dos
+  outros 3 campos civis; gender é o único ainda no blob. Vetado cache profiles.gender (repete padrão do profiles.cpf
+  que a 0062 deprecia). Enum = GENDER_VALUES (male|female|other; 'other' mantido; reconciliar inconsistência runtime
+  na F2). Lock/onboarding/imutabilidade preservados (muda local, não regra). social-targeting lê via objeto montado →
+  troca de fonte, não de contrato de saída. DB: metadata?'gender'=1 (male).
+- Sequência: D-GENDER → F1 (migration+backfill) → F2 (writers/readers) → F3 (frontend/contratos) → F4 (cleanup guard)
+  → F5 (selo/CLOSE). Gates docs-only verdes (critical_new=0/350).
+  (Lição: o padrão do endereço (prateleira→mover→desacoplar→cleanup→selo) se reaplica, mas o destino certo vem da
+  SIMETRIA já existente no schema — global_users guardava 3 dos 4 campos civis; o 4º só estava perdido. Não inventar
+  casa nova quando o SSOT já existe e os irmãos do dado já moram lá. E decisão antes de código mesmo num campo
+  "pequeno", porque encosta em IDENTIDADE + lock + targeting — três eixos que não se mexe no improviso.)

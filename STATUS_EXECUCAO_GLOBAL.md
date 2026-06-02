@@ -10788,3 +10788,27 @@ desacoplado do blob (provado runtime na F-GEO-4d). Gates docs-only: actor-writer
 **Frente Endereço Civil PF: SELADA.** Resíduos (frentes próprias): `metadata.gender` (dívida menor aba Pessoal),
 CPF DECISION-0062 F4/F5, PJ/Companies (outra instância, trilho compartilhado), `neighborhood_id` FK (catálogo futuro),
 geocoding preciso (decisão LGPD). PJ fora desta instância.
+
+---
+
+## D-GENDER — DECISION-0080: gender → Identity SSOT (global_users.gender) ✅ (2026-06-02) — docs-only — aba Pessoal
+
+HEAD origem `c04e1223`. **DOCS-ONLY** (decisão + DT; zero código/migration/runtime/frontend/backend/DML/PJ/CPF/
+endereço/financeiro/social-targeting code).
+
+**Decisão:** `gender` (sexo) = atributo **civil/identity-core** (não health, não lifestyle, não sexualOrientation);
+destino canônico = **`global_users.gender`** (coluna no Identity SSOT, simétrica a `full_name`/`birthdate`/`cpf`).
+Motivo material: `global_users` já tem colunas dos três outros campos civis imutáveis; **gender é o único ainda no
+blob** `profiles.metadata`. "Perfil coleta, identidade guarda." Vetado: cache `profiles.gender` (repete o padrão do
+`profiles.cpf` que a 0062 deprecia); substrato sensível/actor-first; Health; CONCEPT.
+
+**Valores:** enum canônico = `GENDER_VALUES` (`male|female|other`); `other` mantido (UI pode expor só male/female no
+MVP); CHECK; sem valor livre; reconciliar na F2 a inconsistência runtime (`identity_status`/lock honram só male/female).
+**Lock/onboarding/imutabilidade preservados** (muda o local, não a regra). **Consumers** (core.service, profile.service,
+identity.routes, social-targeting demographics, groups gating) passam a ler do Identity SSOT; objeto montado segue
+expondo gender (preserva social-targeting).
+
+**DT criada:** `DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` **OPEN**. Sequência: D-GENDER → F1 (migration
+`global_users.gender` + backfill) → F2 (writers/readers → coluna) → F3 (frontend/contratos) → F4 (cleanup
+`metadata.gender` com guard) → F5 (selo/CLOSE). Gates docs-only: actor-writer/bank-ledger OK; regression PASSOU (350);
+arch critical_new=0/total=20/warning_new=1 (:334 pré-existente). Doc: `docs/02_decisions/DECISION_0080_PROFILE_GENDER_IDENTITY_SSOT.md`.
