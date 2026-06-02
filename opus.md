@@ -2787,3 +2787,15 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   correto; fail-open do provider coberto pelo try/catch + F-GEO-1a. Gates: typecheck0; critical_new=0/total=348.
   Probes NÃO commitados. DT-PERSONAL-ADDRESS OPEN. Fila: F-GEO-2 (rodar backfill com CEP_PROVIDER=brasilapi manual/
   env, não CI) → F-GEO-3 (core sem blob) → F4 cleanup (depende neighborhood) → F5 selo. PJ fora; usa o mesmo cache.
+
+### F-GEO-2a — DRY-RUN do backfill geo (SEM API externa) ✅ (2026-06-02)
+- Sem commit de código (validação; probes throwaway deletados; working tree limpo). 3 candidatos DEV (CEP
+  81920410/80010100/80420010, state/city NULL, IMPORT_LEGACY); cache=0; CEP_PROVIDER não setado.
+- Dry-run 1 (script committado, NullCepProvider, sem rede): {scanned:3,enriched:0,skipped:3} — no-op seguro, zero
+  efeito colateral. Dry-run 2 (mock, teardown): run1 enriched=3/cache=3 (Foz sob demanda); run2 cache-hit (provider
+  0, Foz não duplica); cache só sha256; blob preservado 1→1; neighborhoods 0→0; aal intocado; teardown → DEV
+  pristino. Gates verdes. Zero API externa real/PJ/Companies/frontend/financeiro/cleanup blob.
+- Comando F-GEO-2b (execução real, autorização explícita): CEP_PROVIDER=brasilapi pnpm --dir backend tsx
+  src/scripts/backfill-geo-enrichment.ts (manual/env, NÃO no CI). DT-PERSONAL-ADDRESS OPEN. (Disciplina: API
+  externa em coleira — dry-run com Null+mock antes de soltar o provider real; teardown deixou DEV pristino p/ a
+  execução real não herdar dado de mock.)

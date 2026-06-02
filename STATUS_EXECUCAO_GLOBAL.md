@@ -10531,3 +10531,22 @@ Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (348); arch cr
 com `CEP_PROVIDER=brasilapi` — execução manual/env, NÃO no CI — para enriquecer os 3 addresses DEV) → **F-GEO-3**
 (core lê city/state do catálogo, sem blob) → **F4** cleanup `metadata.address` (depende de decisão de neighborhood)
 → **F5** selo+CLOSE. PJ fora desta instância; usa o mesmo resolver/cache.
+
+---
+
+## F-GEO-2a — DRY-RUN do backfill geo (SEM API externa) ✅ (2026-06-02)
+
+HEAD `eb0970ec`. **Sem commit de código** (validação; probes throwaway deletados; working tree limpo).
+**Candidatos = 3 addresses DEV** (CEP 81920410/80010100/80420010, todos `state_id`/`city_id` NULL, source
+IMPORT_LEGACY); `cep_resolution_cache`=0; cities=27; `CEP_PROVIDER` não setado.
+
+**Dry-run 1 (script committado, NullCepProvider, sem rede):** `{scanned:3, enriched:0, skipped:3, failed:0}` —
+no-op seguro, **zero efeito colateral** (addresses null, cache 0, cities 27). **Dry-run 2 (mock, com teardown):**
+run1 enriched=3/cache=3 (Foz criada sob demanda); run2 **cache-hit** (provider 0 chamadas, Foz não duplica);
+cache só sha256 (sem raw payload); **blob preservado 1→1**; neighborhoods 0→0; actor_active_location intocado;
+**teardown → DEV pristino** (cities 27, cache 0, addr_enriched 0). Gates verdes (typecheck0; 348; critical_new=0).
+**Zero API externa real; zero PJ/Companies/frontend/financeiro/cleanup blob.**
+
+**DEV pronto para F-GEO-2b (execução real, autorização explícita necessária).** Comando exato recomendado:
+`CEP_PROVIDER=brasilapi pnpm --dir backend tsx src/scripts/backfill-geo-enrichment.ts` (execução **manual/env**,
+NÃO no CI). **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.**
