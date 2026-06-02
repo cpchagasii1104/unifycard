@@ -2611,3 +2611,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   critical_new=0/total=20. Escrita de Educação via UI FUNCIONAL. Zero backend/migration/schema/DML/Learning/
   Professional/Agenda/Lifestyle/Health/financeiro. Resíduo (b) 1 evento de teste mantido (DML não autorizado).
   DT-EDUCATION OPEN. Fila: F3 selo + CLOSE.
+
+### F3 — SELO EDUCAÇÃO + CLOSE DA DT ✅ DOCS-ONLY (2026-06-01)
+- Frente Educação CONCLUÍDA E SELADA. HEAD origem b6185554. Docs-only: zero código/runtime/migration/DML/cleanup
+  do evento DEV/Learning/Professional/Agenda/Lifestyle/Health/financeiro. 4 arquivos: novo
+  docs/02_decisions/SELO_EDUCATION_DECLARATION.md + DT_LOG (CLOSE) + STATUS + opus.
+- Selo consolida DECISION-0073 (0fe5e694) → F1 órfão removido (43a777a4) → F2 vocabulário reservado (4a6b830b)
+  → F2.1 path do client (b6185554). Estado final, invariantes, provas, resíduos.
+- DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY → CLOSED. Educação = declaração não-verificada actor-first sobre
+  event_log; sem "validada institucionalmente" no fluxo vivo; sem validator/evidence no schema; órfão removido;
+  escrita via UI funcional. DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION segue DEFERRED (resíduo vivo =
+  Profissional/IA, não Educação). Gates docs-only: actor-writer/bank-ledger/regression OK (346); critical_new=0/
+  total=20. Typecheck não rodado. Resíduos→frentes próprias: credencial real, 1 evento DEV de teste. Próximo mapa:
+  PJ actor-context OU cleanup cosmético morto (não misturar).
+- ESTADO PERFIL pós-Educação: Profissional C1, Learning/Interest C1, Lifestyle SSOT, Agenda/unified_availability,
+  Saúde 501, Educação declaração-não-verificada — TODAS seladas. Abas restantes: Pessoal (identity+user_profiles.cpf
+  transição 0062+addresses+metadata.gender), PJ (CompaniesManager, domínio actor próprio). Cosmético morto pendente:
+  sexualOrientation legado, componentes Health não-renderizados, gender em blob, getProfessionalProfile leitura legada.

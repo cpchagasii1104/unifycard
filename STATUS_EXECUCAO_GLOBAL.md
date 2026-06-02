@@ -10285,3 +10285,26 @@ typecheck0; gates actor-writer/bank-ledger/regression OK; arch critical_new=0/to
 **A escrita de Educação via UI está FUNCIONAL agora.** Zero backend/migration/schema/DML/Learning/Professional/
 Agenda/Lifestyle/Health/financeiro. Resíduo (b) — 1 evento de teste F2 em `event_log` — mantido (DML não autorizado;
 ruído DEV menor). **DT permanece OPEN.** Fila: **F3** selo Educação + **CLOSE** da DT.
+
+---
+
+## F3 — SELO EDUCAÇÃO + CLOSE DA DT ✅ (2026-06-01) — DOCS-ONLY
+
+Frente Educação **CONCLUÍDA E SELADA**. HEAD origem `b6185554`. **Docs-only**: zero código/runtime/migration/DML/
+cleanup do evento DEV/Learning/Professional/Agenda/Lifestyle/Health/financeiro. 4 arquivos: novo
+`docs/02_decisions/SELO_EDUCATION_DECLARATION.md` + `REMEDIATION_DT_LOG.md` (CLOSE) + este STATUS + `opus.md`.
+
+**Selo** consolida DECISION-0073 (`0fe5e694`) → F1 órfão removido (`43a777a4`) → F2 vocabulário reservado
+(`4a6b830b`) → F2.1 path do client (`b6185554`): estado final, invariantes, provas materiais, resíduos.
+
+**`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY` → CLOSED** (ref. selo). Educação = declaração não-verificada
+actor-first sobre `event_log`; sem "validada institucionalmente" no fluxo vivo; sem `validator`/`evidence` no
+schema de escrita; órfão removido; escrita via UI funcional. `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-
+EXPANSION` segue DEFERRED (resíduo vivo = Profissional/IA, não Educação).
+
+**Gates docs-only:** actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK (346) · arch --strict
+`critical_new=0`, `critical_total=20`. Typecheck **não rodado** (nenhum código tocado).
+
+**Resíduos = frentes próprias:** credencial verificada real (emissor/prova/autoridade/audit); 1 evento DEV de
+teste (limpeza DML autorizada à parte, não bloqueia). **Próximo mapa provável:** PJ actor-context **OU** cleanup
+cosmético morto — não misturar.
