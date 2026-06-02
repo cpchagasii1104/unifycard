@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import type { LifestyleInfo } from '../api/physical';
 import type { CategoryTree } from '../api/categories';
+import type { LifestyleAttributeKey } from '../api/lifestyle';
 
-// Interesse selecionado (C1 actor-first/concept-first, DECISION-0067). BINÁRIO: sem state/weight/priority.
-// categoryId = breadcrumb (= source_category_id no C1); conceptId = identidade semântica (Lei 7).
+// Interesse selecionado (C1 actor-first/concept-first, DECISION-0067). BINÁRIO.
 export interface SelectedInterest {
   categoryId: string;
   conceptId: string;
@@ -11,49 +10,43 @@ export interface SelectedInterest {
   categoryPath: string[];
 }
 
-// habits/weeklyRoutine/goals + interests permanecem no fluxo LEGADO (blob global_users.metadata).
-// interests aqui é apenas o valor carregado do blob, PRESERVADO para o save legado (zero cleanup do blob).
-// A seção de Interesses da UI NÃO usa mais este campo — ela usa selectedInterests (C1).
-interface UserInterestLegacy {
-  conceptId: string;
-  label: string;
-  state: 'gosto' | 'pratico_as_vezes' | 'pratico_regularmente';
-  domain: string;
-  isCustom: boolean;
-}
-
+// weeklyRoutine/goals permanecem no fluxo LEGADO (blob global_users.metadata.physicalProfile) — não sensíveis.
+// drinks/smokes/relationship_status saíram para o SSOT Lifestyle (F3). sexualOrientation foi REMOVIDO.
 interface PhysicalProfileData {
-  interests: UserInterestLegacy[];
-  habits: {
-    smoking: 'não_fumo' | 'ocasionalmente' | 'regularmente' | null;
-    drinking: 'não_bebo' | 'socialmente' | 'regularmente' | null;
-  };
   weeklyRoutine: 'leve' | 'moderada' | 'intensa' | null;
   goals: ('estética' | 'bem_estar' | 'condicionamento')[];
 }
 
+// Atributos de lifestyle (SSOT actor-first, DECISION-0071/F3). Valores em snake_case (enums do schema).
+export interface LifestyleAttrsState {
+  relationship_status: string | null;
+  drinks: string | null;
+  smokes: string | null;
+}
+
+export const EMPTY_LIFESTYLE_ATTRS: LifestyleAttrsState = {
+  relationship_status: null,
+  drinks: null,
+  smokes: null,
+};
+
+export const LIFESTYLE_KEYS: LifestyleAttributeKey[] = ['relationship_status', 'drinks', 'smokes'];
+
 export function useProfilePhysicalState() {
   const [profileData, setProfileData] = useState<PhysicalProfileData>({
-    interests: [],
-    habits: {
-      smoking: null,
-      drinking: null,
-    },
     weeklyRoutine: null,
     goals: [],
   });
 
-  const [lifestyle, setLifestyle] = useState<LifestyleInfo>({
-    drinks: null,
-    smokes: null,
-    relationshipStatus: null,
-    sexualOrientation: null,
-  });
+  // SSOT Lifestyle (F3): atributos atuais + snapshot do load (diff granular: declare/retire) + consent + erro.
+  const [lifestyleAttrs, setLifestyleAttrs] = useState<LifestyleAttrsState>({ ...EMPTY_LIFESTYLE_ATTRS });
+  const [initialLifestyleAttrs, setInitialLifestyleAttrs] = useState<LifestyleAttrsState>({ ...EMPTY_LIFESTYLE_ATTRS });
+  const [lifestyleConsent, setLifestyleConsent] = useState<boolean>(false);
+  const [lifestyleError, setLifestyleError] = useState<string | null>(null);
 
-  // C1 de Interesse (substitui o catálogo hardcoded — Fatia 4c).
+  // C1 de Interesse (Fatia 4c).
   const [interestTree, setInterestTree] = useState<CategoryTree[]>([]);
   const [selectedInterests, setSelectedInterests] = useState<SelectedInterest[]>([]);
-  // Snapshot do C1 no load (diff granular do save: novo→POST, removido→DELETE).
   const [initialInterests, setInitialInterests] = useState<SelectedInterest[]>([]);
   const [expandedInterests, setExpandedInterests] = useState<Set<string>>(new Set());
   const [interestError, setInterestError] = useState<string | null>(null);
@@ -65,8 +58,14 @@ export function useProfilePhysicalState() {
   return {
     profileData,
     setProfileData,
-    lifestyle,
-    setLifestyle,
+    lifestyleAttrs,
+    setLifestyleAttrs,
+    initialLifestyleAttrs,
+    setInitialLifestyleAttrs,
+    lifestyleConsent,
+    setLifestyleConsent,
+    lifestyleError,
+    setLifestyleError,
     interestTree,
     setInterestTree,
     selectedInterests,

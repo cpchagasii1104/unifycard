@@ -1,54 +1,51 @@
 // src/components/ProfilePhysical.tsx
-// Componente de perfil físico - autoexpressão declarativa
-// 🔒 CONTRATO: Físico é um mapa declarativo de interesses, hábitos e práticas de vida.
-// É autoexpressão voluntária, mutável e contextual.
-// Físico NÃO é: profissão, saúde clínica, personalidade, score, identidade fixa, classificação humana.
-// Preferências declaradas NÃO decidem nada no sistema.
+// Componente de perfil físico - autoexpressão declarativa.
 //
-// Fatia 4c (DECISION-0067): a seção de INTERESSES foi migrada do catálogo HARDCODED/blob para o C1
-// actor-first/concept-first (/profile/interest/c1, árvore real scope='interest'). O catálogo fake
-// (PREDEFINED_CONCEPTS com conceptId 'leisure.cinema'/'activity.swimming') foi REMOVIDO. O restante
-// (hábitos/rotina/objetivos/lifestyle) CONTINUA no fluxo LEGADO (PUT /profile/physical) — intocado.
+// F3 (DECISION-0071): a seção "Estilo de Vida" (relationship_status/drinks/smokes) migrou para o SSOT
+// Lifestyle actor-first (`/profile/lifestyle`, consent obrigatório, visibility private). `sexualOrientation`
+// foi REMOVIDO (fora do MVP). Interesses seguem no C1 (Fatia 4c). weeklyRoutine/goals permanecem no fluxo
+// LEGADO (PUT /profile/physical, metadata.physicalProfile) — o frontend NÃO envia mais `lifestyle` ao legado
+// (cleanup do blob é a F5; primeiro muda o tráfego, depois remove a estrada velha).
 
 import { useEffect } from 'react';
-import {
-  getPhysicalProfile,
-  updatePhysicalProfile,
-} from '../api/physical';
+import { getPhysicalProfile, updatePhysicalProfile } from '../api/physical';
 import {
   getInterestC1,
   declareInterestConceptC1,
   retireInterestConceptC1,
 } from '../api/interestC1';
+import {
+  getLifestyle,
+  declareLifestyleAttribute,
+  retireLifestyleAttribute,
+  type LifestyleAttributeKey,
+} from '../api/lifestyle';
 import { getCategoryTree, type Category, type CategoryTree } from '../api/categories';
-import { useProfilePhysicalState, type SelectedInterest } from '../hooks/useProfilePhysicalState';
+import {
+  useProfilePhysicalState,
+  type SelectedInterest,
+  type LifestyleAttrsState,
+  EMPTY_LIFESTYLE_ATTRS,
+  LIFESTYLE_KEYS,
+} from '../hooks/useProfilePhysicalState';
 import { useProfilePhysicalLogic } from '../hooks/useProfilePhysicalLogic';
 import ProfilePhysicalForm from './ProfilePhysicalForm';
 import { useSession } from '../contexts/SessionProvider';
 import NotApplicableMessage from './NotApplicableMessage';
 import './ProfilePhysical.css';
 
-// ============================================================
-// LIFESTYLE LEGADO (hábitos/rotina/objetivos) — fora do C1
-// ============================================================
-// Estes campos permanecem declarativos no blob legado (PUT /profile/physical). NÃO migram para o C1
-// nesta fatia (DT-LIFESTYLE-SENSITIVE-IN-BLOB é frente própria). interests aqui é o valor do blob,
-// preservado para o save legado (zero cleanup do blob) — a UI NÃO o edita mais.
+// weeklyRoutine/goals (não sensíveis) permanecem no blob legado physicalProfile.
 interface PhysicalProfileData {
-  // Valor legado do blob (UserInterest[]), preservado verbatim — a UI não o edita nesta fatia.
-  interests: any[];
-  habits: {
-    smoking: 'não_fumo' | 'ocasionalmente' | 'regularmente' | null;
-    drinking: 'não_bebo' | 'socialmente' | 'regularmente' | null;
-  };
   weeklyRoutine: 'leve' | 'moderada' | 'intensa' | null;
   goals: ('estética' | 'bem_estar' | 'condicionamento')[];
 }
 
+const CONSENT_VERSION = 'v1';
+const CONSENT_SOURCE = 'profile_physical';
+
 export default function ProfilePhysical() {
   const { activeActor, sessionReady } = useSession();
 
-  // FIX 2.c — defesa em profundidade (DECISION-0043 pendente, princípios 4 e 5)
   if (activeActor && activeActor.actor_type !== 'user') {
     return <NotApplicableMessage actor={activeActor} tab="físico" />;
   }
@@ -56,8 +53,14 @@ export default function ProfilePhysical() {
   const {
     profileData,
     setProfileData,
-    lifestyle,
-    setLifestyle,
+    lifestyleAttrs,
+    setLifestyleAttrs,
+    initialLifestyleAttrs,
+    setInitialLifestyleAttrs,
+    lifestyleConsent,
+    setLifestyleConsent,
+    lifestyleError,
+    setLifestyleError,
     interestTree,
     setInterestTree,
     selectedInterests,
@@ -85,8 +88,6 @@ export default function ProfilePhysical() {
     loadData();
   }, [sessionReady]);
 
-  // Mapeia declarações C1 → modelo local. Nome/path resolvidos via sourceCategoryId na árvore (breadcrumb/UI,
-  // não identidade). Fallback honesto por conceptId quando a categoria não é resolvível (sem inventar category).
   const mapC1ToSelected = (
     concepts: { conceptId: string; sourceCategoryId: string | null }[],
     tree: CategoryTree[]
@@ -94,7 +95,7 @@ export default function ProfilePhysical() {
     return concepts.map((c) => {
       const cat = c.sourceCategoryId ? findCategoryInTree(tree, c.sourceCategoryId) : null;
       return {
-        categoryId: c.sourceCategoryId ?? c.conceptId, // chave de UI (breadcrumb se houver)
+        categoryId: c.sourceCategoryId ?? c.conceptId,
         conceptId: c.conceptId,
         categoryName: cat?.name ?? 'Interesse',
         categoryPath: cat?.path ?? [],
@@ -102,67 +103,50 @@ export default function ProfilePhysical() {
     });
   };
 
+  // Projeta os atributos ativos do SSOT Lifestyle no estado local (snake_case).
+  const mapLifestyleToState = (
+    attributes: { attributeKey: string; attributeValue: string | null; isActive: boolean }[]
+  ): LifestyleAttrsState => {
+    const next: LifestyleAttrsState = { ...EMPTY_LIFESTYLE_ATTRS };
+    for (const a of attributes) {
+      if (!a.isActive) continue;
+      if (a.attributeKey === 'relationship_status') next.relationship_status = a.attributeValue;
+      else if (a.attributeKey === 'drinks') next.drinks = a.attributeValue;
+      else if (a.attributeKey === 'smokes') next.smokes = a.attributeValue;
+    }
+    return next;
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     setError(null);
     setInterestError(null);
+    setLifestyleError(null);
     try {
-      // 🔴 Interesses: árvore real scope='interest' (conceptId surfaçado pela Fatia 4a) + declarações C1.
+      // Interesses (C1).
       const tree = await getCategoryTree('interest');
       setInterestTree(tree);
       const c1 = await getInterestC1();
       const loadedInterests = mapC1ToSelected(c1.concepts, tree);
       setSelectedInterests(loadedInterests);
-      setInitialInterests(loadedInterests); // snapshot para o diff granular do save
+      setInitialInterests(loadedInterests);
 
-      // Lifestyle/hábitos/rotina/objetivos: fluxo LEGADO (blob), intocado.
-      const profile = await getPhysicalProfile().catch(() => ({
-        globalUserId: '',
-        interests: [],
-        lifestyle: {
-          drinks: null,
-          smokes: null,
-          relationshipStatus: null,
-          sexualOrientation: null,
-        },
-        preferences: {},
-        metadata: {},
-      }));
+      // Estilo de vida (SSOT actor-first, F3).
+      const ls = await getLifestyle().catch(() => ({ attributes: [] }));
+      const attrs = mapLifestyleToState(ls.attributes);
+      setLifestyleAttrs(attrs);
+      setInitialLifestyleAttrs(attrs);
 
-      setLifestyle(profile.lifestyle);
-
-      // 🔒 Carregar dados declarativos legados de metadata (se existir). interests do blob é PRESERVADO
-      // (não editado pela UI), apenas carregado para reescrita verbatim no save (zero cleanup do blob).
-      const physicalData = (profile.metadata && typeof profile.metadata === 'object' && 'physicalProfile' in profile.metadata)
+      // weeklyRoutine/goals: fluxo LEGADO (physicalProfile no blob), não sensível. NÃO lê lifestyle do legado
+      // (o estilo de vida agora é o SSOT). Só `metadata.physicalProfile` é consumido aqui.
+      const profile = await getPhysicalProfile().catch(() => null);
+      const physicalData = (profile?.metadata && typeof profile.metadata === 'object' && 'physicalProfile' in profile.metadata)
         ? (profile.metadata.physicalProfile as Partial<PhysicalProfileData>)
         : undefined;
-
-      if (physicalData) {
-        setProfileData({
-          interests: [], // Fatia 5: interesses NÃO vêm mais do blob (verdade = C1 /profile/interest/c1)
-          habits: physicalData.habits || {
-            smoking: null,
-            drinking: null,
-          },
-          weeklyRoutine: physicalData.weeklyRoutine || null,
-          goals: physicalData.goals || [],
-        });
-      } else {
-        // Migrar dados antigos se necessário
-        setProfileData({
-          interests: [],
-          habits: {
-            smoking: profile.lifestyle.smokes === 'never' ? 'não_fumo' :
-                     profile.lifestyle.smokes === 'occasionally' ? 'ocasionalmente' :
-                     profile.lifestyle.smokes === 'regularly' ? 'regularmente' : null,
-            drinking: profile.lifestyle.drinks === 'never' ? 'não_bebo' :
-                      profile.lifestyle.drinks === 'socially' ? 'socialmente' :
-                      profile.lifestyle.drinks === 'regularly' ? 'regularmente' : null,
-          },
-          weeklyRoutine: null,
-          goals: [],
-        });
-      }
+      setProfileData({
+        weeklyRoutine: physicalData?.weeklyRoutine ?? null,
+        goals: physicalData?.goals ?? [],
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados';
       setError(errorMessage);
@@ -173,43 +157,27 @@ export default function ProfilePhysical() {
   };
 
   // ============================================================
-  // INTERESSES (C1 actor-first/concept-first) — árvore real scope='interest'
+  // INTERESSES (C1)
   // ============================================================
   const toggleInterestCategory = (categoryId: string) => {
     const next = new Set(expandedInterests);
-    if (next.has(categoryId)) {
-      next.delete(categoryId);
-    } else {
-      next.add(categoryId);
-    }
+    if (next.has(categoryId)) next.delete(categoryId);
+    else next.add(categoryId);
     setExpandedInterests(next);
   };
 
-  const isInterestSelected = (categoryId: string): boolean => {
-    return isInterestSelectedLogic(categoryId, selectedInterests);
-  };
+  const isInterestSelected = (categoryId: string): boolean =>
+    isInterestSelectedLogic(categoryId, selectedInterests);
 
   const addInterest = (category: Category) => {
-    if (isInterestSelected(category.categoryId)) {
-      return;
-    }
-    // TRAVA C1: declaração exige conceptId real surfaçado pelo backend (Fatia 4a). Sem fallback
-    // conceptId ← categoryId, sem inventar conceito. Folha sem conceptId (ex.: raiz de navegação)
-    // não é declarável.
+    if (isInterestSelected(category.categoryId)) return;
     if (!category.conceptId) {
-      setInterestError(
-        'Este interesse ainda não está vinculado a um conceito no sistema e não pode ser declarado agora.'
-      );
+      setInterestError('Este interesse ainda não está vinculado a um conceito no sistema e não pode ser declarado agora.');
       return;
     }
     setSelectedInterests([
       ...selectedInterests,
-      {
-        categoryId: category.categoryId,
-        conceptId: category.conceptId,
-        categoryName: category.name,
-        categoryPath: category.path,
-      },
+      { categoryId: category.categoryId, conceptId: category.conceptId, categoryName: category.name, categoryPath: category.path },
     ]);
     setInterestError(null);
   };
@@ -219,34 +187,22 @@ export default function ProfilePhysical() {
   };
 
   // ============================================================
-  // LIFESTYLE LEGADO (hábitos/rotina/objetivos/estilo de vida) — intocado
+  // ESTILO DE VIDA (SSOT) + físico legado (weeklyRoutine/goals)
   // ============================================================
-  const updateHabits = (field: 'smoking' | 'drinking', value: PhysicalProfileData['habits']['smoking'] | PhysicalProfileData['habits']['drinking']) => {
-    setProfileData({
-      ...profileData,
-      habits: {
-        ...profileData.habits,
-        [field]: value,
-      },
-    });
+  const updateLifestyleAttr = (key: LifestyleAttributeKey, value: string) => {
+    setLifestyleAttrs({ ...lifestyleAttrs, [key]: value || null });
+    setLifestyleError(null);
   };
 
   const updateWeeklyRoutine = (routine: PhysicalProfileData['weeklyRoutine']) => {
-    setProfileData({
-      ...profileData,
-      weeklyRoutine: routine,
-    });
+    setProfileData({ ...profileData, weeklyRoutine: routine });
   };
 
   const toggleGoal = (goal: 'estética' | 'bem_estar' | 'condicionamento') => {
-    const currentGoals = profileData.goals;
-    const isSelected = currentGoals.includes(goal);
-
+    const isSelected = profileData.goals.includes(goal);
     setProfileData({
       ...profileData,
-      goals: isSelected
-        ? currentGoals.filter(g => g !== goal)
-        : [...currentGoals, goal],
+      goals: isSelected ? profileData.goals.filter((g) => g !== goal) : [...profileData.goals, goal],
     });
   };
 
@@ -254,19 +210,45 @@ export default function ProfilePhysical() {
     setIsSaving(true);
     setError(null);
     setInterestError(null);
+    setLifestyleError(null);
 
     try {
-      // 1) INTERESSES → C1 GRANULAR (diff contra o snapshot do load). conceptId = identidade;
-      //    categoryId = breadcrumb (sourceCategoryId). Binário: novo→POST declare, removido→DELETE retire.
+      // 1) ESTILO DE VIDA → SSOT (diff vs snapshot). declare (valor) exige CONSENTIMENTO; retire (limpo) não.
+      const declares: { key: LifestyleAttributeKey; value: string }[] = [];
+      const retires: LifestyleAttributeKey[] = [];
+      for (const key of LIFESTYLE_KEYS) {
+        const cur = lifestyleAttrs[key];
+        const init = initialLifestyleAttrs[key];
+        if (cur === init) continue;
+        if (cur && cur.length > 0) declares.push({ key, value: cur });
+        else if (init) retires.push(key); // estava setado, agora vazio → retira
+      }
+
+      if (declares.length > 0 && !lifestyleConsent) {
+        setLifestyleError('Marque o consentimento para salvar as informações de estilo de vida (privadas).');
+        setIsSaving(false);
+        return;
+      }
+
+      for (const d of declares) {
+        await declareLifestyleAttribute(d.key, d.value, { accepted: true, source: CONSENT_SOURCE, version: CONSENT_VERSION });
+      }
+      for (const k of retires) {
+        await retireLifestyleAttribute(k);
+      }
+      if (declares.length > 0 || retires.length > 0) {
+        const ls = await getLifestyle();
+        const attrs = mapLifestyleToState(ls.attributes);
+        setLifestyleAttrs(attrs);
+        setInitialLifestyleAttrs(attrs);
+      }
+
+      // 2) INTERESSES → C1 GRANULAR (diff).
       const initialByConcept = new Map(initialInterests.map((s) => [s.conceptId, s]));
       const currentByConcept = new Map(selectedInterests.map((s) => [s.conceptId, s]));
-
       for (const cur of selectedInterests) {
         if (!initialByConcept.has(cur.conceptId)) {
-          await declareInterestConceptC1({
-            conceptId: cur.conceptId,
-            sourceCategoryId: cur.categoryId,
-          });
+          await declareInterestConceptC1({ conceptId: cur.conceptId, sourceCategoryId: cur.categoryId });
         }
       }
       for (const prev of initialInterests) {
@@ -275,26 +257,15 @@ export default function ProfilePhysical() {
         }
       }
 
-      // 2) LIFESTYLE LEGADO — INTOCADO (hábitos/rotina/objetivos/estilo de vida). Fatia 5: o envio morto de
-      //    `interests` ao endpoint legado foi REMOVIDO; o backend também não persiste mais `interests`.
-      //    `profileData.interests` é sempre [] (a verdade de interesses é o C1 /profile/interest/c1).
+      // 3) FÍSICO LEGADO (weeklyRoutine/goals). NÃO envia `lifestyle` (saiu para o SSOT); interests=[] no blob.
       await updatePhysicalProfile({
-        lifestyle: {
-          ...lifestyle,
-          smokes: profileData.habits.smoking === 'não_fumo' ? 'never' :
-                 profileData.habits.smoking === 'ocasionalmente' ? 'occasionally' :
-                 (profileData.habits.smoking === 'regularmente' ? 'regularly' : null),
-          drinks: profileData.habits.drinking === 'não_bebo' ? 'never' :
-                 profileData.habits.drinking === 'socialmente' ? 'socially' :
-                 (profileData.habits.drinking === 'regularmente' ? 'regularly' : null),
-        },
         preferences: {},
         metadata: {
-          physicalProfile: profileData, // dados declarativos legados (hábitos/rotina/objetivos); interests=[]
+          physicalProfile: { weeklyRoutine: profileData.weeklyRoutine, goals: profileData.goals },
         },
       });
 
-      // 3) Releitura do C1 → re-sincroniza o snapshot (próximo diff parte do estado real).
+      // 4) Re-sincroniza snapshot de interesses.
       const c1 = await getInterestC1();
       const refreshed = mapC1ToSelected(c1.concepts, interestTree);
       setSelectedInterests(refreshed);
@@ -308,16 +279,13 @@ export default function ProfilePhysical() {
     }
   };
 
-  // renderInterestTree: declarável = folha com conceptId real; raiz sem conceptId é só navegação/grupo.
   const renderInterestTree = (categories: CategoryTree[], level: number = 0): JSX.Element[] => {
     return categories.map((category) => {
       const hasChildren = category.children && category.children.length > 0;
       const isExpanded = expandedInterests.has(category.categoryId);
       const isSelected = isInterestSelected(category.categoryId);
       const declarable = !!category.conceptId;
-      const pathDisplay = category.path.length > 0
-        ? category.path.join(' > ') + ' > ' + category.name
-        : category.name;
+      const pathDisplay = category.path.length > 0 ? category.path.join(' > ') + ' > ' + category.name : category.name;
 
       return (
         <div key={category.categoryId} className="interest-tree-item" style={{ paddingLeft: `${level * 1.5}rem`, marginBottom: '0.25rem' }}>
@@ -334,9 +302,7 @@ export default function ProfilePhysical() {
               </button>
             )}
             {!hasChildren && <span style={{ display: 'inline-block', width: '1rem' }} />}
-            <span className="interest-tree-name" title={pathDisplay}>
-              {category.name}
-            </span>
+            <span className="interest-tree-name" title={pathDisplay}>{category.name}</span>
             {declarable ? (
               isSelected ? (
                 <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Selecionado</span>
@@ -345,15 +311,7 @@ export default function ProfilePhysical() {
                   type="button"
                   onClick={() => addInterest(category)}
                   title={`Adicionar ${category.name}`}
-                  style={{
-                    padding: '0.25rem 0.75rem',
-                    backgroundColor: '#e5e7eb',
-                    color: '#374151',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '0.375rem',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                  }}
+                  style={{ padding: '0.25rem 0.75rem', backgroundColor: '#e5e7eb', color: '#374151', border: '1px solid #d1d5db', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}
                 >
                   + Adicionar
                 </button>
@@ -363,9 +321,7 @@ export default function ProfilePhysical() {
             )}
           </div>
           {hasChildren && isExpanded && (
-            <div className="interest-tree-children">
-              {renderInterestTree(category.children!, level + 1)}
-            </div>
+            <div className="interest-tree-children">{renderInterestTree(category.children!, level + 1)}</div>
           )}
         </div>
       );
@@ -386,17 +342,19 @@ export default function ProfilePhysical() {
       error={error}
       interestError={interestError}
       profileData={profileData}
-      lifestyle={lifestyle}
+      lifestyleAttrs={lifestyleAttrs}
+      lifestyleConsent={lifestyleConsent}
+      setLifestyleConsent={setLifestyleConsent}
+      lifestyleError={lifestyleError}
+      updateLifestyleAttr={updateLifestyleAttr}
       isSaving={isSaving}
       interestTree={interestTree}
       selectedInterests={selectedInterests}
       isInterestSelected={isInterestSelected}
       removeInterest={removeInterest}
       renderInterestTree={renderInterestTree}
-      updateHabits={updateHabits}
       updateWeeklyRoutine={updateWeeklyRoutine}
       toggleGoal={toggleGoal}
-      setLifestyle={setLifestyle}
       handleSave={handleSave}
     />
   );

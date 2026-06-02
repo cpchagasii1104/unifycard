@@ -9945,3 +9945,31 @@ comentário); profile.routes **sem** lifestyle (sem rota). Gates: typecheck0; ac
 OK (345); arch `critical_new=0`, `critical_total=20`.
 
 **Fila:** **F3** frontend ProfilePhysical (registrar rota + UI consent/visibility; remover sexualOrientation).
+
+---
+
+## F3 — LIFESTYLE ROTAS + FRONTEND PROFILEPHYSICAL → SSOT ✅ (2026-06-01)
+
+Tráfego de Lifestyle migrado para o SSOT (a "torneira"). HEAD origem `2da17955`. Backend: rota
+`lifestyle.routes.ts` + registro em `profile.routes`. Frontend: `api/lifestyle.ts` + ProfilePhysical(+Form+
+state). Zero migration/backfill/cleanup-blob/`core.service`/social-targeting/Health(501)/Learning-Interest C1/
+Profissional/Agenda/financeiro. **DT OPEN.**
+
+**Rotas:** GET `/profile/lifestyle` · PUT `/profile/lifestyle/attributes/:attributeKey` (consent obrigatório) ·
+DELETE `/profile/lifestyle/attributes/:attributeKey` (anonymize). `actionContext.actorId`; key via `z.enum`
+(`sexual_orientation` ⇒ 400); visibility nunca é parâmetro. **Frontend:** ProfilePhysical carrega/salva
+`relationship_status`/`drinks`/`smokes` pelo SSOT (declare com consent / retire diff vs snapshot); **parou de
+enviar `lifestyle` ao `updatePhysicalProfile`** (só weeklyRoutine/goals seguem no legado physicalProfile);
+**`sexualOrientation` REMOVIDO da UI** (só em comentário — não captura/envia); seção "Estilo de Vida 🔒 Privado"
+com checkbox de consentimento; Interesses seguem C1; Health 501.
+
+**Provas runtime (3010):** GET 200; PUT relationship_status/drinks/smokes 200; **sem consent → 400**;
+**sexual_orientation → 400**; DELETE drinks → value=NULL (anonymize, DB confirma); GET pós correto; audit
+declare/declare/declare/retire **sem valor**; **blob `metadata.lifestyle` INTOCADO** (2 rows). Greps: ProfilePhysical
+usa client lifestyle, não envia lifestyle ao legado, sexualOrientation só em comentário; módulo lifestyle sem
+`global_users.metadata`. Gates: back+front typecheck 0; actor-writer/bank-ledger/regression OK (345); arch
+`critical_new=0`, `critical_total=20`.
+
+**Endpoint legado `/profile/physical` ainda aceita lifestyle** (estrada velha viva até F5; o frontend vivo só
+não alimenta mais). **Fila:** **F4** readers/completude (`core.service` 388 leitura + 765 completude → SSOT;
+remover sexualOrientation do contrato legado).

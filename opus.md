@@ -2394,3 +2394,20 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   valor; blob metadata.lifestyle INTOCADO. Greps: sem metadata/ensureUserActor/SELECT* (só comentário);
   profile.routes sem lifestyle. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/
   total=20. Fila: F3 frontend (rota + UI consent/visibility; remover sexualOrientation).
+
+### F3 — LIFESTYLE ROTAS + FRONTEND PROFILEPHYSICAL → SSOT ✅ (2026-06-01)
+- Tráfego de Lifestyle migrado p/ SSOT (torneira). HEAD origem 2da17955. Backend: lifestyle.routes.ts +
+  registro em profile.routes. Frontend: api/lifestyle.ts + ProfilePhysical(+Form+state). Zero migration/
+  backfill/cleanup-blob/core.service/social-targeting/Health/Learning-Interest C1/Profissional/Agenda/
+  financeiro. DT OPEN.
+- Rotas: GET /profile/lifestyle; PUT /profile/lifestyle/attributes/:key (consent obrigatório); DELETE (anonymize).
+  actionContext.actorId; key z.enum (sexual_orientation→400); visibility nunca parâmetro. Frontend: ProfilePhysical
+  carrega/salva relationship_status/drinks/smokes pelo SSOT (declare+consent / retire diff); parou de enviar
+  lifestyle ao updatePhysicalProfile (só weeklyRoutine/goals no legado); sexualOrientation REMOVIDO da UI (só
+  comentário); seção Estilo de Vida 🔒 Privado + checkbox consent; Interesses C1; Health 501.
+- Provas runtime (3010): GET200; PUT relationship_status/drinks/smokes 200; sem consent→400; sexual_orientation→
+  400; DELETE→value=NULL (anonymize DB confirma); audit declare/retire sem valor; blob metadata.lifestyle
+  INTOCADO. Greps: usa client lifestyle, não envia lifestyle ao legado, sexualOrientation só comentário; módulo
+  sem global_users.metadata. Gates: back+front typecheck0; actor-writer/bank-ledger/regression OK; arch
+  critical_new=0/total=20. Endpoint legado /profile/physical ainda aceita lifestyle (estrada velha até F5). Fila:
+  F4 readers/completude (core 388/765→SSOT; remover sexualOrientation do contrato legado).

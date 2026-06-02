@@ -10,6 +10,7 @@ import profileProfessionalRoutes from './profile-professional.routes';
 import professionalC1Routes from './professional-c1/professional-c1.routes';
 import learningC1Routes from './learning-c1/learning-c1.routes';
 import interestC1Routes from './interest-c1/interest-c1.routes';
+import lifestyleRoutes from './lifestyle/lifestyle.routes';
 import profilePhysicalRoutes from './profile-physical.routes';
 import profileLearningRoutes from './profile-learning.routes';
 import profileInferenceRoutes from './profile-inference.routes';
@@ -24,6 +25,8 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
   // Registrar rotas C1 actor-first de Aprendizado e Interesse (DECISION-0067, Fatia 2)
   await fastify.register(learningC1Routes);
   await fastify.register(interestC1Routes);
+  // Registrar rotas actor-first do SSOT Lifestyle (DECISION-0071, F3) — consent/visibility/audit
+  await fastify.register(lifestyleRoutes);
   // Registrar rotas de perfil físico
   await fastify.register(profilePhysicalRoutes);
   // Registrar rotas de perfil de aprendizado
