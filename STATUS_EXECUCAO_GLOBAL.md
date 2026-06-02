@@ -10025,3 +10025,32 @@ numeração única); arch `critical_new=0`, `critical_total=20`.
 
 **Lifestyle agora é SSOT puro** (schema/service/rotas/frontend/readers + blob removido). **Fila:** **F6** selo
 `SELO_LIFESTYLE_SSOT.md` + **CLOSE** da `DT-LIFESTYLE-SENSITIVE-IN-BLOB`.
+
+---
+
+## F6 — SELO LIFESTYLE SSOT + CLOSE DA DT ✅ (2026-06-01) — DOCS-ONLY
+
+Frente Lifestyle/Saúde sensível **CONCLUÍDA E SELADA**. HEAD origem `fde091e1`. **Docs-only**: zero código/
+runtime/frontend/backend/migration/schema/financeiro/Health/Lifestyle service-routes-core. 3 arquivos: novo
+`docs/02_decisions/SELO_LIFESTYLE_SSOT.md` + `REMEDIATION_DT_LOG.md` (CLOSE) + este STATUS + `opus.md`.
+
+**Selo** consolida a cadeia DECISION-0071 → F-SAUDE-501 → F-TARGETING-DECOUPLE → F1a/F1b/F2/F3/F4/F5 com:
+estado final material, cadeia de commits (`18772b47`/`075781b8`/`b64aadf8`/`e35b72d6`/`2da17955`/`18333872`/
+`75bf815c`/`fde091e1`; F1a = desenho read-only sem commit próprio), invariantes preservados, provas
+materiais por fatia, estado das DTs e resíduos/futuro.
+
+**`DT-LIFESTYLE-SENSITIVE-IN-BLOB` → CLOSED** (ref. selo). Demais DTs intocadas (DT-PROFILE-FRONTEND-DRIVES-
+TAXONOMY PARTIALLY MITIGATED; DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION DEFERRED).
+
+**Achado registrado no selo §6 (honestidade material, não tocado — docs-only):** `sexualOrientation` ainda
+aparece como **código morto cosmético** no contrato legado `/profile/physical` (`profile-physical.routes.ts:34`
+literal `:null` só no fallback de perfil nulo; `:64` Body type que aceita mas é stripado por F5) e nos tipos do
+client frontend (`api/core.ts:39`, `api/physical.ts:17`). NÃO há captura/persistência/projeção — remoção é
+cosmética, frente própria opcional.
+
+**Gates docs-only:** actor-writer §4.8.1 OK · bank-ledger §4.6 OK · regression-guards OK (346) · arch --strict
+`critical_new=0`, `critical_total=20`. Typecheck **não rodado** (nenhum código tocado — docs-only).
+
+**Próximas frentes recomendadas:** (1) auditoria READ-ONLY das abas restantes do Perfil; (2) Agenda/TEMPO
+(SSOT temporal canônico — DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT); (3) Health governado futuro **somente**
+com nova decisão/frente própria.

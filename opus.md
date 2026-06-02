@@ -2442,3 +2442,22 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   Health 501. Greps: profile-physical sem read/write metadata.lifestyle (só comentário); frontend não tocado
   (já não enviava; front typecheck dispensado). Gates: typecheck0; actor-writer/bank-ledger/regression OK (346);
   arch critical_new=0/total=20. Lifestyle agora é SSOT puro. Fila: F6 selo SELO_LIFESTYLE_SSOT.md + CLOSE da DT.
+
+### F6 — SELO LIFESTYLE SSOT + CLOSE DA DT ✅ DOCS-ONLY (2026-06-01)
+- Frente Lifestyle/Saúde sensível CONCLUÍDA E SELADA. HEAD origem fde091e1. Docs-only: zero código/runtime/
+  frontend/backend/migration/schema/financeiro/Health/Lifestyle service-routes-core. 4 arquivos: novo
+  docs/02_decisions/SELO_LIFESTYLE_SSOT.md + DT_LOG (CLOSE) + STATUS + opus.
+- Selo consolida DECISION-0071→F-SAUDE-501→F-TARGETING-DECOUPLE→F1a/F1b/F2/F3/F4/F5: estado final material,
+  cadeia de commits (18772b47/075781b8/b64aadf8/e35b72d6/2da17955/18333872/75bf815c/fde091e1; F1a=desenho
+  read-only sem commit próprio), invariantes, provas por fatia, estado das DTs, resíduos.
+- DT-LIFESTYLE-SENSITIVE-IN-BLOB → CLOSED (ref selo). Outras DTs intocadas (FRONTEND-DRIVES-TAXONOMY PARTIALLY
+  MITIGATED; PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION DEFERRED).
+- HONESTIDADE (registrada no selo §6, não tocada): sexualOrientation sobrevive como CÓDIGO MORTO cosmético no
+  contrato legado /profile/physical (profile-physical.routes.ts:34 literal :null só no fallback de perfil nulo;
+  :64 Body type aceito mas stripado por F5) + tipos do client frontend (api/core.ts:39, api/physical.ts:17).
+  Sem captura/persistência/projeção. NÃO "fora do contrato vivo" de forma absoluta — resíduo morto, frente
+  cosmética própria opcional. Lição: grep de revalidação no READ-FIRST pegou o que o prompt assumia já limpo;
+  reportar com precisão > carimbar a narrativa do selo.
+- Gates docs-only: actor-writer/bank-ledger/regression OK (346); arch critical_new=0/total=20. Typecheck NÃO
+  rodado (nenhum código tocado). Próximas: (1) auditoria read-only abas restantes do Perfil; (2) Agenda/TEMPO;
+  (3) Health governado futuro só com nova decisão.
