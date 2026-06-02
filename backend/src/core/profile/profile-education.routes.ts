@@ -8,6 +8,9 @@ import { profileEducationService } from './profile-education.service';
 import type { CreateEducationEventInput } from './profile-education.types';
 
 // Schema de validação para criar evento
+// F2 (DECISION-0073): Educação é DECLARAÇÃO NÃO-VERIFICADA. `validator`/`evidence` (prova de validação por
+// terceiro) foram REMOVIDOS do contrato de escrita — sem emissor/prova/autoridade no MVP, não os aceitamos
+// (evita persistir autoasserção como credencial). `reason` (motivo de abandono) permanece, é declarativo.
 const educationEventPayloadSchema = z.object({
   educationId: z.string().optional(),
   type: z.enum(['formal', 'informal', 'autodidata']),
@@ -17,19 +20,19 @@ const educationEventPayloadSchema = z.object({
   endDate: z.string().nullable().optional(),
   description: z.string().optional(),
   reason: z.string().optional(),
-  validator: z.string().optional(),
-  evidence: z.string().optional(),
 });
 
+// F2 (DECISION-0073): só eventos DECLARATIVOS são aceitos para escrita. Os eventos com aparência de
+// credencial verificada — `educacao.validada_institucionalmente`, `educacao.confirmada`,
+// `educacao.contestada` — estão RESERVADOS (não aceitos) até existir substrato de credenciais com emissor,
+// prova, autoridade e validação por terceiro. POST com esses tipos → 400 (zod). Sem DML sobre eventos
+// existentes; o read-model continua tipando eventos legados (se houver) via a union de tipos.
 const createEducationEventSchema = z.object({
   eventType: z.enum([
     'educacao.declarada',
     'educacao.iniciada',
     'educacao.concluida',
     'educacao.abandonada',
-    'educacao.contestada',
-    'educacao.confirmada',
-    'educacao.validada_institucionalmente',
   ]),
   payload: educationEventPayloadSchema,
 });

@@ -1,20 +1,20 @@
 import type { EducationEventType } from '../api/education';
 
+// F2 (DECISION-0073): só eventos DECLARATIVOS são oferecidos na UI viva. Os eventos com aparência de
+// credencial verificada (`contestada`/`confirmada`/`validada_institucionalmente`) estão RESERVADOS — fora
+// do dropdown e rejeitados pelo backend (zod) — até existir substrato de credenciais (emissor/prova/
+// autoridade/terceiro). Mantidos na union de tipos (`EducationEventType`) só para o read-model de eventuais
+// eventos legados; NUNCA como opção viva.
 const CANONICAL_EVENT_TYPES: readonly EducationEventType[] = [
   'educacao.declarada',
   'educacao.iniciada',
   'educacao.concluida',
   'educacao.abandonada',
-  'educacao.contestada',
-  'educacao.confirmada',
-  'educacao.validada_institucionalmente',
 ] as const;
 
-const THIRD_PARTY_EVENTS: readonly EducationEventType[] = [
-  'educacao.contestada',
-  'educacao.confirmada',
-  'educacao.validada_institucionalmente',
-] as const;
+// Sem eventos de terceiro no MVP: autodeclaração não tem validador real. Vazio → isThirdPartyEvent=false
+// → UI não pede/explibe `validator`/`evidence`.
+const THIRD_PARTY_EVENTS: readonly EducationEventType[] = [] as const;
 
 export function useProfileEducationLogic() {
   const isValidEventType = (eventType: string): eventType is EducationEventType => {

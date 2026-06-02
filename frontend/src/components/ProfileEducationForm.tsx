@@ -186,6 +186,10 @@ export default function ProfileEducationForm({
             <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
               Apenas eventos canônicos são permitidos. Não é possível criar eventos customizados.
             </p>
+            {/* F2 (DECISION-0073): Educação é autodeclaração; o sistema não verifica formação. */}
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem', fontStyle: 'italic' }}>
+              ℹ️ Informações autodeclaradas, não verificadas pelo sistema.
+            </p>
           </div>
 
           {isThirdPartyEvent(formEventType) && (

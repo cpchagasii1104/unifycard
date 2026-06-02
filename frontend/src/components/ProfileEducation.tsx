@@ -124,12 +124,9 @@ export default function ProfileEducation() {
         reason: formReason || undefined,
       };
 
-      // 🔴 EVENTOS DE TERCEIROS: Adicionar campos obrigatórios
-      if (isThirdPartyEvent(formEventType)) {
-        payload.validator = formAuthorName;
-        payload.evidence = formContext;
-        // Relação com Actor armazenada em metadata (não no payload principal)
-      }
+      // F2 (DECISION-0073): Educação é declaração não-verificada. NÃO há eventos de terceiro/credencial no
+      // MVP (THIRD_PARTY_EVENTS vazio) — não injetamos `validator`/`evidence` (campos de prova de validação
+      // por terceiro), que saíram do contrato de escrita do backend.
 
       const input: CreateEducationEventInput = {
         eventType: formEventType,

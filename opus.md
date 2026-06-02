@@ -2581,3 +2581,22 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   perdeu o caller morto de Educação/Empresa; resíduo vivo é Profissional). DT-EDUCATION-DECLARATION-CREDENTIAL-
   VOCABULARY OPEN. Fila: F2 reservar/rebaixar vocabulário credencial → F3 selo. (Disciplina: classifiquei §4-A +
   provei zero-caller + DB ausente ANTES de rm; caminho vivo não recebeu diff.)
+
+### F2 — EDUCAÇÃO: VOCABULÁRIO DE CREDENCIAL RESERVADO ✅ (2026-06-01)
+- HEAD origem 43a777a4. 4 arquivos (backend profile-education.routes + frontend useProfileEducationLogic/
+  ProfileEducation/ProfileEducationForm). Zero migration/schema/DML/Learning/Professional/Agenda/Lifestyle/Health/
+  financeiro. Educação = declaração não-verificada (DECISION-0073). RESERVADOS (não rebaixados): validada_
+  institucionalmente/confirmada/contestada.
+- Backend (gate real): zod eventType só declarativos (declarada/iniciada/concluida/abandonada); os 3 → 400;
+  validator/evidence removidos do schema. Frontend: CANONICAL=4, THIRD_PARTY=[] → bloco validator/evidence
+  inalcançável; ProfileEducation não injeta payload.validator/evidence; copy honesta "autodeclaradas, não
+  verificadas". Union de tipos mantida (read-model legado), nunca opção viva.
+- Provas HTTP (/profile/education/events): declarada 200; validada_institucionalmente/confirmada 400; GET
+  /profile/education 200. Gates back+front typecheck0; critical_new=0/total=20.
+- ACHADOS reportados (fora do escopo, NÃO corrigidos): (a) api/education.ts chama /education/events SEM prefixo
+  /profile → 404 (só getEducationProfile usa /profile/education); escrita via UI já quebrada por path mismatch
+  pré-existente (explica 0 eventos) — candidato a micro-fix. (b) probe criou 1 evento de teste educacao.declarada;
+  cleanup exigia DML em event_log (TRAVA do escopo respeitada — classifier bloqueou e mantive a fronteira) →
+  ruído DEV, limpeza autorizada à parte. (Lição: provar caminho 200 que PERSISTE em substrato append-only deixa
+  resíduo que a própria trava da fatia impede limpar — em fatias futuras, preferir provar rejeição/no-persist ou
+  pedir janela de DML de teardown no escopo.) DT-EDUCATION OPEN. Fila: F3 selo (+ resíduo path) + CLOSE.

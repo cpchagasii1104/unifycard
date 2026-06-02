@@ -10240,3 +10240,31 @@ morto de Educação/Empresa; resíduo vivo é Profissional).
 **`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY` permanece OPEN.** Fila: **F2** reservar/rebaixar o vocabulário
 de credencial (`validada_institucionalmente`/`confirmada`/`contestada`/`validator`/`evidence`) na UI/contrato →
 **F3** selo Educação.
+
+---
+
+## F2 — EDUCAÇÃO: VOCABULÁRIO DE CREDENCIAL RESERVADO ✅ (2026-06-01)
+
+HEAD origem `43a777a4`. 4 arquivos (backend routes + 3 frontend education). Zero migration/schema/DML/Learning/
+Professional/Agenda/Lifestyle/Health/financeiro. Educação segue declaração não-verificada (DECISION-0073).
+
+**Reservados (não rebaixados):** os eventos com aparência de credencial — `educacao.validada_institucionalmente`,
+`educacao.confirmada`, `educacao.contestada` — saíram do contrato de escrita e da UI viva. **Backend (gate real):**
+`profile-education.routes.ts` zod aceita só declarativos (`declarada`/`iniciada`/`concluida`/`abandonada`); os 3 →
+**400 (zod)**; `validator`/`evidence` removidos do schema. **Frontend:** `CANONICAL_EVENT_TYPES`=4 declarativos;
+`THIRD_PARTY_EVENTS`=vazio → bloco validator/evidence inalcançável; `ProfileEducation.tsx` não injeta mais
+`payload.validator/evidence`; copy honesta "ℹ️ Informações autodeclaradas, não verificadas pelo sistema". Union de
+tipos mantida (read-model de legado), mas os 3 nunca são opção viva.
+
+**Provas (HTTP /profile/education/events):** `educacao.declarada` → **200** (declarativo funciona); `validada_
+institucionalmente`/`confirmada` → **400** (credencial falsa rejeitada); GET `/profile/education` → 200. Gates:
+back+front typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20.
+
+**Resíduos descobertos (reportados, NÃO corrigidos — fora do escopo F2):** (a) `api/education.ts` chama
+`POST/GET /education/events` **sem** prefixo `/profile` → **404** (só `getEducationProfile` usa `/profile/education`);
+escrita via UI já quebrada por path mismatch pré-existente (explica 0 eventos). (b) probe criou **1 evento de teste**
+`educacao.declarada` (dev actor); cleanup exigia DML em `event_log` (trava do escopo respeitada) → permanece como
+ruído DEV; limpeza autorizada à parte.
+
+**`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY` permanece OPEN.** Fila: **F3** selo Educação (+ avaliar o resíduo
+do path `/education/events` e CLOSE da DT).
