@@ -6,6 +6,20 @@
 
 ---
 
+## Sessão 2026-06-02 (cont.) — PJ C0 consolidado em desenho institucional (docs-only)
+
+Pós-pouso da frente PF (DECISION-0074/0076 endereço PF→Location Core, 0080 gender, CPF F4 core lê identities.tax_id; **CPF F5 ainda pendente — NÃO tocar**), branch limpo (HEAD `c6325a47`). Retomei PJ em READ-ONLY/C0 e **consolidei o mapa em documento versionado**: `docs/02_decisions/DESENHO_PJ_C0_MAPA_SSOT_E_BLOQUEIOS.md` (DESENHO, não DECISION numerada).
+
+**Verificado vivo (SELECT):** DEV tem 0 companies / 0 page-actors / 0 products / 0 bookings (C0 = código+schema, não dado). `createCompany`/actor-writer **inalterados** desde âncora 335a5eaf. `company_types`=7 (açougue/farmácia/hortifruti/padaria/restaurante/salão/supermercado; sem distribuidora/clínica/oficina/autopeças). `identities` só cpf (0 cnpj) → **CNPJ/KYC é GAP** (companies.cnpj fora do trilho identities; AUTHORITY_LAW Art.4 exige KYC p/ controlar CNPJ). `business_templates` ausente; `service_resources`/`resources` ausentes; `unified_availability`/`unified_bookings` **não existem** (vivo = availability/bookings). `addresses` tem `neighborhood_display_text` + FK city/state. Estoque limpo (sem stock_quantity competindo). Preço = federação price_cents (sem NUMERIC vivo).
+
+**Integridade:** DECISION-0075 íntegra (§7 + 3 DTs preservadas; a frente PF editou o mesmo DT_LOG mas não contaminou). 
+
+**Ordem recomendada (identidade antes de comércio):** F-PJ-CNPJ-KYC-AUTHORITY-READONLY → F-COMMERCIAL-PRICE-PRECEDENCE-READONLY → decisão A/B → endereço PJ → recurso físico+booking "para quê" → executoras. **Próximo: CNPJ/KYC, não preço.**
+
+Nota: opus.md continua se autodeclarando "gitignored" mas está TRACKED (entra no commit). Discrepância a corrigir em fatia futura.
+
+---
+
 ## Sessão 2026-06-02 — F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY: DECISION-0075 (freeze, docs-only)
 
 Frente PJ: diagnóstico read-only + registro docs-only. **PJ BLOQUEADA para implementação** — duas filosofias de nascimento pendentes de Clayton (A: inerte sem page-actor no Momento 1 · B: full-birth mas transacional). NÃO escolher A/B sem Clayton.

@@ -1,3 +1,27 @@
+## 2026-06-02 — PJ C0 consolidado em desenho institucional (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem:** `c6325a47` · working tree limpo.
+**Frente:** `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` — fatia de **consolidação C0** (read-only/docs-only). **Zero código/migration/banco.**
+
+**Contexto.** Pós-pouso da frente PF (DECISION-0074/0076 endereço, 0080 gender, CPF F4), o branch ficou limpo e a base PF está suficiente para PJ **desenhar** (não implementar). O mapa C0 (substrato vivo × casca × bloqueios) foi consolidado em documento versionado para não viver só na conversa.
+
+**Registrado (docs-only):**
+- `docs/02_decisions/DESENHO_PJ_C0_MAPA_SSOT_E_BLOQUEIOS.md` — mapa C0 de SSOTs, bloqueios e decisões PJ (17 seções). É **DESENHO**, não DECISION numerada; não escolhe A/B; não autoriza código.
+
+**Achados-chave do C0:**
+- Nascimento PJ inalterado (page-actor no Momento 1, sem transação DB) — `DECISION-0075` freeze; A/B pendente.
+- **CNPJ/KYC é GAP novo:** CNPJ vive em `companies.cnpj`; `identities.tax_id` só cobre CPF (0 cnpj vivos); `AUTHORITY_LAW Art.4` exige KYC mínimo p/ controlar CNPJ → vão fiscal/autoridade.
+- Preço = federação de `price_cents` em product_prices/offers/products, sem precedência (não NUMERIC).
+- Endereço PJ: Location Core é substrato; roles HQ/fiscal/operacional/entrega/retirada pendentes; `addresses` tem `neighborhood_display_text` + FK city/state.
+- `business_templates` ausente (vivo = `company_types`=7 + allowed_concepts); recurso físico ausente; `unified_availability`/`unified_bookings` inexistentes (vivo = `availability`/`bookings`).
+- DEV: 0 companies / 0 page-actors / 0 products / 0 bookings — C0 é sobre código+schema, não dado.
+
+**Ordem recomendada (identidade antes de comércio):** (1) `F-PJ-CNPJ-KYC-AUTHORITY-READONLY`; (2) `F-COMMERCIAL-PRICE-PRECEDENCE-READONLY`; (3) decisão A/B; (4) endereço PJ; (5) recurso físico + booking "para quê"; (6) executoras.
+
+**DT_LOG:** NÃO tocado nesta fatia (DTs da 0075 já referenciam a frente; o desenho aponta para as DTs, sem duplicar). Próxima recomendação: abrir `F-PJ-CNPJ-KYC-AUTHORITY-READONLY`.
+
+---
+
 ## 2026-06-02 — DECISION-0075: freeze do drift de nascimento PJ + 3 DTs (docs-only)
 
 **Branch:** `rescue-structural` · **HEAD origem do diagnóstico:** `335a5eaf`
