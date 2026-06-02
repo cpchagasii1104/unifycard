@@ -2941,3 +2941,19 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   tem que viajar com o DML, porque a próxima vez que rodar pode ser noutro banco/universo. Contar peça por peça
   (orphans=0) ANTES, remover só a subchave (metadata - 'address', nunca o JSONB), e provar runtime com a caixa JÁ
   jogada fora — não com ela ainda na mesa. A prova que vale é a de depois de apagar, não a de antes.)
+
+### F-GEO-5 — SELO + CLOSE Endereço civil PF → Location Core ✅ (2026-06-02) — docs-only
+- Docs-only (HEAD origem 040f71fd). Zero código/runtime/migration/frontend/backend/DML/API externa/PJ/Companies/
+  financeiro/CPF/gender/actor_active_location. Selo: docs/02_decisions/SELO_PROFILE_RESIDENCE_ADDRESS_LOCATION_CORE.md.
+- DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE → CLOSED. Endereço civil PF = 100% SSOT Location Core: CEP/rua/número/
+  complemento + UF FK (states.abbreviation) + cidade FK (cities/IBGE) + bairro neighborhood_display_text (exibição
+  controlada, não FK). profiles.metadata.address extinto. Reader desacoplado (provado runtime na 4d).
+- Cadeia 19 fatias, commits verificados 1:1 antes de gravar no selo: 0074 335a5eaf / F1 f32dba8c / F2 5e098a25 /
+  0076 ff0a8c43 / 0077 85be6903 / F-GEO-1a 30e46ba9 / 0078 1433cfdf / 1b eb0970ec / 2a 17947618 / 2b 73d48e30 /
+  2c 9585524b / 2d b9b1bb53 / 3 70f9aa73 / 0079 cd4fd5ba / 4a b755761b / 4b 46a6be9d / 4c 347116b5 / 4d 040f71fd / 5 selo.
+- Estado final: profiles?'address'=0, res_assign 2, addr cep/state/city 3, neigh_text 1, neighborhoods 0, aal 1.
+  Gates docs-only verdes (critical_new=0/350). Resíduos = frentes próprias: metadata.gender, CPF 0062 F4/F5, PJ
+  (outra instância/trilho compartilhado), neighborhood_id FK (catálogo futuro), geocoding LGPD.
+  (Lição: selo verifica antes de fossilizar. Hash em documento de referência é permanente — `git log` de cada commit
+  da cadeia antes de gravar custou segundos e evita citar hash errado para sempre. Selar = consolidar a causalidade
+  inteira num lugar, com a DT fechada e os resíduos nomeados explicitamente como frentes próprias, não varridos.)

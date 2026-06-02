@@ -10768,3 +10768,23 @@ Cercado") **100% do Location Core, zero regressão**. Gates: typecheck0; actor-w
 
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (fechamento no **F-GEO-5** selo). O endereço civil PF
 é agora 100% SSOT do Location Core; o blob não existe mais. PJ fora desta instância.
+
+---
+
+## F-GEO-5 — SELO + CLOSE Endereço civil PF → Location Core ✅ (2026-06-02) — docs-only — frente Location/Geo
+
+HEAD origem `040f71fd`. **DOCS-ONLY** (selo + fecho da DT; zero código/runtime/migration/frontend/backend/DML/PJ).
+
+**Selo criado:** [`docs/02_decisions/SELO_PROFILE_RESIDENCE_ADDRESS_LOCATION_CORE.md`](docs/02_decisions/SELO_PROFILE_RESIDENCE_ADDRESS_LOCATION_CORE.md)
+— estado final, cadeia consolidada de 19 fatias (commits verificados 1:1), invariantes, provas materiais, fecho da DT
+e resíduos. **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` → CLOSED.**
+
+**Estado final (DEV, read-only):** `profiles ? 'address'`=0; res_assign vigentes=2; addresses cep/state/city=3;
+neighborhood_display_text=1; neighborhoods=0; aal=1. Endereço civil PF = 100% SSOT do Location Core (CEP/rua/número/
+complemento + UF FK `states.abbreviation` + cidade FK `cities`/IBGE + bairro `neighborhood_display_text`); reader
+desacoplado do blob (provado runtime na F-GEO-4d). Gates docs-only: actor-writer/bank-ledger OK; regression PASSOU
+(350); arch critical_new=0/total=20/warning_new=1 (:334 pré-existente).
+
+**Frente Endereço Civil PF: SELADA.** Resíduos (frentes próprias): `metadata.gender` (dívida menor aba Pessoal),
+CPF DECISION-0062 F4/F5, PJ/Companies (outra instância, trilho compartilhado), `neighborhood_id` FK (catálogo futuro),
+geocoding preciso (decisão LGPD). PJ fora desta instância.
