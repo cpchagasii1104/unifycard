@@ -2661,3 +2661,25 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   writer+backfill idempotente (F1 antes de F2) → F2 frontend → F3 readers/core sem blob → F4 cleanup blob → F5 selo+
   CLOSE. (Disciplina: confirmei slot canônico no schema vivo + contagem DEV antes de fixar; owner_id era a única
   trava de desenho, resolvida por Clayton.)
+
+### F1 — ENDEREÇO CIVIL PF: BACKEND + BACKFILL LOCATION CORE ✅ (2026-06-01) — Opção A CEP-âncora
+- HEAD origem 335a5eaf. 5 arquivos backend (novos: profile-residence-address.service.ts + migration 20260601190000;
+  M: location.repository, profile.routes, core.service). Zero frontend/PJ/Companies/CPF/gender/financeiro. Blob
+  profiles.metadata.address PRESERVADO (cleanup=F4).
+- location.repository: findPrimaryAddressByOwner + retirePrimaryAssignment (soft valid_until_at, respeita UNIQUE
+  parcial, nunca DELETE). Novo profile-residence-address.service (get/set; actor via resolveUserActorId/0069;
+  createAddress country=BR+CEP+street+number+complement, state/city/neighborhood NULL, source=UX_INPUT; assignAddress
+  profile/RESIDENCE/primary). Rotas GET/PUT /profile/residence-address. core.service.getCompleteProfile PREFERE
+  Location Core + enriquece city/state/neighborhood do blob preservado (transição, sai no F4); fallback blob.
+- Migration 190000 (forward-only/idempotente/fail-closed; schema_migrations 346→347): backfill IMPORT_LEGACY,
+  profile/RESIDENCE/primary owner_id=actor_id; pula sem CEP/já-existente; NÃO cria actor; PRESERVA blob. Provado:
+  blob 1→1, addresses 0→1, assignments 0→1; owner=494642e5 (user-actor), source IMPORT_LEGACY, state/city NULL;
+  re-run não duplica.
+- Runtime: GET/PUT /profile/residence-address 200 (PUT→UX_INPUT); GET /core/profile lê Location Core (address_id
+  UUID) + enriquece Curitiba/PR/Sítio Cercado do blob (provado no TENANT REAL do backfillado — lição: o usuário
+  backfillado não estava no tenant DEV padrão; backfill usou p.tenant_id corretamente, meu 1º probe usou tenant
+  errado e deu undefined → confirmei no tenant certo, não era bug). Gates typecheck0; critical_new=0/total=20.
+- Achado p/ instância PJ (registrado DT_LOG/STATUS): addresses não tem city/state/neighborhood textual (só FK +
+  CEP/street/number/complement); PJ não deve assumir cidade/UF textual canônica; enriquecimento via CEP/catálogo/
+  geocoding = decisão própria. DT-PERSONAL-ADDRESS OPEN. Fila: F2 frontend → F3 readers sem blob → F4 cleanup →
+  F5 selo+CLOSE. PJ fora desta instância.

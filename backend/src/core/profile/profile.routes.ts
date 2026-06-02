@@ -3,6 +3,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { profileService } from './profile.service';
+import { profileResidenceAddressService } from './profile-residence-address.service';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { ConflictError } from '@core/errors';
 import { runQueryWithTenant } from '@core/database/pool';
@@ -418,6 +419,40 @@ const profileRoutes: FastifyPluginAsync = async (fastify) => {
           messages: [],
         }
       });
+    }
+  });
+
+  /**
+   * F1 (DECISION-0074): endereço civil/residencial da PESSOA FÍSICA no Location Core canônico.
+   * GET/PUT /profile/residence-address. owner_type='profile', owner_id=actor_id do user-actor,
+   * role='RESIDENCE'. Opção A (CEP-âncora): grava country=BR + postal_code/street/number/complement;
+   * city/state/neighborhood NÃO persistidos (FK; sem coluna texto). NÃO grava em metadata. PF apenas.
+   */
+  fastify.get('/residence-address', async (req: any, reply: any) => {
+    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    if (!req.tenant) return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    try {
+      const dto = await profileResidenceAddressService.getResidence(req.tenant.id, req.user.userId);
+      return reply.send({ ok: true, data: dto });
+    } catch (error: any) {
+      fastify.log.error({ err: error }, 'Erro ao buscar residência (Location Core)');
+      return reply.status(error.statusCode || 500).send({ ok: false, message: error.message });
+    }
+  });
+
+  fastify.put('/residence-address', async (req: any, reply: any) => {
+    if (!req.user) return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+    if (!req.tenant) return reply.status(400).send({ ok: false, message: 'Tenant não encontrado' });
+    try {
+      const dto = await profileResidenceAddressService.setResidence(
+        req.tenant.id,
+        req.user.userId,
+        req.body || {}
+      );
+      return reply.send({ ok: true, data: dto });
+    } catch (error: any) {
+      fastify.log.error({ err: error }, 'Erro ao gravar residência (Location Core)');
+      return reply.status(error.statusCode || 500).send({ ok: false, message: error.message });
     }
   });
 };

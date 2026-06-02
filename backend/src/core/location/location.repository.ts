@@ -504,6 +504,72 @@ class LocationRepository {
       client.release();
     }
   }
+
+  /**
+   * F1 (DECISION-0074): endereço primário vigente de um owner por role.
+   * Lê `address_assignments` (is_primary=true, valid_until_at IS NULL) → JOIN `addresses`.
+   * Usado pela residência civil PF (owner_type='profile', role='RESIDENCE').
+   */
+  async findPrimaryAddressByOwner(
+    ownerType: AddressOwnerType,
+    ownerId: string,
+    role: AddressRole
+  ): Promise<Address | null> {
+    const result = await pool.query<Address>(
+      `
+      SELECT
+        a.address_id AS id,
+        a.country_id AS "countryId",
+        a.state_id AS "stateId",
+        a.city_id AS "cityId",
+        a.neighborhood_id AS "neighborhoodId",
+        a.postal_code AS "postalCode",
+        a.street, a.number, a.complement, a.reference,
+        a.source,
+        a.is_geocoded AS "isGeocoded",
+        a.lat, a.lng,
+        a.created_by_tenant_id AS "createdByTenantId",
+        a.created_at AS "createdAt",
+        a.updated_at AS "updatedAt"
+      FROM address_assignments aa
+      JOIN addresses a ON a.address_id = aa.address_id
+      WHERE aa.owner_type = $1
+        AND aa.owner_id = $2
+        AND aa.role = $3
+        AND aa.is_primary = TRUE
+        AND aa.valid_until_at IS NULL
+      ORDER BY aa.valid_from_at DESC
+      LIMIT 1
+      `,
+      [ownerType, ownerId, role]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /**
+   * F1 (DECISION-0074): aposenta (soft) o assignment primário vigente de um owner/role,
+   * fechando `valid_until_at` e zerando `is_primary` — respeita o UNIQUE parcial (1 primary por
+   * owner/role vigente) antes de inserir um novo. NUNCA DELETE (preserva histórico temporal).
+   */
+  async retirePrimaryAssignment(
+    ownerType: AddressOwnerType,
+    ownerId: string,
+    role: AddressRole
+  ): Promise<number> {
+    const result = await pool.query(
+      `
+      UPDATE address_assignments
+      SET valid_until_at = now(), is_primary = FALSE, updated_at = now()
+      WHERE owner_type = $1
+        AND owner_id = $2
+        AND role = $3
+        AND is_primary = TRUE
+        AND valid_until_at IS NULL
+      `,
+      [ownerType, ownerId, role]
+    );
+    return result.rowCount ?? 0;
+  }
 }
 
 export const locationRepository = new LocationRepository();

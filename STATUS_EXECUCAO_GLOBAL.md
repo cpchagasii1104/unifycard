@@ -10351,3 +10351,36 @@ Companies/CPF/gender.
 
 **Fila endereço PF:** F1 backend reader/writer + backfill idempotente (F1 antes de F2) → F2 frontend → F3 readers/
 core sem blob → F4 cleanup blob → F5 selo + CLOSE. **PJ permanece fora desta instância.**
+
+---
+
+## F1 — ENDEREÇO CIVIL PF: BACKEND + BACKFILL LOCATION CORE ✅ (2026-06-01) — Opção A (CEP-âncora)
+
+HEAD origem `335a5eaf`. 5 arquivos backend (2 novos: `profile-residence-address.service.ts` + migration
+`20260601190000`; 3 M: `location.repository.ts`, `profile.routes.ts`, `core.service.ts`). Zero frontend/PJ/
+Companies/company address/CPF/gender/financeiro. **Blob `profiles.metadata.address` PRESERVADO** (cleanup é F4).
+
+**Backend:** `location.repository` ganhou `findPrimaryAddressByOwner` + `retirePrimaryAssignment` (soft via
+`valid_until_at`, respeita UNIQUE parcial de primary, nunca DELETE). Novo `profile-residence-address.service`
+(`getResidence`/`setResidence`; actor via `resolveUserActorId`/DECISION-0069; `createAddress` country=BR+CEP+
+street+number+complement, state/city/neighborhood NULL, `source='UX_INPUT'`; `assignAddress profile/RESIDENCE/
+primary`). Rotas `GET`/`PUT /profile/residence-address`. `core.service.getCompleteProfile` **prefere Location
+Core** + **enriquece city/state/neighborhood do blob preservado** (transição, sai no F4); fallback ao blob.
+
+**Backfill (migration 20260601190000, forward-only/idempotente/fail-closed):** `schema_migrations` 346→347;
+DO-loop — country=BR, CEP+street+number+complement, `source='IMPORT_LEGACY'`, assignment `profile/RESIDENCE/
+primary, owner_id=actor_id`; pula sem CEP (não cria address inválido) / já-existente; **não cria actor**;
+**preserva blob**. Provado: blob 1→1 (preservado), addresses 0→1, assignments 0→1; owner=`494642e5` (user-actor),
+source=IMPORT_LEGACY, state_id/city_id NULL; re-run não duplica.
+
+**Runtime:** GET/PUT `/profile/residence-address` 200 (PUT→`UX_INPUT`); `GET /core/profile` lê Location Core
+(`address_id`=UUID, não `'metadata'`) + **enriquece Curitiba/PR/Sítio Cercado do blob** (provado no tenant real
+do usuário backfillado). Gates: backend typecheck0; actor-writer/bank-ledger/regression OK (347); arch
+critical_new=0/total=20.
+
+**Achado p/ instância PJ:** `addresses` não tem city/state/neighborhood textual (só FK + CEP/street/number/
+complement); PJ não deve assumir cidade/UF textual canônica — enriquecimento por CEP/catálogo/geocoding é
+decisão própria.
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Fila: **F2** frontend ProfilePersonal → rota
+canônica → **F3** readers/core sem blob → **F4** cleanup blob → **F5** selo + CLOSE. **PJ fora desta instância.**

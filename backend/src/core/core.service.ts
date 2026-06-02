@@ -8,6 +8,9 @@ import { profilePhysicalService } from './profile/profile-physical.service';
 // F4 (DECISION-0069): interesses do getCompleteProfile vêm do C1 actor-first/concept-first (helper de
 // leitura), não mais do físico legado (que retorna []). Lifestyle/Health continuam no fluxo legado.
 import { profileC1DeclarationsReadService } from './profile/profile-c1-declarations-read.service';
+// F1 (DECISION-0074): endereço civil PF preferido do Location Core (residência canônica), com
+// enriquecimento transitório de city/state/neighborhood do blob preservado e fallback ao blob.
+import { locationRepository } from './location/location.repository';
 // F4 Lifestyle (DECISION-0071): physical_profile.lifestyle vem do SSOT actor-first (lifestyleService), não
 // mais do blob legado. Resolve actor user via resolveUserActorId (DECISION-0069). sexualOrientation fora.
 import { lifestyleService } from './profile/lifestyle/lifestyle.service';
@@ -475,7 +478,38 @@ export class CoreService {
         const metadataFromDb = addressResult?.metadata || {};
         const addressInDb = metadataFromDb.address;
 
-        if (addressInDb && typeof addressInDb === 'object' && Object.keys(addressInDb).length > 0) {
+        // F1 (DECISION-0074): PREFERIR o Location Core (residência canônica PF) quando houver assignment
+        // profile/RESIDENCE vigente. Transição: city/state/neighborhood não vivem no Location Core (Opção A),
+        // então são enriquecidos do blob preservado APENAS para evitar regressão de exibição (sai no F4).
+        // Fallback ao blob inteiro quando não há residência canônica.
+        let residenceFromLocationCore = false;
+        try {
+          const resActorId = await profileC1DeclarationsReadService.resolveUserActorId(tenantId, userId);
+          if (resActorId) {
+            const canonical = await locationRepository.findPrimaryAddressByOwner('profile', resActorId, 'RESIDENCE');
+            if (canonical) {
+              const blob = (addressInDb && typeof addressInDb === 'object') ? addressInDb : {};
+              profile.addresses = [{
+                address_id: canonical.id,
+                cep: canonical.postalCode || null,
+                address: canonical.street || null,
+                address_number: canonical.number || null,
+                complement: canonical.complement || null,
+                // Location Core não armazena city/state/neighborhood (Opção A) → enriquecimento transitório do blob (removido no F4)
+                neighborhood: blob.neighborhood || null,
+                city: blob.city || null,
+                state: blob.state || null,
+                country: 'BR',
+                is_primary: true,
+              }];
+              residenceFromLocationCore = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[CoreService] Location Core residence read falhou; fallback ao blob:', e instanceof Error ? e.message : String(e));
+        }
+
+        if (!residenceFromLocationCore && addressInDb && typeof addressInDb === 'object' && Object.keys(addressInDb).length > 0) {
           // Verificar se tem pelo menos um campo essencial preenchido
           const hasEssentialField = 
             addressInDb.cep || 
