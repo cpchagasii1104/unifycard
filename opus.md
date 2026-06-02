@@ -2335,3 +2335,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   lifestyle DEV nulo. Gates docs-only verdes; critical_new=0. Sequência (não autorizada): F-SAUDE-501 →
   F-TARGETING-DECOUPLE → F1 schema → F2 backend → F3 frontend → F4 readers → F5 cleanup+selo+CLOSE. Ordem
   inegociável: política antes de schema/código.
+
+### F-SAUDE-501 — SAÚDE FANTASMA DESATIVADA (501 HONESTO) ✅ (2026-06-01)
+- Saúde fora do MVP (DECISION-0071 ponto 9). Só profile-health.routes.ts + ProfileHealth.tsx. HEAD origem
+  18772b47. Zero schema/migration/SSOT/Lifestyle/drinks-smokes/social-targeting/Learning-Interest C1/
+  Profissional/Agenda/financeiro. DT-LIFESTYLE-SENSITIVE-IN-BLOB OPEN (Lifestyle ainda no blob).
+- Backend: 7 rotas /profile/health/* → 501 PROFILE_HEALTH_DISABLED (replacement null, ref DECISION-0071) SEM
+  tocar DB (não chamam repo/service; fim do 500 fantasma). Services/repos legados ficam no código. Frontend:
+  aba Saúde (ProfileHealth.tsx) = painel reservado honesto, não carrega/salva, não chama API, não captura campo
+  de saúde (ProfileHealthForm/hooks/api/health ficam no código mas não renderizados/chamados pela aba).
+- Provas runtime (3010): 7 endpoints 501 (não 500); log 0 erro de tabela; GET /profile/physical 200 (lifestyle
+  intacto; profile-physical não tocado, height/weight degrada gracioso). Greps: aba não chama API; rota não
+  chama repo. checkBackendHealth (/health liveness) e health-signals (saúde operacional) não tocados. Gates:
+  back+front typecheck=0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. DT mitigação
+  parcial, segue OPEN. Fila: F-TARGETING-DECOUPLE.

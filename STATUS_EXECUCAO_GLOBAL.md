@@ -9845,3 +9845,27 @@ DEV com valores nulos. Gates docs-only verdes (`critical_new=0`).
 **Sequência (não autorizada aqui):** F-SAUDE-501 → F-TARGETING-DECOUPLE → F1 schema (SSOT lifestyle actor-first
 + consent/visibility/audit) → F2 backend → F3 frontend (remove sexualOrientation) → F4 readers → F5 cleanup
 blob + selo + CLOSE. **Ordem inegociável:** política antes de schema/código.
+
+---
+
+## F-SAUDE-501 — SAÚDE FANTASMA DESATIVADA (501 HONESTO) ✅ (2026-06-01)
+
+Saúde está fora do MVP (DECISION-0071, ponto 9). HEAD origem `18772b47`. **Só** `profile-health.routes.ts` +
+`ProfileHealth.tsx`; zero schema/migration/SSOT/Lifestyle/drinks-smokes/social-targeting/Learning-Interest C1/
+Profissional/Agenda/financeiro. **DT-LIFESTYLE-SENSITIVE-IN-BLOB permanece OPEN** (Lifestyle ainda no blob).
+
+**Backend:** as 7 rotas `/profile/health/*` (taxonomies/facts GET-POST-DELETE; declarations GET-POST-DELETE)
+respondem **501 `PROFILE_HEALTH_DISABLED`** (replacement null, ref DECISION-0071) **sem tocar o DB** — não
+chamam mais repo/service que batiam nas tabelas ausentes (fim do 500 fantasma). Services/repos legados
+permanecem no código (não deletados). **Frontend:** aba **Saúde** (`ProfileHealth.tsx`) virou **painel reservado
+honesto** — não carrega/salva, não chama API health, não captura campo de saúde (`ProfileHealthForm`/hooks/
+`api/health` ficam no código mas não são renderizados/chamados pela aba).
+
+**Provas runtime (3010):** 7 endpoints → **501** (não 500), log **0 erro de tabela**; GET `/profile/physical`
+→ **200** (lifestyle intacto, `profile-physical` não tocado — height/weight degrada gracioso). Greps: aba não
+chama API health; rota não chama repo/service. `checkBackendHealth` (`/health` liveness) e `health-signals`
+(saúde operacional) **não tocados** (não usam `/profile/health`). Gates: back+front typecheck=0; actor-writer/
+bank-ledger/regression OK; arch `critical_new=0`, `critical_total=20`.
+
+**DT mitigação parcial; segue OPEN.** Saúde só volta via frente 0382 governada (consent/visibility/audit).
+**Fila:** F-TARGETING-DECOUPLE (drinks/smokes fora do social-targeting).
