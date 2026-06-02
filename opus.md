@@ -6,6 +6,21 @@
 
 ---
 
+## Sessão 2026-06-02 — F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY: DECISION-0075 (freeze, docs-only)
+
+Frente PJ: diagnóstico read-only + registro docs-only. **PJ BLOQUEADA para implementação** — duas filosofias de nascimento pendentes de Clayton (A: inerte sem page-actor no Momento 1 · B: full-birth mas transacional). NÃO escolher A/B sem Clayton.
+
+**Evidência fechada (HEAD origem `335a5eaf`):**
+- `companies.service.ts:createCompany` cria page-actor (`actor_type='page'`) no **Momento 1** (`:654-655`) — drift vs `DESENHO_FASE_3B §2` (Momento 1 sem page-actor) e `EMPRESA_NASCIMENTO §4`. Fluxo **sem transação DB** (`pool.query` statement a statement); rollback = `DELETE`s compensatórios (`:676-697`); `address` (`:499-518`) órfão possível.
+- Preço: **sem NUMERIC vivo** (refutou leitura inicial do ChatGPT baseada em migrations 0020/0122). Vivo = `price_cents` BIGINT em `product_prices`/`product_offers`/`products`(nullable legado). `tenant_products`/`catalog_products` inexistentes no runtime; `_deprecated_tenant_products` só `price_cents`. Risco real = **federação de `price_cents`** sem precedência canônica.
+- Numeração: 0074 OCUPADA (profile/residence, committada por instância externa durante a sessão) → DECISION-**0075**. REMEDIATION_DECISIONS_LOG é série paralela (até ~0059) — **não** injetar 0075 lá.
+
+**Entregue (docs-only, 1 commit):** `docs/02_decisions/DECISION_0075_COMPANY_BIRTH_PAGE_ACTOR_DRIFT.md` + 3 DTs OPEN (`DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT`, `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP`, `DT-COMMERCIAL-PRICE-FEDERATED-SSOT`) + STATUS_EXECUCAO_GLOBAL. Zero código/migration/banco.
+
+**Próximo:** (1) Clayton decide A/B; (2) frente read-only de preço (precedência `price_cents`); (3) não implementar PJ antes disso. Nota: `00_AGENT_PROTOCOL.md` referenciado por vários docs mas **ausente** no repo (só existe o bridge `00_AGENT.md`) — verificar antes de citá-lo como autoridade.
+
+---
+
 ## Sessão 2026-05-28 — C7 FECHADO (commits `6a167d77` + `f8a0c59e`)
 
 `finalizeRecoveryCase(tenantId, obligationId, existingClient?)` em `recovery-finalization.service.ts`.

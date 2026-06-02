@@ -1,3 +1,24 @@
+## 2026-06-02 — DECISION-0075: freeze do drift de nascimento PJ + 3 DTs (docs-only)
+
+**Branch:** `rescue-structural` · **HEAD origem do diagnóstico:** `335a5eaf`
+**Frente:** `F-PJ-BIRTH-AND-COMMERCIAL-SSOT-READONLY` — **CONCLUÍDA (read-only)**. Registro docs-only, **zero código/migration/banco**.
+
+**Contexto.** Paralelas A/B/C + checagem cirúrgica de divergências fecharam o diagnóstico de Pessoa Jurídica. **PJ permanece BLOQUEADA para implementação.**
+
+**Achados consolidados (evidência fechada):**
+- **Nascimento PJ em drift + não-transacional.** `companies.service.ts:createCompany` cria page-actor (`actor_type='page'`) no **Momento 1** (`:654-655`), contrariando `DESENHO_FASE_3B §2` ("Momento 1 sem page-actor") e `EMPRESA_NASCIMENTO_CANONICO §4`. O fluxo usa `pool.query` statement a statement (sem `BEGIN`/`COMMIT`); "rollback" = `DELETE`s compensatórios (`:676-697`); `address` (`:499-518`) não é desfeito → risco de órfão.
+- **Preço NÃO é violação NUMERIC viva** (refuta leitura anterior). Schema vivo: `product_prices.price_cents`/`product_offers.price_cents`/`products.price_cents` todos **BIGINT** (products nullable, legado). Sem coluna `price` NUMERIC viva. `tenant_products`/`catalog_products` inexistentes no runtime; `_deprecated_tenant_products` só `price_cents`. Problema real = **federação de `price_cents` em 3 tabelas sem precedência canônica**.
+
+**Registrado (docs-only):**
+- `docs/02_decisions/DECISION_0075_COMPANY_BIRTH_PAGE_ACTOR_DRIFT.md` — **freeze/diagnóstico** (não escolhe arquitetura). Duas filosofias pendentes de Clayton: **A** (inerte sem page-actor no Momento 1) × **B** (full-birth, mas transacional). Numeração: 0074 ocupada (profile/residence) → usada **0075**.
+- 3 DTs OPEN em `REMEDIATION_DT_LOG.md`: `DT-COMPANY-BIRTH-PAGE-ACTOR-DRIFT`, `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP`, `DT-COMMERCIAL-PRICE-FEDERATED-SSOT`.
+
+**NÃO registrado no `REMEDIATION_DECISIONS_LOG.md`:** aquele log é série paralela sequencial (0001–~0059); as decisões recentes (0064–0075) vivem como arquivo próprio em `docs/02_decisions/`. Injetar 0075 ali quebraria a sequência dele e criaria colisão — seguido o padrão recente (file-per-decision), sem inventar série nova.
+
+**Próxima recomendação:** (1) Clayton decide filosofia A/B do nascimento PJ; (2) abrir frente read-only de preço comercial para precedência de `price_cents`; (3) **não** implementar PJ antes dessas duas frentes.
+
+---
+
 ## 2026-05-27 — Nota de auditoria: treasury-split é camada dormente, não duplica regional_fund (RAIO-X read-only)
 
 **Contexto.** Auditoria forense paralela (Claude Sonnet 4.6, HEAD `ca3f1327`) classificou como RISCO ALTO um possível double-routing de dinheiro para `regional_fund` via duas camadas: (1) split por transação (`bank-split-engine`/`economic_policy_engine` → conta `system:regional_fund:<tenant>` ou `system:regional_fund:<tenant>:<region>`) e (2) treasury-split pós-settlement (`treasury-split.service` → `treasury_accounts[regional_fund]`). A própria auditoria marcou como INCONCLUSIVO sem ler o worker nem consultar o DB.
