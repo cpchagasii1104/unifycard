@@ -9800,3 +9800,24 @@ callers após a troca. Gates: typecheck0; actor-writer/bank-ledger/regression OK
 
 Follow-ups remanescentes (frentes próprias): DT-LIFESTYLE-SENSITIVE-IN-BLOB; DT-PROFILE-FRONTEND-DRIVES-
 TAXONOMY; remoção futura do `getLearningProfile` morto (cosmético).
+
+---
+
+## DT-PROFILE-FRONTEND-DRIVES-TAXONOMY — SPLIT DOCUMENTAL (DECISION-0070) ✅ DOCS-ONLY (2026-06-01)
+
+Auditoria read-only consolidada em DECISION-0070. **Docs-only** — zero código/runtime/frontend/backend/
+migration/financeiro/Lifestyle/Saúde/Agenda/C1. HEAD origem `9149e523`.
+
+**Resultado da auditoria:** Learning (4b) e Interest (4c) **neutralizados**; C1 declarativo concept-first com
+trava `conceptId` (sem fallback `conceptId←categoryId`); **frontend não cria CONCEPT** (`createCategoryWithAI`
+cria só `categories`, sem `concept_id` → não-declarável no C1). **Resíduo vivo de navegação governada por IA:**
+Profissional (`ProfileProfessional.tsx`, UI renderizada) + Educação/Empresas (`profile-education-companies.
+service.ts`), governado por admission policy BLOCK/REVIEW/ALLOW + `pending_review` + auditoria `source:'ai'`.
+
+**Criado:** `docs/02_decisions/DECISION_0070_AI_CATEGORY_EXPANSION_NOT_SEMANTIC_IDENTITY.md` (classifica o
+resíduo como expansão GOVERNADA de NAVEGAÇÃO, não identidade semântica; vetos permanentes: frontend não cria
+CONCEPT, sem categoryId como identidade, sem fallback conceptId←categoryId, categoria IA sem conceptId não vira
+declaração C1). **DT-PROFILE-FRONTEND-DRIVES-TAXONOMY → PARTIALLY MITIGATED (núcleo semântico resolvido)**;
+**nova `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` → DEFERRED** (rastreia o resíduo; decisão de
+produto futura: manter governado / neutralizar como Learning-Interest / fila formal sempre REVIEW). Gates
+docs-only verdes (`critical_new=0`).

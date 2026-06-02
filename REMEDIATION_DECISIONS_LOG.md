@@ -6021,3 +6021,46 @@ Próximas: F2 inference → F3 opportunity → F4 core. `DT-C1-READERS-BLOB-TO-C
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0070 — Expansão governada de categories por IA não é identidade semântica
+
+**Status:** RATIFICADA — DOCS-ONLY (split documental de DT após auditoria read-only) (2026-06-01).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `9149e523`.
+**Documento canônico:** `docs/02_decisions/DECISION_0070_AI_CATEGORY_EXPANSION_NOT_SEMANTIC_IDENTITY.md`.
+**Complementa:** DECISION-0064/0068; `SELO_C1_LEARNING_INTEREST.md`. **Vinculada a:**
+`DT-PROFILE-FRONTEND-DRIVES-TAXONOMY` (reduzida), `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` (nova).
+
+### Contexto
+
+Auditoria read-only (HEAD `9149e523`) da `DT-PROFILE-FRONTEND-DRIVES-TAXONOMY`: Learning e Interest
+**neutralizados** (não chamam create/suggest); C1 declarativo exige `conceptId` (sem fallback
+`conceptId←categoryId`). Fluxos ainda vivos de criação de `categories` por IA: **Profissional**
+(`ProfileProfessional.tsx` → `suggestCategoryPath`/`createCategoryWithAI('professional')`) e **Educação/Empresas**
+(`profile-education-companies.service.ts` → `createCategoryWithAI({context:'education'|'company'})`). Governança
+no backend: admission policy BLOCK/REVIEW/ALLOW + `pending_review`/`requires_review` + auditoria `source:'ai'`.
+
+### Escolha
+
+Não neutralizar mecanicamente agora. Classificar o resíduo como **expansão GOVERNADA de NAVEGAÇÃO
+(`categories`)**, não criação de **identidade semântica (`concepts`)**. Manter como DT própria **DEFERRED** até
+decisão de produto.
+
+### Justificativa / Vetos
+
+`createCategoryWithAI` cria `categories`, **não `concepts`**, **não atribui `concept_id`** → categoria IA é
+**não-declarável no C1** (trava conceptId). `concept_id`=identidade (Lei 7); `category_id`=navegação. Vetos
+permanentes: frontend não cria CONCEPT; sem `categoryId` como identidade; sem fallback `conceptId←categoryId`;
+categoria IA sem conceptId não vira declaração C1.
+
+### Consequência / Provas
+
+`DT-PROFILE-FRONTEND-DRIVES-TAXONOMY` reduzida (núcleo semântico resolvido; PARTIALLY MITIGATED apontando p/ a
+DT específica). Nova `DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` (DEFERRED) para o resíduo vivo.
+Decisão de produto futura (manter governado / neutralizar como Learning-Interest / fila formal sempre REVIEW)
+fica para fatia própria — esta DECISION só classifica e separa a dívida. Docs-only; gates verdes; `critical_new=0`.
+
+### Superada por
+
+(em aberto — decisão vigente)
