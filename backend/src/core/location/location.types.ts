@@ -65,6 +65,8 @@ export interface CreateAddressInput {
   stateId?: string | null;
   cityId?: string | null;
   neighborhoodId?: string | null;
+  // F-GEO-4a (DECISION-0079): bairro como texto de exibição controlado (NÃO FK, NÃO SSOT territorial).
+  neighborhoodDisplayText?: string | null;
   postalCode?: string | null;
   street?: string | null;
   number?: string | null;
@@ -164,6 +166,9 @@ export interface PrimaryResidenceGeo {
   stateName: string | null;         // ex.: 'Paraná'
   cityName: string | null;          // ex.: 'Curitiba' (cities.name)
   cityExternalCode: string | null;  // IBGE (cities.external_code)
+  // F-GEO-4a (DECISION-0079): bairro de exibição controlado (addresses.neighborhood_display_text); NÃO FK.
+  // Vazio até o F-GEO-4b migrar o bairro do blob; lido pelo core.service no F-GEO-4c.
+  neighborhoodDisplayText: string | null;
 }
 
 /**

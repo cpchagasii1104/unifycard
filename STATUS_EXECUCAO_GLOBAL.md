@@ -10669,3 +10669,27 @@ migrado + core parar de ler bairro do blob. Sequência: **D-NEIGHBORHOOD** → *
 Gates (docs-only): actor-writer/bank-ledger OK; regression PASSOU (348); arch critical_new=0/total=20/warning_new=1
 (:334 pré-existente). **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (decisão não fecha a DT). Doc
 canônico: `docs/02_decisions/DECISION_0079_LOCATION_CORE_NEIGHBORHOOD_POLICY.md`. PJ fora desta instância.
+
+---
+
+## F-GEO-4a — destino textual controlado de bairro no Location Core ✅ (2026-06-02) — frente Location/Geo
+
+HEAD origem `cd4fd5ba`. **Migration + backend mínimo** (1 migration + 2 arquivos). Zero
+frontend/PJ/Companies/financeiro/API externa/geocoding/neighborhood FK/cleanup blob/actor_active_location.
+
+**Migration `20260602120000_add_addresses_neighborhood_display_text.sql`** (forward-only/idempotente,
+`ADD COLUMN IF NOT EXISTS`, COMMENT, DO-block de verificação): adiciona **`addresses.neighborhood_display_text TEXT
+NULL`** — bairro como **texto de exibição controlado** (NÃO FK, NÃO SSOT territorial; `neighborhood_id` segue
+reservado p/ catálogo oficial; não usar p/ autoridade/fiscalidade/matching/delimitação). **Backend:**
+`CreateAddressInput.neighborhoodDisplayText?` + `PrimaryResidenceGeo.neighborhoodDisplayText`;
+`createAddress`/`createAddressAndAssign` aceitam o campo (**default null**, nenhum caller passa valor ainda);
+`findPrimaryResidenceGeoByOwner` passa a **ler** a coluna. **core.service NÃO alterado** (F-GEO-4c fará a leitura).
+
+**Provas (DB, migration aplicada ao DEV — 349 migrations):** coluna `text`/nullable=YES; comentário registrado;
+`neighborhood_display_text IS NOT NULL`=0 (não migrado); `profiles ? 'address'`=1 (**blob preservado**);
+`neighborhoods`=0; `addr_neigh_fk`=0. Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (349); arch
+critical_new=0/total=20/warning_new=1 (:334 pré-existente). Probe descartável (não commitado).
+
+**`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN.** Prateleira pronta e vazia. Próximo: **F-GEO-4b**
+migrar `metadata.address.neighborhood` → `addresses.neighborhood_display_text` → **F-GEO-4c** (core lê da coluna) →
+**F-GEO-4d** (cleanup blob) → **F-GEO-5** (selo/CLOSE). PJ fora desta instância.

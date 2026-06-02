@@ -2878,3 +2878,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: cidade tem IBGE, bairro tem apelido. Forçar FK em dado sem código oficial é match por barbante — a decisão
   honesta é nomear o bairro como exibição controlada, não fingir que é autoridade territorial. Decisão antes de código:
   a 0077 §8 vetava coluna textual "sem decisão nova" — então a 0079 É essa decisão nova, explícita, não um contrabando.)
+
+### F-GEO-4a — destino textual controlado de bairro no Location Core ✅ (2026-06-02) — frente Location/Geo
+- Migration + backend mínimo (1 migration + 2 arquivos: location.types.ts + location.repository.ts). HEAD origem
+  cd4fd5ba. Zero frontend/PJ/Companies/financeiro/API externa/geocoding/neighborhood FK/cleanup blob/aal.
+- Migration 20260602120000 (forward-only/idempotente, ADD COLUMN IF NOT EXISTS, COMMENT, DO-block): addresses.
+  neighborhood_display_text TEXT NULL — bairro texto de exibição controlado (não FK, não SSOT territorial;
+  neighborhood_id segue reservado). CreateAddressInput.neighborhoodDisplayText? + PrimaryResidenceGeo.
+  neighborhoodDisplayText; createAddress/createAddressAndAssign aceitam (default null, nenhum caller passa valor);
+  findPrimaryResidenceGeoByOwner LÊ a coluna. core.service NÃO alterado (4c fará leitura).
+- Provas (DB, migration aplicada — 349): coluna text/nullable=YES; comment ok; neighborhood_display_text NOT NULL=0
+  (não migrado); blob 1 (preservado); neighborhoods 0; addr_neigh_fk 0. Gates typecheck0; critical_new=0/349.
+  Probe descartável não commitado. DT OPEN. Próximo: F-GEO-4b (migrar bairro blob→coluna) → 4c → 4d → F-GEO-5.
+  (Lição: prateleira antes da mudança. Criar a coluna + write/read paths SEM migrar valor nem mexer no leitor torna
+  cada fatia seguinte trivial e reversível: 4a cria, 4b move, 4c troca a fonte de leitura, 4d joga a caixa velha fora.
+  Default null no INSERT = a coluna existe mas nada muda de comportamento — risco zero numa fatia que toca schema.)

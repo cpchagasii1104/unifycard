@@ -318,15 +318,15 @@ class LocationRepository {
     const result = await pool.query<Address>(
       `
       INSERT INTO addresses (
-        country_id, state_id, city_id, neighborhood_id,
+        country_id, state_id, city_id, neighborhood_id, neighborhood_display_text,
         postal_code, street, number, complement, reference,
         source, lat, lng, is_geocoded, created_by_tenant_id
       ) VALUES (
-        $1, $2, $3, $4,
-        $5, $6, $7, $8, $9,
-        $10, $11, $12,
-        CASE WHEN $11::numeric IS NOT NULL THEN true ELSE false END,
-        $13
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        $11, $12, $13,
+        CASE WHEN $12::numeric IS NOT NULL THEN true ELSE false END,
+        $14
       )
       RETURNING
         address_id AS id,
@@ -348,6 +348,9 @@ class LocationRepository {
         data.stateId ?? null,
         data.cityId ?? null,
         data.neighborhoodId ?? null,
+        // F-GEO-4a (DECISION-0079): bairro de exibição controlado (não FK). Default null — nenhum caller
+        // passa valor nesta fatia; o destino fica pronto para o F-GEO-4b migrar o bairro do blob.
+        data.neighborhoodDisplayText ?? null,
         data.postalCode ?? null,
         data.street ?? null,
         data.number ?? null,
@@ -423,15 +426,15 @@ class LocationRepository {
       const addressResult = await client.query<Address>(
         `
         INSERT INTO addresses (
-          country_id, state_id, city_id, neighborhood_id,
+          country_id, state_id, city_id, neighborhood_id, neighborhood_display_text,
           postal_code, street, number, complement, reference,
           source, lat, lng, is_geocoded, created_by_tenant_id
         ) VALUES (
-          $1, $2, $3, $4,
-          $5, $6, $7, $8, $9,
-          $10, $11, $12,
-          CASE WHEN $11::numeric IS NOT NULL THEN true ELSE false END,
-          $13
+          $1, $2, $3, $4, $5,
+          $6, $7, $8, $9, $10,
+          $11, $12, $13,
+          CASE WHEN $12::numeric IS NOT NULL THEN true ELSE false END,
+          $14
         )
         RETURNING
           address_id AS id,
@@ -453,6 +456,8 @@ class LocationRepository {
           addressInput.stateId ?? null,
           addressInput.cityId ?? null,
           addressInput.neighborhoodId ?? null,
+          // F-GEO-4a (DECISION-0079): bairro de exibição controlado (não FK). Default null nesta fatia.
+          addressInput.neighborhoodDisplayText ?? null,
           addressInput.postalCode ?? null,
           addressInput.street ?? null,
           addressInput.number ?? null,
@@ -568,7 +573,8 @@ class LocationRepository {
         s.abbreviation AS "stateAbbreviation",
         s.name AS "stateName",
         c.name AS "cityName",
-        c.external_code AS "cityExternalCode"
+        c.external_code AS "cityExternalCode",
+        a.neighborhood_display_text AS "neighborhoodDisplayText"
       FROM address_assignments aa
       JOIN addresses a ON a.address_id = aa.address_id
       LEFT JOIN states s ON s.state_id = a.state_id
