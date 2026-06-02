@@ -10886,3 +10886,23 @@ Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (352); arch cr
 **`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` permanece OPEN** (fechamento no **F5** selo). gender civil é agora 100%
 SSOT do Identity (`global_users.gender`); o blob não tem mais gender. Aba Pessoal: **endereço e gender fora do blob**.
 Próximo: **F5** (selo + CLOSE). Resíduo maior da aba Pessoal = **CPF** (DECISION-0062, fiscal — frente própria com capacete).
+
+---
+
+## F5 GENDER — SELO + CLOSE gender → Identity SSOT ✅ (2026-06-02) — docs-only — frente gender
+
+HEAD origem `3bc53742`. **DOCS-ONLY** (selo + fecho da DT; zero código/runtime/migration/frontend/backend/DML/PJ/CPF/
+endereço/Health/Lifestyle/social-targeting code/financeiro/cleanup adicional).
+
+**Selo criado:** [`docs/02_decisions/SELO_PROFILE_GENDER_IDENTITY_SSOT.md`](docs/02_decisions/SELO_PROFILE_GENDER_IDENTITY_SSOT.md)
+— estado final, cadeia (5 fatias, commits verificados 1:1), invariantes, provas, fecho da DT e resíduos.
+**`DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT` → CLOSED.**
+
+**Estado final (DEV):** `profiles ? 'gender'`=0; `profiles ? 'address'`=0; `metadata IS NULL`=0; `global_users.gender
+='male'` ×1 (SSOT). gender civil = 100% SSOT do Identity (`global_users.gender`, enum male|female|other); blob extinto;
+writers/readers migrados; contrato de saída preservado por espelho (frontend/social-targeting intocados; F3 dispensado).
+Gates docs-only: actor-writer/bank-ledger OK; regression PASSOU (352); arch critical_new=0/total=20/warning_new=1
+(:334 pré-existente).
+
+**Aba Pessoal: SEM address e SEM gender em blob.** Próximo alvo real = **CPF (DECISION-0062 F4/F5)** — frente FISCAL
+própria (imutabilidade/unicidade/LGPD), não faxina. PJ fora desta instância.

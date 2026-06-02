@@ -3027,3 +3027,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   prova runtime com a caixa já fora). Mas a prova de ouro mudou de natureza: no endereço foi o ator com blob NULL; aqui
   foi o ESPELHO — blob deletado e metadata.gender ainda aparece porque o core.service monta de global_users. Quando o
   reader já espelha o canônico, o cleanup é anticlímax — e é exatamente assim que se quer um delete destrutivo: chato.)
+
+### F5 GENDER — SELO + CLOSE gender → Identity SSOT ✅ (2026-06-02) — docs-only
+- Docs-only (HEAD origem 3bc53742). Zero código/runtime/migration/frontend/backend/DML/PJ/CPF/endereço/Health/
+  Lifestyle/social-targeting code/financeiro. Selo: docs/02_decisions/SELO_PROFILE_GENDER_IDENTITY_SSOT.md.
+- DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT → CLOSED. gender civil = 100% SSOT Identity (global_users.gender,
+  male|female|other); blob extinto; writers/readers migrados; contrato preservado por espelho (frontend/social-
+  targeting intocados; F3 dispensado). Cadeia 5 fatias, commits verificados 1:1: 0080 41c353ee / F1 fa3c7bf8 /
+  F2 444d6c33 / F4 3bc53742 / F5 selo.
+- Estado final: profiles?'gender'=0, profiles?'address'=0, metadata null=0, global_users.gender='male'. Gates
+  docs-only verdes (critical_new=0/352). Aba Pessoal: SEM address e SEM gender em blob.
+- Resíduos = frentes próprias: CPF DECISION-0062 F4/F5 (fiscal, próximo alvo real), gender≠biologicalSex (Health
+  futuro substrato próprio), sexualOrientation fora MVP (0071), PJ não consulta gender.
+  (Lição: duas frentes da aba Pessoal (endereço, gender) fecharam com o MESMO molde — decisão→coluna/SSOT→migração→
+  desacoplar leitor→cleanup com guard→selo. Vale como template reusável para CPF, MAS o CPF tem peso fiscal/unicidade/
+  LGPD que os outros não têm: o molde dá a forma, não dispensa o capacete. Selo verifica commits antes de fossilizar.)

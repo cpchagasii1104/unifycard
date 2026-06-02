@@ -10648,7 +10648,7 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 
 ## DT-PERSONAL-GENDER-BLOB-TO-IDENTITY-SSOT
 
-- **Status:** OPEN (2026-06-02) — D1 tomada (DECISION-0080); implementação (F1–F5) pendente.
+- **Status:** ~~OPEN (2026-06-02) — D1 tomada (DECISION-0080); implementação (F1–F5) pendente.~~ **CLOSED (2026-06-02)** — frente completa e selada: gender civil é SSOT de `global_users.gender` (coluna+CHECK male|female|other); `profiles.metadata.gender` **extinto** (F4); writers/readers migrados (strip do blob, set-once lock, espelho); contrato de saída preservado (frontend/social-targeting intocados, F3 dispensado). Selo: [`docs/02_decisions/SELO_PROFILE_GENDER_IDENTITY_SSOT.md`](docs/02_decisions/SELO_PROFILE_GENDER_IDENTITY_SSOT.md). Cadeia (5): DECISION-0080 `41c353ee` → F1 `fa3c7bf8` → F2 `444d6c33` → F4 `3bc53742` → F5 (selo); F3 dispensado (contrato preservado por espelho). Resíduos = frentes próprias: CPF DECISION-0062 F4/F5 (fiscal), gender ≠ biologicalSex (Health futuro tem substrato próprio), sexualOrientation fora do MVP (0071), PJ não consulta gender. Histórico OPEN preservado abaixo.
 - **Origem:** READ-ONLY do campo `gender` da aba Pessoal (HEAD `c04e1223`), após o selo do Endereço Civil PF.
 - **Vinculada a:** `DECISION-0080` (canônica), `DECISION-0062` (CPF SSOT — padrão de referência, NÃO tocada), `DECISION-0071` (fronteira: gender NÃO é sensível), SSOT_REGISTRY.
 - **Escopo:** SOMENTE o campo `gender` da Pessoa Física. NÃO toca CPF/endereço/Location Core/PJ/Health/Lifestyle/social-targeting code.
