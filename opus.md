@@ -2361,3 +2361,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20.
 - Resíduo reportado (fora do escopo): core.service:765 usa presença drinks/smokes (OR com relationship/sexual)
   no score de COMPLETUDE (+5) — não é targeting; tratar em F3/F5. Fila: F1 schema (SSOT lifestyle actor-first).
+
+### F1a (DESENHO) ✅ + F1b (MIGRATION SSOT LIFESTYLE) ✅ (2026-06-01)
+- F1a READ-ONLY ratificada (desenho material). F1b migration 20260601170000 executada. HEAD origem b64aadf8.
+  Só migration + docs; zero backend runtime/frontend/social-targeting/profile-physical/core/Health/C1/
+  Profissional/Agenda/financeiro/backfill/cleanup-blob. DT OPEN.
+- Criou actor_lifestyle_attributes (actor-first, linha-por-atributo; FK actors(id)/tenants(id); UNIQUE(tenant,
+  actor,attribute_key); consent/visibility/lifecycle) + actor_lifestyle_attribute_audit (append-only, SEM
+  coluna de valor sensível). Idempotente (guards+verificação pós; schema_migrations 344→345). Sem RLS (igual
+  C1; isolamento por tenant na query).
+- Constraints provadas: attribute_key só relationship_status/drinks/smokes (sexual_orientation e
+  health_condition REJEITADOS); visibility='private' (public rejeitado); lifecycle XOR (ativo⇒value+consent;
+  inativo⇒value NULL+retired_at=anonymize); valor por key (texto livre rejeitado); ativo exige consented_at;
+  audit 0 colunas de valor. Sem texto livre/notes/height/weight → trava captura indireta de Saúde. Tabela VAZIA
+  (0 rows, sem backfill); blob metadata.lifestyle INTOCADO; Health ABSENT/501. Gates: actor-writer/bank-ledger/
+  regression OK (345); arch critical_new=0/total=20.
+- Micro-decisão backfill (F5): valores legados sem consent NÃO viram ativos+consentidos (DECISION-0071 §6);
+  usuário re-declara (DEV nulo→no-op). Fila: F1a✅→F1b✅→F2 backend consent-aware→F3 frontend (remove
+  sexualOrientation)→F4 readers/completude→F5 cleanup blob→F6 selo+CLOSE.

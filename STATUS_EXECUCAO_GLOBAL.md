@@ -9892,3 +9892,30 @@ regression OK; arch `critical_new=0`, `critical_total=20`.
 **Resíduo reportado (fora do escopo desta fatia):** `core.service.ts:765` usa presença de drinks/smokes (em OR
 com relationshipStatus/sexualOrientation) no **score de COMPLETUDE** (+5) — não é targeting; tratar em F3/F5.
 **Fila:** F1 schema (SSOT lifestyle actor-first + consent/visibility/audit).
+
+---
+
+## F1a (DESENHO) ✅ + F1b (MIGRATION SSOT LIFESTYLE) ✅ (2026-06-01)
+
+**F1a READ-ONLY** ratificada: desenho material do SSOT (linha-por-atributo + constraints/enums + consent/
+visibility/audit/anonymize + integração + backfill). **F1b migration** executada. HEAD origem `b64aadf8`.
+**Só migration** (`20260601170000`) + docs; zero backend runtime/service/routes/frontend/social-targeting/
+profile-physical/core/Health/C1/Profissional/Agenda/financeiro/backfill/cleanup-blob. **DT OPEN.**
+
+**Criado:** `actor_lifestyle_attributes` (actor-first, **linha-por-atributo**; FK `actors(id)`/`tenants(id)`;
+`UNIQUE(tenant_id,actor_id,attribute_key)`; colunas consent/visibility/lifecycle) + `actor_lifestyle_attribute_
+audit` (append-only, **SEM coluna de valor sensível**). Idempotente (guards + verificação pós; `schema_
+migrations` 344→345; re-run 0 pendentes). Sem RLS (igual aos substratos C1; isolamento por tenant na query).
+
+**Constraints provadas runtime:** `attribute_key` só `relationship_status/drinks/smokes` → **`sexual_orientation`
+e `health_condition` REJEITADOS** estruturalmente; `visibility='private'` (public rejeitado); lifecycle XOR
+(ativo⇒value+consent; inativo⇒value NULL+retired_at — **anonymize**); valor governado por key (texto livre
+rejeitado); **ativo exige `consented_at`**; audit **0 colunas de valor**. **Sem texto livre/notes/declaration_
+text/height/weight** → trava contra captura indireta de Saúde. **Tabela VAZIA (0 rows, zero backfill); blob
+`metadata.lifestyle` INTOCADO; Health ABSENT/501.** Gates: actor-writer/bank-ledger/regression OK (345);
+arch `critical_new=0`, `critical_total=20` (sem typecheck — só SQL).
+
+**Micro-decisão backfill (F5 futura):** valores legados sem consent **NÃO** viram ativos+consentidos
+(DECISION-0071 §6); usuário re-declara com consent explícito (DEV: valores nulos → no-op). **Fila atualizada:**
+F1a ✅ → F1b ✅ → **F2** backend service consent-aware → **F3** frontend (remover sexualOrientation) → **F4**
+readers/completude (core 388/765) → **F5** cleanup blob → **F6** selo + CLOSE.
