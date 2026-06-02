@@ -25,7 +25,7 @@ Esta DECISION **não** afirma que PJ nasce corretamente, **nem** afirma que PJ n
 
 **Runtime — nascimento NÃO é transação DB única:**
 - `createCompany` usa `pool.query(...)` **statement a statement**, sem `BEGIN`/`COMMIT`/client dedicado.
-- O "rollback" é **compensação manual por `DELETE`s** num `catch` (`:676-697`). O `address` criado (`:499-518`) **não** é desfeito nessa compensação; `company_opportunity_preferences` (`:707`) fica fora do `try`.
+- O "rollback" é **compensação manual por `DELETE`s** num `catch` (`:676-697`). O **registro de endereço (Location Core / endereçamento básico)** criado em `:499-518` **não** é desfeito nessa compensação; `company_opportunity_preferences` (`:707`) fica fora do `try`. *(Sobre a natureza desse endereço, ver §7 — não é localização enriquecida.)*
 
 **Documento ratificado — previa o oposto:**
 - `DESENHO_FASE_3B_EMPRESA_DOIS_MOMENTOS.md §2`: Momento 1 cria linha em `companies` **"sem page-actor operacional"**; `primary_*` = NULL; empresa invisível ao resolver.
@@ -67,8 +67,20 @@ NÃO decide preço (precedência de price_cents).
 NÃO implementa PJ.
 NÃO afirma que PJ nasce corretamente.
 NÃO afirma que PJ não deve ter actor.
+NÃO redefine Location Core nem cria modelo fiscal/geográfico para PJ (ver §7).
 ```
 
-## 7. Superada por
+## 7. Fronteira Location Core / endereço PJ (adendo da mesma sessão, 2026-06-02)
+
+Correção de premissa para evitar leitura falsa do diagnóstico de nascimento:
+
+- Esta decisão **não redefine Location Core**.
+- Esta decisão **não cria modelo fiscal/geográfico** para PJ.
+- O diagnóstico de nascimento PJ **não assume `city`/`state`/`neighborhood` textual canônico**. No fluxo vivo, `createCompany` passa `stateId`/`cityId`/`neighborhoodId` = **NULL** a `locationRepository.createAddress` (`backend/src/core/companies/companies.service.ts:484-497`); endereço PJ hoje = `postalCode`/`street`/`number`/`complement` + FK de localização nullable. É **uso de Location Core / endereçamento básico, não localização enriquecida**.
+- O risco de órfão descrito em §2 e em `DT-COMPANY-BIRTH-NON-TRANSACTIONAL-CLEANUP` é de **`address`/`address_assignment` (registro de Location Core / endereço básico)** — **não** de "cidade/estado/bairro canônico".
+- **Endereço PJ enriquecido** — `city`/`state`/`neighborhood` para fiscalidade, geografia, marketplace, display regional, filtro por localidade ou onboarding empresarial — é **frente/decisão futura própria**, via CEP / catálogo administrativo / geocoding / ligação canônica com Location Core. Não é resolvido por esta decisão nem pelo nascimento PJ atual.
+- `DECISION-0074` trata **residência PF → Location Core**; **não** resolve automaticamente endereço **PJ/company/HQ/operacional**.
+
+## 8. Superada por
 
 (em aberto — decisão vigente)
