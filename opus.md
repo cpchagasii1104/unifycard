@@ -2600,3 +2600,14 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   ruído DEV, limpeza autorizada à parte. (Lição: provar caminho 200 que PERSISTE em substrato append-only deixa
   resíduo que a própria trava da fatia impede limpar — em fatias futuras, preferir provar rejeição/no-persist ou
   pedir janela de DML de teardown no escopo.) DT-EDUCATION OPEN. Fila: F3 selo (+ resíduo path) + CLOSE.
+
+### F2.1 — EDUCAÇÃO: CORREÇÃO DO PATH DO CLIENT ✅ (2026-06-01)
+- 1 arquivo frontend (api/education.ts). HEAD origem 4a6b830b. Resíduo (a) da F2 RESOLVIDO: listEducationEvents +
+  createEducationEvent /education/events (404) → /profile/education/events (rota viva, prefixo profile). Backend
+  correto, NÃO tocado. Sem alterar event types/vocabulário/schema/semântica.
+- Provas HTTP: GET /profile/education/events 200 (era 404); POST validada_institucionalmente 400 (vocabulário F2
+  intacto); GET /profile/education 200; path antigo /education/events 404 (confirma fix). NENHUM novo evento de
+  teste (provei via GET + credential-400 sem persist — aplicada a lição da F2). Frontend typecheck0; gates OK;
+  critical_new=0/total=20. Escrita de Educação via UI FUNCIONAL. Zero backend/migration/schema/DML/Learning/
+  Professional/Agenda/Lifestyle/Health/financeiro. Resíduo (b) 1 evento de teste mantido (DML não autorizado).
+  DT-EDUCATION OPEN. Fila: F3 selo + CLOSE.

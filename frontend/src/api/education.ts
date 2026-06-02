@@ -86,7 +86,9 @@ export async function getEducationProfile(): Promise<EducationProfile> {
  * Lista eventos educacionais do usuário
  */
 export async function listEducationEvents(): Promise<EducationEvent[]> {
-  const response = await apiFetch('/education/events');
+  // F2.1 (DECISION-0073): rota viva sob o prefixo do módulo profile → `/profile/education/events`
+  // (era `/education/events`, que dava 404 — a escrita/leitura via UI estava quebrada).
+  const response = await apiFetch('/profile/education/events');
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
@@ -104,7 +106,8 @@ export async function listEducationEvents(): Promise<EducationEvent[]> {
  * Cria um evento educacional (APPEND-ONLY)
  */
 export async function createEducationEvent(input: CreateEducationEventInput): Promise<EducationEvent> {
-  const response = await apiFetch('/education/events', {
+  // F2.1 (DECISION-0073): rota viva = `/profile/education/events` (prefixo do módulo profile).
+  const response = await apiFetch('/profile/education/events', {
     method: 'POST',
     body: JSON.stringify(input),
   });

@@ -10268,3 +10268,20 @@ ruído DEV; limpeza autorizada à parte.
 
 **`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY` permanece OPEN.** Fila: **F3** selo Educação (+ avaliar o resíduo
 do path `/education/events` e CLOSE da DT).
+
+---
+
+## F2.1 — EDUCAÇÃO: CORREÇÃO DO PATH DO CLIENT ✅ (2026-06-01)
+
+HEAD origem `4a6b830b`. **1 arquivo frontend** (`api/education.ts`). Resíduo (a) da F2 RESOLVIDO: `listEducationEvents`
+e `createEducationEvent` passaram de `/education/events` (→ 404) para **`/profile/education/events`** (rota viva sob o
+prefixo do módulo `profile`). Backend correto, **não tocado**. Sem alterar event types/vocabulário/schema/semântica.
+
+**Provas (HTTP):** GET `/profile/education/events` → **200** (era 404); POST `educacao.validada_institucionalmente`
+→ **400** (vocabulário F2 intacto); GET `/profile/education` → 200; path antigo `/education/events` → 404 (confirma
+necessidade do fix). **Nenhum novo evento de teste criado** (provei via GET + credential-400 sem persist). Frontend
+typecheck0; gates actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20.
+
+**A escrita de Educação via UI está FUNCIONAL agora.** Zero backend/migration/schema/DML/Learning/Professional/
+Agenda/Lifestyle/Health/financeiro. Resíduo (b) — 1 evento de teste F2 em `event_log` — mantido (DML não autorizado;
+ruído DEV menor). **DT permanece OPEN.** Fila: **F3** selo Educação + **CLOSE** da DT.
