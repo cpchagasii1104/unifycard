@@ -86,21 +86,14 @@ export class SocialTargetingService {
       totalScore += breakdown.demographics;
     }
 
-    // 3. Lifestyle
+    // 3. Lifestyle — DESACOPLADO (DECISION-0071 / F-TARGETING-DECOUPLE)
+    // `drinks`/`smokes` são dados sensíveis e NÃO alimentam targeting/scoring/matching/recomendação até
+    // existir consentimento explícito para uso secundário. O critério `targeting.lifestyle` é aceito (shape
+    // do filtro preservado) mas IGNORADO: NÃO lê `physical_profile.lifestyle.{drinks,smokes}` e NÃO soma
+    // pontos por hábito. `breakdown.lifestyle` permanece 0 (shape estável para consumidores). Quando houver
+    // SSOT sensível com consentimento (frente futura), o scoring por lifestyle poderá ser reintroduzido.
     if (targeting?.lifestyle) {
-      let lifestyleScore = 0;
-      const userLifestyle = userCoreProfile.physical_profile?.lifestyle;
-
-      if (targeting.lifestyle.drinks !== undefined && userLifestyle?.drinks) {
-        // Match simples (pode ser refinado)
-        lifestyleScore += 3;
-      }
-      if (targeting.lifestyle.smokes !== undefined && userLifestyle?.smokes) {
-        lifestyleScore += 3;
-      }
-
-      breakdown.lifestyle = lifestyleScore;
-      totalScore += breakdown.lifestyle;
+      breakdown.lifestyle = 0;
     }
 
     // 4. Interests (match de interesses do CORE)

@@ -2349,3 +2349,15 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   chama repo. checkBackendHealth (/health liveness) e health-signals (saúde operacional) não tocados. Gates:
   back+front typecheck=0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20. DT mitigação
   parcial, segue OPEN. Fila: F-TARGETING-DECOUPLE.
+
+### F-TARGETING-DECOUPLE — DRINKS/SMOKES FORA DO SOCIAL-TARGETING ✅ (2026-06-01)
+- DECISION-0071 ponto 4. Só social-targeting.service.ts. HEAD origem 075781b8. Zero migration/schema/frontend/
+  Health/Lifestyle-SSOT/cleanup-blob/Learning-Interest C1/Profissional/Agenda/financeiro. DT OPEN.
+- calculateRelevanceScore não lê mais physical_profile.lifestyle.{drinks,smokes} nem soma pontos por hábito;
+  critério targeting.lifestyle aceito (shape preservado) mas IGNORADO, breakdown.lifestyle sempre 0. Sem consent
+  fake. drinks/smokes seguem no perfil (lifestyle privado); só bloqueia uso secundário.
+- Provas (função pura): perfil com drinks/smokes + targeting lifestyle → breakdown.lifestyle=0, score não infla
+  (igual a sem lifestyle); outros sinais (isFollowed+interest) → score=100 (targeting funciona). Gates:
+  typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/total=20.
+- Resíduo reportado (fora do escopo): core.service:765 usa presença drinks/smokes (OR com relationship/sexual)
+  no score de COMPLETUDE (+5) — não é targeting; tratar em F3/F5. Fila: F1 schema (SSOT lifestyle actor-first).

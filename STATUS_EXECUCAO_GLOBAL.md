@@ -9869,3 +9869,26 @@ bank-ledger/regression OK; arch `critical_new=0`, `critical_total=20`.
 
 **DT mitigação parcial; segue OPEN.** Saúde só volta via frente 0382 governada (consent/visibility/audit).
 **Fila:** F-TARGETING-DECOUPLE (drinks/smokes fora do social-targeting).
+
+---
+
+## F-TARGETING-DECOUPLE — DRINKS/SMOKES FORA DO SOCIAL-TARGETING ✅ (2026-06-01)
+
+DECISION-0071 ponto 4: dado sensível não alimenta targeting sem consentimento explícito. HEAD origem
+`075781b8`. **Só** `social-targeting.service.ts`; zero migration/schema/frontend/Health/Lifestyle-SSOT/
+cleanup-blob/Learning-Interest C1/Profissional/Agenda/financeiro. **DT-LIFESTYLE-SENSITIVE-IN-BLOB OPEN.**
+
+**Mudança:** `calculateRelevanceScore` não lê mais `physical_profile.lifestyle.{drinks,smokes}` nem soma pontos
+por hábito; o critério `targeting.lifestyle` é **aceito (shape do filtro `TargetingFilters` preservado) mas
+IGNORADO**, `breakdown.lifestyle` fica **sempre 0**. Sem consent fake (sem `if consent`/placeholder). drinks/
+smokes **continuam no perfil** (lifestyle privado) — só o uso secundário é bloqueado.
+
+**Provas (função pura):** perfil com drinks/smokes='regularly' + targeting lifestyle → `breakdown.lifestyle=0`,
+score=50 base (não infla; igual a sem lifestyle targeting); CASE com outros sinais (isFollowed+interest) →
+score=100 (social_affinity 30 + interest 20, lifestyle 0) — **targeting funciona sem drinks/smokes**. Greps:
+sem leitura de drinks/smokes (só interface do filtro + comentários). Gates: typecheck0; actor-writer/bank-ledger/
+regression OK; arch `critical_new=0`, `critical_total=20`.
+
+**Resíduo reportado (fora do escopo desta fatia):** `core.service.ts:765` usa presença de drinks/smokes (em OR
+com relationshipStatus/sexualOrientation) no **score de COMPLETUDE** (+5) — não é targeting; tratar em F3/F5.
+**Fila:** F1 schema (SSOT lifestyle actor-first + consent/visibility/audit).
