@@ -6104,3 +6104,51 @@ DT permanece OPEN. Docs-only; gates verdes; critical_new=0.
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0072 — Agenda/Availability: materialização B1 no `unified_availability`
+
+**Status:** RATIFICADA — DECISÃO DE MODELAGEM (F0), DOCS-ONLY; implementação NÃO autorizada (2026-06-01).
+**Decisor:** Clayton (escolha B1 sobre B2). **Commit âncora:** HEAD origem `6ed6e5f3`.
+**Documento canônico:** `docs/02_decisions/DECISION_0072_AGENDA_AVAILABILITY_B1_MATERIALIZATION.md`.
+**Subordinada a:** `SSOT_REGISTRY_UNIFICARD.md` §SSOT TEMPORAL (autoridade única `unified_availability`),
+Constituição Art. II / `CORE_IMUTAVEL.md`, `CORE_TEMPORAL_CONTRACT.md`, LEI_COERÊNCIA §4.8 (actor-first).
+**Vinculada a:** `DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT` (OPEN — decisão tomada, implementação pendente).
+
+### Contexto
+
+Aba Agenda tem **write vivo quebrado**: `ProfileAgenda.tsx:165` `updateProfessionalProfile({availability})` →
+`PUT /profile/professional` → **501** (corte Profissional→C1) → dado perdido. Leitura já canônica
+(`GET /availability`, actor-first), mas faz `setSchedule({})` (template nunca lido de volta). Mismatch: UI =
+**template semanal** (`{[dayOfWeek]:string[]}` + `specific`), `unified_availability` = **janelas datadas
+concretas** (sem coluna de recorrência viva). SSOT_REGISTRY §SSOT TEMPORAL: `unified_availability` é o **único**
+SSOT temporal; `schedules`/`schedule_slots` LEGADO (WRITE = C63 crítico); nenhuma outra tabela/metadata persiste
+tempo → tabela temporal nova VETADA.
+
+### Escolha
+
+**B1 — materializar a grade semanal declarativa em janelas concretas dentro de `unified_availability`**
+(`availability_type='recurring'`, horizonte finito, expansão por recorrência). B2 (recorrência nativa na própria
+`unified_availability`) fica como futuro, NÃO entra agora. Justificativa: respeita SSOT_REGISTRY, sem schema novo,
+sem legado, menor risco, mantém `availability` como única verdade operacional temporal.
+
+### Invariantes / Vetos
+
+12 invariantes (doc canônico): unified_availability único SSOT; template→materializado; `availability_type=
+'recurring'`; **timezone explícito** (nunca implícito); **horizonte finito 8–12 semanas**; **sem replace cego**;
+**não apagar janela com booking/participant/conflito ativo**; `specific`→janelas/overrides (não metadata);
+schedules/schedule_slots proibidos (C63); `/profile/professional` segue 501; Professional C1 não guarda
+disponibilidade; financeiro fora. Vetos: tabela temporal nova, schedule em metadata, write em legado, reativar
+professional, DELETE/replace cego, apagar janela com booking, TZ implícita.
+
+### Consequências (sequência, não autorizada aqui)
+
+F0 (esta) → F1 backend materializador seguro (diff incremental, TZ explícita, horizonte, protege bookings) → F2
+frontend (write canônico + corrigir read-back `setSchedule({})`) → F3 cleanup do `updateProfessionalProfile`
+morto → F4 testes+selo+CLOSE da DT. Ordem: backend seguro antes do frontend; sem DELETE em massa. DT permanece
+**OPEN** até F4. Docs-only; gates verdes; critical_new=0.
+
+### Superada por
+
+(em aberto — decisão vigente; B2 pode estender sem revogar B1)

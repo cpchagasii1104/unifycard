@@ -10054,3 +10054,29 @@ cosmética, frente própria opcional.
 **Próximas frentes recomendadas:** (1) auditoria READ-ONLY das abas restantes do Perfil; (2) Agenda/TEMPO
 (SSOT temporal canônico — DT-AGENDA-AVAILABILITY-VIA-DEAD-LEGACY-PUT); (3) Health governado futuro **somente**
 com nova decisão/frente própria.
+
+---
+
+## AUDITORIA READ-ONLY ABAS DO PERFIL + F-AGENDA-DESENHO + DECISION-0072 (2026-06-01)
+
+**Auditoria das abas restantes (READ-ONLY):** 8 abas mapeadas. Seladas/SSOT-corretas: Profissional/Learning/
+Interest/Lifestyle (C1/SSOT), Saúde (501). **Achado principal não-cosmético:** aba **Agenda** com **write vivo
+quebrado** — `ProfileAgenda.tsx:165` salva via `PUT /profile/professional` (agora 501) → dado perdido; leitura
+canônica (`/availability`) mas faz `setSchedule({})` (template nunca lido de volta). Pessoal = mix (identity +
+user_profiles.cpf transição DECISION-0062 + addresses SSOT + metadata.gender). Educação = event-sourced
+(`event_log`) + impl. órfã não registrada (drift). PJ = domínio separado (actor/company). Resíduos cosméticos:
+sexualOrientation morto, componentes Health não-renderizados, gender em blob.
+
+**F-AGENDA-DESENHO (READ-ONLY):** SSOT_REGISTRY §SSOT TEMPORAL = `unified_availability` é o **único** SSOT
+temporal; `schedules`/`schedule_slots` LEGADO (WRITE=C63); tabela nova/metadata/professional vetados. Mismatch:
+UI = template semanal, `unified_availability` = janelas concretas.
+
+**F0 — DECISION-0072 (DOCS-ONLY):** escolha **B1 — materializar a grade semanal em janelas concretas no
+`unified_availability`** (`availability_type='recurring'`, horizonte 8–12 semanas, TZ explícita, diff
+incremental protegendo bookings, `specific`→janelas/overrides). B2 (recorrência nativa) = futuro. Doc
+`docs/02_decisions/DECISION_0072_AGENDA_AVAILABILITY_B1_MATERIALIZATION.md` + DECISIONS_LOG + DT_LOG. **DT-AGENDA-
+AVAILABILITY-VIA-DEAD-LEGACY-PUT permanece OPEN** (decisão tomada; implementação pendente). Gates docs-only
+verdes (346; arch critical_new=0/total=20). Zero código/runtime/migration/schema/financeiro.
+
+**Fila:** F1 backend materializador seguro → F2 frontend (write canônico + read-back) → F3 cleanup do
+`updateProfessionalProfile` morto → F4 testes+selo+CLOSE. Ordem: backend antes do frontend; sem DELETE em massa.

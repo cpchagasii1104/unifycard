@@ -10433,11 +10433,23 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
   `updateProfessionalProfile` no fluxo da aba — provado no selo A3.2). A Agenda ficou **explicitamente
   fora do escopo** da A3.2; nada foi alterado em `ProfileAgenda` nesta cadeia. A dívida está isolada e
   documentada, não ampliada.
-- **Resolução prevista:** frente própria TEMPO/Agenda (ratificação própria) para migrar a persistência de
-  availability ao **SSOT temporal canônico**, respeitando Unified Availability / Agenda Universal e
-  `actor_id` (sem schedule em `availability.metadata`; sem segundo SSOT temporal). Não tratar junto de
-  financeiro nem de C2/C3 profissional. Pré-condição prática: decidir antes (ou em conjunto) o destino
-  final do legado `/profile/professional` (410/501 vs intocado).
+- **F-AGENDA-DESENHO READ-ONLY concluído (2026-06-01):** auditoria mapeou o write quebrado (501) + achado
+  adicional: leitura faz `setSchedule({})` → template semanal **nunca lido de volta** (write-only sem
+  read-back). Mismatch de modelo: UI = template semanal (`{[dayOfWeek]:string[]}` + `specific`),
+  `unified_availability` = janelas datadas concretas (sem coluna de recorrência viva). SSOT_REGISTRY §SSOT
+  TEMPORAL confirmou `unified_availability` como **único** SSOT temporal; `schedules`/`schedule_slots` LEGADO
+  (WRITE=C63 crítico); tabela temporal nova/metadata/professional **vetados**.
+- **F0 DECISÃO TOMADA (DECISION-0072, 2026-06-01):** escolha **B1 — materializar a grade semanal declarativa
+  em janelas concretas dentro de `unified_availability`** (`availability_type='recurring'`, horizonte finito
+  8–12 semanas, TZ explícita, diff incremental que NÃO apaga janela com booking/participant/conflito ativo,
+  `specific`→janelas/overrides). B2 (recorrência nativa) fica como futuro. Doc:
+  `docs/02_decisions/DECISION_0072_AGENDA_AVAILABILITY_B1_MATERIALIZATION.md`. **DT permanece OPEN** (decisão
+  tomada; implementação pendente).
+- **Resolução prevista:** **F0 ✅ (DECISION-0072 B1)** → **F1** backend materializador seguro (actor-first via
+  `actionContext.actorId`; sem schema novo; protege bookings) → **F2** frontend (write canônico + corrigir
+  read-back) → **F3** cleanup do `updateProfessionalProfile({availability})` morto → **F4** testes + selo +
+  CLOSE da DT. Ordem: backend seguro antes do frontend; sem `DELETE` em massa de availability. `/profile/
+  professional` segue 501 (não reativar); sem segundo SSOT temporal; financeiro fora.
 
 ---
 

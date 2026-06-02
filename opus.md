@@ -2461,3 +2461,23 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Gates docs-only: actor-writer/bank-ledger/regression OK (346); arch critical_new=0/total=20. Typecheck NÃO
   rodado (nenhum código tocado). Próximas: (1) auditoria read-only abas restantes do Perfil; (2) Agenda/TEMPO;
   (3) Health governado futuro só com nova decisão.
+
+### AUDITORIA ABAS PERFIL (READ-ONLY) + F-AGENDA-DESENHO + DECISION-0072 (2026-06-01)
+- Auditoria read-only das 8 abas: seladas Profissional/Learning/Interest/Lifestyle (C1/SSOT) + Saúde 501.
+  ACHADO PRINCIPAL não-cosmético: aba Agenda WRITE QUEBRADO — ProfileAgenda.tsx:165 salva via PUT /profile/
+  professional (agora 501) → dado perdido; leitura canônica /availability mas setSchedule({}) (template nunca
+  lido de volta = write-only). Pessoal=mix (identity+user_profiles.cpf transição 0062+addresses SSOT+
+  metadata.gender blob). Educação=event_log event-sourced + impl órfã não-registrada (drift). PJ=domínio
+  separado. Cruzei os achados materiais (Agenda 501, Personal/Physical SSOT) direto no código antes de reportar.
+- F-AGENDA-DESENHO read-only: SSOT_REGISTRY §SSOT TEMPORAL = unified_availability ÚNICO SSOT temporal;
+  schedules/schedule_slots LEGADO (WRITE=C63 crítico, 6 paths ativos events/employee); tabela temporal nova/
+  metadata/professional VETADOS. Mismatch: UI template semanal {[dayOfWeek]:string[]} vs availability janelas
+  concretas (sem coluna recorrência viva). Conferir o registry ANTES de recomendar evitou erro: meu instinto
+  inicial (tabela actor_availability_templates nova) era VETADO pela norma.
+- F0 DECISION-0072 DOCS-ONLY: Clayton escolheu B1 (materializar grade semanal em janelas concretas no
+  unified_availability; availability_type='recurring', horizonte 8–12 semanas, TZ explícita, diff incremental
+  protegendo bookings, specific→janelas/overrides). B2 (recorrência nativa) futuro. Doc DECISION_0072_* +
+  DECISIONS_LOG + DT_LOG + STATUS. DT-AGENDA permanece OPEN (decisão tomada, impl pendente). Gates docs-only
+  verdes (346; critical_new=0/total=20). Zero código/migration/schema/financeiro. Fila: F1 backend
+  materializador seguro → F2 frontend (write + read-back) → F3 cleanup updateProfessionalProfile morto → F4
+  selo+CLOSE. Ordem: backend antes do frontend; SEM DELETE em massa de availability.
