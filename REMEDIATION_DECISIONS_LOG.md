@@ -6372,3 +6372,49 @@ de residência sem decisão LGPD; implementar aqui. Docs-only; gates verdes; cri
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0079 — Política de bairro (neighborhood) no Location Core: texto de exibição, não FK canônica no MVP (D-NEIGHBORHOOD)
+
+**Status:** RATIFICADA — MODELAGEM/POLÍTICA (D-NEIGHBORHOOD), DOCS-ONLY; implementação não autorizada (2026-06-02).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `70f9aa73`.
+**Documento canônico:** `docs/02_decisions/DECISION_0079_LOCATION_CORE_NEIGHBORHOOD_POLICY.md`.
+**Subordinada a:** DECISION-0077 (§8 vetava coluna textual "sem decisão nova" — **esta é a decisão nova** que
+qualifica o veto p/ bairro-exibição), 0076/0074/0020/0021/0078, SSOT_REGISTRY, LGPD. **Vinculada a:**
+`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN), DECISION-0075 §7 (fronteira endereço PJ). **Escopo:** SOMENTE
+natureza/destino do bairro no endereço civil PF; NÃO toca PJ/Companies.
+
+### Contexto
+
+Pós F-GEO-3, endereço PF já é SSOT p/ CEP/rua/número/complemento + UF (FK `states.abbreviation`) + cidade (FK
+`cities.name`/IBGE). **Só o bairro ainda vem do blob.** Estado material (DEV, read-only): `neighborhoods`=0,
+`addresses.neighborhood_id IS NOT NULL`=0, `profiles ? 'address'`=1; `addresses` tem só `neighborhood_id` (uuid FK),
+**sem coluna textual**. "Sítio Cercado" (CEP 81920410) só existe em `metadata.address.neighborhood`. Cidade/UF têm
+código oficial (IBGE) → FK; **bairro tem só nome** (ViaCEP texto, sem código) → FK por nome seria "match por barbante".
+
+### Escolha — Opção B
+
+`UF/cidade = FK canônica` (autoridade territorial). `bairro = TEXTO DE EXIBIÇÃO controlado no Location Core`, **não
+FK, não SSOT territorial**. Destino futuro: coluna textual controlada em `addresses` (ex.: `neighborhood_display_text`),
+origem ViaCEP/input; não usar p/ autoridade/fiscalidade/matching/delimitação. Descartadas: **A** (FK por nome —
+frágil, vetado 0077 §8); **C** (perder bairro — regressão/perda); **D** (blob indefinido — não converge).
+
+### Justificativa + Consequência
+
+`neighborhoods` vazio; IBGE não codifica bairro; bairro é necessário p/ exibição/endereço postal mas não é autoridade
+territorial. **Filosofia:** cidade/UF canônicos por FK; bairro = exibição controlada até existir fonte oficial.
+**Cleanup do blob bloqueado** até: (1) criar destino textual; (2) migrar bairro do blob; (3) core parar de ler bairro
+do blob; (4) só então remover `metadata.address`.
+
+### Vetos + Sequência
+
+Vetos: neighborhood FK por nome livre; bairro textual p/ autoridade/fiscalidade/matching; limpar `metadata.address`
+antes do destino do bairro existir/popular; tocar PJ/Companies; implementar nesta decisão. Sequência: D-NEIGHBORHOOD
+(esta) → F-GEO-4a (campo textual de bairro, se ratificado) → F-GEO-4b (migrar bairro blob→Location Core) → F-GEO-4c
+(core sem bairro do blob) → F-GEO-4d (cleanup `metadata.address`) → F-GEO-5 (selo/CLOSE). Docs-only; gates verdes;
+critical_new=0. **DT permanece OPEN** (esta decisão não fecha a DT).
+
+### Superada por
+
+(em aberto — decisão vigente)

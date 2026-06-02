@@ -10647,3 +10647,25 @@ Gates: typecheck0; actor-writer/bank-ledger OK; regression PASSOU (348); arch cr
 **O que ainda vem do blob:** **bairro/neighborhood** (catálogo vazio) e o fallback de city/UF **só** quando a FK é NULL.
 **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (mitigação parcial). Próximo: **decidir política de
 neighborhood/bairro** antes do **F4** (cleanup `profiles.metadata.address`) → **F5** selo. PJ fora desta instância.
+
+---
+
+## D-NEIGHBORHOOD — DECISION-0079: política de bairro no Location Core ✅ (2026-06-02) — docs-only — frente Location/Geo
+
+HEAD origem `70f9aa73`. **DOCS-ONLY** (decisão; zero código/migration/runtime/frontend/backend/API externa/DML/PJ).
+
+**Decisão (Opção B):** `UF/cidade = FK canônica` (autoridade territorial); **`bairro = texto de exibição controlado
+no Location Core`, NÃO FK, NÃO SSOT territorial.** Motivo: cidade/UF têm código oficial (IBGE) → FK; **bairro tem só
+nome** (ViaCEP texto, sem código) → FK por nome seria "match por barbante" (vetado DECISION-0077 §8). Estado material:
+`neighborhoods`=0, `addresses.neighborhood_id`=0 usados, `addresses` sem coluna textual de bairro; "Sítio Cercado"
+(CEP 81920410) só existe no blob. Destino futuro = coluna textual controlada (ex.: `addresses.neighborhood_display_text`).
+
+**Filosofia fixada:** cidade/UF são canônicos por FK; bairro é dado de exibição, não autoridade territorial.
+
+**Impacto no cleanup:** F4 (apagar `metadata.address`) **continua bloqueado** até existir destino textual + bairro
+migrado + core parar de ler bairro do blob. Sequência: **D-NEIGHBORHOOD** → **F-GEO-4a** (campo textual) → **F-GEO-4b**
+(migrar bairro) → **F-GEO-4c** (core sem bairro do blob) → **F-GEO-4d** (cleanup) → **F-GEO-5** (selo/CLOSE).
+
+Gates (docs-only): actor-writer/bank-ledger OK; regression PASSOU (348); arch critical_new=0/total=20/warning_new=1
+(:334 pré-existente). **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` permanece OPEN** (decisão não fecha a DT). Doc
+canônico: `docs/02_decisions/DECISION_0079_LOCATION_CORE_NEIGHBORHOOD_POLICY.md`. PJ fora desta instância.

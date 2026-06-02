@@ -2864,3 +2864,17 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   (Lição: a prova mais forte não foi mutar dado — foi achar o ator cujo blob já era NULL. Se a cidade aparece sem blob,
   ela só pode vir da FK. Estado real bem escolhido > probe destrutivo. Meio andaime removido: cidade/UF canônicas,
   bairro ainda pendurado no blob — honesto e explícito, não varrido pra baixo do tapete.)
+
+### D-NEIGHBORHOOD — DECISION-0079: política de bairro no Location Core ✅ (2026-06-02) — docs-only
+- Docs-only (HEAD origem 70f9aa73). Zero código/migration/runtime/frontend/backend/API externa/DML/PJ/Companies/
+  financeiro/cleanup blob/neighborhood criado. Doc: DECISION_0079_LOCATION_CORE_NEIGHBORHOOD_POLICY.md.
+- Decisão (Opção B): UF/cidade = FK canônica (autoridade territorial); bairro = TEXTO DE EXIBIÇÃO controlado no
+  Location Core, NÃO FK, NÃO SSOT territorial. Destino futuro: coluna textual em addresses (ex.: neighborhood_display_text).
+  Descartadas A (FK por nome — frágil, vetado 0077 §8), C (perder bairro), D (blob indefinido). Estado: neighborhoods=0,
+  addresses.neighborhood_id usados=0, sem coluna textual; "Sítio Cercado" só no blob.
+- Consequência: cleanup do blob (F4) bloqueado até destino textual + bairro migrado + core sem bairro do blob.
+  Sequência: D-NEIGHBORHOOD → F-GEO-4a (campo textual) → F-GEO-4b (migrar) → F-GEO-4c (core sem bairro do blob) →
+  F-GEO-4d (cleanup metadata.address) → F-GEO-5 (selo/CLOSE). Gates docs-only verdes (critical_new=0/348). DT OPEN.
+  (Lição: cidade tem IBGE, bairro tem apelido. Forçar FK em dado sem código oficial é match por barbante — a decisão
+  honesta é nomear o bairro como exibição controlada, não fingir que é autoridade territorial. Decisão antes de código:
+  a 0077 §8 vetava coluna textual "sem decisão nova" — então a 0079 É essa decisão nova, explícita, não um contrabando.)
