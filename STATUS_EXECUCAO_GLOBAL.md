@@ -10191,3 +10191,27 @@ schedules/schedule_slots) · leitura legada `getProfessionalProfile` · cleanup 
 **Próximas frentes recomendadas:** (1) Educação — decision/read-only (event-sourced vs categoria órfã + AI
 expansion); (2) Pessoa Jurídica — actor-context; (3) cleanup cosmético morto; (4) C63 schedules/schedule_slots;
 (5) Health governado futuro **somente** com nova decisão. Escolher o próximo corte com mapa: Educação ou PJ.
+
+---
+
+## AUDITORIA READ-ONLY EDUCAÇÃO + D1 (DECISION-0073) ✅ (2026-06-01)
+
+**Auditoria READ-ONLY de Educação:** caminho vivo (`profile-education.*`, registrado) é **event-sourced,
+actor-first, append-only** (`event_log`, `metadata.actorId`); **sem** metadata-blob/`category_id`/`concept_id`;
+**separado** de Learning C1 e Professional C1 (zero cruzamento; diploma não vira C1); **0 eventos** em DEV
+(dormente). Implementação `profile-education-companies.*` = **órfã/morta** (sem rota registrada; `user_education`/
+`user_companies` AUSENTES; global_user_id-keyed; category-as-identity; `createCategoryWithAI`) + `EducationSection.
+tsx` não-renderizado. **Risco material = SEMÂNTICO:** vocabulário de credencial (`validada_institucionalmente`/
+`confirmada`/`contestada` + `validator`/`evidence`; UI rotula "Validada Institucionalmente") sobre dado **100%
+autoasserido** — sem emissor/prova/autoridade/terceiro.
+
+**D1 — DECISION-0073 (DOCS-ONLY):** Educação MVP = **declaração não-verificada do actor** (não credencial
+verificada). Veto: nenhum evento/UI pode apresentar formação como verificada sem emissor/prova/autoridade/
+terceiro. Termos de credencial = **reservar/desabilitar** (preferida) ou rebaixar para autodeclaração (F2).
+Órfão morto → **F1** neutralizar/quarentenar. Expansão IA/category permanece **DEFERRED** (DECISION-0070 /
+`DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION`). Doc `DECISION_0073_*` + DECISIONS_LOG + nova
+**`DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY`** (OPEN). Gates docs-only verdes (critical_new=0/total=20).
+Zero código/runtime/migration/schema/financeiro.
+
+**Fila Educação:** F1 neutralizar órfão morto → F2 ajustar vocabulário/UI/event types → F3 selo. Alternativa de
+corte maior: PJ actor-context.

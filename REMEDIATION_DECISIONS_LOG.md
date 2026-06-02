@@ -6152,3 +6152,54 @@ morto → F4 testes+selo+CLOSE da DT. Ordem: backend seguro antes do frontend; s
 ### Superada por
 
 (em aberto — decisão vigente; B2 pode estender sem revogar B1)
+
+---
+
+## DECISION-0073 — Educação no MVP é declaração não-verificada do actor (não credencial verificada)
+
+**Status:** RATIFICADA — DECISÃO DE PRODUTO/ARQUITETURA, DOCS-ONLY; implementação NÃO autorizada (2026-06-01).
+**Decisor:** Clayton. **Commit âncora:** HEAD origem `89c475a3`.
+**Documento canônico:** `docs/02_decisions/DECISION_0073_EDUCATION_DECLARATION_NOT_VERIFIED_CREDENTIAL.md`.
+**Subordinada a:** Constituição/LEIS, LEI_COERÊNCIA §4.8 (actor-first), SSOT_REGISTRY. **Vinculada a:**
+`DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION` (DEFERRED), DECISION-0070, `SELO_C1_LEARNING_INTEREST.md`.
+
+### Contexto
+
+Caminho vivo de Educação (`profile-education.*`, registrado) é **event-sourced, actor-first, append-only**
+(`event_log`, `metadata.actorId`); **sem** metadata-blob/category_id/concept_id; separado de Learning C1 e
+Professional C1; **0 eventos** em DEV (dormente). Implementação `profile-education-companies.*` é **órfã/morta**
+(sem rota registrada; `user_education`/`user_companies` AUSENTES; global_user_id-keyed; category-as-identity;
+createCategoryWithAI) + `EducationSection.tsx` não-renderizado. **Risco semântico:** ciclo com forma de
+credencial (`validada_institucionalmente`/`confirmada`/`contestada` + `validator`/`evidence`), UI rotula
+"Validada Institucionalmente", mas **tudo é autoasserido** — sem emissor/prova/autoridade/terceiro.
+
+### Escolha
+
+**Educação MVP = DECLARAÇÃO NÃO-VERIFICADA do actor.** NÃO é credencial verificada (essa é frente futura
+própria, puxa emissor/prova/autoridade/audit). Fronteiras: Educação ≠ Learning ≠ Professional ≠ credencial;
+não gera skill profissional; não concede capability/authority; não usa category_id como identidade; não usa
+concept_id no caminho vivo.
+
+### Veto / Vocabulário / Termos
+
+**Veto:** nenhum evento/UI pode apresentar formação como "verificada/institucionalmente validada" sem emissor,
+prova, autoridade e validação por terceiro. **Vocabulário de risco** (hoje autoasserido, ≠ credencial):
+`educacao.validada_institucionalmente`, `educacao.confirmada`, `educacao.contestada`, `payload.validator`,
+`payload.evidence`. **Decisão sobre os termos:** **reservar/desabilitar** esses eventos até existir substrato de
+credenciais (preferida); ou, se mantidos, **rebaixar** para rótulos honestos de autodeclaração. Implementação na
+F2 (não aqui).
+
+### Órfão + DECISION-0070
+
+`profile-education-companies.*` + `EducationSection.tsx` = morto → **F1 neutralização/quarentena** (classificar
+§4-A; baixo risco; não apagar aqui). Expansão IA/category de Educação permanece **DEFERRED** sob
+`DT-PROFESSIONAL-EDUCATION-COMPANY-AI-CATEGORY-EXPANSION`/DECISION-0070 — não entra no MVP event-sourced.
+
+### Sequência
+
+D1 (esta, docs-only) → F1 neutralizar órfão morto → F2 ajustar vocabulário/UI/event types (reservar ou rebaixar)
+→ F3 selo Educação. Docs-only; gates verdes; critical_new=0. Nenhuma DT técnica fechada aqui.
+
+### Superada por
+
+(em aberto — decisão vigente)

@@ -2548,3 +2548,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   getProfessionalProfile leitura legada, cleanup cosmético. Próximo corte (com mapa): Educação decision/read-
   only OU PJ actor-context. (Padrão consolidado das frentes Perfil: política/decisão → schema/backend → frontend
   → cleanup → selo+CLOSE; readers backend migram à parte; nunca fechar DT antes do selo.)
+
+### AUDITORIA READ-ONLY EDUCAÇÃO + D1 (DECISION-0073) ✅ DOCS-ONLY (2026-06-01)
+- Auditoria read-only: caminho vivo profile-education.* (registrado) é event-sourced, actor-first, append-only
+  (event_log, metadata.actorId); sem metadata-blob/category_id/concept_id; separado de Learning C1 e Professional
+  C1 (zero cruzamento, diploma não vira C1); 0 eventos DEV (dormente). profile-education-companies.* = ÓRFÃO MORTO
+  (sem rota registrada em lugar nenhum; user_education/user_companies AUSENTES; global_user_id-keyed; category-as-
+  identity; createCategoryWithAI) + EducationSection.tsx não-renderizado (helper local sem API). Cruzei: rotas
+  órfãs não registradas + to_regclass null + 0 callers frontend antes de afirmar "morto".
+- Risco material = SEMÂNTICO (não banco): vocabulário de credencial (validada_institucionalmente/confirmada/
+  contestada + validator/evidence; UI "Validada Institucionalmente") sobre dado 100% autoasserido — sem emissor/
+  prova/autoridade/terceiro. Declaração vestida de credencial.
+- D1 DECISION-0073 (docs-only): Educação MVP = declaração NÃO-verificada. Veto: não apresentar como verificada sem
+  emissor/prova/autoridade/terceiro. Termos credenciais → reservar (preferida) ou rebaixar p/ autodeclaração (F2).
+  Doc DECISION_0073_* + DECISIONS_LOG + nova DT-EDUCATION-DECLARATION-CREDENTIAL-VOCABULARY (OPEN; referencia a
+  AI-category DT DEFERRED sem reabri-la). Gates docs-only verdes (critical_new=0/total=20). Zero código/migration/
+  schema/financeiro. Fila: F1 neutralizar órfão morto → F2 vocabulário/event types → F3 selo. (Lição: a aba estava
+  mais limpa que o esperado; o risco real era linguagem/autoridade, não schema — DECISION antes de código evitou
+  apagar órfão por reflexo.)
