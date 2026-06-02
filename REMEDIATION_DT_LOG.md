@@ -10646,6 +10646,19 @@ nenhuma decisão de destino. A3 permanece bloqueada até housekeeping + autoriza
 - **Risco:** BAIXO/MÉDIO — expansão de **navegação** dirigida por UI/texto livre, **governada** (não cria identidade, não destrava C1). Risco residual: proliferação de `categories` `auto_active` sem revisão humana posterior; possível ruído na árvore de navegação.
 - **Resolução prevista (decisão de PRODUTO, fatia própria — não nesta DECISION):** escolher entre **(1)** manter capacidade governada (DEFERRED); **(2)** neutralizar como Learning/Interest (UI só declara da árvore existente; sugestão vira intenção sem criar `categories`); **(3)** fila formal de governança — sempre `REVIEW`, nunca `auto_active`. **Pré-condição de neutralização de Educação/Empresas:** prover alternativa de cadastro governado de instituição/empresa (senão o usuário perde a capacidade de registrar itens fora do catálogo). CLOSE quando a decisão (1/2/3) for executada e provada.
 
+## DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE
+
+- **Status:** OPEN (2026-06-01) — D1 tomada (DECISION-0074); implementação (F1–F5) pendente.
+- **Origem:** auditoria READ-ONLY da aba Pessoal + READ-ONLY de endereço civil PF (HEAD `4ec2dfcb`).
+- **Vinculada a:** `DECISION-0074` (canônica), DECISION-0020/0021 (Location Core soberano), DECISION-0069 (resolução `userId → actor user`).
+- **Escopo:** SOMENTE Pessoa Física; PJ/Companies/company address são tratados por outra instância (fora desta frente).
+- **Problema:** o endereço civil da pessoa física é gravado/lido em **`profiles.metadata.address`** (blob JSONB; campos texto livre, sem lat/lng, cidade/estado não-FK), fora do **Location Core canônico** (`addresses` + `address_assignments`) que companies/marketplace/geo já consomem. Endereço civil em blob não é consultável por jurisdição/região/entrega/raio/fiscalidade futura → risco de PF/PJ herdarem CEP-em-JSONB. DEV: 1 `profiles.metadata.address` (addresses=0, address_assignments=0).
+- **Decisão (DECISION-0074):** migrar para o Location Core com **owner model** `owner_type='profile'`, **`owner_id=actor_id`** do user-actor, `role='RESIDENCE'`, `is_primary=true`; `source='UX_INPUT'` (escrita nova) / `'IMPORT_LEGACY'` (backfill). `'profile'`=papel civil; dono operacional=actor PF (NÃO global_user_id, NÃO profile_id). Fronteiras: RESIDENCE ≠ HQ ≠ OPERATIONAL ≠ `actor_active_location`.
+- **Mitigação atual:** nenhuma em código (D1 docs-only). O blob segue vivo até a migração.
+- **Resolução prevista:** **D1 ✅ (DECISION-0074)** → **F1** backend reader/writer + backfill idempotente (`IMPORT_LEGACY`; resolve actor via DECISION-0069; sem criar actor por SQL; endereço incompleto não vira address inválido; preserva blob) → **F2** frontend ProfilePersonal → rota canônica (`UX_INPUT`) → **F3** `core.service`/readers lendo do Location Core (fallback blob só na transição) → **F4** cleanup de `profiles.metadata.address` → **F5** selo + CLOSE da DT. Ordem inegociável: **F1 antes de F2**. Não fechar nesta fatia.
+
+---
+
 ## DT-LIFESTYLE-SENSITIVE-IN-BLOB
 
 - **Status:** **CLOSED (2026-06-01)** — selada por [`docs/02_decisions/SELO_LIFESTYLE_SSOT.md`](docs/02_decisions/SELO_LIFESTYLE_SSOT.md). Frente concluída: DECISION-0071 → F-SAUDE-501 → F-TARGETING-DECOUPLE → F1a/F1b/F2/F3/F4/F5. Lifestyle = SSOT actor-first (`actor_lifestyle_attributes` + `actor_lifestyle_attribute_audit`), blob `metadata.lifestyle` removido, `sexualOrientation` fora do MVP, Saúde 501, drinks/smokes fora do targeting. Resíduo cosmético (tipos mortos de `sexualOrientation` no contrato legado `/profile/physical` + client frontend) documentado no selo §6 como frente própria opcional — não-bloqueante. *(Histórico OPEN preservado abaixo.)*

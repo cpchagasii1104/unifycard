@@ -10308,3 +10308,25 @@ EXPANSION` segue DEFERRED (resíduo vivo = Profissional/IA, não Educação).
 **Resíduos = frentes próprias:** credencial verificada real (emissor/prova/autoridade/audit); 1 evento DEV de
 teste (limpeza DML autorizada à parte, não bloqueia). **Próximo mapa provável:** PJ actor-context **OU** cleanup
 cosmético morto — não misturar.
+
+---
+
+## AUDITORIA READ-ONLY ENDEREÇO PF + D1 (DECISION-0074) ✅ (2026-06-01)
+
+**Reancoragem de escopo:** esta instância **NÃO mexe em PJ/Companies** (frente de outro chat). Foco: Perfil PF +
+dependências civis.
+
+**Auditoria READ-ONLY (aba Pessoal + endereço civil):** endereço PF grava/lê em `profiles.metadata.address` (blob,
+sem lat/lng, cidade/estado texto livre), fora do **Location Core canônico** (`addresses`+`address_assignments`,
+DECISION-0020) que companies/marketplace/geo já usam. DEV: 1 blob. O Location Core **já tem slot nativo PF**
+(`owner_type='profile'`, `role='RESIDENCE'`, `source='IMPORT_LEGACY'`/`UX_INPUT`, lat/lng geo-ready, temporal).
+
+**D1 — DECISION-0074 (DOCS-ONLY):** endereço civil PF sai do blob → Location Core. Owner model (voto de Clayton):
+`owner_type='profile'` + **`owner_id=actor_id`** do user-actor + `role='RESIDENCE'` + `is_primary=true`;
+`source='UX_INPUT'`(novo)/`'IMPORT_LEGACY'`(backfill). Fronteiras: RESIDENCE ≠ HQ ≠ OPERATIONAL ≠
+`actor_active_location`. Doc `DECISION_0074_*` + DECISIONS_LOG + nova **`DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE`**
+(OPEN). Gates docs-only verdes (critical_new=0/total=20). Zero código/runtime/migration/schema/DML/financeiro/PJ/
+Companies/CPF/gender.
+
+**Fila endereço PF:** F1 backend reader/writer + backfill idempotente (F1 antes de F2) → F2 frontend → F3 readers/
+core sem blob → F4 cleanup blob → F5 selo + CLOSE. **PJ permanece fora desta instância.**

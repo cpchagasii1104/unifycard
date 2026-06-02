@@ -2628,3 +2628,21 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
   Saúde 501, Educação declaração-não-verificada — TODAS seladas. Abas restantes: Pessoal (identity+user_profiles.cpf
   transição 0062+addresses+metadata.gender), PJ (CompaniesManager, domínio actor próprio). Cosmético morto pendente:
   sexualOrientation legado, componentes Health não-renderizados, gender em blob, getProfessionalProfile leitura legada.
+
+### REANCORAGEM DE ESCOPO + AUDITORIA ENDEREÇO PF + D1 (DECISION-0074) ✅ DOCS-ONLY (2026-06-01)
+- ESCOPO TRAVADO: esta instância NÃO mexe em PJ/Companies/CNPJ/actor page-company/CompaniesManager/ERP/PDV/CRM/
+  company address. PJ é frente de OUTRO chat/instância. Aqui: só Perfil PF + dependências civis.
+- Auditoria READ-ONLY (aba Pessoal + endereço civil): endereço PF em profiles.metadata.address (blob, sem lat/lng,
+  cidade/estado texto livre), fora do Location Core canônico (addresses+address_assignments, DECISION-0020) que
+  companies/marketplace/geo já consomem. DEV: 1 blob. Location Core JÁ tem slot nativo PF (owner_type='profile',
+  role='RESIDENCE', source IMPORT_LEGACY/UX_INPUT, lat/lng, temporal). Endereço PF é o ÚNICO campo civil ainda em
+  blob (fullName/birthdate/avatar=global_users OK; phone=profiles OK; CPF=transição governada 0062; gender=blob DT).
+- D1 DECISION-0074 (docs-only): endereço civil PF → Location Core. Owner model (voto Clayton): owner_type='profile'
+  + owner_id=actor_id do user-actor + role='RESIDENCE' + is_primary=true; source UX_INPUT(novo)/IMPORT_LEGACY
+  (backfill). 'profile'=papel civil; dono operacional=actor PF (NÃO global_user_id, NÃO profile_id). Fronteiras:
+  RESIDENCE ≠ HQ ≠ OPERATIONAL ≠ actor_active_location (contexto espacial corrente, não residência). Doc
+  DECISION_0074_* + DECISIONS_LOG + nova DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE (OPEN). Gates docs-only verdes
+  (critical_new=0/total=20). Zero código/migration/DML/financeiro/PJ/Companies/CPF/gender. Fila: F1 backend reader/
+  writer+backfill idempotente (F1 antes de F2) → F2 frontend → F3 readers/core sem blob → F4 cleanup blob → F5 selo+
+  CLOSE. (Disciplina: confirmei slot canônico no schema vivo + contagem DEV antes de fixar; owner_id era a única
+  trava de desenho, resolvida por Clayton.)

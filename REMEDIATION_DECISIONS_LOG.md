@@ -6203,3 +6203,46 @@ D1 (esta, docs-only) → F1 neutralizar órfão morto → F2 ajustar vocabulári
 ### Superada por
 
 (em aberto — decisão vigente)
+
+---
+
+## DECISION-0074 — Endereço civil da pessoa física → Location Core (`addresses` + `address_assignments`)
+
+**Status:** RATIFICADA — DECISÃO DE MODELAGEM/SSOT, DOCS-ONLY; implementação NÃO autorizada (2026-06-01).
+**Decisor:** Clayton (owner model: profile + actor_id + RESIDENCE). **Commit âncora:** HEAD origem `4ec2dfcb`.
+**Documento canônico:** `docs/02_decisions/DECISION_0074_PROFILE_RESIDENCE_ADDRESS_LOCATION_CORE.md`.
+**Subordinada a:** DECISION-0020 (Location Core soberano), DECISION-0021, SSOT_REGISTRY, LEI_COERÊNCIA §4.8
+(actor-first). **Vinculada a:** `DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN), DECISION-0069.
+**Escopo desta instância:** SOMENTE Pessoa Física; PJ/Companies tratados por outra instância.
+
+### Contexto
+
+Aba Pessoal grava endereço civil PF em `profiles.metadata.address` (blob) e lê do mesmo (core.service). DEV: 1
+blob. O Location Core canônico (mig. 518000) já tem slot nativo PF: `owner_type='profile'` + `role='RESIDENCE'`
++ `source='IMPORT_LEGACY'`/`UX_INPUT` + lat/lng geo-ready + temporal. Companies já usam o Location Core
+(company/HQ); o endereço PF é o único que permaneceu em blob — divergência que geo/jurisdição/marketplace
+herdariam.
+
+### Escolha + modelo
+
+Endereço civil PF sai de `profiles.metadata.address` → Location Core (`addresses` + `address_assignments`).
+Modelo: `owner_type='profile'`, **`owner_id=actor_id` do user-actor**, `role='RESIDENCE'`, `is_primary=true`;
+`source='UX_INPUT'` (novo) / `'IMPORT_LEGACY'` (backfill). `'profile'`=papel civil; dono operacional=actor PF
+(NÃO global_user_id, NÃO profile_id).
+
+### Justificativa / Fronteiras / Vetos
+
+Mantém actor-first; não reintroduz global_user_id operacional; não usa profile_id tenant-local; converge PF ao
+Location Core; tira endereço civil do blob. Fronteiras: RESIDENCE ≠ HQ ≠ OPERATIONAL ≠ actor_active_location
+(contexto espacial corrente, não residência). Vetos: blob como destino final; Location Core paralelo; owner_id=
+global_user_id/profile_id; tocar PJ/Companies/CPF/gender/financeiro; implementar nesta fatia.
+
+### Sequência
+
+D1 (esta, docs-only) → F1 backend reader/writer + backfill idempotente (F1 antes de F2) → F2 frontend
+ProfilePersonal → rota canônica → F3 readers/core sem blob → F4 cleanup `profiles.metadata.address` → F5 selo +
+CLOSE da DT. Nova `DT-PERSONAL-ADDRESS-BLOB-TO-LOCATION-CORE` (OPEN). Docs-only; gates verdes; critical_new=0.
+
+### Superada por
+
+(em aberto — decisão vigente)
