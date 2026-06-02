@@ -9919,3 +9919,29 @@ arch `critical_new=0`, `critical_total=20` (sem typecheck — só SQL).
 (DECISION-0071 §6); usuário re-declara com consent explícito (DEV: valores nulos → no-op). **Fila atualizada:**
 F1a ✅ → F1b ✅ → **F2** backend service consent-aware → **F3** frontend (remover sexualOrientation) → **F4**
 readers/completude (core 388/765) → **F5** cleanup blob → **F6** selo + CLOSE.
+
+---
+
+## F2 — LIFESTYLE BACKEND SERVICE/REPOSITORY CONSENT-AWARE ✅ (2026-06-01)
+
+Encanamento do SSOT Lifestyle (DECISION-0071/F1b). HEAD origem `e35b72d6`. **Só** `core/profile/lifestyle/`
+(novo módulo: `lifestyle.{types,repository,service}.ts`); **SEM ROTAS** (torneira/frontend vem na F3). Zero
+frontend/migration/backfill/cleanup-blob/`profile-physical.service`/`core.service`/social-targeting/Health/
+Learning-Interest C1/Profissional/Agenda/financeiro. **DT OPEN.**
+
+**API interna (sem rota pública):** `lifestyleService.getLifestyle` (atributos ativos, self); `declareAttribute`
+(**consent explícito obrigatório**; key/value governados — sexual_orientation/saúde/texto livre rejeitados;
+**idempotente**: inativo→reativa, ativo→update, novo→insert; **visibility sempre private** — não exposta como
+parâmetro); `retireAttribute` (desativa + **anonimiza** `attribute_value`→NULL). Repository: colunas explícitas,
+`runQueryWithTenant`, `resolveActorGuarded` (invariante id=actor_id). **Toda mutação grava `actor_lifestyle_
+attribute_audit`** (key+action+actor+source) — **audit sem valor sensível**.
+
+**Provas runtime (probe interno, dev actor):** declare relationship_status/drinks/smokes com consent (visibility
+private, consentedAt set); update smokes; **falham** sem consent / `sexual_orientation` / valor inválido /
+visibility public (DB); **retire anonimiza** (value=NULL, DB confirma); **re-declare reativa** (active=true);
+getLifestyle ativos corretos; audit eventos declare/update/retire com **0 colunas de valor**; **blob
+`metadata.lifestyle` INTOCADO** (2 rows). Greps: sem `global_users.metadata`/`ensureUserActor`/`SELECT *` (só
+comentário); profile.routes **sem** lifestyle (sem rota). Gates: typecheck0; actor-writer/bank-ledger/regression
+OK (345); arch `critical_new=0`, `critical_total=20`.
+
+**Fila:** **F3** frontend ProfilePhysical (registrar rota + UI consent/visibility; remover sexualOrientation).

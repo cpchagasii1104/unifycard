@@ -2379,3 +2379,18 @@ As paralelas A/B/C/D investigaram a conta monetária de grupo (read-only) e muda
 - Micro-decisão backfill (F5): valores legados sem consent NÃO viram ativos+consentidos (DECISION-0071 §6);
   usuário re-declara (DEV nulo→no-op). Fila: F1a✅→F1b✅→F2 backend consent-aware→F3 frontend (remove
   sexualOrientation)→F4 readers/completude→F5 cleanup blob→F6 selo+CLOSE.
+
+### F2 — LIFESTYLE BACKEND SERVICE/REPO CONSENT-AWARE ✅ (2026-06-01)
+- Encanamento do SSOT Lifestyle. Só core/profile/lifestyle/ (lifestyle.{types,repository,service}.ts); SEM
+  ROTAS (frontend/torneira na F3). HEAD origem e35b72d6. Zero frontend/migration/backfill/cleanup-blob/
+  profile-physical/core/social-targeting/Health/C1/Profissional/financeiro. DT OPEN.
+- lifestyleService: getLifestyle (ativos self); declareAttribute (consent OBRIGATÓRIO; key/value governados;
+  idempotente inativo→reativa/ativo→update/novo→insert; visibility sempre private); retireAttribute (anonimiza
+  attribute_value→NULL). Repo: colunas explícitas, runQueryWithTenant, resolveActorGuarded. Toda mutação grava
+  audit (key+action+actor+source) SEM valor.
+- Provas (probe interno): declare relationship_status/drinks/smokes+consent (private, consentedAt); update
+  smokes; falham sem consent / sexual_orientation / valor inválido / visibility public(DB); retire anonimiza
+  (value=NULL DB confirma); re-declare reativa; getLifestyle ok; audit declare/update/retire com 0 colunas de
+  valor; blob metadata.lifestyle INTOCADO. Greps: sem metadata/ensureUserActor/SELECT* (só comentário);
+  profile.routes sem lifestyle. Gates: typecheck0; actor-writer/bank-ledger/regression OK; arch critical_new=0/
+  total=20. Fila: F3 frontend (rota + UI consent/visibility; remover sexualOrientation).
